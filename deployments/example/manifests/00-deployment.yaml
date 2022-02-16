@@ -1,0 +1,23 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: example
+  labels:
+    app: example
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: example
+  template:
+    metadata:
+      labels:
+        app: example
+        version: latest
+    spec:
+      containers:
+      - name: test
+        image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/test
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000

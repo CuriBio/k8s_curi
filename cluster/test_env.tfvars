@@ -1,5 +1,5 @@
 cluster_name = "test"
 
 cluster_tags = {
-  Environment = "test"
+  Environment = "test cluster"
 }

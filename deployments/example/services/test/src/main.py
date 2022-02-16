@@ -6,4 +6,4 @@ app = FastAPI()
 
 @app.get("/")
 async def root():
-    return JSONResponse({"message": "test"})
+    return JSONResponse({"message": "test2"})
