@@ -29,7 +29,6 @@ def _add_service(deployment_dir, deployment_name, service_name):
 
     # Create service directories
     os.makedirs(f'{service_dir}/src')
-    os.makedirs(f'{service_dir}/manifests')
     os.makedirs(f'{service_dir}/terraform')
     os.makedirs(f'{service_dir}/terraform/backend')
 
@@ -39,7 +38,7 @@ def _add_service(deployment_dir, deployment_name, service_name):
     write_template('tf_output.mako', f'{service_dir}/terraform/output.tf', service_name=service_name)
     write_template('tf_service_main.mako', f'{service_dir}/terraform/main.tf', service_name=service_name)
     write_template('service_app.mako', f'{service_dir}/src/main.py')
-    write_template('00-manifest.mako', f'{service_dir}/manifests/00-manifest.yaml', service_name=service_name, deployment_name=deployment_name)
+    write_template('00-manifest.mako', f'{deployment_dir}/{deployment_name}/manifests/{service_name}-svc.yaml', service_name=service_name, deployment_name=deployment_name)
     write_template('requirements_txt.mako', f'{service_dir}/src/requirements.txt')
     write_template('tf_service_backend.mako', f'{service_dir}/terraform/backend/test_env_config.tfvars', service=service_name, deployment=deployment_name, env='test')
     write_template('tf_service_backend.mako', f'{service_dir}/terraform/backend/prod_env_config.tfvars', service=service_name, deployment=deployment_name, env='prod')
@@ -53,16 +52,36 @@ def _add_service(deployment_dir, deployment_name, service_name):
         }]
     }
 
-    #update deployment manifest with new service
-    with open(f'{deployment_dir}/{deployment_name}/manifests/00-deployment.yaml', 'r') as f:
-        manifest = yaml.safe_load(f)
+    service_spec = {
+        'path': f'/{service_name}',
+        'pathType': 'Prefix',
+        'backend': {
+            'service': {
+                'name': service_name,
+                'port': {
+                    'number': 80,
+                },
+            },
+        },
+    }
 
-    with open(f'{deployment_dir}/{deployment_name}/manifests/00-deployment.yaml', 'w') as f:
+    #update deployment manifest with new service
+    with open(f'{deployment_dir}/{deployment_name}/manifests/{deployment_name}-dep.yaml', 'r') as f:
+        manifest = yaml.safe_load_all(f)
+        manifest = list(manifest)
+
+    with open(f'{deployment_dir}/{deployment_name}/manifests/{deployment_name}-dep.yaml', 'w') as f:
         try:
-            manifest['spec']['template']['spec']['containers'].append(manifest_spec)
+            manifest[0]['spec']['template']['spec']['containers'].append(manifest_spec)
         except:
-            manifest['spec']['template']['spec']['containers'] = [manifest_spec]
-        yaml.dump(manifest, f, sort_keys=False)
+            manifest[0]['spec']['template']['spec']['containers'] = [manifest_spec]
+
+        try:
+            manifest[1]['spec']['rules'][0]['http']['paths'].append(service_spec)
+        except:
+            manifest[1]['spec']['rules'][0]['http']['paths'] = [service_spec]
+
+        yaml.dump_all(manifest, f, sort_keys=False)
 
 
 def _add_deployment(deployment_dir, deployment_name):
@@ -79,8 +98,8 @@ def _add_deployment(deployment_dir, deployment_name):
     os.makedirs(f'{deployment_path}/terraform')
     os.makedirs(f'{deployment_path}/terraform/backend')
 
-    if not os.path.isfile(f'{deployment_path}/manifests/00-deployment.yaml'):
-        write_template('00-deployment.mako', f'{deployment_path}/manifests/00-deployment.yaml', deployment_name=deployment_name)
+    if not os.path.isfile(f'{deployment_path}/manifests/{deployment_name}-dep.yaml'):
+        write_template('00-deployment.mako', f'{deployment_path}/manifests/{deployment_name}-dep.yaml', deployment_name=deployment_name)
     if not os.path.isfile(f'{deployment_path}/main.tf'):
         write_template('tf_deployment_main.mako', f'{deployment_path}/terraform/main.tf')
     if not os.path.isfile(f'{deployment_path}/terraform/input.tf'):

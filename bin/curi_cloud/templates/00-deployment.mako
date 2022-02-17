@@ -16,3 +16,16 @@ spec:
         version: latest
     spec:
       containers:
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+ name: ${deployment_name}-ingress
+ annotations:
+   kubernetes.io/ingress.class: "nginx"
+   ####nginx.org/rewrites: "serviceName=${service_name} rewrite=/"
+spec:
+ rules:
+ - host: ???
+   http:
+    paths:

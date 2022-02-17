@@ -1,0 +1,55 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: sample
+  labels:
+    app: sample
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sample
+  template:
+    metadata:
+      labels:
+        app: sample
+        version: latest
+    spec:
+      containers:
+      - name: test
+        image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/test
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+      - name: test2
+        image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/test2
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 7000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sample-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.org/rewrites: serviceName=test rewrite=/; serviceName=test2 rewrite=/
+spec:
+  rules:
+  - host: k8s.curibio-test.com
+    http:
+      paths:
+      - path: /test
+        pathType: Prefix
+        backend:
+          service:
+            name: test
+            port:
+              number: 80
+      - path: /test2
+        pathType: Prefix
+        backend:
+          service:
+            name: test2
+            port:
+              number: 80

@@ -1,5 +1,5 @@
 bucket               = "curi-eks-test-cluster-tf-state"
-key                  = "test/example/services/test.tfstate"
+key                  = "test/sample/services/test2.tfstate"
 region               = "us-east-2"
 dynamodb_table       = ""
 workspace_key_prefix = "env"
