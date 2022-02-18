@@ -1,0 +1,5 @@
+bucket               = "curi-eks-test-cluster-tf-state"
+key                  = "test/db_viewer/services/db_viewer.tfstate"
+region               = "us-east-2"
+dynamodb_table       = ""
+workspace_key_prefix = "env"
