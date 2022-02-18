@@ -134,13 +134,27 @@ module "eks_cluster" {
       additional_userdata           = ""
       asg_desired_capacity          = 3
       additional_security_group_ids = [aws_security_group.worker_group_mgmt_one.id]
+      tags = [
+        {
+          key                 = "name"
+          value               = "worker-group-1"
+          propagate_at_launch = true
+        },
+      ]
     },
-    {
-      name                          = "worker-group-2"
-      instance_type                 = "t3.medium"
-      additional_userdata           = ""
-      asg_desired_capacity          = 3
-      additional_security_group_ids = [aws_security_group.worker_group_mgmt_one.id]
-    },
+    # {
+    #   name                          = "worker-group-2"
+    #   instance_type                 = "t3.medium"
+    #   additional_userdata           = ""
+    #   asg_desired_capacity          = 2
+    #   additional_security_group_ids = [aws_security_group.worker_group_mgmt_one.id]
+    #   tags = [
+    #     {
+    #       key                 = "name"
+    #       value               = "worker-group-2"
+    #       propagate_at_launch = true
+    #     },
+    #   ]
+    # },
   ]
 }
