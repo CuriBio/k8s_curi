@@ -18,8 +18,8 @@
       </tr>
       {% for unit in units %}
       <tr>
-        <td style="border: 1px solid">{{ unit.serial_number }}</td>
-        <td style="border: 1px solid">{{ unit.hw_version }}</td>
+        <td style="border: 1px solid">{{ unit["serial_number"] }}</td>
+        <td style="border: 1px solid">{{ unit["hw_version"] }}</td>
       </tr>
       {% endfor %}
     </table>
