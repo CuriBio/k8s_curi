@@ -35,9 +35,7 @@ metadata:
     kubernetes.io/ingress.class: nginx
     nginx.org/rewrites: serviceName=test rewrite=/; serviceName=test2 rewrite=/
 status:
-  loadBalancer:
-    ingress:
-    - {}
+  loadBalancer: {}
 spec:
   rules:
   - host: k8s.curibio-test.com
