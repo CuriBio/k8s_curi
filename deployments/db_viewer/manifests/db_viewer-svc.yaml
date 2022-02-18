@@ -4,9 +4,9 @@ metadata:
   name: db_viewer
 spec:
   ports:
-  - name: http
-    targetPort: 8000
-    port: 80
+    - name: http
+      targetPort: 9000
+      port: 80
   type: ClusterIP
   selector:
     app: db_viewer
