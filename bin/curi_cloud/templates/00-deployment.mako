@@ -24,6 +24,10 @@ metadata:
  annotations:
    kubernetes.io/ingress.class: "nginx"
    ####nginx.org/rewrites: "serviceName=${service_name} rewrite=/"
+status:
+  loadBalancer:
+    ingress:
+    - {}
 spec:
  rules:
  - host: ???
