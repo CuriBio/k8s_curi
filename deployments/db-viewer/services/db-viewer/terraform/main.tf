@@ -27,8 +27,8 @@ variable "region" {
   default = "us-east-2"
 }
 
-resource "aws_ecr_repository" "db_viewer_service_ecr" {
-  name                 = "db_viewer"
+resource "aws_ecr_repository" "db-viewer_service_ecr" {
+  name                 = "db-viewer"
   image_tag_mutability = "MUTABLE"
 
   image_scanning_configuration {
