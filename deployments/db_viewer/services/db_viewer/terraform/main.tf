@@ -11,7 +11,7 @@ terraform {
     }
   }
 
-  required_version = "1.1.0"
+  required_version = "1.1.6"
 
   backend "s3" {
   }
@@ -19,11 +19,11 @@ terraform {
 
 # Configure the AWS Provider
 provider "aws" {
-  region  = var.region
+  region = var.region
 }
 
 variable "region" {
-  type = string
+  type    = string
   default = "us-east-2"
 }
 
