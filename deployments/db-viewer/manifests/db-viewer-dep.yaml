@@ -28,7 +28,7 @@ metadata:
   name: db-viewer-ingress
   annotations:
     kubernetes.io/ingress.class: nginx
-    nginx.org/rewrites: serviceName=MA rewrite=/
+    nginx.org/rewrites: serviceName=db-viewer rewrite=/
 status:
   loadBalancer: {}
 spec:

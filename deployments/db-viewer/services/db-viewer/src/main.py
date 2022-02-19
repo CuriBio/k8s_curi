@@ -4,7 +4,7 @@ from fastapi import Request
 import pymysql
 import os
 
-from .aws_utils import get_ssm_secrets
+# from .aws_utils import get_ssm_secrets
 
 # DB_CLUSTER_ENDPOINT = os.environ.get("DB_CLUSTER_ENDPOINT")
 
