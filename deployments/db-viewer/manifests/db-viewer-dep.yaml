@@ -28,12 +28,12 @@ metadata:
   name: db-viewer-ingress
   annotations:
     kubernetes.io/ingress.class: nginx
-    nginx.org/rewrites: serviceName=db-viewer rewrite=/;
+    nginx.org/rewrites: serviceName=MA rewrite=/
 status:
   loadBalancer: {}
 spec:
   rules:
-    - host: k8s.curibio-test.com
+    - host: db-viewer.curibio-test.com
       http:
         paths:
           - path: /db-viewer

@@ -29,7 +29,7 @@ templates = Jinja2Templates(directory="templates")
 
 
 @app.get("/")
-async def home(request: Request):
+async def root(request: Request):
     # db = get_db_connection()
     units = [{"serial_number": "1", "hw_version": "2.2.0"}, {"serial_number": "2", "hw_version": "2.2.2"}]
     return templates.TemplateResponse(
