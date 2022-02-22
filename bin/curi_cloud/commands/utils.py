@@ -29,19 +29,20 @@ def _add_service(deployment_dir, deployment_name, service_name):
 
     # Create service directories
     os.makedirs(f'{service_dir}/src')
-    os.makedirs(f'{service_dir}/terraform')
-    os.makedirs(f'{service_dir}/terraform/backend')
+    os.makedirs(f'{deployment_dir}/{deployment_name}/terraform/{service_name}')
+    #os.makedirs(f'{service_dir}/terraform/backend')
 
     write_template('service_makefile.mako', f'{service_dir}/Makefile', service_name=service_name)
     write_template('service_dockerfile.mako', f'{service_dir}/Dockerfile')
-    write_template('tf_empty.mako', f'{service_dir}/terraform/input.tf')
-    write_template('tf_output.mako', f'{service_dir}/terraform/output.tf', service_name=service_name)
-    write_template('tf_service_main.mako', f'{service_dir}/terraform/main.tf', service_name=service_name)
+    write_template('tf_empty.mako', f'{deployment_dir}/{deployment_name}/terraform/{service_name}/input.tf')
+    write_template('tf_output.mako', f'{deployment_dir}/{deployment_name}/terraform/{service_name}/output.tf', service_name=service_name)
+    write_template('tf_service_main.mako', f'{deployment_dir}/{deployment_name}/terraform/{service_name}/main.tf', service_name=service_name)
     write_template('service_app.mako', f'{service_dir}/src/main.py')
     write_template('00-manifest.mako', f'{deployment_dir}/{deployment_name}/manifests/{service_name}-svc.yaml', service_name=service_name, deployment_name=deployment_name)
     write_template('requirements_txt.mako', f'{service_dir}/src/requirements.txt')
-    write_template('tf_service_backend.mako', f'{service_dir}/terraform/backend/test_env_config.tfvars', service=service_name, deployment=deployment_name, env='test')
-    write_template('tf_service_backend.mako', f'{service_dir}/terraform/backend/prod_env_config.tfvars', service=service_name, deployment=deployment_name, env='prod')
+    # write_template('tf_service_backend.mako', f'{service_dir}/terraform/backend/test_env_config.tfvars', service=service_name, deployment=deployment_name, env='test')
+    # write_template('tf_service_backend.mako', f'{service_dir}/terraform/backend/prod_env_config.tfvars', service=service_name, deployment=deployment_name, env='prod')
+
 
     manifest_spec = {
         'name': service_name,
@@ -64,6 +65,16 @@ def _add_service(deployment_dir, deployment_name, service_name):
             },
         },
     }
+
+    # update deployment terraform with new service module
+    module = Template(pkgutil.get_data('templates', 'tf_service_module.mako').decode())
+    with open(f'{deployment_dir}/{deployment_name}/terraform/main.tf', 'a') as f:
+        f.write(module.render(service_name=service_name))
+
+    # update deployment terraform output
+    output_tmpl = Template(pkgutil.get_data('templates', 'tf_service_output.mako').decode())
+    with open(f'{deployment_dir}/{deployment_name}/terraform/output.tf', 'a') as f:
+        f.write(output_tmpl.render(service_name=service_name))
 
     #update deployment manifest with new service
     with open(f'{deployment_dir}/{deployment_name}/manifests/{deployment_name}-dep.yaml', 'r') as f:
