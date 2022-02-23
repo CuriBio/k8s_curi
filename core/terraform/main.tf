@@ -22,11 +22,6 @@ provider "aws" {
   region = var.region
 }
 
-variable "region" {
-  type    = string
-  default = "us-east-2"
-}
-
 # Modules
 module "aurora_database" {
   source = "./aurora_rds"
