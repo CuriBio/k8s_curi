@@ -35,13 +35,8 @@ resource "aws_default_subnet" "default_subnet_b" {
   availability_zone = "us-east-2b"
 }
 
-
-data "aws_secretsmanager_secret" "db_secret" {
-  arn = var.db_creds_arn
-}
-
 data "aws_secretsmanager_secret_version" "db_creds" {
-  secret_id = data.aws_secretsmanager_secret.db_secret.id
+  secret_id = var.db_secret_id
 }
 
 module "db" {
@@ -49,13 +44,11 @@ module "db" {
 
   name           = local.name
   engine         = "aurora-postgresql"
-  engine_version = "11.12"
+  engine_version = "13.5"
   instance_class = var.instance_class
   instances = {
     one = {}
   }
-
-  # TODO
 
   subnets                = [aws_default_subnet.default_subnet_a.id, aws_default_subnet.default_subnet_b.id]
   vpc_id                 = aws_default_vpc.default_vpc.id
@@ -71,7 +64,7 @@ module "db" {
 
   db_parameter_group_name         = aws_db_parameter_group.parameter_group.id
   db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.cluster_parameter_group.id
-  enabled_cloudwatch_logs_exports = ["audit", "error", "general", "slowquery"]
+  # enabled_cloudwatch_logs_exports = ["audit", "error", "general", "slowquery"]
 
   tags = local.tags
 }

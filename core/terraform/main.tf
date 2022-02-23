@@ -22,15 +22,10 @@ provider "aws" {
   region = var.region
 }
 
-variable "region" {
-  type    = string
-  default = "us-east-2"
-}
-
 # Modules
-# module "aurora_database" {
-#   source = "./aurora_rds"
+module "aurora_database" {
+  source = "./aurora_rds"
 
-#   instance_class = "db.t3.small"
-#   db_creds_arn   = var.db_creds_arn
-# }
+  instance_class = "db.t3.medium"
+  db_secret_id   = var.db_secret_id
+}

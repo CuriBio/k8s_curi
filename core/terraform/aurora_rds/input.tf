@@ -3,7 +3,6 @@ variable "instance_class" {
   type        = string
 }
 
-variable "db_creds_arn" {
-  description = "ARN value for db_creds secret"
-  type        = string
+variable "db_secret_id" {
+  type = string
 }
