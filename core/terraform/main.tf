@@ -26,3 +26,11 @@ variable "region" {
   type    = string
   default = "us-east-2"
 }
+
+# Modules
+# module "aurora_database" {
+#   source = "./aurora_rds"
+
+#   instance_class = "db.t3.small"
+#   db_creds_arn   = var.db_creds_arn
+# }
