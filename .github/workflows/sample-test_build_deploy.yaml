@@ -1,0 +1,32 @@
+name: Sample test service build deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - deployments/sample/services/test
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.TEST_ENV_AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.TEST_ENV_AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build,Tag,Push Test Service
+        run: |
+            cd deployments/sample/services/test
+            make build tag push
