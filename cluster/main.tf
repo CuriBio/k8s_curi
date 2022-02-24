@@ -115,6 +115,7 @@ resource "aws_security_group" "all_worker_mgmt" {
   }
 }
 
+
 #####################################################################
 module "eks_cluster" {
   source = "./k8s"

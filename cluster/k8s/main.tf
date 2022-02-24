@@ -62,6 +62,33 @@ module "eks" {
   tags = var.cluster_tags
   vpc_id = var.vpc_id
 
+  map_accounts = [
+    077346344852
+  ]
+
+  map_users = [
+    {
+      userarn  = "arn:aws:iam::077346344852:user/jason"
+      username = "jason"
+      groups   = ["system:masters"]
+    },
+    {
+      userarn = "arn:aws:iam::077346344852:user/tanner"
+      username = "tanner"
+      groups = ["system:masters"]
+    },
+    {
+      userarn = "arn:aws:iam::077346344852:user/luci"
+      username = "luci"
+      groups = ["system:masters"]
+    },
+    {
+      userarn = "arn:aws:iam::077346344852:user/kristian"
+      username = "kristian"
+      groups = ["system:masters"]
+    }
+  ]
+
   workers_group_defaults = {
     root_volume_type = "gp2"
   }
