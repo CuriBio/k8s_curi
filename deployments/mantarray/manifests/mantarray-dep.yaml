@@ -1,18 +1,18 @@
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: db-viewer
+  name: mantarray
   labels:
-    app: db-viewer
+    app: mantarray
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: db-viewer
+      app: mantarray
   template:
     metadata:
       labels:
-        app: db-viewer
+        app: mantarray
         version: latest
     spec:
       containers:
@@ -25,7 +25,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: db-viewer-ingress
+  name: mantarray-ingress
   annotations:
     kubernetes.io/ingress.class: nginx
     nginx.org/rewrites: serviceName=db-viewer rewrite=/
@@ -33,7 +33,7 @@ status:
   loadBalancer: {}
 spec:
   rules:
-    - host: db-viewer.curibio-test.com
+    - host: mantarray.curibio-test.com
       http:
         paths:
           - path: /db-viewer
