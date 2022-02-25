@@ -9,13 +9,8 @@ sniffio==1.2.0
 starlette==0.16.0
 typing-extensions==4.0.1
 uvicorn==0.16.0
-<<<<<<< HEAD
 
 boto3==1.18.5
 jinja2==3.0.3
 psycopg2-binary==2.9.3
 immutabledict==2.2.1
-=======
-PyMySQL==1.0.2
-jinja2==3.0.3
->>>>>>> renamed deployment
