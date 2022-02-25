@@ -12,3 +12,8 @@ output "vpc_id" {
   description = "cluster vpc id"
   value = module.vpc.vpc_id
 }
+
+output "vpc_private_subnet_ids" {
+  description = "private vpc subnet ids"
+  value = module.vpc.private_subnets
+}
