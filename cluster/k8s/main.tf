@@ -2,7 +2,7 @@ resource "aws_iam_role_policy" "aws-loadbalancer-controller" {
   name        = "AWSLoadBalancerControllerIAMPolicy"
   role        = aws_iam_role.eks_pods.id
 
-  policy = file("${path.module}/iam_policy.json")
+  policy = file("${path.module}/json/iam_policy.json")
 }
 
 data "aws_iam_policy_document" "eks_pods" {
@@ -51,6 +51,35 @@ resource "aws_iam_openid_connect_provider" "default" {
   thumbprint_list = [data.external.thumbprint.result.thumbprint]
 }
 
+module "mantarray_namespace_policy" {
+  source = "./modules/service_account_namespace"
+
+  namespace = "mantarray"
+  policy_file_name = "mantarray_namespace_iam_policy.json"
+  iam_role_name = "MantarrayPodIAMPolicy"
+  iam_role_policy_name = "mantarray-pods-iam-role01"
+
+  namespace_annotations = {
+    name = "mantarray namespace"
+  }
+
+  openid_connect_provider = aws_iam_openid_connect_provider.default
+}
+
+module "temp_namespace_policy" {
+  source = "./modules/service_account_namespace"
+
+  namespace = "temp"
+  policy_file_name = "temp_namespace_iam_policy.json"
+  iam_role_name = "TempPodIAMPolicy"
+  iam_role_policy_name = "temp-pods-iam-role01"
+
+  namespace_annotations = {
+    name = "temp namespace"
+  }
+
+  openid_connect_provider = aws_iam_openid_connect_provider.default
+}
 
 module "eks" {
   source          = "terraform-aws-modules/eks/aws"

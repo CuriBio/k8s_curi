@@ -1,0 +1,16 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "secretsmanager:GetSecretValue"
+            ],
+            "Resource": [
+                "arn:aws:secretsmanager:us-east-2:077346344852:secret:test_aurora_postgresql-J0Ht4p",
+                "arn:aws:secretsmanager:us-east-2:077346344852:secret:db_endpoint-kojfEM"
+            ]
+        }
+    ]
+}
+
