@@ -9,6 +9,16 @@ locals {
   }
 }
 
+// Get data from another state file
+data "terraform_remote_state" "state1" {
+  backend = "s3"
+  config = {
+    bucket = "curi-eks-test-cluster-tf-state"
+    key    = "cluster/terraform.tfstate"
+    region = "us-east-2"
+  }
+}
+
 resource "aws_db_parameter_group" "parameter_group" {
   name        = "${local.name}-parameter-group"
   family      = "aurora-postgresql13"
@@ -51,8 +61,8 @@ module "db" {
   }
 
   subnets                = [aws_default_subnet.default_subnet_a.id, aws_default_subnet.default_subnet_b.id]
-  vpc_id                 = aws_default_vpc.default_vpc.id
-  vpc_security_group_ids = [aws_default_vpc.default_vpc.default_security_group_id]
+  vpc_id                 = data.terraform_remote_state.state1.outputs.vpc_id
+  vpc_security_group_ids = [data.terraform_remote_state.state1.outputs.sg_worker_group_mgmt_one_id]
   create_security_group  = false
 
   apply_immediately   = true

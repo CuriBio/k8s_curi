@@ -19,11 +19,11 @@ terraform {
 
 # Configure the AWS Provider
 provider "aws" {
-  region  = var.region
+  region = var.region
 }
 
 variable "region" {
-  type = string
+  type    = string
   default = "us-east-2"
 }
 
@@ -36,12 +36,12 @@ resource "aws_ecr_repository" "test_service_ecr" {
   }
 }
 
-// Get date from another state file
+// Get data from another state file
 data "terraform_remote_state" "state1" {
   backend = "s3"
   config = {
     bucket = "curi-eks-test-cluster-tf-state"
-    key = "cluster/terraform.tfstate"
-    region  = "us-east-2"
+    key    = "cluster/terraform.tfstate"
+    region = "us-east-2"
   }
 }
