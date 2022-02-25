@@ -68,3 +68,20 @@ module "db" {
 
   tags = local.tags
 }
+
+resource "aws_secretsmanager_secret" "db_endpoint" {
+  name = "db_endpoint"
+}
+
+locals {
+  db_secrets = {
+    port            = module.db.cluster_port
+    writer_endpoint = module.db.cluster_endpoint
+    reader_endpoint = module.db.cluster_reader_endpoint
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "db_endpoint" {
+  secret_id     = aws_secretsmanager_secret.db_endpoint.id
+  secret_string = jsonencode(local.db_secrets)
+}

@@ -14,6 +14,7 @@ ENV PATH /app/venv/bin:$PATH
 
 WORKDIR /app
 COPY ./src/main.py ./
+COPY ./src/utils/ ./utils/
 COPY ./src/templates/ ./templates
 
 ENV PYTHONUNBUFFERED 1
