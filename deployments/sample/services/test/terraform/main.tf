@@ -35,3 +35,13 @@ resource "aws_ecr_repository" "test_service_ecr" {
     scan_on_push = true
   }
 }
+
+// Get date from another state file
+data "terraform_remote_state" "state1" {
+  backend = "s3"
+  config = {
+    bucket = "curi-eks-test-cluster-tf-state"
+    key = "cluster/terraform.tfstate"
+    region  = "us-east-2"
+  }
+}
