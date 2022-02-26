@@ -10,4 +10,4 @@ spec:
     port: 80
   type: ClusterIP
   selector:
-    app: db-viewer
+    app: mantarray
