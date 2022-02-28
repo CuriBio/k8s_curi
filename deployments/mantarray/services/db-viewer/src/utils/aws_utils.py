@@ -9,7 +9,7 @@ def get_db_secrets():
     creds_secret = ssm_client.get_secret_value(SecretId="test_aurora_postgresql")
     secrets_dict = json.loads(creds_secret["SecretString"])
     # db endpoint
-    endpoint_secret = ssm_client.get_secret_value(SecretId="db_endpoint")
+    endpoint_secret = ssm_client.get_secret_value(SecretId="mantarray_db_endpoint")
     secrets_dict.update(json.loads(endpoint_secret["SecretString"]))
 
     # change key 'username' to 'user' so it matches accepted kwargs
