@@ -3,7 +3,7 @@ from immutabledict import immutabledict
 from psycopg2.extras import DictCursor
 from psycopg2.pool import ThreadedConnectionPool
 
-from utils.aws import get_db_secrets
+from .aws import get_db_secrets
 
 DB_SECRETS_DICT = immutabledict(get_db_secrets())
 
