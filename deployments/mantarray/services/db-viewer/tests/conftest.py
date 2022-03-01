@@ -13,8 +13,10 @@ def get_secret_value_se(SecretId):
         mock_secret_dict["SecretString"] = json.dumps(
             {"reader_endpoint": "reader_endpoint", "writer_endpoint": "writer_endpoint"}
         )
-    else:
+    elif SecretId == "mantarray_db_endpoint":
         mock_secret_dict["SecretString"] = json.dumps({"username": "user"})
+    else:
+        raise ValueError(SecretId)
     return mock_secret_dict
 
 
