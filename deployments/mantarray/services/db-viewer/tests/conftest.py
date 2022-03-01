@@ -21,3 +21,8 @@ def get_secret_value_se(SecretId):
 
 
 sys.modules["boto3"].client.return_value.get_secret_value.side_effect = get_secret_value_se
+
+# allow main to find utils
+from src import utils
+
+sys.modules["utils"] = utils
