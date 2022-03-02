@@ -27,21 +27,11 @@ variable "region" {
   default = "us-east-2"
 }
 
-resource "aws_ecr_repository" "test_service_ecr" {
-  name                 = "test"
+resource "aws_ecr_repository" "db-viewer_service_ecr" {
+  name                 = "db-viewer"
   image_tag_mutability = "MUTABLE"
 
   image_scanning_configuration {
     scan_on_push = true
-  }
-}
-
-// Get data from another state file
-data "terraform_remote_state" "state1" {
-  backend = "s3"
-  config = {
-    bucket = "curi-eks-test-cluster-tf-state"
-    key    = "cluster/terraform.tfstate"
-    region = "us-east-2"
   }
 }

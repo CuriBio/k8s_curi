@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     aws = {
-      source = "hashicorp/aws"
+      source  = "hashicorp/aws"
       version = "4.0.0"
     }
 
@@ -19,31 +19,31 @@ terraform {
 
 # Configure the AWS Provider
 provider "aws" {
-  region  = var.region
+  region = var.region
 }
 
 variable "region" {
-  type = string
+  type    = string
   default = "us-east-2"
 }
 
 variable "vpc_cidr" {
-  type = string
+  type    = string
   default = "10.0.0.0/16"
 }
 
 variable "private_subnets" {
-  type = list(string)
+  type    = list(string)
   default = ["10.0.1.0/24", "10.0.2.0/24"]
 }
 
 variable "public_subnets" {
-  type = list(string)
+  type    = list(string)
   default = ["10.0.4.0/24", "10.0.5.0/24"]
 }
 
 variable "cluster_name" {
-  type = string
+  type    = string
   default = "test_cluster"
 }
 
@@ -71,12 +71,12 @@ module "vpc" {
 
   public_subnet_tags = {
     "kubernetes.io/cluster/${var.cluster_name}" = "shared"
-    "kubernetes.io/role/elb"                      = "1"
+    "kubernetes.io/role/elb"                    = "1"
   }
 
   private_subnet_tags = {
     "kubernetes.io/cluster/${var.cluster_name}" = "shared"
-    "kubernetes.io/role/internal-elb"             = "1"
+    "kubernetes.io/role/internal-elb"           = "1"
   }
 }
 

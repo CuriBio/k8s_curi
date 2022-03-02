@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %} 
+  <head>
+    <title>MA Units</title>
+  </head>
+{% endblock %} 
+
+{% block content %}
+  <body>
+    <div class="container">
+      <h1 class="display-4">MA Units</h1>
+    </div>
+    <table style="border: 1px solid">
+      <tr>
+        <th style="border: 1px solid">Serial Number</td>
+        <th style="border: 1px solid">HW version</td>
+      </tr>
+      {% for unit in units %}
+      <tr>
+        <td style="border: 1px solid">{{ unit["serial_number"] }}</td>
+        <td style="border: 1px solid">{{ unit["hw_version"] }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </body>
+{% endblock %}
