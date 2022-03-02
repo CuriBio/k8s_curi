@@ -2,7 +2,7 @@ ecr_repo = 077346344852.dkr.ecr.us-east-2.amazonaws.com/pheno-worker
 
 .PHONY: build buildx push tag apply
 build:
-	docker build -t pheno-worker .
+	docker build -t pheno-worker . -m 4g
 
 buildx:
 	docker buildx build -t pheno-worker . --platform linux/amd64 --load

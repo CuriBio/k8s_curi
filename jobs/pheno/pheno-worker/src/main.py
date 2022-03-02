@@ -1,18 +1,20 @@
 import sys
 import tempfile
-from psycopg2 import connect
 import logging
 import json
 import os
 from time import sleep  # TODO set up while loop to check for new queued entry
 
-from .lib.constants import SELECT_QUERY
-from .lib.constants import UPDATE_QUERY
-from .lib.constants import PHENO_BUCKET
+from psycopg2 import connect
 
-from .lib.start_training import start_training
-from .lib.start_classification import start_classification
-from .lib.utils import get_db_params, upload_logfile_to_s3
+from lib.constants import SELECT_QUERY
+from lib.constants import UPDATE_QUERY
+from lib.constants import PHENO_BUCKET
+
+from lib.start_training import start_training
+from lib.start_classification import start_classification
+from lib.utils import get_db_params
+from lib.utils import upload_logfile_to_s3
 
 
 root = logging.getLogger()
@@ -29,7 +31,7 @@ def handler():
     # set up logging for job
     tmp_dir = tempfile.TemporaryDirectory()
     LOG_FILENAME = os.path.join(tmp_dir.name, "logging.log")
-    
+
     log_handlers = list()
     log_handlers.append(logging.FileHandler(LOG_FILENAME))
     log_handlers.append(logging.StreamHandler(sys.stdout))

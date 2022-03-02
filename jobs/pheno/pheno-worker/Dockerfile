@@ -9,7 +9,7 @@ RUN . /app/venv/bin/activate && pip install -r ./requirements.txt
 
 FROM nvidia/cuda:11.3.1-base-ubuntu20.04 as prod
 
-RUN apt-get update && apt-get install -y --no-install-recommends libexpat-dev python3.9 python3.9-dev
+RUN apt-get update && apt-get install -y --no-install-recommends libexpat-dev python3.9  
 
 COPY --from=venv /app/venv /app/venv/
 ENV PATH /app/venv/bin:$PATH
