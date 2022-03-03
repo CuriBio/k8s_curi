@@ -44,54 +44,43 @@ def handler():
 
     try:
         params = get_db_params()
-        conn = connect(**params)
-        cur = conn.cursor()
-        logger.info("Successfully connected to database")
+        with connect(**params) as conn:
+            with conn.cursor() as cur:
+                # query for rows in task_queue, limit 1
+                cur.execute(SELECT_QUERY)
+                row = cur.fetchone()
+                logger.info(f"Selected row: {row}")
+
+                if row != None:
+                    # execute whatever app specic
+                    job_type = row[3]  # will be an integer that we decide on
+                    job_metadata = json.loads(row[5])
+                    if job_type == 0:
+                        job_status = start_training(job_metadata, LOG_FILENAME)
+                        job_metadata = {"type": "training", "metadata": job_metadata}
+                    elif job_type == 1:
+                        job_status = start_classification(job_metadata, LOG_FILENAME)
+                        job_metadata = {"type": "classification", "metadata": job_metadata}
+
+                    # update affected rows
+                    job_id = row[0]
+                    cur.execute(UPDATE_QUERY, (job_status, job_id))
+                    logger.info(f"Updated job_queue where id={job_id} with status: {job_status}")
+
+            # commit changes to database
+            conn.commit()
     except Exception as e:
-        logger.error(f"Unable to connect to database: {e}")
-        return 
+        logger.error(f"Error in transaction: {e}")
+        if conn:
+            conn.rollback()
+            logger.error("Rolling back to previous state.")
 
-    # query for rows in task_queue, limit 1
-    try:
-        cur.execute(SELECT_QUERY)
-        row = cur.fetchone()
-        logger.info(f"Selected row: {row}")
-    except Exception as e:
-        logger.error(f"Failed to perform select query: {e}")
-    
-    if row != None:
-        # execute whatever app specic
-        try:
-            job_type = row[3]  # will be an integer that we decide on
-            job_metadata = json.loads(row[5])
-            if job_type == 0:
-                job_status = start_training(job_metadata, LOG_FILENAME)
-                job_metadata = {"type": "training", "metadata": job_metadata}
-            elif job_type == 1:
-                job_status = start_classification(job_metadata, LOG_FILENAME)
-                job_metadata = {"type": "classification", "metadata": job_metadata}
-
-        except Exception as e:
-            logger.error(f"Failed to perform actions on rows: {e}")
-
-        # update affected rows
-        try:
-            job_id = row[0]
-            cur.execute(UPDATE_QUERY, (job_status, job_id))
-            logger.info(f"Updated job_queue where id={job_id} with status: {job_status}")
-        except Exception as e:
-            logger.error(f"Failed to update row status for {job_id}: {e}")
-
-    if conn:
-        # commit changes to database
-        conn.commit()
+    finally:
         # upload log file
         upload_logfile_to_s3(PHENO_BUCKET, LOG_FILENAME, job_metadata, logger)
         # closing database connection
-        cur.close()
-        conn.close()
         tmp_dir.cleanup()
-        logger.info("Database connection is closed \n")
+        logger.info("Performing final cleanup before closing \n")
 
 
 # ------------------------------------------ #

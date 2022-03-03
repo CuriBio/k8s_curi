@@ -1,6 +1,6 @@
 import os
 
-PHENO_BUCKET = "pheno-test"
+PHENO_BUCKET = "phenolearn"
 
 TRAIN_ARCH = "resnet18"
 TRAIN_PRECROP_SIZE = 224

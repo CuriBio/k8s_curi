@@ -36,12 +36,22 @@ resource "aws_ecr_repository" "pheno_worker_ecr" {
   }
 }
 
-// Get date from another state file
-data "terraform_remote_state" "state1" {
-  backend = "s3"
-  config = {
-    bucket = "curi-eks-test-cluster-tf-state"
-    key = "cluster/terraform.tfstate"
-    region  = "us-east-2"
+# S3 bucket
+resource "aws_s3_bucket" "phenolearn" {
+  bucket = "phenolearn"
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "phenolearn" {
+  bucket = aws_s3_bucket.phenolearn.bucket
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
   }
+}
+
+resource "aws_s3_bucket_acl" "phenolearn" {
+  bucket = aws_s3_bucket.phenolearn.id
+  acl    = "private"
 }
