@@ -18,7 +18,7 @@ from torchvision.transforms import Compose, Resize, RandomHorizontalFlip, ToTens
 import torchvision.datasets as datasets
 import torchvision.models as models
 
-from loss import LossRegression
+from .loss import LossRegression
 
 from torch.optim import lr_scheduler
 

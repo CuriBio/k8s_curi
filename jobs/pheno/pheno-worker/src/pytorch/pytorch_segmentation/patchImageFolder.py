@@ -4,13 +4,12 @@ Script splitting original images into patches
 import argparse
 import sys
 import os
-from dataset import SegmentationDataset
+from .dataset import SegmentationDataset
 import cv2
 import torch
 from pathlib import Path
 from tqdm import tqdm
 import numpy as np
-import utils
 from torch.utils.data import DataLoader
 import math
 from skimage import measure, transform, img_as_ubyte, img_as_float, exposure

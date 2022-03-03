@@ -14,16 +14,16 @@ import sys
 
 from botocore.exceptions import ClientError
 
-from ..pytorch.pytorch_classification import train_new
-from ..pytorch.pytorch_classification import patch
-from ..pytorch.pytorch_classification import optimPatch
-from ..pytorch.pytorch_classification import augment
-from ..pytorch.pytorch_classification import classifyImageFolder
-from ..pytorch.pytorch_classification import evaluateImageFolderRegression
-from ..pytorch.pytorch_classification import evaluateImageFolder
-from ..pytorch.pytorch_classification.folder import ImageFolder
+from pytorch.pytorch_classification import train_new
+from pytorch.pytorch_classification import patch
+from pytorch.pytorch_classification import optimPatch
+from pytorch.pytorch_classification import augment
+from pytorch.pytorch_classification import classifyImageFolder
+from pytorch.pytorch_classification import evaluateImageFolderRegression
+from pytorch.pytorch_classification import evaluateImageFolder
+from pytorch.pytorch_classification.folder import ImageFolder
 
-from ..pytorch.pytorch_segmentation import segmentImageFolder
+from pytorch.pytorch_segmentation import segmentImageFolder
 
 from .constants import TRAIN_CPU
 from .constants import PHENO_BUCKET

@@ -19,8 +19,8 @@ from .utils import email_user
 from .utils import update_table_value
 
 
-from ..pytorch.pytorch_classification import classifyImageFolder
-from ..pytorch.pytorch_segmentation import segmentImageFolder
+from pytorch.pytorch_classification import classifyImageFolder
+from pytorch.pytorch_segmentation import segmentImageFolder
 
 logger = logging.getLogger(__name__)
 

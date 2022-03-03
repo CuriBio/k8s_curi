@@ -9,7 +9,7 @@ import math
 
 import torch.utils.data
 import torchvision.transforms as transforms
-import folder
+from .folder import ImageFolder
 import logging
 
 parser = argparse.ArgumentParser(description='Patching')
@@ -35,7 +35,7 @@ def main(argsIn):
     inputdir = args.data
 
     # parse input dir
-    input_dataset = folder.ImageFolder(inputdir, transform=transforms.ToTensor())
+    input_dataset = ImageFolder(inputdir, transform=transforms.ToTensor())
 
     # get the list
     imgs = input_dataset.imgs

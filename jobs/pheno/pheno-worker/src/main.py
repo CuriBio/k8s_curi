@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 def handler():
     # set up logging for job
     tmp_dir = tempfile.TemporaryDirectory()
-    LOG_FILENAME = os.path.join(tmp_dir.name, "logging.log")
+    LOG_FILENAME = os.path.join(tmp_dir.name, "tmp_logfile.log")
 
     log_handlers = list()
     log_handlers.append(logging.FileHandler(LOG_FILENAME))
@@ -54,47 +54,46 @@ def handler():
     try:
         cur.execute(SELECT_QUERY)
         row = cur.fetchone()
+        logger.info(f"Selected row: {row}")
     except Exception as e:
         logger.error(f"Failed to perform select query: {e}")
+    
+    if row != None:
+        # execute whatever app specic
+        try:
+            job_type = row[3]  # will be an integer that we decide on
+            job_metadata = json.loads(row[5])
+            if job_type == 0:
+                job_status = start_training(job_metadata, LOG_FILENAME)
+                job_metadata = {"type": "training", "metadata": job_metadata}
+            elif job_type == 1:
+                job_status = start_classification(job_metadata, LOG_FILENAME)
+                job_metadata = {"type": "classification", "metadata": job_metadata}
 
-    # execute whatever app specic
-    try:
-        job_type = row[3]  # will be an integer that we decide on
-        job_metadata = json.loads(row[5])
-        if job_type == 0:
-            job_status = start_training(job_metadata, LOG_FILENAME)
-            job_metadata = {"type": "training", "metadata": job_metadata}
-        elif job_type == 1:
-            job_status = start_classification(job_metadata, LOG_FILENAME)
-            job_metadata = {"type": "classification", "metadata": job_metadata}
+        except Exception as e:
+            logger.error(f"Failed to perform actions on rows: {e}")
 
-    except Exception as e:
-        logger.error(f"Failed to perform actions on rows: {e}")
+        # update affected rows
+        try:
+            job_id = row[0]
+            cur.execute(UPDATE_QUERY, (job_status, job_id))
+            logger.info(f"Updated job_queue where id={job_id} with status: {job_status}")
+        except Exception as e:
+            logger.error(f"Failed to update row status for {job_id}: {e}")
 
-    # update affected rows
-    try:
-        job_id = row[0]
-        cur.execute(UPDATE_QUERY, (job_status, job_id))
-        logger.info(f"Updated job_queue where id={job_id} with status: {job_status}")
-    except Exception as e:
-        logger.error(f"Failed to update row status for {job_id}: {e}")
-
-    finally:
-        # upload log file
-        upload_logfile_to_s3(PHENO_BUCKET, LOG_FILENAME, job_metadata, logger)
-
+    if conn:
         # commit changes to database
         conn.commit()
+        # upload log file
+        upload_logfile_to_s3(PHENO_BUCKET, LOG_FILENAME, job_metadata, logger)
         # closing database connection
-        if conn:
-            cur.close()
-            conn.close()
-            tmp_dir.cleanup()
-            logger.info("Database connection is closed \n")
+        cur.close()
+        conn.close()
+        tmp_dir.cleanup()
+        logger.info("Database connection is closed \n")
 
 
 # ------------------------------------------ #
 
 if __name__ == "__main__":
-    print("WORKS")
-    # handler()
+    handler()
