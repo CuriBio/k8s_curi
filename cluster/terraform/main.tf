@@ -22,32 +22,6 @@ provider "aws" {
   region = var.region
 }
 
-variable "region" {
-  type    = string
-  default = "us-east-2"
-}
-
-variable "vpc_cidr" {
-  type    = string
-  default = "10.0.0.0/16"
-}
-
-variable "private_subnets" {
-  type    = list(string)
-  default = ["10.0.1.0/24", "10.0.2.0/24"]
-}
-
-variable "public_subnets" {
-  type    = list(string)
-  default = ["10.0.4.0/24", "10.0.5.0/24"]
-}
-
-variable "cluster_name" {
-  type    = string
-  default = "test_cluster"
-}
-
-variable "cluster_tags" {}
 
 data "aws_availability_zones" "available" {}
 
@@ -130,13 +104,13 @@ resource "aws_security_group" "all_worker_mgmt" {
 module "eks_cluster" {
   source = "./k8s"
 
-  cluster_name = var.cluster_name
-  cluster_tags = var.cluster_tags
-
-  private_subnets = module.vpc.private_subnets
-
-  region = var.region
-  vpc_id = module.vpc.vpc_id
+  region            = var.region
+  cluster_name      = var.cluster_name
+  cluster_tags      = var.cluster_tags
+  cluster_users     = var.cluster_users
+  cluster_accounts  = var.cluster_accounts
+  private_subnets   = module.vpc.private_subnets
+  vpc_id            = module.vpc.vpc_id
 
   worker_groups = [
     {
@@ -152,20 +126,6 @@ module "eks_cluster" {
           propagate_at_launch = true
         },
       ]
-    },
-    # {
-    #   name                          = "worker-group-2"
-    #   instance_type                 = "t3.medium"
-    #   additional_userdata           = ""
-    #   asg_desired_capacity          = 2
-    #   additional_security_group_ids = [aws_security_group.worker_group_mgmt_one.id]
-    #   tags = [
-    #     {
-    #       key                 = "name"
-    #       value               = "worker-group-2"
-    #       propagate_at_launch = true
-    #     },
-    #   ]
-    # },
+    }
   ]
 }

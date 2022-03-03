@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/CuriBio/k8s_curi.git
     targetRevision: HEAD
-    path: cluster/applications
+    path: cluster/manifests/applications
   destination:
     server: https://kubernetes.default.svc
     namespace: cluster

@@ -1,33 +1,18 @@
-cluster_name = "test"
+cluster_name = "prod"
 
 cluster_tags = {
-  Environment = "test cluster"
+  Environment = "prod cluster"
 }
 
 cluster_accounts = [
-  077346344852
+  245339368379
 ]
 
 cluster_users = [
     {
-      userarn  = "arn:aws:iam::077346344852:user/jason"
+      userarn  = "arn:aws:iam::245339368379:user/jason"
       username = "jason"
       groups   = ["system:masters"]
-    },
-    {
-      userarn = "arn:aws:iam::077346344852:user/tanner"
-      username = "tanner"
-      groups = ["system:masters"]
-    },
-    {
-      userarn = "arn:aws:iam::077346344852:user/luci"
-      username = "luci"
-      groups = ["system:masters"]
-    },
-    {
-      userarn = "arn:aws:iam::077346344852:user/kristian"
-      username = "kristian"
-      groups = ["system:masters"]
     }
 ]
 
