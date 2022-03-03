@@ -1,0 +1,52 @@
+apiVersion: argoproj.io/v1alpha1
+kind: EventSource
+metadata:
+  name: github
+spec:
+  service:
+    ports:
+    - port: 3000
+      targetPort: 3000
+  github:
+    argo-test:
+      owner: CuriBio
+      repository: argo-test
+      webhook:
+        endpoint: /webhook
+        port: "3000"
+        method: POST
+        url: https://githooks.curibio.com
+      events:
+        - "*"
+      apiToken:
+        name: github-access
+        key: token
+      webhookSecret:
+        name: gh-secret
+        key: token
+      insecure: true
+      active: true
+      contentType: json
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: github
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+status:
+  loadBalancer: {}
+spec:
+  rules:
+  - host: githooks.curibio.com
+    http:
+      paths:
+      - path: /webhook
+        pathType: Prefix
+        backend:
+          service:
+           name: github-eventsource-svc
+           port:
+             number: 3000
