@@ -6,4 +6,3 @@ resource "aws_ecr_repository" "${service_name}_ecr_repo" {
     scan_on_push = true
   }
 }
-
