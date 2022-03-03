@@ -49,6 +49,7 @@ def handler():
         logger.info("Successfully connected to database")
     except Exception as e:
         logger.error(f"Unable to connect to database: {e}")
+        return 
 
     # query for rows in task_queue, limit 1
     try:
