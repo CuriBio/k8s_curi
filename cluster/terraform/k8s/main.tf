@@ -51,35 +51,35 @@ resource "aws_iam_openid_connect_provider" "default" {
   thumbprint_list = [data.external.thumbprint.result.thumbprint]
 }
 
-module "mantarray_namespace_policy" {
-  source = "./modules/service_account_namespace"
+# module "mantarray_namespace_policy" {
+#   source = "./modules/service_account_namespace"
 
-  namespace = "mantarray"
-  policy_file_name = "mantarray_namespace_iam_policy.json"
-  iam_role_name = "MantarrayPodIAMPolicy"
-  iam_role_policy_name = "mantarray-pods-iam-role01"
+#   namespace = "mantarray"
+#   policy_file_name = "mantarray_namespace_iam_policy.json"
+#   iam_role_name = "MantarrayPodIAMPolicy"
+#   iam_role_policy_name = "mantarray-pods-iam-role01"
 
-  namespace_annotations = {
-    name = "mantarray namespace"
-  }
+#   namespace_annotations = {
+#     name = "mantarray namespace"
+#   }
 
-  openid_connect_provider = aws_iam_openid_connect_provider.default
-}
+#   openid_connect_provider = aws_iam_openid_connect_provider.default
+# }
 
-module "temp_namespace_policy" {
-  source = "./modules/service_account_namespace"
+# module "temp_namespace_policy" {
+#   source = "./modules/service_account_namespace"
 
-  namespace = "temp"
-  policy_file_name = "temp_namespace_iam_policy.json"
-  iam_role_name = "TempPodIAMPolicy"
-  iam_role_policy_name = "temp-pods-iam-role01"
+#   namespace = "temp"
+#   policy_file_name = "temp_namespace_iam_policy.json"
+#   iam_role_name = "TempPodIAMPolicy"
+#   iam_role_policy_name = "temp-pods-iam-role01"
 
-  namespace_annotations = {
-    name = "temp namespace"
-  }
+#   namespace_annotations = {
+#     name = "temp namespace"
+#   }
 
-  openid_connect_provider = aws_iam_openid_connect_provider.default
-}
+#   openid_connect_provider = aws_iam_openid_connect_provider.default
+# }
 
 module "eks" {
   source          = "terraform-aws-modules/eks/aws"
@@ -88,35 +88,11 @@ module "eks" {
   cluster_version = "1.20"
   subnets         = var.private_subnets
 
-  tags = var.cluster_tags
-  vpc_id = var.vpc_id
+  tags    = var.cluster_tags
+  vpc_id  = var.vpc_id
 
-  map_accounts = [
-    077346344852
-  ]
-
-  map_users = [
-    {
-      userarn  = "arn:aws:iam::077346344852:user/jason"
-      username = "jason"
-      groups   = ["system:masters"]
-    },
-    {
-      userarn = "arn:aws:iam::077346344852:user/tanner"
-      username = "tanner"
-      groups = ["system:masters"]
-    },
-    {
-      userarn = "arn:aws:iam::077346344852:user/luci"
-      username = "luci"
-      groups = ["system:masters"]
-    },
-    {
-      userarn = "arn:aws:iam::077346344852:user/kristian"
-      username = "kristian"
-      groups = ["system:masters"]
-    }
-  ]
+  map_accounts  = var.cluster_accounts
+  map_users     = var.cluster_users
 
   workers_group_defaults = {
     root_volume_type = "gp2"

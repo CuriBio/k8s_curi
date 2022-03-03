@@ -26,6 +26,19 @@ variable "worker_groups" {
   }))
 }
 
+variable "cluster_accounts" {
+  default = []
+  type    = list(string)
+}
+
+variable "cluster_users" {
+  type = list(object({
+    userarn   = string
+    username  = string
+    groups    = list(string)
+  }))
+}
+
 variable "private_subnets" {
   type = list(string)
 }
