@@ -8,21 +8,20 @@ spec:
     - port: 3000
       targetPort: 3000
   github:
-    argo-test:
-      owner: CuriBio
-      repository: argo-test
+    k8s_curi:
+      repositories:
+        - owner: CuriBio
+          names:
+            - k8s_curi
       webhook:
         endpoint: /webhook
         port: "3000"
         method: POST
-        url: https://githooks.curibio.com
+        url: https://githooks.curibio-test.com
       events:
         - "*"
-      apiToken:
-        name: github-access
-        key: token
       webhookSecret:
-        name: gh-secret
+        name: github-webhook-secret
         key: token
       insecure: true
       active: true
@@ -40,7 +39,7 @@ status:
   loadBalancer: {}
 spec:
   rules:
-  - host: githooks.curibio.com
+  - host: githooks.curibio-test.com
     http:
       paths:
       - path: /webhook

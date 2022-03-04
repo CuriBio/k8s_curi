@@ -1,19 +1,18 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: cluster
+  name: argo-events
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: cluster
   source:
+    path: cluster/manifests/argo-events/overlays/test
     repoURL: https://github.com/CuriBio/k8s_curi.git
     targetRevision: HEAD
-    path: cluster/manifests/applications
   destination:
     server: https://kubernetes.default.svc
-    namespace: cluster
   syncPolicy:
     automated:
       selfHeal: true

@@ -14,3 +14,11 @@ patchesJson6902:
     - op: replace
       path: /spec/template/spec/containers/0/args/0
       value: "--cluster-name=prod"
+- target:
+    kind: Ingress
+    name: alb-nginx-ingress
+    namespace: nginx-ingress
+  patch: |-
+    - op: replace 
+      path: /spec/tls
+      value: [{"hosts": ["*.curibio.com"]}]

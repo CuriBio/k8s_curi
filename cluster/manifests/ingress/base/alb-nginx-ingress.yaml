@@ -18,6 +18,6 @@ spec:
     - "*.curibio-test.com"
   defaultBackend:
     service:
-        name: nginx-ingress
-        port:
-          number: 80
+      name: nginx-ingress
+      port:
+        number: 80
