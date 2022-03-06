@@ -1,0 +1,11 @@
+psycopg2-binary==2.9.3
+boto3==1.21.0
+botocore==1.24.0
+Pillow==9.0.1
+numpy==1.22.2
+tqdm==4.63.0
+torch==1.10.2
+torchvision==0.11.3
+scikit-image==0.19.2
+opencv-python==4.5.5.62
+typing-extensions==4.0.1
