@@ -8,11 +8,12 @@ metadata:
 spec:
   project: cluster
   source:
-    path: cluster/manifests/argo-workflows/base
+    path: cluster/manifests/argo-workflows
     repoURL: https://github.com/CuriBio/k8s_curi.git
     targetRevision: HEAD
   destination:
     server: https://kubernetes.default.svc
+    namespace: argo
   syncPolicy:
     automated:
       selfHeal: true
