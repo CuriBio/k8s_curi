@@ -3,7 +3,6 @@ kind: Kustomization
 
 namespace: argo
 resources:
-- namespace.yaml
 - event-bus.yaml
 - gh-webhook-events.yaml
 - github-webhook-secret.yaml
