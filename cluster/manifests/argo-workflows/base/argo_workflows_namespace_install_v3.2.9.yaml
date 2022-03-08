@@ -696,7 +696,6 @@ rules:
   resources:
   - pods
   - pods/exec
-  - pods/logs
   verbs:
   - create
   - get
