@@ -1,0 +1,62 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  name: ci-build-workflow
+spec:
+  entrypoint: ci-build
+  onExit: exit-handler
+  arguments:
+    parameters:
+      - name: repo
+        value: https://github.com/CuriBio/k8s_curi.git
+      - name: branch
+        value: main
+  volumeClaimTemplates:
+  - metadata:
+      name: workdir 
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Mi
+  templates:
+  - name: ci-build
+    dag:
+      tasks:
+      - name: checkout
+        templateRef:
+          name: git-sync
+          template: checkout
+        arguments:
+          parameters:
+            - name: repo
+              value: "{{workflow.parameters.repo}}"
+            - name: branch
+              value: "{{workflow.parameters.branch}}"
+      - name: collect-services
+        depends: checkout
+        templateRef:
+          name: collect-services-template
+          template: collect-services
+      - name: build-services
+        depends: collect-services
+        templateRef:
+          name: build-service
+          template: kaniko-build-service
+        arguments:
+          parameters:
+            - name: service_path
+              value: "{{item.path}}"
+        withParam: "{{tasks.collect-services.outputs.result}}"
+  - name: exit-handler
+    steps:
+    - - name: succeeded
+        when: "{{workflow.status}} == Succeeded"
+        templateRef:
+          name: check-status-template
+          template: status-success
+    - - name: failed
+        when: "{{workflow.status}} != Succeeded"
+        templateRef:
+          name: check-status-template
+          template: status-failed

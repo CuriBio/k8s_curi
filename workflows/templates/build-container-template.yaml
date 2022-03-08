@@ -1,0 +1,111 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: git-sync
+  namespace: argo
+spec:
+  templates:
+  - name: checkout
+    inputs:
+      parameters:
+      - name: repo
+      - name: branch
+    script:
+      image: alpine/git:latest
+      command: ["git"]
+      workingDir: /tmp/git/
+      args:
+        - clone
+        - --depth
+        - "1"
+        - --branch
+        - "{{inputs.parameters.branch}}"
+        - --single-branch
+        - "{{inputs.parameters.repo}}"
+      volumeMounts:
+        - name: workdir
+          mountPath: /tmp/git
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: build-service
+  namespace: argo
+spec:
+  templates:
+  - name: kaniko-build-service
+    inputs:
+      parameters:
+      - name: service_path
+    container:
+      image: gcr.io/kaniko-project/executor:latest
+      command: [/kaniko/executor]
+      workingDir: /tmp/git/k8s_curi
+      args:
+      - --no-push
+      - --context={{inputs.parameters.service_path}}
+      volumeMounts:
+        - name: workdir
+          mountPath: /tmp/git
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: build-service-log
+  namespace: argo
+spec:
+  templates:
+  - name: log-build-service
+    inputs:
+      parameters:
+      - name: service_path
+    script:
+      image: alpine:latest
+      workingDir: /tmp/git/k8s_curi
+      command: [sh]
+      source: |
+        echo {{inputs.parameters.service_path}}
+        pwd
+        ls -alh {{inputs.parameters.service_path}}
+      volumeMounts:
+        - name: workdir
+          mountPath: /tmp/git
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: collect-services-template
+  namespace: argo
+spec:
+  templates:
+  - name: collect-services
+    script:
+      image: apteno/alpine-jq:latest
+      workingDir: /tmp/git/k8s_curi
+      command: [sh]
+      source: |
+        SERVICES=$(find ./deployments -type f -name 'Dockerfile' -exec dirname {} \; | jq -R -s -c 'split("\n")[:-1] | [.[] | {"path": .}]')
+        echo $SERVICES
+      volumeMounts:
+        - name: workdir
+          mountPath: /tmp/git
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: check-status-template
+  namespace: argo
+spec:
+  templates:
+  - name: status-success
+    script:
+      image: alpine:latest
+      command: [sh]
+      source: |
+        echo CI Build success
+  - name: status-failed
+    script:
+      image: alpine:latest
+      command: [sh]
+      source: |
+        echo CI Build failed
