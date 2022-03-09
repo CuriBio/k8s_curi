@@ -1,10 +1,12 @@
 apiVersion: argoproj.io/v1alpha1
-kind: Workflow
+kind: WorkflowTemplate
 metadata:
-  name: ci-build-workflow
+  name: ci-build-workflow-template
+  namespace: argo
 spec:
   entrypoint: ci-build
   onExit: exit-handler
+  serviceAccountName: argo
   arguments:
     parameters:
       - name: repo

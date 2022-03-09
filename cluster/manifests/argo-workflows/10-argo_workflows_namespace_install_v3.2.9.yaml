@@ -860,6 +860,7 @@ rules:
   - workflows
   - workfloweventbindings
   - workflowtemplates
+  - clusterworkflowtemplates
   - cronworkflows
   - cronworkflows/finalizers
   verbs:

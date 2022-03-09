@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: github-webhook 
+  namespace: argo
+spec:
+  template:
+      #serviceAccountName: operate-workflow-sa
+  dependencies:
+    - name: github
+      eventSourceName: github
+      eventName: k8s_curi
+  triggers:
+    # https://github.com/argoproj/argo-events/blob/master/api/sensor.md#triggertemplate
+    - template:
+        name: ci-build-workflow-trigger
+        argoWorkflow:
+          # https://github.com/argoproj/argo-events/blob/master/api/sensor.md#argoproj.io/v1alpha1.ArgoWorkflowTrigger
+          group: argoproj.io
+          version: v1alpha1
+          resource: Workflow
+          operation: submit
+          metadata:
+            generateName: ci-build-workflow-template-
+          source:
+            resource:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Workflow
+              metadata:
+                generateName: ci-build-trigger-
+              spec:
+                serviceAccountName: argo
+                entrypoint: ci-build
+                workflowTemplateRef:
+                  name: ci-build-workflow-template
+                arguments:
+                  parameters:
+                    - name: repo
+                      value: https://github.com/CuriBio/k8s_curi.git
+                    - name: branch
+                      value: main
+
