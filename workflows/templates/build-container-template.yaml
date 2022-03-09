@@ -25,6 +25,23 @@ spec:
       volumeMounts:
         - name: workdir
           mountPath: /tmp/git
+  - name: status
+    inputs:
+      parameters:
+      - name: sha
+      - name: status
+    script:
+      image: alpine/curl:latest
+      command: ["sh"]
+      env:
+        - name: TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-access-token
+              key: token
+      source: |
+        echo $TOKEN
+        curl --user "jperson:$TOKEN" "https://api.github.com/repos/CuriBio/k8s_curi/statuses/{{inputs.parameters.sha}}" -d '{"state": "pending", "context": "curibio-ci"}'
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
@@ -98,14 +115,38 @@ metadata:
 spec:
   templates:
   - name: status-success
+    inputs:
+      parameters:
+      - name: sha
+    env:
+      - name: TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: github-access-token
+            key: token
     script:
-      image: alpine:latest
+      image: alpine/curl:latest
+      env:
+        - name: TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-access-token
+              key: token
       command: [sh]
       source: |
-        echo CI Build success
+        curl --user "jperson:$TOKEN" "https://api.github.com/repos/CuriBio/k8s_curi/statuses/{{inputs.parameters.sha}}" -d '{"state": "success", "context": "curibio-ci"}'
   - name: status-failed
+    inputs:
+      parameters:
+      - name: sha
     script:
-      image: alpine:latest
+      image: alpine/curl:latest
+      env:
+        - name: TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-access-token
+              key: token
       command: [sh]
       source: |
-        echo CI Build failed
+        curl --user "jperson:$TOKEN" "https://api.github.com/repos/CuriBio/k8s_curi/statuses/{{inputs.parameters.sha}}" -d '{"state": "failed", "context": "curibio-ci"}'

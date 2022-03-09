@@ -7,9 +7,32 @@ spec:
   template:
       #serviceAccountName: operate-workflow-sa
   dependencies:
-    - name: github
+    - name: github-dep
       eventSourceName: github
       eventName: k8s_curi
+      filters:
+        data:
+          # Name of the event that triggered the delivery: [pull_request, push, ...]
+          # https://docs.github.com/en/developers/webhooks-and-events/webhook-events-and-payloads
+          - path: body.X-GitHub-Event
+            type: string
+            value:
+              - pull_request
+          - path: body.action
+            type: string
+            value:
+              - opened
+              - edited
+              - reopened
+              - synchronize
+          - path: body.pull_request.state
+            type: string
+            value:
+              - open
+          - path: body.pull_request.base.ref
+            type: string
+            value:
+              - main
   triggers:
     # https://github.com/argoproj/argo-events/blob/master/api/sensor.md#triggertemplate
     - template:
@@ -20,8 +43,8 @@ spec:
           version: v1alpha1
           resource: Workflow
           operation: submit
-          metadata:
-            generateName: ci-build-workflow-template-
+          # metadata:
+          #   generateName: ci-build-workflow-template-
           source:
             resource:
               apiVersion: argoproj.io/v1alpha1
@@ -35,8 +58,30 @@ spec:
                   name: ci-build-workflow-template
                 arguments:
                   parameters:
+                    - name: title
+                    - name: number
+                    - name: sha
                     - name: repo
                       value: https://github.com/CuriBio/k8s_curi.git
                     - name: branch
                       value: main
+          parameters:
+            - src:
+                dependencyName: github-dep
+                dataKey: body.pull_request.title
+              dest: spec.arguments.parameters.0.value
+            - src:
+                dependencyName: github-dep
+                dataKey: body.pull_request.number
+              dest: spec.arguments.parameters.1.value
+            - src:
+                dependencyName: github-dep
+                dataKey: body.pull_request.head.sha
+              dest: spec.arguments.parameters.2.value
+            # Append pull request number and short sha to dynamically assign workflow name <github-21500-2c065a>
+            - src:
+                dependencyName: github-dep
+                dataTemplate: "{{ .Input.body.pull_request.number }}-{{ .Input.body.pull_request.head.sha | substr 0 7 }}-"
+              dest: metadata.generateName
+              operation: append
 
