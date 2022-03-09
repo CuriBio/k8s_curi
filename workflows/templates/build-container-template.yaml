@@ -10,38 +10,30 @@ spec:
       parameters:
       - name: repo
       - name: branch
+      - name: sha
     script:
       image: alpine/git:latest
-      command: ["git"]
-      workingDir: /tmp/git/
-      args:
-        - clone
-        - --depth
-        - "1"
-        - --branch
-        - "{{inputs.parameters.branch}}"
-        - --single-branch
-        - "{{inputs.parameters.repo}}"
-      volumeMounts:
-        - name: workdir
-          mountPath: /tmp/git
-  - name: status
-    inputs:
-      parameters:
-      - name: sha
-      - name: status
-    script:
-      image: alpine/curl:latest
-      command: ["sh"]
+      workingDir: /tmp/git
       env:
         - name: TOKEN
           valueFrom:
             secretKeyRef:
               name: github-access-token
               key: token
+      volumeMounts:
+        - name: workdir
+          mountPath: /tmp/git
+      command: ["sh"]
       source: |
-        echo $TOKEN
-        curl --user "jperson:$TOKEN" "https://api.github.com/repos/CuriBio/k8s_curi/statuses/{{inputs.parameters.sha}}" -d '{"state": "pending", "context": "curibio-ci"}'
+        apk update 1>/dev/null
+        apk add --no-cache curl jq 1>/dev/null
+
+        curl --user "jperson:$TOKEN" "https://api.github.com/repos/CuriBio/k8s_curi/statuses/{{inputs.parameters.sha}}" -d '{"state": "pending", "context": "curibio-ci"}' 1>/dev/null
+        git clone -q --depth 1 --branch "{{inputs.parameters.branch}}" "{{inputs.parameters.repo}}"
+        cd k8s_curi
+
+        SERVICES=$(find ./deployments -type f -name 'Dockerfile' -exec dirname {} \; | jq -R -s -c 'split("\n")[:-1] | [.[] | {"path": .}]')
+        echo $SERVICES
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate

@@ -26,24 +26,6 @@ spec:
   - name: ci-build
     dag:
       tasks:
-      - name: status
-        templateRef:
-          name: git-sync
-          template: status
-        arguments:
-          parameters:
-            - name: title
-              value: "{{workflow.parameters.title}}"
-            - name: number
-              value: "{{workflow.parameters.number}}"
-            - name: sha
-              value: "{{workflow.parameters.sha}}"
-            - name: repo
-              value: "{{workflow.parameters.repo}}"
-            - name: branch
-              value: "{{workflow.parameters.branch}}"
-            - name: status
-              value: pending
       - name: checkout
         templateRef:
           name: git-sync
@@ -54,13 +36,10 @@ spec:
               value: "{{workflow.parameters.repo}}"
             - name: branch
               value: "{{workflow.parameters.branch}}"
-      - name: collect-services
-        depends: checkout
-        templateRef:
-          name: collect-services-template
-          template: collect-services
+            - name: sha
+              value: "{{workflow.parameters.sha}}"
       - name: build-services
-        depends: collect-services
+        depends: checkout
         templateRef:
           name: build-service
           template: kaniko-build-service
@@ -68,7 +47,7 @@ spec:
           parameters:
             - name: service_path
               value: "{{item.path}}"
-        withParam: "{{tasks.collect-services.outputs.result}}"
+        withParam: "{{tasks.checkout.outputs.result}}"
   - name: exit-handler
     steps:
     - - name: succeeded
