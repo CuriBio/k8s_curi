@@ -117,7 +117,7 @@ module "eks_cluster" {
       name                          = "worker-group-1"
       instance_type                 = "t3.small"
       additional_userdata           = ""
-      asg_desired_capacity          = 3
+      asg_desired_capacity          = 5
       additional_security_group_ids = [aws_security_group.worker_group_mgmt_one.id]
       tags = [
         {

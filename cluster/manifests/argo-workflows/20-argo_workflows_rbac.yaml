@@ -29,3 +29,33 @@ subjects:
 - kind: ServiceAccount
   name: default
   namespace: argo
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: argo-event-sensor
+  namespace: argo
+rules:
+# pod get/watch is used to identify the container IDs of the current pod
+# pod patch is used to annotate the step's outputs back to controller (e.g. artifact location)
+- apiGroups:
+  - "argoproj.io"
+  resources:
+  - clusterworkflowtemplates
+  verbs:
+  - get
+  - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argo-default-sensor
+  namespace: argo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: argo-event-sensor
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: argo
