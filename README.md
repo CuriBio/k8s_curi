@@ -71,3 +71,5 @@ create and run a container (for quick testing)
 
 - verify your sevice is started
   > kubect get svc
+
+  test ci
