@@ -111,21 +111,4 @@ module "eks_cluster" {
   cluster_accounts  = var.cluster_accounts
   private_subnets   = module.vpc.private_subnets
   vpc_id            = module.vpc.vpc_id
-
-  worker_groups = [
-    {
-      name                          = "worker-group-1"
-      instance_type                 = "t3.small"
-      additional_userdata           = ""
-      asg_desired_capacity          = 5
-      additional_security_group_ids = [aws_security_group.worker_group_mgmt_one.id]
-      tags = [
-        {
-          key                 = "name"
-          value               = "worker-group-1"
-          propagate_at_launch = true
-        },
-      ]
-    }
-  ]
 }
