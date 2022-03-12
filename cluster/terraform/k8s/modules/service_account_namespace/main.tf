@@ -3,13 +3,13 @@ locals {
     account_id = data.aws_caller_identity.current.account_id
 }
 
-resource "kubernetes_namespace" "pods_namespace" {
-  metadata {
-    annotations = var.namespace_annotations
-    labels = var.namespace_labels
-    name = var.namespace
-  }
-}
+# resource "kubernetes_namespace" "pods_namespace" {
+#   metadata {
+#     annotations = var.namespace_annotations
+#     labels = var.namespace_labels
+#     name = var.namespace
+#   }
+# }
 
 resource "aws_iam_role_policy" "namespace_pod_iam_role_policy" {
   name        = var.iam_role_policy_name
@@ -44,7 +44,7 @@ resource "aws_iam_role" "pods_iam_role" {
 
 resource "kubernetes_default_service_account" "namespace_service_account" {
   metadata {
-    name = var.name
+    name = "default"
     namespace = var.namespace
     annotations = {
       "eks.amazonaws.com/role-arn" = aws_iam_role.pods_iam_role.arn

@@ -5,7 +5,7 @@ metadata:
   namespace: argo
 spec:
   template:
-      #serviceAccountName: operate-workflow-sa
+  serviceAccountName: argo-workflows-sa
   dependencies:
     - name: github-dep
       eventSourceName: github
@@ -51,8 +51,9 @@ spec:
               kind: Workflow
               metadata:
                 generateName: ci-build-trigger-
+                namespace: argo
               spec:
-                serviceAccountName: argo
+                serviceAccountName: argo-workflows-sa
                 entrypoint: ci-build
                 workflowTemplateRef:
                   name: ci-build-workflow-template

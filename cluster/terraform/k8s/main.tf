@@ -40,6 +40,38 @@ resource "kubernetes_service_account" "service_account" {
   automount_service_account_token = true
 }
 
+
+resource "aws_iam_role_policy" "workflow_pod_iam_role_policy" {
+  name        = "workflow-pods-iam-role01"
+  role        = aws_iam_role.workflow_pods.id
+
+  policy = file("${path.module}/json/argo_namespace_iam_policy.json")
+}
+
+data "aws_iam_policy_document" "workflows_pods" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    effect  = "Allow"
+
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_iam_openid_connect_provider.default.url, "https://", "")}:sub"
+      values   = ["system:serviceaccount:argo:argo-workflows-sa"]
+    }
+
+    principals {
+      identifiers = [aws_iam_openid_connect_provider.default.arn]
+      type        = "Federated"
+    }
+  }
+}
+
+resource "aws_iam_role" "workflow_pods" {
+  name = "workflow-pods-iam-role01"
+
+  assume_role_policy = data.aws_iam_policy_document.workflows_pods.json
+}
+
 data "aws_region" "current" {}
 data "external" "thumbprint" {
   program = ["/bin/sh", "${path.module}/external/thumbprint.sh", data.aws_region.current.name]
@@ -80,12 +112,28 @@ resource "aws_iam_openid_connect_provider" "default" {
 
 #   openid_connect_provider = aws_iam_openid_connect_provider.default
 # }
+#
+# module "argo_namespace_policy" {
+#   source = "./modules/service_account_namespace"
+
+#   name = "argo"
+#   namespace = "argo"
+#   policy_file_name = "argo_namespace_iam_policy.json"
+#   iam_role_name = "ArgoPodIAMPolicy"
+#   iam_role_policy_name = "argo-pods-iam-role01"
+
+#   namespace_annotations = {
+#     name = "argo namespace"
+#   }
+
+#   openid_connect_provider = aws_iam_openid_connect_provider.default
+# }
 
 module "eks" {
   source          = "terraform-aws-modules/eks/aws"
   version         = "17.24.0"
   cluster_name    = var.cluster_name
-  cluster_version = "1.20"
+  cluster_version = "1.21"
   subnets         = var.private_subnets
 
   tags    = var.cluster_tags
@@ -94,11 +142,31 @@ module "eks" {
   map_accounts  = var.cluster_accounts
   map_users     = var.cluster_users
 
-  workers_group_defaults = {
-    root_volume_type = "gp2"
-  }
+  # workers_group_defaults = {
+  #   root_volume_type = "gp2"
+  # }
 
-  worker_groups = var.worker_groups
+  #worker_groups = var.worker_groups
+
+  node_groups = {
+    example = {
+      desired_capacity = 5
+      max_capacity     = 10
+      min_capacity     = 1
+
+      instance_types = ["t3a.medium"]
+
+      k8s_labels = {
+        Environment = "prod"
+      }
+      additional_tags = {
+        ExtraTag = "example"
+      }
+      update_config = {
+        max_unavailable_percentage = 50 # or set `max_unavailable`
+      }
+    }
+  }
 }
 
 

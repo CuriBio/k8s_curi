@@ -5,8 +5,7 @@ metadata:
   namespace: argo
 spec:
   entrypoint: ci-build
-  onExit: exit-handler
-  serviceAccountName: argo
+  serviceAccountName: argo-workflows-sa
   arguments:
     parameters:
       - name: title
@@ -39,30 +38,16 @@ spec:
               value: "{{workflow.parameters.sha}}"
     - - name: build-services
         templateRef:
-          name: build-service
-          template: kaniko-build-service
+          name: build-push-service
+          template: kaniko-build-push-service
         arguments:
           parameters:
-            - name: service_path
+            - name: path
               value: "{{item.path}}"
+            - name: service
+              value: "{{item.service}}"
+            - name: deployment
+              value: "{{item.deployment}}"
+            - name: sha
+              value: "{{workflow.parameters.sha}}"
         withParam: "{{steps.checkout.outputs.result}}"
-  - name: exit-handler
-    steps:
-    - - name: succeeded
-        when: "{{workflow.status}} == Succeeded"
-        templateRef:
-          name: check-status-template
-          template: status-success
-        arguments:
-          parameters:
-            - name: sha
-              value: "{{workflow.parameters.sha}}"
-    - - name: failed
-        when: "{{workflow.status}} != Succeeded"
-        templateRef:
-          name: check-status-template
-          template: status-failed
-        arguments:
-          parameters:
-            - name: sha
-              value: "{{workflow.parameters.sha}}"
