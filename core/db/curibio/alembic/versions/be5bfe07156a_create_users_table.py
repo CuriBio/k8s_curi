@@ -28,9 +28,9 @@ def upgrade():
         sa.Column('user_id', postgresql.UUID(as_uuid=True), server_default=sa.text("uuid_generate_v4()"), unique=True),
         sa.Column('customer_id', postgresql.UUID(as_uuid=True), server_default=sa.text("uuid_generate_v4()"), unique=True),
         sa.Column('account_type', sa.Enum('free', 'paid', 'admin', name='AccountType', create_type=True), nullable=False),
-        sa.Column('last_login', sa.DateTime(timezone=false), server_default=func.now()),
+        sa.Column('last_login', sa.DateTime(timezone=False), server_default=func.now()),
         sa.Column('data', postgresql.JSONB, server_default='{}', nullable=True),
-        sa.Column('suspended', sa.Boolean(), server_default='f', nullable=False)
+        sa.Column('suspended', sa.Boolean(), server_default='f', nullable=False),
         sa.Column('created_at', sa.DateTime(timezone=False), server_default=func.now()),
         sa.Column('updated_at', sa.DateTime(timezone=False), server_default=func.now(), onupdate=func.now()),
         sa.Column('deleted_at', sa.DateTime(timezone=False), nullable=True)
