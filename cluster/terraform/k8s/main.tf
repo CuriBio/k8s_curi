@@ -142,12 +142,6 @@ module "eks" {
   map_accounts  = var.cluster_accounts
   map_users     = var.cluster_users
 
-  # workers_group_defaults = {
-  #   root_volume_type = "gp2"
-  # }
-
-  #worker_groups = var.worker_groups
-
   node_groups = {
     example = {
       desired_capacity = 5

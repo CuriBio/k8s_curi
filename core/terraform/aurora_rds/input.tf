@@ -1,8 +1,14 @@
-variable "instance_class" {
-  description = "RDS instance type and size"
+variable "name" {
+  description = "Cluster name"
   type        = string
 }
 
-variable "db_secret_id" {
-  type = string
+variable "environment" {
+  description = "Cluster environment"
+  type        = string
+}
+
+variable "instance_class" {
+  description = "Cluster instance class"
+  type        = string
 }
