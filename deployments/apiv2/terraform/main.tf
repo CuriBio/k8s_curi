@@ -12,20 +12,22 @@ terraform {
   }
 
   required_version = "1.1.6"
-  backend "s3" {}
-}
 
+  backend "s3" {
+  }
+}
 
 # Configure the AWS Provider
 provider "aws" {
-  region = var.region
+  region  = var.region
 }
 
-# Modules
-module "aurora_database" {
-  source = "./aurora_rds"
-
-  name            = var.aurora_database_name
-  environment     = var.environment
-  instance_class  = var.aurora_instance_class
+variable "region" {
+  type = string
+  default = "us-east-2"
 }
+
+module "users" {
+  source = "./users"
+}
+

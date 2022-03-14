@@ -3,6 +3,20 @@ variable "region" {
   default = "us-east-2"
 }
 
-variable "db_secret_id" {
-  type = string
+# cluster environment
+variable "environment" {
+  description = "Environment"
+  type        = string
 }
+
+# aurora_database inputs
+variable "aurora_database_name" {
+  description = "Aurora database name"
+  type        = string
+}
+
+variable "aurora_instance_class" {
+  description = "Cluster instance class"
+  type        = string
+}
+
