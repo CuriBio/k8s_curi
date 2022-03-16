@@ -1,11 +1,14 @@
 # TODO ADD YOUR ECR REPO URL
 ecr_repo = 077346344852.dkr.ecr.us-east-2.amazonaws.com/test
+repo_root=$(shell git rev-parse --show-toplevel)
 
 .PHONY: build buildx push tag apply
 build:
-	docker build -t test .
+	cd ${repo_root} && \
+	docker build -t test . -f ${repo_root}/deployments/sample/services/test/Dockerfile
 
 buildx:
+	cd ${repo_root} && \
 	docker buildx build -t test . --platform linux/amd64 --load
 
 tag:

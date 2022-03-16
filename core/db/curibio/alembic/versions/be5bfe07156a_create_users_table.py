@@ -21,12 +21,11 @@ depends_on = None
 def upgrade():
     op.create_table(
         'users',
-        sa.Column('row_id', sa.Integer, primary_key=True),
+        sa.Column('id', postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), unique=True),
         sa.Column('name', sa.String(32), nullable=False, unique=True),
         sa.Column('email', sa.String(64), nullable=False, unique=True),
         sa.Column('password', sa.String(128), nullable=False),
-        sa.Column('user_id', postgresql.UUID(as_uuid=True), server_default=sa.text("uuid_generate_v4()"), unique=True),
-        sa.Column('customer_id', postgresql.UUID(as_uuid=True), server_default=sa.text("uuid_generate_v4()"), unique=True),
+        sa.Column('customer_id', postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), unique=True),
         sa.Column('account_type', sa.Enum('free', 'paid', 'admin', name='AccountType', create_type=True), nullable=False),
         sa.Column('last_login', sa.DateTime(timezone=False), server_default=func.now()),
         sa.Column('data', postgresql.JSONB, server_default='{}', nullable=True),
@@ -38,5 +37,5 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_table('users')
+    op.execute("DROP TABLE users CASCADE")
     op.execute('DROP TYPE "AccountType"')
