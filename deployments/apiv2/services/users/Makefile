@@ -1,12 +1,15 @@
 # TODO ADD YOUR ECR REPO URL
 ecr_repo = ???
+repo_root=$(shell git rev-parse --show-toplevel)
 
 .PHONY: build buildx push tag apply
 build:
-	docker build -t users .
+	cd ${repo_root} && \
+	docker build -t users . -f ${repo_root}/deployments/apiv2/services/users/Dockerfile
 
 buildx:
-	docker buildx build -t users . --platform linux/amd64 --load
+	cd ${repo_root} && \
+	docker buildx build -t users . -f ${repo_root}/deployments/apiv2/services/users/Dockerfile --platform linux/amd64 --load
 
 tag:
 	docker tag users:latest $(ecr_repo):latest

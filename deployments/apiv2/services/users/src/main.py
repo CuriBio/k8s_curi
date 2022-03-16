@@ -14,11 +14,9 @@ from fastapi import FastAPI, Request, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from core.config import JWT_SECRET_KEY, JWT_AUDIENCE, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+from auth import AccessToken, ProtectedAny, create_token
 from core.db import Database
-from core.auth import ProtectedAny
 from models.users import UserLogin, UserCreate, UserProfile
-from models.token import JWTMeta, JWTDetails, JWTPayload, AccessToken
 from models.errors import LoginError, RegistrationError
 
 db = Database()
@@ -47,12 +45,12 @@ async def index(request: Request, token=Depends(ProtectedAny(scope=["users:free"
     try:
         async with request.state.pgpool.acquire() as con:
             user_id = uuid.UUID(hex=token["userid"])
-            rows = await con.fetchrow("select name, email, user_id, account_type, created_at, updated_at, data->'scope' as scope from users where user_id = $1", user_id)
+            rows = await con.fetchrow("select id, name, email, account_type, created_at, updated_at, data->'scope' as scope from users where id = $1", user_id)
 
             return UserProfile(
                 username=rows.get("name", ""),
                 email=rows.get("email", ""),
-                user_id=rows.get("user_id","").hex if "user_id" in rows else "",
+                user_id=rows.get("id","").hex if "id" in rows else "",
                 account_type=rows.get("account_type", ""),
                 scope=json.loads(rows.get("scope", "[]")),
             )
@@ -67,7 +65,7 @@ async def login(request: Request, details: UserLogin):
 
     try:
         async with request.state.pgpool.acquire() as con:
-            query = "SELECT password, user_id, data->'scope' as scope FROM users where deleted = 'f' and name = $1"
+            query = "SELECT password, id, data->'scope' as scope FROM users where deleted_at is null and name = $1"
             row = await con.fetchrow(query, details.username)
 
             try:
@@ -84,15 +82,9 @@ async def login(request: Request, details: UserLogin):
                 raise LoginError(failed_msg)
             else:
                 scope = json.loads(row.get("scope", "[]"))
-                iat = timegm(datetime.now(tz=timezone.utc).utctimetuple())
-                exp = timegm((datetime.now(tz=timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)).utctimetuple())
+                jwt_token = create_token(scope=scope, userid=row["id"])
+                return jwt_token
 
-                jwt_meta = JWTMeta(aud=JWT_AUDIENCE, scope=scope, iat=iat, exp=exp)
-                jwt_details = JWTDetails(userid=row["user_id"].hex)
-                jwt_payload = JWTPayload(**jwt_meta.dict(), **jwt_details.dict())
-                jwt_token = jwt.encode(payload=jwt_payload.dict(), key=str(JWT_SECRET_KEY), algorithm=JWT_ALGORITHM)
-
-                return AccessToken(access_token=jwt_token)
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     except Exception:
@@ -106,6 +98,7 @@ async def register(request: Request, details: UserCreate):
         async with request.state.pgpool.acquire() as con:
             query = "select 1 from users where name = $1 or email = $2"
             exists = await con.fetch(query, details.username, details.email)
+            breakpoint()
 
             async with con.transaction():
                 # still hash even if user exists to avoid timing analysis leaks
@@ -113,7 +106,7 @@ async def register(request: Request, details: UserCreate):
 
                 if not exists:
                     data = {"scope": ["users:free"]}
-                    insert = "INSERT INTO users (name, email, password, account_type, data) VALUES ($1, $2, $3, $4, $5) RETURNING user_id"
+                    insert = "INSERT INTO users (name, email, password, account_type, data) VALUES ($1, $2, $3, $4, $5) RETURNING id"
                     result = await con.fetchval(insert, details.username, details.email, phash, "free", json.dumps(data))
 
                     return UserProfile(

@@ -1,10 +1,13 @@
 import jwt
+from datetime import datetime, timezone, timedelta
+from calendar import timegm
 from typing import List
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from starlette.config import Config
-from starlette.datastructures import Secret
+
+from .models import JWTMeta, JWTDetails, JWTPayload, AccessToken
+from .settings import JWT_SECRET_KEY, JWT_AUDIENCE, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 
 security = HTTPBearer()
 
@@ -18,7 +21,7 @@ class ProtectedAny:
         try:
             payload = jwt.decode(
                 token,
-                key=str(config(JWT_SECRET_KEY, cast=Secret)),
+                key=str(JWT_SECRET_KEY),
                 algorithms=JWT_ALGORITHM,
                 audience=JWT_AUDIENCE,
             )
@@ -34,3 +37,20 @@ class ProtectedAny:
                 detail="No authenticated user.",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+
+
+def create_token(*, scope, userid):
+    iat = timegm(datetime.now(tz=timezone.utc).utctimetuple())
+    exp = timegm((datetime.now(tz=timezone.utc) + \
+          timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)).utctimetuple())
+
+    jwt_meta = JWTMeta(aud=JWT_AUDIENCE, scope=scope, iat=iat, exp=exp)
+    jwt_details = JWTDetails(userid=userid.hex)
+    jwt_payload = JWTPayload(**jwt_meta.dict(), **jwt_details.dict())
+
+    jwt_token = jwt.encode(
+        payload=jwt_payload.dict(),
+        key=str(JWT_SECRET_KEY),
+        algorithm=JWT_ALGORITHM,
+    )
+    return AccessToken(access_token=jwt_token)
