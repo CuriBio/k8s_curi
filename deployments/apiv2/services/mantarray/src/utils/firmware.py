@@ -1,13 +1,10 @@
 import os
 import re
 
-
 import boto3
 from semver import VersionInfo
 
-# TODO figure out how to handle this
-S3_MAIN_BUCKET = os.environ.get("S3_MAIN_BUCKET")
-S3_CHANNEL_BUCKET = os.environ.get("S3_CHANNEL_BUCKET")
+
 FIRMWARE_FILE_REGEX = re.compile(r"^\d+\.\d+\.\d+\.bin$")
 
 
@@ -29,9 +26,9 @@ def create_dependency_mapping():
     cfw_to_mfw = {}
     mfw_to_sw = {}
     for bucket, metadata_prefix, dependency_mapping in (
-        (S3_CHANNEL_BUCKET, "hw", cfw_to_hw),
-        (S3_CHANNEL_BUCKET, "main-fw", cfw_to_mfw),
-        (S3_MAIN_BUCKET, "sw", mfw_to_sw),
+        ("channel-firmware", "hw", cfw_to_hw),
+        ("channel-firmware", "main-fw", cfw_to_mfw),
+        ("main-firmware", "sw", mfw_to_sw),
     ):
         firmware_bucket_objs = s3_client.list_objects(Bucket=bucket)
         firmware_file_names = [
@@ -64,7 +61,7 @@ def get_latest_firmware_version(hardware_version):
 def get_download_url(version, firmware_type):
     s3_client = boto3.client("s3")
 
-    bucket = S3_MAIN_BUCKET if firmware_type == "main" else S3_CHANNEL_BUCKET
+    bucket = f"{firmware_type}-firmware"
     file_name = f"{version}.bin"
     try:
         return s3_client.generate_presigned_url(
