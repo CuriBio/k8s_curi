@@ -11,10 +11,10 @@ from alembic import context
 config = context.config
 
 section = config.config_ini_section
-config.set_section_option(section, "DB_USER", os.environ.get("DB_USER"))
-config.set_section_option(section, "DB_PASS", os.environ.get("DB_PASS"))
-config.set_section_option(section, "DB_HOST", os.environ.get("DB_HOST"))
-config.set_section_option(section, "DB_NAME", os.environ.get("DB_NAME"))
+config.set_section_option(section, "POSTGRES_USER", os.environ.get("POSTGRES_USER"))
+config.set_section_option(section, "POSTGRES_PASSWORD", os.environ.get("POSTGRES_PASSWORD"))
+config.set_section_option(section, "POSTGRES_SERVER", os.environ.get("POSTGRES_SERVER"))
+config.set_section_option(section, "POSTGRES_NAME", os.environ.get("POSTGRES_NAME"))
 config.set_section_option(section, "TABLE_USER_PASS", os.environ.get("TABLE_USER_PASS"))
 config.set_section_option(section, "TABLE_USER_PASS_RO", os.environ.get("TABLE_USER_PASS_RO"))
 
