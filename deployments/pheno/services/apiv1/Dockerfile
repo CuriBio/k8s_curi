@@ -1,5 +1,7 @@
 FROM python:3.9-slim as venv
-
+RUN apt-get update; \
+    apt-get install -y build-essential
+    
 WORKDIR /app
 COPY ./src/requirements.txt ./
 

@@ -2,15 +2,16 @@ import os
 from fastapi import APIRouter, HTTPException, status, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 import main
-from models import *
-from utils import generate_presigned_get
-from utils import is_image_file
-from utils import format_name
-from utils import makePNG
-from utils import readCSV
-from utils import upload_file_to_s3
-from utils import copy_s3_file
-from utils import copy_s3_directory
+from typing import *
+from lib.models import *
+from lib.utils import generate_presigned_get
+from lib.utils import is_image_file
+from lib.utils import format_name
+from lib.utils import makePNG
+from lib.utils import readCSV
+from lib.utils import upload_file_to_s3
+from lib.utils import copy_s3_file
+from lib.utils import copy_s3_directory
 import io
 from datetime import datetime
 import tempfile
@@ -52,16 +53,15 @@ MODEL_ARCHS = [
     description="request on initial trainings page render",
 )
 async def get_all_unfiltered_trainings(selected_user_id: int):
-    rows = await main.db.fetch_all(
-        query="SELECT * FROM trainings WHERE user_id=:id", values={"id": selected_user_id}
-    )
+    async with main.db.pool.acquire() as cur:
+        rows = await cur.fetch("SELECT * FROM trainings WHERE user_id=$1", selected_user_id)
 
-    trainings = [dict(training) for training in rows]
+        trainings = [dict(training) for training in rows]
 
-    for training in trainings:
-        key = f"trainings/{selected_user_id}/{training['study']}/{training['name']}/sample.jpg"
-        url = generate_presigned_get(key=key, exp=5 * 60e3)
-        training.update({"sample_url": url})
+        for training in trainings:
+            key = f"trainings/{selected_user_id}/{training['study']}/{training['name']}/sample.jpg"
+            url = generate_presigned_get(key=key, exp=5 * 60e3)
+            training.update({"sample_url": url})
 
     return trainings
 
@@ -71,10 +71,12 @@ async def get_all_unfiltered_trainings(selected_user_id: int):
     description="Requests all trainings for user with filtered params",
 )
 async def get_all_filtered_trainings(selected_user_id: int):
-    rows = await main.db.fetch_all(
-        query="SELECT * FROM trainings WHERE user_id=:id AND status!='deleted' AND status!='none'",
-        values={"id": selected_user_id},
-    )
+    async with main.db.pool.acquire() as cur:
+
+        rows = await cur.fetch(
+            "SELECT * FROM trainings WHERE user_id=$1 AND status!='deleted' AND status!='none'",
+            selected_user_id,
+        )
 
     return [Filtered_training_model(**training).dict() for training in rows]
 
@@ -84,14 +86,14 @@ async def get_all_filtered_trainings(selected_user_id: int):
     description="Downloads user-selected training log from s3 if error occurs during training",
 )
 async def get_training_log(id: int):
-    training = await main.db.fetch_one(
-        query="SELECT name, study, user_id FROM trainings WHERE id=:id", values={"id": id}
-    )
+    async with main.db.pool.acquire() as cur:
+        training = await cur.fetch("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
 
-    if not training:
-        return None
+        if not training:
+            return None
 
-    key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}/{training['name']}.log"
+        key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}/{training['name']}.log"
+
     return generate_presigned_get(key=key, exp=5 * 60e3)
 
 
@@ -100,21 +102,23 @@ async def get_training_log(id: int):
     description="Downloads user-selected training output file from s3 once status is complete",
 )
 async def get_training_results(id: int):
-    training = await main.db.fetch_one(
-        query="SELECT name, study, user_id FROM trainings WHERE id=:id", values={"id": id}
-    )
+    async with main.db.pool.acquire() as cur:
 
-    if not training:
-        return None
+        training = await cur.fetch("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
 
-    key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}/{training['name']}.log"
+        if not training:
+            return None
+
+        key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}/{training['name']}.log"
+
     return generate_presigned_get(key=key, exp=5 * 60e3)
 
 
 @router.get("/updateParam/{id}", description="Updates value in training table")
 async def update_table_value(id: int, field: str, value: str) -> JSONResponse:
-    update_query = f"UPDATE trainings SET {field}=:value WHERE id=:id;"
-    await main.db.execute(query=update_query, values={"id": id, "value": value})
+    async with main.db.pool.acquire() as cur:
+        await cur.execute(f"UPDATE trainings SET {field}=$1 WHERE id=$2;", id, value)
+
     return JSONResponse(status_code=status.HTTP_200_OK)
 
 
@@ -127,34 +131,34 @@ async def update_table_value(id: int, field: str, value: str) -> JSONResponse:
     description="Called when user clicks 'Start New Training'. Route first queries db to check if user has reached account limit of successful (status!='deleted'/'none'/'error') trainings and then redirects to setup page.",
 )
 async def new_train_setup(user_id: int):
-    # get count of existing trainings for users
-    num_of_trainings = await main.db.fetch_one(
-        query="SELECT COUNT(*) FROM trainings WHERE user_id=:user_id AND status!='deleted' AND status!='none'",
-        values={"user_id": user_id},
-    )
+    async with main.db.pool.acquire() as cur:
 
-    # get limit of trainings from tiered account privileges
-    account = await main.db.fetch_one(
-        query="SELECT uploadlimit, type, email FROM users WHERE id=:id", values={"id": user_id}
-    )
-
-    # database saves unpaid users to 5, but original site requests limit of 2 non-error trainings
-    # type is currently unused in db, only four people have 'admin' otherwise it's ''
-    # could use type for user type to check limit
-    if account["uploadlimit"] > num_of_trainings["count"] or account["type"] == "":
-        response_dict = dict()
-
-        # decide how to handle these user differences
-        response_dict["segtrainings"] = await main.db.fetch_all(
-            query="SELECT * FROM segtrainings WHERE user_id=:user_id AND status!='deleted' AND status!='none'",
-            values={"user_id": user_id},
+        # get count of existing trainings for users
+        num_of_trainings = await cur.fetch(
+            "SELECT COUNT(*) FROM trainings WHERE user_id=$1 AND status!='deleted' AND status!='none'",
+            user_id,
         )
-        response_dict["show_focus_option"] = account["type"] in ["admin", "tenaya", "mo"]
-        response_dict["select_focus_option"] = account["type"] in ["tenaya", "mo"]
-        response_dict["smart_patching_option"] = account["type"] in ["admin", "fountain"]
-        response_dict["type"] = account["type"]
 
-        return response_dict
+        # get limit of trainings from tiered account privileges
+        account = await cur.fetch("SELECT uploadlimit, type, email FROM users WHERE id=$1", user_id)
+
+        # database saves unpaid users to 5, but original site requests limit of 2 non-error trainings
+        # type is currently unused in db, only four people have 'admin' otherwise it's ''
+        # could use type for user type to check limit
+        if account["uploadlimit"] > num_of_trainings["count"] or account["type"] == "":
+            response_dict = dict()
+
+            # decide how to handle these user differences
+            response_dict["segtrainings"] = await cur.fetch(
+                "SELECT * FROM segtrainings WHERE user_id=$1 AND status!='deleted' AND status!='none'",
+                user_id,
+            )
+            response_dict["show_focus_option"] = account["type"] in ["admin", "tenaya", "mo"]
+            response_dict["select_focus_option"] = account["type"] in ["tenaya", "mo"]
+            response_dict["smart_patching_option"] = account["type"] in ["admin", "fountain"]
+            response_dict["type"] = account["type"]
+
+            return response_dict
 
     return "User has reached account limit."
 
@@ -210,7 +214,6 @@ async def upload_new_train_images(
                         if filename == "sample.jpg":  # upload sample image
                             sample_img_key = f"trainings/{user_id}/{study_name}/{name}/sample.jpg"
                             response = upload_file_to_s3(sample_img_key, file_path)
-                            print(sample_img_key)
                         else:  # upload class images
                             key = (
                                 f"trainings/{user_id}/{study_name}/{name}/{name}/{class_name}/{unique_name}"
@@ -221,7 +224,9 @@ async def upload_new_train_images(
                             response = upload_file_to_s3(key, file_path)
 
             logger.info(f"Uploading {file}: {response}")
-        return JSONResponse(status_code=status.HTTP_200_OK, content=content={"message": f"Successfully uploaded images for Luci"})
+        return JSONResponse(
+            status_code=status.HTTP_200_OK, content={"message": f"Successfully uploaded images for Luci"}
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -265,75 +270,73 @@ async def new_train_submit(
     regweight: str = Form(...),
     num_workers: str = Form(...),
 ):  # try to set this up as a pydantic request model instead of each individual param
+
     try:
-        account = await main.db.fetch_one(
-            query="SELECT uploadlimit, type FROM users WHERE id=:id", values={"id": user_id}
-        )  # figure out diff user type requirements for future
-        remove_out_focus = "no" if not remove_out_focus else remove_out_focus
+        async with main.db.pool.acquire() as cur:
 
-        # remove spaces and special characters
-        orig_name = format_name(orig_name)
-        if study_name == "":
-            study_name = "None"
-        else:
-            study_name = format_name(study_name)
+            account = await cur.fetch(
+                "SELECT uploadlimit, type FROM users WHERE id=$1", user_id
+            )  # figure out diff user type requirements for future
+            remove_out_focus = "no" if not remove_out_focus else remove_out_focus
 
-        # set up name
-        now = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-        training_name = f"TR-{user_id}-{now}"
+            # remove spaces and special characters
+            orig_name = format_name(orig_name)
+            if study_name == "":
+                study_name = "None"
+            else:
+                study_name = format_name(study_name)
 
-        # update review status on user type
-        skip_review = (
-            "yes"
-            if account["type"]
-            in ["admin", "mo", "tenaya", "fountain", "shadi", "juan", "charlene", "chronus"]
-            else "no"
-        )
+            # set up name
+            now = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+            training_name = f"TR-{user_id}-{now}"
 
-        # insert new training data
-        await main.db.execute(
-            query="""INSERT INTO trainings 
-                (name, study, origname, status, patches, smartpatchsegmodel, smartpatchchannel, patchsize, imagesize, user_id, valdatasource, valpercent, removeoutfocus, version, arch, precropsize, epochs, batchsize, learnrate, momentum, weightdecay, checkpoint, transfer, augment, preaugment, stopcriteria, noscale, convert2gray, weightedsampling, numworkers, mode, regweight, isreviewed) 
-                VALUES 
-                (:name, :study, :origname, :status, :patches, :smartpatchsegmodel, :smartpatchchannel, :patchsize, :imagesize, :user_id, :valdatasource, :valpercent, :removeoutfocus, :version, :arch, :precropsize, :epochs, :batchsize, :learnrate, :momentum, :weightdecay, :checkpoint, :transfer, :augment, :preaugment, :stopcriteria, :noscale, :convert2gray, :weightedsampling, :numworkers, :mode, :regweight, :isreviewed)""",
-            values={
-                "name": training_name,
-                "study": study_name,
-                "origname": orig_name,
-                "status": "none",
-                "patches": patch_description,
-                "smartpatchsegmodel": smart_patch_seg_model,
-                "smartpatchchannel": smart_patch_channel,
-                "patchsize": patch_size,
-                "imagesize": image_size,
-                "user_id": user_id,
-                "valdatasource": val_data_source,
-                "valpercent": val_percent,
-                "removeoutfocus": remove_out_focus,
-                "version": "web",
-                "arch": arch,
-                "precropsize": precrop_size,
-                "epochs": min(epochs, 100),
-                "batchsize": batch_size,
-                "learnrate": learn_rate,
-                "momentum": momentum,
-                "weightdecay": weight_decay,
-                "checkpoint": checkpoint,
-                "transfer": transfer,
-                "augment": augment,
-                "preaugment": preaugment,
-                "stopcriteria": stop_criteria,
-                "noscale": no_scale,
-                "convert2gray": convert2gray,
-                "weightedsampling": weighted_sampling,
-                "numworkers": num_workers,
-                "mode": mode,
-                "regweight": regweight,
-                "isreviewed": skip_review,
-            },
-        )
+            # update review status on user type
+            skip_review = (
+                "yes"
+                if account["type"]
+                in ["admin", "mo", "tenaya", "fountain", "shadi", "juan", "charlene", "chronus"]
+                else "no"
+            )
 
-        # TODO update job queue with new entry
+            # insert new training data
+            await cur.execute(
+                "INSERT INTO trainings (name, study, origname, status, patches, smartpatchsegmodel, smartpatchchannel, patchsize, imagesize, user_id, valdatasource, valpercent, removeoutfocus, version, arch, precropsize, epochs, batchsize, learnrate, momentum, weightdecay, checkpoint, transfer, augment, preaugment, stopcriteria, noscale, convert2gray, weightedsampling, numworkers, mode, regweight, isreviewed) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33)",
+                training_name,
+                study_name,
+                orig_name,
+                "none",
+                patch_description,
+                smart_patch_seg_model,
+                smart_patch_channel,
+                patch_size,
+                image_size,
+                user_id,
+                val_data_source,
+                val_percent,
+                remove_out_focus,
+                "web",
+                arch,
+                precrop_size,
+                min(epochs, 100),
+                batch_size,
+                learn_rate,
+                momentum,
+                weight_decay,
+                checkpoint,
+                transfer,
+                augment,
+                preaugment,
+                stop_criteria,
+                no_scale,
+                convert2gray,
+                weighted_sampling,
+                num_workers,
+                mode,
+                regweight,
+                skip_review,
+            )
+
+            # TODO update job queue with new entry
 
     except Exception as e:
         raise HTTPException(
@@ -386,77 +389,74 @@ async def retrain_submit(
     num_workers: str = Form(...),
 ):
     try:
-        # get original training entry
-        training = await main.db.fetch_one(query="SELECT * FROM trainings WHERE id=:id", values={"id": id})
+        async with main.db.pool.acquire() as cur:
 
-        # check for if user has special privileges to skip required review
-        skip_review = (
-            "yes"
-            if whichuser in ["admin", "mo", "tenaya", "fountain", "shadi", "juan", "charlene", "chronus"]
-            else "no"
-        )
+            # get original training entry
+            training = await cur.fetch("SELECT * FROM trainings WHERE id=$1", id)
 
-        # set up name
-        now = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-        retraining_name = f"RE-{user_id}-{now}"
-        remove_out_focus = "no" if not remove_out_focus else remove_out_focus
+            # check for if user has special privileges to skip required review
+            skip_review = (
+                "yes"
+                if whichuser in ["admin", "mo", "tenaya", "fountain", "shadi", "juan", "charlene", "chronus"]
+                else "no"
+            )
 
-        await main.db.execute(
-            query="""INSERT INTO trainings 
-                    (name, origname, study, patches, retrain, smartpatchsegmodel, smartpatchchannel, patchsize, imagesize, classnames, imagesperclass, user_id, type, filternet, valdatasource, removeoutfocus, version, arch, precropsize, epochs, batchsize, learnrate, momentum, weightdecay, checkpoint, transfer, augment, preaugment, stopcriteria, noscale, convert2gray, weightedsampling, numworkers, mode, regweight, isreviewed) 
-                    VALUES 
-                    (:name, :origname, :study, :patches, :retrain, :smartpatchsegmodel, :smartpatchchannel, :patchsize, :imagesize, :classnames, :imagesperclass, :user_id, :type, :filternet, :valdatasource, :removeoutfocus, :version, :arch, :precropsize, :epochs, :batchsize, :learnrate, :momentum, :weightdecay, :checkpoint, :transfer, :augment, :preaugment, :stopcriteria, :noscale, :convert2gray, :weightedsampling, :numworkers, :mode, :regweight, :isreviewed)""",
-            values={
-                "name": retraining_name,
-                "user_id": user_id,
-                "origname": orig_name,
-                "study": training["study"],
-                "patches": patch_description,
-                "retrain": training["name"],
-                "smartpatchsegmodel": smart_patch_seg_model,
-                "smartpatchchannel": smart_patch_channel,
-                "patchsize": patch_size,
-                "imagesize": training["imagesize"],
-                "classnames": training["classnames"],
-                "imagesperclass": training["imagesperclass"],
-                "filternet": training["filternet"],
-                "valpercent": val_percent,
-                "valdatasource": val_data_source,
-                "removeoutfocus": remove_out_focus,
-                "version": "web",
-                "arch": arch,
-                "precropsize": precrop_size,
-                "epochs": min(epochs, 100),
-                "batchsize": batch_size,
-                "learnrate": learn_rate,
-                "momentum": momentum,
-                "weightdecay": weight_decay,
-                "checkpoint": checkpoint,
-                "transfer": transfer,
-                "augment": augment,
-                "preaugment": preaugment,
-                "stopcriteria": stop_criteria,
-                "noscale": no_scale,
-                "convert2gray": convert2gray,
-                "weightedsampling": weighted_sampling,
-                "numworkers": num_workers,
-                "mode": mode,
-                "regweight": regweight,
-                "isreviewed": skip_review,
-            },
-        )
+            # set up name
+            now = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+            retraining_name = f"RE-{user_id}-{now}"
+            remove_out_focus = "no" if not remove_out_focus else remove_out_focus
 
-        # copy sample image over to new directory in s3
-        source_key = f'trainings/{training["user_id"]}/{training["study"]}/{name}/sample.jpg'
-        target_key = f'trainings/{user_id}/{training["study"]}/{retraining_name}/sample.jpg'
-        copy_s3_file(source_key, target_key)
+            await cur.execute(
+                "INSERT INTO trainings (name, origname, study, patches, retrain, smartpatchsegmodel, smartpatchchannel, patchsize, imagesize, classnames, imagesperclass, user_id, type, filternet, valdatasource, removeoutfocus, version, arch, precropsize, epochs, batchsize, learnrate, momentum, weightdecay, checkpoint, transfer, augment, preaugment, stopcriteria, noscale, convert2gray, weightedsampling, numworkers, mode, regweight, isreviewed) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $38)",
+                retraining_name,
+                user_id,
+                orig_name,
+                training["study"],
+                patch_description,
+                training["name"],
+                smart_patch_seg_model,
+                smart_patch_channel,
+                patch_size,
+                training["imagesize"],
+                training["classnames"],
+                training["imagesperclass"],
+                training["filternet"],
+                val_percent,
+                val_data_source,
+                remove_out_focus,
+                "web",
+                arch,
+                precrop_size,
+                min(epochs, 100),
+                batch_size,
+                learn_rate,
+                momentum,
+                weight_decay,
+                checkpoint,
+                transfer,
+                augment,
+                preaugment,
+                stop_criteria,
+                no_scale,
+                convert2gray,
+                weighted_sampling,
+                num_workers,
+                mode,
+                regweight,
+                skip_review,
+            )
 
-        # copy original images over to new dir in s3
-        source_prefix = f'trainings/{user_id}/{training["study"]}/{name}/{name}/'
-        target_prefix = f'trainings/{user_id}/{training["study"]}/{retraining_name}/{retraining_name}/'
-        copy_s3_directory(source_prefix, target_prefix)
+            # copy sample image over to new directory in s3
+            source_key = f'trainings/{training["user_id"]}/{training["study"]}/{name}/sample.jpg'
+            target_key = f'trainings/{user_id}/{training["study"]}/{retraining_name}/sample.jpg'
+            copy_s3_file(source_key, target_key)
 
-        # TODO update job queue with new entry
+            # copy original images over to new dir in s3
+            source_prefix = f'trainings/{user_id}/{training["study"]}/{name}/{name}/'
+            target_prefix = f'trainings/{user_id}/{training["study"]}/{retraining_name}/{retraining_name}/'
+            copy_s3_directory(source_prefix, target_prefix)
+
+            # TODO update job queue with new entry
 
     except Exception as e:
         raise HTTPException(
@@ -470,20 +470,12 @@ async def retrain_submit(
     )
 
 
-@router.post("/viewTrainingDetails/{id}")
-async def view_training_details(id: int):
-    training = await main.db.fetch_one(query="SELECT * FROM users WHERE id=:id", values={"id": id})
-
-    return JSONResponse(status_code=status.HTTP_200_OK, content={"message": "Email has been sent"})
-
-
-# # TODO check this route
-# @router.get(
-#     "/plotLog/{id}",
-#     description="Called from details view on init every 10 seconds. Route queries db for training name and checks s3 if training exists. if it exists, copys data from file in  s3 and returns it.",
-# )
-# def plot_log(id: int):
-#     return
+@router.get(
+    "/plotLog/{id}",
+    description="Called from details view on init every 10 seconds. Route queries db for training name and checks s3 if training exists. if it exists, copys data from file in  s3 and returns it.",
+)
+def plot_log(id: int):
+    return
 
 
 # # TODO check this route

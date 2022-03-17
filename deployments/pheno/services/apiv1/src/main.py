@@ -1,6 +1,8 @@
 from fastapi import FastAPI, APIRouter
 from databases import Database
+import asyncpg
 from lib.models import *
+from lib.db import Database
 from endpoints import segmentations
 from endpoints import segtrainings
 from endpoints import trainings
@@ -8,9 +10,7 @@ from endpoints import classifications
 from endpoints import dashboard
 from endpoints import user
 
-# DATABASE_URL = os.enviorn.get('DATABASE_URL')
-DATABASE_URL = "postgresql://luci@localhost/pheno_test"
-db = Database(DATABASE_URL)
+db = Database()
 
 app = FastAPI()
 api_router = APIRouter()
@@ -27,9 +27,9 @@ app.include_router(api_router)
 
 @app.on_event("startup")
 async def startup():
-    await db.connect()
+    await db.create_pool()
 
 
 @app.on_event("shutdown")
 async def shutdown():
-    await db.disconnect()
+    await db.close()

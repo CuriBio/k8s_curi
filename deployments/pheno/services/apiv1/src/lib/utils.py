@@ -1,7 +1,7 @@
 from botocore.exceptions import ClientError
 import boto3
 from typing import Any
-from models import *
+from lib.models import *
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from fastapi import HTTPException
 import re
