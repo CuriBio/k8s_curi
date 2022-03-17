@@ -36,22 +36,3 @@ resource "aws_ecr_repository" "pheno_worker_ecr" {
   }
 }
 
-# S3 bucket
-resource "aws_s3_bucket" "phenolearn" {
-  bucket = "phenolearn"
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "phenolearn" {
-  bucket = aws_s3_bucket.phenolearn.bucket
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-resource "aws_s3_bucket_acl" "phenolearn" {
-  bucket = aws_s3_bucket.phenolearn.id
-  acl    = "private"
-}
