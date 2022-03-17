@@ -1,4 +1,4 @@
-# from typing import Any, List, Dict
+from typing import Any, List
 from pydantic import BaseModel, EmailStr
 
 
@@ -54,3 +54,11 @@ class train_upload_model(BaseModel):
     val_percent: str
     val_data_source: str
     remove_out_focus: str
+
+
+class Log_model(BaseModel):
+    epochs: List[Any]
+    training_accuracy: List[Any]
+    training_loss: List[Any]
+    val_accuracy: List[Any]
+    val_loss: List[Any]

@@ -1,4 +1,6 @@
+from base64 import decode
 import os
+from urllib import request
 from fastapi import APIRouter, HTTPException, status, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 import main
@@ -13,10 +15,12 @@ from lib.utils import upload_file_to_s3
 from lib.utils import copy_s3_file
 from lib.utils import copy_s3_directory
 import io
+import json
 from datetime import datetime
 import tempfile
 import zipfile
 import uuid
+import requests
 import logging
 from aiofile import async_open
 
@@ -52,74 +56,104 @@ MODEL_ARCHS = [
     "/{selected_user_id}",
     description="request on initial trainings page render",
 )
-async def get_all_unfiltered_trainings(selected_user_id: int):
-    async with main.db.pool.acquire() as cur:
-        rows = await cur.fetch("SELECT * FROM trainings WHERE user_id=$1", selected_user_id)
+async def get_all_unfiltered_trainings(selected_user_id: int) -> List[Any]:
+    try:
+        async with main.db.pool.acquire() as cur:
+            rows = await cur.fetch("SELECT * FROM trainings WHERE user_id=$1", selected_user_id)
 
-        trainings = [dict(training) for training in rows]
+            trainings = [dict(training) for training in rows]
 
-        for training in trainings:
-            key = f"trainings/{selected_user_id}/{training['study']}/{training['name']}/sample.jpg"
-            url = generate_presigned_get(key=key, exp=5 * 60e3)
-            training.update({"sample_url": url})
+            for training in trainings:
+                key = f"trainings/{selected_user_id}/{training['study']}/{training['name']}/sample.jpg"
+                url = generate_presigned_get(key=key, exp=5 * 60e3)
+                training.update({"sample_url": url})
 
-    return trainings
+        return trainings
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unable to process request: {e}",
+        )
 
 
 @router.get(
     "/getFiltered/{selected_user_id}",
     description="Requests all trainings for user with filtered params",
 )
-async def get_all_filtered_trainings(selected_user_id: int):
-    async with main.db.pool.acquire() as cur:
+async def get_all_filtered_trainings(selected_user_id: int) -> List[Filtered_training_model]:
+    try:
+        async with main.db.pool.acquire() as cur:
 
-        rows = await cur.fetch(
-            "SELECT * FROM trainings WHERE user_id=$1 AND status!='deleted' AND status!='none'",
-            selected_user_id,
+            rows = await cur.fetch(
+                "SELECT * FROM trainings WHERE user_id=$1 AND status!='deleted' AND status!='none'",
+                selected_user_id,
+            )
+
+        return [Filtered_training_model(**training).dict() for training in rows]
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unable to process request: {e}",
         )
-
-    return [Filtered_training_model(**training).dict() for training in rows]
 
 
 @router.get(
     "/downloadLog/{id}",
     description="Downloads user-selected training log from s3 if error occurs during training",
 )
-async def get_training_log(id: int):
-    async with main.db.pool.acquire() as cur:
-        training = await cur.fetch("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
+async def get_training_log(id: int) -> str:
+    try:
+        async with main.db.pool.acquire() as cur:
+            training = await cur.fetchrow("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
+            if not training:
+                return None
 
-        if not training:
-            return None
+            key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}/{training['name']}.log"
 
-        key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}/{training['name']}.log"
-
-    return generate_presigned_get(key=key, exp=5 * 60e3)
+        return generate_presigned_get(key=key, exp=5 * 60e3)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unable to process request: {e}",
+        )
 
 
 @router.get(
     "/downloadResults/{id}",
     description="Downloads user-selected training output file from s3 once status is complete",
 )
-async def get_training_results(id: int):
-    async with main.db.pool.acquire() as cur:
+async def get_training_results(id: int) -> str:
+    try:
+        async with main.db.pool.acquire() as cur:
 
-        training = await cur.fetch("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
+            training = await cur.fetchrow("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
 
-        if not training:
-            return None
+            if not training:
+                return None
 
-        key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}/{training['name']}.log"
+            key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}/{training['name']}.log"
 
-    return generate_presigned_get(key=key, exp=5 * 60e3)
+        return generate_presigned_get(key=key, exp=5 * 60e3)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unable to process request: {e}",
+        )
 
 
 @router.get("/updateParam/{id}", description="Updates value in training table")
 async def update_table_value(id: int, field: str, value: str) -> JSONResponse:
-    async with main.db.pool.acquire() as cur:
-        await cur.execute(f"UPDATE trainings SET {field}=$1 WHERE id=$2;", id, value)
+    try:
+        async with main.db.pool.acquire() as cur:
+            await cur.execute(f"UPDATE trainings SET {field}=$1 WHERE id=$2;", id, value)
 
-    return JSONResponse(status_code=status.HTTP_200_OK)
+        return JSONResponse(status_code=status.HTTP_200_OK)
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unable to process request: {e}",
+        )
 
 
 # new training-related
@@ -130,37 +164,46 @@ async def update_table_value(id: int, field: str, value: str) -> JSONResponse:
     response_description="redirects to initial setup page",
     description="Called when user clicks 'Start New Training'. Route first queries db to check if user has reached account limit of successful (status!='deleted'/'none'/'error') trainings and then redirects to setup page.",
 )
-async def new_train_setup(user_id: int):
-    async with main.db.pool.acquire() as cur:
+async def new_train_setup(user_id: int) -> Dict[str, Any]:
+    try:
+        async with main.db.pool.acquire() as cur:
 
-        # get count of existing trainings for users
-        num_of_trainings = await cur.fetch(
-            "SELECT COUNT(*) FROM trainings WHERE user_id=$1 AND status!='deleted' AND status!='none'",
-            user_id,
-        )
-
-        # get limit of trainings from tiered account privileges
-        account = await cur.fetch("SELECT uploadlimit, type, email FROM users WHERE id=$1", user_id)
-
-        # database saves unpaid users to 5, but original site requests limit of 2 non-error trainings
-        # type is currently unused in db, only four people have 'admin' otherwise it's ''
-        # could use type for user type to check limit
-        if account["uploadlimit"] > num_of_trainings["count"] or account["type"] == "":
-            response_dict = dict()
-
-            # decide how to handle these user differences
-            response_dict["segtrainings"] = await cur.fetch(
-                "SELECT * FROM segtrainings WHERE user_id=$1 AND status!='deleted' AND status!='none'",
+            # get count of existing trainings for users
+            num_of_trainings = await cur.fetchrow(
+                "SELECT COUNT(*) FROM trainings WHERE user_id=$1 AND status!='deleted' AND status!='none'",
                 user_id,
             )
-            response_dict["show_focus_option"] = account["type"] in ["admin", "tenaya", "mo"]
-            response_dict["select_focus_option"] = account["type"] in ["tenaya", "mo"]
-            response_dict["smart_patching_option"] = account["type"] in ["admin", "fountain"]
-            response_dict["type"] = account["type"]
 
-            return response_dict
+            # get limit of trainings from tiered account privileges
+            account = await cur.fetchrow("SELECT uploadlimit, type, email FROM users WHERE id=$1", user_id)
 
-    return "User has reached account limit."
+            # database saves unpaid users to 5, but original site requests limit of 2 non-error trainings
+            # type is currently unused in db, only four people have 'admin' otherwise it's ''
+            # could use type for user type to check limit
+            if account["uploadlimit"] > num_of_trainings["count"] or account["type"] == "":
+                response_dict = dict()
+
+                # decide how to handle these user differences
+                response_dict["segtrainings"] = await cur.fetch(
+                    "SELECT * FROM segtrainings WHERE user_id=$1 AND status!='deleted' AND status!='none'",
+                    user_id,
+                )
+                response_dict["show_focus_option"] = account["type"] in ["admin", "tenaya", "mo"]
+                response_dict["select_focus_option"] = account["type"] in ["tenaya", "mo"]
+                response_dict["smart_patching_option"] = account["type"] in ["admin", "fountain"]
+                response_dict["type"] = account["type"]
+                return response_dict
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="User has reached account limit.",
+                )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unable to process request: {e}",
+        )
 
 
 @router.post(
@@ -174,7 +217,7 @@ async def upload_new_train_images(
     val_or_train: str = "train",
     study_name: str = "study_name",
     files: List[UploadFile] = File(...),
-):
+) -> JSONResponse:
 
     try:
         # return if, for some reason no files to upload
@@ -225,7 +268,7 @@ async def upload_new_train_images(
 
             logger.info(f"Uploading {file}: {response}")
         return JSONResponse(
-            status_code=status.HTTP_200_OK, content={"message": f"Successfully uploaded images for Luci"}
+            status_code=status.HTTP_200_OK, content={"message": f"Successfully uploaded images for {name}"}
         )
     except Exception as e:
         raise HTTPException(
@@ -269,12 +312,12 @@ async def new_train_submit(
     mode: str = Form(...),
     regweight: str = Form(...),
     num_workers: str = Form(...),
-):  # try to set this up as a pydantic request model instead of each individual param
+) -> JSONResponse:  # try to set this up as a pydantic request model instead of each individual param
 
     try:
         async with main.db.pool.acquire() as cur:
 
-            account = await cur.fetch(
+            account = await cur.fetchrow(
                 "SELECT uploadlimit, type FROM users WHERE id=$1", user_id
             )  # figure out diff user type requirements for future
             remove_out_focus = "no" if not remove_out_focus else remove_out_focus
@@ -387,12 +430,12 @@ async def retrain_submit(
     mode: str = Form(...),
     regweight: str = Form(...),
     num_workers: str = Form(...),
-):
+) -> JSONResponse:
     try:
         async with main.db.pool.acquire() as cur:
 
             # get original training entry
-            training = await cur.fetch("SELECT * FROM trainings WHERE id=$1", id)
+            training = await cur.fetchrow("SELECT * FROM trainings WHERE id=$1", id)
 
             # check for if user has special privileges to skip required review
             skip_review = (
@@ -472,19 +515,62 @@ async def retrain_submit(
 
 @router.get(
     "/plotLog/{id}",
+    response_model=Log_model,
     description="Called from details view on init every 10 seconds. Route queries db for training name and checks s3 if training exists. if it exists, copys data from file in  s3 and returns it.",
 )
-def plot_log(id: int):
+async def plot_log(id: int):
+    try:
+        # get training details for s3 key
+        async with main.db.pool.acquire() as cur:
+            training = await cur.fetchrow("SELECT * FROM trainings WHERE id=$1", id)
+
+        # get training log from s3
+        # key = "trainings/84/test_training/TR-84-2022-02-28-165358/TR-84-2022-02-28-165358_out/progress.txt"
+        key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_out/progress.txt'
+        url = generate_presigned_get(key)
+        if url:
+
+            logfile = requests.get(url)
+            decoded_file = logfile.content.decode("UTF-8")
+            # split each line into list of training values
+            file_lines = [line.split(",") for line in decoded_file.split("\n")]
+            # setup dict to return
+            response_dict = {
+                "epochs": list(),
+                "training_accuracy": list(),
+                "training_loss": list(),
+                "val_accuracy": list(),
+                "val_loss": list(),
+            }
+
+            for line in file_lines:
+                if len(line) > 1:
+                    response_dict["epochs"].append(line[0])
+                    response_dict["training_accuracy"].append(line[1])
+                    response_dict["training_loss"].append(line[2])
+                    response_dict["val_accuracy"].append(line[3])
+                    response_dict["val_loss"].append(line[4])
+
+            return Log_model(**response_dict).dict()
+        else:
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content={"message": f"No logfile found for {training['name']}."},
+            )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting log file for {training['name']}: {e}",
+        )
+
+
+# TODO check this route
+@router.post(
+    "/generatePatchExamples/{id}",
+    description="Called from details view on init every 10 seconds. Route queries db for training name and checks s3 if training exists. if it exists, copys data from file in  s3 and returns it.",
+)
+def generate_patch_examples(id: int):
     return
-
-
-# # TODO check this route
-# @router.post(
-#     "/generatePatchExamples/{id}",
-#     description="Called from details view on init every 10 seconds. Route queries db for training name and checks s3 if training exists. if it exists, copys data from file in  s3 and returns it.",
-# )
-# def plot_log(id: int, class_names: list):
-#     return
 
 
 # # scoring-related

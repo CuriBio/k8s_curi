@@ -15,7 +15,8 @@ import matplotlib.pyplot as plt
 
 PHENO_BUCKET = "phenolearn"
 
-def generate_presigned_get(key: str, exp: int) -> Any:
+
+def generate_presigned_get(key: str, exp: int = 3600) -> Any:
     s3 = boto3.resource("s3")
     s3_client = boto3.client("s3")
 
