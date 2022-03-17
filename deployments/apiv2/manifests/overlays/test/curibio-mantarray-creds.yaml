@@ -1,0 +1,16 @@
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  creationTimestamp: null
+  name: curibio-mantarray-creds
+  namespace: apiv2
+spec:
+  encryptedData:
+    curibio_mantarray_ro: AgAD/8Ui1ZMXgtoE5sueSjEZGFbjjsUiRZLTGJ03NlNn90ODPoOIPX054ALpXiOUgeVBzZkN/IIjet3tOcOPW7f53BFF7UZSdqhIWbxd/GwB4GJBT1nbMZJTz/11kMjXJies96USEhwJ5U4E2SyD0sFuF7ArxQCYQQLr71w/ytS0N8ZkCZqKZ1WcZywZ2JQbFrc+EkgqnyOk1Q3AGyx8/LbX83JmOUIMNXaPAt5pS8ulBXnPFjAH9h2SBwwc+0o5gKj2+OdQR53Co2JzYlhpI2CVpmH6jKVJQiRFGMXY3B5SQkCTwFrzkcniMZPz/pY4Z3myw8K0IqpR78L9oHR9wSRzulx9VnvJi8cFv/SW5VM98KxInyBFMAfJfGXoxsDn3zLyyxRRjoh6QQB45lNcQ+lJVs59AjL4/1XRmtSL95QbInO4TvTgafrep02hMN976t2P5JJmvCOEP+vkyLtGajQTSJ3m1wHY8PstBcIt0AmLiH8G4YzbL8v5UN19i9vYAiTKp9NA0ttg0FiC36SvntPuutzOzmVEwNlq4/CnUh0FZY/LpqZs4XWcc/2G8l1xFdEo4I7zt9S/beYf0aoottetFTtcrz/pLpMap8DVDLB6rDWajB1gQfOkhmhTRVzfbl7TJcnhZCaCCYPtZDteyIWvHBsfIKe7SIME71kzWajLVRihPsH38r8e14yZZVOyrMmO3eN/ozxLgxReFPHl/94MRqBPvD6c2u58
+  template:
+    data: null
+    metadata:
+      creationTimestamp: null
+      name: curibio-mantarray-creds
+      namespace: apiv2
+

@@ -5,13 +5,14 @@ Revises:
 Create Date: 2022-03-14 15:32:48.959338
 
 """
+import os
 from alembic import op
-from alembic import context
+#from alembic import context
 from sqlalchemy.sql import func
 from sqlalchemy.dialects import postgresql
 import sqlalchemy as sa
 
-config = context.config
+#config = context.config
 
 # revision identifiers, used by Alembic.
 revision = '258ca806ee8b'
@@ -69,8 +70,15 @@ def upgrade():
     op.execute("GRANT SELECT ON jobs_queue TO curibio_jobs_ro")
     op.execute("GRANT SELECT ON jobs_result TO curibio_jobs_ro")
 
-    table_user_pass = config.get_main_option("table_user_pass")
-    table_user_pass_ro = config.get_main_option("table_user_pass_ro")
+    # table_user_pass = config.get_main_option("table_user_pass")
+    # table_user_pass_ro = config.get_main_option("table_user_pass_ro")
+    table_user_pass = os.getenv("TABLE_USER_PASS")
+    if table_user_pass == None:
+        raise Exception("Missing requireed value for TABLE_USER_PASS")
+
+    table_user_pass_ro = os.getenv("TABLE_USER_PASS_RO")
+    if table_user_pass_ro == None:
+        raise Exception("Missing requireed value for TABLE_USER_PASS_RO")
 
     op.execute(f"ALTER ROLE curibio_jobs WITH PASSWORD '{table_user_pass}'")
     op.execute(f"ALTER ROLE curibio_jobs_ro WITH PASSWORD '{table_user_pass_ro}'")
