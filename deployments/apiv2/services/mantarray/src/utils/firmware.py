@@ -8,16 +8,6 @@ from semver import VersionInfo
 FIRMWARE_FILE_REGEX = re.compile(r"^\d+\.\d+\.\d+\.bin$")
 
 
-def get_cfw_from_hw(cfw_to_hw, current_hw_version):
-    current_hw_version_info = VersionInfo.parse(current_hw_version)
-    cfw_to_hw = {VersionInfo.parse(key): VersionInfo.parse(val) for key, val in cfw_to_hw.items()}
-    try:
-        cfw_version_info = sorted(cfw for cfw, hw in cfw_to_hw.items() if hw == current_hw_version_info)[-1]
-    except IndexError:
-        cfw_version_info = sorted(cfw for cfw, hw in cfw_to_hw.items() if current_hw_version_info < hw)[0]
-    return str(cfw_version_info)
-
-
 def create_dependency_mapping():
     s3_client = boto3.client("s3")
 
@@ -43,7 +33,18 @@ def create_dependency_mapping():
     return cfw_to_hw, cfw_to_mfw, mfw_to_sw
 
 
-def resolve_versions(cfw_to_hw, cfw_to_mfw, mfw_to_sw, hardware_version):
+def get_cfw_from_hw(cfw_to_hw, device_hw_version):
+    device_hw_version = VersionInfo.parse(device_hw_version)
+    cfw_to_hw = {VersionInfo.parse(cfw): VersionInfo.parse(hw) for cfw, hw in cfw_to_hw.items()}
+    try:
+        cfw_version = sorted(cfw for cfw, hw in cfw_to_hw.items() if hw == device_hw_version)[-1]
+    except IndexError:
+        cfw_version = sorted(cfw for cfw, hw in cfw_to_hw.items() if device_hw_version < hw)[0]
+    return str(cfw_version)
+
+
+def resolve_versions(hardware_version):
+    cfw_to_hw, cfw_to_mfw, mfw_to_sw = create_dependency_mapping()
     cfw = get_cfw_from_hw(cfw_to_hw, hardware_version)
     mfw = cfw_to_mfw[cfw]
     sw = mfw_to_sw[mfw]
@@ -51,9 +52,8 @@ def resolve_versions(cfw_to_hw, cfw_to_mfw, mfw_to_sw, hardware_version):
 
 
 def get_latest_firmware_version(hardware_version):
-    cfw_to_hw, cfw_to_mfw, mfw_to_sw = create_dependency_mapping()
     try:
-        return resolve_versions(cfw_to_hw, cfw_to_mfw, mfw_to_sw, hardware_version)
+        return resolve_versions(hardware_version)
     except:
         return None
 

@@ -24,8 +24,8 @@ async def root(request: Request, cur=Depends(get_cursor("reader"))):
 
 @app.get("/firmware_latest")
 async def get_latest_firmware(serial_number: str, cur=Depends(get_cursor("reader"))):
-    hardware_version = cur.execute(f"SELECT hw_version FROM MAUnits WHERE serial_number = {serial_number};")
-    # get versions from mappings
+    cur.execute(f"SELECT hw_version FROM MAUnits WHERE serial_number = '{serial_number}';")
+    hardware_version = cur.fetchone()[0]
     latest_firmware_version = get_latest_firmware_version(hardware_version)
     return JSONResponse({"latest_versions": latest_firmware_version})
 
@@ -35,5 +35,6 @@ async def get_firmware_download_url(
     firmware_version: str = Query(..., regex=r"^\d+\.\d+\.\d+$"),
     firmware_type: str = Query(..., regex="^(main|channel)$"),
 ):
+    # TODO add auth
     url = get_download_url(firmware_version, firmware_type)
     return JSONResponse({"presigned_url": url})

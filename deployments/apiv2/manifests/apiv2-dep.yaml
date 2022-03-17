@@ -16,11 +16,11 @@ spec:
         version: latest
     spec:
       containers:
-      - name: users
-        image: ???
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 8000
+      # - name: users
+      #   image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/users
+      #   imagePullPolicy: Always
+      #   ports:
+      #   - containerPort: 8000
       - name: mantarray
         image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/mantarray
         imagePullPolicy: Always
@@ -41,14 +41,14 @@ spec:
   - host: apiv2.curibio-test.com
     http:
       paths:
-      - path: /users
-        pathType: Prefix
-        backend:
-          service:
-            name: users
-            port:
-              number: 80
-      - path: /mantarray
+      # - path: /users
+      #   pathType: Prefix
+      #   backend:
+      #     service:
+      #       name: users
+      #       port:
+      #         number: 80
+      - path: /mantarray/
         pathType: Prefix
         backend:
           service:
