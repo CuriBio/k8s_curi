@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: apiv2
+resources:
+- ../../base
+- curibio-users-creds.yaml
+- curibio-mantarray-creds.yaml
