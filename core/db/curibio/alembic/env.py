@@ -17,6 +17,7 @@ config.set_section_option(section, "POSTGRES_SERVER", os.environ.get("POSTGRES_S
 config.set_section_option(section, "POSTGRES_NAME", os.environ.get("POSTGRES_NAME"))
 config.set_section_option(section, "TABLE_USER_PASS", os.environ.get("TABLE_USER_PASS"))
 config.set_section_option(section, "TABLE_USER_PASS_RO", os.environ.get("TABLE_USER_PASS_RO"))
+config.set_section_option(section, "MANTARRAY_RO_PASS", os.environ.get("MANTARRAY_RO_PASS"))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

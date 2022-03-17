@@ -5,6 +5,7 @@ Revises: 258ca806ee8b
 Create Date: 2022-03-16 21:42:22.132660
 
 """
+import os
 from alembic import op
 import sqlalchemy as sa
 
@@ -17,6 +18,8 @@ depends_on = None
 
 
 def upgrade():
+    op.execute("CREATE USER curibio_mantarray_ro")
+
     table = op.create_table(
         "maunits",
         sa.Column("serial_number", sa.String(12), primary_key=True),
@@ -32,6 +35,17 @@ def upgrade():
         ],
     )
 
+    op.execute("GRANT SELECT ON maunits TO curibio_mantarray_ro")
+
+    mantarray_ro_pass = os.getenv("MANTARRAY_RO_PASS")
+    if not mantarray_ro_pass:
+        raise Exception("Missing requireed value for MANTARRAY_RO_PASS")
+
+    op.execute(f"ALTER ROLE curibio_mantarray_ro WITH PASSWORD '{mantarray_ro_pass}'")
+
 
 def downgrade():
-    op.drop_table('MAUnits')
+    op.execute("REVOKE ALL PRIVILEGES ON maunits FROM curibio_mantarray_ro")
+    op.drop_table("maunits")
+    op.execute("DROP USER curibio_mantarray_ro")
+

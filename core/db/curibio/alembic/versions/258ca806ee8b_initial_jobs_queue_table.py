@@ -72,8 +72,13 @@ def upgrade():
 
     # table_user_pass = config.get_main_option("table_user_pass")
     # table_user_pass_ro = config.get_main_option("table_user_pass_ro")
-    table_user_pass = os.getenv(TABLE_USER_PASS)
-    table_user_pass_ro = os.getenv(TABLE_USER_PASS_RO)
+    table_user_pass = os.getenv("TABLE_USER_PASS")
+    if table_user_pass == None:
+        raise Exception("Missing requireed value for TABLE_USER_PASS")
+
+    table_user_pass_ro = os.getenv("TABLE_USER_PASS_RO")
+    if table_user_pass_ro == None:
+        raise Exception("Missing requireed value for TABLE_USER_PASS_RO")
 
     op.execute(f"ALTER ROLE curibio_jobs WITH PASSWORD '{table_user_pass}'")
     op.execute(f"ALTER ROLE curibio_jobs_ro WITH PASSWORD '{table_user_pass_ro}'")
