@@ -6,6 +6,7 @@ resources:
 - argo-events.yaml
 - argo-workflows.yaml
 - keda.yaml
+- ci.yaml
 
 patchesJson6902:
 - target:
