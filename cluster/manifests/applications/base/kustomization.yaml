@@ -4,6 +4,3 @@ kind: Kustomization
 namespace: argocd
 resources:
 - argo-cd.yaml
-- argo-events.yaml
-- argo-workflows.yaml
-- keda.yaml
