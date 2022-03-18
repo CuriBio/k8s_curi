@@ -16,7 +16,7 @@ templates = Jinja2Templates(directory="templates")
 
 @app.get("/")
 async def root(request: Request, cur=Depends(get_cursor("reader"))):
-    cur.execute("SELECT * FROM MAUnits;")
+    cur.execute("SELECT * FROM MAUnits")
     results = cur.fetchall()
     units = [{col: row[col] for col in ("serial_number", "hw_version")} for row in results]
     return templates.TemplateResponse("table.html", {"request": request, "units": units})
@@ -24,7 +24,7 @@ async def root(request: Request, cur=Depends(get_cursor("reader"))):
 
 @app.get("/firmware_latest")
 async def get_latest_firmware(serial_number: str, cur=Depends(get_cursor("reader"))):
-    cur.execute(f"SELECT hw_version FROM MAUnits WHERE serial_number = '{serial_number}';")
+    cur.execute("SELECT hw_version FROM MAUnits WHERE serial_number = '$1'", serial_number)
     hardware_version = cur.fetchone()[0]
     latest_firmware_version = get_latest_firmware_version(hardware_version)
     return JSONResponse({"latest_versions": latest_firmware_version})

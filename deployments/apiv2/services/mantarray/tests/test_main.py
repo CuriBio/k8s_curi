@@ -35,7 +35,7 @@ def test_default_route(mocker):
     assert response.status_code == 200
     assert json.loads(response.json()) == expected_template_response
 
-    mocked_reader_cursor.execute.assert_called_once_with("SELECT * FROM MAUnits;")
+    mocked_reader_cursor.execute.assert_called_once_with("SELECT * FROM MAUnits")
     mocked_reader_cursor.fetchall.assert_called_once_with()
     mocked_template_response.assert_called_once_with(
         "table.html", {"request": mocker.ANY, "units": expected_db_entries}
@@ -56,7 +56,7 @@ def test_firmware_latest(mocker):
     assert response.json() == {"latest_versions": "1.1.1"}
 
     mocked_reader_cursor.execute.assert_called_once_with(
-        f"SELECT hw_version FROM MAUnits WHERE serial_number = '{test_serial_number}';"
+        f"SELECT hw_version FROM MAUnits WHERE serial_number = '$1'", test_serial_number
     )
     mocked_reader_cursor.fetchone.assert_called_once_with()
     mocked_get_latest_firmware_version.assert_called_once_with(mocked_reader_cursor.fetchone()[0])
