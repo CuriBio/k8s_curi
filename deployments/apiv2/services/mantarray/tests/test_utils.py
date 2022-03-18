@@ -1,4 +1,4 @@
-import boto3
+import boto3 as mocked_boto3
 import pytest
 from random import choice
 
@@ -93,7 +93,7 @@ def test_db__get_cursor__return_function__releases_db_connection(mocker):
 
 
 def test_firmware__create_dependency_mapping__gets_firmware_file_objects_from_s3_correctly():
-    mocked_s3_client = boto3.client("s3")
+    mocked_s3_client = mocked_boto3.client("s3")
     mocked_s3_client.list_objects.return_value = {"Contents": []}
 
     utils.firmware.create_dependency_mapping()
@@ -106,7 +106,7 @@ def test_firmware__create_dependency_mapping__gets_firmware_file_objects_from_s3
 def test_firmware__create_dependency_mapping__retrieves_metadata_of_each_appropriately_named_firmware_file_in_s3_bucket_correctly(
     mocker,
 ):
-    mocked_s3_client = boto3.client("s3")
+    mocked_s3_client = mocked_boto3.client("s3")
 
     expected_main_bucket_name = "main-firmware"
     expected_channel_bucket_name = "channel-firmware"
@@ -223,7 +223,7 @@ def test_firmware__resolve_versions__return_correct_dict(
 def test_firmware__get_latest_firmware_version__returns_correct_response__if_resolving_dependency_mapping_succeeds(
     mocker,
 ):
-    mocked_s3_client = boto3.client("s3")
+    mocked_s3_client = mocked_boto3.client("s3")
 
     test_hw_version = "0.0.0"
     expected_main_bucket_name = "test_main_bucket"
@@ -249,7 +249,7 @@ def test_firmware__get_latest_firmware_version__returns_correct_response__if_res
 def test_firmware__get_latest_firmware_version__returns_correct_response__if_resolving_dependency_mapping_fails(
     mocker,
 ):
-    mocked_s3_client = boto3.client("s3")
+    mocked_s3_client = mocked_boto3.client("s3")
 
     test_hw_version = "0.0.0"
     expected_main_bucket_name = "test_main_bucket"
@@ -272,7 +272,7 @@ def test_firmware__get_latest_firmware_version__returns_correct_response__if_res
 
 
 def test__firmware__get_download_url__generates_and_returns_presigned_url_if_params_are_valid():
-    mocked_s3_client = boto3.client("s3")
+    mocked_s3_client = mocked_boto3.client("s3")
 
     test_firmware_type = choice(["main", "channel"])
     test_version = choice(["1.11.111", "999.99.9"])
@@ -289,7 +289,7 @@ def test__firmware__get_download_url__generates_and_returns_presigned_url_if_par
 
 
 def test__firmware__get_download_url__returns_none_if_presigned_url_generation_fails():
-    mocked_s3_client = boto3.client("s3")
+    mocked_s3_client = mocked_boto3.client("s3")
     mocked_s3_client.generate_presigned_url.side_effect = Exception
 
     test_firmware_type = "any"
