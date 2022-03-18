@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Sensor
 metadata:
-  name: github-webhook 
+  name: github-pr-merge
   namespace: argo
 spec:
   serviceAccountName: argo-workflows-sa
@@ -54,9 +54,9 @@ spec:
                 namespace: argo
               spec:
                 serviceAccountName: argo-workflows-sa
-                entrypoint: ci-build
+                entrypoint: ci-build-push
                 workflowTemplateRef:
-                  name: ci-build-workflow-template
+                  name: ci-build-push-workflow-template
                 arguments:
                   parameters:
                     - name: title

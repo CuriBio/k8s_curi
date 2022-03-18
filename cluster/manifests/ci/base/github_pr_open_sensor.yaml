@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Sensor
 metadata:
-  name: github-webhook 
+  name: github-pr-open
   namespace: argo
 spec:
   template:
