@@ -92,7 +92,7 @@ spec:
               value: "{{workflow.parameters.sha}}"
     - - name: build-services
         templateRef:
-          name: build-service
+          name: build-push-service
           template: kaniko-build-push-service
         arguments:
           parameters:

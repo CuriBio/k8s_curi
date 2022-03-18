@@ -146,18 +146,18 @@ spec:
       - name: deployment
       - name: sha
     steps:
-    # - - name: set-status-pending
-    #     templateRef:
-    #       name: git-sync
-    #       template: http-status
-    #     arguments:
-    #       parameters:
-    #         - name: status
-    #           value: pending
-    #         - name: context
-    #           value: "{{inputs.parameters.deployment}}/{{inputs.parameters.service}}"
-    #         - name: sha
-    #           value: "{{inputs.parameters.sha}}"
+    - - name: set-status-pending
+        templateRef:
+          name: git-sync
+          template: http-status
+        arguments:
+          parameters:
+            - name: status
+              value: pending
+            - name: context
+              value: "{{inputs.parameters.deployment}}/{{inputs.parameters.service}}"
+            - name: sha
+              value: "{{inputs.parameters.sha}}"
     - - name: build-service
         template: build
         arguments:
