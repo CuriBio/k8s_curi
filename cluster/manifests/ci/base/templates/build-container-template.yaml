@@ -1,0 +1,223 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: git-sync
+  namespace: argo
+spec:
+  serviceAccountName: argo_workflows-sa
+  templates:
+  - name: checkout
+    inputs:
+      parameters:
+      - name: repo
+      - name: branch
+      - name: sha
+    script:
+      image: alpine/git:latest
+      workingDir: /tmp/git
+      env:
+        - name: TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-access-token
+              key: token
+      volumeMounts:
+        - name: workdir
+          mountPath: /tmp/git
+      command: ["sh"]
+      source: |
+        apk update 1>/dev/null
+        apk add --no-cache curl jq 1>/dev/null
+
+        git clone -q --depth 1 --branch "{{inputs.parameters.branch}}" "{{inputs.parameters.repo}}"
+        cd k8s_curi
+
+        SERVICES=$(find ./deployments -type f -name 'Dockerfile' -exec dirname {} \; | jq -R -s -c 'split("\n")[:-1] | [.[] | {"path": ., "deployment": split("/")[2], "service": split("/")[4]}]')
+        echo $SERVICES | jq -r '.[] | (.deployment + "/" + .service)' | xargs -n 1 -I {} \
+         curl -q -H "Authorization: $TOKEN" \
+              -H "Content-Type: application/json" \
+              -d '{"state": "pending", "context": "{}"}' \
+              "https://api.github.com/repos/CuriBio/k8s_curi/statuses/{{inputs.parameters.sha}}" 1&>/dev/null
+        echo $SERVICES
+  - name: http-status
+    inputs:
+      parameters:
+      - name: status
+      - name: context
+      - name: sha
+    script:
+      image: alpine:latest
+      command: ["sh"]
+      env:
+        - name: TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-access-token
+              key: token
+      source: |
+        apk --no-cache add curl
+        curl -q -H "Content-Type: applicaiont/json" \
+             -H "Authorization: $TOKEN" \
+             -d '{ "state": "{{inputs.parameters.status}}", "context": "{{inputs.parameters.context}}" }' \
+             "https://api.github.com/repos/CuriBio/k8s_curi/statuses/{{inputs.parameters.sha}}" 1&>/dev/null
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: build-service
+  namespace: argo
+spec:
+  serviceAccountName: argo-workflows-sa
+  templates:
+  - name: kaniko-build-service
+    inputs:
+      parameters:
+      - name: path
+      - name: service
+      - name: deployment
+      - name: sha
+    steps:
+    - - name: build-service
+        template: build
+        arguments:
+          parameters:
+          - name: path
+            value: "{{inputs.parameters.path}}"
+          - name: service
+            value: "{{inputs.parameters.service}}"
+          - name: deployment
+            value: "{{inputs.parameters.deployment}}"
+    - - name: set-output-status-success
+        when: "{{steps.build-service.status}} == Succeeded"
+        templateRef:
+          name: git-sync
+          template: http-status
+        arguments:
+          parameters:
+            - name: status
+              value: success
+            - name: context
+              value: "{{inputs.parameters.deployment}}/{{inputs.parameters.service}}"
+            - name: sha
+              value: "{{inputs.parameters.sha}}"
+      - name: set-output-status-failed
+        when: "{{steps.build-service.status}} != Succeeded"
+        templateRef:
+          name: git-sync
+          template: http-status
+        arguments:
+          parameters:
+            - name: status
+              value: failed
+            - name: context
+              value: "{{inputs.parameters.deployment}}/{{inputs.parameters.service}}"
+            - name: sha
+              value: "{{inputs.parameters.sha}}"
+  - name: build
+    inputs:
+      parameters:
+      - name: path
+      - name: service
+      - name: deployment
+    container:
+      image: gcr.io/kaniko-project/executor:v1.8.0-debug 
+      command: [/kaniko/executor]
+      workingDir: /tmp/git/k8s_curi
+      args:
+      - --no-push
+      - --context={{inputs.parameters.path}}
+      volumeMounts:
+        - name: workdir
+          mountPath: /tmp/git
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: build-push-service
+  namespace: argo
+spec:
+  serviceAccountName: argo-workflows-sa
+  templates:
+  - name: kaniko-build-push-service
+    inputs:
+      parameters:
+      - name: path
+      - name: service
+      - name: deployment
+      - name: sha
+    steps:
+    # - - name: set-status-pending
+    #     templateRef:
+    #       name: git-sync
+    #       template: http-status
+    #     arguments:
+    #       parameters:
+    #         - name: status
+    #           value: pending
+    #         - name: context
+    #           value: "{{inputs.parameters.deployment}}/{{inputs.parameters.service}}"
+    #         - name: sha
+    #           value: "{{inputs.parameters.sha}}"
+    - - name: build-service
+        template: build
+        arguments:
+          parameters:
+          - name: path
+            value: "{{inputs.parameters.path}}"
+          - name: service
+            value: "{{inputs.parameters.service}}"
+          - name: deployment
+            value: "{{inputs.parameters.deployment}}"
+    - - name: set-output-status-success
+        when: "{{steps.build-service.status}} == Succeeded"
+        templateRef:
+          name: git-sync
+          template: http-status
+        arguments:
+          parameters:
+            - name: status
+              value: success
+            - name: context
+              value: "{{inputs.parameters.deployment}}/{{inputs.parameters.service}}"
+            - name: sha
+              value: "{{inputs.parameters.sha}}"
+      - name: set-output-status-failed
+        when: "{{steps.build-service.status}} != Succeeded"
+        templateRef:
+          name: git-sync
+          template: http-status
+        arguments:
+          parameters:
+            - name: status
+              value: failed
+            - name: context
+              value: "{{inputs.parameters.deployment}}/{{inputs.parameters.service}}"
+            - name: sha
+              value: "{{inputs.parameters.sha}}"
+  - name: build
+    inputs:
+      parameters:
+      - name: path
+      - name: service
+      - name: deployment
+    container:
+      image: gcr.io/kaniko-project/executor:v1.8.0-debug 
+      command: [/kaniko/executor]
+      env:
+        - name: AWS_EC2_METADATA_DISABLED
+          value: 'true'
+        - name: AWS_SDK_LOAD_CONFIG
+          value: 'true'
+      args:
+      - --destination=245339368379.dkr.ecr.us-east-2.amazonaws.com/{{inputs.parameters.service}}:latest
+      - --context=/tmp/git/k8s_curi/{{inputs.parameters.path}}
+      volumeMounts:
+        - name: workdir
+          mountPath: /tmp/git
+        - name: docker-config
+          mountPath: /kaniko/.docker/
+    volumes:
+      - name: docker-config
+        configMap:
+          name: docker-config
+          namespace: argo

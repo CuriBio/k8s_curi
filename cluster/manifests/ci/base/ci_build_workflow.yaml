@@ -1,0 +1,53 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: ci-build-workflow-template
+  namespace: argo
+spec:
+  entrypoint: ci-build
+  serviceAccountName: argo-workflows-sa
+  arguments:
+    parameters:
+      - name: title
+      - name: number
+      - name: sha
+      - name: repo
+      - name: branch
+  volumeClaimTemplates:
+  - metadata:
+      name: workdir 
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Mi
+  templates:
+  - name: ci-build
+    steps:
+    - - name: checkout
+        templateRef:
+          name: git-sync
+          template: checkout
+        arguments:
+          parameters:
+            - name: repo
+              value: "{{workflow.parameters.repo}}"
+            - name: branch
+              value: "{{workflow.parameters.branch}}"
+            - name: sha
+              value: "{{workflow.parameters.sha}}"
+    - - name: build-services
+        templateRef:
+          name: build-push-service
+          template: kaniko-build-push-service
+        arguments:
+          parameters:
+            - name: path
+              value: "{{item.path}}"
+            - name: service
+              value: "{{item.service}}"
+            - name: deployment
+              value: "{{item.deployment}}"
+            - name: sha
+              value: "{{workflow.parameters.sha}}"
+        withParam: "{{steps.checkout.outputs.result}}"
