@@ -1,10 +1,21 @@
-from base64 import decode
 import os
-from urllib import request
+import io
+import tempfile
+import zipfile
+import csv
+import uuid
+import requests
+import logging
+from typing import *
+from datetime import datetime
+from random import shuffle
+
+from aiofile import async_open
+
 from fastapi import APIRouter, HTTPException, status, UploadFile, File, Form
 from fastapi.responses import JSONResponse
+
 import main
-from typing import *
 from lib.models import *
 from lib.utils import generate_presigned_get
 from lib.utils import is_image_file
@@ -14,15 +25,8 @@ from lib.utils import readCSV
 from lib.utils import upload_file_to_s3
 from lib.utils import copy_s3_file
 from lib.utils import copy_s3_directory
-import io
-import json
-from datetime import datetime
-import tempfile
-import zipfile
-import uuid
-import requests
-import logging
-from aiofile import async_open
+from lib.utils import generate_presigned_urls_for_dir
+
 
 logger = logging.getLogger(__name__)
 
@@ -564,61 +568,245 @@ async def plot_log(id: int):
         )
 
 
-# TODO check this route
-@router.post(
+@router.get(
     "/generatePatchExamples/{id}",
     description="Called from details view on init every 10 seconds. Route queries db for training name and checks s3 if training exists. if it exists, copys data from file in  s3 and returns it.",
 )
-def generate_patch_examples(id: int):
-    return
+async def generate_patch_examples(id: int) -> List[str]:
+    try:
+        # get training details for s3 key
+        async with main.db.pool.acquire() as cur:
+            training = await cur.fetchrow(
+                "SELECT name, study, user_id, classnames FROM trainings WHERE id=$1", id
+            )
+
+        key_prefix = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_patches/Val/'
+        presigned_urls = generate_presigned_urls_for_dir(key_prefix)
+
+        return presigned_urls  # reminder that this will return an empty array if patch images are found
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting presigned urls for {training['name']}: {e}",
+        )
 
 
-# # scoring-related
-# startBlindScore_desc = "Called when user clicks 'Launch' for training. Route queries db for training with ID and gets classnames. Route checks if object exists in s3 and if exists, counts number of val images. "
+# blindscoring-related
 
 
-# @router.get(
-#     "/startBlindScore/{id}",
-#     tags=["train", "train3D"],
-#     response_description="redirects to blindscore view with props updated with training, number of vals, classnames, userid and error if error.",
-#     description=startBlindScore_desc,
-# )
-# def start_blind_score(id: int):
-#     return None
+@router.get(
+    "/startBlindScore/{id}",
+    response_description="redirects to blindscore view with props updated with training, number of vals, classnames, userid and error if error.",
+    description="Called when user clicks 'Launch' for training. Route queries db for training with ID and gets classnames. Route checks if object exists in s3 and if exists, counts number of val images. ",
+)
+async def start_blind_score(id: int):
+    try:
+        # get output csv file from s3
+        async with main.db.pool.acquire() as cur:
+            training = await cur.fetchrow("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
+
+        key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_out/{training["name"]}.csv'
+        url = generate_presigned_get(key)
+        if url:
+            response = requests.get(url)
+            csv_file = response.content.decode("UTF-8")
+            csv_lines = [line.split(",") for line in csv_file.split("\n")]
+
+            list_of_vals = [
+                val_or_train
+                for val_or_train in csv_lines
+                if len(val_or_train) > 1 and val_or_train[1] == "Val"
+            ]
+            return len(list_of_vals)
+        else:
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content={"message": f"No output .csv file found for {training['name']}"},
+            )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error reading output .csv file for {training['name']}: {e}",
+        )
 
 
-# generateImages_desc = "Route called when user clicks 'start / restart' from the blindscore view. Route queries db for training and checks against various conditions in s3, generates presignedURLs for each val file in s3 and returns data dict."
+@router.get(
+    "/generateImagesToScore/{id}",
+    response_model=Generate_images_response_model,
+    description="Route called when user clicks 'start / restart' from the blindscore view. Route queries db for training and checks against various conditions in s3, generates presignedURLs for each val file in s3 and returns data dict.",
+)
+async def generate_images_to_score(id: int):
+    try:
+        # get output csv file from s3
+        async with main.db.pool.acquire() as cur:
+            training = await cur.fetchrow(
+                "SELECT name, classnames, user_id, study FROM trainings WHERE id=$1", id
+            )
+
+        # TODO can probably pass this in request body
+        key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_out/{training["name"]}.csv'
+        url = generate_presigned_get(key)
+        if url:
+            response = requests.get(url)
+            csv_file = response.content.decode("UTF-8")
+            csv_lines = [line.split(",") for line in csv_file.split("\n")]
+
+            filenames = [
+                val_or_train[0]
+                for val_or_train in csv_lines
+                if len(val_or_train) > 1 and val_or_train[1] == "Val"
+            ]
+
+            true_classes = [line[2] for line in csv_lines]
+        else:
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content={"message": f"No output .csv file found for {training['name']}"},
+            )
+
+        # get val images from s3 and check against filenames
+        key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}/'
+
+        obj_keys = generate_presigned_urls_for_dir(key, True)
+        # get only val images that match filenames list
+        obj_keys = [key for key in obj_keys if os.path.basename(key) in filenames]
+
+        # randomize keys
+        shuffle(obj_keys)
+        # get presigned urls
+        urls = [generate_presigned_get(key) for key in obj_keys]
+        # this check is in the original route, just in case
+        if len(urls) == 0:
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content={"message": f"No presigned urls returned for {training['name']}"},
+            )
+
+        # randomize urls
+        shuffle(urls)
+
+        # return
+        return Generate_images_response_model(
+            urls=urls, num_images=len(urls), class_names=training["classnames"], true_classes=true_classes
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting presigned urls for {training['name']}: {e}",
+        )
 
 
-# @router.post(
-#     "/generateImagesToScore/{id}",
-#     tags=["train", "train3D"],
-#     description=generateImages_desc,
-# )
-# def generate_images_to_score(id: int, numImagesToScore: int):
-#     return
+@router.get(
+    "/getBlindScoreResults/{id}",
+    response_description="returns Reponse() then downloads file.",
+    description="Once a user processes the results, then they will be able to click 'Download Results'. Route gets output csv file from s3 and downloads it to local directory.",
+)
+async def process_blind_score_results(id: int):
+
+    try:
+        # get output csv file from s3
+        async with main.db.pool.acquire() as cur:
+            training = await cur.fetchrow(
+                "SELECT name, classnames, user_id, study FROM trainings WHERE id=$1", id
+            )
+
+        key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["study"]}_out/{training["study"]}_blindscore.csv'
+        presigned_url = generate_presigned_get(key)
+
+        return presigned_url
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting presigned url for {key}: {e}",
+        )
 
 
-# processBlindScoreResults_desc = "Called when a user selects any of the classes in the blindscore view. Route queries db for training, processes data, uploads output .csv file to s3, and returns data dict."
+@router.post(
+    "/processBlindScoreResults/{id}",
+    response_model=Blindscore_response_model,
+    description="Called when a user selects any of the classes in the blindscore view. Route queries db for training, processes data, uploads output .csv file to s3, and returns data dict.",
+)
+async def process_blind_score_results(id: int, payload: Blindscore_request_model):
+    try:
+        async with main.db.pool.acquire() as cur:
+            training = await cur.fetchrow("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
 
+        # get filename from old presigned URLs
+        url_filenames = [image_url.split("?")[0].split("/")[-1] for image_url in payload.image_urls]
+        net_num_right = 0
+        net_num_right_per_class = [0 for _ in payload.class_names]
 
-# @router.post(
-#     "/processBlindScoreResults/{id}",
-#     tags=["train", "train3D"],
-#     description=processBlindScoreResults_desc,
-# )
-# def process_blind_score_results(id: int, scores: str, imageURLs: str, trueClasses: str):
-#     return
+        # get output csv file from s3
+        key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_out/{training["name"]}.csv'
+        url = generate_presigned_get(key)
 
+        if url:
+            response = requests.get(url)
+            csv_file = response.content.decode()
+            csv_lines = [line.split(",") for line in csv_file.split("\r\n")]
+        else:
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content={"message": f"No output .csv file found for {training['name']}"},
+            )
 
-# getScoreResults_desc = "Once a user processes the results, then they will be able to click 'Download Results'. Route gets output csv file from s3 and downloads it to local directory."
+        for line in csv_lines:
+            file_name = line[0]
+            for idx, url_filename in enumerate(url_filenames):
+                if file_name == url_filename:
+                    # append the blind score to the row for writing to new csv
+                    line.append(payload.scores[idx])
 
+                    # see if net was correct
+                    net_scores = [float(line[3 + idx]) for idx, _ in enumerate(payload.class_names)]
+                    max_idx = net_scores.index(max(net_scores))
+                    net_class = payload.class_names[max_idx]
 
-# @router.get(
-#     "/getBlindScoreResults/{id}",
-#     tags=["train", "train3D"],
-#     response_description="returns Reponse() then downloads file.",
-#     description=getScoreResults_desc,
-# )
-# def process_blind_score_results(id: int):
-#     return
+                    if net_class == line[2]:
+                        net_num_right += 1
+                        net_num_right_per_class[max_idx] += 1
+
+        net_score = float(100.0 * net_num_right / len(payload.scores)) if len(payload.scores) != 0 else 0
+
+        # get the net score per class
+        num_images_per_class = [payload.true_classes.count(clas) for clas in payload.class_names]
+        total_images = sum(num_images_per_class)
+
+        net_score_per_class = list()
+        for idx, _ in enumerate(payload.class_names):
+            if num_images_per_class[idx] == 0:
+                net_score_per_class.append(0)
+            else:
+                net_score_per_class.append(
+                    float(100.0 * net_num_right_per_class[idx] / num_images_per_class[idx])
+                )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            csv_filename = f"{training['name']}_blindscore.csv"
+            csv_file = os.path.join(tmp_dir, csv_filename)
+
+            with open(csv_file, "w") as file:
+                writer = csv.writer(file)
+                csv_lines[0].append("blind score")
+                for line in csv_lines:
+                    writer.writerow(line)
+
+            # upload csv file to s3
+            key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}/{training['name']}_out/{training['name']}_blindscore.csv"
+            upload_file_to_s3(key, csv_file)
+
+        return Blindscore_response_model(
+            net_score=net_score,
+            net_score_per_class=net_score_per_class,
+            num_images_per_class=num_images_per_class,
+            total_images=total_images,
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting blinscore results for {training['name']}: {e}",
+        )

@@ -1,5 +1,6 @@
 from typing import Any, List
 from pydantic import BaseModel, EmailStr
+import json
 
 
 class Usage_res_model(BaseModel):
@@ -41,7 +42,7 @@ class image_upload_model(BaseModel):
     val_or_train = str
 
 
-class train_upload_model(BaseModel):
+class Train_upload_model(BaseModel):
     orig_name: str
     study_name: str
     num_classes: int
@@ -62,3 +63,24 @@ class Log_model(BaseModel):
     training_loss: List[Any]
     val_accuracy: List[Any]
     val_loss: List[Any]
+
+
+class Generate_images_response_model(BaseModel):
+    urls: List[str]
+    num_imagess: int
+    class_names: List[str]
+    true_classes: List[str]
+
+
+class Blindscore_request_model(BaseModel):
+    image_urls: List[str]
+    true_classes: List[str]
+    class_names: List[str]
+    scores: List[int]
+
+
+class Blindscore_response_model(BaseModel):
+    net_score: int
+    net_score_per_class: List[int]
+    num_images_per_class: List[int]
+    total_images: int

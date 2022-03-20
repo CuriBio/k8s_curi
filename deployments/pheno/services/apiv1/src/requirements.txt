@@ -14,10 +14,10 @@ SQLAlchemy==1.4.31
 fastapi-mail==1.0.4
 aiofile==3.7.4
 requests==2.27.1
-python-csv==0.0.13
 setuptools==57.5.0
 matplotlib==3.5.1
 pandas==1.4.1
-botocore==1.24.0
-boto3==1.21.0
+botocore==1.20.32
+boto3==1.17.32
 asyncpg==0.25.0
+# python-csv==0.0.13 breaks build sporatically 

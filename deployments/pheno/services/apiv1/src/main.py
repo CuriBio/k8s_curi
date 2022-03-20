@@ -1,6 +1,4 @@
 from fastapi import FastAPI, APIRouter
-from databases import Database
-import asyncpg
 from lib.models import *
 from lib.db import Database
 from endpoints import segmentations
