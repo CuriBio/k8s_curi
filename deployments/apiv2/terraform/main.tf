@@ -31,3 +31,8 @@ module "users" {
   source = "./users"
 }
 
+
+module "mantarray" {
+  source = "./mantarray"
+}
+
