@@ -165,6 +165,7 @@ async def update_table_value(id: int, field: str, value: str) -> JSONResponse:
 
 @router.get(
     "/newSetup/{user_id}",
+    reponse_model=New_train_response_model,
     response_description="redirects to initial setup page",
     description="Called when user clicks 'Start New Training'. Route first queries db to check if user has reached account limit of successful (status!='deleted'/'none'/'error') trainings and then redirects to setup page.",
 )
@@ -185,18 +186,20 @@ async def new_train_setup(user_id: int) -> Dict[str, Any]:
             # type is currently unused in db, only four people have 'admin' otherwise it's ''
             # could use type for user type to check limit
             if account["uploadlimit"] > num_of_trainings["count"] or account["type"] == "":
-                response_dict = dict()
 
                 # decide how to handle these user differences
-                response_dict["segtrainings"] = await cur.fetch(
+                seg_trainings = await cur.fetch(
                     "SELECT * FROM segtrainings WHERE user_id=$1 AND status!='deleted' AND status!='none'",
                     user_id,
                 )
-                response_dict["show_focus_option"] = account["type"] in ["admin", "tenaya", "mo"]
-                response_dict["select_focus_option"] = account["type"] in ["tenaya", "mo"]
-                response_dict["smart_patching_option"] = account["type"] in ["admin", "fountain"]
-                response_dict["type"] = account["type"]
-                return response_dict
+
+                return New_train_response_model(
+                    segtrainings=seg_trainings,
+                    show_focus_option=account["type"] in ["admin", "tenaya", "mo"],
+                    select_focus_option=account["type"] in ["tenaya", "mo"],
+                    smart_patching_option=account["type"] in ["admin", "fountain"],
+                    type=account["type"],
+                )
             else:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,

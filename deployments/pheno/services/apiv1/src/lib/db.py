@@ -1,9 +1,10 @@
 
 import asyncpg
+import os 
 
-#figure out how to handle db vars
-DATABASE_URL = "postgresql://luci@localhost/pheno_test"
-# DATABASE_URL = os.enviorn.get('DATABASE_URL')
+# TODO handle db vars
+# DATABASE_URL = "postgresql://luci@localhost/pheno_test"
+DATABASE_URL = os.enviorn.get('DATABASE_URL')
 
 class Database():
     async def create_pool(self):

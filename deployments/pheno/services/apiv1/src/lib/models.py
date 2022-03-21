@@ -10,6 +10,12 @@ class Usage_res_model(BaseModel):
     segtrainings: int
     total_processingtime: int
 
+class New_train_response_model(BaseModel):
+    segtrainings: List[Any]
+    show_focus_option: bool
+    select_focus_option: bool
+    smart_patching_option: bool
+    type: str
 
 class Filtered_training_model(BaseModel):
     id: int
@@ -84,3 +90,4 @@ class Blindscore_response_model(BaseModel):
     net_score_per_class: List[int]
     num_images_per_class: List[int]
     total_images: int
+

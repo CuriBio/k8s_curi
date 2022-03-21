@@ -67,12 +67,12 @@ def generate_presigned_urls_for_dir(key_prefix: str, objs_only: bool = False) ->
 # only email to consider is the register "welcome" emails
 async def email_user(params: Email_params_model) -> None:
     conf = ConnectionConfig(
-        MAIL_USERNAME="luciypak@gmail.com",
-        MAIL_PASSWORD="Qqq30916.",
-        MAIL_FROM="luciypak@gmail.com",
+        MAIL_USERNAME="tbd@gmail.com",
+        MAIL_PASSWORD="tbd",
+        MAIL_FROM="tbd@gmail.com",
         MAIL_PORT=587,
         MAIL_SERVER="smtp.gmail.com",
-        MAIL_FROM_NAME="CuriBio team",
+        MAIL_FROM_NAME="CuriBio Admin", 
         MAIL_TLS=True,
         MAIL_SSL=False,
         USE_CREDENTIALS=True,
