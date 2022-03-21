@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, Request
 from lib.models import *
 from lib.db import Database
 from endpoints import segmentations
@@ -31,3 +31,10 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     await db.close()
+
+@app.middleware("http")
+async def pre_post_request(request: Request, call_next):
+    # pre-request
+    response = await call_next(request)
+    # post-request
+    return response

@@ -1,9 +1,12 @@
 # TODO ADD YOUR ECR REPO URL
 ecr_repo = 077346344852.dkr.ecr.us-east-2.amazonaws.com/pheno/apiv1
+repo_root=$(shell git rev-parse --show-toplevel)
+
 
 .PHONY: build buildx push tag apply
 build:
-	docker build -t pheno/apiv1 .
+	cd ${repo_root} && \
+	docker build -t pheno/apiv1 . -f ${repo_root}/deployments/pheno/services/apiv1/Dockerfile
 
 buildx:
 	docker buildx build -t pheno/apiv1 . --platform linux/amd64 --load

@@ -17,43 +17,22 @@ from fastapi.responses import JSONResponse
 
 import main
 from lib.models import *
-from lib.utils import generate_presigned_get
 from lib.utils import is_image_file
 from lib.utils import format_name
 from lib.utils import makePNG
 from lib.utils import readCSV
-from lib.utils import upload_file_to_s3
-from lib.utils import copy_s3_file
-from lib.utils import copy_s3_directory
-from lib.utils import generate_presigned_urls_for_dir
+from lib.s3 import generate_presigned_get_url
+from lib.s3 import generate_presigned_post_url
+from lib.s3 import copy_s3_file
+from lib.s3 import copy_s3_directory
+from lib.s3 import generate_presigned_urls_for_dir
 
 
 logger = logging.getLogger(__name__)
 
-
 router = APIRouter(prefix="/train", tags=["trainings"])
-MODEL_ARCHS = [
-    "inception_v3",
-    "resnet18",
-    "resnet34",
-    "resnet50",
-    "resnet101",
-    "resnet152",
-    "vgg11",
-    "vgg13",
-    "vgg16",
-    "vgg19",
-    "vgg11_bn",
-    "vgg13_bn",
-    "vgg16_bn",
-    "vgg19_bn",
-    "squeezenet1_0",
-    "squeezenet1_1",
-    "densenet121",
-    "densenet169",
-    "densenet201",
-    "densenet161",
-]
+
+PHENO_BUCKET = "phenolearn"
 
 
 @router.get(
@@ -69,7 +48,7 @@ async def get_all_unfiltered_trainings(selected_user_id: int) -> List[Any]:
 
             for training in trainings:
                 key = f"trainings/{selected_user_id}/{training['study']}/{training['name']}/sample.jpg"
-                url = generate_presigned_get(key=key, exp=5 * 60e3)
+                url = generate_presigned_get_url(bucket=PHENO_BUCKET, key=key, exp=5 * 60e3)
                 training.update({"sample_url": url})
 
         return trainings
@@ -114,7 +93,7 @@ async def get_training_log(id: int) -> str:
 
             key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}/{training['name']}.log"
 
-        return generate_presigned_get(key=key, exp=5 * 60e3)
+        return generate_presigned_get_url(bucket=PHENO_BUCKET, key=key, exp=5 * 60e3)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -137,7 +116,7 @@ async def get_training_results(id: int) -> str:
 
             key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}/{training['name']}.log"
 
-        return generate_presigned_get(key=key, exp=5 * 60e3)
+        return generate_presigned_get_url(bucket=PHENO_BUCKET, key=key, exp=5 * 60e3)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -161,11 +140,9 @@ async def update_table_value(id: int, field: str, value: str) -> JSONResponse:
 
 
 # new training-related
-
-
 @router.get(
     "/newSetup/{user_id}",
-    reponse_model=New_train_response_model,
+    response_model=New_train_response_model,
     response_description="redirects to initial setup page",
     description="Called when user clicks 'Start New Training'. Route first queries db to check if user has reached account limit of successful (status!='deleted'/'none'/'error') trainings and then redirects to setup page.",
 )
@@ -218,11 +195,7 @@ async def new_train_setup(user_id: int) -> Dict[str, Any]:
 )
 async def upload_new_train_images(
     user_id: int,
-    class_name: str = "test_class",
-    name: str = "train_name",
-    val_data_source: str = "combined",
-    val_or_train: str = "train",
-    study_name: str = "study_name",
+    details=Train_upload_model,
     files: List[UploadFile] = File(...),
 ) -> JSONResponse:
 
@@ -261,21 +234,40 @@ async def upload_new_train_images(
 
                         relFileNoExt, file_ext = os.path.splitext(filename)
                         unique_name = relFileNoExt.replace("/", "_") + "_" + str(uuid.uuid4())[:8] + file_ext
+
                         if filename == "sample.jpg":  # upload sample image
-                            sample_img_key = f"trainings/{user_id}/{study_name}/{name}/sample.jpg"
-                            response = upload_file_to_s3(sample_img_key, file_path)
+                            sample_img_key = (
+                                f"trainings/{user_id}/{details.study_name}/{details.name}/sample.jpg"
+                            )
+                            upload_params = generate_presigned_post_url(
+                                PHENO_BUCKET, sample_img_key, file_path
+                            )
                         else:  # upload class images
                             key = (
-                                f"trainings/{user_id}/{study_name}/{name}/{name}/{class_name}/{unique_name}"
-                                if val_data_source == "combined"
-                                else f"trainings/{user_id}/{study_name}/{name}/{name}/{val_or_train}/{class_name}/{unique_name}"
+                                f"trainings/{user_id}/{details.study_name}/{details.name}/{details.name}/{details.class_name}/{unique_name}"
+                                if details.val_data_source == "combined"
+                                else f"trainings/{user_id}/{details.study_name}/{details.name}/{details.name}/{details.val_or_train}/{details.class_name}/{unique_name}"
                             )
 
-                            response = upload_file_to_s3(key, file_path)
+                            upload_params = generate_presigned_post_url(PHENO_BUCKET, key, file_path)
 
-            logger.info(f"Uploading {file}: {response}")
+                    # upload file to s3
+                    logger.info(f"Uploading {file}: {response}")
+                    file_name = os.path.basename(file_path)
+                    response = requests.post(
+                        upload_params["url"],
+                        data=upload_params["fields"],
+                        files={"file": (file_name, file_path)},
+                    )
+
+                    if response.status_code != 200:
+                        logger.error(
+                            f"Failed to upload {file_path} to {PHENO_BUCKET}/{key} with error: {response.status_code} {response.content}"
+                        )
+
         return JSONResponse(
-            status_code=status.HTTP_200_OK, content={"message": f"Successfully uploaded images for {name}"}
+            status_code=status.HTTP_200_OK,
+            content={"message": f"Successfully uploaded images for {details.name}"},
         )
     except Exception as e:
         raise HTTPException(
@@ -499,12 +491,12 @@ async def retrain_submit(
             # copy sample image over to new directory in s3
             source_key = f'trainings/{training["user_id"]}/{training["study"]}/{name}/sample.jpg'
             target_key = f'trainings/{user_id}/{training["study"]}/{retraining_name}/sample.jpg'
-            copy_s3_file(source_key, target_key)
+            copy_s3_file(PHENO_BUCKET, source_key, target_key)
 
             # copy original images over to new dir in s3
             source_prefix = f'trainings/{user_id}/{training["study"]}/{name}/{name}/'
             target_prefix = f'trainings/{user_id}/{training["study"]}/{retraining_name}/{retraining_name}/'
-            copy_s3_directory(source_prefix, target_prefix)
+            copy_s3_directory(PHENO_BUCKET, source_prefix, target_prefix)
 
             # TODO update job queue with new entry
 
@@ -534,7 +526,7 @@ async def plot_log(id: int):
         # get training log from s3
         # key = "trainings/84/test_training/TR-84-2022-02-28-165358/TR-84-2022-02-28-165358_out/progress.txt"
         key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_out/progress.txt'
-        url = generate_presigned_get(key)
+        url = generate_presigned_get_url(PHENO_BUCKET, key)
         if url:
 
             logfile = requests.get(url)
@@ -584,7 +576,7 @@ async def generate_patch_examples(id: int) -> List[str]:
             )
 
         key_prefix = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_patches/Val/'
-        presigned_urls = generate_presigned_urls_for_dir(key_prefix)
+        presigned_urls = generate_presigned_urls_for_dir(PHENO_BUCKET, key_prefix)
 
         return presigned_urls  # reminder that this will return an empty array if patch images are found
     except Exception as e:
@@ -609,7 +601,7 @@ async def start_blind_score(id: int):
             training = await cur.fetchrow("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
 
         key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_out/{training["name"]}.csv'
-        url = generate_presigned_get(key)
+        url = generate_presigned_get_url(PHENO_BUCKET, key)
         if url:
             response = requests.get(url)
             csv_file = response.content.decode("UTF-8")
@@ -649,7 +641,7 @@ async def generate_images_to_score(id: int):
 
         # TODO can probably pass this in request body
         key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_out/{training["name"]}.csv'
-        url = generate_presigned_get(key)
+        url = generate_presigned_get_url(PHENO_BUCKET, key)
         if url:
             response = requests.get(url)
             csv_file = response.content.decode("UTF-8")
@@ -671,14 +663,14 @@ async def generate_images_to_score(id: int):
         # get val images from s3 and check against filenames
         key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}/'
 
-        obj_keys = generate_presigned_urls_for_dir(key, True)
+        obj_keys = generate_presigned_urls_for_dir(PHENO_BUCKET, key, True)
         # get only val images that match filenames list
         obj_keys = [key for key in obj_keys if os.path.basename(key) in filenames]
 
         # randomize keys
         shuffle(obj_keys)
         # get presigned urls
-        urls = [generate_presigned_get(key) for key in obj_keys]
+        urls = [generate_presigned_get_url(PHENO_BUCKET, key) for key in obj_keys]
         # this check is in the original route, just in case
         if len(urls) == 0:
             return JSONResponse(
@@ -716,7 +708,7 @@ async def process_blind_score_results(id: int):
             )
 
         key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["study"]}_out/{training["study"]}_blindscore.csv'
-        presigned_url = generate_presigned_get(key)
+        presigned_url = generate_presigned_get_url(PHENO_BUCKET, key)
 
         return presigned_url
 
@@ -732,19 +724,19 @@ async def process_blind_score_results(id: int):
     response_model=Blindscore_response_model,
     description="Called when a user selects any of the classes in the blindscore view. Route queries db for training, processes data, uploads output .csv file to s3, and returns data dict.",
 )
-async def process_blind_score_results(id: int, payload: Blindscore_request_model):
+async def process_blind_score_results(id: int, details: Blindscore_request_model):
     try:
         async with main.db.pool.acquire() as cur:
             training = await cur.fetchrow("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
 
         # get filename from old presigned URLs
-        url_filenames = [image_url.split("?")[0].split("/")[-1] for image_url in payload.image_urls]
+        url_filenames = [image_url.split("?")[0].split("/")[-1] for image_url in details.image_urls]
         net_num_right = 0
-        net_num_right_per_class = [0 for _ in payload.class_names]
+        net_num_right_per_class = [0 for _ in details.class_names]
 
         # get output csv file from s3
         key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_out/{training["name"]}.csv'
-        url = generate_presigned_get(key)
+        url = generate_presigned_get_url(PHENO_BUCKET, key)
 
         if url:
             response = requests.get(url)
@@ -761,25 +753,25 @@ async def process_blind_score_results(id: int, payload: Blindscore_request_model
             for idx, url_filename in enumerate(url_filenames):
                 if file_name == url_filename:
                     # append the blind score to the row for writing to new csv
-                    line.append(payload.scores[idx])
+                    line.append(details.scores[idx])
 
                     # see if net was correct
-                    net_scores = [float(line[3 + idx]) for idx, _ in enumerate(payload.class_names)]
+                    net_scores = [float(line[3 + idx]) for idx, _ in enumerate(details.class_names)]
                     max_idx = net_scores.index(max(net_scores))
-                    net_class = payload.class_names[max_idx]
+                    net_class = details.class_names[max_idx]
 
                     if net_class == line[2]:
                         net_num_right += 1
                         net_num_right_per_class[max_idx] += 1
 
-        net_score = float(100.0 * net_num_right / len(payload.scores)) if len(payload.scores) != 0 else 0
+        net_score = float(100.0 * net_num_right / len(details.scores)) if len(details.scores) != 0 else 0
 
         # get the net score per class
-        num_images_per_class = [payload.true_classes.count(clas) for clas in payload.class_names]
+        num_images_per_class = [details.true_classes.count(clas) for clas in details.class_names]
         total_images = sum(num_images_per_class)
 
         net_score_per_class = list()
-        for idx, _ in enumerate(payload.class_names):
+        for idx, _ in enumerate(details.class_names):
             if num_images_per_class[idx] == 0:
                 net_score_per_class.append(0)
             else:
@@ -799,7 +791,20 @@ async def process_blind_score_results(id: int, payload: Blindscore_request_model
 
             # upload csv file to s3
             key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}/{training['name']}_out/{training['name']}_blindscore.csv"
-            upload_file_to_s3(key, csv_file)
+            upload_params = generate_presigned_post_url(PHENO_BUCKET, key, csv_file)
+
+            # upload file to s3
+            logger.info(f"Uploading {file}: {response}")
+            response = requests.post(
+                upload_params["url"],
+                data=upload_params["fields"],
+                files={"file": (csv_filename, csv_file)},
+            )
+
+            if response.status_code != 200:
+                logger.error(
+                    f"Failed to upload {csv_filename} to {PHENO_BUCKET}/{key} with error: {response.status_code} {response.content}"
+                )
 
         return Blindscore_response_model(
             net_score=net_score,

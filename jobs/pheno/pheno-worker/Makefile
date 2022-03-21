@@ -1,8 +1,10 @@
 ecr_repo = 077346344852.dkr.ecr.us-east-2.amazonaws.com/pheno-worker
+repo_root=$(shell git rev-parse --show-toplevel)
 
 .PHONY: build buildx push tag apply
 build:
-	docker build -t pheno-worker . -m 4g
+	cd ${repo_root} && \
+	docker build -t pheno-worker . -f ${repo_root}/jobs/pheno/pheno-worker/Dockerfile -m 4g 
 
 buildx:
 	docker buildx build -t pheno-worker . --platform linux/amd64 --load

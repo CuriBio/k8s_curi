@@ -49,18 +49,11 @@ class image_upload_model(BaseModel):
 
 
 class Train_upload_model(BaseModel):
-    orig_name: str
+    name: str
+    class_name: int
     study_name: str
-    num_classes: int
-    patch_description: str
-    smart_patch_seg_model: str
-    smart_patch_channel: str
-    patch_size: str
-    image_size: str
-    sample_url: str
-    val_percent: str
+    val_or_train: str
     val_data_source: str
-    remove_out_focus: str
 
 
 class Log_model(BaseModel):

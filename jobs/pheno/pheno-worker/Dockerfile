@@ -1,7 +1,7 @@
 FROM python:3.9-slim as venv
 
 WORKDIR /app
-COPY ./src/requirements.txt ./
+COPY ./jobs/pheno/pheno-worker/src/requirements.txt ./
 
 RUN python -m venv --copies /app/venv
 RUN . /app/venv/bin/activate && pip install -r ./requirements.txt
@@ -17,9 +17,10 @@ COPY --from=venv /app/venv /app/venv/
 ENV PATH /app/venv/bin:$PATH 
 
 WORKDIR /app
-COPY ./src/main.py ./
-COPY ./src/lib ./lib
-COPY ./src/pytorch ./pytorch
+COPY ./jobs/pheno/pheno-worker/src/main.py ./
+COPY ./jobs/pheno/pheno-worker/src/lib ./lib
+COPY ./jobs/pheno/pheno-worker/src/pytorch ./pytorch
+COPY ./core/lib/utils/s3.py ./lib/
 
 ENV PYTHONUNBUFFERED 1
 CMD ["python", "main.py"]
