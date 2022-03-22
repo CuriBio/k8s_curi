@@ -1,14 +1,11 @@
 import hashlib
 import base64
-import logging
 import os
-from typing import Any, List
+from typing import Any, List, Dict
 
 import boto3
 from botocore.exceptions import ClientError
 from botocore.client import Config
-
-logger = logging.getLogger(__name__)
 
 
 def generate_presigned_url(bucket: str, key: str, exp: int = 3600) -> Any:
@@ -47,7 +44,7 @@ def generate_presigned_urls_for_dir(bucket: str, key_prefix: str, objs_only: boo
         raise ClientError(f"Failed to generate presigned urls for {bucket}/{key_prefix}: {e}")
 
 
-def generate_presigned_post(bucket: str, key: str, file_path):
+def generate_presigned_post(bucket: str, key: str, file_path) -> Dict[Any, Any]:
     s3_client = boto3.client("s3", config=Config(signature_version="s3v4"))
     try:
         with open(file_path, "rb") as file_to_read:
@@ -69,7 +66,7 @@ def generate_presigned_post(bucket: str, key: str, file_path):
         raise ClientError(f"Failed to upload {file_path} to {bucket}/{key} with error: {e}")
 
 
-def copy_s3_file(bucket: str, source_key: str, target_key: str):
+def copy_s3_file(bucket: str, source_key: str, target_key: str) -> None:
     try:
         s3 = boto3.resource("s3")
         copy_source = {"Bucket": bucket, "Key": source_key}
@@ -78,7 +75,7 @@ def copy_s3_file(bucket: str, source_key: str, target_key: str):
         raise ClientError(f"Failed to copy {source_key} to {target_key} with error: {e}")
 
 
-def copy_s3_directory(bucket: str, key_prefix: str, target_prefix: str):
+def copy_s3_directory(bucket: str, key_prefix: str, target_prefix: str) -> None:
     try:
         s3 = boto3.resource("s3")
         bucket = s3.Bucket(bucket)
@@ -94,7 +91,7 @@ def copy_s3_directory(bucket: str, key_prefix: str, target_prefix: str):
         raise ClientError(f"Failed to copy files from {source_key} to {target_key} with error: {e}")
 
 
-def upload_file_to_s3(bucket, key, file):
+def upload_file_to_s3(bucket, key, file) -> None:
     s3_client = boto3.client("s3")
     try:
         with open(f"{file}", "rb") as f:
@@ -102,12 +99,11 @@ def upload_file_to_s3(bucket, key, file):
             md5 = hashlib.md5(contents).digest()
             md5s = base64.b64encode(md5).decode()
             s3_client.put_object(Body=f, Bucket=bucket, Key=key, ContentMD5=md5s)
-        logger.info(f"Uploaded file: {bucket}/{key}")
     except ClientError as e:
         raise ClientError(f"Failed to upload file {bucket}/{key}: {e}")
 
 
-def upload_directory_to_s3(bucket, key, dir):
+def upload_directory_to_s3(bucket, key, dir) -> None:
     for root, _, files in os.walk(dir):
         for file_name in files:
             # Create relative filepath to add to key prefix
@@ -118,16 +114,15 @@ def upload_directory_to_s3(bucket, key, dir):
             upload_file_to_s3(bucket, full_key, file_path)
 
 
-def download_file_from_s3(bucket, key, file_path):
+def download_file_from_s3(bucket, key, file_path) -> None:
     try:
         s3_client = boto3.client("s3")
         s3_client.download_file(Bucket=bucket, Key=key, Filename=file_path)
-        logger.info(f"Downloaded file: {bucket}/{key} to {file_path}")
     except ClientError as e:
         raise ClientError(f"Failed to download file {bucket}/{key}: {e}")
 
 
-def download_directory_from_s3(bucket, key, file_path):
+def download_directory_from_s3(bucket, key, file_path) -> None:
     try:
         s3_client = boto3.resource("s3")
         bucket = s3_client.Bucket(bucket)
