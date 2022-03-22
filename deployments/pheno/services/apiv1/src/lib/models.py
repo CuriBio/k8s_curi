@@ -1,6 +1,5 @@
 from typing import Any, List
 from pydantic import BaseModel, EmailStr
-import json
 
 
 class Usage_res_model(BaseModel):

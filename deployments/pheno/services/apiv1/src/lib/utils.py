@@ -1,7 +1,7 @@
 import re
 import pandas as pd
 
-from lib.models import *
+from .models import *
 
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from fastapi import HTTPException

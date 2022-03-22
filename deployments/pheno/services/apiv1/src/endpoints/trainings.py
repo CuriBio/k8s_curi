@@ -12,21 +12,31 @@ from random import shuffle
 
 from aiofile import async_open
 
-from fastapi import APIRouter, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, status, UploadFile, File, Form, Depends
 from fastapi.responses import JSONResponse
 
-import main
+from lib.db import database as db
 from lib.models import *
 from lib.utils import is_image_file
 from lib.utils import format_name
 from lib.utils import makePNG
 from lib.utils import readCSV
-from lib.s3 import generate_presigned_get_url
-from lib.s3 import generate_presigned_post_url
-from lib.s3 import copy_s3_file
-from lib.s3 import copy_s3_directory
-from lib.s3 import generate_presigned_urls_for_dir
 
+import sys
+
+sys.path.insert(0, "/Users/lucipak/Documents/work/CuriBio/k8s_curi")
+from core.lib.utils.s3 import generate_presigned_url
+from core.lib.utils.s3 import generate_presigned_post
+from core.lib.utils.s3 import copy_s3_file
+from core.lib.utils.s3 import copy_s3_directory
+from core.lib.utils.s3 import generate_presigned_urls_for_dir
+
+
+# from lib.s3 import generate_presigned_url
+# from lib.s3 import generate_presigned_post
+# from lib.s3 import copy_s3_file
+# from lib.s3 import copy_s3_directory
+# from lib.s3 import generate_presigned_urls_for_dir
 
 logger = logging.getLogger(__name__)
 
@@ -39,17 +49,16 @@ PHENO_BUCKET = "phenolearn"
     "/{selected_user_id}",
     description="request on initial trainings page render",
 )
-async def get_all_unfiltered_trainings(selected_user_id: int) -> List[Any]:
+async def get_all_unfiltered_trainings(selected_user_id: int, cur=Depends(db.get_cur)) -> List[Any]:
     try:
-        async with main.db.pool.acquire() as cur:
-            rows = await cur.fetch("SELECT * FROM trainings WHERE user_id=$1", selected_user_id)
+        rows = await cur.fetch("SELECT * FROM trainings WHERE user_id=$1", selected_user_id)
 
-            trainings = [dict(training) for training in rows]
+        trainings = [dict(training) for training in rows]
 
-            for training in trainings:
-                key = f"trainings/{selected_user_id}/{training['study']}/{training['name']}/sample.jpg"
-                url = generate_presigned_get_url(bucket=PHENO_BUCKET, key=key, exp=5 * 60e3)
-                training.update({"sample_url": url})
+        for training in trainings:
+            key = f"trainings/{selected_user_id}/{training['study']}/{training['name']}/sample.jpg"
+            url = generate_presigned_url(bucket=PHENO_BUCKET, key=key, exp=5 * 60e3)
+            training.update({"sample_url": url})
 
         return trainings
     except Exception as e:
@@ -63,14 +72,12 @@ async def get_all_unfiltered_trainings(selected_user_id: int) -> List[Any]:
     "/getFiltered/{selected_user_id}",
     description="Requests all trainings for user with filtered params",
 )
-async def get_all_filtered_trainings(selected_user_id: int) -> List[Filtered_training_model]:
+async def get_all_filtered_trainings(selected_user_id: int, cur=Depends(db.get_cur)) -> List[Filtered_training_model]:
     try:
-        async with main.db.pool.acquire() as cur:
-
-            rows = await cur.fetch(
-                "SELECT * FROM trainings WHERE user_id=$1 AND status!='deleted' AND status!='none'",
-                selected_user_id,
-            )
+        rows = await cur.fetch(
+            "SELECT * FROM trainings WHERE user_id=$1 AND status!='deleted' AND status!='none'",
+            selected_user_id,
+        )
 
         return [Filtered_training_model(**training).dict() for training in rows]
     except Exception as e:
@@ -84,16 +91,15 @@ async def get_all_filtered_trainings(selected_user_id: int) -> List[Filtered_tra
     "/downloadLog/{id}",
     description="Downloads user-selected training log from s3 if error occurs during training",
 )
-async def get_training_log(id: int) -> str:
+async def get_training_log(id: int, cur=Depends(db.get_cur)) -> str:
     try:
-        async with main.db.pool.acquire() as cur:
-            training = await cur.fetchrow("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
-            if not training:
-                return None
+        training = await cur.fetchrow("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
+        if not training:
+            return None
 
-            key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}/{training['name']}.log"
+        key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}/{training['name']}.log"
 
-        return generate_presigned_get_url(bucket=PHENO_BUCKET, key=key, exp=5 * 60e3)
+        return generate_presigned_url(bucket=PHENO_BUCKET, key=key, exp=5 * 60e3)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -105,18 +111,17 @@ async def get_training_log(id: int) -> str:
     "/downloadResults/{id}",
     description="Downloads user-selected training output file from s3 once status is complete",
 )
-async def get_training_results(id: int) -> str:
+async def get_training_results(id: int, cur=Depends(db.get_cur)) -> str:
     try:
-        async with main.db.pool.acquire() as cur:
 
-            training = await cur.fetchrow("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
+        training = await cur.fetchrow("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
 
-            if not training:
-                return None
+        if not training:
+            return None
 
-            key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}/{training['name']}.log"
+        key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}/{training['name']}.log"
 
-        return generate_presigned_get_url(bucket=PHENO_BUCKET, key=key, exp=5 * 60e3)
+        return generate_presigned_url(bucket=PHENO_BUCKET, key=key, exp=5 * 60e3)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -125,10 +130,9 @@ async def get_training_results(id: int) -> str:
 
 
 @router.get("/updateParam/{id}", description="Updates value in training table")
-async def update_table_value(id: int, field: str, value: str) -> JSONResponse:
+async def update_table_value(id: int, field: str, value: str, cur=Depends(db.get_cur)) -> JSONResponse:
     try:
-        async with main.db.pool.acquire() as cur:
-            await cur.execute(f"UPDATE trainings SET {field}=$1 WHERE id=$2;", id, value)
+        await cur.execute(f"UPDATE trainings SET {field}=$1 WHERE id=$2", id, value)
 
         return JSONResponse(status_code=status.HTTP_200_OK)
 
@@ -146,42 +150,41 @@ async def update_table_value(id: int, field: str, value: str) -> JSONResponse:
     response_description="redirects to initial setup page",
     description="Called when user clicks 'Start New Training'. Route first queries db to check if user has reached account limit of successful (status!='deleted'/'none'/'error') trainings and then redirects to setup page.",
 )
-async def new_train_setup(user_id: int) -> Dict[str, Any]:
+async def new_train_setup(user_id: int, cur=Depends(db.get_cur)) -> Dict[str, Any]:
     try:
-        async with main.db.pool.acquire() as cur:
 
-            # get count of existing trainings for users
-            num_of_trainings = await cur.fetchrow(
-                "SELECT COUNT(*) FROM trainings WHERE user_id=$1 AND status!='deleted' AND status!='none'",
+        # get count of existing trainings for users
+        num_of_trainings = await cur.fetchrow(
+            "SELECT COUNT(*) FROM trainings WHERE user_id=$1 AND status!='deleted' AND status!='none'",
+            user_id,
+        )
+
+        # get limit of trainings from tiered account privileges
+        account = await cur.fetchrow("SELECT uploadlimit, type, email FROM users WHERE id=$1", user_id)
+
+        # database saves unpaid users to 5, but original site requests limit of 2 non-error trainings
+        # type is currently unused in db, only four people have 'admin' otherwise it's ''
+        # could use type for user type to check limit
+        if account["uploadlimit"] > num_of_trainings["count"] or account["type"] == "":
+
+            # decide how to handle these user differences
+            seg_trainings = await cur.fetch(
+                "SELECT * FROM segtrainings WHERE user_id=$1 AND status!='deleted' AND status!='none'",
                 user_id,
             )
 
-            # get limit of trainings from tiered account privileges
-            account = await cur.fetchrow("SELECT uploadlimit, type, email FROM users WHERE id=$1", user_id)
-
-            # database saves unpaid users to 5, but original site requests limit of 2 non-error trainings
-            # type is currently unused in db, only four people have 'admin' otherwise it's ''
-            # could use type for user type to check limit
-            if account["uploadlimit"] > num_of_trainings["count"] or account["type"] == "":
-
-                # decide how to handle these user differences
-                seg_trainings = await cur.fetch(
-                    "SELECT * FROM segtrainings WHERE user_id=$1 AND status!='deleted' AND status!='none'",
-                    user_id,
-                )
-
-                return New_train_response_model(
-                    segtrainings=seg_trainings,
-                    show_focus_option=account["type"] in ["admin", "tenaya", "mo"],
-                    select_focus_option=account["type"] in ["tenaya", "mo"],
-                    smart_patching_option=account["type"] in ["admin", "fountain"],
-                    type=account["type"],
-                )
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="User has reached account limit.",
-                )
+            return New_train_response_model(
+                segtrainings=seg_trainings,
+                show_focus_option=account["type"] in ["admin", "tenaya", "mo"],
+                select_focus_option=account["type"] in ["tenaya", "mo"],
+                smart_patching_option=account["type"] in ["admin", "fountain"],
+                type=account["type"],
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User has reached account limit.",
+            )
 
     except Exception as e:
         raise HTTPException(
@@ -239,9 +242,7 @@ async def upload_new_train_images(
                             sample_img_key = (
                                 f"trainings/{user_id}/{details.study_name}/{details.name}/sample.jpg"
                             )
-                            upload_params = generate_presigned_post_url(
-                                PHENO_BUCKET, sample_img_key, file_path
-                            )
+                            upload_params = generate_presigned_post(PHENO_BUCKET, sample_img_key, file_path)
                         else:  # upload class images
                             key = (
                                 f"trainings/{user_id}/{details.study_name}/{details.name}/{details.name}/{details.class_name}/{unique_name}"
@@ -249,7 +250,7 @@ async def upload_new_train_images(
                                 else f"trainings/{user_id}/{details.study_name}/{details.name}/{details.name}/{details.val_or_train}/{details.class_name}/{unique_name}"
                             )
 
-                            upload_params = generate_presigned_post_url(PHENO_BUCKET, key, file_path)
+                            upload_params = generate_presigned_post(PHENO_BUCKET, key, file_path)
 
                     # upload file to s3
                     logger.info(f"Uploading {file}: {response}")
@@ -311,74 +312,74 @@ async def new_train_submit(
     mode: str = Form(...),
     regweight: str = Form(...),
     num_workers: str = Form(...),
+    cur=Depends(db.get_cur)
 ) -> JSONResponse:  # try to set this up as a pydantic request model instead of each individual param
 
     try:
-        async with main.db.pool.acquire() as cur:
 
-            account = await cur.fetchrow(
-                "SELECT uploadlimit, type FROM users WHERE id=$1", user_id
-            )  # figure out diff user type requirements for future
-            remove_out_focus = "no" if not remove_out_focus else remove_out_focus
+        account = await cur.fetchrow(
+            "SELECT uploadlimit, type FROM users WHERE id=$1", user_id
+        )  # figure out diff user type requirements for future
+        remove_out_focus = "no" if not remove_out_focus else remove_out_focus
 
-            # remove spaces and special characters
-            orig_name = format_name(orig_name)
-            if study_name == "":
-                study_name = "None"
-            else:
-                study_name = format_name(study_name)
+        # remove spaces and special characters
+        orig_name = format_name(orig_name)
+        if study_name == "":
+            study_name = "None"
+        else:
+            study_name = format_name(study_name)
 
-            # set up name
-            now = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-            training_name = f"TR-{user_id}-{now}"
+        # set up name
+        now = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+        training_name = f"TR-{user_id}-{now}"
 
-            # update review status on user type
-            skip_review = (
-                "yes"
-                if account["type"]
-                in ["admin", "mo", "tenaya", "fountain", "shadi", "juan", "charlene", "chronus"]
-                else "no"
-            )
+        # update review status on user type
+        skip_review = (
+            "yes"
+            if account["type"]
+            in ["admin", "mo", "tenaya", "fountain", "shadi", "juan", "charlene", "chronus"]
+            else "no"
+        )
 
-            # insert new training data
-            await cur.execute(
-                "INSERT INTO trainings (name, study, origname, status, patches, smartpatchsegmodel, smartpatchchannel, patchsize, imagesize, user_id, valdatasource, valpercent, removeoutfocus, version, arch, precropsize, epochs, batchsize, learnrate, momentum, weightdecay, checkpoint, transfer, augment, preaugment, stopcriteria, noscale, convert2gray, weightedsampling, numworkers, mode, regweight, isreviewed) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33)",
-                training_name,
-                study_name,
-                orig_name,
-                "none",
-                patch_description,
-                smart_patch_seg_model,
-                smart_patch_channel,
-                patch_size,
-                image_size,
-                user_id,
-                val_data_source,
-                val_percent,
-                remove_out_focus,
-                "web",
-                arch,
-                precrop_size,
-                min(epochs, 100),
-                batch_size,
-                learn_rate,
-                momentum,
-                weight_decay,
-                checkpoint,
-                transfer,
-                augment,
-                preaugment,
-                stop_criteria,
-                no_scale,
-                convert2gray,
-                weighted_sampling,
-                num_workers,
-                mode,
-                regweight,
-                skip_review,
-            )
+        # insert new training data
+        await cur.execute(
+            "INSERT INTO trainings (name, study, origname, status, patches, smartpatchsegmodel, smartpatchchannel, patchsize, imagesize, user_id, valdatasource, valpercent, removeoutfocus, version, arch, precropsize, epochs, batchsize, learnrate, momentum, weightdecay, checkpoint, transfer, augment, preaugment, stopcriteria, noscale, convert2gray, weightedsampling, numworkers, mode, regweight, isreviewed) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33)",
+            training_name,
+            study_name,
+            orig_name,
+            "none",
+            patch_description,
+            smart_patch_seg_model,
+            smart_patch_channel,
+            patch_size,
+            image_size,
+            user_id,
+            val_data_source,
+            val_percent,
+            remove_out_focus,
+            "web",
+            arch,
+            precrop_size,
+            min(epochs, 100),
+            batch_size,
+            learn_rate,
+            momentum,
+            weight_decay,
+            checkpoint,
+            transfer,
+            augment,
+            preaugment,
+            stop_criteria,
+            no_scale,
+            convert2gray,
+            weighted_sampling,
+            num_workers,
+            mode,
+            regweight,
+            skip_review,
+        )
 
-            # TODO update job queue with new entry
+        # TODO update job queue with new entry
 
     except Exception as e:
         raise HTTPException(
@@ -429,76 +430,76 @@ async def retrain_submit(
     mode: str = Form(...),
     regweight: str = Form(...),
     num_workers: str = Form(...),
+    cur=Depends(db.get_cur)
 ) -> JSONResponse:
     try:
-        async with main.db.pool.acquire() as cur:
 
-            # get original training entry
-            training = await cur.fetchrow("SELECT * FROM trainings WHERE id=$1", id)
+        # get original training entry
+        training = await cur.fetchrow("SELECT * FROM trainings WHERE id=$1", id)
 
-            # check for if user has special privileges to skip required review
-            skip_review = (
-                "yes"
-                if whichuser in ["admin", "mo", "tenaya", "fountain", "shadi", "juan", "charlene", "chronus"]
-                else "no"
-            )
+        # check for if user has special privileges to skip required review
+        skip_review = (
+            "yes"
+            if whichuser in ["admin", "mo", "tenaya", "fountain", "shadi", "juan", "charlene", "chronus"]
+            else "no"
+        )
 
-            # set up name
-            now = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-            retraining_name = f"RE-{user_id}-{now}"
-            remove_out_focus = "no" if not remove_out_focus else remove_out_focus
+        # set up name
+        now = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+        retraining_name = f"RE-{user_id}-{now}"
+        remove_out_focus = "no" if not remove_out_focus else remove_out_focus
 
-            await cur.execute(
-                "INSERT INTO trainings (name, origname, study, patches, retrain, smartpatchsegmodel, smartpatchchannel, patchsize, imagesize, classnames, imagesperclass, user_id, type, filternet, valdatasource, removeoutfocus, version, arch, precropsize, epochs, batchsize, learnrate, momentum, weightdecay, checkpoint, transfer, augment, preaugment, stopcriteria, noscale, convert2gray, weightedsampling, numworkers, mode, regweight, isreviewed) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $38)",
-                retraining_name,
-                user_id,
-                orig_name,
-                training["study"],
-                patch_description,
-                training["name"],
-                smart_patch_seg_model,
-                smart_patch_channel,
-                patch_size,
-                training["imagesize"],
-                training["classnames"],
-                training["imagesperclass"],
-                training["filternet"],
-                val_percent,
-                val_data_source,
-                remove_out_focus,
-                "web",
-                arch,
-                precrop_size,
-                min(epochs, 100),
-                batch_size,
-                learn_rate,
-                momentum,
-                weight_decay,
-                checkpoint,
-                transfer,
-                augment,
-                preaugment,
-                stop_criteria,
-                no_scale,
-                convert2gray,
-                weighted_sampling,
-                num_workers,
-                mode,
-                regweight,
-                skip_review,
-            )
+        await cur.execute(
+            "INSERT INTO trainings (name, origname, study, patches, retrain, smartpatchsegmodel, smartpatchchannel, patchsize, imagesize, classnames, imagesperclass, user_id, type, filternet, valdatasource, removeoutfocus, version, arch, precropsize, epochs, batchsize, learnrate, momentum, weightdecay, checkpoint, transfer, augment, preaugment, stopcriteria, noscale, convert2gray, weightedsampling, numworkers, mode, regweight, isreviewed) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $38)",
+            retraining_name,
+            user_id,
+            orig_name,
+            training["study"],
+            patch_description,
+            training["name"],
+            smart_patch_seg_model,
+            smart_patch_channel,
+            patch_size,
+            training["imagesize"],
+            training["classnames"],
+            training["imagesperclass"],
+            training["filternet"],
+            val_percent,
+            val_data_source,
+            remove_out_focus,
+            "web",
+            arch,
+            precrop_size,
+            min(epochs, 100),
+            batch_size,
+            learn_rate,
+            momentum,
+            weight_decay,
+            checkpoint,
+            transfer,
+            augment,
+            preaugment,
+            stop_criteria,
+            no_scale,
+            convert2gray,
+            weighted_sampling,
+            num_workers,
+            mode,
+            regweight,
+            skip_review,
+        )
 
-            # copy sample image over to new directory in s3
-            source_key = f'trainings/{training["user_id"]}/{training["study"]}/{name}/sample.jpg'
-            target_key = f'trainings/{user_id}/{training["study"]}/{retraining_name}/sample.jpg'
-            copy_s3_file(PHENO_BUCKET, source_key, target_key)
+        # copy sample image over to new directory in s3
+        source_key = f'trainings/{training["user_id"]}/{training["study"]}/{name}/sample.jpg'
+        target_key = f'trainings/{user_id}/{training["study"]}/{retraining_name}/sample.jpg'
+        copy_s3_file(PHENO_BUCKET, source_key, target_key)
 
-            # copy original images over to new dir in s3
-            source_prefix = f'trainings/{user_id}/{training["study"]}/{name}/{name}/'
-            target_prefix = f'trainings/{user_id}/{training["study"]}/{retraining_name}/{retraining_name}/'
-            copy_s3_directory(PHENO_BUCKET, source_prefix, target_prefix)
+        # copy original images over to new dir in s3
+        source_prefix = f'trainings/{user_id}/{training["study"]}/{name}/{name}/'
+        target_prefix = f'trainings/{user_id}/{training["study"]}/{retraining_name}/{retraining_name}/'
+        copy_s3_directory(PHENO_BUCKET, source_prefix, target_prefix)
 
-            # TODO update job queue with new entry
+        # TODO update job queue with new entry
 
     except Exception as e:
         raise HTTPException(
@@ -517,16 +518,15 @@ async def retrain_submit(
     response_model=Log_model,
     description="Called from details view on init every 10 seconds. Route queries db for training name and checks s3 if training exists. if it exists, copys data from file in  s3 and returns it.",
 )
-async def plot_log(id: int):
+async def plot_log(id: int, cur=Depends(db.get_cur)):
     try:
         # get training details for s3 key
-        async with main.db.pool.acquire() as cur:
-            training = await cur.fetchrow("SELECT * FROM trainings WHERE id=$1", id)
+        training = await cur.fetchrow("SELECT * FROM trainings WHERE id=$1", id)
 
         # get training log from s3
         # key = "trainings/84/test_training/TR-84-2022-02-28-165358/TR-84-2022-02-28-165358_out/progress.txt"
         key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_out/progress.txt'
-        url = generate_presigned_get_url(PHENO_BUCKET, key)
+        url = generate_presigned_url(PHENO_BUCKET, key)
         if url:
 
             logfile = requests.get(url)
@@ -567,13 +567,12 @@ async def plot_log(id: int):
     "/generatePatchExamples/{id}",
     description="Called from details view on init every 10 seconds. Route queries db for training name and checks s3 if training exists. if it exists, copys data from file in  s3 and returns it.",
 )
-async def generate_patch_examples(id: int) -> List[str]:
+async def generate_patch_examples(id: int, cur=Depends(db.get_cur)) -> List[str]:
     try:
         # get training details for s3 key
-        async with main.db.pool.acquire() as cur:
-            training = await cur.fetchrow(
-                "SELECT name, study, user_id, classnames FROM trainings WHERE id=$1", id
-            )
+        training = await cur.fetchrow(
+            "SELECT name, study, user_id, classnames FROM trainings WHERE id=$1", id
+        )
 
         key_prefix = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_patches/Val/'
         presigned_urls = generate_presigned_urls_for_dir(PHENO_BUCKET, key_prefix)
@@ -594,14 +593,13 @@ async def generate_patch_examples(id: int) -> List[str]:
     response_description="redirects to blindscore view with props updated with training, number of vals, classnames, userid and error if error.",
     description="Called when user clicks 'Launch' for training. Route queries db for training with ID and gets classnames. Route checks if object exists in s3 and if exists, counts number of val images. ",
 )
-async def start_blind_score(id: int):
+async def start_blind_score(id: int, cur=Depends(db.get_cur)):
     try:
         # get output csv file from s3
-        async with main.db.pool.acquire() as cur:
-            training = await cur.fetchrow("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
+        training = await cur.fetchrow("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
 
         key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_out/{training["name"]}.csv'
-        url = generate_presigned_get_url(PHENO_BUCKET, key)
+        url = generate_presigned_url(PHENO_BUCKET, key)
         if url:
             response = requests.get(url)
             csv_file = response.content.decode("UTF-8")
@@ -631,17 +629,16 @@ async def start_blind_score(id: int):
     response_model=Generate_images_response_model,
     description="Route called when user clicks 'start / restart' from the blindscore view. Route queries db for training and checks against various conditions in s3, generates presignedURLs for each val file in s3 and returns data dict.",
 )
-async def generate_images_to_score(id: int):
+async def generate_images_to_score(id: int, cur=Depends(db.get_cur)):
     try:
         # get output csv file from s3
-        async with main.db.pool.acquire() as cur:
-            training = await cur.fetchrow(
-                "SELECT name, classnames, user_id, study FROM trainings WHERE id=$1", id
-            )
+        training = await cur.fetchrow(
+            "SELECT name, classnames, user_id, study FROM trainings WHERE id=$1", id
+        )
 
         # TODO can probably pass this in request body
         key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_out/{training["name"]}.csv'
-        url = generate_presigned_get_url(PHENO_BUCKET, key)
+        url = generate_presigned_url(PHENO_BUCKET, key)
         if url:
             response = requests.get(url)
             csv_file = response.content.decode("UTF-8")
@@ -670,7 +667,7 @@ async def generate_images_to_score(id: int):
         # randomize keys
         shuffle(obj_keys)
         # get presigned urls
-        urls = [generate_presigned_get_url(PHENO_BUCKET, key) for key in obj_keys]
+        urls = [generate_presigned_url(PHENO_BUCKET, key) for key in obj_keys]
         # this check is in the original route, just in case
         if len(urls) == 0:
             return JSONResponse(
@@ -698,17 +695,16 @@ async def generate_images_to_score(id: int):
     response_description="returns Reponse() then downloads file.",
     description="Once a user processes the results, then they will be able to click 'Download Results'. Route gets output csv file from s3 and downloads it to local directory.",
 )
-async def process_blind_score_results(id: int):
+async def process_blind_score_results(id: int, cur=Depends(db.get_cur)):
 
     try:
         # get output csv file from s3
-        async with main.db.pool.acquire() as cur:
-            training = await cur.fetchrow(
-                "SELECT name, classnames, user_id, study FROM trainings WHERE id=$1", id
-            )
+        training = await cur.fetchrow(
+            "SELECT name, classnames, user_id, study FROM trainings WHERE id=$1", id
+        )
 
         key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["study"]}_out/{training["study"]}_blindscore.csv'
-        presigned_url = generate_presigned_get_url(PHENO_BUCKET, key)
+        presigned_url = generate_presigned_url(PHENO_BUCKET, key)
 
         return presigned_url
 
@@ -724,10 +720,9 @@ async def process_blind_score_results(id: int):
     response_model=Blindscore_response_model,
     description="Called when a user selects any of the classes in the blindscore view. Route queries db for training, processes data, uploads output .csv file to s3, and returns data dict.",
 )
-async def process_blind_score_results(id: int, details: Blindscore_request_model):
+async def process_blind_score_results(id: int, details: Blindscore_request_model, cur=Depends(db.get_cur)):
     try:
-        async with main.db.pool.acquire() as cur:
-            training = await cur.fetchrow("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
+        training = await cur.fetchrow("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
 
         # get filename from old presigned URLs
         url_filenames = [image_url.split("?")[0].split("/")[-1] for image_url in details.image_urls]
@@ -736,7 +731,7 @@ async def process_blind_score_results(id: int, details: Blindscore_request_model
 
         # get output csv file from s3
         key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_out/{training["name"]}.csv'
-        url = generate_presigned_get_url(PHENO_BUCKET, key)
+        url = generate_presigned_url(PHENO_BUCKET, key)
 
         if url:
             response = requests.get(url)
@@ -791,7 +786,7 @@ async def process_blind_score_results(id: int, details: Blindscore_request_model
 
             # upload csv file to s3
             key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}/{training['name']}_out/{training['name']}_blindscore.csv"
-            upload_params = generate_presigned_post_url(PHENO_BUCKET, key, csv_file)
+            upload_params = generate_presigned_post(PHENO_BUCKET, key, csv_file)
 
             # upload file to s3
             logger.info(f"Uploading {file}: {response}")
