@@ -104,7 +104,7 @@ def upload_file_to_s3(bucket, key, file):
             s3_client.put_object(Body=f, Bucket=bucket, Key=key, ContentMD5=md5s)
         logger.info(f"Uploaded file: {bucket}/{key}")
     except ClientError as e:
-        logger.error(f"Failed to upload file {bucket}/{key}: {e}")
+        raise ClientError(f"Failed to upload file {bucket}/{key}: {e}")
 
 
 def upload_directory_to_s3(bucket, key, dir):
@@ -124,7 +124,7 @@ def download_file_from_s3(bucket, key, file_path):
         s3_client.download_file(Bucket=bucket, Key=key, Filename=file_path)
         logger.info(f"Downloaded file: {bucket}/{key} to {file_path}")
     except ClientError as e:
-        logger.error(f"Failed to download file {bucket}/{key}: {e}")
+        raise ClientError(f"Failed to download file {bucket}/{key}: {e}")
 
 
 def download_directory_from_s3(bucket, key, file_path):
@@ -144,4 +144,4 @@ def download_directory_from_s3(bucket, key, file_path):
             # download to target directory with filename
             bucket.download_file(obj.key, target_dir)
     except Exception as e:
-        logger.error(f"Failed to download directory {bucket}/{key}: {e}")
+        raise ClientError(f"Failed to download directory {bucket}/{key}: {e}")
