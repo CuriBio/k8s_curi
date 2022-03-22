@@ -1,0 +1,5 @@
+bucket               = "curi-eks-prod-cluster-tf-state"
+key                  = "jobs/pulse3d/pulse3d-worker.tfstate"
+region               = "us-east-2"
+dynamodb_table       = ""
+workspace_key_prefix = "env"
