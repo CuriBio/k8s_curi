@@ -30,7 +30,6 @@ spec:
             value:
               - open
           - path: body.pull_request.base.ref
-            comparator: "!="
             type: string
             value:
               - main
