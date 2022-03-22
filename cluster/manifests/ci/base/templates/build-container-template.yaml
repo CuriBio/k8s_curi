@@ -28,7 +28,7 @@ spec:
           mountPath: /tmp/git
       command: ["sh"]
       source: |
-        git clone -q --depth 1 --branch "{{inputs.parameters.branch}}" "{{inputs.parameters.repo}}"
+        git clone -q --branch "{{inputs.parameters.branch}}" "{{inputs.parameters.repo}}"
         cd k8s_curi
 
         SERVICES=$(builder --changed --status=pending --sha={{inputs.parameters.sha}})

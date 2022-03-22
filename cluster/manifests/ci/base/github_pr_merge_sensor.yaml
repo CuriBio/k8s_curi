@@ -21,14 +21,11 @@ spec:
           - path: body.action
             type: string
             value:
-              - opened
-              - edited
-              - reopened
-              - synchronize
-          - path: body.pull_request.state
-            type: string
+              - closed
+          - path: body.pull_requests.merged
+            type: bool
             value:
-              - open
+              - "true"
           - path: body.pull_request.base.ref
             type: string
             value:
