@@ -1,8 +1,10 @@
 ecr_repo = 077346344852.dkr.ecr.us-east-2.amazonaws.com/mantarray
+repo_root=$(shell git rev-parse --show-toplevel)
 
 .PHONY: build buildx push tag apply
 build:
-	docker build -t mantarray .
+	cd ${repo_root} && \
+	docker build -t mantarray . -f ${repo_root}/deployments/apiv2/services/mantarray/Dockerfile
 
 buildx:
 	docker buildx build -t mantarray . --platform linux/amd64 --load

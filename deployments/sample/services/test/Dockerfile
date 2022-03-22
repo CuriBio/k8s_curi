@@ -11,8 +11,6 @@ COPY ./core/lib/jobs ./lib/jobs
 RUN python -m venv --copies /app/venv
 RUN . /app/venv/bin/activate && pip install -r ./requirements.txt && pip install ./lib/jobs
 
-
-
 FROM python:3.9-slim as prod
 
 COPY --from=venv /app/venv /app/venv/
