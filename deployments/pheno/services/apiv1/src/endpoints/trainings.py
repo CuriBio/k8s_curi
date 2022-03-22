@@ -38,11 +38,11 @@ from core.lib.utils.s3 import generate_presigned_urls_for_dir
 # from lib.s3 import copy_s3_directory
 # from lib.s3 import generate_presigned_urls_for_dir
 
+logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/train", tags=["trainings"])
-
-PHENO_BUCKET = "phenolearn"
+PHENO_BUCKET = os.environ.get("PHENO_BUCKET_ENV", "phenolearn")
 
 
 @router.get(
@@ -72,7 +72,9 @@ async def get_all_unfiltered_trainings(selected_user_id: int, cur=Depends(db.get
     "/getFiltered/{selected_user_id}",
     description="Requests all trainings for user with filtered params",
 )
-async def get_all_filtered_trainings(selected_user_id: int, cur=Depends(db.get_cur)) -> List[Filtered_training_model]:
+async def get_all_filtered_trainings(
+    selected_user_id: int, cur=Depends(db.get_cur)
+) -> List[Filtered_training_model]:
     try:
         rows = await cur.fetch(
             "SELECT * FROM trainings WHERE user_id=$1 AND status!='deleted' AND status!='none'",
@@ -312,7 +314,7 @@ async def new_train_submit(
     mode: str = Form(...),
     regweight: str = Form(...),
     num_workers: str = Form(...),
-    cur=Depends(db.get_cur)
+    cur=Depends(db.get_cur),
 ) -> JSONResponse:  # try to set this up as a pydantic request model instead of each individual param
 
     try:
@@ -430,7 +432,7 @@ async def retrain_submit(
     mode: str = Form(...),
     regweight: str = Form(...),
     num_workers: str = Form(...),
-    cur=Depends(db.get_cur)
+    cur=Depends(db.get_cur),
 ) -> JSONResponse:
     try:
 

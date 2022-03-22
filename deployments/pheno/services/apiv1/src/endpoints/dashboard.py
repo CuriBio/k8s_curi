@@ -1,6 +1,12 @@
+import logging
+
 from fastapi import APIRouter, HTTPException, status, Depends
 from lib.db import database as db
 from lib.models import *
+
+
+logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["dashboard"])
 
@@ -9,7 +15,7 @@ router = APIRouter(tags=["dashboard"])
 async def query_for_user_usage(user_id: int, month: int, year: int, cur=Depends(db.get_cur)):
     try:
         response_dict = dict()
-
+        
         # query for count of each individual table
         count_query = """SELECT 
             (SELECT COUNT(*) FROM trainings WHERE user_id=$1 AND EXTRACT(MONTH FROM created_at)=$2 AND EXTRACT(YEAR FROM created_at)=$3) as trainings,

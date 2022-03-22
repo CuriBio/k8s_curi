@@ -18,7 +18,8 @@ from src import main
 
 
 def test_usage_route(mocker, client):
+    # client, cur = client
 
-    response = client.get("/usage/1")
+    response = client.get("/usage/1?month=2&year=2022")
     assert response.content == "hi"
 
