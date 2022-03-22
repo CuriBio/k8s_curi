@@ -15,7 +15,7 @@ from jobs import get_item, EmptyQueue
 logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
 
-PULSE3D_UPLOADS_BUCKET = os.getenv(UPLOADS_BUCKET_ENV, "test-sdk-upload")
+PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-sdk-upload")
 
 @get_item(queue="pulse3d")
 async def process(con, item):
