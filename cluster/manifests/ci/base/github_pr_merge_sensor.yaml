@@ -59,10 +59,9 @@ spec:
                     - name: title
                     - name: number
                     - name: sha
+                    - name: branch
                     - name: repo
                       value: https://github.com/CuriBio/k8s_curi.git
-                    - name: branch
-                      value: main
           parameters:
             - src:
                 dependencyName: github-dep
@@ -76,6 +75,10 @@ spec:
                 dependencyName: github-dep
                 dataKey: body.pull_request.head.sha
               dest: spec.arguments.parameters.2.value
+            - src:
+                dependencyName: github-dep
+                dataKey: body.pull_request.head.ref
+              dest: spec.arguments.parameters.3.value
             # Append pull request number and short sha to dynamically assign workflow name <github-21500-2c065a>
             - src:
                 dependencyName: github-dep
