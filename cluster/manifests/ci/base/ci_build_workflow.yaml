@@ -39,7 +39,7 @@ spec:
     - - name: build-services
         templateRef:
           name: build-service
-          template: kaniko-build-push-service
+          template: kaniko-build-service
         arguments:
           parameters:
             - name: path

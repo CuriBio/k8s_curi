@@ -13,7 +13,7 @@ spec:
       - name: branch
       - name: sha
     script:
-      image: alpine/git:latest
+      image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
       workingDir: /tmp/git
       env:
         - name: TOKEN
@@ -21,23 +21,17 @@ spec:
             secretKeyRef:
               name: github-access-token
               key: token
+        # - name: ARGO_DEBUG_PAUSE_AFTER
+        #   value: 'true'
       volumeMounts:
         - name: workdir
           mountPath: /tmp/git
       command: ["sh"]
       source: |
-        apk update 1>/dev/null
-        apk add --no-cache curl jq 1>/dev/null
-
         git clone -q --depth 1 --branch "{{inputs.parameters.branch}}" "{{inputs.parameters.repo}}"
         cd k8s_curi
 
-        SERVICES=$(find ./deployments -type f -name 'Dockerfile' -exec dirname {} \; | jq -R -s -c 'split("\n")[:-1] | [.[] | {"path": ., "deployment": split("/")[2], "service": split("/")[4]}]')
-        echo $SERVICES | jq -r '.[] | (.deployment + "/" + .service)' | xargs -n 1 -I {} \
-         curl -q -H "Authorization: $TOKEN" \
-              -H "Content-Type: application/json" \
-              -d '{"state": "pending", "context": "{}"}' \
-              "https://api.github.com/repos/CuriBio/k8s_curi/statuses/{{inputs.parameters.sha}}" 1&>/dev/null
+        SERVICES=$(builder --changed --status=pending --sha={{inputs.parameters.sha}})
         echo $SERVICES
   - name: http-status
     inputs:
@@ -46,7 +40,7 @@ spec:
       - name: context
       - name: sha
     script:
-      image: alpine:latest
+      image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
       command: ["sh"]
       env:
         - name: TOKEN
@@ -55,11 +49,7 @@ spec:
               name: github-access-token
               key: token
       source: |
-        apk --no-cache add curl
-        curl -q -H "Content-Type: applicaiont/json" \
-             -H "Authorization: $TOKEN" \
-             -d '{ "state": "{{inputs.parameters.status}}", "context": "{{inputs.parameters.context}}" }' \
-             "https://api.github.com/repos/CuriBio/k8s_curi/statuses/{{inputs.parameters.sha}}" 1&>/dev/null
+        builder --status={{inputs.parameters.status}} --context={{inputs.parameters.context}} --sha={{inputs.parameters.sha}}
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
@@ -108,7 +98,7 @@ spec:
         arguments:
           parameters:
             - name: status
-              value: failed
+              value: failure
             - name: context
               value: "{{inputs.parameters.deployment}}/{{inputs.parameters.service}}"
             - name: sha
@@ -125,7 +115,8 @@ spec:
       workingDir: /tmp/git/k8s_curi
       args:
       - --no-push
-      - --context={{inputs.parameters.path}}
+      - --context=/tmp/git/k8s_curi/
+      - --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
       volumeMounts:
         - name: workdir
           mountPath: /tmp/git
@@ -189,7 +180,7 @@ spec:
         arguments:
           parameters:
             - name: status
-              value: failed
+              value: failure
             - name: context
               value: "{{inputs.parameters.deployment}}/{{inputs.parameters.service}}"
             - name: sha
@@ -210,7 +201,8 @@ spec:
           value: 'true'
       args:
       - --destination=245339368379.dkr.ecr.us-east-2.amazonaws.com/{{inputs.parameters.service}}:latest
-      - --context=/tmp/git/k8s_curi/{{inputs.parameters.path}}
+      - --context=/tmp/git/k8s_curi/
+      - --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
       volumeMounts:
         - name: workdir
           mountPath: /tmp/git
