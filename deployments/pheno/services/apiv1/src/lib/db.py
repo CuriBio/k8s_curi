@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 # TODO handle db vars
 DATABASE_URL = "postgresql://luci@localhost/pheno_test"
 # DATABASE_URL = os.environ.get('DATABASE_URL')
+print(DATABASE_URL)
 
 class Database():
     def __init__(self):

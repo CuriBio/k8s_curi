@@ -79,7 +79,7 @@ async def get_all_filtered_trainings(selected_user_id: int, cur=Depends(db.get_c
             selected_user_id,
         )
 
-        return [Filtered_training_model(**training).dict() for training in rows]
+        return [Filtered_training_model(**training) for training in rows]
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -550,7 +550,7 @@ async def plot_log(id: int, cur=Depends(db.get_cur)):
                     response_dict["val_accuracy"].append(line[3])
                     response_dict["val_loss"].append(line[4])
 
-            return Log_model(**response_dict).dict()
+            return Log_model(**response_dict)
         else:
             return JSONResponse(
                 status_code=status.HTTP_404_NOT_FOUND,

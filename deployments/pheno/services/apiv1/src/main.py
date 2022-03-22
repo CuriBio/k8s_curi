@@ -39,3 +39,6 @@ async def pre_post_request(request: Request, call_next):
     # post-request
     return response
 
+@app.get("/")
+async def shutdown():
+    return "hey"
