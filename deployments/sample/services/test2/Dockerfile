@@ -2,7 +2,6 @@ FROM python:3.9-slim as venv
 
 WORKDIR /app
 COPY ./deployments/sample/services/test2/src/requirements.txt ./
-COPY ./src/requirements.txt ./
 
 RUN python -m venv --copies /app/venv
 RUN . /app/venv/bin/activate && pip install -r ./requirements.txt
