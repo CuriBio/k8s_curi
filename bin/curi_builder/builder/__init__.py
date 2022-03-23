@@ -9,12 +9,12 @@ import requests
 
 
 def find_changed():
-    # r = subprocess.run(["git", "--no-pager", "diff", "main", "--name-only", "./deployments"], stdout=subprocess.PIPE)
-    # s = r.stdout.decode("utf-8").split("\n")[:-1]
-    # return [{"path": f"./{'/'.join(x.split('/')[:-2])}", "deployment": x.split("/")[1], "service": x.split("/")[3]} for x in s]
+    r = subprocess.run(["git", "--no-pager", "diff", "main", "--name-only", "./deployments"], stdout=subprocess.PIPE)
+    s = r.stdout.decode("utf-8").split("\n")[:-1]
+    return [{"path": f"./{'/'.join(x.split('/')[:-2])}", "deployment": x.split("/")[1], "service": x.split("/")[3]} for x in s]
 
-    ds = glob.glob('./deployments/**/Dockerfile', recursive=True)
-    return [{"path": f"./{'/'.join(d.split('/')[:-1])}", "deployment": d.split("/")[2], "service": d.split("/")[4]} for d in ds]
+    # ds = glob.glob('./deployments/**/Dockerfile', recursive=True)
+    # return [{"path": f"./{'/'.join(d.split('/')[:-1])}", "deployment": d.split("/")[2], "service": d.split("/")[4]} for d in ds]
 
 
 def set_build_status(build, status, sha, token):
