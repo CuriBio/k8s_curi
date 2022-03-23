@@ -12,8 +12,8 @@ from endpoints import user
 app = FastAPI()
 api_router = APIRouter()
 
-api_router.include_router(trainings.router)
-api_router.include_router(user.router)
+# api_router.include_router(trainings.router)
+# api_router.include_router(user.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(segmentations.router)
 api_router.include_router(segtrainings.router)
@@ -38,7 +38,3 @@ async def pre_post_request(request: Request, call_next):
     response = await call_next(request)
     # post-request
     return response
-
-@app.get("/")
-async def shutdown():
-    return "hey"

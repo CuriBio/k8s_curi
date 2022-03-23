@@ -1,9 +1,8 @@
 import asyncpg
 import os
-from contextlib import asynccontextmanager
 
 # TODO handle db vars
-my_db = "postgresql://luci@localhost/pheno_test"
+# my_db = "postgresql://luci@localhost/pheno_test"
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
@@ -20,14 +19,13 @@ class Database:
     async def close(self):
         await self.pool.close()
 
-    async def get_cur(self):
-        conn = await self.pool.acquire()
-        try:
-            yield conn
-        finally:
-            await self.pool.release(conn)
 
-    __call__ = asynccontextmanager(get_cur)
+async def get_cur():
+    conn = await database.pool.acquire()
+    try:
+        yield conn
+    finally:
+        await database.pool.release(conn)
 
 
 database = Database()
