@@ -28,6 +28,7 @@ def client(mocker, mock_cursor):
     # mock db class
     mocker.patch.object(Database, "create_pool", autospec=True)
     mocker.patch.object(Database, "close", autospec=True)
+
     # override cursor dependency
     app.dependency_overrides[get_cur] = lambda: mock_cursor
 

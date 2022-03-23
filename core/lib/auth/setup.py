@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name='auth',
     version='0.0.1',
-    description='CuriBio jobs queue',
+    description='CuriBio auth utils',
     packages=find_packages(include=['auth']),
     install_requires=[
         'pydantic==1.9.0',

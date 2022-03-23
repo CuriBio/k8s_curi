@@ -7,16 +7,16 @@ class EmptyQueue(Exception):
     pass
 
 def get_item(*, queue):
-    QUERY = "DELETE FROM jobs_queue WHERE id = (SELECT id FROM jobs_queue WHERE queue=$1 ORDER BY priority DESC, created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING id, upload_id, created_at, meta"
+    query = "DELETE FROM jobs_queue WHERE id = (SELECT id FROM jobs_queue WHERE queue=$1 ORDER BY priority DESC, created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING id, upload_id, created_at, meta"
 
     def _outer(fn):
         @wraps(fn)
         async def _inner(*, con):
             async with con.transaction():
-                item = await con.fetchrow(QUERY, queue)
+                item = await con.fetchrow(query, queue)
                 if item:
                     ts = time.time()
-                    (status, meta) = await fn(item)
+                    (status, meta) = await fn(con, item)
                     data = [
                         ('job_id', item.get("id")),
                         ('upload_id', item.get("upload_id")),
@@ -30,7 +30,7 @@ def get_item(*, queue):
 
                     await con.execute(f"INSERT INTO jobs_result ({', '.join(cvs[0])}) VALUES ({places})", *cvs[1])
                 else:
-                    raise EmptyQueue
+                    raise EmptyQueue(queue)
         return _inner
     return _outer
 
