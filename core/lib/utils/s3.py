@@ -50,11 +50,9 @@ def generate_presigned_post(bucket: str, key: str, file_path: str, md5s: str) ->
         fields = {"Content-MD5": md5s}
         conditions = [["starts-with", "$Content-MD5", ""]]
 
-        params = s3_client.generate_presigned_post(
+        return s3_client.generate_presigned_post(
             bucket, key, Fields=fields, Conditions=conditions, ExpiresIn=3600
         )
-
-        return params
     except ClientError as e:
         raise ClientError(f"Failed to upload {file_path} to {bucket}/{key} with error: {e}")
 
