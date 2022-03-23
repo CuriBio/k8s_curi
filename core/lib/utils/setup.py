@@ -6,6 +6,7 @@ setup(
     description='CuriBio utils',
     packages=find_packages(include=['utils']),
     install_requires=[
+        'asyncpg==0.25.0',
         'boto3==1.21.24',
         'botocore==1.24.24',
         'jmespath==1.0.0',
