@@ -22,8 +22,6 @@ depends_on = None
 
 
 def upgrade():
-    op.execute("CREATE USER curibio_jobs")
-    op.execute("CREATE USER curibio_jobs_ro")
 
     op.create_table(
         'uploads',
@@ -59,42 +57,40 @@ def upgrade():
         sa.ForeignKeyConstraint(["upload_id"], ["uploads.id"], ondelete="CASCADE"),
     )
 
-    op.execute("GRANT ALL PRIVILEGES ON uploads TO curibio_jobs")
-    op.execute("GRANT ALL PRIVILEGES ON jobs_queue TO curibio_jobs")
-    op.execute("GRANT ALL PRIVILEGES ON jobs_result TO curibio_jobs")
-    op.execute("GRANT SELECT ON users TO curibio_jobs")
+    jobs_user_pass = os.getenv("JOBS_USER_PASS")
+    if jobs_user_pass == None:
+        raise Exception("Missing requireed value for JOBS_USER_PASS")
+
+    jobs_user_pass_ro = os.getenv("JOBS_USER_PASS_RO")
+    if jobs_user_pass_ro == None:
+        raise Exception("Missing requireed value for JOBS_USER_PASS_RO")
+
+    op.execute(f"CREATE USER curibio_jobs WITH PASSWORD '{jobs_user_pass}'")
+    op.execute(f"CREATE USER curibio_jobs_ro WITH PASSWORD '{jobs_user_pass_ro}'")
+
+    op.execute("GRANT ALL PRIVILEGES ON TABLE uploads TO curibio_jobs")
+    op.execute("GRANT ALL PRIVILEGES ON TABLE jobs_queue TO curibio_jobs")
+    op.execute("GRANT ALL PRIVILEGES ON TABLE jobs_result TO curibio_jobs")
+    op.execute("GRANT SELECT ON TABLE users TO curibio_jobs")
 
     op.execute("GRANT USAGE ON SEQUENCE jobs_result_id_seq TO curibio_jobs")
 
-    op.execute("GRANT SELECT ON uploads TO curibio_jobs_ro")
-    op.execute("GRANT SELECT ON jobs_queue TO curibio_jobs_ro")
-    op.execute("GRANT SELECT ON jobs_result TO curibio_jobs_ro")
-
-    # table_user_pass = config.get_main_option("table_user_pass")
-    # table_user_pass_ro = config.get_main_option("table_user_pass_ro")
-    table_user_pass = os.getenv("TABLE_USER_PASS")
-    if table_user_pass == None:
-        raise Exception("Missing requireed value for TABLE_USER_PASS")
-
-    table_user_pass_ro = os.getenv("TABLE_USER_PASS_RO")
-    if table_user_pass_ro == None:
-        raise Exception("Missing requireed value for TABLE_USER_PASS_RO")
-
-    op.execute(f"ALTER ROLE curibio_jobs WITH PASSWORD '{table_user_pass}'")
-    op.execute(f"ALTER ROLE curibio_jobs_ro WITH PASSWORD '{table_user_pass_ro}'")
+    op.execute("GRANT SELECT ON TABLE uploads TO curibio_jobs_ro")
+    op.execute("GRANT SELECT ON TABLE jobs_queue TO curibio_jobs_ro")
+    op.execute("GRANT SELECT ON TABLE jobs_result TO curibio_jobs_ro")
 
 
 def downgrade():
     op.execute("REVOKE USAGE ON SEQUENCE jobs_result_id_seq FROM curibio_jobs")
 
-    op.execute("REVOKE ALL PRIVILEGES ON uploads FROM curibio_jobs")
-    op.execute("REVOKE ALL PRIVILEGES ON jobs_queue FROM curibio_jobs")
-    op.execute("REVOKE ALL PRIVILEGES ON jobs_result FROM curibio_jobs")
-    op.execute("REVOKE ALL PRIVILEGES ON users FROM curibio_jobs")
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE uploads FROM curibio_jobs")
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE jobs_queue FROM curibio_jobs")
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE jobs_result FROM curibio_jobs")
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE users FROM curibio_jobs")
 
-    op.execute("REVOKE ALL PRIVILEGES ON uploads FROM curibio_jobs_ro")
-    op.execute("REVOKE ALL PRIVILEGES ON jobs_queue FROM curibio_jobs_ro")
-    op.execute("REVOKE ALL PRIVILEGES ON jobs_result FROM curibio_jobs_ro")
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE uploads FROM curibio_jobs_ro")
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE jobs_queue FROM curibio_jobs_ro")
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE jobs_result FROM curibio_jobs_ro")
 
     op.execute("DROP USER curibio_jobs")
     op.execute("DROP USER curibio_jobs_ro")

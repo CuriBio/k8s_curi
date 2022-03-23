@@ -2,7 +2,9 @@ import asyncio
 import asyncpg
 import json
 import jwt
+import logging
 import uuid
+
 
 from datetime import datetime, timedelta, timezone
 from calendar import timegm
@@ -18,6 +20,10 @@ from auth import AccessToken, ProtectedAny, create_token
 from core.db import Database
 from models.users import UserLogin, UserCreate, UserProfile
 from models.errors import LoginError, RegistrationError
+
+
+logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
+logger = logging.getLogger(__name__)
 
 db = Database()
 app = FastAPI()
@@ -87,7 +93,8 @@ async def login(request: Request, details: UserLogin):
 
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
-    except Exception:
+    except Exception as e:
+        logger.exception(f"login: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -98,7 +105,6 @@ async def register(request: Request, details: UserCreate):
         async with request.state.pgpool.acquire() as con:
             query = "select 1 from users where name = $1 or email = $2"
             exists = await con.fetch(query, details.username, details.email)
-            breakpoint()
 
             async with con.transaction():
                 # still hash even if user exists to avoid timing analysis leaks
