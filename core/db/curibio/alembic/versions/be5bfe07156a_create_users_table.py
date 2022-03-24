@@ -5,6 +5,7 @@ Revises:
 Create Date: 2022-03-12 13:50:27.312532
 
 """
+import os
 from alembic import op
 from sqlalchemy.sql import func
 from sqlalchemy.dialects import postgresql
@@ -35,7 +36,28 @@ def upgrade():
         sa.Column('deleted_at', sa.DateTime(timezone=False), nullable=True)
     )
 
+    table_user_pass = os.getenv("TABLE_USER_PASS")
+    if table_user_pass == None:
+        raise Exception("Missing requireed value for TABLE_USER_PASS")
+
+    table_user_pass_ro = os.getenv("TABLE_USER_PASS_RO")
+    if table_user_pass_ro == None:
+        raise Exception("Missing requireed value for TABLE_USER_PASS_RO")
+
+    op.execute(f"CREATE USER curibio_users WITH PASSWORD '{table_user_pass}'")
+    op.execute(f"CREATE USER curibio_users_ro WITH PASSWORD '{table_user_pass_ro}'")
+
+    op.execute("GRANT ALL PRIVILEGES ON TABLE users TO curibio_users")
+    op.execute("GRANT SELECT ON TABLE users TO curibio_users_ro")
+
+
 
 def downgrade():
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE users FROM curibio_users")
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE users FROM curibio_users_ro")
+
+    op.execute("DROP USER curibio_users")
+    op.execute("DROP USER curibio_users_ro")
+
     op.execute("DROP TABLE users CASCADE")
     op.execute('DROP TYPE "AccountType"')
