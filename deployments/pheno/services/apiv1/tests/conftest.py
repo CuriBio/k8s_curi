@@ -15,12 +15,12 @@ from lib.db import get_cur
 
 @pytest.fixture
 def mock_cursor():
-    mocked_get_cur = AsyncMock()
-    mocked_get_cur.fetchrow = CoroutineMock()
-    mocked_get_cur.fetchval = CoroutineMock()
-    mocked_get_cur.execute = CoroutineMock()
-    mocked_get_cur.fetch = CoroutineMock()
-    yield mocked_get_cur
+    with AsyncMock() as mocked_get_cur:
+        mocked_get_cur.fetchrow = CoroutineMock()
+        mocked_get_cur.fetchval = CoroutineMock()
+        mocked_get_cur.execute = CoroutineMock()
+        mocked_get_cur.fetch = CoroutineMock()
+        yield mocked_get_cur
 
 
 @pytest.fixture

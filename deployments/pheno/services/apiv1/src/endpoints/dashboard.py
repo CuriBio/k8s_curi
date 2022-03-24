@@ -15,6 +15,7 @@ router = APIRouter(tags=["dashboard"])
 async def query_for_user_usage(user_id: int, month: int, year: int, cur=Depends(get_cur)):
     try:
         response_dict = dict()
+
         # query for count of each individual table
         count_query = """SELECT 
             (SELECT COUNT(*) FROM trainings WHERE user_id=$1 AND EXTRACT(MONTH FROM created_at)=$2 AND EXTRACT(YEAR FROM created_at)=$3) as trainings,
@@ -23,7 +24,7 @@ async def query_for_user_usage(user_id: int, month: int, year: int, cur=Depends(
             (SELECT COUNT(*) FROM segmentations WHERE user_id=$1 AND EXTRACT(MONTH FROM created_at)=$2 AND EXTRACT(YEAR FROM created_at)=$3) as segmentations"""
         count_rows = await cur.fetchrow(count_query, user_id, month, year)
         response_dict.update(dict(count_rows))
-        
+
         # query for sum of all processingtimes
         processtime_query = """SELECT(COALESCE(
             (SELECT SUM(CASE WHEN t.processingtime NOT LIKE '' THEN CAST(t.processingtime AS INT) ELSE 0 END) FROM

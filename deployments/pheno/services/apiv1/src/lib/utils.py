@@ -2,9 +2,7 @@ import re
 import pandas as pd
 
 from .models import *
-
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
-from fastapi import HTTPException
 
 import matplotlib.pyplot as plt
 
@@ -36,7 +34,7 @@ async def email_user(params: Email_params_model) -> None:
         fm = FastMail(conf)
         await fm.send_message(message)
     except Exception as e:
-        raise HTTPException(status_code=400, detail={"message": f"Email failed to send with error: {e}"})
+        raise Exception(f"Email failed to send with error: {e}")
 
 
 # ------------------------------------------ #

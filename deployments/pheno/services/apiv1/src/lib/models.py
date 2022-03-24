@@ -1,6 +1,6 @@
 from typing import Any, List
 from pydantic import BaseModel, EmailStr
-
+from fastapi import Form
 
 class Usage_res_model(BaseModel):
     trainings: int
@@ -29,8 +29,7 @@ class Filtered_training_model(BaseModel):
 
 class Email_params_model(BaseModel):
     email: EmailStr
-    message: str
-    subject: str
+    message: str     subject: str
 
 
 class Email_request_model(BaseModel):
@@ -83,3 +82,46 @@ class Blindscore_response_model(BaseModel):
     num_images_per_class: List[int]
     total_images: int
 
+
+
+
+def form_body(cls):
+    cls.__signature__ = cls.__signature__.replace(
+        parameters=[
+            arg.replace(default=Form(...))
+            for arg in cls.__signature__.parameters.values()
+        ]
+    )
+    return cls
+
+
+@form_body
+class New_train_model(BaseModel):
+    orig_name: str 
+    study_name: str 
+    patch_description: str 
+    smart_patch_seg_model: str 
+    smart_patch_channel: str 
+    patch_size: str 
+    image_size: str 
+    val_percent: int 
+    val_data_source: str 
+    remove_out_focus: str 
+    arch: str 
+    precrop_size: int 
+    epochs: int 
+    batch_size: int 
+    learn_rate: str 
+    momentum: str 
+    weight_decay: str 
+    checkpoint: str 
+    transfer: str 
+    augment: str 
+    preaugment: str 
+    stop_criteria: str 
+    no_scale: str 
+    convert2gray: str 
+    weighted_sampling: str 
+    mode: str 
+    regweight: str 
+    num_workers: str 
