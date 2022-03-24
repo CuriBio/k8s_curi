@@ -34,6 +34,19 @@ def get_item(*, queue):
         return _inner
     return _outer
 
+async def get_uploads(*, con, user_id, upload_id=None):
+    uploads = []
+    async with con.transaction():
+        if upload_id:
+            row = await con.fetchrow("SELECT * FROM uploads WHERE user_id=$1 and id=$2", user_id, upload_id)
+            upload = { "id": row["id"], "user_id": row["user_id"], "created_at": row["created_at"] }
+            uploads.append(upload)
+        else:
+            async for row in con.cursor("SELECT * FROM uploads WHERE user_id=$1", user_id):
+                data = { "id": row["id"], "user_id": row["user_id"], "created_at": row["created_at"] }
+                uploads.append(data)
+    return uploads
+
 
 async def create_upload(*, con, user_id, meta):
     query = "WITH row as (SELECT id FROM users where id=$1) INSERT INTO uploads (user_id, meta) SELECT id, $2 from row RETURNING id"
@@ -42,6 +55,6 @@ async def create_upload(*, con, user_id, meta):
 
 
 async def create_job(*, con, upload_id, queue, priority, meta):
-    query = "WITH row AS (SELECT id FROM uploads WHERE id=$1) INSERT INTO jobs_queue (upload_id, queue, priority, meta) SELECT id, $2, $3, $4 from row RETURNING id",
+    query = "WITH row AS (SELECT id FROM uploads WHERE id=$1) INSERT INTO jobs_queue (upload_id, queue, priority, meta) SELECT id, $2, $3, $4 from row RETURNING id"
     async with con.transaction():
         return await con.fetchval(query, upload_id, queue, priority, json.dumps(meta))
