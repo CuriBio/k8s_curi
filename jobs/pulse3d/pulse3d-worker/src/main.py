@@ -24,46 +24,56 @@ async def process(con, item):
 
     try:
         upload_id = item.get("upload_id")
-        upload = con.fetchrow(query, upload_id)
+        upload = await con.fetchrow(query, upload_id)
 
         meta = json.loads(upload.get("meta"))
         user_id = upload.get("user_id")
+        logger.info(f"Found jobs for user {user_id} with meta {json.dumps(meta)}")
 
-        bucket_name = f"{PULSE3D_UPLOADS_BUCKET}/{user_id}/{meta["path"]}/{meta["file_name"]}"
-        key = f"{user_id}/{meta["path"]}/{meta["file_name"]}"
+        prefix = meta["prefix"]
+        filename = meta["filename"]
+        key = f"{prefix}/{filename}"
     except Exception as e:
         logger.exception("Fetching upload details failed")
-        return
+        return ('error', {})
 
 
     with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
-        logger.info(f"Downloading {PULSE3D_UPLOADS_BUCKET}/{key} to {tmpdir}")
-        s3_client.download_file(PULSE3D_UPLOADS_BUCKET, key, f"{tmpdir}/{key}")
+        logger.info(f"Downloading {PULSE3D_UPLOADS_BUCKET}/{key} to {tmpdir}/{filename}")
+        try:
+            s3_client.download_file(PULSE3D_UPLOADS_BUCKET, key, f"{tmpdir}/{filename}")
+        except Exception as e:
+            logger.exception(f"Failed to download: {e}")
+            return ('error', {})
 
         try:
             logger.info(f"Starting pulse3d analysis")
+            outfile = f"{'.'.join(filename.split('.')[:-1])}.xlsx"
             prs = PlateRecording.from_directory(f"/{tmpdir}")
             for r in prs:
-                write_xlsx(r, name="test_recording.xlsx")
+                write_xlsx(r, name=outfile)
         except Exception as e:
             logger.exception(f"Analysis failed")
-            return
+            return ('failed', {})
 
-        with open(f"test_recording.xlsx", "rb") as f:
+        with open(outfile, "rb") as f:
             try:
-                logger.info(f"Uploading test_recording.xlsx to {PULSE3D_UPLOADS_BUCKET}/test_recording.xlsx")
+                logger.info(f"Uploading {outfile} to {PULSE3D_UPLOADS_BUCKET}/{outfile}")
                 contents = f.read()
-                s3_client.put_object(Body=f, Bucket=PULSE3D_UPLOADS_BUCKET, Key="test_recording.xlsx")
+                md5 = hashlib.md5(contents).digest()
+                md5s = base64.b64encode(md5).decode()
+                s3_client.put_object(Body=contents, Bucket=PULSE3D_UPLOADS_BUCKET, Key=f"{prefix}/{outfile}", ContentMD5=md5s)
             except Exception as e:
-                logger.exception(f"Upload failed")
-                return
+                logger.exception(f"Upload failed, {e}")
+                return ('error', {})
+    return ('finished', {})
 
 
 async def main():
-    DB_PASS = os.getenv("DB_PASS")
-    DB_USER = os.getenv("DB_USER", default="curibio_jobs")
-    DB_HOST = os.getenv("DB_HOST", default="psql-rds.default")
-    DB_NAME = os.getenv("DB_NAME", default="curibio")
+    DB_PASS = os.getenv("POSTGRES_PASSWORD")
+    DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
+    DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
+    DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
 
     dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
     async with asyncpg.create_pool(dsn=dsn) as pool:
