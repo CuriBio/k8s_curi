@@ -44,26 +44,17 @@ def generate_presigned_urls_for_dir(bucket: str, key_prefix: str, objs_only: boo
         raise ClientError(f"Failed to generate presigned urls for {bucket}/{key_prefix}: {e}")
 
 
-def generate_presigned_post(bucket: str, key: str, file_path) -> Dict[Any, Any]:
+def generate_presigned_post(bucket: str, key: str, md5s: str) -> Dict[Any, Any]:
     s3_client = boto3.client("s3", config=Config(signature_version="s3v4"))
     try:
-        with open(file_path, "rb") as file_to_read:
-            # generate md5
-            contents = file_to_read.read()
-            md5 = hashlib.md5(contents).digest()
-            md5s = base64.b64encode(md5).decode()
-
-        # generate presigned post url
         fields = {"Content-MD5": md5s}
         conditions = [["starts-with", "$Content-MD5", ""]]
 
-        params = s3_client.generate_presigned_post(
+        return s3_client.generate_presigned_post(
             bucket, key, Fields=fields, Conditions=conditions, ExpiresIn=3600
         )
-
-        return params
     except ClientError as e:
-        raise ClientError(f"Failed to upload {file_path} to {bucket}/{key} with error: {e}")
+        raise ClientError(f"Failed to generate presigned post for {bucket}/{key} with error: {e}")
 
 
 def copy_s3_file(bucket: str, source_key: str, target_key: str) -> None:
