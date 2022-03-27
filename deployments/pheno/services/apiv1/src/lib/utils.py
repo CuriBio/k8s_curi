@@ -4,7 +4,7 @@ import pandas as pd
 from .models import *
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 
 # ------------------------------------------ #
@@ -48,41 +48,41 @@ def format_name(name: str):
 
 # ------------------------------------------ #
 # image conversion utils directly from old app under /image_conversion
-def readCSV(fileIn, header=1, dropCols=[0, 1]):
-    signals = pd.read_csv(fileIn, header=header)
-    signals = signals.drop(signals.columns[dropCols], axis=1)
-    signals = signals.astype(float)
-    return signals
+# def readCSV(fileIn, header=1, dropCols=[0, 1]):
+#     signals = pd.read_csv(fileIn, header=header)
+#     signals = signals.drop(signals.columns[dropCols], axis=1)
+#     signals = signals.astype(float)
+#     return signals
 
 
-def makePNG(signals, fileOut, figsize=(3, 3), linewidth=2):
-    plt.figure(figsize=figsize)
-    for k in signals.columns:
-        sig = signals[k]
-        plt.plot(range(len(sig)), sig, linewidth=linewidth)
+# def makePNG(signals, fileOut, figsize=(3, 3), linewidth=2):
+#     plt.figure(figsize=figsize)
+#     for k in signals.columns:
+#         sig = signals[k]
+#         plt.plot(range(len(sig)), sig, linewidth=linewidth)
 
-    plt.axis("off")
-    plt.savefig(fileOut)
-    plt.close()
+#     plt.axis("off")
+#     plt.savefig(fileOut)
+#     plt.close()
 
 
-async def is_image_file(filename: str):
-    IMG_EXTENSIONS = [
-        ".jpg",
-        ".JPG",
-        ".jpeg",
-        ".JPEG",
-        ".png",
-        ".PNG",
-        ".ppm",
-        ".PPM",
-        ".bmp",
-        ".BMP",
-    ]
-    IMG_EXTENSIONS_TIF = [
-        ".tif",
-        ".tiff",
-        ".TIF",
-        ".TIFF",
-    ]
-    return any(filename.endswith(extension) for extension in IMG_EXTENSIONS + IMG_EXTENSIONS_TIF)
+# async def is_image_file(filename: str):
+#     IMG_EXTENSIONS = [
+#         ".jpg",
+#         ".JPG",
+#         ".jpeg",
+#         ".JPEG",
+#         ".png",
+#         ".PNG",
+#         ".ppm",
+#         ".PPM",
+#         ".bmp",
+#         ".BMP",
+#     ]
+#     IMG_EXTENSIONS_TIF = [
+#         ".tif",
+#         ".tiff",
+#         ".TIF",
+#         ".TIFF",
+#     ]
+#     return any(filename.endswith(extension) for extension in IMG_EXTENSIONS + IMG_EXTENSIONS_TIF)

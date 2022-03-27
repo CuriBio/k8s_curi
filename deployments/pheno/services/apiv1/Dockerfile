@@ -4,9 +4,11 @@ RUN apt-get update; \
     
 WORKDIR /app
 COPY ./deployments/pheno/services/apiv1/src/requirements.txt ./
+COPY ./core/lib/utils ./lib/utils
+
 
 RUN python -m venv --copies /app/venv
-RUN . /app/venv/bin/activate && pip install -r ./requirements.txt
+RUN . /app/venv/bin/activate && pip install -r ./requirements.txt && pip install ./lib/utils
 
 
 FROM python:3.9-slim as prod
@@ -18,7 +20,6 @@ WORKDIR /app
 COPY ./deployments/pheno/services/apiv1/src/main.py ./
 COPY ./deployments/pheno/services/apiv1/src/lib/ ./lib/
 COPY ./deployments/pheno/services/apiv1/src/endpoints/ ./endpoints/
-COPY ./core/lib/utils/s3.py ./lib/
 
 
 ENV PYTHONUNBUFFERED 1

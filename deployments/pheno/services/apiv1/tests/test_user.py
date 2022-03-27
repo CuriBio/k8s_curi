@@ -51,10 +51,8 @@ def test_email_user_status__returns_correct_response_message(mocker, client, moc
     ],
 )
 def test_email_user_status__returns_400_status_code_if_incorrectly_formatted_body(client, body):
-    with pytest.raises(HTTPException) as error:
-        client.post("/emailUserStatus", json.dumps(body))
-    
-    assert error.value.status_code == 400
+    response = client.post("/emailUserStatus", json.dumps(body))
+    assert response.status_code == 400
 
 
 def test_email_user_status__returns_500_status_code_to_catch_other_errors(mocker, client, mock_cursor):

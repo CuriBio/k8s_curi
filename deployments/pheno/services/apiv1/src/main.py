@@ -1,5 +1,6 @@
-from fastapi import FastAPI, APIRouter, Request, HTTPException
+from fastapi import FastAPI, APIRouter, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from lib.models import *
 from lib.db import database as db
@@ -23,10 +24,10 @@ api_router.include_router(classifications.router)
 app.include_router(api_router)
 
 
-@app.exception_handler(RequestValidationError)  # can eventually add handling to remove sensitive data
+@app.exception_handler(RequestValidationError)  # can evenstually add handling to remove sensitive data
 async def validation_exception_handler(request, err):
     base_error_message = f"Failed to execute: {request.method}: {request.url}"
-    raise HTTPException(status_code=400, detail=f"{base_error_message}: {err.errors()[0]}")
+    return JSONResponse(status_code=400, content=f"{base_error_message}: {err.errors()[0]}")
 
 
 @app.on_event("startup")

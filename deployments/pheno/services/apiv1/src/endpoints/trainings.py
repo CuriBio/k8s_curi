@@ -1,42 +1,28 @@
 import os
-import io
 import tempfile
-import zipfile
 import csv
-import uuid
 import requests
 import logging
 from typing import *
 from datetime import datetime
 from random import shuffle
 
-from aiofile import async_open
 
-from fastapi import APIRouter, HTTPException, status, UploadFile, File, Form, Depends
+from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.responses import JSONResponse
 
 from lib.db import get_cur
 from lib.models import *
-from lib.utils import is_image_file
 from lib.utils import format_name
-from lib.utils import makePNG
-from lib.utils import readCSV
 
-import sys
+from utils.s3 import generate_presigned_url
+from utils.s3 import generate_presigned_post
+from utils.s3 import copy_s3_file
+from utils.s3 import copy_s3_directory
+from utils.s3 import generate_presigned_urls_for_dir
+from utils.s3 import download_file_from_s3
+from utils.s3 import upload_file_to_s3
 
-sys.path.insert(0, "/Users/lucipak/Documents/work/CuriBio/k8s_curi")
-from core.lib.utils.s3 import generate_presigned_url
-from core.lib.utils.s3 import generate_presigned_post
-from core.lib.utils.s3 import copy_s3_file
-from core.lib.utils.s3 import copy_s3_directory
-from core.lib.utils.s3 import generate_presigned_urls_for_dir
-
-
-# from lib.s3 import generate_presigned_url
-# from lib.s3 import generate_presigned_post
-# from lib.s3 import copy_s3_file
-# from lib.s3 import copy_s3_directory
-# from lib.s3 import generate_presigned_urls_for_dir
 
 logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
 logger = logging.getLogger(__name__)
@@ -49,16 +35,20 @@ PHENO_BUCKET = os.environ.get("PHENO_BUCKET_ENV", "phenolearn")
     "/{selected_user_id}",
     description="request on initial trainings page render",
 )
-async def get_all_unfiltered_trainings(selected_user_id: int, cur=Depends(get_cur)) -> List[Any]:
+async def get_all_trainings(selected_user_id: int, cur=Depends(get_cur)) -> List[Any]:
     try:
         rows = await cur.fetch("SELECT * FROM trainings WHERE user_id=$1", selected_user_id)
-
         trainings = [dict(training) for training in rows]
 
+        logger.info(f"Generating presigned urls for {len(trainings)} sample images.")
         for training in trainings:
-            key = f"trainings/{selected_user_id}/{training['study']}/{training['name']}/sample.jpg"
-            url = generate_presigned_url(bucket=PHENO_BUCKET, key=key, exp=5 * 60e3)
-            training.update({"sample_url": url})
+            try:
+                key = f"trainings/{selected_user_id}/{training['study']}/{training['name']}/sample.jpg"
+                url = generate_presigned_url(bucket=PHENO_BUCKET, key=key, exp=5 * 60e3)
+                training.update({"sample_url": url})
+            except Exception as e:
+                logger.error(f"There was an error generating presigned url for {training}: {e}")
+                training["sample_url"] = None
 
         return trainings
     except Exception as e:
@@ -93,12 +83,9 @@ async def get_all_filtered_trainings(
     "/downloadLog/{id}",
     description="Downloads user-selected training log from s3 if error occurs during training",
 )
-async def get_training_log(id: int, cur=Depends(get_cur)) -> str:
+async def get_training_log(id: int, cur=Depends(get_cur)) -> Any:
     try:
         training = await cur.fetchrow("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
-        if not training:
-            return None
-
         key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}/{training['name']}.log"
 
         return generate_presigned_url(bucket=PHENO_BUCKET, key=key, exp=5 * 60e3)
@@ -117,13 +104,9 @@ async def get_training_results(id: int, cur=Depends(get_cur)) -> str:
     try:
 
         training = await cur.fetchrow("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
+        key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}_out/"
 
-        if not training:
-            return None
-
-        key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}/{training['name']}.log"
-
-        return generate_presigned_url(bucket=PHENO_BUCKET, key=key, exp=5 * 60e3)
+        return generate_presigned_urls_for_dir(bucket=PHENO_BUCKET, key_prefix=key)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -131,10 +114,10 @@ async def get_training_results(id: int, cur=Depends(get_cur)) -> str:
         )
 
 
-@router.get("/updateParam/{id}", description="Updates value in training table")
-async def update_table_value(id: int, field: str, value: str, cur=Depends(get_cur)) -> JSONResponse:
+@router.post("/updateParam/{id}", description="Updates value in training table")
+async def update_table_value(id: int, details: Update_param_model, cur=Depends(get_cur)) -> JSONResponse:
     try:
-        await cur.execute(f"UPDATE trainings SET {field}=$1 WHERE id=$2", id, value)
+        await cur.execute(f"UPDATE trainings SET {details.field}=$1 WHERE id=$2", id, details.value)
 
         return JSONResponse(status_code=status.HTTP_200_OK)
 
@@ -167,7 +150,7 @@ async def new_train_setup(user_id: int, cur=Depends(get_cur)) -> Dict[str, Any]:
         # database saves unpaid users to 5, but original site requests limit of 2 non-error trainings
         # type is currently unused in db, only four people have 'admin' otherwise it's ''
         # could use type for user type to check limit
-        if account["uploadlimit"] > num_of_trainings["count"] or account["type"] == "":
+        if account["uploadlimit"] > num_of_trainings["count"] or account["type"] == "admin":
 
             # decide how to handle these user differences
             seg_trainings = await cur.fetch(
@@ -183,9 +166,9 @@ async def new_train_setup(user_id: int, cur=Depends(get_cur)) -> Dict[str, Any]:
                 type=account["type"],
             )
         else:
-            raise HTTPException(
+            return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="User has reached account limit.",
+                content="User has reached account limit.",
             )
 
     except Exception as e:
@@ -200,78 +183,35 @@ async def new_train_setup(user_id: int, cur=Depends(get_cur)) -> Dict[str, Any]:
 )
 async def upload_new_train_images(
     user_id: int,
-    details=Train_upload_model,
-    files: List[UploadFile] = File(...),
-) -> JSONResponse:
+    details: Train_upload_model,
+) -> Any:
 
     try:
         # return if, for some reason no files to upload
-        if len(files) == 0:
-            return JSONResponse(status_code=status.HTTP_200_OK, content=f"No files to upload")
+        if len(details.img_names) == 0:
+            return JSONResponse(status_code=status.HTTP_200_OK, content="No images found")
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            for file in files:
-                _, file_ext = os.path.splitext(file.filename)
-                # extract or write files to temp directory
-                if "zip" in file_ext:
-                    with zipfile.ZipFile(io.BytesIO(file.file.read()), "r") as zip_ref:
-                        zip_ref.extractall(tmp_dir)
-                else:
-                    out_path = os.path.join(tmp_dir, file.filename)
-                    async with async_open(out_path, "wb") as out_file:
-                        content = await file.read()  # async read
-                        await out_file.write(content)  # async write
+        # generate presigned post urls to send in response
+        presigned_urls = list()
+        for idx, img_name in enumerate(details.img_names):
 
-            # list files, and upload, protects against any other file structure in the zipfile
-            for root, _, files in os.walk(tmp_dir):
-                for filename in files:
-                    file_path = os.path.join(root, filename)
-                    # if valid image
-                    if "__MACOSX" not in file_path and await is_image_file(file_path):
-                        if ".csv" in filename.lower():
-                            try:
-                                pathFileOut = file_path.replace("csv", "png").replace("CSV", "png")
-                                signals = readCSV(file_path)
-                                makePNG(signals, pathFileOut)
-                                file_path = pathFileOut
-                            except:
-                                print("error csv to png")
+            if idx == 0:  # upload an image as the sample image
+                sample_img_key = f"trainings/{user_id}/{details.study_name}/{details.name}/sample.jpg"
+                upload_params = generate_presigned_post(PHENO_BUCKET, sample_img_key, details.md5s[idx])
+                presigned_urls.append(upload_params)
 
-                        relFileNoExt, file_ext = os.path.splitext(filename)
-                        unique_name = relFileNoExt.replace("/", "_") + "_" + str(uuid.uuid4())[:8] + file_ext
+            # upload class images
+            key = (
+                f"trainings/{user_id}/{details.study_name}/{details.name}/{details.name}/{details.class_name}/{img_name}"
+                if details.val_data_source == "combined"
+                else f"trainings/{user_id}/{details.study_name}/{details.name}/{details.name}/{details.val_or_train}/{details.class_name}/{img_name}"
+            )
 
-                        if filename == "sample.jpg":  # upload sample image
-                            sample_img_key = (
-                                f"trainings/{user_id}/{details.study_name}/{details.name}/sample.jpg"
-                            )
-                            upload_params = generate_presigned_post(PHENO_BUCKET, sample_img_key, file_path)
-                        else:  # upload class images
-                            key = (
-                                f"trainings/{user_id}/{details.study_name}/{details.name}/{details.name}/{details.class_name}/{unique_name}"
-                                if details.val_data_source == "combined"
-                                else f"trainings/{user_id}/{details.study_name}/{details.name}/{details.name}/{details.val_or_train}/{details.class_name}/{unique_name}"
-                            )
+            upload_params = generate_presigned_post(PHENO_BUCKET, key, details.md5s[idx])
+            presigned_urls.append(upload_params)
 
-                            upload_params = generate_presigned_post(PHENO_BUCKET, key, file_path)
+        return presigned_urls
 
-                    # upload file to s3
-                    logger.info(f"Uploading {file}: {response}")
-                    file_name = os.path.basename(file_path)
-                    response = requests.post(
-                        upload_params["url"],
-                        data=upload_params["fields"],
-                        files={"file": (file_name, file_path)},
-                    )
-
-                    if response.status_code != 200:
-                        logger.error(
-                            f"Failed to upload {file_path} to {PHENO_BUCKET}/{key} with error: {response.status_code} {response.content}"
-                        )
-
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={"message": f"Successfully uploaded images for {details.name}"},
-        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -286,7 +226,7 @@ async def upload_new_train_images(
 )
 async def new_train_submit(
     user_id: int,
-    details: New_train_model=Depends(New_train_model),
+    details: New_train_model = Depends(New_train_model),
     cur=Depends(get_cur),
 ) -> JSONResponse:  # try to set this up as a pydantic request model instead of each individual param
 
@@ -295,14 +235,10 @@ async def new_train_submit(
         account = await cur.fetchrow(
             "SELECT uploadlimit, type FROM users WHERE id=$1", user_id
         )  # figure out diff user type requirements for future
-        remove_out_focus = "no" if not remove_out_focus else remove_out_focus
 
         # remove spaces and special characters
-        orig_name = format_name(orig_name)
-        if study_name == "":
-            study_name = "None"
-        else:
-            study_name = format_name(study_name)
+        orig_name = format_name(details.orig_name)
+        study_name = format_name(details.study_name)
 
         # set up name
         now = datetime.now().strftime("%Y-%m-%d-%H%M%S")
@@ -331,7 +267,7 @@ async def new_train_submit(
             user_id,
             details.val_data_source,
             details.val_percent,
-            remove_out_focus,
+            details.remove_out_focus,
             "web",
             details.arch,
             details.precrop_size,
@@ -351,60 +287,31 @@ async def new_train_submit(
             details.num_workers,
             details.mode,
             details.regweight,
-            details.skip_review,
+            skip_review,
         )
 
         # TODO update job queue with new entry
 
+        return JSONResponse(status_code=status.HTTP_200_OK, content=f"successfully submitted {training_name}")
+
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error submitting {orig_name}: {e}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error submitting {details.orig_name}: {e}",
         )
-
-    return JSONResponse(
-        status_code=status.HTTP_200_OK, content={"message": f"successfully submitted {training_name}"}
-    )
 
 
 # re-training
 
 
 @router.post(
-    "/reSubmit/{id}",
+    "/reTrainSubmit/{id}",
     response_description="redirects to training view",
     description="Route creates new db entry and updates fields with new input values and prefixes name with 'Re-'. which uploads to s3 and updates status to 'queued'.",
 )
 async def retrain_submit(
     id: int,
-    user_id: int,
-    name: str = Form(...),
-    whichuser: str = Form(...),
-    orig_name: str = Form(...),
-    patch_description: str = Form(...),
-    smart_patch_seg_model: str = Form(...),
-    smart_patch_channel: str = Form(...),
-    patch_size: str = Form(...),
-    val_percent: int = Form(...),
-    val_data_source: int = Form(...),
-    remove_out_focus: str = Form(...),
-    arch: str = Form(...),
-    precrop_size: int = Form(...),
-    epochs: int = Form(...),
-    batch_size: int = Form(...),
-    learn_rate: str = Form(...),
-    momentum: str = Form(...),
-    weight_decay: str = Form(...),
-    checkpoint: str = Form(...),
-    transfer: str = Form(...),
-    augment: str = Form(...),
-    preaugment: str = Form(...),
-    stop_criteria: str = Form(...),
-    no_scale: str = Form(...),
-    convert2gray: str = Form(...),
-    weighted_sampling: str = Form(...),
-    mode: str = Form(...),
-    regweight: str = Form(...),
-    num_workers: str = Form(...),
+    details: Retrain_model = Depends(Retrain_model),
     cur=Depends(get_cur),
 ) -> JSONResponse:
     try:
@@ -415,63 +322,67 @@ async def retrain_submit(
         # check for if user has special privileges to skip required review
         skip_review = (
             "yes"
-            if whichuser in ["admin", "mo", "tenaya", "fountain", "shadi", "juan", "charlene", "chronus"]
+            if details.whichuser
+            in ["admin", "mo", "tenaya", "fountain", "shadi", "juan", "charlene", "chronus"]
             else "no"
         )
 
         # set up name
         now = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-        retraining_name = f"RE-{user_id}-{now}"
-        remove_out_focus = "no" if not remove_out_focus else remove_out_focus
+        retraining_name = f"RE-{details.user_id}-{now}"
 
         await cur.execute(
             "INSERT INTO trainings (name, origname, study, patches, retrain, smartpatchsegmodel, smartpatchchannel, patchsize, imagesize, classnames, imagesperclass, user_id, type, filternet, valdatasource, removeoutfocus, version, arch, precropsize, epochs, batchsize, learnrate, momentum, weightdecay, checkpoint, transfer, augment, preaugment, stopcriteria, noscale, convert2gray, weightedsampling, numworkers, mode, regweight, isreviewed) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $38)",
             retraining_name,
-            user_id,
-            orig_name,
+            details.orig_name,
             training["study"],
-            patch_description,
+            details.patch_description,
             training["name"],
-            smart_patch_seg_model,
-            smart_patch_channel,
-            patch_size,
+            details.smart_patch_seg_model,
+            details.smart_patch_channel,
+            details.patch_size,
             training["imagesize"],
             training["classnames"],
             training["imagesperclass"],
+            details.user_id,
             training["filternet"],
-            val_percent,
-            val_data_source,
-            remove_out_focus,
+            details.val_percent,
+            details.val_data_source,
+            details.remove_out_focus,
             "web",
-            arch,
-            precrop_size,
-            min(epochs, 100),
-            batch_size,
-            learn_rate,
-            momentum,
-            weight_decay,
-            checkpoint,
-            transfer,
-            augment,
-            preaugment,
-            stop_criteria,
-            no_scale,
-            convert2gray,
-            weighted_sampling,
-            num_workers,
-            mode,
-            regweight,
+            details.arch,
+            details.precrop_size,
+            min(details.epochs, 100),
+            details.batch_size,
+            details.learn_rate,
+            details.momentum,
+            details.weight_decay,
+            details.checkpoint,
+            details.transfer,
+            details.augment,
+            details.preaugment,
+            details.stop_criteria,
+            details.no_scale,
+            details.convert2gray,
+            details.weighted_sampling,
+            details.num_workers,
+            details.mode,
+            details.regweight,
             skip_review,
         )
 
         # copy sample image over to new directory in s3
-        source_key = f'trainings/{training["user_id"]}/{training["study"]}/{name}/sample.jpg'
-        target_key = f'trainings/{user_id}/{training["study"]}/{retraining_name}/sample.jpg'
+        source_key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/sample.jpg'
+        target_key = f'trainings/{details.user_id}/{training["study"]}/{retraining_name}/sample.jpg'
         copy_s3_file(PHENO_BUCKET, source_key, target_key)
 
         # copy original images over to new dir in s3
-        source_prefix = f'trainings/{user_id}/{training["study"]}/{name}/{name}/'
-        target_prefix = f'trainings/{user_id}/{training["study"]}/{retraining_name}/{retraining_name}/'
+        source_prefix = (
+            f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}/'
+        )
+        target_prefix = (
+            f'trainings/{details.user_id}/{training["study"]}/{retraining_name}/{retraining_name}/'
+        )
         copy_s3_directory(PHENO_BUCKET, source_prefix, target_prefix)
 
         # TODO update job queue with new entry
@@ -484,14 +395,14 @@ async def retrain_submit(
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content={"message": f"successfully submitted {retraining_name} to be retrained"},
+        content=f"successfully submitted {retraining_name} to be retrained",
     )
 
 
 @router.get(
     "/plotLog/{id}",
     response_model=Log_model,
-    description="Called from details view on init every 10 seconds. Route queries db for training name and checks s3 if training exists. if it exists, copys data from file in  s3 and returns it.",
+    description="Called from details view on init every 10 seconds. Route queries db for training name and checks s3 if training exists. if it exists, copies data from file in  s3 and returns it.",
 )
 async def plot_log(id: int, cur=Depends(get_cur)):
     try:
@@ -529,12 +440,12 @@ async def plot_log(id: int, cur=Depends(get_cur)):
         else:
             return JSONResponse(
                 status_code=status.HTTP_404_NOT_FOUND,
-                content={"message": f"No logfile found for {training['name']}."},
+                content={"message": f"No progress file found for {training['name']}."},
             )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error getting log file for {training['name']}: {e}",
+            detail=f"Error getting progress file for {training['name']}: {e}",
         )
 
 
@@ -552,7 +463,7 @@ async def generate_patch_examples(id: int, cur=Depends(get_cur)) -> List[str]:
         key_prefix = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_patches/Val/'
         presigned_urls = generate_presigned_urls_for_dir(PHENO_BUCKET, key_prefix)
 
-        return presigned_urls  # reminder that this will return an empty array if patch images are found
+        return presigned_urls  # reminder that this will return an empty array if no patch images are found
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -574,23 +485,25 @@ async def start_blind_score(id: int, cur=Depends(get_cur)):
         training = await cur.fetchrow("SELECT name, study, user_id FROM trainings WHERE id=$1", id)
 
         key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_out/{training["name"]}.csv'
-        url = generate_presigned_url(PHENO_BUCKET, key)
-        if url:
-            response = requests.get(url)
-            csv_file = response.content.decode("UTF-8")
-            csv_lines = [line.split(",") for line in csv_file.split("\n")]
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            file_path = os.path.join(tmp_dir, f"{training['name']}.csv")
+            response = download_file_from_s3(PHENO_BUCKET, key, file_path)
 
-            list_of_vals = [
-                val_or_train
-                for val_or_train in csv_lines
-                if len(val_or_train) > 1 and val_or_train[1] == "Val"
-            ]
-            return len(list_of_vals)
-        else:
-            return JSONResponse(
-                status_code=status.HTTP_404_NOT_FOUND,
-                content={"message": f"No output .csv file found for {training['name']}"},
-            )
+            if response is not 404:
+                csv_file = response.content.decode("UTF-8")
+                csv_lines = [line.split(",") for line in csv_file.split("\n")]
+
+                list_of_vals = [
+                    val_or_train
+                    for val_or_train in csv_lines
+                    if len(val_or_train) > 1 and val_or_train[1] == "Val"
+                ]
+                return len(list_of_vals)
+            else:
+                return JSONResponse(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    content={"message": f"No output .csv file found for {training['name']}"},
+                )
 
     except Exception as e:
         raise HTTPException(
@@ -612,25 +525,27 @@ async def generate_images_to_score(id: int, cur=Depends(get_cur)):
         )
 
         # TODO can probably pass this in request body
-        key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_out/{training["name"]}.csv'
-        url = generate_presigned_url(PHENO_BUCKET, key)
-        if url:
-            response = requests.get(url)
-            csv_file = response.content.decode("UTF-8")
-            csv_lines = [line.split(",") for line in csv_file.split("\n")]
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            file_path = os.path.join(tmp_dir, f"{training['name']}.csv")
+            key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_out/{training["name"]}.csv'
+            response = download_file_from_s3(PHENO_BUCKET, key, file_path)
 
-            filenames = [
-                val_or_train[0]
-                for val_or_train in csv_lines
-                if len(val_or_train) > 1 and val_or_train[1] == "Val"
-            ]
+            if response is not 404:
+                csv_file = response.content.decode("UTF-8")
+                csv_lines = [line.split(",") for line in csv_file.split("\n")]
 
-            true_classes = [line[2] for line in csv_lines]
-        else:
-            return JSONResponse(
-                status_code=status.HTTP_404_NOT_FOUND,
-                content={"message": f"No output .csv file found for {training['name']}"},
-            )
+                filenames = [
+                    val_or_train[0]
+                    for val_or_train in csv_lines
+                    if len(val_or_train) > 1 and val_or_train[1] == "Val"
+                ]
+
+                true_classes = [line[2] for line in csv_lines]
+            else:
+                return JSONResponse(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    content={"message": f"No output .csv file found for {training['name']}"},
+                )
 
         # get val images from s3 and check against filenames
         key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}/'
@@ -703,56 +618,59 @@ async def process_blind_score_results(id: int, details: Blindscore_request_model
         url_filenames = [image_url.split("?")[0].split("/")[-1] for image_url in details.image_urls]
         net_num_right = 0
         net_num_right_per_class = [0 for _ in details.class_names]
+        with tempfile.TemporaryDirectory() as tmp_dir:
 
-        # get output csv file from s3
-        key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_out/{training["name"]}.csv'
-        url = generate_presigned_url(PHENO_BUCKET, key)
+            # get output csv file from s3
+            logger.info(f"Downloading {training['name']}.csv from s3")
 
-        if url:
-            response = requests.get(url)
-            csv_file = response.content.decode()
-            csv_lines = [line.split(",") for line in csv_file.split("\r\n")]
-        else:
-            return JSONResponse(
-                status_code=status.HTTP_404_NOT_FOUND,
-                content={"message": f"No output .csv file found for {training['name']}"},
-            )
+            file_path = os.path.join(tmp_dir, f'{training["name"]}.csv')
+            key = f'trainings/{training["user_id"]}/{training["study"]}/{training["name"]}/{training["name"]}_out/{training["name"]}.csv'
+            response = download_file_from_s3(PHENO_BUCKET, key, file_path)
 
-        for line in csv_lines:
-            file_name = line[0]
-            for idx, url_filename in enumerate(url_filenames):
-                if file_name == url_filename:
-                    # append the blind score to the row for writing to new csv
-                    line.append(details.scores[idx])
-
-                    # see if net was correct
-                    net_scores = [float(line[3 + idx]) for idx, _ in enumerate(details.class_names)]
-                    max_idx = net_scores.index(max(net_scores))
-                    net_class = details.class_names[max_idx]
-
-                    if net_class == line[2]:
-                        net_num_right += 1
-                        net_num_right_per_class[max_idx] += 1
-
-        net_score = float(100.0 * net_num_right / len(details.scores)) if len(details.scores) != 0 else 0
-
-        # get the net score per class
-        num_images_per_class = [details.true_classes.count(clas) for clas in details.class_names]
-        total_images = sum(num_images_per_class)
-
-        net_score_per_class = list()
-        for idx, _ in enumerate(details.class_names):
-            if num_images_per_class[idx] == 0:
-                net_score_per_class.append(0)
+            if response is not 404:
+                csv_file = response.content.decode()
+                csv_lines = [line.split(",") for line in csv_file.split("\r\n")]
             else:
-                net_score_per_class.append(
-                    float(100.0 * net_num_right_per_class[idx] / num_images_per_class[idx])
+                return JSONResponse(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    content={"message": f"No output .csv file found for {training['name']}"},
                 )
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
+            for line in csv_lines:
+                file_name = line[0]
+                for idx, url_filename in enumerate(url_filenames):
+                    if file_name == url_filename:
+                        # append the blind score to the row for writing to new csv
+                        line.append(details.scores[idx])
+
+                        # see if net was correct
+                        net_scores = [float(line[3 + idx]) for idx, _ in enumerate(details.class_names)]
+                        max_idx = net_scores.index(max(net_scores))
+                        net_class = details.class_names[max_idx]
+
+                        if net_class == line[2]:
+                            net_num_right += 1
+                            net_num_right_per_class[max_idx] += 1
+
+            net_score = float(100.0 * net_num_right / len(details.scores)) if len(details.scores) != 0 else 0
+
+            # get the net score per class
+            num_images_per_class = [details.true_classes.count(clas) for clas in details.class_names]
+            total_images = sum(num_images_per_class)
+
+            net_score_per_class = list()
+            for idx, _ in enumerate(details.class_names):
+                if num_images_per_class[idx] == 0:
+                    net_score_per_class.append(0)
+                else:
+                    net_score_per_class.append(
+                        float(100.0 * net_num_right_per_class[idx] / num_images_per_class[idx])
+                    )
+
             csv_filename = f"{training['name']}_blindscore.csv"
             csv_file = os.path.join(tmp_dir, csv_filename)
 
+            logger.info(f"Writing new csv file {csv_filename} with blindscore values")
             with open(csv_file, "w") as file:
                 writer = csv.writer(file)
                 csv_lines[0].append("blind score")
@@ -760,21 +678,10 @@ async def process_blind_score_results(id: int, details: Blindscore_request_model
                     writer.writerow(line)
 
             # upload csv file to s3
+            logger.info(f"Uploading {csv_filename}: {response}")
+
             key = f"trainings/{training['user_id']}/{training['study']}/{training['name']}/{training['name']}_out/{training['name']}_blindscore.csv"
-            upload_params = generate_presigned_post(PHENO_BUCKET, key, csv_file)
-
-            # upload file to s3
-            logger.info(f"Uploading {file}: {response}")
-            response = requests.post(
-                upload_params["url"],
-                data=upload_params["fields"],
-                files={"file": (csv_filename, csv_file)},
-            )
-
-            if response.status_code != 200:
-                logger.error(
-                    f"Failed to upload {csv_filename} to {PHENO_BUCKET}/{key} with error: {response.status_code} {response.content}"
-                )
+            upload_file_to_s3(PHENO_BUCKET, key, csv_file)
 
         return Blindscore_response_model(
             net_score=net_score,
