@@ -74,7 +74,8 @@ async def create_upload_route(request: Request, details: UploadRequest, token=De
 
         #TODO what meta do we want
         meta = {
-            "key": key,
+            "prefix": user_id,
+            "filename": details.filename,
             "md5s": details.md5s
         }
 
