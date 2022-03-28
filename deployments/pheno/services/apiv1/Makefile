@@ -1,16 +1,18 @@
-ecr_repo = 077346344852.dkr.ecr.us-east-2.amazonaws.com/pheno-worker
+# TODO ADD YOUR ECR REPO URL
+ecr_repo = 077346344852.dkr.ecr.us-east-2.amazonaws.com/pheno/apiv1
 repo_root=$(shell git rev-parse --show-toplevel)
+
 
 .PHONY: build buildx push tag apply
 build:
 	cd ${repo_root} && \
-	docker build -t pheno-worker . -f ${repo_root}/jobs/pheno/pheno-worker/Dockerfile -m 4g 
+	docker build -t pheno/apiv1 . -f ${repo_root}/deployments/pheno/services/apiv1/Dockerfile
 
 buildx:
-	docker buildx build -t pheno-worker . --platform linux/amd64 --load
+	docker buildx build -t pheno/apiv1 . --platform linux/amd64 --load
 
 tag:
-	docker tag pheno-worker:latest $(ecr_repo):latest
+	docker tag pheno/apiv1:latest $(ecr_repo):latest
 
 login:
 	aws ecr get-login-password --region us-east-2 | docker login --password-stdin --username AWS $(ecr_repo)

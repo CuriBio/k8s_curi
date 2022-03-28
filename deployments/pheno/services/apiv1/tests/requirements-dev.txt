@@ -1,0 +1,7 @@
+pytest==6.2.3
+pytest-mock==3.5.1
+requests==2.25.1
+fastapi==0.73.0
+pytest-cov==3.0.0
+asynctest==0.13.0
+freezegun==0.3.4

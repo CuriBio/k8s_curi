@@ -4,3 +4,4 @@ __pycache__
 kubeconfig_test
 kubeconfig_prod
 venv/
+.DS_Store
