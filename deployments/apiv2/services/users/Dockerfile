@@ -21,5 +21,5 @@ COPY ./deployments/apiv2/services/users/src/models/ ./models
 COPY ./deployments/apiv2/services/users/src/main.py ./
 
 ENV PYTHONUNBUFFERED 1
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9001", "--reload"]
 

@@ -17,10 +17,15 @@ spec:
     spec:
       containers:
       - name: users
-        image: ???
+        image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/users
         imagePullPolicy: Always
         ports:
-        - containerPort: 8000
+        - containerPort: 9001
+      - name: mantarray
+        image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/mantarray
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9000
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -28,11 +33,12 @@ metadata:
   name: apiv2-ingress
   annotations:
     kubernetes.io/ingress.class: nginx
+    nginx.org/rewrites: serviceName=mantarray rewrite=/
 status:
   loadBalancer: {}
 spec:
   rules:
-  - host: ???
+  - host: apiv2.curibio-test.com
     http:
       paths:
       - path: /users
@@ -40,5 +46,12 @@ spec:
         backend:
           service:
             name: users
+            port:
+              number: 80
+      - path: /mantarray/
+        pathType: Prefix
+        backend:
+          service:
+            name: mantarray
             port:
               number: 80

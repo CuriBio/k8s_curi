@@ -7,7 +7,8 @@ build:
 	docker build -t mantarray . -f ${repo_root}/deployments/apiv2/services/mantarray/Dockerfile
 
 buildx:
-	docker buildx build -t mantarray . --platform linux/amd64 --load
+	cd ${repo_root} && \
+	docker buildx build -t mantarray . --platform linux/amd64 --load -f ${repo_root}/deployments/apiv2/services/mantarray/Dockerfile
 
 tag:
 	docker tag mantarray:latest $(ecr_repo):latest
