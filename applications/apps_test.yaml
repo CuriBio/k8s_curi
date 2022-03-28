@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
   name: deployments
-  namespace: default
+  namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
@@ -23,7 +23,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: deployments
-  namespace: default
+  namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
@@ -34,7 +34,7 @@ spec:
     path: applications/overlays/test
   destination:
     server: https://kubernetes.default.svc
-    namespace: default
+    namespace: argocd
   syncPolicy:
     automated:
       selfHeal: true
