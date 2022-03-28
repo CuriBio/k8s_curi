@@ -6,3 +6,4 @@ resources:
 - ../../base
 - curibio-users-creds.yaml
 - curibio-mantarray-creds.yaml
+- curibio-jwt-secret.yaml
