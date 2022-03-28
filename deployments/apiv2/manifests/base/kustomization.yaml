@@ -4,5 +4,6 @@ kind: Kustomization
 namespace: apiv2
 resources:
 - namespace.yaml
-- users-svc.yaml
 - apiv2-dep.yaml
+- users-svc.yaml
+- mantarray-svc.yaml
