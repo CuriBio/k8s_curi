@@ -18,6 +18,10 @@ spec:
       containers:
       - name: users
         image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/users
+        env:
+        - name: JWT_SECRET
+          valueFrom:
+              secretKeyRef: curibio-jwt-secret
         imagePullPolicy: Always
         ports:
         - containerPort: 9001
