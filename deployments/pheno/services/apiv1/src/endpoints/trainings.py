@@ -558,9 +558,9 @@ async def process_blind_score_results(id: int, details: Blindscore_request_model
                 )
 
         # write new csv file with blindscores
-        logger.info(f"Writing new csv file {csv_filename} with blindscore values")
         csv_filename = f"{training['name']}_blindscore.csv"
         csv_filepath = os.path.join(tmp_dir, csv_filename)
+        logger.info(f"Writing new csv file {csv_filename} with blindscore values")
 
         columns = ["Filename", "Train/Val", "Class", *details.class_names, "Blindscore"]
         blindscore_dt = pd.DataFrame(csv_rows, columns=columns)

@@ -2,10 +2,12 @@ import re
 
 from .models import *
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
-from fastapi import HTTPException, Request, Response
+from fastapi import HTTPException, Request, Response, status
 from fastapi.routing import APIRoute
+from fastapi.exceptions import RequestValidationError
 
 from typing import Callable
+
 # import matplotlib.pyplot as plt
 
 # ------------------------------------------ #
@@ -21,17 +23,25 @@ class RouteErrorHandler(APIRoute):
             try:
                 return await original_route_handler(request)
             except Exception as err:
-                if isinstance(err, HTTPException):
+                if isinstance(err, RequestValidationError):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Request validation error: {err}",
+                    )
+                elif isinstance(err, HTTPException):
                     raise err
                 # wrap error into 500 exception
-                raise HTTPException(status_code=500, detail=f"Unable to process request: {err}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Unable to process request: {err}",
+                )
 
         return custom_route_handler
 
 
 # ------------------------------------------ #
 
-# TODO consider adding templates, but current app uses templates with one line messages so didn't seem necessary for current useage
+# TODO add templates, but current app uses templates with one line messages so didn't seem necessary for current useage
 # only email to consider is the register "welcome" emails
 async def email_user(params: Email_params_model) -> None:
     conf = ConnectionConfig(
@@ -56,7 +66,7 @@ async def email_user(params: Email_params_model) -> None:
         fm = FastMail(conf)
         await fm.send_message(message)
     except Exception as e:
-        raise Exception(f"Email failed to send with error: {e}")
+        raise Exception(f"failed to send email: {e}")
 
 
 # ------------------------------------------ #
@@ -68,6 +78,7 @@ def format_name(name: str):
     return no_spec_chars
 
 
+# might need these later.
 # ------------------------------------------ #
 # image conversion utils directly from old app under /image_conversion
 # def readCSV(fileIn, header=1, dropCols=[0, 1]):

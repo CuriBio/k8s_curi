@@ -1,4 +1,3 @@
-from fastapi import HTTPException
 import pytest
 import sys
 import os
@@ -63,8 +62,8 @@ def test_email_user_status__returns_500_status_code_to_catch_other_errors(mocker
         FastMail,
         "send_message",
         autospec=True,
-        side_effect=Exception("test error sending email"),
-    )
+        side_effect=Exception("fail"),
+    )git com
 
     test_req_body = {
         "user_id": 1,
@@ -74,6 +73,7 @@ def test_email_user_status__returns_500_status_code_to_catch_other_errors(mocker
     response = client.post("/emailUserStatus", json.dumps(test_req_body))
 
     assert response.status_code == 500
-    assert response.json() == {
-        "detail": "Unable to process request: Email failed to send with error: test error sending email"
-    }
+    assert (
+        response.json()["detail"]
+        == "Unable to process request: failed to send email: fail"
+    )
