@@ -1,8 +1,8 @@
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: cluster
-  namespace: argocd
+  name: deployments
+  namespace: default
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
@@ -22,19 +22,19 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: cluster
-  namespace: argocd
+  name: deployments
+  namespace: default
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  project: cluster
+  project: deployments
   source:
     repoURL: https://github.com/CuriBio/k8s_curi.git
     targetRevision: HEAD
-    path: cluster/manifests/applications/overlays/prod
+    path: applications/overlays/test
   destination:
     server: https://kubernetes.default.svc
-    namespace: cluster
+    namespace: default
   syncPolicy:
     automated:
       selfHeal: true
