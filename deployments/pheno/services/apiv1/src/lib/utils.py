@@ -1,10 +1,32 @@
 import re
-import pandas as pd
 
 from .models import *
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+from fastapi import HTTPException, Request, Response
+from fastapi.routing import APIRoute
 
+from typing import Callable
 # import matplotlib.pyplot as plt
+
+# ------------------------------------------ #
+
+
+class RouteErrorHandler(APIRoute):
+    """Custom APIRoute that handles application errors and exceptions"""
+
+    def get_route_handler(self) -> Callable:
+        original_route_handler = super().get_route_handler()
+
+        async def custom_route_handler(request: Request) -> Response:
+            try:
+                return await original_route_handler(request)
+            except Exception as err:
+                if isinstance(err, HTTPException):
+                    raise err
+                # wrap error into 500 exception
+                raise HTTPException(status_code=500, detail=f"Unable to process request: {err}")
+
+        return custom_route_handler
 
 
 # ------------------------------------------ #

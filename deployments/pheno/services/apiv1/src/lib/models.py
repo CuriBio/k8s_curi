@@ -75,7 +75,7 @@ class Log_model(BaseModel):
 
 class Generate_images_response_model(BaseModel):
     urls: List[str]
-    num_imagess: int
+    num_images: int
     class_names: List[str]
     true_classes: List[str]
 
@@ -131,6 +131,7 @@ class New_train_model(BaseModel):
     mode: str
     regweight: str
     num_workers: str
+
 
 @form_body
 class Retrain_model(BaseModel):

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, Request
+from fastapi import FastAPI, APIRouter, Request, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -10,6 +10,7 @@ from endpoints import trainings
 from endpoints import classifications
 from endpoints import dashboard
 from endpoints import user
+
 
 app = FastAPI()
 api_router = APIRouter()
@@ -24,12 +25,6 @@ api_router.include_router(classifications.router)
 app.include_router(api_router)
 
 
-@app.exception_handler(RequestValidationError)  # can evenstually add handling to remove sensitive data
-async def validation_exception_handler(request, err):
-    base_error_message = f"Failed to execute: {request.method}: {request.url}"
-    return JSONResponse(status_code=400, content=f"{base_error_message}: {err.errors()[0]}")
-
-
 @app.on_event("startup")
 async def startup():
     await db.create_pool()
@@ -41,8 +36,11 @@ async def shutdown():
 
 
 @app.middleware("http")
-async def pre_post_request(request: Request, call_next):
-    # pre-request
-    response = await call_next(request)
-    # post-request
-    return response
+async def catch_exceptions(request: Request, call_next):
+    return await call_next(request)
+
+
+@app.exception_handler(RequestValidationError)  # can evenstually add handling to remove sensitive data
+async def validation_exception_handler(request, err):
+    base_error_message = f"Failed to execute: {request.method}: {request.url}"
+    return JSONResponse(status_code=400, content=f"{base_error_message}: {err.errors()[0]}")
