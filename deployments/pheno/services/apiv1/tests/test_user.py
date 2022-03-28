@@ -63,7 +63,7 @@ def test_email_user_status__returns_500_status_code_to_catch_other_errors(mocker
         "send_message",
         autospec=True,
         side_effect=Exception("fail"),
-    )git com
+    )
 
     test_req_body = {
         "user_id": 1,
