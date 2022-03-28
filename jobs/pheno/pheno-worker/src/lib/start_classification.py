@@ -12,9 +12,9 @@ import traceback
 from .constants import TRAIN_CPU
 from .constants import PHENO_BUCKET
 
-from .utils import download_file_from_s3
-from .utils import upload_directory_to_s3
-from .utils import download_directory_from_s3
+from .s3 import download_file_from_s3
+from .s3 import upload_directory_to_s3
+from .s3 import download_directory_from_s3
 from .utils import email_user
 from .utils import update_table_value
 
@@ -112,11 +112,11 @@ def start_classification(params, LOG_FILENAME):
 
     CHECKPOINT = os.path.join(checkpoint_basepath, "model_best.pth.tar")
     key = f"trainings/{MODEL_USER_ID}/{MODEL_STUDY}/{MODEL_NAME}/{MODEL_NAME}_out/model_best.pth.tar"
-    download_file_from_s3(PHENO_BUCKET, key, CHECKPOINT, logger)
+    download_file_from_s3(PHENO_BUCKET, key, CHECKPOINT)
 
     # download input data
     key = f"classifications/{USER_ID}/{EXP_NAME}/{EXP_NAME}"
-    download_directory_from_s3(PHENO_BUCKET, key, INPUT_DIR, logger)
+    download_directory_from_s3(PHENO_BUCKET, key, INPUT_DIR)
 
     try:
         classes = CLASS_NAMES.split(",")
@@ -127,7 +127,7 @@ def start_classification(params, LOG_FILENAME):
             CHECKPOINT_FOCUS = os.path.join("checkpoint_resnet50_focus.pth.tar")
 
             key = "master_checkpoints/checkpoint_resnet50_focus.pth.tar"
-            download_file_from_s3(PHENO_BUCKET, key, CHECKPOINT_FOCUS, logger)
+            download_file_from_s3(PHENO_BUCKET, key, CHECKPOINT_FOCUS)
 
             classifyArgs = [
                 INPUT_DIR,
@@ -191,7 +191,7 @@ def start_classification(params, LOG_FILENAME):
             FILTER_CHECKPOINT = os.path.join(filter_basepath, "model_best.pth.tar")
 
             key = f"trainings/{FILTER_MODEL_USER_ID}/{FILTER_MODEL_STUDY}/{FILTER_MODEL_NAME}/{FILTER_MODEL_NAME}_out/model_best.pth.tar"
-            download_file_from_s3(PHENO_BUCKET, key, FILTER_CHECKPOINT, logger)
+            download_file_from_s3(PHENO_BUCKET, key, FILTER_CHECKPOINT)
 
             classifyArgs = [
                 INPUT_DIR,
@@ -252,7 +252,7 @@ def start_classification(params, LOG_FILENAME):
             # download segmentation_checkpoint to s3
             key = f"trainings/{USER_ID}/segmentation_checkpoints/{SEG_MODEL_NAME}/checkpoint_best.pth.tar"
             seg_checkpoint_filepath = os.path.join(SEG_CHECKPOINT_PATH, "checkpoint_best.pth.tar")
-            download_file_from_s3(PHENO_BUCKET, key, seg_checkpoint_filepath, logger)
+            download_file_from_s3(PHENO_BUCKET, key, seg_checkpoint_filepath)
 
             # pass sub-dirs separately
             for root, _, files in os.walk(INPUT_DIR):
@@ -425,7 +425,7 @@ def start_classification(params, LOG_FILENAME):
 
     # upload  output folder to s3
     key = f"classifications/{USER_ID}/{EXP_NAME}/{EXP_NAME}_out"
-    upload_directory_to_s3(PHENO_BUCKET, key, OUTPUT_DIR, logger)
+    upload_directory_to_s3(PHENO_BUCKET, key, OUTPUT_DIR)
 
     # clean up
     logger.info("Performing cleanup on temporary directories.")

@@ -28,9 +28,9 @@ from pytorch.pytorch_segmentation import segmentImageFolder
 from .constants import TRAIN_CPU
 from .constants import PHENO_BUCKET
 
-from .utils import download_file_from_s3
-from .utils import upload_directory_to_s3
-from .utils import download_directory_from_s3
+from .s3 import download_file_from_s3
+from .s3 import upload_directory_to_s3
+from .s3 import download_directory_from_s3
 from .utils import email_user
 from .utils import update_table_value
 
@@ -115,7 +115,7 @@ def start_training(training, LOG_FILENAME):
     logger.info("transferring data")
 
     key = f"trainings/{USER_ID}/{TRAIN_STUDY}/{TRAIN_NAME}/{TRAIN_NAME}"
-    download_directory_from_s3(PHENO_BUCKET, key, INPUT_DIR, logger)
+    download_directory_from_s3(PHENO_BUCKET, key, INPUT_DIR)
 
     # get class names
     if VAL_DATA_SOURCE == "combined":
@@ -657,20 +657,20 @@ def start_training(training, LOG_FILENAME):
 
     # upload  output folder to s3
     key = f"trainings/{USER_ID}/{TRAIN_STUDY}/{TRAIN_NAME}/{TRAIN_NAME}_out"
-    upload_directory_to_s3(PHENO_BUCKET, key, OUTPUT_DIR, logger)
+    upload_directory_to_s3(PHENO_BUCKET, key, OUTPUT_DIR)
 
     # upload patch validation data to s3
     PATCHES_DIR_VAL = os.path.join(PATCHES_DIR, "Val")
     key = f"trainings/{USER_ID}/{TRAIN_STUDY}/{TRAIN_NAME}/{TRAIN_NAME}_patches/Val"
-    upload_directory_to_s3(PHENO_BUCKET, key, PATCHES_DIR_VAL, logger)
+    upload_directory_to_s3(PHENO_BUCKET, key, PATCHES_DIR_VAL)
 
     # upload training masks to s3
     key = f"trainings/{USER_ID}/{TRAIN_STUDY}/{TRAIN_NAME}/{TRAIN_NAME}_masks"
-    upload_directory_to_s3(PHENO_BUCKET, key, MASKS_DIR, logger)
+    upload_directory_to_s3(PHENO_BUCKET, key, MASKS_DIR)
 
     # upload cam data to s3
     key = f"trainings/{USER_ID}/{TRAIN_STUDY}/{TRAIN_NAME}/{TRAIN_NAME}_cam"
-    upload_directory_to_s3(PHENO_BUCKET, key, CAM_DIR, logger)
+    upload_directory_to_s3(PHENO_BUCKET, key, CAM_DIR)
 
     # clean up
     logger.info("Performing cleanup on temporary directories.")

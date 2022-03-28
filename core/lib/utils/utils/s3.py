@@ -38,7 +38,7 @@ def generate_presigned_urls_for_dir(bucket: str, key_prefix: str, objs_only: boo
         if objs_only:
             return [obj.key for obj in objs]
 
-        return [generate_presigned_url(obj.key) for obj in objs]
+        return [generate_presigned_url(bucket, obj.key) for obj in objs]
 
     except ClientError as e:
         raise ClientError(f"Failed to generate presigned urls for {bucket}/{key_prefix}: {e}")
@@ -108,6 +108,14 @@ def upload_directory_to_s3(bucket, key, dir) -> None:
 def download_file_from_s3(bucket, key, file_path) -> None:
     try:
         s3_client = boto3.client("s3")
+        s3 = boto3.resource("s3")
+
+        # check if object exists
+        try:
+            s3.Object(bucket, key).load()
+        except:
+            return 404
+
         s3_client.download_file(Bucket=bucket, Key=key, Filename=file_path)
     except ClientError as e:
         raise ClientError(f"Failed to download file {bucket}/{key}: {e}")

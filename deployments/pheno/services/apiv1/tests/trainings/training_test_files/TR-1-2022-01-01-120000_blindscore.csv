@@ -1,0 +1,9 @@
+Filename,Train/Val,Class,6_mon,12_mon,Blindscore
+6mo_train_1000_c6921061_aac087fd.png,Train,6_mon,0.2,0.8,
+6mo_train_1001_657a585d_5d2ff9da.png,Train,6_mon,0.33,0.67,
+12mon_train_1000_396d3883_3f46ab5e.png,Train,12_mon,0.01,0.99,
+12mon_train_1001_c5e7e7e2_f7d39346.png,Train,12_mon,0.03,0.97,
+6mo_val_1_2f752e9c_d057f6bd.png,Val,6_mon,0.05,0.95,0.0
+6mo_val_10_f5297f9a_93e69c3a.png,Val,6_mon,0.05,0.95,0.0
+12mon_val_1_a65f7a5c_2871d42b.png,Val,12_mon,0.25,0.75,0.0
+12mon_val_10_add5700e_45a48d64.png,Val,12_mon,0.09,0.91,0.0
