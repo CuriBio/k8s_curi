@@ -19,6 +19,17 @@ spec:
       - name: users
         image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/users
         env:
+        - name: POSTGERS_USER
+          value: curibio_users
+        - name: POSTGERS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: curibio-users-creds
+              key: curibio_users
+        - name: POSTGRES_SERVER
+          value: psql-rds.default
+        - name: POSTGRES_DB
+          value: curibio
         - name: JWT_SECRET_KEY
           valueFrom:
             secretKeyRef:
