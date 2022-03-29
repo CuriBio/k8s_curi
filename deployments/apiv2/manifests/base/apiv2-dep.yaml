@@ -19,7 +19,7 @@ spec:
       - name: users
         image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/users
         env:
-        - name: POSTGERS_USER
+        - name: POSTGRES_USER
           value: curibio_users
         - name: POSTGERS_PASSWORD
           valueFrom:
