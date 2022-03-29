@@ -1,0 +1,50 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pulse3d-worker
+  namespace: pulse3d
+spec:
+  template:
+    spec:
+      containers:
+        - name: pulse3d-worker
+          image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: curibio-jobs-creds
+                  key: curibio_jobs_ro
+            - name: UPLOADS_BUCKET_ENV
+              value: test-sdk-upload
+      restartPolicy: Never
+  backoffLimit: 4
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: keda-trigger-auth-postgresql-secret
+spec:
+  secretTargetRef:
+  - parameter: connection
+    name: curibio-postgres-connection
+    key: postgres-connection-uri
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: postgresql-scaledobject
+spec:
+  scaleTargetRef:
+    name: pulse3d-worker
+  pollingInterval: 5
+  cooldownPeriod:  10
+  minReplicaCount: 0
+  maxReplicaCount: 5
+  triggers:
+  - type: postgresql
+    metadata:
+      query: "SELECT ceil(COUNT(*)::decimal / 4) FROM jobs_queue FOR UPDATE SKIP LOCKED"
+      targetQueryValue: "1"
+    authenticationRef:
+      name: keda-trigger-auth-postgresql-secret

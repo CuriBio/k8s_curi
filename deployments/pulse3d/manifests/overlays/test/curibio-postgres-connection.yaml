@@ -1,0 +1,16 @@
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  creationTimestamp: null
+  name: curibio-postgres-connection
+  namespace: pulse3d
+spec:
+  encryptedData:
+    postgres-connection-uri: AgAyj8J/Rl/v037QWRAZOyoTYNIurfylpgrFH67NlSXJPwkDZFRZCeQwPemGe1a524mPGAAgisR6AKbmU6n0oZ1ebpo18im/l9w2/LMRkSQIIOeqABjVksMBA6UuYOJrXjz0cJ7BBbqRqpPsm7ng+rdp8b6xj5oiHgqsWUfW4Qkvqa6iK0KTybW2kvfTn4xuc92pHafKeQ5yGbIOdaIMF3F0UIRXIyEsvyzptqfFQNeW8hRaQG2nQpHsDNNIJQvdv4OrD30tcM23uJNL9ShLGuOro/48JhjMDdiTzMRpHJf8T2skJVdSEHbQf1uNxaxHd6m4HiFdWT7AXyxAWshvnYbOH6IgW2zbsY5sICxYQoZ1pYdM2+88MJ3wEGw13NFziRZcP/Fr+UxFvsLeHCkhz70c0W4yxKF7xSH7VD7xaOGEquLNcE0e51P25qwsKojLBsTjSXUuI1D8F53JqJGsvNRmj7CNG0hye7/SZ4/wfRJpE5D2kJhyS4RQ1FiQt5Ju/Mj/utep0Q6GwLl716HBG9jjSX5RyqAQ6loSnc1DtcLQj/dZ58Zw+BkB53n77D4tV/pnyJ7piTAU+eduLcdHQG/mr//UEAeYPiuP4JQP4fV+ScCzh49LTA6KThpNeaQHUthhlqMfSJu7pbJAk00FVuBAkgmxOGjNMx0yTphJebr2IHkOpPkKWXj3TGnv6NBQ48ae+ke84Ni/RkFQdszzditojGk9dRcegfeQ/Ma31NdB8uOFcBISgI6hNn+GNj5N3sI22goMa7yZ0tecIvE0hPSh3J9ri0VqVjpPPaNoI/7bHts79zc=
+  template:
+    data: null
+    metadata:
+      creationTimestamp: null
+      name: curibio-postgres-connection
+      namespace: pulse3d
+

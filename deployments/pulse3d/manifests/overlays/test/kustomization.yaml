@@ -6,3 +6,4 @@ resources:
 - ../../base
 - curibio-jwt-secret.yaml
 - curibio-jobs-creds.yaml
+- curibio-postgres-connection.yaml
