@@ -4,6 +4,6 @@ kind: Kustomization
 namespace: apiv2
 resources:
 - ../../base
+- curibio-jwt-secret.yaml
 - curibio-users-creds.yaml
 - curibio-mantarray-creds.yaml
-- curibio-jwt-secret.yaml
