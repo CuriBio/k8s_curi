@@ -21,7 +21,9 @@ spec:
         env:
         - name: JWT_SECRET_KEY
           valueFrom:
-              secretKeyRef: curibio-jwt-secret
+            secretKeyRef:
+              name: curibio-jwt-secret
+              key: jwt-secret
         imagePullPolicy: Always
         ports:
         - containerPort: 9001
