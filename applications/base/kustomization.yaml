@@ -4,3 +4,4 @@ kind: Kustomization
 namespace: argocd
 resources:
 - apiv2-deployment.yaml
+- pulse3d-deployment.yaml
