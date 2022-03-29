@@ -28,7 +28,7 @@ variable "region" {
 }
 
 resource "aws_ecr_repository" "pulse3d_worker_ecr" {
-  name                 = "pheno-worker"
+  name                 = "pulse3d-worker"
   image_tag_mutability = "MUTABLE"
 
   image_scanning_configuration {
