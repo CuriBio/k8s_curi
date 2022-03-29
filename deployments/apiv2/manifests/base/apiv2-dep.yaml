@@ -21,7 +21,7 @@ spec:
         env:
         - name: POSTGRES_USER
           value: curibio_users
-        - name: POSTGERS_PASSWORD
+        - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
               name: curibio-users-creds
