@@ -72,6 +72,39 @@ resource "aws_iam_role" "workflow_pods" {
   assume_role_policy = data.aws_iam_policy_document.workflows_pods.json
 }
 
+
+
+resource "aws_iam_role_policy" "pulse3d_pod_iam_role_policy" {
+  name        = "pulse3d-pods-iam-role01"
+  role        = aws_iam_role.pulse3d_pods.id
+
+  policy = file("${path.module}/json/pulse3d_namespace_iam_policy.json")
+}
+
+data "aws_iam_policy_document" "pulse3d_pods" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    effect  = "Allow"
+
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_iam_openid_connect_provider.default.url, "https://", "")}:sub"
+      values   = ["system:serviceaccount:pulse3d:default"]
+    }
+
+    principals {
+      identifiers = [aws_iam_openid_connect_provider.default.arn]
+      type        = "Federated"
+    }
+  }
+}
+
+resource "aws_iam_role" "pulse3d_pods" {
+  name = "pulse3d-pods-iam-role01"
+
+  assume_role_policy = data.aws_iam_policy_document.pulse3d_pods.json
+}
+
 data "aws_region" "current" {}
 data "external" "thumbprint" {
   program = ["/bin/sh", "${path.module}/external/thumbprint.sh", data.aws_region.current.name]
