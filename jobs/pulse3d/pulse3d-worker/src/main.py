@@ -2,6 +2,8 @@ import asyncio
 import json
 import logging
 import os
+import base64
+import hashlib
 import sys
 import tempfile
 
