@@ -54,6 +54,20 @@ async def create_upload(*, con, user_id, meta):
         return await con.fetchval(query, user_id, json.dumps(meta))
 
 
+async def get_jobs(*, con, user_id, job_id=None):
+    jobs = []
+    async with con.transaction():
+        if job_id:
+            query = "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, u.user_id, u.meta FROM jobs_result AS j JOIN uploads AS u ON j.upload_id = u.id WHERE u.user_id=$1 and j.job_id=$2"
+            row = await con.fetchrow(query, user_id, job_id)
+            jobs.append(dict(row))
+        else:
+            query = "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, u.user_id, u.meta FROM jobs_result AS j JOIN uploads AS u ON j.upload_id = u.id WHERE u.user_id=$1"
+            async for row in con.cursor(query, user_id):
+                jobs.append(dict(row))
+    return jobs
+
+
 async def create_job(*, con, upload_id, queue, priority, meta):
     query = "WITH row AS (SELECT id FROM uploads WHERE id=$1) INSERT INTO jobs_queue (upload_id, queue, priority, meta) SELECT id, $2, $3, $4 from row RETURNING id"
     async with con.transaction():

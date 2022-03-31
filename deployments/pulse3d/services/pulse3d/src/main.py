@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from auth import ProtectedAny
-from jobs import create_upload, create_job, get_uploads
+from jobs import create_upload, create_job, get_uploads, get_jobs
 from utils.s3 import generate_presigned_post
 from utils.db import AsyncpgPoolDep
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET
@@ -87,6 +87,20 @@ async def create_upload_route(request: Request, details: UploadRequest, token=De
     except Exception as e:
         logger.exception("Failed to generate presigned upload url")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+
+
+@app.get("/jobs")
+async def get_all_users_jobs(request: Request, token=Depends(ProtectedAny(scope=["users:free"]))):
+    try:
+        user_id = str(uuid.UUID(token["userid"]))
+        logger.info(f"GET /jobs for user: {user_id}")
+
+        async with request.state.pgpool.acquire() as con:
+            return await get_jobs(con=con, user_id=user_id)
+
+    except Exception as e:
+        logger.exception("Failed to create job")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @app.post("/jobs")

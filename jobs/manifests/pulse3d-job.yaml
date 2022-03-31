@@ -6,6 +6,7 @@ metadata:
 spec:
   jobTargetRef:
     template:
+      ttlSecondsAfterFinished: 0
       spec:
         containers:
           - name: pulse3d-worker
