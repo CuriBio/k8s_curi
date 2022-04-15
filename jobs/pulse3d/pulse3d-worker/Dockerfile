@@ -16,6 +16,7 @@ ENV PATH /app/venv/bin:$PATH
 
 WORKDIR /app
 COPY ./jobs/pulse3d/pulse3d-worker/src/main.py ./
+COPY ./jobs/pulse3d/pulse3d-worker/src/lib ./lib
 
 ENV PYTHONUNBUFFERED 1
 CMD ["python", "main.py"]
