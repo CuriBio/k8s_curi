@@ -66,7 +66,8 @@ async def process(con, item):
                 md5 = hashlib.md5(contents).digest()
                 md5s = base64.b64encode(md5).decode()
 
-                outfile_key = f"{prefix}/{outfile}"
+                outfile_prefix = prefix.replace("/uploads/", "/analyzed/")
+                outfile_key = f"{outfile_prefix}/{outfile}"
                 s3_client.put_object(
                     Body=contents, Bucket=PULSE3D_UPLOADS_BUCKET, Key=outfile_key, ContentMD5=md5s
                 )
@@ -75,10 +76,10 @@ async def process(con, item):
                 return ("error", {})
 
             try:
-                logger.info(f"Inserting {outfile} metadata into db")
-                await insert_metadata_into_pg(con, pr, file, outfile_key, md5s)
+                logger.info(f"Inserting {outfile} metadata into db for upload {upload_id}")
+                await insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s)
             except Exception as e:
-                logger.error(f"Failed to insert metadata to db: {e}")
+                logger.error(f"Failed to insert metadata to db for upload {upload_id}: {e}")
                 return ("error inserting into db", {})
 
     return ("finished", {})

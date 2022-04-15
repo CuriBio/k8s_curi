@@ -24,6 +24,7 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 class UploadRequest(BaseModel):
     filename: str
     md5s: str
+    customer_id: str
 
 
 class JobRequest(BaseModel):
@@ -72,15 +73,19 @@ async def create_upload_route(
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
-        key = f"{user_id}/{details.filename}"
+        key = f"uploads/{details.customer_id}/{user_id}/{details.filename}"
 
         logger.info(
-            f"Generating presigned upload url for {PULSE3D_UPLOADS_BUCKET}/{user_id}/{details.filename}"
+            f"Generating presigned upload url for {PULSE3D_UPLOADS_BUCKET}/uploads/{details.customer_id}/{user_id}/{details.filename}"
         )
         params = generate_presigned_post(bucket=PULSE3D_UPLOADS_BUCKET, key=key, md5s=details.md5s)
 
         # TODO what meta do we want
-        meta = {"prefix": user_id, "filename": details.filename, "md5s": details.md5s}
+        meta = {
+            "prefix": f"uploads/{details.customer_id}/{user_id}",
+            "filename": details.filename,
+            "md5s": details.md5s,
+        }
 
         async with request.state.pgpool.acquire() as con:
             upload_id = await create_upload(con=con, user_id=user_id, meta=meta)

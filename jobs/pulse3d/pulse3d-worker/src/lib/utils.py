@@ -10,16 +10,14 @@ from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import SOFTWARE_RELEASE_VERSION_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
-from pulse3D.constants import WELL_INDEX_UUID
 
 
 def load_data_to_df(file_name, pr):
     df = pd.read_excel(file_name, sheet_name=None, engine="openpyxl")
     recording_length = int(df["continuous-waveforms"]["Time (seconds)"].iloc[-1]) * MICRO_TO_BASE_CONVERSION
     formatted_metadata = format_metadata(df["metadata"], pr, recording_length)
-    formatted_well_data = format_well_data(pr, recording_length)
 
-    return formatted_metadata, formatted_well_data
+    return formatted_metadata
 
 
 def format_metadata(meta_sheet, pr, recording_length: int):
@@ -37,22 +35,6 @@ def format_metadata(meta_sheet, pr, recording_length: int):
         "session_log_id": well_file.get(BACKEND_LOG_UUID, None),
         "software_version": well_file.get(SOFTWARE_RELEASE_VERSION_UUID, None),
     }
-
-
-def format_well_data(pr, recording_length: int):
-    well_data = list()
-    for _, well_file in enumerate(pr):
-        if well_file is None:
-            continue
-
-        well_dict = {
-            "well_index": well_file.get(WELL_INDEX_UUID, None),
-            "recording_started_at": well_file[UTC_BEGINNING_RECORDING_UUID],
-            "length_microseconds": recording_length,
-        }
-        well_data.append(well_dict)
-
-    return well_data
 
 
 def get_s3_object_contents(bucket: str, key: str):
