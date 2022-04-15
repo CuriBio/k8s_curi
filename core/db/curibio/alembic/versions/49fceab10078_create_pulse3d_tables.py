@@ -17,8 +17,8 @@ depends_on = None
 
 def upgrade():
     with op.batch_alter_table("uploads") as batch_op:
-        batch_op.add_column(sa.Column("bucket", sa.VARCHAR(255), nullable=False))
-        batch_op.add_column(sa.Column("object_key", sa.VARCHAR(255), nullable=False))
+        batch_op.add_column(sa.Column("bucket", sa.VARCHAR(255), nullable=True))
+        batch_op.add_column(sa.Column("object_key", sa.VARCHAR(255), nullable=True))
         batch_op.add_column(sa.Column("original_file_path", sa.VARCHAR(255), nullable=True))
         batch_op.add_column(sa.Column("uploading_computer_name", sa.VARCHAR(255), nullable=True))
         batch_op.add_column(sa.Column("kilobytes", sa.BigInteger(), nullable=True))
@@ -48,7 +48,7 @@ def upgrade():
         sa.Column("session_log_id", sa.VARCHAR(255), nullable=False),
         sa.Column("bucket", sa.VARCHAR(255), nullable=False),
         sa.Column("object_key", sa.VARCHAR(255), nullable=False),
-        sa.Column("upload_id", sa.Integer(), nullable=False),
+        sa.Column("upload_id", pg.UUID(as_uuid=True), nullable=False),
         sa.Column("mantarray_recording_session_id", pg.UUID(as_uuid=True), nullable=True),
         sa.Column("software_version", sa.VARCHAR(255), nullable=True),
         sa.Column("file_format_version", sa.VARCHAR(255), nullable=True),
