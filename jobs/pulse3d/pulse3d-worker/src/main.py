@@ -52,9 +52,10 @@ async def process(con, item):
         try:
             logger.info(f"Starting pulse3d analysis")
             outfile = f"{'.'.join(filename.split('.')[:-1])}.xlsx"
-            prs = PlateRecording.from_directory(tmpdir)
-            pr = next(prs)
-            write_xlsx(pr, name=outfile)
+            pr = PlateRecording.from_directory(tmpdir)
+            recordings = list(pr)
+            for r in recordings:
+                write_xlsx(r, name=outfile)
         except Exception as e:
             logger.exception(f"Analysis failed")
             return ("failed", {})
@@ -68,6 +69,7 @@ async def process(con, item):
 
                 outfile_prefix = prefix.replace("/uploads/", "/analyzed/")
                 outfile_key = f"{outfile_prefix}/{outfile}"
+
                 s3_client.put_object(
                     Body=contents, Bucket=PULSE3D_UPLOADS_BUCKET, Key=outfile_key, ContentMD5=md5s
                 )
@@ -77,7 +79,8 @@ async def process(con, item):
 
             try:
                 logger.info(f"Inserting {outfile} metadata into db for upload {upload_id}")
-                await insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s)
+                for r in recordings:
+                    await insert_metadata_into_pg(con, r, upload_id, file, outfile_key, md5s)
             except Exception as e:
                 logger.error(f"Failed to insert metadata to db for upload {upload_id}: {e}")
                 return ("error inserting into db", {})

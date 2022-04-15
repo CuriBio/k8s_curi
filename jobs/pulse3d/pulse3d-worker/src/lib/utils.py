@@ -22,6 +22,7 @@ def load_data_to_df(file_name, pr):
 
 def format_metadata(meta_sheet, pr, recording_length: int):
     well_file = pr.wells[0]
+
     return {
         "barcode": well_file.get(PLATE_BARCODE_UUID, None),
         "recording_started_at": well_file[UTC_BEGINNING_RECORDING_UUID],
@@ -42,5 +43,5 @@ def get_s3_object_contents(bucket: str, key: str):
     s3_client = boto3.client("s3")
     try:
         return s3_client.head_object(Bucket=bucket, Key=key).get("ContentLength") / 1000
-    except Exception as e:  # Get content size in bytes to kb    
+    except Exception as e:  # Get content size in bytes to kb
         raise Exception(f"error retrieving s3 object size: {e}")
