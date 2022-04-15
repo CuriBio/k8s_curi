@@ -5,6 +5,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 
+from auth import ProtectedAny
 from utils.db import get_cursor
 from utils.firmware import get_download_url
 from utils.firmware import get_latest_firmware_version
@@ -34,7 +35,7 @@ async def get_latest_firmware(serial_number: str, cur=Depends(get_cursor("reader
 async def get_firmware_download_url(
     firmware_version: str = Query(..., regex=r"^\d+\.\d+\.\d+$"),
     firmware_type: str = Query(..., regex="^(main|channel)$"),
+    token=Depends(ProtectedAny()),  # TODO add scope here
 ):
-    # TODO add auth
     url = get_download_url(firmware_version, firmware_type)
     return JSONResponse({"presigned_url": url})
