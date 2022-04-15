@@ -20,7 +20,7 @@ spec:
               - name: UPLOADS_BUCKET_ENV
                 value: curi-test-upload
               - name: LOGS_BUCKET_ENV
-                value: curi-test-mantarray-logs
+                value: test-mantarray-logs
         restartPolicy: Never
     backoffLimit: 4
   pollingInterval: 30

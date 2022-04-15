@@ -9,9 +9,7 @@ from .queries import INSERT_INTO_MANTARRAY_SESSION_LOG_FILES
 from .utils import get_s3_object_contents
 from .utils import load_data_to_df
 
-LOGS_BUCKET = os.environ.get(
-    "LOGS_BUCKET_ENV", "test-mantarray-logs"
-)  # I just need the bucket name, I don't need extra permissions
+LOGS_BUCKET = os.environ.get("LOGS_BUCKET_ENV", "test-mantarray-logs")
 PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-sdk-upload")
 
 # set up custom basic config
