@@ -1,4 +1,3 @@
-import os
 import re
 
 import boto3
@@ -49,13 +48,6 @@ def resolve_versions(hardware_version):
     mfw = cfw_to_mfw[cfw]
     sw = mfw_to_sw[mfw]
     return {"sw": sw, "main-fw": mfw, "channel-fw": cfw}
-
-
-def get_latest_firmware_version(hardware_version):
-    try:
-        return resolve_versions(hardware_version)
-    except:
-        return None
 
 
 def get_download_url(version, firmware_type):

@@ -220,57 +220,6 @@ def test_firmware__resolve_versions__return_correct_dict(
     mocked_get_cfw_from_hw.assert_called_once_with(dummy_cfw_to_hw, hw_version)
 
 
-def test_firmware__get_latest_firmware_version__returns_correct_response__if_resolving_dependency_mapping_succeeds(
-    mocker,
-):
-    mocked_s3_client = mocked_boto3.client("s3")
-
-    test_hw_version = "0.0.0"
-    expected_main_bucket_name = "test_main_bucket"
-    expected_fw_version = "1.1.1"
-
-    test_file_names = ["1.0.0.bin", "1.0.1.bin", "1.1.0.bin"]
-    mocked_s3_client.list_objects.return_value = {
-        "Contents": [{"Key": file_name} for file_name in test_file_names]
-    }
-    mocked_s3_client.head_object.side_effect = lambda Bucket, Key: {
-        "Metadata": (
-            {"sw-version": "0.0.0"}
-            if Bucket == expected_main_bucket_name
-            else {"main-fw-version": "0.0.0", "hw-version": "0.0.0"}
-        )
-    }
-
-    mocker.patch.object(utils.firmware, "resolve_versions", autospec=True, return_value=expected_fw_version)
-
-    assert utils.firmware.get_latest_firmware_version(test_hw_version) == expected_fw_version
-
-
-def test_firmware__get_latest_firmware_version__returns_correct_response__if_resolving_dependency_mapping_fails(
-    mocker,
-):
-    mocked_s3_client = mocked_boto3.client("s3")
-
-    test_hw_version = "0.0.0"
-    expected_main_bucket_name = "test_main_bucket"
-
-    test_file_names = ["1.0.0.bin", "1.0.1.bin", "1.1.0.bin"]
-    mocked_s3_client.list_objects.return_value = {
-        "Contents": [{"Key": file_name} for file_name in test_file_names]
-    }
-    mocked_s3_client.head_object.side_effect = lambda Bucket, Key: {
-        "Metadata": (
-            {"sw-version": "0.0.0"}
-            if Bucket == expected_main_bucket_name
-            else {"main-fw-version": "0.0.0", "hw-version": "0.0.0"}
-        )
-    }
-
-    mocker.patch.object(utils.firmware, "resolve_versions", autospec=True, side_effect=Exception)
-
-    assert utils.firmware.get_latest_firmware_version(test_hw_version) is None
-
-
 def test__firmware__get_download_url__generates_and_returns_presigned_url_if_params_are_valid():
     mocked_s3_client = mocked_boto3.client("s3")
 
