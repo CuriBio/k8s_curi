@@ -35,8 +35,8 @@ async def startup():
 async def root(request: Request):
     async with request.state.pgpool.acquire() as con:
         rows = await con.fetch("SELECT * FROM MAUnits")
-        # convert each row to a dict
-        units = [{col: row[col] for col in ("serial_number", "hw_version")} for row in rows]
+        # convert to dicts for us in jinja template
+        units = [dict(row) for row in rows]
     return templates.TemplateResponse("table.html", {"request": request, "units": units})
 
 
@@ -56,9 +56,7 @@ async def get_latest_firmware(request: Request, serial_number: str):
     try:
         latest_versions = resolve_versions(hardware_version)
         return JSONResponse({"latest_versions": latest_versions})
-    except Exception as e:
-        import traceback
-
+    except:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
