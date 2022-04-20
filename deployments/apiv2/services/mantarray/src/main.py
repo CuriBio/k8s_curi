@@ -59,9 +59,7 @@ async def get_latest_firmware(request: Request, serial_number: str):
     except:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={
-                "message": f"Could not determine latest versions for HW v{hardware_version}\n{traceback.format_exc()}"
-            },
+            content={"message": f"Could not determine latest versions for HW v{hardware_version}"},
         )
 
 
