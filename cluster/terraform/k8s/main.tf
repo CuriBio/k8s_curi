@@ -107,7 +107,7 @@ resource "aws_iam_role" "pulse3d_pods" {
 
 resource "aws_iam_role_policy" "apiv2_pod_iam_role_policy" {
   name        = "apiv2-pods-iam-role01"
-  role        = aws_iam_role.pulse3d_pods.id
+  role        = aws_iam_role.apiv2_pods.id
 
   policy = file("${path.module}/json/apiv2_namespace_iam_policy.json")
 }
