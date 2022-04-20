@@ -55,9 +55,7 @@ def get_download_url(version, firmware_type):
 
     bucket = f"{firmware_type}-firmware"
     file_name = f"{version}.bin"
-    try:
-        return s3_client.generate_presigned_url(
-            ClientMethod="get_object", Params={"Bucket": bucket, "Key": file_name}, ExpiresIn=3600
-        )
-    except:
-        return None
+    url = s3_client.generate_presigned_url(
+        ClientMethod="get_object", Params={"Bucket": bucket, "Key": file_name}, ExpiresIn=3600
+    )
+    return url 

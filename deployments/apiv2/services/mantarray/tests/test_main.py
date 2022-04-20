@@ -6,7 +6,6 @@ from random import choice, randint
 
 from auth import create_token
 from src import main
-from src.utils.db import CONNECTION_POOLS as mocked_connection_pools
 
 test_client = TestClient(main.app)
 
@@ -17,13 +16,6 @@ def random_semver():
 
 def random_firmware_type():
     return choice(["main", "channel"])
-
-
-@pytest.fixture(autouse=True)
-def reset_db_conn_mocks_after_each_test():
-    yield
-    for mock in mocked_connection_pools.values():
-        mock.reset_mock()
 
 
 @pytest.fixture(scope="function", name="auth_token")

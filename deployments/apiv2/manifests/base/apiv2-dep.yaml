@@ -40,6 +40,23 @@ spec:
         - containerPort: 9001
       - name: mantarray
         image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/mantarray
+        env:
+        - name: POSTGRES_USER
+          value: curibio_mantarray_ro
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: curibio-mantarray-creds
+              key: curibio_mantarray_ro
+        - name: POSTGRES_SERVER
+          value: psql-rds.default
+        - name: POSTGRES_DB
+          value: curibio
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: curibio-jwt-secret
+              key: jwt-secret
         imagePullPolicy: Always
         ports:
         - containerPort: 9000
