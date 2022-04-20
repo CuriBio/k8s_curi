@@ -105,6 +105,37 @@ resource "aws_iam_role" "pulse3d_pods" {
   assume_role_policy = data.aws_iam_policy_document.pulse3d_pods.json
 }
 
+resource "aws_iam_role_policy" "apiv2_pod_iam_role_policy" {
+  name        = "apiv2-pods-iam-role01"
+  role        = aws_iam_role.pulse3d_pods.id
+
+  policy = file("${path.module}/json/apiv2_namespace_iam_policy.json")
+}
+
+data "aws_iam_policy_document" "apiv2_pods" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    effect  = "Allow"
+
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_iam_openid_connect_provider.default.url, "https://", "")}:sub"
+      values   = ["system:serviceaccount:apiv2:default"]
+    }
+
+    principals {
+      identifiers = [aws_iam_openid_connect_provider.default.arn]
+      type        = "Federated"
+    }
+  }
+}
+
+resource "aws_iam_role" "apiv2_pods" {
+  name = "apiv2-pods-iam-role01"
+
+  assume_role_policy = data.aws_iam_policy_document.apiv2_pods.json
+}
+
 data "aws_region" "current" {}
 data "external" "thumbprint" {
   program = ["/bin/sh", "${path.module}/external/thumbprint.sh", data.aws_region.current.name]
@@ -115,52 +146,6 @@ resource "aws_iam_openid_connect_provider" "default" {
   client_id_list  = ["sts.amazonaws.com" ]
   thumbprint_list = [data.external.thumbprint.result.thumbprint]
 }
-
-# module "mantarray_namespace_policy" {
-#   source = "./modules/service_account_namespace"
-
-#   namespace = "mantarray"
-#   policy_file_name = "mantarray_namespace_iam_policy.json"
-#   iam_role_name = "MantarrayPodIAMPolicy"
-#   iam_role_policy_name = "mantarray-pods-iam-role01"
-
-#   namespace_annotations = {
-#     name = "mantarray namespace"
-#   }
-
-#   openid_connect_provider = aws_iam_openid_connect_provider.default
-# }
-
-# module "temp_namespace_policy" {
-#   source = "./modules/service_account_namespace"
-
-#   namespace = "temp"
-#   policy_file_name = "temp_namespace_iam_policy.json"
-#   iam_role_name = "TempPodIAMPolicy"
-#   iam_role_policy_name = "temp-pods-iam-role01"
-
-#   namespace_annotations = {
-#     name = "temp namespace"
-#   }
-
-#   openid_connect_provider = aws_iam_openid_connect_provider.default
-# }
-#
-# module "argo_namespace_policy" {
-#   source = "./modules/service_account_namespace"
-
-#   name = "argo"
-#   namespace = "argo"
-#   policy_file_name = "argo_namespace_iam_policy.json"
-#   iam_role_name = "ArgoPodIAMPolicy"
-#   iam_role_policy_name = "argo-pods-iam-role01"
-
-#   namespace_annotations = {
-#     name = "argo namespace"
-#   }
-
-#   openid_connect_provider = aws_iam_openid_connect_provider.default
-# }
 
 module "eks" {
   source          = "terraform-aws-modules/eks/aws"
