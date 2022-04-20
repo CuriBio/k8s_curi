@@ -8,6 +8,13 @@ FIRMWARE_FILE_REGEX = re.compile(r"^\d+\.\d+\.\d+\.bin$")
 
 
 def create_dependency_mapping():
+    """Create depency mappings of SW/FW/HW versions as a dict.
+
+    Mappings include:
+        - Channel FW -> HW
+        - Channel FW -> Main FW
+        - Main FW -> SW
+    """
     s3_client = boto3.client("s3")
 
     # create dependency mappings
@@ -19,16 +26,21 @@ def create_dependency_mapping():
         ("channel-firmware", "main-fw", cfw_to_mfw),
         ("main-firmware", "sw", mfw_to_sw),
     ):
-        firmware_bucket_objs = s3_client.list_objects(Bucket=bucket)
+        firmware_file_objs = s3_client.list_objects(Bucket=bucket)
+        # create list of all objects in bucket with a valid file name
         firmware_file_names = [
             item["Key"]
-            for item in firmware_bucket_objs["Contents"]
+            for item in firmware_file_objs["Contents"]
             if FIRMWARE_FILE_REGEX.search(item["Key"])
         ]
         for file_name in firmware_file_names:
             head_obj = s3_client.head_object(Bucket=bucket, Key=file_name)
-            dependent_version = head_obj["Metadata"][f"{metadata_prefix}-version"]
-            dependency_mapping[file_name.split(".bin")[0]] = dependent_version
+            # get version from object metadata
+            metadata_key = f"{metadata_prefix}-version"
+            metadata_version = head_obj["Metadata"][metadata_key]
+            # get version of object and add entry to mapping
+            obj_version = file_name.split(".bin")[0]
+            dependency_mapping[obj_version] = metadata_version
     return cfw_to_hw, cfw_to_mfw, mfw_to_sw
 
 
@@ -58,4 +70,4 @@ def get_download_url(version, firmware_type):
     url = s3_client.generate_presigned_url(
         ClientMethod="get_object", Params={"Bucket": bucket, "Key": file_name}, ExpiresIn=3600
     )
-    return url 
+    return url

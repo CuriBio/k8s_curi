@@ -54,17 +54,55 @@ def test_firmware__create_dependency_mapping__retrieves_metadata_of_each_appropr
 
     firmware.create_dependency_mapping()
 
-    expected_calls = [
-        mocker.call(Bucket=expected_channel_bucket_name, Key=file_name)
-        for file_name in expected_valid_channel_file_names
-    ] * 2
-    expected_calls.extend(
-        [
-            mocker.call(Bucket=expected_main_bucket_name, Key=file_name)
-            for file_name in expected_valid_main_file_names
-        ]
-    )
-    assert mocked_s3_client.head_object.call_args_list == expected_calls
+    for file_list, bucket_name in (
+        (expected_valid_channel_file_names, expected_channel_bucket_name),
+        (expected_valid_main_file_names, expected_main_bucket_name),
+    ):
+        for file_name in file_list:
+            mocked_s3_client.head_object.assert_any_call(Bucket=bucket_name, Key=file_name)
+
+
+def test_firmware__create_dependency_mapping__returns_correct_mappings(
+    mocker,
+):
+    mocked_s3_client = mocked_boto3.client("s3")
+
+    expected_main_bucket_name = "main-firmware"
+
+    expected_main_objs_and_metadata = {
+        "1.0.1.bin": {"sw-version": "1.0.0"},
+        "2.0.2.bin": {"sw-version": "2.0.0"},
+    }
+    expected_channel_objs_and_metadata = {
+        "1.1.0.bin": {"main-fw-version": "1.0.1", "hw-version": "1.1.1"},
+        "2.2.0.bin": {"main-fw-version": "2.0.2", "hw-version": "2.2.2"},
+    }
+
+    def lo_se(Bucket):
+        objs = (
+            expected_main_objs_and_metadata
+            if Bucket == expected_main_bucket_name
+            else expected_channel_objs_and_metadata
+        )
+        test_file_names = list(objs.keys())
+        return {"Contents": [{"Key": file_name} for file_name in test_file_names]}
+
+    mocked_s3_client.list_objects.side_effect = lo_se
+
+    def ho_se(Bucket, Key):
+        objs = (
+            expected_main_objs_and_metadata
+            if Bucket == expected_main_bucket_name
+            else expected_channel_objs_and_metadata
+        )
+        return {"Metadata": objs[Key]}
+
+    mocked_s3_client.head_object.side_effect = ho_se
+
+    cfw_to_hw, cfw_to_mfw, mfw_to_sw = firmware.create_dependency_mapping()
+    assert cfw_to_hw == {"1.1.0": "1.1.1", "2.2.0": "2.2.2"}
+    assert cfw_to_mfw == {"1.1.0": "1.0.1", "2.2.0": "2.0.2"}
+    assert mfw_to_sw == {"1.0.1": "1.0.0", "2.0.2": "2.0.0"}
 
 
 @pytest.mark.parametrize(
@@ -133,7 +171,7 @@ def test_firmware__resolve_versions__return_correct_dict(
     mocked_get_cfw_from_hw.assert_called_once_with(dummy_cfw_to_hw, hw_version)
 
 
-def test__firmware__get_download_url__generates_and_returns_presigned_url_if_params_are_valid():
+def test__firmware__get_download_url__generates_and_returns_presigned_using_the_params_given():
     mocked_s3_client = mocked_boto3.client("s3")
 
     test_firmware_type = choice(["main", "channel"])
@@ -148,13 +186,3 @@ def test__firmware__get_download_url__generates_and_returns_presigned_url_if_par
         Params={"Bucket": f"{test_firmware_type}-firmware", "Key": f"{test_version}.bin"},
         ExpiresIn=3600,
     )
-
-
-def test__firmware__get_download_url__returns_none_if_presigned_url_generation_fails():
-    mocked_s3_client = mocked_boto3.client("s3")
-    mocked_s3_client.generate_presigned_url.side_effect = Exception
-
-    test_firmware_type = "any"
-    test_version = "any"
-
-    assert utils.firmware.get_download_url(test_version, test_firmware_type) is None

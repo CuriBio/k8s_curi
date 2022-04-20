@@ -1,10 +1,14 @@
+from re import I
 import uuid
 from fastapi.testclient import TestClient
 import json
 import pytest
+import pytest_asyncio
 from random import choice, randint
 
+import asyncpg
 from auth import create_token
+from utils.db import AsyncpgPoolDep
 from src import main
 
 test_client = TestClient(main.app)
@@ -23,15 +27,25 @@ def fixture_auth_token():
     yield create_token(scope=main.AUTH.scope, userid=uuid.uuid4()).access_token
 
 
-def test_default_route(mocker):
-    mocked_reader_cursor = mocked_connection_pools["reader"].getconn().cursor()
+@pytest.fixture(scope="function", name="mocked_asyncpg_con", autouse=True)
+async def fixture_mocked_asyncpg_con(mocker):
+    mocked_asyncpg_pool = mocker.patch.object(main, "asyncpg_pool", autospec=True)
 
+    mocked_asyncpg_pool_coroutine = mocker.AsyncMock()
+    mocked_asyncpg_pool_coroutine.return_value = mocker.MagicMock()
+    mocked_asyncpg_pool.return_value = mocked_asyncpg_pool_coroutine()
+
+    mocked_asyncpg_con = await mocked_asyncpg_pool_coroutine.return_value.acquire().__aenter__()
+    yield mocked_asyncpg_con
+
+
+def test_default_route(mocker, mocked_asyncpg_con):
     expected_db_entries = [
         {"serial_number": "123", "hw_version": "1.2.3"},
         {"serial_number": "444", "hw_version": "0.0.0"},
     ]
-    # return a list of dicts here, but cursor will actually return an object with these keys/vals as attr names/vals
-    mocked_reader_cursor.fetchall.return_value = expected_db_entries
+    # return a list of dicts here, but fetch will actually return a Record object with these keys/vals as attr names/vals
+    mocked_asyncpg_con.fetch.return_value = expected_db_entries
 
     expected_template_response = {"key": "val"}
     mocked_template_response = mocker.patch.object(
@@ -42,36 +56,34 @@ def test_default_route(mocker):
     assert response.status_code == 200
     assert json.loads(response.json()) == expected_template_response
 
-    mocked_reader_cursor.execute.assert_called_once_with("SELECT * FROM MAUnits")
-    mocked_reader_cursor.fetchall.assert_called_once_with()
+    mocked_asyncpg_con.fetch.assert_called_once_with("SELECT * FROM MAUnits")
     mocked_template_response.assert_called_once_with(
         "table.html", {"request": mocker.ANY, "units": expected_db_entries}
     )
 
 
-def test_firmware_latest__success(mocker):
-    mocked_reader_cursor = mocked_connection_pools["reader"].getconn().cursor()
-
+def test_firmware_latest__success(mocked_asyncpg_con, mocker):
     expected_latest_fw_version = random_semver()
     mocked_get_latest_firmware_version = mocker.patch.object(
         main, "resolve_versions", autospec=True, return_value=expected_latest_fw_version
     )
+
+    expected_hw_version = "2.2.2"
+    mocked_asyncpg_con.fetchrow.return_value = {"hw_version": expected_hw_version}
 
     test_serial_number = "MA2022001000"
     response = test_client.get(f"/firmware_latest", params={"serial_number": test_serial_number})
     assert response.status_code == 200
     assert response.json() == {"latest_versions": expected_latest_fw_version}
 
-    mocked_reader_cursor.execute.assert_called_once_with(
-        f"SELECT hw_version FROM MAUnits WHERE serial_number = '$1'", test_serial_number
+    mocked_asyncpg_con.fetchrow.assert_called_once_with(
+        f"SELECT hw_version FROM MAUnits WHERE serial_number = $1", test_serial_number
     )
-    mocked_reader_cursor.fetchone.assert_called_once_with()
-    mocked_get_latest_firmware_version.assert_called_once_with(mocked_reader_cursor.fetchone()[0])
+    mocked_get_latest_firmware_version.assert_called_once_with(expected_hw_version)
 
 
-def test_firmware_latest__serial_number_not_found(mocker):
-    mocked_reader_cursor = mocked_connection_pools["reader"].getconn().cursor()
-    mocked_reader_cursor.fetchone.side_effect = Exception()
+def test_firmware_latest__serial_number_not_found_in_db(mocked_asyncpg_con):
+    mocked_asyncpg_con.fetchrow.side_effect = Exception()
 
     test_serial_number = "MA2022001000"
     response = test_client.get(f"/firmware_latest", params={"serial_number": test_serial_number})
