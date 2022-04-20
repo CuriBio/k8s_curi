@@ -4,24 +4,26 @@ import logging
 import os
 import base64
 import hashlib
-import sys
 import tempfile
-
 import asyncpg
 import boto3
 
 from pulse3D.plate_recording import PlateRecording
 from pulse3D.excel_writer import write_xlsx
+
 from jobs import get_item, EmptyQueue
 
-logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
+from lib.db import insert_metadata_into_pg
+
+logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
 logger = logging.getLogger(__name__)
 
 PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-sdk-upload")
 
+
 @get_item(queue="pulse3d")
 async def process(con, item):
-    query = "SELECT user_id, meta FROM uploads WHERE id=$1" 
+    query = "SELECT user_id, meta FROM uploads WHERE id=$1"
     s3_client = boto3.client("s3")
 
     try:
@@ -37,8 +39,7 @@ async def process(con, item):
         key = f"{prefix}/{filename}"
     except Exception as e:
         logger.exception("Fetching upload details failed")
-        return ('error', {})
-
+        return ("error", {})
 
     with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
         logger.info(f"Downloading {PULSE3D_UPLOADS_BUCKET}/{key} to {tmpdir}/{filename}")
@@ -46,29 +47,45 @@ async def process(con, item):
             s3_client.download_file(PULSE3D_UPLOADS_BUCKET, key, f"{tmpdir}/{filename}")
         except Exception as e:
             logger.exception(f"Failed to download: {e}")
-            return ('error', {})
+            return ("error", {})
 
         try:
             logger.info(f"Starting pulse3d analysis")
             outfile = f"{'.'.join(filename.split('.')[:-1])}.xlsx"
-            prs = PlateRecording.from_directory(f"/{tmpdir}")
-            for r in prs:
+            pr = PlateRecording.from_directory(tmpdir)
+            recordings = list(pr)
+            for r in recordings:
                 write_xlsx(r, name=outfile)
         except Exception as e:
             logger.exception(f"Analysis failed")
-            return ('failed', {})
+            return ("failed", {})
 
-        with open(outfile, "rb") as f:
+        with open(outfile, "rb") as file:
             try:
                 logger.info(f"Uploading {outfile} to {PULSE3D_UPLOADS_BUCKET}/{outfile}")
-                contents = f.read()
+                contents = file.read()
                 md5 = hashlib.md5(contents).digest()
                 md5s = base64.b64encode(md5).decode()
-                s3_client.put_object(Body=contents, Bucket=PULSE3D_UPLOADS_BUCKET, Key=f"{prefix}/{outfile}", ContentMD5=md5s)
+
+                outfile_prefix = prefix.replace("/uploads/", "/analyzed/")
+                outfile_key = f"{outfile_prefix}/{outfile}"
+
+                s3_client.put_object(
+                    Body=contents, Bucket=PULSE3D_UPLOADS_BUCKET, Key=outfile_key, ContentMD5=md5s
+                )
             except Exception as e:
                 logger.exception(f"Upload failed, {e}")
-                return ('error', {})
-    return ('finished', {})
+                return ("error", {})
+
+            try:
+                logger.info(f"Inserting {outfile} metadata into db for upload {upload_id}")
+                for r in recordings:
+                    await insert_metadata_into_pg(con, r, upload_id, file, outfile_key, md5s)
+            except Exception as e:
+                logger.error(f"Failed to insert metadata to db for upload {upload_id}: {e}")
+                return ("error inserting into db", {})
+
+    return ("finished", {})
 
 
 async def main():
