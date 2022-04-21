@@ -75,7 +75,7 @@ spec:
   - host: apiv2.curibio-test.com
     http:
       paths:
-      - path: /users
+      - path: /users/
         pathType: Prefix
         backend:
           service:
