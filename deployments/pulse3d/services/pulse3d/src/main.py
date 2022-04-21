@@ -1,17 +1,15 @@
-import os
 import logging
-import json
+from typing import Optional
 import uuid
 
 from fastapi import FastAPI, Request, Depends, HTTPException, status
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from auth import ProtectedAny
 from jobs import create_upload, create_job, get_uploads, get_jobs
 from utils.s3 import generate_presigned_post
 from utils.db import AsyncpgPoolDep
-from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET
+from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET
 
 
 logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
@@ -45,40 +43,33 @@ async def startup():
 
 @app.get("/uploads")
 async def get_all_uploads(request: Request, token=Depends(ProtectedAny(scope=["users:free"]))):
-    try:
-        user_id = str(uuid.UUID(token["userid"]))
-        async with request.state.pgpool.acquire() as con:
-            return await get_uploads(con=con, user_id=user_id)
-    except Exception as e:
-        logger.exception("Failed to get uploads")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    return await _get_uploads(request, token=token)
 
 
 @app.get("/uploads/{upload_id}")
-async def get_upload_route(
+async def get_single_upload(
     request: Request, upload_id: str, token=Depends(ProtectedAny(scope=["users:free"]))
 ):
+    return await _get_uploads(request, upload_id=upload_id, token=token)
+
+
+async def _get_uploads(request, *, upload_id: Optional[str] = None, token):
     try:
         user_id = str(uuid.UUID(token["userid"]))
         async with request.state.pgpool.acquire() as con:
             return await get_uploads(con=con, user_id=user_id, upload_id=upload_id)
     except Exception as e:
-        logger.exception("Failed to get uploads")
+        logger.exception(f"Failed to get uploads: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @app.post("/uploads")
-async def create_upload_route(
+async def create_upload(
     request: Request, details: UploadRequest, token=Depends(ProtectedAny(scope=["users:free"]))
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
-        key = f"uploads/{details.customer_id}/{user_id}/{details.filename}"
-
-        logger.info(
-            f"Generating presigned upload url for {PULSE3D_UPLOADS_BUCKET}/uploads/{details.customer_id}/{user_id}/{details.filename}"
-        )
-        params = generate_presigned_post(bucket=PULSE3D_UPLOADS_BUCKET, key=key, md5s=details.md5s)
+        params = _generate_presigned_post(user_id, details, PULSE3D_UPLOADS_BUCKET)
 
         # TODO what meta do we want
         meta = {
@@ -89,12 +80,35 @@ async def create_upload_route(
 
         async with request.state.pgpool.acquire() as con:
             upload_id = await create_upload(con=con, user_id=user_id, meta=meta)
-
             # TODO define a response model for uploads
             return {"id": upload_id, "params": params}
     except Exception as e:
-        logger.exception("Failed to generate presigned upload url")
+        logger.exception(f"Failed to generate presigned upload url: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+
+
+# TODO Tanner (4/21/22): probably want to move this to a more general svc dedicated to uploading files to s3
+@app.post("/logs")
+async def create_log_upload(
+    request: Request, details: UploadRequest, token=Depends(ProtectedAny(scope=["users:free"]))
+):
+    try:
+        user_id = str(uuid.UUID(token["userid"]))
+        params = _generate_presigned_post(user_id, details, MANTARRAY_LOGS_BUCKET)
+        # TODO define a response model for logs
+        return {"params": params}
+    except Exception as e:
+        logger.exception(f"Failed to generate presigned upload url: {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+
+
+def _generate_presigned_post(user_id, details, bucket):
+    key = f"uploads/{details.customer_id}/{user_id}/{details.filename}"
+    logger.info(
+        f"Generating presigned upload url for {bucket}/uploads/{details.customer_id}/{user_id}/{details.filename}"
+    )
+    params = generate_presigned_post(bucket=PULSE3D_UPLOADS_BUCKET, key=key, md5s=details.md5s)
+    return params
 
 
 @app.get("/jobs")
@@ -107,12 +121,12 @@ async def get_all_users_jobs(request: Request, token=Depends(ProtectedAny(scope=
             return await get_jobs(con=con, user_id=user_id)
 
     except Exception as e:
-        logger.exception("Failed to create job")
+        logger.exception(f"Failed to create job: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @app.post("/jobs")
-async def create_job_route(
+async def create_new_job(
     request: Request, details: JobRequest, token=Depends(ProtectedAny(scope=["users:free"]))
 ):
     try:
@@ -136,5 +150,5 @@ async def create_job_route(
             }
 
     except Exception as e:
-        logger.exception("Failed to create job")
+        logger.exception(f"Failed to create job: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

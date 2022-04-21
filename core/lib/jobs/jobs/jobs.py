@@ -3,8 +3,10 @@ import json
 import time
 from functools import wraps
 
+
 class EmptyQueue(Exception):
     pass
+
 
 def get_item(*, queue):
     query = "DELETE FROM jobs_queue WHERE id = (SELECT id FROM jobs_queue WHERE queue=$1 ORDER BY priority DESC, created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING id, upload_id, created_at, meta"
@@ -18,32 +20,38 @@ def get_item(*, queue):
                     ts = time.time()
                     (status, meta) = await fn(con, item)
                     data = [
-                        ('job_id', item.get("id")),
-                        ('upload_id', item.get("upload_id")),
-                        ('status', status),
-                        ('runtime', (time.time() - ts)),
-                        ('created_at', item.get("created_at")),
-                        ('meta', json.dumps(meta)),
+                        ("job_id", item.get("id")),
+                        ("upload_id", item.get("upload_id")),
+                        ("status", status),
+                        ("runtime", (time.time() - ts)),
+                        ("created_at", item.get("created_at")),
+                        ("meta", json.dumps(meta)),
                     ]
                     cvs = list(zip(*data))
                     places = ", ".join([f"${i+1}" for i, _ in enumerate(data)])
 
-                    await con.execute(f"INSERT INTO jobs_result ({', '.join(cvs[0])}) VALUES ({places})", *cvs[1])
+                    await con.execute(
+                        f"INSERT INTO jobs_result ({', '.join(cvs[0])}) VALUES ({places})", *cvs[1]
+                    )
                 else:
                     raise EmptyQueue(queue)
+
         return _inner
+
     return _outer
+
 
 async def get_uploads(*, con, user_id, upload_id=None):
     uploads = []
+    desired_cols = ("id", "user_id", "create_at")
     async with con.transaction():
         if upload_id:
             row = await con.fetchrow("SELECT * FROM uploads WHERE user_id=$1 and id=$2", user_id, upload_id)
-            upload = { "id": row["id"], "user_id": row["user_id"], "created_at": row["created_at"] }
+            upload = {col: row[col] for col in desired_cols}
             uploads.append(upload)
         else:
             async for row in con.cursor("SELECT * FROM uploads WHERE user_id=$1", user_id):
-                data = { "id": row["id"], "user_id": row["user_id"], "created_at": row["created_at"] }
+                data = {col: row[col] for col in desired_cols}
                 uploads.append(data)
     return uploads
 
