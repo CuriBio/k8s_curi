@@ -6,6 +6,7 @@ metadata:
     app: ${deployment_name}
 spec:
   replicas: 1
+  revisionHistoryLimit: 1
   selector:
     matchLabels:
       app: ${deployment_name}
