@@ -1,5 +1,8 @@
 import asyncio
+from typing import Optional
+
 import asyncpg
+
 
 class AsyncpgPoolDep:
     def __init__(self, dsn: str, min_size: int = 1, max_size: int = 10):
