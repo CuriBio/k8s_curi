@@ -69,18 +69,20 @@ async def login(request: Request, details: UserLogin):
     ph = PasswordHasher()
     failed_msg = "Invalid credentials"
 
-    if details.customer_id is None:
-        # if no customer id is given, assume this is a customer account login attempt
+    # if no customer id is given, assume this is a customer account login attempt
+    is_customer_login_attempt = details.customer_id is None
+
+    if is_customer_login_attempt:
         query = """
             SELECT password, id, data->'scope' AS scope
             FROM customers WHERE deleted_at IS NULL AND name = $1
-        """
+            """
         query_params = (details.username,)
     else:
         query = """
             SELECT password, id, data->'scope' AS scope
             FROM users WHERE deleted_at IS NULL AND name = $1 AND customer_id = $2
-        """
+            """
         query_params = (details.username, details.customer_id)
 
     try:
@@ -100,7 +102,7 @@ async def login(request: Request, details: UserLogin):
                 ph.hash(pw)
                 raise LoginError(failed_msg)
             else:
-                scope = json.loads(row.get("scope", "[]"))
+                scope = "admin" if is_customer_login_attempt else json.loads(row.get("scope", "[]"))
                 jwt_token = create_token(scope=scope, userid=row["id"])
                 return jwt_token
 
@@ -112,7 +114,7 @@ async def login(request: Request, details: UserLogin):
 
 
 @app.post("/register", response_model=UserProfile, status_code=status.HTTP_201_CREATED)
-async def register(request: Request, details: UserCreate):
+async def register(request: Request, details: UserCreate, token=Depends(ProtectedAny(scope=["users:admin"]))):
     # TODO make this handle registering a new user under a customer
     # User enters username and 2x password, token provide customer UUID with scope users:admin
     ph = PasswordHasher()
@@ -128,10 +130,11 @@ async def register(request: Request, details: UserCreate):
                 if exists:
                     raise RegistrationError("user registration failed")
 
+                customer_id = uuid.UUID(hex=token["userid"])
                 data = {"scope": ["users:free"]}
-                insert = "INSERT INTO users (name, email, password, account_type, data) VALUES ($1, $2, $3, $4, $5) RETURNING id"
+                insert = "INSERT INTO users (name, email, password, account_type, data, customer_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id"
                 result = await con.fetchval(
-                    insert, details.username, details.email, phash, "free", json.dumps(data)
+                    insert, details.username, details.email, phash, "free", json.dumps(data), customer_id
                 )
                 return UserProfile(
                     username=details.username,

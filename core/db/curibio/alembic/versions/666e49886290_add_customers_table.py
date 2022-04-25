@@ -35,15 +35,16 @@ def upgrade():
         sa.Column("deleted_at", sa.DateTime(timezone=False), nullable=True),
     )
 
-    for table in ("users", "mantarray_recording_sessions", "mantarray_session_log_files"):
-        if table != "users":
+    for table in ("mantarray_recording_sessions", "mantarray_session_log_files"):
+        for id_type in ("customer", "user"):
             op.alter_column(
                 table,
-                "customer_account_id",
-                new_column_name="customer_id",
+                f"{id_type}_account_id",
+                new_column_name=f"{id_type}_id",
                 type_=postgresql.UUID(as_uuid=True),
-                postgresql_using="customer_account_id::uuid",
+                postgresql_using=f"{id_type}_account_id::uuid",
             )
+    for table in ("users", "mantarray_recording_sessions", "mantarray_session_log_files"):
         op.create_foreign_key(f"fk_{table}_customers", table, "customers", ["customer_id"], ["id"])
 
     # convert any admin users to free users

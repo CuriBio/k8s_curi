@@ -6,3 +6,4 @@ kubeconfig_prod
 venv/
 .DS_Store
 core/db/**/.env*
+build/
