@@ -54,7 +54,7 @@ spec:
   - host: pulse3d.curibio-test.com
     http:
       paths:
-      - path: /pulse3d
+      - path: /
         pathType: Prefix
         backend:
           service:

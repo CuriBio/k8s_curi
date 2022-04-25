@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-app = FastAPI()
+app = FastAPI(docs_url=None, redoc_url=None)
 
 
 @app.get("/")

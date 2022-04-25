@@ -15,7 +15,7 @@ from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUC
 logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+app = FastAPI(docs_url=None, redoc_url=None)
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
 
@@ -87,7 +87,7 @@ async def create_upload(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
 
 
-# TODO Tanner (4/21/22): probably want to move this to a more general svc dedicated to uploading files to s3
+# TODO Tanner (4/21/22): probably want to move this to a more general svc (maybe in apiv2-dep) dedicated to uploading misc files to s3
 @app.post("/logs")
 async def create_log_upload(
     request: Request, details: UploadRequest, token=Depends(ProtectedAny(scope=["users:free"]))
