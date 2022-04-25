@@ -2,7 +2,6 @@ import asyncpg
 import os
 
 # TODO handle db vars
-# my_db = "postgresql://luci@localhost/pheno_test"
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
