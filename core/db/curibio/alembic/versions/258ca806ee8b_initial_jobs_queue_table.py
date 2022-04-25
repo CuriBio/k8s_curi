@@ -7,16 +7,17 @@ Create Date: 2022-03-14 15:32:48.959338
 """
 import os
 from alembic import op
-#from alembic import context
+
+# from alembic import context
 from sqlalchemy.sql import func
 from sqlalchemy.dialects import postgresql
 import sqlalchemy as sa
 
-#config = context.config
+# config = context.config
 
 # revision identifiers, used by Alembic.
-revision = '258ca806ee8b'
-down_revision = 'be5bfe07156a'
+revision = "258ca806ee8b"
+down_revision = "be5bfe07156a"
 branch_labels = None
 depends_on = None
 
@@ -24,8 +25,10 @@ depends_on = None
 def upgrade():
 
     op.create_table(
-        'uploads',
-        sa.Column("id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        "uploads",
+        sa.Column(
+            "id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True
+        ),
         sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=False), server_default=func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=False), server_default=func.now(), onupdate=func.now()),
@@ -34,8 +37,10 @@ def upgrade():
     )
 
     op.create_table(
-        'jobs_queue',
-        sa.Column("id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        "jobs_queue",
+        sa.Column(
+            "id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True
+        ),
         sa.Column("upload_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("queue", sa.String(32), nullable=False),
         sa.Column("priority", sa.Integer(), default=1, nullable=False),
@@ -45,11 +50,16 @@ def upgrade():
     )
 
     op.create_table(
-        'jobs_result',
+        "jobs_result",
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("job_id", postgresql.UUID(as_uuid=True), unique=True, nullable=False),
         sa.Column("upload_id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("status", sa.Enum("pending", "finished", "error", name="JobStatus", create=True), nullable=False, default=sa.text("pending")),
+        sa.Column(
+            "status",
+            sa.Enum("pending", "finished", "error", name="JobStatus", create=True),
+            nullable=False,
+            default=sa.text("pending"),
+        ),
         sa.Column("meta", postgresql.JSONB, server_default="{}", nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=False), nullable=False),
         sa.Column("finished_at", sa.DateTime(timezone=False), server_default=func.now()),
@@ -58,11 +68,11 @@ def upgrade():
     )
 
     jobs_user_pass = os.getenv("JOBS_USER_PASS")
-    if jobs_user_pass == None:
+    if jobs_user_pass is None:
         raise Exception("Missing requireed value for JOBS_USER_PASS")
 
     jobs_user_pass_ro = os.getenv("JOBS_USER_PASS_RO")
-    if jobs_user_pass_ro == None:
+    if jobs_user_pass_ro is None:
         raise Exception("Missing requireed value for JOBS_USER_PASS_RO")
 
     op.execute(f"CREATE USER curibio_jobs WITH PASSWORD '{jobs_user_pass}'")
