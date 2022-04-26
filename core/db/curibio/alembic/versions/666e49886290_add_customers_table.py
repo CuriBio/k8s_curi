@@ -8,6 +8,7 @@ Create Date: 2022-04-25 11:51:39.579732
 import os
 
 from alembic import op
+from argon2 import PasswordHasher
 import sqlalchemy as sa
 from sqlalchemy.sql import func, text
 from sqlalchemy.dialects import postgresql
@@ -37,12 +38,12 @@ def upgrade():
     )
 
     cb_customer_login = os.environ.get("CURIBIO_CUSTOMER_LOGIN")
-    cb_customer_pw = os.environ.get("CURIBIO_CUSTOMER_PASS")
+    cb_customer_pw_hash = PasswordHasher().hash(os.environ.get("CURIBIO_CUSTOMER_PASS"))
 
     # create curibio customer
     op.get_bind().execute(
         text("INSERT INTO customers (email, password) VALUES (:cb_customer_login, :cb_customer_pw)"),
-        **{"cb_customer_login": cb_customer_login, "cb_customer_pw": cb_customer_pw},
+        **{"cb_customer_login": cb_customer_login, "cb_customer_pw": cb_customer_pw_hash},
     )
     # drop constraints on these columns individually and combine them into a single unique constraint
     op.drop_constraint("users_customer_id_key", "users")
