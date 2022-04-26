@@ -5,9 +5,11 @@ Revises: 49fceab10078
 Create Date: 2022-04-25 11:51:39.579732
 
 """
+import os
+
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, text
 from sqlalchemy.dialects import postgresql
 
 
@@ -24,7 +26,6 @@ def upgrade():
         sa.Column(
             "id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), unique=True
         ),
-        sa.Column("name", sa.String(32), nullable=False, unique=True),
         sa.Column("email", sa.String(64), nullable=False, unique=True),
         sa.Column("password", sa.String(128), nullable=False),
         sa.Column("last_login", sa.DateTime(timezone=False), server_default=func.now()),
@@ -35,6 +36,33 @@ def upgrade():
         sa.Column("deleted_at", sa.DateTime(timezone=False), nullable=True),
     )
 
+    cb_customer_login = os.environ.get("CURIBIO_CUSTOMER_LOGIN")
+    cb_customer_pw = os.environ.get("CURIBIO_CUSTOMER_PASS")
+
+    # create curibio customer
+    op.get_bind().execute(
+        text("INSERT INTO customers (email, password) VALUES (:cb_customer_login, :cb_customer_pw)"),
+        **{"cb_customer_login": cb_customer_login, "cb_customer_pw": cb_customer_pw},
+    )
+    # drop constraints on these columns individually and combine them into a single constraint
+    op.drop_constraint("users_customer_id_key", "users")
+    op.drop_constraint("users_name_key", "users")
+    op.create_unique_constraint("users_customer_id_name_key", "users", ["name", "customer_id"])
+    # drop server default of users.customer_id and make it not null
+    op.alter_column("users", "customer_id", server_default=None, nullable=False)
+    # put all existing users under curibio customer ID
+    op.get_bind().execute(
+        text(
+            """
+            WITH customers AS (SELECT id FROM customers WHERE email = :cb_customer_login)
+            UPDATE users SET customer_id = customers.id
+            FROM customers
+            """
+        ),
+        **{"cb_customer_login": cb_customer_login},
+    )
+
+    # rename columns
     for table in ("mantarray_recording_sessions", "mantarray_session_log_files"):
         for id_type in ("customer", "user"):
             op.alter_column(
@@ -44,6 +72,8 @@ def upgrade():
                 type_=postgresql.UUID(as_uuid=True),
                 postgresql_using=f"{id_type}_account_id::uuid",
             )
+
+    # create foreign keys for tables that have customer_id column
     for table in ("users", "mantarray_recording_sessions", "mantarray_session_log_files"):
         op.create_foreign_key(f"fk_{table}_customers", table, "customers", ["customer_id"], ["id"])
 
@@ -62,6 +92,19 @@ def upgrade():
     old_account_type = sa.Enum("free", "paid", "admin", name="AccountType", create_type=True)
     old_account_type.drop(op.get_bind(), checkfirst=False)
 
+    op.execute("GRANT ALL PRIVILEGES ON TABLE customers TO curibio_users")
+    op.execute("GRANT SELECT ON TABLE customers TO curibio_users_ro")
+
 
 def downgrade():
+    # revoke privileges
+    # drop users_customer_id_name_key constraint
+    # add users_customer_id_key constraint
+    # add users_name_key constraint
+    # add server default of users.customer_id and make it nullable
+    # remove foreign key constraint in users, mantarray_recording_sessions, mantarray_session_log_files
+    # rename columns in mantarray_recording_sessions and mantarray_session_log_files
+    # revert account_type to AccountType
+    # drop UserAccountType
+    # drop customers table
     pass  # TODO
