@@ -44,7 +44,7 @@ def upgrade():
         text("INSERT INTO customers (email, password) VALUES (:cb_customer_login, :cb_customer_pw)"),
         **{"cb_customer_login": cb_customer_login, "cb_customer_pw": cb_customer_pw},
     )
-    # drop constraints on these columns individually and combine them into a single constraint
+    # drop constraints on these columns individually and combine them into a single unique constraint
     op.drop_constraint("users_customer_id_key", "users")
     op.drop_constraint("users_name_key", "users")
     op.create_unique_constraint("users_customer_id_name_key", "users", ["name", "customer_id"])
@@ -62,7 +62,7 @@ def upgrade():
         **{"cb_customer_login": cb_customer_login},
     )
 
-    # rename columns
+    # rename columns relevant tables
     for table in ("mantarray_recording_sessions", "mantarray_session_log_files"):
         for id_type in ("customer", "user"):
             op.alter_column(
@@ -73,13 +73,13 @@ def upgrade():
                 postgresql_using=f"{id_type}_account_id::uuid",
             )
 
-    # create foreign keys for tables that have customer_id column
+    # create foreign key contraints for tables that have customer_id column
     for table in ("users", "mantarray_recording_sessions", "mantarray_session_log_files"):
         op.create_foreign_key(f"fk_{table}_customers", table, "customers", ["customer_id"], ["id"])
 
     # convert any admin users to free users
     op.execute("UPDATE users SET account_type = 'free' WHERE account_type = 'admin'")
-    # update type
+    # update account_type
     new_account_type = sa.Enum("free", "paid", name="UserAccountType", create_type=True)
     new_account_type.create(op.get_bind(), checkfirst=False)
     op.alter_column(
@@ -88,7 +88,7 @@ def upgrade():
         type_=new_account_type,
         postgresql_using='account_type::text::"UserAccountType"',
     )
-    # drop old type
+    # drop old account_type
     old_account_type = sa.Enum("free", "paid", "admin", name="AccountType", create_type=True)
     old_account_type.drop(op.get_bind(), checkfirst=False)
 
@@ -98,13 +98,45 @@ def upgrade():
 
 def downgrade():
     # revoke privileges
-    # drop users_customer_id_name_key constraint
-    # add users_customer_id_key constraint
-    # add users_name_key constraint
-    # add server default of users.customer_id and make it nullable
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE customers FROM curibio_users")
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE customers FROM curibio_users_ro")
+
     # remove foreign key constraint in users, mantarray_recording_sessions, mantarray_session_log_files
-    # rename columns in mantarray_recording_sessions and mantarray_session_log_files
-    # revert account_type to AccountType
+    for table in ("users", "mantarray_recording_sessions", "mantarray_session_log_files"):
+        op.drop_constraint(f"fk_{table}_customers", table)
+
+    # drop combined unique constraint
+    op.drop_constraint("users_customer_id_name_key", "users")
+    # since all customer IDs will need to be unique for users, need to give them all random UUIDs before adding constraint
+    op.execute("UPDATE users SET customer_id = gen_random_uuid()")
+    # re-add individual unique constraints
+    op.create_unique_constraint("users_customer_id_key", "users", ["customer_id"])
+    op.create_unique_constraint("users_name_key", "users", ["name"])
+    # add server default of users.customer_id and make it nullable
+    op.alter_column("users", "customer_id", server_default=sa.text("gen_random_uuid()"), nullable=True)
+
+    # rename columns
+    for table in ("mantarray_recording_sessions", "mantarray_session_log_files"):
+        for id_type in ("customer", "user"):
+            op.alter_column(
+                table,
+                f"{id_type}_id",
+                new_column_name=f"{id_type}_account_id",
+                type_=sa.VARCHAR(255),
+            )
+
+    # revert account_type back to AccountType
+    new_account_type = sa.Enum("free", "paid", "admin", name="AccountType", create_type=True)
+    new_account_type.create(op.get_bind(), checkfirst=False)
+    op.alter_column(
+        "users",
+        "account_type",
+        type_=new_account_type,
+        postgresql_using='account_type::text::"AccountType"',
+    )
     # drop UserAccountType
+    old_account_type = sa.Enum("free", "paid", name="UserAccountType", create_type=True)
+    old_account_type.drop(op.get_bind(), checkfirst=False)
+
     # drop customers table
-    pass  # TODO
+    op.execute("DROP TABLE customers")
