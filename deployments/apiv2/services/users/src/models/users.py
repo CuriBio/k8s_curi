@@ -12,10 +12,10 @@ class UserLogin(BaseModel):
 
 
 class UserCreate(BaseModel):
-    username: constr(min_length=5, max_length=64, regex="^[a-zA-Z]+[a-zA-Z0-9-_]+$")
+    email: EmailStr
+    username: Optional[constr(min_length=5, max_length=64, regex="^[a-zA-Z]+[a-zA-Z0-9-_]+$")]
     password1: SecretStr
     password2: SecretStr
-    email: EmailStr
 
     @validator("username")
     def username_alphanumeric(cls, v):
@@ -51,4 +51,10 @@ class UserProfile(BaseModel):
     email: EmailStr
     user_id: str
     account_type: str
+    scope: list
+
+
+class CustomerProfile(BaseModel):
+    email: EmailStr
+    user_id: str
     scope: list
