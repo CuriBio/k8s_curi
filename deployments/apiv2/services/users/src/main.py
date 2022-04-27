@@ -21,7 +21,7 @@ db = Database()
 app = FastAPI(docs_url=None, redoc_url=None)
 
 
-CB_CUSTOMER_ID = None  # TODO
+CB_CUSTOMER_ID: uuid.UUID
 
 
 @app.middleware("http")
@@ -34,7 +34,6 @@ async def db_session_middleware(request: Request, call_next):
 @app.on_event("startup")
 async def startup():
     await db.create_pool()
-    # TODO retrieve curi customer ID from env vars instead of doing this
     async with db.pool.acquire() as con:
         global CB_CUSTOMER_ID
         CB_CUSTOMER_ID = await con.fetchval("SELECT id FROM customers WHERE email = 'software@curibio.com'")
@@ -137,7 +136,19 @@ async def login(request: Request, details: UserLogin):
     "/register", response_model=Union[UserProfile, CustomerProfile], status_code=status.HTTP_201_CREATED
 )
 async def register(request: Request, details: UserCreate, token=Depends(ProtectedAny(scope=["users:admin"]))):
-    """TODO."""
+    """Register a user or customer account.
+
+    Only customer accounts with admin privileges can register users, and only the Curi Bio customer account
+    can create new customers.
+
+    If the customer ID in the auth token matches the Curi Bio Customer ID *AND* no username is given,
+    assume this is an attempt to register a new customer account.
+
+    Otherwise, attempt to register a regular user under the customer ID in the auth token
+
+    **NOTE** there is currently no way to register a paid user, so all registered users will be created in
+    the free tier until a way to designate the tier is specced out and added
+    """
     ph = PasswordHasher()
     customer_id = uuid.UUID(hex=token["userid"])
 
@@ -187,9 +198,6 @@ async def register(request: Request, details: UserCreate, token=Depends(Protecte
                         # other customer accounts will be leaked
                         failed_msg = "Username already in use"
                     elif "users_email_key" in str(e):
-                        # TODO should unique users email constraint exist or should it be in a constraint tying together name, email, and customer_id?
-                        # If the latter, can change message here to say that the email already exists
-
                         # Don't want to leak emails of users under other customer accounts, so return default msg
                         failed_msg = "Account registration failed"
                     else:
@@ -198,11 +206,7 @@ async def register(request: Request, details: UserCreate, token=Depends(Protecte
                     raise RegistrationError(failed_msg)
 
                 if is_customer_registration_attempt:
-                    return CustomerProfile(
-                        email=details.email,
-                        user_id=result.hex,
-                        scope=scope,
-                    )
+                    return CustomerProfile(email=details.email, user_id=result.hex, scope=scope)
                 else:
                     return UserProfile(
                         username=details.username,
