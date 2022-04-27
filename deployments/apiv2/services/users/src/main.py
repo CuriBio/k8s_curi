@@ -18,7 +18,7 @@ logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO, datefm
 logger = logging.getLogger(__name__)
 
 db = Database()
-app = FastAPI(docs_url=None, redoc_url=None)
+app = FastAPI(openapi_url=None)
 
 
 CB_CUSTOMER_ID: uuid.UUID
