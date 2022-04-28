@@ -12,7 +12,7 @@ typing-extensions==4.0.1
 uvicorn==0.16.0
 
 boto3==1.18.5
+immutabledict==2.2.1
 jinja2==3.0.3
 psycopg2-binary==2.9.3
-immutabledict==2.2.1
 semver==2.13.0

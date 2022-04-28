@@ -35,6 +35,7 @@ async def db_session_middleware(request: Request, call_next):
 async def startup():
     await db.create_pool()
     async with db.pool.acquire() as con:
+        # might be a better way to do this without using global
         global CB_CUSTOMER_ID
         CB_CUSTOMER_ID = await con.fetchval("SELECT id FROM customers WHERE email = 'software@curibio.com'")
 
@@ -65,6 +66,7 @@ async def index(request: Request, token=Depends(ProtectedAny(scope=["users:free"
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+# TODO, could make details a Union of UserLogin and a new CustomerLogin model
 @app.post("/login", response_model=AccessToken)
 async def login(request: Request, details: UserLogin):
     """Login a user or customer account.
@@ -85,16 +87,16 @@ async def login(request: Request, details: UserLogin):
     is_customer_login_attempt = details.customer_id is None
 
     if is_customer_login_attempt:
-        query = """
-            SELECT password, id, data->'scope' AS scope
-            FROM customers WHERE deleted_at IS NULL AND email = $1
-            """
+        query = (
+            "SELECT password, id, data->'scope' AS scope "
+            "FROM customers WHERE deleted_at IS NULL AND email = $1"
+        )
         query_params = (details.username,)
     else:
-        query = """
-            SELECT password, id, data->'scope' AS scope
-            FROM users WHERE deleted_at IS NULL AND name = $1 AND customer_id = $2
-            """
+        query = (
+            "SELECT password, id, data->'scope' AS scope "
+            "FROM users WHERE deleted_at IS NULL AND name = $1 AND customer_id = $2"
+        )
         query_params = (details.username, details.customer_id)
 
     try:
@@ -132,6 +134,7 @@ async def login(request: Request, details: UserLogin):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+# TODO, could make details a Union of UserCreate and a new CustomerCreate model
 @app.post(
     "/register", response_model=Union[UserProfile, CustomerProfile], status_code=status.HTTP_201_CREATED
 )
@@ -161,17 +164,14 @@ async def register(request: Request, details: UserCreate, token=Depends(Protecte
         logger.info(f"Attempting {register_type} registration")
 
         if is_customer_registration_attempt:
-            insert_query = """
-                INSERT INTO customers (email, password)
-                VALUES ($1, $2) RETURNING id
-                """
+            insert_query = "INSERT INTO customers (email, password) VALUES ($1, $2) RETURNING id"
             scope = ["users:admin"]
             query_params = (details.email, phash)
         else:
-            insert_query = """
-                INSERT INTO users (name, email, password, account_type, data, customer_id)
-                VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
-                """
+            insert_query = (
+                "INSERT INTO users (name, email, password, account_type, data, customer_id) "
+                "VALUES ($1, $2, $3, $4, $5, $6) RETURNING id"
+            )
             scope = ["users:free"]
             query_params = (
                 details.username,

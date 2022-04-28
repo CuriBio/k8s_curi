@@ -1,14 +1,10 @@
-from re import I
 import uuid
 from fastapi.testclient import TestClient
 import json
 import pytest
-import pytest_asyncio
 from random import choice, randint
 
-import asyncpg
 from auth import create_token
-from utils.db import AsyncpgPoolDep
 from src import main
 
 test_client = TestClient(main.app)

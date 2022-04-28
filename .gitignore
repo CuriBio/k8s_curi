@@ -7,3 +7,4 @@ venv/
 .DS_Store
 core/db/**/.env*
 build/
+*.egg-info

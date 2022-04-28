@@ -15,11 +15,8 @@ os.environ["POSTGRES_USER"] = "test_pg_user"
 os.environ["POSTGRES_PASSWORD"] = "test_pw"
 
 # minimal mocking required to ensure that test collection won't fail and no connections to cloud need to be made
-for mod_to_mock in ("boto3",):  # "psycopg2", "psycopg2.extras", "psycopg2.pool",
+for mod_to_mock in ("boto3",):
     sys.modules[mod_to_mock] = MagicMock()
-
-# add auth from core lib
-# sys.path.append(os.path.join(os.getcwd(), *([os.pardir] * 4), "core", "lib", "auth"))
 
 
 def get_secret_value_se(SecretId):
