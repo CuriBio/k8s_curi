@@ -8,3 +8,4 @@ venv/
 core/db/**/.env*
 build/
 *.egg-info
+.pytest_cache

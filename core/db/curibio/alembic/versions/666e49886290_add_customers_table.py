@@ -20,6 +20,8 @@ down_revision = "49fceab10078"
 branch_labels = None
 depends_on = None
 
+# TODO move default value of jobs_result.finished_at to jobs_result.created_at
+
 
 def upgrade():
     op.create_table(

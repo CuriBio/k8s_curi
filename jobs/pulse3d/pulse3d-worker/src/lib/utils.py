@@ -42,6 +42,7 @@ def get_s3_object_contents(bucket: str, key: str):
     # Grab s3 object metadata from aws
     s3_client = boto3.client("s3")
     try:
+        # Get content size in bytes to kb
         return s3_client.head_object(Bucket=bucket, Key=key).get("ContentLength") / 1000
-    except Exception as e:  # Get content size in bytes to kb
+    except Exception as e:
         raise Exception(f"error retrieving s3 object size: {e}")

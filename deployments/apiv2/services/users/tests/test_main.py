@@ -11,10 +11,6 @@ from src import main
 test_client = TestClient(main.app)
 
 
-def assert_query_strings_match(str1, str2):
-    assert str1.split() == str2.split()
-
-
 def get_access_token(scope, userid=None):
     if not userid:
         userid = uuid.uuid4()

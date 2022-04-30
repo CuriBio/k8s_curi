@@ -1,6 +1,5 @@
 import logging
 import os
-import sys
 
 from .queries import UPDATE_UPLOADS_TABLE
 from .queries import INSERT_INTO_MANTARRAY_RECORDING_SESSIONS
@@ -12,10 +11,6 @@ from .utils import load_data_to_df
 MANTARRAY_LOGS_BUCKET = os.environ.get("MANTARRAY_LOGS_BUCKET_ENV", "test-mantarray-logs")
 PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-sdk-upload")
 
-# set up custom basic config
-logging.basicConfig(
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s", level=logging.INFO, stream=sys.stdout
-)
 logger = logging.getLogger(__name__)
 
 
@@ -28,9 +23,9 @@ async def insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s):
         metadata = load_data_to_df(file, pr)
         s3_size = get_s3_object_contents(PULSE3D_UPLOADS_BUCKET, outfile_key)
 
-        customer_id, user_id = outfile_key.split("/")[-2:]
+        customer_id, user_id = outfile_key.split("/")[-3:-1]
     except Exception as e:
-        raise Exception(f"in formatting: {e}")
+        raise Exception(f"in formatting: {repr(e)}")
 
     logger.info("Executing queries to the database in relation to aggregated metadata")
     async with con.transaction():
@@ -45,7 +40,7 @@ async def insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s):
                 upload_id,
             )
         except Exception as e:
-            raise Exception(f"in uploads: {e}")
+            raise Exception(f"in uploads: {repr(e)}")
 
         try:
             logger.info("Inserting recording session metadata")
@@ -63,7 +58,7 @@ async def insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s):
                 metadata["recording_started_at"].replace(tzinfo=None),
             )
         except Exception as e:
-            raise Exception(f"in mantarray_recording_sessions: {e}")
+            raise Exception(f"in mantarray_recording_sessions: {repr(e)}")
 
         try:
             logger.info("Inserting log metadata")
@@ -81,6 +76,6 @@ async def insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s):
                 user_id,
             )
         except Exception as e:
-            raise Exception(f"in mantarray_session_log_files: {e}")
+            raise Exception(f"in mantarray_session_log_files: {repr(e)}")
 
     logger.info("DB complete")
