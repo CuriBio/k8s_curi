@@ -90,7 +90,7 @@ async def create_job(*, con, upload_id, queue, priority, meta):
     enqueue_job_query = (
         "WITH row AS (SELECT id FROM uploads WHERE id=$1) "
         "INSERT INTO jobs_queue (upload_id, queue, priority, meta) SELECT id, $2, $3, $4 FROM row "
-        "RETURNING id, created_at"  # TODO remove created_at
+        "RETURNING id"
     )
     async with con.transaction():
         row = await con.fetchrow(enqueue_job_query, upload_id, queue, priority, json.dumps(meta))
@@ -101,7 +101,6 @@ async def create_job(*, con, upload_id, queue, priority, meta):
             "upload_id": upload_id,
             "status": "pending",
             "runtime": 0,
-            "created_at": row["created_at"],  # TODO remove this
             "finished_at": None,
             "meta": json.dumps(meta),
         }

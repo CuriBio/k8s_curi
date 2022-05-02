@@ -20,10 +20,12 @@ down_revision = "49fceab10078"
 branch_labels = None
 depends_on = None
 
-# TODO move default value of jobs_result.finished_at to jobs_result.created_at
-
 
 def upgrade():
+    # job is now inserted into jobs_result table before while it's still pending
+    op.alter_column("jobs_result", "created_at", server_default=func.now())
+    op.alter_column("jobs_result", "finished_at", server_default=None)
+
     op.create_table(
         "customers",
         sa.Column(
@@ -100,6 +102,10 @@ def upgrade():
 
 
 def downgrade():
+    # revert back to original default values for jobs_result
+    op.alter_column("jobs_result", "created_at", server_default=None)
+    op.alter_column("jobs_result", "finished_at", server_default=func.now())
+
     # revoke privileges
     op.execute("REVOKE ALL PRIVILEGES ON TABLE customers FROM curibio_users")
     op.execute("REVOKE ALL PRIVILEGES ON TABLE customers FROM curibio_users_ro")
