@@ -1,5 +1,4 @@
 from fastapi.testclient import TestClient
-import json
 import uuid
 
 import pytest
@@ -8,6 +7,8 @@ from auth import create_token
 from src import main
 
 test_client = TestClient(main.app)
+
+# TODO add tests for other routes
 
 
 def get_access_token(scope, userid=None):
@@ -60,11 +61,56 @@ def test_uploads__get(test_upload_ids, mocked_asyncpg_con, mocker):
     )
 
 
-@pytest.mark.parametrize(
-    "test_job_ids", (None, [], uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)])
-)
-def test_jobs__get(test_job_ids, mocked_asyncpg_con, mocker):
-    mocked_get_jobs = mocker.patch.object(main, "get_jobs", autospec=True, return_value=[])
+@pytest.mark.parametrize("test_job_ids", (uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]))
+def test_jobs__get__jobs_found(test_job_ids, mocked_asyncpg_con, mocker):
+    if isinstance(test_job_ids, uuid.UUID):
+        # fastapi automatically converts a single UUID to a list
+        test_job_ids = [test_job_ids]
+    expected_job_ids = [str(test_id) for test_id in test_job_ids]
+    # use job_ids as upload_ids to make testing easier
+    test_statuses = ["finished", "pending", "error"]
+    test_upload_rows = [
+        {"status": status, "upload_id": job_id, "url": f"url{i}"}
+        for i, (status, job_id) in enumerate(zip(test_statuses, test_job_ids))
+    ]
+
+    mocked_get_jobs = mocker.patch.object(main, "get_jobs", autospec=True, return_value=test_upload_rows)
+    mocked_get_uploads = mocker.patch.object(main, "get_uploads", autospec=True)
+    mocked_generate = mocker.patch.object(
+        main, "generate_presigned_url", autospec=True, return_value=test_upload_rows[0]["url"]
+    )
+
+    test_user_id = uuid.uuid4()
+    access_token = get_access_token(scope=["users:free"], userid=test_user_id)
+
+    kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}, "params": {"job_ids": test_job_ids}}
+    response = test_client.get("/jobs", **kwargs)
+    assert response.status_code == 200
+
+    expected_json = {"jobs": [{"status": "finished", "url": mocked_generate.return_value}]}
+    if len(expected_job_ids) > 1:
+        expected_json["jobs"].extend([{"status": "pending"}, {"status": "error", "error_info": ""}])
+    assert response.json() == expected_json
+
+    mocked_get_jobs.assert_called_once_with(
+        con=mocked_asyncpg_con, user_id=str(test_user_id), job_ids=expected_job_ids
+    )
+    mocked_get_uploads.assert_called_once_with(
+        con=mocked_asyncpg_con, user_id=str(test_user_id), upload_ids=[test_upload_rows[0]["upload_id"]]
+    )
+    mocked_generate.assert_called_once_with(
+        main.PULSE3D_UPLOADS_BUCKET, mocked_get_uploads.return_value[0]["object_key"]
+    )
+
+
+@pytest.mark.parametrize("test_job_ids", (None, []))
+def test_jobs__get__no_jobs_found(test_job_ids, mocked_asyncpg_con, mocker):
+    # falsey query params are automatically converted to None
+    expected_job_ids = None
+    test_upload_rows = []
+
+    mocked_get_jobs = mocker.patch.object(main, "get_jobs", autospec=True, return_value=test_upload_rows)
+    mocked_get_uploads = mocker.patch.object(main, "get_uploads", autospec=True)
 
     test_user_id = uuid.uuid4()
     access_token = get_access_token(scope=["users:free"], userid=test_user_id)
@@ -76,17 +122,9 @@ def test_jobs__get(test_job_ids, mocked_asyncpg_con, mocker):
 
     response = test_client.get("/jobs", **kwargs)
     assert response.status_code == 200
-    assert response.json() == mocked_get_jobs.return_value
-
-    if test_job_ids:
-        if isinstance(test_job_ids, uuid.UUID):
-            # fastapi automatically converts a single UUID to a list
-            test_job_ids = [test_job_ids]
-        expected_job_ids = [str(test_id) for test_id in test_job_ids]
-    else:
-        # falsey query params are automatically converted to None
-        expected_job_ids = None
+    assert response.json() == {"error": "No jobs found", "jobs": []}
 
     mocked_get_jobs.assert_called_once_with(
         con=mocked_asyncpg_con, user_id=str(test_user_id), job_ids=expected_job_ids
     )
+    mocked_get_uploads.assert_not_called()

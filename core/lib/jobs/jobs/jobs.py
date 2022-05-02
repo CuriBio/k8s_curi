@@ -72,7 +72,7 @@ async def create_upload(*, con, user_id, meta):
 
 async def get_jobs(*, con, user_id, job_ids=None):
     query = (
-        "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, u.user_id, u.meta "
+        "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.meta AS job_meta, u.user_id, u.meta AS user_meta "
         "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id = u.id WHERE u.user_id=$1"
     )
     query_params = [user_id]

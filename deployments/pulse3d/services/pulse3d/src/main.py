@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Any, Dict, List, Optional
 import uuid
@@ -140,8 +141,7 @@ async def get_info_of_jobs(
                     logger.info(f"Generating presigned download url for {object_key}")
                     job_info["url"] = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, object_key)
                 elif job_info["status"] == "error":
-                    pass  # TODO if an error occurred for a job, should try to add some kind of error info to its job_info
-                    # job_info["error_info"] = ""
+                    job_info["error_info"] = json.loads(job["job_meta"])["error"]
                 response["jobs"].append(job_info)
             if not response["jobs"]:
                 response["error"] = "No jobs found"
@@ -149,7 +149,7 @@ async def get_info_of_jobs(
         return response
 
     except Exception as e:
-        logger.exception(f"Failed to get job: {repr(e)}")
+        logger.exception(f"Failed to get jobs: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -166,15 +166,16 @@ async def create_new_job(
 
         # TODO check upload_id is valid
         async with request.state.pgpool.acquire() as con:
+            priority = 10
             job_id = await create_job(
-                con=con, upload_id=details.upload_id, queue="pulse3d", priority=10, meta=meta
+                con=con, upload_id=details.upload_id, queue="pulse3d", priority=priority, meta=meta
             )
             return {
                 "id": job_id,
                 "user_id": user_id,
                 "upload_id": details.upload_id,
                 "status": "pending",
-                "priority": 10,
+                "priority": priority,
             }
 
     except Exception as e:
