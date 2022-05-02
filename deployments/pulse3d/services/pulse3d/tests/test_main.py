@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+import json
 import uuid
 
 import pytest
@@ -70,7 +71,7 @@ def test_jobs__get__jobs_found(test_job_ids, mocked_asyncpg_con, mocker):
     # use job_ids as upload_ids to make testing easier
     test_statuses = ["finished", "pending", "error"]
     test_upload_rows = [
-        {"status": status, "upload_id": job_id, "url": f"url{i}"}
+        {"status": status, "upload_id": job_id, "url": f"url{i}", "job_meta": json.dumps({"error": f"e{i}"})}
         for i, (status, job_id) in enumerate(zip(test_statuses, test_job_ids))
     ]
 
@@ -89,7 +90,7 @@ def test_jobs__get__jobs_found(test_job_ids, mocked_asyncpg_con, mocker):
 
     expected_json = {"jobs": [{"status": "finished", "url": mocked_generate.return_value}]}
     if len(expected_job_ids) > 1:
-        expected_json["jobs"].extend([{"status": "pending"}, {"status": "error", "error_info": ""}])
+        expected_json["jobs"].extend([{"status": "pending"}, {"status": "error", "error_info": "e2"}])
     assert response.json() == expected_json
 
     mocked_get_jobs.assert_called_once_with(
