@@ -6,14 +6,11 @@ Create Date: 2022-03-14 15:32:48.959338
 
 """
 import os
+
 from alembic import op
-
-# from alembic import context
-from sqlalchemy.sql import func
-from sqlalchemy.dialects import postgresql
 import sqlalchemy as sa
-
-# config = context.config
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.sql import func
 
 # revision identifiers, used by Alembic.
 revision = "258ca806ee8b"

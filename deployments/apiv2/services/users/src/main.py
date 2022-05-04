@@ -130,7 +130,7 @@ async def login(request: Request, details: UserLogin):
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     except Exception as e:
-        logger.exception(f"login: Unexpected error {str(e)}")
+        logger.exception(f"login: Unexpected error {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -219,5 +219,5 @@ async def register(request: Request, details: UserCreate, token=Depends(Protecte
     except RegistrationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
-        logger.exception(f"register: Unexpected error {str(e)}")
+        logger.exception(f"register: Unexpected error {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

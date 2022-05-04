@@ -6,10 +6,11 @@ Create Date: 2022-03-12 13:50:27.312532
 
 """
 import os
+
 from alembic import op
-from sqlalchemy.sql import func
-from sqlalchemy.dialects import postgresql
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.sql import func
 
 
 # revision identifiers, used by Alembic.

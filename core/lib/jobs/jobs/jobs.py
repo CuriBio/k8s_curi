@@ -49,6 +49,10 @@ def get_item(*, queue):
 
 
 async def get_uploads(*, con, user_id, upload_ids=None):
+    """Query DB for info of a user's upload(s).
+
+    If no uploads specified, will return info of all the user's uploads
+    """
     query = "SELECT id, user_id, created_at, object_key FROM uploads WHERE user_id=$1"
     query_params = [user_id]
     if upload_ids:
@@ -71,6 +75,10 @@ async def create_upload(*, con, user_id, meta):
 
 
 async def get_jobs(*, con, user_id, job_ids=None):
+    """Query DB for info of a user's job(s).
+
+    If no jobs specified, will return info of all jobs created by the user
+    """
     query = (
         "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.meta AS job_meta, u.user_id, u.meta AS user_meta "
         "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id = u.id WHERE u.user_id=$1"
@@ -93,9 +101,10 @@ async def create_job(*, con, upload_id, queue, priority, meta):
         "RETURNING id"
     )
     async with con.transaction():
+        # add job to queue
         row = await con.fetchrow(enqueue_job_query, upload_id, queue, priority, json.dumps(meta))
-        job_id = row["id"]
 
+        job_id = row["id"]
         data = {
             "job_id": job_id,
             "upload_id": upload_id,
@@ -107,6 +116,7 @@ async def create_job(*, con, upload_id, queue, priority, meta):
         cols = ", ".join(list(data))
         places = ", ".join(f"${i}" for i, _ in enumerate(data, 1))
 
+        # insert job info result table with 'pending' status
         await con.execute(f"INSERT INTO jobs_result ({cols}) VALUES ({places})", *data.values())
 
     return job_id
