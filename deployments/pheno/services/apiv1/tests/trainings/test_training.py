@@ -186,7 +186,7 @@ def test_update_param__returns_200_status_on_success(client, mock_cursor):
         f"UPDATE trainings SET {test_params['field']}=$1 WHERE id=$2", 1, test_params["value"]
     )
 
-    assert response.json() == None
+    assert response.json() is None
     assert response.status_code == 200
 
 

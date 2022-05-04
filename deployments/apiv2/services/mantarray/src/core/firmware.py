@@ -29,9 +29,7 @@ def create_dependency_mapping():
         firmware_file_objs = s3_client.list_objects(Bucket=bucket)
         # create list of all objects in bucket with a valid file name
         firmware_file_names = [
-            item["Key"]
-            for item in firmware_file_objs["Contents"]
-            if FIRMWARE_FILE_REGEX.search(item["Key"])
+            item["Key"] for item in firmware_file_objs["Contents"] if FIRMWARE_FILE_REGEX.search(item["Key"])
         ]
         for file_name in firmware_file_names:
             head_obj = s3_client.head_object(Bucket=bucket, Key=file_name)
@@ -67,6 +65,7 @@ def get_download_url(version, firmware_type):
 
     bucket = f"{firmware_type}-firmware"
     file_name = f"{version}.bin"
+    # TODO use core.lib.utils.generate_presigned_url here instead
     url = s3_client.generate_presigned_url(
         ClientMethod="get_object", Params={"Bucket": bucket, "Key": file_name}, ExpiresIn=3600
     )

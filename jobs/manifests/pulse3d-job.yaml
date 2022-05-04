@@ -19,7 +19,7 @@ spec:
                     key: curibio_jobs
               - name: UPLOADS_BUCKET_ENV
                 value: curi-test-upload
-              - name: LOGS_BUCKET_ENV
+              - name: MANTARRAY_LOGS_BUCKET_ENV
                 value: test-mantarray-logs
         restartPolicy: Never
     backoffLimit: 4

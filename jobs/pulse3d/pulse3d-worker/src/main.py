@@ -1,21 +1,26 @@
 import asyncio
+import base64
+import hashlib
 import json
 import logging
 import os
-import base64
-import hashlib
+import sys
 import tempfile
+
 import asyncpg
 import boto3
-
 from pulse3D.plate_recording import PlateRecording
 from pulse3D.excel_writer import write_xlsx
 
 from jobs import get_item, EmptyQueue
-
 from lib.db import insert_metadata_into_pg
 
-logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
+logging.basicConfig(
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+    stream=sys.stdout,
+)
 logger = logging.getLogger(__name__)
 
 PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-sdk-upload")
@@ -23,69 +28,84 @@ PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-sdk-upload")
 
 @get_item(queue="pulse3d")
 async def process(con, item):
-    query = "SELECT user_id, meta FROM uploads WHERE id=$1"
     s3_client = boto3.client("s3")
 
+    job_metadata = {}
     try:
-        upload_id = item.get("upload_id")
-        upload = await con.fetchrow(query, upload_id)
-
-        meta = json.loads(upload.get("meta"))
-        user_id = upload.get("user_id")
-        logger.info(f"Found jobs for user {user_id} with meta {json.dumps(meta)}")
-
-        prefix = meta["prefix"]
-        filename = meta["filename"]
-        key = f"{prefix}/{filename}"
-    except Exception as e:
-        logger.exception("Fetching upload details failed")
-        return ("error", {})
-
-    with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
-        logger.info(f"Downloading {PULSE3D_UPLOADS_BUCKET}/{key} to {tmpdir}/{filename}")
         try:
-            s3_client.download_file(PULSE3D_UPLOADS_BUCKET, key, f"{tmpdir}/{filename}")
-        except Exception as e:
-            logger.exception(f"Failed to download: {e}")
-            return ("error", {})
-
-        try:
-            logger.info(f"Starting pulse3d analysis")
-            outfile = f"{'.'.join(filename.split('.')[:-1])}.xlsx"
-            pr = PlateRecording.from_directory(tmpdir)
-            recordings = list(pr)
-            for r in recordings:
-                write_xlsx(r, name=outfile)
-        except Exception as e:
-            logger.exception(f"Analysis failed")
-            return ("failed", {})
-
-        with open(outfile, "rb") as file:
+            upload_id = item["upload_id"]
+            logger.info(f"Retrieving user ID and metadata for upload with ID: {upload_id}")
+            upload = await con.fetchrow("SELECT user_id, meta FROM uploads WHERE id=$1", upload_id)
+            
             try:
-                logger.info(f"Uploading {outfile} to {PULSE3D_UPLOADS_BUCKET}/{outfile}")
-                contents = file.read()
-                md5 = hashlib.md5(contents).digest()
-                md5s = base64.b64encode(md5).decode()
+                meta_json = upload["meta"]
+            except:
+                msg = f"Upload with ID: {upload_id} not found"
+                logger.error(msg)
+                raise Exception(msg)
+            else:
+                logger.info(f"Upload found. User ID: {upload['user_id']}, Metadata: {meta_json}")
 
-                outfile_prefix = prefix.replace("/uploads/", "/analyzed/")
-                outfile_key = f"{outfile_prefix}/{outfile}"
+            meta = json.loads(meta_json)
+            prefix = meta["prefix"]
+            filename = meta["filename"]
+            key = f"{prefix}/{filename}"
+        except Exception as e:
+            logger.exception("Fetching upload details failed")
+            raise
 
-                s3_client.put_object(
-                    Body=contents, Bucket=PULSE3D_UPLOADS_BUCKET, Key=outfile_key, ContentMD5=md5s
-                )
+        with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
+            logger.info(f"Downloading {PULSE3D_UPLOADS_BUCKET}/{key} to {tmpdir}/{filename}")
+            try:
+                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, key, f"{tmpdir}/{filename}")
             except Exception as e:
-                logger.exception(f"Upload failed, {e}")
-                return ("error", {})
+                logger.exception(f"Failed to download: {e}")
+                raise
 
             try:
-                logger.info(f"Inserting {outfile} metadata into db for upload {upload_id}")
+                logger.info(f"Starting pulse3d analysis")
+
+                recordings = list(PlateRecording.from_directory(tmpdir))
+                logger.info(f"{len(recordings)} recording found")
+
+                outfile = f"{os.path.splitext(filename)[0]}.xlsx"
                 for r in recordings:
-                    await insert_metadata_into_pg(con, r, upload_id, file, outfile_key, md5s)
+                    write_xlsx(r, name=outfile)
             except Exception as e:
-                logger.error(f"Failed to insert metadata to db for upload {upload_id}: {e}")
-                return ("error inserting into db", {})
+                logger.exception(f"Analysis failed")
+                raise
 
-    return ("finished", {})
+            with open(outfile, "rb") as file:
+                try:
+                    logger.info(f"Uploading {outfile} to {PULSE3D_UPLOADS_BUCKET}/{outfile}")
+                    contents = file.read()
+                    md5 = hashlib.md5(contents).digest()
+                    md5s = base64.b64encode(md5).decode()
+
+                    outfile_prefix = prefix.replace("uploads/", "analyzed/")
+                    outfile_key = f"{outfile_prefix}/{outfile}"
+
+                    s3_client.put_object(
+                        Body=contents, Bucket=PULSE3D_UPLOADS_BUCKET, Key=outfile_key, ContentMD5=md5s
+                    )
+                except Exception as e:
+                    logger.exception(f"Upload failed, {e}")
+                    raise
+
+                try:
+                    logger.info(f"Inserting {outfile} metadata into db for upload {upload_id}")
+                    for r in recordings:
+                        await insert_metadata_into_pg(con, r, upload_id, file, outfile_key, md5s)
+                except Exception as e:
+                    logger.error(f"Failed to insert metadata to db for upload {upload_id}: {e}")
+                    raise
+
+    except Exception as e:
+        job_metadata["error"] = str(e)
+        return "error", job_metadata
+
+    logger.info(f"Job complete for upload {upload_id}")
+    return "finished", job_metadata
 
 
 async def main():

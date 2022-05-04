@@ -1,74 +1,122 @@
-import asyncpg
+from datetime import datetime
+from functools import wraps
 import json
 import time
-from functools import wraps
+
 
 class EmptyQueue(Exception):
     pass
 
+
 def get_item(*, queue):
-    query = "DELETE FROM jobs_queue WHERE id = (SELECT id FROM jobs_queue WHERE queue=$1 ORDER BY priority DESC, created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING id, upload_id, created_at, meta"
+    query = (
+        "DELETE FROM jobs_queue WHERE id = "
+        "(SELECT id FROM jobs_queue WHERE queue=$1 ORDER BY priority DESC, created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1) "
+        "RETURNING id, upload_id, created_at, meta"
+    )
 
     def _outer(fn):
         @wraps(fn)
         async def _inner(*, con):
             async with con.transaction():
-                item = await con.fetchrow(query, queue)
-                if item:
-                    ts = time.time()
-                    (status, meta) = await fn(con, item)
-                    data = [
-                        ('job_id', item.get("id")),
-                        ('upload_id', item.get("upload_id")),
-                        ('status', status),
-                        ('runtime', (time.time() - ts)),
-                        ('created_at', item.get("created_at")),
-                        ('meta', json.dumps(meta)),
-                    ]
-                    cvs = list(zip(*data))
-                    places = ", ".join([f"${i+1}" for i, _ in enumerate(data)])
-
-                    await con.execute(f"INSERT INTO jobs_result ({', '.join(cvs[0])}) VALUES ({places})", *cvs[1])
-                else:
+                if not (item := await con.fetchrow(query, queue)):
                     raise EmptyQueue(queue)
+
+                ts = time.time()
+                status, new_meta = await fn(con, item)
+                runtime = time.time() - ts
+
+                # update metadata
+                meta = json.loads(item["meta"])
+                meta.update(new_meta)
+
+                data = {
+                    "status": status,
+                    "runtime": runtime,
+                    "finished_at": datetime.now(),
+                    "meta": json.dumps(meta),
+                }
+                set_clause = ", ".join(f"{key} = ${i}" for i, key in enumerate(data, 1))
+                await con.execute(
+                    f"UPDATE jobs_result SET {set_clause} WHERE job_id=${len(data) + 1}",
+                    *data.values(),
+                    item["id"],
+                )
+
         return _inner
+
     return _outer
 
-async def get_uploads(*, con, user_id, upload_id=None):
-    uploads = []
+
+async def get_uploads(*, con, user_id, upload_ids=None):
+    """Query DB for info of a user's upload(s).
+
+    If no uploads specified, will return info of all the user's uploads
+    """
+    query = "SELECT id, user_id, created_at, object_key FROM uploads WHERE user_id=$1"
+    query_params = [user_id]
+    if upload_ids:
+        places = ", ".join(f"${i}" for i, _ in enumerate(upload_ids, 2))
+        query += f" AND id IN ({places})"
+        query_params.extend(upload_ids)
+
     async with con.transaction():
-        if upload_id:
-            row = await con.fetchrow("SELECT * FROM uploads WHERE user_id=$1 and id=$2", user_id, upload_id)
-            upload = { "id": row["id"], "user_id": row["user_id"], "created_at": row["created_at"] }
-            uploads.append(upload)
-        else:
-            async for row in con.cursor("SELECT * FROM uploads WHERE user_id=$1", user_id):
-                data = { "id": row["id"], "user_id": row["user_id"], "created_at": row["created_at"] }
-                uploads.append(data)
+        uploads = [dict(row) async for row in con.cursor(query, *query_params)]
     return uploads
 
 
 async def create_upload(*, con, user_id, meta):
-    query = "WITH row as (SELECT id FROM users where id=$1) INSERT INTO uploads (user_id, meta) SELECT id, $2 from row RETURNING id"
+    query = (
+        "WITH row as (SELECT id FROM users where id=$1) "
+        "INSERT INTO uploads (user_id, meta) SELECT id, $2 from row RETURNING id"
+    )
     async with con.transaction():
         return await con.fetchval(query, user_id, json.dumps(meta))
 
 
-async def get_jobs(*, con, user_id, job_id=None):
-    jobs = []
+async def get_jobs(*, con, user_id, job_ids=None):
+    """Query DB for info of a user's job(s).
+
+    If no jobs specified, will return info of all jobs created by the user
+    """
+    query = (
+        "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.meta AS job_meta, u.user_id, u.meta AS user_meta "
+        "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id = u.id WHERE u.user_id=$1"
+    )
+    query_params = [user_id]
+    if job_ids:
+        places = ", ".join(f"${i}" for i, _ in enumerate(job_ids, 2))
+        query += f" AND j.job_id IN ({places})"
+        query_params.extend(job_ids)
+
     async with con.transaction():
-        if job_id:
-            query = "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, u.user_id, u.meta FROM jobs_result AS j JOIN uploads AS u ON j.upload_id = u.id WHERE u.user_id=$1 and j.job_id=$2"
-            row = await con.fetchrow(query, user_id, job_id)
-            jobs.append(dict(row))
-        else:
-            query = "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, u.user_id, u.meta FROM jobs_result AS j JOIN uploads AS u ON j.upload_id = u.id WHERE u.user_id=$1"
-            async for row in con.cursor(query, user_id):
-                jobs.append(dict(row))
+        jobs = [dict(row) async for row in con.cursor(query, *query_params)]
     return jobs
 
 
 async def create_job(*, con, upload_id, queue, priority, meta):
-    query = "WITH row AS (SELECT id FROM uploads WHERE id=$1) INSERT INTO jobs_queue (upload_id, queue, priority, meta) SELECT id, $2, $3, $4 from row RETURNING id"
+    enqueue_job_query = (
+        "WITH row AS (SELECT id FROM uploads WHERE id=$1) "
+        "INSERT INTO jobs_queue (upload_id, queue, priority, meta) SELECT id, $2, $3, $4 FROM row "
+        "RETURNING id"
+    )
     async with con.transaction():
-        return await con.fetchval(query, upload_id, queue, priority, json.dumps(meta))
+        # add job to queue
+        row = await con.fetchrow(enqueue_job_query, upload_id, queue, priority, json.dumps(meta))
+
+        job_id = row["id"]
+        data = {
+            "job_id": job_id,
+            "upload_id": upload_id,
+            "status": "pending",
+            "runtime": 0,
+            "finished_at": None,
+            "meta": json.dumps(meta),
+        }
+        cols = ", ".join(list(data))
+        places = ", ".join(f"${i}" for i, _ in enumerate(data, 1))
+
+        # insert job info result table with 'pending' status
+        await con.execute(f"INSERT INTO jobs_result ({cols}) VALUES ({places})", *data.values())
+
+    return job_id

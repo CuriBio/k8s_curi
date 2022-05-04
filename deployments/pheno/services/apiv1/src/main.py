@@ -10,7 +10,7 @@ from endpoints import dashboard
 from endpoints import user
 
 
-app = FastAPI()
+app = FastAPI(openapi_url=None)
 api_router = APIRouter()
 
 api_router.include_router(trainings.router)

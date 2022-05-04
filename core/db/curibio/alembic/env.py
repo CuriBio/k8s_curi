@@ -55,8 +55,11 @@ def run_migrations_offline():
         dialect_opts={"paramstyle": "named"},
     )
 
-    with context.begin_transaction():
+    with context.begin_transaction() as transaction:
         context.run_migrations()
+        if "dry-run" in context.get_x_argument():
+            print("Dry run complete, rolling back")
+            transaction.rollback()
 
 
 def run_migrations_online():
@@ -75,8 +78,11 @@ def run_migrations_online():
     with connectable.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)
 
-        with context.begin_transaction():
+        with context.begin_transaction() as transaction:
             context.run_migrations()
+            if "dry-run" in context.get_x_argument():
+                print("Dry run complete, rolling back")
+                transaction.rollback()
 
 
 if context.is_offline_mode():

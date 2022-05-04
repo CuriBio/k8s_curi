@@ -16,7 +16,8 @@ def generate_presigned_url(bucket: str, key: str, exp: int = 3600) -> Any:
     try:
         s3.Object(bucket, key).load()
     except:
-        return None
+        # there's probably a better error type that could be raised here
+        raise ValueError(f"{key} not found in {bucket}")
 
     # generate presigned url, if exists
     try:

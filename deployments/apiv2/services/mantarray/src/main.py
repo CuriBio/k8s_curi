@@ -13,7 +13,7 @@ from core.firmware import resolve_versions
 AUTH = ProtectedAny()  # TODO add scope here
 
 
-app = FastAPI()
+app = FastAPI(openapi_url=None)
 templates = Jinja2Templates(directory="templates")
 
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)

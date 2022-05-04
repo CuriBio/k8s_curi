@@ -4,7 +4,7 @@ from starlette.datastructures import Secret
 config = Config(".env")
 
 APP_NAME = config("APP_NAME", cast=str, default="CuriBio/Pulse3d")
-ACCESS_TOKEN_EXPIRE_MINUTES = config("ACCESS_TOKEN_EXPIRE_MINUTES", cast=int, default=5) # 5 minutes
+ACCESS_TOKEN_EXPIRE_MINUTES = config("ACCESS_TOKEN_EXPIRE_MINUTES", cast=int, default=5)  # 5 minutes
 JWT_SECRET_KEY = config("JWT_SECRET_KEY", cast=Secret)
 JWT_ALGORITHM = config("JWT_ALGORITHM", cast=str, default="HS256")
 JWT_AUDIENCE = config("JWT_AUDIENCE", cast=str, default="curibio:auth")
@@ -17,6 +17,7 @@ POSTGRES_PORT = config("POSTGRES_PORT", cast=str, default="5432")
 POSTGRES_DB = config("POSTGRES_DB", cast=str)
 
 PULSE3D_UPLOADS_BUCKET = config("UPLOADS_BUCKET_ENV", cast=str, default="curi-test-upload")
+MANTARRAY_LOGS_BUCKET = config("MANTARRAY_LOGS_BUCKET_ENV", cast=str, default="test-mantarray-logs")
 
 DATABASE_URL = config(
     "DATABASE_URL",
