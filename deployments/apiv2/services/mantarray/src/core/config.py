@@ -3,6 +3,7 @@ from starlette.datastructures import Secret
 
 config = Config(".env")
 
+CLUSTER_NAME = config("CLUSTER_NAME", cast=str)
 POSTGRES_USER = config("POSTGRES_USER", cast=str)
 POSTGRES_PASSWORD = config("POSTGRES_PASSWORD", cast=Secret)
 POSTGRES_SERVER = config("POSTGRES_SERVER", cast=str, default="localhost")

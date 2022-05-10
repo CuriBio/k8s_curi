@@ -3,16 +3,17 @@ import os
 import sys
 from unittest.mock import MagicMock
 
-
+CLUSTER_NAME = "test"
 JWT_SECRET_KEY = "1234"
 POSTGRES_DB = "test_db"
 POSTGRES_USER = "test_pg_user"
 POSTGRES_PASSWORD = "test_pw"
 
+os.environ["CLUSTER_NAME"] = CLUSTER_NAME
 os.environ["JWT_SECRET_KEY"] = JWT_SECRET_KEY
-os.environ["POSTGRES_DB"] = "test_db"
-os.environ["POSTGRES_USER"] = "test_pg_user"
-os.environ["POSTGRES_PASSWORD"] = "test_pw"
+os.environ["POSTGRES_DB"] = POSTGRES_DB
+os.environ["POSTGRES_USER"] = POSTGRES_USER
+os.environ["POSTGRES_PASSWORD"] = POSTGRES_PASSWORD
 
 # minimal mocking required to ensure that test collection won't fail and no connections to cloud need to be made
 for mod_to_mock in ("boto3",):
