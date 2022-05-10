@@ -8,7 +8,7 @@ resource "aws_ecr_repository" "mantarray_ecr_repo" {
 }
 
 resource "aws_s3_bucket" "main_firmware_bucket" {
-  bucket = "main-firmware"
+  bucket = "${var.cluster_name}-main-firmware"
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "main_firmware_bucket" {
@@ -27,7 +27,7 @@ resource "aws_s3_bucket_acl" "main_firmware_bucket" {
 }
 
 resource "aws_s3_bucket" "channel_firmware_bucket" {
-  bucket = "channel-firmware"
+  bucket = "${var.cluster_name}-channel-firmware"
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "channel_firmware_bucket" {
