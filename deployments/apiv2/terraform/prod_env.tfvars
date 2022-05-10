@@ -1,5 +1,5 @@
 cluster_name = "prod"
 
-cluster_tags = {
-  Environment = "prod cluster"
-}
+# cluster_tags = {
+#   Environment = "prod cluster"
+# }
