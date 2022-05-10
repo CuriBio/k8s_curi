@@ -14,3 +14,11 @@ patchesJson6902:
     - op: replace
       path: /spec/source/path
       value: "deployments/apiv2/manifests/overlays/prod"
+- target:
+    kind: Application
+    name: pulse3d
+    namespace: pulse3d
+  patch: |-
+    - op: replace
+      path: /spec/source/path
+      value: "deployments/pulse3d/manifests/overlays/prod"
