@@ -30,4 +30,4 @@ patchesJson6902:
       path: /spec/template/spec/containers/0/env/0/value
       value:
         name: CLUSTER_NAME
-        value: test
+        value: prod
