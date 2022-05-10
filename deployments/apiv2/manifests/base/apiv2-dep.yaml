@@ -42,6 +42,8 @@ spec:
       - name: mantarray
         image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/mantarray
         env:
+        - name: CLUSTER_NAME
+          value: test
         - name: POSTGRES_USER
           value: curibio_mantarray_ro
         - name: POSTGRES_PASSWORD
