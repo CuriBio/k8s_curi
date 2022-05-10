@@ -1,9 +1,11 @@
+from fileinput import filename
 import re
 
 import boto3
 from semver import VersionInfo
 
 from .config import CLUSTER_NAME
+from utils.s3 import generate_presigned_url
 
 
 FIRMWARE_FILE_REGEX = re.compile(r"^\d+\.\d+\.\d+\.bin$")
@@ -64,12 +66,7 @@ def resolve_versions(hardware_version):
 
 
 def get_download_url(version, firmware_type):
-    s3_client = boto3.client("s3")
-
     bucket = f"{CLUSTER_NAME}-{firmware_type}-firmware"
     file_name = f"{version}.bin"
-    # TODO use core.lib.utils.generate_presigned_url here instead
-    url = s3_client.generate_presigned_url(
-        ClientMethod="get_object", Params={"Bucket": bucket, "Key": file_name}, ExpiresIn=3600
-    )
+    url = generate_presigned_url(bucket=bucket, key=file_name)
     return url

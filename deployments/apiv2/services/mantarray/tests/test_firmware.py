@@ -172,18 +172,14 @@ def test_firmware__resolve_versions__return_correct_dict(
     mocked_get_cfw_from_hw.assert_called_once_with(dummy_cfw_to_hw, hw_version)
 
 
-def test__firmware__get_download_url__generates_and_returns_presigned_using_the_params_given():
-    mocked_s3_client = mocked_boto3.client("s3")
+def test__firmware__get_download_url__generates_and_returns_presigned_using_the_params_given(mocker):
+    mocked_generate = mocker.patch.object(firmware, "generate_presigned_url", autospec=True)
 
     test_firmware_type = choice(["main", "channel"])
     test_version = choice(["1.11.111", "999.99.9"])
 
-    assert (
-        firmware.get_download_url(test_version, test_firmware_type)
-        == mocked_s3_client.generate_presigned_url.return_value
-    )
-    mocked_s3_client.generate_presigned_url.assert_called_once_with(
-        ClientMethod="get_object",
-        Params={"Bucket": f"{CLUSTER_NAME}-{test_firmware_type}-firmware", "Key": f"{test_version}.bin"},
-        ExpiresIn=3600,
-    )
+    assert firmware.get_download_url(test_version, test_firmware_type) == mocked_generate.return_value
+
+    expected_bucket = f"{CLUSTER_NAME}-{test_firmware_type}-firmware"
+    expected_key = f"{test_version}.bin"
+    mocked_generate.assert_called_once_with(bucket=expected_bucket, key=expected_key)
