@@ -19,11 +19,11 @@ terraform {
 
 # Configure the AWS Provider
 provider "aws" {
-  region  = var.region
+  region = var.region
 }
 
 variable "region" {
-  type = string
+  type    = string
   default = "us-east-2"
 }
 
@@ -33,6 +33,7 @@ module "users" {
 
 
 module "mantarray" {
-  source = "./mantarray"
+  source       = "./mantarray"
+  cluster_name = var.cluster_name
 }
 

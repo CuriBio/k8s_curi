@@ -3,11 +3,10 @@ from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from auth import ProtectedAny
-from utils.db import AsyncpgPoolDep
-
 from core.config import DATABASE_URL
 from core.firmware import get_download_url
 from core.firmware import resolve_versions
+from utils.db import AsyncpgPoolDep
 
 
 AUTH = ProtectedAny()  # TODO add scope here

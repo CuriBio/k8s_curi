@@ -2,6 +2,7 @@ import boto3 as mocked_boto3
 import pytest
 from random import choice
 
+from .conftest import CLUSTER_NAME
 from src.core import firmware
 
 
@@ -12,8 +13,8 @@ def test_firmware__create_dependency_mapping__gets_firmware_file_objects_from_s3
     firmware.create_dependency_mapping()
 
     assert mocked_s3_client.list_objects.call_count == 3
-    mocked_s3_client.list_objects.assert_any_call(Bucket="channel-firmware")
-    mocked_s3_client.list_objects.assert_any_call(Bucket="main-firmware")
+    mocked_s3_client.list_objects.assert_any_call(Bucket=f"{CLUSTER_NAME}-channel-firmware")
+    mocked_s3_client.list_objects.assert_any_call(Bucket=f"{CLUSTER_NAME}-main-firmware")
 
 
 def test_firmware__create_dependency_mapping__retrieves_metadata_of_each_appropriately_named_firmware_file_in_s3_bucket_correctly(
@@ -21,8 +22,8 @@ def test_firmware__create_dependency_mapping__retrieves_metadata_of_each_appropr
 ):
     mocked_s3_client = mocked_boto3.client("s3")
 
-    expected_main_bucket_name = "main-firmware"
-    expected_channel_bucket_name = "channel-firmware"
+    expected_main_bucket_name = f"{CLUSTER_NAME}-main-firmware"
+    expected_channel_bucket_name = f"{CLUSTER_NAME}-channel-firmware"
 
     expected_valid_main_file_names = ["0.0.0.bin", "99.99.99.bin"]
     expected_valid_channel_file_names = ["0.9.9.bin", "99.88.0.bin"]
@@ -67,7 +68,7 @@ def test_firmware__create_dependency_mapping__returns_correct_mappings(
 ):
     mocked_s3_client = mocked_boto3.client("s3")
 
-    expected_main_bucket_name = "main-firmware"
+    expected_main_bucket_name = f"{CLUSTER_NAME}-main-firmware"
 
     expected_main_objs_and_metadata = {
         "1.0.1.bin": {"sw-version": "1.0.0"},
@@ -171,18 +172,14 @@ def test_firmware__resolve_versions__return_correct_dict(
     mocked_get_cfw_from_hw.assert_called_once_with(dummy_cfw_to_hw, hw_version)
 
 
-def test__firmware__get_download_url__generates_and_returns_presigned_using_the_params_given():
-    mocked_s3_client = mocked_boto3.client("s3")
+def test__firmware__get_download_url__generates_and_returns_presigned_using_the_params_given(mocker):
+    mocked_generate = mocker.patch.object(firmware, "generate_presigned_url", autospec=True)
 
     test_firmware_type = choice(["main", "channel"])
     test_version = choice(["1.11.111", "999.99.9"])
 
-    assert (
-        firmware.get_download_url(test_version, test_firmware_type)
-        == mocked_s3_client.generate_presigned_url.return_value
-    )
-    mocked_s3_client.generate_presigned_url.assert_called_once_with(
-        ClientMethod="get_object",
-        Params={"Bucket": f"{test_firmware_type}-firmware", "Key": f"{test_version}.bin"},
-        ExpiresIn=3600,
-    )
+    assert firmware.get_download_url(test_version, test_firmware_type) == mocked_generate.return_value
+
+    expected_bucket = f"{CLUSTER_NAME}-{test_firmware_type}-firmware"
+    expected_key = f"{test_version}.bin"
+    mocked_generate.assert_called_once_with(bucket=expected_bucket, key=expected_key)
