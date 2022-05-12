@@ -902,11 +902,6 @@ subjects:
   name: argo-server
 ---
 apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: workflow-controller-configmap
----
-apiVersion: v1
 kind: Service
 metadata:
   name: argo-server
