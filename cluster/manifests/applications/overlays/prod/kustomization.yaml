@@ -5,3 +5,4 @@ resources:
 - ../../base
 - argo-workflows.yaml
 - argo-events.yaml
+- ci.yaml
