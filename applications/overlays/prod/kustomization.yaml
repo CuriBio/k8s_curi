@@ -16,7 +16,7 @@ patchesJson6902:
       value: "deployments/apiv2/manifests/overlays/prod"
 - target:
     kind: Application
-    name: pulse3d
+    name: pulse3d-deployment
     namespace: pulse3d
   patch: |-
     - op: replace
