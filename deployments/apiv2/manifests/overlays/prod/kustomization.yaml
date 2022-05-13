@@ -28,6 +28,4 @@ patchesJson6902:
       value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/mantarray"
     - op: replace
       path: /spec/template/spec/containers/1/env/0/value
-      value:
-        name: CLUSTER_NAME
-        value: prod
+      value: prod
