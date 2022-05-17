@@ -1,0 +1,25 @@
+/* curi color palette */
+:root {
+  --dark-blue: #00263e;
+  --teal-green: #19ac8a;
+  --dark-gray: #a7a8a9;
+  --light-gray: #ececed;
+  --light-blue: #005470;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  font-family: Mulish;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+* {
+  box-sizing: border-box;
+  font-family: Mulish;
+}
