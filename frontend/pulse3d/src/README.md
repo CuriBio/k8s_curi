@@ -8,4 +8,4 @@ First, run the development server:
 npm run dev
 ```
 
-Node==18.1.0
+Node==17.6.0

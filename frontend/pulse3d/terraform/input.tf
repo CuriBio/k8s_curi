@@ -1,12 +1,14 @@
 variable "cluster_name" {
   type = string
+  default = "test_cluster"
 }
 
 variable "region" {
   type    = string
-  default = "us-east-1"
+  default = "us-east-2"
 }
 
-variable "bucket_name" {
+variable "domain_name" {
   type = string
+  default = "curibio-test.com"
 }

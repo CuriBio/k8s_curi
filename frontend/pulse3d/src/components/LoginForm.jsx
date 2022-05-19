@@ -1,5 +1,5 @@
 import styled from 'styled-components';
-import { Formik } from 'formik';
+import { useForm } from 'react-hook-form';
 import axios from 'axios';
 import { useRouter } from 'next/router';
 import { useWorker } from './hooks/useWorker';
@@ -74,94 +74,63 @@ const ErrorText = styled.span`
 export default function LoginForm() {
   const router = useRouter();
   const [state, setState] = useState({});
-
   const { result, error } = useWorker(state);
+  const [errorMsg, setErrorMsg] = useState(null);
 
-  const values = {
-    customer_id: '',
-    username: '',
-    password: '',
-  };
+  const {
+    register,
+    handleSubmit,
+    trigger,
+    formState: { errors },
+  } = useForm();
 
-  useEffect(() => console.log(result, error), [result, error]);
+  //   useEffect(() => console.log(result, error), [result, error]);
 
-  const handleSubmit = async (inputs, { setErrors }) => {
-    try {
-      setState({
-        method: 'POST',
-        endpoint: '/users/login',
-        body: JSON.stringify(inputs),
-      });
-    } catch (e) {
-      e.response && e.response.status === 401
-        ? setErrors({ message: '*Invalid credentials' })
-        : setErrors({ message: '*Internal error. Please try again later.' });
+  const submitForm = async (inputs) => {
+    if (Object.values(inputs).includes(''))
+      setErrorMsg('*All fields are required');
+    else {
+      try {
+        //   setState({
+        //     method: 'POST',
+        //     endpoint: '/users/login',
+        //     body: JSON.stringify(inputs),
+        //   });
+        // router.append('/dashboard');
+        setErrorMsg('');
+      } catch (e) {
+        e.response && e.response.status === 401
+          ? setErrorMsg('*Invalid credentials')
+          : setErrorMsg('*Internal error. Please try again later.');
+      }
     }
-  };
-
-  const validate = (inputs) => {
-    return !inputs.customer_id || !inputs.username || !inputs.password
-      ? { message: '*All fields are required' }
-      : {};
   };
 
   return (
     <BackgroundContainer>
-      <Formik
-        initialValues={values}
-        onSubmit={handleSubmit}
-        validate={validate}
-      >
-        {(formik) => {
-          const {
-            values,
-            handleChange,
-            handleSubmit,
-            errors,
-            touched,
-            handleBlur,
-            isValid,
-            dirty,
-          } = formik;
-          return (
-            <Form onSubmit={handleSubmit}>
-              <InputContainer>
-                <Label htmlFor="customer_id">Customer ID</Label>
-                <Field
-                  id="customer_id"
-                  name="customer_id"
-                  placeholder="CuriBio"
-                  value={values.customer_id}
-                  onChange={handleChange}
-                />
+      <Form onSubmit={handleSubmit(submitForm)}>
+        <InputContainer>
+          <Label htmlFor="customer_id">Customer ID</Label>
+          <Field
+            id="customer_id"
+            placeholder="CuriBio"
+            {...register('customer_id')}
+          />
 
-                <Label htmlFor="username">Username</Label>
-                <Field
-                  id="username"
-                  name="username"
-                  placeholder="User"
-                  value={values.username}
-                  onChange={handleChange}
-                />
+          <Label htmlFor="username">Username</Label>
+          <Field id="username" placeholder="User" {...register('username')} />
 
-                <Label htmlFor="password">Password</Label>
-                <Field
-                  id="password"
-                  name="password"
-                  type="password"
-                  placeholder="Password"
-                  value={values.password}
-                  onChange={handleChange}
-                />
-                {errors.message ? (
-                  <ErrorText>{errors.message}</ErrorText>
-                ) : null}
-              </InputContainer>
-              <Button type="submit">Submit</Button>
-            </Form>
-          );
-        }}
-      </Formik>
+          <Label htmlFor="password">Password</Label>
+          <Field
+            id="password"
+            type="password"
+            placeholder="Password"
+            {...register('password')}
+          />
+          <ErrorText>{errorMsg}</ErrorText>
+        </InputContainer>
+        <Button type="submit">Submit</Button>
+      </Form>
     </BackgroundContainer>
   );
 }
