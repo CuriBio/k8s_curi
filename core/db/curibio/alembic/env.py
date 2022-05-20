@@ -54,12 +54,7 @@ def run_migrations_offline():
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
-
-    with context.begin_transaction() as transaction:
-        context.run_migrations()
-        if "dry-run" in context.get_x_argument():
-            print("Dry run complete, rolling back")
-            transaction.rollback()
+    context.run_migrations()
 
 
 def run_migrations_online():
