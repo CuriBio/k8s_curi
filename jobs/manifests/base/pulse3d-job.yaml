@@ -1,7 +1,7 @@
 apiVersion: keda.sh/v1alpha1
 kind: ScaledJob
 metadata:
-  name: postgresql-scaledobject
+  name: pulse3d-scaledobject
   namespace: pulse3d
 spec:
   jobTargetRef:

@@ -696,6 +696,7 @@ rules:
   resources:
   - pods
   - pods/exec
+  - pods/logs
   verbs:
   - create
   - get
@@ -729,6 +730,7 @@ rules:
   - workflows/finalizers
   - workflowtasksets
   - workflowtasksets/finalizers
+  - workflowtasksets/status
   verbs:
   - get
   - list
@@ -760,7 +762,11 @@ rules:
   verbs:
   - list
   - watch
+  - patch
+  - update
+  - delete
   - deletecollection
+  - create
 - apiGroups:
   - ""
   resources:
@@ -859,6 +865,7 @@ rules:
   - workflows
   - workfloweventbindings
   - workflowtemplates
+  - clusterworkflowtemplates
   - cronworkflows
   - cronworkflows/finalizers
   verbs:
@@ -893,11 +900,6 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: argo-server
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: workflow-controller-configmap
 ---
 apiVersion: v1
 kind: Service

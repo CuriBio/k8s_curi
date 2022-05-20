@@ -1,0 +1,53 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: argo-workflow
+  namespace: argo
+rules:
+# pod get/watch is used to identify the container IDs of the current pod
+# pod patch is used to annotate the step's outputs back to controller (e.g. artifact location)
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - pods/log
+  verbs:
+  - get
+  - watch
+  - patch
+- apiGroups:
+  - "argoproj.io"
+  resources:
+  - workflowtemplates
+  - workflowtasksets/status
+  verbs:
+  - get
+  - watch
+  - patch
+- apiGroups:
+  - "argoproj.io"
+  resources:
+  - workflows
+  verbs:
+  - get
+  - watch
+  - create
+  - patch
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: argo-default-workflow
+  namespace: argo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: argo-workflow
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: argo
+- kind: ServiceAccount
+  name: argo
+  namespace: argo
