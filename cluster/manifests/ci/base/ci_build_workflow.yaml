@@ -36,6 +36,10 @@ spec:
               value: "{{workflow.parameters.branch}}"
             - name: sha
               value: "{{workflow.parameters.sha}}"
+    - - name: check-db-upgrades
+        templateRef:
+          name: db-migrations
+          template: check-upgrades
     - - name: build-services
         templateRef:
           name: build-service
@@ -90,6 +94,10 @@ spec:
               value: "{{workflow.parameters.branch}}"
             - name: sha
               value: "{{workflow.parameters.sha}}"
+    - - name: upgrade-db
+        templateRef:
+          name: db-migrations
+          template: upgrade
     - - name: build-services
         templateRef:
           name: build-push-service
