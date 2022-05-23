@@ -8,10 +8,11 @@ from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
 from fastapi import FastAPI, Request, Depends, HTTPException, status
 
-from auth import AccessToken, ProtectedAny, create_token
+from auth import ProtectedAny, create_token
 from core.db import Database
-from models.users import UserLogin, UserCreate, UserProfile, CustomerProfile
 from models.errors import LoginError, RegistrationError
+from models.tokens import LoginResponse
+from models.users import UserLogin, UserCreate, UserProfile, CustomerProfile
 
 
 logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
@@ -67,7 +68,7 @@ async def index(request: Request, token=Depends(ProtectedAny(scope=["users:free"
 
 
 # TODO, could make details a Union of UserLogin and a new CustomerLogin model
-@app.post("/login", response_model=AccessToken)
+@app.post("/login", response_model=LoginResponse)
 async def login(request: Request, details: UserLogin):
     """Login a user or customer account.
 
@@ -124,8 +125,11 @@ async def login(request: Request, details: UserLogin):
                 raise LoginError(failed_msg)
             else:
                 scope = ["users:admin"] if is_customer_login_attempt else json.loads(row.get("scope", "[]"))
-                jwt_token = create_token(scope=scope, userid=row["id"])
-                return jwt_token
+                # TODO store the refresh token in the DB
+                return LoginResponse(
+                    access=create_token(scope=scope, userid=row["id"], refresh=False),
+                    refresh=create_token(scope=scope, userid=row["id"], refresh=True),
+                )
 
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))

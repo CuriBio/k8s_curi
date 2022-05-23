@@ -2,19 +2,21 @@ import json
 import uuid
 
 from asyncpg.exceptions import UniqueViolationError
-from auth import create_token
 from argon2 import PasswordHasher
 from fastapi.testclient import TestClient
 import pytest
+
+from auth import create_token
 from src import main
+from src.models.tokens import LoginResponse
 
 test_client = TestClient(main.app)
 
 
-def get_access_token(scope, userid=None):
+def get_token(scope, userid=None, refresh=False):
     if not userid:
         userid = uuid.uuid4()
-    return create_token(scope=scope, userid=userid).access_token
+    return create_token(scope=scope, userid=userid, refresh=refresh).token
 
 
 @pytest.fixture(scope="function", name="cb_customer_id")
@@ -84,33 +86,41 @@ def test_login__user__success(cb_customer_id, mocked_db_con, mocker):
 
     response = test_client.post("/login", json=login_details)
     assert response.status_code == 200
-    assert response.json() == spied_create_token.spy_return.dict()
+    assert response.json() == LoginResponse(
+        access=create_token(scope=test_scope, userid=test_user_id, refresh=False),
+        refresh=create_token(scope=test_scope, userid=test_user_id, refresh=True),
+    )
 
     mocked_db_con.fetchrow.assert_called_once_with(
         "SELECT password, id, data->'scope' AS scope FROM users WHERE deleted_at IS NULL AND name = $1 AND customer_id = $2",
         login_details["username"],
         login_details["customer_id"],
     )
-    spied_create_token.assert_called_once_with(scope=test_scope, userid=test_user_id)
+
+    assert spied_create_token.call_count == 2
 
 
 def test_login__customer__success(mocked_db_con, mocker):
     login_details = {"username": "test_username", "password": "test_password"}
     pw_hash = PasswordHasher().hash(login_details["password"])
-    test_user_id = uuid.uuid4()
+    test_customer_id = uuid.uuid4()
 
-    mocked_db_con.fetchrow.return_value = {"password": pw_hash, "id": test_user_id}
+    mocked_db_con.fetchrow.return_value = {"password": pw_hash, "id": test_customer_id}
     spied_create_token = mocker.spy(main, "create_token")
 
     response = test_client.post("/login", json=login_details)
     assert response.status_code == 200
-    assert response.json() == spied_create_token.spy_return.dict()
+    assert response.json() == LoginResponse(
+        access=create_token(scope=["users:admin"], userid=test_customer_id, refresh=False),
+        refresh=create_token(scope=["users:admin"], userid=test_customer_id, refresh=True),
+    )
 
     mocked_db_con.fetchrow.assert_called_once_with(
         "SELECT password, id, data->'scope' AS scope FROM customers WHERE deleted_at IS NULL AND email = $1",
         login_details["username"],
     )
-    spied_create_token.assert_called_once_with(scope=["users:admin"], userid=test_user_id)
+
+    assert spied_create_token.call_count == 2
 
 
 def test_login__no_matching_record_in_db(mocked_db_con):
@@ -146,7 +156,7 @@ def test_register__user__success(use_cb_customer_id, mocked_db_con, spied_pw_has
 
     test_user_id = uuid.uuid4()
     test_customer_id = cb_customer_id if use_cb_customer_id else uuid.uuid4()
-    access_token = get_access_token(scope=["users:admin"], userid=test_customer_id)
+    access_token = get_token(scope=["users:admin"], userid=test_customer_id)
 
     mocked_db_con.fetchval.return_value = test_user_id
 
@@ -184,7 +194,7 @@ def test_register__customer__success(mocked_db_con, spied_pw_hasher, cb_customer
     }
 
     test_user_id = uuid.uuid4()
-    access_token = get_access_token(scope=["users:admin"], userid=cb_customer_id)
+    access_token = get_token(scope=["users:admin"], userid=cb_customer_id)
 
     mocked_db_con.fetchval.return_value = test_user_id
 
@@ -227,7 +237,7 @@ def test_register__user__unique_constraint_violations(
     }
 
     test_user_id = uuid.uuid4()
-    access_token = get_access_token(scope=["users:admin"], userid=test_user_id)
+    access_token = get_token(scope=["users:admin"], userid=test_user_id)
 
     # setting this
     mocked_db_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)
@@ -258,7 +268,7 @@ def test_register__user__unique_constraint_violations(
         "password2": "Testpw1234",
     }
 
-    access_token = get_access_token(scope=["users:admin"], userid=cb_customer_id)
+    access_token = get_token(scope=["users:admin"], userid=cb_customer_id)
 
     # setting this
     mocked_db_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)
@@ -276,7 +286,7 @@ def test_register__user__unique_constraint_violations(
 def test_register__invalid_token_scope_given():
     # arbitrarily deciding to use customer login here
     registration_details = {"email": "user@new.com", "password1": "pw", "password2": "pw"}
-    access_token = get_access_token(scope=["users:free"])
+    access_token = get_token(scope=["users:free"])
     response = test_client.post(
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )

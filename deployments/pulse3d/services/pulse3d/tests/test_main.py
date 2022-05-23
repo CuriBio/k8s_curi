@@ -12,10 +12,10 @@ test_client = TestClient(main.app)
 # TODO add tests for other routes
 
 
-def get_access_token(scope, userid=None):
+def get_token(scope, userid=None, refresh=False):
     if not userid:
         userid = uuid.uuid4()
-    return create_token(scope=scope, userid=userid).access_token
+    return create_token(scope=scope, userid=userid, refresh=False).token
 
 
 @pytest.fixture(scope="function", name="mocked_asyncpg_con", autouse=True)
@@ -37,7 +37,7 @@ def test_uploads__get(test_upload_ids, mocked_asyncpg_con, mocker):
     mocked_get_uploads = mocker.patch.object(main, "get_uploads", autospec=True, return_value=[])
 
     test_user_id = uuid.uuid4()
-    access_token = get_access_token(scope=["users:free"], userid=test_user_id)
+    access_token = get_token(scope=["users:free"], userid=test_user_id)
 
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
     # in None case, don't even pass a query param
@@ -82,7 +82,7 @@ def test_jobs__get__jobs_found(test_job_ids, mocked_asyncpg_con, mocker):
     )
 
     test_user_id = uuid.uuid4()
-    access_token = get_access_token(scope=["users:free"], userid=test_user_id)
+    access_token = get_token(scope=["users:free"], userid=test_user_id)
 
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}, "params": {"job_ids": test_job_ids}}
     response = test_client.get("/jobs", **kwargs)
@@ -114,7 +114,7 @@ def test_jobs__get__no_jobs_found(test_job_ids, mocked_asyncpg_con, mocker):
     mocked_get_uploads = mocker.patch.object(main, "get_uploads", autospec=True)
 
     test_user_id = uuid.uuid4()
-    access_token = get_access_token(scope=["users:free"], userid=test_user_id)
+    access_token = get_token(scope=["users:free"], userid=test_user_id)
 
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
     # in None case, don't even pass a query param

@@ -1,3 +1,4 @@
+from uuid import UUID
 import jwt
 from datetime import datetime, timezone, timedelta
 from calendar import timegm
@@ -6,8 +7,14 @@ from typing import List
 from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from .models import JWTMeta, JWTDetails, JWTPayload, AccessToken
-from .settings import JWT_SECRET_KEY, JWT_AUDIENCE, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+from .models import JWTMeta, JWTDetails, JWTPayload, Token
+from .settings import (
+    JWT_SECRET_KEY,
+    JWT_AUDIENCE,
+    JWT_ALGORITHM,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    REFRESH_TOKEN_EXPIRE_MINUTES,
+)
 
 
 security = HTTPBearer()
@@ -38,15 +45,15 @@ class ProtectedAny:
             )
 
 
-def create_token(*, scope, userid):
-    iat = timegm(datetime.now(tz=timezone.utc).utctimetuple())
-    exp = timegm(
-        (datetime.now(tz=timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)).utctimetuple()
-    )
+def create_token(*, scope: List[str], userid: UUID, refresh=False):
+    exp_dur = REFRESH_TOKEN_EXPIRE_MINUTES if refresh else ACCESS_TOKEN_EXPIRE_MINUTES
 
-    jwt_meta = JWTMeta(aud=JWT_AUDIENCE, scope=scope, iat=iat, exp=exp)
+    iat = timegm(datetime.now(tz=timezone.utc).utctimetuple())
+    exp = timegm((datetime.now(tz=timezone.utc) + timedelta(minutes=exp_dur)).utctimetuple())
+
+    jwt_meta = JWTMeta(aud=JWT_AUDIENCE, scope=scope, iat=iat, exp=exp, refresh=refresh)
     jwt_details = JWTDetails(userid=userid.hex)
     jwt_payload = JWTPayload(**jwt_meta.dict(), **jwt_details.dict())
 
     jwt_token = jwt.encode(payload=jwt_payload.dict(), key=str(JWT_SECRET_KEY), algorithm=JWT_ALGORITHM)
-    return AccessToken(access_token=jwt_token)
+    return Token(token=jwt_token)
