@@ -88,7 +88,7 @@ def test_login__user__success(cb_customer_id, mocked_db_con, mocker):
     assert response.status_code == 200
     assert response.json() == LoginResponse(
         access=create_token(scope=test_scope, userid=test_user_id, refresh=False),
-        refresh=create_token(scope=test_scope, userid=test_user_id, refresh=True),
+        refresh=create_token(userid=test_user_id, refresh=True),
     )
 
     mocked_db_con.fetchrow.assert_called_once_with(
@@ -112,7 +112,7 @@ def test_login__customer__success(mocked_db_con, mocker):
     assert response.status_code == 200
     assert response.json() == LoginResponse(
         access=create_token(scope=["users:admin"], userid=test_customer_id, refresh=False),
-        refresh=create_token(scope=["users:admin"], userid=test_customer_id, refresh=True),
+        refresh=create_token(userid=test_customer_id, refresh=True),
     )
 
     mocked_db_con.fetchrow.assert_called_once_with(
@@ -194,11 +194,10 @@ def test_register__customer__success(mocked_db_con, spied_pw_hasher, cb_customer
     }
 
     test_user_id = uuid.uuid4()
-    access_token = get_token(scope=["users:admin"], userid=cb_customer_id)
+    expected_scope = ["users:admin"]
+    access_token = get_token(scope=expected_scope, userid=cb_customer_id)
 
     mocked_db_con.fetchval.return_value = test_user_id
-
-    expected_scope = ["users:admin"]
 
     response = test_client.post(
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -254,10 +253,7 @@ def test_register__user__unique_constraint_violations(
 
 @pytest.mark.parametrize(
     "contraint_to_violate,expected_error_message",
-    [
-        ("customers_email_key", "Email already in use"),
-        ("all others", "Account registration failed"),
-    ],
+    [("customers_email_key", "Email already in use"), ("all others", "Account registration failed")],
 )
 def test_register__user__unique_constraint_violations(
     contraint_to_violate, expected_error_message, mocked_db_con, spied_pw_hasher, cb_customer_id, mocker

@@ -5,22 +5,19 @@ from pydantic import BaseModel, EmailStr, SecretStr
 from pydantic import constr, validator
 
 
-class UserLogin(BaseModel):
-    customer_id: Optional[str]
+class CustomerLogin(BaseModel):
     username: str
     password: SecretStr
 
 
-class UserCreate(BaseModel):
+class UserLogin(CustomerLogin):
+    customer_id: str
+
+
+class CustomerCreate(BaseModel):
     email: EmailStr
-    username: Optional[constr(min_length=5, max_length=64, regex="^[a-zA-Z]+[a-zA-Z0-9-_]+$")]
     password1: SecretStr
     password2: SecretStr
-
-    @validator("username")
-    def username_alphanumeric(cls, v):
-        assert v.isalnum(), "username must be alphanumeric"
-        return v
 
     @validator("password1")
     def password_requirements(cls, v):
@@ -43,6 +40,15 @@ class UserCreate(BaseModel):
         p2 = v.get_secret_value()
         if "password1" in values and p2 != values["password1"].get_secret_value():
             raise ValueError("passwords do not match")
+        return v
+
+
+class UserCreate(CustomerCreate):
+    username: constr(min_length=5, max_length=64, regex="^[a-zA-Z]+[a-zA-Z0-9-_]+$")
+
+    @validator("username")
+    def username_alphanumeric(cls, v):
+        assert v.isalnum(), "username must be alphanumeric"
         return v
 
 

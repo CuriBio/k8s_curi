@@ -12,7 +12,7 @@ from auth import ProtectedAny, create_token
 from core.db import Database
 from models.errors import LoginError, RegistrationError
 from models.tokens import LoginResponse
-from models.users import UserLogin, UserCreate, UserProfile, CustomerProfile
+from models.users import CustomerLogin, UserLogin, CustomerCreate, UserCreate, CustomerProfile, UserProfile
 
 
 logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
@@ -67,9 +67,8 @@ async def index(request: Request, token=Depends(ProtectedAny(scope=["users:free"
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# TODO, could make details a Union of UserLogin and a new CustomerLogin model
 @app.post("/login", response_model=LoginResponse)
-async def login(request: Request, details: UserLogin):
+async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
     """Login a user or customer account.
 
     Logging in consists of validating the given credentials and, if valid,
@@ -85,7 +84,7 @@ async def login(request: Request, details: UserLogin):
     ph = PasswordHasher()
     failed_msg = "Invalid credentials"
 
-    is_customer_login_attempt = details.customer_id is None
+    is_customer_login_attempt = type(details) is CustomerLogin
 
     if is_customer_login_attempt:
         query = (
@@ -138,11 +137,14 @@ async def login(request: Request, details: UserLogin):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# TODO, could make details a Union of UserCreate and a new CustomerCreate model
 @app.post(
     "/register", response_model=Union[UserProfile, CustomerProfile], status_code=status.HTTP_201_CREATED
 )
-async def register(request: Request, details: UserCreate, token=Depends(ProtectedAny(scope=["users:admin"]))):
+async def register(
+    request: Request,
+    details: Union[UserCreate, CustomerCreate],
+    token=Depends(ProtectedAny(scope=["users:admin"])),
+):
     """Register a user or customer account.
 
     Only customer accounts with admin privileges can register users, and only the Curi Bio customer account
@@ -163,7 +165,8 @@ async def register(request: Request, details: UserCreate, token=Depends(Protecte
         # still hash even if user or customer exists to avoid timing analysis leaks
         phash = ph.hash(details.password1.get_secret_value())
 
-        is_customer_registration_attempt = customer_id == CB_CUSTOMER_ID and details.username is None
+        is_customer_registration_attempt = customer_id == CB_CUSTOMER_ID and type(details) is CustomerCreate
+
         register_type = "customer" if is_customer_registration_attempt else "user"
         logger.info(f"Attempting {register_type} registration")
 

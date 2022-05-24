@@ -36,7 +36,7 @@ class ProtectedAny:
 
             if payload["refresh"] != self.refresh:
                 raise Exception()
-            if self.refresh and not self.scope.intersection(payload_scopes):
+            if not self.refresh and not self.scope.intersection(payload_scopes):
                 raise Exception()
 
             return payload
