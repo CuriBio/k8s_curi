@@ -12,9 +12,10 @@ class JWTMeta(BaseModel):
 
 
 class JWTDetails(BaseModel):
-    """How we'll identify users"""
+    """How we'll identify users and customers"""
 
     userid: str
+    account_type: str
 
 
 class JWTPayload(JWTMeta, JWTDetails):

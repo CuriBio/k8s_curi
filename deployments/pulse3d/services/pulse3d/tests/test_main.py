@@ -15,7 +15,7 @@ test_client = TestClient(main.app)
 def get_token(scope, userid=None, refresh=False):
     if not userid:
         userid = uuid.uuid4()
-    return create_token(scope=scope, userid=userid, refresh=False).token
+    return create_token(scope=scope, account_type="user", userid=userid, refresh=False).token
 
 
 @pytest.fixture(scope="function", name="mocked_asyncpg_con", autouse=True)

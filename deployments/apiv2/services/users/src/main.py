@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request, Depends, HTTPException, status
 from auth import ProtectedAny, create_token
 from core.db import Database
 from models.errors import LoginError, RegistrationError
-from models.tokens import LoginResponse
+from models.tokens import AuthTokens
 from models.users import CustomerLogin, UserLogin, CustomerCreate, UserCreate, CustomerProfile, UserProfile
 
 
@@ -67,7 +67,7 @@ async def index(request: Request, token=Depends(ProtectedAny(scope=["users:free"
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.post("/login", response_model=LoginResponse)
+@app.post("/login", response_model=AuthTokens)
 async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
     """Login a user or customer account.
 
@@ -87,17 +87,17 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
     is_customer_login_attempt = type(details) is CustomerLogin
 
     if is_customer_login_attempt:
-        table = "customers"
+        account_type = "customer"
         select_conds = "email = $1"
         select_query_params = (details.username,)
     else:
-        table = "users"
+        account_type = "user"
         select_conds = "name = $1 AND customer_id = $2"
         select_query_params = (details.username, details.customer_id)
 
     select_query = (
         "SELECT password, id, data->'scope' AS scope "
-        f"FROM {table} WHERE deleted_at IS NULL AND {select_conds}"
+        f"FROM {account_type}s WHERE deleted_at IS NULL AND {select_conds}"
     )
 
     try:
@@ -125,21 +125,31 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
                 raise LoginError(failed_msg)
             else:
                 scope = ["users:admin"] if is_customer_login_attempt else json.loads(row.get("scope", "[]"))
-                access = create_token(userid=row["id"], refresh=False, scope=scope)
-                refresh = create_token(userid=row["id"], refresh=True)
+                access = create_token(userid=row["id"], account_type=account_type, refresh=False, scope=scope)
+                refresh = create_token(userid=row["id"], account_type=account_type, refresh=True)
 
-                # insert refresh token into DB  # TODO unit test
+                # insert refresh token into DB
                 await con.execute(
-                    f"UPDATE {table} SET refresh_token = $1 WHERE id = $2", refresh.token, row["id"]
+                    f"UPDATE {account_type}s SET refresh_token = $1 WHERE id = $2", refresh.token, row["id"]
                 )
 
-                return LoginResponse(access=access, refresh=refresh)
+                return AuthTokens(access=access, refresh=refresh)
 
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     except Exception as e:
         logger.exception(f"login: Unexpected error {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.post("/refresh", response_model=AuthTokens, status_code=status.HTTP_201_CREATED)
+async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
+    pass
+
+
+@app.post("/logout", response_model=AuthTokens, status_code=status.HTTP_200_OK)
+async def logout(request: Request, token=Depends(ProtectedAny())):
+    pass
 
 
 @app.post(

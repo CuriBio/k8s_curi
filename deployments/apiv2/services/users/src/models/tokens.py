@@ -3,12 +3,12 @@ from pydantic import BaseModel
 from auth import Token
 
 
-class LoginResponse(BaseModel):
+class AuthTokens(BaseModel):
     access: Token
     refresh: Token
 
-    # @validator("token")
-    # def _token_requirements(cls, v):
+    # @validator("access")
+    # def _access_requirements(cls, v):
     #     assert not v.refresh
     #     return v
 

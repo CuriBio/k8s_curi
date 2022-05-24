@@ -51,21 +51,28 @@ class ProtectedAny:
             )
 
 
-def create_token(*, userid: UUID, scope: Optional[List[str]] = None, refresh: bool = False):
+def create_token(
+    *, userid: UUID, account_type: str, scope: Optional[List[str]] = None, refresh: bool = False
+):
+    # make sure refresh token does not have scope, and that access token does
     if refresh:
         if scope:
             raise ValueError("Refresh tokens do not have scope")
         scope = []
     elif not scope:
         raise ValueError("Access tokens must have scope")
+    # make sure account type is valid
+    if account_type not in ("user", "customer"):
+        raise ValueError(f"Valid account types are 'user' and 'customer, not {account_type}")
 
     exp_dur = REFRESH_TOKEN_EXPIRE_MINUTES if refresh else ACCESS_TOKEN_EXPIRE_MINUTES
 
-    iat = timegm(datetime.now(tz=timezone.utc).utctimetuple())
-    exp = timegm((datetime.now(tz=timezone.utc) + timedelta(minutes=exp_dur)).utctimetuple())
+    now = datetime.now(tz=timezone.utc)
+    iat = timegm(now.utctimetuple())
+    exp = timegm((now + timedelta(minutes=exp_dur)).utctimetuple())
 
     jwt_meta = JWTMeta(aud=JWT_AUDIENCE, scope=scope, iat=iat, exp=exp, refresh=refresh)
-    jwt_details = JWTDetails(userid=userid.hex)
+    jwt_details = JWTDetails(userid=userid.hex, account_type=account_type)
     jwt_payload = JWTPayload(**jwt_meta.dict(), **jwt_details.dict())
 
     jwt_token = jwt.encode(payload=jwt_payload.dict(), key=str(JWT_SECRET_KEY), algorithm=JWT_ALGORITHM)
