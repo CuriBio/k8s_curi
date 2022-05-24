@@ -87,21 +87,22 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
     is_customer_login_attempt = type(details) is CustomerLogin
 
     if is_customer_login_attempt:
-        query = (
-            "SELECT password, id, data->'scope' AS scope "
-            "FROM customers WHERE deleted_at IS NULL AND email = $1"
-        )
-        query_params = (details.username,)
+        table = "customers"
+        select_conds = "email = $1"
+        select_query_params = (details.username,)
     else:
-        query = (
-            "SELECT password, id, data->'scope' AS scope "
-            "FROM users WHERE deleted_at IS NULL AND name = $1 AND customer_id = $2"
-        )
-        query_params = (details.username, details.customer_id)
+        table = "users"
+        select_conds = "name = $1 AND customer_id = $2"
+        select_query_params = (details.username, details.customer_id)
+
+    select_query = (
+        "SELECT password, id, data->'scope' AS scope "
+        f"FROM {table} WHERE deleted_at IS NULL AND {select_conds}"
+    )
 
     try:
         async with request.state.pgpool.acquire() as con:
-            row = await con.fetchrow(query, *query_params)
+            row = await con.fetchrow(select_query, *select_query_params)
             pw = details.password.get_secret_value()
 
             # if no record is returned by query then fetchrow will return None,
@@ -124,11 +125,15 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
                 raise LoginError(failed_msg)
             else:
                 scope = ["users:admin"] if is_customer_login_attempt else json.loads(row.get("scope", "[]"))
-                # TODO store the refresh token in the DB
-                return LoginResponse(
-                    access=create_token(userid=row["id"], refresh=False, scope=scope),
-                    refresh=create_token(userid=row["id"], refresh=True),
+                access = create_token(userid=row["id"], refresh=False, scope=scope)
+                refresh = create_token(userid=row["id"], refresh=True)
+
+                # insert refresh token into DB  # TODO unit test
+                await con.execute(
+                    f"UPDATE {table} SET refresh_token = $1 WHERE id = $2", refresh.token, row["id"]
                 )
+
+                return LoginResponse(access=access, refresh=refresh)
 
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))

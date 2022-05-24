@@ -34,8 +34,10 @@ class ProtectedAny:
             )
             payload_scopes = set(payload["scope"])
 
+            # check if the wrong type of token was given
             if payload["refresh"] != self.refresh:
                 raise Exception()
+            # if requiring an access token, check that the token has the required scope
             if not self.refresh and not self.scope.intersection(payload_scopes):
                 raise Exception()
 

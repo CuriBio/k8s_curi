@@ -84,17 +84,22 @@ def test_login__user__success(cb_customer_id, mocked_db_con, mocker):
     }
     spied_create_token = mocker.spy(main, "create_token")
 
+    expected_refresh_token = create_token(userid=test_user_id, refresh=True)
+
     response = test_client.post("/login", json=login_details)
     assert response.status_code == 200
     assert response.json() == LoginResponse(
         access=create_token(scope=test_scope, userid=test_user_id, refresh=False),
-        refresh=create_token(userid=test_user_id, refresh=True),
+        refresh=expected_refresh_token,
     )
 
     mocked_db_con.fetchrow.assert_called_once_with(
         "SELECT password, id, data->'scope' AS scope FROM users WHERE deleted_at IS NULL AND name = $1 AND customer_id = $2",
         login_details["username"],
         login_details["customer_id"],
+    )
+    mocked_db_con.execute.assert_called_once_with(
+        "UPDATE users SET refresh_token = $1 WHERE id = $2", expected_refresh_token.token, test_user_id
     )
 
     assert spied_create_token.call_count == 2
@@ -108,16 +113,23 @@ def test_login__customer__success(mocked_db_con, mocker):
     mocked_db_con.fetchrow.return_value = {"password": pw_hash, "id": test_customer_id}
     spied_create_token = mocker.spy(main, "create_token")
 
+    expected_refresh_token = create_token(userid=test_customer_id, refresh=True)
+
     response = test_client.post("/login", json=login_details)
     assert response.status_code == 200
     assert response.json() == LoginResponse(
         access=create_token(scope=["users:admin"], userid=test_customer_id, refresh=False),
-        refresh=create_token(userid=test_customer_id, refresh=True),
+        refresh=expected_refresh_token,
     )
 
     mocked_db_con.fetchrow.assert_called_once_with(
         "SELECT password, id, data->'scope' AS scope FROM customers WHERE deleted_at IS NULL AND email = $1",
         login_details["username"],
+    )
+    mocked_db_con.execute.assert_called_once_with(
+        "UPDATE customers SET refresh_token = $1 WHERE id = $2",
+        expected_refresh_token.token,
+        test_customer_id,
     )
 
     assert spied_create_token.call_count == 2
