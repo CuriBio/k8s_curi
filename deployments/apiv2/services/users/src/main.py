@@ -127,8 +127,8 @@ async def login(request: Request, details: UserLogin):
                 scope = ["users:admin"] if is_customer_login_attempt else json.loads(row.get("scope", "[]"))
                 # TODO store the refresh token in the DB
                 return LoginResponse(
-                    access=create_token(scope=scope, userid=row["id"], refresh=False),
-                    refresh=create_token(scope=scope, userid=row["id"], refresh=True),
+                    access=create_token(userid=row["id"], refresh=False, scope=scope),
+                    refresh=create_token(userid=row["id"], refresh=True),
                 )
 
     except LoginError as e:

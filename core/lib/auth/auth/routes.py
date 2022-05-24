@@ -1,11 +1,11 @@
-from uuid import UUID
-import jwt
-from datetime import datetime, timezone, timedelta
 from calendar import timegm
-from typing import List
+from datetime import datetime, timezone, timedelta
+from typing import List, Optional
+from uuid import UUID
 
 from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+import jwt
 
 from .models import JWTMeta, JWTDetails, JWTPayload, Token
 from .settings import (
@@ -21,8 +21,9 @@ security = HTTPBearer()
 
 
 class ProtectedAny:
-    def __init__(self, scope: List[str] = ["users:free"]):
+    def __init__(self, scope: List[str] = ["users:free"], refresh: bool = False):
         self.scope = set(scope)
+        self.refresh = refresh
 
     async def __call__(self, credentials: HTTPAuthorizationCredentials = Depends(security)):
         token = credentials.credentials
@@ -31,8 +32,11 @@ class ProtectedAny:
             payload = jwt.decode(
                 token, key=str(JWT_SECRET_KEY), algorithms=JWT_ALGORITHM, audience=JWT_AUDIENCE
             )
-            payload_scopes = set(payload.get("scope", []))
-            if not self.scope.intersection(payload_scopes):
+            payload_scopes = set(payload["scope"])
+
+            if payload["refresh"] != self.refresh:
+                raise Exception()
+            if self.refresh and not self.scope.intersection(payload_scopes):
                 raise Exception()
 
             return payload
@@ -45,7 +49,14 @@ class ProtectedAny:
             )
 
 
-def create_token(*, scope: List[str], userid: UUID, refresh=False):
+def create_token(*, userid: UUID, scope: Optional[List[str]] = None, refresh: bool = False):
+    if refresh:
+        if scope:
+            raise ValueError("Refresh tokens do not have scope")
+        scope = []
+    elif not scope:
+        raise ValueError("Access tokens must have scope")
+
     exp_dur = REFRESH_TOKEN_EXPIRE_MINUTES if refresh else ACCESS_TOKEN_EXPIRE_MINUTES
 
     iat = timegm(datetime.now(tz=timezone.utc).utctimetuple())
