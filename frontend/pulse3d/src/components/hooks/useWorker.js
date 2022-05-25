@@ -1,16 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 
-/**
- * use worker
- */
 export function useWorker(request_params) {
   const [state, setState] = useState({});
   const workerRef = useRef();
-  
+
   // handles responses coming back from api
   useEffect(() => {
     let setStateSafe = (nextState) => setState(nextState);
-    workerRef.current = new Worker(new URL('../../worker.js', import.meta.url));
+    workerRef.current = new Worker(
+      new URL('../../utils/worker.js', import.meta.url)
+    );
 
     workerRef.current.onmessage = (e) => setStateSafe({ result: e.data });
     workerRef.current.onerror = () => setStateSafe({ error: 'error' });

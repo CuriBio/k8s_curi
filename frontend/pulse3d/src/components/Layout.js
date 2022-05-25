@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import styled from 'styled-components';
 
+// required for static export, default loader errors on build
 const imageLoader = ({ src }) => {
   return `/public/${src}`;
 };
@@ -31,7 +32,7 @@ export default function Layout({ children }) {
       <Header>
         <Image
           src={'CuriBio_logo_white.png'}
-          alt="CuriBio Logo"
+          alt='CuriBio Logo'
           width={100}
           height={40}
           loader={imageLoader}

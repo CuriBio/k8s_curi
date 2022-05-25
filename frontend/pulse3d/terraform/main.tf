@@ -41,30 +41,20 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "pulse3d_static_bu
 
 resource "aws_s3_bucket_acl" "pulse3d_static_bucket" {
   bucket = aws_s3_bucket.pulse3d_static_bucket.id
-  acl = "public-read"
+  acl = "private"
 }
-
-resource "aws_s3_bucket_website_configuration" "pulse3d_static_bucket" {
-  bucket = aws_s3_bucket.pulse3d_static_bucket.id
-
-  index_document {
-    suffix = "login.html"
-  }
-
-  error_document {
-    key = "login.html"
-  }
-}
-
 
 data "aws_iam_policy_document" "s3_policy" {
+  depends_on = [
+    module.pulse3d_cloudfront
+  ]
   statement {
     actions   = ["s3:GetObject"]
     resources = ["${aws_s3_bucket.pulse3d_static_bucket.arn}/*"]
 
     principals {
       type        = "AWS"
-      identifiers = ["*"]
+      identifiers = module.pulse3d_cloudfront.cloudfront_origin_access_identity_iam_arns
     }
   }
 }
@@ -86,40 +76,30 @@ module "pulse3d_cloudfront" {
   depends_on = [
     data.aws_acm_certificate.curibio_issued
   ]
+
   aliases = [aws_s3_bucket.pulse3d_static_bucket.bucket]
-  comment             = "Pulse3D"
+  comment             = "Pulse Analysis Platform"
   enabled             = true
   is_ipv6_enabled     = true
-  price_class         = "PriceClass_All"
+  price_class         = "PriceClass_100"
   retain_on_delete    = false
   wait_for_deployment = false
 
   create_monitoring_subscription = true
-  create_origin_access_identity = false
 
+  create_origin_access_identity = true
+  origin_access_identities = {
+    s3_bucket_oai = "Pulse access"
+  }
   origin = {
+      
     s3_origin ={
-      domain_name = aws_s3_bucket_website_configuration.pulse3d_static_bucket.website_endpoint
-
-      custom_origin_config = {
-          http_port              = 80
-          https_port             = 443
-          origin_protocol_policy = "match-viewer"
-          origin_ssl_protocols   = ["TLSv1", "TLSv1.1", "TLSv1.2"]
+      domain_name = aws_s3_bucket.pulse3d_static_bucket.bucket_regional_domain_name
+      s3_origin_config = {
+        origin_access_identity = "s3_bucket_oai"
       }
     } 
   }
-
-  default_cache_behavior = {
-    target_origin_id = "s3_origin"
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
-    cached_methods         = ["GET", "HEAD"]
-    compress               = true
-    query_string           = true
-  }
-
-
   viewer_certificate = {
     acm_certificate_arn = data.aws_acm_certificate.curibio_issued.arn
     ssl_support_method  = "sni-only"

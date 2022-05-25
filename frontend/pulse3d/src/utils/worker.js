@@ -1,6 +1,5 @@
-let authToken = null;
 const baseUrl = 'https://apiv2.curibio-test.com'; // TODO set .env for prod v. dev envs
-
+let authToken = null;
 /*
 Expected message format:
 {
@@ -21,12 +20,14 @@ self.onmessage = async ({ data }) => {
 
 const handleRequest = async ({ method, endpoint, body }) => {
   const url = new URL(endpoint, baseUrl);
-  //   const isSameOrigin = self.location.origin === url.origin;
-  //   const isProtectedUrl = isSameOrigin && protectedUrls.includes(url.pathname);
-  //   const isAuthUrl = isSameOrigin && authUrls.includes(url.pathname);
+
   const request = new Request(url, {
     method: method,
     cache: 'default',
+    headers: {
+      //   'Access-Control-Allow-Origin': '*',
+      'Content-Type': 'application/json',
+    },
     body: body,
   });
 
@@ -40,7 +41,7 @@ const handleRequest = async ({ method, endpoint, body }) => {
     return fetch(request);
   } else {
     const res = await fetch(request);
-
+    console.log('LUCI', res);
     if (!res.ok) {
       const message = `An error has occured: ${response.status}`;
       return new Error(message);

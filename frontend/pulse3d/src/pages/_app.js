@@ -1,6 +1,6 @@
-import '../styles/globals.css';
-import '@fontsource/mulish';
-import Layout from '@/components/Layout';
+import "../styles/globals.css";
+import "@fontsource/mulish";
+import Layout from "@/components/Layout";
 
 function MyApp({ Component, pageProps }) {
   return (

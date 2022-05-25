@@ -1,10 +1,10 @@
 /* curi color palette */
 :root {
-  --dark-blue: #00263e;
-  --teal-green: #19ac8a;
-  --dark-gray: #a7a8a9;
-  --light-gray: #ececed;
-  --light-blue: #005470;
+  --dark-blue: rgb(0, 38, 62);
+  --teal-green: rgb(25, 172, 138);
+  --dark-gray: rgb(167, 168, 169);
+  --light-gray: rgb(236, 236, 237);
+  --light-blue: rgb(0, 84, 112);
 }
 
 html,
@@ -22,4 +22,20 @@ a {
 * {
   box-sizing: border-box;
   font-family: Mulish;
+}
+
+button {
+  position: absolute;
+  width: inherit;
+  height: 15%;
+  background-color: var(--dark-blue);
+  color: var(--light-gray);
+  bottom: 0px;
+  border-radius: 3%;
+  font-size: inherit;
+  cursor: pointer;
+  border: none;
+}
+button:hover {
+  background-color: var(--teal-green);
 }
