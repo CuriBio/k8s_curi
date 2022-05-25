@@ -7,7 +7,7 @@ class JWTMeta(BaseModel):
     aud: str
     iat: float
     exp: float
-    scope: List[str] = []
+    scope: List[str]
     refresh: bool = False
 
 

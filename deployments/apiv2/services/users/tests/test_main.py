@@ -1,4 +1,7 @@
+from datetime import datetime, timedelta
 import json
+from os import access
+from random import choice
 import uuid
 
 from argon2 import PasswordHasher
@@ -8,16 +11,22 @@ from freezegun import freeze_time
 import pytest
 
 from auth import create_token
+from auth.settings import REFRESH_TOKEN_EXPIRE_MINUTES
 from src import main
 from src.models.tokens import AuthTokens
 
 test_client = TestClient(main.app)
 
 
-def get_token(*, scope, account_type, userid=None, refresh=False):
+def get_token(*, userid=None, scope=None, account_type=None, refresh=False):
     if not userid:
         userid = uuid.uuid4()
-    return create_token(scope=scope, account_type=account_type, userid=userid, refresh=refresh).token
+    if not account_type:
+        account_type = choice(["user", "customer"])
+    if not scope:
+        scope = ["users:free"] if account_type == "user" else ["users:admin"]
+
+    return create_token(userid=userid, scope=scope, account_type=account_type, refresh=refresh).token
 
 
 @pytest.fixture(scope="function", name="cb_customer_id")
@@ -86,12 +95,14 @@ def test_login__user__success(cb_customer_id, mocked_db_con, mocker):
     }
     spied_create_token = mocker.spy(main, "create_token")
 
-    expected_refresh_token = create_token(userid=test_user_id, account_type="user", refresh=True)
+    expected_refresh_token = create_token(
+        userid=test_user_id, scope=test_scope, account_type="user", refresh=True
+    )
 
     response = test_client.post("/login", json=login_details)
     assert response.status_code == 200
     assert response.json() == AuthTokens(
-        access=create_token(scope=test_scope, account_type="user", userid=test_user_id, refresh=False),
+        access=create_token(userid=test_user_id, scope=test_scope, account_type="user", refresh=False),
         refresh=expected_refresh_token,
     )
 
@@ -112,17 +123,20 @@ def test_login__customer__success(mocked_db_con, mocker):
     login_details = {"username": "test_username", "password": "test_password"}
     pw_hash = PasswordHasher().hash(login_details["password"])
     test_customer_id = uuid.uuid4()
+    customer_scope = ["users:admin"]
 
     mocked_db_con.fetchrow.return_value = {"password": pw_hash, "id": test_customer_id}
     spied_create_token = mocker.spy(main, "create_token")
 
-    expected_refresh_token = create_token(userid=test_customer_id, account_type="customer", refresh=True)
+    expected_refresh_token = create_token(
+        userid=test_customer_id, scope=customer_scope, account_type="customer", refresh=True
+    )
 
     response = test_client.post("/login", json=login_details)
     assert response.status_code == 200
     assert response.json() == AuthTokens(
         access=create_token(
-            scope=["users:admin"], account_type="customer", userid=test_customer_id, refresh=False
+            userid=test_customer_id, scope=customer_scope, account_type="customer", refresh=False
         ),
         refresh=expected_refresh_token,
     )
@@ -173,7 +187,7 @@ def test_register__user__success(use_cb_customer_id, mocked_db_con, spied_pw_has
 
     test_user_id = uuid.uuid4()
     test_customer_id = cb_customer_id if use_cb_customer_id else uuid.uuid4()
-    access_token = get_token(scope=["users:admin"], account_type="user", userid=test_customer_id)
+    access_token = get_token(userid=test_customer_id, scope=["users:admin"], account_type="customer")
 
     mocked_db_con.fetchval.return_value = test_user_id
 
@@ -212,7 +226,7 @@ def test_register__customer__success(mocked_db_con, spied_pw_hasher, cb_customer
 
     test_user_id = uuid.uuid4()
     expected_scope = ["users:admin"]
-    access_token = get_token(scope=expected_scope, account_type="customer", userid=cb_customer_id)
+    access_token = get_token(userid=cb_customer_id, scope=expected_scope, account_type="customer")
 
     mocked_db_con.fetchval.return_value = test_user_id
 
@@ -253,7 +267,7 @@ def test_register__user__unique_constraint_violations(
     }
 
     test_user_id = uuid.uuid4()
-    access_token = get_token(scope=["users:admin"], userid=test_user_id)
+    access_token = get_token(userid=test_user_id, scope=["users:admin"], account_type="customer")
 
     # setting this
     mocked_db_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)
@@ -272,7 +286,7 @@ def test_register__user__unique_constraint_violations(
     "contraint_to_violate,expected_error_message",
     [("customers_email_key", "Email already in use"), ("all others", "Account registration failed")],
 )
-def test_register__user__unique_constraint_violations(
+def test_register__customer__unique_constraint_violations(
     contraint_to_violate, expected_error_message, mocked_db_con, spied_pw_hasher, cb_customer_id, mocker
 ):
     registration_details = {
@@ -281,7 +295,7 @@ def test_register__user__unique_constraint_violations(
         "password2": "Testpw1234",
     }
 
-    access_token = get_token(scope=["users:admin"], account_type="user", userid=cb_customer_id)
+    access_token = get_token(userid=cb_customer_id, scope=["users:admin"], account_type="customer")
 
     # setting this
     mocked_db_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)
@@ -310,4 +324,70 @@ def test_register__no_token_given():
     # arbitrarily deciding to use customer login here
     registration_details = {"email": "user@new.com", "password1": "pw", "password2": "pw"}
     response = test_client.post("/register", json=registration_details)
+    assert response.status_code == 403
+
+
+@freeze_time()
+@pytest.mark.parametrize("account_type", ["user", "customer"])
+def test_refresh__success(account_type, mocked_db_con):
+    userid = uuid.uuid4()
+    test_scope = ["users:free"]
+
+    old_refresh_token = get_token(userid=userid, scope=test_scope, account_type=account_type, refresh=True)
+
+    new_access_token = create_token(userid=userid, scope=test_scope, account_type=account_type, refresh=False)
+    new_refresh_token = create_token(userid=userid, scope=test_scope, account_type=account_type, refresh=True)
+
+    mocked_db_con.fetchval.return_value = old_refresh_token
+
+    response = test_client.post("/refresh", headers={"Authorization": f"Bearer {old_refresh_token}"})
+    assert response.status_code == 201
+    assert response.json() == AuthTokens(access=new_access_token, refresh=new_refresh_token)
+
+    mocked_db_con.fetchval.assert_called_once_with(
+        f"SELECT refresh_token FROM {account_type}s WHERE id = $1", userid
+    )
+    mocked_db_con.execute.assert_called_once_with(
+        f"UPDATE {account_type}s SET refresh_token = $1 WHERE id = $2", old_refresh_token, userid
+    )
+
+
+def test_refresh__expired_refresh_token_in_db(mocked_db_con):
+    test_time = datetime.now()
+
+    with freeze_time(test_time):
+        old_refresh_token = get_token(refresh=True)
+        mocked_db_con.fetchval.return_value = old_refresh_token
+
+    with freeze_time(test_time + timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES, seconds=1)):
+        response = test_client.post("/refresh", headers={"Authorization": f"Bearer {old_refresh_token}"})
+        assert response.status_code == 401
+
+
+def test_refresh__wrong_token_type_given():
+    access_token = get_token(refresh=False)
+    response = test_client.post("/refresh", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 401
+
+
+def test_refresh__no_token_given():
+    response = test_client.post("/refresh")
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize("account_type", ["user", "customer"])
+def test_logout__success(account_type, mocked_db_con):
+    test_id = uuid.uuid4()
+    access_token = get_token(userid=test_id, account_type=account_type)
+
+    response = test_client.post("/logout", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 204
+
+    mocked_db_con.execute.assert_called_once_with(
+        f"UPDATE {account_type}s SET refresh_token = NULL WHERE id = $1", test_id
+    )
+
+
+def test_logout__no_token_given():
+    response = test_client.post("/logout")
     assert response.status_code == 403

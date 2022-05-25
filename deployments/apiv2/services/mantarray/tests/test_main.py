@@ -20,7 +20,7 @@ def random_firmware_type():
 
 @pytest.fixture(scope="function", name="access_token")
 def fixture_access_token():
-    yield create_token(scope=main.AUTH.scope, userid=uuid.uuid4(), account_type="user").token
+    yield create_token(userid=uuid.uuid4(), scope=main.AUTH.scope, account_type="user").token
 
 
 @pytest.fixture(scope="function", name="mocked_asyncpg_con", autouse=True)

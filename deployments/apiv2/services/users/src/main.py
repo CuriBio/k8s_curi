@@ -7,8 +7,9 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
 from fastapi import FastAPI, Request, Depends, HTTPException, status
+from jwt.exceptions import InvalidTokenError
 
-from auth import ProtectedAny, create_token
+from auth import ProtectedAny, create_token, decode_token
 from core.db import Database
 from models.errors import LoginError, RegistrationError
 from models.tokens import AuthTokens
@@ -88,17 +89,18 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
 
     if is_customer_login_attempt:
         account_type = "customer"
-        select_conds = "email = $1"
+        select_query = (
+            "SELECT password, id, data->'scope' AS scope "
+            "FROM customers WHERE deleted_at IS NULL AND email = $1"
+        )
         select_query_params = (details.username,)
     else:
         account_type = "user"
-        select_conds = "name = $1 AND customer_id = $2"
+        select_query = (
+            "SELECT password, id, data->'scope' AS scope "
+            "FROM users WHERE deleted_at IS NULL AND name = $1 AND customer_id = $2"
+        )
         select_query_params = (details.username, details.customer_id)
-
-    select_query = (
-        "SELECT password, id, data->'scope' AS scope "
-        f"FROM {account_type}s WHERE deleted_at IS NULL AND {select_conds}"
-    )
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -125,15 +127,7 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
                 raise LoginError(failed_msg)
             else:
                 scope = ["users:admin"] if is_customer_login_attempt else json.loads(row.get("scope", "[]"))
-                access = create_token(userid=row["id"], account_type=account_type, refresh=False, scope=scope)
-                refresh = create_token(userid=row["id"], account_type=account_type, refresh=True)
-
-                # insert refresh token into DB
-                await con.execute(
-                    f"UPDATE {account_type}s SET refresh_token = $1 WHERE id = $2", refresh.token, row["id"]
-                )
-
-                return AuthTokens(access=access, refresh=refresh)
+                return await _create_new_tokens(con, row["id"], scope, account_type)
 
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
@@ -144,12 +138,73 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
 
 @app.post("/refresh", response_model=AuthTokens, status_code=status.HTTP_201_CREATED)
 async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
-    pass
+    """TODO"""
+
+    userid = uuid.UUID(hex=token["userid"])
+    account_type = token["account_type"]
+
+    if account_type == "customer":
+        select_query = "SELECT refresh_token FROM customers WHERE id = $1"
+    else:
+        select_query = "SELECT refresh_token FROM users WHERE id = $1"
+
+    try:
+        async with request.state.pgpool.acquire() as con:
+            current_token_str = await con.fetchval(select_query, userid)
+
+            try:
+                # decode and validate current refresh token
+                current_token = decode_token(current_token_str)
+                # make sure the given token and the current token in the DB are the same
+                assert token == current_token
+            except (InvalidTokenError, AssertionError):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="No authenticated user.",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
+            return await _create_new_tokens(con, userid, token["scope"], account_type)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"refresh: Unexpected error {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.post("/logout", response_model=AuthTokens, status_code=status.HTTP_200_OK)
-async def logout(request: Request, token=Depends(ProtectedAny())):
-    pass
+async def _create_new_tokens(db_con, userid, scope, account_type):
+    access = create_token(userid=userid, scope=scope, account_type=account_type, refresh=False)
+    refresh = create_token(userid=userid, scope=scope, account_type=account_type, refresh=True)
+
+    # insert refresh token into DB
+    if account_type == "customer":
+        update_query = "UPDATE customers SET refresh_token = $1 WHERE id = $2"
+    else:
+        update_query = "UPDATE users SET refresh_token = $1 WHERE id = $2"
+
+    await db_con.execute(update_query, refresh.token, userid)
+
+    return AuthTokens(access=access, refresh=refresh)
+
+
+@app.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False))):
+    """TODO"""
+
+    userid = uuid.UUID(hex=token["userid"])
+    if token["account_type"] == "customer":
+        update_query = "UPDATE customers SET refresh_token = NULL WHERE id = $1"
+    else:
+        update_query = "UPDATE users SET refresh_token = NULL WHERE id = $1"
+
+    try:
+        async with request.state.pgpool.acquire() as con:
+            await con.execute(update_query, userid)
+
+    except Exception as e:
+        logger.exception(f"logout: Unexpected error {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @app.post(
@@ -186,15 +241,15 @@ async def register(
         logger.info(f"Attempting {register_type} registration")
 
         if is_customer_registration_attempt:
-            insert_query = "INSERT INTO customers (email, password) VALUES ($1, $2) RETURNING id"
             scope = ["users:admin"]
+            insert_query = "INSERT INTO customers (email, password) VALUES ($1, $2) RETURNING id"
             query_params = (details.email, phash)
         else:
+            scope = ["users:free"]
             insert_query = (
                 "INSERT INTO users (name, email, password, account_type, data, customer_id) "
                 "VALUES ($1, $2, $3, $4, $5, $6) RETURNING id"
             )
-            scope = ["users:free"]
             query_params = (
                 details.username,
                 details.email,
