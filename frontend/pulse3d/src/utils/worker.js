@@ -23,7 +23,7 @@ const handleRequest = async ({ method, endpoint, body }) => {
   const url = new URL(endpoint, baseUrl);
   const request = new Request(url, {
     method: method,
-    json: body,
+    body: body,
   });
 
   // Attach auth token to header only if required
