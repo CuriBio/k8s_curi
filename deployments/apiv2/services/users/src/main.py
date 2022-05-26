@@ -134,8 +134,18 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
 
 @app.post("/refresh", response_model=AuthTokens, status_code=status.HTTP_201_CREATED)
 async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
-    """TODO"""
+    """Create a new access token and refresh token.
 
+    The refresh token given in the request is first decoded and validated itself,
+    then the refresh token stored in the DB for the user/customer making the request
+    is decoded and validated, followed by checking that both tokens are the same.
+
+    The value for the refresh token in the DB can either be null, an expired token, or a valid token.
+    The client is considered logged out if the refresh token in the DB is null or expired and new tokens will
+    not be generated in this case.
+
+    In a successful request, the new refresh token will be stored in the DB for the given user/customer account
+    """
     userid = uuid.UUID(hex=token["userid"])
     account_type = token["account_type"]
 
@@ -170,6 +180,7 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
 
 
 async def _create_new_tokens(db_con, userid, scope, account_type):
+    # create new tokens
     access = create_token(userid=userid, scope=scope, account_type=account_type, refresh=False)
     refresh = create_token(userid=userid, scope=scope, account_type=account_type, refresh=True)
 
@@ -181,13 +192,21 @@ async def _create_new_tokens(db_con, userid, scope, account_type):
 
     await db_con.execute(update_query, refresh.token, userid)
 
+    # return token model
     return AuthTokens(access=access, refresh=refresh)
 
 
 @app.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False))):
-    """TODO"""
+    """Logout the user/customer.
 
+    The refresh token for the user/customer will be removed from the DB, so they will
+    not be able to retrieve new tokens from /refresh. The only way to get new tokens at this point
+    is through /login.
+
+    This will not however affect their access token which will work fine until it expires.
+    It is up to the client to discard the access token in order to truly logout the user.
+    """
     userid = uuid.UUID(hex=token["userid"])
     if token["account_type"] == "customer":
         update_query = "UPDATE customers SET refresh_token = NULL WHERE id = $1"
