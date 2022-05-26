@@ -1,6 +1,6 @@
-import axios from 'axios';
+import axios from "axios";
 
-const baseUrl = 'https://apiv2.curibio-test.com'; // TODO add .env for prod v. test url
+const baseUrl = "https://apiv2.curibio-test.com"; // TODO add .env for prod v. test url
 let authToken = null;
 /*
 Expected message format:
@@ -13,7 +13,6 @@ Expected message format:
 
 // message handler
 self.onmessage = async ({ data }) => {
-  console.log("reached 1")
   if (data.method) {
     const res = authToken
       ? await handleGenericRequest(data)
@@ -28,7 +27,7 @@ const handleGenericRequest = async ({ method, endpoint, body }) => {
 
   // add token to request headers
   const headers = new Headers();
-  headers.append('Authorization', `Bearer ${authToken}`);
+  headers.append("Authorization", `Bearer ${authToken}`);
   request.headers = headers;
 
   try {

@@ -2,12 +2,13 @@ This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next
 
 ## Getting Started
 
-First, run the development server:
+To run the development server:
 
 ```bash
 npm run dev
 ```
 
+Node version used:
 Node==17.6.0
 
 E2E testing: (two terminals)

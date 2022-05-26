@@ -1,7 +1,7 @@
-import styled from 'styled-components';
-import { useRouter } from 'next/router';
-import { useWorker } from '@/components/hooks/useWorker';
-import { useEffect, useState } from 'react';
+import styled from "styled-components";
+import { useRouter } from "next/router";
+import { useWorker } from "@/components/hooks/useWorker";
+import { useEffect, useState } from "react";
 
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
@@ -68,16 +68,16 @@ export default function Login() {
   const { error, result } = useWorker(state);
   const [errorMsg, setErrorMsg] = useState(null);
   const [userData, setUserData] = useState({
-    customer_id: '',
-    username: '',
-    password: '',
+    customer_id: "",
+    username: "",
+    password: "",
   });
 
   useEffect(() => {
     // TODO once more requests are added, we'll need to add a response differentiator so these don't respond to all web worker requests
     // defaults to undefined when webworker state resets
     if (result && result.status === 200) {
-      router.push('/dashboard'); // routes to next page
+      router.push("/dashboard"); // routes to next page
     }
   }, [result]);
 
@@ -85,21 +85,21 @@ export default function Login() {
     // defaults to undefined when webworker state resets
     if (error)
       error === 401 || error === 422 // 422 gets returned if specific input is not of UUID type
-        ? setErrorMsg('*Invalid credentials. Try again.')
-        : setErrorMsg('*Internal error. Please try again later.');
+        ? setErrorMsg("*Invalid credentials. Try again.")
+        : setErrorMsg("*Internal error. Please try again later.");
   }, [error]);
 
   const submitForm = async (e) => {
     e.preventDefault(); // required for default functions to prevent resetting form
-    setErrorMsg(''); // reset to show user something happened
+    setErrorMsg(""); // reset to show user something happened
 
-    if ([userData.username, userData.password].includes(''))
-      setErrorMsg('*Username and password are required');
+    if ([userData.username, userData.password].includes(""))
+      setErrorMsg("*Username and password are required");
     // this state gets passed to web worker to attempt login request
     else {
       setState({
-        method: 'POST',
-        endpoint: '/users/login',
+        method: "POST",
+        endpoint: "/users/login",
         body: userData,
       });
     }
@@ -110,37 +110,37 @@ export default function Login() {
       <ModalContainer>
         <Form onSubmit={submitForm}>
           <InputContainer>
-            <Label htmlFor='customer_id'>Customer ID</Label>
+            <Label htmlFor="customer_id">Customer ID</Label>
             <Field
-              id='customer_id' // must be snakecase to post to backend
-              placeholder='CuriBio'
+              id="customer_id" // must be snakecase to post to backend
+              placeholder="CuriBio"
               onChange={(e) =>
                 setUserData({ ...userData, customer_id: e.target.value })
               }
             />
-            <Label htmlFor='username'>Username</Label>
+            <Label htmlFor="username">Username</Label>
             <Field
-              id='username'
-              placeholder='User'
+              id="username"
+              placeholder="User"
               onChange={(e) =>
                 setUserData({ ...userData, username: e.target.value })
               }
             />
-            <Label htmlFor='password'>Password</Label>
+            <Label htmlFor="password">Password</Label>
             <Field
-              id='password'
-              type='password'
-              placeholder='Password'
-              autoComplete='password' // chrome warns without this attribute
+              id="password"
+              type="password"
+              placeholder="Password"
+              autoComplete="password" // chrome warns without this attribute
               onChange={(e) =>
                 setUserData({ ...userData, password: e.target.value })
               }
             />
-            <ErrorText id='loginError' role='errorMsg'>
+            <ErrorText id="loginError" role="errorMsg">
               {errorMsg}
             </ErrorText>
           </InputContainer>
-          <button type='submit'>Submit</button>
+          <button type="submit">Submit</button>
         </Form>
       </ModalContainer>
     </BackgroundContainer>
