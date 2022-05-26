@@ -2,7 +2,7 @@ import "../styles/globals.css";
 import "@fontsource/mulish";
 import Layout from "@/components/Layout";
 
-function MyApp({ Component, pageProps }) {
+function Pulse({ Component, pageProps }) {
   return (
     <Layout>
       <Component {...pageProps} />
@@ -10,4 +10,4 @@ function MyApp({ Component, pageProps }) {
   );
 }
 
-export default MyApp;
+export default Pulse;
