@@ -117,7 +117,7 @@ def test_login__user__success(cb_customer_id, mocked_asyncpg_con, mocker):
 
 @freeze_time()
 def test_login__customer__success(mocked_asyncpg_con, mocker):
-    login_details = {"username": "test_username", "password": "test_password"}
+    login_details = {"email": "test@email.com", "password": "test_password"}
     pw_hash = PasswordHasher().hash(login_details["password"])
     test_customer_id = uuid.uuid4()
     customer_scope = ["users:admin"]
@@ -140,7 +140,7 @@ def test_login__customer__success(mocked_asyncpg_con, mocker):
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
         "SELECT password, id, data->'scope' AS scope FROM customers WHERE deleted_at IS NULL AND email = $1",
-        login_details["username"],
+        login_details["email"],
     )
     mocked_asyncpg_con.execute.assert_called_once_with(
         "UPDATE customers SET refresh_token = $1 WHERE id = $2",
@@ -153,7 +153,7 @@ def test_login__customer__success(mocked_asyncpg_con, mocker):
 
 def test_login__no_matching_record_in_db(mocked_asyncpg_con):
     # arbitrarily deciding to use customer login here
-    login_details = {"username": "test_username", "password": "test_password"}
+    login_details = {"email": "test@email.com", "password": "test_password"}
 
     mocked_asyncpg_con.fetchrow.return_value = None
 
@@ -164,7 +164,7 @@ def test_login__no_matching_record_in_db(mocked_asyncpg_con):
 
 def test_login__incorrect_password(mocked_asyncpg_con):
     # arbitrarily deciding to use customer login here
-    login_details = {"username": "test_username", "password": "test_password"}
+    login_details = {"email": "test@email.com", "password": "test_password"}
 
     mocked_asyncpg_con.fetchrow.return_value = {"password": "bad_hash", "id": uuid.uuid4()}
 
@@ -178,7 +178,7 @@ def test_register__user__success(
     use_cb_customer_id, mocked_asyncpg_con, spied_pw_hasher, cb_customer_id, mocker
 ):
     registration_details = {
-        "email": "test@email.com",
+        "email": "user@example.com",
         "username": "testusername",
         "password1": "Testpw1234",
         "password2": "Testpw1234",

@@ -20,7 +20,8 @@ WORKDIR /app
 COPY ./deployments/apiv2/services/users/src/core/ ./core
 COPY ./deployments/apiv2/services/users/src/models/ ./models
 COPY ./deployments/apiv2/services/users/src/main.py ./
+COPY ./deployments/apiv2/services/users/log_config.yaml ./
 
 ENV PYTHONUNBUFFERED 1
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9001", "--reload"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9001", "--reload", "--log-config", "log_config.yaml"]
 

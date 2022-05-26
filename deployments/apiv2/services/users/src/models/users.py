@@ -1,17 +1,19 @@
 import re
-from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, SecretStr
 from pydantic import constr, validator
 
 
 class CustomerLogin(BaseModel):
-    username: str
+    email: EmailStr
     password: SecretStr
 
 
-class UserLogin(CustomerLogin):
-    customer_id: str
+class UserLogin(BaseModel):
+    customer_id: UUID
+    username: str
+    password: SecretStr
 
 
 class CustomerCreate(BaseModel):

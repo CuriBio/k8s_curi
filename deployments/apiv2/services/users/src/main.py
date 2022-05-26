@@ -18,7 +18,7 @@ from models.users import CustomerLogin, UserLogin, CustomerCreate, UserCreate, C
 from utils.db import AsyncpgPoolDep
 
 
-logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
+# logging is configured in log_config.yaml
 logger = logging.getLogger(__name__)
 
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
@@ -102,14 +102,14 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
             "SELECT password, id, data->'scope' AS scope "
             "FROM customers WHERE deleted_at IS NULL AND email = $1"
         )
-        select_query_params = (details.username,)
+        select_query_params = (details.email,)
     else:
         account_type = "user"
         select_query = (
             "SELECT password, id, data->'scope' AS scope "
             "FROM users WHERE deleted_at IS NULL AND name = $1 AND customer_id = $2"
         )
-        select_query_params = (details.username, details.customer_id)
+        select_query_params = (details.username, str(details.customer_id))
 
     try:
         async with request.state.pgpool.acquire() as con:
