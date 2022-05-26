@@ -2,10 +2,9 @@ import {
   render,
   screen,
   fireEvent,
-  act,
   waitFor,
 } from "@testing-library/react";
-import Login from "../pages/login";
+import Login from "../../pages/login";
 import "@testing-library/jest-dom";
 
 describe("Login", () => {
@@ -25,7 +24,6 @@ describe("Login", () => {
     input1           | input2
     ${"Customer ID"} | ${"Username"}
     ${"Customer ID"} | ${"Password"}
-    ${"Username"}    | ${"Password"}
   `(
     "renders correct error message if field is left empty",
     ({ input1, input2 }) => {
@@ -46,7 +44,7 @@ describe("Login", () => {
 
       const errorMessage = screen.getByRole("errorMsg");
       waitFor(() => {
-        expect(errorMessage).toHaveValue("testInput");
+        expect(errorMessage).toHaveValue("*Username and password are required");
       });
     }
   );
