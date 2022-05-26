@@ -7,6 +7,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
 from fastapi import FastAPI, Request, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 
 from auth import AccessToken, ProtectedAny, create_token
 from core.db import Database
@@ -22,6 +23,17 @@ app = FastAPI(openapi_url=None)
 
 
 CB_CUSTOMER_ID: uuid.UUID
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://dashboard.curibio-test.com",
+        "https://dashboard.curibio.com",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.middleware("http")
@@ -126,7 +138,6 @@ async def login(request: Request, details: UserLogin):
                 scope = ["users:admin"] if is_customer_login_attempt else json.loads(row.get("scope", "[]"))
                 jwt_token = create_token(scope=scope, userid=row["id"])
                 return jwt_token
-
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     except Exception as e:
