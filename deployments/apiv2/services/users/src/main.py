@@ -7,6 +7,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
 from fastapi import FastAPI, Request, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from jwt.exceptions import InvalidTokenError
 
 from auth import ProtectedAny, create_token, decode_token
@@ -20,8 +21,20 @@ from utils.db import AsyncpgPoolDep
 logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(openapi_url=None)
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
+
+
+app = FastAPI(openapi_url=None)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://dashboard.curibio-test.com",
+        "https://dashboard.curibio.com",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 CB_CUSTOMER_ID: uuid.UUID
