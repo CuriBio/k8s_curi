@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 import json
-from os import access
 from random import choice
 import uuid
 
@@ -37,15 +36,18 @@ def fixture_cb_customer_id(mocker):
     yield cb_customer_id
 
 
-@pytest.fixture(scope="function", name="mocked_db_con", autouse=True)
-async def fixture_mocked_db(mocker):
-    mocked_db = mocker.patch.object(main, "db", autospec=True)
-    mocked_db.pool = mocker.MagicMock()
+@pytest.fixture(scope="function", name="mocked_asyncpg_con", autouse=True)
+async def fixture_mocked_asyncpg_con(mocker):
+    mocked_asyncpg_pool = mocker.patch.object(main, "asyncpg_pool", autospec=True)
 
-    mocked_db_con = await mocked_db.pool.acquire().__aenter__()
-    mocked_db_con.transaction = mocker.MagicMock()
+    mocked_asyncpg_pool_coroutine = mocker.AsyncMock()
+    mocked_asyncpg_pool_coroutine.return_value = mocker.MagicMock()
+    mocked_asyncpg_pool.return_value = mocked_asyncpg_pool_coroutine()
 
-    yield mocked_db_con
+    mocked_asyncpg_con = await mocked_asyncpg_pool_coroutine.return_value.acquire().__aenter__()
+    mocked_asyncpg_con.transaction = mocker.MagicMock()
+
+    yield mocked_asyncpg_con
 
 
 @pytest.fixture(scope="function", name="spied_pw_hasher")
@@ -54,11 +56,9 @@ def fixture_spied_pw_hasher(mocker):
     yield spied_pw_hasher
 
 
-def test_startup__sets_global_cb_customer_id(mocked_db_con):
-    mocked_create_pool = main.db.create_pool
-
+def test_startup__sets_global_cb_customer_id(mocked_asyncpg_con):
     test_id = uuid.uuid4()
-    mocked_db_con.fetchval.return_value = test_id
+    mocked_asyncpg_con.fetchval.return_value = test_id
 
     try:
         # using test_client in a with statement invokes startup event
@@ -69,16 +69,13 @@ def test_startup__sets_global_cb_customer_id(mocked_db_con):
         if hasattr(main, "CB_CUSTOMER_ID"):
             del main.CB_CUSTOMER_ID
 
-    mocked_db_con.fetchval.assert_called_once_with(
+    mocked_asyncpg_con.fetchval.assert_called_once_with(
         "SELECT id FROM customers WHERE email = 'software@curibio.com'"
     )
 
-    mocked_create_pool.assert_called_once()
-    mocked_create_pool.assert_awaited_once()
-
 
 @freeze_time()
-def test_login__user__success(cb_customer_id, mocked_db_con, mocker):
+def test_login__user__success(cb_customer_id, mocked_asyncpg_con, mocker):
     login_details = {
         "customer_id": str(cb_customer_id),
         "username": "test_username",
@@ -88,7 +85,7 @@ def test_login__user__success(cb_customer_id, mocked_db_con, mocker):
     test_user_id = uuid.uuid4()
     test_scope = ["test:scope"]
 
-    mocked_db_con.fetchrow.return_value = {
+    mocked_asyncpg_con.fetchrow.return_value = {
         "password": pw_hash,
         "id": test_user_id,
         "scope": json.dumps(test_scope),
@@ -106,12 +103,12 @@ def test_login__user__success(cb_customer_id, mocked_db_con, mocker):
         refresh=expected_refresh_token,
     )
 
-    mocked_db_con.fetchrow.assert_called_once_with(
+    mocked_asyncpg_con.fetchrow.assert_called_once_with(
         "SELECT password, id, data->'scope' AS scope FROM users WHERE deleted_at IS NULL AND name = $1 AND customer_id = $2",
         login_details["username"],
         login_details["customer_id"],
     )
-    mocked_db_con.execute.assert_called_once_with(
+    mocked_asyncpg_con.execute.assert_called_once_with(
         "UPDATE users SET refresh_token = $1 WHERE id = $2", expected_refresh_token.token, test_user_id
     )
 
@@ -119,13 +116,13 @@ def test_login__user__success(cb_customer_id, mocked_db_con, mocker):
 
 
 @freeze_time()
-def test_login__customer__success(mocked_db_con, mocker):
+def test_login__customer__success(mocked_asyncpg_con, mocker):
     login_details = {"username": "test_username", "password": "test_password"}
     pw_hash = PasswordHasher().hash(login_details["password"])
     test_customer_id = uuid.uuid4()
     customer_scope = ["users:admin"]
 
-    mocked_db_con.fetchrow.return_value = {"password": pw_hash, "id": test_customer_id}
+    mocked_asyncpg_con.fetchrow.return_value = {"password": pw_hash, "id": test_customer_id}
     spied_create_token = mocker.spy(main, "create_token")
 
     expected_refresh_token = create_token(
@@ -141,11 +138,11 @@ def test_login__customer__success(mocked_db_con, mocker):
         refresh=expected_refresh_token,
     )
 
-    mocked_db_con.fetchrow.assert_called_once_with(
+    mocked_asyncpg_con.fetchrow.assert_called_once_with(
         "SELECT password, id, data->'scope' AS scope FROM customers WHERE deleted_at IS NULL AND email = $1",
         login_details["username"],
     )
-    mocked_db_con.execute.assert_called_once_with(
+    mocked_asyncpg_con.execute.assert_called_once_with(
         "UPDATE customers SET refresh_token = $1 WHERE id = $2",
         expected_refresh_token.token,
         test_customer_id,
@@ -154,22 +151,22 @@ def test_login__customer__success(mocked_db_con, mocker):
     assert spied_create_token.call_count == 2
 
 
-def test_login__no_matching_record_in_db(mocked_db_con):
+def test_login__no_matching_record_in_db(mocked_asyncpg_con):
     # arbitrarily deciding to use customer login here
     login_details = {"username": "test_username", "password": "test_password"}
 
-    mocked_db_con.fetchrow.return_value = None
+    mocked_asyncpg_con.fetchrow.return_value = None
 
     response = test_client.post("/login", json=login_details)
     assert response.status_code == 401
     assert response.json() == {"detail": "Invalid credentials"}
 
 
-def test_login__incorrect_password(mocked_db_con):
+def test_login__incorrect_password(mocked_asyncpg_con):
     # arbitrarily deciding to use customer login here
     login_details = {"username": "test_username", "password": "test_password"}
 
-    mocked_db_con.fetchrow.return_value = {"password": "bad_hash", "id": uuid.uuid4()}
+    mocked_asyncpg_con.fetchrow.return_value = {"password": "bad_hash", "id": uuid.uuid4()}
 
     response = test_client.post("/login", json=login_details)
     assert response.status_code == 401
@@ -177,7 +174,9 @@ def test_login__incorrect_password(mocked_db_con):
 
 
 @pytest.mark.parametrize("use_cb_customer_id", [True, False])
-def test_register__user__success(use_cb_customer_id, mocked_db_con, spied_pw_hasher, cb_customer_id, mocker):
+def test_register__user__success(
+    use_cb_customer_id, mocked_asyncpg_con, spied_pw_hasher, cb_customer_id, mocker
+):
     registration_details = {
         "email": "test@email.com",
         "username": "testusername",
@@ -189,7 +188,7 @@ def test_register__user__success(use_cb_customer_id, mocked_db_con, spied_pw_has
     test_customer_id = cb_customer_id if use_cb_customer_id else uuid.uuid4()
     access_token = get_token(userid=test_customer_id, scope=["users:admin"], account_type="customer")
 
-    mocked_db_con.fetchval.return_value = test_user_id
+    mocked_asyncpg_con.fetchval.return_value = test_user_id
 
     expected_scope = ["users:free"]
 
@@ -205,7 +204,7 @@ def test_register__user__success(use_cb_customer_id, mocked_db_con, spied_pw_has
         "scope": expected_scope,
     }
 
-    mocked_db_con.fetchval.assert_called_once_with(
+    mocked_asyncpg_con.fetchval.assert_called_once_with(
         "INSERT INTO users (name, email, password, account_type, data, customer_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
         registration_details["username"],
         registration_details["email"],
@@ -217,7 +216,7 @@ def test_register__user__success(use_cb_customer_id, mocked_db_con, spied_pw_has
     spied_pw_hasher.assert_called_once_with(mocker.ANY, registration_details["password1"])
 
 
-def test_register__customer__success(mocked_db_con, spied_pw_hasher, cb_customer_id, mocker):
+def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, cb_customer_id, mocker):
     registration_details = {
         "email": "test@email.com",
         "password1": "Testpw1234",
@@ -228,7 +227,7 @@ def test_register__customer__success(mocked_db_con, spied_pw_hasher, cb_customer
     expected_scope = ["users:admin"]
     access_token = get_token(userid=cb_customer_id, scope=expected_scope, account_type="customer")
 
-    mocked_db_con.fetchval.return_value = test_user_id
+    mocked_asyncpg_con.fetchval.return_value = test_user_id
 
     response = test_client.post(
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -240,7 +239,7 @@ def test_register__customer__success(mocked_db_con, spied_pw_hasher, cb_customer
         "scope": expected_scope,
     }
 
-    mocked_db_con.fetchval.assert_called_once_with(
+    mocked_asyncpg_con.fetchval.assert_called_once_with(
         "INSERT INTO customers (email, password) VALUES ($1, $2) RETURNING id",
         registration_details["email"],
         spied_pw_hasher.spy_return,
@@ -257,7 +256,7 @@ def test_register__customer__success(mocked_db_con, spied_pw_hasher, cb_customer
     ],
 )
 def test_register__user__unique_constraint_violations(
-    contraint_to_violate, expected_error_message, mocked_db_con, spied_pw_hasher, cb_customer_id, mocker
+    contraint_to_violate, expected_error_message, mocked_asyncpg_con, spied_pw_hasher, cb_customer_id, mocker
 ):
     registration_details = {
         "email": "test@email.com",
@@ -270,7 +269,7 @@ def test_register__user__unique_constraint_violations(
     access_token = get_token(userid=test_user_id, scope=["users:admin"], account_type="customer")
 
     # setting this
-    mocked_db_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)
+    mocked_asyncpg_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)
 
     response = test_client.post(
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -287,7 +286,7 @@ def test_register__user__unique_constraint_violations(
     [("customers_email_key", "Email already in use"), ("all others", "Account registration failed")],
 )
 def test_register__customer__unique_constraint_violations(
-    contraint_to_violate, expected_error_message, mocked_db_con, spied_pw_hasher, cb_customer_id, mocker
+    contraint_to_violate, expected_error_message, mocked_asyncpg_con, spied_pw_hasher, cb_customer_id, mocker
 ):
     registration_details = {
         "email": "test@email.com",
@@ -298,7 +297,7 @@ def test_register__customer__unique_constraint_violations(
     access_token = get_token(userid=cb_customer_id, scope=["users:admin"], account_type="customer")
 
     # setting this
-    mocked_db_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)
+    mocked_asyncpg_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)
 
     response = test_client.post(
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -329,7 +328,7 @@ def test_register__no_token_given():
 
 @freeze_time()
 @pytest.mark.parametrize("account_type", ["user", "customer"])
-def test_refresh__success(account_type, mocked_db_con):
+def test_refresh__success(account_type, mocked_asyncpg_con):
     userid = uuid.uuid4()
     test_scope = ["users:free"]
 
@@ -338,26 +337,26 @@ def test_refresh__success(account_type, mocked_db_con):
     new_access_token = create_token(userid=userid, scope=test_scope, account_type=account_type, refresh=False)
     new_refresh_token = create_token(userid=userid, scope=test_scope, account_type=account_type, refresh=True)
 
-    mocked_db_con.fetchval.return_value = old_refresh_token
+    mocked_asyncpg_con.fetchval.return_value = old_refresh_token
 
     response = test_client.post("/refresh", headers={"Authorization": f"Bearer {old_refresh_token}"})
     assert response.status_code == 201
     assert response.json() == AuthTokens(access=new_access_token, refresh=new_refresh_token)
 
-    mocked_db_con.fetchval.assert_called_once_with(
+    mocked_asyncpg_con.fetchval.assert_called_once_with(
         f"SELECT refresh_token FROM {account_type}s WHERE id = $1", userid
     )
-    mocked_db_con.execute.assert_called_once_with(
+    mocked_asyncpg_con.execute.assert_called_once_with(
         f"UPDATE {account_type}s SET refresh_token = $1 WHERE id = $2", old_refresh_token, userid
     )
 
 
-def test_refresh__expired_refresh_token_in_db(mocked_db_con):
+def test_refresh__expired_refresh_token_in_db(mocked_asyncpg_con):
     test_time = datetime.now()
 
     with freeze_time(test_time):
         old_refresh_token = get_token(refresh=True)
-        mocked_db_con.fetchval.return_value = old_refresh_token
+        mocked_asyncpg_con.fetchval.return_value = old_refresh_token
 
     with freeze_time(test_time + timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES, seconds=1)):
         response = test_client.post("/refresh", headers={"Authorization": f"Bearer {old_refresh_token}"})
@@ -376,14 +375,14 @@ def test_refresh__no_token_given():
 
 
 @pytest.mark.parametrize("account_type", ["user", "customer"])
-def test_logout__success(account_type, mocked_db_con):
+def test_logout__success(account_type, mocked_asyncpg_con):
     test_id = uuid.uuid4()
     access_token = get_token(userid=test_id, account_type=account_type)
 
     response = test_client.post("/logout", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 204
 
-    mocked_db_con.execute.assert_called_once_with(
+    mocked_asyncpg_con.execute.assert_called_once_with(
         f"UPDATE {account_type}s SET refresh_token = NULL WHERE id = $1", test_id
     )
 

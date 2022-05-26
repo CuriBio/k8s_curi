@@ -9,8 +9,8 @@ from pydantic import BaseModel
 from auth import ProtectedAny
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET
 from jobs import create_upload, create_job, get_uploads, get_jobs
-from utils.s3 import generate_presigned_post, generate_presigned_url
 from utils.db import AsyncpgPoolDep
+from utils.s3 import generate_presigned_post, generate_presigned_url
 
 
 logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")

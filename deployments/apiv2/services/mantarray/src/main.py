@@ -11,6 +11,8 @@ from utils.db import AsyncpgPoolDep
 
 AUTH = ProtectedAny()  # TODO add scope here
 
+# TODO add logging
+
 
 app = FastAPI(openapi_url=None)
 templates = Jinja2Templates(directory="templates")

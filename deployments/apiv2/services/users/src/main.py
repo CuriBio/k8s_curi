@@ -10,17 +10,18 @@ from fastapi import FastAPI, Request, Depends, HTTPException, status
 from jwt.exceptions import InvalidTokenError
 
 from auth import ProtectedAny, create_token, decode_token
-from core.db import Database
+from core.config import DATABASE_URL
 from models.errors import LoginError, RegistrationError
 from models.tokens import AuthTokens
 from models.users import CustomerLogin, UserLogin, CustomerCreate, UserCreate, CustomerProfile, UserProfile
+from utils.db import AsyncpgPoolDep
 
 
 logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
 logger = logging.getLogger(__name__)
 
-db = Database()
 app = FastAPI(openapi_url=None)
+asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
 
 CB_CUSTOMER_ID: uuid.UUID
@@ -28,23 +29,18 @@ CB_CUSTOMER_ID: uuid.UUID
 
 @app.middleware("http")
 async def db_session_middleware(request: Request, call_next):
-    request.state.pgpool = db.pool
+    request.state.pgpool = await asyncpg_pool()
     response = await call_next(request)
     return response
 
 
 @app.on_event("startup")
 async def startup():
-    await db.create_pool()
-    async with db.pool.acquire() as con:
+    pool = await asyncpg_pool()
+    async with pool.acquire() as con:
         # might be a better way to do this without using global
         global CB_CUSTOMER_ID
         CB_CUSTOMER_ID = await con.fetchval("SELECT id FROM customers WHERE email = 'software@curibio.com'")
-
-
-@app.on_event("shutdown")
-async def shutdown():
-    await db.close()
 
 
 @app.get("/users/me", response_model=UserProfile)
