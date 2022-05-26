@@ -18,7 +18,7 @@ depends_on = None
 
 def upgrade():
     for table in ("users", "customers"):
-        op.add_column(table, sa.Column("refresh_token", sa.VARCHAR(255), nullable=True))
+        op.add_column(table, sa.Column("refresh_token", sa.VARCHAR(500), nullable=True))
 
 
 def downgrade():
