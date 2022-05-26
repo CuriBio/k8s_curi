@@ -47,6 +47,7 @@ def generate_presigned_urls_for_dir(bucket: str, key_prefix: str, objs_only: boo
 
 def generate_presigned_post(bucket: str, key: str, md5s: str) -> Dict[Any, Any]:
     s3_client = boto3.client("s3", config=Config(signature_version="s3v4"))
+    
     try:
         fields = {"Content-MD5": md5s}
         conditions = [["starts-with", "$Content-MD5", ""]]

@@ -1,2 +1,2 @@
-from .models import AccessToken
-from .routes import ProtectedAny, create_token
+from .models import Token
+from .routes import ProtectedAny, create_token, decode_token

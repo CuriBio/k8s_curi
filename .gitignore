@@ -3,7 +3,7 @@
 __pycache__
 kubeconfig_test
 kubeconfig_prod
-venv/
+venv*
 .DS_Store
 core/db/**/.env*
 build/
