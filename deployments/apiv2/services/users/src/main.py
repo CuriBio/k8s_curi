@@ -28,7 +28,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://dashboard.curibio-test.com",
-        "http://localhost:3000/login",
+        "https://dashboard.curibio.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],

@@ -25,13 +25,18 @@
     "styled-components": "^5.3.5"
   },
   "devDependencies": {
+    "@cypress/react": "^5.12.5",
+    "@cypress/webpack-dev-server": "^1.8.4",
     "@testing-library/jest-dom": "^5.16.4",
     "@testing-library/react": "^13.2.0",
     "cypress": "^9.7.0",
     "eslint": "8.15.0",
     "eslint-config-next": "12.1.6",
+    "html-webpack-plugin": "^5.5.0",
     "jest": "^28.1.0",
     "jest-environment-jsdom": "^28.1.0",
-    "start-server-and-test": "^1.14.0"
+    "start-server-and-test": "^1.14.0",
+    "webpack": "^5.72.1",
+    "webpack-dev-server": "^3.11.3"
   }
 }

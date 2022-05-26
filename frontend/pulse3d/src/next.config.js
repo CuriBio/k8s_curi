@@ -3,7 +3,7 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    loader: 'custom',
+    loader: "custom",
   },
   compiler: {
     // ssr and displayName are configured by default
@@ -12,12 +12,13 @@ const nextConfig = {
   async redirects() {
     return [
       {
-        source: '/',
-        destination: '/login',
+        source: "/",
+        destination: "/login",
         permanent: true,
       },
     ];
   },
+  future: { webpack5: true },
 };
 
 module.exports = nextConfig;

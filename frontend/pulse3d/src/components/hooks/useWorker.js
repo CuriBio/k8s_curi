@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 
 export function useWorker(request_params) {
   const [state, setState] = useState({});
@@ -8,13 +8,13 @@ export function useWorker(request_params) {
   useEffect(() => {
     let setStateSafe = (nextState) => setState(nextState);
     workerRef.current = new Worker(
-      new URL('../../utils/worker.js', import.meta.url)
+      new URL("../../utils/worker.js", import.meta.url)
     );
 
-    workerRef.current.onmessage = (e) => setStateSafe({ result: e.data });
-    workerRef.current.onerror = () => setStateSafe({ error: 'error' });
-    workerRef.current.onmessageerror = () =>
-      setStateSafe({ error: 'messageerror' });
+    workerRef.current.onmessage = ({ data }) => {
+      if (data.error) setStateSafe({ error: data.error });
+      else setStateSafe({ result: data });
+    };
 
     // perform cleanup on web worker
     return () => {
@@ -22,10 +22,11 @@ export function useWorker(request_params) {
       workerRef.current.terminate();
       setState({});
     };
-  }, []);
+  }, [workerRef]);
 
   // handles request to api
   useEffect(() => {
+    console.log("1", request_params);
     workerRef.current.postMessage(request_params);
   }, [request_params]);
 
