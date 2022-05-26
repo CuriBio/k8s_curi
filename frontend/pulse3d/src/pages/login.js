@@ -83,8 +83,9 @@ export default function Login() {
 
   useEffect(() => {
     // defaults to undefined when webworker state resets
+    console.log(error);
     if (error)
-      error === 401
+      error === 401 || error === 422
         ? setErrorMsg("*Invalid credentials. Try again.")
         : setErrorMsg("*Internal error. Please try again later.");
   }, [error]);

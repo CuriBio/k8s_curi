@@ -33,7 +33,7 @@ const handleGenericRequest = async ({ method, endpoint, body }) => {
   try {
     return await axios(method, url, headers, body);
   } catch (e) {
-    return { error: 500 }; // can be generic error to show internal error
+    return { error: e.response.status };
   }
 };
 
@@ -44,11 +44,8 @@ const handleAuthRequest = async ({ endpoint, body }) => {
   try {
     res = await axios.post(url, body);
   } catch (e) {
-    return { error: 500 }; // can be generic error to show internal error
+    return { error: e.response.status };
   }
-
-  // if status code is not between 200-299, return status code as error
-  if (!res.ok) return { error: res.status };
 
   // Capture the auth token here
   const { token, success, message } = await res.json();
