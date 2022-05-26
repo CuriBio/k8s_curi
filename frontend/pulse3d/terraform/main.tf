@@ -86,7 +86,7 @@ module "pulse3d_cloudfront" {
   wait_for_deployment = false
 
   create_monitoring_subscription = true
-
+  default_root_object = "login.html"
   create_origin_access_identity = true
   origin_access_identities = {
     s3_bucket_oai = "Pulse access"
@@ -100,10 +100,15 @@ module "pulse3d_cloudfront" {
       }
     } 
   }
+
+  default_cache_behavior = {
+    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "s3_origin"
+    viewer_protocol_policy = "redirect-to-https"
+  }
   viewer_certificate = {
     acm_certificate_arn = data.aws_acm_certificate.curibio_issued.arn
     ssl_support_method  = "sni-only"
   }
-
-
 }

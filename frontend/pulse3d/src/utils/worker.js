@@ -13,6 +13,7 @@ Expected message format:
 
 // message handler
 self.onmessage = async ({ data }) => {
+  console.log("reached 1")
   if (data.method) {
     const res = authToken
       ? await handleGenericRequest(data)
@@ -23,7 +24,6 @@ self.onmessage = async ({ data }) => {
 };
 
 const handleGenericRequest = async ({ method, endpoint, body }) => {
-  let res = null;
   const url = `${baseUrl}${endpoint}`;
 
   // add token to request headers

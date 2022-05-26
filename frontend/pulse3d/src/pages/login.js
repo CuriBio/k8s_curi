@@ -74,25 +74,24 @@ export default function Login() {
   });
 
   useEffect(() => {
-    // handles web workers request error if credentials error
     // TODO once more requests are added, we'll need to add a response differentiator so these don't respond to all web worker requests
+    // defaults to undefined when webworker state resets
+    if (result && result.status === 200) {
+      router.push('/dashboard'); // routes to next page
+    }
+  }, [result]);
+
+  useEffect(() => {
+    // defaults to undefined when webworker state resets
     if (error)
       error === 401 || error === 422 // 422 gets returned if specific input is not of UUID type
         ? setErrorMsg('*Invalid credentials. Try again.')
         : setErrorMsg('*Internal error. Please try again later.');
-    else if (result && result.status === 200) {
-      router.push('/dashboard');
-      setErrorMsg('');
-    }
-    setUserData({
-      customer_id: '',
-      username: '',
-      password: '',
-    });
-  }, [error, result]);
+  }, [error]);
 
   const submitForm = async (e) => {
     e.preventDefault(); // required for default functions to prevent resetting form
+    setErrorMsg(''); // reset to show user something happened
 
     if ([userData.username, userData.password].includes(''))
       setErrorMsg('*Username and password are required');
