@@ -10,7 +10,7 @@ from auth import ProtectedAny
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET
 from jobs import create_upload, create_job, get_uploads, get_jobs
 from utils.db import AsyncpgPoolDep
-from utils.s3 import generate_presigned_post, generate_presigned_url
+from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error
 
 
 logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
@@ -85,9 +85,13 @@ async def create_recording_upload(
         async with request.state.pgpool.acquire() as con:
             upload_id = await create_upload(con=con, user_id=user_id, meta=meta)
             return UploadResponse(id=upload_id, params=params)
-    except Exception as e:
-        logger.exception(f"Failed to generate presigned upload url: {repr(e)}")
+
+    except S3Error as e:
+        logger.exception(str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(f"Failed to generate presigned upload url: {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # TODO Tanner (4/21/22): probably want to move this to a more general svc (maybe in apiv2-dep) dedicated to uploading misc files to s3
@@ -100,9 +104,12 @@ async def create_log_upload(
         params = _generate_presigned_post(user_id, details, MANTARRAY_LOGS_BUCKET)
         # TODO define a response model for logs
         return {"params": params}
-    except Exception as e:
-        logger.exception(f"Failed to generate presigned upload url: {repr(e)}")
+    except S3Error as e:
+        logger.exception(str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(f"Failed to generate presigned upload url: {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def _generate_presigned_post(user_id, details, bucket):
@@ -148,8 +155,11 @@ async def get_info_of_jobs(
 
         return response
 
+    except S3Error as e:
+        logger.exception(str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
     except Exception as e:
-        logger.exception(f"Failed to get jobs: {repr(e)}")
+        logger.error(f"Failed to get jobs: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
