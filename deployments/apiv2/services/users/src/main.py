@@ -39,6 +39,17 @@ app.add_middleware(
 
 CB_CUSTOMER_ID: uuid.UUID
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://dashboard.curibio-test.com",
+        "https://dashboard.curibio.com",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 @app.middleware("http")
 async def db_session_middleware(request: Request, call_next):
