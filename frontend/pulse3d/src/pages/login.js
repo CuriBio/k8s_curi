@@ -2,7 +2,7 @@ import styled from 'styled-components';
 import { useRouter } from 'next/router';
 import { useWorker } from '@/components/hooks/useWorker';
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
   position: relative;
@@ -65,7 +65,7 @@ const ErrorText = styled.span`
 export default function Login() {
   const router = useRouter();
   const [state, setState] = useState({});
-  const { error, result } = useWorker(state);
+  const { error, response } = useWorker(state);
   const [errorMsg, setErrorMsg] = useState(null);
   const [userData, setUserData] = useState({
     customer_id: '',
@@ -76,10 +76,11 @@ export default function Login() {
   useEffect(() => {
     // TODO once more requests are added, we'll need to add a response differentiator so these don't respond to all web worker requests
     // defaults to undefined when webworker state resets
-    if (result && result.status === 200) {
+
+    if (response && response.status === 200) {
       router.push('/dashboard'); // routes to next page
     }
-  }, [result]);
+  }, [response]);
 
   useEffect(() => {
     // defaults to undefined when webworker state resets
@@ -93,7 +94,6 @@ export default function Login() {
     e.preventDefault(); // required for default functions to prevent resetting form
     setErrorMsg(''); // reset to show user something happened
 
-    // TODO add UUID formatting check here as well because server returns 500
     if (Object.values(userData).includes(''))
       setErrorMsg('*All fields are required');
     // this state gets passed to web worker to attempt login request
@@ -104,18 +104,6 @@ export default function Login() {
         body: userData,
       });
     }
-    // const res = await axios.post(
-    //   'https://apiv2.curibio-test.com/users/register',
-    //   {
-    //     username: 'luci13',
-    //     email: 'luci@curibio.com',
-    //     password1: 'Test123Test123',
-    //     password2: 'Test123Test123',
-    //   }
-    // );
-
-    // console.log('RESPONSE: ', res);
-    // console.log('ROUTER: ', router);
   };
 
   return (

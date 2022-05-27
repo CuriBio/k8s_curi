@@ -12,7 +12,7 @@ export function useWorker(request_params) {
     workerRef.current.onmessage = ({ data }) => {
       data && data.error
         ? setStateSafe({ error: data.error })
-        : setStateSafe({ result: data });
+        : setStateSafe({ response: data });
     };
     // perform cleanup on web worker
     return () => {
