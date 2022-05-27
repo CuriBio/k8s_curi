@@ -25,17 +25,6 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
 
 app = FastAPI(openapi_url=None)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://dashboard.curibio-test.com",
-        "https://dashboard.curibio.com",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 
 CB_CUSTOMER_ID: uuid.UUID
 
@@ -44,6 +33,7 @@ app.add_middleware(
     allow_origins=[
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
+        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -147,13 +137,8 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
                 raise LoginError(failed_msg)
             else:
                 scope = ["users:admin"] if is_customer_login_attempt else json.loads(row.get("scope", "[]"))
-<<<<<<< HEAD
-                jwt_token = create_token(scope=scope, userid=row["id"])
-                return jwt_token
-=======
                 return await _create_new_tokens(con, row["id"], scope, account_type)
 
->>>>>>> origin/refresh-token
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     except Exception as e:

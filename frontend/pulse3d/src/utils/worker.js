@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const baseUrl = 'https://apiv2.curibio-test.com'; // TODO add .env for prod v. test url
+const baseUrl = 'http://localhost:8000'; // TODO add .env for prod v. test url
 let authToken = null;
 /*
 Expected message format:
