@@ -28,9 +28,10 @@ from pytorch.pytorch_segmentation import segmentImageFolder
 from .constants import TRAIN_CPU
 from .constants import PHENO_BUCKET
 
-from .s3 import download_file_from_s3
-from .s3 import upload_directory_to_s3
 from .s3 import download_directory_from_s3
+from .s3 import download_file_from_s3
+from .s3 import S3Error
+from .s3 import upload_directory_to_s3
 from .utils import email_user
 from .utils import update_table_value
 
@@ -189,8 +190,8 @@ def start_training(training, LOG_FILENAME):
                 FILTER_CHECKPOINT = os.path.join(filter_model_dir, "model_best.pth.tar")
                 key = f"trainings/{FILTER_MODEL_USER_ID}/{FILTER_MODEL_STUDY}/{FILTER_MODEL_NAME}_out/model_best.pth.tar"
                 download_file_from_s3(PHENO_BUCKET, key, FILTER_CHECKPOINT)
-            except ClientError as e:
-                logger.error(f"Failed to upload: {e}")
+            except S3Error as e:
+                logger.error(str(e))
 
             classifyArgs = [
                 INPUT_DIR,
@@ -300,8 +301,8 @@ def start_training(training, LOG_FILENAME):
                     key = f"trainings/{USER_ID}/segmentation_checkpoints/{SEG_MODEL_NAME}/checkpoint_best.pth.tar"
                     seg_checkpoint_filepath = os.path.join(SEG_CHECKPOINT_PATH, "checkpoint_best.pth.tar")
                     download_file_from_s3(PHENO_BUCKET, key, seg_checkpoint_filepath)
-                except ClientError as e:
-                    logger.error(f"Failed to download {PHENO_BUCKET}/{key}: {e}")
+                except S3Error as e:
+                    logger.error(str(e))
 
                 for TV in ["Train", "Val"]:
                     for clas in classes:
