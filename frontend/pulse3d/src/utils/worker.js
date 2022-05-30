@@ -1,7 +1,9 @@
 import axios from 'axios';
 
-const baseUrl = 'https://apiv2.curibio-test.com'; // TODO add .env for prod v. test url
+// TODO add .env for prod v. test url
+const baseUrl = 'https://apiv2.curibio-test.com'; // MODIFY URL until decided how it's handled
 let authToken = null;
+
 /*
 Expected message format:
 {
@@ -25,13 +27,14 @@ self.onmessage = async ({ data }) => {
 const handleGenericRequest = async ({ method, endpoint, body }) => {
   const url = `${baseUrl}${endpoint}`;
 
-  // add token to request headers
-  const headers = new Headers();
-  headers.append('Authorization', `Bearer ${authToken}`);
-  request.headers = headers;
+  const reqInstance = axios.create({
+    headers: {
+      Authorization: `Bearer ${authToken}`,
+    },
+  });
 
   try {
-    return await axios(method, url, headers, body);
+    return await reqInstance[method](url, body);
   } catch (e) {
     return { error: e.response.status };
   }
@@ -48,18 +51,8 @@ const handleAuthRequest = async ({ endpoint, body }) => {
   }
 
   // Capture the auth token here
-  const { token, success, message } = await res.json();
-  authToken = token;
+  authToken = await res.data.access.token;
 
-  const newBody = JSON.stringify({
-    success,
-    message,
-  });
-
-  // Make a new reponse because clones are readonly
-  return new Response(newBody, {
-    status: res.status,
-    statusText: res.statusText,
-    headers: new Headers(Array.from(res.headers.entries())),
-  });
+  // return 200 status code
+  return { status: res.status };
 };
