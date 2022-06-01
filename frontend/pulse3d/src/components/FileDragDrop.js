@@ -18,7 +18,7 @@ const DropZone = styled.div`
   border: solid;
   border-color: var(--dark-gray);
   border-width: 2px;
-  border-radius: 20px;
+  border-radius: 5px;
   background-color: white;
   display: flex;
   justify-content: center;
@@ -38,7 +38,7 @@ export default function FileDragDrop({
   };
   return (
     <Container style={containerStyle}>
-      <FileUploader handleChange={handleChange} name="file" types={fileTypes}>
+      <FileUploader hoverTitle=" " handleChange={handleChange} name="file" types={fileTypes}>
         <DropZone style={dropZoneStyle}>{dropZoneText}</DropZone>
       </FileUploader>
     </Container>

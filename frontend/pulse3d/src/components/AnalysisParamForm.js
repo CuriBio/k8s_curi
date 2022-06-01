@@ -12,7 +12,7 @@ const Container = styled.div`
   border: solid;
   border-color: var(--dark-gray);
   border-width: 2px;
-  border-radius: 20px;
+  border-radius: 7px;
   background-color: var(--med-gray);
 `;
 
@@ -36,6 +36,7 @@ const formStyle = [
   position: relative;
   height: 40px;
   padding: 5px;
+  border-radius: 5px;
 `,
 ];
 
@@ -47,9 +48,9 @@ export default function AnalysisParamForm() {
   return (
     <Container>
       <ParamNameContainer>
-        <Label htmlFor="twitch_widths">Twitch Widths</Label>
-        <Label htmlFor="start_time">Start Time (s)</Label>
-        <Label htmlFor="end_time">End Time (s)</Label>
+        <Label htmlFor="twitch_widths">Twitch Widths:</Label>
+        <Label htmlFor="start_time">Start Time (s):</Label>
+        <Label htmlFor="end_time">End Time (s):</Label>
       </ParamNameContainer>
       <InputContainer>
         <Field

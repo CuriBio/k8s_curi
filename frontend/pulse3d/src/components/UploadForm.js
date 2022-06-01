@@ -17,11 +17,11 @@ const Uploads = styled.div`
   border: solid;
   border-color: var(--dark-gray);
   border-width: 2px;
-  border-radius: 20px;
+  border-radius: 15px;
   background-color: var(--light-gray);
 `;
 
-const dropZoneText = "Click to upload, or drop .h5/.zip file here";
+const dropZoneText = "Click here to upload, or drop .h5/.zip file";
 
 export default function UploadForm() {
   return (
