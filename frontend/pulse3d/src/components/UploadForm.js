@@ -1,5 +1,6 @@
 import styled from "styled-components";
 import FileDragDrop from "./FileDragDrop";
+import AnalysisParamForm from "./AnalysisParamForm";
 
 const Container = styled.div`
   width: 80%;
@@ -27,7 +28,7 @@ export default function UploadForm() {
     <Container>
       <Uploads>
         <FileDragDrop dropZoneText={dropZoneText} />
-        {/* AnalysisParameters */}
+        <AnalysisParamForm />
         {/* SubmitButton */}
       </Uploads>
     </Container>
