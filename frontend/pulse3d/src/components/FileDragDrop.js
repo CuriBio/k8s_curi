@@ -1,5 +1,4 @@
 import styled from "styled-components";
-import React, { useState } from "react";
 import { FileUploader } from "react-drag-drop-files";
 
 const fileTypes = ["h5", "zip"];
@@ -32,18 +31,19 @@ const DropZone = styled.div`
 `;
 
 export default function FileDragDrop({
+  handleChange,
+  fileSelection,
   dropZoneText = "Drop Here",
   containerStyle = {},
   dropZoneStyle = {},
 }) {
-  const [file, setFile] = useState(null);
-  const handleChange = (file) => {
-    setFile(file);
-  };
   return (
     <Container style={containerStyle}>
-      <FileUploader hoverTitle=" " handleChange={handleChange} name="file" types={fileTypes}>
-        <DropZone style={dropZoneStyle}>{dropZoneText}</DropZone>
+      <FileUploader hoverTitle=" " handleChange={handleChange} name="file" types={fileTypes} multiple={false}>
+        <DropZone style={dropZoneStyle}>
+          {dropZoneText}
+          <br />({fileSelection || "No file selected"})
+        </DropZone>
       </FileUploader>
     </Container>
   );
