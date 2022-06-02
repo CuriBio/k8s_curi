@@ -14,13 +14,17 @@ export function useWorker(request_params) {
         ? setStateSafe({ error: data.error })
         : setStateSafe({ response: data });
     };
+    workerRef.current.onerror = () => {
+      setStateSafe({ error: 500 });
+    };
+
     // perform cleanup on web worker
     return () => {
       setStateSafe = () => null; // we should not setState after cleanup.
       workerRef.current.terminate();
       setState({});
     };
-  }, []);
+  }, [workerRef]);
 
   // handles request to api
   useEffect(() => {

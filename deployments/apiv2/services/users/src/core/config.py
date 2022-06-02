@@ -5,7 +5,8 @@ config = Config(".env")
 
 APP_NAME = config("APP_NAME", cast=str, default="CuriBio/Auth")
 ACCESS_TOKEN_EXPIRE_MINUTES = config("ACCESS_TOKEN_EXPIRE_MINUTES", cast=int, default=5)  # 5 minutes
-JWT_SECRET_KEY = config("JWT_SECRET_KEY", cast=Secret, default="testjwt1234")
+# JWT_SECRET_KEY = config("JWT_SECRET_KEY", cast=Secret, default="testjwt1234")
+JWT_SECRET_KEY = config("JWT_SECRET_KEY", cast=str, default="testjwt1234")
 JWT_ALGORITHM = config("JWT_ALGORITHM", cast=str, default="HS256")
 JWT_AUDIENCE = config("JWT_AUDIENCE", cast=str, default="curibio:auth")
 JWT_TOKEN_PREFIX = config("JWT_TOKEN_PREFIX", cast=str, default="Bearer")
@@ -25,5 +26,5 @@ JWT_TOKEN_PREFIX = config("JWT_TOKEN_PREFIX", cast=str, default="Bearer")
 DATABASE_URL = config(
     "DATABASE_URL",
     cast=str,
-    default=f"postgresql://root:HjnlH9RaeTt7uRuF7Uwco6BX4l0jgp39@localhost:5555/curibio",
+    default=f"postgresql://root:HjnlH9RaeTt7uRuF7Uwco6BX4l0jgp39@localhost:5556/curibio",
 )

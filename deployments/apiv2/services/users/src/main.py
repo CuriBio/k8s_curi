@@ -34,6 +34,7 @@ app.add_middleware(
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
         "http://localhost:3000",
+        "http://localhost:4567",
     ],
     allow_credentials=True,
     allow_methods=["*"],

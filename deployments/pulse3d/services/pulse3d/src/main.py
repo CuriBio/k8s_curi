@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 import uuid
 
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from auth import ProtectedAny
@@ -33,6 +34,20 @@ class UploadResponse(BaseModel):
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://dashboard.curibio-test.com",
+        "https://dashboard.curibio.com",
+        "http://localhost:3000",
+        "http://localhost:4567",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.middleware("http")
@@ -129,6 +144,8 @@ async def get_info_of_jobs(
     token=Depends(ProtectedAny(scope=["users:free"])),
 ):
     # need to convert UUIDs to str to avoid issues with DB
+    print(job_ids)
+    
     if job_ids:
         job_ids = [str(job_id) for job_id in job_ids]
 
@@ -141,7 +158,7 @@ async def get_info_of_jobs(
 
             response = {"jobs": []}
             for job in jobs:
-                job_info = {"status": job["status"]}
+                job_info = {"id": job["job_id"], "status": job["status"], "upload_id": job["upload_id"]}
                 if job_info["status"] == "finished":
                     upload_rows = await get_uploads(con=con, user_id=user_id, upload_ids=[job["upload_id"]])
                     object_key = upload_rows[0]["object_key"]
@@ -152,7 +169,6 @@ async def get_info_of_jobs(
                 response["jobs"].append(job_info)
             if not response["jobs"]:
                 response["error"] = "No jobs found"
-
         return response
 
     except S3Error as e:
