@@ -25,6 +25,10 @@ const DropZone = styled.div`
   align-content: center;
   flex-direction: column;
   text-align: center;
+  &:hover {
+    background-color: var(--med-gray);
+    cursor: pointer;
+  }
 `;
 
 export default function FileDragDrop({

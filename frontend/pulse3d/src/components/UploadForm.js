@@ -21,7 +21,7 @@ const Uploads = styled.div`
   background-color: var(--light-gray);
 `;
 
-const dropZoneText = "Click here to upload, or drop .h5/.zip file";
+const dropZoneText = "Click here or drop .h5/.zip file to upload";
 
 const buttonStyle = {
   top: "82%",
