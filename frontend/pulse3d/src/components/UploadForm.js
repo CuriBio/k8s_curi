@@ -23,13 +23,23 @@ const Uploads = styled.div`
 
 const dropZoneText = "Click here to upload, or drop .h5/.zip file";
 
+const buttonStyle = {
+  top: "82%",
+  left: "73%",
+  width: "110px",
+  height: "30px",
+  borderRadius: "3px",
+};
+
 export default function UploadForm() {
   return (
     <Container>
       <Uploads>
         <FileDragDrop dropZoneText={dropZoneText} />
         <AnalysisParamForm />
-        {/* SubmitButton */}
+        <button style={buttonStyle} type="submit">
+          Submit
+        </button>
       </Uploads>
     </Container>
   );
