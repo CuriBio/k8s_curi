@@ -17,7 +17,7 @@ import axios from "axios";
 const domain = "curibio-test"; // MODIFY URL until decided how it's handled
 
 const getUrl = (subdomain) => {
-  return `http://${subdomain}.${domain}.com/`;
+  return `https://${subdomain}.${domain}.com`;
 };
 let authToken = null;
 
@@ -32,9 +32,10 @@ Expected message format:
 
 // message handler
 onmessage = async ({ data }) => {
-  console.log(authToken, data);
+  console.log("WW onmessage:", authToken, data);
   if (data.method) {
-    const res = dispatchRequest(data);
+    const res = await dispatchRequest(data);
+    console.log("res:", res);
     // add request type back for caller to differentiate request type
     const parsed_res = JSON.parse(JSON.stringify(res));
     parsed_res.type = data.type;
@@ -66,6 +67,7 @@ const handleGenericRequest = async ({ method, subdomain, endpoint, body, type })
   try {
     return await reqInstance[method](url, { params: body });
   } catch (e) {
+    console.log("!!!", e);
     return { error: e.response };
   }
 };

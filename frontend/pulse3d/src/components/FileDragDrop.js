@@ -31,7 +31,7 @@ const DropZone = styled.div`
 `;
 
 export default function FileDragDrop({
-  handleChange,
+  handleFileChange,
   fileSelection,
   dropZoneText = "Drop Here",
   containerStyle = {},
@@ -39,7 +39,13 @@ export default function FileDragDrop({
 }) {
   return (
     <Container style={containerStyle}>
-      <FileUploader hoverTitle=" " handleChange={handleChange} name="file" types={fileTypes} multiple={false}>
+      <FileUploader
+        hoverTitle=" "
+        handleChange={handleFileChange}
+        name="file"
+        types={fileTypes}
+        multiple={false}
+      >
         <DropZone style={dropZoneStyle}>
           {dropZoneText}
           <br />({fileSelection || "No file selected"})

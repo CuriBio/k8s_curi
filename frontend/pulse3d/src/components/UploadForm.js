@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import FileDragDrop from "./FileDragDrop";
 import AnalysisParamForm from "./AnalysisParamForm";
@@ -37,12 +37,16 @@ const buttonStyle = {
 export default function UploadForm() {
   const [state, setState] = useState({});
   const { error, result } = useWorker(state);
+
   const [file, setFile] = useState();
   // Tanner (6/2/22): there's probably a better way to do this without using a hook for the file name since file is already stored
   const [fileName, setFileName] = useState();
 
+  const [analysisParams, setAnalysisParams] = useState({});
+
   useEffect(() => {
     // defaults to undefined when webworker state resets
+    console.log("$$$ result:", result);
     if (result && result.status === 200) {
       if (state.endpoint === "/uploads") {
         setState({
@@ -57,42 +61,66 @@ export default function UploadForm() {
   }, [result]);
 
   useEffect(() => {
+    console.log("$$$:", error);
     // defaults to undefined when webworker state resets
     if (error) {
       // TODO: handle the error
     }
   }, [error]);
 
-  const handleChange = (file) => {
+  const handleFileChange = (file) => {
     console.log(file);
     setFile(file);
     setFileName(file.name);
   };
 
-  const getPresignedUploadUrl = () => {
+  const updateAnalysisParams = (newParams) => {
+    let updatedParams = { ...analysisParams, ...newParams };
+
+    try {
+      updatedParams.twitchWidths = JSON.parse(updatedParams.twitchWidths);
+    } catch {
+      // TODO display error message
+      console.log(`Invalid twitchWidths array: ${updatedParams.twitchWidths}`);
+    }
+
+    console.log(JSON.stringify(updatedParams));
+    setAnalysisParams(updatedParams);
+  };
+
+  const handleUpload = () => {
     if (!file) {
+      console.log("No file selected");
       // TODO: tell the user no file is selected
       return;
     }
 
-    uploadData = {
+    // TODO: if there are error messages, tell user to fix issues, then return
+
+    console.log("uploading...");
+
+    const uploadData = {
       filename: fileName,
       md5s: "TODO",
-      customer_id: "TODO",
     };
     setState({
       method: "post",
       endpoint: "/uploads",
       body: uploadData,
+      subdomain: "pulse3d",
     });
   };
 
   return (
     <Container>
       <Uploads>
-        <FileDragDrop handleChange={handleChange} dropZoneText={dropZoneText} fileSelection={fileName} />
-        <AnalysisParamForm />
-        <button style={buttonStyle} type="submit" onClick={getPresignedUploadUrl}>
+        <FileDragDrop
+          handleFileChange={handleFileChange}
+          dropZoneText={dropZoneText}
+          fileSelection={fileName}
+        />
+        <AnalysisParamForm updateAnalysisParams={updateAnalysisParams} />
+        <button style={buttonStyle} type="submit" onClick={handleUpload}>
           Submit
         </button>
       </Uploads>

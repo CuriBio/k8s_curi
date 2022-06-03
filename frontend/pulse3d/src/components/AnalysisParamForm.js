@@ -44,32 +44,39 @@ const Field = styled.input(formStyle);
 
 const Label = styled.label(formStyle);
 
-export default function AnalysisParamForm() {
+export default function AnalysisParamForm({ updateAnalysisParams }) {
   return (
     <Container>
       <ParamNameContainer>
-        <Label htmlFor="twitch_widths">Twitch Widths:</Label>
-        <Label htmlFor="start_time">Start Time (s):</Label>
-        <Label htmlFor="end_time">End Time (s):</Label>
+        <Label htmlFor="twitchWidths">Twitch Widths (%):</Label>
+        <Label htmlFor="startTime">Start Time (s):</Label>
+        <Label htmlFor="endTime">End Time (s):</Label>
       </ParamNameContainer>
       <InputContainer>
         <Field
-          id="twitch_widths" // must be snakecase to post to backend
-          placeholder="[50, 90]"
-          // onChange={(e) => {
-          //   setUserData({
-          //     ...userData,
-          //     twitch_widths: e.target.value,
-          //   });
-          // }}
+          id="twitchWidths"
+          placeholder="50, 90"
+          onChange={(e) => {
+            updateAnalysisParams({ twitchWidths: `[${e.target.value}]` });
+          }}
         />
         <Field
-          id="start_time" // must be snakecase to post to backend
+          id="startTime"
           placeholder="0"
+          onChange={(e) => {
+            updateAnalysisParams({
+              startTime: e.target.value,
+            });
+          }}
         />
         <Field
-          id="end_time" // must be snakecase to post to backend
+          id="endTime"
           placeholder="30"
+          onChange={(e) => {
+            updateAnalysisParams({
+              endTime: e.target.value,
+            });
+          }}
         />
       </InputContainer>
     </Container>

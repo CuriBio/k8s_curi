@@ -9,6 +9,7 @@ export function useWorker(request_params) {
     let setStateSafe = (nextState) => setState(nextState);
     workerRef.current = new Worker(new URL("../../utils/worker.js", import.meta.url));
     workerRef.current.onmessage = ({ data }) => {
+      console.log("###", data);
       data && data.error ? setStateSafe({ error: data.error }) : setStateSafe({ response: data });
     };
     workerRef.current.onerror = () => {
