@@ -12,10 +12,12 @@ test_client = TestClient(main.app)
 # TODO add tests for other routes
 
 
-def get_token(scope, userid=None, refresh=False):
+def get_token(scope, userid=None, customer_id=None, refresh=False):
     if not userid:
         userid = uuid.uuid4()
-    return create_token(userid=userid, scope=scope, account_type="user", refresh=refresh).token
+    if not customer_id:
+        customer_id = uuid.uuid4()
+    return create_token(userid=userid, customer_id=customer_id, scope=scope, account_type="user", refresh=refresh).token
 
 
 @pytest.fixture(scope="function", name="mocked_asyncpg_con", autouse=True)

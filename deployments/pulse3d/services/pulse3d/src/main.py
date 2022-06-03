@@ -23,7 +23,6 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 class UploadRequest(BaseModel):
     filename: str
     md5s: str
-    customer_id: uuid.UUID
 
 
 class UploadResponse(BaseModel):
@@ -73,11 +72,13 @@ async def create_recording_upload(
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
-        params = _generate_presigned_post(user_id, details, PULSE3D_UPLOADS_BUCKET)
+        customer_id = str(uuid.UUID(token["customer_id"]))
+
+        params = _generate_presigned_post(user_id, customer_id, details, PULSE3D_UPLOADS_BUCKET)
 
         # TODO what meta do we want
         meta = {
-            "prefix": f"uploads/{details.customer_id}/{user_id}",
+            "prefix": f"uploads/{customer_id}/{user_id}",
             "filename": details.filename,
             "md5s": details.md5s,
         }
@@ -101,7 +102,8 @@ async def create_log_upload(
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
-        params = _generate_presigned_post(user_id, details, MANTARRAY_LOGS_BUCKET)
+        customer_id = str(uuid.UUID(token["customer_id"]))
+        params = _generate_presigned_post(user_id, customer_id, details, MANTARRAY_LOGS_BUCKET)
         # TODO define a response model for logs
         return {"params": params}
     except S3Error as e:
@@ -112,10 +114,10 @@ async def create_log_upload(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def _generate_presigned_post(user_id, details, bucket):
-    key = f"uploads/{details.customer_id}/{user_id}/{details.filename}"
+def _generate_presigned_post(user_id, customer_id, details, bucket):
+    key = f"uploads/{customer_id}/{user_id}/{details.filename}"
     logger.info(
-        f"Generating presigned upload url for {bucket}/uploads/{details.customer_id}/{user_id}/{details.filename}"
+        f"Generating presigned upload url for {bucket}/uploads/{customer_id}/{user_id}/{details.filename}"
     )
     params = generate_presigned_post(bucket=bucket, key=key, md5s=details.md5s)
     return params
