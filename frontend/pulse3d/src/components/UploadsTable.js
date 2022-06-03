@@ -1,6 +1,6 @@
-import styled from 'styled-components';
-import CircularSpinner from '@/components/CircularSpinner';
-import { useEffect, useState } from 'react';
+import styled from "styled-components";
+import CircularSpinner from "@/components/CircularSpinner";
+import { useEffect, useState } from "react";
 import {
   Table,
   TableBody,
@@ -9,30 +9,30 @@ import {
   TableHead,
   TablePagination,
   TableRow,
-} from '@mui/material';
+} from "@mui/material";
 
 const columns = [
-  { id: 'uploadId', label: 'Upload\u00a0ID' },
-  { id: 'datetime', label: 'Datetime' },
+  { id: "uploadId", label: "Upload\u00a0ID" },
+  { id: "datetime", label: "Datetime" },
   {
-    id: 'uploadedFile',
-    label: 'Uploaded\u00a0File',
+    id: "uploadedFile",
+    label: "Uploaded\u00a0File",
   },
   {
-    id: 'analyzedFile',
-    label: 'Analyzed\u00a0File',
+    id: "analyzedFile",
+    label: "Analyzed\u00a0File",
   },
   {
-    id: 'status',
-    label: 'Status',
+    id: "status",
+    label: "Status",
   },
   {
-    id: 'meta',
-    label: 'Meta',
+    id: "meta",
+    label: "Meta",
   },
   {
-    id: 'download',
-    label: 'Download',
+    id: "download",
+    label: "Download",
   },
 ];
 
@@ -72,9 +72,9 @@ export default function UploadsTable({ makeRequest, response }) {
 
   useEffect(() => {
     if (response && response.status === 200) {
-      if (response.type === 'jobStatus') setJobs(response.data.jobs);
-      else if (response.type === 'downloadAnalysis') handleDownload(response);
-      else if (response.type === 'uploads') setUploads(response.data);
+      if (response.type === "jobStatus") setJobs(response.data.jobs);
+      else if (response.type === "downloadAnalysis") handleDownload(response);
+      else if (response.type === "uploads") setUploads(response.data);
     }
   }, [response]);
 
@@ -83,18 +83,18 @@ export default function UploadsTable({ makeRequest, response }) {
     setIsLoading(true);
 
     makeRequest({
-      method: 'get',
-      type: 'uploads',
-      endpoint: 'uploads',
+      method: "get",
+      type: "uploads",
+      endpoint: "uploads",
     });
   }, []);
 
   useEffect(() => {
     if (uploads.length > 0)
       makeRequest({
-        method: 'get',
-        type: 'jobStatus',
-        endpoint: 'jobs',
+        method: "get",
+        type: "jobStatus",
+        endpoint: "jobs",
       });
   }, [uploads]);
 
@@ -115,9 +115,9 @@ export default function UploadsTable({ makeRequest, response }) {
     const uploadId = target.id;
 
     makeRequest({
-      method: 'get',
-      type: 'downloadAnalysis',
-      endpoint: 'jobs',
+      method: "get",
+      type: "downloadAnalysis",
+      endpoint: "jobs",
       body: {
         job_ids: jobs.find((job) => job.upload_id === uploadId).id,
       },
@@ -126,10 +126,10 @@ export default function UploadsTable({ makeRequest, response }) {
 
   const handleDownload = async (res) => {
     const presignedUrl = res.data.jobs[0].url;
-    const fileName = presignedUrl.split('/')[presignedUrl.length - 1];
+    const fileName = presignedUrl.split("/")[presignedUrl.length - 1];
 
     // setup temporary download link
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = presignedUrl; // assign link to hit presigned url
     link.download = fileName; // set new downloaded files name to analyzed file name
 
@@ -147,14 +147,14 @@ export default function UploadsTable({ makeRequest, response }) {
         const job = jobs.find((job) => job.upload_id === id);
 
         const analyzedFile = object_key
-          ? object_key.split('/')[object_key.split('/').length - 1]
-          : '';
+          ? object_key.split("/")[object_key.split("/").length - 1]
+          : "";
 
         const formattedDate = new Date(created_at).toLocaleDateString(
           undefined,
           {
-            hour: 'numeric',
-            minute: 'numeric',
+            hour: "numeric",
+            minute: "numeric",
           }
         );
 
@@ -165,8 +165,8 @@ export default function UploadsTable({ makeRequest, response }) {
           uploadedFile: filename,
           analyzedFile,
           datetime: formattedDate,
-          download: job && job.status === 'finished' ? 'Download analysis' : '',
-          status: job ? job.status : '',
+          download: job && job.status === "finished" ? "Download analysis" : "",
+          status: job ? job.status : "",
         };
       }
     );
@@ -176,32 +176,32 @@ export default function UploadsTable({ makeRequest, response }) {
   return (
     <Container>
       {isLoading ? (
-        <SpinnerContainer id='spinnerContainer'>
-          <CircularSpinner color={'secondary'} size={125} />
+        <SpinnerContainer id="spinnerContainer">
+          <CircularSpinner color={"secondary"} size={125} />
         </SpinnerContainer>
       ) : (
         <>
           <TableContainer
             sx={{
-              width: '80%',
-              maxHeight: '93%',
-              marginLeft: '10%',
-              borderLeft: '1px solid var(--dark-gray)',
-              borderRight: '1px solid var(--dark-gray)',
+              width: "80%",
+              maxHeight: "93%",
+              marginLeft: "10%",
+              borderLeft: "1px solid var(--dark-gray)",
+              borderRight: "1px solid var(--dark-gray)",
             }}
           >
-            <Table stickyHeader aria-label='sticky table'>
+            <Table stickyHeader aria-label="sticky table">
               <TableHead>
                 <TableRow>
                   {columns.map((column) => (
                     <TableCell
                       id={column.id}
                       key={column.id}
-                      align='center'
+                      align="center"
                       sx={{
-                        backgroundColor: 'var(--dark-blue)',
-                        color: 'var(--light-gray)',
-                        textAlign: 'center',
+                        backgroundColor: "var(--dark-blue)",
+                        color: "var(--light-gray)",
+                        textAlign: "center",
                       }}
                     >
                       {column.label}
@@ -216,10 +216,10 @@ export default function UploadsTable({ makeRequest, response }) {
                   return (
                     <TableRow
                       hover
-                      role='checkbox'
+                      role="checkbox"
                       tabIndex={-1}
                       key={idx}
-                      sx={{ maxHeight: '50px' }}
+                      sx={{ maxHeight: "50px" }}
                     >
                       {columns.map((column, idx) => {
                         let value = null;
@@ -227,20 +227,20 @@ export default function UploadsTable({ makeRequest, response }) {
 
                         return (
                           <TableCell
-                            align='center'
+                            align="center"
                             key={column.id}
                             sx={{
-                              maxWidth: '300px',
-                              borderRight: '1px solid var(--dark-gray)',
-                              overflowX: 'scroll',
-                              whiteSpace: 'nowrap',
-                              fontSize: '12px',
-                              maxHeight: '50px',
+                              maxWidth: "300px",
+                              borderRight: "1px solid var(--dark-gray)",
+                              overflowX: "scroll",
+                              whiteSpace: "nowrap",
+                              fontSize: "12px",
+                              maxHeight: "50px",
                               backgroundColor:
-                                idx % 2 === 0 ? 'var(--light-gray)' : 'white',
+                                idx % 2 === 0 ? "var(--light-gray)" : "white",
                             }}
                             onClick={
-                              value === 'Download analysis'
+                              value === "Download analysis"
                                 ? downloadAnalysis
                                 : null
                             }
@@ -266,12 +266,12 @@ export default function UploadsTable({ makeRequest, response }) {
           </TableContainer>
           <TablePagination
             sx={{
-              backgroundColor: 'var(--dark-gray)',
-              width: '80%',
-              marginLeft: '10%',
+              backgroundColor: "var(--dark-gray)",
+              width: "80%",
+              marginLeft: "10%",
             }}
             rowsPerPageOptions={[10, 25, 50]}
-            component='div'
+            component="div"
             count={rows.length}
             rowsPerPage={rowsPerPage}
             page={page}

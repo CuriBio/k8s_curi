@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 
 export function useWorker(requestParams) {
   const [state, setState] = useState({});
@@ -9,7 +9,7 @@ export function useWorker(requestParams) {
     let setStateSafe = (nextState) => setState(nextState);
 
     worker.current = new Worker(
-      new URL('../../utils/worker.js', import.meta.url)
+      new URL("../../utils/worker.js", import.meta.url)
     );
 
     worker.current.onmessage = ({ data }) => {

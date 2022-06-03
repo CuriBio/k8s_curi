@@ -1,11 +1,11 @@
-import styled from 'styled-components';
+import styled from "styled-components";
 
 const Container = styled.div`
   height: inherit;
   background-color: var(--dark-gray);
   width: 20%;
   position: relative;
-  min-width: 20%;
+  width: 20%;
 `;
 
 export default function ControlPanel() {

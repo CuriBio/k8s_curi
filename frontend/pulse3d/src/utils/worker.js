@@ -1,7 +1,7 @@
-import axios from 'axios';
+import axios from "axios";
 
 // TODO add .env for prod v. test url
-const baseUrl = 'http://localhost:8000/'; // MODIFY URL until decided how it's handled
+const baseUrl = "http://localhost:8000/"; // MODIFY URL until decided how it's handled
 let authToken = null;
 /*
 Expected message format:
@@ -15,7 +15,7 @@ Expected message format:
 onmessage = async ({ data }) => {
   if (data.method) {
     const res =
-      data.type === 'login'
+      data.type === "login"
         ? await handleAuthRequest(data)
         : await handleGenericRequest(data);
 

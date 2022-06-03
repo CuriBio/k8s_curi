@@ -1,9 +1,9 @@
-import '../styles/globals.css';
-import '@fontsource/mulish';
-import Layout from '@/components/Layout';
-import { useWorker } from '@/components/hooks/useWorker';
-import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { useEffect, useState } from 'react';
+import "../styles/globals.css";
+import "@fontsource/mulish";
+import Layout from "@/components/Layout";
+import { useWorker } from "@/components/hooks/useWorker";
+import { createTheme, ThemeProvider } from "@mui/material/styles";
+import { useEffect, useState } from "react";
 
 /* 
   This theme is to be used with materialUI components
@@ -14,11 +14,11 @@ const MUItheme = createTheme({
   palette: {
     primary: {
       // dark blue
-      main: 'rgb(0, 38, 62)',
+      main: "rgb(0, 38, 62)",
     },
     secondary: {
       // teal green
-      main: 'rgb(25, 172, 138)',
+      main: "rgb(25, 172, 138)",
     },
   },
 });

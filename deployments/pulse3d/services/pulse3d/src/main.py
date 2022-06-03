@@ -142,8 +142,6 @@ async def get_info_of_jobs(
     token=Depends(ProtectedAny(scope=["users:free"])),
 ):
     # need to convert UUIDs to str to avoid issues with DB
-    print(job_ids)
-    
     if job_ids:
         job_ids = [str(job_id) for job_id in job_ids]
 

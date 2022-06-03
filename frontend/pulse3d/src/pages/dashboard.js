@@ -1,6 +1,6 @@
-import ControlPanel from '@/components/ControlPanel';
-import UploadsTable from '@/components/UploadsTable';
-import styled from 'styled-components';
+import ControlPanel from "@/components/ControlPanel";
+import UploadsTable from "@/components/UploadsTable";
+import styled from "styled-components";
 
 const Container = styled.div`
   height: inherit;
