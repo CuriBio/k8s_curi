@@ -3,7 +3,7 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    loader: "custom",
+    loader: 'custom',
   },
   compiler: {
     // ssr and displayName are configured by default
@@ -12,13 +12,24 @@ const nextConfig = {
   async redirects() {
     return [
       {
-        source: "/",
-        destination: "/login",
+        source: '/',
+        destination: '/login',
         permanent: true,
       },
     ];
   },
   future: { webpack5: true },
+  webpack: (config) => {
+    config.module.rules.push({
+      test: /\.worker\.js$/,
+      loader: 'worker-loader',
+    });
+
+    // Overcome Webpack referencing `window` in chunks
+    config.output.globalObject = `(typeof self !== 'undefined' ? self : this)`;
+
+    return config;
+  },
 };
 
 module.exports = nextConfig;

@@ -1,6 +1,5 @@
 import styled from 'styled-components';
 import { useRouter } from 'next/router';
-import { useWorker } from '@/components/hooks/useWorker';
 import { useEffect, useState } from 'react';
 
 // TODO eventually need to find a better to way to handle some of these globally to use across app
@@ -62,10 +61,8 @@ const ErrorText = styled.span`
   padding-top: 2%;
 `;
 
-export default function Login() {
+export default function Login({ makeRequest, error, response }) {
   const router = useRouter();
-  const [state, setState] = useState({});
-  const { error, response } = useWorker(state);
   const [errorMsg, setErrorMsg] = useState(null);
   const [userData, setUserData] = useState({
     customer_id: '',
@@ -74,18 +71,15 @@ export default function Login() {
   });
 
   useEffect(() => {
-    // TODO once more requests are added, we'll need to add a response differentiator so these don't respond to all web worker requests
-    // defaults to undefined when webworker state resets
-
-    if (response && response.status === 200) {
+    if (response && response.status === 200 && response.type === 'login') {
       router.push('/dashboard'); // routes to next page
     }
   }, [response]);
 
   useEffect(() => {
     // defaults to undefined when webworker state resets
-    if (error)
-      error === 401 || error === 422
+    if (error && error.status && error.type === 'login')
+      error.status === 401 || error.status === 422
         ? setErrorMsg('*Invalid credentials. Try again.')
         : setErrorMsg('*Internal error. Please try again later.');
   }, [error]);
@@ -98,10 +92,11 @@ export default function Login() {
       setErrorMsg('*All fields are required');
     // this state gets passed to web worker to attempt login request
     else {
-      setState({
+      makeRequest({
         method: 'post',
         endpoint: 'login',
         body: userData,
+        type: 'login',
       });
     }
   };

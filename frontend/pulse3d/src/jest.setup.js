@@ -1,13 +1,14 @@
-import "@testing-library/jest-dom/extend-expect";
+import '@testing-library/jest-dom/extend-expect';
 
 class Worker {
   constructor(stringUrl) {
     this.url = stringUrl;
-    this.onmessage = () => {};
   }
 
   postMessage(msg) {
-    this.onmessage(msg);
+    this.onmessage({
+      data: { status: 200, type: msg.type, data: [], jobs: [] },
+    });
   }
 
   terminate() {}
@@ -22,3 +23,7 @@ class URL {
 
 window.Worker = Worker;
 window.URL = URL;
+
+export default {
+  Worker,
+};

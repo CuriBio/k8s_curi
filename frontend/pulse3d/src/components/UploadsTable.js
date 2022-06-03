@@ -1,9 +1,7 @@
 import styled from 'styled-components';
-import { useWorker } from '@/components/hooks/useWorker';
 import CircularSpinner from '@/components/CircularSpinner';
 import { useEffect, useState } from 'react';
 import {
-  Paper,
   Table,
   TableBody,
   TableCell,
@@ -39,54 +37,61 @@ const columns = [
 ];
 
 const Container = styled.div`
-  width: 80%;
-  height: inherit;
   display: flex;
-  justify-content: center;
+  max-height: 85%;
   position: relative;
+  justify-content: start;
+  width: 100%;
   padding-top: 5%;
+  flex-direction: column;
 `;
+
 const SpinnerContainer = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
+  width: 80%;
   height: 100%;
+  margin-left: 10%;
 `;
 
-export default function UploadsTable() {
+const DownloadLink = styled.span`
+  &:hover {
+    color: var(--teal-green);
+    cursor: pointer;
+  }
+`;
+
+export default function UploadsTable({ makeRequest, response }) {
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [route, setRoute] = useState({});
   const [uploads, setUploads] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
-  const { response } = useWorker(route);
 
   useEffect(() => {
     if (response && response.status === 200) {
       if (response.type === 'jobStatus') setJobs(response.data.jobs);
       else if (response.type === 'downloadAnalysis') handleDownload(response);
-      else setUploads(response.data);
+      else if (response.type === 'uploads') setUploads(response.data);
     }
   }, [response]);
 
+  // TODO set on timer to constantly update status
   useEffect(() => {
-    setRoute({
-      method: 'post',
-      type: 'login',
-      endpoint: 'login',
-      body: {
-        username: 'lucipak',
-        customer_id: '60e88e2a-b101-49e2-9734-96f299fe8959',
-        password: 'Test123Test123',
-      },
+    setIsLoading(true);
+
+    makeRequest({
+      method: 'get',
+      type: 'uploads',
+      endpoint: 'uploads',
     });
   }, []);
 
   useEffect(() => {
     if (uploads.length > 0)
-      setRoute({
+      makeRequest({
         method: 'get',
         type: 'jobStatus',
         endpoint: 'jobs',
@@ -97,12 +102,7 @@ export default function UploadsTable() {
     formatUploads();
   }, [jobs]);
 
-  useEffect(() => {
-    //update UI once data is formatted
-    setIsLoading(false);
-  }, [rows]);
-
-  const handleChangePage = (event, newPage) => {
+  const handleChangePage = (e, newPage) => {
     setPage(newPage);
   };
 
@@ -113,8 +113,8 @@ export default function UploadsTable() {
 
   const downloadAnalysis = ({ target }) => {
     const uploadId = target.id;
-    // TOOO make in progress icon while downloading
-    setRoute({
+
+    makeRequest({
       method: 'get',
       type: 'downloadAnalysis',
       endpoint: 'jobs',
@@ -158,6 +158,8 @@ export default function UploadsTable() {
           }
         );
 
+        setIsLoading(false);
+
         return {
           uploadId: id,
           uploadedFile: filename,
@@ -165,7 +167,6 @@ export default function UploadsTable() {
           datetime: formattedDate,
           download: job && job.status === 'finished' ? 'Download analysis' : '',
           status: job ? job.status : '',
-          meta: job ? job.error_info : '',
         };
       }
     );
@@ -174,100 +175,111 @@ export default function UploadsTable() {
 
   return (
     <Container>
-      <Paper
-        sx={{
-          width: '80%',
-          height: '85%',
-          overflow: 'hidden',
-          borderRadius: '2%',
-          border: '1px solid var(--dark-gray)',
-        }}
-      >
-        {isLoading ? (
-          <SpinnerContainer>
-            <CircularSpinner color={'rgb(167, 168, 169)'} size={125} />
-          </SpinnerContainer>
-        ) : (
-          <>
-            <TableContainer sx={{ height: '94%', minWidth: '100%' }}>
-              <Table
-                stickyHeader
-                aria-label='sticky table'
-                sx={{ height: '100%' }}
-              >
-                <TableHead>
-                  <TableRow>
-                    {columns.map((column) => (
-                      <TableCell
-                        key={column.id}
-                        align={column.align}
-                        sx={{
-                          backgroundColor: 'var(--dark-blue)',
-                          color: 'var(--light-gray)',
-                          textAlign: 'center',
-                        }}
-                      >
-                        {column.label}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
+      {isLoading ? (
+        <SpinnerContainer id='spinnerContainer'>
+          <CircularSpinner color={'secondary'} size={125} />
+        </SpinnerContainer>
+      ) : (
+        <>
+          <TableContainer
+            sx={{
+              width: '80%',
+              maxHeight: '93%',
+              marginLeft: '10%',
+              borderLeft: '1px solid var(--dark-gray)',
+              borderRight: '1px solid var(--dark-gray)',
+            }}
+          >
+            <Table stickyHeader aria-label='sticky table'>
+              <TableHead>
+                <TableRow>
+                  {columns.map((column) => (
+                    <TableCell
+                      id={column.id}
+                      key={column.id}
+                      align='center'
+                      sx={{
+                        backgroundColor: 'var(--dark-blue)',
+                        color: 'var(--light-gray)',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {column.label}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {new Array(rowsPerPage).fill().map((row, idx) => {
+                  const uploadIdx = idx + page * rowsPerPage;
 
-                <TableBody>
-                  {new Array(rowsPerPage).fill().map((row, idx) => {
-                    const uploadIdx = idx + page * rowsPerPage;
+                  return (
+                    <TableRow
+                      hover
+                      role='checkbox'
+                      tabIndex={-1}
+                      key={idx}
+                      sx={{ maxHeight: '50px' }}
+                    >
+                      {columns.map((column, idx) => {
+                        let value = null;
+                        if (rows[uploadIdx]) value = rows[uploadIdx][column.id];
 
-                    return (
-                      <TableRow hover role='checkbox' tabIndex={-1} key={idx}>
-                        {columns.map((column, idx) => {
-                          let value = null;
-                          if (rows[uploadIdx])
-                            value = rows[uploadIdx][column.id];
-                          return (
-                            <TableCell
-                              align='right'
-                              key={column.id}
+                        return (
+                          <TableCell
+                            align='center'
+                            key={column.id}
+                            sx={{
+                              maxWidth: '300px',
+                              borderRight: '1px solid var(--dark-gray)',
+                              overflowX: 'scroll',
+                              whiteSpace: 'nowrap',
+                              fontSize: '12px',
+                              maxHeight: '50px',
+                              backgroundColor:
+                                idx % 2 === 0 ? 'var(--light-gray)' : 'white',
+                            }}
+                            onClick={
+                              value === 'Download analysis'
+                                ? downloadAnalysis
+                                : null
+                            }
+                          >
+                            <DownloadLink
                               id={
+                                // used to download file. needs access to upload ID
                                 rows[uploadIdx]
                                   ? rows[uploadIdx].uploadId
                                   : null
                               }
-                              style={{
-                                borderRight: '1px solid var(--dark-gray)',
-                                overflowX: 'scroll',
-                                whiteSpace: 'nowrap',
-                                backgroundColor:
-                                  idx % 2 === 0 ? 'var(--light-gray)' : 'white',
-                              }}
-                              onClick={
-                                value === 'Download analysis'
-                                  ? downloadAnalysis
-                                  : null
-                              }
                             >
                               {value}
-                            </TableCell>
-                          );
-                        })}
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            <TablePagination
-              sx={{ backgroundColor: 'var(--dark-gray)' }}
-              rowsPerPageOptions={[10, 25, 50]}
-              component='div'
-              count={rows.length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-            />
-          </>
-        )}
-      </Paper>
+                            </DownloadLink>
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePagination
+            sx={{
+              backgroundColor: 'var(--dark-gray)',
+              width: '80%',
+              marginLeft: '10%',
+            }}
+            rowsPerPageOptions={[10, 25, 50]}
+            component='div'
+            count={rows.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
+        </>
+      )}
     </Container>
   );
 }

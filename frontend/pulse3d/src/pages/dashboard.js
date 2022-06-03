@@ -1,9 +1,6 @@
 import ControlPanel from '@/components/ControlPanel';
 import UploadsTable from '@/components/UploadsTable';
 import styled from 'styled-components';
-import { useWorker } from '@/components/hooks/useWorker';
-import { useEffect } from 'react';
-import Router from 'next/router';
 
 const Container = styled.div`
   height: inherit;
@@ -12,11 +9,11 @@ const Container = styled.div`
   display: flex;
 `;
 
-export default function Dashboard() {
+export default function Dashboard({ makeRequest, response }) {
   return (
     <Container>
       <ControlPanel />
-      <UploadsTable />
+      <UploadsTable makeRequest={makeRequest} response={response} />
     </Container>
   );
 }
