@@ -5,7 +5,6 @@ const Container = styled.div`
   background-color: var(--dark-gray);
   width: 20%;
   position: relative;
-  width: 20%;
 `;
 
 export default function ControlPanel() {
