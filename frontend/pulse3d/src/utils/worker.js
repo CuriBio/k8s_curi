@@ -12,6 +12,7 @@ Expected message format:
 }
 */
 // message handler
+// TODO add a timeout to prevent hanging requests
 onmessage = async ({ data }) => {
   if (data.method) {
     const res =
