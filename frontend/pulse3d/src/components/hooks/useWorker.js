@@ -1,32 +1,39 @@
 import { useEffect, useRef, useState } from "react";
 
-export function useWorker(request_params) {
+export function useWorker(requestParams) {
   const [state, setState] = useState({});
-  const workerRef = useRef();
-  // handles responses coming back from api
+  const worker = useRef();
+
+  // handles responses coming back from apis
   useEffect(() => {
     let setStateSafe = (nextState) => setState(nextState);
-    workerRef.current = new Worker(
+
+    worker.current = new Worker(
       new URL("../../utils/worker.js", import.meta.url)
     );
-    workerRef.current.onmessage = ({ data }) => {
+
+    worker.current.onmessage = ({ data }) => {
       data && data.error
         ? setStateSafe({ error: data.error })
-        : setStateSafe({ result: data });
+        : setStateSafe({ response: data });
     };
-    // perform cleanup on web worker
+
+    worker.current.onerror = () => {
+      setStateSafe({ error: 500 });
+    };
+
     return () => {
+      // eslint-disable-next-line react/function-component-definition
       setStateSafe = () => null; // we should not setState after cleanup.
-      workerRef.current.terminate();
+      worker.current.terminate();
       setState({});
     };
   }, []);
 
   // handles request to api
   useEffect(() => {
-    setState({}); // ensures change if same error/response is returned
-    workerRef.current.postMessage(request_params);
-  }, [request_params]);
+    worker.current.postMessage(requestParams);
+  }, [requestParams]);
 
   return state;
 }

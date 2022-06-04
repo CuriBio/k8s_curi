@@ -23,19 +23,7 @@ logger = logging.getLogger(__name__)
 
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
-
 app = FastAPI(openapi_url=None)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://dashboard.curibio-test.com",
-        "https://dashboard.curibio.com",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 
 CB_CUSTOMER_ID: uuid.UUID
 
