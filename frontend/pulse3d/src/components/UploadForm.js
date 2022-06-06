@@ -27,9 +27,9 @@ const Uploads = styled.div`
 const dropZoneText = "Click here or drop .h5/.zip file to upload";
 
 const buttonStyle = {
-  top: "82%",
-  left: "73%",
-  width: "110px",
+  top: "20%",
+  left: "80%",
+  width: "115px",
   height: "30px",
   borderRadius: "3px",
 };

@@ -1,20 +1,10 @@
-import ControlPanel from "@/components/ControlPanel";
-import UploadForm from "@/components/UploadForm";
-import styled from "styled-components";
+import DashboardLayout from "@/components/layouts/DashboardLayout";
+import UploadsTable from "@/components/UploadsTable";
 
-const Container = styled.div`
-  height: inherit;
-  width: inherit;
-  background-color: white;
-  display: flex;
-`;
-
-// TODO when creating this page, we'll need to add staticProps to prevent users from adding extension to redirect to page without logging in
-export default function Uploads({ makeRequest, response, error }) {
-  return (
-    <Container>
-      <ControlPanel />
-      <UploadForm makeRequest={makeRequest} response={response} error={error} />
-    </Container>
-  );
+export default function Uploads({ makeRequest, response }) {
+  return <UploadsTable makeRequest={makeRequest} response={response} />;
 }
+
+Uploads.getLayout = (page) => {
+  return <DashboardLayout>{page}</DashboardLayout>;
+};
