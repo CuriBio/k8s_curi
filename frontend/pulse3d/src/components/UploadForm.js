@@ -77,7 +77,7 @@ export default function UploadForm({ makeRequest, response, error }) {
   };
 
   const handleUpload = async () => {
-    if (!file) {
+    if (!file.name) {
       console.log("No file selected");
       // TODO: tell the user no file is selected
       return;
@@ -86,6 +86,7 @@ export default function UploadForm({ makeRequest, response, error }) {
     // TODO: if there are error messages, tell user to fix issues, then return
 
     console.log("uploading...");
+    console.log("file to upload:", file);
 
     const uploadData = {
       filename: file.name,
