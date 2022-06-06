@@ -53,7 +53,7 @@ async def get_uploads(*, con, user_id, upload_ids=None):
 
     If no uploads specified, will return info of all the user's uploads
     """
-    query = "SELECT id, user_id, created_at, object_key FROM uploads WHERE user_id=$1"
+    query = "SELECT * FROM uploads WHERE user_id=$1"
     query_params = [user_id]
     if upload_ids:
         places = ", ".join(f"${i}" for i, _ in enumerate(upload_ids, 2))
@@ -62,6 +62,7 @@ async def get_uploads(*, con, user_id, upload_ids=None):
 
     async with con.transaction():
         uploads = [dict(row) async for row in con.cursor(query, *query_params)]
+
     return uploads
 
 

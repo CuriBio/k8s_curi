@@ -1,18 +1,5 @@
 import axios from "axios";
 
-// const sample = (function () {
-//   let _privateVariable = 'This is private';
-
-//   return {
-//     setPrivateVariable: (value) => {
-//       _privateVariable = value;
-//     },
-//     getPrivateVariable: () => {
-//       return _privateVariable;
-//     },
-//   };
-// })();
-
 // TODO add .env for prod v. test url
 const domain = "curibio-test"; // MODIFY URL until decided how it's handled
 
@@ -20,7 +7,6 @@ const getUrl = (subdomain) => {
   return `https://${subdomain}.${domain}.com`;
 };
 let authToken = null;
-
 /*
 Expected message format:
 {
@@ -29,14 +15,13 @@ Expected message format:
     body: {}
 }
 */
-
 // message handler
+
 onmessage = async ({ data }) => {
   console.log("WW onmessage:", authToken, data);
   if (data.method) {
     const res = await dispatchRequest(data);
     console.log("res:", res);
-    // add request type back for caller to differentiate request type
     const parsed_res = JSON.parse(JSON.stringify(res));
     parsed_res.type = data.type;
 
@@ -83,8 +68,6 @@ const handleAuthRequest = async ({ endpoint, body }) => {
   }
 
   authToken = res.data.access.token;
-  // Capture the auth token here
-  // await sample.setPrivateVariable(res.data.access.token);
   // return 200 status code
   return { status: 200 };
 };
