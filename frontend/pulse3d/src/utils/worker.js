@@ -1,8 +1,5 @@
 import axios from "axios";
 
-
-// TODO add .env for prod v. test url
-const baseUrl = "http://localhost:8000/"; // MODIFY URL until decided how it's handled
 let authToken = null;
 /*
 Expected message format:
@@ -29,8 +26,19 @@ onmessage = async ({ data }) => {
   }
 };
 
-const handleGenericRequest = async ({ method, endpoint, body, type }) => {
-  const url = `${baseUrl}${endpoint}`;
+const getUrl = (endpoint) => {
+  const userEndpoints = ["login", "logout"];
+
+  const userUrl = "http://localhost:8001/";
+  const pulseUrl = "http://localhost:8000/";
+
+  return userEndpoints.includes(endpoint)
+    ? userUrl + endpoint
+    : pulseUrl + endpoint;
+};
+
+const handleGenericRequest = async ({ method, endpoint, body }) => {
+  const url = getUrl(endpoint);
   const reqInstance = axios.create({
     headers: {
       Authorization: `Bearer ${authToken}`,
@@ -47,7 +55,7 @@ const handleGenericRequest = async ({ method, endpoint, body, type }) => {
 
 const handleAuthRequest = async ({ endpoint, body }) => {
   let res = null;
-  const url = `http://localhost:8001/${endpoint}`;
+  const url = getUrl(endpoint);
 
   try {
     res = await axios.post(url, body);

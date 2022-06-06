@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 export function useWorker(requestParams) {
   const [state, setState] = useState({});
   const worker = useRef();
-
   // handles responses coming back from apis
   useEffect(() => {
     let setStateSafe = (nextState) => setState(nextState);

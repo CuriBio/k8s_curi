@@ -1,5 +1,4 @@
 import styled from "styled-components";
-import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 
@@ -63,7 +62,6 @@ const ErrorText = styled.span`
 `;
 
 export default function Login({ makeRequest, error, response }) {
-  const router = useRouter();
   const [errorMsg, setErrorMsg] = useState(null);
   const [userData, setUserData] = useState({
     customer_id: "",
@@ -71,11 +69,6 @@ export default function Login({ makeRequest, error, response }) {
     password: "",
   });
 
-  useEffect(() => {
-    if (response && response.status === 200 && response.type === "login") {
-      router.push("/uploads"); // routes to next page
-    }
-  }, [response]);
 
   useEffect(() => {
     // defaults to undefined when webworker state resets
