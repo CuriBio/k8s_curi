@@ -1,6 +1,6 @@
 import "../styles/globals.css";
 import "@fontsource/mulish";
-import Layout from "@/components/Layout";
+import Layout from "@/components/layouts/Layout";
 import { useWorker } from "@/components/hooks/useWorker";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { useEffect, useState } from "react";
@@ -26,8 +26,10 @@ const MUItheme = createTheme({
 function Pulse({ Component, pageProps }) {
   const [state, setState] = useState({});
   const { error, response } = useWorker(state);
+  const getLayout = Component.getLayout || ((page) => page);
 
   // handles all requests across app so that only one worker gets used to hold auth token
+  // eventually create context so it doesn't have to be passed so far
   const makeRequest = (e) => {
     setState(e);
   };
@@ -35,12 +37,14 @@ function Pulse({ Component, pageProps }) {
   return (
     <ThemeProvider theme={MUItheme}>
       <Layout>
-        <Component
-          {...pageProps}
-          makeRequest={makeRequest}
-          response={response}
-          error={error}
-        />
+        {getLayout(
+          <Component
+            {...pageProps}
+            makeRequest={makeRequest}
+            response={response}
+            error={error}
+          />
+        )}
       </Layout>
     </ThemeProvider>
   );

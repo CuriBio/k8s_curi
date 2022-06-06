@@ -1,6 +1,7 @@
 import styled from "styled-components";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
+import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
@@ -72,7 +73,7 @@ export default function Login({ makeRequest, error, response }) {
 
   useEffect(() => {
     if (response && response.status === 200 && response.type === "login") {
-      router.push("/dashboard"); // routes to next page
+      router.push("/uploads"); // routes to next page
     }
   }, [response]);
 
@@ -84,8 +85,7 @@ export default function Login({ makeRequest, error, response }) {
         : setErrorMsg("*Internal error. Please try again later.");
   }, [error]);
 
-  const submitForm = async (e) => {
-    e.preventDefault(); // required for default functions to prevent resetting form
+  const submitForm = async () => {
     setErrorMsg(""); // reset to show user something happened
 
     if (Object.values(userData).includes(""))
@@ -104,43 +104,41 @@ export default function Login({ makeRequest, error, response }) {
   return (
     <BackgroundContainer>
       <ModalContainer>
-        <Form onSubmit={submitForm}>
-          <InputContainer>
-            <Label htmlFor="customer_id">Customer ID</Label>
-            <Field
-              id="customer_id" // must be snakecase to post to backend
-              placeholder="CuriBio"
-              onChange={(e) => {
-                setUserData({
-                  ...userData,
-                  customer_id: e.target.value,
-                });
-              }}
-            />
-            <Label htmlFor="username">Username</Label>
-            <Field
-              id="username"
-              placeholder="User"
-              onChange={(e) =>
-                setUserData({ ...userData, username: e.target.value })
-              }
-            />
-            <Label htmlFor="password">Password</Label>
-            <Field
-              id="password"
-              type="password"
-              placeholder="Password"
-              autoComplete="password" // chrome warns without this attribute
-              onChange={(e) =>
-                setUserData({ ...userData, password: e.target.value })
-              }
-            />
-            <ErrorText id="loginError" role="errorMsg">
-              {errorMsg}
-            </ErrorText>
-          </InputContainer>
-          <button type="submit">Submit</button>
-        </Form>
+        <InputContainer>
+          <Label htmlFor="customer_id">Customer ID</Label>
+          <Field
+            id="customer_id" // must be snakecase to post to backend
+            placeholder="CuriBio"
+            onChange={(e) => {
+              setUserData({
+                ...userData,
+                customer_id: e.target.value,
+              });
+            }}
+          />
+          <Label htmlFor="username">Username</Label>
+          <Field
+            id="username"
+            placeholder="User"
+            onChange={(e) =>
+              setUserData({ ...userData, username: e.target.value })
+            }
+          />
+          <Label htmlFor="password">Password</Label>
+          <Field
+            id="password"
+            type="password"
+            placeholder="Password"
+            autoComplete="password" // chrome warns without this attribute
+            onChange={(e) =>
+              setUserData({ ...userData, password: e.target.value })
+            }
+          />
+          <ErrorText id="loginError" role="errorMsg">
+            {errorMsg}
+          </ErrorText>
+        </InputContainer>
+        <ButtonWidget label={"Submit"} clickFn={submitForm} />
       </ModalContainer>
     </BackgroundContainer>
   );

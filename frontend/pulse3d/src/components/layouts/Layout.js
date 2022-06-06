@@ -33,8 +33,8 @@ export default function Layout({ children }) {
         <Image
           src={"CuriBio_logo_white.png"}
           alt="CuriBio Logo"
-          width={100}
-          height={40}
+          width={95}
+          height={35}
           loader={imageLoader}
           unoptimized
         />
