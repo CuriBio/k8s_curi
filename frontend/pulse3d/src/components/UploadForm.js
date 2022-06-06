@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 
 import FileDragDrop from "./FileDragDrop";
 import AnalysisParamForm from "./AnalysisParamForm";
+import md5 from "@/utils/md5";
 
 const Container = styled.div`
   width: 80%;
@@ -63,7 +64,6 @@ export default function UploadForm({ makeRequest, response, error }) {
 
   const handleFileChange = (file) => {
     console.log("file", file);
-    console.log("file", file);
     setFile(file);
   };
 
@@ -81,7 +81,7 @@ export default function UploadForm({ makeRequest, response, error }) {
     setAnalysisParams(updatedParams);
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!file) {
       console.log("No file selected");
       // TODO: tell the user no file is selected
@@ -94,8 +94,9 @@ export default function UploadForm({ makeRequest, response, error }) {
 
     const uploadData = {
       filename: file.name,
-      md5s: "TODO",
+      md5s: await md5(file),
     };
+    console.log(uploadData);
     makeRequest({
       method: "post",
       endpoint: "/uploads",
