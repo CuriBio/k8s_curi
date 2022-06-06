@@ -25,11 +25,12 @@ const MUItheme = createTheme({
 
 function Pulse({ Component, pageProps }) {
   const [state, setState] = useState({});
-  const [loginStatus, setLoginStatus] = useState(false);
+  const [loginStatus, setLoginStatus] = useState(false); // Shallow user auth status to pass down. Still handled in web worker.
   const { error, response } = useWorker(state);
   const router = useRouter();
   const getLayout = Component.getLayout || ((page) => page);
 
+  // handles user logins and logouts
   useEffect(() => {
     if (response) {
       if (response.status === 200 && response.type === "login") {
@@ -42,6 +43,7 @@ function Pulse({ Component, pageProps }) {
     }
   }, [response]);
 
+  // Catch all for all unauthorized routes for now. Immediately redirects to login page.
   useEffect(() => {
     if (error && error.status === 401 && router.pathname !== "/login") {
       router.push("/login"); // routes back to login page when receiving unauthorized and not already on login
