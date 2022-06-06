@@ -24,7 +24,7 @@ const ButtonWidget = (props) => {
   return (
     <Button
       onClick={() => {
-        if (!props.isSelected && !props.disabled) props.clickFn(props.label); // only if not already selected emit event
+        if (!props.isSelected && !props.disabled) props.clickFn(props.label); // only if not already selected and enabled, emit event
       }}
       props={props}
     >
