@@ -1,5 +1,4 @@
 import ControlPanel from "@/components/ControlPanel";
-import UploadsTable from "@/components/UploadsTable";
 import styled from "styled-components";
 
 const Container = styled.div`
@@ -9,11 +8,11 @@ const Container = styled.div`
   display: flex;
 `;
 
-export default function Dashboard({ makeRequest, response }) {
+export default function DashboardLayout({ children }) {
   return (
     <Container>
       <ControlPanel />
-      <UploadsTable makeRequest={makeRequest} response={response} />
+      {children}
     </Container>
   );
 }

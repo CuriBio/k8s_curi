@@ -72,7 +72,7 @@ export default function Login({ makeRequest, error, response }) {
 
   useEffect(() => {
     if (response && response.status === 200 && response.type === "login") {
-      router.push("/dashboard"); // routes to next page
+      router.push("/uploads"); // routes to next page
     }
   }, [response]);
 
