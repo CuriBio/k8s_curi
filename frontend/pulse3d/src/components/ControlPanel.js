@@ -21,11 +21,9 @@ export default function ControlPanel() {
     { label: "Account Settings", disabled: true, page: "/settings" },
   ];
 
-
   return (
     <Container>
       {buttons.map(({ label, disabled, page }) => {
-        
         const handleSelected = (value) => {
           setSelected(value);
           router.push(page);

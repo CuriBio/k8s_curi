@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 
 import FileDragDrop from "./FileDragDrop";
 import AnalysisParamForm from "./AnalysisParamForm";
+import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import md5 from "@/utils/md5";
 
 const Container = styled.div`
@@ -26,13 +27,7 @@ const Uploads = styled.div`
 
 const dropZoneText = "Click here or drop .h5/.zip file to upload";
 
-const buttonStyle = {
-  top: "20%",
-  left: "80%",
-  width: "115px",
-  height: "30px",
-  borderRadius: "3px",
-};
+const buttonStyle = {};
 
 export default function UploadForm({ makeRequest, response, error }) {
   const [file, setFile] = useState({});
@@ -114,9 +109,16 @@ export default function UploadForm({ makeRequest, response, error }) {
           fileSelection={file.name}
         />
         <AnalysisParamForm updateAnalysisParams={updateAnalysisParams} />
-        <button style={buttonStyle} type="submit" onClick={handleUpload}>
-          Submit
-        </button>
+        <ButtonWidget
+          top={"20%"}
+          left={"80%"}
+          width={"115px"}
+          height={"30px"}
+          position={"relative"}
+          borderRadius={"3px"}
+          label="Submit"
+          clickFn={handleUpload}
+        />
       </Uploads>
     </Container>
   );
