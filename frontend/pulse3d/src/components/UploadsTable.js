@@ -80,8 +80,7 @@ export default function UploadsTable({ makeRequest, response }) {
 
   // TODO set on timer to constantly update status
   useEffect(() => {
-    setIsLoading(true);
-
+    if (uploads.length === 0) setIsLoading(true);
     makeRequest({
       method: "get",
       type: "uploads",
@@ -245,16 +244,20 @@ export default function UploadsTable({ makeRequest, response }) {
                                 : null
                             }
                           >
-                            <DownloadLink
-                              id={
-                                // used to download file. needs access to upload ID
-                                rows[uploadIdx]
-                                  ? rows[uploadIdx].uploadId
-                                  : null
-                              }
-                            >
-                              {value}
-                            </DownloadLink>
+                            {value === "Download analysis" ? (
+                              <DownloadLink
+                                id={
+                                  // used to download file. needs access to upload ID
+                                  rows[uploadIdx]
+                                    ? rows[uploadIdx].uploadId
+                                    : null
+                                }
+                              >
+                                {value}
+                              </DownloadLink>
+                            ) : (
+                              value
+                            )}
                           </TableCell>
                         );
                       })}

@@ -1,6 +1,6 @@
 import "../styles/globals.css";
 import "@fontsource/mulish";
-import Layout from "@/components/Layout";
+import Layout from "@/components/layouts/Layout";
 import { useWorker } from "@/components/hooks/useWorker";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { useEffect, useState } from "react";

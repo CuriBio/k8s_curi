@@ -24,18 +24,4 @@ a {
   font-family: Mulish;
 }
 
-button {
-  position: absolute;
-  width: inherit;
-  height: 15%;
-  background-color: var(--dark-blue);
-  color: var(--light-gray);
-  bottom: 0px;
-  border-radius: 3%;
-  font-size: inherit;
-  cursor: pointer;
-  border: none;
-}
-button:hover {
-  background-color: var(--teal-green);
-}
+
