@@ -10,11 +10,11 @@ const Container = styled.div`
 `;
 
 // TODO when creating this page, we'll need to add staticProps to prevent users from adding extension to redirect to page without logging in
-export default function Uploads() {
+export default function Uploads({ makeRequest, response, error }) {
   return (
     <Container>
       <ControlPanel />
-      <UploadForm />
+      <UploadForm makeRequest={makeRequest} response={response} error={error} />
     </Container>
   );
 }

@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 
 import FileDragDrop from "./FileDragDrop";
 import AnalysisParamForm from "./AnalysisParamForm";
-import { useWorker } from "@/components/hooks/useWorker";
 
 const Container = styled.div`
   width: 80%;
@@ -34,34 +33,28 @@ const buttonStyle = {
   borderRadius: "3px",
 };
 
-export default function UploadForm() {
-  const [state, setState] = useState({});
-  const { error, result } = useWorker(state);
-
-  const [file, setFile] = useState();
-  // Tanner (6/2/22): there's probably a better way to do this without using a hook for the file name since file is already stored
-  const [fileName, setFileName] = useState();
-
+export default function UploadForm({ makeRequest, response, error }) {
+  const [file, setFile] = useState({});
   const [analysisParams, setAnalysisParams] = useState({});
 
   useEffect(() => {
     // defaults to undefined when webworker state resets
-    console.log("$$$ result:", result);
-    if (result && result.status === 200) {
-      if (state.endpoint === "/uploads") {
-        setState({
+    console.log("$$$ response:", response);
+    if (response) {
+      if (response.endpoint === "/uploads") {
+        makeRequest({
           method: "post",
           presignedUrl: "TODO",
           body: "TODO",
         });
-      } else if (state.presignedUrl) {
+      } else if (response.presignedUrl) {
         // TODO: tell user that the upload was successful
       }
     }
-  }, [result]);
+  }, [response]);
 
   useEffect(() => {
-    console.log("$$$:", error);
+    console.log("$$$ error:", error);
     // defaults to undefined when webworker state resets
     if (error) {
       // TODO: handle the error
@@ -69,9 +62,9 @@ export default function UploadForm() {
   }, [error]);
 
   const handleFileChange = (file) => {
-    console.log(file);
+    console.log("file", file);
+    console.log("file", file);
     setFile(file);
-    setFileName(file.name);
   };
 
   const updateAnalysisParams = (newParams) => {
@@ -100,10 +93,10 @@ export default function UploadForm() {
     console.log("uploading...");
 
     const uploadData = {
-      filename: fileName,
+      filename: file.name,
       md5s: "TODO",
     };
-    setState({
+    makeRequest({
       method: "post",
       endpoint: "/uploads",
       body: uploadData,
@@ -117,7 +110,7 @@ export default function UploadForm() {
         <FileDragDrop
           handleFileChange={handleFileChange}
           dropZoneText={dropZoneText}
-          fileSelection={fileName}
+          fileSelection={file.name}
         />
         <AnalysisParamForm updateAnalysisParams={updateAnalysisParams} />
         <button style={buttonStyle} type="submit" onClick={handleUpload}>

@@ -12,7 +12,8 @@ export function useWorker(requestParams) {
 
     worker.current.onmessage = ({ data }) => {
       console.log("###", data);
-      data && data.error ? setStateSafe({ error: data.error }) : setStateSafe({ response: data });
+      // data && data.error ? setStateSafe({ error: data.error }) : setStateSafe({ response: data });
+      setStateSafe({ response: data });
     };
 
     worker.current.onerror = () => {
@@ -25,8 +26,7 @@ export function useWorker(requestParams) {
       worker.current.terminate();
       setState({});
     };
-    // perform cleanup on web worker
-  }, [workerRef]);
+  }, []);
 
   // handles request to api
   useEffect(() => {
