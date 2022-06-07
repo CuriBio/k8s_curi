@@ -38,10 +38,12 @@ export default function UploadForm({ makeRequest, response, error }) {
     console.log("$$$ response:", response);
     if (response) {
       if (response.endpoint === "/uploads") {
+        // formData = new FormData();
+        // formData.append()
         makeRequest({
           method: "post",
-          presignedUrl: "TODO",
-          body: "TODO",
+          url: response.data.params.url,
+          body: response.data.params.fields,
         });
       } else if (response.presignedUrl) {
         // TODO: tell user that the upload was successful
@@ -86,7 +88,6 @@ export default function UploadForm({ makeRequest, response, error }) {
     // TODO: if there are error messages, tell user to fix issues, then return
 
     console.log("uploading...");
-    console.log("file to upload:", file);
 
     const uploadData = {
       filename: file.name,
@@ -95,7 +96,7 @@ export default function UploadForm({ makeRequest, response, error }) {
     console.log(uploadData);
     makeRequest({
       method: "post",
-      endpoint: "/uploads",
+      endpoint: " uploads",
       body: uploadData,
       subdomain: "pulse3d",
     });

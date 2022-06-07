@@ -1,6 +1,5 @@
 import axios from "axios";
 
-
 // TODO add .env for prod v. test url
 const domain = "curibio-test"; // MODIFY URL until decided how it's handled
 
@@ -59,7 +58,7 @@ const handleGenericRequest = async ({ method, subdomain, endpoint, body, type })
 };
 
 const handleAuthRequest = async ({ endpoint, body }) => {
-  const url = `${getUrl("apiv2")}${endpoint}`;
+  const url = `${getUrl("apiv2")}/${endpoint}`;
 
   let res = null;
   try {
