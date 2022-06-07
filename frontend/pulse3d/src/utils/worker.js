@@ -3,9 +3,14 @@ import axios from "axios";
 // TODO add .env for prod v. test url
 const domain = "curibio-test"; // MODIFY URL until decided how it's handled
 
-const getUrl = (subdomain) => {
-  return `https://${subdomain}.${domain}.com`;
+const getUrl = (endpoint) => {
+  const userEndpoints = ["login", "logout"];
+
+  let subdomain = userEndpoints.includes(endpoint) ? "apiv2" : "pulse3d";
+
+  return `https://${subdomain}.${domain}.com/${endpoint}`;
 };
+
 let authToken = null;
 /*
 Expected message format:
@@ -40,8 +45,8 @@ const dispatchRequest = async (data) => {
   }
 };
 
-const handleGenericRequest = async ({ method, subdomain, endpoint, body, type }) => {
-  const url = `${getUrl(subdomain)}${endpoint}`;
+const handleGenericRequest = async ({ method, endpoint, body }) => {
+  const url = getUrl(endpoint);
   const reqInstance = axios.create({
     headers: {
       Authorization: `Bearer ${authToken}`,
@@ -58,7 +63,7 @@ const handleGenericRequest = async ({ method, subdomain, endpoint, body, type })
 };
 
 const handleAuthRequest = async ({ endpoint, body }) => {
-  const url = `${getUrl("apiv2")}/${endpoint}`;
+  const url = getUrl(endpoint);
 
   let res = null;
   try {

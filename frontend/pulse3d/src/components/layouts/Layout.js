@@ -1,6 +1,6 @@
 import Image from "next/image";
 import styled from "styled-components";
-
+import DropDownMenu from "@/components/basicWidgets/DropDownMenu";
 // required for static export, default loader errors on build
 const imageLoader = ({ src }) => {
   return `/public/${src}`;
@@ -14,6 +14,7 @@ const Header = styled.div`
   align-items: center;
   padding: 0 2%;
   position: relative;
+  justify-content: space-between;
 `;
 
 const Container = styled.div`
@@ -26,18 +27,33 @@ const Main = styled.main`
   height: 95vh;
 `;
 
-export default function Layout({ children }) {
+export default function Layout({ children, loginStatus, makeRequest }) {
+  const logoutUser = () => {
+    makeRequest({
+      type: "logout",
+      endpoint: "logout",
+      method: "post",
+    });
+  };
+
   return (
     <Container>
       <Header>
         <Image
           src={"CuriBio_logo_white.png"}
           alt="CuriBio Logo"
-          width={95}
+          width={90}
           height={35}
           loader={imageLoader}
           unoptimized
         />
+        {!loginStatus || (
+          <DropDownMenu
+            items={["Logout"]}
+            label={"Menu"}
+            handleSelection={logoutUser}
+          />
+        )}
       </Header>
       <Main>{children}</Main>
     </Container>

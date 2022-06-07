@@ -6,7 +6,7 @@ import uuid
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
-from fastapi import FastAPI, Request, Depends, HTTPException, status
+from fastapi import FastAPI, Request, Depends, HTTPException, status, Response
 from fastapi.middleware.cors import CORSMiddleware
 from jwt.exceptions import InvalidTokenError
 
@@ -214,7 +214,7 @@ async def _create_new_tokens(db_con, userid, customer_id, scope, account_type):
     return AuthTokens(access=access, refresh=refresh)
 
 
-@app.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@app.post("/logout", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False))):
     """Logout the user/customer.
 
