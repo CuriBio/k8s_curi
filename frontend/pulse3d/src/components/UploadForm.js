@@ -37,17 +37,17 @@ export default function UploadForm({ makeRequest, response, error }) {
     // defaults to undefined when webworker state resets
     console.log("$$$ response:", response);
     if (response) {
-      if (response.endpoint === "/uploads") {
-        // formData = new FormData();
-        // formData.append()
-        makeRequest({
-          method: "post",
-          url: response.data.params.url,
-          body: response.data.params.fields,
-        });
-      } else if (response.presignedUrl) {
-        // TODO: tell user that the upload was successful
-      }
+      // if (response.type === "getPresignedUploadParams") {
+      //   makeRequest({
+      //     method: "post",
+      //     url: response.data.params.url,
+      //     paramFields: response.data.params.fields,
+      //     file,
+      //     type: "uploadFile",
+      //   });
+      // } else if (response.presignedUrl) {
+      //   // TODO: tell user that the upload was successful
+      // }
     }
   }, [response]);
 
@@ -55,6 +55,7 @@ export default function UploadForm({ makeRequest, response, error }) {
     console.log("$$$ error:", error);
     // defaults to undefined when webworker state resets
     if (error) {
+      console.log("$$$ error:", error.data);
       // TODO: handle the error
     }
   }, [error]);
@@ -89,16 +90,13 @@ export default function UploadForm({ makeRequest, response, error }) {
 
     console.log("uploading...");
 
-    const uploadData = {
-      filename: file.name,
-      md5s: await md5(file),
-    };
-    console.log(uploadData);
+    // const uploadData = {
+    //   filename: file.name,
+    //   md5s: await md5(file),
+    // };
     makeRequest({
-      method: "post",
-      endpoint: " uploads",
-      body: uploadData,
-      subdomain: "pulse3d",
+      file,
+      type: "uploadFile",
     });
   };
 

@@ -31,7 +31,7 @@ export default function Layout({ children, loginStatus, makeRequest }) {
   const logoutUser = () => {
     makeRequest({
       type: "logout",
-      endpoint: "logout",
+      endpoint: "users/logout",
       method: "post",
     });
   };
@@ -47,13 +47,7 @@ export default function Layout({ children, loginStatus, makeRequest }) {
           loader={imageLoader}
           unoptimized
         />
-        {!loginStatus || (
-          <DropDownMenu
-            items={["Logout"]}
-            label={"Menu"}
-            handleSelection={logoutUser}
-          />
-        )}
+        {!loginStatus || <DropDownMenu items={["Logout"]} label={"Menu"} handleSelection={logoutUser} />}
       </Header>
       <Main>{children}</Main>
     </Container>

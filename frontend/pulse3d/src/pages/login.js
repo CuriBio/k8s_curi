@@ -69,7 +69,6 @@ export default function Login({ makeRequest, error, response }) {
     password: "",
   });
 
-
   useEffect(() => {
     // defaults to undefined when webworker state resets
     if (error && error.status && error.type === "login")
@@ -81,13 +80,12 @@ export default function Login({ makeRequest, error, response }) {
   const submitForm = async () => {
     setErrorMsg(""); // reset to show user something happened
 
-    if (Object.values(userData).includes(""))
-      setErrorMsg("*All fields are required");
+    if (Object.values(userData).includes("")) setErrorMsg("*All fields are required");
     // this state gets passed to web worker to attempt login request
     else {
       makeRequest({
         method: "post",
-        endpoint: "login",
+        endpoint: "users/login",
         body: userData,
         type: "login",
       });
@@ -113,9 +111,7 @@ export default function Login({ makeRequest, error, response }) {
           <Field
             id="username"
             placeholder="User"
-            onChange={(e) =>
-              setUserData({ ...userData, username: e.target.value })
-            }
+            onChange={(e) => setUserData({ ...userData, username: e.target.value })}
           />
           <Label htmlFor="password">Password</Label>
           <Field
@@ -123,9 +119,7 @@ export default function Login({ makeRequest, error, response }) {
             type="password"
             placeholder="Password"
             autoComplete="password" // chrome warns without this attribute
-            onChange={(e) =>
-              setUserData({ ...userData, password: e.target.value })
-            }
+            onChange={(e) => setUserData({ ...userData, password: e.target.value })}
           />
           <ErrorText id="loginError" role="errorMsg">
             {errorMsg}
