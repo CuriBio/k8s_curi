@@ -1,7 +1,8 @@
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
 import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
-import { useEffect, useState } from "react";
+import { WorkerContext } from "@/components/WorkerWrapper";
+import { useEffect, useState, useContext, useRef } from "react";
 import {
   Table,
   TableBody,
@@ -38,13 +39,15 @@ const DownloadLink = styled.span`
   }
 `;
 
-export default function Uploads({ makeRequest, response }) {
+export default function Uploads() {
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [uploads, setUploads] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
+  const { setReqParams, response } = useContext(WorkerContext); // global app state
+  const newReq = useRef(false); // this check prevents old response from being used on mount when switching between pages
   const columns = [
     { id: "uploadId", label: "Upload\u00a0ID" },
     { id: "datetime", label: "Datetime" },
@@ -69,18 +72,11 @@ export default function Uploads({ makeRequest, response }) {
       label: "Download",
     },
   ];
-  useEffect(() => {
-    if (response && response.status === 200) {
-      if (response.type === "jobStatus") setJobs(response.data.jobs);
-      else if (response.type === "downloadAnalysis") handleDownload(response);
-      else if (response.type === "uploads") setUploads(response.data);
-    }
-  }, [response]);
 
   // TODO set on timer to constantly update status
   useEffect(() => {
     if (uploads.length === 0) setIsLoading(true);
-    makeRequest({
+    setReqParams({
       method: "get",
       type: "uploads",
       endpoint: "uploads",
@@ -88,8 +84,18 @@ export default function Uploads({ makeRequest, response }) {
   }, []);
 
   useEffect(() => {
+    if (response && response.status === 200 && newReq.current) {
+      if (response.type === "jobStatus") setJobs(response.data.jobs);
+      else if (response.type === "downloadAnalysis") handleDownload(response);
+      else if (response.type === "uploads") setUploads(response.data);
+    }
+
+    newReq.current = true; // this check prevents old response from being used on mount when switching between pages
+  }, [response]);
+
+  useEffect(() => {
     if (uploads.length > 0)
-      makeRequest({
+      setReqParams({
         method: "get",
         type: "jobStatus",
         endpoint: "jobs",
@@ -112,7 +118,7 @@ export default function Uploads({ makeRequest, response }) {
   const downloadAnalysis = ({ target }) => {
     const uploadId = target.id;
 
-    makeRequest({
+    setReqParams({
       method: "get",
       type: "downloadAnalysis",
       endpoint: "jobs",
@@ -199,6 +205,7 @@ export default function Uploads({ makeRequest, response }) {
                         backgroundColor: "var(--dark-blue)",
                         color: "var(--light-gray)",
                         textAlign: "center",
+                        borderRight: "none",
                       }}
                     >
                       {column.label}
@@ -221,11 +228,16 @@ export default function Uploads({ makeRequest, response }) {
                       {columns.map((column, idx) => {
                         let value = null;
                         if (rows[uploadIdx]) value = rows[uploadIdx][column.id];
+                        // used to download file. needs access to upload ID
 
+                        const id = rows[uploadIdx]
+                          ? rows[uploadIdx].uploadId
+                          : null;
                         return (
                           <TableCell
                             align="center"
                             key={column.id}
+                            id={id}
                             sx={{
                               maxWidth: "300px",
                               borderRight: "1px solid var(--dark-gray)",
@@ -243,16 +255,7 @@ export default function Uploads({ makeRequest, response }) {
                             }
                           >
                             {value === "Download analysis" ? (
-                              <DownloadLink
-                                id={
-                                  // used to download file. needs access to upload ID
-                                  rows[uploadIdx]
-                                    ? rows[uploadIdx].uploadId
-                                    : null
-                                }
-                              >
-                                {value}
-                              </DownloadLink>
+                              <DownloadLink id={id}>{value}</DownloadLink>
                             ) : (
                               value
                             )}
