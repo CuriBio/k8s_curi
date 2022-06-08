@@ -78,7 +78,6 @@ export default function Login() {
       router.push("/uploads"); // routes to next page
       setLoginStatus(true);
     }
-    console.log("here")
   }, [response]);
 
   useEffect(() => {

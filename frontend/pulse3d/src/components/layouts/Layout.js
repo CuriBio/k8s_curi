@@ -3,7 +3,6 @@ import styled from "styled-components";
 import DropDownMenu from "@/components/basicWidgets/DropDownMenu";
 import { useEffect, useContext } from "react";
 import { WorkerContext } from "@/components/WorkerWrapper";
-import { responseSymbol } from "next/dist/server/web/spec-compliant/fetch-event";
 
 // required for static export, default loader errors on build
 const imageLoader = ({ src }) => {
