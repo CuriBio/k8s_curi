@@ -10,7 +10,6 @@ export function useWorker(requestParams) {
     worker.current = new Worker(new URL("../../utils/worker.js", import.meta.url));
 
     worker.current.onmessage = ({ data }) => {
-      console.log("###", data);
       data && data.error ? setStateSafe({ error: data.error }) : setStateSafe({ response: data });
     };
 

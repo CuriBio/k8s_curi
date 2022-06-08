@@ -37,17 +37,15 @@ export default function UploadForm({ makeRequest, response, error }) {
     // defaults to undefined when webworker state resets
     console.log("$$$ response:", response);
     if (response) {
-      // if (response.type === "getPresignedUploadParams") {
-      //   makeRequest({
-      //     method: "post",
-      //     url: response.data.params.url,
-      //     paramFields: response.data.params.fields,
-      //     file,
-      //     type: "uploadFile",
-      //   });
-      // } else if (response.presignedUrl) {
-      //   // TODO: tell user that the upload was successful
-      // }
+      if (response.type === "uploadFile") {
+        makeRequest({
+          method: "post",
+          endpoint: "jobs",
+          type: "startAnalysis",
+        });
+      } else if (response.presignedUrl) {
+        // TODO: tell user that the upload was successful
+      }
     }
   }, [response]);
 
@@ -90,14 +88,7 @@ export default function UploadForm({ makeRequest, response, error }) {
 
     console.log("uploading...");
 
-    // const uploadData = {
-    //   filename: file.name,
-    //   md5s: await md5(file),
-    // };
-    makeRequest({
-      file,
-      type: "uploadFile",
-    });
+    makeRequest({ file, type: "uploadFile" });
   };
 
   return (

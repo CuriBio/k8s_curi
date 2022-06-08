@@ -19,8 +19,8 @@ Expected message format:
     body: {}
 }
 */
-// message handler
 
+// message handler
 onmessage = async ({ data }) => {
   console.log("WW onmessage:", accessToken, data);
   if (data.method || data.file) {
@@ -54,7 +54,6 @@ const handleGenericRequest = async ({ url, method, body }) => {
   try {
     return await axios[method](url, body, { headers: { Authorization: `Bearer ${accessToken}` } });
   } catch (e) {
-    console.log("!!!", e);
     return { error: e.response };
   }
 };
@@ -73,75 +72,69 @@ const handleAuthRequest = async ({ url, body }) => {
 };
 
 const handleFileUpload = async ({ file }) => {
-  // axios.interceptors.request.use(
-  //   function (config) {
-  //     // Do something before request is sent
-  //     console.log("@@@", config);
-  //     for (var pair of config.data.entries()) {
-  //       console.log("@@@", pair[0] + ", " + pair[1]);
-  //     }
-  //     return config;
-  //   },
-  //   function (error) {
-  //     // Do something with request error
-  //     return Promise.reject(error);
-  //   },
-  // );
+  let uploadPromise = new Promise((resolve, reject) => {
+    let fileReader = new FileReader();
 
-  let fileReader = new FileReader();
+    fileReader.onload = async function (e) {
+      let hash = null;
 
-  fileReader.onload = async function (e) {
-    let hash = null;
+      if (file.size != e.target.result.byteLength) {
+        reject("ERROR:</strong> Browser reported success but could not read the file until the end.");
+      } else {
+        hash = SparkMD5.ArrayBuffer.hash(e.target.result);
+      }
 
-    if (file.size != e.target.result.byteLength) {
-      console.log("ERROR:</strong> Browser reported success but could not read the file until the end.");
-      return;
-    } else {
-      console.log("Finished loading!");
-      hash = SparkMD5.ArrayBuffer.hash(e.target.result);
-      console.log(file.name);
-      console.log("Computed hash: " + hexToBase64(hash));
-    }
+      const uploadDetails = (
+        await handleGenericRequest({
+          method: "post",
+          url: getUrl("uploads"),
+          body: {
+            filename: file.name,
+            md5s: hexToBase64(hash),
+          },
+        })
+      ).data.params;
 
-    const uploadDetails = (
-      await handleGenericRequest({
-        method: "post",
-        url: getUrl("uploads"),
-        body: {
-          filename: file.name,
-          md5s: hexToBase64(hash),
-        },
-      })
-    ).data.params;
-    console.log("uploadDetails:", uploadDetails);
-
-    const formData = new FormData();
-    Object.entries(uploadDetails.fields).forEach(([k, v]) => {
-      formData.append(k, v);
-    });
-    console.log("file inside handlePresignedRequest:", file);
-    formData.append("file", file);
-    try {
-      // return await axios.post(uploadDetails.url, formData, { headers: { "Content-Type": undefined } } /**/);
-      return await fetch(uploadDetails.url, {
-        method: "POST",
-        body: formData,
+      const formData = new FormData();
+      Object.entries(uploadDetails.fields).forEach(([k, v]) => {
+        formData.append(k, v);
       });
-    } catch (e) {
-      return { error: e.response };
+      formData.append("file", file);
+
+      try {
+        await fetch(uploadDetails.url, {
+          method: "POST",
+          body: formData,
+        });
+        resolve();
+      } catch (e) {
+        reject({ error: e.response });
+      }
+    };
+
+    fileReader.onerror = function () {
+      reject("ERROR: FileReader onerror was triggered, maybe the browser aborted due to high memory usage.");
+    };
+
+    fileReader.readAsArrayBuffer(file);
+  });
+
+  const response = {};
+
+  try {
+    await uploadPromise;
+  } catch (e) {
+    if (typeof e === "string") {
+      response = { error: { message: e } };
+    } else {
+      response = e;
     }
-  };
+  }
 
-  fileReader.onerror = function () {
-    running = false;
-    console.log(
-      "ERROR: FileReader onerror was triggered, maybe the browser aborted due to high memory usage.",
-    );
-  };
-
-  fileReader.readAsArrayBuffer(file);
+  return response;
 };
 
+// TODO move to another file
 function hexToBase64(hexstring) {
   return btoa(
     hexstring
