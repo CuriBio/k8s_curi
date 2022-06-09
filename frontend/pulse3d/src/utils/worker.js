@@ -91,6 +91,10 @@ const handleFileUpload = async ({ file }) => {
         },
       });
 
+      if (uploadsResponse.error) {
+        reject(uploadsResponse.error);
+      }
+
       const uploadDetails = uploadsResponse.data.params;
       const uploadId = uploadsResponse.data.id;
 

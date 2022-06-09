@@ -1,10 +1,10 @@
 import styled from "styled-components";
-import { useState, useEffect } from "react";
+import { useEffect, useState, useContext, useRef } from "react";
 
-import FileDragDrop from "./FileDragDrop";
 import AnalysisParamForm from "./AnalysisParamForm";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
-import md5 from "@/utils/md5";
+import FileDragDrop from "./FileDragDrop";
+import { WorkerContext } from "@/components/WorkerWrapper";
 
 const Container = styled.div`
   width: 80%;
@@ -29,16 +29,19 @@ const dropZoneText = "Click here or drop .h5/.zip file to upload";
 
 const buttonStyle = {};
 
-export default function UploadForm({ makeRequest, response, error }) {
+export default function UploadForm() {
+  const { setReqParams, response, error } = useContext(WorkerContext); // global app state
+  const newReq = useRef(false); // this check prevents old response from being used on mount when switching between pages
+
   const [file, setFile] = useState({});
   const [analysisParams, setAnalysisParams] = useState({});
 
   useEffect(() => {
     // defaults to undefined when webworker state resets
     console.log("$$$ response:", response);
-    if (response) {
-      if (response.type === "uploadFile") {
-        makeRequest({
+    if (response && newReq.current) {
+      if (response.type === "uploadFile" /* TODO check response status? */) {
+        setReqParams({
           method: "post",
           endpoint: "jobs",
           type: "startAnalysis",
@@ -49,11 +52,13 @@ export default function UploadForm({ makeRequest, response, error }) {
             end_time: analysisParams.endTime,
           },
         });
-      } else if (response.type === "startAnalysis") {
+      } else if (response.type === "startAnalysis" /* TODO check response status? */) {
         console.log("Analysis in progress!");
         // TODO: tell user that the upload was successful
       }
     }
+
+    newReq.current = true; // this check prevents old response from being used on mount when switching between pages
   }, [response]);
 
   useEffect(() => {
@@ -96,7 +101,7 @@ export default function UploadForm({ makeRequest, response, error }) {
 
     console.log("uploading...");
 
-    makeRequest({ file, type: "uploadFile" });
+    setReqParams({ file, type: "uploadFile" });
   };
 
   return (
