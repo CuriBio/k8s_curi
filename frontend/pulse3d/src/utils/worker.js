@@ -32,12 +32,15 @@ const getUrl = (endpoint) => {
   const userUrl = "http://localhost:8001/";
   const pulseUrl = "http://localhost:8000/";
 
+  // const userUrl = "https://apiv2.curibio-test.com/users/";
+  // const pulseUrl = "https://pulse3d.curibio-test.com/";
+
   return userEndpoints.includes(endpoint)
     ? userUrl + endpoint
     : pulseUrl + endpoint;
 };
 
-const handleGenericRequest = async ({ method, endpoint, body }) => {
+const handleGenericRequest = async ({ method, endpoint, body, type }) => {
   const url = getUrl(endpoint);
   const reqInstance = axios.create({
     headers: {
@@ -49,17 +52,19 @@ const handleGenericRequest = async ({ method, endpoint, body }) => {
   try {
     return await reqInstance[method](url, { params: body });
   } catch (e) {
+    e.response.type = type;
     return { error: e.response };
   }
 };
 
-const handleAuthRequest = async ({ endpoint, body }) => {
+const handleAuthRequest = async ({ endpoint, body, type }) => {
   let res = null;
   const url = getUrl(endpoint);
 
   try {
     res = await axios.post(url, body);
   } catch (e) {
+    e.response.type = type;
     return { error: e.response };
   }
 
