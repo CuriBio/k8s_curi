@@ -1,6 +1,8 @@
 import axios from "axios";
 import SparkMD5 from "spark-md5";
 
+import hexToBase64 from "./generic";
+
 const tokens = {
   access: null,
   refresh: null,
@@ -15,12 +17,10 @@ const domain = "curibio-test"; // MODIFY URL until decided how it's handled
 
 const getUrl = (endpoint) => {
   let subdomain = endpoint.includes("users") ? "apiv2" : "pulse3d";
-
   return `https://${subdomain}.${domain}.com/${endpoint}`;
 };
 
 const getAccessHeader = () => {
-  console.log("getAccessHeader:", tokens);
   return { Authorization: `Bearer ${tokens.access}` };
 };
 
@@ -47,7 +47,7 @@ onmessage = async ({ data }) => {
       parsed_res.type = data.type;
     }
 
-    postMessage(parsed_res); // errors if response isn't parsed firstå
+    postMessage(parsed_res); // errors if response isn't parsed first
   }
 };
 
@@ -79,7 +79,6 @@ const handleAuthRequest = async ({ url, body }) => {
 
 const requestWithRefresh = async (requestFn) => {
   const safeRequest = async () => {
-    console.log("safeRequest", tokens);
     try {
       return await requestFn();
     } catch (e) {
@@ -116,9 +115,7 @@ const handleRefreshRequest = async () => {
     return { error: e.response };
   }
 
-  console.log("old tokens:", tokens);
   setTokens(res.data);
-  console.log("new tokens:", tokens);
 
   return res;
 };
@@ -199,16 +196,3 @@ const handleFileUpload = async ({ file }) => {
 
   return response;
 };
-
-// TODO move to another file
-function hexToBase64(hexstring) {
-  return btoa(
-    // TODO remove deprecated method btoa
-    hexstring
-      .match(/\w{2}/g)
-      .map(function (a) {
-        return String.fromCharCode(parseInt(a, 16));
-      })
-      .join(""),
-  );
-}
