@@ -51,8 +51,16 @@ const dispatchRequest = async (data) => {
 };
 
 const handleGenericRequest = async ({ url, method, body }) => {
+  console.log("handleGenericRequest", url, method, body, accessToken);
+
+  const headers = { Authorization: `Bearer ${accessToken}` };
+
   try {
-    return await axios[method](url, body, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (method === "get") {
+      return await axios.get(url, { headers, params: body });
+    } else {
+      return await axios.post(url, body, { headers });
+    }
   } catch (e) {
     return { error: e.response };
   }
