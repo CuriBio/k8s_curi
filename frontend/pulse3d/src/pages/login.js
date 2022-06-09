@@ -1,6 +1,7 @@
 import styled from "styled-components";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
+import { WorkerContext } from "@/components/WorkerWrapper";
 
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
@@ -8,7 +9,7 @@ const BackgroundContainer = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
+  height: 100%;
 `;
 
 const ModalContainer = styled.div`
@@ -61,13 +62,22 @@ const ErrorText = styled.span`
   padding-top: 2%;
 `;
 
-export default function Login({ makeRequest, error, response }) {
+export default function Login() {
   const [errorMsg, setErrorMsg] = useState(null);
   const [userData, setUserData] = useState({
     customer_id: "",
     username: "",
     password: "",
   });
+
+  const { setReqParams, response, error, setLoginStatus, router } = useContext(WorkerContext);
+
+  useEffect(() => {
+    if (response && response.status === 200 && response.type === "login") {
+      router.push("/uploads"); // routes to next page
+      setLoginStatus(true);
+    }
+  }, [response]);
 
   useEffect(() => {
     // defaults to undefined when webworker state resets
@@ -83,7 +93,7 @@ export default function Login({ makeRequest, error, response }) {
     if (Object.values(userData).includes("")) setErrorMsg("*All fields are required");
     // this state gets passed to web worker to attempt login request
     else {
-      makeRequest({
+      setReqParams({
         method: "post",
         endpoint: "users/login",
         body: userData,

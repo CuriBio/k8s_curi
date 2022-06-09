@@ -34,7 +34,7 @@ onmessage = async ({ data }) => {
       parsed_res.type = data.type;
     }
 
-    postMessage(parsed_res); // errors if response isn't parsed first
+    postMessage(parsed_res); // errors if response isn't parsed firstå
   }
 };
 
@@ -136,6 +136,7 @@ const handleFileUpload = async ({ file }) => {
 // TODO move to another file
 function hexToBase64(hexstring) {
   return btoa(
+    // TODO remove deprecated method btoa
     hexstring
       .match(/\w{2}/g)
       .map(function (a) {

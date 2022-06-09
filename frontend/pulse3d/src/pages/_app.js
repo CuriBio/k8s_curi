@@ -1,10 +1,9 @@
 import "../styles/globals.css";
 import "@fontsource/mulish";
 import Layout from "@/components/layouts/Layout";
-import { useWorker } from "@/components/hooks/useWorker";
+import { WorkerWrapper } from "@/components/WorkerWrapper";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
+
 /* 
   This theme is to be used with materialUI components
   More colors can be added if desired.
@@ -24,46 +23,13 @@ const MUItheme = createTheme({
 });
 
 function Pulse({ Component, pageProps }) {
-  const [state, setState] = useState({});
-  const [loginStatus, setLoginStatus] = useState(false); // Shallow user auth status to pass down. Still handled in web worker.
-  const { error, response } = useWorker(state);
-  const router = useRouter();
   const getLayout = Component.getLayout || ((page) => page);
-
-  // handles user logins and logouts
-  useEffect(() => {
-    if (response) {
-      if (response.status === 200 && response.type === "login") {
-        router.push("/uploads"); // routes to next page
-        setLoginStatus(true);
-      } else if (response.status === 204 && response.type === "logout") {
-        router.push("/login");
-        setLoginStatus(false);
-      }
-    }
-  }, [response]);
-
-  // Catch all for all unauthorized routes for now. Immediately redirects to login page.
-  useEffect(() => {
-    if (error && error.status === 401 && router.pathname !== "/login") {
-      router.push("/login"); // routes back to login page when receiving unauthorized and not already on login
-      setLoginStatus(false);
-    }
-  }, [error]);
 
   return (
     <ThemeProvider theme={MUItheme}>
-      <Layout loginStatus={loginStatus} makeRequest={(e) => setState(e)}>
-        {getLayout(
-          <Component
-            {...pageProps}
-            makeRequest={(e) => setState(e)}
-            response={response}
-            error={error}
-            loginStatus={loginStatus}
-          />
-        )}
-      </Layout>
+      <WorkerWrapper>
+        <Layout>{getLayout(<Component {...pageProps} />)}</Layout>
+      </WorkerWrapper>
     </ThemeProvider>
   );
 }
