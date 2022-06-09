@@ -1,6 +1,15 @@
 import axios from "axios";
 import SparkMD5 from "spark-md5";
 
+const tokens = {
+  access: null,
+  refresh: null,
+};
+
+const setTokens = (responseData) => {
+  tokens.access = responseData.access.token;
+  tokens.refresh = responseData.refresh.token;
+};
 // TODO add .env for prod v. test url
 const domain = "curibio-test"; // MODIFY URL until decided how it's handled
 
@@ -10,7 +19,11 @@ const getUrl = (endpoint) => {
   return `https://${subdomain}.${domain}.com/${endpoint}`;
 };
 
-let accessToken = null;
+const getAccessHeader = () => {
+  console.log("getAccessHeader:", tokens);
+  return { Authorization: `Bearer ${tokens.access}` };
+};
+
 /*
 Expected message format:
 {
@@ -22,7 +35,7 @@ Expected message format:
 
 // message handler
 onmessage = async ({ data }) => {
-  console.log("WW onmessage:", accessToken, data);
+  console.log("WW onmessage:", tokens, data);
   if (data.method || data.file) {
     const res = await dispatchRequest(data);
     console.log("res:", res);
@@ -50,22 +63,6 @@ const dispatchRequest = async (data) => {
   }
 };
 
-const handleGenericRequest = async ({ url, method, body }) => {
-  console.log("handleGenericRequest", url, method, body, accessToken);
-
-  const headers = { Authorization: `Bearer ${accessToken}` };
-
-  try {
-    if (method === "get") {
-      return await axios.get(url, { headers, params: body });
-    } else {
-      return await axios.post(url, body, { headers });
-    }
-  } catch (e) {
-    return { error: e.response };
-  }
-};
-
 const handleAuthRequest = async ({ url, body }) => {
   let res = null;
   try {
@@ -74,9 +71,67 @@ const handleAuthRequest = async ({ url, body }) => {
     return { error: e.response };
   }
 
-  accessToken = res.data.access.token;
+  setTokens(res.data);
+
   // return 200 status code
   return { status: 200 };
+};
+
+const requestWithRefresh = async (requestFn) => {
+  const safeRequest = async () => {
+    console.log("safeRequest", tokens);
+    try {
+      return await requestFn();
+    } catch (e) {
+      return e.response;
+    }
+  };
+
+  let response = await safeRequest();
+
+  if (response.status === 401) {
+    // attempt to get new tokens
+    const refreshResponse = await handleRefreshRequest();
+    if (refreshResponse.error) {
+      // if the refresh failed, no need to try request again, just return original failed response
+      return { error: response };
+    }
+    // try again with new tokens
+    response = await safeRequest();
+  }
+
+  return response;
+};
+
+const handleRefreshRequest = async () => {
+  let res = null;
+  try {
+    res = await axios.post(
+      getUrl("users/refresh"),
+      // TODO look into ways to not pass an empty body
+      {},
+      { headers: { Authorization: `Bearer ${tokens.refresh}` } },
+    );
+  } catch (e) {
+    return { error: e.response };
+  }
+
+  console.log("old tokens:", tokens);
+  setTokens(res.data);
+  console.log("new tokens:", tokens);
+
+  return res;
+};
+
+const handleGenericRequest = async ({ url, method, body }) => {
+  let requestFn = null;
+  if (method === "get") {
+    requestFn = async () => await axios.get(url, { headers: { ...getAccessHeader() }, params: body });
+  } else {
+    requestFn = async () => await axios.post(url, body, { headers: { ...getAccessHeader() } });
+  }
+
+  return await requestWithRefresh(requestFn);
 };
 
 const handleFileUpload = async ({ file }) => {
