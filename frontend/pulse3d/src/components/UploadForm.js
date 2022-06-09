@@ -42,8 +42,15 @@ export default function UploadForm({ makeRequest, response, error }) {
           method: "post",
           endpoint: "jobs",
           type: "startAnalysis",
+          body: {
+            upload_id: response.uploadId,
+            twitch_widths: analysisParams.twitchWidths,
+            start_time: analysisParams.startTime,
+            end_time: analysisParams.endTime,
+          },
         });
-      } else if (response.presignedUrl) {
+      } else if (response.type === "startAnalysis") {
+        console.log("Analysis in progress!");
         // TODO: tell user that the upload was successful
       }
     }
@@ -68,6 +75,7 @@ export default function UploadForm({ makeRequest, response, error }) {
 
     try {
       updatedParams.twitchWidths = JSON.parse(updatedParams.twitchWidths);
+      // TODO also assert that it's a list and it contains numbers
     } catch {
       // TODO display error message
       console.log(`Invalid twitchWidths array: ${updatedParams.twitchWidths}`);

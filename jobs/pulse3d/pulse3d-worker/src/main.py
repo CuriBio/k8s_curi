@@ -71,7 +71,9 @@ async def process(con, item):
 
                 # remove params that were not given as these already have default values
                 analysis_params = {
-                    key: val for key, val in json.loads(item["meta"])["analysis_params"] if val is not None
+                    key: val
+                    for key, val in json.loads(item["meta"])["analysis_params"].items()
+                    if val is not None
                 }
 
                 # Tanner (6/8//22): only supports analyzing one recording at a time right now. Functionality can be added whenever analyzing multiple files becomes necessary
@@ -111,7 +113,7 @@ async def process(con, item):
     else:
         logger.info(f"Job complete for upload {upload_id}")
         result = "finished"
-    
+
     return result, job_metadata
 
 

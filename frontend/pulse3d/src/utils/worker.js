@@ -82,16 +82,17 @@ const handleFileUpload = async ({ file }) => {
 
       let hash = SparkMD5.ArrayBuffer.hash(e.target.result);
 
-      const uploadDetails = (
-        await handleGenericRequest({
-          method: "post",
-          url: getUrl("uploads"),
-          body: {
-            filename: file.name,
-            md5s: hexToBase64(hash),
-          },
-        })
-      ).data.params;
+      const uploadsResponse = await handleGenericRequest({
+        method: "post",
+        url: getUrl("uploads"),
+        body: {
+          filename: file.name,
+          md5s: hexToBase64(hash),
+        },
+      });
+
+      const uploadDetails = uploadsResponse.data.params;
+      const uploadId = uploadsResponse.data.id;
 
       const formData = new FormData();
       Object.entries(uploadDetails.fields).forEach(([k, v]) => {
@@ -104,7 +105,7 @@ const handleFileUpload = async ({ file }) => {
           method: "POST",
           body: formData,
         });
-        resolve();
+        resolve({ uploadId });
       } catch (e) {
         reject({ error: e.response });
       }
@@ -120,7 +121,7 @@ const handleFileUpload = async ({ file }) => {
   const response = {};
 
   try {
-    await uploadPromise;
+    response = await uploadPromise;
   } catch (e) {
     if (typeof e === "string") {
       response = { error: { message: e } };
