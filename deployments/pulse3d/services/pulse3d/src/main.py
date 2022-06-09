@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 import uuid
 
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Query
@@ -33,6 +33,9 @@ class UploadResponse(BaseModel):
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
+    twitch_widths: Optional[List[int]]
+    start_time: Optional[Union[int, float]]
+    end_time: Optional[Union[int, float]]
 
 
 app.add_middleware(
@@ -185,8 +188,13 @@ async def create_new_job(
         user_id = str(uuid.UUID(token["userid"]))
         logger.info(f"Creating pulse3d job for upload {details.upload_id} with user ID: {user_id}")
 
-        # TODO what meta do we want?
-        meta = {}
+        meta = {
+            "analysis_params": {
+                param: dict(details)[param] for param in ("twitch_widths", "start_time", "end_time")
+            }
+        }
+
+        logger.info(f"Using params: {meta['analysis_params']}")
 
         # TODO check upload_id is valid
         async with request.state.pgpool.acquire() as con:
@@ -194,6 +202,7 @@ async def create_new_job(
             job_id = await create_job(
                 con=con, upload_id=details.upload_id, queue="pulse3d", priority=priority, meta=meta
             )
+            # TODO create response model
             return {
                 "id": job_id,
                 "user_id": user_id,

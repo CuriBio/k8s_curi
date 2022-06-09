@@ -76,13 +76,11 @@ const handleFileUpload = async ({ file }) => {
     let fileReader = new FileReader();
 
     fileReader.onload = async function (e) {
-      let hash = null;
-
       if (file.size != e.target.result.byteLength) {
         reject("ERROR:</strong> Browser reported success but could not read the file until the end.");
-      } else {
-        hash = SparkMD5.ArrayBuffer.hash(e.target.result);
       }
+
+      let hash = SparkMD5.ArrayBuffer.hash(e.target.result);
 
       const uploadDetails = (
         await handleGenericRequest({
