@@ -145,35 +145,28 @@ export default function Uploads() {
   };
 
   const formatUploads = () => {
-    const formattedRows = uploads.map(
-      ({ id, meta, created_at, object_key }) => {
-        const { filename } = JSON.parse(meta);
-        const job = jobs.find((job) => job.upload_id === id);
+    const formattedRows = uploads.map(({ id, meta, created_at, object_key }) => {
+      const { filename } = JSON.parse(meta);
+      const job = jobs.find((job) => job.upload_id === id);
 
-        const analyzedFile = object_key
-          ? object_key.split("/")[object_key.split("/").length - 1]
-          : "";
+      const analyzedFile = object_key ? object_key.split("/")[object_key.split("/").length - 1] : "";
 
-        const formattedDate = new Date(created_at).toLocaleDateString(
-          undefined,
-          {
-            hour: "numeric",
-            minute: "numeric",
-          }
-        );
+      const formattedDate = new Date(created_at).toLocaleDateString(undefined, {
+        hour: "numeric",
+        minute: "numeric",
+      });
 
-        setIsLoading(false);
+      setIsLoading(false);
 
-        return {
-          uploadId: id,
-          uploadedFile: filename,
-          analyzedFile,
-          datetime: formattedDate,
-          download: job && job.status === "finished" ? "Download analysis" : "",
-          status: job ? job.status : "",
-        };
-      }
-    );
+      return {
+        uploadId: id,
+        uploadedFile: filename,
+        analyzedFile,
+        datetime: formattedDate,
+        download: job && job.status === "finished" ? "Download analysis" : "",
+        status: job ? job.status : "",
+      };
+    });
     setRows([...formattedRows]);
   };
   return (
@@ -218,21 +211,13 @@ export default function Uploads() {
                   const uploadIdx = idx + page * rowsPerPage;
 
                   return (
-                    <TableRow
-                      hover
-                      role="checkbox"
-                      tabIndex={-1}
-                      key={idx}
-                      sx={{ maxHeight: "50px" }}
-                    >
+                    <TableRow hover role="checkbox" tabIndex={-1} key={idx} sx={{ maxHeight: "50px" }}>
                       {columns.map((column, idx) => {
                         let value = null;
                         if (rows[uploadIdx]) value = rows[uploadIdx][column.id];
                         // used to download file. needs access to upload ID
 
-                        const id = rows[uploadIdx]
-                          ? rows[uploadIdx].uploadId
-                          : null;
+                        const id = rows[uploadIdx] ? rows[uploadIdx].uploadId : null;
                         return (
                           <TableCell
                             align="center"
@@ -245,14 +230,9 @@ export default function Uploads() {
                               whiteSpace: "nowrap",
                               fontSize: "12px",
                               maxHeight: "50px",
-                              backgroundColor:
-                                idx % 2 === 0 ? "var(--light-gray)" : "white",
+                              backgroundColor: idx % 2 === 0 ? "var(--light-gray)" : "white",
                             }}
-                            onClick={
-                              value === "Download analysis"
-                                ? downloadAnalysis
-                                : null
-                            }
+                            onClick={value === "Download analysis" ? downloadAnalysis : null}
                           >
                             {value === "Download analysis" ? (
                               <DownloadLink id={id}>{value}</DownloadLink>

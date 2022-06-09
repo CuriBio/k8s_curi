@@ -36,19 +36,20 @@ async def process(con, item):
             upload_id = item["upload_id"]
             logger.info(f"Retrieving user ID and metadata for upload with ID: {upload_id}")
             upload = await con.fetchrow("SELECT user_id, meta FROM uploads WHERE id=$1", upload_id)
-            
+
             try:
-                meta_json = upload["meta"]
+                upload_meta_json = upload["meta"]
             except:
                 msg = f"Upload with ID: {upload_id} not found"
                 logger.error(msg)
                 raise Exception(msg)
             else:
-                logger.info(f"Upload found. User ID: {upload['user_id']}, Metadata: {meta_json}")
+                logger.info(f"Upload found. User ID: {upload['user_id']}, Metadata: {upload_meta_json}")
 
-            meta = json.loads(meta_json)
-            prefix = meta["prefix"]
-            filename = meta["filename"]
+            upload_meta = json.loads(upload_meta_json)
+
+            prefix = upload_meta["prefix"]
+            filename = upload_meta["filename"]
             key = f"{prefix}/{filename}"
         except Exception as e:
             logger.exception("Fetching upload details failed")
@@ -66,11 +67,17 @@ async def process(con, item):
                 logger.info(f"Starting pulse3d analysis")
 
                 recordings = list(PlateRecording.from_directory(tmpdir))
-                logger.info(f"{len(recordings)} recording found")
+                logger.info(f"{len(recordings)} recording(s) found")
 
-                outfile = f"{os.path.splitext(filename)[0]}.xlsx"
-                for r in recordings:
-                    write_xlsx(r, name=outfile)
+                # remove params that were not given as these already have default values
+                analysis_params = {
+                    key: val
+                    for key, val in json.loads(item["meta"])["analysis_params"].items()
+                    if val is not None
+                }
+
+                # Tanner (6/8//22): only supports analyzing one recording at a time right now. Functionality can be added whenever analyzing multiple files becomes necessary
+                outfile = write_xlsx(recordings[0], **analysis_params)
             except Exception as e:
                 logger.exception(f"Analysis failed")
                 raise
@@ -102,10 +109,12 @@ async def process(con, item):
 
     except Exception as e:
         job_metadata["error"] = str(e)
-        return "error", job_metadata
+        result = "error"
+    else:
+        logger.info(f"Job complete for upload {upload_id}")
+        result = "finished"
 
-    logger.info(f"Job complete for upload {upload_id}")
-    return "finished", job_metadata
+    return result, job_metadata
 
 
 async def main():

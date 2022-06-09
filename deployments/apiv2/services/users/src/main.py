@@ -102,6 +102,7 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
             "FROM customers WHERE deleted_at IS NULL AND email = $1"
         )
         select_query_params = (details.email,)
+        customer_id = None
     else:
         account_type = "user"
         select_query = (
@@ -109,6 +110,7 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
             "FROM users WHERE deleted_at IS NULL AND name = $1 AND customer_id = $2"
         )
         select_query_params = (details.username, str(details.customer_id))
+        customer_id = details.customer_id
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -135,7 +137,7 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
                 raise LoginError(failed_msg)
             else:
                 scope = ["users:admin"] if is_customer_login_attempt else json.loads(row.get("scope", "[]"))
-                return await _create_new_tokens(con, row["id"], scope, account_type)
+                return await _create_new_tokens(con, row["id"], customer_id, scope, account_type)
 
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
@@ -164,15 +166,15 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
     if account_type == "customer":
         select_query = "SELECT refresh_token FROM customers WHERE id = $1"
     else:
-        select_query = "SELECT refresh_token FROM users WHERE id = $1"
+        select_query = "SELECT refresh_token, customer_id FROM users WHERE id = $1"
 
     try:
         async with request.state.pgpool.acquire() as con:
-            current_token_str = await con.fetchval(select_query, userid)
+            row = await con.fetchrow(select_query, userid)
 
             try:
                 # decode and validate current refresh token
-                current_token = decode_token(current_token_str)
+                current_token = decode_token(row["refresh_token"])
                 # make sure the given token and the current token in the DB are the same
                 assert token == current_token
             except (InvalidTokenError, AssertionError):
@@ -182,7 +184,7 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
-            return await _create_new_tokens(con, userid, token["scope"], account_type)
+            return await _create_new_tokens(con, userid, row.get("customer_id"), token["scope"], account_type)
 
     except HTTPException:
         raise
@@ -191,10 +193,14 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-async def _create_new_tokens(db_con, userid, scope, account_type):
+async def _create_new_tokens(db_con, userid, customer_id, scope, account_type):
     # create new tokens
-    access = create_token(userid=userid, scope=scope, account_type=account_type, refresh=False)
-    refresh = create_token(userid=userid, scope=scope, account_type=account_type, refresh=True)
+    access = create_token(
+        userid=userid, customer_id=customer_id, scope=scope, account_type=account_type, refresh=False
+    )
+    refresh = create_token(
+        userid=userid, customer_id=customer_id, scope=scope, account_type=account_type, refresh=True
+    )
 
     # insert refresh token into DB
     if account_type == "customer":

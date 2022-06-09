@@ -1,4 +1,5 @@
-from typing import List
+from typing import List, Optional
+
 from pydantic import BaseModel
 
 
@@ -14,6 +15,7 @@ class JWTMeta(BaseModel):
 class JWTDetails(BaseModel):
     """How we'll identify users and customers"""
 
+    customer_id: Optional[str]
     userid: str
     account_type: str
 

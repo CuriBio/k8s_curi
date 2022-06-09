@@ -7,14 +7,10 @@ export function useWorker(requestParams) {
   useEffect(() => {
     let setStateSafe = (nextState) => setState(nextState);
 
-    worker.current = new Worker(
-      new URL("../../utils/worker.js", import.meta.url)
-    );
+    worker.current = new Worker(new URL("../../utils/worker.js", import.meta.url));
 
     worker.current.onmessage = ({ data }) => {
-      data && data.error
-        ? setStateSafe({ error: data.error })
-        : setStateSafe({ response: data });
+      data && data.error ? setStateSafe({ error: data.error }) : setStateSafe({ response: data });
     };
 
     worker.current.onerror = () => {

@@ -1,15 +1,8 @@
 import DashboardLayout from "@/components/layouts/DashboardLayout";
-import styled from "styled-components";
+import UploadFormComponent from "@/components/UploadForm";
 
-const Container = styled.div`
-  display: flex;
-  position: relative;
-  justify-content: start;
-  width: 100%;
-`;
-
-export default function UploadForm({ makeRequest, response }) {
-  return <Container>Upload Form</Container>;
+export default function UploadForm() {
+  return <UploadFormComponent />;
 }
 
 UploadForm.getLayout = (page) => {

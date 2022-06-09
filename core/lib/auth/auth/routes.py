@@ -61,16 +61,25 @@ def decode_token(token: str):
     return jwt.decode(token, key=str(JWT_SECRET_KEY), algorithms=JWT_ALGORITHM, audience=JWT_AUDIENCE)
 
 
-def create_token(*, userid: UUID, scope: List[str], account_type: str, refresh: bool = False):
+def create_token(
+    *, userid: UUID, customer_id: Optional[UUID], scope: List[str], account_type: str, refresh: bool = False
+):
     # make sure tokens have at least 1 scope
     if not scope:
         raise ValueError("Tokens must have at least 1 scope")
     # make sure account type is valid
     if account_type not in ("user", "customer"):
-        raise ValueError(f"Valid account types are 'user' and 'customer, not {account_type}")
-    # make sure a user is not given admin privileges
-    if account_type == "user" and "users:admin" in scope:
-        raise ValueError("User tokens cannot have scope 'users:admin'")
+        raise ValueError(f"Valid account types are 'user' and 'customer', not '{account_type}'")
+    if account_type == "user":
+        # make sure a user is not given admin privileges
+        if "users:admin" in scope:
+            raise ValueError("User tokens cannot have scope 'users:admin'")
+        if not customer_id:
+            raise ValueError("User tokens must have a customer ID")
+        customer_id = customer_id.hex
+    if account_type == "customer":
+        if customer_id:
+            raise ValueError("Customer tokens cannot have a customer ID")
 
     exp_dur = REFRESH_TOKEN_EXPIRE_MINUTES if refresh else ACCESS_TOKEN_EXPIRE_MINUTES
 
@@ -79,7 +88,7 @@ def create_token(*, userid: UUID, scope: List[str], account_type: str, refresh: 
     exp = timegm((now + timedelta(minutes=exp_dur)).utctimetuple())
 
     jwt_meta = JWTMeta(aud=JWT_AUDIENCE, scope=scope, iat=iat, exp=exp, refresh=refresh)
-    jwt_details = JWTDetails(userid=userid.hex, account_type=account_type)
+    jwt_details = JWTDetails(customer_id=customer_id, userid=userid.hex, account_type=account_type)
     jwt_payload = JWTPayload(**jwt_meta.dict(), **jwt_details.dict())
 
     jwt_token = jwt.encode(payload=jwt_payload.dict(), key=str(JWT_SECRET_KEY), algorithm=JWT_ALGORITHM)

@@ -11,7 +11,7 @@ const imageLoader = ({ src }) => {
 
 const Header = styled.div`
   background-color: var(--dark-blue);
-  height: 5vh;
+  height: 45px;
   width: 100vw;
   display: flex;
   align-items: center;
@@ -37,7 +37,7 @@ export default function Layout({ children }) {
   const logoutUser = () => {
     setReqParams({
       type: "logout",
-      endpoint: "logout",
+      endpoint: "users/logout",
       method: "post",
     });
   };
@@ -81,13 +81,7 @@ export default function Layout({ children }) {
           loader={imageLoader}
           unoptimized
         />
-        {!loginStatus || (
-          <DropDownMenu
-            items={["Logout"]}
-            label={"Menu"}
-            handleSelection={logoutUser}
-          />
-        )}
+        {!loginStatus || <DropDownMenu items={["Logout"]} label={"Menu"} handleSelection={logoutUser} />}
       </Header>
       <Main>{children}</Main>
     </Container>

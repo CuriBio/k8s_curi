@@ -17,15 +17,19 @@ from src.models.tokens import AuthTokens
 test_client = TestClient(main.app)
 
 
-def get_token(*, userid=None, scope=None, account_type=None, refresh=False):
+def get_token(*, userid=None, customer_id=None, scope=None, account_type=None, refresh=False):
     if not userid:
         userid = uuid.uuid4()
     if not account_type:
         account_type = choice(["user", "customer"])
+    if not customer_id and account_type == "user":
+        customer_id = uuid.uuid4()
     if not scope:
         scope = ["users:free"] if account_type == "user" else ["users:admin"]
 
-    return create_token(userid=userid, scope=scope, account_type=account_type, refresh=refresh).token
+    return create_token(
+        userid=userid, customer_id=customer_id, scope=scope, account_type=account_type, refresh=refresh
+    ).token
 
 
 @pytest.fixture(scope="function", name="cb_customer_id")
@@ -92,16 +96,16 @@ def test_login__user__success(cb_customer_id, mocked_asyncpg_con, mocker):
     }
     spied_create_token = mocker.spy(main, "create_token")
 
+    expected_access_token = create_token(
+        userid=test_user_id, customer_id=cb_customer_id, scope=test_scope, account_type="user", refresh=False
+    )
     expected_refresh_token = create_token(
-        userid=test_user_id, scope=test_scope, account_type="user", refresh=True
+        userid=test_user_id, customer_id=cb_customer_id, scope=test_scope, account_type="user", refresh=True
     )
 
     response = test_client.post("/login", json=login_details)
     assert response.status_code == 200
-    assert response.json() == AuthTokens(
-        access=create_token(userid=test_user_id, scope=test_scope, account_type="user", refresh=False),
-        refresh=expected_refresh_token,
-    )
+    assert response.json() == AuthTokens(access=expected_access_token, refresh=expected_refresh_token)
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
         "SELECT password, id, data->'scope' AS scope FROM users WHERE deleted_at IS NULL AND name = $1 AND customer_id = $2",
@@ -125,18 +129,20 @@ def test_login__customer__success(mocked_asyncpg_con, mocker):
     mocked_asyncpg_con.fetchrow.return_value = {"password": pw_hash, "id": test_customer_id}
     spied_create_token = mocker.spy(main, "create_token")
 
+    expected_access_token = create_token(
+        userid=test_customer_id,
+        customer_id=None,
+        scope=customer_scope,
+        account_type="customer",
+        refresh=False,
+    )
     expected_refresh_token = create_token(
-        userid=test_customer_id, scope=customer_scope, account_type="customer", refresh=True
+        userid=test_customer_id, customer_id=None, scope=customer_scope, account_type="customer", refresh=True
     )
 
     response = test_client.post("/login", json=login_details)
     assert response.status_code == 200
-    assert response.json() == AuthTokens(
-        access=create_token(
-            userid=test_customer_id, scope=customer_scope, account_type="customer", refresh=False
-        ),
-        refresh=expected_refresh_token,
-    )
+    assert response.json() == AuthTokens(access=expected_access_token, refresh=expected_refresh_token)
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
         "SELECT password, id, data->'scope' AS scope FROM customers WHERE deleted_at IS NULL AND email = $1",
@@ -331,20 +337,33 @@ def test_register__no_token_given():
 def test_refresh__success(account_type, mocked_asyncpg_con):
     userid = uuid.uuid4()
     test_scope = ["users:free"]
+    customer_id = None if account_type == "customer" else uuid.uuid4()
 
-    old_refresh_token = get_token(userid=userid, scope=test_scope, account_type=account_type, refresh=True)
+    select_clause = "refresh_token"
+    if account_type == "user":
+        select_clause += ", customer_id"
 
-    new_access_token = create_token(userid=userid, scope=test_scope, account_type=account_type, refresh=False)
-    new_refresh_token = create_token(userid=userid, scope=test_scope, account_type=account_type, refresh=True)
+    old_refresh_token = get_token(
+        userid=userid, customer_id=customer_id, scope=test_scope, account_type=account_type, refresh=True
+    )
 
-    mocked_asyncpg_con.fetchval.return_value = old_refresh_token
+    new_access_token = create_token(
+        userid=userid, customer_id=customer_id, scope=test_scope, account_type=account_type, refresh=False
+    )
+    new_refresh_token = create_token(
+        userid=userid, customer_id=customer_id, scope=test_scope, account_type=account_type, refresh=True
+    )
+
+    mocked_asyncpg_con.fetchrow.return_value = {"refresh_token": old_refresh_token}
+    if account_type == "user":
+        mocked_asyncpg_con.fetchrow.return_value["customer_id"] = customer_id
 
     response = test_client.post("/refresh", headers={"Authorization": f"Bearer {old_refresh_token}"})
     assert response.status_code == 201
     assert response.json() == AuthTokens(access=new_access_token, refresh=new_refresh_token)
 
-    mocked_asyncpg_con.fetchval.assert_called_once_with(
-        f"SELECT refresh_token FROM {account_type}s WHERE id = $1", userid
+    mocked_asyncpg_con.fetchrow.assert_called_once_with(
+        f"SELECT {select_clause} FROM {account_type}s WHERE id = $1", userid
     )
     mocked_asyncpg_con.execute.assert_called_once_with(
         f"UPDATE {account_type}s SET refresh_token = $1 WHERE id = $2", old_refresh_token, userid
