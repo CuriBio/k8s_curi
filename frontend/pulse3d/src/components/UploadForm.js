@@ -34,13 +34,17 @@ export default function UploadForm() {
   const newReq = useRef(false); // this check prevents old response from being used on mount when switching between pages
 
   const [file, setFile] = useState({});
-  const [analysisParams, setAnalysisParams] = useState({});
+  const [analysisParams, setAnalysisParams] = useState({
+    twitchWidths: null,
+    startTime: null,
+    endTime: null,
+  });
 
   useEffect(() => {
     // defaults to undefined when webworker state resets
     console.log("$$$ response:", response);
     if (response && newReq.current) {
-      if (response.type === "uploadFile" /* TODO check response status? */) {
+      if (response.type === "uploadFile") {
         setReqParams({
           method: "post",
           endpoint: "jobs",
@@ -52,7 +56,7 @@ export default function UploadForm() {
             end_time: analysisParams.endTime,
           },
         });
-      } else if (response.type === "startAnalysis" /* TODO check response status? */) {
+      } else if (response.type === "startAnalysis") {
         console.log("Analysis in progress!");
         // TODO: tell user that the upload was successful
       }
@@ -62,10 +66,9 @@ export default function UploadForm() {
   }, [response]);
 
   useEffect(() => {
-    console.log("$$$ error:", error);
     // defaults to undefined when webworker state resets
-    if (error) {
-      console.log("$$$ error:", error.data);
+    if (error && newReq.current) {
+      console.log("$$$ error:", error);
       // TODO: handle the error
     }
   }, [error]);
