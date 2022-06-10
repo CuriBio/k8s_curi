@@ -18,7 +18,7 @@ export default function ControlPanel() {
   const [selected, setSelected] = useState("Home");
   const buttons = [
     { label: "Home", disabled: false, page: "/uploads" },
-    { label: "Start New Upload", disabled: false, page: "/uploadForm" },
+    { label: "Start New Analysis", disabled: false, page: "/uploadForm" },
     { label: "Account Settings", disabled: true, page: "/settings" },
   ];
 

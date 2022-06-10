@@ -28,7 +28,7 @@ const getAccessHeader = () => {
 Expected message format:
 {
     method: "post", "get", 
-    endpoint: "/users/login",
+    endpoint: "users/login",
     body: {}
 }
 */
