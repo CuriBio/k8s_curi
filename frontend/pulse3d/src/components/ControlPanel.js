@@ -6,6 +6,7 @@ import { useState } from "react";
 const Container = styled.div`
   height: inherit;
   background-color: var(--dark-blue);
+  min-width: 200px;
   width: 20%;
   position: relative;
   display: flex;
@@ -32,7 +33,7 @@ export default function ControlPanel() {
         return (
           <ButtonWidget
             key={label}
-            height={"5%"}
+            height={"45px"}
             width={"100%"}
             label={label}
             clickFn={handleSelected}

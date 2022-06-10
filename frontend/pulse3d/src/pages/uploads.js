@@ -2,7 +2,7 @@ import DashboardLayout from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
 import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 import { WorkerContext } from "@/components/WorkerWrapper";
-import { useEffect, useState, useContext, useRef } from "react";
+import { useEffect, useState, useContext, useRef, useCallback } from "react";
 import {
   Table,
   TableBody,
@@ -73,7 +73,6 @@ export default function Uploads() {
     },
   ];
 
-  // TODO set on timer to constantly update status
   useEffect(() => {
     if (uploads.length === 0) setIsLoading(true);
     setReqParams({
@@ -81,6 +80,18 @@ export default function Uploads() {
       type: "uploads",
       endpoint: "uploads",
     });
+    
+    // updates table every five seconds
+    const interval = setInterval(() => {
+      setReqParams({
+        method: "get",
+        type: "uploads",
+        endpoint: "uploads",
+      });
+    }, 5000);
+
+    // clears intrval when user clicks off uploads page so it doesn't go indefinitely
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -90,7 +101,8 @@ export default function Uploads() {
       else if (response.type === "uploads") setUploads(response.data);
     }
 
-    newReq.current = true; // this check prevents old response from being used on mount when switching between pages
+    // this check prevents old response from being used on mount when switching between pages
+    newReq.current = true;
   }, [response]);
 
   useEffect(() => {
@@ -101,10 +113,6 @@ export default function Uploads() {
         endpoint: "jobs",
       });
   }, [uploads]);
-
-  useEffect(() => {
-    formatUploads();
-  }, [jobs]);
 
   const handleChangePage = (e, newPage) => {
     setPage(newPage);
@@ -144,31 +152,43 @@ export default function Uploads() {
     link.remove();
   };
 
-  const formatUploads = () => {
-    const formattedRows = uploads.map(({ id, meta, created_at, object_key }) => {
-      const { filename } = JSON.parse(meta);
-      const job = jobs.find((job) => job.upload_id === id);
+  const formatUploads = useCallback(() => {
+    const formattedRows = uploads.map(
+      ({ id, meta, created_at, object_key }) => {
+        const { filename } = JSON.parse(meta);
+        const job = jobs.find((job) => job.upload_id === id);
 
-      const analyzedFile = object_key ? object_key.split("/")[object_key.split("/").length - 1] : "";
+        const analyzedFile = object_key
+          ? object_key.split("/")[object_key.split("/").length - 1]
+          : "";
 
-      const formattedDate = new Date(created_at).toLocaleDateString(undefined, {
-        hour: "numeric",
-        minute: "numeric",
-      });
+        const formattedDate = new Date(created_at).toLocaleDateString(
+          undefined,
+          {
+            hour: "numeric",
+            minute: "numeric",
+          }
+        );
 
-      setIsLoading(false);
+        setIsLoading(false);
 
-      return {
-        uploadId: id,
-        uploadedFile: filename,
-        analyzedFile,
-        datetime: formattedDate,
-        download: job && job.status === "finished" ? "Download analysis" : "",
-        status: job ? job.status : "",
-      };
-    });
+        return {
+          uploadId: id,
+          uploadedFile: filename,
+          analyzedFile,
+          datetime: formattedDate,
+          download: job && job.status === "finished" ? "Download analysis" : "",
+          status: job ? job.status : "",
+        };
+      }
+    );
     setRows([...formattedRows]);
-  };
+  }, [jobs]);
+
+  useEffect(() => {
+    formatUploads();
+  }, [formatUploads]);
+
   return (
     <Container>
       {isLoading ? (
@@ -211,13 +231,21 @@ export default function Uploads() {
                   const uploadIdx = idx + page * rowsPerPage;
 
                   return (
-                    <TableRow hover role="checkbox" tabIndex={-1} key={idx} sx={{ maxHeight: "50px" }}>
+                    <TableRow
+                      hover
+                      role="checkbox"
+                      tabIndex={-1}
+                      key={idx}
+                      sx={{ maxHeight: "50px" }}
+                    >
                       {columns.map((column, idx) => {
                         let value = null;
                         if (rows[uploadIdx]) value = rows[uploadIdx][column.id];
                         // used to download file. needs access to upload ID
 
-                        const id = rows[uploadIdx] ? rows[uploadIdx].uploadId : null;
+                        const id = rows[uploadIdx]
+                          ? rows[uploadIdx].uploadId
+                          : null;
                         return (
                           <TableCell
                             align="center"
@@ -230,9 +258,14 @@ export default function Uploads() {
                               whiteSpace: "nowrap",
                               fontSize: "12px",
                               maxHeight: "50px",
-                              backgroundColor: idx % 2 === 0 ? "var(--light-gray)" : "white",
+                              backgroundColor:
+                                idx % 2 === 0 ? "var(--light-gray)" : "white",
                             }}
-                            onClick={value === "Download analysis" ? downloadAnalysis : null}
+                            onClick={
+                              value === "Download analysis"
+                                ? downloadAnalysis
+                                : null
+                            }
                           >
                             {value === "Download analysis" ? (
                               <DownloadLink id={id}>{value}</DownloadLink>
