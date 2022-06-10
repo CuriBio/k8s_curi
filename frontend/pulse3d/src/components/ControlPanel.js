@@ -6,6 +6,7 @@ import { useState } from "react";
 const Container = styled.div`
   height: inherit;
   background-color: var(--dark-blue);
+  min-width: 200px;
   width: 20%;
   position: relative;
   display: flex;
@@ -17,7 +18,7 @@ export default function ControlPanel() {
   const [selected, setSelected] = useState("Home");
   const buttons = [
     { label: "Home", disabled: false, page: "/uploads" },
-    { label: "Start New Upload", disabled: false, page: "/uploadForm" },
+    { label: "Start New Analysis", disabled: false, page: "/uploadForm" },
     { label: "Account Settings", disabled: true, page: "/settings" },
   ];
 
@@ -32,7 +33,7 @@ export default function ControlPanel() {
         return (
           <ButtonWidget
             key={label}
-            height={"5%"}
+            height={"45px"}
             width={"100%"}
             label={label}
             clickFn={handleSelected}

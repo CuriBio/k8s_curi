@@ -32,14 +32,6 @@ const InputContainer = styled.div`
   width: inherit;
 `;
 
-const Form = styled.form`
-  height: inherit;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  width: inherit;
-`;
-
 const formStyle = [
   `
   position: relative;
@@ -70,7 +62,8 @@ export default function Login() {
     password: "",
   });
 
-  const { setReqParams, response, error, setLoginStatus, router } = useContext(WorkerContext);
+  const { setReqParams, response, error, setLoginStatus, router } =
+    useContext(WorkerContext);
 
   useEffect(() => {
     if (response && response.status === 200 && response.type === "login") {
@@ -90,7 +83,8 @@ export default function Login() {
   const submitForm = async () => {
     setErrorMsg(""); // reset to show user something happened
 
-    if (Object.values(userData).includes("")) setErrorMsg("*All fields are required");
+    if (Object.values(userData).includes(""))
+      setErrorMsg("*All fields are required");
     // this state gets passed to web worker to attempt login request
     else {
       setReqParams({
@@ -121,15 +115,19 @@ export default function Login() {
           <Field
             id="username"
             placeholder="User"
-            onChange={(e) => setUserData({ ...userData, username: e.target.value })}
+            onChange={(e) =>
+              setUserData({ ...userData, username: e.target.value })
+            }
           />
           <Label htmlFor="password">Password</Label>
           <Field
             id="password"
             type="password"
+            autocomplete="current-password" // chrome warns without this attribute
             placeholder="Password"
-            autoComplete="password" // chrome warns without this attribute
-            onChange={(e) => setUserData({ ...userData, password: e.target.value })}
+            onChange={(e) =>
+              setUserData({ ...userData, password: e.target.value })
+            }
           />
           <ErrorText id="loginError" role="errorMsg">
             {errorMsg}

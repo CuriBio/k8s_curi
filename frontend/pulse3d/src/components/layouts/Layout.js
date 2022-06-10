@@ -12,7 +12,7 @@ const imageLoader = ({ src }) => {
 const Header = styled.div`
   background-color: var(--dark-blue);
   height: 45px;
-  width: 100vw;
+  width: 100%;
   display: flex;
   align-items: center;
   padding: 0 2%;
