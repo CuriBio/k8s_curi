@@ -35,6 +35,7 @@ Expected message format:
 
 // message handler
 onmessage = async ({ data }) => {
+  console.log("WW onmessage:", tokens, data);
   if (data.method || data.file) {
     const res = await dispatchRequest(data);
     const parsed_res = JSON.parse(JSON.stringify(res));
