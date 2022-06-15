@@ -10,4 +10,16 @@ const hexToBase64 = (hexstring) => {
   );
 };
 
-export default hexToBase64;
+const isArrayOfNumbers = (arr, positive = false) => {
+  if (!Array.isArray(arr)) {
+    return false;
+  }
+  for (const n of arr) {
+    if (typeof n !== "number" || (positive && n < 0)) {
+      return false;
+    }
+  }
+  return true;
+};
+
+export { hexToBase64, isArrayOfNumbers };

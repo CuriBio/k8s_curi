@@ -192,6 +192,7 @@ async def create_new_job(
             "analysis_params": {
                 param: dict(details)[param] for param in ("twitch_widths", "start_time", "end_time")
             }
+            # TODO add userid so we know who created the job
         }
 
         logger.info(f"Using params: {meta['analysis_params']}")

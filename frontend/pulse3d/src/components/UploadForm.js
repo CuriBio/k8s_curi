@@ -5,6 +5,7 @@ import AnalysisParamForm from "./AnalysisParamForm";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import FileDragDrop from "./FileDragDrop";
 import { WorkerContext } from "@/components/WorkerWrapper";
+import { isArrayOfNumbers } from "@/utils/generic";
 
 const Container = styled.div`
   width: 80%;
@@ -34,11 +35,9 @@ export default function UploadForm() {
   const newReq = useRef(false); // this check prevents old response from being used on mount when switching between pages
 
   const [file, setFile] = useState({});
-  const [analysisParams, setAnalysisParams] = useState({
-    twitchWidths: null,
-    startTime: null,
-    endTime: null,
-  });
+
+  const [analysisParams, setAnalysisParams] = useState({});
+  const [paramErrors, setParamErrors] = useState({});
 
   useEffect(() => {
     // defaults to undefined when webworker state resets
@@ -78,33 +77,97 @@ export default function UploadForm() {
     setFile(file);
   };
 
-  const updateAnalysisParams = (newParams) => {
-    let updatedParams = { ...analysisParams, ...newParams };
-
-    try {
-      updatedParams.twitchWidths = JSON.parse(updatedParams.twitchWidths);
-      // TODO also assert that it's a list and it contains numbers
-    } catch {
-      // TODO display error message
-      console.log(`Invalid twitchWidths array: ${updatedParams.twitchWidths}`);
-    }
-
-    console.log(JSON.stringify(updatedParams));
-    setAnalysisParams(updatedParams);
-  };
-
   const handleUpload = async () => {
     if (!file.name) {
       console.log("No file selected");
       // TODO: tell the user no file is selected
       return;
     }
-
-    // TODO: if there are error messages, tell user to fix issues, then return
+    if (true /* TODO check paramErrors for any error messages */) {
+      console.log("Fix invalid params before uploading");
+      // TODO: tell user to fix issues
+      return;
+    }
 
     console.log("uploading...");
 
     setReqParams({ file, type: "uploadFile" });
+  };
+
+  const updateParams = (newParams) => {
+    const updatedParams = { ...analysisParams, ...newParams };
+    console.log("updateParams new params:", JSON.stringify(updatedParams));
+
+    if (newParams.twitchWidths !== undefined) {
+      validateTwitchWidths(updatedParams);
+    }
+    if (newParams.startTime !== undefined || newParams.endTime !== undefined) {
+      // need to validate start and end time together
+      validateWindowBounds(updatedParams);
+    }
+
+    setAnalysisParams(updatedParams);
+    console.log("updateParams formatted params:", JSON.stringify(updatedParams));
+  };
+
+  const validateTwitchWidths = (updatedParams) => {
+    const newValue = updatedParams.twitchWidths;
+    console.log("validateTwitchWidths:", newValue);
+    let formattedTwitchWidths;
+    if (newValue === null || newValue === "") {
+      formattedTwitchWidths = null;
+    } else {
+      let twitchWidthArr;
+      // make sure it's a valid list
+      try {
+        twitchWidthArr = JSON.parse(`[${newValue}]`);
+      } catch (e) {
+        console.log(`Invalid twitchWidths: ${newValue}, ${e}`);
+        setParamErrors({ ...paramErrors, twitchWidths: "Must be comma-separated, positive numbers" });
+        return;
+      }
+      // make sure it's an array of positive numbers
+      if (isArrayOfNumbers(twitchWidthArr, true)) {
+        formattedTwitchWidths = Array.from(new Set(twitchWidthArr));
+        console.log("formattedTwitchWidths:", formattedTwitchWidths);
+      } else {
+        console.log(`Invalid twitchWidths: ${newValue}`);
+        setParamErrors({ ...paramErrors, twitchWidths: "Must be comma-separated, positive numbers" });
+        return;
+      }
+    }
+    console.log("VALID TW");
+    setParamErrors({ ...paramErrors, twitchWidths: "" });
+    updatedParams.twitchWidths = formattedTwitchWidths;
+  };
+
+  const validateWindowBounds = (updatedParams) => {
+    const { startTime, endTime } = updatedParams;
+    const updatedParamErrors = { ...paramErrors };
+
+    for (const [boundName, boundValueStr] of Object.entries({ startTime, endTime })) {
+      let error = "";
+      if (boundValueStr) {
+        const boundValue = +boundValueStr;
+        updatedParams[boundName] = boundValue;
+        if (boundValue < 0) {
+          error = "Must be a non-negative number";
+        }
+      }
+
+      updatedParamErrors[boundName] = error;
+    }
+
+    if (
+      !updatedParamErrors.startTime &&
+      !updatedParamErrors.endTime &&
+      updatedParams.startTime &&
+      updatedParams.endTime &&
+      updatedParams.startTime >= updatedParams.endTime
+    ) {
+      updatedParamErrors.endTime = "Must be greater than Start Time";
+    }
+    setParamErrors(updatedParamErrors);
   };
 
   return (
@@ -115,7 +178,7 @@ export default function UploadForm() {
           dropZoneText={dropZoneText}
           fileSelection={file.name}
         />
-        <AnalysisParamForm updateAnalysisParams={updateAnalysisParams} />
+        <AnalysisParamForm errorMessages={paramErrors} updateParams={updateParams} />
         <ButtonWidget
           top={"20%"}
           left={"80%"}

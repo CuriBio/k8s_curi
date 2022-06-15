@@ -1,7 +1,7 @@
 import axios from "axios";
 import SparkMD5 from "spark-md5";
 
-import hexToBase64 from "./generic";
+import { hexToBase64 } from "@/utils/generic";
 
 const tokens = {
   access: null,

@@ -39,12 +39,19 @@ const formStyle = [
   border-radius: 5px;
 `,
 ];
-
 const Field = styled.input(formStyle);
-
 const Label = styled.label(formStyle);
 
-export default function AnalysisParamForm({ updateAnalysisParams }) {
+const ErrorText = styled.span`
+  color: red;
+  font-style: italic;
+  text-align: left;
+  position: relative;
+  width: 80%;
+  padding-top: 2%;
+`;
+
+export default function AnalysisParamForm({ updateParams, errorMessages }) {
   return (
     <Container>
       <ParamNameContainer>
@@ -57,27 +64,38 @@ export default function AnalysisParamForm({ updateAnalysisParams }) {
           id="twitchWidths"
           placeholder="50, 90"
           onChange={(e) => {
-            updateAnalysisParams({ twitchWidths: `[${e.target.value}]` });
+            updateParams({
+              twitchWidths: e.target.value,
+            });
           }}
         />
+        <ErrorText id="twitchWidthError" role="errorMsg">
+          {errorMessages.twitchWidths}
+        </ErrorText>
         <Field
           id="startTime"
           placeholder="0"
           onChange={(e) => {
-            updateAnalysisParams({
+            updateParams({
               startTime: e.target.value,
             });
           }}
         />
+        <ErrorText id="startTimeError" role="errorMsg">
+          {errorMessages.startTime}
+        </ErrorText>
         <Field
           id="endTime"
-          placeholder="30"
+          placeholder="(End of recording)"
           onChange={(e) => {
-            updateAnalysisParams({
+            updateParams({
               endTime: e.target.value,
             });
           }}
         />
+        <ErrorText id="endTimeError" role="errorMsg">
+          {errorMessages.endTime}
+        </ErrorText>
       </InputContainer>
     </Container>
   );
