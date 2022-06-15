@@ -28,7 +28,7 @@ const getAccessHeader = () => {
 Expected message format:
 {
     method: "post", "get", 
-    endpoint: "/users/login",
+    endpoint: "users/login",
     body: {}
 }
 */
@@ -38,7 +38,6 @@ onmessage = async ({ data }) => {
   console.log("WW onmessage:", tokens, data);
   if (data.method || data.file) {
     const res = await dispatchRequest(data);
-    console.log("res:", res);
     const parsed_res = JSON.parse(JSON.stringify(res));
 
     if (parsed_res.error) {
@@ -56,7 +55,7 @@ const dispatchRequest = async (data) => {
     return await handleFileUpload(data);
   }
   data.url = getUrl(data.endpoint);
-  if (data.url.includes("users/log")) {
+  if (data.url.includes("users/login")) {
     return await handleAuthRequest(data);
   } else {
     return await handleGenericRequest(data);

@@ -3,8 +3,8 @@ import styled from "styled-components";
 
 const Container = styled.div`
   height: inherit;
-  width: inherit;
   background-color: var(--light-gray);
+  width: 100%;
   display: flex;
 `;
 

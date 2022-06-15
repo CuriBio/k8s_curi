@@ -8,7 +8,7 @@ import { WorkerContext } from "@/components/WorkerWrapper";
 import { isArrayOfNumbers } from "@/utils/generic";
 
 const Container = styled.div`
-  width: 80%;
+  width: 100%;
   height: inherit;
   justify-content: center;
   position: relative;
@@ -41,7 +41,6 @@ export default function UploadForm() {
 
   useEffect(() => {
     // defaults to undefined when webworker state resets
-    console.log("$$$ response:", response);
     if (response && newReq.current) {
       if (response.type === "uploadFile") {
         setReqParams({
@@ -73,7 +72,6 @@ export default function UploadForm() {
   }, [error]);
 
   const handleFileChange = (file) => {
-    console.log("file", file);
     setFile(file);
   };
 
