@@ -93,7 +93,7 @@ const requestWithRefresh = async (requestFn, url) => {
     try {
       return await requestFn();
     } catch (e) {
-      return e.response;
+      return JSON.stringify(e.message);
     }
   };
 
@@ -134,10 +134,15 @@ const handleRefreshRequest = async () => {
       { headers: { Authorization: `Bearer ${tokens.refresh}` } }
     );
   } catch (e) {
-    return { error: e.response };
+    return { error: JSON.stringify(e.message) };
   }
-
+  //set new tokens
   setTokens(await res.json());
 
-  return res;
+  // remove tokens from response
+  return new Response(JSON.stringify({}), {
+    headers: res.headers,
+    status: res.status,
+    statusText: res.statusText,
+  });
 };
