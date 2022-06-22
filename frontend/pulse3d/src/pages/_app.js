@@ -34,6 +34,7 @@ function Pulse({ Component, pageProps }) {
       navigator.serviceWorker
         .register("/serviceWorker.js")
         .then(navigator.serviceWorker.ready)
+        .then(() => sendSWMessage())
         .catch((e) => console.log("SERVICE WORKER ERROR: ", e));
 
       navigator.serviceWorker.addEventListener("message", ({ data }) => {
@@ -47,6 +48,10 @@ function Pulse({ Component, pageProps }) {
 
   useEffect(() => {
     // sends message to active SW to check if user is authenticated if not login page. Login page handles own clearing.
+    sendSWMessage();
+  }, [router]);
+
+  const sendSWMessage = () => {
     if ("serviceWorker" in navigator) {
       if (router.pathname !== "/login")
         navigator.serviceWorker.ready.then((registration) => {
@@ -61,7 +66,7 @@ function Pulse({ Component, pageProps }) {
         setAuthCheck(false);
       }
     }
-  }, [router]);
+  };
 
   return (
     <ThemeProvider theme={MUItheme}>
