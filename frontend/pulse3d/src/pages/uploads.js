@@ -1,8 +1,7 @@
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
 import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
-import { WorkerContext } from "@/components/WorkerWrapper";
-import { useEffect, useState, useContext, useRef, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Table,
   TableBody,
@@ -12,13 +11,14 @@ import {
   TablePagination,
   TableRow,
 } from "@mui/material";
+import { useRouter } from "next/router";
 
 const Container = styled.div`
   display: flex;
   max-height: 85%;
   position: relative;
   justify-content: start;
-  width: 100%;
+  width: 80%;
   padding-top: 5%;
   flex-direction: column;
 `;
@@ -46,8 +46,7 @@ export default function Uploads() {
   const [uploads, setUploads] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
-  const { setReqParams, response } = useContext(WorkerContext); // global app state
-  const newReq = useRef(false); // this check prevents old response from being used on mount when switching between pages
+  const router = useRouter();
   const columns = [
     { id: "uploadId", label: "Upload\u00a0ID" },
     { id: "datetime", label: "Datetime" },
@@ -73,46 +72,39 @@ export default function Uploads() {
     },
   ];
 
+  const getUploads = async () => {
+    const response = await fetch("http://localhost/uploads");
+    if (response && response.status === 200) {
+      const uploadsArr = await response.json();
+      setUploads(uploadsArr);
+      // get job statuses if present
+      if (uploadsArr.length > 0) getJobs();
+    } else if (response && [403, 401].includes(response.status)) {
+      router.replace("/login", null, { shallow: true });
+    }
+  };
+
+  const getJobs = async () => {
+    const response = await fetch("http://localhost/jobs");
+    if (response && response.status === 200) {
+      const { jobs } = await response.json();
+      setJobs(jobs);
+    } else if (response && [403, 401].includes(response.status)) {
+      router.replace("/login", null, { shallow: true });
+    }
+  };
+
   useEffect(() => {
     if (uploads.length === 0) setIsLoading(true);
-    setReqParams({
-      method: "get",
-      type: "uploads",
-      endpoint: "uploads",
-    });
-    
+    getUploads();
     // updates table every five seconds
     const interval = setInterval(() => {
-      setReqParams({
-        method: "get",
-        type: "uploads",
-        endpoint: "uploads",
-      });
-    }, 5000);
+      getUploads();
+    }, 10e3);
 
-    // clears intrval when user clicks off uploads page so it doesn't go indefinitely
+    // // clears intrval when user clicks off uploads page so it doesn't go indefinitely
     return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    if (response && response.status === 200 && newReq.current) {
-      if (response.type === "jobStatus") setJobs(response.data.jobs);
-      else if (response.type === "downloadAnalysis") handleDownload(response);
-      else if (response.type === "uploads") setUploads(response.data);
-    }
-
-    // this check prevents old response from being used on mount when switching between pages
-    newReq.current = true;
-  }, [response]);
-
-  useEffect(() => {
-    if (uploads.length > 0)
-      setReqParams({
-        method: "get",
-        type: "jobStatus",
-        endpoint: "jobs",
-      });
-  }, [uploads]);
 
   const handleChangePage = (e, newPage) => {
     setPage(newPage);
@@ -123,21 +115,11 @@ export default function Uploads() {
     setPage(0);
   };
 
-  const downloadAnalysis = ({ target }) => {
-    const uploadId = target.id;
+  const downloadAnalysis = async ({ target }) => {
+    await getJobs();
+    const selectedJob = jobs.find((job) => job.upload_id === target.id);
 
-    setReqParams({
-      method: "get",
-      type: "downloadAnalysis",
-      endpoint: "jobs",
-      body: {
-        job_ids: jobs.find((job) => job.upload_id === uploadId).id,
-      },
-    });
-  };
-
-  const handleDownload = async (res) => {
-    const presignedUrl = res.data.jobs[0].url;
+    const presignedUrl = selectedJob.url;
     const fileName = presignedUrl.split("/")[presignedUrl.length - 1];
 
     // setup temporary download link
@@ -182,6 +164,7 @@ export default function Uploads() {
         };
       }
     );
+
     setRows([...formattedRows]);
   }, [jobs]);
 

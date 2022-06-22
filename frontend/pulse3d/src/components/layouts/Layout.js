@@ -1,9 +1,9 @@
 import Image from "next/image";
 import styled from "styled-components";
 import DropDownMenu from "@/components/basicWidgets/DropDownMenu";
-import { useEffect, useContext } from "react";
-import { WorkerContext } from "@/components/WorkerWrapper";
-
+import { useRouter } from "next/router";
+import { AuthContext } from "../../pages/_app";
+import { useContext, useEffect } from "react";
 // required for static export, default loader errors on build
 const imageLoader = ({ src }) => {
   return `/public/${src}`;
@@ -31,23 +31,18 @@ const Main = styled.main`
 `;
 
 export default function Layout({ children }) {
-  const { setReqParams, response, setLoginStatus, loginStatus, router } =
-    useContext(WorkerContext);
+  const router = useRouter();
+  const authStatus = useContext(AuthContext);
 
-  const logoutUser = () => {
-    setReqParams({
-      type: "logout",
-      endpoint: "users/logout",
-      method: "post",
+  const logoutUser = async () => {
+    const response = await fetch("http://localhost/users/logout", {
+      method: "POST",
+      body: JSON.stringify({}),
     });
-  };
-
-  useEffect(() => {
-    if (response && response.status === 204 && response.type === "logout") {
-      router.push("/login");
-      setLoginStatus(false);
+    if (response && response.status === 204) {
+      router.replace("/login", undefined, { shallow: true });
     }
-  }, [response]);
+  };
 
   return (
     <Container>
@@ -81,7 +76,13 @@ export default function Layout({ children }) {
           loader={imageLoader}
           unoptimized
         />
-        {!loginStatus || <DropDownMenu items={["Logout"]} label={"Menu"} handleSelection={logoutUser} />}
+        {!authStatus || (
+          <DropDownMenu
+            items={["Logout"]}
+            label={"Menu"}
+            handleSelection={logoutUser}
+          />
+        )}
       </Header>
       <Main>{children}</Main>
     </Container>
