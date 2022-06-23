@@ -1,10 +1,11 @@
 import styled from "styled-components";
-import { useEffect, useState, useContext, useRef } from "react";
-
+import { useState } from "react";
+import { useRouter } from "next/router";
 import AnalysisParamForm from "./AnalysisParamForm";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import FileDragDrop from "./FileDragDrop";
-import { WorkerContext } from "@/components/WorkerWrapper";
+import SparkMD5 from "spark-md5";
+import hexToBase64 from "../utils/generic";
 
 const Container = styled.div`
   width: 100%;
@@ -27,12 +28,8 @@ const Uploads = styled.div`
 
 const dropZoneText = "Click here or drop .h5/.zip file to upload";
 
-const buttonStyle = {};
-
 export default function UploadForm() {
-  const { setReqParams, response, error } = useContext(WorkerContext); // global app state
-  const newReq = useRef(false); // this check prevents old response from being used on mount when switching between pages
-
+  const router = useRouter();
   const [file, setFile] = useState({});
   const [analysisParams, setAnalysisParams] = useState({
     twitchWidths: null,
@@ -40,45 +37,28 @@ export default function UploadForm() {
     endTime: null,
   });
 
-  useEffect(() => {
-    // defaults to undefined when webworker state resets
-    if (response && newReq.current) {
-      if (response.type === "uploadFile") {
-        setReqParams({
-          method: "post",
-          endpoint: "jobs",
-          type: "startAnalysis",
-          body: {
-            upload_id: response.uploadId,
-            twitch_widths: analysisParams.twitchWidths,
-            start_time: analysisParams.startTime,
-            end_time: analysisParams.endTime,
-          },
-        });
-      } else if (response.type === "startAnalysis") {
-        console.log("Analysis in progress!");
-        // TODO: tell user that the upload was successful
-      }
-    }
-
-    newReq.current = true; // this check prevents old response from being used on mount when switching between pages
-  }, [response]);
-
-  useEffect(() => {
-    // defaults to undefined when webworker state resets
-    if (error && newReq.current) {
-      console.log("$$$ error:", error);
-      // TODO: handle the error
-    }
-  }, [error]);
-
   const handleFileChange = (file) => {
     setFile(file);
   };
 
+  const postNewJob = async (uploadId) => {
+    const jobResponse = await fetch("http://localhost/jobs", {
+      method: "POST",
+      body: JSON.stringify({
+        upload_id: uploadId,
+        twitch_widths: analysisParams.twitchWidths,
+        start_time: analysisParams.startTime,
+        end_time: analysisParams.endTime,
+      }),
+    });
+    if (jobResponse.status !== 200) {
+      console.log("ERROR posting new job: ", await jobResponse.json());
+    }
+    console.log("Starting analysis...");
+  };
+
   const updateAnalysisParams = (newParams) => {
     let updatedParams = { ...analysisParams, ...newParams };
-
     try {
       updatedParams.twitchWidths = JSON.parse(updatedParams.twitchWidths);
       // TODO also assert that it's a list and it contains numbers
@@ -86,8 +66,6 @@ export default function UploadForm() {
       // TODO display error message
       console.log(`Invalid twitchWidths array: ${updatedParams.twitchWidths}`);
     }
-
-    console.log(JSON.stringify(updatedParams));
     setAnalysisParams(updatedParams);
   };
 
@@ -97,12 +75,69 @@ export default function UploadForm() {
       // TODO: tell the user no file is selected
       return;
     }
-
     // TODO: if there are error messages, tell user to fix issues, then return
-
     console.log("uploading...");
 
-    setReqParams({ file, type: "uploadFile" });
+    let fileReader = new FileReader();
+
+    fileReader.onload = async function (e) {
+      if (file.size != e.target.result.byteLength) {
+        console.log(
+          "ERROR:</strong> Browser reported success but could not read the file until the end."
+        );
+        return;
+      }
+
+      let hash = SparkMD5.ArrayBuffer.hash(e.target.result);
+      const uploadResponse = await fetch("http://localhost/uploads", {
+        method: "POST",
+        body: JSON.stringify({
+          filename: file.name,
+          md5s: hexToBase64(hash),
+        }),
+      });
+
+      if (uploadResponse.status !== 200) {
+        console.log(
+          "ERROR uploading file metadata to DB:  ",
+          await uploadResponse.json()
+        );
+      }
+
+      const data = await uploadResponse.json();
+      const uploadDetails = data.params;
+      const uploadId = data.id;
+
+      const formData = new FormData();
+      Object.entries(uploadDetails.fields).forEach(([k, v]) => {
+        formData.append(k, v);
+      });
+      formData.append("file", file);
+
+      const uploadPostRes = await fetch(uploadDetails.url, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (uploadPostRes.status !== 204) {
+        console.log(
+          "ERROR uploading file to s3:  ",
+          await uploadPostRes.json()
+        );
+      }
+
+      // start job
+      await postNewJob(uploadId);
+    };
+
+    fileReader.onerror = function () {
+      console.log(
+        "ERROR: FileReader onerror was triggered, maybe the browser aborted due to high memory usage."
+      );
+      return;
+    };
+
+    fileReader.readAsArrayBuffer(file);
   };
 
   return (

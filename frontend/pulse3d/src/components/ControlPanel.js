@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import styled from "styled-components";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const Container = styled.div`
   height: inherit;
@@ -18,13 +18,29 @@ export default function ControlPanel() {
   const [selected, setSelected] = useState("Home");
   const buttons = [
     { label: "Home", disabled: false, page: "/uploads" },
-    { label: "Start New Analysis", disabled: false, page: "/uploadForm" },
-    { label: "Account Settings", disabled: true, page: "/settings" },
+    {
+      label: "Start New Analysis",
+      disabled: false,
+      page: "/uploadForm",
+    },
+    {
+      label: "Account Settings",
+      disabled: true,
+      page: "/account",
+    },
   ];
+
+  useEffect(() => {
+    // corrects selected button when user navigates with back/forward button
+    const selectedButton = buttons.filter(
+      ({ page }) => page === router.pathname
+    )[0];
+    if (selectedButton.label !== selected) setSelected(selectedButton.label);
+  }, [router]);
 
   return (
     <Container>
-      {buttons.map(({ label, disabled, page }) => {
+      {buttons.map(({ label, disabled, page, as }) => {
         const handleSelected = (value) => {
           setSelected(value);
           router.push(page);

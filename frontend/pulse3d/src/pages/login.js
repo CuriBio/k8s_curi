@@ -1,8 +1,7 @@
 import styled from "styled-components";
 import { useEffect, useState, useContext } from "react";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
-import { WorkerContext } from "@/components/WorkerWrapper";
-
+import { useRouter } from "next/router";
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
   position: relative;
@@ -55,30 +54,13 @@ const ErrorText = styled.span`
 `;
 
 export default function Login() {
+  const router = useRouter();
   const [errorMsg, setErrorMsg] = useState(null);
   const [userData, setUserData] = useState({
     customer_id: "",
     username: "",
     password: "",
   });
-
-  const { setReqParams, response, error, setLoginStatus, router } =
-    useContext(WorkerContext);
-
-  useEffect(() => {
-    if (response && response.status === 200 && response.type === "login") {
-      router.push("/uploads"); // routes to next page
-      setLoginStatus(true);
-    }
-  }, [response]);
-
-  useEffect(() => {
-    // defaults to undefined when webworker state resets
-    if (error && error.status && error.type === "login")
-      error.status === 401 || error.status === 422
-        ? setErrorMsg("*Invalid credentials. Try again.")
-        : setErrorMsg("*Internal error. Please try again later.");
-  }, [error]);
 
   const submitForm = async () => {
     setErrorMsg(""); // reset to show user something happened
@@ -87,12 +69,19 @@ export default function Login() {
       setErrorMsg("*All fields are required");
     // this state gets passed to web worker to attempt login request
     else {
-      setReqParams({
-        method: "post",
-        endpoint: "users/login",
-        body: userData,
-        type: "login",
+      const res = await fetch("http://localhost/users/login", {
+        method: "POST",
+        body: JSON.stringify(userData),
       });
+      if (res) {
+        if (res.status === 200) {
+          router.push("/uploads"); // routes to next page
+        } else {
+          res.status === 401 || res.status === 422
+            ? setErrorMsg("*Invalid credentials. Try again.")
+            : setErrorMsg("*Internal error. Please try again later.");
+        }
+      }
     }
   };
 

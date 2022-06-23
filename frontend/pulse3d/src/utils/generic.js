@@ -6,7 +6,7 @@ const hexToBase64 = (hexstring) => {
       .map(function (a) {
         return String.fromCharCode(parseInt(a, 16));
       })
-      .join(""),
+      .join("")
   );
 };
 
