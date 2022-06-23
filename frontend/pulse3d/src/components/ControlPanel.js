@@ -49,7 +49,7 @@ export default function ControlPanel() {
         return (
           <ButtonWidget
             key={label}
-            height={"45px"}
+            height={"65px"}
             width={"100%"}
             label={label}
             clickFn={handleSelected}

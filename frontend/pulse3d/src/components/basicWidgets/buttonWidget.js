@@ -1,5 +1,6 @@
+import { flexbox } from "@mui/system";
 import styled from "styled-components";
-
+import CircularSpinner from "./CircularSpinner";
 const Button = styled.button(
   ({ props }) => `
   background-color: ${
@@ -13,10 +14,10 @@ const Button = styled.button(
   top: ${props.top || "0px"};
   left: ${props.left || "0px"};
   height: ${props.height || "60px"};
-  width: ${props.width || "inherit"};
+  width: ${props.width || "100%"};
   position: ${props.position || "inherit"};
   border-radius: ${props.borderRadius || "0px"};
-
+  font-size: ${props.fontSize || "18px"};
   &:hover {
     background-color: ${props.disabled || "var(--teal-green)"};
     cursor:${props.disabled || "pointer"};
@@ -24,16 +25,34 @@ const Button = styled.button(
   `
 );
 
+const ProgressSpinner = styled.div`
+  position: absolute;
+  bottom: 3px;
+  justify-self: center;
+`;
+
+const Container = styled.div`
+  display: flex;
+  justify-content: center;
+`;
+
 const ButtonWidget = (props) => {
   return (
-    <Button
-      onClick={() => {
-        if (!props.isSelected && !props.disabled) props.clickFn(props.label); // only if not already selected and enabled, emit event
-      }}
-      props={props}
-    >
-      {props.label}
-    </Button>
+    <Container>
+      <Button
+        onClick={() => {
+          if (!props.isSelected && !props.disabled) props.clickFn(props.label); // only if not already selected and enabled, emit event
+        }}
+        props={props}
+      >
+        {props.label}
+      </Button>{" "}
+      {props.inProgress ? (
+        <ProgressSpinner>
+          <CircularSpinner />
+        </ProgressSpinner>
+      ) : null}
+    </Container>
   );
 };
 

@@ -73,6 +73,7 @@ export default function Login() {
         method: "POST",
         body: JSON.stringify(userData),
       });
+
       if (res) {
         if (res.status === 200) {
           router.push("/uploads"); // routes to next page
