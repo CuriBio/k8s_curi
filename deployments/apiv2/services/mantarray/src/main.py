@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import Depends, FastAPI, Query, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -9,9 +11,11 @@ from core.firmware import resolve_versions
 from utils.db import AsyncpgPoolDep
 
 
-AUTH = ProtectedAny()  # TODO add scope here
+# logging is configured in log_config.yaml
+logger = logging.getLogger(__name__)
 
-# TODO add logging
+
+AUTH = ProtectedAny()  # TODO add scope here
 
 
 app = FastAPI(openapi_url=None)
