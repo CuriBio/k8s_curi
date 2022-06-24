@@ -6,6 +6,7 @@ import styled from "styled-components";
 
 const MenuLabel = styled.span`
   color: var(--light-gray);
+  font-size: 19px;
   &:hover {
     color: var(--teal-green);
   }

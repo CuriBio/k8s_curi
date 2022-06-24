@@ -76,9 +76,12 @@ const interceptResponse = async (req, url) => {
     return await requestWithRefresh(requestFn, url);
   } else {
     const response = await fetch(newReq);
+
     // catch response and set token
-    const data = await response.json();
-    setTokens(data);
+    if (response.status === 200) {
+      const data = await response.json();
+      setTokens(data);
+    }
     // send the response without it
     return new Response(JSON.stringify({}), {
       headers: response.headers,

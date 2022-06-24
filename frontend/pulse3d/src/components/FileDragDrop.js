@@ -6,26 +6,25 @@ const fileTypes = ["h5", "zip"];
 const Container = styled.div`
   left: 5%;
   top: 5%;
-  height: 15%;
+  height: 20%;
   width: 90%;
   position: relative;
+  font-size: 22px;
 `;
 
 const DropZone = styled.div`
   width: 100%;
   height: 100%;
-  border: solid;
-  border-color: var(--dark-gray);
-  border-width: 2px;
+  border: 2px dashed black;
   border-radius: 5px;
-  background-color: white;
+  background-color: var(--med-gray);
   display: flex;
   justify-content: center;
   align-content: center;
   flex-direction: column;
   text-align: center;
   &:hover {
-    background-color: var(--med-gray);
+    background-color: var(--light-gray);
     cursor: pointer;
   }
 `;
