@@ -28,7 +28,7 @@ const Uploads = styled.div`
 
 const ButtonContainer = styled.div`
   position: relative;
-  top: 16%;
+  top: 15%;
   justify-content: flex-end;
   display: flex;
   padding-right: 12%;
