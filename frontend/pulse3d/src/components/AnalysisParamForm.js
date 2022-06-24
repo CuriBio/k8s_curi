@@ -158,7 +158,7 @@ export default function AnalysisParamForm({
               <Field
                 id="startTime"
                 placeholder={checked ? "0" : ""}
-                value={inputVals.startTime}
+                value={!checked ? "" : inputVals.startTime}
                 onChange={(e) => {
                   updateParams({
                     startTime: e.target.value,
@@ -176,7 +176,7 @@ export default function AnalysisParamForm({
               <Field
                 id="endTime"
                 placeholder={checked ? "(End of recording)" : ""}
-                value={inputVals.endTime}
+                value={!checked ? "" : inputVals.endTime}
                 onChange={(e) => {
                   updateParams({
                     endTime: e.target.value,

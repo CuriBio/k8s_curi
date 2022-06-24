@@ -49,6 +49,7 @@ const SuccessText = styled.span`
 const dropZoneText = "Click here or drop .h5/.zip file to upload";
 
 export default function UploadForm() {
+  const router = useRouter();
   const [file, setFile] = useState({});
   const [isButtonDisabled, setIsButtonDisabled] = useState(true);
   const [paramErrors, setParamErrors] = useState({});
@@ -91,7 +92,7 @@ export default function UploadForm() {
   }, [file, analysisParams]);
 
   const resetState = () => {
-    setFile({});
+    setFile(null);
     setAnalysisParams({
       twitchWidths: "",
       startTime: "",
@@ -201,10 +202,10 @@ export default function UploadForm() {
   const updateParams = (newParams) => {
     const updatedParams = { ...analysisParams, ...newParams };
 
-    if (newParams.twitchWidths !== "") {
+    if (newParams.twitchWidths !== undefined) {
       validateTwitchWidths(updatedParams);
     }
-    if (newParams.startTime !== "" || newParams.endTime !== "") {
+    if (newParams.startTime !== undefined || newParams.endTime !== undefined) {
       // need to validate start and end time together
       validateWindowBounds(updatedParams);
     }
@@ -214,7 +215,6 @@ export default function UploadForm() {
 
   const validateTwitchWidths = (updatedParams) => {
     const newValue = updatedParams.twitchWidths;
-    console.log("validateTwitchWidths:", newValue);
     let formattedTwitchWidths;
     if (newValue === null || newValue === "") {
       formattedTwitchWidths = "";
@@ -286,9 +286,11 @@ export default function UploadForm() {
     <Container>
       <Uploads>
         <FileDragDrop
-          handleFileChange={(file) => setFile(file)}
+          handleFileChange={(file) => {
+            setFile(file);
+          }}
           dropZoneText={dropZoneText}
-          fileSelection={file.name}
+          fileSelection={file ? file.name : null}
         />
         <AnalysisParamForm
           errorMessages={paramErrors}
