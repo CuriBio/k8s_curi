@@ -1,6 +1,5 @@
 import styled from "styled-components";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
 import AnalysisParamForm from "./AnalysisParamForm";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import FileDragDrop from "./FileDragDrop";
@@ -50,7 +49,6 @@ const SuccessText = styled.span`
 const dropZoneText = "Click here or drop .h5/.zip file to upload";
 
 export default function UploadForm() {
-  const router = useRouter();
   const [file, setFile] = useState({});
   const [isButtonDisabled, setIsButtonDisabled] = useState(true);
   const [paramErrors, setParamErrors] = useState({});
