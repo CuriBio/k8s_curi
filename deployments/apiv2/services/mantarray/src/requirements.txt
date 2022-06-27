@@ -9,7 +9,7 @@ requests==2.27.1
 sniffio==1.2.0
 starlette==0.16.0
 typing-extensions==4.0.1
-uvicorn==0.16.0
+uvicorn[standard]==0.16.0
 
 boto3==1.18.5
 immutabledict==2.2.1
