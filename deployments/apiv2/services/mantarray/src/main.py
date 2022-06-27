@@ -52,20 +52,18 @@ async def get_latest_firmware(request: Request, serial_number: str):
         try:
             row = await con.fetchrow("SELECT hw_version FROM MAUnits WHERE serial_number = $1", serial_number)
             hardware_version = row["hw_version"]
-        except:
-            return JSONResponse(
-                status_code=status.HTTP_404_NOT_FOUND,
-                content={"message": f"Serial Number {serial_number} not found"},
-            )
+        except Exception as e:
+            err_msg = f"Serial Number {serial_number} not found"
+            logger.error(f"{err_msg}: {e}")
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message": err_msg})
     # try to get latest FW versions from HW version
     try:
         latest_versions = resolve_versions(hardware_version)
         return JSONResponse({"latest_versions": latest_versions})
-    except:
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"message": f"Could not determine latest versions for HW v{hardware_version}"},
-        )
+    except Exception as e:
+        err_msg = f"Could not determine latest versions for HW v{hardware_version}"
+        logger.error(f"{err_msg}: {e}")
+        return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"message": err_msg})
 
 
 @app.get("/firmware_download")
@@ -77,8 +75,7 @@ async def get_firmware_download_url(
     try:
         url = get_download_url(firmware_version, firmware_type)
         return JSONResponse({"presigned_url": url})
-    except:
-        return JSONResponse(
-            status_code=status.HTTP_404_NOT_FOUND,
-            content=f"{firmware_type.title()} Firmware v{firmware_version} not found",
-        )
+    except Exception as e:
+        err_msg = f"{firmware_type.title()} Firmware v{firmware_version} not found"
+        logger.error(f"{err_msg}: {e}")
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message": err_msg})
