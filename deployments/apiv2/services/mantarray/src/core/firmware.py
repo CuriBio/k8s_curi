@@ -1,4 +1,3 @@
-from fileinput import filename
 import re
 
 import boto3
