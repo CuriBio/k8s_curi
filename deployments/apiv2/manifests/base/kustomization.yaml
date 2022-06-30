@@ -6,3 +6,4 @@ resources:
 - namespace.yaml
 - apiv2-dep.yaml
 - users-svc.yaml
+- mantarray-svc.yaml
