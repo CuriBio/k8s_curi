@@ -183,6 +183,7 @@ export default function UploadForm() {
     });
 
     // break flow if initial request returns error status code
+    setInProgress(false);
     if (uploadResponse.status !== 200) {
       setUploadError(true);
       console.log("ERROR starting re analysis:  ", await uploadResponse.json());
@@ -190,7 +191,6 @@ export default function UploadForm() {
     }
 
     setUploadSuccess(true);
-    setInProgress(false);
 
     const { id } = await uploadResponse.json();
     await postNewJob(id);
@@ -218,6 +218,7 @@ export default function UploadForm() {
       // break flow if initial request returns error status code
       if (uploadResponse.status !== 200) {
         setUploadError(true);
+        setInProgress(false);
         console.log(
           "ERROR uploading file metadata to DB:  ",
           await uploadResponse.json()
@@ -241,7 +242,6 @@ export default function UploadForm() {
       });
 
       setInProgress(false);
-
       if (uploadPostRes.status === 204) {
         // start job
         setUploadSuccess(true);

@@ -54,13 +54,14 @@ const theme = ({ color }) => {
 };
 
 const AccordionSummary = styled((AccordionSummaryProps) => (
-  <MuiAccordionSummary {...AccordionSummaryProps} />
+  <MuiAccordionSummary
+    {...AccordionSummaryProps}
+    sx={{ color: "var(--light-gray)" }}
+  />
 ))(({ props }) => ({
   flexDirection: "row-reverse",
   backgroundColor: props.color,
   height: "75px",
-  color: "var(--light-gray)",
-
   "& .MuiAccordionSummary-expandIconWrapper.Mui-expanded": {
     transform: "rotate(90deg)",
     height: "100%",
