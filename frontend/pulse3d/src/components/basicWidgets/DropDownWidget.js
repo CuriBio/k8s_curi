@@ -45,9 +45,9 @@ export default function DropDownWidget({
   const [selected, setSelected] = useState("");
   const [errorMsg, setErrorMsg] = useState(error);
 
-  const handleChange = (event) => {
-    handleSelection(event.target.value);
-    setSelected(event.target.value);
+  const handleChange = ({ target }) => {
+    handleSelection(target.value);
+    setSelected(target.value);
     setErrorMsg("");
   };
 
