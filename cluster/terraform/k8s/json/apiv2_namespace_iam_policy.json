@@ -11,7 +11,11 @@
                 "arn:aws:s3:::channel-firmware",
                 "arn:aws:s3:::main-firmware",
                 "arn:aws:s3:::channel-firmware/*",
-                "arn:aws:s3:::main-firmware/*"
+                "arn:aws:s3:::main-firmware/*",
+                "arn:aws:s3:::prod-channel-firmware",
+                "arn:aws:s3:::prod-main-firmware",
+                "arn:aws:s3:::prod-channel-firmware/*",
+                "arn:aws:s3:::prod-main-firmware/*"
             ]
         }
     ]
