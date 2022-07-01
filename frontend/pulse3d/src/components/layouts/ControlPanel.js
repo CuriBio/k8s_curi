@@ -58,18 +58,25 @@ const AccordionSummary = styled((AccordionSummaryProps) => (
 ))(({ props }) => ({
   flexDirection: "row-reverse",
   backgroundColor: props.color,
+  height: "75px",
+  color: "var(--light-gray)",
+
   "& .MuiAccordionSummary-expandIconWrapper.Mui-expanded": {
     transform: "rotate(90deg)",
     height: "100%",
+    paddingRight: "6px",
   },
   "& .MuiAccordionSummary-expandIconWrapper": {
     height: "100%",
   },
   "& .MuiAccordionSummary-content": {
     margin: "0px",
+    justifyContent: "center",
+    fontSize: "18px",
   },
   "&:hover": {
     backgroundColor: props.disabled ? "var(--dark-blue)" : "var(--teal-green)",
+    cursor: props.disabled ? "default" : "pointer",
   },
 }));
 
@@ -119,22 +126,22 @@ export default function ControlPanel() {
 
   return (
     <Container>
-      {buttons.map(({ label, disabled, page, options }) => {
-        const handleSelected = (val) => {
-          setSelected(val);
+      {buttons.map(({ label, disabled, page, options }, idx) => {
+        const handleListClick = (e) => {
+          e.preventDefault();
+          router.push({ pathname: page, query: { id: e.target.value } });
+        };
+
+        const handleSelected = (e) => {
+          e.preventDefault();
+          setSelected(label);
 
           if (options.length === 0) {
             router.push(page);
             setExpanded(null);
           } else {
-            setExpanded(expanded === val ? null : val);
+            setExpanded(expanded === label ? null : label);
           }
-        };
-
-        const handleListClick = (e) => {
-          e.preventDefault();
-
-          router.push({ pathname: page, query: { id: e.target.value } });
         };
 
         let backgroundColor =
@@ -144,9 +151,9 @@ export default function ControlPanel() {
           <ThemeProvider key={label} theme={theme({ color: backgroundColor })}>
             <Accordion expanded={expanded === label}>
               <AccordionSummary
-                aria-controls={`${label}-content`}
-                id={`${label}-button`}
                 props={{ color: backgroundColor, disabled }}
+                onClick={handleSelected}
+                value={idx}
                 expandIcon={
                   options.length > 0 ? (
                     <ArrowForwardIosSharpIcon
@@ -161,15 +168,7 @@ export default function ControlPanel() {
                   ) : null
                 }
               >
-                <ButtonWidget
-                  key={label}
-                  height={"65px"}
-                  label={label}
-                  clickFn={handleSelected}
-                  isSelected={selected === label}
-                  disabled={disabled}
-                  backgroundColor={backgroundColor}
-                />
+                {label}
               </AccordionSummary>
               <AccordionDetails>
                 <ListContainer>
