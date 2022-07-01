@@ -1,6 +1,6 @@
 import Image from "next/image";
 import styled from "styled-components";
-import DropDownMenu from "@/components/basicWidgets/DropDownMenu";
+import DropDownMenu from "@/components/basicWidgets/ButtonDropDown";
 import { useRouter } from "next/router";
 import { AuthContext } from "../../pages/_app";
 import { useContext, useEffect } from "react";

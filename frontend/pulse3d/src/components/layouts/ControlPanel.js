@@ -1,6 +1,5 @@
 import { useRouter } from "next/router";
 import styled from "styled-components";
-import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import { useEffect, useState } from "react";
 import ArrowForwardIosSharpIcon from "@mui/icons-material/ArrowForwardIosSharp";
 import MuiAccordion, { AccordionProps } from "@mui/material/Accordion";
@@ -38,6 +37,7 @@ const ListContainer = styled.ul`
   padding: 0;
 `;
 
+// this is the best way to target and override style props of child components used in other MUI components
 const theme = ({ color }) => {
   return createTheme({
     components: {
@@ -149,7 +149,7 @@ export default function ControlPanel() {
 
         return (
           <ThemeProvider key={label} theme={theme({ color: backgroundColor })}>
-            <Accordion expanded={expanded === label}>
+            <Accordion disabled={disabled} expanded={expanded === label}>
               <AccordionSummary
                 props={{ color: backgroundColor, disabled }}
                 onClick={handleSelected}

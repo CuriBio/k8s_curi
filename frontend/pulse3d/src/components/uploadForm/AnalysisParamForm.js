@@ -113,6 +113,25 @@ const WALabel = styled.span`
   cursor: default;
 `;
 
+const AdditionalParamLabel = styled.span`
+  background-color: var(--light-gray);
+  border-radius: 6px;
+  position: absolute;
+  left: 25%;
+  display: flex;
+  align-items: center;
+  width: 380px;
+  font-size: 17px;
+  z-index: 3;
+  border: 2px solid var(--dark-gray);
+  cursor: default;
+  height: 50px;
+  justify-content: center;
+  top: -21px;
+  left: 5%;
+  font-weight: 900;
+`;
+
 export default function AnalysisParamForm({
   inputVals,
   errorMessages,
@@ -208,6 +227,9 @@ export default function AnalysisParamForm({
 
   return (
     <Container>
+      <AdditionalParamLabel>
+        Additional Analysis Params (Optional)
+      </AdditionalParamLabel>
       <InputContainer>
         <ParamContainer style={{ width: "60%" }}>
           <Label htmlFor="twitchWidths">Twitch Widths (%):</Label>
