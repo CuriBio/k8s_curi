@@ -1,22 +1,30 @@
 import styled from "styled-components";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import AnalysisParamForm from "./AnalysisParamForm";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
-import FileDragDrop from "./FileDragDrop";
+import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
+import FileDragDrop from "@/components/uploadForm/FileDragDrop";
 import SparkMD5 from "spark-md5";
-import { hexToBase64, isArrayOfNumbers } from "../utils/generic";
+import { hexToBase64 } from "../../utils/generic";
+import { useRouter } from "next/router";
+import { UploadsContext } from "@/components/layouts/DashboardLayout";
 
 const Container = styled.div`
-  width: 100%;
+  width: 70%;
   height: inherit;
   justify-content: center;
   position: relative;
   padding-top: 5%;
-  padding-left: 15%;
+  padding-left: 11%;
+`;
+
+const Header = styled.h2`
+  position: relative;
+  text-align: center;
 `;
 
 const Uploads = styled.div`
-  width: 70%;
+  width: 100%;
   height: 70%;
   border: solid;
   border-color: var(--dark-gray);
@@ -46,16 +54,33 @@ const SuccessText = styled.span`
   font-size: 15px;
   padding-right: 10px;
 `;
+
+const DropDownContainer = styled.div`
+  width: 70%;
+  display: flex;
+  justify-content: center;
+  left: 15%;
+  position: relative;
+  height: 15%;
+  align-items: center;
+  top: 5%;
+`;
+
 const dropZoneText = "Click here or drop .h5/.zip file to upload";
 
 export default function UploadForm() {
+  const { query } = useRouter();
+  const { uploads } = useContext(UploadsContext);
+
   const [file, setFile] = useState({});
+  const [uniqueUploads, setUniqueUploads] = useState([]);
   const [isButtonDisabled, setIsButtonDisabled] = useState(true);
   const [paramErrors, setParamErrors] = useState({});
   const [inProgress, setInProgress] = useState(false);
   const [uploadError, setUploadError] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [checked, setChecked] = useState(false);
+  const [tabSelection, setTabSelection] = useState(query.id);
   const [analysisParams, setAnalysisParams] = useState({
     twitchWidths: "",
     startTime: "",
@@ -66,7 +91,7 @@ export default function UploadForm() {
     // checks if error value exists, no file is selected, or upload is in progress
     const checkConditions =
       !Object.values(paramErrors).every((val) => val.length === 0) ||
-      !(file instanceof File) ||
+      !(file instanceof File || uploads.includes(file)) ||
       inProgress;
 
     setIsButtonDisabled(checkConditions);
@@ -89,6 +114,24 @@ export default function UploadForm() {
       setUploadSuccess(false);
     }
   }, [file, analysisParams]);
+
+  useEffect(() => {
+    setTabSelection(query.id);
+    resetState();
+  }, [query]);
+
+  useEffect(() => {
+    const uploadFilenames = uploads.map(
+      ({ meta }) => JSON.parse(meta).filename
+    );
+
+    const formattedUploads = uploads.filter(({ meta }, idx) => {
+      const { filename } = JSON.parse(meta);
+      return uploadFilenames.indexOf(filename) === idx;
+    });
+
+    setUniqueUploads([...formattedUploads]);
+  }, [uploads]);
 
   const resetState = () => {
     setFile(null);
@@ -120,14 +163,40 @@ export default function UploadForm() {
   };
 
   const handleUpload = async () => {
-    if (!file.name) {
-      console.log("No file selected");
-      // TODO: tell the user no file is selected
-      return;
-    }
     // update state to trigger in progress spinner over submit button
     setInProgress(true);
 
+    if (file instanceof File) await uploadFile();
+    else if (uploads.includes(file)) await requestReAnalysis();
+    else console.log("No file selected");
+  };
+
+  const requestReAnalysis = async () => {
+    const { filename } = JSON.parse(file.meta);
+
+    const uploadResponse = await fetch("http://localhost/re_analysis", {
+      method: "POST",
+      body: JSON.stringify({
+        filename: filename,
+        upload_id: file.id,
+      }),
+    });
+
+    // break flow if initial request returns error status code
+    if (uploadResponse.status !== 200) {
+      setUploadError(true);
+      console.log("ERROR starting re analysis:  ", await uploadResponse.json());
+      return;
+    }
+
+    setUploadSuccess(true);
+    setInProgress(false);
+
+    const { id } = await uploadResponse.json();
+    await postNewJob(id);
+  };
+
+  const uploadFile = async () => {
     let fileReader = new FileReader();
     fileReader.onload = async function (e) {
       if (file.size != e.target.result.byteLength) {
@@ -149,7 +218,6 @@ export default function UploadForm() {
       // break flow if initial request returns error status code
       if (uploadResponse.status !== 200) {
         setUploadError(true);
-        setInProgress(false);
         console.log(
           "ERROR uploading file metadata to DB:  ",
           await uploadResponse.json()
@@ -172,7 +240,6 @@ export default function UploadForm() {
         body: formData,
       });
 
-      // regardless of error or job status, set to false to show it has been processed
       setInProgress(false);
 
       if (uploadPostRes.status === 204) {
@@ -198,105 +265,43 @@ export default function UploadForm() {
     fileReader.readAsArrayBuffer(file);
   };
 
-  const updateParams = (newParams) => {
-    const updatedParams = { ...analysisParams, ...newParams };
-
-    if (newParams.twitchWidths !== undefined) {
-      validateTwitchWidths(updatedParams);
-    }
-    if (newParams.startTime !== undefined || newParams.endTime !== undefined) {
-      // need to validate start and end time together
-      validateWindowBounds(updatedParams);
-    }
-
-    setAnalysisParams(updatedParams);
+  const handleDropDownSelect = (idx) => {
+    setFile(uploads[idx]);
+    setUploadError(false);
+    setUploadSuccess(false);
   };
-
-  const validateTwitchWidths = (updatedParams) => {
-    const newValue = updatedParams.twitchWidths;
-    let formattedTwitchWidths;
-    if (newValue === null || newValue === "") {
-      formattedTwitchWidths = "";
-    } else {
-      let twitchWidthArr;
-      // make sure it's a valid list
-      try {
-        twitchWidthArr = JSON.parse(`[${newValue}]`);
-      } catch (e) {
-        setParamErrors({
-          ...paramErrors,
-          twitchWidths: "*Must be comma-separated, positive numbers",
-        });
-        return;
-      }
-      // make sure it's an array of positive numbers
-      if (isArrayOfNumbers(twitchWidthArr, true)) {
-        formattedTwitchWidths = Array.from(new Set(twitchWidthArr));
-        console.log("formattedTwitchWidths:", formattedTwitchWidths);
-      } else {
-        console.log(`Invalid twitchWidths: ${newValue}`);
-        setParamErrors({
-          ...paramErrors,
-          twitchWidths: "*Must be comma-separated, positive numbers",
-        });
-        return;
-      }
-    }
-    setParamErrors({ ...paramErrors, twitchWidths: "" });
-    updatedParams.twitchWidths = formattedTwitchWidths;
-  };
-
-  const validateWindowBounds = (updatedParams) => {
-    const { startTime, endTime } = updatedParams;
-    const updatedParamErrors = { ...paramErrors };
-
-    for (const [boundName, boundValueStr] of Object.entries({
-      startTime,
-      endTime,
-    })) {
-      let error = "";
-      if (boundValueStr) {
-        // checks if positive number, no other characters allowed
-        const numRegEx = new RegExp("^([0-9]+(?:[.][0-9]*)?|.[0-9]+)$");
-        if (!numRegEx.test(boundValueStr)) {
-          error = "*Must be a non-negative number";
-        } else {
-          const boundValue = +boundValueStr;
-          updatedParams[boundName] = boundValue;
-        }
-      }
-
-      updatedParamErrors[boundName] = error;
-    }
-
-    if (
-      !updatedParamErrors.startTime &&
-      !updatedParamErrors.endTime &&
-      updatedParams.startTime &&
-      updatedParams.endTime &&
-      updatedParams.startTime >= updatedParams.endTime
-    ) {
-      updatedParamErrors.endTime = "*Must be greater than Start Time";
-    }
-    setParamErrors(updatedParamErrors);
-  };
-
   return (
     <Container>
+      <Header>Run Analysis</Header>
       <Uploads>
-        <FileDragDrop
-          handleFileChange={(file) => {
-            setFile(file);
-          }}
-          dropZoneText={dropZoneText}
-          fileSelection={file ? file.name : null}
-        />
+        {tabSelection === "1" ? (
+          <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
+            handleFileChange={(file) => {
+              setFile(file);
+            }}
+            dropZoneText={dropZoneText}
+            fileSelection={file ? file.name : null}
+          />
+        ) : (
+          <DropDownContainer>
+            <DropDownWidget
+              options={uniqueUploads.map(
+                ({ meta }) => JSON.parse(meta).filename
+              )}
+              label="Select Recording"
+              handleSelection={handleDropDownSelect}
+            />
+          </DropDownContainer>
+        )}
         <AnalysisParamForm
           errorMessages={paramErrors}
-          updateParams={updateParams}
           inputVals={analysisParams}
           checked={checked}
           setChecked={setChecked}
+          paramErrors={paramErrors}
+          setParamErrors={setParamErrors}
+          setAnalysisParams={setAnalysisParams}
+          analysisParams={analysisParams}
         />
         <ButtonContainer>
           {uploadError ? (

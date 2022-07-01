@@ -1,6 +1,7 @@
 import styled from "styled-components";
-import CheckboxWidget from "./basicWidgets/CheckboxWidget";
-import { useEffect, useState } from "react";
+import CheckboxWidget from "../basicWidgets/CheckboxWidget";
+import { isArrayOfNumbers } from "../../utils/generic";
+
 const Container = styled.div`
   left: 5%;
   top: 12%;
@@ -51,7 +52,7 @@ const WAOverlay = styled.div`
   width: 54%;
   position: absolute;
   height: 47%;
-  top: 42%;
+  top: 41%;
   background-color: var(--dark-gray);
   opacity: 0.6;
 `;
@@ -114,11 +115,97 @@ const WALabel = styled.span`
 
 export default function AnalysisParamForm({
   inputVals,
-  updateParams,
   errorMessages,
   checked,
   setChecked,
+  setAnalysisParams,
+  paramErrors,
+  setParamErrors,
+  analysisParams,
 }) {
+  const updateParams = (newParams) => {
+    const updatedParams = { ...analysisParams, ...newParams };
+
+    if (newParams.twitchWidths !== undefined) {
+      validateTwitchWidths(updatedParams);
+    }
+    if (newParams.startTime !== undefined || newParams.endTime !== undefined) {
+      // need to validate start and end time together
+      validateWindowBounds(updatedParams);
+    }
+
+    setAnalysisParams(updatedParams);
+  };
+
+  const validateTwitchWidths = (updatedParams) => {
+    const newValue = updatedParams.twitchWidths;
+    let formattedTwitchWidths;
+    if (newValue === null || newValue === "") {
+      formattedTwitchWidths = "";
+    } else {
+      let twitchWidthArr;
+      // make sure it's a valid list
+      try {
+        twitchWidthArr = JSON.parse(`[${newValue}]`);
+      } catch (e) {
+        setParamErrors({
+          ...paramErrors,
+          twitchWidths: "*Must be comma-separated, positive numbers",
+        });
+        return;
+      }
+      // make sure it's an array of positive numbers
+      if (isArrayOfNumbers(twitchWidthArr, true)) {
+        formattedTwitchWidths = Array.from(new Set(twitchWidthArr));
+        console.log("formattedTwitchWidths:", formattedTwitchWidths);
+      } else {
+        console.log(`Invalid twitchWidths: ${newValue}`);
+        setParamErrors({
+          ...paramErrors,
+          twitchWidths: "*Must be comma-separated, positive numbers",
+        });
+        return;
+      }
+    }
+    setParamErrors({ ...paramErrors, twitchWidths: "" });
+    updatedParams.twitchWidths = formattedTwitchWidths;
+  };
+
+  const validateWindowBounds = (updatedParams) => {
+    const { startTime, endTime } = updatedParams;
+    const updatedParamErrors = { ...paramErrors };
+
+    for (const [boundName, boundValueStr] of Object.entries({
+      startTime,
+      endTime,
+    })) {
+      let error = "";
+      if (boundValueStr) {
+        // checks if positive number, no other characters allowed
+        const numRegEx = new RegExp("^([0-9]+(?:[.][0-9]*)?|.[0-9]+)$");
+        if (!numRegEx.test(boundValueStr)) {
+          error = "*Must be a non-negative number";
+        } else {
+          const boundValue = +boundValueStr;
+          updatedParams[boundName] = boundValue;
+        }
+      }
+
+      updatedParamErrors[boundName] = error;
+    }
+
+    if (
+      !updatedParamErrors.startTime &&
+      !updatedParamErrors.endTime &&
+      updatedParams.startTime &&
+      updatedParams.endTime &&
+      updatedParams.startTime >= updatedParams.endTime
+    ) {
+      updatedParamErrors.endTime = "*Must be greater than Start Time";
+    }
+    setParamErrors(updatedParamErrors);
+  };
+
   return (
     <Container>
       <InputContainer>

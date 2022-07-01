@@ -1,7 +1,9 @@
-import DashboardLayout from "@/components/layouts/DashboardLayout";
+import DashboardLayout, {
+  UploadsContext,
+} from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
 import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useContext, useRef } from "react";
 import {
   Table,
   TableBody,
@@ -40,13 +42,15 @@ const DownloadLink = styled.span`
 `;
 
 export default function Uploads() {
-  const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [uploads, setUploads] = useState([]);
+  const { uploads } = useContext(UploadsContext);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const router = useRouter();
+  const uploadsArr = useRef(uploads);
   const columns = [
     { id: "uploadId", label: "Upload\u00a0ID" },
     { id: "datetime", label: "Datetime" },
@@ -72,18 +76,6 @@ export default function Uploads() {
     },
   ];
 
-  const getUploads = async () => {
-    const response = await fetch("http://localhost/uploads");
-    if (response && response.status === 200) {
-      const uploadsArr = await response.json();
-      setUploads(uploadsArr);
-      // get job statuses if present
-      if (uploadsArr.length > 0) getJobs();
-    } else if (response && [403, 401].includes(response.status)) {
-      router.replace("/login", null, { shallow: true });
-    }
-  };
-
   const getJobs = async () => {
     const response = await fetch("http://localhost/jobs");
     if (response && response.status === 200) {
@@ -95,16 +87,11 @@ export default function Uploads() {
   };
 
   useEffect(() => {
-    if (uploads.length === 0) setIsLoading(true);
-    getUploads();
-    // updates table every five seconds
-    const interval = setInterval(() => {
-      getUploads();
-    }, 10e3);
-
-    // // clears intrval when user clicks off uploads page so it doesn't go indefinitely
-    return () => clearInterval(interval);
-  }, []);
+    if (uploadsArr.current && uploadsArr.current !== uploads) {
+      getJobs();
+      uploadsArr.current = uploads;
+    }
+  }, [uploads]);
 
   const handleChangePage = (e, newPage) => {
     setPage(newPage);

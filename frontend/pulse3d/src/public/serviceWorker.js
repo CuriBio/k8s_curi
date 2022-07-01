@@ -52,7 +52,7 @@ self.addEventListener("fetch", async (e) => {
   // only intercept routes to pulse and user apis
   if (destURL.host === "localhost") {
     e.respondWith(interceptResponse(e.request, destURL));
-  }
+  } else e.respondWith(fetch(e.request));
 });
 
 const interceptResponse = async (req, url) => {
@@ -64,6 +64,7 @@ const interceptResponse = async (req, url) => {
   if (tokens.access && !isAuthRequest(url)) {
     headers.append("Authorization", `Bearer ${tokens.access}`);
   }
+
   // apply new headers
   const newReq = new Request(getUrl(url.pathname), {
     headers,
@@ -101,10 +102,12 @@ const requestWithRefresh = async (requestFn, url) => {
   };
 
   let response = await safeRequest();
-  if (response.status === 401) {
+  if (response.status === 401 || response.status === 403) {
     // attempt to get new tokens
     const refreshResponse = await handleRefreshRequest();
-    if (refreshResponse.status !== 200) {
+    console.log("INSIDE REFRESH REQ: ", refreshResponse);
+
+    if (refreshResponse.status !== 201) {
       // if the refresh failed, no need to try request again, just return original failed response
       clearTokens();
       return response;
@@ -130,17 +133,18 @@ const handleRefreshRequest = async () => {
 
   let res = null;
   try {
-    res = await axios.post(
-      getUrl("/users/refresh"),
-      // TODO look into ways to not pass an empty body
-      {},
-      { headers: { Authorization: `Bearer ${tokens.refresh}` } }
-    );
+    res = await fetch(getUrl("/users/refresh"), {
+      method: "POST",
+      body: JSON.stringify({}),
+      headers: { Authorization: `Bearer ${tokens.refresh}` },
+    });
   } catch (e) {
+    console.log("ERROR IN REFRESH REQ: ", e.message);
     return { error: JSON.stringify(e.message) };
   }
   //set new tokens
-  setTokens(await res.json());
+  const tokens = await res.json();
+  setTokens(tokens);
 
   // remove tokens from response
   return new Response(JSON.stringify({}), {

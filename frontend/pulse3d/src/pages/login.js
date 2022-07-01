@@ -57,9 +57,9 @@ export default function Login() {
   const router = useRouter();
   const [errorMsg, setErrorMsg] = useState(null);
   const [userData, setUserData] = useState({
-    customer_id: "",
-    username: "",
-    password: "",
+    customer_id: "60e88e2a-b101-49e2-9734-96f299fe8959",
+    username: "lucipak",
+    password: "Test123Test123",
   });
 
   const submitForm = async () => {
@@ -69,7 +69,7 @@ export default function Login() {
       setErrorMsg("*All fields are required");
     // this state gets passed to web worker to attempt login request
     else {
-      const res = await fetch("http://localhost/users/login", {
+      const res = await fetch("http://localhost/login", {
         method: "POST",
         body: JSON.stringify(userData),
       });
@@ -93,20 +93,20 @@ export default function Login() {
           <Field
             id="customer_id" // must be snakecase to post to backend
             placeholder="CuriBio"
-            onChange={(e) => {
-              setUserData({
-                ...userData,
-                customer_id: e.target.value,
-              });
-            }}
+            // onChange={(e) => {
+            //   setUserData({
+            //     ...userData,
+            //     customer_id: e.target.value,
+            //   });
+            // }}
           />
           <Label htmlFor="username">Username</Label>
           <Field
             id="username"
             placeholder="User"
-            onChange={(e) =>
-              setUserData({ ...userData, username: e.target.value })
-            }
+            // onChange={(e) =>
+            //   setUserData({ ...userData, username: e.target.value })
+            // }
           />
           <Label htmlFor="password">Password</Label>
           <Field
@@ -114,9 +114,9 @@ export default function Login() {
             type="password"
             autocomplete="current-password" // chrome warns without this attribute
             placeholder="Password"
-            onChange={(e) =>
-              setUserData({ ...userData, password: e.target.value })
-            }
+            // onChange={(e) =>
+            //   setUserData({ ...userData, password: e.target.value })
+            // }
           />
           <ErrorText id="loginError" role="errorMsg">
             {errorMsg}

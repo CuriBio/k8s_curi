@@ -26,6 +26,11 @@ class UploadRequest(BaseModel):
     md5s: str
 
 
+class ReAnalysisRequest(BaseModel):
+    upload_id: str
+    filename: str
+
+
 class UploadResponse(BaseModel):
     id: uuid.UUID
     params: Dict[str, Any]
@@ -77,6 +82,7 @@ async def get_info_of_uploads(
         user_id = str(uuid.UUID(token["userid"]))
         async with request.state.pgpool.acquire() as con:
             return await get_uploads(con=con, user_id=user_id, upload_ids=upload_ids)
+
     except Exception as e:
         logger.exception(f"Failed to get uploads: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -108,6 +114,33 @@ async def create_recording_upload(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.error(f"Failed to generate presigned upload url: {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.post("/re_analysis", response_model=UploadResponse)
+async def create_re_analysis_upload(
+    request: Request, details: ReAnalysisRequest, token=Depends(ProtectedAny(scope=["users:free"]))
+):
+    try:
+        user_id = str(uuid.UUID(token["userid"]))
+        customer_id = str(uuid.UUID(token["customer_id"]))
+
+        meta = {
+            "prefix": f"uploads/{customer_id}/{user_id}",
+            "filename": details.filename,
+            "re_analysis": True,
+            "orig_upload_id": details.upload_id,
+        }
+
+        async with request.state.pgpool.acquire() as con:
+            upload_id = await create_upload(con=con, user_id=user_id, meta=meta)
+            return UploadResponse(id=upload_id, params={})
+
+    except S3Error as e:
+        logger.exception(str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(f"Failed to create entry for reanalysis: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -203,6 +236,7 @@ async def create_new_job(
             job_id = await create_job(
                 con=con, upload_id=details.upload_id, queue="pulse3d", priority=priority, meta=meta
             )
+
             # TODO create response model
             return {
                 "id": job_id,

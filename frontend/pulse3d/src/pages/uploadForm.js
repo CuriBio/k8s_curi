@@ -1,5 +1,5 @@
 import DashboardLayout from "@/components/layouts/DashboardLayout";
-import UploadFormComponent from "@/components/UploadForm";
+import UploadFormComponent from "@/components/uploadForm/UploadForm";
 export default function UploadForm() {
   return <UploadFormComponent />;
 }
