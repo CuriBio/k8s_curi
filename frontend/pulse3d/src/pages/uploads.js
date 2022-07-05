@@ -155,12 +155,12 @@ export default function Uploads() {
         }
       );
 
-      const dataFormRows = formattedRows
+      const nameDateRows = formattedRows
         .sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
         .sort((a, b) => a.uploadedFile.localeCompare(b.uploadedFile));
 
       setIsLoading(false);
-      setRows([...dataFormRows]);
+      setRows([...nameDateRows]);
     }
   }, [jobs]);
 
