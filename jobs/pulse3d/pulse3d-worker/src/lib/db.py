@@ -14,7 +14,7 @@ PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-sdk-upload")
 logger = logging.getLogger(__name__)
 
 
-async def insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s):
+async def insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s, re_analysis):
     """
     args:
         contains pgpool connection, PlateRecording, <file>.xlsx, object key for outfile, and the md5 hash
@@ -27,20 +27,24 @@ async def insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s):
     except Exception as e:
         raise Exception(f"in formatting: {repr(e)}")
 
-    logger.info("Executing queries to the database in relation to aggregated metadata")
+    
     async with con.transaction():
-        try:
-            await con.execute(
-                UPDATE_UPLOADS_TABLE,
-                PULSE3D_UPLOADS_BUCKET,
-                metadata["uploading_computer_name"],
-                s3_size,
-                md5s,
-                upload_id,
-            )
-        except Exception as e:
-            raise Exception(f"in uploads: {repr(e)}")
-
+        if not re_analysis:
+            logger.info("Updating uploads table")
+            try:
+                await con.execute(
+                    UPDATE_UPLOADS_TABLE,
+                    PULSE3D_UPLOADS_BUCKET,
+                    metadata["uploading_computer_name"],
+                    s3_size,
+                    md5s,
+                    upload_id,
+                )
+            except Exception as e:
+                raise Exception(f"in uploads: {repr(e)}")
+        else: 
+            logger.info("Skipping update of uploads table")
+            
         try:
             logger.info("Inserting recording session metadata")
             await con.execute(
