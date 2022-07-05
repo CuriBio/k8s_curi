@@ -2,10 +2,8 @@
 const domain = "curibio-test"; // MODIFY URL until decided how it's handled
 
 const getUrl = (endpoint) => {
-  // let subdomain = endpoint.includes("users") ? "apiv2" : "pulse3d";
-  let subdomain = endpoint.includes("login") ? "8001" : "8000";
-  // return new URL(`https://${subdomain}.${domain}.com${endpoint}`);
-  return new URL(`http://localhost:${subdomain}${endpoint}`);
+  let subdomain = endpoint.includes("users") ? "apiv2" : "pulse3d";
+  return new URL(`https://${subdomain}.${domain}.com${endpoint}`);
 };
 
 const tokens = {
