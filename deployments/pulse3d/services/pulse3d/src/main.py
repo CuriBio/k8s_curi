@@ -23,7 +23,13 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
 class UploadRequest(BaseModel):
     filename: str
-    md5s: str
+    md5s: Union[str, None]
+    upload_type: str
+
+
+class ReAnalysisRequest(BaseModel):
+    upload_id: str
+    filename: str
 
 
 class UploadResponse(BaseModel):
@@ -77,6 +83,7 @@ async def get_info_of_uploads(
         user_id = str(uuid.UUID(token["userid"]))
         async with request.state.pgpool.acquire() as con:
             return await get_uploads(con=con, user_id=user_id, upload_ids=upload_ids)
+
     except Exception as e:
         logger.exception(f"Failed to get uploads: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -89,18 +96,18 @@ async def create_recording_upload(
     try:
         user_id = str(uuid.UUID(token["userid"]))
         customer_id = str(uuid.UUID(token["customer_id"]))
-
         params = _generate_presigned_post(user_id, customer_id, details, PULSE3D_UPLOADS_BUCKET)
 
-        # TODO what meta do we want
-        meta = {
+        upload_params = {
             "prefix": f"uploads/{customer_id}/{user_id}",
             "filename": details.filename,
-            "md5s": details.md5s,
+            "md5": details.md5s,
+            "user_id": user_id,
+            "type": details.upload_type,
         }
 
         async with request.state.pgpool.acquire() as con:
-            upload_id = await create_upload(con=con, user_id=user_id, meta=meta)
+            upload_id = await create_upload(con=con, upload_params=upload_params)
             return UploadResponse(id=upload_id, params=params)
 
     except S3Error as e:
@@ -159,14 +166,20 @@ async def get_info_of_jobs(
 
             response = {"jobs": []}
             for job in jobs:
-                job_info = {"id": job["job_id"], "status": job["status"], "upload_id": job["upload_id"]}
+                job_info = {
+                    "id": job["job_id"],
+                    "status": job["status"],
+                    "upload_id": job["upload_id"],
+                    "object_key": job["object_key"],
+                    "created_at": job["created_at"],
+                }
+
                 if job_info["status"] == "finished":
-                    upload_rows = await get_uploads(con=con, user_id=user_id, upload_ids=[job["upload_id"]])
-                    object_key = upload_rows[0]["object_key"]
-                    logger.info(f"Generating presigned download url for {object_key}")
-                    job_info["url"] = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, object_key)
+                    logger.info(f"Generating presigned download url for {job['object_key']}")
+                    job_info["url"] = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, job["object_key"])
                 elif job_info["status"] == "error":
                     job_info["error_info"] = json.loads(job["job_meta"])["error"]
+
                 response["jobs"].append(job_info)
             if not response["jobs"]:
                 response["error"] = "No jobs found"
@@ -203,6 +216,7 @@ async def create_new_job(
             job_id = await create_job(
                 con=con, upload_id=details.upload_id, queue="pulse3d", priority=priority, meta=meta
             )
+
             # TODO create response model
             return {
                 "id": job_id,

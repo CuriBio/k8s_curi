@@ -3,7 +3,7 @@ numpy==1.22.4
 boto3==1.21.0
 botocore==1.24.0
 typing-extensions==4.0.1
-pulse3d==0.24.1
+pulse3d==0.24.3
 jmespath==0.10.0
 python-dateutil==2.8.2
 s3transfer==0.5.0
@@ -14,3 +14,5 @@ h5py==3.7.0
 nptyping==1.4.4
 scipy==1.8.1
 pandas==1.3.4
+fastparquet==0.8.1
+pyarrow==8.0.0

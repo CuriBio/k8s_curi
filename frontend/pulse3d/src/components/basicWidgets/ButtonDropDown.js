@@ -56,7 +56,7 @@ export default function DropDownMenu({ items, label, handleSelection }) {
               key={option}
               id={idx}
               onClick={handleClick}
-              sx={{ fontSize: "14px", padding: "1" }}
+              sx={{ fontSize: "18px", padding: "1" }}
             >
               {option}
             </MenuItem>

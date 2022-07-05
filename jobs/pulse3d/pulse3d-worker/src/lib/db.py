@@ -14,7 +14,7 @@ PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-sdk-upload")
 logger = logging.getLogger(__name__)
 
 
-async def insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s):
+async def insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s, re_analysis):
     """
     args:
         contains pgpool connection, PlateRecording, <file>.xlsx, object key for outfile, and the md5 hash
@@ -23,25 +23,28 @@ async def insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s):
         metadata = load_data_to_df(file, pr)
         s3_size = get_s3_object_contents(PULSE3D_UPLOADS_BUCKET, outfile_key)
 
-        customer_id, user_id = outfile_key.split("/")[-3:-1]
+        customer_id, user_id = outfile_key.split("/")[-5:-3]
     except Exception as e:
         raise Exception(f"in formatting: {repr(e)}")
 
-    logger.info("Executing queries to the database in relation to aggregated metadata")
+    
     async with con.transaction():
-        try:
-            await con.execute(
-                UPDATE_UPLOADS_TABLE,
-                PULSE3D_UPLOADS_BUCKET,
-                outfile_key,
-                metadata["uploading_computer_name"],
-                s3_size,
-                md5s,
-                upload_id,
-            )
-        except Exception as e:
-            raise Exception(f"in uploads: {repr(e)}")
-
+        if not re_analysis:
+            logger.info("Updating uploads table")
+            try:
+                await con.execute(
+                    UPDATE_UPLOADS_TABLE,
+                    PULSE3D_UPLOADS_BUCKET,
+                    metadata["uploading_computer_name"],
+                    s3_size,
+                    md5s,
+                    upload_id,
+                )
+            except Exception as e:
+                raise Exception(f"in uploads: {repr(e)}")
+        else: 
+            logger.info("Skipping update of uploads table")
+            
         try:
             logger.info("Inserting recording session metadata")
             await con.execute(
@@ -63,6 +66,7 @@ async def insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s):
         try:
             logger.info("Inserting log metadata")
             log_session_key = f"{customer_id}/{metadata['session_log_id']}.zip"
+            
             await con.execute(
                 INSERT_INTO_MANTARRAY_SESSION_LOG_FILES,
                 metadata["session_log_id"],

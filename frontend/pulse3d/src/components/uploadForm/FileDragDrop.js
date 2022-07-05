@@ -23,6 +23,7 @@ const DropZone = styled.div`
   align-content: center;
   flex-direction: column;
   text-align: center;
+  overflow: hidden;
   &:hover {
     background-color: var(--light-gray);
     cursor: pointer;

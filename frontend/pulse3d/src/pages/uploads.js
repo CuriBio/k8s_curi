@@ -1,7 +1,9 @@
-import DashboardLayout from "@/components/layouts/DashboardLayout";
+import DashboardLayout, {
+  UploadsContext,
+} from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
 import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useContext, useRef } from "react";
 import {
   Table,
   TableBody,
@@ -36,56 +38,46 @@ const DownloadLink = styled.span`
   &:hover {
     color: var(--teal-green);
     cursor: pointer;
+    text-decoration: underline;
   }
 `;
 
+const columns = [
+  { id: "uploadId", label: "Upload\u00a0ID" },
+  { id: "datetime", label: "Datetime" },
+  {
+    id: "uploadedFile",
+    label: "Uploaded\u00a0File",
+  },
+  {
+    id: "analyzedFile",
+    label: "Analyzed\u00a0File",
+  },
+  {
+    id: "status",
+    label: "Status",
+  },
+  {
+    id: "meta",
+    label: "Meta",
+  },
+  {
+    id: "download",
+    label: "Download",
+  },
+];
 export default function Uploads() {
-  const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [uploads, setUploads] = useState([]);
-  const [jobs, setJobs] = useState([]);
+  const [jobs, setJobs] = useState();
   const [rows, setRows] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { uploads } = useContext(UploadsContext);
   const router = useRouter();
-  const columns = [
-    { id: "uploadId", label: "Upload\u00a0ID" },
-    { id: "datetime", label: "Datetime" },
-    {
-      id: "uploadedFile",
-      label: "Uploaded\u00a0File",
-    },
-    {
-      id: "analyzedFile",
-      label: "Analyzed\u00a0File",
-    },
-    {
-      id: "status",
-      label: "Status",
-    },
-    {
-      id: "meta",
-      label: "Meta",
-    },
-    {
-      id: "download",
-      label: "Download",
-    },
-  ];
-
-  const getUploads = async () => {
-    const response = await fetch("http://localhost/uploads");
-    if (response && response.status === 200) {
-      const uploadsArr = await response.json();
-      setUploads(uploadsArr);
-      // get job statuses if present
-      if (uploadsArr.length > 0) getJobs();
-    } else if (response && [403, 401].includes(response.status)) {
-      router.replace("/login", null, { shallow: true });
-    }
-  };
 
   const getJobs = async () => {
     const response = await fetch("http://localhost/jobs");
+
     if (response && response.status === 200) {
       const { jobs } = await response.json();
       setJobs(jobs);
@@ -95,16 +87,8 @@ export default function Uploads() {
   };
 
   useEffect(() => {
-    if (uploads.length === 0) setIsLoading(true);
-    getUploads();
-    // updates table every five seconds
-    const interval = setInterval(() => {
-      getUploads();
-    }, 10e3);
-
-    // // clears intrval when user clicks off uploads page so it doesn't go indefinitely
-    return () => clearInterval(interval);
-  }, []);
+    if (uploads.length > 0) getJobs();
+  }, [uploads]);
 
   const handleChangePage = (e, newPage) => {
     setPage(newPage);
@@ -115,6 +99,7 @@ export default function Uploads() {
     setPage(0);
   };
 
+  // add param to GET /jobs to return only one presigned URL
   const downloadAnalysis = async ({ target }) => {
     await getJobs();
     const selectedJob = jobs.find((job) => job.upload_id === target.id);
@@ -135,37 +120,39 @@ export default function Uploads() {
   };
 
   const formatUploads = useCallback(() => {
-    const formattedRows = uploads.map(
-      ({ id, meta, created_at, object_key }) => {
-        const { filename } = JSON.parse(meta);
-        const job = jobs.find((job) => job.upload_id === id);
+    setIsLoading(true);
+    if (jobs) {
+      const formattedRows = jobs.map(
+        ({ upload_id, created_at, object_key, status }) => {
+          const uploadedFilename = uploads.find(
+            (el) => el.id === upload_id
+          ).filename;
 
-        const analyzedFile = object_key
-          ? object_key.split("/")[object_key.split("/").length - 1]
-          : "";
+          const analyzedFile = object_key
+            ? object_key.split("/")[object_key.split("/").length - 1]
+            : "";
 
-        const formattedDate = new Date(created_at).toLocaleDateString(
-          undefined,
-          {
-            hour: "numeric",
-            minute: "numeric",
-          }
-        );
+          const formattedDate = new Date(created_at).toLocaleDateString(
+            undefined,
+            {
+              hour: "numeric",
+              minute: "numeric",
+            }
+          );
 
-        setIsLoading(false);
-
-        return {
-          uploadId: id,
-          uploadedFile: filename,
-          analyzedFile,
-          datetime: formattedDate,
-          download: job && job.status === "finished" ? "Download analysis" : "",
-          status: job ? job.status : "",
-        };
-      }
-    );
-
-    setRows([...formattedRows]);
+          return {
+            uploadId: upload_id,
+            uploadedFile: uploadedFilename,
+            analyzedFile,
+            datetime: formattedDate,
+            download: status === "finished" ? "Download analysis" : "",
+            status,
+          };
+        }
+      );
+      setIsLoading(false);
+      setRows([...formattedRows]);
+    }
   }, [jobs]);
 
   useEffect(() => {
