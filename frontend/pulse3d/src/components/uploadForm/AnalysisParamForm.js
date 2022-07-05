@@ -51,8 +51,8 @@ const WAOverlay = styled.div`
   border-radius: 5px;
   width: 54%;
   position: absolute;
-  height: 47%;
-  top: 41%;
+  height: 46%;
+  top: 43%;
   background-color: var(--dark-gray);
   opacity: 0.6;
 `;
