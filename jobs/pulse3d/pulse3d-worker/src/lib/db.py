@@ -9,7 +9,7 @@ from .utils import get_s3_object_contents
 from .utils import load_data_to_df
 
 MANTARRAY_LOGS_BUCKET = os.environ.get("MANTARRAY_LOGS_BUCKET_ENV", "test-mantarray-logs")
-PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-sdk-upload")
+PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-pulse3d-uploads")
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,6 @@ async def insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s, r
     except Exception as e:
         raise Exception(f"in formatting: {repr(e)}")
 
-    
     async with con.transaction():
         if not re_analysis:
             logger.info("Updating uploads table")
@@ -42,9 +41,9 @@ async def insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s, r
                 )
             except Exception as e:
                 raise Exception(f"in uploads: {repr(e)}")
-        else: 
+        else:
             logger.info("Skipping update of uploads table")
-            
+
         try:
             logger.info("Inserting recording session metadata")
             await con.execute(
@@ -66,7 +65,7 @@ async def insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s, r
         try:
             logger.info("Inserting log metadata")
             log_session_key = f"{customer_id}/{metadata['session_log_id']}.zip"
-            
+
             await con.execute(
                 INSERT_INTO_MANTARRAY_SESSION_LOG_FILES,
                 metadata["session_log_id"],

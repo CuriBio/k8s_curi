@@ -13,7 +13,7 @@ from pulse3D.plate_recording import PlateRecording
 from pulse3D.excel_writer import write_xlsx
 
 from jobs import get_item, EmptyQueue
-from lib.db import insert_metadata_into_pg
+from lib.db import insert_metadata_into_pg, PULSE3D_UPLOADS_BUCKET
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -22,8 +22,6 @@ logging.basicConfig(
     stream=sys.stdout,
 )
 logger = logging.getLogger(__name__)
-
-PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-sdk-upload")
 
 
 @get_item(queue="pulse3d")
