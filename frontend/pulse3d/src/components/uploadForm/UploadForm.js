@@ -121,7 +121,10 @@ export default function UploadForm() {
   }, [query]);
 
   useEffect(() => {
-    const uploadFilenames = uploads.map((upload) => upload.filename);
+    const uploadFilenames = uploads
+      .map((upload) => upload.filename)
+      .filter((name) => name);
+
     setFormattedUploads([...uploadFilenames]);
   }, [uploads]);
 

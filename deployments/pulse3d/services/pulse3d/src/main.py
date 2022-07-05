@@ -27,11 +27,6 @@ class UploadRequest(BaseModel):
     upload_type: str
 
 
-class ReAnalysisRequest(BaseModel):
-    upload_id: str
-    filename: str
-
-
 class UploadResponse(BaseModel):
     id: uuid.UUID
     params: Dict[str, Any]
@@ -163,7 +158,6 @@ async def get_info_of_jobs(
 
         async with request.state.pgpool.acquire() as con:
             jobs = await get_jobs(con=con, user_id=user_id, job_ids=job_ids)
-
             response = {"jobs": []}
             for job in jobs:
                 job_info = {
@@ -176,7 +170,13 @@ async def get_info_of_jobs(
 
                 if job_info["status"] == "finished":
                     logger.info(f"Generating presigned download url for {job['object_key']}")
-                    job_info["url"] = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, job["object_key"])
+                    # This is in case any current users uploaded files before object_key was dropped from uploads table and added to jobs_result
+                    job_info["url"] = (
+                        generate_presigned_url(PULSE3D_UPLOADS_BUCKET, job["object_key"])
+                        if job["object_key"]
+                        else None
+                    )
+
                 elif job_info["status"] == "error":
                     job_info["error_info"] = json.loads(job["job_meta"])["error"]
 

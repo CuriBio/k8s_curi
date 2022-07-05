@@ -79,7 +79,7 @@ async def create_upload(*, con, upload_params):
             upload_params["md5"],
             upload_params["prefix"],
             upload_params["filename"],
-            upload_params["type"],            
+            upload_params["type"], 
         )
 
 
