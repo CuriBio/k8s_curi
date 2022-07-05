@@ -48,6 +48,7 @@ app.add_middleware(
     allow_origins=[
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
+        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -98,15 +99,16 @@ async def create_recording_upload(
 
         params = _generate_presigned_post(user_id, customer_id, details, PULSE3D_UPLOADS_BUCKET)
 
-        # TODO what meta do we want
-        meta = {
+        upload_params = {
             "prefix": f"uploads/{customer_id}/{user_id}",
             "filename": details.filename,
-            "md5s": details.md5s,
+            "md5": details.md5s,
+            "user_id": user_id,
+            "type": "mantarray",
         }
 
         async with request.state.pgpool.acquire() as con:
-            upload_id = await create_upload(con=con, user_id=user_id, meta=meta)
+            upload_id = await create_upload(con=con, upload_params=upload_params)
             return UploadResponse(id=upload_id, params=params)
 
     except S3Error as e:
@@ -114,33 +116,6 @@ async def create_recording_upload(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.error(f"Failed to generate presigned upload url: {repr(e)}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@app.post("/re_analysis", response_model=UploadResponse)
-async def create_re_analysis_upload(
-    request: Request, details: ReAnalysisRequest, token=Depends(ProtectedAny(scope=["users:free"]))
-):
-    try:
-        user_id = str(uuid.UUID(token["userid"]))
-        customer_id = str(uuid.UUID(token["customer_id"]))
-
-        meta = {
-            "prefix": f"uploads/{customer_id}/{user_id}",
-            "filename": details.filename,
-            "re_analysis": True,
-            "orig_upload_id": details.upload_id,
-        }
-
-        async with request.state.pgpool.acquire() as con:
-            upload_id = await create_upload(con=con, user_id=user_id, meta=meta)
-            return UploadResponse(id=upload_id, params={})
-
-    except S3Error as e:
-        logger.exception(str(e))
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        logger.error(f"Failed to create entry for reanalysis: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

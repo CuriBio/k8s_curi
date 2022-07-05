@@ -34,19 +34,12 @@ async def process(con, item):
         try:
             upload_id = item["upload_id"]
             logger.info(f"Retrieving user ID and metadata for upload with ID: {upload_id}")
-            upload = await con.fetchrow("SELECT user_id, meta FROM uploads WHERE id=$1", upload_id)
+            upload = await con.fetchrow(
+                "SELECT user_id, prefix, filename FROM uploads WHERE id=$1", upload_id
+            )
 
-            try:
-                upload_meta_json = upload["meta"]
-            except:
-                msg = f"Upload with ID: {upload_id} not found"
-                raise Exception(msg)
-            else:
-                logger.info(f"Upload found. User ID: {upload['user_id']}, Metadata: {upload_meta_json}")
-
-            upload_meta = json.loads(upload_meta_json)
-            prefix = upload_meta["prefix"]
-            filename = upload_meta["filename"]
+            prefix = upload["prefix"]
+            filename = upload["filename"]
             key = f"{prefix}/{filename}"
 
         except Exception as e:
@@ -64,19 +57,18 @@ async def process(con, item):
 
             try:
                 logger.info(f"Checking if time force data exists in s3")
-                re_analysis = upload_meta.get("re_analysis", False)
+
                 parquet_filename = f"{os.path.splitext(filename)[0]}.parquet"
                 parquet_key = f"{prefix}/time_force_data/{parquet_filename}"
                 parquet_path = os.path.join(tmpdir, parquet_filename)
 
-                if re_analysis:
-                    logger.info(f"Downloading {parquet_filename} to {tmpdir}/{parquet_filename}")
-                    s3_client.download_file(
-                        PULSE3D_UPLOADS_BUCKET, parquet_key, f"{tmpdir}/{parquet_filename}"
-                    )
+                # attempt to download parquet file if recording has already been analyzed
+                logger.info(f"Downloading {parquet_filename} to {tmpdir}/{parquet_filename}")
+                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, parquet_key, f"{tmpdir}/{parquet_filename}")
+                re_analysis = True
 
-            except Exception as e: # continue with analysis even if original force data is not found
-                logger.exception(f"Failed to download {parquet_filename}: {e}")
+            except Exception as e:  # continue with analysis even if original force data is not found
+                logger.exception(f"No existing data found for recording {parquet_filename}: {e}")
                 re_analysis = False
 
             try:
@@ -92,12 +84,12 @@ async def process(con, item):
                 }
 
                 if re_analysis:
-                    logger.info(f"Loading previous force data to WellFiles from {parquet_filename}")
+                    logger.info(f"Loading previous time force data from {parquet_filename}")
                     recordings[0].load_time_force_data(parquet_path)
+
                 # Tanner (6/8//22): only supports analyzing one recording at a time right now. Functionality can be added whenever analyzing multiple files becomes necessary
                 outfile = write_xlsx(recordings[0], **analysis_params)
                 outfile_prefix = prefix.replace("uploads/", "analyzed/")
-
             except Exception as e:
                 logger.exception(f"Analysis failed: {e}")
                 raise
@@ -112,6 +104,7 @@ async def process(con, item):
                         contents = file.read()
                         md5 = hashlib.md5(contents).digest()
                         md5s = base64.b64encode(md5).decode()
+
                         paraquet_key = f"{prefix}/time_force_data/{parquet_filename}"
                         logger.info(f"Uploading time force data to {paraquet_key}")
 
@@ -160,7 +153,7 @@ async def process(con, item):
         logger.info(f"Job complete for upload {upload_id}")
         result = "finished"
 
-    return result, job_metadata
+    return result, job_metadata, outfile_key
 
 
 async def main():

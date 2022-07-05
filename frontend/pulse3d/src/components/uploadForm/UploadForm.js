@@ -73,7 +73,7 @@ export default function UploadForm() {
   const { uploads } = useContext(UploadsContext);
 
   const [file, setFile] = useState({});
-  const [uniqueUploads, setUniqueUploads] = useState([]);
+  const [formattedUploads, setFormattedUploads] = useState([]);
   const [isButtonDisabled, setIsButtonDisabled] = useState(true);
   const [paramErrors, setParamErrors] = useState({});
   const [inProgress, setInProgress] = useState(false);
@@ -121,16 +121,8 @@ export default function UploadForm() {
   }, [query]);
 
   useEffect(() => {
-    const uploadFilenames = uploads.map(
-      ({ meta }) => JSON.parse(meta).filename
-    );
-
-    const formattedUploads = uploads.filter(({ meta }, idx) => {
-      const { filename } = JSON.parse(meta);
-      return uploadFilenames.indexOf(filename) === idx;
-    });
-
-    setUniqueUploads([...formattedUploads]);
+    const uploadFilenames = uploads.map((upload) => upload.filename);
+    setFormattedUploads([...uploadFilenames]);
   }, [uploads]);
 
   const resetState = () => {
@@ -172,28 +164,8 @@ export default function UploadForm() {
   };
 
   const requestReAnalysis = async () => {
-    const { filename } = JSON.parse(file.meta);
-
-    const uploadResponse = await fetch("http://localhost/re_analysis", {
-      method: "POST",
-      body: JSON.stringify({
-        filename: filename,
-        upload_id: file.id,
-      }),
-    });
-
-    // break flow if initial request returns error status code
-    setInProgress(false);
-    if (uploadResponse.status !== 200) {
-      setUploadError(true);
-      console.log("ERROR starting re analysis:  ", await uploadResponse.json());
-      return;
-    }
-
     setUploadSuccess(true);
-
-    const { id } = await uploadResponse.json();
-    await postNewJob(id);
+    await postNewJob(file.id);
   };
 
   const uploadFile = async () => {
@@ -285,9 +257,7 @@ export default function UploadForm() {
         ) : (
           <DropDownContainer>
             <DropDownWidget
-              options={uniqueUploads.map(
-                ({ meta }) => JSON.parse(meta).filename
-              )}
+              options={formattedUploads}
               label="Select Recording"
               handleSelection={handleDropDownSelect}
             />

@@ -23,7 +23,7 @@ def get_item(*, queue):
                     raise EmptyQueue(queue)
 
                 ts = time.time()
-                status, new_meta = await fn(con, item)
+                status, new_meta, object_key = await fn(con, item)
                 runtime = time.time() - ts
 
                 # update metadata
@@ -35,6 +35,7 @@ def get_item(*, queue):
                     "runtime": runtime,
                     "finished_at": datetime.now(),
                     "meta": json.dumps(meta),
+                    "object_key": object_key,
                 }
                 set_clause = ", ".join(f"{key} = ${i}" for i, key in enumerate(data, 1))
                 await con.execute(
@@ -66,13 +67,19 @@ async def get_uploads(*, con, user_id, upload_ids=None):
     return uploads
 
 
-async def create_upload(*, con, user_id, meta):
+async def create_upload(*, con, upload_params):
     query = (
         "WITH row as (SELECT id FROM users where id=$1) "
-        "INSERT INTO uploads (user_id, meta) SELECT id, $2 from row RETURNING id"
+        "INSERT INTO uploads (user_id, md5, prefix, filename) SELECT id, $2, $3, $4 from row RETURNING id"
     )
     async with con.transaction():
-        return await con.fetchval(query, user_id, json.dumps(meta))
+        return await con.fetchval(
+            query,
+            upload_params["user_id"],
+            upload_params["md5"],
+            upload_params["prefix"],
+            upload_params["filename"],
+        )
 
 
 async def get_jobs(*, con, user_id, job_ids=None):
@@ -81,7 +88,7 @@ async def get_jobs(*, con, user_id, job_ids=None):
     If no jobs specified, will return info of all jobs created by the user
     """
     query = (
-        "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.meta AS job_meta, u.user_id, u.meta AS user_meta "
+        "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, u.user_id, u.meta AS user_meta "
         "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id = u.id WHERE u.user_id=$1"
     )
     query_params = [user_id]

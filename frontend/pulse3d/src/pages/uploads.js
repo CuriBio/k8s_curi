@@ -38,46 +38,46 @@ const DownloadLink = styled.span`
   &:hover {
     color: var(--teal-green);
     cursor: pointer;
+    text-decoration: underline;
   }
 `;
 
+const columns = [
+  { id: "uploadId", label: "Upload\u00a0ID" },
+  { id: "datetime", label: "Datetime" },
+  {
+    id: "uploadedFile",
+    label: "Uploaded\u00a0File",
+  },
+  {
+    id: "analyzedFile",
+    label: "Analyzed\u00a0File",
+  },
+  {
+    id: "status",
+    label: "Status",
+  },
+  {
+    id: "meta",
+    label: "Meta",
+  },
+  {
+    id: "download",
+    label: "Download",
+  },
+];
 export default function Uploads() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const { uploads } = useContext(UploadsContext);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-
+  const { uploads } = useContext(UploadsContext);
   const router = useRouter();
-  const uploadsArr = useRef(uploads);
-  const columns = [
-    { id: "uploadId", label: "Upload\u00a0ID" },
-    { id: "datetime", label: "Datetime" },
-    {
-      id: "uploadedFile",
-      label: "Uploaded\u00a0File",
-    },
-    {
-      id: "analyzedFile",
-      label: "Analyzed\u00a0File",
-    },
-    {
-      id: "status",
-      label: "Status",
-    },
-    {
-      id: "meta",
-      label: "Meta",
-    },
-    {
-      id: "download",
-      label: "Download",
-    },
-  ];
 
   const getJobs = async () => {
     const response = await fetch("http://localhost/jobs");
+
     if (response && response.status === 200) {
       const { jobs } = await response.json();
       setJobs(jobs);
@@ -87,11 +87,8 @@ export default function Uploads() {
   };
 
   useEffect(() => {
-    if (uploadsArr.current && uploadsArr.current !== uploads) {
-      getJobs();
-      uploadsArr.current = uploads;
-    }
-  }, [uploads]);
+    getJobs();
+  }, []);
 
   const handleChangePage = (e, newPage) => {
     setPage(newPage);
@@ -102,6 +99,7 @@ export default function Uploads() {
     setPage(0);
   };
 
+  // add param to GET /jobs to return only one presigned URL
   const downloadAnalysis = async ({ target }) => {
     await getJobs();
     const selectedJob = jobs.find((job) => job.upload_id === target.id);
@@ -122,15 +120,17 @@ export default function Uploads() {
   };
 
   const formatUploads = useCallback(() => {
-    const formattedRows = uploads.map(
-      ({ id, meta, created_at, object_key }) => {
-        const { filename } = JSON.parse(meta);
-        const job = jobs.find((job) => job.upload_id === id);
+    if (jobs.length === 0) return setIsLoading(false);
+
+    const formattedRows = jobs.map(
+      ({ upload_id, created_at, object_key, status }) => {
+        const uploadedFilename = uploads.find(
+          (el) => el.id === upload_id
+        ).filename;
 
         const analyzedFile = object_key
           ? object_key.split("/")[object_key.split("/").length - 1]
           : "";
-
         const formattedDate = new Date(created_at).toLocaleDateString(
           undefined,
           {
@@ -142,12 +142,12 @@ export default function Uploads() {
         setIsLoading(false);
 
         return {
-          uploadId: id,
-          uploadedFile: filename,
+          uploadId: upload_id,
+          uploadedFile: uploadedFilename,
           analyzedFile,
           datetime: formattedDate,
-          download: job && job.status === "finished" ? "Download analysis" : "",
-          status: job ? job.status : "",
+          download: status === "finished" ? "Download analysis" : "",
+          status,
         };
       }
     );

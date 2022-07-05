@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import { useEffect, useState, useContext } from "react";
+import { useState } from "react";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import { useRouter } from "next/router";
 // TODO eventually need to find a better to way to handle some of these globally to use across app
