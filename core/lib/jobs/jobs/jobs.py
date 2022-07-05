@@ -70,7 +70,7 @@ async def get_uploads(*, con, user_id, upload_ids=None):
 async def create_upload(*, con, upload_params):
     query = (
         "WITH row as (SELECT id FROM users where id=$1) "
-        "INSERT INTO uploads (user_id, md5, prefix, filename) SELECT id, $2, $3, $4 from row RETURNING id"
+        "INSERT INTO uploads (user_id, md5, prefix, filename, type) SELECT id, $2, $3, $4, $5 from row RETURNING id"
     )
     async with con.transaction():
         return await con.fetchval(
@@ -79,6 +79,7 @@ async def create_upload(*, con, upload_params):
             upload_params["md5"],
             upload_params["prefix"],
             upload_params["filename"],
+            upload_params["type"],            
         )
 
 

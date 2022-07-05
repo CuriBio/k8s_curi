@@ -27,7 +27,6 @@ def upgrade():
         batch_op.drop_column("object_key")
         batch_op.add_column(sa.Column("prefix", sa.VARCHAR(255), nullable=True))
         batch_op.add_column(sa.Column("filename", sa.VARCHAR(255), nullable=True))
-
         batch_op.add_column(
             sa.Column(
                 "type",

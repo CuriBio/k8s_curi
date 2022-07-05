@@ -158,14 +158,24 @@ export default function UploadForm() {
     // update state to trigger in progress spinner over submit button
     setInProgress(true);
 
-    if (file instanceof File) await uploadFile();
-    else if (uploads.includes(file)) await requestReAnalysis();
+    if (uploads.includes(file)) await requestReAnalysis(file);
+    else if (file instanceof File && formattedUploads.includes(file.name)) {
+      console.log(
+        "Duplicate upload found, skipping upload and creating new job"
+      );
+      const existing_file = uploads.find(
+        ({ filename }) => filename === file.name
+      );
+      await requestReAnalysis(existing_file);
+    } else if (file instanceof File) await uploadFile();
     else console.log("No file selected");
   };
 
-  const requestReAnalysis = async () => {
+  const requestReAnalysis = async (file_data) => {
     setUploadSuccess(true);
-    await postNewJob(file.id);
+    setInProgress(false);
+
+    await postNewJob(file_data.id);
   };
 
   const uploadFile = async () => {
@@ -184,6 +194,7 @@ export default function UploadForm() {
         body: JSON.stringify({
           filename: file.name,
           md5s: hexToBase64(hash),
+          upload_type: "mantarray",
         }),
       });
 

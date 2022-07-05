@@ -63,12 +63,12 @@ async def process(con, item):
                 parquet_path = os.path.join(tmpdir, parquet_filename)
 
                 # attempt to download parquet file if recording has already been analyzed
-                logger.info(f"Downloading {parquet_filename} to {tmpdir}/{parquet_filename}")
+                logger.info(f"Attempting to downloading {parquet_filename} to {tmpdir}/{parquet_filename}")
                 s3_client.download_file(PULSE3D_UPLOADS_BUCKET, parquet_key, f"{tmpdir}/{parquet_filename}")
                 re_analysis = True
 
             except Exception as e:  # continue with analysis even if original force data is not found
-                logger.exception(f"No existing data found for recording {parquet_filename}: {e}")
+                logger.error(f"No existing data found for recording {parquet_filename}")
                 re_analysis = False
 
             try:
@@ -143,7 +143,7 @@ async def process(con, item):
                     for r in recordings:
                         await insert_metadata_into_pg(con, r, upload_id, file, outfile_key, md5s)
                 except Exception as e:
-                    logger.error(f"Failed to insert metadata to db for upload {upload_id}: {e}")
+                    logger.exception(f"Failed to insert metadata to db for upload {upload_id}: {e}")
                     raise
 
     except Exception as e:

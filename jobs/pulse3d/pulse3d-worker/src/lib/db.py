@@ -23,7 +23,7 @@ async def insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s):
         metadata = load_data_to_df(file, pr)
         s3_size = get_s3_object_contents(PULSE3D_UPLOADS_BUCKET, outfile_key)
 
-        customer_id, user_id = outfile_key.split("/")[-3:-1]
+        customer_id, user_id = outfile_key.split("/")[-5:-3]
     except Exception as e:
         raise Exception(f"in formatting: {repr(e)}")
 
@@ -33,7 +33,6 @@ async def insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s):
             await con.execute(
                 UPDATE_UPLOADS_TABLE,
                 PULSE3D_UPLOADS_BUCKET,
-                outfile_key,
                 metadata["uploading_computer_name"],
                 s3_size,
                 md5s,
@@ -63,6 +62,7 @@ async def insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s):
         try:
             logger.info("Inserting log metadata")
             log_session_key = f"{customer_id}/{metadata['session_log_id']}.zip"
+            
             await con.execute(
                 INSERT_INTO_MANTARRAY_SESSION_LOG_FILES,
                 metadata["session_log_id"],

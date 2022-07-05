@@ -14,7 +14,7 @@ class S3Error(Exception):
 
 def generate_presigned_url(bucket: str, key: str, exp: int = 3600) -> Any:
     s3 = boto3.resource("s3")
-    s3_client = boto3.client("s3", config=Config(signature_version="s3v4"))
+    s3_client = boto3.client("s3", config=Config(signature_version="s3v4"), region_name="us-east-2")
 
     # check if object exists
     try:
@@ -50,7 +50,7 @@ def generate_presigned_urls_for_dir(bucket: str, key_prefix: str, objs_only: boo
 
 
 def generate_presigned_post(bucket: str, key: str, md5s: str) -> Dict[Any, Any]:
-    s3_client = boto3.client("s3", config=Config(signature_version="s3v4"))
+    s3_client = boto3.client("s3", config=Config(signature_version="s3v4"), region_name="us-east-2")
 
     try:
         fields = {"Content-MD5": md5s}

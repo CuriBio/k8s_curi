@@ -69,7 +69,7 @@ const columns = [
 export default function Uploads() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [jobs, setJobs] = useState([]);
+  const [jobs, setJobs] = useState();
   const [rows, setRows] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const { uploads } = useContext(UploadsContext);
@@ -87,8 +87,8 @@ export default function Uploads() {
   };
 
   useEffect(() => {
-    getJobs();
-  }, []);
+    if (uploads.length > 0) getJobs();
+  }, [uploads]);
 
   const handleChangePage = (e, newPage) => {
     setPage(newPage);
@@ -120,39 +120,39 @@ export default function Uploads() {
   };
 
   const formatUploads = useCallback(() => {
-    if (jobs.length === 0) return setIsLoading(false);
+    setIsLoading(true);
+    if (jobs) {
+      const formattedRows = jobs.map(
+        ({ upload_id, created_at, object_key, status }) => {
+          const uploadedFilename = uploads.find(
+            (el) => el.id === upload_id
+          ).filename;
 
-    const formattedRows = jobs.map(
-      ({ upload_id, created_at, object_key, status }) => {
-        const uploadedFilename = uploads.find(
-          (el) => el.id === upload_id
-        ).filename;
+          const analyzedFile = object_key
+            ? object_key.split("/")[object_key.split("/").length - 1]
+            : "";
 
-        const analyzedFile = object_key
-          ? object_key.split("/")[object_key.split("/").length - 1]
-          : "";
-        const formattedDate = new Date(created_at).toLocaleDateString(
-          undefined,
-          {
-            hour: "numeric",
-            minute: "numeric",
-          }
-        );
+          const formattedDate = new Date(created_at).toLocaleDateString(
+            undefined,
+            {
+              hour: "numeric",
+              minute: "numeric",
+            }
+          );
 
-        setIsLoading(false);
-
-        return {
-          uploadId: upload_id,
-          uploadedFile: uploadedFilename,
-          analyzedFile,
-          datetime: formattedDate,
-          download: status === "finished" ? "Download analysis" : "",
-          status,
-        };
-      }
-    );
-
-    setRows([...formattedRows]);
+          return {
+            uploadId: upload_id,
+            uploadedFile: uploadedFilename,
+            analyzedFile,
+            datetime: formattedDate,
+            download: status === "finished" ? "Download analysis" : "",
+            status,
+          };
+        }
+      );
+      setIsLoading(false);
+      setRows([...formattedRows]);
+    }
   }, [jobs]);
 
   useEffect(() => {
