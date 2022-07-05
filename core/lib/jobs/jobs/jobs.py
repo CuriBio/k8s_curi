@@ -79,7 +79,7 @@ async def create_upload(*, con, upload_params):
             upload_params["md5"],
             upload_params["prefix"],
             upload_params["filename"],
-            upload_params["type"],            
+            upload_params["type"],
         )
 
 
@@ -100,6 +100,7 @@ async def get_jobs(*, con, user_id, job_ids=None):
 
     async with con.transaction():
         jobs = [dict(row) async for row in con.cursor(query, *query_params)]
+
     return jobs
 
 

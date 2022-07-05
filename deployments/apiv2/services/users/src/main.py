@@ -32,6 +32,7 @@ app.add_middleware(
     allow_origins=[
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
+        "http://localhost:3000"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -267,7 +268,6 @@ async def register(
     try:
         # still hash even if user or customer exists to avoid timing analysis leaks
         phash = ph.hash(details.password1.get_secret_value())
-
         is_customer_registration_attempt = customer_id == CB_CUSTOMER_ID and type(details) is CustomerCreate
 
         register_type = "customer" if is_customer_registration_attempt else "user"

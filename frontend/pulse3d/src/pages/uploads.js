@@ -124,9 +124,12 @@ export default function Uploads() {
     if (jobs) {
       const formattedRows = jobs.map(
         ({ upload_id, created_at, object_key, status }) => {
-          const uploadedFilename = uploads.find(
-            (el) => el.id === upload_id
-          ).filename;
+          const upload = uploads.find((el) => el.id === upload_id);
+
+          // protects against uploads performed before dropping filename from upload meta field
+          const uploadedFilename = upload.filename
+            ? upload.filename
+            : JSON.parse(upload.meta).filename;
 
           const analyzedFile = object_key
             ? object_key.split("/")[object_key.split("/").length - 1]
@@ -145,13 +148,19 @@ export default function Uploads() {
             uploadedFile: uploadedFilename,
             analyzedFile,
             datetime: formattedDate,
-            download: status === "finished" ? "Download analysis" : "",
+            download:
+              status === "finished" && object_key ? "Download analysis" : "",
             status,
           };
         }
       );
+
+      const dataFormRows = formattedRows
+        .sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
+        .sort((a, b) => a.uploadedFile.localeCompare(b.uploadedFile));
+
       setIsLoading(false);
-      setRows([...formattedRows]);
+      setRows([...dataFormRows]);
     }
   }, [jobs]);
 

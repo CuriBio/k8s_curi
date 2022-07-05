@@ -69,7 +69,7 @@ export default function Login() {
       setErrorMsg("*All fields are required");
     // this state gets passed to web worker to attempt login request
     else {
-      const res = await fetch("http://localhost/users/login", {
+      const res = await fetch("http://localhost/login", {
         method: "POST",
         body: JSON.stringify(userData),
       });
