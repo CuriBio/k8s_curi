@@ -245,7 +245,7 @@ async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False)
 )
 async def register(
     request: Request,
-    details: Union[UserCreate, CustomerCreate],
+    details: Union[CustomerCreate, UserCreate],
     token=Depends(ProtectedAny(scope=["users:admin"])),
 ):
     """Register a user or customer account.
