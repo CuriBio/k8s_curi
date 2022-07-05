@@ -253,6 +253,23 @@ def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, cb_cus
     spied_pw_hasher.assert_called_once_with(mocker.ANY, registration_details["password1"])
 
 
+def test_register__user__invalid_username(cb_customer_id):
+    registration_details = {
+        "email": "test@email.com",
+        "username": "bad-username",
+        "password1": "Testpw1234",
+        "password2": "Testpw1234",
+    }
+
+    access_token = get_token(userid=cb_customer_id, scope=["users:admin"], account_type="customer")
+
+    response = test_client.post(
+        "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"][-1]["msg"] == "username must be alphanumeric"
+
+
 @pytest.mark.parametrize(
     "contraint_to_violate,expected_error_message",
     [
@@ -274,7 +291,6 @@ def test_register__user__unique_constraint_violations(
     test_user_id = uuid.uuid4()
     access_token = get_token(userid=test_user_id, scope=["users:admin"], account_type="customer")
 
-    # setting this
     mocked_asyncpg_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)
 
     response = test_client.post(

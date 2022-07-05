@@ -1,4 +1,5 @@
 import re
+from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, SecretStr
@@ -20,6 +21,8 @@ class CustomerCreate(BaseModel):
     email: EmailStr
     password1: SecretStr
     password2: SecretStr
+    # adding this attr and its validator to force /register to use UserCreate if a username is given
+    username: Optional[str]
 
     @validator("password1")
     def password_requirements(cls, v):
@@ -42,6 +45,11 @@ class CustomerCreate(BaseModel):
         p2 = v.get_secret_value()
         if "password1" in values and p2 != values["password1"].get_secret_value():
             raise ValueError("passwords do not match")
+        return v
+
+    @validator("username")
+    def username_alphanumeric(cls, v):
+        assert v is None
         return v
 
 
