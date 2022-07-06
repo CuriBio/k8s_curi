@@ -26,8 +26,11 @@ logger = logging.getLogger(__name__)
 
 @get_item(queue="pulse3d")
 async def process(con, item):
+    logger.info(f"Processing item: {item}")
+
     s3_client = boto3.client("s3")
     job_metadata = {}
+    outfile_key = None
     try:
         try:
             upload_id = item["upload_id"]
@@ -155,23 +158,29 @@ async def process(con, item):
 
 
 async def main():
-    DB_PASS = os.getenv("POSTGRES_PASSWORD")
-    DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
-    DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
-    DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
+    try:
+        logger.info("Worker started")
 
-    dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
-    async with asyncpg.create_pool(dsn=dsn) as pool:
-        async with pool.acquire() as con:
-            while True:
-                try:
-                    await process(con=con)
-                except EmptyQueue as e:
-                    logger.info(f"No jobs in queue {e}")
-                    return
-                except Exception as e:
-                    logger.exception("Processing queue item failed")
-                    return
+        DB_PASS = os.getenv("POSTGRES_PASSWORD")
+        DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
+        DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
+        DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
+
+        dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
+        async with asyncpg.create_pool(dsn=dsn) as pool:
+            async with pool.acquire() as con:
+                while True:
+                    try:
+                        logger.info(f"Pulling job from queue")
+                        await process(con=con)
+                    except EmptyQueue as e:
+                        logger.info(f"No jobs in queue {e}")
+                        return
+                    except Exception as e:
+                        logger.exception("Processing queue item failed")
+                        return
+    finally:
+        logger.info("Worker terminating")
 
 
 if __name__ == "__main__":
