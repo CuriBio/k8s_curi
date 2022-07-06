@@ -23,7 +23,7 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
 class UploadRequest(BaseModel):
     filename: str
-    md5s: Union[str, None]
+    md5s: Optional[str]
     upload_type: str
 
 
