@@ -19,15 +19,16 @@ terraform {
 
 # Configure the AWS Provider
 provider "aws" {
-  region  = var.region
+  region = var.region
 }
 
 variable "region" {
-  type = string
+  type    = string
   default = "us-east-2"
 }
 
 module "pulse3d" {
-  source = "./pulse3d"
+  source       = "./pulse3d"
+  cluster_name = var.cluster_name
 }
 
