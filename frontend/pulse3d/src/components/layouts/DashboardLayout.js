@@ -19,8 +19,8 @@ export default function DashboardLayout({ children }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (accountType !== "Admin") getUploads();
-  }, []);
+    if (accountType && accountType !== "Admin") getUploads();
+  }, [accountType]);
 
   const getUploads = async () => {
     const response = await fetch("http://localhost/uploads");
@@ -28,7 +28,7 @@ export default function DashboardLayout({ children }) {
     if (response && response.status === 200) {
       const uploadsArr = await response.json();
       setUploads(uploadsArr);
-    } else if (response && response.status === 401) {
+    } else if (response && response.status === 401 && accountType) {
       router.replace("/login", null, { shallow: true });
     }
   };

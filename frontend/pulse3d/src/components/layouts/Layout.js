@@ -35,8 +35,7 @@ export default function Layout({ children }) {
   const authStatus = useContext(AuthContext);
 
   const logoutUser = async () => {
-    // const response = await fetch("http://localhost/users/logout", {
-    await fetch("http://localhost/logout", {
+    await fetch("http://localhost/users/logout", {
       method: "POST",
       body: JSON.stringify({}),
     });

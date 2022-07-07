@@ -1,23 +1,17 @@
 // TODO add .env for prod v. test url
 const domain = "curibio-test"; // MODIFY URL until decided how it's handled
 
-const getUrl = (endpoint) => {
-  // let subdomain = endpoint.includes("users") ? "apiv2" : "pulse3d";
-  let subdomain =
-    endpoint.includes("login") ||
-    endpoint.includes("refresh") ||
-    endpoint.includes("logout") ||
-    endpoint.includes("register")
-      ? "8001"
-      : "8000";
-  return new URL(`http://localhost:${subdomain}${endpoint}`);
-  // return new URL(`https://${subdomain}.${domain}.com${endpoint}`);
+const getUrl = ({ pathname, search }) => {
+  let subdomain = pathname.includes("users") ? "apiv2" : "pulse3d";
+  return new URL(`https://${subdomain}.${domain}.com${pathname}${search}`);
 };
 
-const tokens = {
+let tokens = {
   access: null,
   refresh: null,
 };
+
+let accountType = null;
 
 const setTokens = ({ access, refresh }) => {
   tokens.access = access.token;
@@ -29,8 +23,16 @@ const clearTokens = () => {
   tokens.refresh = null;
 };
 
+const setAccountType = (type) => {
+  accountType = type;
+};
+
+const clearAccountType = () => {
+  accountType = null;
+};
+
 const isAuthRequest = (url) => {
-  const tokenUrl = "/users/login";
+  const tokenUrl = "/login";
   return tokenUrl.includes(url.pathname);
 };
 
@@ -47,11 +49,15 @@ self.addEventListener("activate", (event) => {
 // Clear token on postMessage
 self.onmessage = ({ data, source }) => {
   if (data === "clear") {
-    console.log("[SW] Clearing tokens in ServiceWorker");
+    console.log("[SW] Clearing tokens and account type in ServiceWorker");
     clearTokens();
+    clearAccountType();
   } else if (data === "authCheck") {
     console.log("[SW] Returning authentication check");
-    source.postMessage(tokens.access !== null);
+    source.postMessage({ authCheck: tokens.access !== null, accountType });
+  } else if (data.accountType) {
+    console.log("[SW] Setting account type");
+    setAccountType(data.accountType);
   }
 };
 // Intercept all fetch requests
@@ -74,7 +80,7 @@ const interceptResponse = async (req, url) => {
   }
 
   // apply new headers
-  const newReq = new Request(getUrl(url.pathname), {
+  const newReq = new Request(getUrl(url), {
     headers,
     body: req.method === "POST" ? JSON.stringify(await req.json()) : null,
     method: req.method,
@@ -85,7 +91,6 @@ const interceptResponse = async (req, url) => {
     return await requestWithRefresh(requestFn, url);
   } else {
     const response = await fetch(newReq);
-
     // catch response and set token
     if (response.status === 200) {
       const data = await response.json();
@@ -135,13 +140,11 @@ const handleRefreshRequest = async () => {
 
   let res = null;
   try {
-    // res = await fetch(getUrl("/users/refresh"), {
-    res = await fetch(getUrl("/refresh"), {
+    res = await fetch(getUrl({ pathname: "/users/refresh", search: "" }), {
       method: "POST",
       body: JSON.stringify({}),
       headers: { Authorization: `Bearer ${tokens.refresh}` },
     });
-    console.log(`REFRESH RES: ${res}`);
   } catch (e) {
     console.log("ERROR IN REFRESH REQ: ", e.message);
     return { error: JSON.stringify(e.message) };

@@ -116,7 +116,7 @@ const adminButtons = [
   {
     label: "Add New User",
     disabled: false,
-    page: "/admin/new-user",
+    page: "/new-user",
     options: [],
   },
 ];
@@ -129,13 +129,16 @@ export default function ControlPanel() {
   const buttons = accountType === "Admin" ? adminButtons : userButtons;
 
   useEffect(() => {
-    const { label, options } = buttons.filter(
-      ({ page }) => page === router.pathname
+    const currentPage = buttons.filter(
+      ({ page }) => page == router.pathname
     )[0];
 
-    if (label !== selected) setSelected(label);
-    if (options.length > 0) setExpanded(label);
-  }, [buttons, router]);
+    if (currentPage) {
+      const { label, options } = currentPage;
+      if (label !== selected) setSelected(label);
+      if (options.length > 0) setExpanded(label);
+    }
+  }, [router, buttons]);
 
   return (
     <Container>

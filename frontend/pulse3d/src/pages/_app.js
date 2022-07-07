@@ -42,8 +42,11 @@ function Pulse({ Component, pageProps }) {
       navigator.serviceWorker.addEventListener("message", ({ data }) => {
         // data returned is a boolean if auth tokens are present. Otherwise return user to login
         // might need auth check to include actual fetch request in SW to check token status if this becomes a problem
-        setAuthCheck(data);
-        if (!data) router.replace("/login", undefined, { shallow: true });
+        setAuthCheck(data.authCheck);
+        setAccountType(data.accountType);
+
+        if (!data.authCheck)
+          router.replace("/login", undefined, { shallow: true });
       });
     }
   }, []);
@@ -52,6 +55,10 @@ function Pulse({ Component, pageProps }) {
     // sends message to active SW to check if user is authenticated if not login page. Login page handles own clearing.
     sendSWMessage();
   }, [router]);
+
+  useEffect(() => {
+    sendAccountTypeMsg();
+  }, [accountType]);
 
   const sendSWMessage = () => {
     if ("serviceWorker" in navigator) {
@@ -70,10 +77,20 @@ function Pulse({ Component, pageProps }) {
     }
   };
 
+  const sendAccountTypeMsg = () => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.ready.then((registration) => {
+        registration.active.postMessage({ accountType });
+      });
+    }
+  };
+
   return (
     <ThemeProvider theme={MUItheme}>
       <AuthContext.Provider value={{ authCheck, accountType, setAccountType }}>
-        <Layout>{getLayout(<Component {...pageProps} />)}</Layout>
+        <Layout>
+          {getLayout(<Component {...pageProps} />, pageProps.data)}
+        </Layout>
       </AuthContext.Provider>
     </ThemeProvider>
   );

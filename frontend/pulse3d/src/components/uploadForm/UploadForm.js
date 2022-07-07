@@ -279,6 +279,7 @@ export default function UploadForm() {
             <DropDownWidget
               options={formattedUploads}
               label="Select Recording"
+              reset={!file}
               handleSelection={handleDropDownSelect}
             />
           </DropDownContainer>

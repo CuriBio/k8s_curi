@@ -1,4 +1,5 @@
 import styled from "styled-components";
+import FormInput from "../basicWidgets/FormInput";
 
 const InputContainer = styled.div(
   ({ user }) => `
@@ -13,20 +14,6 @@ const InputContainer = styled.div(
 `
 );
 
-const formStyle = [
-  `
-  position: relative;
-  width: 80%;
-  height: 40px;
-  padding: 5px;
-  line-height: 2;
-`,
-];
-
-const Field = styled.input(formStyle);
-
-const Label = styled.label(formStyle);
-
 export default function LoginForm({
   children,
   setUserData,
@@ -37,47 +24,59 @@ export default function LoginForm({
     <InputContainer user={userType === "User"}>
       {userType === "User" ? (
         <>
-          <Label htmlFor="customer_id">Customer ID</Label>
-          <Field
-            id="customer_id" // must be snakecase to post to backend
+          <FormInput
+            name="customer_id"
+            label="Customer ID"
             placeholder="CuriBio"
-            type="text"
-            onChange={(e) => {
+            value={userData.customer_id}
+            onChangeFn={(e) => {
               setUserData({
                 ...userData,
                 customer_id: e.target.value,
               });
             }}
           />
-          <Label htmlFor="username">Username</Label>
-          <Field
-            id="username"
-            type="text"
-            placeholder="User"
-            onChange={(e) =>
-              setUserData({ ...userData, username: e.target.value })
-            }
+          <FormInput
+            name="username"
+            label="Username"
+            placeholder="user"
+            value={userData.username}
+            onChangeFn={(e) => {
+              setUserData({
+                ...userData,
+                username: e.target.value,
+              });
+            }}
           />
         </>
       ) : (
         <>
-          <Label htmlFor="email">Email</Label>
-          <Field
-            id="email"
-            type="text"
-            placeholder="Email"
-            onChange={(e) =>
-              setUserData({ ...userData, email: e.target.value })
-            }
+          <FormInput
+            name="email"
+            label="Email"
+            placeholder="user@curibio.com"
+            value={userData.email}
+            onChangeFn={(e) => {
+              setUserData({
+                ...userData,
+                email: e.target.value,
+              });
+            }}
           />
         </>
       )}
-      <Label htmlFor="password">Password</Label>
-      <Field
-        id="password"
-        type="password"
+      <FormInput
+        name="password"
+        label="Password"
         placeholder="Password"
-        onChange={(e) => setUserData({ ...userData, password: e.target.value })}
+        value={userData.password}
+        type="password"
+        onChangeFn={(e) => {
+          setUserData({
+            ...userData,
+            password: e.target.value,
+          });
+        }}
       />
 
       {children}

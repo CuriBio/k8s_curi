@@ -2,7 +2,7 @@ import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
 import Select, { SelectProps } from "@mui/material/Select";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import styled from "styled-components";
 
 const ErrorText = styled.span`
@@ -41,6 +41,7 @@ export default function DropDownWidget({
   label,
   error = "",
   handleSelection,
+  reset,
 }) {
   const [selected, setSelected] = useState("");
   const [errorMsg, setErrorMsg] = useState(error);
@@ -50,6 +51,10 @@ export default function DropDownWidget({
     setSelected(target.value);
     setErrorMsg("");
   };
+
+  useEffect(() => {
+    if (reset) setSelected("");
+  }, [reset]);
 
   return (
     <FormControl fullWidth>

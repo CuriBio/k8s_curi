@@ -52,8 +52,7 @@ export default function Login() {
       setErrorMsg("*All fields are required");
     // this state gets passed to web worker to attempt login request
     else {
-      // const res = await fetch("http://localhost/users/login", {
-      const res = await fetch("http://localhost/login", {
+      const res = await fetch("http://localhost/users/login", {
         method: "POST",
         body: JSON.stringify(userData),
       });
@@ -62,7 +61,7 @@ export default function Login() {
         if (res.status === 200) {
           setAccountType(userType); // set account type globally
           userType === "Admin"
-            ? router.push("/admin/new-user")
+            ? router.push("/new-user")
             : router.push("/uploads"); // routes to next page
         } else {
           res.status === 401 || res.status === 422
