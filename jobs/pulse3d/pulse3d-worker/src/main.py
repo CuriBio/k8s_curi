@@ -23,8 +23,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-sdk-upload")
-PULSE3D_UPLOADS_BUCKET = "test-pulse3d-uploads"
+PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-sdk-upload")
 
 
 @get_item(queue="pulse3d")
