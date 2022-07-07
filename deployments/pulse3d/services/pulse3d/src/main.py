@@ -146,6 +146,7 @@ def _generate_presigned_post(user_id, customer_id, details, bucket):
 async def get_info_of_jobs(
     request: Request,
     job_ids: Optional[List[uuid.UUID]] = Query(None),
+    download: bool = Query(True),
     token=Depends(ProtectedAny(scope=["users:free"])),
 ):
     # need to convert UUIDs to str to avoid issues with DB
@@ -160,22 +161,26 @@ async def get_info_of_jobs(
             jobs = await get_jobs(con=con, user_id=user_id, job_ids=job_ids)
             response = {"jobs": []}
             for job in jobs:
+                obj_key = job["object_key"]
                 job_info = {
                     "id": job["job_id"],
                     "status": job["status"],
                     "upload_id": job["upload_id"],
-                    "object_key": job["object_key"],
+                    "object_key": obj_key,
                     "created_at": job["created_at"],
                 }
 
-                if job_info["status"] == "finished":
-                    logger.info(f"Generating presigned download url for {job['object_key']}")
+                if job_info["status"] == "finished" and download:
                     # This is in case any current users uploaded files before object_key was dropped from uploads table and added to jobs_result
-                    job_info["url"] = (
-                        generate_presigned_url(PULSE3D_UPLOADS_BUCKET, job["object_key"])
-                        if job["object_key"]
-                        else None
-                    )
+                    if obj_key:
+                        logger.info(f"Generating presigned download url for {obj_key}")
+                        try:
+                            job_info["url"] = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, obj_key)
+                        except Exception as e:  # TODO update unit tests for this
+                            logger.error(f"Error generating presigned url for {obj_key}: {str(e)}")
+                            job_info["url"] = "Error creating download link"
+                    else:
+                        job_info["url"] = None
 
                 elif job_info["status"] == "error":
                     job_info["error_info"] = json.loads(job["job_meta"])["error"]
@@ -185,9 +190,6 @@ async def get_info_of_jobs(
                 response["error"] = "No jobs found"
         return response
 
-    except S3Error as e:
-        logger.exception(str(e))
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
     except Exception as e:
         logger.error(f"Failed to get jobs: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

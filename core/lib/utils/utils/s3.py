@@ -45,7 +45,7 @@ def generate_presigned_urls_for_dir(bucket: str, key_prefix: str, objs_only: boo
 
         return [generate_presigned_url(bucket, obj.key) for obj in objs]
 
-    except ClientError as e:
+    except (ClientError, S3Error) as e:
         raise S3Error(f"Failed to generate presigned urls for {bucket}/{key_prefix}: {repr(e)}")
 
 
