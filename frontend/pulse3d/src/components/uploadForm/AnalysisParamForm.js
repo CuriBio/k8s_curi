@@ -5,7 +5,7 @@ import { isArrayOfNumbers } from "../../utils/generic";
 const Container = styled.div`
   left: 5%;
   top: 12%;
-  height: 55%;
+  height: 50%;
   width: 90%;
   position: relative;
   display: flex;
@@ -51,8 +51,8 @@ const WAOverlay = styled.div`
   border-radius: 5px;
   width: 54%;
   position: absolute;
-  height: 46%;
-  top: 43%;
+  height: 46.5%;
+  top: 41%;
   background-color: var(--dark-gray);
   opacity: 0.6;
 `;

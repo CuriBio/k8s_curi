@@ -35,13 +35,13 @@ export default function Layout({ children }) {
   const authStatus = useContext(AuthContext);
 
   const logoutUser = async () => {
-    const response = await fetch("http://localhost/users/logout", {
+    // const response = await fetch("http://localhost/users/logout", {
+    await fetch("http://localhost/logout", {
       method: "POST",
       body: JSON.stringify({}),
     });
-    if (response && response.status === 204) {
-      router.replace("/login", undefined, { shallow: true });
-    }
+    // should not matter what the response is, should log user out
+    router.replace("/login", undefined, { shallow: true });
   };
 
   return (

@@ -2,8 +2,16 @@
 const domain = "curibio-test"; // MODIFY URL until decided how it's handled
 
 const getUrl = (endpoint) => {
-  let subdomain = endpoint.includes("users") ? "apiv2" : "pulse3d";
-  return new URL(`https://${subdomain}.${domain}.com${endpoint}`);
+  // let subdomain = endpoint.includes("users") ? "apiv2" : "pulse3d";
+  let subdomain =
+    endpoint.includes("login") ||
+    endpoint.includes("refresh") ||
+    endpoint.includes("logout") ||
+    endpoint.includes("register")
+      ? "8001"
+      : "8000";
+  return new URL(`http://localhost:${subdomain}${endpoint}`);
+  // return new URL(`https://${subdomain}.${domain}.com${endpoint}`);
 };
 
 const tokens = {
@@ -102,10 +110,9 @@ const requestWithRefresh = async (requestFn, url) => {
   };
 
   let response = await safeRequest();
-  if (response.status === 401 || response.status === 403) {
+  if (response.status === 401) {
     // attempt to get new tokens
     const refreshResponse = await handleRefreshRequest();
-    console.log("INSIDE REFRESH REQ: ", refreshResponse);
 
     if (refreshResponse.status !== 201) {
       // if the refresh failed, no need to try request again, just return original failed response
@@ -118,12 +125,7 @@ const requestWithRefresh = async (requestFn, url) => {
   }
 
   // clear tokens if user purposefully logs out or any other response returns an unauthorized response
-  if (
-    url.pathname.includes("logout") ||
-    response.status === 401 ||
-    response.status === 403
-  )
-    clearTokens();
+  if (url.pathname.includes("logout") || response.status === 401) clearTokens();
 
   return response;
 };
@@ -133,11 +135,13 @@ const handleRefreshRequest = async () => {
 
   let res = null;
   try {
-    res = await fetch(getUrl("/users/refresh"), {
+    // res = await fetch(getUrl("/users/refresh"), {
+    res = await fetch(getUrl("/refresh"), {
       method: "POST",
       body: JSON.stringify({}),
       headers: { Authorization: `Bearer ${tokens.refresh}` },
     });
+    console.log(`REFRESH RES: ${res}`);
   } catch (e) {
     console.log("ERROR IN REFRESH REQ: ", e.message);
     return { error: JSON.stringify(e.message) };

@@ -6,7 +6,7 @@ const fileTypes = ["h5", "zip"];
 const Container = styled.div`
   left: 5%;
   top: 5%;
-  height: 20%;
+  height: 17%;
   width: 90%;
   position: relative;
   font-size: 22px;

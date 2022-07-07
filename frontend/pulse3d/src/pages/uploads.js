@@ -120,8 +120,9 @@ export default function Uploads() {
   };
 
   const formatUploads = useCallback(() => {
-    setIsLoading(true);
     if (jobs) {
+      setIsLoading(true);
+
       const formattedRows = jobs.map(
         ({ upload_id, created_at, object_key, status }) => {
           const upload = uploads.find((el) => el.id === upload_id);

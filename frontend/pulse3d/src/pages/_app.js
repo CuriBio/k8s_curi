@@ -29,6 +29,8 @@ function Pulse({ Component, pageProps }) {
   const getLayout = Component.getLayout || ((page) => page);
   const router = useRouter();
   const [authCheck, setAuthCheck] = useState(false);
+  const [accountType, setAccountType] = useState();
+
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
@@ -70,10 +72,8 @@ function Pulse({ Component, pageProps }) {
 
   return (
     <ThemeProvider theme={MUItheme}>
-      <AuthContext.Provider value={authCheck}>
-        <Layout authCheck={authCheck}>
-          {getLayout(<Component {...pageProps} authCheck={authCheck} />)}
-        </Layout>
+      <AuthContext.Provider value={{ authCheck, accountType, setAccountType }}>
+        <Layout>{getLayout(<Component {...pageProps} />)}</Layout>
       </AuthContext.Provider>
     </ThemeProvider>
   );
