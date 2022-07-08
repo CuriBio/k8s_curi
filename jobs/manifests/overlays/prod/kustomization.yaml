@@ -13,3 +13,7 @@ patchesJson6902:
     - op: replace
       path: /spec/jobTargetRef/template/spec/containers/0/image
       value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker"
+    - op: replace
+      path: /spec/template/spec/containers/0/env/1/value
+      value: prod-pulse3d-uploads
+      
