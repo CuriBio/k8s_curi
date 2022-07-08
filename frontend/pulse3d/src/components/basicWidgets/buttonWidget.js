@@ -3,7 +3,7 @@ import CircularSpinner from "./CircularSpinner";
 const Button = styled.button(
   ({ props }) => `
   background-color: ${props.backgroundColor || "var(--dark-blue)"};
-  color: var(--light-gray);
+  color: ${props.color || "var(--light-gray)"};
   font-size: inherit;
   border: none;
   width: 100%;

@@ -11,26 +11,32 @@ import { UploadsContext } from "@/components/layouts/DashboardLayout";
 
 const Container = styled.div`
   width: 70%;
-  height: inherit;
   justify-content: center;
   position: relative;
-  padding-top: 5%;
+  padding-top: 3%;
   padding-left: 11%;
 `;
 
 const Header = styled.h2`
   position: relative;
   text-align: center;
+  background-color: var(--dark-blue);
+  color: var(--light-gray);
+  margin: auto;
+  height: 75px;
+  line-height: 3;
 `;
 
 const Uploads = styled.div`
   width: 100%;
-  height: 70%;
+  min-width: 1000px;
+  height: 870px;
   border: solid;
   border-color: var(--dark-gray);
   border-width: 2px;
   border-radius: 15px;
   background-color: white;
+  overflow: hidden;
 `;
 
 const ButtonContainer = styled.div`
@@ -61,7 +67,7 @@ const DropDownContainer = styled.div`
   justify-content: center;
   left: 15%;
   position: relative;
-  height: 15%;
+  height: 17%;
   align-items: center;
   top: 5%;
 `;
@@ -258,8 +264,8 @@ export default function UploadForm() {
   };
   return (
     <Container>
-      <Header>Run Analysis</Header>
       <Uploads>
+        <Header>Run Analysis</Header>
         {tabSelection === "1" ? (
           <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
             handleFileChange={(file) => {
@@ -273,6 +279,7 @@ export default function UploadForm() {
             <DropDownWidget
               options={formattedUploads}
               label="Select Recording"
+              reset={!file}
               handleSelection={handleDropDownSelect}
             />
           </DropDownContainer>

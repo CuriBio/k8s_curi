@@ -1,6 +1,8 @@
 import styled from "styled-components";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
+import LoginForm from "@/components/account/LoginForm";
+import { AuthContext } from "./_app";
 import { useRouter } from "next/router";
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
@@ -11,38 +13,16 @@ const BackgroundContainer = styled.div`
   height: 100%;
 `;
 
-const ModalContainer = styled.div`
-  height: 400px;
+const ModalContainer = styled.div(
+  ({ user }) => `
+  height: ${user ? "460px" : "380px"};
   width: 450px;
   background-color: var(--light-gray);
   position: relative;
   border-radius: 3%;
   overflow: hidden;
-`;
-
-const InputContainer = styled.div`
-  height: 85%;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-evenly;
-  align-items: center;
-  padding: 5%;
-  width: inherit;
-`;
-
-const formStyle = [
-  `
-  position: relative;
-  width: 80%;
-  height: 40px;
-  padding: 5px;
-`,
-];
-
-const Field = styled.input(formStyle);
-
-const Label = styled.label(formStyle);
+`
+);
 
 const ErrorText = styled.span`
   color: red;
@@ -53,14 +33,17 @@ const ErrorText = styled.span`
   padding-top: 2%;
 `;
 
+const ButtonContainer = styled.div`
+  display: flex;
+  flex-direction: row;
+`;
+
 export default function Login() {
   const router = useRouter();
   const [errorMsg, setErrorMsg] = useState(null);
-  const [userData, setUserData] = useState({
-    customer_id: "",
-    username: "",
-    password: "",
-  });
+  const [userType, setUserType] = useState("User");
+  const [userData, setUserData] = useState({});
+  const { setAccountType } = useContext(AuthContext);
 
   const submitForm = async () => {
     setErrorMsg(""); // reset to show user something happened
@@ -76,7 +59,10 @@ export default function Login() {
 
       if (res) {
         if (res.status === 200) {
-          router.push("/uploads"); // routes to next page
+          setAccountType(userType); // set account type globally
+          userType === "Admin"
+            ? router.push("/new-user")
+            : router.push("/uploads"); // routes to next page
         } else {
           res.status === 401 || res.status === 422
             ? setErrorMsg("*Invalid credentials. Try again.")
@@ -88,41 +74,32 @@ export default function Login() {
 
   return (
     <BackgroundContainer>
-      <ModalContainer>
-        <InputContainer>
-          <Label htmlFor="customer_id">Customer ID</Label>
-          <Field
-            id="customer_id" // must be snakecase to post to backend
-            placeholder="CuriBio"
-            onChange={(e) => {
-              setUserData({
-                ...userData,
-                customer_id: e.target.value,
-              });
-            }}
-          />
-          <Label htmlFor="username">Username</Label>
-          <Field
-            id="username"
-            placeholder="User"
-            onChange={(e) =>
-              setUserData({ ...userData, username: e.target.value })
-            }
-          />
-          <Label htmlFor="password">Password</Label>
-          <Field
-            id="password"
-            type="password"
-            autocomplete="current-password" // chrome warns without this attribute
-            placeholder="Password"
-            onChange={(e) =>
-              setUserData({ ...userData, password: e.target.value })
-            }
-          />
+      <ModalContainer user={userType === "User"}>
+        <ButtonContainer>
+          {["User", "Admin"].map((type, idx) => {
+            const isSelected = type === userType;
+            return (
+              <ButtonWidget
+                label={type}
+                key={idx}
+                isSelected={isSelected}
+                backgroundColor={
+                  isSelected ? "var(--teal-green)" : "var(--dark-blue)"
+                }
+                clickFn={() => setUserType(type)}
+              />
+            );
+          })}
+        </ButtonContainer>
+        <LoginForm
+          userData={userData}
+          setUserData={setUserData}
+          userType={userType}
+        >
           <ErrorText id="loginError" role="errorMsg">
             {errorMsg}
           </ErrorText>
-        </InputContainer>
+        </LoginForm>
         <ButtonWidget label={"Submit"} clickFn={submitForm} />
       </ModalContainer>
     </BackgroundContainer>

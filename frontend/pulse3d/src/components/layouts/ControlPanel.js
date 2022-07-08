@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import styled from "styled-components";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
+import { AuthContext } from "@/pages/_app";
 import ArrowForwardIosSharpIcon from "@mui/icons-material/ArrowForwardIosSharp";
 import MuiAccordion, { AccordionProps } from "@mui/material/Accordion";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
@@ -95,39 +96,53 @@ export const Accordion = styled((AccordionProps) => (
   boxShadow: "none",
 }));
 
+const userButtons = [
+  { label: "Home", disabled: false, page: "/uploads", options: [] },
+  {
+    label: "Run Analysis",
+    disabled: false,
+    page: "/upload-form",
+    options: ["Re-analyze Existing Upload", "Analyze New Files"],
+  },
+  {
+    label: "Account Settings",
+    disabled: true,
+    page: "/account",
+    options: [],
+  },
+];
+
+const adminButtons = [
+  {
+    label: "Add New User",
+    disabled: false,
+    page: "/new-user",
+    options: [],
+  },
+];
+
 export default function ControlPanel() {
   const router = useRouter();
   const [selected, setSelected] = useState("Home");
   const [expanded, setExpanded] = useState(null);
-  const buttons = [
-    { label: "Home", disabled: false, page: "/uploads", options: [] },
-    {
-      label: "Run Analysis",
-      disabled: false,
-      page: "/uploadForm",
-      options: ["Re-analyze Existing Upload", "Analyze New Files"],
-    },
-    {
-      label: "Account Settings",
-      disabled: true,
-      page: "/account",
-      options: [],
-    },
-  ];
+  const { accountType } = useContext(AuthContext);
+  const buttons = accountType === "Admin" ? adminButtons : userButtons;
 
   useEffect(() => {
-    // corrects selected button when user navigates with back/forward button
-    const { label, options } = buttons.filter(
-      ({ page }) => page === router.pathname
+    const currentPage = buttons.filter(
+      ({ page }) => page == router.pathname
     )[0];
 
-    if (label !== selected) setSelected(label);
-    if (options.length > 0) setExpanded(label);
-  }, [router]);
+    if (currentPage) {
+      const { label, options } = currentPage;
+      if (label !== selected) setSelected(label);
+      if (options.length > 0) setExpanded(label);
+    }
+  }, [router, buttons]);
 
   return (
     <Container>
-      {buttons.map(({ label, disabled, page, options }, idx) => {
+      {buttons.map(({ disabled, label, page, options }, idx) => {
         const handleListClick = (e) => {
           e.preventDefault();
           router.push({ pathname: page, query: { id: e.target.value } });
@@ -149,10 +164,13 @@ export default function ControlPanel() {
           selected === label ? "var(--teal-green)" : "var(--dark-blue)";
 
         return (
-          <ThemeProvider key={label} theme={theme({ color: backgroundColor })}>
+          <ThemeProvider
+            key={label}
+            theme={theme({ color: backgroundColor, disabled })}
+          >
             <Accordion disabled={disabled} expanded={expanded === label}>
               <AccordionSummary
-                props={{ color: backgroundColor, disabled }}
+                props={{ color: backgroundColor }}
                 onClick={handleSelected}
                 value={idx}
                 expandIcon={

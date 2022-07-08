@@ -1,11 +1,12 @@
 import styled from "styled-components";
 import CheckboxWidget from "../basicWidgets/CheckboxWidget";
 import { isArrayOfNumbers } from "../../utils/generic";
+import FormInput from "../basicWidgets/FormInput";
 
 const Container = styled.div`
   left: 5%;
   top: 12%;
-  height: 55%;
+  height: 50%;
   width: 90%;
   position: relative;
   display: flex;
@@ -51,22 +52,10 @@ const WAOverlay = styled.div`
   border-radius: 5px;
   width: 54%;
   position: absolute;
-  height: 46%;
-  top: 43%;
+  height: 46.5%;
+  top: 41%;
   background-color: var(--dark-gray);
   opacity: 0.6;
-`;
-
-const Field = styled.input`
-  width: 80%;
-  position: relative;
-  height: 35px;
-  padding: 5px;
-  border-radius: 5px;
-  display: flex;
-  justify-content: center;
-  border-color: var(--dark-gray);
-  line-height: 3;
 `;
 
 const Label = styled.label`
@@ -234,19 +223,20 @@ export default function AnalysisParamForm({
         <ParamContainer style={{ width: "60%" }}>
           <Label htmlFor="twitchWidths">Twitch Widths (%):</Label>
           <InputErrorContainer>
-            <Field
-              id="twitchWidths"
-              placeholder="50, 90"
+            <FormInput
+              name="twitchWidths"
+              placeholder={"50, 90"}
               value={inputVals.twitchWidths}
-              onChange={(e) => {
+              onChangeFn={(e) => {
                 updateParams({
                   twitchWidths: e.target.value,
                 });
               }}
-            />
-            <ErrorText id="twitchWidthError" role="errorMsg">
-              {errorMessages.twitchWidths}
-            </ErrorText>
+            >
+              <ErrorText id="twitchWidthError" role="errorMsg">
+                {errorMessages.twitchWidths}
+              </ErrorText>
+            </FormInput>
           </InputErrorContainer>
         </ParamContainer>
         {checked || <WAOverlay />}
@@ -264,37 +254,39 @@ export default function AnalysisParamForm({
           <ParamContainer>
             <Label htmlFor="startTime">Start Time (s):</Label>
             <InputErrorContainer>
-              <Field
-                id="startTime"
+              <FormInput
+                name="startTime"
                 placeholder={checked ? "0" : ""}
                 value={!checked ? "" : inputVals.startTime}
-                onChange={(e) => {
+                onChangeFn={(e) => {
                   updateParams({
                     startTime: e.target.value,
                   });
                 }}
-              />
-              <ErrorText id="startTimeError" role="errorMsg">
-                {errorMessages.startTime}
-              </ErrorText>
+              >
+                <ErrorText id="startTimeError" role="errorMsg">
+                  {errorMessages.startTime}
+                </ErrorText>
+              </FormInput>
             </InputErrorContainer>
           </ParamContainer>
           <ParamContainer>
             <Label htmlFor="endTime">End Time (s):</Label>
             <InputErrorContainer>
-              <Field
-                id="endTime"
+              <FormInput
+                name="endTime"
                 placeholder={checked ? "(End of recording)" : ""}
                 value={!checked ? "" : inputVals.endTime}
-                onChange={(e) => {
+                onChangeFn={(e) => {
                   updateParams({
                     endTime: e.target.value,
                   });
                 }}
-              />
-              <ErrorText id="endTimeError" role="errorMsg">
-                {errorMessages.endTime}
-              </ErrorText>
+              >
+                <ErrorText id="endTimeError" role="errorMsg">
+                  {errorMessages.endTime}
+                </ErrorText>
+              </FormInput>
             </InputErrorContainer>
           </ParamContainer>
         </WindowAnalysisContainer>

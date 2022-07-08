@@ -3,7 +3,7 @@ import DashboardLayout, {
 } from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
 import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
-import { useEffect, useState, useCallback, useContext, useRef } from "react";
+import { useEffect, useState, useCallback, useContext } from "react";
 import {
   Table,
   TableBody,
@@ -75,8 +75,8 @@ export default function Uploads() {
   const { uploads } = useContext(UploadsContext);
   const router = useRouter();
 
-  const getJobs = async () => {
-    const response = await fetch("http://localhost/jobs");
+  const getAllJobs = async () => {
+    const response = await fetch("http://localhost/jobs?download=False");
 
     if (response && response.status === 200) {
       const { jobs } = await response.json();
@@ -87,7 +87,7 @@ export default function Uploads() {
   };
 
   useEffect(() => {
-    if (uploads.length > 0) getJobs();
+    if (uploads.length > 0) getAllJobs();
   }, [uploads]);
 
   const handleChangePage = (e, newPage) => {
@@ -101,27 +101,34 @@ export default function Uploads() {
 
   // add param to GET /jobs to return only one presigned URL
   const downloadAnalysis = async ({ target }) => {
-    await getJobs();
     const selectedJob = jobs.find((job) => job.upload_id === target.id);
 
-    const presignedUrl = selectedJob.url;
-    const fileName = presignedUrl.split("/")[presignedUrl.length - 1];
+    const response = await fetch(
+      `http://localhost/jobs?job_ids=${selectedJob.id}`
+    );
 
-    // setup temporary download link
-    const link = document.createElement("a");
-    link.href = presignedUrl; // assign link to hit presigned url
-    link.download = fileName; // set new downloaded files name to analyzed file name
+    if (response.status === 200) {
+      const { jobs } = await response.json();
+      const presignedUrl = jobs[0].url;
+      const fileName = presignedUrl.split("/")[presignedUrl.length - 1];
 
-    document.body.appendChild(link);
+      // setup temporary download link
+      const link = document.createElement("a");
+      link.href = presignedUrl; // assign link to hit presigned url
+      link.download = fileName; // set new downloaded files name to analyzed file name
 
-    // click to download
-    link.click();
-    link.remove();
+      document.body.appendChild(link);
+
+      // click to download
+      link.click();
+      link.remove();
+    }
   };
 
   const formatUploads = useCallback(() => {
-    setIsLoading(true);
     if (jobs) {
+      setIsLoading(true);
+
       const formattedRows = jobs.map(
         ({ upload_id, created_at, object_key, status }) => {
           const upload = uploads.find((el) => el.id === upload_id);

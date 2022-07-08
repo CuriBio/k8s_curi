@@ -37,14 +37,14 @@ class CustomerCreate(BaseModel):
             re.VERBOSE,
         )
 
-        assert valid.search(v.get_secret_value()), "password does not meet minimum requirements"
+        assert valid.search(v.get_secret_value()), "Password does not meet minimum requirements"
         return v
 
     @validator("password2")
     def passwords_match(cls, v, values, **kwargs):
         p2 = v.get_secret_value()
         if "password1" in values and p2 != values["password1"].get_secret_value():
-            raise ValueError("passwords do not match")
+            raise ValueError("Passwords do not match")
         return v
 
     @validator("username")
@@ -58,7 +58,7 @@ class UserCreate(CustomerCreate):
 
     @validator("username")
     def username_alphanumeric(cls, v):
-        assert v.isalnum(), "username must be alphanumeric"
+        assert v.isalnum(), "Username must be alphanumeric"
         return v
 
 
