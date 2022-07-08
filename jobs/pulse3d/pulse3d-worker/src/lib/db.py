@@ -14,7 +14,9 @@ PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-pulse3d-uploads")
 logger = logging.getLogger(__name__)
 
 
-async def insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s, re_analysis):
+async def insert_metadata_into_pg(
+    con, pr, customer_id, user_id, upload_id, file, outfile_key, md5s, re_analysis
+):
     """
     args:
         contains pgpool connection, PlateRecording, <file>.xlsx, object key for outfile, and the md5 hash
@@ -22,8 +24,6 @@ async def insert_metadata_into_pg(con, pr, upload_id, file, outfile_key, md5s, r
     try:
         metadata = load_data_to_df(file, pr)
         s3_size = get_s3_object_contents(PULSE3D_UPLOADS_BUCKET, outfile_key)
-
-        customer_id, user_id = outfile_key.split("/")[-5:-3]
     except Exception as e:
         raise Exception(f"in formatting: {repr(e)}")
 

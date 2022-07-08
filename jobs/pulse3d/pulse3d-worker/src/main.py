@@ -22,6 +22,7 @@ logging.basicConfig(
     stream=sys.stdout,
 )
 logger = logging.getLogger(__name__)
+q
 
 
 @get_item(queue="pulse3d")
@@ -35,12 +36,16 @@ async def process(con, item):
         try:
             upload_id = item["upload_id"]
             logger.info(f"Retrieving user ID and metadata for upload with ID: {upload_id}")
-            upload = await con.fetchrow(
-                "SELECT user_id, prefix, filename FROM uploads WHERE id=$1", upload_id
-            )
 
-            prefix = upload["prefix"]
-            filename = upload["filename"]
+            query = (
+                "SELECT users.customer_id, up.user_id, up.prefix, up.filename "
+                "FROM uploads AS up JOIN users ON up.user_id = users.id "
+                "WHERE up.id=$1"
+            )
+            upload_details = await con.fetchrow(query, upload_id)
+
+            prefix = upload_details["prefix"]
+            filename = upload_details["filename"]
             key = f"{prefix}/{filename}"
 
         except Exception as e:
@@ -142,7 +147,17 @@ async def process(con, item):
                 try:
                     logger.info(f"Inserting {outfile} metadata into db for upload {upload_id}")
                     for r in recordings:
-                        await insert_metadata_into_pg(con, r, upload_id, file, outfile_key, md5s, re_analysis)
+                        await insert_metadata_into_pg(
+                            con,
+                            r,
+                            upload_details["customer_id"],
+                            upload_details["user_id"],
+                            upload_id,
+                            file,
+                            outfile_key,
+                            md5s,
+                            re_analysis,
+                        )
                 except Exception as e:
                     logger.exception(f"Failed to insert metadata to db for upload {upload_id}: {e}")
                     raise
