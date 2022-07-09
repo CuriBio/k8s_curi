@@ -2,6 +2,7 @@ from datetime import datetime
 from functools import wraps
 import json
 import time
+import uuid
 
 
 class EmptyQueue(Exception):
@@ -68,18 +69,26 @@ async def get_uploads(*, con, user_id, upload_ids=None):
 
 
 async def create_upload(*, con, upload_params):
+    # generating uuid here instead of letting PG handle it so that it can be inserted into the prefix more easily
+    upload_id = uuid.uuid4()
+
+    # the WITH clause in this query is necessary to make sure the given user_id actually exists
     query = (
-        "WITH row as (SELECT id FROM users where id=$1) "
-        "INSERT INTO uploads (user_id, md5, prefix, filename, type) SELECT id, $2, $3, $4, $5 from row RETURNING id"
+        "WITH row AS (SELECT id AS user_id FROM users WHERE id=$1) "
+        "INSERT INTO uploads (user_id, id, md5, prefix, filename, type) "
+        "SELECT user_id, $2, $3, $4, $5, $6 FROM row "
+        "RETURNING id"
     )
+
     async with con.transaction():
         return await con.fetchval(
             query,
             upload_params["user_id"],
+            upload_id,
             upload_params["md5"],
-            upload_params["prefix"],
+            upload_params["prefix"].format(upload_id=upload_id),
             upload_params["filename"],
-            upload_params["type"], 
+            upload_params["type"],
         )
 
 
