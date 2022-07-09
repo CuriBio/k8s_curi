@@ -13,7 +13,7 @@ from pulse3D.plate_recording import PlateRecording
 from pulse3D.excel_writer import write_xlsx
 
 from jobs import get_item, EmptyQueue
-from lib.db import insert_metadata_into_pg
+from lib.db import insert_metadata_into_pg, PULSE3D_UPLOADS_BUCKET
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -22,24 +22,30 @@ logging.basicConfig(
     stream=sys.stdout,
 )
 logger = logging.getLogger(__name__)
-
-PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-sdk-upload")
+q
 
 
 @get_item(queue="pulse3d")
 async def process(con, item):
+    logger.info(f"Processing item: {item}")
+
     s3_client = boto3.client("s3")
     job_metadata = {}
+    outfile_key = None
     try:
         try:
             upload_id = item["upload_id"]
             logger.info(f"Retrieving user ID and metadata for upload with ID: {upload_id}")
-            upload = await con.fetchrow(
-                "SELECT user_id, prefix, filename FROM uploads WHERE id=$1", upload_id
-            )
 
-            prefix = upload["prefix"]
-            filename = upload["filename"]
+            query = (
+                "SELECT users.customer_id, up.user_id, up.prefix, up.filename "
+                "FROM uploads AS up JOIN users ON up.user_id = users.id "
+                "WHERE up.id=$1"
+            )
+            upload_details = await con.fetchrow(query, upload_id)
+
+            prefix = upload_details["prefix"]
+            filename = upload_details["filename"]
             key = f"{prefix}/{filename}"
 
         except Exception as e:
@@ -141,7 +147,17 @@ async def process(con, item):
                 try:
                     logger.info(f"Inserting {outfile} metadata into db for upload {upload_id}")
                     for r in recordings:
-                        await insert_metadata_into_pg(con, r, upload_id, file, outfile_key, md5s, re_analysis)
+                        await insert_metadata_into_pg(
+                            con,
+                            r,
+                            upload_details["customer_id"],
+                            upload_details["user_id"],
+                            upload_id,
+                            file,
+                            outfile_key,
+                            md5s,
+                            re_analysis,
+                        )
                 except Exception as e:
                     logger.exception(f"Failed to insert metadata to db for upload {upload_id}: {e}")
                     raise
@@ -157,23 +173,29 @@ async def process(con, item):
 
 
 async def main():
-    DB_PASS = os.getenv("POSTGRES_PASSWORD")
-    DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
-    DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
-    DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
+    try:
+        logger.info("Worker started")
 
-    dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
-    async with asyncpg.create_pool(dsn=dsn) as pool:
-        async with pool.acquire() as con:
-            while True:
-                try:
-                    await process(con=con)
-                except EmptyQueue as e:
-                    logger.info(f"No jobs in queue {e}")
-                    return
-                except Exception as e:
-                    logger.exception("Processing queue item failed")
-                    return
+        DB_PASS = os.getenv("POSTGRES_PASSWORD")
+        DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
+        DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
+        DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
+
+        dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
+        async with asyncpg.create_pool(dsn=dsn) as pool:
+            async with pool.acquire() as con:
+                while True:
+                    try:
+                        logger.info(f"Pulling job from queue")
+                        await process(con=con)
+                    except EmptyQueue as e:
+                        logger.info(f"No jobs in queue {e}")
+                        return
+                    except Exception as e:
+                        logger.exception("Processing queue item failed")
+                        return
+    finally:
+        logger.info("Worker terminating")
 
 
 if __name__ == "__main__":
