@@ -20,16 +20,23 @@ export default function DashboardLayout({ children }) {
 
   useEffect(() => {
     if (accountType && accountType !== "Admin") getUploads();
-  }, [accountType]);
+    else if (accountType === null)
+      // will return null if reset in the ServiceWorker, undefined if ServiceWorker hasn't responded yet on refresh
+      router.replace("/login", null, { shallow: true });
+  }, [router, accountType]);
 
   const getUploads = async () => {
-    const response = await fetch("http://localhost/uploads");
+    try {
+      const response = await fetch("https://curibio.com/uploads");
 
-    if (response && response.status === 200) {
-      const uploadsArr = await response.json();
-      setUploads(uploadsArr);
-    } else if (response && response.status === 401 && accountType) {
-      router.replace("/login", null, { shallow: true });
+      if (response && response.status === 200) {
+        const uploadsArr = await response.json();
+        setUploads(uploadsArr);
+      } else if (response && response.status === 401 && accountType) {
+        router.replace("/login", null, { shallow: true });
+      }
+    } catch (e) {
+      console.log("ERROR getting uploads for user");
     }
   };
 

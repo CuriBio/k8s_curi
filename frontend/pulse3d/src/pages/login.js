@@ -52,9 +52,10 @@ export default function Login() {
       setErrorMsg("*All fields are required");
     // this state gets passed to web worker to attempt login request
     else {
-      const res = await fetch("http://localhost/users/login", {
+      const res = await fetch("https://curibio.com/users/login", {
         method: "POST",
         body: JSON.stringify(userData),
+        mode: "no-cors",
       });
 
       if (res) {

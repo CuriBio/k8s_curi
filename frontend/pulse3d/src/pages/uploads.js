@@ -76,13 +76,17 @@ export default function Uploads() {
   const router = useRouter();
 
   const getAllJobs = async () => {
-    const response = await fetch("http://localhost/jobs?download=False");
+    try {
+      const response = await fetch("https://curibio.com/jobs?download=False");
 
-    if (response && response.status === 200) {
-      const { jobs } = await response.json();
-      setJobs(jobs);
-    } else if (response && [403, 401].includes(response.status)) {
-      router.replace("/login", null, { shallow: true });
+      if (response && response.status === 200) {
+        const { jobs } = await response.json();
+        setJobs(jobs);
+      } else if (response && [403, 401].includes(response.status)) {
+        router.replace("/login", null, { shallow: true });
+      }
+    } catch (e) {
+      console.log("ERROR fetching jobs in /uploads");
     }
   };
 
@@ -101,42 +105,46 @@ export default function Uploads() {
 
   // add param to GET /jobs to return only one presigned URL
   const downloadAnalysis = async ({ target }) => {
-    const selectedJob = jobs.find((job) => job.upload_id === target.id);
+    try {
+      const selectedJob = jobs.find((job) => job.upload_id === target.id);
 
-    const response = await fetch(
-      `http://localhost/jobs?job_ids=${selectedJob.id}`
-    );
+      const response = await fetch(
+        `https://curibio.com/jobs?job_ids=${selectedJob.id}`
+      );
 
-    if (response.status === 200) {
-      const { jobs } = await response.json();
-      const presignedUrl = jobs[0].url;
-      const fileName = presignedUrl.split("/")[presignedUrl.length - 1];
+      if (response.status === 200) {
+        const jobResponse = await response.json();
+        const presignedUrl = jobResponse.jobs[0].url;
+        const fileName = presignedUrl.split("/")[presignedUrl.length - 1];
 
-      // setup temporary download link
-      const link = document.createElement("a");
-      link.href = presignedUrl; // assign link to hit presigned url
-      link.download = fileName; // set new downloaded files name to analyzed file name
+        // setup temporary download link
+        const link = document.createElement("a");
+        link.href = presignedUrl; // assign link to hit presigned url
+        link.download = fileName; // set new downloaded files name to analyzed file name
 
-      document.body.appendChild(link);
+        document.body.appendChild(link);
 
-      // click to download
-      link.click();
-      link.remove();
+        // click to download
+        link.click();
+        link.remove();
+      }
+    } catch (e) {
+      console.log("ERROR fetching presigned url to download analysis");
     }
   };
 
   const formatUploads = useCallback(() => {
     if (jobs) {
-      setIsLoading(true);
-
       const formattedRows = jobs.map(
         ({ upload_id, created_at, object_key, status }) => {
           const upload = uploads.find((el) => el.id === upload_id);
 
           // protects against uploads performed before dropping filename from upload meta field
-          const uploadedFilename = upload.filename
-            ? upload.filename
-            : JSON.parse(upload.meta).filename;
+          // hopefully remove this once internal users aren't using test site
+          const uploadedFilename =
+            upload && upload.filename
+              ? upload.filename
+              : JSON.parse(upload.meta).filename;
 
           const analyzedFile = object_key
             ? object_key.split("/")[object_key.split("/").length - 1]
@@ -166,10 +174,10 @@ export default function Uploads() {
         .sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
         .sort((a, b) => a.uploadedFile.localeCompare(b.uploadedFile));
 
-      setIsLoading(false);
       setRows([...nameDateRows]);
+      setIsLoading(false);
     }
-  }, [jobs]);
+  }, [jobs, uploads]);
 
   useEffect(() => {
     formatUploads();

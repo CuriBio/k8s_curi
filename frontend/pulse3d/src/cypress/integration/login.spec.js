@@ -1,6 +1,6 @@
 describe("Login homepage", () => {
   beforeEach(() => {
-    cy.visit("http://localhost:3000");
+    cy.visit("https://curibio.com:3000");
   });
   const getInputByLabel = (label) => {
     return cy

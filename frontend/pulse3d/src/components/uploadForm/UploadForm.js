@@ -147,19 +147,23 @@ export default function UploadForm() {
   };
 
   const postNewJob = async (uploadId) => {
-    const { twitchWidths, startTime, endTime } = analysisParams;
-    const jobResponse = await fetch("http://localhost/jobs", {
-      method: "POST",
-      body: JSON.stringify({
-        upload_id: uploadId,
-        twitch_widths: twitchWidths === "" ? null : twitchWidths,
-        start_time: startTime === "" ? null : startTime,
-        end_time: endTime === "" ? null : endTime,
-      }),
-    });
+    try {
+      const { twitchWidths, startTime, endTime } = analysisParams;
+      const jobResponse = await fetch("https://curibio.com/jobs", {
+        method: "POST",
+        body: JSON.stringify({
+          upload_id: uploadId,
+          twitch_widths: twitchWidths === "" ? null : twitchWidths,
+          start_time: startTime === "" ? null : startTime,
+          end_time: endTime === "" ? null : endTime,
+        }),
+      });
 
-    if (jobResponse.status !== 200) {
-      console.log("ERROR posting new job: ", await jobResponse.json());
+      if (jobResponse.status !== 200) {
+        console.log("ERROR posting new job: ", await jobResponse.json());
+      }
+    } catch (e) {
+      console.log("ERROR posting new job");
     }
   };
 
@@ -196,54 +200,60 @@ export default function UploadForm() {
         );
         return;
       }
+      try {
+        let hash = SparkMD5.ArrayBuffer.hash(e.target.result);
+        const uploadResponse = await fetch("https://curibio.com/uploads", {
+          method: "POST",
+          body: JSON.stringify({
+            filename: file.name,
+            md5s: hexToBase64(hash),
+            upload_type: "mantarray",
+          }),
+        });
 
-      let hash = SparkMD5.ArrayBuffer.hash(e.target.result);
-      const uploadResponse = await fetch("http://localhost/uploads", {
-        method: "POST",
-        body: JSON.stringify({
-          filename: file.name,
-          md5s: hexToBase64(hash),
-          upload_type: "mantarray",
-        }),
-      });
+        // break flow if initial request returns error status code
+        if (uploadResponse.status !== 200) {
+          setUploadError(true);
+          setInProgress(false);
+          console.log(
+            "ERROR uploading file metadata to DB:  ",
+            await uploadResponse.json()
+          );
+          return;
+        }
 
-      // break flow if initial request returns error status code
-      if (uploadResponse.status !== 200) {
+        const data = await uploadResponse.json();
+        const uploadDetails = data.params;
+        const uploadId = data.id;
+
+        const formData = new FormData();
+        Object.entries(uploadDetails.fields).forEach(([k, v]) => {
+          formData.append(k, v);
+        });
+        formData.append("file", file);
+
+        const uploadPostRes = await fetch(uploadDetails.url, {
+          method: "POST",
+          body: formData,
+        });
+
+        setInProgress(false);
+        if (uploadPostRes.status === 204) {
+          // start job
+          setUploadSuccess(true);
+          await postNewJob(uploadId);
+        } else {
+          setUploadError(true);
+          console.log(
+            "ERROR uploading file to s3:  ",
+            await uploadPostRes.json()
+          );
+        }
+      } catch (e) {
+        // catch all if service worker isn't working
+        console.log("ERROR posting to presigned url");
         setUploadError(true);
         setInProgress(false);
-        console.log(
-          "ERROR uploading file metadata to DB:  ",
-          await uploadResponse.json()
-        );
-        return;
-      }
-
-      const data = await uploadResponse.json();
-      const uploadDetails = data.params;
-      const uploadId = data.id;
-
-      const formData = new FormData();
-      Object.entries(uploadDetails.fields).forEach(([k, v]) => {
-        formData.append(k, v);
-      });
-      formData.append("file", file);
-
-      const uploadPostRes = await fetch(uploadDetails.url, {
-        method: "POST",
-        body: formData,
-      });
-
-      setInProgress(false);
-      if (uploadPostRes.status === 204) {
-        // start job
-        setUploadSuccess(true);
-        await postNewJob(uploadId);
-      } else {
-        setUploadError(true);
-        console.log(
-          "ERROR uploading file to s3:  ",
-          await uploadPostRes.json()
-        );
       }
     };
 

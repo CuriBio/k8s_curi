@@ -32,7 +32,7 @@ const clearAccountType = () => {
 };
 
 const isAuthRequest = (url) => {
-  const tokenUrl = "/login";
+  const tokenUrl = "/users/login";
   return tokenUrl.includes(url.pathname);
 };
 
@@ -53,7 +53,7 @@ self.onmessage = ({ data, source }) => {
     clearTokens();
     clearAccountType();
   } else if (data === "authCheck") {
-    console.log("[SW] Returning authentication check");
+    console.log("[SW] Returning authentication check ");
     source.postMessage({ authCheck: tokens.access !== null, accountType });
   } else if (data.accountType) {
     console.log("[SW] Setting account type");
@@ -64,7 +64,8 @@ self.onmessage = ({ data, source }) => {
 self.addEventListener("fetch", async (e) => {
   destURL = new URL(e.request.url);
   // only intercept routes to pulse and user apis
-  if (destURL.host === "localhost") {
+
+  if (destURL.hostname === "curibio.com") {
     e.respondWith(interceptResponse(e.request, destURL));
   } else e.respondWith(fetch(e.request));
 });
