@@ -126,14 +126,12 @@ async def process(con, item):
             with open(outfile, "rb") as file:
                 try:
                     job_id = item["id"]
-                    logger.info(
-                        f"Uploading {outfile} to {PULSE3D_UPLOADS_BUCKET}/{upload_id}/{job_id}/{outfile}"
-                    )
+                    outfile_key = f"{outfile_prefix}/{job_id}/{outfile}"
+                    logger.info(f"Uploading {outfile} to {PULSE3D_UPLOADS_BUCKET}/{outfile_key}")
 
                     contents = file.read()
                     md5 = hashlib.md5(contents).digest()
                     md5s = base64.b64encode(md5).decode()
-                    outfile_key = f"{outfile_prefix}/{upload_id}/{job_id}/{outfile}"
 
                     s3_client.put_object(
                         Body=contents, Bucket=PULSE3D_UPLOADS_BUCKET, Key=outfile_key, ContentMD5=md5s
