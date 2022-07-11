@@ -1,4 +1,3 @@
-# TODO ADD YOUR ECR REPO URL
 ecr_repo = 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d_api
 
 repo_root=$(shell git rev-parse --show-toplevel)
