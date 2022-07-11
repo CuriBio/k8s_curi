@@ -113,6 +113,7 @@ async def get_jobs(*, con, user_id, job_ids=None):
 
 
 async def create_job(*, con, upload_id, queue, priority, meta):
+    # the WITH clause in this query is necessary to make sure the given upload_id actually exists
     enqueue_job_query = (
         "WITH row AS (SELECT id FROM uploads WHERE id=$1) "
         "INSERT INTO jobs_queue (upload_id, queue, priority, meta) SELECT id, $2, $3, $4 FROM row "

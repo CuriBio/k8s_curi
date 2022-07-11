@@ -184,7 +184,7 @@ async def get_info_of_jobs(
                         logger.info(f"Generating presigned download url for {obj_key}")
                         try:
                             job_info["url"] = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, obj_key)
-                        except Exception as e:  # TODO update unit tests for this
+                        except Exception as e:
                             logger.error(f"Error generating presigned url for {obj_key}: {str(e)}")
                             job_info["url"] = "Error creating download link"
                     else:
@@ -215,12 +215,10 @@ async def create_new_job(
             "analysis_params": {
                 param: dict(details)[param] for param in ("twitch_widths", "start_time", "end_time")
             }
-            # TODO add userid so we know who created the job
         }
 
         logger.info(f"Using params: {meta['analysis_params']}")
 
-        # TODO check upload_id is valid
         async with request.state.pgpool.acquire() as con:
             priority = 10
             job_id = await create_job(
