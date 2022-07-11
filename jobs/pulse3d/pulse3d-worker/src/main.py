@@ -22,7 +22,6 @@ logging.basicConfig(
     stream=sys.stdout,
 )
 logger = logging.getLogger(__name__)
-q
 
 
 @get_item(queue="pulse3d")
