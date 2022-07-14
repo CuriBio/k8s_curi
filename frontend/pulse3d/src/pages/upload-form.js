@@ -73,7 +73,7 @@ const dropZoneText = "CLICK HERE or DROP single recording ZIP files";
 const defaultUploadErrorLabel =
   "Something went wrong while attempting to start the analysis for the following file(s):";
 const defaultZipErrorLabel =
-  "The following file(s) cannot be uploaded because they either contain multiple recordings or do not have the correct number of H5 files. Do you wish to proceed without them?";
+  "The following file(s) will not be uploaded because they either contain multiple recordings or do not have the correct number of H5 files.";
 
 export default function UploadForm() {
   const { query } = useRouter();
@@ -207,10 +207,15 @@ export default function UploadForm() {
       });
 
       if (badZipfiles.length > 0) {
-        setModalButtons(["Cancel", "Proceed"]);
+        // give users the option to proceed with clean files if any, otherwise just close
+        setModalButtons(
+          badZipfiles.length !== files.length
+            ? ["Cancel", "Proceed"]
+            : ["Close"]
+        );
 
         // add files to modal to notify user which files are bad
-        setFailedUploadsMsg(() => [
+        setFailedUploadsMsg([
           defaultZipErrorLabel,
           ...badZipfiles.map((f) => f.name),
         ]);
@@ -223,7 +228,6 @@ export default function UploadForm() {
   };
 
   const handleUpload = async (files) => {
-    console.log(files);
     // update state to trigger in progress spinner over submit button
     if (files.length > 0) {
       setInProgress(true);
@@ -240,8 +244,7 @@ export default function UploadForm() {
           await postNewJob(existing_file.id, existing_file.filename);
         } else if (file instanceof File) await uploadFile(file);
       }
-      // reset state once uploads have processed regardless of status
-      resetState();
+
       // open error modal notifying which files failed if any, otherwise display success text
       if (failedUploadsMsg.length > 1) setModalState(true);
       else setUploadSuccess(true);
@@ -337,7 +340,7 @@ export default function UploadForm() {
       );
       await handleUpload(filteredFiles);
     }
-
+    // goes after because this dependency triggers reset
     setModalState(false);
   };
 

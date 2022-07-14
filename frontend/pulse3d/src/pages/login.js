@@ -53,15 +53,10 @@ export default function Login() {
     // this state gets passed to web worker to attempt login request
     else {
       try {
-        const res = await fetch("https://curibio.com/login", {
+        const res = await fetch("https://curibio.com/users/login", {
           method: "POST",
-          // body: JSON.stringify(userData),
-          // mode: "no-cors",
-          body: JSON.stringify({
-            username: "lucipak",
-            password: "Test123Test123",
-            customer_id: "60e88e2a-b101-49e2-9734-96f299fe8959",
-          }),
+          body: JSON.stringify(userData),
+          mode: "no-cors",
         });
 
         if (res) {

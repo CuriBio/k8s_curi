@@ -35,7 +35,7 @@ export default function Layout({ children }) {
   const authStatus = useContext(AuthContext);
 
   const logoutUser = async () => {
-    await fetch("https://curibio.com/logout", {
+    await fetch("https://curibio.com/users/logout", {
       method: "POST",
       body: JSON.stringify({}),
     });

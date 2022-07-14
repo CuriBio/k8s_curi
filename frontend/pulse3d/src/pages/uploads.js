@@ -138,7 +138,6 @@ export default function Uploads() {
       const formattedRows = jobs.map(
         ({ upload_id, created_at, object_key, status }) => {
           const upload = uploads.find((el) => el.id === upload_id);
-
           // protects against uploads performed before dropping filename from upload meta field
           // hopefully remove this once internal users aren't using test site
           const uploadedFilename =
