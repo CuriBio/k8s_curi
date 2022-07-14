@@ -52,23 +52,33 @@ export default function Login() {
       setErrorMsg("*All fields are required");
     // this state gets passed to web worker to attempt login request
     else {
-      const res = await fetch("https://curibio.com/users/login", {
-        method: "POST",
-        body: JSON.stringify(userData),
-        mode: "no-cors",
-      });
+      try {
+        const res = await fetch("https://curibio.com/login", {
+          method: "POST",
+          // body: JSON.stringify(userData),
+          // mode: "no-cors",
+          body: JSON.stringify({
+            username: "lucipak",
+            password: "Test123Test123",
+            customer_id: "60e88e2a-b101-49e2-9734-96f299fe8959",
+          }),
+        });
 
-      if (res) {
-        if (res.status === 200) {
-          setAccountType(userType); // set account type globally
-          userType === "Admin"
-            ? router.push("/new-user")
-            : router.push("/uploads"); // routes to next page
-        } else {
-          res.status === 401 || res.status === 422
-            ? setErrorMsg("*Invalid credentials. Try again.")
-            : setErrorMsg("*Internal error. Please try again later.");
+        if (res) {
+          if (res.status === 200) {
+            setAccountType(userType); // set account type globally
+            userType === "Admin"
+              ? router.push("/new-user")
+              : router.push("/uploads"); // routes to next page
+          } else {
+            res.status === 401 || res.status === 422
+              ? setErrorMsg("*Invalid credentials. Try again.")
+              : setErrorMsg("*Internal error. Please try again later.");
+          }
         }
+      } catch (e) {
+        console.log("ERROR logging in");
+        setErrorMsg("*Internal error. Please try again later.");
       }
     }
   };

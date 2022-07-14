@@ -2,8 +2,16 @@
 const domain = "curibio-test"; // MODIFY URL until decided how it's handled
 
 const getUrl = ({ pathname, search }) => {
-  let subdomain = pathname.includes("users") ? "apiv2" : "pulse3d";
-  return new URL(`https://${subdomain}.${domain}.com${pathname}${search}`);
+  // let subdomain = pathname.includes("users") ? "apiv2" : "pulse3d";
+  // return new URL(`https://${subdomain}.${domain}.com${pathname}${search}`);
+  let subdomain =
+    pathname.includes("login") ||
+    pathname.includes("logout") ||
+    pathname.includes("refresh") ||
+    pathname.includes("register")
+      ? "8001"
+      : "8000";
+  return new URL(`http://localhost:${subdomain}${pathname}${search}`);
 };
 
 let tokens = {
@@ -32,7 +40,8 @@ const clearAccountType = () => {
 };
 
 const isAuthRequest = (url) => {
-  const tokenUrl = "/users/login";
+  // const tokenUrl = "/users/login";
+  const tokenUrl = "/login";
   return tokenUrl.includes(url.pathname);
 };
 
