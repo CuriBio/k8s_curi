@@ -4,11 +4,6 @@ from starlette.datastructures import Secret
 config = Config(".env")
 
 APP_NAME = config("APP_NAME", cast=str, default="CuriBio/Auth")
-ACCESS_TOKEN_EXPIRE_MINUTES = config("ACCESS_TOKEN_EXPIRE_MINUTES", cast=int, default=5) # 5 minutes
-JWT_SECRET_KEY = config("JWT_SECRET_KEY", cast=Secret)
-JWT_ALGORITHM = config("JWT_ALGORITHM", cast=str, default="HS256")
-JWT_AUDIENCE = config("JWT_AUDIENCE", cast=str, default="curibio:auth")
-JWT_TOKEN_PREFIX = config("JWT_TOKEN_PREFIX", cast=str, default="Bearer")
 
 POSTGRES_USER = config("POSTGRES_USER", cast=str)
 POSTGRES_PASSWORD = config("POSTGRES_PASSWORD", cast=Secret)

@@ -8,10 +8,14 @@
                 "s3:ListBucket"
             ],
             "Resource": [
-                "arn:aws:s3:::channel-firmware",
-                "arn:aws:s3:::main-firmware",
-                "arn:aws:s3:::channel-firmware/*",
-                "arn:aws:s3:::main-firmware/*"
+                "arn:aws:s3:::test-channel-firmware",
+                "arn:aws:s3:::test-main-firmware",
+                "arn:aws:s3:::test-channel-firmware/*",
+                "arn:aws:s3:::test-main-firmware/*",
+                "arn:aws:s3:::prod-channel-firmware",
+                "arn:aws:s3:::prod-main-firmware",
+                "arn:aws:s3:::prod-channel-firmware/*",
+                "arn:aws:s3:::prod-main-firmware/*"
             ]
         }
     ]

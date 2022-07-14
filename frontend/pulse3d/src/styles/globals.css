@@ -1,0 +1,27 @@
+/* curi color palette */
+:root {
+  --dark-blue: rgb(0, 38, 62);
+  --teal-green: rgb(25, 172, 138);
+  --dark-gray: rgb(167, 168, 169);
+  --med-gray: rgb(221, 221, 221);
+  --light-gray: rgb(236, 236, 237);
+  --light-blue: rgb(0, 84, 112);
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  font-family: Mulish;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+* {
+  box-sizing: border-box;
+  font-family: Mulish;
+}
+

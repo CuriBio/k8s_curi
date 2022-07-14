@@ -2,6 +2,7 @@ from datetime import datetime
 from functools import wraps
 import json
 import time
+import uuid
 
 
 class EmptyQueue(Exception):
@@ -23,7 +24,7 @@ def get_item(*, queue):
                     raise EmptyQueue(queue)
 
                 ts = time.time()
-                status, new_meta = await fn(con, item)
+                status, new_meta, object_key = await fn(con, item)
                 runtime = time.time() - ts
 
                 # update metadata
@@ -35,6 +36,7 @@ def get_item(*, queue):
                     "runtime": runtime,
                     "finished_at": datetime.now(),
                     "meta": json.dumps(meta),
+                    "object_key": object_key,
                 }
                 set_clause = ", ".join(f"{key} = ${i}" for i, key in enumerate(data, 1))
                 await con.execute(
@@ -53,7 +55,7 @@ async def get_uploads(*, con, user_id, upload_ids=None):
 
     If no uploads specified, will return info of all the user's uploads
     """
-    query = "SELECT id, user_id, created_at, object_key FROM uploads WHERE user_id=$1"
+    query = "SELECT * FROM uploads WHERE user_id=$1"
     query_params = [user_id]
     if upload_ids:
         places = ", ".join(f"${i}" for i, _ in enumerate(upload_ids, 2))
@@ -62,16 +64,32 @@ async def get_uploads(*, con, user_id, upload_ids=None):
 
     async with con.transaction():
         uploads = [dict(row) async for row in con.cursor(query, *query_params)]
+
     return uploads
 
 
-async def create_upload(*, con, user_id, meta):
+async def create_upload(*, con, upload_params):
+    # generating uuid here instead of letting PG handle it so that it can be inserted into the prefix more easily
+    upload_id = uuid.uuid4()
+
+    # the WITH clause in this query is necessary to make sure the given user_id actually exists
     query = (
-        "WITH row as (SELECT id FROM users where id=$1) "
-        "INSERT INTO uploads (user_id, meta) SELECT id, $2 from row RETURNING id"
+        "WITH row AS (SELECT id AS user_id FROM users WHERE id=$1) "
+        "INSERT INTO uploads (user_id, id, md5, prefix, filename, type) "
+        "SELECT user_id, $2, $3, $4, $5, $6 FROM row "
+        "RETURNING id"
     )
+
     async with con.transaction():
-        return await con.fetchval(query, user_id, json.dumps(meta))
+        return await con.fetchval(
+            query,
+            upload_params["user_id"],
+            upload_id,
+            upload_params["md5"],
+            upload_params["prefix"].format(upload_id=upload_id),
+            upload_params["filename"],
+            upload_params["type"],
+        )
 
 
 async def get_jobs(*, con, user_id, job_ids=None):
@@ -80,7 +98,7 @@ async def get_jobs(*, con, user_id, job_ids=None):
     If no jobs specified, will return info of all jobs created by the user
     """
     query = (
-        "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.meta AS job_meta, u.user_id, u.meta AS user_meta "
+        "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, u.user_id, u.meta AS user_meta "
         "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id = u.id WHERE u.user_id=$1"
     )
     query_params = [user_id]
@@ -95,6 +113,7 @@ async def get_jobs(*, con, user_id, job_ids=None):
 
 
 async def create_job(*, con, upload_id, queue, priority, meta):
+    # the WITH clause in this query is necessary to make sure the given upload_id actually exists
     enqueue_job_query = (
         "WITH row AS (SELECT id FROM uploads WHERE id=$1) "
         "INSERT INTO jobs_queue (upload_id, queue, priority, meta) SELECT id, $2, $3, $4 FROM row "

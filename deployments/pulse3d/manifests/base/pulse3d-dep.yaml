@@ -37,6 +37,8 @@ spec:
             secretKeyRef:
               name: curibio-jwt-secret
               key: jwt-secret
+        - name: UPLOADS_BUCKET_ENV
+          value: test-pulse3d-uploads
         imagePullPolicy: Always
         ports:
         - containerPort: 8000

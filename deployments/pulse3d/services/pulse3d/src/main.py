@@ -1,16 +1,17 @@
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 import uuid
 
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from auth import ProtectedAny
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET
 from jobs import create_upload, create_job, get_uploads, get_jobs
-from utils.s3 import generate_presigned_post, generate_presigned_url
 from utils.db import AsyncpgPoolDep
+from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error
 
 
 logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
@@ -22,8 +23,8 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
 class UploadRequest(BaseModel):
     filename: str
-    md5s: str
-    customer_id: uuid.UUID
+    md5s: Optional[str]
+    upload_type: str
 
 
 class UploadResponse(BaseModel):
@@ -33,6 +34,21 @@ class UploadResponse(BaseModel):
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
+    twitch_widths: Optional[List[int]]
+    start_time: Optional[Union[int, float]]
+    end_time: Optional[Union[int, float]]
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://dashboard.curibio-test.com",
+        "https://dashboard.curibio.com",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.middleware("http")
@@ -62,6 +78,7 @@ async def get_info_of_uploads(
         user_id = str(uuid.UUID(token["userid"]))
         async with request.state.pgpool.acquire() as con:
             return await get_uploads(con=con, user_id=user_id, upload_ids=upload_ids)
+
     except Exception as e:
         logger.exception(f"Failed to get uploads: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -73,21 +90,34 @@ async def create_recording_upload(
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
-        params = _generate_presigned_post(user_id, details, PULSE3D_UPLOADS_BUCKET)
+        customer_id = str(uuid.UUID(token["customer_id"]))
 
-        # TODO what meta do we want
-        meta = {
-            "prefix": f"uploads/{details.customer_id}/{user_id}",
+        upload_params = {
+            "prefix": f"uploads/{customer_id}/{user_id}/{{upload_id}}",
             "filename": details.filename,
-            "md5s": details.md5s,
+            "md5": details.md5s,
+            "user_id": user_id,
+            "type": details.upload_type,
         }
 
         async with request.state.pgpool.acquire() as con:
-            upload_id = await create_upload(con=con, user_id=user_id, meta=meta)
-            return UploadResponse(id=upload_id, params=params)
-    except Exception as e:
-        logger.exception(f"Failed to generate presigned upload url: {repr(e)}")
+            # Tanner (7/5/22): using a transaction here so that if _generate_presigned_post fails
+            # then the new upload row won't be committed
+            async with con.transaction():
+                upload_id = await create_upload(con=con, upload_params=upload_params)
+
+                params = _generate_presigned_post(
+                    user_id, customer_id, details, PULSE3D_UPLOADS_BUCKET, upload_id=upload_id
+                )
+
+                return UploadResponse(id=upload_id, params=params)
+
+    except S3Error as e:
+        logger.exception(str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(repr(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # TODO Tanner (4/21/22): probably want to move this to a more general svc (maybe in apiv2-dep) dedicated to uploading misc files to s3
@@ -97,19 +127,24 @@ async def create_log_upload(
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
-        params = _generate_presigned_post(user_id, details, MANTARRAY_LOGS_BUCKET)
+        customer_id = str(uuid.UUID(token["customer_id"]))
+        params = _generate_presigned_post(user_id, customer_id, details, MANTARRAY_LOGS_BUCKET)
         # TODO define a response model for logs
         return {"params": params}
-    except Exception as e:
-        logger.exception(f"Failed to generate presigned upload url: {repr(e)}")
+    except S3Error as e:
+        logger.exception(str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(repr(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def _generate_presigned_post(user_id, details, bucket):
-    key = f"uploads/{details.customer_id}/{user_id}/{details.filename}"
-    logger.info(
-        f"Generating presigned upload url for {bucket}/uploads/{details.customer_id}/{user_id}/{details.filename}"
-    )
+def _generate_presigned_post(user_id, customer_id, details, bucket, upload_id=None):
+    key = f"uploads/{customer_id}/{user_id}/"
+    if upload_id:
+        key += f"{upload_id}/"
+    key += details.filename
+    logger.info(f"Generating presigned upload url for {bucket}/{key}")
     params = generate_presigned_post(bucket=bucket, key=key, md5s=details.md5s)
     return params
 
@@ -119,6 +154,7 @@ def _generate_presigned_post(user_id, details, bucket):
 async def get_info_of_jobs(
     request: Request,
     job_ids: Optional[List[uuid.UUID]] = Query(None),
+    download: bool = Query(True),
     token=Depends(ProtectedAny(scope=["users:free"])),
 ):
     # need to convert UUIDs to str to avoid issues with DB
@@ -131,25 +167,39 @@ async def get_info_of_jobs(
 
         async with request.state.pgpool.acquire() as con:
             jobs = await get_jobs(con=con, user_id=user_id, job_ids=job_ids)
-
             response = {"jobs": []}
             for job in jobs:
-                job_info = {"status": job["status"]}
-                if job_info["status"] == "finished":
-                    upload_rows = await get_uploads(con=con, user_id=user_id, upload_ids=[job["upload_id"]])
-                    object_key = upload_rows[0]["object_key"]
-                    logger.info(f"Generating presigned download url for {object_key}")
-                    job_info["url"] = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, object_key)
+                obj_key = job["object_key"]
+                job_info = {
+                    "id": job["job_id"],
+                    "status": job["status"],
+                    "upload_id": job["upload_id"],
+                    "object_key": obj_key,
+                    "created_at": job["created_at"],
+                }
+
+                if job_info["status"] == "finished" and download:
+                    # This is in case any current users uploaded files before object_key was dropped from uploads table and added to jobs_result
+                    if obj_key:
+                        logger.info(f"Generating presigned download url for {obj_key}")
+                        try:
+                            job_info["url"] = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, obj_key)
+                        except Exception as e:
+                            logger.error(f"Error generating presigned url for {obj_key}: {str(e)}")
+                            job_info["url"] = "Error creating download link"
+                    else:
+                        job_info["url"] = None
+
                 elif job_info["status"] == "error":
                     job_info["error_info"] = json.loads(job["job_meta"])["error"]
+
                 response["jobs"].append(job_info)
             if not response["jobs"]:
                 response["error"] = "No jobs found"
-
         return response
 
     except Exception as e:
-        logger.exception(f"Failed to get jobs: {repr(e)}")
+        logger.error(f"Failed to get jobs: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -161,15 +211,21 @@ async def create_new_job(
         user_id = str(uuid.UUID(token["userid"]))
         logger.info(f"Creating pulse3d job for upload {details.upload_id} with user ID: {user_id}")
 
-        # TODO what meta do we want?
-        meta = {}
+        meta = {
+            "analysis_params": {
+                param: dict(details)[param] for param in ("twitch_widths", "start_time", "end_time")
+            }
+        }
 
-        # TODO check upload_id is valid
+        logger.info(f"Using params: {meta['analysis_params']}")
+
         async with request.state.pgpool.acquire() as con:
             priority = 10
             job_id = await create_job(
                 con=con, upload_id=details.upload_id, queue="pulse3d", priority=priority, meta=meta
             )
+
+            # TODO create response model
             return {
                 "id": job_id,
                 "user_id": user_id,

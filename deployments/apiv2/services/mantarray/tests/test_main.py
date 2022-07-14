@@ -18,9 +18,11 @@ def random_firmware_type():
     return choice(["main", "channel"])
 
 
-@pytest.fixture(scope="function", name="auth_token")
-def fixture_auth_token():
-    yield create_token(scope=main.AUTH.scope, userid=uuid.uuid4()).access_token
+@pytest.fixture(scope="function", name="access_token")
+def fixture_access_token():
+    yield create_token(
+        userid=uuid.uuid4(), customer_id=uuid.uuid4(), scope=main.AUTH.scope, account_type="user"
+    ).token
 
 
 @pytest.fixture(scope="function", name="mocked_asyncpg_con", autouse=True)
@@ -87,7 +89,7 @@ def test_firmware_latest__serial_number_not_found_in_db(mocked_asyncpg_con):
     assert response.json() == {"message": f"Serial Number {test_serial_number} not found"}
 
 
-def test_firmware_download__success(auth_token, mocker):
+def test_firmware_download__success(access_token, mocker):
     expected_url = "url"
     mocked_get_url = mocker.patch.object(main, "get_download_url", autospec=True, return_value=expected_url)
 
@@ -96,7 +98,7 @@ def test_firmware_download__success(auth_token, mocker):
     response = test_client.get(
         "/firmware_download",
         params={"firmware_version": test_firmware_version, "firmware_type": test_firmware_type},
-        headers={"Authorization": f"Bearer {auth_token}"},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 200
     assert response.json() == {"presigned_url": expected_url}
@@ -105,24 +107,24 @@ def test_firmware_download__success(auth_token, mocker):
 
 
 @pytest.mark.parametrize("bad_param_type", ["firmware_version", "firmware_type"])
-def test_firmware_download__bad_query_params(auth_token, bad_param_type):
+def test_firmware_download__bad_query_params(access_token, bad_param_type):
     test_params = {"firmware_version": random_semver(), "firmware_type": random_firmware_type()}
     # change one param to invalid value
     test_params[bad_param_type] = "bad"
 
     response = test_client.get(
-        "/firmware_download", params=test_params, headers={"Authorization": f"Bearer {auth_token}"}
+        "/firmware_download", params=test_params, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
 
 
-def test_firmware_download__no_auth_token_given():
+def test_firmware_download__no_access_token_given():
     test_params = {"firmware_version": random_semver(), "firmware_type": random_firmware_type()}
     response = test_client.get("/firmware_download", params=test_params)
     assert response.status_code == 403
 
 
-def test_firmware_download__bad_auth_token_given():
+def test_firmware_download__bad_access_token_given():
     test_params = {"firmware_version": random_semver(), "firmware_type": random_firmware_type()}
     response = test_client.get(
         "/firmware_download", params=test_params, headers={"Authorization": "Bearer bad.auth.token"}

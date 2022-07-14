@@ -5,8 +5,9 @@ metadata:
   namespace: pulse3d
 spec:
   jobTargetRef:
+    backoffLimit: 4
+    ttlSecondsAfterFinished: 0
     template:
-      ttlSecondsAfterFinished: 0
       spec:
         containers:
           - name: pulse3d-worker
@@ -18,11 +19,10 @@ spec:
                     name: curibio-jobs-creds
                     key: curibio_jobs
               - name: UPLOADS_BUCKET_ENV
-                value: curi-test-upload
+                value: test-pulse3d-uploads
               - name: MANTARRAY_LOGS_BUCKET_ENV
                 value: test-mantarray-logs
         restartPolicy: Never
-    backoffLimit: 4
   pollingInterval: 30
   triggers:
     - type: postgresql
