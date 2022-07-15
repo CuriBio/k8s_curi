@@ -40,6 +40,10 @@ spec:
         templateRef:
           name: build-service
           template: db-migrations-dry-run
+        arguments:
+          parameters:
+            - name: number
+              value: "{{workflow.parameters.number}}"
     - - name: build-services
         templateRef:
           name: build-service

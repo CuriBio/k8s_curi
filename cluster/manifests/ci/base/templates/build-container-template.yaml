@@ -122,6 +122,9 @@ spec:
         - name: workdir
           mountPath: /tmp/git
   - name: db-migrations-dry-run
+    inputs:
+      parameters:
+      - name: number
     script:
       image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
       workingDir: /tmp/git/k8s_curi/core/db/curibio
@@ -189,7 +192,7 @@ spec:
         else
           echo "Update needed"
           MIGRATION_PLAN=$(alembic upgrade $CURRENT_DB_REVISION:head --sql)
-          builder --pr-number=TODO --pr-comment=$MIGRATION_PLAN
+          builder --pr-number={{inputs.parameters.number}} --pr-comment=$MIGRATION_PLAN
         fi
 
 ---
