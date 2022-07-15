@@ -165,6 +165,7 @@ export default function UploadForm() {
           end_time: endTime === "" ? null : endTime,
         }),
       });
+      console.log("jobResponse: ", jobResponse.status);
 
       if (jobResponse.status !== 200) {
         failedUploadsMsg.push(filename);
@@ -238,9 +239,11 @@ export default function UploadForm() {
           console.log(
             "Existing upload found, skipping file upload and creating new job"
           );
+
           const existing_file = uploads.find(
             ({ filename }) => filename === file.name
           );
+
           await postNewJob(existing_file.id, existing_file.filename);
         } else if (file instanceof File) await uploadFile(file);
       }
@@ -274,6 +277,7 @@ export default function UploadForm() {
             upload_type: "mantarray",
           }),
         });
+        console.log("uploadResponse: ", uploadResponse.status);
 
         // break flow if initial request returns error status code
         if (uploadResponse.status !== 200) {
@@ -289,6 +293,7 @@ export default function UploadForm() {
         const uploadDetails = data.params;
         const uploadId = data.id;
         const formData = new FormData();
+        console.log("uploadResponse data: ", data);
 
         Object.entries(uploadDetails.fields).forEach(([k, v]) => {
           formData.append(k, v);
@@ -300,6 +305,7 @@ export default function UploadForm() {
           method: "POST",
           body: formData,
         });
+        console.log("uploadPostRes: ", uploadPostRes.status);
 
         if (uploadPostRes.status === 204) {
           await postNewJob(uploadId, filename);
@@ -338,6 +344,7 @@ export default function UploadForm() {
       const filteredFiles = files.filter(
         (f) => !failedUploadsMsg.includes(f.name)
       );
+      console.log("FILES: ", filteredFiles);
       await handleUpload(filteredFiles);
     }
     // goes after because this dependency triggers reset

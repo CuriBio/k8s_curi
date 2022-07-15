@@ -92,6 +92,7 @@ export default function Uploads() {
 
   useEffect(() => {
     if (uploads.length > 0) getAllJobs();
+    else setIsLoading(false);
   }, [uploads]);
 
   const handleChangePage = (e, newPage) => {
