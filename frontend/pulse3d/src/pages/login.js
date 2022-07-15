@@ -58,7 +58,7 @@ export default function Login() {
           body: JSON.stringify(userData),
           mode: "no-cors",
         });
-        console.log("LOGIN RES: ", res.status);
+
         if (res) {
           if (res.status === 200) {
             setAccountType(userType); // set account type globally
