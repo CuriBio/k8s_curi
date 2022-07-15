@@ -183,13 +183,13 @@ spec:
               key: table_user_pass_ro
       command: ["sh"]
       source: |
-        TEST=$(alembic current)
-        if [[ "$TEST" == *"(head)"* ]]; then
+        CURRENT_DB_REVISION=$(alembic current)
+        if [[ "$CURRENT_DB_REVISION" == *"(head)"* ]]; then
           echo "Up to date"
         else
           echo "Update needed"
-          alembic upgrade $TEST:head --sql
-          # post output of prev command to github somehow
+          MIGRATION_PLAN=$(alembic upgrade $CURRENT_DB_REVISION:head --sql)
+          builder --pr-number=TODO --pr-comment=$MIGRATION_PLAN
         fi
 
 ---
@@ -347,10 +347,10 @@ spec:
               key: table_user_pass_ro
       command: ["sh"]
       source: |
-        TEST=$(alembic current)
-        if [[ "$TEST" == *"(head)"* ]]; then
+        CURRENT_DB_REVISION=$(alembic current)
+        if [[ "$CURRENT_DB_REVISION" == *"(head)"* ]]; then
           echo "Up to date"
         else
           echo "Update needed"
-          alembic upgrade $TEST:head
+          alembic upgrade $CURRENT_DB_REVISION:head
         fi
