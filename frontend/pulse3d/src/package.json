@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "export": "next build && next export",
+    "export:prod": "echo 'NEXT_PUBLIC_DOMAIN=\"curibio\"' > .env.local && next build && next export",
+    "export:dev": "echo 'NEXT_PUBLIC_DOMAIN=\"curibio-test\"' > .env.local && next build && next export",
     "start": "next start",
     "lint": "next lint",
     "test:unit": "jest --watchAll --coverage",

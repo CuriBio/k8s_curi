@@ -34,7 +34,7 @@ function Pulse({ Component, pageProps }) {
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
-        .register("/serviceWorker.js")
+        .register(`/serviceWorker.js?domain=${process.env.NEXT_PUBLIC_DOMAIN}`)
         .then(navigator.serviceWorker.ready)
         .then(() => sendSWMessage())
         .catch((e) => console.log("SERVICE WORKER ERROR: ", e));
