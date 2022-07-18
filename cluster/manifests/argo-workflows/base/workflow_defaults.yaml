@@ -30,7 +30,7 @@ data:
       #   Minio: my-minio-endpoint.default:9000
       endpoint: s3.amazonaws.com
       bucket: curi-prod-workflows
-      region: us-west-2
+      region: us-east-2
       # insecure will disable TLS. Primarily used for minio installs not configured with TLS
       insecure: false
       # keyFormat is a format pattern to define how artifacts will be organized in a bucket.
