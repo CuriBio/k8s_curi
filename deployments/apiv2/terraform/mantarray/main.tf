@@ -44,3 +44,22 @@ resource "aws_s3_bucket_acl" "channel_firmware_bucket" {
   bucket = aws_s3_bucket.channel_firmware_bucket.id
   acl    = "private"
 }
+
+resource "aws_s3_bucket" "logs_bucket" {
+  bucket = "${var.cluster_name}-mantarray-logs"
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "logs_bucket" {
+  bucket = aws_s3_bucket.logs_bucket.bucket
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_acl" "logs_bucket" {
+  bucket = aws_s3_bucket.logs_bucket.id
+  acl    = "private"
+}
