@@ -1,4 +1,3 @@
-# TODO ADD YOUR ECR REPO URL
 ecr_repo = 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
 
 .PHONY: build buildx push tag apply
