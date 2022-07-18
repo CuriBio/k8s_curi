@@ -667,11 +667,11 @@ spec:
         type: object
     served: true
     storage: true
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: argo
+# ---
+# apiVersion: v1
+# kind: ServiceAccount
+# metadata:
+#   name: argo
 ---
 apiVersion: v1
 kind: ServiceAccount
