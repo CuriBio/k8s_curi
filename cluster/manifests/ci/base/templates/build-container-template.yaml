@@ -189,15 +189,13 @@ spec:
           mountPath: /tmp/git
       command: ["sh"]
       source: |
-        pwd
-        ls
         CURRENT_DB_REVISION=$(alembic current)
         if [[ "$CURRENT_DB_REVISION" == *"(head)"* ]]; then
           echo "Up to date"
         else
           echo "Update needed"
           MIGRATION_PLAN=$(alembic upgrade $CURRENT_DB_REVISION:head --sql)
-          builder --pr-number={{inputs.parameters.number}} --pr-comment=$MIGRATION_PLAN
+          builder --pr-number={{inputs.parameters.number}} --pr-comment="$MIGRATION_PLAN"
         fi
 
 ---
