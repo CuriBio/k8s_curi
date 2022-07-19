@@ -147,6 +147,11 @@ resource "aws_iam_openid_connect_provider" "default" {
   thumbprint_list = [data.external.thumbprint.result.thumbprint]
 }
 
+module "argo_workflows" {
+  source = "./modules/argo_workflows"
+  cluster_name = var.cluster_name
+}
+
 module "eks" {
   source          = "terraform-aws-modules/eks/aws"
   version         = "17.24.0"
