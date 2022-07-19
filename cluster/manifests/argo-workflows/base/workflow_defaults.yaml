@@ -15,6 +15,6 @@ data:
       ttlStrategy:
         secondsAfterCompletion: 86400
       parallelism: 4
-      # delete all pods as soon as they complete. temporarily changing this to on OnPodSuccess
+      # delete all pods as soon as they complete
       podGC:
-        strategy: OnPodSuccess
+        strategy: OnPodCompletion
