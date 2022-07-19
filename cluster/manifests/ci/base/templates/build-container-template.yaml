@@ -189,8 +189,6 @@ spec:
           mountPath: /tmp/git
       command: ["sh"]
       source: |
-        pwd
-        ls
         CURRENT_DB_REVISION=$(alembic current)
         if [[ "$CURRENT_DB_REVISION" == *"(head)"* ]]; then
           echo "Up to date"
