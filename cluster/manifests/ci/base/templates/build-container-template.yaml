@@ -184,6 +184,9 @@ spec:
             secretKeyRef:
               name: db-migrations
               key: table_user_pass_ro
+      volumeMounts:
+        - name: workdir
+          mountPath: /tmp/git
       command: ["sh"]
       source: |
         pwd
@@ -350,6 +353,9 @@ spec:
             secretKeyRef:
               name: db-migrations
               key: table_user_pass_ro
+      volumeMounts:
+        - name: workdir
+          mountPath: /tmp/git
       command: ["sh"]
       source: |
         CURRENT_DB_REVISION=$(alembic current)
