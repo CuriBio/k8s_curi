@@ -89,7 +89,6 @@ async def create_recording_upload(
     request: Request, details: UploadRequest, token=Depends(ProtectedAny(scope=["users:free"]))
 ):
     try:
-        logger.info("Testing") #just testing CI build artifacts, will remove when done
         user_id = str(uuid.UUID(token["userid"]))
         customer_id = str(uuid.UUID(token["customer_id"]))
 
