@@ -129,6 +129,11 @@ spec:
       image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
       workingDir: /tmp/git/k8s_curi/core/db/curibio
       env:
+        - name: TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-access-token
+              key: token
         - name: JOBS_USER_PASS
           valueFrom:
             secretKeyRef:
@@ -184,16 +189,18 @@ spec:
             secretKeyRef:
               name: db-migrations
               key: table_user_pass_ro
+      volumeMounts:
+        - name: workdir
+          mountPath: /tmp/git
       command: ["sh"]
       source: |
-        pwd
         CURRENT_DB_REVISION=$(alembic current)
         if [[ "$CURRENT_DB_REVISION" == *"(head)"* ]]; then
           echo "Up to date"
         else
           echo "Update needed"
           MIGRATION_PLAN=$(alembic upgrade $CURRENT_DB_REVISION:head --sql)
-          builder --pr-number={{inputs.parameters.number}} --pr-comment=$MIGRATION_PLAN
+          builder --pr-number={{inputs.parameters.number}} --pr-comment="$MIGRATION_PLAN"
         fi
 
 ---
@@ -294,6 +301,11 @@ spec:
       image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
       workingDir: /tmp/git/k8s_curi/core/db/curibio
       env:
+        - name: TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-access-token
+              key: token
         - name: JOBS_USER_PASS
           valueFrom:
             secretKeyRef:
@@ -349,6 +361,9 @@ spec:
             secretKeyRef:
               name: db-migrations
               key: table_user_pass_ro
+      volumeMounts:
+        - name: workdir
+          mountPath: /tmp/git
       command: ["sh"]
       source: |
         CURRENT_DB_REVISION=$(alembic current)
@@ -356,5 +371,5 @@ spec:
           echo "Up to date"
         else
           echo "Update needed"
-          alembic upgrade $CURRENT_DB_REVISION:head
+          alembic upgrade head
         fi
