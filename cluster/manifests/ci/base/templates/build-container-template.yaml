@@ -129,6 +129,11 @@ spec:
       image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
       workingDir: /tmp/git/k8s_curi/core/db/curibio
       env:
+        - name: TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-access-token
+              key: token
         - name: JOBS_USER_PASS
           valueFrom:
             secretKeyRef:
@@ -296,6 +301,11 @@ spec:
       image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
       workingDir: /tmp/git/k8s_curi/core/db/curibio
       env:
+        - name: TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-access-token
+              key: token
         - name: JOBS_USER_PASS
           valueFrom:
             secretKeyRef:
