@@ -186,6 +186,7 @@ spec:
               key: table_user_pass_ro
       command: ["sh"]
       source: |
+        pwd
         CURRENT_DB_REVISION=$(alembic current)
         if [[ "$CURRENT_DB_REVISION" == *"(head)"* ]]; then
           echo "Up to date"
