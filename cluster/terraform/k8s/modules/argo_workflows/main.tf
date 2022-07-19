@@ -13,6 +13,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "workflows_artifac
 }
 
 resource "aws_s3_bucket_acl" "workflows_artifacts" {
-  bucket = aws_s3_bucket.workflows_artifacts.id
+  bucket = aws_s3_bucket.workflow_artifacts.id
   acl    = "private"
 } 

@@ -10,7 +10,6 @@ from .utils import load_data_to_df
 
 MANTARRAY_LOGS_BUCKET = os.environ.get("MANTARRAY_LOGS_BUCKET_ENV", "test-mantarray-logs")
 PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-pulse3d-uploads")
-
 logger = logging.getLogger(__name__)
 
 

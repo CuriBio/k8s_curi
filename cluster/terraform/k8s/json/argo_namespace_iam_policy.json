@@ -22,7 +22,7 @@
           "Action": ["s3:PutObject", "s3:GetObject"],
           "Resource": [
             "arn:aws:s3:::curi-prod-workflows",
-            "arn:aws:s3:::curi-prod-workflows/*",
+            "arn:aws:s3:::curi-prod-workflows/*"
           ]
         }
     ]

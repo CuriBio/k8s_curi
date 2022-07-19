@@ -1,17 +1,9 @@
-// TODO add .env for prod v. test url
-const domain = "curibio-test"; // MODIFY URL until decided how it's handled
-
-const getUrl = ({ pathname, search }) => {
-  let subdomain = pathname.includes("users") ? "apiv2" : "pulse3d";
-  return new URL(`https://${subdomain}.${domain}.com${pathname}${search}`);
-};
-
+let accountType = null;
+let domain = new URLSearchParams(location.search).get("domain");
 let tokens = {
   access: null,
   refresh: null,
 };
-
-let accountType = null;
 
 const setTokens = ({ access, refresh }) => {
   tokens.access = access.token;
@@ -29,6 +21,11 @@ const setAccountType = (type) => {
 
 const clearAccountType = () => {
   accountType = null;
+};
+
+const getUrl = ({ pathname, search }) => {
+  let subdomain = pathname.includes("users") ? "apiv2" : "pulse3d";
+  return new URL(`https://${subdomain}.${domain}.com${pathname}${search}`);
 };
 
 const isAuthRequest = (url) => {

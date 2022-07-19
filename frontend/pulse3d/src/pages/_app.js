@@ -34,7 +34,7 @@ function Pulse({ Component, pageProps }) {
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
-        .register("/serviceWorker.js")
+        .register(`/serviceWorker.js?domain=${process.env.NEXT_PUBLIC_DOMAIN}`)
         .then(navigator.serviceWorker.ready)
         .then(() => sendSWMessage())
         .catch((e) => console.log("SERVICE WORKER ERROR: ", e));
@@ -44,7 +44,6 @@ function Pulse({ Component, pageProps }) {
         // might need auth check to include actual fetch request in SW to check token status if this becomes a problem
         setAuthCheck(data.authCheck);
         setAccountType(data.accountType);
-
         if (!data.authCheck)
           router.replace("/login", undefined, { shallow: true });
       });

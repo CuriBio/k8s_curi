@@ -1,7 +1,7 @@
 import styled from "styled-components";
 import { FileUploader } from "react-drag-drop-files";
 
-const fileTypes = ["h5", "zip"];
+const fileTypes = ["zip"];
 
 const Container = styled.div`
   left: 5%;
@@ -9,25 +9,32 @@ const Container = styled.div`
   height: 17%;
   width: 90%;
   position: relative;
-  font-size: 22px;
-`;
-
-const DropZone = styled.div`
-  width: 100%;
-  height: 100%;
+  font-size: 24px;
+  overflow: scroll;
   border: 2px dashed black;
   border-radius: 5px;
   background-color: var(--med-gray);
+  cursor: pointer;
+  padding-top: 20px;
+  font-weight: bold;
+  &:hover {
+    background-color: var(--light-gray);
+  }
+`;
+
+const DropZone = styled.div`
   display: flex;
   justify-content: center;
   align-content: center;
   flex-direction: column;
   text-align: center;
-  overflow: hidden;
-  &:hover {
-    background-color: var(--light-gray);
-    cursor: pointer;
-  }
+  line-height: 2;
+  cursor: pointer;
+`;
+
+const FileSelectionLabel = styled.div`
+  font-style: italic;
+  font-size: 18px;
 `;
 
 export default function FileDragDrop({
@@ -44,11 +51,14 @@ export default function FileDragDrop({
         handleChange={handleFileChange}
         name="file"
         types={fileTypes}
-        multiple={false}
+        multiple={true}
       >
         <DropZone style={dropZoneStyle}>
           {dropZoneText}
-          <br />({fileSelection || "No file selected"})
+          <br />
+          <FileSelectionLabel>
+            [ {fileSelection || "No file selected"} ]
+          </FileSelectionLabel>
         </DropZone>
       </FileUploader>
     </Container>
