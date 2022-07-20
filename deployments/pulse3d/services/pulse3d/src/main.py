@@ -60,6 +60,7 @@ async def db_session_middleware(request: Request, call_next):
 
 @app.on_event("startup")
 async def startup():
+    print("TEST PULSE3D")
     await asyncpg_pool()
 
 
