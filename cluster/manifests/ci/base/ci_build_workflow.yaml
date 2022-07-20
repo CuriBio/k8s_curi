@@ -11,6 +11,7 @@ spec:
       - name: title
       - name: number
       - name: sha
+      - name: base-sha
       - name: repo
       - name: branch
   volumeClaimTemplates:
@@ -35,7 +36,7 @@ spec:
             - name: branch
               value: "{{workflow.parameters.branch}}"
             - name: sha
-              value: "{{workflow.parameters.sha}}"
+              value: "{{workflow.parameters.base-sha}}"
     - - name: check-db-upgrades
         templateRef:
           name: build-service
@@ -73,6 +74,7 @@ spec:
       - name: title
       - name: number
       - name: sha
+      - name: base-sha
       - name: repo
       - name: branch
   volumeClaimTemplates:
@@ -97,7 +99,7 @@ spec:
             - name: branch
               value: "{{workflow.parameters.branch}}"
             - name: sha
-              value: "{{workflow.parameters.sha}}"
+              value: "{{workflow.parameters.base-sha}}"
     - - name: upgrade-db
         templateRef:
           name: build-push-service
