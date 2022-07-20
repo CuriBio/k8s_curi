@@ -11,9 +11,9 @@ import requests
 K8S_REPO_BASE_URL = "https://api.github.com/repos/CuriBio/k8s_curi"
 
 
-def find_changed():
+def find_changed(sha):
     r = subprocess.run(
-        ["git", "--no-pager", "diff", "main", "--name-only", "./deployments"], stdout=subprocess.PIPE
+        ["git", "--no-pager", "diff", sha, "--name-only", "./deployments"], stdout=subprocess.PIPE
     )
     s = r.stdout.decode("utf-8").split("\n")[:-1]
     s = [x.replace("/services/pulse3d", "/services/pulse3d_api") for x in s]
@@ -71,7 +71,7 @@ def main():
     task_failed = False
 
     if args.changed and args.sha and token:
-        changed = find_changed()
+        changed = find_changed(args.sha)
         print(json.dumps(changed))
 
         if args.status:
