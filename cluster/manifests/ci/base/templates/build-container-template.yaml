@@ -371,5 +371,5 @@ spec:
           echo "Up to date"
         else
           echo "Update needed"
-          alembic upgrade $CURRENT_DB_REVISION:head
+          alembic upgrade head
         fi

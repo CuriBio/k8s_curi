@@ -22,7 +22,7 @@ spec:
             type: string
             value:
               - closed
-          - path: body.pull_requests.merged
+          - path: body.pull_request.merged
             type: bool
             value:
               - "true"
