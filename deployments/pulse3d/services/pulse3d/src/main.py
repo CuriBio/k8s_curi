@@ -44,7 +44,6 @@ app.add_middleware(
     allow_origins=[
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
-        "http://localhost:3000"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -61,6 +60,7 @@ async def db_session_middleware(request: Request, call_next):
 
 @app.on_event("startup")
 async def startup():
+    print("TEST PULSE3D")
     await asyncpg_pool()
 
 

@@ -12,9 +12,20 @@ K8S_REPO_BASE_URL = "https://api.github.com/repos/CuriBio/k8s_curi"
 
 
 def find_changed():
-    r = subprocess.run(["git", "--no-pager", "diff", "main", "--name-only", "./deployments"], stdout=subprocess.PIPE)
+    r = subprocess.run(
+        ["git", "--no-pager", "diff", "main", "--name-only", "./deployments"], stdout=subprocess.PIPE
+    )
     s = r.stdout.decode("utf-8").split("\n")[:-1]
-    return [{"path": f"./{'/'.join(x.split('/')[:-2])}", "deployment": x.split("/")[1], "service": x.split("/")[3]} for x in s]
+    s = [x.replace("/services/pulse3d", "/services/pulse3d_api") for x in s]
+
+    return [
+        {
+            "path": f"./{'/'.join(x.split('/')[:-2])}",
+            "deployment": x.split("/")[1],
+            "service": x.split("/")[3],
+        }
+        for x in s
+    ]
 
     # ds = glob.glob('./deployments/**/Dockerfile', recursive=True)
     # return [{"path": f"./{'/'.join(d.split('/')[:-1])}", "deployment": d.split("/")[2], "service": d.split("/")[4]} for d in ds]
@@ -38,7 +49,7 @@ def post_pr_comment(pr_number, comment, token):
     req = {
         "headers": {"Authorization": f"Bearer {token.strip()}"},
         "json": {"body": comment},
-        "url": f"{K8S_REPO_BASE_URL}/issues/{pr_number}/comments"
+        "url": f"{K8S_REPO_BASE_URL}/issues/{pr_number}/comments",
     }
 
     response = requests.post(**req)
@@ -65,7 +76,9 @@ def main():
 
         if args.status:
             for c in changed:
-                task_failed |= set_build_status(f"{c['deployment']}/{c['service']}", args.status, args.sha, token)
+                task_failed |= set_build_status(
+                    f"{c['deployment']}/{c['service']}", args.status, args.sha, token
+                )
     elif args.status and args.context and token:
         task_failed |= set_build_status(args.context, args.status, args.sha, token)
     elif args.pr_number and args.pr_comment:
