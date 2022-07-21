@@ -48,7 +48,6 @@ async def db_session_middleware(request: Request, call_next):
 
 @app.on_event("startup")
 async def startup():
-    print("TEST USERS")
     pool = await asyncpg_pool()
     async with pool.acquire() as con:
         # might be a better way to do this without using global
