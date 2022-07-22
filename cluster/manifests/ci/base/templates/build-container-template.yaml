@@ -268,7 +268,7 @@ spec:
         terraform init -backend-config=backend/prod_env_config.tfvars
         PLAN_OUTPUT=$(terraform plan)
         
-        builder --pr-number={{inputs.parameters.number}} --pr-comment="PLAN FOR: {{inputs.parameters.path}} $PLAN_OUTPUT"
+        builder --pr-number={{inputs.parameters.number}} --pr-comment="PLAN FOR:\n {{inputs.parameters.path}} $PLAN_OUTPUT"
       
       
 
