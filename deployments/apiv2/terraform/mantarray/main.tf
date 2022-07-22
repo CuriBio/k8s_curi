@@ -63,3 +63,8 @@ resource "aws_s3_bucket_acl" "logs_bucket" {
   bucket = aws_s3_bucket.logs_bucket.id
   acl    = "private"
 }
+
+resource "aws_s3_bucket_acl" "newlogs_bucket" {
+  bucket = aws_s3_bucket.logs_bucket.id
+  acl    = "private"
+}

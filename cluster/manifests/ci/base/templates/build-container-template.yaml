@@ -34,6 +34,34 @@ spec:
 
         SERVICES=$(builder --changed --status=pending --sha={{inputs.parameters.sha}})
         echo $SERVICES
+  - name: checkout-tf
+    inputs:
+      parameters:
+      - name: repo
+      - name: branch
+      - name: sha
+    script:
+      image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
+      workingDir: /tmp/git
+      env:
+        - name: TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-access-token
+              key: token
+        # - name: ARGO_DEBUG_PAUSE_AFTER
+        #   value: 'true'
+      volumeMounts:
+        - name: workdir
+          mountPath: /tmp/git
+      command: ["sh"]
+      source: |
+        git clone -q "{{inputs.parameters.repo}}"
+        cd k8s_curi
+        git fetch -q origin "{{inputs.parameters.branch}}" && git checkout -q "{{inputs.parameters.branch}}"
+
+        SERVICES=$(builder --changed --terraform --status=pending --sha={{inputs.parameters.sha}})
+        echo $SERVICES
   - name: http-status
     inputs:
       parameters:
@@ -202,6 +230,72 @@ spec:
           MIGRATION_PLAN=$(alembic upgrade $CURRENT_DB_REVISION:head --sql)
           builder --pr-number={{inputs.parameters.number}} --pr-comment="$MIGRATION_PLAN"
         fi
+  - name: run-terraform-plan
+    inputs:
+      parameters:
+      - name: path
+      - name: number
+      - name: sha
+    steps:
+    - - name: terraform-plan
+        template: terraform-plan
+        arguments:
+          parameters:
+          - name: path
+            value: "{{inputs.parameters.path}}"
+          - name: number
+            value: "{{inputs.parameters.number}}"
+          - name: sha
+            value: "{{inputs.parameters.sha}}"
+    # - - name: set-output-status-success
+    #     when: "{{steps.terraform-plan.status}} == Succeeded"
+    #     templateRef:
+    #       name: git-sync
+    #       template: http-status
+    #     arguments:
+    #       parameters:
+    #         - name: status
+    #           value: success
+    #         - name: context
+    #           value: "{{inputs.parameters.path}}"
+    #         - name: sha
+    #           value: "{{inputs.parameters.sha}}"
+    #   - name: set-output-status-failed
+    #     when: "{{steps.terraform-plan.status}} != Succeeded"
+    #     templateRef:
+    #       name: git-sync
+    #       template: http-status
+    #     arguments:
+    #       parameters:
+    #         - name: status
+    #           value: failure
+    #         - name: context
+    #           value: "{{inputs.parameters.path}}"
+    #         - name: sha
+    #           value: "{{inputs.parameters.sha}}"
+  - name: terraform-plan
+    inputs:
+      parameters:
+      - name: path
+      - name: number
+      - name: sha
+    script:
+      image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
+      workingDir: /tmp/git/k8s_curi
+      volumeMounts:
+          - name: workdir
+            mountPath: /tmp/git
+      command: ["sh"]
+      source: |
+        echo "Changes found in {{inputs.parameters.path}}"
+
+        cd {{inputs.parameters.path}}
+        terraform init -backend-config=backend/prod_env_config.tfvars
+        PLAN_OUTPUT=$(terraform plan)
+        
+        builder --pr-number={{inputs.parameters.number}} --pr-comment="PLAN FOR: {{inputs.parameters.path}} $PLAN_OUTPUT"
+      
+      
 
 ---
 apiVersion: argoproj.io/v1alpha1
