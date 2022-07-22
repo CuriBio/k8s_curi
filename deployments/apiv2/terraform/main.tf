@@ -37,3 +37,8 @@ module "mantarray" {
   cluster_name = var.cluster_name
 }
 
+
+module "test" {
+  source       = "./mantarray"
+  cluster_name = var.cluster_name
+}
