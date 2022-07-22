@@ -27,6 +27,11 @@ variable "region" {
   default = "us-east-2"
 }
 
+variable "ddd" {
+  type = string
+  default = "ddd"
+}
+
 resource "aws_ecr_repository" "pulse3d_worker_ecr" {
   name                 = "pulse3d-worker"
   image_tag_mutability = "MUTABLE"

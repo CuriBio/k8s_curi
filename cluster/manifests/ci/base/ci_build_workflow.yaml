@@ -8,12 +8,12 @@ spec:
   serviceAccountName: argo-workflows-sa
   arguments:
     parameters:
-      - name: title
-      - name: number
-      - name: sha
-      - name: base-sha
-      - name: repo
-      - name: branch
+    - name: title
+    - name: number
+    - name: sha
+    - name: base-sha
+    - name: repo
+    - name: branch
   volumeClaimTemplates:
   - metadata:
       name: workdir 
@@ -31,35 +31,48 @@ spec:
           template: checkout
         arguments:
           parameters:
-            - name: repo
-              value: "{{workflow.parameters.repo}}"
-            - name: branch
-              value: "{{workflow.parameters.branch}}"
-            - name: sha
-              value: "{{workflow.parameters.base-sha}}"
+          - name: repo
+            value: "{{workflow.parameters.repo}}"
+          - name: branch
+            value: "{{workflow.parameters.branch}}"
+          - name: sha
+            value: "{{workflow.parameters.base-sha}}"
     - - name: check-db-upgrades
         templateRef:
           name: build-service
           template: db-migrations-dry-run
         arguments:
           parameters:
-            - name: number
-              value: "{{workflow.parameters.number}}"
+          - name: number
+            value: "{{workflow.parameters.number}}"
     - - name: build-services
         templateRef:
           name: build-service
           template: kaniko-build-service
         arguments:
           parameters:
-            - name: path
-              value: "{{item.path}}"
-            - name: service
-              value: "{{item.service}}"
-            - name: deployment
-              value: "{{item.deployment}}"
-            - name: sha
-              value: "{{workflow.parameters.sha}}"
-        withParam: "{{steps.checkout.outputs.result}}"
+          - name: path
+            value: "{{item.path}}"
+          - name: service
+            value: "{{item.service}}"
+          - name: deployment
+            value: "{{item.deployment}}"
+          - name: sha
+            value: "{{workflow.parameters.sha}}"
+        withParam: "{{steps.checkout.outputs.changed-services}}"
+    - - name: run-terraform-plan
+        templateRef:
+          name: build-service
+          template: run-terraform-plan
+        arguments:
+          parameters:
+          - name: path
+            value: "{{item.path}}"
+          - name: number
+            value: "{{workflow.parameters.number}}"
+          - name: sha
+            value: "{{workflow.parameters.sha}}"
+        withParam: "{{steps.checkout.outputs.changed-terraform}}"
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
@@ -71,12 +84,12 @@ spec:
   serviceAccountName: argo-workflows-sa
   arguments:
     parameters:
-      - name: title
-      - name: number
-      - name: sha
-      - name: base-sha
-      - name: repo
-      - name: branch
+    - name: title
+    - name: number
+    - name: sha
+    - name: base-sha
+    - name: repo
+    - name: branch
   volumeClaimTemplates:
   - metadata:
       name: workdir 
@@ -94,12 +107,12 @@ spec:
           template: checkout
         arguments:
           parameters:
-            - name: repo
-              value: "{{workflow.parameters.repo}}"
-            - name: branch
-              value: "{{workflow.parameters.branch}}"
-            - name: sha
-              value: "{{workflow.parameters.base-sha}}"
+          - name: repo
+            value: "{{workflow.parameters.repo}}"
+          - name: branch
+            value: "{{workflow.parameters.branch}}"
+          - name: sha
+            value: "{{workflow.parameters.base-sha}}"
     - - name: upgrade-db
         templateRef:
           name: build-push-service
@@ -110,12 +123,12 @@ spec:
           template: kaniko-build-push-service
         arguments:
           parameters:
-            - name: path
-              value: "{{item.path}}"
-            - name: service
-              value: "{{item.service}}"
-            - name: deployment
-              value: "{{item.deployment}}"
-            - name: sha
-              value: "{{workflow.parameters.sha}}"
+          - name: path
+            value: "{{item.path}}"
+          - name: service
+            value: "{{item.service}}"
+          - name: deployment
+            value: "{{item.deployment}}"
+          - name: sha
+            value: "{{workflow.parameters.sha}}"
         withParam: "{{steps.checkout.outputs.result}}"
