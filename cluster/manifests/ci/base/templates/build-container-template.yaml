@@ -33,35 +33,10 @@ spec:
         git fetch -q origin "{{inputs.parameters.branch}}" && git checkout -q "{{inputs.parameters.branch}}"
 
         SERVICES=$(builder --changed --status=pending --sha={{inputs.parameters.sha}})
-        echo $SERVICES
-  - name: checkout-tf
-    inputs:
-      parameters:
-      - name: repo
-      - name: branch
-      - name: sha
-    script:
-      image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
-      workingDir: /tmp/git
-      env:
-        - name: TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: github-access-token
-              key: token
-        # - name: ARGO_DEBUG_PAUSE_AFTER
-        #   value: 'true'
-      volumeMounts:
-        - name: workdir
-          mountPath: /tmp/git
-      command: ["sh"]
-      source: |
-        git clone -q "{{inputs.parameters.repo}}"
-        cd k8s_curi
-        git fetch -q origin "{{inputs.parameters.branch}}" && git checkout -q "{{inputs.parameters.branch}}"
+        echo "::set-output name=changed-services::$SERVICES"
 
-        SERVICES=$(builder --changed --terraform --status=pending --sha={{inputs.parameters.sha}})
-        echo $SERVICES
+        TERRAFORM=$(builder --changed --terraform --status=pending --sha={{inputs.parameters.sha}})
+        echo "::set-output name=changed-terraform::$TERRAFORM"
   - name: http-status
     inputs:
       parameters:

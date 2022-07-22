@@ -37,18 +37,6 @@ spec:
             value: "{{workflow.parameters.branch}}"
           - name: sha
             value: "{{workflow.parameters.base-sha}}"
-    - - name: checkout-tf
-        templateRef:
-          name: git-sync
-          template: checkout-tf
-        arguments:
-          parameters:
-          - name: repo
-            value: "{{workflow.parameters.repo}}"
-          - name: branch
-            value: "{{workflow.parameters.branch}}"
-          - name: sha
-            value: "{{workflow.parameters.base-sha}}"
     - - name: check-db-upgrades
         templateRef:
           name: build-service
@@ -71,7 +59,7 @@ spec:
             value: "{{item.deployment}}"
           - name: sha
             value: "{{workflow.parameters.sha}}"
-        withParam: "{{steps.checkout.outputs.result}}"
+        withParam: "{{steps.checkout.outputs.changed-services}}"
     - - name: run-terraform-plan
         templateRef:
           name: build-service
@@ -84,7 +72,7 @@ spec:
             value: "{{workflow.parameters.number}}"
           - name: sha
             value: "{{workflow.parameters.sha}}"
-        withParam: "{{steps.checkout-tf.outputs.result}}"
+        withParam: "{{steps.checkout.outputs.changed-terraform}}"
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
