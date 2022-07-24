@@ -1,0 +1,102 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: ci-terraform-plan-workflow
+  namespace: argo
+spec:
+  entrypoint: ci-terraform-plan
+  serviceAccountName: argo-workflows-sa
+  arguments:
+    parameters:
+    - name: title
+    - name: number
+    - name: sha
+    - name: base-sha
+    - name: repo
+    - name: branch
+  volumeClaimTemplates:
+  - metadata:
+      name: workdir 
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Mi
+  templates:
+  - name: ci-terraform-plan
+    steps:
+    - - name: checkout-tf
+        templateRef:
+          name: git-sync
+          template: checkout-tf
+        arguments:
+          parameters:
+          - name: repo
+            value: "{{workflow.parameters.repo}}"
+          - name: branch
+            value: "{{workflow.parameters.branch}}"
+          - name: sha
+            value: "{{workflow.parameters.base-sha}}"
+    - - name: run-terraform-plan
+        templateRef:
+          name: ci-terraform-plan-template
+          template: ci-terraform-plan
+        arguments:
+          parameters:
+          - name: path
+            value: "{{item.path}}"
+          - name: number
+            value: "{{workflow.parameters.number}}"
+          - name: sha
+            value: "{{workflow.parameters.sha}}"
+        withParam: "{{steps.checkout-tf.outputs.result}}"
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: ci-terraform-apply-workflow
+  namespace: argo
+spec:
+  entrypoint: ci-terraform-apply
+  serviceAccountName: argo-workflows-sa
+  arguments:
+    parameters:
+    - name: title
+    - name: number
+    - name: sha
+    - name: base-sha
+    - name: repo
+    - name: branch
+  volumeClaimTemplates:
+  - metadata:
+      name: workdir 
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Mi
+  templates:
+  - name: ci-terraform-apply
+    steps:
+    - - name: checkout-tf
+        templateRef:
+          name: git-sync
+          template: checkout-tf
+        arguments:
+          parameters:
+          - name: repo
+            value: "{{workflow.parameters.repo}}"
+          - name: branch
+            value: "{{workflow.parameters.branch}}"
+          - name: sha
+            value: "{{workflow.parameters.base-sha}}"
+    - - name: run-terraform-apply
+        templateRef:
+          name: ci-terraform-apply-template
+          template: ci-terraform-apply
+        arguments:
+          parameters:
+          - name: path
+            value: "{{item.path}}"
+        withParam: "{{steps.checkout-tf.outputs.result}}"
