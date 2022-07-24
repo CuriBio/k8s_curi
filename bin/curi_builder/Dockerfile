@@ -8,10 +8,10 @@ COPY ./builder /builder/builder
 RUN python3 -m venv --copies /venv
 RUN . /venv/bin/activate && pip3 install -e .
 
-RUN wget https://releases.hashicorp.com/terraform/1.2.5/terraform_1.2.5_linux_amd64.zip \
-  && unzip terraform_1.2.5_linux_amd64.zip \
+RUN wget https://releases.hashicorp.com/terraform/1.1.6/terraform_1.1.6_linux_amd64.zip \
+  && unzip terraform_1.1.6_linux_amd64.zip \
   && mv terraform /venv/bin \
-  && rm terraform_1.2.5_linux_amd64.zip
+  && rm terraform_1.1.6_linux_amd64.zip
 
 ENV PATH /venv/bin:$PATH
 ENV PYTHONUNBUFFERED 1
