@@ -11,7 +11,6 @@ import requests
 K8S_REPO_BASE_URL = "https://api.github.com/repos/CuriBio/k8s_curi"
 
 
-
 def find_changed(sha):
     directory_to_watch = ["./deployments","./jobs"]
     changes_list  = []
@@ -20,7 +19,7 @@ def find_changed(sha):
         completed_process =  subprocess.run(
             ["git", "--no-pager", "diff", sha, "--name-only", dir], stdout=subprocess.PIPE
         )
-        changes_list = changes_list + completed_process.stdout.decode("utf-8").split("\n")[:-1]
+        changes_list += completed_process.stdout.decode("utf-8").split("\n")[:-1]
 
     return [
         {
