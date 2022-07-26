@@ -23,15 +23,12 @@ def find_changed(sha):
 
     return [
         {
-            "path": f"./{'/'.join(x.split('/')[:-2])}",
-            "deployment": x.split("/")[1],
-            "service": x.replace("/services/pulse3d", "/services/pulse3d_api").split("/")[
-                3
-            ],  # leaving services to prevent switching for pulse3d-worker
+            "path": f"./{'/'.join(ch.split('/')[:-2])}",
+            "deployment": ch.split("/")[1],
+            "service": "pulse3d_api" if "deployments" in ch else "pulse3d-worker"
         }
-        for x in changes_list
+        for ch in changes_list
     ]
-
     # ds = glob.glob('./deployments/**/Dockerfile', recursive=True)
     # return [{"path": f"./{'/'.join(d.split('/')[:-1])}", "deployment": d.split("/")[2], "service": d.split("/")[4]} for d in ds]
 
