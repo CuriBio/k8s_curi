@@ -11,11 +11,16 @@ import requests
 K8S_REPO_BASE_URL = "https://api.github.com/repos/CuriBio/k8s_curi"
 
 
+
 def find_changed(sha):
-    r = subprocess.run(
-        ["git", "--no-pager", "diff", sha, "--name-only", "./deployments"], stdout=subprocess.PIPE
-    )
-    s = r.stdout.decode("utf-8").split("\n")[:-1]
+    directory_to_watch = ["./deployments","./jobs"]
+    changes_list  = []
+
+    for dir in directory_to_watch:
+        completed_process =  subprocess.run(
+            ["git", "--no-pager", "diff", sha, "--name-only", dir], stdout=subprocess.PIPE
+        )
+        changes_list = changes_list + completed_process.stdout.decode("utf-8").split("\n")[:-1]
 
     return [
         {
@@ -25,7 +30,7 @@ def find_changed(sha):
                 3
             ],  # leaving services to prevent switching for pulse3d-worker
         }
-        for x in s
+        for x in changes_list
     ]
 
     # ds = glob.glob('./deployments/**/Dockerfile', recursive=True)
