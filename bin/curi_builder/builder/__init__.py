@@ -16,41 +16,43 @@ def get_diff(sha: str, path: str):
     return r.stdout.decode("utf-8").split("\n")[:-1]
 
 
-def find_changed(sha: str):
-    s = get_diff(sha, "./deployments")
+# def find_changed(sha: str):
+#     s = get_diff(sha, "./deployments")
 
-    return [
-        {
-            "path": f"./{'/'.join(x.split('/')[:-2])}",
-            "deployment": x.split("/")[1],
-            "service": x.replace("/services/pulse3d", "/services/pulse3d_api").split("/")[
-                3
-            ],  # leaving 'services/' to prevent switching other pulse3d
-        }
-        for x in s
-        if "service" in x  # remove terraform changes
-    ]
-# def find_changed(sha):
-#     list_to_return = []
+#     return [
+#         {
+#             "path": f"./{'/'.join(x.split('/')[:-2])}",
+#             "deployment": x.split("/")[1],
+#             "service": x.replace("/services/pulse3d", "/services/pulse3d_api").split("/")[
+#                 3
+#             ],  # leaving 'services/' to prevent switching other pulse3d
+#         }
+#         for x in s
+#         if "service" in x  # remove terraform changes
+#     ]
+def find_changed(sha):
+    list_to_return = []
 
-#     for dir in ["./deployments","./jobs"]:
-#         completed_process =  subprocess.run(
-#             ["git", "--no-pager", "diff", sha, "--name-only", dir], stdout=subprocess.PIPE
-#         )
-#         changes_list = completed_process.stdout.decode("utf-8").split("\n")[:-1]
-#         list_to_return += [
-#             {
-#                 "path": f"./{'/'.join(ch.split('/')[:-2])}",
-#                 "deployment": ch.split("/")[1],
-#                 # Splits the path into an array and return the element right before the src folder.
-#                 # If its the /deployment pulse3d directory, then change the service name from pulse3d to pulse3d_api
-#                 # Else set service name to be the folder one above src
-#                 "service": "pulse3d_api" if ch.split("/")[ch.split("/").index("src") - 1] == "pulse3d" and dir == "./deployments" else ch.split("/")[ch.split("/").index("src") - 1]
-#             }
-#             for ch in changes_list
-#         ]
+    for dir in ["./deployments", "./jobs"]:
+        completed_process = subprocess.run(
+            ["git", "--no-pager", "diff", sha, "--name-only", dir], stdout=subprocess.PIPE
+        )
+        changes_list = completed_process.stdout.decode("utf-8").split("\n")[:-1]
+        list_to_return += [
+            {
+                "path": f"./{'/'.join(ch.split('/')[:-2])}",
+                "deployment": ch.split("/")[1],
+                # Splits the path into an array and return the element right before the src folder.
+                # If its the /deployment pulse3d directory, then change the service name from pulse3d to pulse3d_api
+                # Else set service name to be the folder one above src
+                "service": "pulse3d_api"
+                if ch.split("/")[ch.split("/").index("src") - 1] == "pulse3d" and dir == "./deployments"
+                else ch.split("/")[ch.split("/").index("src") - 1],
+            }
+            for ch in changes_list
+        ]
 
-#     return list_to_return
+    return list_to_return
     # ds = glob.glob('./deployments/**/Dockerfile', recursive=True)
     # return [{"path": f"./{'/'.join(d.split('/')[:-1])}", "deployment": d.split("/")[2], "service": d.split("/")[4]} for d in ds]
 
