@@ -26,7 +26,7 @@ def find_changed(sha):
                 # Splits the path into an array and return the element right before the src folder.
                 # If its the /deployment pulse3d directory, then change the service name from pulse3d to pulse3d_api
                 # Else set service name to be the folder one above src
-                "service": "pulse3d_api" if ch.split("/")[ch.split("/").index("src") - 1] == "pulse3d" else ch.split("/")[ch.split("/").index("src") - 1]
+                "service": "pulse3d_api" if ch.split("/")[ch.split("/").index("src") - 1] == "pulse3d" and dir == "./deployments" else ch.split("/")[ch.split("/").index("src") - 1]
             }
             for ch in changes_list
         ]
