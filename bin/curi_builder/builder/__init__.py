@@ -11,11 +11,6 @@ import requests
 K8S_REPO_BASE_URL = "https://api.github.com/repos/CuriBio/k8s_curi"
 
 
-def get_diff(sha: str, path: str):
-    r = subprocess.run(["git", "--no-pager", "diff", sha, "--name-only", path], stdout=subprocess.PIPE)
-    print(r.stdout.decode("utf-8").split("\n")[:-1])
-    return r.stdout.decode("utf-8").split("\n")[:-1]
-
 def find_changed(sha: str):
     list_to_return = []
 
