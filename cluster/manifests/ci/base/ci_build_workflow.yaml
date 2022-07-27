@@ -37,7 +37,7 @@ spec:
               value: "{{workflow.parameters.branch}}"
             - name: sha
               value: "{{workflow.parameters.base-sha}}"
-      - name: changed-tf
+    - - name: changed-tf
         templateRef:
           name: git-sync
           template: changed-tf
@@ -122,7 +122,7 @@ spec:
               value: "{{workflow.parameters.branch}}"
             - name: sha
               value: "{{workflow.parameters.base-sha}}"
-      - name: changed-tf
+    - - name: changed-tf
         templateRef:
           name: git-sync
           template: changed-tf

@@ -4,4 +4,3 @@
 *  default = ???
 *}
 */
-variable "test_var" {}
