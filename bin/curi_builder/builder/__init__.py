@@ -13,29 +13,15 @@ K8S_REPO_BASE_URL = "https://api.github.com/repos/CuriBio/k8s_curi"
 
 def get_diff(sha: str, path: str):
     r = subprocess.run(["git", "--no-pager", "diff", sha, "--name-only", path], stdout=subprocess.PIPE)
+    print(r.stdout.decode("utf-8").split("\n")[:-1])
     return r.stdout.decode("utf-8").split("\n")[:-1]
 
-
-# def find_changed(sha: str):
-#     s = get_diff(sha, "./deployments")
-
-#     return [
-#         {
-#             "path": f"./{'/'.join(x.split('/')[:-2])}",
-#             "deployment": x.split("/")[1],
-#             "service": x.replace("/services/pulse3d", "/services/pulse3d_api").split("/")[
-#                 3
-#             ],  # leaving 'services/' to prevent switching other pulse3d
-#         }
-#         for x in s
-#         if "service" in x  # remove terraform changes
-#     ]
-def find_changed(sha):
+def find_changed(sha: str):
     list_to_return = []
 
     for dir in ["./deployments", "./jobs"]:
         completed_process = subprocess.run(
-            ["git", "--no-pager", "diff", sha, "--name-only", dir], stdout=subprocess.PIPE
+            ["git", "--no-pager", "diff", sha, "--name-only", "--", dir, ":!*.tf"], stdout=subprocess.PIPE
         )
         changes_list = completed_process.stdout.decode("utf-8").split("\n")[:-1]
         list_to_return += [
@@ -58,14 +44,15 @@ def find_changed(sha):
 
 
 def find_changed_tf(sha):
-    # get diff for all directories containing changing tf
-    changed_paths = get_diff(sha, "./deployments") + get_diff(sha, "./frontend") + get_diff(sha, "./jobs")
-    # get only the terraform directory path
-    tf_only_paths = [
-        path.split("/terraform")[0] + "/terraform" for path in changed_paths if "terraform" in path
-    ]
+    # get diff for all directories containing changed tf excluding those found in /cluster and /core
+    completed_process = subprocess.run(
+        ["git", "--no-pager", "diff", sha, "--name-only", "--", "*.tf", ":!cluster", ":!core"], stdout=subprocess.PIPE
+    )
+    changed_paths = completed_process.stdout.decode("utf-8").split("\n")[:-1]
+    # get only the first terraform directory, remove files
+    tf_dir_paths = [path.split("/terraform")[0] + "/terraform" for path in changed_paths]
     # return unique tf paths
-    return [{"path": path.split("/terraform")[0] + "/terraform"} for path in list(set(tf_only_paths))]
+    return [{"path": path.split("/terraform")[0] + "/terraform"} for path in list(set(tf_dir_paths))]
 
 
 def set_status(build, status, sha, token):

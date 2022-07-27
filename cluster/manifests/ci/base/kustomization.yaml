@@ -10,4 +10,3 @@ resources:
 - service_account_iam_policy.yaml
 - templates/build-container-template.yaml
 - templates/run-terraform-template.yaml
-- ci_terraform_workflow.yaml
