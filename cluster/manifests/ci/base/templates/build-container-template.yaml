@@ -40,7 +40,7 @@ spec:
       - name: sha
     script:
       image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
-      workingDir: /tmp/git
+      workingDir: /tmp/git/k8s_curi
       volumeMounts:
         - name: workdir
           mountPath: /tmp/git
@@ -52,8 +52,6 @@ spec:
               key: token
       command: ["sh"]
       source: |
-        cd k8s_curi
-
         TERRAFORM=$(builder --changed --terraform --status=pending --sha={{inputs.parameters.sha}})
         echo $TERRAFORM
   - name: http-status
