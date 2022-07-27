@@ -49,5 +49,3 @@ variable "cluster_users" {
 #     additional_security_group_ids = list(any)
 #   }))
 # }
-
-variable "test_var" {}
