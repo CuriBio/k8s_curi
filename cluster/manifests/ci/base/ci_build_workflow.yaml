@@ -37,16 +37,12 @@ spec:
               value: "{{workflow.parameters.branch}}"
             - name: sha
               value: "{{workflow.parameters.base-sha}}"
-      - name: checkout-tf
+      - name: changed-tf
         templateRef:
           name: git-sync
-          template: checkout-tf
+          template: changed-tf
         arguments:
           parameters:
-          - name: repo
-            value: "{{workflow.parameters.repo}}"
-          - name: branch
-            value: "{{workflow.parameters.branch}}"
           - name: sha
             value: "{{workflow.parameters.base-sha}}"
     - - name: check-db-upgrades
@@ -74,7 +70,7 @@ spec:
         withParam: "{{steps.checkout.outputs.result}}"
       - name: ci-terraform-plan
         templateRef:
-          name: terraform-plan-workflow
+          name: terraform-plan-template
           template: ci-terraform-plan
         arguments:
           parameters:
@@ -84,7 +80,7 @@ spec:
             value: "{{workflow.parameters.number}}"
           - name: sha
             value: "{{workflow.parameters.sha}}"
-        withParam: "{{steps.checkout-tf.outputs.result}}"
+        withParam: "{{steps.changed-tf.outputs.result}}"
 
 ---
 apiVersion: argoproj.io/v1alpha1
@@ -126,16 +122,12 @@ spec:
               value: "{{workflow.parameters.branch}}"
             - name: sha
               value: "{{workflow.parameters.base-sha}}"
-      - name: checkout-tf
+      - name: changed-tf
         templateRef:
           name: git-sync
-          template: checkout-tf
+          template: changed-tf
         arguments:
           parameters:
-          - name: repo
-            value: "{{workflow.parameters.repo}}"
-          - name: branch
-            value: "{{workflow.parameters.branch}}"
           - name: sha
             value: "{{workflow.parameters.base-sha}}"
     - - name: upgrade-db
@@ -159,10 +151,10 @@ spec:
         withParam: "{{steps.checkout.outputs.result}}"
       - name: ci-terraform-apply
         templateRef:
-          name: terraform-apply-workflow
+          name: terraform-apply-template
           template: ci-terraform-apply
         arguments:
           parameters:
           - name: path
             value: "{{item.path}}"
-        withParam: "{{steps.checkout-tf.outputs.result}}"
+        withParam: "{{steps.changed-tf.outputs.result}}"

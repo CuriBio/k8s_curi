@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: terraform-plan-workflow
+  name: terraform-plan-template
   namespace: argo
 spec:
   serviceAccountName: argo-workflows-sa
@@ -13,7 +13,7 @@ spec:
           - name: number
           - name: sha
       steps:
-        - - name: terraform-plan-workflow
+        - - name: terraform-plan
             template: run-terraform-plan
             arguments:
               parameters:
@@ -22,7 +22,7 @@ spec:
                 - name: number
                   value: "{{inputs.parameters.number}}"
         - - name: set-output-status-success
-            when: "{{steps.terraform-plan-workflow.status}} == Succeeded"
+            when: "{{steps.terraform-plan.status}} == Succeeded"
             templateRef:
               name: git-sync
               template: http-status
@@ -35,7 +35,7 @@ spec:
                 - name: sha
                   value: "{{inputs.parameters.sha}}"
           - name: set-output-status-failed
-            when: "{{steps.terraform-plan-workflow.status}} != Succeeded"
+            when: "{{steps.terraform-plan.status}} != Succeeded"
             templateRef:
               name: git-sync
               template: http-status
@@ -78,7 +78,7 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: terraform-apply-workflow
+  name: terraform-apply-template
   namespace: argo
 spec:
   serviceAccountName: argo-workflows-sa
@@ -90,7 +90,7 @@ spec:
           - name: number
           - name: sha
       steps:
-        - - name: terraform-apply-workflow
+        - - name: terraform-apply
             template: run-terraform-apply
             arguments:
               parameters:
@@ -99,7 +99,7 @@ spec:
                 - name: number
                   value: "{{inputs.parameters.number}}"
         - - name: set-output-status-success
-            when: "{{steps.terraform-apply-workflow.status}} == Succeeded"
+            when: "{{steps.terraform-apply.status}} == Succeeded"
             templateRef:
               name: git-sync
               template: http-status
@@ -112,7 +112,7 @@ spec:
                 - name: sha
                   value: "{{inputs.parameters.sha}}"
           - name: set-output-status-failed
-            when: "{{steps.terraform-apply-workflow.status}} != Succeeded"
+            when: "{{steps.terraform-apply.status}} != Succeeded"
             templateRef:
               name: git-sync
               template: http-status

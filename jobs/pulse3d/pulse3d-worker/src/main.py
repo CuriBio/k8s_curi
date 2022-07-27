@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 
 @get_item(queue="pulse3d")
 async def process(con, item):
-    logger.info("TEMP CHANGE")
     logger.info(f"Processing item: {item}")
 
     s3_client = boto3.client("s3")
