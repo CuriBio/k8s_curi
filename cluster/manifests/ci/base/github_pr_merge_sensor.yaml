@@ -90,3 +90,4 @@ spec:
                 dataTemplate: "{{ .Input.body.pull_request.number }}-{{ .Input.body.pull_request.head.sha | substr 0 7 }}-"
               dest: metadata.generateName
               operation: append
+    

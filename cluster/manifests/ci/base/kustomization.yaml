@@ -9,3 +9,4 @@ resources:
 - github_pr_open_sensor.yaml
 - service_account_iam_policy.yaml
 - templates/build-container-template.yaml
+- templates/run-terraform-template.yaml

@@ -34,6 +34,26 @@ spec:
 
         SERVICES=$(builder --changed --status=pending --sha={{inputs.parameters.sha}})
         echo $SERVICES
+  - name: changed-tf
+    inputs:
+      parameters:
+      - name: sha
+    script:
+      image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
+      workingDir: /tmp/git/k8s_curi
+      volumeMounts:
+        - name: workdir
+          mountPath: /tmp/git
+      env:
+        - name: TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-access-token
+              key: token
+      command: ["sh"]
+      source: |
+        TERRAFORM=$(builder --changed --terraform --status=pending --sha={{inputs.parameters.sha}})
+        echo $TERRAFORM
   - name: http-status
     inputs:
       parameters:

@@ -37,6 +37,14 @@ spec:
               value: "{{workflow.parameters.branch}}"
             - name: sha
               value: "{{workflow.parameters.base-sha}}"
+    - - name: changed-tf
+        templateRef:
+          name: git-sync
+          template: changed-tf
+        arguments:
+          parameters:
+          - name: sha
+            value: "{{workflow.parameters.base-sha}}"
     - - name: check-db-upgrades
         templateRef:
           name: build-service
@@ -45,7 +53,7 @@ spec:
           parameters:
             - name: number
               value: "{{workflow.parameters.number}}"
-    - - name: build-services
+      - name: build-services
         templateRef:
           name: build-service
           template: kaniko-build-service
@@ -60,6 +68,20 @@ spec:
             - name: sha
               value: "{{workflow.parameters.sha}}"
         withParam: "{{steps.checkout.outputs.result}}"
+      - name: ci-terraform-plan
+        templateRef:
+          name: terraform-plan-template
+          template: ci-terraform-plan
+        arguments:
+          parameters:
+          - name: path
+            value: "{{item.path}}"
+          - name: number
+            value: "{{workflow.parameters.number}}"
+          - name: sha
+            value: "{{workflow.parameters.sha}}"
+        withParam: "{{steps.changed-tf.outputs.result}}"
+
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
@@ -100,11 +122,19 @@ spec:
               value: "{{workflow.parameters.branch}}"
             - name: sha
               value: "{{workflow.parameters.base-sha}}"
+    - - name: changed-tf
+        templateRef:
+          name: git-sync
+          template: changed-tf
+        arguments:
+          parameters:
+          - name: sha
+            value: "{{workflow.parameters.base-sha}}"
     - - name: upgrade-db
         templateRef:
           name: build-push-service
           template: db-migrations
-    - - name: build-services
+      - name: build-services
         templateRef:
           name: build-push-service
           template: kaniko-build-push-service
@@ -119,3 +149,12 @@ spec:
             - name: sha
               value: "{{workflow.parameters.sha}}"
         withParam: "{{steps.checkout.outputs.result}}"
+      - name: ci-terraform-apply
+        templateRef:
+          name: terraform-apply-template
+          template: ci-terraform-apply
+        arguments:
+          parameters:
+          - name: path
+            value: "{{item.path}}"
+        withParam: "{{steps.changed-tf.outputs.result}}"

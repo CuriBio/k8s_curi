@@ -1,0 +1,144 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: terraform-plan-template
+  namespace: argo
+spec:
+  serviceAccountName: argo-workflows-sa
+  templates:
+    - name: ci-terraform-plan
+      inputs:
+        parameters:
+          - name: path
+          - name: number
+          - name: sha
+      steps:
+        - - name: terraform-plan
+            template: run-terraform-plan
+            arguments:
+              parameters:
+                - name: path
+                  value: "{{inputs.parameters.path}}"
+                - name: number
+                  value: "{{inputs.parameters.number}}"
+        - - name: set-output-status-success
+            when: "{{steps.terraform-plan.status}} == Succeeded"
+            templateRef:
+              name: git-sync
+              template: http-status
+            arguments:
+              parameters:
+                - name: status
+                  value: success
+                - name: context
+                  value: "{{inputs.parameters.path}}"
+                - name: sha
+                  value: "{{inputs.parameters.sha}}"
+          - name: set-output-status-failed
+            when: "{{steps.terraform-plan.status}} != Succeeded"
+            templateRef:
+              name: git-sync
+              template: http-status
+            arguments:
+              parameters:
+                - name: status
+                  value: failure
+                - name: context
+                  value: "{{inputs.parameters.path}}"
+                - name: sha
+                  value: "{{inputs.parameters.sha}}"
+    - name: run-terraform-plan
+      inputs:
+        parameters:
+          - name: path
+          - name: number
+      script:
+        image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
+        workingDir: /tmp/git/k8s_curi
+        env:
+          - name: TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: github-access-token
+                key: token
+        volumeMounts:
+          - name: workdir
+            mountPath: /tmp/git
+        command: ["sh"]
+        source: |
+          echo "Changes found in {{inputs.parameters.path}}"
+
+          cd {{inputs.parameters.path}}
+          terraform init -backend-config=backend/prod_env_config.tfvars
+
+          PLAN_OUTPUT=$(terraform plan -var-file=prod_env.tfvars)
+          builder --pr-number={{inputs.parameters.number}} --pr-comment="PLAN FOR: {{inputs.parameters.path}} <br /> $PLAN_OUTPUT"
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: terraform-apply-template
+  namespace: argo
+spec:
+  serviceAccountName: argo-workflows-sa
+  templates:
+    - name: ci-terraform-apply
+      inputs:
+        parameters:
+          - name: path
+          - name: number
+          - name: sha
+      steps:
+        - - name: terraform-apply
+            template: run-terraform-apply
+            arguments:
+              parameters:
+                - name: path
+                  value: "{{inputs.parameters.path}}"
+                - name: number
+                  value: "{{inputs.parameters.number}}"
+        - - name: set-output-status-success
+            when: "{{steps.terraform-apply.status}} == Succeeded"
+            templateRef:
+              name: git-sync
+              template: http-status
+            arguments:
+              parameters:
+                - name: status
+                  value: success
+                - name: context
+                  value: "{{inputs.parameters.path}}"
+                - name: sha
+                  value: "{{inputs.parameters.sha}}"
+          - name: set-output-status-failed
+            when: "{{steps.terraform-apply.status}} != Succeeded"
+            templateRef:
+              name: git-sync
+              template: http-status
+            arguments:
+              parameters:
+                - name: status
+                  value: failure
+                - name: context
+                  value: "{{inputs.parameters.path}}"
+                - name: sha
+                  value: "{{inputs.parameters.sha}}"
+    - name: run-terraform-apply
+      inputs:
+        parameters:
+          - name: path
+      script:
+        image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
+        workingDir: /tmp/git/k8s_curi
+        volumeMounts:
+          - name: workdir
+            mountPath: /tmp/git
+        command: ["sh"]
+        source: |
+          echo "Applying changes found in {{inputs.parameters.path}}"
+
+          cd {{inputs.parameters.path}}
+
+          terraform init -backend-config=backend/prod_env_config.tfvars
+          terraform apply -auto-approve -var-file=prod_env.tfvars
