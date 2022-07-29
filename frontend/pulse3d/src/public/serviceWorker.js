@@ -1,5 +1,6 @@
 let accountType = null;
-let domain = new URLSearchParams(location.search).get("domain");
+const PULSE3D_URL = new URLSearchParams(location.search).get("pulse3d_url");
+const USERS_URL = new URLSearchParams(location.search).get("users_url");
 let tokens = {
   access: null,
   refresh: null,
@@ -24,13 +25,14 @@ const clearAccountType = () => {
 };
 
 const getUrl = ({ pathname, search }) => {
-  let subdomain = pathname.includes("users") ? "apiv2" : "pulse3d";
-  return new URL(`https://${subdomain}.${domain}.com${pathname}${search}`);
+  const user_urls = ["/login", "/logout", "/refresh", "/register"];
+  let url = user_urls.includes(pathname) ? USERS_URL : PULSE3D_URL;
+  return new URL(`${url}${pathname}${search}`);
 };
 
 const isAuthRequest = (url) => {
-  const tokenUrl = "/users/login";
-  return tokenUrl.includes(url.pathname);
+  const tokenUrl = "/login";
+  return tokenUrl === url.pathname;
 };
 
 self.addEventListener("install", (event) => {
@@ -138,7 +140,7 @@ const handleRefreshRequest = async () => {
 
   let res = null;
   try {
-    res = await fetch(getUrl({ pathname: "/users/refresh", search: "" }), {
+    res = await fetch(getUrl({ pathname: "/refresh", search: "" }), {
       method: "POST",
       body: JSON.stringify({}),
       headers: { Authorization: `Bearer ${tokens.refresh}` },
