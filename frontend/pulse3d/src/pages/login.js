@@ -92,7 +92,10 @@ export default function Login() {
                 backgroundColor={
                   isSelected ? "var(--teal-green)" : "var(--dark-blue)"
                 }
-                clickFn={() => setUserType(type)}
+                clickFn={() => {
+                  setUserData({});
+                  setUserType(type);
+                }}
               />
             );
           })}
