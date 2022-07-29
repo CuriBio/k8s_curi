@@ -33,8 +33,11 @@ function Pulse({ Component, pageProps }) {
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
+      // env vars need to be set here because service worker does not have access to node process
       navigator.serviceWorker
-        .register(`/serviceWorker.js?domain=${process.env.NEXT_PUBLIC_DOMAIN}`)
+        .register(
+          `/serviceWorker.js?pulse3d_url=${process.env.NEXT_PUBLIC_PULSE3D_URL}&users_url=${process.env.NEXT_PUBLIC_USERS_URL}`
+        )
         .then(navigator.serviceWorker.ready)
         .then(() => sendSWMessage())
         .catch((e) => console.log("SERVICE WORKER ERROR: ", e));

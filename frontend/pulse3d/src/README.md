@@ -33,5 +33,6 @@ npm run test:unit
 Generate static files: (/out)
 
 ```bash
-npm run export
+npm run export:prod
+npm run export:test
 ```
