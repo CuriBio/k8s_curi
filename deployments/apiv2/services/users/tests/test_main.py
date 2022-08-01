@@ -267,7 +267,7 @@ def test_register__user__invalid_username(cb_customer_id):
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
-    assert response.json()["detail"][-1]["msg"] == "username must be alphanumeric"
+    assert response.json()["detail"][-1]["msg"] == "Username must be alphanumeric"
 
 
 @pytest.mark.parametrize(
