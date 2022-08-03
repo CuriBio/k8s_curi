@@ -34,6 +34,8 @@ class UploadResponse(BaseModel):
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
+    prominence_factors:Optional[Union[int,float]]
+    width_factors:Optional[Union[int,float]]
     twitch_widths: Optional[List[int]]
     start_time: Optional[Union[int, float]]
     end_time: Optional[Union[int, float]]
@@ -213,7 +215,7 @@ async def create_new_job(
 
         meta = {
             "analysis_params": {
-                param: dict(details)[param] for param in ("twitch_widths", "start_time", "end_time")
+                param: dict(details)[param] for param in ("prominence_factors","width_factors","twitch_widths", "start_time", "end_time")
             }
         }
 
