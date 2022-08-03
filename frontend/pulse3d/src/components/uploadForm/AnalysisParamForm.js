@@ -38,7 +38,7 @@ const InputContainer = styled.div`
 
 const WindowAnalysisContainer = styled.div`
   margin-top:50px;
-border: 2px solid var(--dark-gray);
+  border: 2px solid var(--dark-gray);
   height: 47%;
   border-radius: 5px;
   width: 60%;
@@ -256,7 +256,7 @@ export default function AnalysisParamForm({
         </ParamContainer>
 
         <ParamContainer style={{ width: "60%" }}>
-          <Label htmlFor="widthFactor">Width Factor (units):</Label>
+          <Label htmlFor="widthFactor">Width Factor:</Label>
           <InputErrorContainer>
             <FormInput
               name="widthFactor"
@@ -276,7 +276,7 @@ export default function AnalysisParamForm({
         </ParamContainer>
 
         <ParamContainer style={{ width: "60%" }}>
-          <Label htmlFor="twitchWidths">Twitch Widths (%):</Label>
+          <Label htmlFor="twitchWidths">Twitch Width:</Label>
           <InputErrorContainer>
             <FormInput
               name="twitchWidths"
