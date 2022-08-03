@@ -27,7 +27,6 @@ const Container = styled.div`
 
 const Main = styled.main`
   position: relative;
-  height: 95vh;
 `;
 
 export default function Layout({ children }) {
