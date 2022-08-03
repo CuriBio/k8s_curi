@@ -27,7 +27,6 @@ const clearAccountType = () => {
 const getUrl = ({ pathname, search }) => {
   const user_urls = ["/login", "/logout", "/refresh", "/register"];
   let url = user_urls.includes(pathname) ? USERS_URL : PULSE3D_URL;
-  console.log(`${url}${pathname}${search}`);
   return new URL(`${url}${pathname}${search}`);
 };
 
