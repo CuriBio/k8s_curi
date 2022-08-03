@@ -190,8 +190,8 @@ export default function UploadForm() {
           const zip = new JSZip();
           const { files } = await zip.loadAsync(file);
 
-          const onlyOneDir =
-            Object.values(files).filter(({ dir }) => dir).length === 1;
+          const onlyOneRec =
+            Object.values(files).filter(({ dir }) => dir).length === 0;
 
           const contains48WellFiles =
             Object.keys(files).filter(
@@ -199,7 +199,7 @@ export default function UploadForm() {
                 filename.includes(".h5") && !filename.includes("__MACOSX")
             ).length === 48;
 
-          return !onlyOneDir || !contains48WellFiles;
+          return !onlyOneRec || !contains48WellFiles;
         } catch (e) {
           console.log(`ERROR unable to read zip file: ${file.name} ${e}`);
           return true;
