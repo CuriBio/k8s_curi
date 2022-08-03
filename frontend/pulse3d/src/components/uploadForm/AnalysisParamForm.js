@@ -153,10 +153,42 @@ export default function AnalysisParamForm({
 
   const validateWidthFactor = (updateParams) => {
     const newValue = updateParams.widthFactor;
+    try {
+      parseFloat(newValue)
+    } catch (e) {
+      setParamErrors({
+        ...paramErrors,
+        widthFactor: "*Must be a positive number",
+      });
+      return;
+    }
+    if (parseFloat(newValue) < 0) {
+      setParamErrors({
+        ...paramErrors,
+        widthFactor: "*Must be a positive number",
+      });
+      return;
+    }
   }
 
   const validatePromineceFactor = (updateParams) => {
-    const newValue = updateParams.prominenceFactor;
+    const newValue = updateParams.twitchWidths;
+    try {
+      parseFloat(newValue)
+    } catch (e) {
+      setParamErrors({
+        ...paramErrors,
+        twitchWidths: "*Must be a positive number",
+      });
+      return;
+    }
+    if (parseFloat(newValue) < 0) {
+      setParamErrors({
+        ...paramErrors,
+        twitchWidths: "*Must be a positive number",
+      });
+      return;
+    }
   }
 
   const validateTwitchWidths = (updatedParams) => {
