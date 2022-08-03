@@ -172,20 +172,20 @@ export default function AnalysisParamForm({
   }
 
   const validatePromineceFactor = (updateParams) => {
-    const newValue = updateParams.twitchWidths;
+    const newValue = updateParams.prominenceFactor;
     try {
       parseFloat(newValue)
     } catch (e) {
       setParamErrors({
         ...paramErrors,
-        twitchWidths: "*Must be a positive number",
+        prominenceFactor: "*Must be a positive number",
       });
       return;
     }
     if (parseFloat(newValue) < 0) {
       setParamErrors({
         ...paramErrors,
-        twitchWidths: "*Must be a positive number",
+        prominenceFactor: "*Must be a positive number",
       });
       return;
     }
