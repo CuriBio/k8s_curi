@@ -285,7 +285,7 @@ export default function AnalysisParamForm({
           <InputErrorContainer>
             <FormInput
               name="prominenceFactor"
-              placeholder={"5, 6"}
+              placeholder={"6, 6"}
               value={inputVals.prominenceFactor}
               onChangeFn={(e) => {
                 updateParams({
@@ -304,7 +304,7 @@ export default function AnalysisParamForm({
           <InputErrorContainer>
             <FormInput
               name="widthFactor"
-              placeholder={"7, 8"}
+              placeholder={"7, 7"}
               value={inputVals.widthFactor}
               onChangeFn={(e) => {
                 updateParams({
