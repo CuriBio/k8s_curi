@@ -228,7 +228,7 @@ async def create_new_job(
         async with request.state.pgpool.acquire() as con:
             priority = 10
             job_id = await create_job(
-                con=con, upload_id=details.upload_id, queue="pulse3d", priority=priority, meta=meta#here chanche the queue
+                con=con, upload_id=details.upload_id, queue="pulse3d", priority=priority, meta=meta
             )
 
             # TODO create response model
