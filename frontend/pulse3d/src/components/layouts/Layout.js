@@ -28,6 +28,10 @@ const Container = styled.div`
 
 const Main = styled.main`
   position: relative;
+  min-height:95vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
 `;
 
 export default function Layout({ children }) {

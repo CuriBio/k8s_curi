@@ -151,50 +151,58 @@ export default function AnalysisParamForm({
     setAnalysisParams(updatedParams);
   };
 
-  //check that the input is:
-  // is greater than zero
-  // is a number
-  // is a single number
-  const validateSingleNumber = (input) => {
+  const validateTuple = (userInput) => {
+    const tuple = userInput.split(",")
+    //check there are only two entrees
+    if (tuple.length !== 2) {
+      return false
+    }
+    //check both entrees are numbers
     try {
-      parseFloat(input)
+      parseFloat(tuple[0])
+      parseFloat(tuple[1])
     } catch (e) {
       return false
     }
-    if (!(parseFloat(input) > 0)) {
-      return false
-    }
-    let restOfInput = input.replace(parseFloat(input), "").replace(" ", "")
-    if (restOfInput.length > 0) {
+    //check both entrees are bigger than 0
+    if (!(tuple[0] > 0) || !(tuple[1] > 0)) {
       return false
     }
     return true
   }
 
   const validateProminenceFactor = (updatedParams) => {
-    const newval = updatedParams.prominenceFactor;
-    if (newval === null || newval === "") {
-      setParamErrors({ ...paramErrors, prominenceFactor: "" })
-      return
+    if (validateTuple(updatedParams.prominenceFactor)) {
+      setParamErrors({ ...paramErrors, prominenceFactor: "" });
+      updatedParams.prominenceFactor = [updatedParams.prominenceFactor.split(",")[0], updatedParams.prominenceFactor.split(",")[1]]
+    } else if (updatedParams.prominenceFactor === null || updatedParams.prominenceFactor === "") {
+      setParamErrors({
+        ...paramErrors,
+        prominenceFactor: "",
+      });
+    } else {
+      setParamErrors({
+        ...paramErrors,
+        prominenceFactor: "*Must be two comma-separated, positive numbers",
+      });
     }
-    if (!validateSingleNumber(newval)) {
-      setParamErrors({ ...paramErrors, prominenceFactor: "*Must be a single positive number" });
-      return
-    }
-    setParamErrors({ ...paramErrors, prominenceFactor: "" })
   }
 
   const validateWidthFactor = (updatedParams) => {
-    const newval = updatedParams.widthFactor;
-    if (newval === null || newval === "") {
-      setParamErrors({ ...paramErrors, widthFactor: "" })
-      return
+    if (validateTuple(updatedParams.widthFactor)) {
+      setParamErrors({ ...paramErrors, widthFactor: "" });
+      updatedParams.widthFactor = [updatedParams.widthFactor.split(",")[0], updatedParams.widthFactor.split(",")[1]]
+    } else if (updatedParams.widthFactor === null || updatedParams.widthFactor === "") {
+      setParamErrors({
+        ...paramErrors,
+        widthFactor: "",
+      });
+    } else {
+      setParamErrors({
+        ...paramErrors,
+        widthFactor: "*Must be two comma-separated, positive numbers",
+      });
     }
-    if (!validateSingleNumber(newval)) {
-      setParamErrors({ ...paramErrors, widthFactor: "*Must be a single positive number" });
-      return
-    }
-    setParamErrors({ ...paramErrors, widthFactor: "" })
   }
 
   const validateTwitchWidths = (updatedParams) => {
@@ -272,13 +280,12 @@ export default function AnalysisParamForm({
         Additional Analysis Params (Optional)
       </AdditionalParamLabel>
       <InputContainer>
-
         <ParamContainer style={{ width: "60%" }}>
-          <Label htmlFor="prominenceFactor">Prominence Factor (y-axis):</Label>
+          <Label htmlFor="prominenceFactor">Prominence Factor (min, max):</Label>
           <InputErrorContainer>
             <FormInput
               name="prominenceFactor"
-              placeholder={"10"}
+              placeholder={"5, 6"}
               value={inputVals.prominenceFactor}
               onChangeFn={(e) => {
                 updateParams({
@@ -292,13 +299,12 @@ export default function AnalysisParamForm({
             </FormInput>
           </InputErrorContainer>
         </ParamContainer>
-
         <ParamContainer style={{ width: "60%" }}>
-          <Label htmlFor="widthFactor">Width Factor (x-axis):</Label>
+          <Label htmlFor="widthFactor">Width Factor (min, max):</Label>
           <InputErrorContainer>
             <FormInput
               name="widthFactor"
-              placeholder={"5"}
+              placeholder={"7, 8"}
               value={inputVals.widthFactor}
               onChangeFn={(e) => {
                 updateParams({
@@ -312,7 +318,6 @@ export default function AnalysisParamForm({
             </FormInput>
           </InputErrorContainer>
         </ParamContainer>
-
         <ParamContainer style={{ width: "60%" }}>
           <Label htmlFor="twitchWidths">Twitch Width:</Label>
           <InputErrorContainer>

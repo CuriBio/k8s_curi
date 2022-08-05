@@ -35,8 +35,8 @@ class UploadResponse(BaseModel):
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
-    prominence_factors:Optional[Union[Tuple[Union[int,float],Union[int,float]],int,float]]
-    width_factors:Optional[Union[Tuple[Union[int,float],Union[int,float]],int,float]]
+    prominence_factors:Optional[Union[Tuple[Union[int,float]],List[int]]]
+    width_factors:Optional[Union[Tuple[Union[int,float]],List[int]]]
     twitch_widths: Optional[List[int]]
     start_time: Optional[Union[int, float]]
     end_time: Optional[Union[int, float]]
@@ -220,8 +220,8 @@ async def create_new_job(
         }
         #convert single number input from user to tuple
         #done for width and prominece factors
-        meta["analysis_params"]["prominence_factors"] = None if meta["analysis_params"]["prominence_factors"] == None else (meta["analysis_params"]["prominence_factors"],meta["analysis_params"]["prominence_factors"])
-        meta["analysis_params"]["width_factors"] = None if meta["analysis_params"]["width_factors"] == None else (meta["analysis_params"]["width_factors"],meta["analysis_params"]["width_factors"])
+        meta["analysis_params"]["prominence_factors"] = None if meta["analysis_params"]["prominence_factors"] == None else (meta["analysis_params"]["prominence_factors"][0],meta["analysis_params"]["prominence_factors"][1])
+        meta["analysis_params"]["width_factors"] = None if meta["analysis_params"]["width_factors"] == None else (meta["analysis_params"]["width_factors"][0],meta["analysis_params"]["width_factors"][1])
 
         logger.info(f"Using params: {meta['analysis_params']}")
 
