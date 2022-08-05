@@ -143,52 +143,58 @@ export default function AnalysisParamForm({
       validateWindowBounds(updatedParams);
     }
     if (newParams.prominenceFactor !== undefined) {
-      validatePromineceFactor(updateParams);
+      validateProminenceFactor(updatedParams);
     }
     if (newParams.widthFactor !== undefined) {
-      validateWidthFactor(updateParams)
+      validateWidthFactor(updatedParams)
     }
     setAnalysisParams(updatedParams);
   };
 
-  const validateWidthFactor = (updateParams) => {
-    const newValue = updateParams.widthFactor;
+  //check that the input is:
+  // is greater than zero
+  // is a number
+  // is a single number
+  const validateSingleNumber = (input) => {
     try {
-      parseFloat(newValue)
+      parseFloat(input)
     } catch (e) {
-      setParamErrors({
-        ...paramErrors,
-        widthFactor: "*Must be a positive number",
-      });
-      return;
+      return false
     }
-    if (parseFloat(newValue) < 0) {
-      setParamErrors({
-        ...paramErrors,
-        widthFactor: "*Must be a positive number",
-      });
-      return;
+    if (!(parseFloat(input) > 0)) {
+      return false
     }
+    let restOfInput = input.replace(parseFloat(input), "").replace(" ", "")
+    if (restOfInput.length > 0) {
+      return false
+    }
+    return true
   }
 
-  const validatePromineceFactor = (updateParams) => {
-    const newValue = updateParams.prominenceFactor;
-    try {
-      parseFloat(newValue)
-    } catch (e) {
-      setParamErrors({
-        ...paramErrors,
-        prominenceFactor: "*Must be a positive number",
-      });
-      return;
+  const validateProminenceFactor = (updatedParams) => {
+    const newval = updatedParams.prominenceFactor;
+    if (newval === null || newval === "") {
+      setParamErrors({ ...paramErrors, prominenceFactor: "" })
+      return
     }
-    if (parseFloat(newValue) < 0) {
-      setParamErrors({
-        ...paramErrors,
-        prominenceFactor: "*Must be a positive number",
-      });
-      return;
+    if (!validateSingleNumber(newval)) {
+      setParamErrors({ ...paramErrors, prominenceFactor: "*Must be a single positive number" });
+      return
     }
+    setParamErrors({ ...paramErrors, prominenceFactor: "" })
+  }
+
+  const validateWidthFactor = (updatedParams) => {
+    const newval = updatedParams.widthFactor;
+    if (newval === null || newval === "") {
+      setParamErrors({ ...paramErrors, widthFactor: "" })
+      return
+    }
+    if (!validateSingleNumber(newval)) {
+      setParamErrors({ ...paramErrors, widthFactor: "*Must be a single positive number" });
+      return
+    }
+    setParamErrors({ ...paramErrors, widthFactor: "" })
   }
 
   const validateTwitchWidths = (updatedParams) => {
@@ -268,7 +274,7 @@ export default function AnalysisParamForm({
       <InputContainer>
 
         <ParamContainer style={{ width: "60%" }}>
-          <Label htmlFor="prominenceFactor">Prominence Factor (units):</Label>
+          <Label htmlFor="prominenceFactor">Prominence Factor (y-axis):</Label>
           <InputErrorContainer>
             <FormInput
               name="prominenceFactor"
@@ -288,7 +294,7 @@ export default function AnalysisParamForm({
         </ParamContainer>
 
         <ParamContainer style={{ width: "60%" }}>
-          <Label htmlFor="widthFactor">Width Factor:</Label>
+          <Label htmlFor="widthFactor">Width Factor (x-axis):</Label>
           <InputErrorContainer>
             <FormInput
               name="widthFactor"

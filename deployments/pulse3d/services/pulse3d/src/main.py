@@ -1,6 +1,7 @@
+from codecs import unicode_escape_decode
 import json
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 import uuid
 
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Query
@@ -34,8 +35,8 @@ class UploadResponse(BaseModel):
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
-    prominence_factors:Optional[Union[int,float]]
-    width_factors:Optional[Union[int,float]]
+    prominence_factors:Optional[Union[Tuple[Union[int,float],Union[int,float]],int,float]]
+    width_factors:Optional[Union[Tuple[Union[int,float],Union[int,float]],int,float]]
     twitch_widths: Optional[List[int]]
     start_time: Optional[Union[int, float]]
     end_time: Optional[Union[int, float]]
@@ -101,7 +102,6 @@ async def create_recording_upload(
             "user_id": user_id,
             "type": details.upload_type,
         }
-
         async with request.state.pgpool.acquire() as con:
             # Tanner (7/5/22): using a transaction here so that if _generate_presigned_post fails
             # then the new upload row won't be committed
@@ -218,13 +218,17 @@ async def create_new_job(
                 param: dict(details)[param] for param in ("prominence_factors","width_factors","twitch_widths", "start_time", "end_time")
             }
         }
+        #convert single number input from user to tuple
+        #done for width and prominece factors
+        meta["analysis_params"]["prominence_factors"] = None if meta["analysis_params"]["prominence_factors"] == None else (meta["analysis_params"]["prominence_factors"],meta["analysis_params"]["prominence_factors"])
+        meta["analysis_params"]["width_factors"] = None if meta["analysis_params"]["width_factors"] == None else (meta["analysis_params"]["width_factors"],meta["analysis_params"]["width_factors"])
 
         logger.info(f"Using params: {meta['analysis_params']}")
 
         async with request.state.pgpool.acquire() as con:
             priority = 10
             job_id = await create_job(
-                con=con, upload_id=details.upload_id, queue="pulse3d", priority=priority, meta=meta
+                con=con, upload_id=details.upload_id, queue="pulse3d", priority=priority, meta=meta#here chanche the queue
             )
 
             # TODO create response model
