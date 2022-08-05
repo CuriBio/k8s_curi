@@ -158,8 +158,15 @@ export default function UploadForm() {
   };
 
   const postNewJob = async (uploadId, filename) => {
+    console.log("here");
     try {
-      const { prominenceFactor, widthFactor, twitchWidths, startTime, endTime } = analysisParams;
+      const {
+        prominenceFactor,
+        widthFactor,
+        twitchWidths,
+        startTime,
+        endTime,
+      } = analysisParams;
       const jobResponse = await fetch("https://curibio.com/jobs", {
         method: "POST",
         body: JSON.stringify({
@@ -195,9 +202,8 @@ export default function UploadForm() {
         try {
           const zip = new JSZip();
           const { files } = await zip.loadAsync(file);
-
-          const onlyOneRec =
-            Object.values(files).filter(({ dir }) => dir).length === 0;
+          const dirs = Object.values(files).filter(({ dir }) => dir);
+          const onlyOneRec = dirs.length === 0 || dirs.length === 1;
 
           const contains48WellFiles =
             Object.keys(files).filter(
@@ -299,7 +305,6 @@ export default function UploadForm() {
           method: "POST",
           body: formData,
         });
-
         if (uploadPostRes.status === 204) {
           await postNewJob(uploadId, filename);
         } else {

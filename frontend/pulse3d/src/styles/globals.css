@@ -13,6 +13,8 @@ body {
   padding: 0;
   margin: 0;
   font-family: Mulish;
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }
 
 a {
@@ -23,5 +25,9 @@ a {
 * {
   box-sizing: border-box;
   font-family: Mulish;
+}
+
+::-webkit-scrollbar {
+  display: none;
 }
 

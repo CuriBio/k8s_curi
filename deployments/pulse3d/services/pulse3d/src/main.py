@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 import json
 import logging
 from typing import Any, Dict, List, Optional, Union
@@ -34,8 +35,8 @@ class UploadResponse(BaseModel):
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
-    prominence_factors:Optional[Union[int,float]]
-    width_factors:Optional[Union[int,float]]
+    prominence_factors: Optional[Union[int, float]]
+    width_factors: Optional[Union[int, float]]
     twitch_widths: Optional[List[int]]
     start_time: Optional[Union[int, float]]
     end_time: Optional[Union[int, float]]
@@ -46,6 +47,7 @@ app.add_middleware(
     allow_origins=[
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
+        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -215,7 +217,14 @@ async def create_new_job(
 
         meta = {
             "analysis_params": {
-                param: dict(details)[param] for param in ("prominence_factors","width_factors","twitch_widths", "start_time", "end_time")
+                param: dict(details)[param]
+                for param in (
+                    "prominence_factors",
+                    "width_factors",
+                    "twitch_widths",
+                    "start_time",
+                    "end_time",
+                )
             }
         }
 
@@ -235,6 +244,41 @@ async def create_new_job(
                 "status": "pending",
                 "priority": priority,
             }
+
+    except Exception as e:
+        logger.exception(f"Failed to create job: {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+Response = nullcontext
+
+
+@app.get("/waveform_data", status_code=status.HTTP_200_NO_CONTENT, response_class=Response)
+async def get_waveform_data(
+    request: Request,
+    job_id: uuid.UUID = Query(None),
+    upload_id: uuid.UUID = Query(None),
+    token=Depends(ProtectedAny(scope=["users:free"])),
+):
+    try:
+        ### get data from s3
+        ### format waveform data into coordinates for FE(TBD)
+        waveform_data: Dict[str, List[List[Any]]] = {}
+        '''
+            {
+                0: [[x], [y]],
+                1: [[x], [y]],
+                ....
+            }
+            or
+            {
+                0: [[x, y], [x, y]],
+                1: [[x, y], [x, y]],
+                ....
+            }
+        '''
+        
+        return waveform_data
 
     except Exception as e:
         logger.exception(f"Failed to create job: {repr(e)}")
