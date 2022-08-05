@@ -233,18 +233,9 @@ export default function UploadForm() {
       setInProgress(true);
 
       for (const file of files) {
-        if (uploads.includes(file)) await postNewJob(file.id, file.filename);
-        else if (file instanceof File && formattedUploads.includes(file.name)) {
-          console.log(
-            "Existing upload found, skipping file upload and creating new job"
-          );
-
-          const existing_file = uploads.find(
-            ({ filename }) => filename === file.name
-          );
-
-          await postNewJob(existing_file.id, existing_file.filename);
-        } else if (file instanceof File) await uploadFile(file);
+        if (file instanceof File) await uploadFile(file);
+        else if (uploads.includes(file))
+          await postNewJob(file.id, file.filename);
       }
 
       // open error modal notifying which files failed if any, otherwise display success text
