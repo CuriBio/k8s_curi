@@ -22,12 +22,12 @@ const Header = styled.div`
 
 const Container = styled.div`
   height: 100%;
+  min-height:100vh;
   background-color: var(--dark-gray);
 `;
 
 const Main = styled.main`
   position: relative;
-  height: 95vh;
 `;
 
 export default function Layout({ children }) {

@@ -33,7 +33,7 @@ const Header = styled.h2`
 const Uploads = styled.div`
   width: 100%;
   min-width: 1000px;
-  height: 870px;
+  height: 1000px;
   border: solid;
   border-color: var(--dark-gray);
   border-width: 2px;
@@ -92,6 +92,8 @@ export default function UploadForm() {
   const [tabSelection, setTabSelection] = useState(query.id);
   const [modalState, setModalState] = useState(false);
   const [analysisParams, setAnalysisParams] = useState({
+    prominenceFactor: "",
+    widthFactor: "",
     twitchWidths: "",
     startTime: "",
     endTime: "",
@@ -143,6 +145,8 @@ export default function UploadForm() {
   const resetState = () => {
     setFiles([]);
     setAnalysisParams({
+      prominenceFactor: "",
+      widthFactor: "",
       twitchWidths: "",
       startTime: "",
       endTime: "",
@@ -155,11 +159,13 @@ export default function UploadForm() {
 
   const postNewJob = async (uploadId, filename) => {
     try {
-      const { twitchWidths, startTime, endTime } = analysisParams;
+      const { prominenceFactor, widthFactor, twitchWidths, startTime, endTime } = analysisParams;
       const jobResponse = await fetch("https://curibio.com/jobs", {
         method: "POST",
         body: JSON.stringify({
           upload_id: uploadId,
+          prominence_factors: prominenceFactor === "" ? null : prominenceFactor,
+          width_factors: widthFactor === "" ? null : widthFactor,
           twitch_widths: twitchWidths === "" ? null : twitchWidths,
           start_time: startTime === "" ? null : startTime,
           end_time: endTime === "" ? null : endTime,
