@@ -4,6 +4,7 @@ import { isArrayOfNumbers } from "../../utils/generic";
 import FormInput from "../basicWidgets/FormInput";
 
 const Container = styled.div`
+  padding-top:1rem;
   left: 5%;
   top: 12%;
   height: 50%;
@@ -36,6 +37,7 @@ const InputContainer = styled.div`
 `;
 
 const WindowAnalysisContainer = styled.div`
+  margin-top:50px;
   border: 2px solid var(--dark-gray);
   height: 47%;
   border-radius: 5px;
@@ -50,10 +52,9 @@ const WAOverlay = styled.div`
   background-color: black;
   z-index: 2;
   border-radius: 5px;
-  width: 54%;
+  width: 53.6%;
   position: absolute;
-  height: 46.5%;
-  top: 41%;
+  height: 45%;
   background-color: var(--dark-gray);
   opacity: 0.6;
 `;
@@ -88,7 +89,7 @@ const InputErrorContainer = styled.div`
 
 const WALabel = styled.span`
   background-color: var(--light-gray);
-  bottom: 54%;
+  bottom: 48%;
   border-radius: 6px;
   position: absolute;
   left: 25%;
@@ -141,9 +142,68 @@ export default function AnalysisParamForm({
       // need to validate start and end time together
       validateWindowBounds(updatedParams);
     }
-
+    if (newParams.prominenceFactor !== undefined) {
+      validateProminenceFactor(updatedParams);
+    }
+    if (newParams.widthFactor !== undefined) {
+      validateWidthFactor(updatedParams)
+    }
     setAnalysisParams(updatedParams);
   };
+
+  const validateTuple = (userInput) => {
+    const tuple = userInput.split(",")
+    //check there are only two entrees
+    if (tuple.length !== 2) {
+      return false
+    }
+    //check both entrees are numbers
+    try {
+      parseFloat(tuple[0])
+      parseFloat(tuple[1])
+    } catch (e) {
+      return false
+    }
+    //check both entrees are bigger than 0
+    if (!(tuple[0] > 0) || !(tuple[1] > 0)) {
+      return false
+    }
+    return true
+  }
+
+  const validateProminenceFactor = (updatedParams) => {
+    if (validateTuple(updatedParams.prominenceFactor)) {
+      setParamErrors({ ...paramErrors, prominenceFactor: "" });
+      updatedParams.prominenceFactor = [updatedParams.prominenceFactor.split(",")[0], updatedParams.prominenceFactor.split(",")[1]]
+    } else if (updatedParams.prominenceFactor === null || updatedParams.prominenceFactor === "") {
+      setParamErrors({
+        ...paramErrors,
+        prominenceFactor: "",
+      });
+    } else {
+      setParamErrors({
+        ...paramErrors,
+        prominenceFactor: "*Must be two comma-separated, positive numbers",
+      });
+    }
+  }
+
+  const validateWidthFactor = (updatedParams) => {
+    if (validateTuple(updatedParams.widthFactor)) {
+      setParamErrors({ ...paramErrors, widthFactor: "" });
+      updatedParams.widthFactor = [updatedParams.widthFactor.split(",")[0], updatedParams.widthFactor.split(",")[1]]
+    } else if (updatedParams.widthFactor === null || updatedParams.widthFactor === "") {
+      setParamErrors({
+        ...paramErrors,
+        widthFactor: "",
+      });
+    } else {
+      setParamErrors({
+        ...paramErrors,
+        widthFactor: "*Must be two comma-separated, positive numbers",
+      });
+    }
+  }
 
   const validateTwitchWidths = (updatedParams) => {
     const newValue = updatedParams.twitchWidths;
@@ -221,7 +281,45 @@ export default function AnalysisParamForm({
       </AdditionalParamLabel>
       <InputContainer>
         <ParamContainer style={{ width: "60%" }}>
-          <Label htmlFor="twitchWidths">Twitch Widths (%):</Label>
+          <Label htmlFor="prominenceFactor">Prominence Factor (min, max):</Label>
+          <InputErrorContainer>
+            <FormInput
+              name="prominenceFactor"
+              placeholder={"6, 6"}
+              value={inputVals.prominenceFactor}
+              onChangeFn={(e) => {
+                updateParams({
+                  prominenceFactor: e.target.value,
+                });
+              }}
+            >
+              <ErrorText id="prominenceFactorError" role="errorMsg">
+                {errorMessages.prominenceFactor}
+              </ErrorText>
+            </FormInput>
+          </InputErrorContainer>
+        </ParamContainer>
+        <ParamContainer style={{ width: "60%" }}>
+          <Label htmlFor="widthFactor">Width Factor (min, max):</Label>
+          <InputErrorContainer>
+            <FormInput
+              name="widthFactor"
+              placeholder={"7, 7"}
+              value={inputVals.widthFactor}
+              onChangeFn={(e) => {
+                updateParams({
+                  widthFactor: e.target.value,
+                });
+              }}
+            >
+              <ErrorText id="widthFactorError" role="errorMsg">
+                {errorMessages.widthFactor}
+              </ErrorText>
+            </FormInput>
+          </InputErrorContainer>
+        </ParamContainer>
+        <ParamContainer style={{ width: "60%" }}>
+          <Label htmlFor="twitchWidths">Twitch Width:</Label>
           <InputErrorContainer>
             <FormInput
               name="twitchWidths"
@@ -239,7 +337,6 @@ export default function AnalysisParamForm({
             </FormInput>
           </InputErrorContainer>
         </ParamContainer>
-        {checked || <WAOverlay />}
         <WindowAnalysisContainer>
           <WALabel>
             <CheckboxWidget
@@ -250,7 +347,7 @@ export default function AnalysisParamForm({
             />
             Use Window Analysis
           </WALabel>
-
+          {checked || <WAOverlay />}
           <ParamContainer>
             <Label htmlFor="startTime">Start Time (s):</Label>
             <InputErrorContainer>
