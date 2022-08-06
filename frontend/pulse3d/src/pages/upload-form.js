@@ -196,9 +196,8 @@ export default function UploadForm() {
           const zip = new JSZip();
           const { files } = await zip.loadAsync(file);
 
-          const onlyOneRec =
-            Object.values(files).filter(({ dir }) => dir).length === 0;
-
+          const dirs = Object.values(files).filter(({ dir }) => dir);
+          const onlyOneRec = dirs.length === 0 || dirs.length === 1;
           const contains48WellFiles =
             Object.keys(files).filter(
               (filename) =>
@@ -239,18 +238,9 @@ export default function UploadForm() {
       setInProgress(true);
 
       for (const file of files) {
-        if (uploads.includes(file)) await postNewJob(file.id, file.filename);
-        else if (file instanceof File && formattedUploads.includes(file.name)) {
-          console.log(
-            "Existing upload found, skipping file upload and creating new job"
-          );
-
-          const existing_file = uploads.find(
-            ({ filename }) => filename === file.name
-          );
-
-          await postNewJob(existing_file.id, existing_file.filename);
-        } else if (file instanceof File) await uploadFile(file);
+        if (file instanceof File) await uploadFile(file);
+        else if (uploads.includes(file))
+          await postNewJob(file.id, file.filename);
       }
 
       // open error modal notifying which files failed if any, otherwise display success text

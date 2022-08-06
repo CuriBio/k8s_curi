@@ -22,6 +22,7 @@ const Header = styled.div`
 
 const Container = styled.div`
   height: 100%;
+  min-width: 1500px;
   min-height:100vh;
   background-color: var(--dark-gray);
 `;

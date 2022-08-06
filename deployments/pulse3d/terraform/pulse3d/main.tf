@@ -33,8 +33,7 @@ resource "aws_s3_bucket_cors_configuration" "pulse3d_uploads_bucket" {
   cors_rule {
     allowed_headers = ["*"]
     allowed_methods = ["GET", "POST"]
-    allowed_origins = [
-      var.cluster_name == "prod" ? "https://dashboard.curibio.com" : "https://dashboard.curibio-test.com",
-    ]
+    allowed_origins = var.cluster_name == "prod" ? ["https://dashboard.curibio.com"] : ["https://dashboard.curibio-test.com", "http://localhost:3000"]
+    
   }
 }
