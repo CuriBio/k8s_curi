@@ -10,6 +10,9 @@ services:
             - POSTGRES_USER=${CURIBIO_USERS_USER}
             - POSTGRES_PASSWORD=${TABLE_USER_PASS}
             - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+            - AWS_PROFILE=${AWS_PROFILE}
+        volumes:
+            - ~/.aws/:/root/.aws:ro
         ports:
             - "9001:9001"
         platform: "linux/amd64"
@@ -24,6 +27,9 @@ services:
             - POSTGRES_USER=${CURIBIO_MANTARRAY_USER}
             - POSTGRES_PASSWORD=${MANTARRAY_USER_PASS_RO}
             - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+            - AWS_PROFILE=${AWS_PROFILE}
+        volumes:
+            - ~/.aws/:/root/.aws:ro
         ports:
             - "9000:9000"
         platform: "linux/amd64"
@@ -38,6 +44,9 @@ services:
             - POSTGRES_PASSWORD=${JOBS_USER_PASS}
             - UPLOADS_BUCKET_ENV=${TEST_UPLOADS_BUCKET}
             - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+            - AWS_PROFILE=${AWS_PROFILE}
+        volumes:
+            - ~/.aws/:/root/.aws:ro
         ports:
             - "8000:8000"
         platform: "linux/amd64"
