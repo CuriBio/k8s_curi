@@ -1,0 +1,43 @@
+version: '3.8'
+services:
+    apiv2-users:
+        build:
+            context: .
+            dockerfile: ./deployments/apiv2/services/users/Dockerfile
+        environment:
+            - POSTGRES_SERVER=host.docker.internal
+            - POSTGRES_DB=${POSTGRES_DB}
+            - POSTGRES_USER=${CURIBIO_USERS_USER}
+            - POSTGRES_PASSWORD=${TABLE_USER_PASS}
+            - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+        ports:
+            - "9001:9001"
+        platform: "linux/amd64"
+    apiv2-mantarray:
+        build:
+            context: .
+            dockerfile: ./deployments/apiv2/services/mantarray/Dockerfile
+        environment:
+            - CLUSTER_NAME=test
+            - POSTGRES_SERVER=host.docker.internal
+            - POSTGRES_DB=${POSTGRES_DB}
+            - POSTGRES_USER=${CURIBIO_MANTARRAY_USER}
+            - POSTGRES_PASSWORD=${MANTARRAY_USER_PASS_RO}
+            - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+        ports:
+            - "9000:9000"
+        platform: "linux/amd64"
+    pulse3d:
+        build:
+            context: .
+            dockerfile: ./deployments/pulse3d/services/pulse3d/Dockerfile
+        environment:
+            - POSTGRES_SERVER=host.docker.internal
+            - POSTGRES_DB=${POSTGRES_DB}
+            - POSTGRES_USER=${CURIBIO_JOBS_USER}
+            - POSTGRES_PASSWORD=${JOBS_USER_PASS}
+            - UPLOADS_BUCKET_ENV=${TEST_UPLOADS_BUCKET}
+            - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+        ports:
+            - "8000:8000"
+        platform: "linux/amd64"
