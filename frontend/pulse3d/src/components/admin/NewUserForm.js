@@ -135,7 +135,7 @@ export default function NewUserForm() {
         open={userCreatedVisible}
         closeModal={() => setuserCreatedVisible(false)}
         header="Success"
-        labels={["User was created succesfully"]}
+        labels={["User was created Successfully"]}
       />
       <Header>New User Details</Header>
       <InputContainer>
