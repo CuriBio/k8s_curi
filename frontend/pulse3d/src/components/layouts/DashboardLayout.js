@@ -19,10 +19,14 @@ export default function DashboardLayout({ children }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (accountType && accountType !== "Admin") getUploads();
-    else if (accountType === null)
+    if (accountType && accountType !== "Admin") {
+      getUploads();
+    
+    } else if (accountType === null) {
       // will return null if reset in the ServiceWorker, undefined if ServiceWorker hasn't responded yet on refresh
       router.replace("/login", null, { shallow: true });
+    }
+
   }, [router, accountType]);
 
   const getUploads = async () => {
