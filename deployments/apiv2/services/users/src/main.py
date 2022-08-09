@@ -308,8 +308,7 @@ async def register(
                         # other customer accounts will be leaked
                         failed_msg = "Username already in use"
                     elif "users_email_key" in str(e):
-                        # Don't want to leak emails of users under other customer accounts, so return default msg
-                        failed_msg = "Account registration failed"
+                        failed_msg = "Email already in use"
                     else:
                         # default catch-all error message
                         failed_msg = "Account registration failed"

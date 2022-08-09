@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import { useRouter } from "next/router";
 import FormInput from "../basicWidgets/FormInput";
+import ModalWidget from "../basicWidgets/ModalWidget";
 
 const InputContainer = styled.div`
   height: 460px;
@@ -60,6 +61,7 @@ export default function NewUserForm() {
 
   const [errorMsg, setErrorMsg] = useState("");
   const [inProgress, setInProgress] = useState(false);
+  const [userCreatedVisible, setuserCreatedVisible] = useState(false)
 
   const resetForm = () => {
     setErrorMsg(""); // reset to show user something happened
@@ -88,6 +90,7 @@ export default function NewUserForm() {
 
       if (res) {
         if (res.status === 201) {
+          setuserCreatedVisible(true)
           resetForm();
         } else if (res.status === 422) {
           const error = await res.json();
@@ -112,7 +115,7 @@ export default function NewUserForm() {
         newMsg = "Please enter a valid email";
         break;
       case "username":
-        newMsg = "Username must be alphanumeric";
+        newMsg = "Username must be at least 5 characters long, and only contain letters and numbers";
         break;
       case "password1":
         newMsg =
@@ -128,6 +131,12 @@ export default function NewUserForm() {
 
   return (
     <ModalContainer>
+      <ModalWidget
+        open={userCreatedVisible}
+        closeModal={() => setuserCreatedVisible(false)}
+        header="Success"
+        labels={["User was created Successfully"]}
+      />
       <Header>New User Details</Header>
       <InputContainer>
         <FormInput
