@@ -31,7 +31,7 @@ function Pulse({ Component, pageProps }) {
   const router = useRouter();
   const [authCheck, setAuthCheck] = useState(false);
   const [accountType, setAccountType] = useState();
-  const [showLoggedOutAlert, setLoggedOutAlert] = useState(false)
+  const [showLoggedOutAlert, setLoggedOutAlert] = useState(false);
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -52,7 +52,7 @@ function Pulse({ Component, pageProps }) {
         if (!data.authCheck) {
           //redirect
           router.replace("/login", undefined, { shallow: true });
-          setLoggedOutAlert(true)
+          setLoggedOutAlert(true);
         }
       });
     }
@@ -98,7 +98,9 @@ function Pulse({ Component, pageProps }) {
         <Layout>
           <ModalWidget
             open={showLoggedOutAlert}
-            closeModal={() => { setLoggedOutAlert(false) }}
+            closeModal={() => {
+              setLoggedOutAlert(false);
+            }}
             header="Attention"
             labels={["You have been logged out due to inactivity"]}
           />
