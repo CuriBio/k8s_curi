@@ -79,10 +79,12 @@ const interceptResponse = async (req, url) => {
     headers.append("Authorization", `Bearer ${tokens.access}`);
   }
 
+  const req_json = JSON.stringify(await req.json());
+
   // apply new headers
   const newReq = new Request(getUrl(url), {
     headers,
-    body: req.method === "POST" ? JSON.stringify(await req.json()) : null,
+    body: req.method === "POST" ? req_json : null,
     method: req.method,
   });
 
@@ -91,12 +93,12 @@ const interceptResponse = async (req, url) => {
     return await requestWithRefresh(requestFn, url);
   } else {
     const response = await fetch(newReq);
-    // catch response and set token
+    // catch response and set tokens
     if (response.status === 200) {
       const data = await response.json();
       setTokens(data);
     }
-    // send the response without it
+    // send the response without the tokens so it is always contained within this service worker
     return new Response(JSON.stringify({}), {
       headers: response.headers,
       status: response.status,
@@ -120,11 +122,10 @@ const requestWithRefresh = async (requestFn, url) => {
     const refreshResponse = await handleRefreshRequest();
 
     if (refreshResponse.status !== 201) {
-      // if the refresh failed, no need to try request again, just return original failed response
       clearTokens();
+      // if the refresh failed, no need to try request again, just return original failed response
       return response;
     }
-    //
     // try again with new tokens
     response = await safeRequest();
   }
