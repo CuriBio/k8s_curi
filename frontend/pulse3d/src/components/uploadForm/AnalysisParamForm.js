@@ -61,7 +61,7 @@ const WAOverlay = styled.div`
 `;
 
 const Label = styled.label`
-  width: 70%;
+  width: 102%;
   position: relative;
   height: 40px;
   padding: 5px;
