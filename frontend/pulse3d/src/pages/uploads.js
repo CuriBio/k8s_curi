@@ -92,6 +92,10 @@ export default function Uploads() {
 
   useEffect(() => {
     getAllJobs();
+    // start 10 second interval 
+    const uploadsInterval = setInterval(() => getAllJobs(), [1e4]);
+    // clear interval when switching pages
+    return () => clearInterval(uploadsInterval);
   }, [uploads]);
 
   const handleChangePage = (e, newPage) => {

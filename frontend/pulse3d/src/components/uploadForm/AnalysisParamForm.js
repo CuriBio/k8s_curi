@@ -38,6 +38,7 @@ const InputContainer = styled.div`
 
 const WindowAnalysisContainer = styled.div`
   margin-top:50px;
+  margin-bottom: 20px;
   border: 2px solid var(--dark-gray);
   height: 47%;
   border-radius: 5px;
@@ -52,15 +53,15 @@ const WAOverlay = styled.div`
   background-color: black;
   z-index: 2;
   border-radius: 5px;
-  width: 53.6%;
+  width: 53.8%;
   position: absolute;
-  height: 45%;
+  height: 42%;
   background-color: var(--dark-gray);
   opacity: 0.6;
 `;
 
 const Label = styled.label`
-  width: 70%;
+  width: 102%;
   position: relative;
   height: 40px;
   padding: 5px;
@@ -89,7 +90,7 @@ const InputErrorContainer = styled.div`
 
 const WALabel = styled.span`
   background-color: var(--light-gray);
-  bottom: 48%;
+  bottom: 43%;
   border-radius: 6px;
   position: absolute;
   left: 25%;
