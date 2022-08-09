@@ -54,6 +54,7 @@ self.onmessage = ({ data, source }) => {
   } else if (data === "authCheck") {
     console.log("[SW] Returning authentication check ");
     source.postMessage({ authCheck: tokens.access !== null, accountType });
+    //auth check
   } else if (data.accountType) {
     console.log("[SW] Setting account type");
     setAccountType(data.accountType);

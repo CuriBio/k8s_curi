@@ -4,8 +4,9 @@ import Layout from "@/components/layouts/Layout";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { useEffect, createContext, useState } from "react";
 import { useRouter } from "next/router";
+import ModalWidget from "@/components/basicWidgets/ModalWidget";
 
-/* 
+/*
   This theme is to be used with materialUI components
   More colors can be added if desired.
   Colors need to be lable specific to what material UI expects otherwise it will error in tests
@@ -30,6 +31,7 @@ function Pulse({ Component, pageProps }) {
   const router = useRouter();
   const [authCheck, setAuthCheck] = useState(false);
   const [accountType, setAccountType] = useState();
+  const [showLoggedOutAlert, setLoggedOutAlert] = useState(false)
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -47,8 +49,11 @@ function Pulse({ Component, pageProps }) {
         // might need auth check to include actual fetch request in SW to check token status if this becomes a problem
         setAuthCheck(data.authCheck);
         setAccountType(data.accountType);
-        if (!data.authCheck)
+        if (!data.authCheck) {
+          //redirect
           router.replace("/login", undefined, { shallow: true });
+          setLoggedOutAlert(true)
+        }
       });
     }
   }, []);
@@ -91,6 +96,12 @@ function Pulse({ Component, pageProps }) {
     <ThemeProvider theme={MUItheme}>
       <AuthContext.Provider value={{ authCheck, accountType, setAccountType }}>
         <Layout>
+          <ModalWidget
+            open={showLoggedOutAlert}
+            closeModal={() => { setLoggedOutAlert(false) }}
+            header="Attention"
+            labels={["You have been logged out due to inactivity"]}
+          />
           {getLayout(<Component {...pageProps} />, pageProps.data)}
         </Layout>
       </AuthContext.Provider>
