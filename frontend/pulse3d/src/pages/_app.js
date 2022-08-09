@@ -98,9 +98,7 @@ function Pulse({ Component, pageProps }) {
         <Layout>
           <ModalWidget
             open={showLoggedOutAlert}
-            closeModal={() => {
-              setLoggedOutAlert(false);
-            }}
+            closeModal={() => setLoggedOutAlert(false)}
             header="Attention"
             labels={["You have been logged out due to inactivity"]}
           />
