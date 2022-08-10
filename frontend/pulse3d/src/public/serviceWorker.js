@@ -1,7 +1,18 @@
 const PULSE3D_URL = new URLSearchParams(location.search).get("pulse3d_url");
 const USERS_URL = new URLSearchParams(location.search).get("users_url");
 
+/* Global state of SW */
+
 let accountType = null;
+
+const setAccountType = (type) => {
+  accountType = type;
+};
+
+const clearAccountType = () => {
+  accountType = null;
+};
+
 const tokens = {
   access: null,
   refresh: null,
@@ -17,26 +28,19 @@ const clearTokens = () => {
   tokens.refresh = null;
 };
 
-const setAccountType = (type) => {
-  accountType = type;
-};
+/* Request intercept functions */
 
-const clearAccountType = () => {
-  accountType = null;
-};
-
-
-const getUrl = (pathname) => {
+const getUrl = ({ pathname, search }) => {
   const user_urls = ["/login", "/logout", "/refresh", "/register"];
   let url = user_urls.includes(pathname) ? USERS_URL : PULSE3D_URL;
-  return new URL(`${url}${pathname}`);
+  return new URL(`${url}${pathname}${search}`);
 };
 
 const isLoginRequest = (url) => {
   return url.pathname === "/login";
 };
 
-const modifyRequest = (req, url) => {
+const modifyRequest = async (req, url) => {
   // setup new headers
   const headers = new Headers({
     ...req.headers,
@@ -54,14 +58,14 @@ const modifyRequest = (req, url) => {
   });
 
   return modifiedReq;
-}
+};
 
 const handleRefreshRequest = async () => {
   console.log("[SW] Requesting new tokens in handleRefreshRequest");
 
   let res = null;
   try {
-    res = await fetch(getUrl("/refresh"), {
+    res = await fetch(getUrl({ pathname: "/refresh", search: "" }), {
       method: "POST",
       body: JSON.stringify({}),
       headers: { Authorization: `Bearer ${tokens.refresh}` },
@@ -85,7 +89,7 @@ const handleRefreshRequest = async () => {
 const requestWithRefresh = async (req, url) => {
   const safeRequest = async () => {
     try {
-      const modifiedReq = modifyRequest(req, url);
+      const modifiedReq = await modifyRequest(req, url);
       return await fetch(modifiedReq);
     } catch (e) {
       return JSON.stringify(e.message);
@@ -110,7 +114,7 @@ const requestWithRefresh = async (req, url) => {
 
 const interceptResponse = async (req, url) => {
   if (isLoginRequest(url)) {
-    const modifiedReq = modifyRequest(req, url);
+    const modifiedReq = await modifyRequest(req, url);
     const response = await fetch(modifiedReq);
     if (response.status === 200) {
       // set tokens if login was successful
@@ -133,7 +137,7 @@ const interceptResponse = async (req, url) => {
   }
 };
 
-/* Event Listeners */
+/* Event listeners of SW */
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
