@@ -91,8 +91,11 @@ export default function Uploads() {
   };
 
   useEffect(() => {
-    if (uploads.length > 0) getAllJobs();
-    else setIsLoading(false);
+    getAllJobs();
+    // start 10 second interval 
+    const uploadsInterval = setInterval(() => getAllJobs(), [1e4]);
+    // clear interval when switching pages
+    return () => clearInterval(uploadsInterval);
   }, [uploads]);
 
   const handleChangePage = (e, newPage) => {
@@ -142,9 +145,7 @@ export default function Uploads() {
           // protects against uploads performed before dropping filename from upload meta field
           // hopefully remove this once internal users aren't using test site
           const uploadedFilename =
-            upload && upload.filename
-              ? upload.filename
-              : JSON.parse(upload.meta).filename;
+            upload && upload.filename ? upload.filename : "";
 
           const analyzedFile = object_key
             ? object_key.split("/")[object_key.split("/").length - 1]
@@ -177,7 +178,7 @@ export default function Uploads() {
       setRows([...nameDateRows]);
       setIsLoading(false);
     }
-  }, [jobs, uploads]);
+  }, [jobs]);
 
   useEffect(() => {
     formatUploads();

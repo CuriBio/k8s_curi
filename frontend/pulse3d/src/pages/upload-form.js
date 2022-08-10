@@ -33,7 +33,7 @@ const Header = styled.h2`
 const Uploads = styled.div`
   width: 100%;
   min-width: 1000px;
-  height: 870px;
+  height: 1000px;
   border: solid;
   border-color: var(--dark-gray);
   border-width: 2px;
@@ -92,6 +92,8 @@ export default function UploadForm() {
   const [tabSelection, setTabSelection] = useState(query.id);
   const [modalState, setModalState] = useState(false);
   const [analysisParams, setAnalysisParams] = useState({
+    prominenceFactor: "",
+    widthFactor: "",
     twitchWidths: "",
     startTime: "",
     endTime: "",
@@ -143,6 +145,8 @@ export default function UploadForm() {
   const resetState = () => {
     setFiles([]);
     setAnalysisParams({
+      prominenceFactor: "",
+      widthFactor: "",
       twitchWidths: "",
       startTime: "",
       endTime: "",
@@ -155,11 +159,13 @@ export default function UploadForm() {
 
   const postNewJob = async (uploadId, filename) => {
     try {
-      const { twitchWidths, startTime, endTime } = analysisParams;
+      const { prominenceFactor, widthFactor, twitchWidths, startTime, endTime } = analysisParams;
       const jobResponse = await fetch("https://curibio.com/jobs", {
         method: "POST",
         body: JSON.stringify({
           upload_id: uploadId,
+          prominence_factors: prominenceFactor === "" ? null : prominenceFactor,
+          width_factors: widthFactor === "" ? null : widthFactor,
           twitch_widths: twitchWidths === "" ? null : twitchWidths,
           start_time: startTime === "" ? null : startTime,
           end_time: endTime === "" ? null : endTime,
@@ -190,16 +196,15 @@ export default function UploadForm() {
           const zip = new JSZip();
           const { files } = await zip.loadAsync(file);
 
-          const onlyOneDir =
-            Object.values(files).filter(({ dir }) => dir).length === 1;
-
+          const dirs = Object.values(files).filter(({ dir }) => dir);
+          const onlyOneRec = dirs.length === 0 || dirs.length === 1;
           const contains48WellFiles =
             Object.keys(files).filter(
               (filename) =>
                 filename.includes(".h5") && !filename.includes("__MACOSX")
             ).length === 48;
 
-          return !onlyOneDir || !contains48WellFiles;
+          return !onlyOneRec || !contains48WellFiles;
         } catch (e) {
           console.log(`ERROR unable to read zip file: ${file.name} ${e}`);
           return true;
@@ -233,18 +238,9 @@ export default function UploadForm() {
       setInProgress(true);
 
       for (const file of files) {
-        if (uploads.includes(file)) await postNewJob(file.id, file.filename);
-        else if (file instanceof File && formattedUploads.includes(file.name)) {
-          console.log(
-            "Existing upload found, skipping file upload and creating new job"
-          );
-
-          const existing_file = uploads.find(
-            ({ filename }) => filename === file.name
-          );
-
-          await postNewJob(existing_file.id, existing_file.filename);
-        } else if (file instanceof File) await uploadFile(file);
+        if (file instanceof File) await uploadFile(file);
+        else if (uploads.includes(file))
+          await postNewJob(file.id, file.filename);
       }
 
       // open error modal notifying which files failed if any, otherwise display success text

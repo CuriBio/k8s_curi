@@ -154,19 +154,9 @@ self.onmessage = ({ data, source }) => {
   } else if (data === "authCheck") {
     console.log("[SW] Returning authentication check ");
     source.postMessage({ authCheck: tokens.access !== null, accountType });
+    //auth check
   } else if (data.accountType) {
     console.log("[SW] Setting account type");
     setAccountType(data.accountType);
   }
 };
-// Intercept all fetch requests
-self.addEventListener("fetch", async (e) => {
-  destURL = new URL(e.request.url);
-  // only intercept routes to pulse and user apis
-
-  if (destURL.hostname === "curibio.com") {
-    e.respondWith(interceptResponse(e.request, destURL));
-  } else {
-    e.respondWith(fetch(e.request));
-  }
-});

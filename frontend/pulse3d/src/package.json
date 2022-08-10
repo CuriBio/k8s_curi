@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "export:prod": "echo 'NEXT_PUBLIC_PULSE3D_URL=\"https://pulse3d.curibio.com\" \nNEXT_PUBLIC_USERS_URL=\"https://apiv2.curibio.com/users\"' > .env.production && next build && next export",
-    "export:test": "echo 'NEXT_PUBLIC_PULSE3D_URL=\"https://pulse3d.curibio-test.com\" \nNEXT_PUBLIC_USERS_URL=\"https://apiv2.curibio-test.com/users\"' > .env.production && next build && next export",
+    "export:prod": "echo 'NEXT_PUBLIC_PULSE3D_URL=https://pulse3d.curibio.com \nNEXT_PUBLIC_USERS_URL=https://apiv2.curibio.com/users' > .env.production && next build && next export",
+    "export:test": "echo 'NEXT_PUBLIC_PULSE3D_URL=https://pulse3d.curibio-test.com \nNEXT_PUBLIC_USERS_URL=https://apiv2.curibio-test.com/users' > .env.production && next build && next export",
     "start": "next start",
     "lint": "next lint",
     "test:unit": "jest --watchAll --coverage",
@@ -14,6 +14,9 @@
     "cy:run-only": "cypress run",
     "cy:open": "start-server-and-test dev 3000 cy:open-only",
     "cy:run": "start-server-and-test dev 3000 cy:run-only"
+  },
+  "engines": {
+    "node": "^17.0.0"
   },
   "dependencies": {
     "@emotion/react": "^11.9.0",
