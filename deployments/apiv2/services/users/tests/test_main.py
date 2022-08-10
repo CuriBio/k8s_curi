@@ -274,7 +274,7 @@ def test_register__user__invalid_username(cb_customer_id):
     "contraint_to_violate,expected_error_message",
     [
         ("users_customer_id_name_key", "Username already in use"),
-        ("users_email_key", "Account registration failed"),
+        ("users_email_key", "Email already in use"),
         ("all others", "Account registration failed"),
     ],
 )

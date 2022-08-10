@@ -160,3 +160,13 @@ self.onmessage = ({ data, source }) => {
     setAccountType(data.accountType);
   }
 };
+
+// Intercept all fetch requests
+self.addEventListener("fetch", async (e) => {
+  destURL = new URL(e.request.url);
+  // only intercept routes to pulse and user apis
+
+  if (destURL.hostname === "curibio.com") {
+    e.respondWith(interceptResponse(e.request, destURL));
+  } else e.respondWith(fetch(e.request));
+});
