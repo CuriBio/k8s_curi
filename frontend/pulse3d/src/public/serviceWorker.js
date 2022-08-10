@@ -36,7 +36,7 @@ const isLoginRequest = (url) => {
   return url.pathname === "/login";
 };
 
-const createRequest = (req, url) => {
+const modifyRequest = (req, url) => {
   // setup new headers
   const headers = new Headers({
     ...req.headers,
@@ -85,7 +85,7 @@ const handleRefreshRequest = async () => {
 const requestWithRefresh = async (req, url) => {
   const safeRequest = async () => {
     try {
-      const modifiedReq = createRequest(req, url);
+      const modifiedReq = modifyRequest(req, url);
       return await fetch(modifiedReq);
     } catch (e) {
       return JSON.stringify(e.message);
@@ -110,7 +110,7 @@ const requestWithRefresh = async (req, url) => {
 
 const interceptResponse = async (req, url) => {
   if (isLoginRequest(url)) {
-    const modifiedReq = createRequest(req, url);
+    const modifiedReq = modifyRequest(req, url);
     const response = await fetch(modifiedReq);
     if (response.status === 200) {
       // set tokens if login was successful
