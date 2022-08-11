@@ -20,5 +20,5 @@ COPY ./deployments/pulse3d/services/pulse3d/src/main.py ./
 COPY ./deployments/pulse3d/services/pulse3d/src/core/ ./core
 
 ENV PYTHONUNBUFFERED 1
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-config", "log_config.yaml"]
 

@@ -159,7 +159,13 @@ export default function UploadForm() {
 
   const postNewJob = async (uploadId, filename) => {
     try {
-      const { prominenceFactor, widthFactor, twitchWidths, startTime, endTime } = analysisParams;
+      const {
+        prominenceFactor,
+        widthFactor,
+        twitchWidths,
+        startTime,
+        endTime,
+      } = analysisParams;
       const jobResponse = await fetch("https://curibio.com/jobs", {
         method: "POST",
         body: JSON.stringify({
@@ -238,14 +244,19 @@ export default function UploadForm() {
       setInProgress(true);
 
       for (const file of files) {
-        if (file instanceof File) await uploadFile(file);
-        else if (uploads.includes(file))
+        if (file instanceof File) {
+          await uploadFile(file);
+        } else if (uploads.includes(file)) {
           await postNewJob(file.id, file.filename);
+        }
       }
 
       // open error modal notifying which files failed if any, otherwise display success text
-      if (failedUploadsMsg.length > 1) setModalState(true);
-      else setUploadSuccess(true);
+      if (failedUploadsMsg.length > 1) {
+        setModalState(true);
+      } else {
+        setUploadSuccess(true);
+      }
       setInProgress(false);
     }
   };
@@ -254,75 +265,85 @@ export default function UploadForm() {
     let fileReader = new FileReader();
     const filename = file.name;
 
-    fileReader.onload = async function (e) {
-      if (file.size != e.target.result.byteLength) {
+    try {
+      let fileHash;
+      try {
+        // Tanner (8/11/21): Need to use a promise here since FileReader API does not support using async functions, only callbacks
+        fileHash = await new Promise((resolve, reject) => {
+          fileReader.onload = function (e) {
+            if (file.size != e.target.result.byteLength) {
+              console.log(
+                "ERROR:</strong> Browser reported success but could not read the file until the end."
+              );
+              reject();
+            }
+
+            resolve(SparkMD5.ArrayBuffer.hash(e.target.result));
+          };
+
+          fileReader.onerror = function () {
+            console.log(
+              "ERROR: FileReader onerror was triggered, maybe the browser aborted due to high memory usage."
+            );
+            reject();
+          };
+
+          fileReader.readAsArrayBuffer(file);
+        });
+      } catch (e) {
+        failedUploadsMsg.push(filename);
+        return;
+      }
+
+      const uploadResponse = await fetch("https://curibio.com/uploads", {
+        method: "POST",
+        body: JSON.stringify({
+          filename,
+          md5s: hexToBase64(fileHash),
+          upload_type: "mantarray",
+        }),
+      });
+
+      // break flow if initial request returns error status code
+      if (uploadResponse.status !== 200) {
+        failedUploadsMsg.push(filename);
         console.log(
-          "ERROR:</strong> Browser reported success but could not read the file until the end."
+          "ERROR uploading file metadata to DB:  ",
+          await uploadResponse.json()
         );
         return;
       }
 
-      try {
-        let hash = SparkMD5.ArrayBuffer.hash(e.target.result);
-        const uploadResponse = await fetch("https://curibio.com/uploads", {
-          method: "POST",
-          body: JSON.stringify({
-            filename,
-            md5s: hexToBase64(hash),
-            upload_type: "mantarray",
-          }),
-        });
+      const data = await uploadResponse.json();
+      const uploadDetails = data.params;
+      const uploadId = data.id;
+      const formData = new FormData();
 
-        // break flow if initial request returns error status code
-        if (uploadResponse.status !== 200) {
-          failedUploadsMsg.push(filename);
-          console.log(
-            "ERROR uploading file metadata to DB:  ",
-            await uploadResponse.json()
-          );
-          return;
-        }
+      Object.entries(uploadDetails.fields).forEach(([k, v]) => {
+        formData.append(k, v);
+      });
 
-        const data = await uploadResponse.json();
-        const uploadDetails = data.params;
-        const uploadId = data.id;
-        const formData = new FormData();
+      formData.append("file", file);
 
-        Object.entries(uploadDetails.fields).forEach(([k, v]) => {
-          formData.append(k, v);
-        });
+      const uploadPostRes = await fetch(uploadDetails.url, {
+        method: "POST",
+        body: formData,
+      });
 
-        formData.append("file", file);
-
-        const uploadPostRes = await fetch(uploadDetails.url, {
-          method: "POST",
-          body: formData,
-        });
-
-        if (uploadPostRes.status === 204) {
-          await postNewJob(uploadId, filename);
-        } else {
-          failedUploadsMsg.push(filename);
-          console.log(
-            "ERROR uploading file to s3:  ",
-            await uploadPostRes.json()
-          );
-        }
-      } catch (e) {
-        // catch all if service worker isn't working
-        console.log("ERROR posting to presigned url");
+      if (uploadPostRes.status === 204) {
+        await postNewJob(uploadId, filename);
+      } else {
         failedUploadsMsg.push(filename);
+        console.log(
+          "ERROR uploading file to s3:  ",
+          await uploadPostRes.json()
+        );
       }
-    };
-
-    fileReader.onerror = function () {
-      console.log(
-        "ERROR: FileReader onerror was triggered, maybe the browser aborted due to high memory usage."
-      );
-      return;
-    };
-
-    fileReader.readAsArrayBuffer(file);
+    } catch (e) {
+      // catch all if service worker isn't working
+      console.log("ERROR posting to presigned url");
+      failedUploadsMsg.push(filename);
+    }
   };
 
   const handleDropDownSelect = (idx) => {
