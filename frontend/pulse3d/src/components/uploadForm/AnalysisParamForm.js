@@ -190,7 +190,6 @@ export default function AnalysisParamForm({
     const max = updatedParams.prominenceFactorMax
     if (isValidPositiveNumber(min) && isValidPositiveNumber(max)) {
       if (!(parseFloat(min) < parseFloat(max))) {
-        console.log("err")
         setParamErrors({
           ...paramErrors,
           prominenceFactorMin: "* min must be smaller than max",
@@ -201,7 +200,6 @@ export default function AnalysisParamForm({
           prominenceFactorMin: "",
         });
       }
-      console.log(paramErrors)
     }
   }
   const validateWidthEquality = (updatedParams) => {
@@ -209,7 +207,6 @@ export default function AnalysisParamForm({
     const max = updatedParams.widthFactorMax
     if (isValidPositiveNumber(min) && isValidPositiveNumber(max)) {
       if (!(parseFloat(min) < parseFloat(max))) {
-        console.log("err")
         setParamErrors({
           ...paramErrors,
           widthFactorMin: "* min must be smaller than max",
@@ -220,7 +217,6 @@ export default function AnalysisParamForm({
           widthFactorMin: "",
         });
       }
-      console.log(paramErrors)
     }
   }
 
@@ -277,7 +273,6 @@ export default function AnalysisParamForm({
 
   const validateWidthFactorMin = (updatedParams) => {
     const newValue = updatedParams.widthFactorMin
-    console.log(newValue)
     if (newValue === null || newValue === "") {
       setParamErrors({
         ...paramErrors,

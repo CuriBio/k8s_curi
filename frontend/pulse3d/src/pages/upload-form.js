@@ -173,7 +173,6 @@ export default function UploadForm() {
   const postNewJob = async (uploadId, filename) => {
     try {
       const { prominenceFactorMin, prominenceFactorMax, widthFactorMin, widthFactorMax, twitchWidths, startTime, endTime } = analysisParams;
-      console.log(formatedAdvancedParams(prominenceFactorMin, prominenceFactorMax))
       const jobResponse = await fetch("https://curibio.com/jobs", {
         method: "POST",
         body: JSON.stringify({
