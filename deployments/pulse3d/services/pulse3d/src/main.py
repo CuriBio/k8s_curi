@@ -15,7 +15,9 @@ from utils.db import AsyncpgPoolDep
 from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error
 
 
-logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
+logging.basicConfig(
+    format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S"
+)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(openapi_url=None)
@@ -35,8 +37,12 @@ class UploadResponse(BaseModel):
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
-    prominence_factors:Optional[Union [Tuple [Union [int,float]], List[Union[int,float]],int,float]]
-    width_factors:Optional[Union [Tuple [Union [int,float]], List[Union[int,float]],int,float]]
+    prominence_factors: Optional[
+        Union[Tuple[Union[int, float]], List[Union[int, float]], int, float]
+    ]
+    width_factors: Optional[
+        Union[Tuple[Union[int, float]], List[Union[int, float]], int, float]
+    ]
 
     twitch_widths: Optional[List[int]]
     start_time: Optional[Union[int, float]]
@@ -90,7 +96,9 @@ async def get_info_of_uploads(
 
 @app.post("/uploads", response_model=UploadResponse)
 async def create_recording_upload(
-    request: Request, details: UploadRequest, token=Depends(ProtectedAny(scope=["users:free"]))
+    request: Request,
+    details: UploadRequest,
+    token=Depends(ProtectedAny(scope=["users:free"])),
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
@@ -110,7 +118,11 @@ async def create_recording_upload(
                 upload_id = await create_upload(con=con, upload_params=upload_params)
 
                 params = _generate_presigned_post(
-                    user_id, customer_id, details, PULSE3D_UPLOADS_BUCKET, upload_id=upload_id
+                    user_id,
+                    customer_id,
+                    details,
+                    PULSE3D_UPLOADS_BUCKET,
+                    upload_id=upload_id,
                 )
 
                 return UploadResponse(id=upload_id, params=params)
@@ -126,12 +138,16 @@ async def create_recording_upload(
 # TODO Tanner (4/21/22): probably want to move this to a more general svc (maybe in apiv2-dep) dedicated to uploading misc files to s3
 @app.post("/logs")
 async def create_log_upload(
-    request: Request, details: UploadRequest, token=Depends(ProtectedAny(scope=["users:free"]))
+    request: Request,
+    details: UploadRequest,
+    token=Depends(ProtectedAny(scope=["users:free"])),
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
         customer_id = str(uuid.UUID(token["customer_id"]))
-        params = _generate_presigned_post(user_id, customer_id, details, MANTARRAY_LOGS_BUCKET)
+        params = _generate_presigned_post(
+            user_id, customer_id, details, MANTARRAY_LOGS_BUCKET
+        )
         # TODO define a response model for logs
         return {"params": params}
     except S3Error as e:
@@ -186,9 +202,13 @@ async def get_info_of_jobs(
                     if obj_key:
                         logger.info(f"Generating presigned download url for {obj_key}")
                         try:
-                            job_info["url"] = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, obj_key)
+                            job_info["url"] = generate_presigned_url(
+                                PULSE3D_UPLOADS_BUCKET, obj_key
+                            )
                         except Exception as e:
-                            logger.error(f"Error generating presigned url for {obj_key}: {str(e)}")
+                            logger.error(
+                                f"Error generating presigned url for {obj_key}: {str(e)}"
+                            )
                             job_info["url"] = "Error creating download link"
                     else:
                         job_info["url"] = None
@@ -208,11 +228,15 @@ async def get_info_of_jobs(
 
 @app.post("/jobs")
 async def create_new_job(
-    request: Request, details: JobRequest, token=Depends(ProtectedAny(scope=["users:free"]))
+    request: Request,
+    details: JobRequest,
+    token=Depends(ProtectedAny(scope=["users:free"])),
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
-        logger.info(f"Creating pulse3d job for upload {details.upload_id} with user ID: {user_id}")
+        logger.info(
+            f"Creating pulse3d job for upload {details.upload_id} with user ID: {user_id}"
+        )
 
         meta = {
             "analysis_params": {
@@ -227,17 +251,25 @@ async def create_new_job(
             }
         }
 
-        #convert FE output to pulse3dInput
-        #done for width and prominece factors
-        meta["analysis_params"]["prominence_factors"] = _format_advanced_options(meta["analysis_params"]["prominence_factors"])
-        meta["analysis_params"]["width_factors"] = _format_advanced_options(meta["analysis_params"]["width_factors"])
+        # convert FE output to pulse3dInput
+        # done for width and prominece factors
+        meta["analysis_params"]["prominence_factors"] = _format_advanced_options(
+            meta["analysis_params"]["prominence_factors"]
+        )
+        meta["analysis_params"]["width_factors"] = _format_advanced_options(
+            meta["analysis_params"]["width_factors"]
+        )
 
         logger.info(f"Using params: {meta['analysis_params']}")
 
         async with request.state.pgpool.acquire() as con:
             priority = 10
             job_id = await create_job(
-                con=con, upload_id=details.upload_id, queue="pulse3d", priority=priority, meta=meta
+                con=con,
+                upload_id=details.upload_id,
+                queue="pulse3d",
+                priority=priority,
+                meta=meta,
             )
 
             # TODO create response model
@@ -253,13 +285,14 @@ async def create_new_job(
         logger.exception(f"Failed to create job: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-def _format_advanced_options(option:List[Union[float,int]]):
+
+def _format_advanced_options(option: List[Union[float, int]]):
     if option == None:
         return None
-    #if only min is passed return a the min number
+    # if only min is passed return a the min number
     if len(option) == 1:
         return option[0]
-    #if both numbers are passed return a tuple
+    # if both numbers are passed return a tuple
     elif len(option) == 2:
-        return(option[0],option[1])
+        return (option[0], option[1])
     print("Error")
