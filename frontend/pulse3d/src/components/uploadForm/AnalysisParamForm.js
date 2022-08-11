@@ -7,7 +7,6 @@ const Container = styled.div`
   padding-top:1rem;
   left: 5%;
   top: 12%;
-  height: 50%;
   width: 90%;
   position: relative;
   display: flex;
@@ -18,14 +17,21 @@ const Container = styled.div`
   border-width: 2px;
   border-radius: 7px;
   background-color: var(--light-gray);
+  margin:5rem 0 ;
 `;
 
+const TwoParamContainer = styled.div`
+display: flex;
+flex-direction: column;
+height:100%;
+`
 const ParamContainer = styled.div`
   display: flex;
   flex-direction: row;
   overflow: visible;
   height: 70px;
   padding-top: 15px;
+  height:10rem;
 `;
 
 const InputContainer = styled.div`
@@ -37,29 +43,28 @@ const InputContainer = styled.div`
 `;
 
 const WindowAnalysisContainer = styled.div`
-  margin-top:50px;
-  margin-bottom: 20px;
   border: 2px solid var(--dark-gray);
-  height: 47%;
   border-radius: 5px;
   width: 60%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  margin:.5rem 0 2rem 0;
+`;
+const AdvancedAnalysisContainer = styled.div`
+border: 2px solid var(--dark-gray);
+border-radius: 5px;
+width: 60%;
+margin-top:.5rem;
+height:100%;
 `;
 
 const WAOverlay = styled.div`
   border-radius: 5px;
-  background-color: black;
   z-index: 2;
-  border-radius: 5px;
-  width: 53.8%;
-  position: absolute;
-  height: 42%;
+  width:100%;
+  height:100%;
   background-color: var(--dark-gray);
   opacity: 0.6;
+  position:absolute;
 `;
-
 const Label = styled.label`
   width: 102%;
   position: relative;
@@ -81,6 +86,17 @@ const ErrorText = styled.span`
   font-size: 13px;
 `;
 
+const WAOverlayContainer = styled.div`
+position:relative;
+z-index:2;
+width:100%;
+height:100%;
+display:flex;
+flex-flow:column;
+align-items:center;
+justify-content:end;
+`
+
 const InputErrorContainer = styled.div`
   display: flex;
   flex-direction: column;
@@ -88,20 +104,23 @@ const InputErrorContainer = styled.div`
   overflow: visible;
 `;
 
+const FormModify = styled.div`
+  display:flex;
+  width:400px;
+`
+
 const WALabel = styled.span`
   background-color: var(--light-gray);
   bottom: 43%;
   border-radius: 6px;
-  position: absolute;
-  left: 25%;
   display: flex;
-  flex-direction: row;
   align-items: center;
   width: 195px;
   font-size: 14px;
-  z-index: 3;
+  z-index: 1;
   border: 2px solid var(--dark-gray);
   cursor: default;
+  z-index:3;
 `;
 
 const AdditionalParamLabel = styled.span`
@@ -126,9 +145,11 @@ const AdditionalParamLabel = styled.span`
 export default function AnalysisParamForm({
   inputVals,
   errorMessages,
-  checked,
-  setChecked,
+  checkedWindow,
+  setCheckedWindow,
   setAnalysisParams,
+  checkedAdvanced,
+  setCheckedAdvanced,
   paramErrors,
   setParamErrors,
   analysisParams,
@@ -143,65 +164,153 @@ export default function AnalysisParamForm({
       // need to validate start and end time together
       validateWindowBounds(updatedParams);
     }
-    if (newParams.prominenceFactor !== undefined) {
-      validateProminenceFactor(updatedParams);
+    if (newParams.prominenceFactorMin !== undefined) {
+      validateProminenceFactorMin(updatedParams);
     }
-    if (newParams.widthFactor !== undefined) {
-      validateWidthFactor(updatedParams)
+    if (newParams.prominenceFactorMax !== undefined) {
+      validateProminenceFactorMax(updatedParams);
+    }
+    if (newParams.widthFactorMin !== undefined) {
+      validateWidthFactorMin(updatedParams)
+    }
+    if (newParams.widthFactorMax !== undefined) {
+      validateWidthFactorMax(updatedParams)
+    }
+    if (newParams.prominenceFactorMin !== "" && newParams.prominenceFactorMax !== "") {
+      validateProminenceEquality(updatedParams)
+    }
+    if (newParams.widthFactorMin !== "" && newParams.widthFactorMax !== "") {
+      validateWidthEquality(updatedParams)
     }
     setAnalysisParams(updatedParams);
   };
 
-  const validateTuple = (userInput) => {
-    const tuple = userInput.split(",")
-    //check there are only two entrees
-    if (tuple.length !== 2) {
+  const validateProminenceEquality = (updatedParams) => {
+    const min = updatedParams.prominenceFactorMin
+    const max = updatedParams.prominenceFactorMax
+    if (isValidPositiveNumber(min) && isValidPositiveNumber(max)) {
+      if (!(parseFloat(min) < parseFloat(max))) {
+        console.log("err")
+        setParamErrors({
+          ...paramErrors,
+          prominenceFactorMin: "* min must be smaller than max",
+        });
+      } else {
+        setParamErrors({
+          ...paramErrors,
+          prominenceFactorMin: "",
+        });
+      }
+      console.log(paramErrors)
+    }
+  }
+  const validateWidthEquality = (updatedParams) => {
+    const min = updatedParams.widthFactorMin
+    const max = updatedParams.widthFactorMax
+    if (isValidPositiveNumber(min) && isValidPositiveNumber(max)) {
+      if (!(parseFloat(min) < parseFloat(max))) {
+        console.log("err")
+        setParamErrors({
+          ...paramErrors,
+          widthFactorMin: "* min must be smaller than max",
+        });
+      } else {
+        setParamErrors({
+          ...paramErrors,
+          widthFactorMin: "",
+        });
+      }
+      console.log(paramErrors)
+    }
+  }
+
+  const isValidPositiveNumber = (value) => {
+    //check it is a number
+    if (isNaN(parseFloat(value))) {
       return false
     }
-    //check both entrees are numbers
-    try {
-      parseFloat(tuple[0])
-      parseFloat(tuple[1])
-    } catch (e) {
-      return false
-    }
-    //check both entrees are bigger than 0
-    if (!(tuple[0] > 0) || !(tuple[1] > 0)) {
+    //check if it is a positive number
+    if (parseFloat(value) < 0) {
       return false
     }
     return true
   }
 
-  const validateProminenceFactor = (updatedParams) => {
-    if (validateTuple(updatedParams.prominenceFactor)) {
-      setParamErrors({ ...paramErrors, prominenceFactor: "" });
-      updatedParams.prominenceFactor = [updatedParams.prominenceFactor.split(",")[0], updatedParams.prominenceFactor.split(",")[1]]
-    } else if (updatedParams.prominenceFactor === null || updatedParams.prominenceFactor === "") {
+  const validateProminenceFactorMin = (updatedParams) => {
+    const newValue = updatedParams.prominenceFactorMin
+    if (newValue === null || newValue === "") {
       setParamErrors({
         ...paramErrors,
-        prominenceFactor: "",
+        prominenceFactorMin: "",
+      });
+    } else if (isValidPositiveNumber(newValue)) {
+      setParamErrors({
+        ...paramErrors,
+        prominenceFactorMin: "",
       });
     } else {
       setParamErrors({
         ...paramErrors,
-        prominenceFactor: "*Must be two comma-separated, positive numbers",
+        prominenceFactorMin: "* Must be a positive number",
+      });
+    }
+  }
+  const validateProminenceFactorMax = (updatedParams) => {
+    const newValue = updatedParams.prominenceFactorMax
+    if (newValue === null || newValue === "") {
+      setParamErrors({
+        ...paramErrors,
+        prominenceFactorMax: "",
+      });
+    } else if (isValidPositiveNumber(newValue)) {
+      setParamErrors({
+        ...paramErrors,
+        prominenceFactorMax: "",
+      });
+    } else {
+      setParamErrors({
+        ...paramErrors,
+        prominenceFactorMax: "* Must be a positive number",
       });
     }
   }
 
-  const validateWidthFactor = (updatedParams) => {
-    if (validateTuple(updatedParams.widthFactor)) {
-      setParamErrors({ ...paramErrors, widthFactor: "" });
-      updatedParams.widthFactor = [updatedParams.widthFactor.split(",")[0], updatedParams.widthFactor.split(",")[1]]
-    } else if (updatedParams.widthFactor === null || updatedParams.widthFactor === "") {
+  const validateWidthFactorMin = (updatedParams) => {
+    const newValue = updatedParams.widthFactorMin
+    console.log(newValue)
+    if (newValue === null || newValue === "") {
       setParamErrors({
         ...paramErrors,
-        widthFactor: "",
+        widthFactorMin: "",
+      });
+    } else if (isValidPositiveNumber(newValue)) {
+      setParamErrors({
+        ...paramErrors,
+        widthFactorMin: "",
       });
     } else {
       setParamErrors({
         ...paramErrors,
-        widthFactor: "*Must be two comma-separated, positive numbers",
+        widthFactorMin: "* Must be a positive number",
+      });
+    }
+  }
+  const validateWidthFactorMax = (updatedParams) => {
+    const newValue = updatedParams.widthFactorMax
+    if (newValue === null || newValue === "") {
+      setParamErrors({
+        ...paramErrors,
+        widthFactorMax: "",
+      });
+    } else if (isValidPositiveNumber(newValue)) {
+      setParamErrors({
+        ...paramErrors,
+        widthFactorMax: "",
+      });
+    } else {
+      setParamErrors({
+        ...paramErrors,
+        widthFactorMax: "* Must be a positive number",
       });
     }
   }
@@ -282,44 +391,6 @@ export default function AnalysisParamForm({
       </AdditionalParamLabel>
       <InputContainer>
         <ParamContainer style={{ width: "60%" }}>
-          <Label htmlFor="prominenceFactor">Prominence Factor (min, max):</Label>
-          <InputErrorContainer>
-            <FormInput
-              name="prominenceFactor"
-              placeholder={"6, 6"}
-              value={inputVals.prominenceFactor}
-              onChangeFn={(e) => {
-                updateParams({
-                  prominenceFactor: e.target.value,
-                });
-              }}
-            >
-              <ErrorText id="prominenceFactorError" role="errorMsg">
-                {errorMessages.prominenceFactor}
-              </ErrorText>
-            </FormInput>
-          </InputErrorContainer>
-        </ParamContainer>
-        <ParamContainer style={{ width: "60%" }}>
-          <Label htmlFor="widthFactor">Width Factor (min, max):</Label>
-          <InputErrorContainer>
-            <FormInput
-              name="widthFactor"
-              placeholder={"7, 7"}
-              value={inputVals.widthFactor}
-              onChangeFn={(e) => {
-                updateParams({
-                  widthFactor: e.target.value,
-                });
-              }}
-            >
-              <ErrorText id="widthFactorError" role="errorMsg">
-                {errorMessages.widthFactor}
-              </ErrorText>
-            </FormInput>
-          </InputErrorContainer>
-        </ParamContainer>
-        <ParamContainer style={{ width: "60%" }}>
           <Label htmlFor="twitchWidths">Twitch Width:</Label>
           <InputErrorContainer>
             <FormInput
@@ -338,56 +409,152 @@ export default function AnalysisParamForm({
             </FormInput>
           </InputErrorContainer>
         </ParamContainer>
+        <WALabel>
+          <CheckboxWidget
+            color={"secondary"}
+            size={"small"}
+            handleCheckbox={(checkedWindow) => setCheckedWindow(checkedWindow)}
+            checkedState={checkedWindow}
+          />
+          Use Window Analysis
+        </WALabel>
         <WindowAnalysisContainer>
-          <WALabel>
-            <CheckboxWidget
-              color={"secondary"}
-              size={"small"}
-              handleCheckbox={(checked) => setChecked(checked)}
-              checkedState={checked}
-            />
-            Use Window Analysis
-          </WALabel>
-          {checked || <WAOverlay />}
-          <ParamContainer>
-            <Label htmlFor="startTime">Start Time (s):</Label>
-            <InputErrorContainer>
-              <FormInput
-                name="startTime"
-                placeholder={checked ? "0" : ""}
-                value={!checked ? "" : inputVals.startTime}
-                onChangeFn={(e) => {
-                  updateParams({
-                    startTime: e.target.value,
-                  });
-                }}
-              >
-                <ErrorText id="startTimeError" role="errorMsg">
-                  {errorMessages.startTime}
-                </ErrorText>
-              </FormInput>
-            </InputErrorContainer>
-          </ParamContainer>
-          <ParamContainer>
-            <Label htmlFor="endTime">End Time (s):</Label>
-            <InputErrorContainer>
-              <FormInput
-                name="endTime"
-                placeholder={checked ? "(End of recording)" : ""}
-                value={!checked ? "" : inputVals.endTime}
-                onChangeFn={(e) => {
-                  updateParams({
-                    endTime: e.target.value,
-                  });
-                }}
-              >
-                <ErrorText id="endTimeError" role="errorMsg">
-                  {errorMessages.endTime}
-                </ErrorText>
-              </FormInput>
-            </InputErrorContainer>
-          </ParamContainer>
+          <WAOverlayContainer>
+            {checkedWindow || <WAOverlay />}
+            <ParamContainer>
+              <Label htmlFor="startTime">Start Time (s):</Label>
+              <InputErrorContainer>
+                <FormInput
+                  name="startTime"
+                  placeholder={checkedWindow ? "0" : ""}
+                  value={!checkedWindow ? "" : inputVals.startTime}
+                  onChangeFn={(e) => {
+                    updateParams({
+                      startTime: e.target.value,
+                    });
+                  }}
+                >
+                  <ErrorText id="startTimeError" role="errorMsg">
+                    {errorMessages.startTime}
+                  </ErrorText>
+                </FormInput>
+              </InputErrorContainer>
+            </ParamContainer>
+            <ParamContainer>
+              <Label htmlFor="endTime">End Time (s):</Label>
+              <InputErrorContainer>
+                <FormInput
+                  name="endTime"
+                  placeholder={checkedWindow ? "(End of recording)" : ""}
+                  value={!checkedWindow ? "" : inputVals.endTime}
+                  onChangeFn={(e) => {
+                    updateParams({
+                      endTime: e.target.value,
+                    });
+                  }}
+                >
+                  <ErrorText id="endTimeError" role="errorMsg">
+                    {errorMessages.endTime}
+                  </ErrorText>
+                </FormInput>
+              </InputErrorContainer>
+            </ParamContainer>
+          </WAOverlayContainer>
         </WindowAnalysisContainer>
+        <WALabel>
+          <CheckboxWidget
+            color={"secondary"}
+            size={"small"}
+            handleCheckbox={(checkedAdvanced) => setCheckedAdvanced(checkedAdvanced)}
+            checkedState={checkedAdvanced}
+          />
+          Use Advanced Analysis
+        </WALabel>
+        <AdvancedAnalysisContainer>
+          <WAOverlayContainer>
+            {checkedAdvanced || <WAOverlay />}
+            <TwoParamContainer>
+              <Label htmlFor="prominenceFactorMin">Prominence (uN):</Label>
+              <InputErrorContainer>
+                <label htmlFor="prominenceFactorMin">min</label>
+                <FormModify>
+                  <FormInput
+                    name="prominenceFactorMin"
+                    placeholder={checkedAdvanced ? "0" : ""}
+                    value={!checkedAdvanced ? "" : inputVals.prominenceFactorMin}
+                    onChangeFn={(e) => {
+                      updateParams({
+                        prominenceFactorMin: e.target.value,
+                      });
+                    }}
+                  >
+                    <ErrorText id="prominenceFactorMinError" role="errorMsg">
+                      {errorMessages.prominenceFactorMin}
+                    </ErrorText>
+                  </FormInput>
+                </FormModify>
+                <label htmlFor="prominenceFactorMax">max</label>
+                <FormModify>
+                  <FormInput
+                    name="prominenceFactorMax"
+                    placeholder={checkedAdvanced ? "100" : ""}
+                    value={!checkedAdvanced ? "" : inputVals.prominenceFactorMax}
+                    onChangeFn={(e) => {
+                      updateParams({
+                        prominenceFactorMax: e.target.value,
+                      });
+                    }}
+                  >
+                    <ErrorText id="prominenceFactorMaxError" role="errorMsg">
+                      {errorMessages.prominenceFactorMax}
+                    </ErrorText>
+                  </FormInput>
+                </FormModify>
+
+              </InputErrorContainer>
+            </TwoParamContainer>
+            <TwoParamContainer>
+              <Label htmlFor="widthFactorMin">Width (ms):</Label>
+              <InputErrorContainer>
+                <label htmlFor="widthFactorMin">min</label>
+                <FormModify>
+                  <FormInput
+                    name="widthFactorMin"
+                    placeholder={checkedAdvanced ? "0" : ""}
+                    value={!checkedAdvanced ? "" : inputVals.widthFactorMin}
+                    onChangeFn={(e) => {
+                      updateParams({
+                        widthFactorMin: e.target.value,
+                      });
+                    }}
+                  >
+                    <ErrorText id="widthFactorMinError" role="errorMsg">
+                      {errorMessages.widthFactorMin}
+                    </ErrorText>
+
+                  </FormInput>
+                </FormModify>
+                <label htmlFor="widthFactorMax">max</label>
+                <FormModify>
+                  <FormInput
+                    name="widthFactorMax"
+                    placeholder={checkedAdvanced ? "100" : ""}
+                    value={!checkedAdvanced ? "" : inputVals.widthFactorMax}
+                    onChangeFn={(e) => {
+                      updateParams({
+                        widthFactorMax: e.target.value,
+                      });
+                    }}
+                  >
+                    <ErrorText id="widthFactorMaxError" role="errorMsg">
+                      {errorMessages.widthFactorMax}
+                    </ErrorText>
+                  </FormInput>
+                </FormModify>
+              </InputErrorContainer>
+            </TwoParamContainer>
+          </WAOverlayContainer>
+        </AdvancedAnalysisContainer>
       </InputContainer>
     </Container>
   );

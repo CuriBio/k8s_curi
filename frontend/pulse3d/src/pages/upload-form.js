@@ -33,7 +33,6 @@ const Header = styled.h2`
 const Uploads = styled.div`
   width: 100%;
   min-width: 1000px;
-  height: 1000px;
   border: solid;
   border-color: var(--dark-gray);
   border-width: 2px;
@@ -67,6 +66,7 @@ const DropDownContainer = styled.div`
   height: 17%;
   align-items: center;
   top: 5%;
+  margin-top:1rem;
 `;
 
 const dropZoneText = "CLICK HERE or DROP single recording ZIP files";
@@ -88,7 +88,8 @@ export default function UploadForm() {
     defaultUploadErrorLabel,
   ]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [checked, setChecked] = useState(false);
+  const [checkedWindow, setCheckedWindow] = useState(false);
+  const [checkedAdvanced, setCheckedAdvanced] = useState(false);
   const [tabSelection, setTabSelection] = useState(query.id);
   const [modalState, setModalState] = useState(false);
   const [analysisParams, setAnalysisParams] = useState({
@@ -145,33 +146,45 @@ export default function UploadForm() {
   const resetState = () => {
     setFiles([]);
     setAnalysisParams({
-      prominenceFactor: "",
-      widthFactor: "",
+      prominenceFactorMin: "",
+      prominenceFactorMax: "",
+      widthFactorMin: "",
+      widthFactorMax: "",
       twitchWidths: "",
       startTime: "",
       endTime: "",
     });
     setFailedUploadsMsg([defaultUploadErrorLabel]);
     setModalButtons(["Close"]);
-    setChecked(false);
+    setCheckedWindow(false);
     setParamErrors({});
   };
 
+  //format the advanced params into a list of two numbers
+  const formatedAdvancedParams = (min, max) => {
+    if (min !== "" && max !== "") {
+      return [min, max]
+    } else if (min !== "" && max === "") {
+      return [min]
+    } else if (min === "" && max !== "") {
+      return [0, max]
+    }
+  }
   const postNewJob = async (uploadId, filename) => {
     try {
-      const { prominenceFactor, widthFactor, twitchWidths, startTime, endTime } = analysisParams;
+      const { prominenceFactorMin, prominenceFactorMax, widthFactorMin, widthFactorMax, twitchWidths, startTime, endTime } = analysisParams;
+      console.log(formatedAdvancedParams(prominenceFactorMin, prominenceFactorMax))
       const jobResponse = await fetch("https://curibio.com/jobs", {
         method: "POST",
         body: JSON.stringify({
           upload_id: uploadId,
-          prominence_factors: prominenceFactor === "" ? null : prominenceFactor,
-          width_factors: widthFactor === "" ? null : widthFactor,
+          prominence_factors: formatedAdvancedParams(prominenceFactorMin, prominenceFactorMax),
+          width_factors: formatedAdvancedParams(widthFactorMin, widthFactorMax),
           twitch_widths: twitchWidths === "" ? null : twitchWidths,
           start_time: startTime === "" ? null : startTime,
           end_time: endTime === "" ? null : endTime,
         }),
       });
-
       if (jobResponse.status !== 200) {
         failedUploadsMsg.push(filename);
         console.log("ERROR posting new job: ", await jobResponse.json());
@@ -370,8 +383,10 @@ export default function UploadForm() {
         <AnalysisParamForm
           errorMessages={paramErrors}
           inputVals={analysisParams}
-          checked={checked}
-          setChecked={setChecked}
+          checkedWindow={checkedWindow}
+          setCheckedWindow={setCheckedWindow}
+          checkedAdvanced={checkedAdvanced}
+          setCheckedAdvanced={setCheckedAdvanced}
           paramErrors={paramErrors}
           setParamErrors={setParamErrors}
           setAnalysisParams={setAnalysisParams}

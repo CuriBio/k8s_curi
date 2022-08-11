@@ -35,8 +35,8 @@ class UploadResponse(BaseModel):
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
-    prominence_factors:Optional[Union[Tuple[Union[int,float]],List[int]]]
-    width_factors:Optional[Union[Tuple[Union[int,float]],List[int]]]
+    prominence_factors:Optional[Union [Tuple [Union [int,float]], List[Union[int,float]],int,float]]
+    width_factors:Optional[Union [Tuple [Union [int,float]], List[Union[int,float]],int,float]]
     twitch_widths: Optional[List[int]]
     start_time: Optional[Union[int, float]]
     end_time: Optional[Union[int, float]]
@@ -220,8 +220,9 @@ async def create_new_job(
         }
         #convert single number input from user to tuple
         #done for width and prominece factors
-        meta["analysis_params"]["prominence_factors"] = None if meta["analysis_params"]["prominence_factors"] == None else (meta["analysis_params"]["prominence_factors"][0],meta["analysis_params"]["prominence_factors"][1])
-        meta["analysis_params"]["width_factors"] = None if meta["analysis_params"]["width_factors"] == None else (meta["analysis_params"]["width_factors"][0],meta["analysis_params"]["width_factors"][1])
+        #change this to return correct thing if min and max are present
+        meta["analysis_params"]["prominence_factors"] = _format_advanced_options(meta["analysis_params"]["prominence_factors"])
+        meta["analysis_params"]["width_factors"] = _format_advanced_options(meta["analysis_params"]["width_factors"])
 
         logger.info(f"Using params: {meta['analysis_params']}")
 
@@ -243,3 +244,14 @@ async def create_new_job(
     except Exception as e:
         logger.exception(f"Failed to create job: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def _format_advanced_options(option:List[Union[float,int]]):
+    if option == None:
+        return None
+    #if only min is passed return a the min number
+    if len(option) == 1:
+        return option[0]
+    #if both numbers are passed return a tuple
+    elif len(option) == 2:
+        return(option[0],option[1])
+    print("Error")
