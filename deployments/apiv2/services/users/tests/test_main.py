@@ -267,14 +267,14 @@ def test_register__user__invalid_username(cb_customer_id):
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
-    assert response.json()["detail"][-1]["msg"] == "username must be alphanumeric"
+    assert response.json()["detail"][-1]["msg"] == "Username must be alphanumeric"
 
 
 @pytest.mark.parametrize(
     "contraint_to_violate,expected_error_message",
     [
         ("users_customer_id_name_key", "Username already in use"),
-        ("users_email_key", "Account registration failed"),
+        ("users_email_key", "Email already in use"),
         ("all others", "Account registration failed"),
     ],
 )
