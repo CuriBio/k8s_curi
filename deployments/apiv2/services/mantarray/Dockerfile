@@ -17,7 +17,7 @@ WORKDIR /app
 COPY ./deployments/apiv2/services/mantarray/src/main.py ./
 COPY ./deployments/apiv2/services/mantarray/src/core ./core
 COPY ./deployments/apiv2/services/mantarray/src/templates/ ./templates
-COPY ./deployments/apiv2/services/users/log_config.yaml ./
+COPY ./deployments/apiv2/services/mantarray/log_config.yaml ./
 
 ENV PYTHONUNBUFFERED 1
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9000", "--reload", "--log-config", "log_config.yaml"]
