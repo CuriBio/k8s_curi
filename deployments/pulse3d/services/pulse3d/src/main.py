@@ -47,7 +47,7 @@ app.add_middleware(
     allow_origins=[
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
-        "http://localhost:3000"
+        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -173,12 +173,14 @@ async def get_info_of_jobs(
             response = {"jobs": []}
             for job in jobs:
                 obj_key = job["object_key"]
+                print(job)
                 job_info = {
                     "id": job["job_id"],
                     "status": job["status"],
                     "upload_id": job["upload_id"],
                     "object_key": obj_key,
                     "created_at": job["created_at"],
+                    "meta": job["job_meta"],
                 }
 
                 if job_info["status"] == "finished" and download:

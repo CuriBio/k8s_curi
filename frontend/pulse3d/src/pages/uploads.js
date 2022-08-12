@@ -3,8 +3,10 @@ import DashboardLayout, {
 } from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
 import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
+import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
 import { useEffect, useState, useCallback, useContext } from "react";
 import {
+  Checkbox,
   Table,
   TableBody,
   TableCell,
@@ -43,6 +45,7 @@ const DownloadLink = styled.span`
 `;
 
 const columns = [
+  { id: "checkbox", label: "", maxWidth: "40px" },
   { id: "uploadId", label: "Upload\u00a0ID", maxWidth: "190px" },
   { id: "datetime", label: "Datetime", maxWidth: "100px" },
   {
@@ -71,7 +74,7 @@ export default function Uploads() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [jobs, setJobs] = useState();
   const [rows, setRows] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const { uploads } = useContext(UploadsContext);
   const router = useRouter();
 
@@ -90,13 +93,13 @@ export default function Uploads() {
     }
   };
 
-  useEffect(() => {
-    getAllJobs();
-    // start 10 second interval
-    const uploadsInterval = setInterval(() => getAllJobs(), [1e4]);
-    // clear interval when switching pages
-    return () => clearInterval(uploadsInterval);
-  }, [uploads]);
+  // useEffect(() => {
+  //   getAllJobs();
+  //   // start 10 second interval
+  //   const uploadsInterval = setInterval(() => getAllJobs(), [1e4]);
+  //   // clear interval when switching pages
+  //   return () => clearInterval(uploadsInterval);
+  // }, [uploads]);
 
   const handleChangePage = (e, newPage) => {
     setPage(newPage);
@@ -136,6 +139,8 @@ export default function Uploads() {
       console.log("ERROR fetching presigned url to download analysis");
     }
   };
+
+  
 
   const formatUploads = useCallback(() => {
     if (jobs) {
@@ -262,11 +267,12 @@ export default function Uploads() {
                                 : null
                             }
                           >
-                            {value === "Download analysis" ? (
+                            {value === "Download analysis" || (
                               <DownloadLink id={id}>{value}</DownloadLink>
-                            ) : (
-                              value
                             )}
+                            {
+                              value
+                            }
                           </TableCell>
                         );
                       })}

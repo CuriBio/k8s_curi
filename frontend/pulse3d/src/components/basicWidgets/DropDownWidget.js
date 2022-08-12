@@ -42,6 +42,7 @@ export default function DropDownWidget({
   error = "",
   handleSelection,
   reset,
+  disabled = false
 }) {
   const [selected, setSelected] = useState("");
   const [errorMsg, setErrorMsg] = useState(error);
@@ -57,7 +58,7 @@ export default function DropDownWidget({
   }, [reset]);
 
   return (
-    <FormControl fullWidth>
+    <FormControl fullWidth disabled={disabled}>
       <InputLabel id="select-label">{label}</InputLabel>
       <Select
         labelId="select-label"
