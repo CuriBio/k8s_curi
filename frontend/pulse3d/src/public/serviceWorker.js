@@ -1,3 +1,8 @@
+import jwt_decode from "jwt-decode";
+
+import { Mutex } from "async-mutex";
+const refresh_mutex = new Mutex();
+
 const PULSE3D_URL = new URLSearchParams(location.search).get("pulse3d_url");
 const USERS_URL = new URLSearchParams(location.search).get("users_url");
 
@@ -99,14 +104,25 @@ const requestWithRefresh = async (req, url) => {
   let response = await safeRequest();
 
   if (response.status === 401) {
-    // attempt to get new tokens
-    const refreshResponseStatus = await handleRefreshRequest();
-    if (refreshResponseStatus !== 201) {
-      // if the refresh failed, no need to try request again, just return original failed response
-      return response;
+    let retryRequest;
+    // guard with mutex so two requests do not try to refresh simultaneously
+    retryRequest = await refresh_mutex.runExclusive(async () => {
+      // check remaining lifetime of access token
+      const nowNoMillis = Math.floor(Date.now() / 1000);
+      const accessTokenExp = jwt_decode(tokens.access).exp;
+      if (accessTokenExp - nowNoMillis < 10) {
+        // refresh tokens since the access token less than 10 seconds away from expiring
+        const refreshResponseStatus = await handleRefreshRequest();
+        // only retry the original request if the refresh succeeds
+        return refreshResponseStatus === 201;
+      }
+      // since access token is not close to expiring, assume refresh was just triggered by a
+      // different request and try this request again
+      return true;
+    });
+    if (retryRequest) {
+      response = await safeRequest();
     }
-    // try again with new tokens
-    response = await safeRequest();
   }
 
   return response;
