@@ -1,4 +1,3 @@
-from codecs import unicode_escape_decode
 import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -10,7 +9,7 @@ from pydantic import BaseModel
 
 from auth import ProtectedAny
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET
-from jobs import create_upload, create_job, get_uploads, get_jobs
+from jobs import create_upload, create_job, get_uploads, get_jobs, delete_jobs, delete_uploads
 from utils.db import AsyncpgPoolDep
 from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error
 
@@ -122,6 +121,22 @@ async def create_recording_upload(
         logger.error(repr(e))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@app.delete("/uploads")
+async def soft_delete_uploads(
+    request: Request,  upload_ids: List[uuid.UUID] = Query(None), token=Depends(ProtectedAny(scope=["users:free"]))
+):
+    # check if for some reason an empty list was sent
+    if not upload_ids:
+        raise HTTPException(status_code=status.HTTP_400_INTERNAL_SERVER_ERROR, detail="No upload ids found.",)
+    # need to convert UUIDs to str to avoid issues with DB
+    upload_ids = [str(upload_id) for upload_id in upload_ids]
+    
+    try:
+        async with request.state.pgpool.acquire() as con:
+            await delete_uploads(con=con, upload_ids=upload_ids)
+    except Exception as e:
+        logger.error(repr(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # TODO Tanner (4/21/22): probably want to move this to a more general svc (maybe in apiv2-dep) dedicated to uploading misc files to s3
 @app.post("/logs")
@@ -263,4 +278,23 @@ async def create_new_job(
 
     except Exception as e:
         logger.exception(f"Failed to create job: {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@app.delete("/jobs")
+async def soft_delete_jobs(
+    request: Request,
+    job_ids: List[uuid.UUID] = Query(None),
+    token=Depends(ProtectedAny(scope=["users:free"])),
+):
+    # check if for some reason an empty list was sent
+    if not job_ids:
+        raise HTTPException(status_code=status.HTTP_400_INTERNAL_SERVER_ERROR, detail="No job ids found.",)   
+    # need to convert UUIDs to str to avoid issues with DB
+    job_ids = [str(job_id) for job_id in job_ids]
+
+    try:
+        async with request.state.pgpool.acquire() as con:
+            await delete_jobs(con=con, job_ids=job_ids)
+    except Exception as e:
+        logger.error(f"Failed to soft delete jobs: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

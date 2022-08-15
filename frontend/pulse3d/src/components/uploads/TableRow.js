@@ -40,8 +40,22 @@ export default function Row({
     }
   };
 
-  const handleCheckedJobs = (id) => {
-    setCheckedJobs([...checkedJobs, id]);
+  const handleCheckedJobs = (id, uploadId, checked) => {
+    if (checked) {
+      setCheckedJobs([...checkedJobs, id]);
+    } else {
+      const jobIdx = checkedJobs.indexOf(id);
+      checkedJobs.splice(jobIdx, 1);
+      setCheckedJobs([...checkedJobs]);
+
+      // if user unselects a job id when an upload it selected, then it will unselect both
+      // users cannot unselect jobs of selected uploads because deleting an upload will auto delete related jobs
+      const uploadIdx = checkedUploads.indexOf(uploadId);
+      if (uploadIdx !== -1) {
+        checkedUploads.splice(uploadIdx, 1);
+        setCheckedUploads([...checkedUploads]);
+      }
+    }
   };
 
   return (
@@ -64,6 +78,7 @@ export default function Row({
         <TableCell align="center">{row.lastAnalyzed}</TableCell>
         <TableCell align="center">
           <CheckboxWidget
+            checkedState={checkedUploads.includes(row.id)}
             handleCheckbox={(checked) => {
               handleCheckedUpload(row.id, row.jobs, checked);
             }}
@@ -117,7 +132,9 @@ export default function Row({
                         <TableCell align="center">
                           <CheckboxWidget
                             checkedState={checkedJobs.includes(jobId)}
-                            handleCheckbox={(_) => handleCheckedJobs(jobId)}
+                            handleCheckbox={(checked) =>
+                              handleCheckedJobs(jobId, row.id, checked)
+                            }
                           />
                         </TableCell>
                       </TableRow>

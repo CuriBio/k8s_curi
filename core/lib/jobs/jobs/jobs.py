@@ -139,3 +139,20 @@ async def create_job(*, con, upload_id, queue, priority, meta):
         await con.execute(f"INSERT INTO jobs_result ({cols}) VALUES ({places})", *data.values())
 
     return job_id
+
+
+async def delete_jobs(*, con, job_ids):
+    """Query DB to update job status to deleted."""
+    
+    query = "UPDATE job_results SET status='deleted' WHERE job_id=$1"
+    async with con.transaction():
+        for id in job_ids:
+            await con.execute(query, id)
+
+async def delete_uploads(*, con, upload_ids):
+    """Query DB to update upload deleted state to true."""
+    
+    query = "UPDATE uploads SET deleted='t' WHERE id=$1"
+    async with con.transaction():
+        for id in upload_ids:
+            await con.execute(query, id)
