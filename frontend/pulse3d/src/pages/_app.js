@@ -49,11 +49,11 @@ function Pulse({ Component, pageProps }) {
         // might need auth check to include actual fetch request in SW to check token status if this becomes a problem
         setAuthCheck(data.authCheck);
         setAccountType(data.accountType);
-        // if (!data.authCheck) {
-        //   //redirect
-        //   router.replace("/login", undefined, { shallow: true });
-        //   setLoggedOutAlert(true);
-        // }
+        if (!data.authCheck) {
+          //redirect
+          router.replace("/login", undefined, { shallow: true });
+          setLoggedOutAlert(true);
+        }
       });
     }
   }, []);
