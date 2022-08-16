@@ -55,7 +55,8 @@ async def get_uploads(*, con, user_id, upload_ids=None):
 
     If no uploads specified, will return info of all the user's uploads
     """
-    query = "SELECT * FROM uploads WHERE user_id=$1"
+    # filter deleted uploads
+    query = "SELECT * FROM uploads WHERE user_id=$1 AND deleted='f';"
     query_params = [user_id]
     if upload_ids:
         places = ", ".join(f"${i}" for i, _ in enumerate(upload_ids, 2))
@@ -99,7 +100,7 @@ async def get_jobs(*, con, user_id, job_ids=None):
     """
     query = (
         "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, u.user_id, u.meta AS user_meta "
-        "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id = u.id WHERE u.user_id=$1"
+        "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id = u.id WHERE u.user_id=$1 AND j.status!='deleted'"
     )
     query_params = [user_id]
     if job_ids:
@@ -132,6 +133,7 @@ async def create_job(*, con, upload_id, queue, priority, meta):
             "finished_at": None,
             "meta": json.dumps(meta),
         }
+        
         cols = ", ".join(list(data))
         places = ", ".join(f"${i}" for i, _ in enumerate(data, 1))
 
@@ -139,3 +141,20 @@ async def create_job(*, con, upload_id, queue, priority, meta):
         await con.execute(f"INSERT INTO jobs_result ({cols}) VALUES ({places})", *data.values())
 
     return job_id
+
+
+async def delete_jobs(*, con, job_ids):
+    """Query DB to update job status to deleted."""
+    
+    query = "UPDATE jobs_result SET status='deleted' WHERE job_id=$1"
+    async with con.transaction():
+        for id in job_ids:
+            await con.execute(query, id)
+
+async def delete_uploads(*, con, upload_ids):
+    """Query DB to update upload deleted state to true."""
+    
+    query = "UPDATE uploads SET deleted='t' WHERE id=$1"
+    async with con.transaction():
+        for id in upload_ids:
+            await con.execute(query, id)

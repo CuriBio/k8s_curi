@@ -361,7 +361,6 @@ export default function UploadForm() {
 
   const handleDropDownSelect = (idx) => {
     setFiles([uploads[idx]]); // must be an array
-    setUploadSuccess(false);
   };
 
   const handleClose = async (idx) => {

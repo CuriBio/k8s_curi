@@ -6,12 +6,14 @@ export default function CheckboxWidget({
   color,
   size,
   checkedState,
+  disabled = false,
 }) {
   return (
     <div>
       <Checkbox
         color={color}
         size={size}
+        disabled={disabled}
         checked={checkedState}
         onChange={(e) => handleCheckbox(e.target.checked)}
       />
