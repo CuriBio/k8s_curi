@@ -4,6 +4,7 @@ import FormControl from "@mui/material/FormControl";
 import Select, { SelectProps } from "@mui/material/Select";
 import { useEffect, useState } from "react";
 import styled from "styled-components";
+import OutlinedInput from "@mui/material/OutlinedInput";
 
 const ErrorText = styled.span`
   color: red;
@@ -14,6 +15,11 @@ const ErrorText = styled.span`
   width: 80%;
   font-size: 16px;
 `;
+
+const Placeholder = styled.em`
+  font-size: 18px;
+  font-weight: bolder;
+`
 
 const MenuProps = {
   PaperProps: {
@@ -42,6 +48,7 @@ export default function DropDownWidget({
   error = "",
   handleSelection,
   reset,
+  disabled = false
 }) {
   const [selected, setSelected] = useState("");
   const [errorMsg, setErrorMsg] = useState(error);
@@ -57,16 +64,25 @@ export default function DropDownWidget({
   }, [reset]);
 
   return (
-    <FormControl fullWidth>
-      <InputLabel id="select-label">{label}</InputLabel>
+    <FormControl fullWidth disabled={disabled}>
       <Select
+        displayEmpty
         labelId="select-label"
         id="select-dropdown"
-        label={label}
+        input={<OutlinedInput />}
         MenuProps={MenuProps}
         onChange={handleChange}
         value={selected}
+        renderValue={(selected) => {
+          if (selected.length === 0) {
+            return <Placeholder>{label}</Placeholder>;
+          }
+          return options[selected]
+        }}
       >
+        <MenuItem disabled value="">
+          <Placeholder>{label}</Placeholder>
+        </MenuItem>
         {options.map((item, idx) => (
           <ListItem key={idx} value={idx}>
             {item}

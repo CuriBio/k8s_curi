@@ -47,7 +47,7 @@ def generate_presigned_urls_for_dir(bucket: str, key_prefix: str, objs_only: boo
 
     except (ClientError, S3Error) as e:
         raise S3Error(f"Failed to generate presigned urls for {bucket}/{key_prefix}: {repr(e)}")
-
+    
 
 def generate_presigned_post(bucket: str, key: str, md5s: str) -> Dict[Any, Any]:
     s3_client = boto3.client("s3", config=Config(signature_version="s3v4"))
