@@ -146,7 +146,7 @@ export default function Uploads() {
     getAllJobs();
     // start 10 second interval
     const uploadsInterval = setInterval(() => getAllJobs(), [1e4]);
-    // // clear interval when switching pages
+    //clear interval when switching pages
     return () => clearInterval(uploadsInterval);
   }, [uploads]);
 
