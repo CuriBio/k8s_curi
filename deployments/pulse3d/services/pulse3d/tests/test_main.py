@@ -72,7 +72,7 @@ def test_jobs__get__jobs_found(download, test_job_ids, mocked_asyncpg_con, mocke
     if isinstance(test_job_ids, uuid.UUID):
         # fastapi automatically converts a single UUID to a list
         test_job_ids = [test_job_ids]
-    
+
     expected_job_ids = [str(test_id) for test_id in test_job_ids]
     test_statuses = ["finished", "pending", "error"]
     test_upload_rows = [
@@ -109,6 +109,7 @@ def test_jobs__get__jobs_found(download, test_job_ids, mocked_asyncpg_con, mocke
     for i, job in enumerate(jobs):
         job.update(test_upload_rows[i])
         job["id"] = job.pop("job_id")
+        job["meta"] = job["job_meta"]
         del job["job_meta"]
 
     assert list(response.json()) == ["jobs"]
@@ -166,6 +167,7 @@ def test_jobs__get__error_with_creating_presigned_url_for_single_file(mocked_asy
     for i, job in enumerate(jobs):
         job.update(test_upload_rows[i])
         job["id"] = job.pop("job_id")
+        job["meta"] = job["job_meta"]
         del job["job_meta"]
 
     assert list(response.json()) == ["jobs"]
@@ -209,12 +211,10 @@ def test_jobs__get__no_jobs_found(test_job_ids, mocked_asyncpg_con, mocker):
 
 
 @pytest.mark.parametrize("test_job_ids,test_status_code", ((None, 400), ([uuid.uuid4(), uuid.uuid4()], 200)))
-def test_jobs__delete_400_when_no_jobs(test_job_ids, test_status_code, mocked_asyncpg_con, mocker):
+def test_jobs__delete_400_when_no_jobs(test_job_ids, test_status_code, mocker):
     # falsey query params are automatically converted to None
     test_upload_rows = []
-    mocker.patch.object(
-        main, "delete_jobs", autospec=True, return_value=test_upload_rows
-    )
+    mocker.patch.object(main, "delete_jobs", autospec=True, return_value=test_upload_rows)
 
     test_user_id = uuid.uuid4()
     access_token = get_token(scope=["users:free"], userid=test_user_id)
@@ -226,3 +226,48 @@ def test_jobs__delete_400_when_no_jobs(test_job_ids, test_status_code, mocked_as
 
     response = test_client.delete("/jobs", **kwargs)
     assert response.status_code == test_status_code
+
+
+def test_jobs__delete_handles_500_errors(mocker):
+    mocker.patch.object(main, "delete_jobs", autospec=True, side_effect=Exception())
+
+    test_user_id = uuid.uuid4()
+    access_token = get_token(scope=["users:free"], userid=test_user_id)
+    kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}, "params": {"job_ids": [uuid.uuid4()]}}
+
+    response = test_client.delete("/jobs", **kwargs)
+    assert response.status_code == 500
+
+
+@pytest.mark.parametrize(
+    "test_upload_ids,test_status_code", ((None, 400), ([uuid.uuid4(), uuid.uuid4()], 200))
+)
+def test_uploads__delete_400_when_no_upload_id(test_upload_ids, test_status_code, mocker):
+    # falsey query params are automatically converted to None
+    test_upload_rows = []
+    mocker.patch.object(main, "delete_uploads", autospec=True, return_value=test_upload_rows)
+
+    test_user_id = uuid.uuid4()
+    access_token = get_token(scope=["users:free"], userid=test_user_id)
+    kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
+
+    # in None case, don't even pass a query param
+    if test_upload_ids is not None:
+        kwargs["params"] = {"upload_ids": test_upload_ids}
+
+    response = test_client.delete("/uploads", **kwargs)
+    assert response.status_code == test_status_code
+
+
+def test_uploads__delete_handles_500_errors(mocker):
+    mocker.patch.object(main, "delete_uploads", autospec=True, side_effect=Exception())
+
+    test_user_id = uuid.uuid4()
+    access_token = get_token(scope=["users:free"], userid=test_user_id)
+    kwargs = {
+        "headers": {"Authorization": f"Bearer {access_token}"},
+        "params": {"upload_ids": [uuid.uuid4()]},
+    }
+
+    response = test_client.delete("/uploads", **kwargs)
+    assert response.status_code == 500

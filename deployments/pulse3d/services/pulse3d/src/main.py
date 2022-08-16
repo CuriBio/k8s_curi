@@ -130,7 +130,7 @@ async def soft_delete_uploads(
     # check if for some reason an empty list was sent
     if not upload_ids:
         raise HTTPException(
-            status_code=status.HTTP_400_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="No upload ids found.",
         )
     # need to convert UUIDs to str to avoid issues with DB
@@ -202,7 +202,7 @@ async def get_info_of_jobs(
                     "created_at": job["created_at"],
                     "meta": job["job_meta"],
                 }
-
+                
                 if job_info["status"] == "finished" and download:
                     # This is in case any current users uploaded files before object_key was dropped from uploads table and added to jobs_result
                     if obj_key:
@@ -216,6 +216,7 @@ async def get_info_of_jobs(
                         job_info["url"] = None
 
                 elif job_info["status"] == "error":
+                    
                     try:
                         job_info["error_info"] = json.loads(job["job_meta"])["error"]
                     except KeyError:  # protects against downgrading and updating deleted statuses to errors
