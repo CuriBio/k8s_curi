@@ -1,82 +1,105 @@
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import Paper from "@mui/material/Paper";
+import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
+import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
+import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout, {
   UploadsContext,
 } from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
-import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
-import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
-import { useEffect, useState, useCallback, useContext } from "react";
-import {
-  Checkbox,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-} from "@mui/material";
-import { useRouter } from "next/router";
+import { useContext, useState, useEffect } from "react";
+import Row from "@/components/uploads/TableRow";
 
 const Container = styled.div`
   display: flex;
-  max-height: 85%;
   position: relative;
   justify-content: start;
-  width: 80%;
-  padding-top: 5%;
+  padding: 0% 3% 3% 3%;
   flex-direction: column;
 `;
-
 const SpinnerContainer = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
   width: 80%;
-  height: 100%;
-  margin-left: 10%;
+`;
+const PageContainer = styled.div`
+  width: 80%;
+`;
+const DropDownContainer = styled.div`
+  width: 250px;
+  background-color: white;
+  border-radius: 5px;
+  left: 70%;
+  position: relative;
+  margin: 3% 1% 1% 1%;
+`;
+const ModalSpinnerContainer = styled.div`
+  position: relative;
+  display: flex;
+  justify-content: center;
+  height: 315px;
+  align-items: center;
 `;
 
-const DownloadLink = styled.span`
-  &:hover {
-    color: var(--teal-green);
-    cursor: pointer;
-    text-decoration: underline;
-  }
-`;
+const modalObjs = {
+  delete: {
+    header: "Are you sure?",
+    messages: [
+      "Please confirm the deletion.",
+      "Be aware that this action cannot be undone.",
+    ],
+  },
+  downloadError: {
+    header: "Error Occurred!",
+    messages: [
+      "An error occurred while attempting to download.",
+      "Please try again.",
+    ],
+  },
+  empty: {
+    header: null,
+    messages: [],
+  },
+  containsFailedJob: {
+    header: "Warning!",
+    messages: [
+      "You are trying to download one or more analyses with an 'error' status. Please note that these will be ignored.",
+      "Would you like to continue?",
+    ],
+  },
+  failedDeletion: {
+    header: "Error Occurred!",
+    messages: [
+      "There was an issue while deleting the files you selected.",
+      "Please try again later.",
+    ],
+  },
+  nothingToDownload: {
+    header: "Oops..",
+    messages: [
+      "There is nothing to download.",
+      "Please make sure you are attempting to download finished analyses.",
+    ],
+  },
+};
 
-const columns = [
-  { id: "checkbox", label: "", maxWidth: "40px" },
-  { id: "uploadId", label: "Upload\u00a0ID", maxWidth: "190px" },
-  { id: "datetime", label: "Datetime", maxWidth: "100px" },
-  {
-    id: "uploadedFile",
-    label: "Uploaded\u00a0File",
-    maxWidth: "220px",
-  },
-  {
-    id: "analyzedFile",
-    label: "Analyzed\u00a0File",
-    maxWidth: "220px",
-  },
-  {
-    id: "status",
-    label: "Status",
-    maxWidth: "50px",
-  },
-  {
-    id: "download",
-    label: "Download",
-    maxWidth: "100px",
-  },
-];
 export default function Uploads() {
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const { uploads, setFetchUploads } = useContext(UploadsContext);
   const [jobs, setJobs] = useState();
   const [rows, setRows] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const { uploads } = useContext(UploadsContext);
-  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [checkedJobs, setCheckedJobs] = useState([]);
+  const [checkedUploads, setCheckedUploads] = useState([]);
+  const [resetDropdown, setResetDropdown] = useState(false);
+  const [modalState, setModalState] = useState(false);
+  const [modalLabels, setModalLabels] = useState({ header: "", messages: [] });
+  const [modalButtons, setModalButtons] = useState([]);
 
   const getAllJobs = async () => {
     try {
@@ -84,8 +107,27 @@ export default function Uploads() {
 
       if (response && response.status === 200) {
         const { jobs } = await response.json();
+
+        jobs = jobs.map(
+          ({ id, upload_id, created_at, object_key, status, meta }) => {
+            const analyzedFile = object_key
+              ? object_key.split("/")[object_key.split("/").length - 1]
+              : "";
+            const formattedTime = formatDateTime(created_at);
+            const analysisParams = JSON.parse(meta)["analysis_params"];
+            return {
+              jobId: id,
+              uploadId: upload_id,
+              analyzedFile,
+              datetime: formattedTime,
+              status,
+              analysisParams,
+            };
+          }
+        );
+
         setJobs(jobs);
-      } else if (response && [403, 401].includes(response.status)) {
+      } else if (response && [401].includes(response.status)) {
         router.replace("/login", null, { shallow: true });
       }
     } catch (e) {
@@ -93,212 +135,312 @@ export default function Uploads() {
     }
   };
 
-  // useEffect(() => {
-  //   getAllJobs();
-  //   // start 10 second interval
-  //   const uploadsInterval = setInterval(() => getAllJobs(), [1e4]);
-  //   // clear interval when switching pages
-  //   return () => clearInterval(uploadsInterval);
-  // }, [uploads]);
-
-  const handleChangePage = (e, newPage) => {
-    setPage(newPage);
+  const formatDateTime = (datetime) => {
+    return new Date(datetime + "Z").toLocaleDateString(undefined, {
+      hour: "numeric",
+      minute: "numeric",
+    });
   };
 
-  const handleChangeRowsPerPage = (e) => {
-    setRowsPerPage(+e.target.value);
-    setPage(0);
-  };
+  useEffect(() => {
+    getAllJobs();
+    // start 10 second interval
+    const uploadsInterval = setInterval(() => getAllJobs(), [1e4]);
+    // // clear interval when switching pages
+    return () => clearInterval(uploadsInterval);
+  }, [uploads]);
 
-  // add param to GET /jobs to return only one presigned URL
-  const downloadAnalysis = async ({ target }) => {
-    try {
-      const selectedJob = jobs.find((job) => job.upload_id === target.id);
-
-      const response = await fetch(
-        `https://curibio.com/jobs?job_ids=${selectedJob.id}`
-      );
-
-      if (response.status === 200) {
-        const jobResponse = await response.json();
-        const presignedUrl = jobResponse.jobs[0].url;
-        const fileName = presignedUrl.split("/")[presignedUrl.length - 1];
-
-        // setup temporary download link
-        const link = document.createElement("a");
-        link.href = presignedUrl; // assign link to hit presigned url
-        link.download = fileName; // set new downloaded files name to analyzed file name
-
-        document.body.appendChild(link);
-
-        // click to download
-        link.click();
-        link.remove();
-      }
-    } catch (e) {
-      console.log("ERROR fetching presigned url to download analysis");
-    }
-  };
-
-  
-
-  const formatUploads = useCallback(() => {
+  useEffect(() => {
     if (jobs) {
-      const formattedRows = jobs.map(
-        ({ upload_id, created_at, object_key, status }) => {
-          const upload = uploads.find((el) => el.id === upload_id);
-          // protects against uploads performed before dropping filename from upload meta field
-          // hopefully remove this once internal users aren't using test site
-          const uploadedFilename =
-            upload && upload.filename ? upload.filename : "";
+      const formattedUploads = uploads
+        .map(({ id, filename, created_at }) => {
+          const formattedTime = formatDateTime(created_at);
+          const recName = filename ? filename.split(".")[0] : null;
+          const uploadJobs = jobs
+            .filter(({ uploadId }) => uploadId === id)
+            .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
 
-          const analyzedFile = object_key
-            ? object_key.split("/")[object_key.split("/").length - 1]
-            : "";
-
-          const formattedDate = new Date(created_at + "Z").toLocaleDateString(
-            undefined,
-            {
-              hour: "numeric",
-              minute: "numeric",
-            }
-          );
+          const lastAnalyzed = uploadJobs[0]
+            ? uploadJobs[0].datetime
+            : formattedTime;
 
           return {
-            uploadId: upload_id,
-            uploadedFile: uploadedFilename,
-            analyzedFile,
-            datetime: formattedDate,
-            download:
-              status === "finished" && object_key ? "Download analysis" : "",
-            status,
+            name: recName,
+            id,
+            createdAt: formattedTime,
+            lastAnalyzed,
+            jobs: uploadJobs,
           };
-        }
-      );
+        })
+        .sort((a, b) => new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed));
 
-      const nameDateRows = formattedRows.sort(
-        (a, b) => new Date(b.datetime) - new Date(a.datetime)
-      );
-
-      setRows([...nameDateRows]);
-      setIsLoading(false);
+      setRows([...formattedUploads]);
+      setLoading(false);
     }
   }, [jobs]);
 
-  useEffect(() => {
-    formatUploads();
-  }, [formatUploads]);
+  const handleDropdownSelection = (option) => {
+    if (option === 1) {
+      setModalButtons(["Close", "Confirm"]);
+      setModalLabels(modalObjs.delete);
+      setModalState("generic");
+    } else if (option === 0) {
+      // if download, check that no job contains an error status
+      const failedJobs = jobs.filter(
+        ({ jobId, status }) => checkedJobs.includes(jobId) && status === "error"
+      );
+
+      if (failedJobs.length === 0) {
+        setModalLabels(modalObjs.empty);
+        setModalState("downloading");
+        downloadAnalyses();
+      } else {
+        setModalButtons(["Close", "Continue"]);
+        setModalLabels(modalObjs.containsFailedJob);
+        setModalState("generic");
+      }
+    }
+
+    setResetDropdown(false);
+  };
+
+  const handleDeletions = async () => {
+    try {
+      const failedDeletion = false;
+      // soft delete all jobs
+      if (checkedUploads.length > 0) {
+        const uploadsURL = `https://curibio.com/uploads?`;
+        checkedUploads.map((id) => (uploadsURL += `upload_ids=${id}&`));
+        const uploadsResponse = await fetch(uploadsURL.slice(0, -1), {
+          method: "DELETE",
+        });
+        if (uploadsResponse.status !== 200) failedDeletion = true;
+      }
+      // soft delete all jobs
+      if (checkedJobs.length > 0) {
+        const jobsuURL = `https://curibio.com/jobs?`;
+        checkedJobs.map((id) => (jobsuURL += `job_ids=${id}&`));
+        const jobsResponse = await fetch(jobsuURL.slice(0, -1), {
+          method: "DELETE",
+        });
+
+        if (jobsResponse.status !== 200) failedDeletion = true;
+      }
+
+      if (failedDeletion) {
+        setModalButtons(["Close"]);
+        setModalLabels(modalObjs.failedDeletion);
+        setModalState("generic");
+      }
+      // rerender table with updated deletions
+      await setFetchUploads();
+      return failedDeletion;
+    } catch (e) {
+      console.log("ERROR attempting to soft delete selected jobs and uploads");
+    }
+  };
+
+  const handleModalClose = async (idx) => {
+    if (modalButtons[idx] === "Continue") {
+      // this block gets hit when user chooses to continue without 'error' status analyses
+      setModalLabels(modalObjs.empty);
+      setModalState("downloading");
+      downloadAnalyses();
+    } else if (modalButtons[idx] === "Confirm") {
+      // set in progress
+      setModalLabels(modalObjs.empty);
+      setModalState("deleting");
+      const failedDeletion = await handleDeletions();
+      // wait a second to remove deleted files
+      // really helps with flow of when in progress modal closes
+      await new Promise((r) => setTimeout(r, 1000));
+      
+      // failed Deletions has it's own modal so prevent closure else reset
+      if (!failedDeletion) {
+        setModalState(false);
+        setResetDropdown(true);
+        setCheckedUploads([]);
+        setCheckedJobs([]);
+      }
+    } else {
+      // close in progress modal
+      // also resets for any 'Close' modal button events
+      // index 0 in buttons
+      setModalState(false);
+      setResetDropdown(true);
+      setCheckedUploads([]);
+      setCheckedJobs([]);
+    }
+  };
+
+  const downloadAnalyses = async () => {
+    try {
+      // removes any jobs with error + pending statuses
+      const finishedJobs = jobs.filter(
+        ({ jobId, status }) =>
+          checkedJobs.includes(jobId) && status === "finished"
+      );
+      const numberOfJobs = finishedJobs.length;
+
+      if (numberOfJobs > 0) {
+        //request only presigned urls for selected jobs
+        const url = `https://curibio.com/jobs?`;
+        finishedJobs.map(({ jobId }) => (url += `job_ids=${jobId}&`));
+        const response = await fetch(url.slice(0, -1));
+        // set modal buttons before status modal opens
+        setModalButtons(["Close"]);
+        if (response.status === 200) {
+          const { jobs } = await response.json();
+
+          for (const job of jobs) {
+            const presignedUrl = job.url;
+            // hopefully no errors, for fail safe in case one returns no url when not found in s3
+            if (presignedUrl) {
+              const fileName = presignedUrl.split("/")[presignedUrl.length - 1];
+
+              // setup temporary download link
+              const link = document.createElement("a");
+              link.href = presignedUrl; // assign link to hit presigned url
+              link.download = fileName; // set new downloaded files name to analyzed file name
+              document.body.appendChild(link);
+
+              // click to download
+              link.click();
+              link.remove();
+            }
+          }
+
+          setModalLabels({
+            header: "Success!",
+            messages: [
+              `The following number of analyses have been successfully downloaded: ${numberOfJobs}`,
+              "They can be found in your local downloads folder.",
+            ],
+          });
+
+          setModalState("generic");
+        } else {
+          throw Error();
+        }
+      } else {
+        // let user know in the off chance that the only files they selected are not finished analyzing or failed
+        setModalLabels(modalObjs.nothingToDownload);
+        setModalButtons(["Close"]);
+        setModalState("generic");
+      }
+    } catch (e) {
+      console.log("ERROR fetching presigned url to download analysis");
+      setModalLabels(modalObjs.downloadError);
+      setModalState("generic");
+    }
+  };
 
   return (
-    <Container>
-      {isLoading ? (
+    <>
+      {loading ? (
         <SpinnerContainer id="spinnerContainer">
-          <CircularSpinner color={"secondary"} size={125} />
+          <CircularSpinner color={"secondary"} size={200} />
         </SpinnerContainer>
       ) : (
-        <>
-          <TableContainer
-            sx={{
-              width: "90%",
-              maxHeight: "93%",
-              marginLeft: "5%",
-              borderLeft: "1px solid var(--dark-gray)",
-              borderRight: "1px solid var(--dark-gray)",
-            }}
-          >
-            <Table stickyHeader aria-label="sticky table">
-              <TableHead>
-                <TableRow>
-                  {columns.map((column) => (
+        <PageContainer>
+          <DropDownContainer>
+            <DropDownWidget
+              label={"Actions"}
+              options={["Download", "Delete"]}
+              disabled={checkedJobs.length === 0 && checkedUploads.length === 0}
+              handleSelection={handleDropdownSelection}
+              reset={resetDropdown}
+            />
+          </DropDownContainer>
+          <Container>
+            <TableContainer
+              component={Paper}
+              sx={{ backgroundColor: "var(--light-gray" }}
+            >
+              <Table aria-label="collapsible table">
+                <TableHead
+                  sx={{
+                    backgroundColor: "var(--dark-blue)",
+                  }}
+                >
+                  <TableRow>
+                    <TableCell />
                     <TableCell
-                      id={column.id}
-                      key={column.id}
-                      align="center"
                       sx={{
-                        backgroundColor: "var(--dark-blue)",
                         color: "var(--light-gray)",
-                        textAlign: "center",
-                        borderRight: "none",
                       }}
                     >
-                      {column.label}
+                      RECORDING&nbsp;NAME
                     </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {new Array(rowsPerPage).fill().map((row, idx) => {
-                  const uploadIdx = idx + page * rowsPerPage;
-
-                  return (
-                    <TableRow
-                      hover
-                      role="checkbox"
-                      tabIndex={-1}
-                      key={idx}
-                      sx={{ maxHeight: "50px" }}
+                    <TableCell
+                      sx={{
+                        color: "var(--light-gray)",
+                      }}
+                      align="center"
                     >
-                      {columns.map((column, idx) => {
-                        let value = null;
-                        if (rows[uploadIdx]) value = rows[uploadIdx][column.id];
-                        // used to download file. needs access to upload ID
-
-                        const id = rows[uploadIdx]
-                          ? rows[uploadIdx].uploadId
-                          : null;
-                        return (
-                          <TableCell
-                            align="center"
-                            key={column.id}
-                            id={id}
-                            sx={{
-                              maxWidth: column.maxWidth,
-                              borderRight: "1px solid var(--dark-gray)",
-                              overflowX: "scroll",
-                              whiteSpace: "nowrap",
-                              fontSize: "12px",
-                              maxHeight: "50px",
-                              backgroundColor:
-                                idx % 2 === 0 ? "var(--light-gray)" : "white",
-                            }}
-                            onClick={
-                              value === "Download analysis"
-                                ? downloadAnalysis
-                                : null
-                            }
-                          >
-                            {value === "Download analysis" || (
-                              <DownloadLink id={id}>{value}</DownloadLink>
-                            )}
-                            {
-                              value
-                            }
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            sx={{
-              backgroundColor: "var(--dark-gray)",
-              width: "90%",
-              marginLeft: "5%",
-            }}
-            rowsPerPageOptions={[10, 25, 50]}
-            component="div"
-            count={rows.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-          />
-        </>
+                      UPLOAD&nbsp;ID
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: "var(--light-gray)",
+                      }}
+                      align="center"
+                    >
+                      CREATED&nbsp;AT
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: "var(--light-gray)",
+                      }}
+                      align="center"
+                    >
+                      LAST&nbsp;ANALYZED
+                    </TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {rows.map((row) => (
+                    <Row
+                      key={row.id}
+                      row={row}
+                      setCheckedJobs={setCheckedJobs}
+                      checkedJobs={checkedJobs}
+                      setCheckedUploads={setCheckedUploads}
+                      checkedUploads={checkedUploads}
+                      setModalLabels={setModalLabels}
+                      setModalButtons={setModalButtons}
+                      setModalState={setModalState}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Container>
+        </PageContainer>
       )}
-    </Container>
+      <ModalWidget
+        open={modalState === "generic"}
+        labels={modalLabels.messages}
+        buttons={modalButtons}
+        closeModal={handleModalClose}
+        header={modalLabels.header}
+      />
+      <ModalWidget
+        open={["downloading", "deleting"].includes(modalState)}
+        labels={[]}
+        buttons={[]}
+        header={
+          modalState === "downloading"
+            ? "Downloading in progress..."
+            : "Deleting in progress..."
+        }
+      >
+        <ModalSpinnerContainer>
+          <CircularSpinner size={200} color={"secondary"} />
+        </ModalSpinnerContainer>
+      </ModalWidget>
+    </>
   );
 }
 

@@ -121,22 +121,29 @@ async def create_recording_upload(
         logger.error(repr(e))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
 @app.delete("/uploads")
 async def soft_delete_uploads(
-    request: Request,  upload_ids: List[uuid.UUID] = Query(None), token=Depends(ProtectedAny(scope=["users:free"]))
+    request: Request,
+    upload_ids: List[uuid.UUID] = Query(None),
+    token=Depends(ProtectedAny(scope=["users:free"])),
 ):
     # check if for some reason an empty list was sent
     if not upload_ids:
-        raise HTTPException(status_code=status.HTTP_400_INTERNAL_SERVER_ERROR, detail="No upload ids found.",)
+        raise HTTPException(
+            status_code=status.HTTP_400_INTERNAL_SERVER_ERROR,
+            detail="No upload ids found.",
+        )
     # need to convert UUIDs to str to avoid issues with DB
     upload_ids = [str(upload_id) for upload_id in upload_ids]
-    
+
     try:
         async with request.state.pgpool.acquire() as con:
             await delete_uploads(con=con, upload_ids=upload_ids)
     except Exception as e:
         logger.error(repr(e))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 # TODO Tanner (4/21/22): probably want to move this to a more general svc (maybe in apiv2-dep) dedicated to uploading misc files to s3
 @app.post("/logs")
@@ -188,7 +195,6 @@ async def get_info_of_jobs(
             response = {"jobs": []}
             for job in jobs:
                 obj_key = job["object_key"]
-                print(job)
                 job_info = {
                     "id": job["job_id"],
                     "status": job["status"],
@@ -211,7 +217,10 @@ async def get_info_of_jobs(
                         job_info["url"] = None
 
                 elif job_info["status"] == "error":
-                    job_info["error_info"] = json.loads(job["job_meta"])["error"]
+                    try:
+                        job_info["error_info"] = json.loads(job["job_meta"])["error"]
+                    except KeyError:
+                        job_info["error_info"] = "Was previously deleted"
 
                 response["jobs"].append(job_info)
             if not response["jobs"]:
@@ -280,6 +289,7 @@ async def create_new_job(
         logger.exception(f"Failed to create job: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
 @app.delete("/jobs")
 async def soft_delete_jobs(
     request: Request,
@@ -288,7 +298,10 @@ async def soft_delete_jobs(
 ):
     # check if for some reason an empty list was sent
     if not job_ids:
-        raise HTTPException(status_code=status.HTTP_400_INTERNAL_SERVER_ERROR, detail="No job ids found.",)   
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No job ids found.",
+        )
     # need to convert UUIDs to str to avoid issues with DB
     job_ids = [str(job_id) for job_id in job_ids]
 

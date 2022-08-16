@@ -17,15 +17,33 @@ export default function Row({
   checkedJobs,
   setCheckedUploads,
   checkedUploads,
+  setModalButtons,
+  setModalState,
+  setModalLabels,
 }) {
   const [open, setOpen] = useState(false);
 
   const handleCheckedUpload = (uploadId, jobs, checked) => {
     const affectedJobs = jobs.map((job) => job.jobId);
-
-    if (checked) {
+    const pendingJobs = jobs.some(({ status }) => status === "pending");
+    if (pendingJobs) {
+      setModalLabels({
+        header: "Warning!",
+        messages: [
+          "This upload has one or more jobs that are still pending.",
+          "Please wait until complete to proceed.",
+        ],
+      });
+      setModalButtons(["Close"]);
+      setModalState("generic");
+      
+    } else if (checked) {
+      // don't include duplicate job ids from individual selections
+      const noDuplicateJobs = affectedJobs.filter(
+        (id) => !checkedJobs.includes(id)
+      );
       setCheckedUploads([...checkedUploads, uploadId]);
-      setCheckedJobs([...checkedJobs, ...affectedJobs]);
+      setCheckedJobs([...checkedJobs, ...noDuplicateJobs]);
     } else {
       // get index and splice selected upload to unselect
       const uploadIdx = checkedJobs.indexOf(uploadId);
@@ -41,7 +59,8 @@ export default function Row({
   };
 
   const handleCheckedJobs = (id, uploadId, checked) => {
-    if (checked) {
+    // make sure the jobs don't already include current id from selecting an upload
+    if (checked && !checkedJobs.includes(id)) {
       setCheckedJobs([...checkedJobs, id]);
     } else {
       const jobIdx = checkedJobs.indexOf(id);
@@ -132,6 +151,7 @@ export default function Row({
                         <TableCell align="center">
                           <CheckboxWidget
                             checkedState={checkedJobs.includes(jobId)}
+                            disabled={status === "pending"} // disable if pending
                             handleCheckbox={(checked) =>
                               handleCheckedJobs(jobId, row.id, checked)
                             }

@@ -58,7 +58,7 @@ export default function Login() {
           body: JSON.stringify({
             username: "lucipak",
             customer_id: "60e88e2a-b101-49e2-9734-96f299fe8959",
-            password: "Test123Test123"
+            password: "Test123Test123",
           }),
           mode: "no-cors",
         });
@@ -68,7 +68,7 @@ export default function Login() {
             setAccountType(userType); // set account type globally
             userType === "Admin"
               ? router.push("/new-user")
-              : router.push("/tester"); // routes to next page
+              : router.push("/uploads"); // routes to next page
           } else {
             res.status === 401 || res.status === 422
               ? setErrorMsg("*Invalid credentials. Try again.")
