@@ -15,9 +15,7 @@ from utils.db import AsyncpgPoolDep
 from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error
 
 
-logging.basicConfig(
-    format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S"
-)
+logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
 logger = logging.getLogger(__name__)
 
 app = FastAPI(openapi_url=None)
@@ -37,12 +35,8 @@ class UploadResponse(BaseModel):
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
-    prominence_factors: Optional[
-        Union[Tuple[Union[int, float]], List[Union[int, float]], int, float]
-    ]
-    width_factors: Optional[
-        Union[Tuple[Union[int, float]], List[Union[int, float]], int, float]
-    ]
+    prominence_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
+    width_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
 
     twitch_widths: Optional[List[int]]
     start_time: Optional[Union[int, float]]
@@ -145,9 +139,7 @@ async def create_log_upload(
     try:
         user_id = str(uuid.UUID(token["userid"]))
         customer_id = str(uuid.UUID(token["customer_id"]))
-        params = _generate_presigned_post(
-            user_id, customer_id, details, MANTARRAY_LOGS_BUCKET
-        )
+        params = _generate_presigned_post(user_id, customer_id, details, MANTARRAY_LOGS_BUCKET)
         # TODO define a response model for logs
         return {"params": params}
     except S3Error as e:
@@ -202,13 +194,9 @@ async def get_info_of_jobs(
                     if obj_key:
                         logger.info(f"Generating presigned download url for {obj_key}")
                         try:
-                            job_info["url"] = generate_presigned_url(
-                                PULSE3D_UPLOADS_BUCKET, obj_key
-                            )
+                            job_info["url"] = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, obj_key)
                         except Exception as e:
-                            logger.error(
-                                f"Error generating presigned url for {obj_key}: {str(e)}"
-                            )
+                            logger.error(f"Error generating presigned url for {obj_key}: {str(e)}")
                             job_info["url"] = "Error creating download link"
                     else:
                         job_info["url"] = None
@@ -232,11 +220,10 @@ async def create_new_job(
     details: JobRequest,
     token=Depends(ProtectedAny(scope=["users:free"])),
 ):
+    print("here")
     try:
         user_id = str(uuid.UUID(token["userid"]))
-        logger.info(
-            f"Creating pulse3d job for upload {details.upload_id} with user ID: {user_id}"
-        )
+        logger.info(f"Creating pulse3d job for upload {details.upload_id} with user ID: {user_id}")
 
         meta = {
             "analysis_params": {
@@ -286,13 +273,14 @@ async def create_new_job(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def _format_advanced_options(option: List[Union[float, int]]):
-    if option == None:
+def _format_advanced_options(option: List[Union[int, float, None]]):
+    if option is None:
         return None
-    # if only min is passed return a the min number
-    if len(option) == 1:
-        return option[0]
-    # if both numbers are passed return a tuple
-    elif len(option) == 2:
-        return (option[0], option[1])
-    print("Error")
+    # if only peaks is passed return tupele(peaks,)
+    if option[0] is not None and option[1] is None:
+        return (option[0],)
+    # if only valleys is passed return (None,valleys)
+    if option[0] is None and option[1] is not None:
+        return (None, option[1])
+    # if both present then return a tuple
+    return (option[0], option[1])

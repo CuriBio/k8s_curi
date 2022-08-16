@@ -42,12 +42,10 @@ const Uploads = styled.div`
 `;
 
 const ButtonContainer = styled.div`
-  position: relative;
-  top: 15%;
-  justify-content: flex-end;
   display: flex;
-  padding-right: 12%;
-  align-items: center;
+  align-items:center;
+  justify-content:space-around;
+  padding:1rem;
 `;
 
 const SuccessText = styled.span`
@@ -146,10 +144,10 @@ export default function UploadForm() {
   const resetState = () => {
     setFiles([]);
     setAnalysisParams({
-      prominenceFactorMin: "",
-      prominenceFactorMax: "",
-      widthFactorMin: "",
-      widthFactorMax: "",
+      prominenceFactorPeaks: "",
+      prominenceFactorValleys: "",
+      widthFactorPeaks: "",
+      widthFactorValleys: "",
       twitchWidths: "",
       startTime: "",
       endTime: "",
@@ -161,24 +159,35 @@ export default function UploadForm() {
   };
 
   //format the advanced params into a list of two numbers
-  const formatedAdvancedParams = (min, max) => {
-    if (min !== "" && max !== "") {
-      return [min, max]
-    } else if (min !== "" && max === "") {
-      return [min]
-    } else if (min === "" && max !== "") {
-      return [0, max]
-    }
+  /*
+    if both are present then submit them as is
+    if none present then return null
+    if only peaks passed then make an array [peak,null]
+    if only valleys present then return array [null,valley]
+  */
+  const formatedAdvancedParams = (peaks, valleys) => {
+    if(peaks !== "" && valleys !== "") {return [peaks,valleys]}
+    else if(peaks !=="" && valleys === ""){return [peaks,null]}
+    else if(peaks === "" && valleys !== ""){return [null,valleys]}
+    else{return null}
   }
   const postNewJob = async (uploadId, filename) => {
     try {
-      const { prominenceFactorMin, prominenceFactorMax, widthFactorMin, widthFactorMax, twitchWidths, startTime, endTime } = analysisParams;
+      const { prominenceFactorPeaks, prominenceFactorValleys, widthFactorPeaks, widthFactorValleys, twitchWidths, startTime, endTime } = analysisParams;
+      console.log({
+        upload_id: uploadId,
+        prominence_factors: formatedAdvancedParams(prominenceFactorPeaks, prominenceFactorValleys),
+        width_factors: formatedAdvancedParams(widthFactorPeaks, widthFactorValleys),
+        twitch_widths: twitchWidths === "" ? null : twitchWidths,
+        start_time: startTime === "" ? null : startTime,
+        end_time: endTime === "" ? null : endTime,
+      })
       const jobResponse = await fetch("https://curibio.com/jobs", {
         method: "POST",
         body: JSON.stringify({
           upload_id: uploadId,
-          prominence_factors: formatedAdvancedParams(prominenceFactorMin, prominenceFactorMax),
-          width_factors: formatedAdvancedParams(widthFactorMin, widthFactorMax),
+          prominence_factors: formatedAdvancedParams(prominenceFactorPeaks, prominenceFactorValleys),
+          width_factors: formatedAdvancedParams(widthFactorPeaks, widthFactorValleys),
           twitch_widths: twitchWidths === "" ? null : twitchWidths,
           start_time: startTime === "" ? null : startTime,
           end_time: endTime === "" ? null : endTime,

@@ -18,12 +18,15 @@ const Container = styled.div`
   border-radius: 7px;
   background-color: var(--light-gray);
   margin:5rem 0 ;
+  margin-bottom:4;
 `;
 
 const TwoParamContainer = styled.div`
 display: flex;
 flex-direction: column;
 height:100%;
+align-items:center;
+padding-top:2rem;
 `
 const ParamContainer = styled.div`
   display: flex;
@@ -31,7 +34,7 @@ const ParamContainer = styled.div`
   overflow: visible;
   height: 70px;
   padding-top: 15px;
-  height:10rem;
+  height:70px;
 `;
 
 const InputContainer = styled.div`
@@ -46,14 +49,15 @@ const WindowAnalysisContainer = styled.div`
   border: 2px solid var(--dark-gray);
   border-radius: 5px;
   width: 60%;
-  margin:.5rem 0 2rem 0;
+  margin-top:4rem;
 `;
 const AdvancedAnalysisContainer = styled.div`
 border: 2px solid var(--dark-gray);
 border-radius: 5px;
 width: 60%;
-margin-top:.5rem;
 height:100%;
+margin-top:4rem;
+margin-bottom:4rem;
 `;
 
 const WAOverlay = styled.div`
@@ -72,7 +76,7 @@ const Label = styled.label`
   padding: 5px;
   border-radius: 5px;
   display: flex;
-  justify-content: end;
+  justify-content: center;
   padding-right: 5%;
   white-space: nowrap;
 `;
@@ -121,6 +125,9 @@ const WALabel = styled.span`
   border: 2px solid var(--dark-gray);
   cursor: default;
   z-index:3;
+  position:absolute;
+  right:55%;
+  bottom:94%;
 `;
 
 const AdditionalParamLabel = styled.span`
@@ -164,57 +171,34 @@ export default function AnalysisParamForm({
       // need to validate start and end time together
       validateWindowBounds(updatedParams);
     }
-    if (newParams.prominenceFactorMin !== undefined) {
+    if (newParams.prominenceFactorPeaks !== undefined) {
       validateProminenceFactorMin(updatedParams);
     }
-    if (newParams.prominenceFactorMax !== undefined) {
+    if (newParams.prominenceFactorValleys !== undefined) {
       validateProminenceFactorMax(updatedParams);
     }
-    if (newParams.widthFactorMin !== undefined) {
+    if (newParams.widthFactorPeaks !== undefined) {
       validateWidthFactorMin(updatedParams)
     }
-    if (newParams.widthFactorMax !== undefined) {
+    if (newParams.widthFactorValleys !== undefined) {
       validateWidthFactorMax(updatedParams)
-    }
-    if (newParams.prominenceFactorMin !== "" && newParams.prominenceFactorMax !== "") {
-      validateProminenceEquality(updatedParams)
-    }
-    if (newParams.widthFactorMin !== "" && newParams.widthFactorMax !== "") {
-      validateWidthEquality(updatedParams)
     }
     setAnalysisParams(updatedParams);
   };
 
-  const validateProminenceEquality = (updatedParams) => {
-    const min = updatedParams.prominenceFactorMin
-    const max = updatedParams.prominenceFactorMax
-    if (isValidPositiveNumber(min) && isValidPositiveNumber(max)) {
-      if (!(parseFloat(min) < parseFloat(max))) {
-        setParamErrors({
-          ...paramErrors,
-          prominenceFactorMin: "* min must be smaller than max",
-        });
-      } else {
-        setParamErrors({
-          ...paramErrors,
-          prominenceFactorMin: "",
-        });
-      }
-    }
-  }
   const validateWidthEquality = (updatedParams) => {
-    const min = updatedParams.widthFactorMin
-    const max = updatedParams.widthFactorMax
+    const min = updatedParams.widthFactorPeaks
+    const max = updatedParams.widthFactorValleys
     if (isValidPositiveNumber(min) && isValidPositiveNumber(max)) {
       if (!(parseFloat(min) < parseFloat(max))) {
         setParamErrors({
           ...paramErrors,
-          widthFactorMin: "* min must be smaller than max",
+          widthFactorPeaks: "* min must be smaller than max",
         });
       } else {
         setParamErrors({
           ...paramErrors,
-          widthFactorMin: "",
+          widthFactorPeaks: "",
         });
       }
     }
@@ -233,79 +217,79 @@ export default function AnalysisParamForm({
   }
 
   const validateProminenceFactorMin = (updatedParams) => {
-    const newValue = updatedParams.prominenceFactorMin
+    const newValue = updatedParams.prominenceFactorPeaks
     if (newValue === null || newValue === "") {
       setParamErrors({
         ...paramErrors,
-        prominenceFactorMin: "",
+        prominenceFactorPeaks: "",
       });
     } else if (isValidPositiveNumber(newValue)) {
       setParamErrors({
         ...paramErrors,
-        prominenceFactorMin: "",
+        prominenceFactorPeaks: "",
       });
     } else {
       setParamErrors({
         ...paramErrors,
-        prominenceFactorMin: "* Must be a positive number",
+        prominenceFactorPeaks: "* Must be a positive number",
       });
     }
   }
   const validateProminenceFactorMax = (updatedParams) => {
-    const newValue = updatedParams.prominenceFactorMax
+    const newValue = updatedParams.prominenceFactorValleys
     if (newValue === null || newValue === "") {
       setParamErrors({
         ...paramErrors,
-        prominenceFactorMax: "",
+        prominenceFactorValleys: "",
       });
     } else if (isValidPositiveNumber(newValue)) {
       setParamErrors({
         ...paramErrors,
-        prominenceFactorMax: "",
+        prominenceFactorValleys: "",
       });
     } else {
       setParamErrors({
         ...paramErrors,
-        prominenceFactorMax: "* Must be a positive number",
+        prominenceFactorValleys: "* Must be a positive number",
       });
     }
   }
 
   const validateWidthFactorMin = (updatedParams) => {
-    const newValue = updatedParams.widthFactorMin
+    const newValue = updatedParams.widthFactorPeaks
     if (newValue === null || newValue === "") {
       setParamErrors({
         ...paramErrors,
-        widthFactorMin: "",
+        widthFactorPeaks: "",
       });
     } else if (isValidPositiveNumber(newValue)) {
       setParamErrors({
         ...paramErrors,
-        widthFactorMin: "",
+        widthFactorPeaks: "",
       });
     } else {
       setParamErrors({
         ...paramErrors,
-        widthFactorMin: "* Must be a positive number",
+        widthFactorPeaks: "* Must be a positive number",
       });
     }
   }
   const validateWidthFactorMax = (updatedParams) => {
-    const newValue = updatedParams.widthFactorMax
+    const newValue = updatedParams.widthFactorValleys
     if (newValue === null || newValue === "") {
       setParamErrors({
         ...paramErrors,
-        widthFactorMax: "",
+        widthFactorValleys: "",
       });
     } else if (isValidPositiveNumber(newValue)) {
       setParamErrors({
         ...paramErrors,
-        widthFactorMax: "",
+        widthFactorValleys: "",
       });
     } else {
       setParamErrors({
         ...paramErrors,
-        widthFactorMax: "* Must be a positive number",
+        widthFactorValleys: "* Must be a positive number",
       });
     }
   }
@@ -404,7 +388,10 @@ export default function AnalysisParamForm({
             </FormInput>
           </InputErrorContainer>
         </ParamContainer>
-        <WALabel>
+        <WindowAnalysisContainer>
+          <WAOverlayContainer>
+            {checkedWindow || <WAOverlay />}
+            <WALabel>
           <CheckboxWidget
             color={"secondary"}
             size={"small"}
@@ -413,9 +400,6 @@ export default function AnalysisParamForm({
           />
           Use Window Analysis
         </WALabel>
-        <WindowAnalysisContainer>
-          <WAOverlayContainer>
-            {checkedWindow || <WAOverlay />}
             <ParamContainer>
               <Label htmlFor="startTime">Start Time (s):</Label>
               <InputErrorContainer>
@@ -456,7 +440,9 @@ export default function AnalysisParamForm({
             </ParamContainer>
           </WAOverlayContainer>
         </WindowAnalysisContainer>
-        <WALabel>
+        <AdvancedAnalysisContainer>
+          <WAOverlayContainer>
+          <WALabel>
           <CheckboxWidget
             color={"secondary"}
             size={"small"}
@@ -465,43 +451,41 @@ export default function AnalysisParamForm({
           />
           Use Advanced Analysis
         </WALabel>
-        <AdvancedAnalysisContainer>
-          <WAOverlayContainer>
             {checkedAdvanced || <WAOverlay />}
             <TwoParamContainer>
-              <Label htmlFor="prominenceFactorMin">Prominence (uN):</Label>
+              <Label htmlFor="prominenceFactorPeaks">Prominence(uN):</Label>
               <InputErrorContainer>
-                <label htmlFor="prominenceFactorMin">min</label>
+                <label htmlFor="prominenceFactorPeaks">Peaks</label>
                 <FormModify>
                   <FormInput
-                    name="prominenceFactorMin"
-                    placeholder={checkedAdvanced ? "0" : ""}
-                    value={!checkedAdvanced ? "" : inputVals.prominenceFactorMin}
+                    name="prominenceFactorPeaks"
+                    placeholder={checkedAdvanced ? "6" : ""}
+                    value={!checkedAdvanced ? "" : inputVals.prominenceFactorPeaks}
                     onChangeFn={(e) => {
                       updateParams({
-                        prominenceFactorMin: e.target.value,
+                        prominenceFactorPeaks: e.target.value,
                       });
                     }}
                   >
-                    <ErrorText id="prominenceFactorMinError" role="errorMsg">
-                      {errorMessages.prominenceFactorMin}
+                    <ErrorText id="prominenceFactorPeaksError" role="errorMsg">
+                      {errorMessages.prominenceFactorPeaks}
                     </ErrorText>
                   </FormInput>
                 </FormModify>
-                <label htmlFor="prominenceFactorMax">max</label>
+                <label htmlFor="prominenceFactorValleys">Valleys</label>
                 <FormModify>
                   <FormInput
-                    name="prominenceFactorMax"
-                    placeholder={checkedAdvanced ? "100" : ""}
-                    value={!checkedAdvanced ? "" : inputVals.prominenceFactorMax}
+                    name="prominenceFactorValleys"
+                    placeholder={checkedAdvanced ? "6" : ""}
+                    value={!checkedAdvanced ? "" : inputVals.prominenceFactorValleys}
                     onChangeFn={(e) => {
                       updateParams({
-                        prominenceFactorMax: e.target.value,
+                        prominenceFactorValleys: e.target.value,
                       });
                     }}
                   >
-                    <ErrorText id="prominenceFactorMaxError" role="errorMsg">
-                      {errorMessages.prominenceFactorMax}
+                    <ErrorText id="prominenceFactorValleysError" role="errorMsg">
+                      {errorMessages.prominenceFactorValleys}
                     </ErrorText>
                   </FormInput>
                 </FormModify>
@@ -509,40 +493,40 @@ export default function AnalysisParamForm({
               </InputErrorContainer>
             </TwoParamContainer>
             <TwoParamContainer>
-              <Label htmlFor="widthFactorMin">Width (ms):</Label>
+              <Label htmlFor="widthFactorPeaks">Width (ms):</Label>
               <InputErrorContainer>
-                <label htmlFor="widthFactorMin">min</label>
+                <label htmlFor="widthFactorPeaks">Peaks</label>
                 <FormModify>
                   <FormInput
-                    name="widthFactorMin"
-                    placeholder={checkedAdvanced ? "0" : ""}
-                    value={!checkedAdvanced ? "" : inputVals.widthFactorMin}
+                    name="widthFactorPeaks"
+                    placeholder={checkedAdvanced ? "7" : ""}
+                    value={!checkedAdvanced ? "" : inputVals.widthFactorPeaks}
                     onChangeFn={(e) => {
                       updateParams({
-                        widthFactorMin: e.target.value,
+                        widthFactorPeaks: e.target.value,
                       });
                     }}
                   >
-                    <ErrorText id="widthFactorMinError" role="errorMsg">
-                      {errorMessages.widthFactorMin}
+                    <ErrorText id="widthFactorPeaksError" role="errorMsg">
+                      {errorMessages.widthFactorPeaks}
                     </ErrorText>
 
                   </FormInput>
                 </FormModify>
-                <label htmlFor="widthFactorMax">max</label>
+                <label htmlFor="widthFactorValleys">Valleys</label>
                 <FormModify>
                   <FormInput
-                    name="widthFactorMax"
-                    placeholder={checkedAdvanced ? "100" : ""}
-                    value={!checkedAdvanced ? "" : inputVals.widthFactorMax}
+                    name="widthFactorValleys"
+                    placeholder={checkedAdvanced ? "7" : ""}
+                    value={!checkedAdvanced ? "" : inputVals.widthFactorValleys}
                     onChangeFn={(e) => {
                       updateParams({
-                        widthFactorMax: e.target.value,
+                        widthFactorValleys: e.target.value,
                       });
                     }}
                   >
-                    <ErrorText id="widthFactorMaxError" role="errorMsg">
-                      {errorMessages.widthFactorMax}
+                    <ErrorText id="widthFactorValleysError" role="errorMsg">
+                      {errorMessages.widthFactorValleys}
                     </ErrorText>
                   </FormInput>
                 </FormModify>
