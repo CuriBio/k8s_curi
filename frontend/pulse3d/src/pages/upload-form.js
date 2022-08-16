@@ -174,8 +174,10 @@ export default function UploadForm() {
   const postNewJob = async (uploadId, filename) => {
     try {
       const {
-        prominenceFactor,
-        widthFactor,
+        prominenceFactorPeaks,
+        prominenceFactorValleys,
+        widthFactorPeaks,
+        widthFactorValleys,
         twitchWidths,
         startTime,
         endTime,

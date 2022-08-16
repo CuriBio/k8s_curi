@@ -47,7 +47,6 @@ app.add_middleware(
     allow_origins=[
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
-        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -268,10 +267,10 @@ async def create_new_job(
         # convert FE output to pulse3dInput
         # done for width and prominece factors
         meta["analysis_params"]["prominence_factors"] = _format_advanced_options(
-            meta["analysis_params"]["prominence_factors"]
+            meta["analysis_params"]["prominence_factors"], "prominence"
         )
         meta["analysis_params"]["width_factors"] = _format_advanced_options(
-            meta["analysis_params"]["width_factors"]
+            meta["analysis_params"]["width_factors"], "width"
         )
 
         logger.info(f"Using params: {meta['analysis_params']}")
