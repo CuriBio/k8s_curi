@@ -304,7 +304,10 @@ def _format_advanced_options(option: List[Union[int, float, None]], optionName):
         return None
     # if only peaks is passed return tupele(peaks,)
     if option[0] is not None and option[1] is None:
-        return (option[0],)
+        if optionName is "width":
+            return (option[0], 7)
+        if optionName is "prominence":
+            return (option[0], 6)
     # if only valleys is passed return (default value,valleys)
     if option[0] is None and option[1] is not None:
         if optionName is "width":
