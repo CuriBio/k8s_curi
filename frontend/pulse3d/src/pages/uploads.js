@@ -43,27 +43,27 @@ const DownloadLink = styled.span`
 `;
 
 const columns = [
-  { id: "uploadId", label: "Upload\u00a0ID" },
-  { id: "datetime", label: "Datetime" },
+  { id: "uploadId", label: "Upload\u00a0ID", maxWidth: "190px" },
+  { id: "datetime", label: "Datetime", maxWidth: "100px" },
   {
     id: "uploadedFile",
     label: "Uploaded\u00a0File",
+    maxWidth: "220px",
   },
   {
     id: "analyzedFile",
     label: "Analyzed\u00a0File",
+    maxWidth: "220px",
   },
   {
     id: "status",
     label: "Status",
-  },
-  {
-    id: "meta",
-    label: "Meta",
+    maxWidth: "50px",
   },
   {
     id: "download",
     label: "Download",
+    maxWidth: "100px",
   },
 ];
 export default function Uploads() {
@@ -92,7 +92,7 @@ export default function Uploads() {
 
   useEffect(() => {
     getAllJobs();
-    // start 10 second interval 
+    // start 10 second interval
     const uploadsInterval = setInterval(() => getAllJobs(), [1e4]);
     // clear interval when switching pages
     return () => clearInterval(uploadsInterval);
@@ -151,7 +151,7 @@ export default function Uploads() {
             ? object_key.split("/")[object_key.split("/").length - 1]
             : "";
 
-          const formattedDate = new Date(created_at).toLocaleDateString(
+          const formattedDate = new Date(created_at + "Z").toLocaleDateString(
             undefined,
             {
               hour: "numeric",
@@ -171,9 +171,9 @@ export default function Uploads() {
         }
       );
 
-      const nameDateRows = formattedRows
-        .sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
-        .sort((a, b) => a.uploadedFile.localeCompare(b.uploadedFile));
+      const nameDateRows = formattedRows.sort(
+        (a, b) => new Date(b.datetime) - new Date(a.datetime)
+      );
 
       setRows([...nameDateRows]);
       setIsLoading(false);
@@ -194,9 +194,9 @@ export default function Uploads() {
         <>
           <TableContainer
             sx={{
-              width: "80%",
+              width: "90%",
               maxHeight: "93%",
-              marginLeft: "10%",
+              marginLeft: "5%",
               borderLeft: "1px solid var(--dark-gray)",
               borderRight: "1px solid var(--dark-gray)",
             }}
@@ -247,7 +247,7 @@ export default function Uploads() {
                             key={column.id}
                             id={id}
                             sx={{
-                              maxWidth: "300px",
+                              maxWidth: column.maxWidth,
                               borderRight: "1px solid var(--dark-gray)",
                               overflowX: "scroll",
                               whiteSpace: "nowrap",
@@ -279,8 +279,8 @@ export default function Uploads() {
           <TablePagination
             sx={{
               backgroundColor: "var(--dark-gray)",
-              width: "80%",
-              marginLeft: "10%",
+              width: "90%",
+              marginLeft: "5%",
             }}
             rowsPerPageOptions={[10, 25, 50]}
             component="div"

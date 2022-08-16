@@ -18,7 +18,8 @@ ENV PATH /app/venv/bin:$PATH
 WORKDIR /app
 COPY ./deployments/pulse3d/services/pulse3d/src/main.py ./
 COPY ./deployments/pulse3d/services/pulse3d/src/core/ ./core
+COPY ./deployments/pulse3d/services/pulse3d/log_config.yaml ./
 
 ENV PYTHONUNBUFFERED 1
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-config", "log_config.yaml"]
 
