@@ -211,7 +211,7 @@ async def get_info_of_jobs(
                     "created_at": job["created_at"],
                     "meta": job["job_meta"],
                 }
-                
+
                 if job_info["status"] == "finished" and download:
                     # This is in case any current users uploaded files before object_key was dropped from uploads table and added to jobs_result
                     if obj_key:
@@ -225,7 +225,7 @@ async def get_info_of_jobs(
                         job_info["url"] = None
 
                 elif job_info["status"] == "error":
-                    
+
                     try:
                         job_info["error_info"] = json.loads(job["job_meta"])["error"]
                     except KeyError:  # protects against downgrading and updating deleted statuses to errors
@@ -298,17 +298,22 @@ async def create_new_job(
         logger.exception(f"Failed to create job: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-def _format_advanced_options(option: List[Union[int, float, None]]):
+
+def _format_advanced_options(option: List[Union[int, float, None]], optionName):
     if option is None:
         return None
     # if only peaks is passed return tupele(peaks,)
     if option[0] is not None and option[1] is None:
         return (option[0],)
-    # if only valleys is passed return (None,valleys)
+    # if only valleys is passed return (default value,valleys)
     if option[0] is None and option[1] is not None:
-        return (None, option[1])
+        if optionName is "width":
+            return (7, option[1])
+        if optionName is "prominence":
+            return (6, option[1])
     # if both present then return a tuple
     return (option[0], option[1])
+
 
 @app.delete("/jobs")
 async def soft_delete_jobs(
@@ -331,5 +336,3 @@ async def soft_delete_jobs(
     except Exception as e:
         logger.error(f"Failed to soft delete jobs: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
