@@ -46,7 +46,6 @@ app.add_middleware(
     allow_origins=[
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
-        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -219,7 +218,7 @@ async def get_info_of_jobs(
                 elif job_info["status"] == "error":
                     try:
                         job_info["error_info"] = json.loads(job["job_meta"])["error"]
-                    except KeyError:
+                    except KeyError:  # protects against downgrading and updating deleted statuses to errors
                         job_info["error_info"] = "Was previously deleted"
 
                 response["jobs"].append(job_info)
