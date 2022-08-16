@@ -46,7 +46,7 @@ export default function Row({
       setCheckedJobs([...checkedJobs, ...noDuplicateJobs]);
     } else {
       // get index and splice selected upload to unselect
-      const uploadIdx = checkedJobs.indexOf(uploadId);
+      const uploadIdx = checkedUploads.indexOf(uploadId);
       checkedUploads.splice(uploadIdx, 1);
       setCheckedUploads([...checkedUploads]);
       // get index and splice all related jobs to unselect
