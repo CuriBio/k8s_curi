@@ -10,4 +10,4 @@ build/
 *.egg-info
 .pytest_cache
 .vscode
-.env
+**/public/serviceWorker.js

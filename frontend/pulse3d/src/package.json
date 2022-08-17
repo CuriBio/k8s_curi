@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "export:prod": "echo 'NEXT_PUBLIC_PULSE3D_URL=https://pulse3d.curibio.com \nNEXT_PUBLIC_USERS_URL=https://apiv2.curibio.com/users' > .env.production && next build && next export",
-    "export:test": "echo 'NEXT_PUBLIC_PULSE3D_URL=https://pulse3d.curibio-test.com \nNEXT_PUBLIC_USERS_URL=https://apiv2.curibio-test.com/users' > .env.production && next build && next export",
+    "dev": "npm run build-sw && next dev",
+    "build": "npm run build-sw && next build",
+    "build-sw": "webpack",
+    "export:prod": "echo 'NEXT_PUBLIC_PULSE3D_URL=https://pulse3d.curibio.com \nNEXT_PUBLIC_USERS_URL=https://apiv2.curibio.com/users' > .env.production && npm run build && next export",
+    "export:test": "echo 'NEXT_PUBLIC_PULSE3D_URL=https://pulse3d.curibio-test.com \nNEXT_PUBLIC_USERS_URL=https://apiv2.curibio-test.com/users' > .env.production && npm run build && next export",
     "start": "next start",
     "lint": "next lint",
     "test:unit": "jest --watchAll --coverage",
@@ -24,8 +25,9 @@
     "@fontsource/mulish": "^4.5.10",
     "@mui/icons-material": "^5.8.4",
     "@mui/material": "^5.8.2",
-    "axios": "^0.27.2",
+    "async-mutex": "0.3.2",
     "jszip": "^3.10.0",
+    "jwt-decode": "3.1.2",
     "next": "12.1.6",
     "react": "18.1.0",
     "react-dom": "18.1.0",
@@ -44,6 +46,7 @@
     "eslint-config-next": "12.1.6",
     "jest": "^28.1.0",
     "jest-environment-jsdom": "^28.1.0",
-    "start-server-and-test": "^1.14.0"
+    "start-server-and-test": "^1.14.0",
+    "webpack-cli": "^4.10.0"
   }
 }
