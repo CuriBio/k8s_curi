@@ -24,19 +24,6 @@ const nextConfig = {
     ];
   },
   future: { webpack5: true },
-  // webpack: function (config, options) {
-  //   const originalEntry = config.entry;
-
-  //   config.entry = async () => {
-  //     const entries = await originalEntry();
-
-  //     entries["serviceWorker"] = "public/serviceWorker.js";
-
-  //     return entries;
-  //   };
-
-  //   return config;
-  // },
 };
 
 module.exports = nextConfig;

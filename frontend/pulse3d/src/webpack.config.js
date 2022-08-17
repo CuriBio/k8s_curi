@@ -1,4 +1,4 @@
-// This config is only intended for use by `npm build-sw`.
+// Tanner (8/17/22): This config is only intended for use by `npm build-sw`.
 // Other scripts should use whatever webpack config is present in next.config.js
 
 const path = require("path");
@@ -14,22 +14,4 @@ module.exports = {
   },
 
   mode: process.env.NODE_ENV || "development",
-
-  //   watchOptions: {
-  //     ignored: /node_modules|dist|\.js/g,
-  //   },
-
-  //   resolve: {
-  //     extensions: [".ts", ".tsx", ".js", ".json"],
-  //     plugins: [],
-  //   },
-
-  //   module: {
-  //     rules: [
-  //       {
-  //         test: /\.tsx?$/,
-  //         loader: "awesome-typescript-loader",
-  //       },
-  //     ],
-  //   },
 };

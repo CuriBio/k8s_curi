@@ -11,4 +11,4 @@ build/
 .pytest_cache
 .vscode
 .env
-
+**/public/serviceWorker.js
