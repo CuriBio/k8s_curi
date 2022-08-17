@@ -38,7 +38,8 @@ function Pulse({ Component, pageProps }) {
       // env vars need to be set here because service worker does not have access to node process
       navigator.serviceWorker
         .register(
-          `/serviceWorker.js?pulse3d_url=${process.env.NEXT_PUBLIC_PULSE3D_URL}&users_url=${process.env.NEXT_PUBLIC_USERS_URL}`
+          `/serviceWorker.js?pulse3d_url=${process.env.NEXT_PUBLIC_PULSE3D_URL}&users_url=${process.env.NEXT_PUBLIC_USERS_URL}`,
+          { type: "module" }
         )
         .then(navigator.serviceWorker.ready)
         .then(() => sendSWMessage())

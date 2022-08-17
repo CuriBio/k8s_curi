@@ -1,6 +1,7 @@
 import jwt_decode from "jwt-decode";
 
 import { Mutex } from "async-mutex";
+
 const refresh_mutex = new Mutex();
 
 const PULSE3D_URL = new URLSearchParams(location.search).get("pulse3d_url");
@@ -107,17 +108,21 @@ const requestWithRefresh = async (req, url) => {
     let retryRequest;
     // guard with mutex so two requests do not try to refresh simultaneously
     retryRequest = await refresh_mutex.runExclusive(async () => {
+      console.log("###", "acquired lock");
       // check remaining lifetime of access token
       const nowNoMillis = Math.floor(Date.now() / 1000);
       const accessTokenExp = jwt_decode(tokens.access).exp;
+      console.log("$$$", accessTokenExp, nowNoMillis);
       if (accessTokenExp - nowNoMillis < 10) {
         // refresh tokens since the access token less than 10 seconds away from expiring
         const refreshResponseStatus = await handleRefreshRequest();
         // only retry the original request if the refresh succeeds
+
         return refreshResponseStatus === 201;
       }
       // since access token is not close to expiring, assume refresh was just triggered by a
       // different request and try this request again
+      console.log("###", "about to release lock");
       return true;
     });
     if (retryRequest) {
@@ -157,12 +162,12 @@ const interceptResponse = async (req, url) => {
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
-  console.log("[SW] Service worker installed!");
+  console.log("[SW] New Service worker installed!");
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
-  console.log("[SW] Service worker ready!");
+  console.log("[SW] New Service worker ready!");
 });
 
 // Clear token on postMessage
@@ -183,7 +188,7 @@ self.onmessage = ({ data, source }) => {
 
 // Intercept all fetch requests
 self.addEventListener("fetch", async (e) => {
-  destURL = new URL(e.request.url);
+  let destURL = new URL(e.request.url);
   // only intercept routes to pulse and user apis
 
   if (destURL.hostname === "curibio.com") {

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build-sw": "webpack",
     "export:prod": "echo 'NEXT_PUBLIC_PULSE3D_URL=https://pulse3d.curibio.com \nNEXT_PUBLIC_USERS_URL=https://apiv2.curibio.com/users' > .env.production && next build && next export",
     "export:test": "echo 'NEXT_PUBLIC_PULSE3D_URL=https://pulse3d.curibio-test.com \nNEXT_PUBLIC_USERS_URL=https://apiv2.curibio-test.com/users' > .env.production && next build && next export",
     "start": "next start",
@@ -45,6 +46,7 @@
     "eslint-config-next": "12.1.6",
     "jest": "^28.1.0",
     "jest-environment-jsdom": "^28.1.0",
-    "start-server-and-test": "^1.14.0"
+    "start-server-and-test": "^1.14.0",
+    "webpack-cli": "^4.10.0"
   }
 }
