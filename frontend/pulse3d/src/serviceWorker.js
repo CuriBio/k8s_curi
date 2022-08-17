@@ -2,11 +2,11 @@
 // which will place the compiled output file into public/ instead. This uncompiled file does not
 // need to be included in any build steps, just the compiled webpack output
 
-import jwt_decode from "jwt-decode";
+import jwtDecode from "jwt-decode";
 
 import { Mutex } from "async-mutex";
 
-const refresh_mutex = new Mutex();
+const refreshMutex = new Mutex();
 
 const PULSE3D_URL = new URLSearchParams(location.search).get("pulse3d_url");
 const USERS_URL = new URLSearchParams(location.search).get("users_url");
@@ -41,8 +41,8 @@ const clearTokens = () => {
 /* Request intercept functions */
 
 const getUrl = ({ pathname, search }) => {
-  const user_urls = ["/login", "/logout", "/refresh", "/register"];
-  let url = user_urls.includes(pathname) ? USERS_URL : PULSE3D_URL;
+  const userUrls = ["/login", "/logout", "/refresh", "/register"];
+  let url = userUrls.includes(pathname) ? USERS_URL : PULSE3D_URL;
   return new URL(`${url}${pathname}${search}`);
 };
 
@@ -111,11 +111,11 @@ const requestWithRefresh = async (req, url) => {
   if (response.status === 401) {
     let retryRequest;
     // guard with mutex so two requests do not try to refresh simultaneously
-    retryRequest = await refresh_mutex.runExclusive(async () => {
+    retryRequest = await refreshMutex.runExclusive(async () => {
       console.log("###", "acquired lock");
       // check remaining lifetime of access token
       const nowNoMillis = Math.floor(Date.now() / 1000);
-      const accessTokenExp = jwt_decode(tokens.access).exp;
+      const accessTokenExp = jwtDecode(tokens.access).exp;
       console.log("$$$", accessTokenExp, nowNoMillis);
       if (accessTokenExp - nowNoMillis < 10) {
         // refresh tokens since the access token less than 10 seconds away from expiring
