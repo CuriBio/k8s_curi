@@ -112,11 +112,9 @@ const requestWithRefresh = async (req, url) => {
     let retryRequest;
     // guard with mutex so two requests do not try to refresh simultaneously
     retryRequest = await refreshMutex.runExclusive(async () => {
-      console.log("###", "acquired lock");
       // check remaining lifetime of access token
       const nowNoMillis = Math.floor(Date.now() / 1000);
       const accessTokenExp = jwtDecode(tokens.access).exp;
-      console.log("$$$", accessTokenExp, nowNoMillis);
       if (accessTokenExp - nowNoMillis < 10) {
         // refresh tokens since the access token less than 10 seconds away from expiring
         const refreshResponseStatus = await handleRefreshRequest();
@@ -126,7 +124,6 @@ const requestWithRefresh = async (req, url) => {
       }
       // since access token is not close to expiring, assume refresh was just triggered by a
       // different request and try this request again
-      console.log("###", "about to release lock");
       return true;
     });
     if (retryRequest) {
