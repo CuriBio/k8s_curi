@@ -4,10 +4,9 @@ import { isArrayOfNumbers } from "../../utils/generic";
 import FormInput from "../basicWidgets/FormInput";
 
 const Container = styled.div`
-  padding-top:1rem;
+  padding-top: 1rem;
   left: 5%;
   top: 12%;
-  height: 50%;
   width: 90%;
   position: relative;
   display: flex;
@@ -18,14 +17,24 @@ const Container = styled.div`
   border-width: 2px;
   border-radius: 7px;
   background-color: var(--light-gray);
+  margin: 5rem 0;
+  margin-bottom: 4;
 `;
 
+const TwoParamContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  align-items: center;
+  padding-top: 2rem;
+`;
 const ParamContainer = styled.div`
   display: flex;
   flex-direction: row;
   overflow: visible;
   height: 70px;
   padding-top: 15px;
+  height: 70px;
 `;
 
 const InputContainer = styled.div`
@@ -37,29 +46,29 @@ const InputContainer = styled.div`
 `;
 
 const WindowAnalysisContainer = styled.div`
-  margin-top:50px;
-  margin-bottom: 20px;
   border: 2px solid var(--dark-gray);
-  height: 47%;
   border-radius: 5px;
   width: 60%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  margin-top: 4rem;
+`;
+const AdvancedAnalysisContainer = styled.div`
+  border: 2px solid var(--dark-gray);
+  border-radius: 5px;
+  width: 60%;
+  height: 100%;
+  margin-top: 4rem;
+  margin-bottom: 4rem;
 `;
 
 const WAOverlay = styled.div`
   border-radius: 5px;
-  background-color: black;
   z-index: 2;
-  border-radius: 5px;
-  width: 53.8%;
-  position: absolute;
-  height: 42%;
+  width: 100%;
+  height: 100%;
   background-color: var(--dark-gray);
   opacity: 0.6;
+  position: absolute;
 `;
-
 const Label = styled.label`
   width: 102%;
   position: relative;
@@ -67,7 +76,7 @@ const Label = styled.label`
   padding: 5px;
   border-radius: 5px;
   display: flex;
-  justify-content: end;
+  justify-content: center;
   padding-right: 5%;
   white-space: nowrap;
 `;
@@ -81,6 +90,17 @@ const ErrorText = styled.span`
   font-size: 13px;
 `;
 
+const WAOverlayContainer = styled.div`
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-flow: column;
+  align-items: center;
+  justify-content: end;
+`;
+
 const InputErrorContainer = styled.div`
   display: flex;
   flex-direction: column;
@@ -88,20 +108,26 @@ const InputErrorContainer = styled.div`
   overflow: visible;
 `;
 
+const FormModify = styled.div`
+  display: flex;
+  width: 400px;
+`;
+
 const WALabel = styled.span`
   background-color: var(--light-gray);
   bottom: 43%;
   border-radius: 6px;
-  position: absolute;
-  left: 25%;
   display: flex;
-  flex-direction: row;
   align-items: center;
   width: 195px;
   font-size: 14px;
-  z-index: 3;
+  z-index: 1;
   border: 2px solid var(--dark-gray);
   cursor: default;
+  z-index: 3;
+  position: absolute;
+  right: 55%;
+  bottom: 94%;
 `;
 
 const AdditionalParamLabel = styled.span`
@@ -126,9 +152,11 @@ const AdditionalParamLabel = styled.span`
 export default function AnalysisParamForm({
   inputVals,
   errorMessages,
-  checked,
-  setChecked,
+  checkedWindow,
+  setCheckedWindow,
   setAnalysisParams,
+  checkedAdvanced,
+  setCheckedAdvanced,
   paramErrors,
   setParamErrors,
   analysisParams,
@@ -136,75 +164,51 @@ export default function AnalysisParamForm({
   const updateParams = (newParams) => {
     const updatedParams = { ...analysisParams, ...newParams };
 
-    if (newParams.twitchWidths !== undefined) {
+    if (newParams.twitchWidths) {
       validateTwitchWidths(updatedParams);
     }
-    if (newParams.startTime !== undefined || newParams.endTime !== undefined) {
+    if (newParams.startTime || newParams.endTime) {
       // need to validate start and end time together
       validateWindowBounds(updatedParams);
     }
-    if (newParams.prominenceFactor !== undefined) {
-      validateProminenceFactor(updatedParams);
+    if (newParams.prominenceFactorPeaks) {
+      validateAdvancedParams(updatedParams, "prominenceFactorPeaks");
     }
-    if (newParams.widthFactor !== undefined) {
-      validateWidthFactor(updatedParams)
+    if (newParams.prominenceFactorValleys) {
+      validateAdvancedParams(updatedParams, "prominenceFactorValleys");
+    }
+    if (newParams.widthFactorPeaks) {
+      validateAdvancedParams(updatedParams, "widthFactorPeaks");
+    }
+    if (newParams.widthFactorValleys) {
+      validateAdvancedParams(updatedParams, "widthFactorValleys");
     }
     setAnalysisParams(updatedParams);
   };
 
-  const validateTuple = (userInput) => {
-    const tuple = userInput.split(",")
-    //check there are only two entrees
-    if (tuple.length !== 2) {
-      return false
-    }
-    //check both entrees are numbers
-    try {
-      parseFloat(tuple[0])
-      parseFloat(tuple[1])
-    } catch (e) {
-      return false
-    }
-    //check both entrees are bigger than 0
-    if (!(tuple[0] > 0) || !(tuple[1] > 0)) {
-      return false
-    }
-    return true
-  }
+  const isValidPositiveNumber = (value) => {
+    return +value > 0;
+  };
 
-  const validateProminenceFactor = (updatedParams) => {
-    if (validateTuple(updatedParams.prominenceFactor)) {
-      setParamErrors({ ...paramErrors, prominenceFactor: "" });
-      updatedParams.prominenceFactor = [updatedParams.prominenceFactor.split(",")[0], updatedParams.prominenceFactor.split(",")[1]]
-    } else if (updatedParams.prominenceFactor === null || updatedParams.prominenceFactor === "") {
+  const validateAdvancedParams = (updatedParams, paramName) => {
+    const newValue = updatedParams[paramName];
+    if (newValue === null || newValue === "") {
       setParamErrors({
         ...paramErrors,
-        prominenceFactor: "",
+        [paramName]: "",
+      });
+    } else if (isValidPositiveNumber(newValue)) {
+      setParamErrors({
+        ...paramErrors,
+        [paramName]: "",
       });
     } else {
       setParamErrors({
         ...paramErrors,
-        prominenceFactor: "*Must be two comma-separated, positive numbers",
+        [paramName]: "* Must be a positive number",
       });
     }
-  }
-
-  const validateWidthFactor = (updatedParams) => {
-    if (validateTuple(updatedParams.widthFactor)) {
-      setParamErrors({ ...paramErrors, widthFactor: "" });
-      updatedParams.widthFactor = [updatedParams.widthFactor.split(",")[0], updatedParams.widthFactor.split(",")[1]]
-    } else if (updatedParams.widthFactor === null || updatedParams.widthFactor === "") {
-      setParamErrors({
-        ...paramErrors,
-        widthFactor: "",
-      });
-    } else {
-      setParamErrors({
-        ...paramErrors,
-        widthFactor: "*Must be two comma-separated, positive numbers",
-      });
-    }
-  }
+  };
 
   const validateTwitchWidths = (updatedParams) => {
     const newValue = updatedParams.twitchWidths;
@@ -282,44 +286,6 @@ export default function AnalysisParamForm({
       </AdditionalParamLabel>
       <InputContainer>
         <ParamContainer style={{ width: "60%" }}>
-          <Label htmlFor="prominenceFactor">Prominence Factor (min, max):</Label>
-          <InputErrorContainer>
-            <FormInput
-              name="prominenceFactor"
-              placeholder={"6, 6"}
-              value={inputVals.prominenceFactor}
-              onChangeFn={(e) => {
-                updateParams({
-                  prominenceFactor: e.target.value,
-                });
-              }}
-            >
-              <ErrorText id="prominenceFactorError" role="errorMsg">
-                {errorMessages.prominenceFactor}
-              </ErrorText>
-            </FormInput>
-          </InputErrorContainer>
-        </ParamContainer>
-        <ParamContainer style={{ width: "60%" }}>
-          <Label htmlFor="widthFactor">Width Factor (min, max):</Label>
-          <InputErrorContainer>
-            <FormInput
-              name="widthFactor"
-              placeholder={"7, 7"}
-              value={inputVals.widthFactor}
-              onChangeFn={(e) => {
-                updateParams({
-                  widthFactor: e.target.value,
-                });
-              }}
-            >
-              <ErrorText id="widthFactorError" role="errorMsg">
-                {errorMessages.widthFactor}
-              </ErrorText>
-            </FormInput>
-          </InputErrorContainer>
-        </ParamContainer>
-        <ParamContainer style={{ width: "60%" }}>
           <Label htmlFor="twitchWidths">Twitch Width:</Label>
           <InputErrorContainer>
             <FormInput
@@ -339,55 +305,160 @@ export default function AnalysisParamForm({
           </InputErrorContainer>
         </ParamContainer>
         <WindowAnalysisContainer>
-          <WALabel>
-            <CheckboxWidget
-              color={"secondary"}
-              size={"small"}
-              handleCheckbox={(checked) => setChecked(checked)}
-              checkedState={checked}
-            />
-            Use Window Analysis
-          </WALabel>
-          {checked || <WAOverlay />}
-          <ParamContainer>
-            <Label htmlFor="startTime">Start Time (s):</Label>
-            <InputErrorContainer>
-              <FormInput
-                name="startTime"
-                placeholder={checked ? "0" : ""}
-                value={!checked ? "" : inputVals.startTime}
-                onChangeFn={(e) => {
-                  updateParams({
-                    startTime: e.target.value,
-                  });
-                }}
-              >
-                <ErrorText id="startTimeError" role="errorMsg">
-                  {errorMessages.startTime}
-                </ErrorText>
-              </FormInput>
-            </InputErrorContainer>
-          </ParamContainer>
-          <ParamContainer>
-            <Label htmlFor="endTime">End Time (s):</Label>
-            <InputErrorContainer>
-              <FormInput
-                name="endTime"
-                placeholder={checked ? "(End of recording)" : ""}
-                value={!checked ? "" : inputVals.endTime}
-                onChangeFn={(e) => {
-                  updateParams({
-                    endTime: e.target.value,
-                  });
-                }}
-              >
-                <ErrorText id="endTimeError" role="errorMsg">
-                  {errorMessages.endTime}
-                </ErrorText>
-              </FormInput>
-            </InputErrorContainer>
-          </ParamContainer>
+          <WAOverlayContainer>
+            {checkedWindow || <WAOverlay />}
+            <WALabel>
+              <CheckboxWidget
+                color={"secondary"}
+                size={"small"}
+                handleCheckbox={(checkedWindow) =>
+                  setCheckedWindow(checkedWindow)
+                }
+                checkedState={checkedWindow}
+              />
+              Use Window Analysis
+            </WALabel>
+            <ParamContainer>
+              <Label htmlFor="startTime">Start Time (s):</Label>
+              <InputErrorContainer>
+                <FormInput
+                  name="startTime"
+                  placeholder={checkedWindow ? "0" : ""}
+                  value={!checkedWindow ? "" : inputVals.startTime}
+                  onChangeFn={(e) => {
+                    updateParams({
+                      startTime: e.target.value,
+                    });
+                  }}
+                >
+                  <ErrorText id="startTimeError" role="errorMsg">
+                    {errorMessages.startTime}
+                  </ErrorText>
+                </FormInput>
+              </InputErrorContainer>
+            </ParamContainer>
+            <ParamContainer>
+              <Label htmlFor="endTime">End Time (s):</Label>
+              <InputErrorContainer>
+                <FormInput
+                  name="endTime"
+                  placeholder={checkedWindow ? "(End of recording)" : ""}
+                  value={!checkedWindow ? "" : inputVals.endTime}
+                  onChangeFn={(e) => {
+                    updateParams({
+                      endTime: e.target.value,
+                    });
+                  }}
+                >
+                  <ErrorText id="endTimeError" role="errorMsg">
+                    {errorMessages.endTime}
+                  </ErrorText>
+                </FormInput>
+              </InputErrorContainer>
+            </ParamContainer>
+          </WAOverlayContainer>
         </WindowAnalysisContainer>
+        <AdvancedAnalysisContainer>
+          <WAOverlayContainer>
+            <WALabel>
+              <CheckboxWidget
+                color={"secondary"}
+                size={"small"}
+                handleCheckbox={(checkedAdvanced) =>
+                  setCheckedAdvanced(checkedAdvanced)
+                }
+                checkedState={checkedAdvanced}
+              />
+              Use Advanced Analysis
+            </WALabel>
+            {checkedAdvanced || <WAOverlay />}
+            <TwoParamContainer>
+              <Label htmlFor="prominenceFactorPeaks">Prominence(uN):</Label>
+              <InputErrorContainer>
+                <label htmlFor="prominenceFactorPeaks">Peaks</label>
+                <FormModify>
+                  <FormInput
+                    name="prominenceFactorPeaks"
+                    placeholder={checkedAdvanced ? "6" : ""}
+                    value={
+                      !checkedAdvanced ? "" : inputVals.prominenceFactorPeaks
+                    }
+                    onChangeFn={(e) => {
+                      updateParams({
+                        prominenceFactorPeaks: e.target.value,
+                      });
+                    }}
+                  >
+                    <ErrorText id="prominenceFactorPeaksError" role="errorMsg">
+                      {errorMessages.prominenceFactorPeaks}
+                    </ErrorText>
+                  </FormInput>
+                </FormModify>
+                <label htmlFor="prominenceFactorValleys">Valleys</label>
+                <FormModify>
+                  <FormInput
+                    name="prominenceFactorValleys"
+                    placeholder={checkedAdvanced ? "6" : ""}
+                    value={
+                      !checkedAdvanced ? "" : inputVals.prominenceFactorValleys
+                    }
+                    onChangeFn={(e) => {
+                      updateParams({
+                        prominenceFactorValleys: e.target.value,
+                      });
+                    }}
+                  >
+                    <ErrorText
+                      id="prominenceFactorValleysError"
+                      role="errorMsg"
+                    >
+                      {errorMessages.prominenceFactorValleys}
+                    </ErrorText>
+                  </FormInput>
+                </FormModify>
+              </InputErrorContainer>
+            </TwoParamContainer>
+            <TwoParamContainer>
+              <Label htmlFor="widthFactorPeaks">Width (ms):</Label>
+              <InputErrorContainer>
+                <label htmlFor="widthFactorPeaks">Peaks</label>
+                <FormModify>
+                  <FormInput
+                    name="widthFactorPeaks"
+                    placeholder={checkedAdvanced ? "7" : ""}
+                    value={!checkedAdvanced ? "" : inputVals.widthFactorPeaks}
+                    onChangeFn={(e) => {
+                      updateParams({
+                        widthFactorPeaks: e.target.value,
+                      });
+                    }}
+                  >
+                    <ErrorText id="widthFactorPeaksError" role="errorMsg">
+                      {errorMessages.widthFactorPeaks}
+                    </ErrorText>
+                  </FormInput>
+                </FormModify>
+                <label htmlFor="widthFactorValleys">Valleys</label>
+                <FormModify>
+                  <FormInput
+                    name="widthFactorValleys"
+                    placeholder={checkedAdvanced ? "7" : ""}
+                    value={!checkedAdvanced ? "" : inputVals.widthFactorValleys}
+                    onChangeFn={(e) => {
+                      updateParams({
+                        widthFactorValleys: e.target.value,
+                      });
+                    }}
+                  >
+                    <ErrorText id="widthFactorValleysError" role="errorMsg">
+                      {errorMessages.widthFactorValleys}
+                    </ErrorText>
+                  </FormInput>
+                </FormModify>
+              </InputErrorContainer>
+            </TwoParamContainer>
+          </WAOverlayContainer>
+        </AdvancedAnalysisContainer>
       </InputContainer>
     </Container>
   );

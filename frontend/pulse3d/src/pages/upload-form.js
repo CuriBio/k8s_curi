@@ -33,7 +33,6 @@ const Header = styled.h2`
 const Uploads = styled.div`
   width: 100%;
   min-width: 1000px;
-  height: 1000px;
   border: solid;
   border-color: var(--dark-gray);
   border-width: 2px;
@@ -43,12 +42,10 @@ const Uploads = styled.div`
 `;
 
 const ButtonContainer = styled.div`
-  position: relative;
-  top: 15%;
-  justify-content: flex-end;
   display: flex;
-  padding-right: 12%;
   align-items: center;
+  justify-content: space-around;
+  padding: 1rem;
 `;
 
 const SuccessText = styled.span`
@@ -67,6 +64,7 @@ const DropDownContainer = styled.div`
   height: 17%;
   align-items: center;
   top: 5%;
+  margin-top: 1rem;
 `;
 
 const dropZoneText = "CLICK HERE or DROP single recording ZIP files";
@@ -88,7 +86,8 @@ export default function UploadForm() {
     defaultUploadErrorLabel,
   ]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [checked, setChecked] = useState(false);
+  const [checkedWindow, setCheckedWindow] = useState(false);
+  const [checkedAdvanced, setCheckedAdvanced] = useState(false);
   const [tabSelection, setTabSelection] = useState(query.id);
   const [modalState, setModalState] = useState(false);
   const [analysisParams, setAnalysisParams] = useState({
@@ -145,23 +144,45 @@ export default function UploadForm() {
   const resetState = () => {
     setFiles([]);
     setAnalysisParams({
-      prominenceFactor: "",
-      widthFactor: "",
+      prominenceFactorPeaks: "",
+      prominenceFactorValleys: "",
+      widthFactorPeaks: "",
+      widthFactorValleys: "",
       twitchWidths: "",
       startTime: "",
       endTime: "",
     });
     setFailedUploadsMsg([defaultUploadErrorLabel]);
     setModalButtons(["Close"]);
-    setChecked(false);
+    setCheckedWindow(false);
     setParamErrors({});
   };
 
+  //format the advanced params into a list of two numbers
+  /*
+    if both are present then submit them as is
+    if none present then return null
+    if only peaks passed then make an array [peak,null]
+    if only valleys present then return array [null,valley]
+  */
+  const formatedAdvancedParams = (peaks, valleys) => {
+    if (peaks !== "" && valleys !== "") {
+      return [peaks, valleys];
+    } else if (peaks !== "" && valleys === "") {
+      return [peaks, null];
+    } else if (peaks === "" && valleys !== "") {
+      return [null, valleys];
+    } else {
+      return null;
+    }
+  };
   const postNewJob = async (uploadId, filename) => {
     try {
       const {
-        prominenceFactor,
-        widthFactor,
+        prominenceFactorPeaks,
+        prominenceFactorValleys,
+        widthFactorPeaks,
+        widthFactorValleys,
         twitchWidths,
         startTime,
         endTime,
@@ -170,14 +191,19 @@ export default function UploadForm() {
         method: "POST",
         body: JSON.stringify({
           upload_id: uploadId,
-          prominence_factors: prominenceFactor === "" ? null : prominenceFactor,
-          width_factors: widthFactor === "" ? null : widthFactor,
+          prominence_factors: formatedAdvancedParams(
+            prominenceFactorPeaks,
+            prominenceFactorValleys
+          ),
+          width_factors: formatedAdvancedParams(
+            widthFactorPeaks,
+            widthFactorValleys
+          ),
           twitch_widths: twitchWidths === "" ? null : twitchWidths,
           start_time: startTime === "" ? null : startTime,
           end_time: endTime === "" ? null : endTime,
         }),
       });
-
       if (jobResponse.status !== 200) {
         failedUploadsMsg.push(filename);
         console.log("ERROR posting new job: ", await jobResponse.json());
@@ -390,8 +416,10 @@ export default function UploadForm() {
         <AnalysisParamForm
           errorMessages={paramErrors}
           inputVals={analysisParams}
-          checked={checked}
-          setChecked={setChecked}
+          checkedWindow={checkedWindow}
+          setCheckedWindow={setCheckedWindow}
+          checkedAdvanced={checkedAdvanced}
+          setCheckedAdvanced={setCheckedAdvanced}
           paramErrors={paramErrors}
           setParamErrors={setParamErrors}
           setAnalysisParams={setAnalysisParams}

@@ -17,7 +17,7 @@ services:
         ports:
             - "9001:9001"
         platform: "linux/amd64"
-        depends_on: 
+        depends_on:
             - psql-proxy
     apiv2-mantarray:
         build:

@@ -34,8 +34,9 @@ class UploadResponse(BaseModel):
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
-    prominence_factors: Optional[Union[Tuple[Union[int, float]], List[int]]]
-    width_factors: Optional[Union[Tuple[Union[int, float]], List[int]]]
+    prominence_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
+    width_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
+
     twitch_widths: Optional[List[int]]
     start_time: Optional[Union[int, float]]
     end_time: Optional[Union[int, float]]
@@ -88,7 +89,9 @@ async def get_info_of_uploads(
 
 @app.post("/uploads", response_model=UploadResponse)
 async def create_recording_upload(
-    request: Request, details: UploadRequest, token=Depends(ProtectedAny(scope=["users:free"]))
+    request: Request,
+    details: UploadRequest,
+    token=Depends(ProtectedAny(scope=["users:free"])),
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
@@ -108,7 +111,11 @@ async def create_recording_upload(
                 upload_id = await create_upload(con=con, upload_params=upload_params)
 
                 params = _generate_presigned_post(
-                    user_id, customer_id, details, PULSE3D_UPLOADS_BUCKET, upload_id=upload_id
+                    user_id,
+                    customer_id,
+                    details,
+                    PULSE3D_UPLOADS_BUCKET,
+                    upload_id=upload_id,
                 )
 
                 return UploadResponse(id=upload_id, params=params)
@@ -147,7 +154,9 @@ async def soft_delete_uploads(
 # TODO Tanner (4/21/22): probably want to move this to a more general svc (maybe in apiv2-dep) dedicated to uploading misc files to s3
 @app.post("/logs")
 async def create_log_upload(
-    request: Request, details: UploadRequest, token=Depends(ProtectedAny(scope=["users:free"]))
+    request: Request,
+    details: UploadRequest,
+    token=Depends(ProtectedAny(scope=["users:free"])),
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
@@ -202,7 +211,7 @@ async def get_info_of_jobs(
                     "created_at": job["created_at"],
                     "meta": job["job_meta"],
                 }
-                
+
                 if job_info["status"] == "finished" and download:
                     # This is in case any current users uploaded files before object_key was dropped from uploads table and added to jobs_result
                     if obj_key:
@@ -216,7 +225,7 @@ async def get_info_of_jobs(
                         job_info["url"] = None
 
                 elif job_info["status"] == "error":
-                    
+
                     try:
                         job_info["error_info"] = json.loads(job["job_meta"])["error"]
                     except KeyError:  # protects against downgrading and updating deleted statuses to errors
@@ -234,7 +243,9 @@ async def get_info_of_jobs(
 
 @app.post("/jobs")
 async def create_new_job(
-    request: Request, details: JobRequest, token=Depends(ProtectedAny(scope=["users:free"]))
+    request: Request,
+    details: JobRequest,
+    token=Depends(ProtectedAny(scope=["users:free"])),
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
@@ -252,20 +263,14 @@ async def create_new_job(
                 )
             }
         }
-        # convert single number input from user to tuple
+
+        # convert FE output to pulse3dInput
         # done for width and prominece factors
-        meta["analysis_params"]["prominence_factors"] = (
-            None
-            if meta["analysis_params"]["prominence_factors"] == None
-            else (
-                meta["analysis_params"]["prominence_factors"][0],
-                meta["analysis_params"]["prominence_factors"][1],
-            )
+        meta["analysis_params"]["prominence_factors"] = _format_advanced_options(
+            meta["analysis_params"]["prominence_factors"], "prominence"
         )
-        meta["analysis_params"]["width_factors"] = (
-            None
-            if meta["analysis_params"]["width_factors"] == None
-            else (meta["analysis_params"]["width_factors"][0], meta["analysis_params"]["width_factors"][1])
+        meta["analysis_params"]["width_factors"] = _format_advanced_options(
+            meta["analysis_params"]["width_factors"], "width"
         )
 
         logger.info(f"Using params: {meta['analysis_params']}")
@@ -273,7 +278,11 @@ async def create_new_job(
         async with request.state.pgpool.acquire() as con:
             priority = 10
             job_id = await create_job(
-                con=con, upload_id=details.upload_id, queue="pulse3d", priority=priority, meta=meta
+                con=con,
+                upload_id=details.upload_id,
+                queue="pulse3d",
+                priority=priority,
+                meta=meta,
             )
 
             # TODO create response model
@@ -288,6 +297,25 @@ async def create_new_job(
     except Exception as e:
         logger.exception(f"Failed to create job: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _format_advanced_options(option: List[Union[int, float, None]], option_name):
+    if option is None:
+        return None
+    # if only peaks is passed return tuple(peaks,default value)
+    if option[0] is not None and option[1] is None:
+        if option_name is "width":
+            return option[0], 7
+        if option_name is "prominence":
+            return option[0], 6
+    # if only valleys is passed return (default value,valleys)
+    if option[0] is None and option[1] is not None:
+        if option_name is "width":
+            return 7, option[1]
+        if option_name is "prominence":
+            return 6, option[1]
+    # if both present then return a tuple
+    return option[0], option[1]
 
 
 @app.delete("/jobs")
