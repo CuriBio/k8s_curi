@@ -43,9 +43,9 @@ const Uploads = styled.div`
 
 const ButtonContainer = styled.div`
   display: flex;
-  align-items:center;
-  justify-content:space-around;
-  padding:1rem;
+  align-items: center;
+  justify-content: space-around;
+  padding: 1rem;
 `;
 
 const SuccessText = styled.span`
@@ -64,7 +64,7 @@ const DropDownContainer = styled.div`
   height: 17%;
   align-items: center;
   top: 5%;
-  margin-top:1rem;
+  margin-top: 1rem;
 `;
 
 const dropZoneText = "CLICK HERE or DROP single recording ZIP files";
@@ -166,11 +166,16 @@ export default function UploadForm() {
     if only valleys present then return array [null,valley]
   */
   const formatedAdvancedParams = (peaks, valleys) => {
-    if(peaks !== "" && valleys !== "") {return [peaks,valleys]}
-    else if(peaks !=="" && valleys === ""){return [peaks,null]}
-    else if(peaks === "" && valleys !== ""){return [null,valleys]}
-    else{return null}
-  }
+    if (peaks !== "" && valleys !== "") {
+      return [peaks, valleys];
+    } else if (peaks !== "" && valleys === "") {
+      return [peaks, null];
+    } else if (peaks === "" && valleys !== "") {
+      return [null, valleys];
+    } else {
+      return null;
+    }
+  };
   const postNewJob = async (uploadId, filename) => {
     try {
       const {
@@ -186,8 +191,14 @@ export default function UploadForm() {
         method: "POST",
         body: JSON.stringify({
           upload_id: uploadId,
-          prominence_factors: formatedAdvancedParams(prominenceFactorPeaks, prominenceFactorValleys),
-          width_factors: formatedAdvancedParams(widthFactorPeaks, widthFactorValleys),
+          prominence_factors: formatedAdvancedParams(
+            prominenceFactorPeaks,
+            prominenceFactorValleys
+          ),
+          width_factors: formatedAdvancedParams(
+            widthFactorPeaks,
+            widthFactorValleys
+          ),
           twitch_widths: twitchWidths === "" ? null : twitchWidths,
           start_time: startTime === "" ? null : startTime,
           end_time: endTime === "" ? null : endTime,

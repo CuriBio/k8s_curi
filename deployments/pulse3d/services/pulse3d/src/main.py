@@ -302,20 +302,20 @@ async def create_new_job(
 def _format_advanced_options(option: List[Union[int, float, None]], optionName):
     if option is None:
         return None
-    # if only peaks is passed return tupele(peaks,)
+    # if only peaks is passed return tupele(peaks,default value)
     if option[0] is not None and option[1] is None:
         if optionName is "width":
-            return (option[0], 7)
+            return option[0], 7
         if optionName is "prominence":
-            return (option[0], 6)
+            return option[0], 6
     # if only valleys is passed return (default value,valleys)
     if option[0] is None and option[1] is not None:
         if optionName is "width":
-            return (7, option[1])
+            return 7, option[1]
         if optionName is "prominence":
-            return (6, option[1])
+            return 6, option[1]
     # if both present then return a tuple
-    return (option[0], option[1])
+    return option[0], option[1]
 
 
 @app.delete("/jobs")
