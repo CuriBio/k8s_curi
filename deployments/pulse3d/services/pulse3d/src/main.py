@@ -299,20 +299,20 @@ async def create_new_job(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def _format_advanced_options(option: List[Union[int, float, None]], optionName):
+def _format_advanced_options(option: List[Union[int, float, None]], option_name):
     if option is None:
         return None
-    # if only peaks is passed return tupele(peaks,default value)
+    # if only peaks is passed return tuple(peaks,default value)
     if option[0] is not None and option[1] is None:
-        if optionName is "width":
+        if option_name is "width":
             return option[0], 7
-        if optionName is "prominence":
+        if option_name is "prominence":
             return option[0], 6
     # if only valleys is passed return (default value,valleys)
     if option[0] is None and option[1] is not None:
-        if optionName is "width":
+        if option_name is "width":
             return 7, option[1]
-        if optionName is "prominence":
+        if option_name is "prominence":
             return 6, option[1]
     # if both present then return a tuple
     return option[0], option[1]

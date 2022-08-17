@@ -172,16 +172,16 @@ export default function AnalysisParamForm({
       validateWindowBounds(updatedParams);
     }
     if (newParams.prominenceFactorPeaks) {
-      validateProminenceFactorMin(updatedParams);
+      validateAdvancedParams(updatedParams, "prominenceFactorPeaks");
     }
     if (newParams.prominenceFactorValleys) {
-      validateProminenceFactorMax(updatedParams);
+      validateAdvancedParams(updatedParams, "prominenceFactorValleys");
     }
     if (newParams.widthFactorPeaks) {
-      validateWidthFactorMin(updatedParams);
+      validateAdvancedParams(updatedParams, "widthFactorPeaks");
     }
     if (newParams.widthFactorValleys) {
-      validateWidthFactorMax(updatedParams);
+      validateAdvancedParams(updatedParams, "widthFactorValleys");
     }
     setAnalysisParams(updatedParams);
   };
@@ -190,80 +190,22 @@ export default function AnalysisParamForm({
     return +value > 0;
   };
 
-  const validateProminenceFactorMin = (updatedParams) => {
-    const newValue = updatedParams.prominenceFactorPeaks;
+  const validateAdvancedParams = (updatedParams, paramName) => {
+    const newValue = updatedParams[paramName];
     if (newValue === null || newValue === "") {
       setParamErrors({
         ...paramErrors,
-        prominenceFactorPeaks: "",
+        paramName: "",
       });
     } else if (isValidPositiveNumber(newValue)) {
       setParamErrors({
         ...paramErrors,
-        prominenceFactorPeaks: "",
+        paramName: "",
       });
     } else {
       setParamErrors({
         ...paramErrors,
-        prominenceFactorPeaks: "* Must be a positive number",
-      });
-    }
-  };
-  const validateProminenceFactorMax = (updatedParams) => {
-    const newValue = updatedParams.prominenceFactorValleys;
-    if (newValue === null || newValue === "") {
-      setParamErrors({
-        ...paramErrors,
-        prominenceFactorValleys: "",
-      });
-    } else if (isValidPositiveNumber(newValue)) {
-      setParamErrors({
-        ...paramErrors,
-        prominenceFactorValleys: "",
-      });
-    } else {
-      setParamErrors({
-        ...paramErrors,
-        prominenceFactorValleys: "* Must be a positive number",
-      });
-    }
-  };
-
-  const validateWidthFactorMin = (updatedParams) => {
-    const newValue = updatedParams.widthFactorPeaks;
-    if (newValue === null || newValue === "") {
-      setParamErrors({
-        ...paramErrors,
-        widthFactorPeaks: "",
-      });
-    } else if (isValidPositiveNumber(newValue)) {
-      setParamErrors({
-        ...paramErrors,
-        widthFactorPeaks: "",
-      });
-    } else {
-      setParamErrors({
-        ...paramErrors,
-        widthFactorPeaks: "* Must be a positive number",
-      });
-    }
-  };
-  const validateWidthFactorMax = (updatedParams) => {
-    const newValue = updatedParams.widthFactorValleys;
-    if (newValue === null || newValue === "") {
-      setParamErrors({
-        ...paramErrors,
-        widthFactorValleys: "",
-      });
-    } else if (isValidPositiveNumber(newValue)) {
-      setParamErrors({
-        ...paramErrors,
-        widthFactorValleys: "",
-      });
-    } else {
-      setParamErrors({
-        ...paramErrors,
-        widthFactorValleys: "* Must be a positive number",
+        paramName: "* Must be a positive number",
       });
     }
   };
