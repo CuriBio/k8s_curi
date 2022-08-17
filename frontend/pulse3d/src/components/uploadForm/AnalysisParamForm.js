@@ -195,17 +195,17 @@ export default function AnalysisParamForm({
     if (newValue === null || newValue === "") {
       setParamErrors({
         ...paramErrors,
-        paramName: "",
+        [paramName]: "",
       });
     } else if (isValidPositiveNumber(newValue)) {
       setParamErrors({
         ...paramErrors,
-        paramName: "",
+        [paramName]: "",
       });
     } else {
       setParamErrors({
         ...paramErrors,
-        paramName: "* Must be a positive number",
+        [paramName]: "* Must be a positive number",
       });
     }
   };
