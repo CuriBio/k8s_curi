@@ -119,7 +119,6 @@ const requestWithRefresh = async (req, url) => {
         // refresh tokens since the access token less than 10 seconds away from expiring
         const refreshResponseStatus = await handleRefreshRequest();
         // only retry the original request if the refresh succeeds
-
         return refreshResponseStatus === 201;
       }
       // since access token is not close to expiring, assume refresh was just triggered by a
@@ -163,12 +162,12 @@ const interceptResponse = async (req, url) => {
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
-  console.log("[SW] New Service worker installed!");
+  console.log("[SW] Service worker installed!");
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
-  console.log("[SW] New Service worker ready!");
+  console.log("[SW] Service worker ready!");
 });
 
 // Clear token on postMessage
