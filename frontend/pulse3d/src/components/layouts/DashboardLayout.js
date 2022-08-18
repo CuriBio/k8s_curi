@@ -33,8 +33,6 @@ export default function DashboardLayout({ children }) {
       if (response && response.status === 200) {
         const uploadsArr = await response.json();
         setUploads(uploadsArr);
-      } else if (response && response.status === 401 && accountType) {
-        router.replace("/login", null, { shallow: true });
       }
     } catch (e) {
       console.log("ERROR getting uploads for user");
