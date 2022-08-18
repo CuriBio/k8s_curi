@@ -127,8 +127,6 @@ export default function Uploads() {
         );
 
         setJobs(jobs);
-      } else if (response && [401].includes(response.status)) {
-        router.replace("/login", null, { shallow: true });
       }
     } catch (e) {
       console.log("ERROR fetching jobs in /uploads");
@@ -254,7 +252,7 @@ export default function Uploads() {
       // wait a second to remove deleted files
       // really helps with flow of when in progress modal closes
       await new Promise((r) => setTimeout(r, 1000));
-      
+
       // failed Deletions has it's own modal so prevent closure else reset
       if (!failedDeletion) {
         setModalState(false);

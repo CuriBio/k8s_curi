@@ -61,7 +61,7 @@ export default function NewUserForm() {
 
   const [errorMsg, setErrorMsg] = useState("");
   const [inProgress, setInProgress] = useState(false);
-  const [userCreatedVisible, setUserCreatedVisible] = useState(false)
+  const [userCreatedVisible, setUserCreatedVisible] = useState(false);
 
   const resetForm = () => {
     setErrorMsg(""); // reset to show user something happened
@@ -90,7 +90,7 @@ export default function NewUserForm() {
 
       if (res) {
         if (res.status === 201) {
-          setUserCreatedVisible(true)
+          setUserCreatedVisible(true);
           resetForm();
         } else if (res.status === 422) {
           const error = await res.json();
@@ -99,9 +99,7 @@ export default function NewUserForm() {
         } else if (res.status === 400) {
           const error = await res.json();
           setErrorMsg(`* ${error.detail}`);
-        } else if (res.status === 401)
-          router.push("/login", null, { shallow: true });
-        else setErrorMsg(`* Internal server error. Try again later.`);
+        } else setErrorMsg(`* Internal server error. Try again later.`);
       } else setErrorMsg(`* Internal server error. Try again later.`);
     }
 
@@ -115,7 +113,8 @@ export default function NewUserForm() {
         newMsg = "Please enter a valid email";
         break;
       case "username":
-        newMsg = "Username must be at least 5 characters long, and only contain letters and numbers";
+        newMsg =
+          "Username must be at least 5 characters long, and only contain letters and numbers";
         break;
       case "password1":
         newMsg =
