@@ -48,9 +48,6 @@ function Pulse({ Component, pageProps }) {
       navigator.serviceWorker.addEventListener("message", ({ data }) => {
         // data returned is a boolean if auth tokens are present. Otherwise return user to login
         // might need auth check to include actual fetch request in SW to check token status if this becomes a problem
-        if (data.logout !== true) {
-          return;
-        }
         setAuthCheck(data.authCheck);
         setAccountType(data.accountType);
         if (!data.authCheck) {

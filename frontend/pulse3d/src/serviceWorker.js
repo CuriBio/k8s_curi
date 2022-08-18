@@ -15,7 +15,7 @@ const USERS_URL = new URLSearchParams(location.search).get("users_url");
 
 let accountType = null;
 let logoutTimer = null;
-let mysource = null;
+let ClientSource = null;
 
 const setAccountType = (type) => {
   accountType = type;
@@ -40,6 +40,7 @@ const clearTokens = () => {
   tokens.access = null;
   tokens.refresh = null;
   clearTimeout(logoutTimer);
+  ClientSource.postMessage({ logout: true });
 };
 
 const setLogoutTimer = () => {
@@ -50,8 +51,8 @@ const setLogoutTimer = () => {
   logoutTimer = setTimeout(() => {
     //add logic to send the data
     console.log("[SW]loggout ping send");
-    mysource.postMessage({ logout: true });
-  }, 7 * 1000);
+    ClientSource.postMessage({ logout: true });
+  }, secondsBeforeLogOut * 1000);
 };
 
 /* Request intercept functions */
@@ -188,7 +189,7 @@ self.addEventListener("activate", (event) => {
 
 // Clear token on postMessage
 self.onmessage = ({ data, source }) => {
-  mysource = source;
+  ClientSource = source;
   if (data === "clear") {
     console.log("[SW] Clearing tokens and account type in ServiceWorker");
     clearTokens();
