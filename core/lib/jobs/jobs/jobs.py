@@ -66,7 +66,8 @@ async def get_uploads(*, con, account_type, account_id, upload_ids=None):
             query_params.extend(upload_ids)
     else:
         query = (
-            "SELECT * FROM uploads JOIN users ON users.id=uploads.user_id "
+            "SELECT users.name AS username, uploads.* "
+            "FROM uploads JOIN users ON users.id=uploads.user_id "
             "WHERE users.customer_id=$1 AND uploads.deleted='f'"
         )
 
