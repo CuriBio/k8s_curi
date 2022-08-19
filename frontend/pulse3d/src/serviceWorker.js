@@ -33,26 +33,26 @@ const tokens = {
 const setTokens = ({ access, refresh }) => {
   tokens.access = access.token;
   tokens.refresh = refresh.token;
-  setLogoutTimer();
 };
 
 const clearTokens = () => {
   tokens.access = null;
   tokens.refresh = null;
+  clearLogoutTimer();
+};
+
+const clearLogoutTimer = () => {
   clearTimeout(logoutTimer);
-  ClientSource.postMessage({ logout: true });
 };
 
 const setLogoutTimer = () => {
   const expTime = new Date(jwtDecode(tokens.refresh).exp * 1000);
   const currentTime = new Date().getTime();
   const secondsBeforeLogOut = (expTime - currentTime) / 1000;
-
   logoutTimer = setTimeout(() => {
-    //add logic to send the data
-    console.log("[SW]loggout ping send");
     ClientSource.postMessage({ logout: true });
-  }, secondsBeforeLogOut * 1000);
+    console.log("[SW]loggout ping send");
+  }, 7 * 1000);
 };
 
 /* Request intercept functions */
@@ -158,6 +158,7 @@ const interceptResponse = async (req, url) => {
       // set tokens if login was successful
       const data = await response.json();
       setTokens(data);
+      setLogoutTimer();
     }
     // send the response without the tokens so they are always contained within this service worker
     return new Response(JSON.stringify({}), {
