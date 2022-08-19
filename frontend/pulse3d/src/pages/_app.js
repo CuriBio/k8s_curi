@@ -48,11 +48,14 @@ function Pulse({ Component, pageProps }) {
       navigator.serviceWorker.addEventListener("message", ({ data }) => {
         // data returned is a boolean if auth tokens are present. Otherwise return user to login
         // might need auth check to include actual fetch request in SW to check token status if this becomes a problem
+        if (data.logout) {
+          setLoggedOutAlert(true);
+          return;
+        }
         setAuthCheck(data.authCheck);
         setAccountType(data.accountType);
         if (!data.authCheck) {
-          //redirect
-          setLoggedOutAlert(false);
+          router.replace("/login", undefined, { shallow: true });
         }
       });
     }
@@ -99,8 +102,8 @@ function Pulse({ Component, pageProps }) {
           <ModalWidget
             open={showLoggedOutAlert}
             closeModal={() => {
-              router.replace("/login", undefined, { shallow: true });
               setLoggedOutAlert(false);
+              router.replace("/login", undefined, { shallow: true });
             }}
             header="Attention"
             labels={["You have been logged out due to inactivity"]}
