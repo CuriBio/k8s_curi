@@ -36,7 +36,6 @@ export default function Row({
       });
       setModalButtons(["Close"]);
       setModalState("generic");
-      
     } else if (checked) {
       // don't include duplicate job ids from individual selections
       const noDuplicateJobs = affectedJobs.filter(
@@ -79,7 +78,7 @@ export default function Row({
 
   return (
     <>
-      <TableRow sx={{ "& > *": { borderBottom: "unset" } }}>
+      <TableRow sx={{ "& > *": { borderBottom: "unset", height: "10px" } }}>
         <TableCell>
           <IconButton
             aria-label="expand row"
@@ -105,18 +104,37 @@ export default function Row({
         </TableCell>
       </TableRow>
       <TableRow>
-        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={6}>
+        <TableCell
+          style={{
+            paddingBottom: 0,
+            paddingTop: 0,
+            backgroundColor: "var(--med-gray)",
+            borderBottom: "3px solid var(--dark-gray)",
+          }}
+          colSpan={6}
+        >
           <Collapse in={open} timeout="auto" unmountOnExit>
-            <Box sx={{ margin: 1 }}>
-              <Table size="small">
-                <TableHead sx={{ backgroundColor: "var(--med-gray)" }}>
-                  <TableRow>
-                    <TableCell>ANALYZED FILENAME</TableCell>
-                    <TableCell>CREATED&nbsp;AT</TableCell>
-                    <TableCell align="center">
+            <Box sx={{ margin: 2, borderRadius: 3, overflow: "hidden" }}>
+              <Table size="medium">
+                <TableHead
+                  sx={{
+                    backgroundColor: "var(--dark-blue)",
+                    borderBottom: "2px solid var(--dark-gray)",
+                  }}
+                >
+                  <TableRow sx={{ height: "60px" }}>
+                    <TableCell sx={{ color: "white" }}>
+                      ANALYZED FILENAME
+                    </TableCell>
+                    <TableCell sx={{ color: "white" }}>
+                      CREATED&nbsp;AT
+                    </TableCell>
+                    <TableCell sx={{ color: "white" }} align="center">
                       ANALYSIS&nbsp;PARAMETERS
                     </TableCell>
-                    <TableCell align="center">STATUS</TableCell>
+                    <TableCell sx={{ color: "white" }} align="center">
+                      STATUS
+                    </TableCell>
                     <TableCell />
                   </TableRow>
                 </TableHead>
@@ -129,12 +147,23 @@ export default function Row({
                       status,
                       analysisParams,
                     }) => (
-                      <TableRow key={datetime}>
-                        <TableCell component="th" scope="row">
+                      <TableRow key={datetime} sx={{ height: "60px" }}>
+                        <TableCell
+                          component="th"
+                          scope="row"
+                          sx={{ padding: "9px", backgroundColor: "white" }}
+                        >
                           {analyzedFile}
                         </TableCell>
-                        <TableCell>{datetime}</TableCell>
-                        <TableCell align="center">
+                        <TableCell
+                          sx={{ padding: "9px", backgroundColor: "white" }}
+                        >
+                          {datetime}
+                        </TableCell>
+                        <TableCell
+                          sx={{ padding: "9px", backgroundColor: "white" }}
+                          align="center"
+                        >
                           {Object.keys(analysisParams).map((param) => {
                             if (analysisParams[param]) {
                               const splitParam = param.split("_");
@@ -147,8 +176,16 @@ export default function Row({
                             }
                           })}
                         </TableCell>
-                        <TableCell align="center">{status}</TableCell>
-                        <TableCell align="center">
+                        <TableCell
+                          sx={{ padding: "9px", backgroundColor: "white" }}
+                          align="center"
+                        >
+                          {status}
+                        </TableCell>
+                        <TableCell
+                          sx={{ padding: "9px", backgroundColor: "white" }}
+                          align="center"
+                        >
                           <CheckboxWidget
                             checkedState={checkedJobs.includes(jobId)}
                             disabled={status === "pending"} // disable if pending

@@ -52,7 +52,7 @@ function Pulse({ Component, pageProps }) {
         setAccountType(data.accountType);
         if (!data.authCheck) {
           //redirect
-          setLoggedOutAlert(true);
+          setLoggedOutAlert(false);
         }
       });
     }

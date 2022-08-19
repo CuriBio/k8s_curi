@@ -355,10 +355,10 @@ export default function Uploads() {
               component={Paper}
               sx={{ backgroundColor: "var(--light-gray" }}
             >
-              <Table aria-label="collapsible table">
+              <Table aria-label="collapsible table" size="small">
                 <TableHead
                   sx={{
-                    backgroundColor: "var(--dark-blue)",
+                    backgroundColor: "var(--dark-blue)", height: "60px"
                   }}
                 >
                   <TableRow>
