@@ -117,7 +117,7 @@ async def soft_delete_uploads(
     if not upload_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No upload IDs found",
+            detail="No upload IDs given",
         )
     # need to convert UUIDs to str to avoid issues with DB
     upload_ids = [str(upload_id) for upload_id in upload_ids]
@@ -287,7 +287,7 @@ async def soft_delete_jobs(
     if not job_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No job IDs found.",
+            detail="No job IDs given",
         )
     # need to convert UUIDs to str to avoid issues with DB
     job_ids = [str(job_id) for job_id in job_ids]
