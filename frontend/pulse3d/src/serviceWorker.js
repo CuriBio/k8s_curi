@@ -13,6 +13,9 @@ const USERS_URL = new URLSearchParams(location.search).get("users_url");
 
 /* Global state of SW */
 
+let logoutTimer = null;
+let ClientSource = null;
+
 let accountType = null;
 
 const setAccountType = (type) => {
@@ -31,11 +34,25 @@ const tokens = {
 const setTokens = ({ access, refresh }) => {
   tokens.access = access.token;
   tokens.refresh = refresh.token;
+  setLogoutTimer();
 };
 
 const clearTokens = () => {
   tokens.access = null;
   tokens.refresh = null;
+  clearTimeout(logoutTimer);
+  ClientSource.postMessage({ logout: true });
+};
+
+const setLogoutTimer = () => {
+  const expTime = new Date(jwtDecode(tokens.refresh).exp * 1000);
+  const currentTime = new Date().getTime();
+  const millisBeforeLogOut = expTime - currentTime;
+
+  logoutTimer = setTimeout(() => {
+    ClientSource.postMessage({ logout: true });
+    console.log("[SW] logout ping sent");
+  }, millisBeforeLogOut);
 };
 
 /* Request intercept functions */
@@ -172,6 +189,7 @@ self.addEventListener("activate", (event) => {
 
 // Clear token on postMessage
 self.onmessage = ({ data, source }) => {
+  ClientSource = source;
   if (data === "clear") {
     console.log("[SW] Clearing tokens and account type in ServiceWorker");
     clearTokens();
