@@ -52,7 +52,7 @@ const setLogoutTimer = () => {
   logoutTimer = setTimeout(() => {
     ClientSource.postMessage({ logout: true });
     console.log("[SW]loggout ping send");
-  }, 7 * 1000);
+  }, secondsBeforeLogOut * 1000);
 };
 
 /* Request intercept functions */
