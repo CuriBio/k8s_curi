@@ -50,18 +50,25 @@ def get_item(*, queue):
     return _outer
 
 
-async def get_uploads(*, con, user_id, upload_ids=None):
-    """Query DB for info of a user's upload(s).
+async def get_uploads(*, con, account_type, account_id, upload_ids=None):
+    """Query DB for info of all upload(s) belonging to the customer or user account.
 
     If no uploads specified, will return info of all the user's uploads
+
+    If an upload is marked as deleted, filter out it
     """
-    # filter deleted uploads
-    query = "SELECT * FROM uploads WHERE user_id=$1 AND deleted='f';"
-    query_params = [user_id]
-    if upload_ids:
-        places = ", ".join(f"${i}" for i, _ in enumerate(upload_ids, 2))
-        query += f" AND id IN ({places})"
-        query_params.extend(upload_ids)
+    query_params = [account_id]
+    if account_type == "user":
+        query = "SELECT * FROM uploads WHERE user_id=$1 AND deleted='f'"
+        if upload_ids:
+            places = ", ".join(f"${i}" for i, _ in enumerate(upload_ids, 2))
+            query += f" AND id IN ({places})"
+            query_params.extend(upload_ids)
+    else:
+        query = (
+            "SELECT * FROM uploads JOIN users ON users.id=uploads.user_id "
+            "WHERE users.customer_id=$1 AND uploads.deleted='f'"
+        )
 
     async with con.transaction():
         uploads = [dict(row) async for row in con.cursor(query, *query_params)]
@@ -94,13 +101,14 @@ async def create_upload(*, con, upload_params):
 
 
 async def get_jobs(*, con, user_id, job_ids=None):
+    # TODO make it so a customer account can get all the jobs of all its users
     """Query DB for info of a user's job(s).
 
     If no jobs specified, will return info of all jobs created by the user
     """
     query = (
         "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, u.user_id, u.meta AS user_meta "
-        "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id = u.id WHERE u.user_id=$1 AND j.status!='deleted'"
+        "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id WHERE u.user_id=$1 AND j.status!='deleted'"
     )
     query_params = [user_id]
     if job_ids:
@@ -133,7 +141,7 @@ async def create_job(*, con, upload_id, queue, priority, meta):
             "finished_at": None,
             "meta": json.dumps(meta),
         }
-        
+
         cols = ", ".join(list(data))
         places = ", ".join(f"${i}" for i, _ in enumerate(data, 1))
 
@@ -145,15 +153,16 @@ async def create_job(*, con, upload_id, queue, priority, meta):
 
 async def delete_jobs(*, con, job_ids):
     """Query DB to update job status to deleted."""
-    
+
     query = "UPDATE jobs_result SET status='deleted' WHERE job_id=$1"
     async with con.transaction():
         for id in job_ids:
             await con.execute(query, id)
 
+
 async def delete_uploads(*, con, upload_ids):
     """Query DB to update upload deleted state to true."""
-    
+
     query = "UPDATE uploads SET deleted='t' WHERE id=$1"
     async with con.transaction():
         for id in upload_ids:

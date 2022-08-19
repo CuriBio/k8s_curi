@@ -164,50 +164,38 @@ export default function AnalysisParamForm({
   const updateParams = (newParams) => {
     const updatedParams = { ...analysisParams, ...newParams };
 
-    if (newParams.twitchWidths) {
+    if ("twitchWidths" in newParams) {
       validateTwitchWidths(updatedParams);
     }
-    if (newParams.startTime || newParams.endTime) {
+    if ("startTime" in newParams || "endTime" in newParams) {
       // need to validate start and end time together
       validateWindowBounds(updatedParams);
     }
-    if (newParams.prominenceFactorPeaks) {
-      validateAdvancedParams(updatedParams, "prominenceFactorPeaks");
+    for (const paramName in [
+      "prominenceFactorPeaks",
+      "prominenceFactorValleys",
+      "widthFactorPeaks",
+      "widthFactorValleys",
+    ]) {
+      if (paramName in newParams) {
+        validateAdvancedParams(updatedParams, paramName);
+      }
     }
-    if (newParams.prominenceFactorValleys) {
-      validateAdvancedParams(updatedParams, "prominenceFactorValleys");
-    }
-    if (newParams.widthFactorPeaks) {
-      validateAdvancedParams(updatedParams, "widthFactorPeaks");
-    }
-    if (newParams.widthFactorValleys) {
-      validateAdvancedParams(updatedParams, "widthFactorValleys");
-    }
+
     setAnalysisParams(updatedParams);
   };
 
-  const isValidPositiveNumber = (value) => {
-    return +value > 0;
-  };
-
   const validateAdvancedParams = (updatedParams, paramName) => {
+    //
     const newValue = updatedParams[paramName];
-    if (newValue === null || newValue === "") {
-      setParamErrors({
-        ...paramErrors,
-        [paramName]: "",
-      });
-    } else if (isValidPositiveNumber(newValue)) {
-      setParamErrors({
-        ...paramErrors,
-        [paramName]: "",
-      });
-    } else {
-      setParamErrors({
-        ...paramErrors,
-        [paramName]: "* Must be a positive number",
-      });
+
+    let errorMsg = "";
+    // new value must be null, empty, or a non-zero (+) number. Set error message if not
+    if (newValue !== null && newValue !== "" && +value > 0) {
+      errorMsg = "* Must be a positive number";
     }
+
+    setParamErrors({ ...paramErrors, [paramName]: errorMsg });
   };
 
   const validateTwitchWidths = (updatedParams) => {

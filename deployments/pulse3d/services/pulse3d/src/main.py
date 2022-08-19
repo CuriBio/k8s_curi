@@ -1,53 +1,30 @@
 import json
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import List, Optional
 import uuid
 
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 
 from auth import ProtectedAny
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET
 from jobs import create_upload, create_job, get_uploads, get_jobs, delete_jobs, delete_uploads
+from models.models import UploadRequest, UploadResponse, JobRequest, JobResponse
+from models.types import AdvancedParamTuple
 from utils.db import AsyncpgPoolDep
 from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error
 
 
-logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
+# logging is configured in log_config.yaml
 logger = logging.getLogger(__name__)
 
 app = FastAPI(openapi_url=None)
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
 
-class UploadRequest(BaseModel):
-    filename: str
-    md5s: Optional[str]
-    upload_type: str
-
-
-class UploadResponse(BaseModel):
-    id: uuid.UUID
-    params: Dict[str, Any]
-
-
-class JobRequest(BaseModel):
-    upload_id: uuid.UUID
-    prominence_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
-    width_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
-
-    twitch_widths: Optional[List[int]]
-    start_time: Optional[Union[int, float]]
-    end_time: Optional[Union[int, float]]
-
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://dashboard.curibio-test.com",
-        "https://dashboard.curibio.com",
-    ],
+    allow_origins=["https://dashboard.curibio-test.com", "https://dashboard.curibio.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -71,16 +48,18 @@ async def startup():
 async def get_info_of_uploads(
     request: Request,
     upload_ids: Optional[List[uuid.UUID]] = Query(None),
-    token=Depends(ProtectedAny(scope=["users:free"])),
+    token=Depends(ProtectedAny(scope=["users:free", "users:admin"])),
 ):
     # need to convert to UUIDs to str to avoid issues with DB
     if upload_ids:
         upload_ids = [str(upload_id) for upload_id in upload_ids]
 
     try:
-        user_id = str(uuid.UUID(token["userid"]))
+        account_id = str(uuid.UUID(token["userid"]))
         async with request.state.pgpool.acquire() as con:
-            return await get_uploads(con=con, user_id=user_id, upload_ids=upload_ids)
+            return await get_uploads(
+                con=con, account_type=token["account_type"], account_id=account_id, upload_ids=upload_ids
+            )
 
     except Exception as e:
         logger.exception(f"Failed to get uploads: {repr(e)}")
@@ -138,7 +117,7 @@ async def soft_delete_uploads(
     if not upload_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No upload ids found.",
+            detail="No upload IDs found",
         )
     # need to convert UUIDs to str to avoid issues with DB
     upload_ids = [str(upload_id) for upload_id in upload_ids]
@@ -162,8 +141,7 @@ async def create_log_upload(
         user_id = str(uuid.UUID(token["userid"]))
         customer_id = str(uuid.UUID(token["customer_id"]))
         params = _generate_presigned_post(user_id, customer_id, details, MANTARRAY_LOGS_BUCKET)
-        # TODO define a response model for logs
-        return {"params": params}
+        return UploadResponse(params=params)
     except S3Error as e:
         logger.exception(str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
@@ -251,29 +229,18 @@ async def create_new_job(
         user_id = str(uuid.UUID(token["userid"]))
         logger.info(f"Creating pulse3d job for upload {details.upload_id} with user ID: {user_id}")
 
-        meta = {
-            "analysis_params": {
-                param: dict(details)[param]
-                for param in (
-                    "prominence_factors",
-                    "width_factors",
-                    "twitch_widths",
-                    "start_time",
-                    "end_time",
-                )
-            }
+        analysis_params = {
+            param: dict(details)[param]
+            for param in ("prominence_factors", "width_factors", "twitch_widths", "start_time", "end_time")
         }
 
-        # convert FE output to pulse3dInput
-        # done for width and prominece factors
-        meta["analysis_params"]["prominence_factors"] = _format_advanced_options(
-            meta["analysis_params"]["prominence_factors"], "prominence"
+        # convert prominence and width factors into a format compatible with pulse3D
+        analysis_params["prominence_factors"] = _format_advanced_options(
+            analysis_params["prominence_factors"], 6  # TODO grab these default values from pulse3D
         )
-        meta["analysis_params"]["width_factors"] = _format_advanced_options(
-            meta["analysis_params"]["width_factors"], "width"
-        )
+        analysis_params["width_factors"] = _format_advanced_options(analysis_params["width_factors"], 7)
 
-        logger.info(f"Using params: {meta['analysis_params']}")
+        logger.info(f"Using params: {analysis_params}")
 
         async with request.state.pgpool.acquire() as con:
             priority = 10
@@ -282,40 +249,32 @@ async def create_new_job(
                 upload_id=details.upload_id,
                 queue="pulse3d",
                 priority=priority,
-                meta=meta,
+                meta={"analysis_params": analysis_params},
             )
 
-            # TODO create response model
-            return {
-                "id": job_id,
-                "user_id": user_id,
-                "upload_id": details.upload_id,
-                "status": "pending",
-                "priority": priority,
-            }
+            return JobResponse(
+                id=job_id,
+                user_id=user_id,
+                upload_id=details.upload_id,
+                status="pending",
+                priority=priority,
+            )
 
     except Exception as e:
         logger.exception(f"Failed to create job: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def _format_advanced_options(option: List[Union[int, float, None]], option_name):
-    if option is None:
+def _format_advanced_options(
+    options: Optional[AdvancedParamTuple], default_value: int
+) -> Optional[AdvancedParamTuple]:
+    if options is None or options == (None, None):
         return None
-    # if only peaks is passed return tuple(peaks,default value)
-    if option[0] is not None and option[1] is None:
-        if option_name is "width":
-            return option[0], 7
-        if option_name is "prominence":
-            return option[0], 6
-    # if only valleys is passed return (default value,valleys)
-    if option[0] is None and option[1] is not None:
-        if option_name is "width":
-            return 7, option[1]
-        if option_name is "prominence":
-            return 6, option[1]
-    # if both present then return a tuple
-    return option[0], option[1]
+
+    # set any unspecified values to the default value
+    formatted_options = tuple([option if option is not None else default_value for option in options])
+
+    return formatted_options
 
 
 @app.delete("/jobs")
@@ -328,7 +287,7 @@ async def soft_delete_jobs(
     if not job_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No job ids found.",
+            detail="No job IDs found.",
         )
     # need to convert UUIDs to str to avoid issues with DB
     job_ids = [str(job_id) for job_id in job_ids]

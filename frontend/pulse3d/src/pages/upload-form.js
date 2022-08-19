@@ -158,23 +158,21 @@ export default function UploadForm() {
     setParamErrors({});
   };
 
-  //format the advanced params into a list of two numbers
-  /*
-    if both are present then submit them as is
-    if none present then return null
-    if only peaks passed then make an array [peak,null]
-    if only valleys present then return array [null,valley]
-  */
-  const formatedAdvancedParams = (peaks, valleys) => {
-    if (peaks !== "" && valleys !== "") {
-      return [peaks, valleys];
-    } else if (peaks !== "" && valleys === "") {
-      return [peaks, null];
-    } else if (peaks === "" && valleys !== "") {
-      return [null, valleys];
-    } else {
+  const formatAdvancedParams = (peakFactor, valleyFactor) => {
+    // convert factors that aren't specified to null
+    if (peakFactor === "") {
+      peakFactor = null;
+    }
+    if (valleyFactor === "") {
+      valleyFactor = null;
+    }
+
+    let factors = [peakFactor, valleyFactor];
+    if (factors.every((v) => !v)) {
+      // if both factors are null, return null instead of an array
       return null;
     }
+    return factors;
   };
   const postNewJob = async (uploadId, filename) => {
     try {
@@ -191,11 +189,11 @@ export default function UploadForm() {
         method: "POST",
         body: JSON.stringify({
           upload_id: uploadId,
-          prominence_factors: formatedAdvancedParams(
+          prominence_factors: formatAdvancedParams(
             prominenceFactorPeaks,
             prominenceFactorValleys
           ),
-          width_factors: formatedAdvancedParams(
+          width_factors: formatAdvancedParams(
             widthFactorPeaks,
             widthFactorValleys
           ),

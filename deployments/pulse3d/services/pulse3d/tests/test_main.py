@@ -9,16 +9,14 @@ from src import main
 
 test_client = TestClient(main.app)
 
-# TODO add tests for other routes
 
-
-def get_token(scope, userid=None, customer_id=None, refresh=False):
+def get_token(scope, account_type="user", userid=None, customer_id=None):
     if not userid:
         userid = uuid.uuid4()
-    if not customer_id:
+    if account_type == "user" and not customer_id:
         customer_id = uuid.uuid4()
     return create_token(
-        userid=userid, customer_id=customer_id, scope=scope, account_type="user", refresh=refresh
+        userid=userid, customer_id=customer_id, scope=scope, account_type=account_type, refresh=False
     ).token
 
 
@@ -34,14 +32,41 @@ async def fixture_mocked_asyncpg_con(mocker):
     yield mocked_asyncpg_con
 
 
+def test_logs__post(mocker):
+    expected_params = {"key": "val"}
+    mocked_gpp = mocker.patch.object(
+        main, "generate_presigned_post", autospec=True, return_value=expected_params
+    )
+
+    test_file_name = "log_file"
+    test_user_id = uuid.uuid4()
+    test_customer_id = uuid.uuid4()
+
+    access_token = get_token(scope=["users:free"], customer_id=test_customer_id, userid=test_user_id)
+    kwargs = {
+        "headers": {"Authorization": f"Bearer {access_token}"},
+        "json": {"filename": test_file_name, "upload_type": "logs"},
+    }
+    response = test_client.post("/logs", **kwargs)
+    assert response.status_code == 200
+
+    mocked_gpp.assert_called_once_with(
+        bucket=main.MANTARRAY_LOGS_BUCKET,
+        key=f"uploads/{test_customer_id}/{test_user_id}/{test_file_name}",
+        md5s=None,
+    )
+
+
+@pytest.mark.parametrize("test_token_scope", [["users:free"], ["users:admin"]])
 @pytest.mark.parametrize(
     "test_upload_ids", (None, [], uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)])
 )
-def test_uploads__get(test_upload_ids, mocked_asyncpg_con, mocker):
+def test_uploads__get(test_token_scope, test_upload_ids, mocked_asyncpg_con, mocker):
     mocked_get_uploads = mocker.patch.object(main, "get_uploads", autospec=True, return_value=[])
 
-    test_user_id = uuid.uuid4()
-    access_token = get_token(scope=["users:free"], userid=test_user_id)
+    test_account_id = uuid.uuid4()
+    account_type = "customer" if test_token_scope == ["users:admin"] else "user"
+    access_token = get_token(scope=test_token_scope, account_type=account_type, userid=test_account_id)
 
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
     # in None case, don't even pass a query param
@@ -62,8 +87,88 @@ def test_uploads__get(test_upload_ids, mocked_asyncpg_con, mocker):
         expected_upload_ids = None
 
     mocked_get_uploads.assert_called_once_with(
-        con=mocked_asyncpg_con, user_id=str(test_user_id), upload_ids=expected_upload_ids
+        con=mocked_asyncpg_con,
+        account_type=account_type,
+        account_id=str(test_account_id),
+        upload_ids=expected_upload_ids,
     )
+
+
+def test__uploads__post(mocked_asyncpg_con, mocker):
+    mocked_asyncpg_con.transaction = mocker.MagicMock()
+
+    expected_upload_id = uuid.uuid4()
+    mocked_create_upload = mocker.patch.object(
+        main, "create_upload", autospec=True, return_value=expected_upload_id
+    )
+    expected_params = {"key": "val"}
+    mocked_gpp = mocker.patch.object(
+        main, "generate_presigned_post", autospec=True, return_value=expected_params
+    )
+
+    test_file_name = "recording_file"
+    test_md5s = "testhash"
+    test_upload_type = "mantarray"
+    test_user_id = uuid.uuid4()
+    test_customer_id = uuid.uuid4()
+
+    access_token = get_token(scope=["users:free"], customer_id=test_customer_id, userid=test_user_id)
+    kwargs = {
+        "headers": {"Authorization": f"Bearer {access_token}"},
+        "json": {"filename": test_file_name, "md5s": test_md5s, "upload_type": test_upload_type},
+    }
+    response = test_client.post("/uploads", **kwargs)
+    assert response.status_code == 200
+
+    expected_upload_params = {
+        "prefix": f"uploads/{test_customer_id}/{test_user_id}/{{upload_id}}",
+        "filename": test_file_name,
+        "md5": test_md5s,
+        "user_id": str(test_user_id),
+        "type": test_upload_type,
+    }
+
+    mocked_create_upload.assert_called_once_with(con=mocked_asyncpg_con, upload_params=expected_upload_params)
+    mocked_gpp.assert_called_once_with(
+        bucket=main.PULSE3D_UPLOADS_BUCKET,
+        key=f"uploads/{test_customer_id}/{test_user_id}/{expected_upload_id}/{test_file_name}",
+        md5s=test_md5s,
+    )
+
+
+@pytest.mark.parametrize(
+    "test_upload_ids,test_status_code", ((None, 400), ([uuid.uuid4(), uuid.uuid4()], 200))
+)
+def test_uploads__delete__400_when_no_upload_id(test_upload_ids, test_status_code, mocker):
+    # TODO make this multiple tests
+    # falsey query params are automatically converted to None
+    test_upload_rows = []
+    mocker.patch.object(main, "delete_uploads", autospec=True, return_value=test_upload_rows)
+
+    test_user_id = uuid.uuid4()
+    access_token = get_token(scope=["users:free"], userid=test_user_id)
+    kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
+
+    # in None case, don't even pass a query param
+    if test_upload_ids is not None:
+        kwargs["params"] = {"upload_ids": test_upload_ids}
+
+    response = test_client.delete("/uploads", **kwargs)
+    assert response.status_code == test_status_code
+
+
+def test_uploads__delete__failure_to_delete_uploads(mocker):
+    mocker.patch.object(main, "delete_uploads", autospec=True, side_effect=Exception())
+
+    test_user_id = uuid.uuid4()
+    access_token = get_token(scope=["users:free"], userid=test_user_id)
+    kwargs = {
+        "headers": {"Authorization": f"Bearer {access_token}"},
+        "params": {"upload_ids": [uuid.uuid4()]},
+    }
+
+    response = test_client.delete("/uploads", **kwargs)
+    assert response.status_code == 500
 
 
 @pytest.mark.parametrize("download", [True, False])
@@ -210,8 +315,111 @@ def test_jobs__get__no_jobs_found(test_job_ids, mocked_asyncpg_con, mocker):
     mocked_get_uploads.assert_not_called()
 
 
+def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
+    expected_job_id = uuid.uuid4()
+    expected_job_priority = 10
+    test_upload_id = uuid.uuid4()
+    test_user_id = uuid.uuid4()
+
+    access_token = get_token(scope=["users:free"], userid=test_user_id)
+
+    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=expected_job_id)
+
+    kwargs = {
+        "json": {"upload_id": str(test_upload_id)},
+        "headers": {"Authorization": f"Bearer {access_token}"},
+    }
+    response = test_client.post("/jobs", **kwargs)
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": str(expected_job_id),
+        "user_id": str(test_user_id),
+        "upload_id": str(test_upload_id),
+        "status": "pending",
+        "priority": expected_job_priority,
+    }
+
+    expected_analysis_params = {
+        param: None
+        for param in ("prominence_factors", "width_factors", "twitch_widths", "start_time", "end_time")
+    }
+
+    mocked_create_job.assert_called_once_with(
+        con=mocked_asyncpg_con,
+        upload_id=test_upload_id,
+        queue="pulse3d",
+        priority=expected_job_priority,
+        meta={"analysis_params": expected_analysis_params},
+    )
+
+
+def test_jobs__post__basic_params_given(mocker):
+    expected_job_id = uuid.uuid4()
+    test_upload_id = uuid.uuid4()
+    test_user_id = uuid.uuid4()
+    test_analysis_params = {"twitch_widths": [10, 20], "start_time": 0, "end_time": 1}
+
+    access_token = get_token(scope=["users:free"], userid=test_user_id)
+
+    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=expected_job_id)
+
+    kwargs = {
+        "json": {"upload_id": str(test_upload_id), **test_analysis_params},
+        "headers": {"Authorization": f"Bearer {access_token}"},
+    }
+    response = test_client.post("/jobs", **kwargs)
+    assert response.status_code == 200
+
+    expected_analysis_params = {
+        param: None
+        for param in ("prominence_factors", "width_factors", "twitch_widths", "start_time", "end_time")
+    }
+    expected_analysis_params.update(test_analysis_params)
+
+    mocked_create_job.assert_called_once()
+    assert mocked_create_job.call_args[1]["meta"]["analysis_params"] == expected_analysis_params
+
+
+@pytest.mark.parametrize("param_name", ["prominence_factors", "width_factors"])
+@pytest.mark.parametrize("param_tuple", [(1, 2), (None, 2), (1, None), (None, None)])
+def test_jobs__post__advanced_params_given(param_name, param_tuple, mocker):
+    expected_job_id = uuid.uuid4()
+    test_upload_id = uuid.uuid4()
+    test_user_id = uuid.uuid4()
+    test_analysis_params = {param_name: param_tuple}
+
+    access_token = get_token(scope=["users:free"], userid=test_user_id)
+
+    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=expected_job_id)
+
+    kwargs = {
+        "json": {"upload_id": str(test_upload_id), **test_analysis_params},
+        "headers": {"Authorization": f"Bearer {access_token}"},
+    }
+    response = test_client.post("/jobs", **kwargs)
+    assert response.status_code == 200
+
+    expected_default_value = 6 if param_name == "prominence_factors" else 7
+    format_mapping = {
+        (1, 2): (1, 2),
+        (None, 2): (expected_default_value, 2),
+        (1, None): (1, expected_default_value),
+        (None, None): None,
+    }
+
+    expected_analysis_params = {
+        param: None
+        for param in ("prominence_factors", "width_factors", "twitch_widths", "start_time", "end_time")
+    }
+    expected_analysis_params.update({param_name: format_mapping[param_tuple]})
+
+    mocked_create_job.assert_called_once()
+    assert mocked_create_job.call_args[1]["meta"]["analysis_params"] == expected_analysis_params
+
+
 @pytest.mark.parametrize("test_job_ids,test_status_code", ((None, 400), ([uuid.uuid4(), uuid.uuid4()], 200)))
-def test_jobs__delete_400_when_no_jobs(test_job_ids, test_status_code, mocker):
+def test_jobs__delete__no_jobs_given(test_job_ids, test_status_code, mocker):
+    # TODO make this multiple tests
     # falsey query params are automatically converted to None
     test_upload_rows = []
     mocker.patch.object(main, "delete_jobs", autospec=True, return_value=test_upload_rows)
@@ -228,7 +436,7 @@ def test_jobs__delete_400_when_no_jobs(test_job_ids, test_status_code, mocker):
     assert response.status_code == test_status_code
 
 
-def test_jobs__delete_handles_500_errors(mocker):
+def test_jobs__delete__failure_to_delete_jobs(mocker):
     mocker.patch.object(main, "delete_jobs", autospec=True, side_effect=Exception())
 
     test_user_id = uuid.uuid4()
@@ -236,38 +444,4 @@ def test_jobs__delete_handles_500_errors(mocker):
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}, "params": {"job_ids": [uuid.uuid4()]}}
 
     response = test_client.delete("/jobs", **kwargs)
-    assert response.status_code == 500
-
-
-@pytest.mark.parametrize(
-    "test_upload_ids,test_status_code", ((None, 400), ([uuid.uuid4(), uuid.uuid4()], 200))
-)
-def test_uploads__delete_400_when_no_upload_id(test_upload_ids, test_status_code, mocker):
-    # falsey query params are automatically converted to None
-    test_upload_rows = []
-    mocker.patch.object(main, "delete_uploads", autospec=True, return_value=test_upload_rows)
-
-    test_user_id = uuid.uuid4()
-    access_token = get_token(scope=["users:free"], userid=test_user_id)
-    kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
-
-    # in None case, don't even pass a query param
-    if test_upload_ids is not None:
-        kwargs["params"] = {"upload_ids": test_upload_ids}
-
-    response = test_client.delete("/uploads", **kwargs)
-    assert response.status_code == test_status_code
-
-
-def test_uploads__delete_handles_500_errors(mocker):
-    mocker.patch.object(main, "delete_uploads", autospec=True, side_effect=Exception())
-
-    test_user_id = uuid.uuid4()
-    access_token = get_token(scope=["users:free"], userid=test_user_id)
-    kwargs = {
-        "headers": {"Authorization": f"Bearer {access_token}"},
-        "params": {"upload_ids": [uuid.uuid4()]},
-    }
-
-    response = test_client.delete("/uploads", **kwargs)
     assert response.status_code == 500
