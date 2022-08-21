@@ -100,7 +100,7 @@ export default function Row({
 
   return (
     <>
-      <TableRow sx={{ "& > *": { borderBottom: "unset", height: "10px" } }}>
+      <TableRow sx={{ "& > *": { borderBottom: "unset", height: "60px" } }}>
         <TableCell>
           <IconButton
             aria-label="expand row"

@@ -364,10 +364,13 @@ export default function Uploads() {
                 <TableHead
                   sx={{
                     backgroundColor: "var(--dark-blue)",
-                    height: "60px",
                   }}
                 >
-                  <TableRow>
+                  <TableRow
+                    sx={{
+                      height: "60px",
+                    }}
+                  >
                     <TableCell />
                     <TableCell
                       sx={{
