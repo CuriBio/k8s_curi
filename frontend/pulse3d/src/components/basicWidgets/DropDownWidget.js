@@ -68,7 +68,6 @@ export default function DropDownWidget({
 
   useEffect(() => {
     if (reset) setSelected("");
-    console.log(options, selected);
   }, [reset]);
 
   return (
