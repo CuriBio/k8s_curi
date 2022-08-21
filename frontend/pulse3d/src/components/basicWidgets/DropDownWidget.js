@@ -2,9 +2,10 @@ import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
 import Select, { SelectProps } from "@mui/material/Select";
-import { useEffect, useState } from "react";
+import { forwardRef, useEffect, useState } from "react";
 import styled from "styled-components";
 import OutlinedInput from "@mui/material/OutlinedInput";
+import Tooltip from "@mui/material/Tooltip";
 
 const ErrorText = styled.span`
   color: red;
@@ -19,16 +20,8 @@ const ErrorText = styled.span`
 const Placeholder = styled.em`
   font-size: 18px;
   font-weight: bolder;
-`
+`;
 
-const MenuProps = {
-  PaperProps: {
-    style: {
-      maxHeight: "400px",
-      width: "inherit",
-    },
-  },
-};
 const ListItem = styled((MenuItemProps) => <MenuItem {...MenuItemProps} />)(
   () => ({
     fontSize: "16px",
@@ -41,6 +34,18 @@ const ListItem = styled((MenuItemProps) => <MenuItem {...MenuItemProps} />)(
     },
   })
 );
+const MenuProps = {
+  PaperProps: {
+    style: {
+      maxHeight: "400px",
+      width: "inherit",
+    },
+  },
+};
+
+const TooltipText = styled.span`
+  font-size: 15px;
+`;
 
 export default function DropDownWidget({
   options,
@@ -48,7 +53,9 @@ export default function DropDownWidget({
   error = "",
   handleSelection,
   reset,
-  disabled = false
+  disabled = false,
+  disableOptions = Array(options.length).fill(false),
+  optionsTooltipText,
 }) {
   const [selected, setSelected] = useState("");
   const [errorMsg, setErrorMsg] = useState(error);
@@ -61,6 +68,7 @@ export default function DropDownWidget({
 
   useEffect(() => {
     if (reset) setSelected("");
+    console.log(options, selected);
   }, [reset]);
 
   return (
@@ -77,17 +85,29 @@ export default function DropDownWidget({
           if (selected.length === 0) {
             return <Placeholder>{label}</Placeholder>;
           }
-          return options[selected]
+          return options[selected];
         }}
       >
-        <MenuItem disabled value="">
+        <MenuItem disabled>
           <Placeholder>{label}</Placeholder>
         </MenuItem>
-        {options.map((item, idx) => (
-          <ListItem key={idx} value={idx}>
-            {item}
-          </ListItem>
-        ))}
+        {options.map((item, idx) => {
+          return disableOptions[idx] ? (
+            <Tooltip
+              key={idx}
+              title={<TooltipText>{optionsTooltipText[idx]}</TooltipText>}
+              value={idx}
+            >
+              <div>
+                <ListItem disabled={true}>{item}</ListItem>
+              </div>
+            </Tooltip>
+          ) : (
+            <ListItem key={idx} value={idx}>
+              {item}
+            </ListItem>
+          );
+        })}
       </Select>
       <ErrorText>{errorMsg}</ErrorText>
     </FormControl>

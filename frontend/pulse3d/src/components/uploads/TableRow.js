@@ -10,6 +10,28 @@ import TableRow from "@mui/material/TableRow";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
+import styled from "styled-components";
+
+const BoxCell = styled((props) => <TableCell {...props} colSpan={6} />)(() => ({
+  paddingBottom: 0,
+  paddingTop: 0,
+  backgroundColor: "var(--med-gray)",
+  borderBottom: "3px solid var(--dark-gray)",
+}));
+
+const SubHeaderCell = styled((props) => <TableCell {...props} />)(() => ({
+  color: "white",
+}));
+
+const SubHeader = styled((props) => <TableHead {...props} />)(() => ({
+  backgroundColor: "var(--dark-blue)",
+  borderBottom: "2px solid var(--dark-gray)",
+}));
+
+const JobCell = styled((props) => <TableCell {...props} />)(() => ({
+  padding: "9px",
+  backgroundColor: "white",
+}));
 
 export default function Row({
   row,
@@ -104,40 +126,21 @@ export default function Row({
         </TableCell>
       </TableRow>
       <TableRow>
-        <TableCell
-          style={{
-            paddingBottom: 0,
-            paddingTop: 0,
-            backgroundColor: "var(--med-gray)",
-            borderBottom: "3px solid var(--dark-gray)",
-          }}
-          colSpan={6}
-        >
+        <BoxCell>
           <Collapse in={open} timeout="auto" unmountOnExit>
-            <Box sx={{ margin: 2, borderRadius: 3, overflow: "hidden" }}>
+            <Box sx={{ margin: 2, borderRadius: 1, overflow: "hidden" }}>
               <Table size="medium">
-                <TableHead
-                  sx={{
-                    backgroundColor: "var(--dark-blue)",
-                    borderBottom: "2px solid var(--dark-gray)",
-                  }}
-                >
+                <SubHeader>
                   <TableRow sx={{ height: "60px" }}>
-                    <TableCell sx={{ color: "white" }}>
-                      ANALYZED FILENAME
-                    </TableCell>
-                    <TableCell sx={{ color: "white" }}>
-                      CREATED&nbsp;AT
-                    </TableCell>
-                    <TableCell sx={{ color: "white" }} align="center">
+                    <SubHeaderCell>ANALYZED FILENAME</SubHeaderCell>
+                    <SubHeaderCell>CREATED&nbsp;AT</SubHeaderCell>
+                    <SubHeaderCell align="center">
                       ANALYSIS&nbsp;PARAMETERS
-                    </TableCell>
-                    <TableCell sx={{ color: "white" }} align="center">
-                      STATUS
-                    </TableCell>
+                    </SubHeaderCell>
+                    <SubHeaderCell align="center">STATUS</SubHeaderCell>
                     <TableCell />
                   </TableRow>
-                </TableHead>
+                </SubHeader>
                 <TableBody>
                   {row.jobs.map(
                     ({
@@ -148,22 +151,9 @@ export default function Row({
                       analysisParams,
                     }) => (
                       <TableRow key={datetime} sx={{ height: "60px" }}>
-                        <TableCell
-                          component="th"
-                          scope="row"
-                          sx={{ padding: "9px", backgroundColor: "white" }}
-                        >
-                          {analyzedFile}
-                        </TableCell>
-                        <TableCell
-                          sx={{ padding: "9px", backgroundColor: "white" }}
-                        >
-                          {datetime}
-                        </TableCell>
-                        <TableCell
-                          sx={{ padding: "9px", backgroundColor: "white" }}
-                          align="center"
-                        >
+                        <JobCell>{analyzedFile}</JobCell>
+                        <JobCell>{datetime}</JobCell>
+                        <JobCell align="center">
                           {Object.keys(analysisParams).map((param) => {
                             if (analysisParams[param]) {
                               const splitParam = param.split("_");
@@ -175,17 +165,9 @@ export default function Row({
                               );
                             }
                           })}
-                        </TableCell>
-                        <TableCell
-                          sx={{ padding: "9px", backgroundColor: "white" }}
-                          align="center"
-                        >
-                          {status}
-                        </TableCell>
-                        <TableCell
-                          sx={{ padding: "9px", backgroundColor: "white" }}
-                          align="center"
-                        >
+                        </JobCell>
+                        <JobCell align="center">{status}</JobCell>
+                        <JobCell align="center">
                           <CheckboxWidget
                             checkedState={checkedJobs.includes(jobId)}
                             disabled={status === "pending"} // disable if pending
@@ -193,7 +175,7 @@ export default function Row({
                               handleCheckedJobs(jobId, row.id, checked)
                             }
                           />
-                        </TableCell>
+                        </JobCell>
                       </TableRow>
                     )
                   )}
@@ -201,7 +183,7 @@ export default function Row({
               </Table>
             </Box>
           </Collapse>
-        </TableCell>
+        </BoxCell>
       </TableRow>
     </>
   );
