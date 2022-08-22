@@ -192,65 +192,85 @@ def test_uploads__delete__failure_to_delete_uploads(mocker):
     assert response.status_code == 500
 
 
-@pytest.mark.parametrize("download", [True, False])
-@pytest.mark.parametrize("test_job_ids", [uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]])
-def test_jobs__get__jobs_found(download, test_job_ids, mocked_asyncpg_con, mocker):
+@pytest.mark.parametrize("download", [True, False, None])
+@pytest.mark.parametrize("test_token_scope", [["users:free"], ["users:admin"]])
+@pytest.mark.parametrize(
+    "test_job_ids", [None, [], uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]]
+)
+def test_jobs__get__jobs_found(download, test_token_scope, test_job_ids, mocked_asyncpg_con, mocker):
     if isinstance(test_job_ids, uuid.UUID):
         # fastapi automatically converts a single UUID to a list
         test_job_ids = [test_job_ids]
 
-    expected_job_ids = [str(test_id) for test_id in test_job_ids]
+    if test_job_ids:
+        if isinstance(test_job_ids, uuid.UUID):
+            # fastapi automatically converts a single UUID to a list
+            test_job_ids = [test_job_ids]
+        expected_job_ids = [str(test_id) for test_id in test_job_ids]
+    else:
+        # if no job IDs given, then all jobs are returned
+        expected_job_ids = [str(uuid.uuid4()) for _ in range(3)]
+
     test_statuses = ["finished", "pending", "error"]
-    test_upload_rows = [
+    test_job_rows = [
         {
             "status": status,
-            "job_id": f"upload{i}",
+            "job_id": f"job{i}",
             "upload_id": str(job_id),
             "created_at": i,
             "job_meta": json.dumps({"error": f"e{i}"}),
             "object_key": f"obj{i}",
         }
-        for i, (status, job_id) in enumerate(zip(test_statuses, test_job_ids))
+        for i, (status, job_id) in enumerate(zip(test_statuses, expected_job_ids))
     ]
 
-    mocked_get_jobs = mocker.patch.object(main, "get_jobs", autospec=True, return_value=test_upload_rows)
+    mocked_get_jobs = mocker.patch.object(main, "get_jobs", autospec=True, return_value=test_job_rows)
     mocked_generate = mocker.patch.object(main, "generate_presigned_url", autospec=True, return_value="url0")
 
-    test_user_id = uuid.uuid4()
-    access_token = get_token(scope=["users:free"], userid=test_user_id)
+    test_account_id = uuid.uuid4()
+    account_type = "customer" if test_token_scope == ["users:admin"] else "user"
+    access_token = get_token(scope=test_token_scope, account_type=account_type, userid=test_account_id)
 
-    kwargs = {
-        "headers": {"Authorization": f"Bearer {access_token}"},
-        "params": {"job_ids": test_job_ids, "download": download},
-    }
+    kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}, "params": {}}
+    # in None case, don't even pass a query param
+    if test_job_ids is not None:
+        kwargs["params"]["job_ids"] = test_job_ids
+    if download is not None:
+        kwargs["params"]["download"] = download
+
     response = test_client.get("/jobs", **kwargs)
     assert response.status_code == 200
 
     job0 = {"status": "finished"}
-    if download:
+    if download is not False:
+        # deafult value is True, so if download is True or None (not given) then a url will be returned
         job0["url"] = mocked_generate.return_value
     jobs = [job0]
-    if len(expected_job_ids) > 1:
-        jobs.extend([{"status": "pending"}, {"status": "error", "error_info": "e2"}])
-    for i, job in enumerate(jobs):
-        job.update(test_upload_rows[i])
+
+    if expected_job_ids and len(expected_job_ids) > 1:
+        jobs.extend([{"status": test_statuses[1]}, {"status": test_statuses[2], "error_info": "e2"}])
+    for job, job_row in zip(jobs, test_job_rows):
+        job.update(job_row)
+        # rename keys
         job["id"] = job.pop("job_id")
-        job["meta"] = job["job_meta"]
-        del job["job_meta"]
+        job["meta"] = job.pop("job_meta")
 
     assert list(response.json()) == ["jobs"]
     for response_job, expected_job in zip(response.json()["jobs"], jobs):
         assert response_job == expected_job
 
+    expected_job_id_arg = None if not test_job_ids else expected_job_ids
     mocked_get_jobs.assert_called_once_with(
-        con=mocked_asyncpg_con, user_id=str(test_user_id), job_ids=expected_job_ids
+        con=mocked_asyncpg_con,
+        account_type=account_type,
+        account_id=str(test_account_id),
+        job_ids=expected_job_id_arg,
     )
-    if download:
-        mocked_generate.assert_called_once_with(
-            main.PULSE3D_UPLOADS_BUCKET, test_upload_rows[0]["object_key"]
-        )
-    else:
+    # download param defaults to true, so the only time this function won't be called is if False is explicity passed
+    if download is False:
         mocked_generate.assert_not_called()
+    else:
+        mocked_generate.assert_called_once_with(main.PULSE3D_UPLOADS_BUCKET, test_job_rows[0]["object_key"])
 
 
 def test_jobs__get__error_with_creating_presigned_url_for_single_file(mocked_asyncpg_con, mocker):
@@ -258,10 +278,10 @@ def test_jobs__get__error_with_creating_presigned_url_for_single_file(mocked_asy
     test_job_ids = [uuid.uuid4() for _ in range(test_num_jobs)]
     expected_job_ids = [str(test_id) for test_id in test_job_ids]
     # use job_ids as upload_ids to make testing easier
-    test_upload_rows = [
+    test_job_rows = [
         {
             "status": "finished",
-            "job_id": f"upload{i}",
+            "job_id": f"job{i}",
             "upload_id": str(job_id),
             "created_at": i,
             "job_meta": json.dumps({"error": f"e{i}"}),
@@ -270,7 +290,7 @@ def test_jobs__get__error_with_creating_presigned_url_for_single_file(mocked_asy
         for i, job_id in enumerate(test_job_ids)
     ]
 
-    mocked_get_jobs = mocker.patch.object(main, "get_jobs", autospec=True, return_value=test_upload_rows)
+    mocked_get_jobs = mocker.patch.object(main, "get_jobs", autospec=True, return_value=test_job_rows)
     mocked_generate = mocker.patch.object(
         main, "generate_presigned_url", autospec=True, side_effect=["url0", Exception(), "url2"]
     )
@@ -291,10 +311,10 @@ def test_jobs__get__error_with_creating_presigned_url_for_single_file(mocked_asy
         {"url": "url2"},
     ]
     for i, job in enumerate(jobs):
-        job.update(test_upload_rows[i])
+        job.update(test_job_rows[i])
+        # rename keys
         job["id"] = job.pop("job_id")
-        job["meta"] = job["job_meta"]
-        del job["job_meta"]
+        job["meta"] = job.pop("job_meta")
 
     assert list(response.json()) == ["jobs"]
     for response_job, expected_job in zip(response.json()["jobs"], jobs):
@@ -304,34 +324,27 @@ def test_jobs__get__error_with_creating_presigned_url_for_single_file(mocked_asy
         con=mocked_asyncpg_con, user_id=str(test_user_id), job_ids=expected_job_ids
     )
     assert mocked_generate.call_args_list == [
-        mocker.call(main.PULSE3D_UPLOADS_BUCKET, test_upload_rows[i]["object_key"])
-        for i in range(test_num_jobs)
+        mocker.call(main.PULSE3D_UPLOADS_BUCKET, test_job_rows[i]["object_key"]) for i in range(test_num_jobs)
     ]
 
 
-@pytest.mark.parametrize("test_job_ids", [None, []])
-def test_jobs__get__no_jobs_found(test_job_ids, mocked_asyncpg_con, mocker):
+def test_jobs__get__no_jobs_found(mocked_asyncpg_con, mocker):
     # falsey query params are automatically converted to None
     expected_job_ids = None
-    test_upload_rows = []
 
-    mocked_get_jobs = mocker.patch.object(main, "get_jobs", autospec=True, return_value=test_upload_rows)
+    mocked_get_jobs = mocker.patch.object(main, "get_jobs", autospec=True, return_value=[])
     mocked_get_uploads = mocker.patch.object(main, "get_uploads", autospec=True)
 
     test_user_id = uuid.uuid4()
     access_token = get_token(scope=["users:free"], userid=test_user_id)
 
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
-    # in None case, don't even pass a query param
-    if test_job_ids is not None:
-        kwargs["params"] = {"job_ids": test_job_ids}
-
     response = test_client.get("/jobs", **kwargs)
     assert response.status_code == 200
     assert response.json() == {"error": "No jobs found", "jobs": []}
 
     mocked_get_jobs.assert_called_once_with(
-        con=mocked_asyncpg_con, user_id=str(test_user_id), job_ids=expected_job_ids
+        con=mocked_asyncpg_con, account_type="user", account_id=str(test_user_id), job_ids=expected_job_ids
     )
     mocked_get_uploads.assert_not_called()
 

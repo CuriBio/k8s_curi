@@ -60,16 +60,16 @@ async def get_uploads(*, con, account_type, account_id, upload_ids=None):
     query_params = [account_id]
     if account_type == "user":
         query = "SELECT * FROM uploads WHERE user_id=$1 AND deleted='f'"
-        if upload_ids:
-            places = _get_placeholder_str(len(upload_ids), 2)
-            query += f" AND id IN ({places})"
-            query_params.extend(upload_ids)
     else:
         query = (
             "SELECT users.name AS username, uploads.* "
-            "FROM uploads JOIN users ON users.id=uploads.user_id "
+            "FROM uploads JOIN users ON uploads.user_id=users.id "
             "WHERE users.customer_id=$1 AND uploads.deleted='f'"
         )
+    if upload_ids:
+        places = _get_placeholder_str(len(upload_ids), len(query_params) + 1)
+        query += f" AND id IN ({places})"
+        query_params.extend(upload_ids)
 
     async with con.transaction():
         uploads = [dict(row) async for row in con.cursor(query, *query_params)]
@@ -110,21 +110,31 @@ async def delete_uploads(*, con, account_id, upload_ids):
     await con.execute(query, *[account_id, *upload_ids])
 
 
-async def get_jobs(*, con, user_id, job_ids=None):
+async def get_jobs(*, con, account_type, account_id, job_ids=None):
     """Query DB for info of a user's job(s).
 
     If no jobs specified, will return info of all jobs created by the user
+    or all jobs across all users belonging to the given customer ID
 
     If a job is marked as deleted, filter out it
     """
-    # TODO make it so a customer account can get all the jobs of all its users
-    query = (
-        "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, u.user_id, u.meta AS user_meta "
-        "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id WHERE u.user_id=$1 AND j.status!='deleted'"
-    )
-    query_params = [user_id]
+    query_params = [account_id]
+    if account_type == "user":
+        query = (
+            "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, "
+            "u.user_id, u.meta AS user_meta "
+            "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
+            "WHERE u.user_id=$1 AND j.status!='deleted'"
+        )
+    else:
+        query = (
+            "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, "
+            "u.user_id, u.meta AS user_meta, users.name AS username"
+            "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id JOIN users ON u.user_id=users.id "
+            "WHERE users.customer_id=$1 AND j.status!='deleted'"
+        )
     if job_ids:
-        places = _get_placeholder_str(len(job_ids), 2)
+        places = _get_placeholder_str(len(job_ids), len(query_params) + 1)
         query += f" AND j.job_id IN ({places})"
         query_params.extend(job_ids)
 

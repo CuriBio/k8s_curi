@@ -167,18 +167,19 @@ async def get_info_of_jobs(
     request: Request,
     job_ids: Optional[List[uuid.UUID]] = Query(None),
     download: bool = Query(True),
-    token=Depends(ProtectedAny(scope=["users:free"])),
+    token=Depends(ProtectedAny(scope=["users:free", "users:admin"])),
 ):
     # need to convert UUIDs to str to avoid issues with DB
     if job_ids:
         job_ids = [str(job_id) for job_id in job_ids]
 
     try:
-        user_id = str(uuid.UUID(token["userid"]))
-        logger.info(f"Retrieving job info with IDs: {job_ids} for user: {user_id}")
+        account_type = token["account_type"]
+        account_id = str(uuid.UUID(token["userid"]))
+        logger.info(f"Retrieving job info with IDs: {job_ids} for {account_type}: {account_id}")
 
         async with request.state.pgpool.acquire() as con:
-            jobs = await get_jobs(con=con, user_id=user_id, job_ids=job_ids)
+            jobs = await get_jobs(con=con, account_type=account_type, account_id=account_id, job_ids=job_ids)
             response = {"jobs": []}
             for job in jobs:
                 obj_key = job["object_key"]
