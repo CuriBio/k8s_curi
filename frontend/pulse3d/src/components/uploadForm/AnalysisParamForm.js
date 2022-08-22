@@ -286,7 +286,12 @@ export default function AnalysisParamForm({
       </AdditionalParamLabel>
       <InputContainer>
         <ParamContainer style={{ width: "60%" }}>
-          <Label htmlFor="twitchWidths">Twitch Width:</Label>
+          <Label
+            htmlFor="twitchWidths"
+            title="Specifies which twitch width values to add to the per twitch metrics sheet and aggregate metrics sheet."
+          >
+            Twitch Width:
+          </Label>
           <InputErrorContainer>
             <FormInput
               name="twitchWidths"
@@ -319,7 +324,12 @@ export default function AnalysisParamForm({
               Use Window Analysis
             </WALabel>
             <ParamContainer>
-              <Label htmlFor="startTime">Start Time (s):</Label>
+              <Label
+                htmlFor="startTime"
+                title="Specifies the earliest timepoint (in seconds) to use in analysis."
+              >
+                Start Time (s):
+              </Label>
               <InputErrorContainer>
                 <FormInput
                   name="startTime"
@@ -338,7 +348,12 @@ export default function AnalysisParamForm({
               </InputErrorContainer>
             </ParamContainer>
             <ParamContainer>
-              <Label htmlFor="endTime">End Time (s):</Label>
+              <Label
+                htmlFor="endTime"
+                title="Specifies the latest timepoint (in seconds) to use in analysis."
+              >
+                End Time (s):
+              </Label>
               <InputErrorContainer>
                 <FormInput
                   name="endTime"
@@ -373,7 +388,12 @@ export default function AnalysisParamForm({
             </WALabel>
             {checkedAdvanced || <WAOverlay />}
             <TwoParamContainer>
-              <Label htmlFor="prominenceFactorPeaks">Prominence(uN):</Label>
+              <Label
+                htmlFor="prominenceFactorPeaks"
+                title="Specifies how much a peak should stand out compared to the rest of the signal immediately surrounding it."
+              >
+                Prominence(uN):
+              </Label>
               <InputErrorContainer>
                 <label htmlFor="prominenceFactorPeaks">Peaks</label>
                 <FormModify>
@@ -419,7 +439,12 @@ export default function AnalysisParamForm({
               </InputErrorContainer>
             </TwoParamContainer>
             <TwoParamContainer>
-              <Label htmlFor="widthFactorPeaks">Width (ms):</Label>
+              <Label
+                htmlFor="widthFactorPeaks"
+                title="Specifies how wide a signal should be to classify as a peak."
+              >
+                Width (ms):
+              </Label>
               <InputErrorContainer>
                 <label htmlFor="widthFactorPeaks">Peaks</label>
                 <FormModify>
