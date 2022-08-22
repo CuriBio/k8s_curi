@@ -123,8 +123,9 @@ async def soft_delete_uploads(
     upload_ids = [str(upload_id) for upload_id in upload_ids]
 
     try:
+        account_id = str(uuid.UUID(token["userid"]))
         async with request.state.pgpool.acquire() as con:
-            await delete_uploads(con=con, upload_ids=upload_ids)
+            await delete_uploads(con=con, account_id=account_id, upload_ids=upload_ids)
     except Exception as e:
         logger.error(repr(e))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -293,8 +294,9 @@ async def soft_delete_jobs(
     job_ids = [str(job_id) for job_id in job_ids]
 
     try:
+        account_id = str(uuid.UUID(token["userid"]))
         async with request.state.pgpool.acquire() as con:
-            await delete_jobs(con=con, job_ids=job_ids)
+            await delete_jobs(con=con, account_id=account_id, job_ids=job_ids)
     except Exception as e:
         logger.error(f"Failed to soft delete jobs: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

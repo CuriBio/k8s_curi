@@ -146,7 +146,8 @@ def test_uploads__delete(test_upload_ids, mocked_asyncpg_con, mocker):
 
     mocked_delete_uploads = mocker.patch.object(main, "delete_uploads", autospec=True)
 
-    access_token = get_token(scope=["users:free"])
+    test_account_id = uuid.uuid4()
+    access_token = get_token(scope=["users:free"], userid=test_account_id)
     kwargs = {
         "headers": {"Authorization": f"Bearer {access_token}"},
         "params": {"upload_ids": test_upload_ids},
@@ -155,7 +156,9 @@ def test_uploads__delete(test_upload_ids, mocked_asyncpg_con, mocker):
     response = test_client.delete("/uploads", **kwargs)
     assert response.status_code == 200
 
-    mocked_delete_uploads.assert_called_once_with(con=mocked_asyncpg_con, upload_ids=expected_upload_ids)
+    mocked_delete_uploads.assert_called_once_with(
+        con=mocked_asyncpg_con, account_id=str(test_account_id), upload_ids=expected_upload_ids
+    )
 
 
 @pytest.mark.parametrize("test_upload_ids", [None, []])
@@ -445,7 +448,8 @@ def test_jobs__delete(test_job_ids, mocked_asyncpg_con, mocker):
 
     mocked_delete_jobs = mocker.patch.object(main, "delete_jobs", autospec=True)
 
-    access_token = get_token(scope=["users:free"])
+    test_account_id = uuid.uuid4()
+    access_token = get_token(scope=["users:free"], userid=test_account_id)
     kwargs = {
         "headers": {"Authorization": f"Bearer {access_token}"},
         "params": {"job_ids": test_job_ids},
@@ -454,7 +458,9 @@ def test_jobs__delete(test_job_ids, mocked_asyncpg_con, mocker):
     response = test_client.delete("/jobs", **kwargs)
     assert response.status_code == 200
 
-    mocked_delete_jobs.assert_called_once_with(con=mocked_asyncpg_con, job_ids=expected_job_ids)
+    mocked_delete_jobs.assert_called_once_with(
+        con=mocked_asyncpg_con, account_id=str(test_account_id), job_ids=expected_job_ids
+    )
 
 
 @pytest.mark.parametrize("test_job_ids", [None, []])

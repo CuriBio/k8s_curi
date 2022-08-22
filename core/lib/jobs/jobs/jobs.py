@@ -61,7 +61,7 @@ async def get_uploads(*, con, account_type, account_id, upload_ids=None):
     if account_type == "user":
         query = "SELECT * FROM uploads WHERE user_id=$1 AND deleted='f'"
         if upload_ids:
-            places = ", ".join(f"${i}" for i, _ in enumerate(upload_ids, 2))
+            places = _get_placeholder_str(len(upload_ids), 2)
             query += f" AND id IN ({places})"
             query_params.extend(upload_ids)
     else:
@@ -101,19 +101,30 @@ async def create_upload(*, con, upload_params):
         )
 
 
+async def delete_uploads(*, con, account_id, upload_ids):
+    """Query DB to update upload deleted state to true for uploads with the given IDs."""
+    # TODO make it so that this function works with customer IDs
+
+    places = _get_placeholder_str(len(upload_ids), 2)
+    query = f"UPDATE uploads SET deleted='t' WHERE user_id=$1 AND id IN ({places})"
+    await con.execute(query, *[account_id, *upload_ids])
+
+
 async def get_jobs(*, con, user_id, job_ids=None):
-    # TODO make it so a customer account can get all the jobs of all its users
     """Query DB for info of a user's job(s).
 
     If no jobs specified, will return info of all jobs created by the user
+
+    If a job is marked as deleted, filter out it
     """
+    # TODO make it so a customer account can get all the jobs of all its users
     query = (
         "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, u.user_id, u.meta AS user_meta "
         "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id WHERE u.user_id=$1 AND j.status!='deleted'"
     )
     query_params = [user_id]
     if job_ids:
-        places = ", ".join(f"${i}" for i, _ in enumerate(job_ids, 2))
+        places = _get_placeholder_str(len(job_ids), 2)
         query += f" AND j.job_id IN ({places})"
         query_params.extend(job_ids)
 
@@ -144,7 +155,7 @@ async def create_job(*, con, upload_id, queue, priority, meta):
         }
 
         cols = ", ".join(list(data))
-        places = ", ".join(f"${i}" for i, _ in enumerate(data, 1))
+        places = _get_placeholder_str(len(data))
 
         # insert job info result table with 'pending' status
         await con.execute(f"INSERT INTO jobs_result ({cols}) VALUES ({places})", *data.values())
@@ -152,19 +163,18 @@ async def create_job(*, con, upload_id, queue, priority, meta):
     return job_id
 
 
-async def delete_jobs(*, con, job_ids):
-    """Query DB to update job status to deleted."""
+async def delete_jobs(*, con, account_id, job_ids):
+    """Query DB to update job status to deleted for jobs with the given IDs."""
+    # TODO make it so that this function works with customer IDs
 
-    query = "UPDATE jobs_result SET status='deleted' WHERE job_id=$1"
-    async with con.transaction():
-        for id in job_ids:
-            await con.execute(query, id)
+    places = _get_placeholder_str(len(job_ids), 2)
+    query = f"UPDATE jobs_result SET status='deleted' WHERE user_id=$1 AND job_id IN ({places})"
+    await con.execute(query, *[account_id, *job_ids])
 
 
-async def delete_uploads(*, con, upload_ids):
-    """Query DB to update upload deleted state to true."""
-
-    query = "UPDATE uploads SET deleted='t' WHERE id=$1"
-    async with con.transaction():
-        for id in upload_ids:
-            await con.execute(query, id)
+def _get_placeholder_str(num_placeholders, start=1):
+    if num_placeholders < 1:
+        raise ValueError("Must have at least 1 placeholder")
+    if start < 1:
+        raise ValueError("Initial placeholder value must be >= 1")
+    return ", ".join(f"${i}" for i in range(start, start + num_placeholders))
