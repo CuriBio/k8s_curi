@@ -392,7 +392,7 @@ export default function AnalysisParamForm({
                 htmlFor="prominenceFactorPeaks"
                 title="Specifies the minimum required vertical distance between a local max and its lowest contour line to be classified as a peak."
               >
-                Prominence(µN):
+                Prominence (µN):
               </Label>
               <InputErrorContainer>
                 <label htmlFor="prominenceFactorPeaks">Peaks</label>
