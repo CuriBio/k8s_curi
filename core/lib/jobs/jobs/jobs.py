@@ -101,13 +101,20 @@ async def create_upload(*, con, upload_params):
         )
 
 
-async def delete_uploads(*, con, account_id, upload_ids):
+async def delete_uploads(*, con, account_type, account_id, upload_ids):
     """Query DB to update upload deleted state to true for uploads with the given IDs."""
-    # TODO make it so that this function works with customer IDs
-
-    places = _get_placeholder_str(len(upload_ids), 2)
-    query = f"UPDATE uploads SET deleted='t' WHERE user_id=$1 AND id IN ({places})"
-    await con.execute(query, *[account_id, *upload_ids])
+    query_params = [account_id]
+    places = _get_placeholder_str(len(upload_ids), len(query_params) + 1)
+    if account_type == "user":
+        query = f"UPDATE uploads SET deleted='t' WHERE user_id=$1 AND id IN ({places})"
+    else:
+        # this is essentially doing a JOIN on users WHERE uploads.user_id=users.id
+        query = (
+            "UPDATE uploads SET deleted='t' FROM users"
+            f"WHERE uploads.user_id=users.id AND users.customer_id=$1 AND uploads.id IN ({places})"
+        )
+    query_params.extend(upload_ids)
+    await con.execute(query, *query_params)
 
 
 async def get_jobs(*, con, account_type, account_id, job_ids=None):

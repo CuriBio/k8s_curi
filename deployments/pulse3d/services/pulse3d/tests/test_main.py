@@ -136,18 +136,14 @@ def test__uploads__post(mocked_asyncpg_con, mocker):
     )
 
 
+@pytest.mark.parametrize("test_token_scope", [["users:free"], ["users:admin"]])
 @pytest.mark.parametrize("test_upload_ids", [uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]])
-def test_uploads__delete(test_upload_ids, mocked_asyncpg_con, mocker):
-    if isinstance(test_upload_ids, uuid.UUID):
-        # fastapi automatically converts a single UUID to a list
-        test_upload_ids = [test_upload_ids]
-
-    expected_upload_ids = [str(test_id) for test_id in test_upload_ids]
-
+def test_uploads__delete(test_token_scope, test_upload_ids, mocked_asyncpg_con, mocker):
     mocked_delete_uploads = mocker.patch.object(main, "delete_uploads", autospec=True)
 
     test_account_id = uuid.uuid4()
-    access_token = get_token(scope=["users:free"], userid=test_account_id)
+    account_type = "customer" if test_token_scope == ["users:admin"] else "user"
+    access_token = get_token(scope=test_token_scope, account_type=account_type, userid=test_account_id)
     kwargs = {
         "headers": {"Authorization": f"Bearer {access_token}"},
         "params": {"upload_ids": test_upload_ids},
@@ -156,8 +152,17 @@ def test_uploads__delete(test_upload_ids, mocked_asyncpg_con, mocker):
     response = test_client.delete("/uploads", **kwargs)
     assert response.status_code == 200
 
+    if isinstance(test_upload_ids, uuid.UUID):
+        # fastapi automatically converts a single UUID to a list
+        test_upload_ids = [test_upload_ids]
+
+    expected_upload_ids = [str(test_id) for test_id in test_upload_ids]
+
     mocked_delete_uploads.assert_called_once_with(
-        con=mocked_asyncpg_con, account_id=str(test_account_id), upload_ids=expected_upload_ids
+        con=mocked_asyncpg_con,
+        account_type=account_type,
+        account_id=str(test_account_id),
+        upload_ids=expected_upload_ids,
     )
 
 
@@ -198,15 +203,12 @@ def test_uploads__delete__failure_to_delete_uploads(mocker):
     "test_job_ids", [None, [], uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]]
 )
 def test_jobs__get__jobs_found(download, test_token_scope, test_job_ids, mocked_asyncpg_con, mocker):
-    if isinstance(test_job_ids, uuid.UUID):
-        # fastapi automatically converts a single UUID to a list
-        test_job_ids = [test_job_ids]
-
     if test_job_ids:
         if isinstance(test_job_ids, uuid.UUID):
             # fastapi automatically converts a single UUID to a list
-            test_job_ids = [test_job_ids]
-        expected_job_ids = [str(test_id) for test_id in test_job_ids]
+            expected_job_ids = [str(test_job_ids)]
+        else:
+            expected_job_ids = [str(test_id) for test_id in test_job_ids]
     else:
         # if no job IDs given, then all jobs are returned
         expected_job_ids = [str(uuid.uuid4()) for _ in range(3)]
@@ -255,7 +257,9 @@ def test_jobs__get__jobs_found(download, test_token_scope, test_job_ids, mocked_
         job["id"] = job.pop("job_id")
         job["meta"] = job.pop("job_meta")
 
+    # if all jobs are retrieved successfully, this should be the only key in the response dict
     assert list(response.json()) == ["jobs"]
+
     for response_job, expected_job in zip(response.json()["jobs"], jobs):
         assert response_job == expected_job
 
@@ -321,7 +325,7 @@ def test_jobs__get__error_with_creating_presigned_url_for_single_file(mocked_asy
         assert response_job == expected_job
 
     mocked_get_jobs.assert_called_once_with(
-        con=mocked_asyncpg_con, user_id=str(test_user_id), job_ids=expected_job_ids
+        con=mocked_asyncpg_con, account_type="user", account_id=str(test_user_id), job_ids=expected_job_ids
     )
     assert mocked_generate.call_args_list == [
         mocker.call(main.PULSE3D_UPLOADS_BUCKET, test_job_rows[i]["object_key"]) for i in range(test_num_jobs)
@@ -453,12 +457,6 @@ def test_jobs__post__advanced_params_given(param_name, param_tuple, mocker):
 
 @pytest.mark.parametrize("test_job_ids", [uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]])
 def test_jobs__delete(test_job_ids, mocked_asyncpg_con, mocker):
-    if isinstance(test_job_ids, uuid.UUID):
-        # fastapi automatically converts a single UUID to a list
-        test_job_ids = [test_job_ids]
-
-    expected_job_ids = [str(test_id) for test_id in test_job_ids]
-
     mocked_delete_jobs = mocker.patch.object(main, "delete_jobs", autospec=True)
 
     test_account_id = uuid.uuid4()
@@ -470,6 +468,12 @@ def test_jobs__delete(test_job_ids, mocked_asyncpg_con, mocker):
 
     response = test_client.delete("/jobs", **kwargs)
     assert response.status_code == 200
+
+    if isinstance(test_job_ids, uuid.UUID):
+        # fastapi automatically converts a single UUID to a list
+        test_job_ids = [test_job_ids]
+
+    expected_job_ids = [str(test_id) for test_id in test_job_ids]
 
     mocked_delete_jobs.assert_called_once_with(
         con=mocked_asyncpg_con, account_id=str(test_account_id), job_ids=expected_job_ids

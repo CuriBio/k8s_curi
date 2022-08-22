@@ -111,9 +111,9 @@ async def create_recording_upload(
 async def soft_delete_uploads(
     request: Request,
     upload_ids: List[uuid.UUID] = Query(None),
-    token=Depends(ProtectedAny(scope=["users:free"])),
+    token=Depends(ProtectedAny(scope=["users:free", "users:admin"])),
 ):
-    # check if for some reason an empty list was sent
+    # make sure at least one upload ID was given
     if not upload_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -125,7 +125,9 @@ async def soft_delete_uploads(
     try:
         account_id = str(uuid.UUID(token["userid"]))
         async with request.state.pgpool.acquire() as con:
-            await delete_uploads(con=con, account_id=account_id, upload_ids=upload_ids)
+            await delete_uploads(
+                con=con, account_type=token["account_type"], account_id=account_id, upload_ids=upload_ids
+            )
     except Exception as e:
         logger.error(repr(e))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -285,7 +287,7 @@ async def soft_delete_jobs(
     job_ids: List[uuid.UUID] = Query(None),
     token=Depends(ProtectedAny(scope=["users:free"])),
 ):
-    # check if for some reason an empty list was sent
+    # make sure at least one job ID was given
     if not job_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
