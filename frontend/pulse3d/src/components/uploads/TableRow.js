@@ -10,6 +10,28 @@ import TableRow from "@mui/material/TableRow";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
+import styled from "styled-components";
+
+const BoxCell = styled((props) => <TableCell {...props} colSpan={6} />)(() => ({
+  paddingBottom: 0,
+  paddingTop: 0,
+  backgroundColor: "var(--med-gray)",
+  borderBottom: "3px solid var(--dark-gray)",
+}));
+
+const SubHeaderCell = styled((props) => <TableCell {...props} />)(() => ({
+  color: "white",
+}));
+
+const SubHeader = styled((props) => <TableHead {...props} />)(() => ({
+  backgroundColor: "var(--dark-blue)",
+  borderBottom: "2px solid var(--dark-gray)",
+}));
+
+const JobCell = styled((props) => <TableCell {...props} />)(() => ({
+  padding: "9px",
+  backgroundColor: "white",
+}));
 
 export default function Row({
   row,
@@ -36,7 +58,6 @@ export default function Row({
       });
       setModalButtons(["Close"]);
       setModalState("generic");
-      
     } else if (checked) {
       // don't include duplicate job ids from individual selections
       const noDuplicateJobs = affectedJobs.filter(
@@ -79,7 +100,7 @@ export default function Row({
 
   return (
     <>
-      <TableRow sx={{ "& > *": { borderBottom: "unset" } }}>
+      <TableRow sx={{ "& > *": { borderBottom: "unset", height: "60px" } }}>
         <TableCell>
           <IconButton
             aria-label="expand row"
@@ -105,21 +126,21 @@ export default function Row({
         </TableCell>
       </TableRow>
       <TableRow>
-        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={6}>
+        <BoxCell>
           <Collapse in={open} timeout="auto" unmountOnExit>
-            <Box sx={{ margin: 1 }}>
-              <Table size="small">
-                <TableHead sx={{ backgroundColor: "var(--med-gray)" }}>
-                  <TableRow>
-                    <TableCell>ANALYZED FILENAME</TableCell>
-                    <TableCell>CREATED&nbsp;AT</TableCell>
-                    <TableCell align="center">
+            <Box sx={{ margin: 2, borderRadius: 1, overflow: "hidden" }}>
+              <Table size="medium">
+                <SubHeader>
+                  <TableRow sx={{ height: "60px" }}>
+                    <SubHeaderCell>ANALYZED FILENAME</SubHeaderCell>
+                    <SubHeaderCell>CREATED&nbsp;AT</SubHeaderCell>
+                    <SubHeaderCell align="center">
                       ANALYSIS&nbsp;PARAMETERS
-                    </TableCell>
-                    <TableCell align="center">STATUS</TableCell>
+                    </SubHeaderCell>
+                    <SubHeaderCell align="center">STATUS</SubHeaderCell>
                     <TableCell />
                   </TableRow>
-                </TableHead>
+                </SubHeader>
                 <TableBody>
                   {row.jobs.map(
                     ({
@@ -129,12 +150,10 @@ export default function Row({
                       status,
                       analysisParams,
                     }) => (
-                      <TableRow key={datetime}>
-                        <TableCell component="th" scope="row">
-                          {analyzedFile}
-                        </TableCell>
-                        <TableCell>{datetime}</TableCell>
-                        <TableCell align="center">
+                      <TableRow key={datetime} sx={{ height: "60px" }}>
+                        <JobCell>{analyzedFile}</JobCell>
+                        <JobCell>{datetime}</JobCell>
+                        <JobCell align="center">
                           {Object.keys(analysisParams).map((param) => {
                             if (analysisParams[param]) {
                               const splitParam = param.split("_");
@@ -146,9 +165,9 @@ export default function Row({
                               );
                             }
                           })}
-                        </TableCell>
-                        <TableCell align="center">{status}</TableCell>
-                        <TableCell align="center">
+                        </JobCell>
+                        <JobCell align="center">{status}</JobCell>
+                        <JobCell align="center">
                           <CheckboxWidget
                             checkedState={checkedJobs.includes(jobId)}
                             disabled={status === "pending"} // disable if pending
@@ -156,7 +175,7 @@ export default function Row({
                               handleCheckedJobs(jobId, row.id, checked)
                             }
                           />
-                        </TableCell>
+                        </JobCell>
                       </TableRow>
                     )
                   )}
@@ -164,7 +183,7 @@ export default function Row({
               </Table>
             </Box>
           </Collapse>
-        </TableCell>
+        </BoxCell>
       </TableRow>
     </>
   );

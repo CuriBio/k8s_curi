@@ -157,4 +157,8 @@ spec:
           parameters:
           - name: path
             value: "{{item.path}}"
+          - name: number
+            value: "{{workflow.parameters.number}}"
+          - name: sha
+            value: "{{workflow.parameters.sha}}"
         withParam: "{{steps.changed-tf.outputs.result}}"

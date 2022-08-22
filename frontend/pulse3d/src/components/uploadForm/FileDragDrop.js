@@ -5,8 +5,8 @@ const fileTypes = ["zip"];
 
 const Container = styled.div`
   left: 5%;
-  top: 5%;
-  height: 17%;
+  top: 28px;
+  height: 170px;
   width: 90%;
   position: relative;
   font-size: 24px;

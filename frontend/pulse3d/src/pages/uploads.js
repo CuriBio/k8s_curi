@@ -343,9 +343,14 @@ export default function Uploads() {
         <PageContainer>
           <DropDownContainer>
             <DropDownWidget
-              label={"Actions"}
+              label="Actions"
               options={["Download", "Delete"]}
-              disabled={checkedJobs.length === 0 && checkedUploads.length === 0}
+              disableOptions={Array(2).fill(
+                checkedJobs.length === 0 && checkedUploads.length === 0
+              )}
+              optionsTooltipText={Array(2).fill(
+                "Must make a selection below before actions become available."
+              )}
               handleSelection={handleDropdownSelection}
               reset={resetDropdown}
             />
@@ -355,13 +360,17 @@ export default function Uploads() {
               component={Paper}
               sx={{ backgroundColor: "var(--light-gray" }}
             >
-              <Table aria-label="collapsible table">
+              <Table aria-label="collapsible table" size="small">
                 <TableHead
                   sx={{
                     backgroundColor: "var(--dark-blue)",
                   }}
                 >
-                  <TableRow>
+                  <TableRow
+                    sx={{
+                      height: "60px",
+                    }}
+                  >
                     <TableCell />
                     <TableCell
                       sx={{

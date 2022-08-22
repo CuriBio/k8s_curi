@@ -17,7 +17,7 @@ const Container = styled.div`
   border-width: 2px;
   border-radius: 7px;
   background-color: var(--light-gray);
-  margin: 5rem 0;
+  margin-top: 8%;
   margin-bottom: 4;
 `;
 
@@ -26,15 +26,16 @@ const TwoParamContainer = styled.div`
   flex-direction: column;
   height: 100%;
   align-items: center;
-  padding-top: 2rem;
+  padding: 1rem;
 `;
 const ParamContainer = styled.div`
   display: flex;
   flex-direction: row;
   overflow: visible;
   height: 70px;
-  padding-top: 15px;
+  padding: 15px 0 10px 0;
   height: 70px;
+  width: 320px;
 `;
 
 const InputContainer = styled.div`
@@ -72,8 +73,8 @@ const WAOverlay = styled.div`
 const Label = styled.label`
   width: 102%;
   position: relative;
-  height: 40px;
-  padding: 5px;
+  height: 25px;
+  padding: 10px;
   border-radius: 5px;
   display: flex;
   justify-content: center;
@@ -86,7 +87,7 @@ const ErrorText = styled.span`
   font-style: italic;
   text-align: left;
   position: relative;
-  width: 80%;
+  width: 150%;
   font-size: 13px;
 `;
 
@@ -273,8 +274,13 @@ export default function AnalysisParamForm({
         Additional Analysis Params (Optional)
       </AdditionalParamLabel>
       <InputContainer>
-        <ParamContainer style={{ width: "60%" }}>
-          <Label htmlFor="twitchWidths">Twitch Width:</Label>
+        <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
+          <Label
+            htmlFor="twitchWidths"
+            title="Specifies which twitch width values to add to the per twitch metrics sheet and aggregate metrics sheet."
+          >
+            Twitch Width:
+          </Label>
           <InputErrorContainer>
             <FormInput
               name="twitchWidths"
@@ -307,7 +313,12 @@ export default function AnalysisParamForm({
               Use Window Analysis
             </WALabel>
             <ParamContainer>
-              <Label htmlFor="startTime">Start Time (s):</Label>
+              <Label
+                htmlFor="startTime"
+                title="Specifies the earliest timepoint (in seconds) to use in analysis."
+              >
+                Start Time (s):
+              </Label>
               <InputErrorContainer>
                 <FormInput
                   name="startTime"
@@ -326,7 +337,12 @@ export default function AnalysisParamForm({
               </InputErrorContainer>
             </ParamContainer>
             <ParamContainer>
-              <Label htmlFor="endTime">End Time (s):</Label>
+              <Label
+                htmlFor="endTime"
+                title="Specifies the latest timepoint (in seconds) to use in analysis."
+              >
+                End Time (s):
+              </Label>
               <InputErrorContainer>
                 <FormInput
                   name="endTime"
@@ -348,7 +364,7 @@ export default function AnalysisParamForm({
         </WindowAnalysisContainer>
         <AdvancedAnalysisContainer>
           <WAOverlayContainer>
-            <WALabel>
+            <WALabel style={{ width: 210 }}>
               <CheckboxWidget
                 color={"secondary"}
                 size={"small"}
@@ -361,7 +377,12 @@ export default function AnalysisParamForm({
             </WALabel>
             {checkedAdvanced || <WAOverlay />}
             <TwoParamContainer>
-              <Label htmlFor="prominenceFactorPeaks">Prominence(uN):</Label>
+              <Label
+                htmlFor="prominenceFactorPeaks"
+                title="Specifies the minimum required vertical distance between a local max and its lowest contour line to be classified as a peak."
+              >
+                Prominence (µN):
+              </Label>
               <InputErrorContainer>
                 <label htmlFor="prominenceFactorPeaks">Peaks</label>
                 <FormModify>
@@ -407,7 +428,12 @@ export default function AnalysisParamForm({
               </InputErrorContainer>
             </TwoParamContainer>
             <TwoParamContainer>
-              <Label htmlFor="widthFactorPeaks">Width (ms):</Label>
+              <Label
+                htmlFor="widthFactorPeaks"
+                title="Specifies the minimum required width of the base of a local max to be classified as a peak."
+              >
+                Width (ms):
+              </Label>
               <InputErrorContainer>
                 <label htmlFor="widthFactorPeaks">Peaks</label>
                 <FormModify>

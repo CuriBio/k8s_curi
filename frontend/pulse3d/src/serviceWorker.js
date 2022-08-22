@@ -34,14 +34,16 @@ const tokens = {
 const setTokens = ({ access, refresh }) => {
   tokens.access = access.token;
   tokens.refresh = refresh.token;
-  setLogoutTimer();
 };
 
 const clearTokens = () => {
   tokens.access = null;
   tokens.refresh = null;
+  clearLogoutTimer();
+};
+
+const clearLogoutTimer = () => {
   clearTimeout(logoutTimer);
-  ClientSource.postMessage({ logout: true });
 };
 
 const setLogoutTimer = () => {
@@ -158,6 +160,7 @@ const interceptResponse = async (req, url) => {
       // set tokens if login was successful
       const data = await response.json();
       setTokens(data);
+      setLogoutTimer();
     }
     // send the response without the tokens so they are always contained within this service worker
     return new Response(JSON.stringify({}), {
