@@ -390,9 +390,9 @@ export default function AnalysisParamForm({
             <TwoParamContainer>
               <Label
                 htmlFor="prominenceFactorPeaks"
-                title="Specifies how much a peak should stand out compared to the rest of the signal immediately surrounding it."
+                title="Specifies the minimum required vertical distance between a local max and its lowest contour line to be classified as a peak."
               >
-                Prominence(uN):
+                Prominence(µN):
               </Label>
               <InputErrorContainer>
                 <label htmlFor="prominenceFactorPeaks">Peaks</label>
@@ -441,7 +441,7 @@ export default function AnalysisParamForm({
             <TwoParamContainer>
               <Label
                 htmlFor="widthFactorPeaks"
-                title="Specifies how wide a signal should be to classify as a peak."
+                title="Specifies the minimum required width of the base of a local max to be classified as a peak."
               >
                 Width (ms):
               </Label>
