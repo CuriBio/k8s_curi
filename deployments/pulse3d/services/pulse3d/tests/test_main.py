@@ -455,12 +455,14 @@ def test_jobs__post__advanced_params_given(param_name, param_tuple, mocker):
     assert mocked_create_job.call_args[1]["meta"]["analysis_params"] == expected_analysis_params
 
 
+@pytest.mark.parametrize("test_token_scope", [["users:free"], ["users:admin"]])
 @pytest.mark.parametrize("test_job_ids", [uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]])
-def test_jobs__delete(test_job_ids, mocked_asyncpg_con, mocker):
+def test_jobs__delete(test_token_scope, test_job_ids, mocked_asyncpg_con, mocker):
     mocked_delete_jobs = mocker.patch.object(main, "delete_jobs", autospec=True)
 
     test_account_id = uuid.uuid4()
-    access_token = get_token(scope=["users:free"], userid=test_account_id)
+    account_type = "customer" if test_token_scope == ["users:admin"] else "user"
+    access_token = get_token(scope=test_token_scope, account_type=account_type, userid=test_account_id)
     kwargs = {
         "headers": {"Authorization": f"Bearer {access_token}"},
         "params": {"job_ids": test_job_ids},
@@ -476,7 +478,10 @@ def test_jobs__delete(test_job_ids, mocked_asyncpg_con, mocker):
     expected_job_ids = [str(test_id) for test_id in test_job_ids]
 
     mocked_delete_jobs.assert_called_once_with(
-        con=mocked_asyncpg_con, account_id=str(test_account_id), job_ids=expected_job_ids
+        con=mocked_asyncpg_con,
+        account_type=account_type,
+        account_id=str(test_account_id),
+        job_ids=expected_job_ids,
     )
 
 

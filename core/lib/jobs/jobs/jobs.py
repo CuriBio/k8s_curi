@@ -67,7 +67,7 @@ async def get_uploads(*, con, account_type, account_id, upload_ids=None):
             "WHERE users.customer_id=$1 AND uploads.deleted='f'"
         )
     if upload_ids:
-        places = _get_placeholder_str(len(upload_ids), len(query_params) + 1)
+        places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
         query += f" AND id IN ({places})"
         query_params.extend(upload_ids)
 
@@ -89,28 +89,27 @@ async def create_upload(*, con, upload_params):
         "RETURNING id"
     )
 
-    async with con.transaction():
-        return await con.fetchval(
-            query,
-            upload_params["user_id"],
-            upload_id,
-            upload_params["md5"],
-            upload_params["prefix"].format(upload_id=upload_id),
-            upload_params["filename"],
-            upload_params["type"],
-        )
+    return await con.fetchval(
+        query,
+        upload_params["user_id"],
+        upload_id,
+        upload_params["md5"],
+        upload_params["prefix"].format(upload_id=upload_id),
+        upload_params["filename"],
+        upload_params["type"],
+    )
 
 
 async def delete_uploads(*, con, account_type, account_id, upload_ids):
     """Query DB to update upload deleted state to true for uploads with the given IDs."""
     query_params = [account_id]
-    places = _get_placeholder_str(len(upload_ids), len(query_params) + 1)
+    places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
     if account_type == "user":
         query = f"UPDATE uploads SET deleted='t' WHERE user_id=$1 AND id IN ({places})"
     else:
         # this is essentially doing a JOIN on users WHERE uploads.user_id=users.id
         query = (
-            "UPDATE uploads SET deleted='t' FROM users"
+            "UPDATE uploads SET deleted='t' FROM users "
             f"WHERE uploads.user_id=users.id AND users.customer_id=$1 AND uploads.id IN ({places})"
         )
     query_params.extend(upload_ids)
@@ -136,12 +135,12 @@ async def get_jobs(*, con, account_type, account_id, job_ids=None):
     else:
         query = (
             "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, "
-            "u.user_id, u.meta AS user_meta, users.name AS username"
+            "u.user_id, u.meta AS user_meta, users.name AS username "
             "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id JOIN users ON u.user_id=users.id "
             "WHERE users.customer_id=$1 AND j.status!='deleted'"
         )
     if job_ids:
-        places = _get_placeholder_str(len(job_ids), len(query_params) + 1)
+        places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
         query += f" AND j.job_id IN ({places})"
         query_params.extend(job_ids)
 
@@ -172,7 +171,7 @@ async def create_job(*, con, upload_id, queue, priority, meta):
         }
 
         cols = ", ".join(list(data))
-        places = _get_placeholder_str(len(data))
+        places = _get_placeholders_str(len(data))
 
         # insert job info result table with 'pending' status
         await con.execute(f"INSERT INTO jobs_result ({cols}) VALUES ({places})", *data.values())
@@ -180,16 +179,24 @@ async def create_job(*, con, upload_id, queue, priority, meta):
     return job_id
 
 
-async def delete_jobs(*, con, account_id, job_ids):
+async def delete_jobs(*, con, account_type, account_id, job_ids):
     """Query DB to update job status to deleted for jobs with the given IDs."""
-    # TODO make it so that this function works with customer IDs
+    query_params = [account_id]
+    places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
+    if account_type == "users":
+        query = f"UPDATE jobs_result SET status='deleted' WHERE user_id=$1 AND job_id IN ({places})"
+    else:
+        # this is essentially doing a JOIN on uploads WHERE jobs_result.upload_id=uploads.id
+        # and JOIN on users WHERE uploads.user_id=users.id
+        query = (
+            "UPDATE jobs_result AS j SET status='deleted' FROM uploads, users "
+            f"WHERE j.upload_id=uploads.id AND uploads.user_id=users.id AND users.customer_id=$1 AND job_id IN ({places})"
+        )
+    query_params.extend(job_ids)
+    await con.execute(query, *query_params)
 
-    places = _get_placeholder_str(len(job_ids), 2)
-    query = f"UPDATE jobs_result SET status='deleted' WHERE user_id=$1 AND job_id IN ({places})"
-    await con.execute(query, *[account_id, *job_ids])
 
-
-def _get_placeholder_str(num_placeholders, start=1):
+def _get_placeholders_str(num_placeholders, start=1):
     if num_placeholders < 1:
         raise ValueError("Must have at least 1 placeholder")
     if start < 1:

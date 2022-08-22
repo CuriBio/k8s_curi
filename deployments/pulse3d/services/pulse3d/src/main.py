@@ -285,7 +285,7 @@ def _format_advanced_options(
 async def soft_delete_jobs(
     request: Request,
     job_ids: List[uuid.UUID] = Query(None),
-    token=Depends(ProtectedAny(scope=["users:free"])),
+    token=Depends(ProtectedAny(scope=["users:free", "users:admin"])),
 ):
     # make sure at least one job ID was given
     if not job_ids:
@@ -299,7 +299,9 @@ async def soft_delete_jobs(
     try:
         account_id = str(uuid.UUID(token["userid"]))
         async with request.state.pgpool.acquire() as con:
-            await delete_jobs(con=con, account_id=account_id, job_ids=job_ids)
+            await delete_jobs(
+                con=con, account_type=token["account_type"], account_id=account_id, job_ids=job_ids
+            )
     except Exception as e:
         logger.error(f"Failed to soft delete jobs: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
