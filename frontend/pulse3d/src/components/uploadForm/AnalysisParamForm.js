@@ -17,7 +17,7 @@ const Container = styled.div`
   border-width: 2px;
   border-radius: 7px;
   background-color: var(--light-gray);
-  margin: 5rem 0;
+  margin-top: 8%;
   margin-bottom: 4;
 `;
 
@@ -26,15 +26,16 @@ const TwoParamContainer = styled.div`
   flex-direction: column;
   height: 100%;
   align-items: center;
-  padding-top: 2rem;
+  padding: 1rem;
 `;
 const ParamContainer = styled.div`
   display: flex;
   flex-direction: row;
   overflow: visible;
   height: 70px;
-  padding-top: 15px;
+  padding: 15px 0 10px 0;
   height: 70px;
+  width: 320px;
 `;
 
 const InputContainer = styled.div`
@@ -72,8 +73,8 @@ const WAOverlay = styled.div`
 const Label = styled.label`
   width: 102%;
   position: relative;
-  height: 40px;
-  padding: 5px;
+  height: 25px;
+  padding: 10px;
   border-radius: 5px;
   display: flex;
   justify-content: center;
@@ -86,7 +87,7 @@ const ErrorText = styled.span`
   font-style: italic;
   text-align: left;
   position: relative;
-  width: 80%;
+  width: 150%;
   font-size: 13px;
 `;
 
@@ -285,7 +286,7 @@ export default function AnalysisParamForm({
         Additional Analysis Params (Optional)
       </AdditionalParamLabel>
       <InputContainer>
-        <ParamContainer style={{ width: "60%" }}>
+        <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
           <Label
             htmlFor="twitchWidths"
             title="Specifies which twitch width values to add to the per twitch metrics sheet and aggregate metrics sheet."
@@ -375,7 +376,7 @@ export default function AnalysisParamForm({
         </WindowAnalysisContainer>
         <AdvancedAnalysisContainer>
           <WAOverlayContainer>
-            <WALabel>
+            <WALabel style={{ width: 210 }}>
               <CheckboxWidget
                 color={"secondary"}
                 size={"small"}

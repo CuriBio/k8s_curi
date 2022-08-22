@@ -17,7 +17,8 @@ const Container = styled.div`
   justify-content: center;
   position: relative;
   padding-top: 3%;
-  padding-left: 11%;
+  padding-left: 7%;
+  padding-bottom: 3%;
 `;
 
 const Header = styled.h2`
@@ -32,7 +33,7 @@ const Header = styled.h2`
 
 const Uploads = styled.div`
   width: 100%;
-  min-width: 1000px;
+  min-width: 1200px;
   border: solid;
   border-color: var(--dark-gray);
   border-width: 2px;
@@ -43,9 +44,8 @@ const Uploads = styled.div`
 
 const ButtonContainer = styled.div`
   display: flex;
-  align-items: center;
-  justify-content: space-around;
-  padding: 1rem;
+  justify-content: flex-end;
+  padding: 3rem 6rem;
 `;
 
 const SuccessText = styled.span`
@@ -53,6 +53,7 @@ const SuccessText = styled.span`
   font-style: italic;
   font-size: 15px;
   padding-right: 10px;
+  line-height: 3;
 `;
 
 const DropDownContainer = styled.div`
