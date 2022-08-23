@@ -114,6 +114,7 @@ const userButtons = [
 ];
 
 const adminButtons = [
+  { label: "Home", disabled: false, page: "/uploads", options: [] },
   {
     label: "Add New User",
     disabled: false,
