@@ -14,7 +14,7 @@ import DashboardLayout, {
 import styled from "styled-components";
 import { useContext, useState, useEffect } from "react";
 import Row from "@/components/uploads/TableRow";
-import InteractiveAnalysis from "@/components/uploads/InteractiveAnalysis";
+import InteractiveAnalysisModal from "@/components/uploads/InteractiveAnalysisModal";
 
 const Container = styled.div`
   display: flex;
@@ -464,7 +464,7 @@ export default function Uploads() {
         header="Interactive Waveform Analysis"
         width={1500}
       >
-        <InteractiveAnalysis />
+        <InteractiveAnalysisModal />
       </ModalWidget>
     </>
   );
