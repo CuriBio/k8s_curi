@@ -34,7 +34,7 @@ class UploadResponse(BaseModel):
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
-    yaxis_range: Optional[List[Union[int, float]]]
+    max_y: Optional[Union[int, float]]
     prominence_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
     width_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
     twitch_widths: Optional[List[int]]
@@ -47,6 +47,7 @@ app.add_middleware(
     allow_origins=[
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
+        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -255,7 +256,7 @@ async def create_new_job(
             "analysis_params": {
                 param: dict(details)[param]
                 for param in (
-                    "yaxis_range",
+                    "max_y",
                     "prominence_factors",
                     "width_factors",
                     "twitch_widths",

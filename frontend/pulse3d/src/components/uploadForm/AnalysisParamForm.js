@@ -183,8 +183,8 @@ export default function AnalysisParamForm({
     if (newParams.widthFactorValleys) {
       validateAdvancedParams(updatedParams, "widthFactorValleys");
     }
-    if (newParams.yAxisRange) {
-      validateYAxisRange(updatedParams);
+    if (newParams.maxY) {
+      validateMaxY(updatedParams);
     }
     setAnalysisParams(updatedParams);
   };
@@ -198,41 +198,26 @@ export default function AnalysisParamForm({
     }
   };
 
-  const validateYAxisRange = (updatedParams) => {
-    let newValue = updatedParams["yAxisRange"];
-    //check input is seperated by a comma
-    if (newValue.split(",").length !== 2) {
-      setParamErrors({
-        ...paramErrors,
-        yAxisRange: "* Must be two numbers separated by a comma",
-      });
-      return;
-    }
-
-    newValue = newValue.split(",");
-    newValue[0] = parseFloat(newValue[0]);
-    newValue[1] = parseFloat(newValue[1]);
-
+  const validateMaxY = (updatedParams) => {
+    let newValue = updatedParams["maxY"];
     //check both are numbers
-    if (isNaN(newValue[0]) || isNaN(newValue[1]) || newValue[1] === "") {
+    if (isNaN(newValue)) {
       setParamErrors({
         ...paramErrors,
-        yAxisRange: "* Must be two numbers separated by a comma",
+        maxY: "* Must be a single number",
       });
       return;
     }
-    console.log(newValue);
-    //check first number is smaller then second
-    if (newValue[0] > newValue[1]) {
+    if (newValue <= 0) {
       setParamErrors({
         ...paramErrors,
-        yAxisRange: "* First number must be smaller than second",
+        maxY: "* Must be greater than 0",
       });
       return;
     }
     setParamErrors({
       ...paramErrors,
-      yAxisRange: "",
+      maxY: "",
     });
   };
 
@@ -337,24 +322,24 @@ export default function AnalysisParamForm({
       <InputContainer>
         <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
           <Label
-            htmlFor="yAxisRange"
-            title="Specifies the range of the y-axis in the output graphs."
+            htmlFor="maxY"
+            title="Specifies the maximum y-axis range of Active Twitch Force in the output xlsx."
           >
             Y-Axis Range (µN):
           </Label>
           <InputErrorContainer>
             <FormInput
-              name="yAxisRange"
-              placeholder={"Auto find range"}
-              value={inputVals.yAxisRange}
+              name="maxY"
+              placeholder={"Auto find max y"}
+              value={inputVals.maxY}
               onChangeFn={(e) => {
                 updateParams({
-                  yAxisRange: e.target.value,
+                  maxY: e.target.value,
                 });
               }}
             >
-              <ErrorText id="yAxisRangeError" role="errorMsg">
-                {errorMessages.yAxisRange}
+              <ErrorText id="maxYError" role="errorMsg">
+                {errorMessages.maxY}
               </ErrorText>
             </FormInput>
           </InputErrorContainer>

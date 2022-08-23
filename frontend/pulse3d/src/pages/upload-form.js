@@ -146,7 +146,7 @@ export default function UploadForm() {
   const resetState = () => {
     setFiles([]);
     setAnalysisParams({
-      yAxisRange: "",
+      maxY: "",
       prominenceFactorPeaks: "",
       prominenceFactorValleys: "",
       widthFactorPeaks: "",
@@ -180,17 +180,10 @@ export default function UploadForm() {
     }
   };
 
-  // if it passed the check and user is using this field,
-  // Then return the cheched array of two numbers
-  const formatYaxisRange = (yRange) => {
-    if (yRange[0] === "" || yRange[1] === "") return null;
-    else return [parseFloat(yRange[0]), parseFloat(yRange[1])];
-  };
-
   const postNewJob = async (uploadId, filename) => {
     try {
       const {
-        yAxisRange,
+        maxY,
         prominenceFactorPeaks,
         prominenceFactorValleys,
         widthFactorPeaks,
@@ -203,7 +196,7 @@ export default function UploadForm() {
         method: "POST",
         body: JSON.stringify({
           upload_id: uploadId,
-          yaxis_range: formatYaxisRange(yAxisRange.split(",")),
+          max_y: maxY,
           prominence_factors: formatedAdvancedParams(
             prominenceFactorPeaks,
             prominenceFactorValleys
