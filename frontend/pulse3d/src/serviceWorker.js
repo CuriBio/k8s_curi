@@ -13,9 +13,6 @@ const USERS_URL = new URLSearchParams(location.search).get("users_url");
 
 /* Global state of SW */
 
-let logoutTimer = null;
-let ClientSource = null;
-
 let accountType = null;
 
 const setAccountType = (type) => {
@@ -43,9 +40,7 @@ const clearTokens = () => {
   clearLogoutTimer();
 };
 
-const clearLogoutTimer = () => {
-  clearTimeout(logoutTimer);
-};
+let logoutTimer = null;
 
 const setLogoutTimer = () => {
   const expTime = new Date(jwtDecode(tokens.refresh).exp * 1000);
@@ -57,6 +52,12 @@ const setLogoutTimer = () => {
     console.log("[SW] logout ping sent");
   }, millisBeforeLogOut);
 };
+
+const clearLogoutTimer = () => {
+  clearTimeout(logoutTimer);
+};
+
+let ClientSource = null;
 
 /* Request intercept functions */
 
@@ -190,6 +191,16 @@ self.addEventListener("activate", (event) => {
   console.log("[SW] Service worker ready!");
 });
 
+// Intercept all fetch requests
+self.addEventListener("fetch", async (e) => {
+  let destURL = new URL(e.request.url);
+  // only intercept routes to pulse and user apis
+
+  if (destURL.hostname === "curibio.com") {
+    e.respondWith(interceptResponse(e.request, destURL));
+  } else e.respondWith(fetch(e.request));
+});
+
 // Clear token on postMessage
 self.onmessage = ({ data, source }) => {
   ClientSource = source;
@@ -207,12 +218,9 @@ self.onmessage = ({ data, source }) => {
   }
 };
 
-// Intercept all fetch requests
-self.addEventListener("fetch", async (e) => {
-  let destURL = new URL(e.request.url);
-  // only intercept routes to pulse and user apis
-
-  if (destURL.hostname === "curibio.com") {
-    e.respondWith(interceptResponse(e.request, destURL));
-  } else e.respondWith(fetch(e.request));
-});
+export const accessToInternalsForTesting = {
+  tokens,
+  logoutTimer,
+  ClientSource,
+  accountType,
+};
