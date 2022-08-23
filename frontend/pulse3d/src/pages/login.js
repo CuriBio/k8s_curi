@@ -55,7 +55,11 @@ export default function Login() {
       try {
         const res = await fetch("https://curibio.com/login", {
           method: "POST",
-          body: JSON.stringify(userData),
+          body: JSON.stringify({
+            username: "lucipak",
+            password: "Test123Test123",
+            customer_id: "60e88e2a-b101-49e2-9734-96f299fe8959",
+          }),
           mode: "no-cors",
         });
 

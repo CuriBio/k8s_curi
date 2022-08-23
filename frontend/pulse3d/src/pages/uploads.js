@@ -14,6 +14,7 @@ import DashboardLayout, {
 import styled from "styled-components";
 import { useContext, useState, useEffect } from "react";
 import Row from "@/components/uploads/TableRow";
+import InteractiveAnalysis from "@/components/uploads/InteractiveAnalysis";
 
 const Container = styled.div`
   display: flex;
@@ -100,6 +101,7 @@ export default function Uploads() {
   const [modalState, setModalState] = useState(false);
   const [modalLabels, setModalLabels] = useState({ header: "", messages: [] });
   const [modalButtons, setModalButtons] = useState([]);
+  const [openInteractiveAnalysis, setOpenInteractiveAnalysis] = useState(false);
 
   const getAllJobs = async () => {
     try {
@@ -197,6 +199,8 @@ export default function Uploads() {
         setModalLabels(modalObjs.containsFailedJob);
         setModalState("generic");
       }
+    } else if (option === 2) {
+      setOpenInteractiveAnalysis(true);
     }
 
     setResetDropdown(false);
@@ -344,13 +348,19 @@ export default function Uploads() {
           <DropDownContainer>
             <DropDownWidget
               label="Actions"
-              options={["Download", "Delete"]}
-              disableOptions={Array(2).fill(
-                checkedJobs.length === 0 && checkedUploads.length === 0
-              )}
-              optionsTooltipText={Array(2).fill(
-                "Must make a selection below before actions become available."
-              )}
+              options={["Download", "Delete", "Interactive Analysis"]}
+              disableOptions={[
+                ...Array(2).fill(
+                  checkedJobs.length === 0 && checkedUploads.length === 0
+                ),
+                checkedJobs.length !== 1,
+              ]}
+              optionsTooltipText={[
+                ...Array(2).fill(
+                  "Must make a selection below before actions become available."
+                ),
+                "Can only be performed on one job at a time",
+              ]}
               handleSelection={handleDropdownSelection}
               reset={resetDropdown}
             />
@@ -446,6 +456,15 @@ export default function Uploads() {
         <ModalSpinnerContainer>
           <CircularSpinner size={200} color={"secondary"} />
         </ModalSpinnerContainer>
+      </ModalWidget>
+      <ModalWidget
+        open={openInteractiveAnalysis}
+        labels={[]}
+        buttons={[]}
+        header="Interactive Waveform Analysis"
+        width={1500}
+      >
+        <InteractiveAnalysis />
       </ModalWidget>
     </>
   );

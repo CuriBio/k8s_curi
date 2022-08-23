@@ -26,6 +26,7 @@
     "@mui/icons-material": "^5.8.4",
     "@mui/material": "^5.8.2",
     "async-mutex": "0.3.2",
+    "d3": "^7.6.1",
     "jszip": "^3.10.0",
     "jwt-decode": "3.1.2",
     "next": "12.1.6",
