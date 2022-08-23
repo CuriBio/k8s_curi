@@ -151,7 +151,7 @@ async def soft_delete_uploads(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# TODO Tanner (4/21/22): probably want to move this to a more general svc (maybe in apiv2-dep) dedicated to uploading misc files to s3
+# TODO Tanner (4/21/22): probably want to move this to a more general svc (maybe in apiv2-dep) dedicated to uploading misc files to s3.
 @app.post("/logs")
 async def create_log_upload(
     request: Request,
