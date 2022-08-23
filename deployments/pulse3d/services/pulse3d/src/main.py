@@ -34,7 +34,7 @@ class UploadResponse(BaseModel):
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
-    yaxis_range: Optional[Tuple[Union[int, float]]]
+    yaxis_range: Optional[List[Union[int, float]]]
     prominence_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
     width_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
     twitch_widths: Optional[List[int]]
@@ -274,7 +274,6 @@ async def create_new_job(
         meta["analysis_params"]["width_factors"] = _format_advanced_options(
             meta["analysis_params"]["width_factors"], "width"
         )
-
         logger.info(f"Using params: {meta['analysis_params']}")
 
         async with request.state.pgpool.acquire() as con:

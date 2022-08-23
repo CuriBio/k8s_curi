@@ -183,7 +183,7 @@ export default function UploadForm() {
   // if it passed the check and user is using this field,
   // Then return the cheched array of two numbers
   const formatYaxisRange = (yRange) => {
-    if (yRange === null) return null;
+    if (yRange[0] === "" || yRange[1] === "") return null;
     else return [parseFloat(yRange[0]), parseFloat(yRange[1])];
   };
 
@@ -203,7 +203,7 @@ export default function UploadForm() {
         method: "POST",
         body: JSON.stringify({
           upload_id: uploadId,
-          yAxisRange: formatYaxisRange(yAxisRange.split(",")),
+          yaxis_range: formatYaxisRange(yAxisRange.split(",")),
           prominence_factors: formatedAdvancedParams(
             prominenceFactorPeaks,
             prominenceFactorValleys
