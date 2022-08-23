@@ -34,9 +34,9 @@ class UploadResponse(BaseModel):
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
-    max_y: Optional[Union[int, float]]
     prominence_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
     width_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
+
     twitch_widths: Optional[List[int]]
     start_time: Optional[Union[int, float]]
     end_time: Optional[Union[int, float]]
@@ -255,7 +255,6 @@ async def create_new_job(
             "analysis_params": {
                 param: dict(details)[param]
                 for param in (
-                    "max_y",
                     "prominence_factors",
                     "width_factors",
                     "twitch_widths",
@@ -273,6 +272,7 @@ async def create_new_job(
         meta["analysis_params"]["width_factors"] = _format_advanced_options(
             meta["analysis_params"]["width_factors"], "width"
         )
+
         logger.info(f"Using params: {meta['analysis_params']}")
 
         async with request.state.pgpool.acquire() as con:
