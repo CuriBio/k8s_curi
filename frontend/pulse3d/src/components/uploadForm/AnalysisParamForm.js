@@ -116,19 +116,17 @@ const FormModify = styled.div`
 
 const WALabel = styled.span`
   background-color: var(--light-gray);
-  bottom: 43%;
   border-radius: 6px;
   display: flex;
   align-items: center;
-  width: 195px;
   font-size: 14px;
-  z-index: 1;
   border: 2px solid var(--dark-gray);
   cursor: default;
   z-index: 3;
   position: absolute;
   right: 55%;
   bottom: 94%;
+  width: 205px;
 `;
 
 const AdditionalParamLabel = styled.span`
@@ -163,6 +161,7 @@ export default function AnalysisParamForm({
   analysisParams,
 }) {
   const updateParams = (newParams) => {
+    setAllErrorMessagesBlank();
     const updatedParams = { ...analysisParams, ...newParams };
 
     if (newParams.twitchWidths) {
@@ -184,7 +183,57 @@ export default function AnalysisParamForm({
     if (newParams.widthFactorValleys) {
       validateAdvancedParams(updatedParams, "widthFactorValleys");
     }
+    if (newParams.yAxisRange) {
+      validateYAxisRange(updatedParams);
+    }
     setAnalysisParams(updatedParams);
+  };
+
+  const setAllErrorMessagesBlank = () => {
+    for (const param in paramErrors) {
+      setParamErrors({
+        ...paramErrors,
+        [param]: "",
+      });
+    }
+  };
+
+  const validateYAxisRange = (updatedParams) => {
+    let newValue = updatedParams["yAxisRange"];
+    //check input is seperated by a comma
+    if (newValue.split(",").length !== 2) {
+      setParamErrors({
+        ...paramErrors,
+        yAxisRange: "* Must be two numbers separated by a comma",
+      });
+      return;
+    }
+
+    newValue = newValue.split(",");
+    newValue[0] = parseFloat(newValue[0]);
+    newValue[1] = parseFloat(newValue[1]);
+
+    //check both are numbers
+    if (isNaN(newValue[0]) || isNaN(newValue[1]) || newValue[1] === "") {
+      setParamErrors({
+        ...paramErrors,
+        yAxisRange: "* Must be two numbers separated by a comma",
+      });
+      return;
+    }
+    console.log(newValue);
+    //check first number is smaller then second
+    if (newValue[0] > newValue[1]) {
+      setParamErrors({
+        ...paramErrors,
+        yAxisRange: "* First number must be smaller than second",
+      });
+      return;
+    }
+    setParamErrors({
+      ...paramErrors,
+      yAxisRange: "",
+    });
   };
 
   const isValidPositiveNumber = (value) => {
@@ -288,6 +337,31 @@ export default function AnalysisParamForm({
       <InputContainer>
         <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
           <Label
+            htmlFor="yAxisRange"
+            title="Specifies the range of the y-axis in the output graphs."
+          >
+            Y-Axis Range (µN):
+          </Label>
+          <InputErrorContainer>
+            <FormInput
+              name="yAxisRange"
+              placeholder={"Auto find range"}
+              value={inputVals.yAxisRange}
+              onChangeFn={(e) => {
+                updateParams({
+                  yAxisRange: e.target.value,
+                });
+              }}
+            >
+              <ErrorText id="yAxisRangeError" role="errorMsg">
+                {errorMessages.yAxisRange}
+              </ErrorText>
+            </FormInput>
+          </InputErrorContainer>
+        </ParamContainer>
+
+        <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
+          <Label
             htmlFor="twitchWidths"
             title="Specifies which twitch width values to add to the per twitch metrics sheet and aggregate metrics sheet."
           >
@@ -312,7 +386,6 @@ export default function AnalysisParamForm({
         </ParamContainer>
         <WindowAnalysisContainer>
           <WAOverlayContainer>
-            {checkedWindow || <WAOverlay />}
             <WALabel>
               <CheckboxWidget
                 color={"secondary"}
@@ -324,6 +397,7 @@ export default function AnalysisParamForm({
               />
               Use Window Analysis
             </WALabel>
+            {checkedWindow || <WAOverlay />}
             <ParamContainer>
               <Label
                 htmlFor="startTime"
@@ -376,7 +450,7 @@ export default function AnalysisParamForm({
         </WindowAnalysisContainer>
         <AdvancedAnalysisContainer>
           <WAOverlayContainer>
-            <WALabel style={{ width: 210 }}>
+            <WALabel>
               <CheckboxWidget
                 color={"secondary"}
                 size={"small"}
