@@ -26,6 +26,11 @@ const MUItheme = createTheme({
 
 export const AuthContext = createContext();
 
+const availablePages = {
+  User: ["/uploads", "upload-form", "/account"],
+  Admin: ["/uploads", "/new-user"],
+};
+
 function Pulse({ Component, pageProps }) {
   const getLayout = Component.getLayout || ((page) => page);
   const router = useRouter();
@@ -56,6 +61,12 @@ function Pulse({ Component, pageProps }) {
         setAccountType(data.accountType);
         if (!data.authCheck) {
           router.replace("/login", undefined, { shallow: true });
+        } else if (
+          !availablePages[data.accountType].includes(router.pathname)
+        ) {
+          // Tanner (8/23/22): TODO this isn't the best solution for preventing navigation pages
+          // that the given account type shouldn't be able to reach. Should look into a better way to do this
+          router.replace("/uploads", undefined, { shallow: true });
         }
       });
     }
@@ -64,7 +75,7 @@ function Pulse({ Component, pageProps }) {
   useEffect(() => {
     // sends message to active SW to check if user is authenticated if not login page. Login page handles own clearing.
     sendSWMessage();
-  }, [router]);
+  }, [router.pathname]);
 
   useEffect(() => {
     sendAccountTypeMsg();
