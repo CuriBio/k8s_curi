@@ -34,9 +34,9 @@ class UploadResponse(BaseModel):
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
+    yaxis_range: Optional[Tuple[Union[int, float]]]
     prominence_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
     width_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
-
     twitch_widths: Optional[List[int]]
     start_time: Optional[Union[int, float]]
     end_time: Optional[Union[int, float]]
@@ -256,6 +256,7 @@ async def create_new_job(
             "analysis_params": {
                 param: dict(details)[param]
                 for param in (
+                    "yaxis_range",
                     "prominence_factors",
                     "width_factors",
                     "twitch_widths",
