@@ -73,7 +73,7 @@ async def get_info_of_uploads(
     upload_ids: Optional[List[uuid.UUID]] = Query(None),
     token=Depends(ProtectedAny(scope=["users:free"])),
 ):
-    # need to convert to UUIDs to str to avoid issues with DB
+    # need to convert to UUIDs to str to avoid issues with Db
     if upload_ids:
         upload_ids = [str(upload_id) for upload_id in upload_ids]
 
