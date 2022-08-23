@@ -199,24 +199,6 @@ export default function UploadForm() {
         startTime,
         endTime,
       } = analysisParams;
-      console.log({
-        method: "POST",
-        body: JSON.stringify({
-          upload_id: uploadId,
-          yAxisRange: formatYaxisRange(yAxisRange.trim().split(",")),
-          prominence_factors: formatedAdvancedParams(
-            prominenceFactorPeaks,
-            prominenceFactorValleys
-          ),
-          width_factors: formatedAdvancedParams(
-            widthFactorPeaks,
-            widthFactorValleys
-          ),
-          twitch_widths: twitchWidths === "" ? null : twitchWidths,
-          start_time: startTime === "" ? null : startTime,
-          end_time: endTime === "" ? null : endTime,
-        }),
-      });
       const jobResponse = await fetch("https://curibio.com/jobs", {
         method: "POST",
         body: JSON.stringify({
