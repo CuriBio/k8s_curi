@@ -236,16 +236,16 @@ export default function UploadForm() {
 
           const dirs = Object.values(files).filter(({ dir }) => dir);
           const onlyOneRec = dirs.length === 0 || dirs.length === 1;
-          const contains48or24WellFiles = Object.keys(files).filter(
+
+          const numberOfFiles = Object.keys(files).filter(
             (filename) =>
-              filename.includes(".h5") &&
-              !(
-                filename.includes("__MACOSX").length === 48 ||
-                filename.includes("__MACOSX").length === 24
-              )
+              filename.includes(".h5") && !filename.includes("__MACOSX")
           );
 
-          return !onlyOneRec || !contains48or24WellFiles;
+          const correctNumber =
+            numberOfFiles.length === 48 || numberOfFiles.length === 24;
+
+          return !onlyOneRec || !correctNumber;
         } catch (e) {
           console.log(`ERROR unable to read zip file: ${file.name} ${e}`);
           return true;
