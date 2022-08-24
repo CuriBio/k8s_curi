@@ -51,9 +51,9 @@ class DownloadRequest(BaseModel):
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
+    max_y: Optional[Union[int, float]]
     prominence_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
     width_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
-
     twitch_widths: Optional[List[int]]
     start_time: Optional[Union[int, float]]
     end_time: Optional[Union[int, float]]
@@ -91,7 +91,7 @@ async def get_info_of_uploads(
     upload_ids: Optional[List[uuid.UUID]] = Query(None),
     token=Depends(ProtectedAny(scope=["users:free"])),
 ):
-    # need to convert to UUIDs to str to avoid issues with DB
+    # need to convert to UUIDs to str to avoid issues with Db
     if upload_ids:
         upload_ids = [str(upload_id) for upload_id in upload_ids]
 
@@ -169,7 +169,7 @@ async def soft_delete_uploads(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# TODO Tanner (4/21/22): probably want to move this to a more general svc (maybe in apiv2-dep) dedicated to uploading misc files to s3
+# TODO Tanner (4/21/22): probably want to move this to a more general svc (maybe in apiv2-dep) dedicated to uploading misc files to s3.
 @app.post("/logs")
 async def create_log_upload(
     request: Request,
@@ -273,6 +273,7 @@ async def create_new_job(
             "analysis_params": {
                 param: dict(details)[param]
                 for param in (
+                    "max_y",
                     "prominence_factors",
                     "width_factors",
                     "twitch_widths",
@@ -290,7 +291,6 @@ async def create_new_job(
         meta["analysis_params"]["width_factors"] = _format_advanced_options(
             meta["analysis_params"]["width_factors"], "width"
         )
-
         logger.info(f"Using params: {meta['analysis_params']}")
 
         async with request.state.pgpool.acquire() as con:
