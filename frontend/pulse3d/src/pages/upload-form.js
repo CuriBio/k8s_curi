@@ -196,7 +196,7 @@ export default function UploadForm() {
         method: "POST",
         body: JSON.stringify({
           upload_id: uploadId,
-          max_y: maxY,
+          max_y: maxY === "" ? null : maxY,
           prominence_factors: formatedAdvancedParams(
             prominenceFactorPeaks,
             prominenceFactorValleys
@@ -236,11 +236,14 @@ export default function UploadForm() {
 
           const dirs = Object.values(files).filter(({ dir }) => dir);
           const onlyOneRec = dirs.length === 0 || dirs.length === 1;
-          const contains48WellFiles =
-            Object.keys(files).filter(
-              (filename) =>
-                filename.includes(".h5") && !filename.includes("__MACOSX")
-            ).length === 48;
+          const contains48WellFiles = Object.keys(files).filter(
+            (filename) =>
+              filename.includes(".h5") &&
+              !(
+                filename.includes("__MACOSX").length === 48 ||
+                filename.includes("__MACOSX").lenght === 24
+              )
+          );
 
           return !onlyOneRec || !contains48WellFiles;
         } catch (e) {
