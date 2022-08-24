@@ -1,7 +1,11 @@
 import json
+from lib2to3.pytree import Base
 import logging
 from typing import Any, Dict, List, Optional, Tuple, Union
 import uuid
+import tempfile
+import os
+from zipfile import ZipFile
 
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,7 +15,7 @@ from auth import ProtectedAny
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET
 from jobs import create_upload, create_job, get_uploads, get_jobs, delete_jobs, delete_uploads
 from utils.db import AsyncpgPoolDep
-from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error
+from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error, download_file_from_s3
 
 
 logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
@@ -32,6 +36,19 @@ class UploadResponse(BaseModel):
     params: Dict[str, Any]
 
 
+class DownloadItem(BaseModel):
+    jobId: uuid.UUID
+    uploadId: uuid.UUID
+    analyzedFile: str
+    datetime: str
+    status: str
+    analysisParams: Dict[Any, Any]
+
+
+class DownloadRequest(BaseModel):
+    jobs: List[DownloadItem]
+
+
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
     prominence_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
@@ -47,6 +64,7 @@ app.add_middleware(
     allow_origins=[
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
+        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -264,7 +282,7 @@ async def create_new_job(
             }
         }
 
-        # convert FE output to pulse3dInput
+        # convert FE output to pulse3d input
         # done for width and prominece factors
         meta["analysis_params"]["prominence_factors"] = _format_advanced_options(
             meta["analysis_params"]["prominence_factors"], "prominence"
@@ -304,15 +322,15 @@ def _format_advanced_options(option: List[Union[int, float, None]], option_name)
         return None
     # if only peaks is passed return tuple(peaks,default value)
     if option[0] is not None and option[1] is None:
-        if option_name is "width":
+        if option_name == "width":
             return option[0], 7
-        if option_name is "prominence":
+        if option_name == "prominence":
             return option[0], 6
     # if only valleys is passed return (default value,valleys)
     if option[0] is None and option[1] is not None:
-        if option_name is "width":
+        if option_name == "width":
             return 7, option[1]
-        if option_name is "prominence":
+        if option_name == "prominence":
             return 6, option[1]
     # if both present then return a tuple
     return option[0], option[1]
@@ -336,6 +354,48 @@ async def soft_delete_jobs(
     try:
         async with request.state.pgpool.acquire() as con:
             await delete_jobs(con=con, job_ids=job_ids)
+    except Exception as e:
+        logger.error(f"Failed to soft delete jobs: {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.post("/download")
+async def download_analyses(
+    request: Request,
+    details: DownloadRequest,
+    token=Depends(ProtectedAny(scope=["users:free"])),
+):
+
+    jobs = details.jobs
+
+    # check if for some reason an empty list was sent
+    if not jobs:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nothing to download.",
+        )
+
+    user_id = str(uuid.UUID(token["userid"]))
+    customer_id = str(uuid.UUID(token["customer_id"]))
+
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+        
+            with ZipFile(os.path.join(tmpdir, 'sample2.zip'), 'w') as zip_file:
+                for job in jobs:
+                    upload_id = job.uploadId
+                    job_id = job.jobId
+                    filename = job.analyzedFile
+
+                    try:
+                        file_path = os.path.join(tmpdir, "files_to_zip", filename)
+                        key_prefix = f"analyzed/{customer_id}/{user_id}/{upload_id}/{job_id}/{filename}"
+                        download_file_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key_prefix, file_path=file_path)
+                    except S3Error:
+                        continue # continue loop if one file fails, download function logs error itself
+            
+            
+            
     except Exception as e:
         logger.error(f"Failed to soft delete jobs: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

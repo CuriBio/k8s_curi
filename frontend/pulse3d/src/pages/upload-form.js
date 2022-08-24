@@ -21,6 +21,7 @@ const Container = styled.div`
   padding-bottom: 3%;
 `;
 
+
 const Header = styled.h2`
   position: relative;
   text-align: center;
@@ -231,13 +232,16 @@ export default function UploadForm() {
 
           const dirs = Object.values(files).filter(({ dir }) => dir);
           const onlyOneRec = dirs.length === 0 || dirs.length === 1;
-          const contains48WellFiles =
-            Object.keys(files).filter(
-              (filename) =>
-                filename.includes(".h5") && !filename.includes("__MACOSX")
-            ).length === 48;
 
-          return !onlyOneRec || !contains48WellFiles;
+          const numberOfFiles = Object.keys(files).filter(
+            (filename) =>
+              filename.includes(".h5") && !filename.includes("__MACOSX")
+          );
+
+          const correctNumber =
+            numberOfFiles.length === 48 || numberOfFiles.length === 24;
+
+          return !onlyOneRec || !correctNumber;
         } catch (e) {
           console.log(`ERROR unable to read zip file: ${file.name} ${e}`);
           return true;

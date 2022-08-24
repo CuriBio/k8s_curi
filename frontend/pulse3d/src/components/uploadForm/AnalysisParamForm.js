@@ -149,7 +149,16 @@ const AdditionalParamLabel = styled.span`
   left: 5%;
   font-weight: 900;
 `;
-
+const ToolTip = styled.div`
+  font-weight: 900;
+  font-style: italic;
+  font-size: 0.7rem;
+  margin: 0;
+  &:hover{
+    color: var(--teal-green);
+    cursor: help;
+  }
+`;
 export default function AnalysisParamForm({
   inputVals,
   errorMessages,
@@ -289,9 +298,12 @@ export default function AnalysisParamForm({
         <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
           <Label
             htmlFor="twitchWidths"
-            title="Specifies which twitch width values to add to the per twitch metrics sheet and aggregate metrics sheet."
+            // title="Specifies which twitch width values to add to the per twitch metrics sheet and aggregate metrics sheet."
           >
             Twitch Width:
+            <ToolTip title="Specifies which twitch width values to add to the per twitch metrics sheet and aggregate metrics sheet.">
+              (?)
+            </ToolTip>
           </Label>
           <InputErrorContainer>
             <FormInput

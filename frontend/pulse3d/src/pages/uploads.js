@@ -87,13 +87,6 @@ const modalObjs = {
       "Please make sure you are attempting to download finished analyses.",
     ],
   },
-  tooManyFiles: {
-    header: "Warning!",
-    messages: [
-      "It is recommended to only download a max of 10 files at a time.",
-      "Please adjust your file selection and try again.",
-    ],
-  },
 };
 
 export default function Uploads() {
@@ -287,56 +280,31 @@ export default function Uploads() {
       );
       const numberOfJobs = finishedJobs.length;
 
-      if (numberOfJobs > 0 && numberOfJobs <= 10) {
-        //request only presigned urls for selected jobs
-        const url = `https://curibio.com/jobs?`;
-        finishedJobs.map(({ jobId }) => (url += `job_ids=${jobId}&`));
-        const response = await fetch(url.slice(0, -1));
-        // set modal buttons before status modal opens
+      if (numberOfJobs > 0) {
         setModalButtons(["Close"]);
-        if (response.status === 200) {
-          const { jobs } = await response.json();
 
-          // required interval to download multiple files
-          const interval = setInterval(
-            (jobs) => {
-              const job = jobs.pop();
-
-              const presignedUrl = job.url;
-
-              if (presignedUrl) {
-                const a = document.createElement("a");
-                document.body.appendChild(a);
-                a.setAttribute("href", presignedUrl);
-                a.setAttribute("download", job.id);
-                a.click();
-                a.remove();
-              }
-
-              if (jobs.length == 0) {
-                clearInterval(interval);
-              }
-            },
-            1000,
-            jobs
-          );
-
-          setModalLabels({
-            header: "Success!",
-            messages: [
-              `The following number of analyses have been successfully downloaded: ${numberOfJobs}`,
-              "They can be found in your local downloads folder.",
-            ],
-          });
-
-          setModalState("generic");
-        } else {
-          throw Error();
+        /* 
+          Download correct number of files, 
+          else throw error to prompt error modal
+        */
+        try {
+          if (numberOfJobs === 1) {
+            await downloadSingleFile(finishedJobs[0]);
+          } else if (numberOfJobs > 1) {
+            await downloadMultiFiles(finishedJobs);
+          }
+        } catch (e) {
+          throw Error(e);
         }
-      } else if (numberOfJobs > 10) {
-        // prompt user to only download max 10 files at a time
-        setModalLabels(modalObjs.tooManyFiles);
-        setModalButtons(["Close"]);
+
+        setModalLabels({
+          header: "Success!",
+          messages: [
+            `The following number of analyses have been successfully downloaded: ${numberOfJobs}`,
+            "They can be found in your local downloads folder.",
+          ],
+        });
+
         setModalState("generic");
       } else {
         // let user know in the off chance that the only files they selected are not finished analyzing or failed
@@ -348,6 +316,53 @@ export default function Uploads() {
       console.log(`ERROR fetching presigned url to download analysis: ${e}`);
       setModalLabels(modalObjs.downloadError);
       setModalState("generic");
+    }
+  };
+
+  const downloadSingleFile = async ({ jobId }) => {
+    //request only presigned urls for selected jobs
+    const url = `https://curibio.com/jobs?job_ids=${jobId}`;
+    const response = await fetch(url);
+
+    if (response.status === 200) {
+      const { jobs } = await response.json();
+      const presignedUrl = jobs[0].url;
+
+      if (presignedUrl) {
+        const a = document.createElement("a");
+        document.body.appendChild(a);
+        a.setAttribute("href", presignedUrl);
+        a.setAttribute("download", jobs[0].id);
+        a.click();
+        a.remove();
+      }
+    } else {
+      throw Error();
+    }
+  };
+
+  const downloadMultiFiles = async (jobs) => {
+    //request only presigned urls for selected jobs
+    const url = `https://curibio.com/download`;
+    const response = await fetch(url, {
+      method: "POST",
+      body: JSON.stringify({ jobs }),
+    });
+
+    if (response.status === 200) {
+      const res = await response.json();
+      //   const presignedUrl = jobs[0].url;
+
+      //   if (presignedUrl) {
+      //     const a = document.createElement("a");
+      //     document.body.appendChild(a);
+      //     a.setAttribute("href", presignedUrl);
+      //     a.setAttribute("download", jobs[0].id);
+      //     a.click();
+      //     a.remove();
+      //   }
+    } else {
+      throw Error();
     }
   };
 
