@@ -194,7 +194,7 @@ export default function UploadForm() {
         method: "POST",
         body: JSON.stringify({
           upload_id: uploadId,
-          max_y: maxY,
+          max_y: maxY === "" ? null : maxY,
           prominence_factors: formatAdvancedParams(
             prominenceFactorPeaks,
             prominenceFactorValleys
@@ -234,13 +234,17 @@ export default function UploadForm() {
 
           const dirs = Object.values(files).filter(({ dir }) => dir);
           const onlyOneRec = dirs.length === 0 || dirs.length === 1;
-          const contains48WellFiles =
-            Object.keys(files).filter(
-              (filename) =>
-                filename.includes(".h5") && !filename.includes("__MACOSX")
-            ).length === 48;
 
-          return !onlyOneRec || !contains48WellFiles;
+          const numFilesInRecording = Object.keys(files).filter(
+            (filename) =>
+              filename.includes(".h5") && !filename.includes("__MACOSX")
+          ).length;
+
+          // Beta 1 recordings will contain 24 files, Beta 2 and V1 recordings will contain 48
+          const recordingContainsValidNumFiles =
+            numFilesInRecording === 24 || numFilesInRecording === 48;
+
+          return !onlyOneRec || !recordingContainsValidNumFiles;
         } catch (e) {
           console.log(`ERROR unable to read zip file: ${file.name} ${e}`);
           return true;

@@ -211,7 +211,6 @@ async def get_info_of_jobs(
                         job_info["url"] = None
 
                 elif job_info["status"] == "error":
-
                     try:
                         job_info["error_info"] = json.loads(job["job_meta"])["error"]
                     except KeyError:  # protects against downgrading and updating deleted statuses to errors
