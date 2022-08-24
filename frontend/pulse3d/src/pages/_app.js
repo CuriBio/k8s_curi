@@ -59,12 +59,6 @@ function Pulse({ Component, pageProps }) {
         }
         setAuthCheck(data.authCheck);
         setAccountType(data.accountType);
-        console.log(
-          "AUTH CHECK:",
-          data.authCheck,
-          data.accountType,
-          data.routerPathname
-        );
 
         if (!data.authCheck) {
           router.replace("/login", undefined, { shallow: true });
@@ -74,9 +68,6 @@ function Pulse({ Component, pageProps }) {
           // TODO try using router.pathname again
           !availablePages[data.accountType].includes(data.routerPathname)
         ) {
-          console.log(
-            `${data.routerPathname} is not available to ${data.accountType}s`
-          );
           // Tanner (8/23/22): TODO this isn't the best solution for preventing navigation pages
           // that the given account type shouldn't be able to reach. Should look into a better way to do this
           router.replace("/uploads", undefined, { shallow: true });
@@ -87,7 +78,6 @@ function Pulse({ Component, pageProps }) {
 
   useEffect(() => {
     // sends message to active SW to check if user is authenticated if not login page. Login page handles own clearing.
-    console.log("NEW PATH:", router.pathname);
     sendSWMessage();
   }, [router.pathname]);
 
@@ -99,7 +89,6 @@ function Pulse({ Component, pageProps }) {
   }, [accountType]);
 
   const sendSWMessage = () => {
-    console.log("sendSWMessage:", router.pathname);
     if ("serviceWorker" in navigator) {
       if (router.pathname !== "/login")
         navigator.serviceWorker.ready.then((registration) => {

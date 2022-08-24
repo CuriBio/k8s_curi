@@ -186,7 +186,6 @@ export default function AnalysisParamForm({
 
   const checkPositiveNumberEntry = (value, allowZero = true) => {
     const minValue = allowZero ? 0 : Number.MIN_VALUE;
-    console.log(value, value === null, value === "", value >= minValue);
     return value === null || value === "" || value >= minValue;
   };
 
