@@ -116,19 +116,17 @@ const FormModify = styled.div`
 
 const WALabel = styled.span`
   background-color: var(--light-gray);
-  bottom: 43%;
   border-radius: 6px;
   display: flex;
   align-items: center;
-  width: 195px;
   font-size: 14px;
-  z-index: 1;
   border: 2px solid var(--dark-gray);
   cursor: default;
   z-index: 3;
   position: absolute;
   right: 55%;
   bottom: 94%;
+  width: 205px;
 `;
 
 const AdditionalParamLabel = styled.span`
@@ -163,6 +161,7 @@ export default function AnalysisParamForm({
   analysisParams,
 }) {
   const updateParams = (newParams) => {
+    setAllErrorMessagesBlank();
     const updatedParams = { ...analysisParams, ...newParams };
 
     if (newParams.twitchWidths) {
@@ -184,7 +183,42 @@ export default function AnalysisParamForm({
     if (newParams.widthFactorValleys) {
       validateAdvancedParams(updatedParams, "widthFactorValleys");
     }
+    if (newParams.maxY) {
+      validateMaxY(updatedParams);
+    }
     setAnalysisParams(updatedParams);
+  };
+
+  const setAllErrorMessagesBlank = () => {
+    for (const param in paramErrors) {
+      setParamErrors({
+        ...paramErrors,
+        [param]: "",
+      });
+    }
+  };
+
+  const validateMaxY = (updatedParams) => {
+    let newValue = updatedParams["maxY"];
+    //check both are numbers
+    if (isNaN(newValue)) {
+      setParamErrors({
+        ...paramErrors,
+        maxY: "* Must be a single number",
+      });
+      return;
+    }
+    if (newValue <= 0) {
+      setParamErrors({
+        ...paramErrors,
+        maxY: "* Must be greater than 0",
+      });
+      return;
+    }
+    setParamErrors({
+      ...paramErrors,
+      maxY: "",
+    });
   };
 
   const isValidPositiveNumber = (value) => {
@@ -288,6 +322,31 @@ export default function AnalysisParamForm({
       <InputContainer>
         <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
           <Label
+            htmlFor="maxY"
+            title="Specifies the maximum y-axis range of Active Twitch Force in the output xlsx."
+          >
+            Y-Axis Range (µN):
+          </Label>
+          <InputErrorContainer>
+            <FormInput
+              name="maxY"
+              placeholder={"Auto find max y"}
+              value={inputVals.maxY}
+              onChangeFn={(e) => {
+                updateParams({
+                  maxY: e.target.value,
+                });
+              }}
+            >
+              <ErrorText id="maxYError" role="errorMsg">
+                {errorMessages.maxY}
+              </ErrorText>
+            </FormInput>
+          </InputErrorContainer>
+        </ParamContainer>
+
+        <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
+          <Label
             htmlFor="twitchWidths"
             title="Specifies which twitch width values to add to the per twitch metrics sheet and aggregate metrics sheet."
           >
@@ -312,7 +371,6 @@ export default function AnalysisParamForm({
         </ParamContainer>
         <WindowAnalysisContainer>
           <WAOverlayContainer>
-            {checkedWindow || <WAOverlay />}
             <WALabel>
               <CheckboxWidget
                 color={"secondary"}
@@ -324,6 +382,7 @@ export default function AnalysisParamForm({
               />
               Use Window Analysis
             </WALabel>
+            {checkedWindow || <WAOverlay />}
             <ParamContainer>
               <Label
                 htmlFor="startTime"
@@ -376,7 +435,7 @@ export default function AnalysisParamForm({
         </WindowAnalysisContainer>
         <AdvancedAnalysisContainer>
           <WAOverlayContainer>
-            <WALabel style={{ width: 210 }}>
+            <WALabel>
               <CheckboxWidget
                 color={"secondary"}
                 size={"small"}
