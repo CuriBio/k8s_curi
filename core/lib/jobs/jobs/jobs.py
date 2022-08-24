@@ -51,7 +51,7 @@ def get_item(*, queue):
 
 
 async def get_uploads(*, con, account_type, account_id, upload_ids=None):
-    """Query DB for info of all upload(s) belonging to the customer or user account.
+    """Query DB for info of upload(s) belonging to the customer or user account.
 
     If no uploads specified, will return info of all the user's uploads
 
@@ -101,7 +101,10 @@ async def create_upload(*, con, upload_params):
 
 
 async def delete_uploads(*, con, account_type, account_id, upload_ids):
-    """Query DB to update upload deleted state to true for uploads with the given IDs."""
+    """Query DB to update upload deleted state to true for uploads with the given IDs.
+
+    Performs a join on users table so that one user cannot delete uploads belonging to a different user.
+    """
     query_params = [account_id]
     places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
     if account_type == "user":
@@ -117,10 +120,10 @@ async def delete_uploads(*, con, account_type, account_id, upload_ids):
 
 
 async def get_jobs(*, con, account_type, account_id, job_ids=None):
-    """Query DB for info of a user's job(s).
+    """Query DB for info of job(s) belonging to the customer or user account.
 
     If no jobs specified, will return info of all jobs created by the user
-    or all jobs across all users belonging to the given customer ID
+    or all jobs across all users under to the given customer ID
 
     If a job is marked as deleted, filter out it
     """
@@ -180,7 +183,11 @@ async def create_job(*, con, upload_id, queue, priority, meta):
 
 
 async def delete_jobs(*, con, account_type, account_id, job_ids):
-    """Query DB to update job status to deleted for jobs with the given IDs."""
+    """Query DB to update job status to deleted for jobs with the given IDs.
+
+    Performs a join on users and uploads tables so that one user cannot delete jobs belonging to a different user.
+    """
+
     query_params = [account_id]
     places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
     if account_type == "users":
