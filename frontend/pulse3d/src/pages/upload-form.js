@@ -241,7 +241,7 @@ export default function UploadForm() {
               filename.includes(".h5") &&
               !(
                 filename.includes("__MACOSX").length === 48 ||
-                filename.includes("__MACOSX").lenght === 24
+                filename.includes("__MACOSX").length === 24
               )
           );
 
