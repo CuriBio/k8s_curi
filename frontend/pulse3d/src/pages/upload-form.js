@@ -236,7 +236,7 @@ export default function UploadForm() {
 
           const dirs = Object.values(files).filter(({ dir }) => dir);
           const onlyOneRec = dirs.length === 0 || dirs.length === 1;
-          const contains48WellFiles = Object.keys(files).filter(
+          const contains48or24WellFiles = Object.keys(files).filter(
             (filename) =>
               filename.includes(".h5") &&
               !(
@@ -245,7 +245,7 @@ export default function UploadForm() {
               )
           );
 
-          return !onlyOneRec || !contains48WellFiles;
+          return !onlyOneRec || !contains48or24WellFiles;
         } catch (e) {
           console.log(`ERROR unable to read zip file: ${file.name} ${e}`);
           return true;
