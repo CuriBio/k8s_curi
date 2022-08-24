@@ -92,7 +92,7 @@ export default function UploadForm() {
   const [tabSelection, setTabSelection] = useState(query.id);
   const [modalState, setModalState] = useState(false);
   const [analysisParams, setAnalysisParams] = useState({
-    yAxisRange: "",
+    maxY: "",
     prominenceFactor: "",
     widthFactor: "",
     twitchWidths: "",
