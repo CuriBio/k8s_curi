@@ -2,6 +2,7 @@ import styled from "styled-components";
 import CheckboxWidget from "../basicWidgets/CheckboxWidget";
 import { isArrayOfNumbers } from "../../utils/generic";
 import FormInput from "../basicWidgets/FormInput";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 const Container = styled.div`
   padding-top: 1rem;
@@ -335,7 +336,7 @@ export default function AnalysisParamForm({
           <Label htmlFor="maxY">
             Y-Axis Range (µN):
             <ToolTip title="Specifies the maximum y-axis range of Active Twitch Force in the output xlsx.">
-              (?)
+              <InfoOutlinedIcon />
             </ToolTip>
           </Label>
           <InputErrorContainer>
@@ -360,7 +361,7 @@ export default function AnalysisParamForm({
           <Label htmlFor="twitchWidths">
             Twitch Width:
             <ToolTip title="Specifies which twitch width values to add to the per twitch metrics sheet and aggregate metrics sheet.">
-              (?)
+              <InfoOutlinedIcon />
             </ToolTip>
           </Label>
           <InputErrorContainer>
@@ -398,7 +399,7 @@ export default function AnalysisParamForm({
               <Label htmlFor="startTime">
                 Start Time (s):
                 <ToolTip title="Specifies the earliest timepoint (in seconds) to use in analysis.">
-                  (?)
+                  <InfoOutlinedIcon />
                 </ToolTip>
               </Label>
               <InputErrorContainer>
@@ -422,7 +423,7 @@ export default function AnalysisParamForm({
               <Label htmlFor="endTime">
                 End Time (s):
                 <ToolTip title="Specifies the latest timepoint (in seconds) to use in analysis.">
-                  (?)
+                  <InfoOutlinedIcon />
                 </ToolTip>
               </Label>
               <InputErrorContainer>
@@ -462,7 +463,7 @@ export default function AnalysisParamForm({
               <Label htmlFor="prominenceFactorPeaks">
                 Prominence (µN):
                 <ToolTip title="Specifies the minimum required vertical distance between a local max and its lowest contour line to be classified as a peak.">
-                  (?)
+                  <InfoOutlinedIcon />
                 </ToolTip>
               </Label>
               <InputErrorContainer>
@@ -513,7 +514,7 @@ export default function AnalysisParamForm({
               <Label htmlFor="widthFactorPeaks">
                 Width (ms):
                 <ToolTip title="Specifies the minimum required width of the base of a local max to be classified as a peak.">
-                  (?)
+                  <InfoOutlinedIcon />
                 </ToolTip>
               </Label>
               <InputErrorContainer>
