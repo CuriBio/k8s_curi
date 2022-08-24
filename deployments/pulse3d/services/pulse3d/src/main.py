@@ -247,7 +247,6 @@ async def create_new_job(
     details: JobRequest,
     token=Depends(ProtectedAny(scope=["users:free"])),
 ):
-    print("here")
     try:
         user_id = str(uuid.UUID(token["userid"]))
         logger.info(f"Creating pulse3d job for upload {details.upload_id} with user ID: {user_id}")
