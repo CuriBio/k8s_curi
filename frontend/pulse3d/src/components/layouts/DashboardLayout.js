@@ -16,17 +16,9 @@ export const UploadsContext = createContext();
 export default function DashboardLayout({ children }) {
   const [uploads, setUploads] = useState([]);
   const [fetchUploads, setFetchUploads] = useState(false);
-  const { accountType } = useContext(AuthContext);
   const router = useRouter();
 
   useEffect(() => {
-    // if (accountType) {
-    //   getUploads();
-    // } else {
-    //   // will return null if reset in the ServiceWorker, undefined if ServiceWorker hasn't responded yet on refresh
-    //   console.log("KICKED OUT BY: DashboardLayout");
-    //   router.replace("/login", null, { shallow: true });
-    // }
     if (router.pathname === "/uploads") {
       getUploads();
     }

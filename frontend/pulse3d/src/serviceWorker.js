@@ -85,10 +85,12 @@ const modifyRequest = async (req, url) => {
     headers.append("Authorization", `Bearer ${tokens.access}`);
   }
 
-  // apply new headers
+  // apply new headers. Make sure to clone the original request obj if consuming the body by calling json()
+  // since it typically can only be consumed once
   const modifiedReq = new Request(getUrl(url), {
     headers,
-    body: req.method === "POST" ? JSON.stringify(await req.json()) : null,
+    body:
+      req.method === "POST" ? JSON.stringify(await req.clone().json()) : null,
     method: req.method,
   });
 
@@ -106,7 +108,7 @@ const handleRefreshRequest = async () => {
       headers: { Authorization: `Bearer ${tokens.refresh}` },
     });
   } catch (e) {
-    console.log("ERROR IN REFRESH REQ: ", e.message);
+    console.log("[SW] ERROR in refresh req:", e.message);
     return { error: JSON.stringify(e.message) };
   }
 
@@ -135,7 +137,7 @@ const requestWithRefresh = async (req, url) => {
 
   if (response.status === 401) {
     // guard with mutex so multiple requests do not try to refresh simultaneously
-    let retryRequest = await refreshMutex.runExclusive(async () => {
+    const retryRequest = await refreshMutex.runExclusive(async () => {
       // check remaining lifetime of access token
       const nowNoMillis = Math.floor(Date.now() / 1000);
       const accessTokenExp = jwtDecode(tokens.access).exp;
