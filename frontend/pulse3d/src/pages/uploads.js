@@ -87,6 +87,13 @@ const modalObjs = {
       "Please make sure you are attempting to download finished analyses.",
     ],
   },
+  tooManyFiles: {
+    header: "Warning!",
+    messages: [
+      "It is recommended to only download a max of 10 files at a time.",
+      "Please adjust your file selection and try again.",
+    ],
+  },
 };
 
 export default function Uploads() {
@@ -280,7 +287,7 @@ export default function Uploads() {
       );
       const numberOfJobs = finishedJobs.length;
 
-      if (numberOfJobs > 0) {
+      if (numberOfJobs > 0 && numberOfJobs <= 10) {
         //request only presigned urls for selected jobs
         const url = `https://curibio.com/jobs?`;
         finishedJobs.map(({ jobId }) => (url += `job_ids=${jobId}&`));
@@ -290,23 +297,29 @@ export default function Uploads() {
         if (response.status === 200) {
           const { jobs } = await response.json();
 
-          for (const job of jobs) {
-            const presignedUrl = job.url;
-            // hopefully no errors, for fail safe in case one returns no url when not found in s3
-            if (presignedUrl) {
-              const fileName = presignedUrl.split("/")[presignedUrl.length - 1];
+          // required interval to download multiple files
+          const interval = setInterval(
+            (jobs) => {
+              const job = jobs.pop();
 
-              // setup temporary download link
-              const link = document.createElement("a");
-              link.href = presignedUrl; // assign link to hit presigned url
-              link.download = fileName; // set new downloaded files name to analyzed file name
-              document.body.appendChild(link);
+              const presignedUrl = job.url;
 
-              // click to download
-              link.click();
-              link.remove();
-            }
-          }
+              if (presignedUrl) {
+                const a = document.createElement("a");
+                document.body.appendChild(a);
+                a.setAttribute("href", presignedUrl);
+                a.setAttribute("download", job.id);
+                a.click();
+                a.remove();
+              }
+
+              if (jobs.length == 0) {
+                clearInterval(interval);
+              }
+            },
+            1000,
+            jobs
+          );
 
           setModalLabels({
             header: "Success!",
@@ -320,6 +333,11 @@ export default function Uploads() {
         } else {
           throw Error();
         }
+      } else if (numberOfJobs > 10) {
+        // prompt user to only download max 10 files at a time
+        setModalLabels(modalObjs.tooManyFiles);
+        setModalButtons(["Close"]);
+        setModalState("generic");
       } else {
         // let user know in the off chance that the only files they selected are not finished analyzing or failed
         setModalLabels(modalObjs.nothingToDownload);
@@ -327,7 +345,7 @@ export default function Uploads() {
         setModalState("generic");
       }
     } catch (e) {
-      console.log("ERROR fetching presigned url to download analysis");
+      console.log(`ERROR fetching presigned url to download analysis: ${e}`);
       setModalLabels(modalObjs.downloadError);
       setModalState("generic");
     }

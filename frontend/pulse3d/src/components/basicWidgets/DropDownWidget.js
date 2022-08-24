@@ -60,10 +60,12 @@ export default function DropDownWidget({
   const [selected, setSelected] = useState("");
   const [errorMsg, setErrorMsg] = useState(error);
 
-  const handleChange = ({ target }) => {
-    handleSelection(target.value);
-    setSelected(target.value);
-    setErrorMsg("");
+  const handleChange = (e) => {
+    if (!disableOptions[e.target.value]) {
+      handleSelection(e.target.value);
+      setSelected(e.target.value);
+      setErrorMsg("");
+    }
   };
 
   useEffect(() => {
