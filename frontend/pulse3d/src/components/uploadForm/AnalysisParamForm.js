@@ -2,6 +2,7 @@ import styled from "styled-components";
 import CheckboxWidget from "../basicWidgets/CheckboxWidget";
 import { isArrayOfNumbers } from "../../utils/generic";
 import FormInput from "../basicWidgets/FormInput";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 const Container = styled.div`
   padding-top: 1rem;
@@ -148,6 +149,17 @@ const AdditionalParamLabel = styled.span`
   font-weight: 900;
 `;
 
+const ToolTip = styled.div`
+  font-weight: 900;
+  font-style: italic;
+  font-size: 0.7rem;
+  margin: 0;
+  &:hover {
+    color: var(--teal-green);
+    cursor: help;
+  }
+`;
+
 export default function AnalysisParamForm({
   inputVals,
   errorMessages,
@@ -281,11 +293,11 @@ export default function AnalysisParamForm({
       </AdditionalParamLabel>
       <InputContainer>
         <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
-          <Label
-            htmlFor="maxY"
-            title="Specifies the maximum y-axis range of Active Twitch Force in the output xlsx."
-          >
+          <Label htmlFor="maxY">
             Y-Axis Range (µN):
+            <ToolTip title="Specifies the maximum y-axis range of Active Twitch Force in the output xlsx.">
+              <InfoOutlinedIcon />
+            </ToolTip>
           </Label>
           <InputErrorContainer>
             <FormInput
@@ -306,11 +318,11 @@ export default function AnalysisParamForm({
         </ParamContainer>
 
         <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
-          <Label
-            htmlFor="twitchWidths"
-            title="Specifies which twitch width values to add to the per twitch metrics sheet and aggregate metrics sheet."
-          >
+          <Label htmlFor="twitchWidths">
             Twitch Width:
+            <ToolTip title="Specifies which twitch width values to add to the per twitch metrics sheet and aggregate metrics sheet.">
+              <InfoOutlinedIcon />
+            </ToolTip>
           </Label>
           <InputErrorContainer>
             <FormInput
@@ -344,11 +356,11 @@ export default function AnalysisParamForm({
             </WALabel>
             {checkedWindow || <WAOverlay />}
             <ParamContainer>
-              <Label
-                htmlFor="startTime"
-                title="Specifies the earliest timepoint (in seconds) to use in analysis."
-              >
+              <Label htmlFor="startTime">
                 Start Time (s):
+                <ToolTip title="Specifies the earliest timepoint (in seconds) to use in analysis.">
+                  <InfoOutlinedIcon />
+                </ToolTip>
               </Label>
               <InputErrorContainer>
                 <FormInput
@@ -368,11 +380,11 @@ export default function AnalysisParamForm({
               </InputErrorContainer>
             </ParamContainer>
             <ParamContainer>
-              <Label
-                htmlFor="endTime"
-                title="Specifies the latest timepoint (in seconds) to use in analysis."
-              >
+              <Label htmlFor="endTime">
                 End Time (s):
+                <ToolTip title="Specifies the latest timepoint (in seconds) to use in analysis.">
+                  <InfoOutlinedIcon />
+                </ToolTip>
               </Label>
               <InputErrorContainer>
                 <FormInput
@@ -408,11 +420,11 @@ export default function AnalysisParamForm({
             </WALabel>
             {checkedAdvanced || <WAOverlay />}
             <TwoParamContainer>
-              <Label
-                htmlFor="prominenceFactorPeaks"
-                title="Specifies the minimum required vertical distance between a local max and its lowest contour line to be classified as a peak."
-              >
+              <Label htmlFor="prominenceFactorPeaks">
                 Prominence (µN):
+                <ToolTip title="Specifies the minimum required vertical distance between a local max and its lowest contour line to be classified as a peak.">
+                  <InfoOutlinedIcon />
+                </ToolTip>
               </Label>
               <InputErrorContainer>
                 <label htmlFor="prominenceFactorPeaks">Peaks</label>
@@ -459,11 +471,11 @@ export default function AnalysisParamForm({
               </InputErrorContainer>
             </TwoParamContainer>
             <TwoParamContainer>
-              <Label
-                htmlFor="widthFactorPeaks"
-                title="Specifies the minimum required width of the base of a local max to be classified as a peak."
-              >
+              <Label htmlFor="widthFactorPeaks">
                 Width (ms):
+                <ToolTip title="Specifies the minimum required width of the base of a local max to be classified as a peak.">
+                  <InfoOutlinedIcon />
+                </ToolTip>
               </Label>
               <InputErrorContainer>
                 <label htmlFor="widthFactorPeaks">Peaks</label>
