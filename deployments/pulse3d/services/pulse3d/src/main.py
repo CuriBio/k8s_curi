@@ -239,7 +239,14 @@ async def create_new_job(
 
         analysis_params = {
             param: dict(details)[param]
-            for param in ("prominence_factors", "width_factors", "twitch_widths", "start_time", "end_time")
+            for param in (
+                "max_y",
+                "prominence_factors",
+                "width_factors",
+                "twitch_widths",
+                "start_time",
+                "end_time",
+            )
         }
 
         # convert prominence and width factors into a format compatible with pulse3D

@@ -132,7 +132,7 @@ export default function ControlPanel() {
 
   useEffect(() => {
     const currentPage = buttons.filter(
-      ({ page }) => page == router.pathname
+      ({ page }) => page === router.pathname
     )[0];
 
     if (currentPage) {
@@ -147,7 +147,9 @@ export default function ControlPanel() {
       {buttons.map(({ disabled, label, page, options }, idx) => {
         const handleListClick = (e) => {
           e.preventDefault();
-          router.push({ pathname: page, query: { id: e.target.value } });
+          console.log("###", page);
+          // router.push({ pathname: page, query: { id: e.target.value } });
+          router.push(`${page}?id=${e.target.value}`);
         };
 
         const handleSelected = (e) => {
@@ -155,6 +157,7 @@ export default function ControlPanel() {
           setSelected(label);
 
           if (options.length === 0) {
+            console.log("$$$");
             router.push(page);
             setExpanded(null);
           } else {

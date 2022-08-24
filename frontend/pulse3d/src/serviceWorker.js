@@ -77,7 +77,11 @@ const modifyRequest = async (req, url) => {
     ...req.headers,
     "Content-Type": "application/json",
   });
-  if (!isLoginRequest(url)) {
+
+  if (!isLoginRequest(url) && tokens.access) {
+    // login request does not require the Authorization header,
+    // and if there are no tokens that should mean that no account is logged in
+    // and the request should fail with 403
     headers.append("Authorization", `Bearer ${tokens.access}`);
   }
 
@@ -130,9 +134,8 @@ const requestWithRefresh = async (req, url) => {
   let response = await safeRequest();
 
   if (response.status === 401) {
-    let retryRequest;
-    // guard with mutex so two requests do not try to refresh simultaneously
-    retryRequest = await refreshMutex.runExclusive(async () => {
+    // guard with mutex so multiple requests do not try to refresh simultaneously
+    let retryRequest = await refreshMutex.runExclusive(async () => {
       // check remaining lifetime of access token
       const nowNoMillis = Math.floor(Date.now() / 1000);
       const accessTokenExp = jwtDecode(tokens.access).exp;
@@ -204,16 +207,19 @@ self.addEventListener("fetch", async (e) => {
 // Clear token on postMessage
 self.onmessage = ({ data, source }) => {
   ClientSource = source;
-  if (data === "clear") {
+  if (data.msgType === "clear") {
     console.log("[SW] Clearing tokens and account type in ServiceWorker");
     clearTokens();
     clearAccountType();
-  } else if (data === "authCheck") {
+  } else if (data.msgType === "authCheck") {
     console.log("[SW] Returning authentication check ");
-    source.postMessage({ authCheck: tokens.access !== null, accountType });
-    //auth check
-  } else if (data.accountType) {
-    console.log("[SW] Setting account type");
+    source.postMessage({
+      authCheck: tokens.access !== null,
+      accountType,
+      routerPathname: data.routerPathname,
+    });
+  } else if (data.msgType == "setAccountType") {
+    console.log("[SW] Setting account type:", data.accountType);
     setAccountType(data.accountType);
   }
 };

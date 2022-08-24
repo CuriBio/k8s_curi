@@ -92,6 +92,7 @@ export default function UploadForm() {
   const [tabSelection, setTabSelection] = useState(query.id);
   const [modalState, setModalState] = useState(false);
   const [analysisParams, setAnalysisParams] = useState({
+    maxY: "",
     prominenceFactor: "",
     widthFactor: "",
     twitchWidths: "",
@@ -145,6 +146,7 @@ export default function UploadForm() {
   const resetState = () => {
     setFiles([]);
     setAnalysisParams({
+      maxY: "",
       prominenceFactorPeaks: "",
       prominenceFactorValleys: "",
       widthFactorPeaks: "",
@@ -175,9 +177,11 @@ export default function UploadForm() {
     }
     return factors;
   };
+
   const postNewJob = async (uploadId, filename) => {
     try {
       const {
+        maxY,
         prominenceFactorPeaks,
         prominenceFactorValleys,
         widthFactorPeaks,
@@ -190,6 +194,7 @@ export default function UploadForm() {
         method: "POST",
         body: JSON.stringify({
           upload_id: uploadId,
+          max_y: maxY,
           prominence_factors: formatAdvancedParams(
             prominenceFactorPeaks,
             prominenceFactorValleys

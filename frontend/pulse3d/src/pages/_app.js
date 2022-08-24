@@ -27,7 +27,7 @@ const MUItheme = createTheme({
 export const AuthContext = createContext();
 
 const availablePages = {
-  User: ["/uploads", "upload-form", "/account"],
+  User: ["/uploads", "/upload-form", "/account"],
   Admin: ["/uploads", "/new-user"],
 };
 
@@ -59,11 +59,24 @@ function Pulse({ Component, pageProps }) {
         }
         setAuthCheck(data.authCheck);
         setAccountType(data.accountType);
+        console.log(
+          "AUTH CHECK:",
+          data.authCheck,
+          data.accountType,
+          data.routerPathname
+        );
+
         if (!data.authCheck) {
           router.replace("/login", undefined, { shallow: true });
         } else if (
-          !availablePages[data.accountType].includes(router.pathname)
+          // the router pathname is send to the SW and back here since for some reason this message handler
+          // will not use the correct pathname if directly accessing router.pathname
+          // TODO try using router.pathname again
+          !availablePages[data.accountType].includes(data.routerPathname)
         ) {
+          console.log(
+            `${data.routerPathname} is not available to ${data.accountType}s`
+          );
           // Tanner (8/23/22): TODO this isn't the best solution for preventing navigation pages
           // that the given account type shouldn't be able to reach. Should look into a better way to do this
           router.replace("/uploads", undefined, { shallow: true });
@@ -74,23 +87,31 @@ function Pulse({ Component, pageProps }) {
 
   useEffect(() => {
     // sends message to active SW to check if user is authenticated if not login page. Login page handles own clearing.
+    console.log("NEW PATH:", router.pathname);
     sendSWMessage();
   }, [router.pathname]);
 
   useEffect(() => {
-    sendAccountTypeMsg();
+    if (accountType) {
+      // Tanner (8/23/22): guard against case where the page is reloaded and accountType changes back to null
+      sendSetAccountTypeMsg();
+    }
   }, [accountType]);
 
   const sendSWMessage = () => {
+    console.log("sendSWMessage:", router.pathname);
     if ("serviceWorker" in navigator) {
       if (router.pathname !== "/login")
         navigator.serviceWorker.ready.then((registration) => {
-          registration.active.postMessage("authCheck");
+          registration.active.postMessage({
+            msgType: "authCheck",
+            routerPathname: router.pathname,
+          });
         });
       else {
         // clear tokens if login page has been reached
         navigator.serviceWorker.ready.then((registration) => {
-          registration.active.postMessage("clear");
+          registration.active.postMessage({ msgType: "clear" });
         });
         // set context state to false once tokens are cleared
         setAuthCheck(false);
@@ -98,10 +119,13 @@ function Pulse({ Component, pageProps }) {
     }
   };
 
-  const sendAccountTypeMsg = () => {
+  const sendSetAccountTypeMsg = () => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.ready.then((registration) => {
-        registration.active.postMessage({ accountType });
+        registration.active.postMessage({
+          msgType: "setAccountType",
+          accountType,
+        });
       });
     }
   };

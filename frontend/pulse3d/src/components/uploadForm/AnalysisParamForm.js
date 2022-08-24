@@ -116,19 +116,17 @@ const FormModify = styled.div`
 
 const WALabel = styled.span`
   background-color: var(--light-gray);
-  bottom: 43%;
   border-radius: 6px;
   display: flex;
   align-items: center;
-  width: 195px;
   font-size: 14px;
-  z-index: 1;
   border: 2px solid var(--dark-gray);
   cursor: default;
   z-index: 3;
   position: absolute;
   right: 55%;
   bottom: 94%;
+  width: 205px;
 `;
 
 const AdditionalParamLabel = styled.span`
@@ -172,30 +170,39 @@ export default function AnalysisParamForm({
       // need to validate start and end time together
       validateWindowBounds(updatedParams);
     }
-    for (const paramName in [
+    for (const paramName of [
       "prominenceFactorPeaks",
       "prominenceFactorValleys",
       "widthFactorPeaks",
       "widthFactorValleys",
+      "maxY",
     ]) {
       if (paramName in newParams) {
-        validateAdvancedParams(updatedParams, paramName);
+        validatePositiveNumber(updatedParams, paramName, false);
       }
     }
-
     setAnalysisParams(updatedParams);
   };
 
-  const validateAdvancedParams = (updatedParams, paramName) => {
-    //
+  const checkPositiveNumberEntry = (value, allowZero = true) => {
+    const minValue = allowZero ? 0 : Number.MIN_VALUE;
+    console.log(value, value === null, value === "", value >= minValue);
+    return value === null || value === "" || value >= minValue;
+  };
+
+  const validatePositiveNumber = (
+    updatedParams,
+    paramName,
+    allowZero = true
+  ) => {
     const newValue = updatedParams[paramName];
 
     let errorMsg = "";
-    // new value must be null, empty, or a non-zero (+) number. Set error message if not
-    if (newValue !== null && newValue !== "" && +value > 0) {
-      errorMsg = "* Must be a positive number";
+    if (!checkPositiveNumberEntry(newValue, allowZero)) {
+      errorMsg = allowZero
+        ? "*Must be a positive number"
+        : "*Must be a positive, non-zero number";
     }
-
     setParamErrors({ ...paramErrors, [paramName]: errorMsg });
   };
 
@@ -237,18 +244,18 @@ export default function AnalysisParamForm({
     const { startTime, endTime } = updatedParams;
     const updatedParamErrors = { ...paramErrors };
 
-    for (const [boundName, boundValueStr] of Object.entries({
+    for (const [boundName, boundValue] of Object.entries({
       startTime,
       endTime,
     })) {
       let error = "";
-      if (boundValueStr) {
-        // checks if positive number, no other characters allowed
-        const numRegEx = new RegExp("^([0-9]+(?:[.][0-9]*)?|.[0-9]+)$");
-        if (!numRegEx.test(boundValueStr)) {
-          error = "*Must be a non-negative number";
+
+      // only perform this check if something has actually been entered
+      if (boundValue) {
+        const allowZero = boundName === "startTime";
+        if (!checkPositiveNumberEntry(boundValue, allowZero)) {
+          error = "*Must be a positive number";
         } else {
-          const boundValue = +boundValueStr;
           updatedParams[boundName] = boundValue;
         }
       }
@@ -276,6 +283,31 @@ export default function AnalysisParamForm({
       <InputContainer>
         <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
           <Label
+            htmlFor="maxY"
+            title="Specifies the maximum y-axis range of Active Twitch Force in the output xlsx."
+          >
+            Y-Axis Range (µN):
+          </Label>
+          <InputErrorContainer>
+            <FormInput
+              name="maxY"
+              placeholder={"Auto find max y"}
+              value={inputVals.maxY}
+              onChangeFn={(e) => {
+                updateParams({
+                  maxY: e.target.value,
+                });
+              }}
+            >
+              <ErrorText id="maxYError" role="errorMsg">
+                {errorMessages.maxY}
+              </ErrorText>
+            </FormInput>
+          </InputErrorContainer>
+        </ParamContainer>
+
+        <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
+          <Label
             htmlFor="twitchWidths"
             title="Specifies which twitch width values to add to the per twitch metrics sheet and aggregate metrics sheet."
           >
@@ -300,7 +332,6 @@ export default function AnalysisParamForm({
         </ParamContainer>
         <WindowAnalysisContainer>
           <WAOverlayContainer>
-            {checkedWindow || <WAOverlay />}
             <WALabel>
               <CheckboxWidget
                 color={"secondary"}
@@ -312,6 +343,7 @@ export default function AnalysisParamForm({
               />
               Use Window Analysis
             </WALabel>
+            {checkedWindow || <WAOverlay />}
             <ParamContainer>
               <Label
                 htmlFor="startTime"
@@ -364,7 +396,7 @@ export default function AnalysisParamForm({
         </WindowAnalysisContainer>
         <AdvancedAnalysisContainer>
           <WAOverlayContainer>
-            <WALabel style={{ width: 210 }}>
+            <WALabel>
               <CheckboxWidget
                 color={"secondary"}
                 size={"small"}
