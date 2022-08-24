@@ -148,6 +148,14 @@ const AdditionalParamLabel = styled.span`
   font-weight: 900;
 `;
 
+const ToolTip = styled.div`
+  font-weight: 900;
+  font-style: italic;
+  font-size: 0.7rem;
+  margin: 0;
+  color: var(--dark-blue);
+`;
+
 export default function AnalysisParamForm({
   inputVals,
   errorMessages,
@@ -326,6 +334,7 @@ export default function AnalysisParamForm({
             title="Specifies the maximum y-axis range of Active Twitch Force in the output xlsx."
           >
             Y-Axis Range (µN):
+            <ToolTip>(?)</ToolTip>
           </Label>
           <InputErrorContainer>
             <FormInput
@@ -351,6 +360,7 @@ export default function AnalysisParamForm({
             title="Specifies which twitch width values to add to the per twitch metrics sheet and aggregate metrics sheet."
           >
             Twitch Width:
+            <ToolTip>(?)</ToolTip>
           </Label>
           <InputErrorContainer>
             <FormInput
@@ -389,6 +399,7 @@ export default function AnalysisParamForm({
                 title="Specifies the earliest timepoint (in seconds) to use in analysis."
               >
                 Start Time (s):
+                <ToolTip>(?)</ToolTip>
               </Label>
               <InputErrorContainer>
                 <FormInput
@@ -413,6 +424,7 @@ export default function AnalysisParamForm({
                 title="Specifies the latest timepoint (in seconds) to use in analysis."
               >
                 End Time (s):
+                <ToolTip>(?)</ToolTip>
               </Label>
               <InputErrorContainer>
                 <FormInput
@@ -453,6 +465,7 @@ export default function AnalysisParamForm({
                 title="Specifies the minimum required vertical distance between a local max and its lowest contour line to be classified as a peak."
               >
                 Prominence (µN):
+                <ToolTip>(?)</ToolTip>
               </Label>
               <InputErrorContainer>
                 <label htmlFor="prominenceFactorPeaks">Peaks</label>
@@ -504,6 +517,7 @@ export default function AnalysisParamForm({
                 title="Specifies the minimum required width of the base of a local max to be classified as a peak."
               >
                 Width (ms):
+                <ToolTip>(?)</ToolTip>
               </Label>
               <InputErrorContainer>
                 <label htmlFor="widthFactorPeaks">Peaks</label>
