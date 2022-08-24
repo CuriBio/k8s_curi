@@ -19,6 +19,8 @@ class UploadResponse(BaseModel):
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
 
+    max_y: Optional[Number]
+
     twitch_widths: Optional[List[int]]
     start_time: Optional[Number]
     end_time: Optional[Number]
