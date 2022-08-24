@@ -153,7 +153,7 @@ const ToolTip = styled.div`
   font-style: italic;
   font-size: 0.7rem;
   margin: 0;
-  &:hover${ToolTip} {
+  &:hover {
     color: var(--teal-green);
     cursor: help;
   }
