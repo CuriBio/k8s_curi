@@ -21,7 +21,6 @@ const Container = styled.div`
   padding-bottom: 3%;
 `;
 
-
 const Header = styled.h2`
   position: relative;
   text-align: center;

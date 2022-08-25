@@ -137,7 +137,7 @@ export default function Row({
             {row.username}
           </TableCell>
         )}
-        <TableCell align="center">{row.name}</TableCell>
+        <TableCell>{row.name}</TableCell>
         <TableCell align="center">{row.id}</TableCell>
         <TableCell align="center">{row.createdAt}</TableCell>
         <TableCell align="center">{row.lastAnalyzed}</TableCell>

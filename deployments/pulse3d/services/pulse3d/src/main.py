@@ -9,18 +9,16 @@ from zipfile import ZipFile
 from datetime import datetime
 import io
 
-from fastapi import FastAPI, Request, Depends, HTTPException, status, Query
+from fastapi import FastAPI, Request, Depends, HTTPException, status, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
-<<<<<<< HEAD
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-=======
->>>>>>> main
+
 
 from auth import ProtectedAny
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET
 from jobs import create_upload, create_job, get_uploads, get_jobs, delete_jobs, delete_uploads
-from models.models import UploadRequest, UploadResponse, JobRequest, JobResponse
+from models.models import UploadRequest, UploadResponse, JobRequest, JobResponse, DownloadRequest
 from models.types import AdvancedParamTuple
 from utils.db import AsyncpgPoolDep
 from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error, download_file_from_s3
@@ -32,42 +30,6 @@ logger = logging.getLogger(__name__)
 app = FastAPI(openapi_url=None)
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
-
-<<<<<<< HEAD
-class UploadRequest(BaseModel):
-    filename: str
-    md5s: Optional[str]
-    upload_type: str
-
-
-class UploadResponse(BaseModel):
-    id: uuid.UUID
-    params: Dict[str, Any]
-
-
-class DownloadItem(BaseModel):
-    jobId: uuid.UUID
-    uploadId: uuid.UUID
-    analyzedFile: str
-    datetime: str
-    status: str
-    analysisParams: Dict[Any, Any]
-
-
-class DownloadRequest(BaseModel):
-    jobs: List[DownloadItem]
-
-
-class JobRequest(BaseModel):
-    upload_id: uuid.UUID
-    max_y: Optional[Union[int, float]]
-    prominence_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
-    width_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
-    twitch_widths: Optional[List[int]]
-    start_time: Optional[Union[int, float]]
-    end_time: Optional[Union[int, float]]
-
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -75,11 +37,7 @@ app.add_middleware(
         "https://dashboard.curibio.com",
         "http://localhost:3000",
     ],
-=======
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://dashboard.curibio-test.com", "https://dashboard.curibio.com"],
->>>>>>> main
+
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -299,16 +257,9 @@ async def create_new_job(
             )
         }
 
-<<<<<<< HEAD
-        # convert FE output to pulse3d input
-        # done for width and prominece factors
-        meta["analysis_params"]["prominence_factors"] = _format_advanced_options(
-            meta["analysis_params"]["prominence_factors"], "prominence"
-=======
         # convert prominence and width factors into a format compatible with pulse3D
         analysis_params["prominence_factors"] = _format_advanced_options(
             analysis_params["prominence_factors"], 6  # TODO grab these default values from pulse3D
->>>>>>> main
         )
         analysis_params["width_factors"] = _format_advanced_options(analysis_params["width_factors"], 7)
 
@@ -342,28 +293,11 @@ def _format_advanced_options(
 ) -> Optional[AdvancedParamTuple]:
     if options is None or options == (None, None):
         return None
-<<<<<<< HEAD
-    # if only peaks is passed return tuple(peaks,default value)
-    if option[0] is not None and option[1] is None:
-        if option_name == "width":
-            return option[0], 7
-        if option_name == "prominence":
-            return option[0], 6
-    # if only valleys is passed return (default value,valleys)
-    if option[0] is None and option[1] is not None:
-        if option_name == "width":
-            return 7, option[1]
-        if option_name == "prominence":
-            return 6, option[1]
-    # if both present then return a tuple
-    return option[0], option[1]
-=======
 
     # set any unspecified values to the default value
     formatted_options = tuple([option if option is not None else default_value for option in options])
 
     return formatted_options
->>>>>>> main
 
 
 @app.delete("/jobs")
@@ -414,11 +348,9 @@ async def download_analyses(
 
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
-            now = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-            zip_filename = f"MA-analyses__{now}__{num_of_files}.zip"
-            zip_filepath = os.path.join(tmpdir, zip_filename)
-
-            with ZipFile(zip_filepath, "w") as zip_file:
+            zip_f = io.BytesIO()
+            
+            with ZipFile(zip_f, "w") as zip_file:
                 for job in jobs:
                     upload_id = job.uploadId
                     job_id = job.jobId
@@ -446,8 +378,9 @@ async def download_analyses(
                         zip_file.write(file_path, os.path.basename(file_path))
 
            
-                # Grab ZIP file from in-memory, make response with correct MIME-type
-                return FileResponse(path=zip_filepath, filename=zip_filename)
+            # Grab ZIP file from in-memory, make response with correct MIME-type
+            response =  Response(zip_f.getvalue(), media_type="application/zip")
+            return response
 
     except Exception as e:
         logger.error(f"Failed to download analyses: {repr(e)}")

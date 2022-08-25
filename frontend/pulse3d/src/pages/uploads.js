@@ -14,9 +14,7 @@ import DashboardLayout, {
 import styled from "styled-components";
 import { useContext, useState, useEffect } from "react";
 import Row from "@/components/uploads/TableRow";
-import { saveAs } from "file-saver";
 import { AuthContext } from "@/pages/_app";
-
 
 const Container = styled.div`
   display: flex;
@@ -138,16 +136,34 @@ export default function Uploads() {
   };
 
   const formatDateTime = (datetime) => {
-    return new Date(datetime + "Z").toLocaleDateString(undefined, {
-      hour: "numeric",
-      minute: "numeric",
-    });
+    if (datetime)
+      return new Date(datetime + "Z").toLocaleDateString(undefined, {
+        hour: "numeric",
+        minute: "numeric",
+      });
+    else {
+      const now = new Date();
+      const datetime =
+        now.getFullYear() +
+        "-" +
+        (now.getMonth() + 1) +
+        "-" +
+        now.getDate() +
+        "-" +
+        now.getHours() +
+        now.getMinutes() +
+        now.getSeconds();
+      return datetime;
+    }
   };
 
   useEffect(() => {
     getAllJobs();
     // start 10 second interval
-    const uploadsInterval = setInterval(() => getAllJobs(), [1e4]);
+    const uploadsInterval = setInterval(() => {
+      // don't call get jobs if downloading ro deleting in progress because it backs up server
+      if (!["downloading", "deleting"].includes(modalState)) getAllJobs();
+    }, [1e4]);
     //clear interval when switching pages
     return () => clearInterval(uploadsInterval);
   }, [uploads]);
@@ -354,28 +370,16 @@ export default function Uploads() {
     });
 
     if (response.status === 200) {
-      console.log(response);
-      let fileAsBlob = new Blob([response.body], {
-        type: "application/zip",
-      });
+      const now = formatDateTime();
+      const zipFilename = `MA-analyses__${now}__${jobs.length}.zip`;
+      const zip_blob = await response.blob();
 
-      // const zip_blob = await response.blob();
-      // console.log(zip_blob);
-      // saveAs(zip_blob, "Auto Photos.zip");
+      const downloadLink = document.createElement("a");
+      downloadLink.download = zipFilename;
+      downloadLink.href = window.URL.createObjectURL(zip_blob);
 
-      let downloadLink = document.createElement("a");
-      downloadLink.download = `myzip.zip`;
-      downloadLink.href = window.URL.createObjectURL(fileAsBlob);
       downloadLink.click();
-      // const zip_blob = new Blob([response.data], { type: "application/zip" });
-      // const url = window.URL.createObjectURL(zip_blob);
-      // console.log(url)
-      // const a = document.createElement("a");
-      // document.body.appendChild(a);
-      // a.setAttribute("href", url);
-      // a.setAttribute("download", "test.zip");
-      // a.click();
-      // a.remove();
+      downloadLink.remove();
     } else {
       throw Error();
     }
