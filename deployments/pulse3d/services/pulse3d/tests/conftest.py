@@ -13,7 +13,8 @@ os.environ["POSTGRES_USER"] = "test_pg_user"
 os.environ["POSTGRES_PASSWORD"] = "test_pw"
 
 
-# import core and add to sys.modules so that main.py can find it, not sure why it can't otherwise
-from src import core
+# import core and models and add to sys.modules so that main.py can find them, not sure why it can't otherwise
+from src import core, models
 
 sys.modules["core"] = core
+sys.modules["models"] = models

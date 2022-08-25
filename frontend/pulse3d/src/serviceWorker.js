@@ -14,8 +14,6 @@ const USERS_URL = new URLSearchParams(location.search).get("users_url");
 /* Global state of SW */
 
 let accountType = null;
-let logoutTimer = null;
-let ClientSource = null;
 
 const setAccountType = (type) => {
   accountType = type;
@@ -29,30 +27,31 @@ const tokens = {
   access: null,
   refresh: null,
 };
+let logoutTimer = null;
 
 const setTokens = ({ access, refresh }) => {
   tokens.access = access.token;
   tokens.refresh = refresh.token;
+
+  // set up logout timer
+  const expTime = new Date(jwtDecode(tokens.refresh).exp * 1000);
+  const currentTime = new Date().getTime();
+  const millisBeforeLogOut = expTime - currentTime;
+  logoutTimer = setTimeout(sendLogoutMsg, millisBeforeLogOut);
 };
 
 const clearTokens = () => {
   tokens.access = null;
   tokens.refresh = null;
-  clearLogoutTimer();
-};
 
-const clearLogoutTimer = () => {
   clearTimeout(logoutTimer);
 };
 
-const setLogoutTimer = () => {
-  const expTime = new Date(jwtDecode(tokens.refresh).exp * 1000);
-  const currentTime = new Date().getTime();
-  const secondsBeforeLogOut = (expTime - currentTime) / 1000;
-  logoutTimer = setTimeout(() => {
-    ClientSource.postMessage({ logout: true });
-    console.log("[SW]loggout ping send");
-  }, secondsBeforeLogOut * 1000);
+let ClientSource = null;
+
+const sendLogoutMsg = () => {
+  ClientSource.postMessage({ logout: true });
+  console.log("[SW] logout ping sent");
 };
 
 /* Request intercept functions */
@@ -73,14 +72,20 @@ const modifyRequest = async (req, url) => {
     ...req.headers,
     "Content-Type": "application/json",
   });
-  if (!isLoginRequest(url)) {
+
+  if (!isLoginRequest(url) && tokens.access) {
+    // login request does not require the Authorization header,
+    // and if there are no tokens that should mean that no account is logged in
+    // and the request should fail with 403
     headers.append("Authorization", `Bearer ${tokens.access}`);
   }
 
-  // apply new headers
+  // apply new headers. Make sure to clone the original request obj if consuming the body by calling json()
+  // since it typically can only be consumed once
   const modifiedReq = new Request(getUrl(url), {
     headers,
-    body: req.method === "POST" ? JSON.stringify(await req.json()) : null,
+    body:
+      req.method === "POST" ? JSON.stringify(await req.clone().json()) : null,
     method: req.method,
   });
 
@@ -98,16 +103,15 @@ const handleRefreshRequest = async () => {
       headers: { Authorization: `Bearer ${tokens.refresh}` },
     });
   } catch (e) {
-    console.log("ERROR IN REFRESH REQ: ", e.message);
+    console.log("[SW] ERROR in refresh req:", e.message);
     return { error: JSON.stringify(e.message) };
   }
 
-  // set new tokens if refresh was successful, or clear if refresh failed
+  // set new tokens if refresh was successful
+  // tokens should get cleared later if refresh failed
   if (res.status === 201) {
     const newTokens = await res.json();
     setTokens(newTokens);
-  } else {
-    clearTokens();
   }
 
   return res.status;
@@ -126,9 +130,8 @@ const requestWithRefresh = async (req, url) => {
   let response = await safeRequest();
 
   if (response.status === 401) {
-    let retryRequest;
-    // guard with mutex so two requests do not try to refresh simultaneously
-    retryRequest = await refreshMutex.runExclusive(async () => {
+    // guard with mutex so multiple requests do not try to refresh simultaneously
+    const retryRequest = await refreshMutex.runExclusive(async () => {
       // check remaining lifetime of access token
       const nowNoMillis = Math.floor(Date.now() / 1000);
       const accessTokenExp = jwtDecode(tokens.access).exp;
@@ -158,7 +161,6 @@ const interceptResponse = async (req, url) => {
       // set tokens if login was successful
       const data = await response.json();
       setTokens(data);
-      setLogoutTimer();
     }
     // send the response without the tokens so they are always contained within this service worker
     return new Response(JSON.stringify({}), {
@@ -168,9 +170,13 @@ const interceptResponse = async (req, url) => {
     });
   } else {
     const response = await requestWithRefresh(req, url);
-    // clear tokens if user purposefully logs out or any other response returns an unauthorized response
-    if (url.pathname.includes("logout") || response.status === 401) {
+    if (url.pathname.includes("logout")) {
+      // just clear tokens if user purposefully logs out
       clearTokens();
+    } else if (response.status === 401) {
+      // clear tokens and send logout ping if any other request receives an unauthorized response
+      clearTokens();
+      sendLogoutMsg();
     }
     return response;
   }
@@ -188,23 +194,6 @@ self.addEventListener("activate", (event) => {
   console.log("[SW] Service worker ready!");
 });
 
-// Clear token on postMessage
-self.onmessage = ({ data, source }) => {
-  ClientSource = source;
-  if (data === "clear") {
-    console.log("[SW] Clearing tokens and account type in ServiceWorker");
-    clearTokens();
-    clearAccountType();
-  } else if (data === "authCheck") {
-    console.log("[SW] Returning authentication check ");
-    source.postMessage({ authCheck: tokens.access !== null, accountType });
-    //auth check
-  } else if (data.accountType) {
-    console.log("[SW] Setting account type");
-    setAccountType(data.accountType);
-  }
-};
-
 // Intercept all fetch requests
 self.addEventListener("fetch", async (e) => {
   let destURL = new URL(e.request.url);
@@ -214,3 +203,31 @@ self.addEventListener("fetch", async (e) => {
     e.respondWith(interceptResponse(e.request, destURL));
   } else e.respondWith(fetch(e.request));
 });
+
+// Clear token on postMessage
+self.onmessage = ({ data, source }) => {
+  ClientSource = source;
+  if (data.msgType === "clear") {
+    // TODO Tanner (8/24/22): might want to only clear if not already cleared
+    console.log("[SW] Clearing tokens and account type in ServiceWorker");
+    clearTokens();
+    clearAccountType();
+  } else if (data.msgType === "authCheck") {
+    console.log("[SW] Returning authentication check ");
+    source.postMessage({
+      authCheck: tokens.access !== null,
+      accountType,
+      routerPathname: data.routerPathname,
+    });
+  } else if (data.msgType == "setAccountType") {
+    console.log("[SW] Setting account type:", data.accountType);
+    setAccountType(data.accountType);
+  }
+};
+
+export const accessToInternalsForTesting = {
+  tokens,
+  logoutTimer,
+  ClientSource,
+  accountType,
+};

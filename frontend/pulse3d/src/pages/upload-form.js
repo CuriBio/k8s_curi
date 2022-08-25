@@ -162,23 +162,21 @@ export default function UploadForm() {
     setParamErrors({});
   };
 
-  //format the advanced params into a list of two numbers
-  /*
-    if both are present then submit them as is
-    if none present then return null
-    if only peaks passed then make an array [peak,null]
-    if only valleys present then return array [null,valley]
-  */
-  const formatedAdvancedParams = (peaks, valleys) => {
-    if (peaks !== "" && valleys !== "") {
-      return [peaks, valleys];
-    } else if (peaks !== "" && valleys === "") {
-      return [peaks, null];
-    } else if (peaks === "" && valleys !== "") {
-      return [null, valleys];
-    } else {
+  const formatAdvancedParams = (peakFactor, valleyFactor) => {
+    // convert factors that aren't specified to null
+    if (peakFactor === "") {
+      peakFactor = null;
+    }
+    if (valleyFactor === "") {
+      valleyFactor = null;
+    }
+
+    let factors = [peakFactor, valleyFactor];
+    if (factors.every((v) => !v)) {
+      // if both factors are null, return null instead of an array
       return null;
     }
+    return factors;
   };
 
   const postNewJob = async (uploadId, filename) => {
@@ -198,11 +196,11 @@ export default function UploadForm() {
         body: JSON.stringify({
           upload_id: uploadId,
           max_y: maxY === "" ? null : maxY,
-          prominence_factors: formatedAdvancedParams(
+          prominence_factors: formatAdvancedParams(
             prominenceFactorPeaks,
             prominenceFactorValleys
           ),
-          width_factors: formatedAdvancedParams(
+          width_factors: formatAdvancedParams(
             widthFactorPeaks,
             widthFactorValleys
           ),
@@ -238,15 +236,16 @@ export default function UploadForm() {
           const dirs = Object.values(files).filter(({ dir }) => dir);
           const onlyOneRec = dirs.length === 0 || dirs.length === 1;
 
-          const numberOfFiles = Object.keys(files).filter(
+          const numFilesInRecording = Object.keys(files).filter(
             (filename) =>
               filename.includes(".h5") && !filename.includes("__MACOSX")
-          );
+          ).length;
 
-          const correctNumber =
-            numberOfFiles.length === 48 || numberOfFiles.length === 24;
+          // Beta 1 recordings will contain 24 files, Beta 2 and V1 recordings will contain 48
+          const recordingContainsValidNumFiles =
+            numFilesInRecording === 24 || numFilesInRecording === 48;
 
-          return !onlyOneRec || !correctNumber;
+          return !onlyOneRec || !recordingContainsValidNumFiles;
         } catch (e) {
           console.log(`ERROR unable to read zip file: ${file.name} ${e}`);
           return true;

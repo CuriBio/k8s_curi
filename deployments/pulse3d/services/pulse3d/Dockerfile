@@ -18,6 +18,7 @@ ENV PATH /app/venv/bin:$PATH
 WORKDIR /app
 COPY ./deployments/pulse3d/services/pulse3d/src/main.py ./
 COPY ./deployments/pulse3d/services/pulse3d/src/core/ ./core
+COPY ./deployments/pulse3d/services/pulse3d/src/models/ ./models
 COPY ./deployments/pulse3d/services/pulse3d/log_config.yaml ./
 
 ENV PYTHONUNBUFFERED 1

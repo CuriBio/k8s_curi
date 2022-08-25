@@ -4,13 +4,14 @@ import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
 import Box from "@mui/material/Box";
 import Collapse from "@mui/material/Collapse";
 import IconButton from "@mui/material/IconButton";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import styled from "styled-components";
+import { AuthContext } from "@/pages/_app";
 
 const BoxCell = styled((props) => <TableCell {...props} colSpan={6} />)(() => ({
   paddingBottom: 0,
@@ -43,6 +44,8 @@ export default function Row({
   setModalState,
   setModalLabels,
 }) {
+  const { accountType } = useContext(AuthContext);
+
   const [open, setOpen] = useState(false);
 
   const handleCheckedUpload = (uploadId, jobs, checked) => {
@@ -98,6 +101,25 @@ export default function Row({
     }
   };
 
+  const formatAnalysisParams = (analysisParams, analyzedFile) => {
+    // Tanner (8/23/22): older analyses did not store the analysis params in the metadata of their DB entries,
+    // so guarding against that case
+    if (analysisParams) {
+      return Object.keys(analysisParams).map((param) => {
+        if (analysisParams[param]) {
+          const splitParam = param.split("_");
+          return (
+            <li key={analyzedFile + "__" + param}>
+              {splitParam[0] + " " + splitParam[1]}:{" "}
+              {JSON.stringify(analysisParams[param])}
+            </li>
+          );
+        }
+      });
+    }
+    return "Not found";
+  };
+
   return (
     <>
       <TableRow sx={{ "& > *": { borderBottom: "unset", height: "60px" } }}>
@@ -110,9 +132,12 @@ export default function Row({
             {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
           </IconButton>
         </TableCell>
-        <TableCell component="th" scope="row">
-          {row.name}
-        </TableCell>
+        {accountType === "Admin" && (
+          <TableCell component="th" scope="row">
+            {row.username}
+          </TableCell>
+        )}
+        <TableCell align="center">{row.name}</TableCell>
         <TableCell align="center">{row.id}</TableCell>
         <TableCell align="center">{row.createdAt}</TableCell>
         <TableCell align="center">{row.lastAnalyzed}</TableCell>
@@ -154,17 +179,7 @@ export default function Row({
                         <JobCell>{analyzedFile}</JobCell>
                         <JobCell>{datetime}</JobCell>
                         <JobCell align="center">
-                          {Object.keys(analysisParams).map((param) => {
-                            if (analysisParams[param]) {
-                              const splitParam = param.split("_");
-                              return (
-                                <li key={analyzedFile + "__" + param}>
-                                  {splitParam[0] + " " + splitParam[1]}:{" "}
-                                  {JSON.stringify(analysisParams[param])}
-                                </li>
-                              );
-                            }
-                          })}
+                          {formatAnalysisParams(analysisParams, analyzedFile)}
                         </JobCell>
                         <JobCell align="center">{status}</JobCell>
                         <JobCell align="center">
