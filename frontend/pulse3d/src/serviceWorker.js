@@ -27,37 +27,32 @@ const tokens = {
   access: null,
   refresh: null,
 };
+let logoutTimer = null;
 
 const setTokens = ({ access, refresh }) => {
   tokens.access = access.token;
   tokens.refresh = refresh.token;
-  setLogoutTimer();
+
+  // set up logout timer
+  const expTime = new Date(jwtDecode(tokens.refresh).exp * 1000);
+  const currentTime = new Date().getTime();
+  const millisBeforeLogOut = expTime - currentTime;
+  logoutTimer = setTimeout(sendLogoutMsg, millisBeforeLogOut);
 };
 
 const clearTokens = () => {
   tokens.access = null;
   tokens.refresh = null;
-  clearLogoutTimer();
-};
 
-let logoutTimer = null;
-
-const setLogoutTimer = () => {
-  const expTime = new Date(jwtDecode(tokens.refresh).exp * 1000);
-  const currentTime = new Date().getTime();
-  const millisBeforeLogOut = expTime - currentTime;
-
-  logoutTimer = setTimeout(() => {
-    ClientSource.postMessage({ logout: true });
-    console.log("[SW] logout ping sent");
-  }, millisBeforeLogOut);
-};
-
-const clearLogoutTimer = () => {
   clearTimeout(logoutTimer);
 };
 
 let ClientSource = null;
+
+const sendLogoutMsg = () => {
+  ClientSource.postMessage({ logout: true });
+  console.log("[SW] logout ping sent");
+};
 
 /* Request intercept functions */
 
@@ -112,12 +107,11 @@ const handleRefreshRequest = async () => {
     return { error: JSON.stringify(e.message) };
   }
 
-  // set new tokens if refresh was successful, or clear if refresh failed
+  // set new tokens if refresh was successful
+  // tokens should get cleared later if refresh failed
   if (res.status === 201) {
     const newTokens = await res.json();
     setTokens(newTokens);
-  } else {
-    clearTokens();
   }
 
   return res.status;
@@ -176,9 +170,13 @@ const interceptResponse = async (req, url) => {
     });
   } else {
     const response = await requestWithRefresh(req, url);
-    // clear tokens if user purposefully logs out or any other response returns an unauthorized response
-    if (url.pathname.includes("logout") || response.status === 401) {
+    if (url.pathname.includes("logout")) {
+      // just clear tokens if user purposefully logs out
       clearTokens();
+    } else if (response.status === 401) {
+      // clear tokens and send logout ping if any other request receives an unauthorized response
+      clearTokens();
+      sendLogoutMsg();
     }
     return response;
   }
@@ -210,6 +208,7 @@ self.addEventListener("fetch", async (e) => {
 self.onmessage = ({ data, source }) => {
   ClientSource = source;
   if (data.msgType === "clear") {
+    // TODO Tanner (8/24/22): might want to only clear if not already cleared
     console.log("[SW] Clearing tokens and account type in ServiceWorker");
     clearTokens();
     clearAccountType();
