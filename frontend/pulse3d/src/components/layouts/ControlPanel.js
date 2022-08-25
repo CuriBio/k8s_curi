@@ -114,6 +114,7 @@ const userButtons = [
 ];
 
 const adminButtons = [
+  { label: "Home", disabled: false, page: "/uploads", options: [] },
   {
     label: "Add New User",
     disabled: false,
@@ -131,7 +132,7 @@ export default function ControlPanel() {
 
   useEffect(() => {
     const currentPage = buttons.filter(
-      ({ page }) => page == router.pathname
+      ({ page }) => page === router.pathname
     )[0];
 
     if (currentPage) {

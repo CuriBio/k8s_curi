@@ -173,88 +173,48 @@ export default function AnalysisParamForm({
   analysisParams,
 }) {
   const updateParams = (newParams) => {
-    setAllErrorMessagesBlank();
     const updatedParams = { ...analysisParams, ...newParams };
 
-    if (newParams.twitchWidths) {
+    if ("twitchWidths" in newParams) {
       validateTwitchWidths(updatedParams);
     }
-    if (newParams.startTime || newParams.endTime) {
+    if ("startTime" in newParams || "endTime" in newParams) {
       // need to validate start and end time together
       validateWindowBounds(updatedParams);
     }
-    if (newParams.prominenceFactorPeaks) {
-      validateAdvancedParams(updatedParams, "prominenceFactorPeaks");
-    }
-    if (newParams.prominenceFactorValleys) {
-      validateAdvancedParams(updatedParams, "prominenceFactorValleys");
-    }
-    if (newParams.widthFactorPeaks) {
-      validateAdvancedParams(updatedParams, "widthFactorPeaks");
-    }
-    if (newParams.widthFactorValleys) {
-      validateAdvancedParams(updatedParams, "widthFactorValleys");
-    }
-    if (newParams.maxY) {
-      validateMaxY(updatedParams);
+    for (const paramName of [
+      "prominenceFactorPeaks",
+      "prominenceFactorValleys",
+      "widthFactorPeaks",
+      "widthFactorValleys",
+      "maxY",
+    ]) {
+      if (paramName in newParams) {
+        validatePositiveNumber(updatedParams, paramName, false);
+      }
     }
     setAnalysisParams(updatedParams);
   };
 
-  const setAllErrorMessagesBlank = () => {
-    for (const param in paramErrors) {
-      setParamErrors({
-        ...paramErrors,
-        [param]: "",
-      });
-    }
+  const checkPositiveNumberEntry = (value, allowZero = true) => {
+    const minValue = allowZero ? 0 : Number.MIN_VALUE;
+    return value === null || value === "" || value >= minValue;
   };
 
-  const validateMaxY = (updatedParams) => {
-    let newValue = updatedParams["maxY"];
-    //check both are numbers
-    if (isNaN(newValue)) {
-      setParamErrors({
-        ...paramErrors,
-        maxY: "* Must be a single number",
-      });
-      return;
-    }
-    if (newValue <= 0) {
-      setParamErrors({
-        ...paramErrors,
-        maxY: "* Must be greater than 0",
-      });
-      return;
-    }
-    setParamErrors({
-      ...paramErrors,
-      maxY: "",
-    });
-  };
-
-  const isValidPositiveNumber = (value) => {
-    return +value > 0;
-  };
-
-  const validateAdvancedParams = (updatedParams, paramName) => {
+  const validatePositiveNumber = (
+    updatedParams,
+    paramName,
+    allowZero = true
+  ) => {
     const newValue = updatedParams[paramName];
-    if (newValue === null || newValue === "") {
-      setParamErrors({
-        ...paramErrors,
-        [paramName]: "",
-      });
-    } else if (isValidPositiveNumber(newValue)) {
-      setParamErrors({
-        ...paramErrors,
-        [paramName]: "",
-      });
-    } else {
-      setParamErrors({
-        ...paramErrors,
-        [paramName]: "* Must be a positive number",
-      });
+
+    let errorMsg = "";
+    if (!checkPositiveNumberEntry(newValue, allowZero)) {
+      errorMsg = allowZero
+        ? "*Must be a positive number"
+        : "*Must be a positive, non-zero number";
     }
+    setParamErrors({ ...paramErrors, [paramName]: errorMsg });
   };
 
   const validateTwitchWidths = (updatedParams) => {
@@ -295,18 +255,18 @@ export default function AnalysisParamForm({
     const { startTime, endTime } = updatedParams;
     const updatedParamErrors = { ...paramErrors };
 
-    for (const [boundName, boundValueStr] of Object.entries({
+    for (const [boundName, boundValue] of Object.entries({
       startTime,
       endTime,
     })) {
       let error = "";
-      if (boundValueStr) {
-        // checks if positive number, no other characters allowed
-        const numRegEx = new RegExp("^([0-9]+(?:[.][0-9]*)?|.[0-9]+)$");
-        if (!numRegEx.test(boundValueStr)) {
-          error = "*Must be a non-negative number";
+
+      // only perform this check if something has actually been entered
+      if (boundValue) {
+        const allowZero = boundName === "startTime";
+        if (!checkPositiveNumberEntry(boundValue, allowZero)) {
+          error = "*Must be a positive number";
         } else {
-          const boundValue = +boundValueStr;
           updatedParams[boundName] = boundValue;
         }
       }

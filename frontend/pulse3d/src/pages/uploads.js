@@ -14,6 +14,7 @@ import DashboardLayout, {
 import styled from "styled-components";
 import { useContext, useState, useEffect } from "react";
 import Row from "@/components/uploads/TableRow";
+import { AuthContext } from "@/pages/_app";
 
 const Container = styled.div`
   display: flex;
@@ -90,6 +91,7 @@ const modalObjs = {
 };
 
 export default function Uploads() {
+  const { accountType } = useContext(AuthContext);
   const { uploads, setFetchUploads } = useContext(UploadsContext);
   const [jobs, setJobs] = useState();
   const [rows, setRows] = useState([]);
@@ -151,7 +153,7 @@ export default function Uploads() {
   useEffect(() => {
     if (jobs) {
       const formattedUploads = uploads
-        .map(({ id, filename, created_at }) => {
+        .map(({ username, id, filename, created_at }) => {
           const formattedTime = formatDateTime(created_at);
           const recName = filename ? filename.split(".")[0] : null;
           const uploadJobs = jobs
@@ -163,6 +165,7 @@ export default function Uploads() {
             : formattedTime;
 
           return {
+            username,
             name: recName,
             id,
             createdAt: formattedTime,
@@ -204,7 +207,7 @@ export default function Uploads() {
 
   const handleDeletions = async () => {
     try {
-      const failedDeletion = false;
+      let failedDeletion = false;
       // soft delete all jobs
       if (checkedUploads.length > 0) {
         const uploadsURL = `https://curibio.com/uploads?`;
@@ -212,7 +215,7 @@ export default function Uploads() {
         const uploadsResponse = await fetch(uploadsURL.slice(0, -1), {
           method: "DELETE",
         });
-        if (uploadsResponse.status !== 200) failedDeletion = true;
+        failedDeletion ||= uploadsResponse.status !== 200;
       }
       // soft delete all jobs
       if (checkedJobs.length > 0) {
@@ -221,8 +224,7 @@ export default function Uploads() {
         const jobsResponse = await fetch(jobsuURL.slice(0, -1), {
           method: "DELETE",
         });
-
-        if (jobsResponse.status !== 200) failedDeletion = true;
+        failedDeletion ||= jobsResponse.status !== 200;
       }
 
       if (failedDeletion) {
@@ -372,6 +374,15 @@ export default function Uploads() {
                     }}
                   >
                     <TableCell />
+                    {accountType === "Admin" && (
+                      <TableCell
+                        sx={{
+                          color: "var(--light-gray)",
+                        }}
+                      >
+                        USERNAME&nbsp;OF&nbsp;FILE&nbsp;OWNER
+                      </TableCell>
+                    )}
                     <TableCell
                       sx={{
                         color: "var(--light-gray)",
