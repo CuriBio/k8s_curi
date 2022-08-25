@@ -163,6 +163,8 @@ const ToolTip = styled.div`
 export default function AnalysisParamForm({
   inputVals,
   errorMessages,
+  checkedBaseline,
+  setCheckedBaseline,
   checkedWindow,
   setCheckedWindow,
   setAnalysisParams,
@@ -184,19 +186,25 @@ export default function AnalysisParamForm({
       validateWindowBounds(updatedParams);
     }
     if (newParams.prominenceFactorPeaks) {
-      validateAdvancedParams(updatedParams, "prominenceFactorPeaks");
+      validateDoubledParams(updatedParams, "prominenceFactorPeaks");
     }
     if (newParams.prominenceFactorValleys) {
-      validateAdvancedParams(updatedParams, "prominenceFactorValleys");
+      validateDoubledParams(updatedParams, "prominenceFactorValleys");
     }
     if (newParams.widthFactorPeaks) {
-      validateAdvancedParams(updatedParams, "widthFactorPeaks");
+      validateDoubledParams(updatedParams, "widthFactorPeaks");
     }
     if (newParams.widthFactorValleys) {
-      validateAdvancedParams(updatedParams, "widthFactorValleys");
+      validateDoubledParams(updatedParams, "widthFactorValleys");
     }
     if (newParams.maxY) {
       validateMaxY(updatedParams);
+    }
+    if (newParams.baselineToPeak) {
+      validateDoubledParams(updatedParams, "baselineToPeak");
+    }
+    if (newParams.relaxationToBaseline) {
+      validateDoubledParams(updatedParams, "relaxationToBaseline");
     }
     setAnalysisParams(updatedParams);
   };
@@ -237,7 +245,7 @@ export default function AnalysisParamForm({
     return +value > 0;
   };
 
-  const validateAdvancedParams = (updatedParams, paramName) => {
+  const validateDoubledParams = (updatedParams, paramName) => {
     const newValue = updatedParams[paramName];
     if (newValue === null || newValue === "") {
       setParamErrors({
@@ -381,6 +389,72 @@ export default function AnalysisParamForm({
             </FormInput>
           </InputErrorContainer>
         </ParamContainer>
+
+        <WindowAnalysisContainer>
+          <WAOverlayContainer>
+            <WALabel>
+              <CheckboxWidget
+                color={"secondary"}
+                size={"small"}
+                handleCheckbox={(checkedBaseline) =>
+                  setCheckedBaseline(checkedBaseline)
+                }
+                checkedState={checkedBaseline}
+              />
+              Use Basline Widths
+            </WALabel>
+            {checkedBaseline || <WAOverlay />}
+            <ParamContainer>
+              <Label htmlFor="baselineToPeak">
+                Baseline to Peak:
+                <ToolTip title="Specifies the base line metrics for twitch widths.">
+                  <InfoOutlinedIcon />
+                </ToolTip>
+              </Label>
+              <InputErrorContainer>
+                <FormInput
+                  name="baselineToPeak"
+                  placeholder={checkedBaseline ? "10" : ""}
+                  value={!checkedBaseline ? "" : inputVals.baselineToPeak}
+                  onChangeFn={(e) => {
+                    updateParams({
+                      baselineToPeak: e.target.value,
+                    });
+                  }}
+                >
+                  <ErrorText id="baselineToPeakError" role="errorMsg">
+                    {errorMessages.baselineToPeak}
+                  </ErrorText>
+                </FormInput>
+              </InputErrorContainer>
+            </ParamContainer>
+            <ParamContainer>
+              <Label htmlFor="relaxationToBaseline">
+                Peak to Relaxation:
+                <ToolTip title="Specifies the base line metrics for twitch widths.">
+                  <InfoOutlinedIcon />
+                </ToolTip>
+              </Label>
+              <InputErrorContainer>
+                <FormInput
+                  name="relaxationToBaseline"
+                  placeholder={checkedBaseline ? "90" : ""}
+                  value={!checkedBaseline ? "" : inputVals.relaxationToBaseline}
+                  onChangeFn={(e) => {
+                    updateParams({
+                      relaxationToBaseline: e.target.value,
+                    });
+                  }}
+                >
+                  <ErrorText id="relaxationToBaselineError" role="errorMsg">
+                    {errorMessages.relaxationToBaseline}
+                  </ErrorText>
+                </FormInput>
+              </InputErrorContainer>
+            </ParamContainer>
+          </WAOverlayContainer>
+        </WindowAnalysisContainer>
+
         <WindowAnalysisContainer>
           <WAOverlayContainer>
             <WALabel>

@@ -86,6 +86,7 @@ export default function UploadForm() {
   const [failedUploadsMsg, setFailedUploadsMsg] = useState([
     defaultUploadErrorLabel,
   ]);
+  const [checkedBaseline, setCheckedBaseline] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [checkedWindow, setCheckedWindow] = useState(false);
   const [checkedAdvanced, setCheckedAdvanced] = useState(false);
@@ -147,6 +148,8 @@ export default function UploadForm() {
     setFiles([]);
     setAnalysisParams({
       maxY: "",
+      baselineToPeak: "",
+      relaxationToBaseline: "",
       prominenceFactorPeaks: "",
       prominenceFactorValleys: "",
       widthFactorPeaks: "",
@@ -161,20 +164,20 @@ export default function UploadForm() {
     setParamErrors({});
   };
 
-  //format the advanced params into a list of two numbers
+  //format the inputs with two inputs for one parameter.
   /*
     if both are present then submit them as is
     if none present then return null
-    if only peaks passed then make an array [peak,null]
-    if only valleys present then return array [null,valley]
+    if only first passed then make an array [first,null]
+    if only second present then return array [null,second]
   */
-  const formatedAdvancedParams = (peaks, valleys) => {
-    if (peaks !== "" && valleys !== "") {
-      return [peaks, valleys];
-    } else if (peaks !== "" && valleys === "") {
-      return [peaks, null];
-    } else if (peaks === "" && valleys !== "") {
-      return [null, valleys];
+  const formatedDoubelParams = (first, second) => {
+    if (first !== "" && second !== "") {
+      return [first, second];
+    } else if (first !== "" && second === "") {
+      return [first, null];
+    } else if (first === "" && second !== "") {
+      return [null, second];
     } else {
       return null;
     }
@@ -184,6 +187,8 @@ export default function UploadForm() {
     try {
       const {
         maxY,
+        baselineToPeak,
+        relaxationToBaseline,
         prominenceFactorPeaks,
         prominenceFactorValleys,
         widthFactorPeaks,
@@ -196,12 +201,16 @@ export default function UploadForm() {
         method: "POST",
         body: JSON.stringify({
           upload_id: uploadId,
+          baseline_widths_to_use: formatedDoubelParams(
+            baselineToPeak,
+            relaxationToBaseline
+          ),
           max_y: maxY === "" ? null : maxY,
-          prominence_factors: formatedAdvancedParams(
+          prominence_factors: formatedDoubelParams(
             prominenceFactorPeaks,
             prominenceFactorValleys
           ),
-          width_factors: formatedAdvancedParams(
+          width_factors: formatedDoubelParams(
             widthFactorPeaks,
             widthFactorValleys
           ),
@@ -425,6 +434,8 @@ export default function UploadForm() {
         <AnalysisParamForm
           errorMessages={paramErrors}
           inputVals={analysisParams}
+          checkedBaseline={checkedBaseline}
+          setCheckedBaseline={setCheckedBaseline}
           checkedWindow={checkedWindow}
           setCheckedWindow={setCheckedWindow}
           checkedAdvanced={checkedAdvanced}

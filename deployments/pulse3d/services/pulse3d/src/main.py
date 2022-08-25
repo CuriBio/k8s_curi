@@ -34,6 +34,7 @@ class UploadResponse(BaseModel):
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
+    baseline_widths_to_use: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
     max_y: Optional[Union[int, float]]
     prominence_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
     width_factors: Optional[Tuple[Union[int, float, None], Union[int, float, None]]]
@@ -256,6 +257,7 @@ async def create_new_job(
                 param: dict(details)[param]
                 for param in (
                     "max_y",
+                    "baseline_widths_to_use",
                     "prominence_factors",
                     "width_factors",
                     "twitch_widths",
@@ -266,12 +268,15 @@ async def create_new_job(
         }
 
         # convert FE output to pulse3dInput
-        # done for width and prominece factors
+        # done for width, prominece factors and baseline_widths
         meta["analysis_params"]["prominence_factors"] = _format_advanced_options(
             meta["analysis_params"]["prominence_factors"], "prominence"
         )
         meta["analysis_params"]["width_factors"] = _format_advanced_options(
             meta["analysis_params"]["width_factors"], "width"
+        )
+        meta["analysis_params"]["baseline_widths_to_use"] = _format_baseline_option(
+            meta["analysis_params"]["baseline_widths_to_use"]
         )
         logger.info(f"Using params: {meta['analysis_params']}")
 
@@ -297,6 +302,16 @@ async def create_new_job(
     except Exception as e:
         logger.exception(f"Failed to create job: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _format_baseline_option(option: List[Union[int, float, None]]):
+    if option is None:
+        return None
+    if option[0] is None:
+        return 10, option[1]
+    if option[1] is None:
+        return option[0], 90
+    return option[0], option[1]
 
 
 def _format_advanced_options(option: List[Union[int, float, None]], option_name):
