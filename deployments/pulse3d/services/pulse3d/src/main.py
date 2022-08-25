@@ -254,7 +254,7 @@ async def create_new_job(
         )
         analysis_params["width_factors"] = _format_advanced_options(analysis_params["width_factors"], 7)
 
-        analysis_params["baseline_widths_to_use"] = _format_Baseline(
+        analysis_params["baseline_widths_to_use"] = _format_baseline(
             analysis_params["baseline_widths_to_use"]
         )
 
@@ -293,7 +293,7 @@ def _format_advanced_options(options: Optional[TupleParam], default_value: int) 
     return formatted_options
 
 
-def _format_Baseline(options: Optional[TupleParam]):
+def _format_baseline(options: Optional[TupleParam]):
     if options is None or options == (None, None):
         return None
     if options[0] is None:
