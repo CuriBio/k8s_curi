@@ -161,6 +161,8 @@ const ToolTip = styled.div`
 `;
 
 export default function AnalysisParamForm({
+  checkedBaseline,
+  setcheckedBaseline,
   inputVals,
   errorMessages,
   checkedWindow,
@@ -188,6 +190,8 @@ export default function AnalysisParamForm({
       "widthFactorPeaks",
       "widthFactorValleys",
       "maxY",
+      "baseToPeak",
+      "peakToBase",
     ]) {
       if (paramName in newParams) {
         validatePositiveNumber(updatedParams, paramName, false);
@@ -341,6 +345,72 @@ export default function AnalysisParamForm({
             </FormInput>
           </InputErrorContainer>
         </ParamContainer>
+
+        <WindowAnalysisContainer>
+          <WAOverlayContainer>
+            <WALabel>
+              <CheckboxWidget
+                color={"secondary"}
+                size={"small"}
+                handleCheckbox={(checkedBaseline) =>
+                  setcheckedBaseline(checkedBaseline)
+                }
+                checkedState={checkedBaseline}
+              />
+              Use Basline Width
+            </WALabel>
+            {checkedBaseline || <WAOverlay />}
+            <ParamContainer>
+              <Label htmlFor="baseToPeak">
+                Base to Peak:
+                <ToolTip title="Specifies the base line metrics for twitch widths.">
+                  <InfoOutlinedIcon />
+                </ToolTip>
+              </Label>
+              <InputErrorContainer>
+                <FormInput
+                  name="baseToPeak"
+                  placeholder={checkedBaseline ? "10" : ""}
+                  value={!checkedBaseline ? "" : inputVals.baseToPeak}
+                  onChangeFn={(e) => {
+                    updateParams({
+                      baseToPeak: e.target.value,
+                    });
+                  }}
+                >
+                  <ErrorText id="baseToPeakError" role="errorMsg">
+                    {errorMessages.baseToPeak}
+                  </ErrorText>
+                </FormInput>
+              </InputErrorContainer>
+            </ParamContainer>
+            <ParamContainer>
+              <Label htmlFor="peakToBase">
+                Peak to Relaxation:
+                <ToolTip title="Specifies the base line metrics for twitch widths.">
+                  <InfoOutlinedIcon />
+                </ToolTip>
+              </Label>
+              <InputErrorContainer>
+                <FormInput
+                  name="peakToBase"
+                  placeholder={checkedBaseline ? "90" : ""}
+                  value={!checkedBaseline ? "" : inputVals.peakToBase}
+                  onChangeFn={(e) => {
+                    updateParams({
+                      peakToBase: e.target.value,
+                    });
+                  }}
+                >
+                  <ErrorText id="peakToBaseError" role="errorMsg">
+                    {errorMessages.peakToBase}
+                  </ErrorText>
+                </FormInput>
+              </InputErrorContainer>
+            </ParamContainer>
+          </WAOverlayContainer>
+        </WindowAnalysisContainer>
+
         <WindowAnalysisContainer>
           <WAOverlayContainer>
             <WALabel>
