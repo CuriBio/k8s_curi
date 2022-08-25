@@ -162,7 +162,7 @@ const ToolTip = styled.div`
 
 export default function AnalysisParamForm({
   checkedBaseline,
-  setcheckedBaseline,
+  setCheckedBaseline,
   inputVals,
   errorMessages,
   checkedWindow,
@@ -353,7 +353,7 @@ export default function AnalysisParamForm({
                 color={"secondary"}
                 size={"small"}
                 handleCheckbox={(checkedBaseline) =>
-                  setcheckedBaseline(checkedBaseline)
+                  setCheckedBaseline(checkedBaseline)
                 }
                 checkedState={checkedBaseline}
               />

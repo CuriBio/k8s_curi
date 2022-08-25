@@ -89,7 +89,7 @@ export default function UploadForm() {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [checkedWindow, setCheckedWindow] = useState(false);
   const [checkedAdvanced, setCheckedAdvanced] = useState(false);
-  const [checkedBaseline, setcheckedBaseline] = useState(false);
+  const [checkedBaseline, setCheckedBaseline] = useState(false);
   const [tabSelection, setTabSelection] = useState(query.id);
   const [modalState, setModalState] = useState(false);
   const [analysisParams, setAnalysisParams] = useState({
@@ -431,7 +431,7 @@ export default function UploadForm() {
         )}
         <AnalysisParamForm
           checkedBaseline={checkedBaseline}
-          setcheckedBaseline={setcheckedBaseline}
+          setCheckedBaseline={setCheckedBaseline}
           errorMessages={paramErrors}
           inputVals={analysisParams}
           checkedWindow={checkedWindow}
