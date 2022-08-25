@@ -121,7 +121,7 @@ def download_file_from_s3(bucket, key, file_path) -> None:
         try:
             s3.Object(bucket, key).load()
         except:
-            return 404
+            raise Exception(f"Object at {key} was not found.")
 
         s3_client.download_file(Bucket=bucket, Key=key, Filename=file_path)
         

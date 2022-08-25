@@ -6,9 +6,12 @@ import uuid
 import tempfile
 import os
 from zipfile import ZipFile
+from datetime import datetime
+import io
 
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from auth import ProtectedAny
@@ -377,25 +380,45 @@ async def download_analyses(
 
     user_id = str(uuid.UUID(token["userid"]))
     customer_id = str(uuid.UUID(token["customer_id"]))
+    num_of_files = len(jobs)
 
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
-        
-            with ZipFile(os.path.join(tmpdir, 'sample2.zip'), 'w') as zip_file:
+            now = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+            zip_filename = f"MA-analyses__{now}__{num_of_files}.zip"
+            zip_filepath = os.path.join(tmpdir, zip_filename)
+
+            with ZipFile(zip_filepath, "w") as zip_file:
                 for job in jobs:
                     upload_id = job.uploadId
                     job_id = job.jobId
                     filename = job.analyzedFile
 
                     try:
-                        file_path = os.path.join(tmpdir, "files_to_zip", filename)
+                        file_path = os.path.join(tmpdir, filename)
+                        if os.path.exists(file_path):
+                            # grabs index of file in list of duplicate filenames to append to filename to differentiate
+                            duplicate_filename = [j.jobId for j in jobs if j.analyzedFile == filename]
+                            idx = duplicate_filename.index(job_id)
+                            # add duplicate index to differentiate duplicate filenames
+                            root, ext = os.path.splitext(file_path)
+                            file_path = "".join([f"{root}_({idx})", ext])
+
                         key_prefix = f"analyzed/{customer_id}/{user_id}/{upload_id}/{job_id}/{filename}"
-                        download_file_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key_prefix, file_path=file_path)
-                    except S3Error:
-                        continue # continue loop if one file fails, download function logs error itself
-            
-            
-            
+                        download_file_from_s3(
+                            bucket=PULSE3D_UPLOADS_BUCKET, key=key_prefix, file_path=file_path
+                        )
+                    except Exception as e:
+                        logger.error(e)
+                        continue  # continue loop if one file fails, download function logs error itself
+                    else:
+                        logger.info(f"Writing {filename} to zip.")
+                        zip_file.write(file_path, os.path.basename(file_path))
+
+           
+                # Grab ZIP file from in-memory, make response with correct MIME-type
+                return FileResponse(path=zip_filepath, filename=zip_filename)
+
     except Exception as e:
-        logger.error(f"Failed to soft delete jobs: {repr(e)}")
+        logger.error(f"Failed to download analyses: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

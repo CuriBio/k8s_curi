@@ -14,6 +14,7 @@ import DashboardLayout, {
 import styled from "styled-components";
 import { useContext, useState, useEffect } from "react";
 import Row from "@/components/uploads/TableRow";
+import { saveAs } from "file-saver";
 
 const Container = styled.div`
   display: flex;
@@ -350,17 +351,28 @@ export default function Uploads() {
     });
 
     if (response.status === 200) {
-      const res = await response.json();
-      //   const presignedUrl = jobs[0].url;
+      console.log(response);
+      let fileAsBlob = new Blob([response.body], {
+        type: "application/zip",
+      });
 
-      //   if (presignedUrl) {
-      //     const a = document.createElement("a");
-      //     document.body.appendChild(a);
-      //     a.setAttribute("href", presignedUrl);
-      //     a.setAttribute("download", jobs[0].id);
-      //     a.click();
-      //     a.remove();
-      //   }
+      // const zip_blob = await response.blob();
+      // console.log(zip_blob);
+      // saveAs(zip_blob, "Auto Photos.zip");
+
+      let downloadLink = document.createElement("a");
+      downloadLink.download = `myzip.zip`;
+      downloadLink.href = window.URL.createObjectURL(fileAsBlob);
+      downloadLink.click();
+      // const zip_blob = new Blob([response.data], { type: "application/zip" });
+      // const url = window.URL.createObjectURL(zip_blob);
+      // console.log(url)
+      // const a = document.createElement("a");
+      // document.body.appendChild(a);
+      // a.setAttribute("href", url);
+      // a.setAttribute("download", "test.zip");
+      // a.click();
+      // a.remove();
     } else {
       throw Error();
     }
