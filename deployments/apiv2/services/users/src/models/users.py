@@ -53,17 +53,33 @@ class CustomerCreate(BaseModel):
         return v
 
 
+USERNAME_MIN_LEN = 3
+USERNAME_MAX_LEN = 32
+USERNAME_VALID_SPECIAL_CHARS = "_.+-"  # make sure that - is that last char so the regexes work
+USERNAME_REGEX_STR = f"^[a-zA-Z]+[a-zA-Z0-9{USERNAME_VALID_SPECIAL_CHARS}]+$"
+
+
 class UserCreate(CustomerCreate):
-    username: constr(min_length=5, max_length=64, regex="^[a-zA-Z]+[a-zA-Z0-9-_]+$")
+    username: str
 
     @validator("username")
     def username_alphanumeric(cls, v):
-        assert v.isalnum(), "Username must be alphanumeric"
+        assert len(v) >= USERNAME_MIN_LEN, "Username does not meet min length"
+        assert len(v) <= USERNAME_MAX_LEN, "Username exceeds max length"
+
+        assert v[0].isalpha(), "Username must start with a letter"
+        assert re.findall(
+            USERNAME_REGEX_STR, v
+        ), f"Username can only contain letters, numbers, and these special characters: {USERNAME_VALID_SPECIAL_CHARS}"
+        assert not re.findall(
+            rf"([{USERNAME_VALID_SPECIAL_CHARS}])(\1{{1,}})", v
+        ), "Username cannot contain consecutive special characters"
+
         return v
 
 
 class UserProfile(BaseModel):
-    username: constr(min_length=5, max_length=64, regex="^[a-zA-Z]+[a-zA-Z0-9-_]+$")
+    username: constr(min_length=USERNAME_MIN_LEN, max_length=USERNAME_MAX_LEN, regex=USERNAME_REGEX_STR)
     email: EmailStr
     user_id: str
     account_type: str
