@@ -374,7 +374,7 @@ def _yield_s3_objects(bucket: str, keys: List[str], filenames: List[str]):
     try:
         s3 = boto3.session.Session().resource("s3")
         for (idx, key) in enumerate(keys):
-            obj = s3.Object(bucket_name="test-pulse3d-uploads", key=key)
+            obj = s3.Object(bucket_name=PULSE3D_UPLOADS_BUCKET, key=key)
             yield filenames[idx], datetime.now(), 0o600, ZIP_64, obj.get()["Body"]
 
     except Exception as e:

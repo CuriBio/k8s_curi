@@ -369,6 +369,7 @@ export default function Uploads() {
       method: "POST",
       body: JSON.stringify({ jobs }),
     });
+    
     if (response.status === 200) {
       const now = formatDateTime();
       const zipFilename = `MA-analyses__${now}__${jobs.length}.zip`;
