@@ -1,3 +1,5 @@
+from asyncio.log import logger
+from zipfile import ZipFile
 from fastapi.testclient import TestClient
 import json
 import uuid
@@ -512,3 +514,64 @@ def test_jobs__delete__failure_to_delete_jobs(mocker):
 
     response = test_client.delete("/jobs", **kwargs)
     assert response.status_code == 500
+
+
+def test_download__post_returns_zipfile(mocker):
+    mocker.patch.object(main, "download_file_from_s3", autospec=True)
+    mocker.patch.object(ZipFile, "write", autospec=True)
+    
+    test_user_id = uuid.uuid4()
+    access_token = get_token(scope=["users:free"], userid=test_user_id)
+    kwargs = {
+        "headers": {"Authorization": f"Bearer {access_token}"},
+        "json": {
+            "jobs": [
+                {
+                    "jobId": str(uuid.uuid4()),
+                    "uploadId": str(uuid.uuid4()),
+                    "analyzedFile": "test_file.xlsx",
+                    "datetime": "2022-01-01-120000",
+                    "status": "completed",
+                    "analysisParams": {},
+                }
+            ]
+        },
+    }
+
+    response = test_client.post("/download", **kwargs)
+    assert response.headers['content-type'] == 'application/zip'
+    assert response.status_code == 200
+
+
+def test_download__post_returns_400_if_no_jobs_sent(mocker):
+    test_user_id = uuid.uuid4()
+    access_token = get_token(scope=["users:free"], userid=test_user_id)
+    kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}, "json": {"jobs": []}}
+
+    response = test_client.post("/download", **kwargs)
+    assert response.status_code == 400
+
+def test_download__post_continues_if_file_not_found_in_s3(mocker):
+    mocker.patch.object(ZipFile, "write", autospec=True)
+    spied_logger = mocker.spy(main.logger, "error")
+    test_user_id = uuid.uuid4()
+    access_token = get_token(scope=["users:free"], userid=test_user_id)
+    kwargs = {
+        "headers": {"Authorization": f"Bearer {access_token}"},
+        "json": {
+            "jobs": [
+                {
+                    "jobId": str(uuid.uuid4()),
+                    "uploadId": str(uuid.uuid4()),
+                    "analyzedFile": "test_file.xlsx",
+                    "datetime": "2022-01-01-120000",
+                    "status": "completed",
+                    "analysisParams": {},
+                }
+            ]
+        },
+    }
+
+    response = test_client.post("/download", **kwargs)
+    assert len(spied_logger.call_args_list) == 1
+    assert response.status_code == 200

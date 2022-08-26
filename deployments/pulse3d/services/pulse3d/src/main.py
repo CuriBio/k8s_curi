@@ -35,7 +35,6 @@ app.add_middleware(
     allow_origins=[
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
-        "http://localhost:3000",
     ],
 
     allow_credentials=True,
@@ -334,17 +333,15 @@ async def download_analyses(
 ):
 
     jobs = details.jobs
-
+    user_id = str(uuid.UUID(token["userid"]))
+    customer_id = str(uuid.UUID(token["customer_id"]))
+    
     # check if for some reason an empty list was sent
     if not jobs:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Nothing to download.",
         )
-
-    user_id = str(uuid.UUID(token["userid"]))
-    customer_id = str(uuid.UUID(token["customer_id"]))
-    num_of_files = len(jobs)
 
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -367,6 +364,7 @@ async def download_analyses(
                             file_path = "".join([f"{root}_({idx})", ext])
 
                         key_prefix = f"analyzed/{customer_id}/{user_id}/{upload_id}/{job_id}/{filename}"
+                        # will raise error if no object found at prefix
                         download_file_from_s3(
                             bucket=PULSE3D_UPLOADS_BUCKET, key=key_prefix, file_path=file_path
                         )
@@ -379,8 +377,7 @@ async def download_analyses(
 
            
             # Grab ZIP file from in-memory, make response with correct MIME-type
-            response =  Response(zip_f.getvalue(), media_type="application/zip")
-            return response
+            return Response(zip_f.getvalue(), media_type="application/zip")
 
     except Exception as e:
         logger.error(f"Failed to download analyses: {repr(e)}")
