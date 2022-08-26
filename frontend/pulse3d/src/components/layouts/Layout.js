@@ -3,7 +3,7 @@ import styled from "styled-components";
 import DropDownMenu from "@/components/basicWidgets/ButtonDropDown";
 import { useRouter } from "next/router";
 import { AuthContext } from "../../pages/_app";
-import { useContext, useEffect } from "react";
+import { useContext } from "react";
 // required for static export, default loader errors on build
 const imageLoader = ({ src }) => {
   return `/public/${src}`;

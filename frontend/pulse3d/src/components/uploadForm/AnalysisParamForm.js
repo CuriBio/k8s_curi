@@ -2,6 +2,7 @@ import styled from "styled-components";
 import CheckboxWidget from "../basicWidgets/CheckboxWidget";
 import { isArrayOfNumbers } from "../../utils/generic";
 import FormInput from "../basicWidgets/FormInput";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 const Container = styled.div`
   padding-top: 1rem;
@@ -116,19 +117,17 @@ const FormModify = styled.div`
 
 const WALabel = styled.span`
   background-color: var(--light-gray);
-  bottom: 43%;
   border-radius: 6px;
   display: flex;
   align-items: center;
-  width: 195px;
   font-size: 14px;
-  z-index: 1;
   border: 2px solid var(--dark-gray);
   cursor: default;
   z-index: 3;
   position: absolute;
   right: 55%;
   bottom: 94%;
+  width: 205px;
 `;
 
 const AdditionalParamLabel = styled.span`
@@ -150,6 +149,17 @@ const AdditionalParamLabel = styled.span`
   font-weight: 900;
 `;
 
+const ToolTip = styled.div`
+  font-weight: 900;
+  font-style: italic;
+  font-size: 0.7rem;
+  margin: 0;
+  &:hover {
+    color: var(--teal-green);
+    cursor: help;
+  }
+`;
+
 export default function AnalysisParamForm({
   inputVals,
   errorMessages,
@@ -165,50 +175,46 @@ export default function AnalysisParamForm({
   const updateParams = (newParams) => {
     const updatedParams = { ...analysisParams, ...newParams };
 
-    if (newParams.twitchWidths) {
+    if ("twitchWidths" in newParams) {
       validateTwitchWidths(updatedParams);
     }
-    if (newParams.startTime || newParams.endTime) {
+    if ("startTime" in newParams || "endTime" in newParams) {
       // need to validate start and end time together
       validateWindowBounds(updatedParams);
     }
-    if (newParams.prominenceFactorPeaks) {
-      validateAdvancedParams(updatedParams, "prominenceFactorPeaks");
-    }
-    if (newParams.prominenceFactorValleys) {
-      validateAdvancedParams(updatedParams, "prominenceFactorValleys");
-    }
-    if (newParams.widthFactorPeaks) {
-      validateAdvancedParams(updatedParams, "widthFactorPeaks");
-    }
-    if (newParams.widthFactorValleys) {
-      validateAdvancedParams(updatedParams, "widthFactorValleys");
+    for (const paramName of [
+      "prominenceFactorPeaks",
+      "prominenceFactorValleys",
+      "widthFactorPeaks",
+      "widthFactorValleys",
+      "maxY",
+    ]) {
+      if (paramName in newParams) {
+        validatePositiveNumber(updatedParams, paramName, false);
+      }
     }
     setAnalysisParams(updatedParams);
   };
 
-  const isValidPositiveNumber = (value) => {
-    return +value > 0;
+  const checkPositiveNumberEntry = (value, allowZero = true) => {
+    const minValue = allowZero ? 0 : Number.MIN_VALUE;
+    return value === null || value === "" || value >= minValue;
   };
 
-  const validateAdvancedParams = (updatedParams, paramName) => {
+  const validatePositiveNumber = (
+    updatedParams,
+    paramName,
+    allowZero = true
+  ) => {
     const newValue = updatedParams[paramName];
-    if (newValue === null || newValue === "") {
-      setParamErrors({
-        ...paramErrors,
-        [paramName]: "",
-      });
-    } else if (isValidPositiveNumber(newValue)) {
-      setParamErrors({
-        ...paramErrors,
-        [paramName]: "",
-      });
-    } else {
-      setParamErrors({
-        ...paramErrors,
-        [paramName]: "* Must be a positive number",
-      });
+
+    let errorMsg = "";
+    if (!checkPositiveNumberEntry(newValue, allowZero)) {
+      errorMsg = allowZero
+        ? "*Must be a positive number"
+        : "*Must be a positive, non-zero number";
     }
+    setParamErrors({ ...paramErrors, [paramName]: errorMsg });
   };
 
   const validateTwitchWidths = (updatedParams) => {
@@ -249,18 +255,18 @@ export default function AnalysisParamForm({
     const { startTime, endTime } = updatedParams;
     const updatedParamErrors = { ...paramErrors };
 
-    for (const [boundName, boundValueStr] of Object.entries({
+    for (const [boundName, boundValue] of Object.entries({
       startTime,
       endTime,
     })) {
       let error = "";
-      if (boundValueStr) {
-        // checks if positive number, no other characters allowed
-        const numRegEx = new RegExp("^([0-9]+(?:[.][0-9]*)?|.[0-9]+)$");
-        if (!numRegEx.test(boundValueStr)) {
-          error = "*Must be a non-negative number";
+
+      // only perform this check if something has actually been entered
+      if (boundValue) {
+        const allowZero = boundName === "startTime";
+        if (!checkPositiveNumberEntry(boundValue, allowZero)) {
+          error = "*Must be a positive number";
         } else {
-          const boundValue = +boundValueStr;
           updatedParams[boundName] = boundValue;
         }
       }
@@ -287,11 +293,36 @@ export default function AnalysisParamForm({
       </AdditionalParamLabel>
       <InputContainer>
         <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
-          <Label
-            htmlFor="twitchWidths"
-            title="Specifies which twitch width values to add to the per twitch metrics sheet and aggregate metrics sheet."
-          >
+          <Label htmlFor="maxY">
+            Y-Axis Range (µN):
+            <ToolTip title="Specifies the maximum y-axis range of Active Twitch Force in the output xlsx.">
+              <InfoOutlinedIcon />
+            </ToolTip>
+          </Label>
+          <InputErrorContainer>
+            <FormInput
+              name="maxY"
+              placeholder={"Auto find max y"}
+              value={inputVals.maxY}
+              onChangeFn={(e) => {
+                updateParams({
+                  maxY: e.target.value,
+                });
+              }}
+            >
+              <ErrorText id="maxYError" role="errorMsg">
+                {errorMessages.maxY}
+              </ErrorText>
+            </FormInput>
+          </InputErrorContainer>
+        </ParamContainer>
+
+        <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
+          <Label htmlFor="twitchWidths">
             Twitch Width:
+            <ToolTip title="Specifies which twitch width values to add to the per twitch metrics sheet and aggregate metrics sheet.">
+              <InfoOutlinedIcon />
+            </ToolTip>
           </Label>
           <InputErrorContainer>
             <FormInput
@@ -312,7 +343,6 @@ export default function AnalysisParamForm({
         </ParamContainer>
         <WindowAnalysisContainer>
           <WAOverlayContainer>
-            {checkedWindow || <WAOverlay />}
             <WALabel>
               <CheckboxWidget
                 color={"secondary"}
@@ -324,12 +354,13 @@ export default function AnalysisParamForm({
               />
               Use Window Analysis
             </WALabel>
+            {checkedWindow || <WAOverlay />}
             <ParamContainer>
-              <Label
-                htmlFor="startTime"
-                title="Specifies the earliest timepoint (in seconds) to use in analysis."
-              >
+              <Label htmlFor="startTime">
                 Start Time (s):
+                <ToolTip title="Specifies the earliest timepoint (in seconds) to use in analysis.">
+                  <InfoOutlinedIcon />
+                </ToolTip>
               </Label>
               <InputErrorContainer>
                 <FormInput
@@ -349,11 +380,11 @@ export default function AnalysisParamForm({
               </InputErrorContainer>
             </ParamContainer>
             <ParamContainer>
-              <Label
-                htmlFor="endTime"
-                title="Specifies the latest timepoint (in seconds) to use in analysis."
-              >
+              <Label htmlFor="endTime">
                 End Time (s):
+                <ToolTip title="Specifies the latest timepoint (in seconds) to use in analysis.">
+                  <InfoOutlinedIcon />
+                </ToolTip>
               </Label>
               <InputErrorContainer>
                 <FormInput
@@ -389,11 +420,11 @@ export default function AnalysisParamForm({
             </WALabel>
             {checkedAdvanced || <WAOverlay />}
             <TwoParamContainer>
-              <Label
-                htmlFor="prominenceFactorPeaks"
-                title="Specifies the minimum required vertical distance between a local max and its lowest contour line to be classified as a peak."
-              >
+              <Label htmlFor="prominenceFactorPeaks">
                 Prominence (µN):
+                <ToolTip title="Specifies the minimum required vertical distance between a local max and its lowest contour line to be classified as a peak.">
+                  <InfoOutlinedIcon />
+                </ToolTip>
               </Label>
               <InputErrorContainer>
                 <label htmlFor="prominenceFactorPeaks">Peaks</label>
@@ -440,11 +471,11 @@ export default function AnalysisParamForm({
               </InputErrorContainer>
             </TwoParamContainer>
             <TwoParamContainer>
-              <Label
-                htmlFor="widthFactorPeaks"
-                title="Specifies the minimum required width of the base of a local max to be classified as a peak."
-              >
+              <Label htmlFor="widthFactorPeaks">
                 Width (ms):
+                <ToolTip title="Specifies the minimum required width of the base of a local max to be classified as a peak.">
+                  <InfoOutlinedIcon />
+                </ToolTip>
               </Label>
               <InputErrorContainer>
                 <label htmlFor="widthFactorPeaks">Peaks</label>

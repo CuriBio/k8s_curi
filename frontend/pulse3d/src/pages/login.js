@@ -66,9 +66,7 @@ export default function Login() {
         if (res) {
           if (res.status === 200) {
             setAccountType(userType); // set account type globally
-            userType === "Admin"
-              ? router.push("/new-user")
-              : router.push("/uploads"); // routes to next page
+            router.push("/uploads"); // routes to next page
           } else {
             res.status === 401 || res.status === 422
               ? setErrorMsg("*Invalid credentials. Try again.")

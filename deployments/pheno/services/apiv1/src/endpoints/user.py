@@ -28,6 +28,7 @@ router = APIRouter(tags=["user"], route_class=RouteErrorHandler)
 # def register_new_user(name: str, email: str, password: str):
 #     return
 
+
 @router.post("/emailUserStatus")
 async def email_training_status(body: Email_request_model, cur=Depends(get_cur)) -> JSONResponse:
     email = await cur.fetchrow("SELECT email FROM users WHERE id=$1", body.user_id)
@@ -37,4 +38,3 @@ async def email_training_status(body: Email_request_model, cur=Depends(get_cur))
     await email_user(Email_params_model(**updated_params))
 
     return JSONResponse(status_code=status.HTTP_200_OK, content={"message": "Email has been sent"})
-
