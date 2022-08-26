@@ -363,7 +363,7 @@ export default function Uploads() {
 
   const downloadMultiFiles = async (jobs) => {
     //request only presigned urls for selected jobs
-    const url = `https://curibio.com/download`;
+    const url = `https://curibio.com/jobs/download`;
     const response = await fetch(url, {
       method: "POST",
       body: JSON.stringify({ jobs }),

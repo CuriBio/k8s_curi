@@ -319,7 +319,7 @@ async def soft_delete_jobs(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.post("/download")
+@app.post("/jobs/download")
 async def download_analyses(
     request: Request,
     details: DownloadRequest,
