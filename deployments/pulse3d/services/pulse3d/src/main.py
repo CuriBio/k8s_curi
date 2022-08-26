@@ -2,13 +2,14 @@ import json
 import logging
 from typing import List, Optional
 import uuid
-import tempfile
+import boto3
 import os
-from zipfile import ZipFile
-import io
 
-from fastapi import FastAPI, Request, Depends, HTTPException, status, Query, Response
+from stream_zip import ZIP_64, stream_zip
+from datetime import datetime
+from fastapi import FastAPI, Request, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from auth import ProtectedAny
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET
@@ -16,7 +17,7 @@ from jobs import create_upload, create_job, get_uploads, get_jobs, delete_jobs, 
 from models.models import UploadRequest, UploadResponse, JobRequest, JobResponse, DownloadRequest
 from models.types import AdvancedParamTuple
 from utils.db import AsyncpgPoolDep
-from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error, download_file_from_s3
+from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error
 
 
 # logging is configured in log_config.yaml
@@ -30,6 +31,7 @@ app.add_middleware(
     allow_origins=[
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
+        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -318,7 +320,6 @@ async def soft_delete_jobs(
         logger.error(f"Failed to soft delete jobs: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 @app.post("/jobs/download")
 async def download_analyses(
     request: Request,
@@ -338,40 +339,44 @@ async def download_analyses(
         )
 
     try:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            zip_f = io.BytesIO()
+        unique_filenames = list()
+        keys = list()
 
-            with ZipFile(zip_f, "w") as zip_file:
-                for job in jobs:
-                    upload_id = job.uploadId
-                    job_id = job.jobId
-                    filename = job.analyzedFile
+        for job in jobs:
+            upload_id = job.uploadId
+            job_id = job.jobId
+            filename = job.analyzedFile
+            keys.append(f"analyzed/{customer_id}/{user_id}/{upload_id}/{job_id}/{filename}")
 
-                    try:
-                        file_path = os.path.join(tmpdir, filename)
-                        if os.path.exists(file_path):
-                            # grabs index of file in list of duplicate filenames to append to filename to differentiate
-                            duplicate_filename = [j.jobId for j in jobs if j.analyzedFile == filename]
-                            idx = duplicate_filename.index(job_id)
-                            # add duplicate index to differentiate duplicate filenames
-                            root, ext = os.path.splitext(file_path)
-                            file_path = "".join([f"{root}_({idx})", ext])
+            if filename in unique_filenames:
+                # grabs index of file in list of duplicate filenames to append to filename to differentiate
+                duplicate_filename = [j.jobId for j in jobs if j.analyzedFile == filename]
+                idx = duplicate_filename.index(job_id)
+                # add duplicate index to differentiate duplicate filenames
+                root, ext = os.path.splitext(filename)
+                filename = "".join([f"{root}_({idx})", ext])
 
-                        key_prefix = f"analyzed/{customer_id}/{user_id}/{upload_id}/{job_id}/{filename}"
-                        # will raise error if no object found at prefix
-                        download_file_from_s3(
-                            bucket=PULSE3D_UPLOADS_BUCKET, key=key_prefix, file_path=file_path
-                        )
-                    except Exception as e:
-                        logger.error(e)
-                        continue  # continue loop if one file fails, download function logs error itself
-                    else:
-                        logger.info(f"Writing {filename} to zip.")
-                        zip_file.write(file_path, os.path.basename(file_path))
+            unique_filenames.append(filename)
 
-            # Grab ZIP file from in-memory, make response with correct MIME-type
-            return Response(zip_f.getvalue(), media_type="application/zip")
+        # Grab ZIP file from in-memory, make response with correct MIME-type
+        return StreamingResponse(
+            content=stream_zip(
+                _yield_s3_objects(bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=unique_filenames)
+            ),
+            media_type="application/zip",
+        )
 
     except Exception as e:
         logger.error(f"Failed to download analyses: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _yield_s3_objects(bucket: str, keys: List[str], filenames: List[str]):
+    try:
+        s3 = boto3.session.Session().resource("s3")
+        for (idx, key) in enumerate(keys):
+            obj = s3.Object(bucket_name="test-pulse3d-uploads", key=key)
+            yield filenames[idx], datetime.now(), 0o600, ZIP_64, obj.get()["Body"]
+
+    except Exception as e:
+        raise S3Error(f"Failed to access {bucket}/{key}: {repr(e)}")

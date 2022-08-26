@@ -15,6 +15,7 @@ import styled from "styled-components";
 import { useContext, useState, useEffect } from "react";
 import Row from "@/components/uploads/TableRow";
 import { AuthContext } from "@/pages/_app";
+import { createWriteStream } from "streamsaver";
 
 const Container = styled.div`
   display: flex;
@@ -368,18 +369,26 @@ export default function Uploads() {
       method: "POST",
       body: JSON.stringify({ jobs }),
     });
-
     if (response.status === 200) {
       const now = formatDateTime();
       const zipFilename = `MA-analyses__${now}__${jobs.length}.zip`;
-      const zip_blob = await response.blob();
 
-      const downloadLink = document.createElement("a");
-      downloadLink.download = zipFilename;
-      downloadLink.href = window.URL.createObjectURL(zip_blob);
+      const fileStream = createWriteStream(zipFilename);
+      const writer = fileStream.getWriter();
 
-      downloadLink.click();
-      downloadLink.remove();
+      if (response.body.pipeTo) {
+        writer.releaseLock();
+        return response.body.pipeTo(fileStream);
+      }
+
+      const reader = response.body.getReader();
+
+      () =>
+        reader
+          .read()
+          .then(({ value, done }) =>
+            done ? writer.close() : writer.write(value).then(pump)
+          )();
     } else {
       throw Error();
     }
