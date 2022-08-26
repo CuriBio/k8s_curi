@@ -1,19 +1,14 @@
 import json
-from lib2to3.pytree import Base
 import logging
 from typing import List, Optional
 import uuid
 import tempfile
 import os
 from zipfile import ZipFile
-from datetime import datetime
 import io
 
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
-
 
 from auth import ProtectedAny
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET
@@ -36,7 +31,6 @@ app.add_middleware(
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
     ],
-
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -335,7 +329,7 @@ async def download_analyses(
     jobs = details.jobs
     user_id = str(uuid.UUID(token["userid"]))
     customer_id = str(uuid.UUID(token["customer_id"]))
-    
+
     # check if for some reason an empty list was sent
     if not jobs:
         raise HTTPException(
@@ -346,7 +340,7 @@ async def download_analyses(
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
             zip_f = io.BytesIO()
-            
+
             with ZipFile(zip_f, "w") as zip_file:
                 for job in jobs:
                     upload_id = job.uploadId
@@ -375,7 +369,6 @@ async def download_analyses(
                         logger.info(f"Writing {filename} to zip.")
                         zip_file.write(file_path, os.path.basename(file_path))
 
-           
             # Grab ZIP file from in-memory, make response with correct MIME-type
             return Response(zip_f.getvalue(), media_type="application/zip")
 

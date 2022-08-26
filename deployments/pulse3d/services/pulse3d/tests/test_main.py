@@ -1,8 +1,7 @@
-from asyncio.log import logger
-from zipfile import ZipFile
 from fastapi.testclient import TestClient
 import json
 import uuid
+from zipfile import ZipFile
 
 import pytest
 
@@ -519,7 +518,7 @@ def test_jobs__delete__failure_to_delete_jobs(mocker):
 def test_download__post_returns_zipfile(mocker):
     mocker.patch.object(main, "download_file_from_s3", autospec=True)
     mocker.patch.object(ZipFile, "write", autospec=True)
-    
+
     test_user_id = uuid.uuid4()
     access_token = get_token(scope=["users:free"], userid=test_user_id)
     kwargs = {
@@ -539,7 +538,7 @@ def test_download__post_returns_zipfile(mocker):
     }
 
     response = test_client.post("/download", **kwargs)
-    assert response.headers['content-type'] == 'application/zip'
+    assert response.headers["content-type"] == "application/zip"
     assert response.status_code == 200
 
 
@@ -550,6 +549,7 @@ def test_download__post_returns_400_if_no_jobs_sent(mocker):
 
     response = test_client.post("/download", **kwargs)
     assert response.status_code == 400
+
 
 def test_download__post_continues_if_file_not_found_in_s3(mocker):
     mocker.patch.object(ZipFile, "write", autospec=True)
