@@ -2,6 +2,8 @@ import json
 import logging
 from typing import List, Optional
 import uuid
+import tempfile
+import os
 
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,7 +14,7 @@ from jobs import create_upload, create_job, get_uploads, get_jobs, delete_jobs, 
 from models.models import UploadRequest, UploadResponse, JobRequest, JobResponse
 from models.types import AdvancedParamTuple
 from utils.db import AsyncpgPoolDep
-from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error
+from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error, download_directory_from_s3
 
 
 # logging is configured in log_config.yaml
@@ -27,7 +29,7 @@ app.add_middleware(
     allow_origins=[
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
-        "http://localhost:3000"
+        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -314,4 +316,52 @@ async def soft_delete_jobs(
             )
     except Exception as e:
         logger.error(f"Failed to soft delete jobs: {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.get("/uploads/waveform_data")
+async def get_interactive_waveform_data(
+    request: Request,
+    upload_id: uuid.UUID = Query(True),
+    token=Depends(ProtectedAny(scope=["users:free"])),
+):
+    try:
+        account_id = str(uuid.UUID(token["userid"]))
+        customer_id = str(uuid.UUID(token["customer_id"]))
+        upload_id = str(upload_id)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # key = f"uploads/{customer_id}/{account_id}/{upload_id}"
+            # logger.info(f"Downloading recording data from {key}")
+
+            # download_directory_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file_path=tmpdir)
+
+            # from pulse3D.plate_recording import PlateRecording
+            # from pulse3D.constants import MICRO_TO_BASE_CONVERSION
+
+            logger.info("Reading h5 files and generating dataframe")
+            # pr = PlateRecording(
+            #     os.path.join(
+            #         os.path.expanduser("~"), "Desktop", "ML2022123456_overnight test_2022_06_14_155050.zip"
+            #     )
+            # )
+
+            # df = pr.to_dataframe()
+
+            # columns = [list(df[c]) for c in df.columns]
+            # time = columns[:1][0]
+            # force = columns[1:]
+            # coordinates = list()
+
+            # for well in force:
+            #     well_coords = [[time[i] / MICRO_TO_BASE_CONVERSION, val] for (i, val) in enumerate(well)]
+            #     coordinates.append(well_coords)
+
+            with open("/Users/lucipak/Desktop/test_data.txt", "r") as f:
+                coords = f.read()
+
+            return json.loads(coords)
+
+    except Exception as e:
+        logger.error(f"Failed to get interactive waveform data: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -202,7 +202,7 @@ export default function Uploads() {
         setModalState("generic");
       }
     } else if (option === 2) {
-      setSelectedAnalysis(jobs.filter(({ jobId }) => jobId === checkedJobs[0]));
+      setSelectedAnalysis(checkedUploads[0]);
       setOpenInteractiveAnalysis(true);
     }
 
@@ -475,7 +475,7 @@ export default function Uploads() {
         header="Interactive Waveform Analysis"
         width={1500}
       >
-        <InteractiveAnalysisModal job={selectedAnalysis} />
+        <InteractiveAnalysisModal uploadId={selectedAnalysis} />
       </ModalWidget>
     </>
   );

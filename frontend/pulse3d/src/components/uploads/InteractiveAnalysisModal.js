@@ -38,17 +38,32 @@ const GraphContainer = styled.div`
   padding: 15px;
 `;
 
-export default function InteractiveWaveformModal({ job }) {
+export default function InteractiveWaveformModal({ uploadId }) {
   const [selectedWell, setSelectedWell] = useState(0);
+  const [data, setData] = useState([]);
+  const [dataToGraph, setDataToGraph] = useState([]);
 
   const getWaveformData = async () => {
-    const url = "https://";
-    const response = await fetch("https://curibio.com/waveform_data");
+    try {
+      const response = await fetch(
+        `https://curibio.com/uploads/waveform_data?upload_id=${uploadId}`
+      );
+      const coordinates = await response.json();
+      console.log(typeof coordinates)
+      setData([...coordinates]);
+    } catch (e) {
+      console.log("ERROR getting waveform data: ", e);
+    }
   };
 
   useEffect(() => {
     getWaveformData();
-  }, [job]);
+  }, [uploadId]);
+
+  useEffect(() => {
+    // will error on init because there won't be an index 0
+    if (data.length > 0) setDataToGraph([...data[selectedWell]]);
+  }, [data, selectedWell]);
 
   const wellNames = Array(24)
     .fill()
@@ -68,7 +83,7 @@ export default function InteractiveWaveformModal({ job }) {
         />
       </DropdownContainer>
       <GraphContainer>
-        <WaveformGraph />
+        <WaveformGraph dataToGraph={dataToGraph} />
       </GraphContainer>
     </Container>
   );
