@@ -94,8 +94,11 @@ export default function NewUserForm() {
           resetForm();
         } else if (res.status === 422) {
           const error = await res.json();
-          const message = error.detail[0].loc[1];
-          setErrorMessage(message);
+          // some very unuseful errors get returned from the serve, so filter those out and use the first meaningful error message
+          const firstError = error.detail.find((d) => d.msg);
+          const nameOfInvalidField = firstError.loc[1];
+          const reason = firstError.msg;
+          setErrorMessage(nameOfInvalidField, reason);
         } else if (res.status === 400) {
           const error = await res.json();
           setErrorMsg(`* ${error.detail}`);
@@ -106,26 +109,10 @@ export default function NewUserForm() {
     setInProgress(false);
   };
 
-  const setErrorMessage = (msg) => {
-    let newMsg = null;
-    switch (msg) {
-      case "email":
-        newMsg = "Please enter a valid email";
-        break;
-      case "username":
-        newMsg =
-          "Username must be at least 5 characters long, and only contain letters and numbers";
-        break;
-      case "password1":
-        newMsg =
-          "Please enter a valid password. Must contain at least one uppercase, one lowercase, one number, one special character, and be at least ten characters long.";
-        break;
-      case "password2":
-        newMsg = "Passwords do not match";
-        break;
-    }
-
-    if (newMsg) setErrorMsg(`* ${newMsg}`);
+  const setErrorMessage = (nameOfInvalidField, reason) => {
+    const errorMsg =
+      nameOfInvalidField === "email" ? "Please enter a valid email" : reason;
+    if (errorMsg) setErrorMsg(`* ${errorMsg}`);
   };
 
   return (

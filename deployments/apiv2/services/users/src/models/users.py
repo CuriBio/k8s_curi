@@ -30,21 +30,23 @@ class CustomerCreate(BaseModel):
             r"""(
                 ^(?=.*[A-Z])
                 (?=.*[a-z])
-                (?=.*[!@#$%^&*><?-_=+~])
+                (?=.*[!@#$%^&*><?_=+~-])
                 (?=.*[0-9])
                 .{10,}
                 $)""",
             re.VERBOSE,
         )
 
-        assert valid.search(v.get_secret_value()), "Password does not meet minimum requirements"
+        assert valid.search(
+            v.get_secret_value()
+        ), "Password must contain at least one uppercase, one lowercase, one number, one special character, and be at least ten characters long"
         return v
 
     @validator("password2")
     def passwords_match(cls, v, values, **kwargs):
-        p2 = v.get_secret_value()
-        if "password1" in values and p2 != values["password1"].get_secret_value():
-            raise ValueError("Passwords do not match")
+        if pw1 := values.get("password1"):
+            assert v.get_secret_value() == pw1.get_secret_value(), "Passwords do not match"
+
         return v
 
     @validator("username")
@@ -68,11 +70,14 @@ class UserCreate(CustomerCreate):
         assert len(v) <= USERNAME_MAX_LEN, "Username exceeds max length"
 
         assert v[0].isalpha(), "Username must start with a letter"
-        assert re.findall(
+        assert v[-1].isalnum(), "Username must end with a letter or number"
+
+        assert re.match(
             USERNAME_REGEX_STR, v
         ), f"Username can only contain letters, numbers, and these special characters: {USERNAME_VALID_SPECIAL_CHARS}"
         assert not re.findall(
-            rf"([{USERNAME_VALID_SPECIAL_CHARS}])(\1{{1,}})", v
+            f"[{USERNAME_VALID_SPECIAL_CHARS}]{{2,}}",
+            v,
         ), "Username cannot contain consecutive special characters"
 
         return v
