@@ -38,8 +38,17 @@ const GraphContainer = styled.div`
   padding: 15px;
 `;
 
-export default function InteractiveWaveformModal() {
+export default function InteractiveWaveformModal({ job }) {
   const [selectedWell, setSelectedWell] = useState(0);
+
+  const getWaveformData = async () => {
+    const url = "https://";
+    const response = await fetch("https://curibio.com/waveform_data");
+  };
+
+  useEffect(() => {
+    getWaveformData();
+  }, [job]);
 
   const wellNames = Array(24)
     .fill()

@@ -14,11 +14,8 @@ import DashboardLayout, {
 import styled from "styled-components";
 import { useContext, useState, useEffect } from "react";
 import Row from "@/components/uploads/TableRow";
-<<<<<<< HEAD
 import InteractiveAnalysisModal from "@/components/uploads/InteractiveAnalysisModal";
-=======
 import { AuthContext } from "@/pages/_app";
->>>>>>> main
 
 const Container = styled.div`
   display: flex;
@@ -97,7 +94,7 @@ const modalObjs = {
 export default function Uploads() {
   const { accountType } = useContext(AuthContext);
   const { uploads, setFetchUploads } = useContext(UploadsContext);
-  const [jobs, setJobs] = useState();
+  const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [checkedJobs, setCheckedJobs] = useState([]);
@@ -107,6 +104,7 @@ export default function Uploads() {
   const [modalLabels, setModalLabels] = useState({ header: "", messages: [] });
   const [modalButtons, setModalButtons] = useState([]);
   const [openInteractiveAnalysis, setOpenInteractiveAnalysis] = useState(false);
+  const [selectedAnalysis, setSelectedAnalysis] = useState();
 
   const getAllJobs = async () => {
     try {
@@ -156,33 +154,31 @@ export default function Uploads() {
   }, [uploads]);
 
   useEffect(() => {
-    if (jobs) {
-      const formattedUploads = uploads
-        .map(({ username, id, filename, created_at }) => {
-          const formattedTime = formatDateTime(created_at);
-          const recName = filename ? filename.split(".")[0] : null;
-          const uploadJobs = jobs
-            .filter(({ uploadId }) => uploadId === id)
-            .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+    const formattedUploads = uploads
+      .map(({ username, id, filename, created_at }) => {
+        const formattedTime = formatDateTime(created_at);
+        const recName = filename ? filename.split(".")[0] : null;
+        const uploadJobs = jobs
+          .filter(({ uploadId }) => uploadId === id)
+          .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
 
-          const lastAnalyzed = uploadJobs[0]
-            ? uploadJobs[0].datetime
-            : formattedTime;
+        const lastAnalyzed = uploadJobs[0]
+          ? uploadJobs[0].datetime
+          : formattedTime;
 
-          return {
-            username,
-            name: recName,
-            id,
-            createdAt: formattedTime,
-            lastAnalyzed,
-            jobs: uploadJobs,
-          };
-        })
-        .sort((a, b) => new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed));
+        return {
+          username,
+          name: recName,
+          id,
+          createdAt: formattedTime,
+          lastAnalyzed,
+          jobs: uploadJobs,
+        };
+      })
+      .sort((a, b) => new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed));
 
-      setRows([...formattedUploads]);
-      setLoading(false);
-    }
+    setRows([...formattedUploads]);
+    setLoading(false);
   }, [jobs]);
 
   const handleDropdownSelection = (option) => {
@@ -206,6 +202,7 @@ export default function Uploads() {
         setModalState("generic");
       }
     } else if (option === 2) {
+      setSelectedAnalysis(jobs.filter(({ jobId }) => jobId === checkedJobs[0]));
       setOpenInteractiveAnalysis(true);
     }
 
@@ -353,7 +350,6 @@ export default function Uploads() {
           <DropDownContainer>
             <DropDownWidget
               label="Actions"
-<<<<<<< HEAD
               options={["Download", "Delete", "Interactive Analysis"]}
               disableOptions={[
                 ...Array(2).fill(
@@ -367,15 +363,6 @@ export default function Uploads() {
                 ),
                 "Can only be performed on one job at a time",
               ]}
-=======
-              options={["Download", "Delete"]}
-              disableOptions={Array(2).fill(
-                checkedJobs.length === 0 && checkedUploads.length === 0
-              )}
-              optionsTooltipText={Array(2).fill(
-                "Must make a selection below before actions become available."
-              )}
->>>>>>> main
               handleSelection={handleDropdownSelection}
               reset={resetDropdown}
             />
@@ -488,7 +475,7 @@ export default function Uploads() {
         header="Interactive Waveform Analysis"
         width={1500}
       >
-        <InteractiveAnalysisModal />
+        <InteractiveAnalysisModal job={selectedAnalysis} />
       </ModalWidget>
     </>
   );

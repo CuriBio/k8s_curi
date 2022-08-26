@@ -24,15 +24,11 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
 app.add_middleware(
     CORSMiddleware,
-<<<<<<< HEAD
     allow_origins=[
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
         "http://localhost:3000"
     ],
-=======
-    allow_origins=["https://dashboard.curibio-test.com", "https://dashboard.curibio.com"],
->>>>>>> main
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
