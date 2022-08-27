@@ -362,6 +362,7 @@ export default function Uploads() {
   };
 
   const downloadMultiFiles = async (jobs) => {
+    //streamsaver has to be required here otherwise you get build errors with "document is not defined"
     const { createWriteStream } = require("streamsaver");
     //request only presigned urls for selected jobs
     const url = `https://curibio.com/jobs/download`;
