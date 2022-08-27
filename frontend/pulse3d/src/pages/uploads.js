@@ -136,16 +136,34 @@ export default function Uploads() {
   };
 
   const formatDateTime = (datetime) => {
-    return new Date(datetime + "Z").toLocaleDateString(undefined, {
-      hour: "numeric",
-      minute: "numeric",
-    });
+    if (datetime)
+      return new Date(datetime + "Z").toLocaleDateString(undefined, {
+        hour: "numeric",
+        minute: "numeric",
+      });
+    else {
+      const now = new Date();
+      const datetime =
+        now.getFullYear() +
+        "-" +
+        (now.getMonth() + 1) +
+        "-" +
+        now.getDate() +
+        "-" +
+        now.getHours() +
+        now.getMinutes() +
+        now.getSeconds();
+      return datetime;
+    }
   };
 
   useEffect(() => {
     getAllJobs();
     // start 10 second interval
-    const uploadsInterval = setInterval(() => getAllJobs(), [1e4]);
+    const uploadsInterval = setInterval(() => {
+      // don't call get jobs if downloading ro deleting in progress because it backs up server
+      if (!["downloading", "deleting"].includes(modalState)) getAllJobs();
+    }, [1e4]);
     //clear interval when switching pages
     return () => clearInterval(uploadsInterval);
   }, [uploads]);
@@ -283,45 +301,31 @@ export default function Uploads() {
       const numberOfJobs = finishedJobs.length;
 
       if (numberOfJobs > 0) {
-        //request only presigned urls for selected jobs
-        const url = `https://curibio.com/jobs?`;
-        finishedJobs.map(({ jobId }) => (url += `job_ids=${jobId}&`));
-        const response = await fetch(url.slice(0, -1));
-        // set modal buttons before status modal opens
         setModalButtons(["Close"]);
-        if (response.status === 200) {
-          const { jobs } = await response.json();
 
-          for (const job of jobs) {
-            const presignedUrl = job.url;
-            // hopefully no errors, for fail safe in case one returns no url when not found in s3
-            if (presignedUrl) {
-              const fileName = presignedUrl.split("/")[presignedUrl.length - 1];
-
-              // setup temporary download link
-              const link = document.createElement("a");
-              link.href = presignedUrl; // assign link to hit presigned url
-              link.download = fileName; // set new downloaded files name to analyzed file name
-              document.body.appendChild(link);
-
-              // click to download
-              link.click();
-              link.remove();
-            }
+        /* 
+          Download correct number of files, 
+          else throw error to prompt error modal
+        */
+        try {
+          if (numberOfJobs === 1) {
+            await downloadSingleFile(finishedJobs[0]);
+          } else if (numberOfJobs > 1) {
+            await downloadMultiFiles(finishedJobs);
           }
-
-          setModalLabels({
-            header: "Success!",
-            messages: [
-              `The following number of analyses have been successfully downloaded: ${numberOfJobs}`,
-              "They can be found in your local downloads folder.",
-            ],
-          });
-
-          setModalState("generic");
-        } else {
-          throw Error();
+        } catch (e) {
+          throw Error(e);
         }
+
+        setModalLabels({
+          header: "Success!",
+          messages: [
+            `The following number of analyses have been successfully downloaded: ${numberOfJobs}`,
+            "They can be found in your local downloads folder.",
+          ],
+        });
+
+        setModalState("generic");
       } else {
         // let user know in the off chance that the only files they selected are not finished analyzing or failed
         setModalLabels(modalObjs.nothingToDownload);
@@ -329,9 +333,67 @@ export default function Uploads() {
         setModalState("generic");
       }
     } catch (e) {
-      console.log("ERROR fetching presigned url to download analysis");
+      console.log(`ERROR fetching presigned url to download analysis: ${e}`);
       setModalLabels(modalObjs.downloadError);
       setModalState("generic");
+    }
+  };
+
+  const downloadSingleFile = async ({ jobId }) => {
+    //request only presigned urls for selected jobs
+    const url = `https://curibio.com/jobs?job_ids=${jobId}`;
+    const response = await fetch(url);
+
+    if (response.status === 200) {
+      const { jobs } = await response.json();
+      const presignedUrl = jobs[0].url;
+
+      if (presignedUrl) {
+        const a = document.createElement("a");
+        document.body.appendChild(a);
+        a.setAttribute("href", presignedUrl);
+        a.setAttribute("download", jobs[0].id);
+        a.click();
+        a.remove();
+      }
+    } else {
+      throw Error();
+    }
+  };
+
+  const downloadMultiFiles = async (jobs) => {
+    //streamsaver has to be required here otherwise you get build errors with "document is not defined"
+    const { createWriteStream } = require("streamsaver");
+    //request only presigned urls for selected jobs
+    const url = `https://curibio.com/jobs/download`;
+    const response = await fetch(url, {
+      method: "POST",
+      body: JSON.stringify({ jobs }),
+    });
+
+    if (response.status === 200) {
+      console.log("good request");
+      const now = formatDateTime();
+      const zipFilename = `MA-analyses__${now}__${jobs.length}.zip`;
+
+      const fileStream = createWriteStream(zipFilename);
+      const writer = fileStream.getWriter();
+
+      if (response.body.pipeTo) {
+        writer.releaseLock();
+        return response.body.pipeTo(fileStream);
+      }
+
+      const reader = response.body.getReader();
+
+      () =>
+        reader
+          .read()
+          .then(({ value, done }) =>
+            done ? writer.close() : writer.write(value).then(pump)
+          )();
+    } else {
+      throw Error();
     }
   };
 
