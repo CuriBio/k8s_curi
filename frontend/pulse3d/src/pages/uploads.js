@@ -15,7 +15,6 @@ import styled from "styled-components";
 import { useContext, useState, useEffect } from "react";
 import Row from "@/components/uploads/TableRow";
 import { AuthContext } from "@/pages/_app";
-import { createWriteStream } from "streamsaver";
 
 const Container = styled.div`
   display: flex;
@@ -363,14 +362,16 @@ export default function Uploads() {
   };
 
   const downloadMultiFiles = async (jobs) => {
+    const { createWriteStream } = require("streamsaver");
     //request only presigned urls for selected jobs
     const url = `https://curibio.com/jobs/download`;
     const response = await fetch(url, {
       method: "POST",
       body: JSON.stringify({ jobs }),
     });
-    
+
     if (response.status === 200) {
+      console.log("good request");
       const now = formatDateTime();
       const zipFilename = `MA-analyses__${now}__${jobs.length}.zip`;
 

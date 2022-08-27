@@ -3,7 +3,6 @@
 // need to be included in any build steps, just the compiled webpack output
 
 import jwtDecode from "jwt-decode";
-
 import { Mutex } from "async-mutex";
 
 const refreshMutex = new Mutex();
@@ -79,7 +78,6 @@ const modifyRequest = async (req, url) => {
     // and the request should fail with 403
     headers.append("Authorization", `Bearer ${tokens.access}`);
   }
-
   // apply new headers. Make sure to clone the original request obj if consuming the body by calling json()
   // since it typically can only be consumed once
   const modifiedReq = new Request(getUrl(url), {
@@ -170,6 +168,7 @@ const interceptResponse = async (req, url) => {
     });
   } else {
     const response = await requestWithRefresh(req, url);
+
     if (url.pathname.includes("logout")) {
       // just clear tokens if user purposefully logs out
       clearTokens();
