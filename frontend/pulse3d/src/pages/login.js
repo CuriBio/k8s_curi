@@ -1,8 +1,7 @@
 import styled from "styled-components";
-import { useContext, useState } from "react";
+import { useState } from "react";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import LoginForm from "@/components/account/LoginForm";
-import { AuthContext } from "./_app";
 import { useRouter } from "next/router";
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
@@ -41,9 +40,8 @@ const ButtonContainer = styled.div`
 export default function Login() {
   const router = useRouter();
   const [errorMsg, setErrorMsg] = useState(null);
-  const [userType, setUserType] = useState("User");
+  const [loginType, setLoginType] = useState("User");
   const [userData, setUserData] = useState({});
-  const { setAccountType } = useContext(AuthContext);
 
   const submitForm = async () => {
     setErrorMsg(""); // reset to show user something happened
@@ -61,7 +59,6 @@ export default function Login() {
 
         if (res) {
           if (res.status === 200) {
-            setAccountType(userType); // set account type globally
             router.push("/uploads"); // routes to next page
           } else {
             res.status === 401 || res.status === 422
@@ -78,10 +75,10 @@ export default function Login() {
 
   return (
     <BackgroundContainer>
-      <ModalContainer user={userType === "User"}>
+      <ModalContainer user={loginType === "User"}>
         <ButtonContainer>
           {["User", "Admin"].map((type, idx) => {
-            const isSelected = type === userType;
+            const isSelected = type === loginType;
             return (
               <ButtonWidget
                 label={type}
@@ -92,7 +89,7 @@ export default function Login() {
                 }
                 clickFn={() => {
                   setUserData({});
-                  setUserType(type);
+                  setLoginType(type);
                 }}
               />
             );
@@ -101,7 +98,7 @@ export default function Login() {
         <LoginForm
           userData={userData}
           setUserData={setUserData}
-          userType={userType}
+          loginType={loginType}
         >
           <ErrorText id="loginError" role="errorMsg">
             {errorMsg}

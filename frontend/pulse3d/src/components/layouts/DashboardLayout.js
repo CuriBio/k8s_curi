@@ -1,8 +1,7 @@
 import ControlPanel from "@/components/layouts/ControlPanel";
-import { useEffect, useState, createContext, useContext } from "react";
+import { useEffect, useState, createContext } from "react";
 import styled from "styled-components";
 import { useRouter } from "next/router";
-import { AuthContext } from "@/pages/_app";
 
 const Container = styled.div`
   height: inherit;
