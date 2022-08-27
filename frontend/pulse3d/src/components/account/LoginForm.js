@@ -18,11 +18,11 @@ export default function LoginForm({
   children,
   setUserData,
   userData,
-  userType,
+  loginType,
 }) {
   return (
-    <InputContainer user={userType === "User"}>
-      {userType === "User" ? (
+    <InputContainer user={loginType === "User"}>
+      {loginType === "User" ? (
         <>
           <FormInput
             name="customer_id"
