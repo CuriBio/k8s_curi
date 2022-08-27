@@ -35,3 +35,16 @@ class JobResponse(BaseModel):
     upload_id: uuid.UUID
     status: str
     priority: int
+
+class DownloadItem(BaseModel):
+    jobId: uuid.UUID
+    uploadId: uuid.UUID
+    analyzedFile: str
+    datetime: str
+    status: str
+    analysisParams: Dict[Any, Any]
+
+
+class DownloadRequest(BaseModel):
+    jobs: List[DownloadItem]
+

@@ -512,3 +512,61 @@ def test_jobs__delete__failure_to_delete_jobs(mocker):
 
     response = test_client.delete("/jobs", **kwargs)
     assert response.status_code == 500
+
+
+def test_download__post_returns_zip(mocker):
+    mocked_s3_util = mocker.patch.object(main, "_yield_s3_objects", autospec=True)
+
+    upload_id = uuid.uuid4()
+    job_one = uuid.uuid4()
+    job_two = uuid.uuid4()
+    test_user_id = uuid.uuid4()
+    test_customer_id = uuid.uuid4()
+
+    access_token = get_token(scope=["users:free"], userid=test_user_id, customer_id=test_customer_id)
+
+    kwargs = {
+        "headers": {"Authorization": f"Bearer {access_token}"},
+        "json": {
+            "jobs": [
+                {
+                    "jobId": str(job_one),
+                    "uploadId": str(upload_id),
+                    "analyzedFile": "test_file.xlsx",
+                    "datetime": "2022-01-01-120000",
+                    "status": "completed",
+                    "analysisParams": {},
+                },
+                {
+                    "jobId": str(job_two),
+                    "uploadId": str(upload_id),
+                    "analyzedFile": "test_file.xlsx",
+                    "datetime": "2022-01-01-120000",
+                    "status": "completed",
+                    "analysisParams": {},
+                },
+            ]
+        },
+    }
+
+    response = test_client.post("/jobs/download", **kwargs)
+    assert response.headers["content-type"] == "application/zip"
+    assert response.status_code == 200
+    
+    mocked_s3_util.assert_called_with(
+        bucket="test-pulse3d-uploads",
+        filenames=["test_file.xlsx", "test_file_(1).xlsx"],
+        keys=[
+            f"analyzed/{test_customer_id}/{test_user_id}/{upload_id}/{job_one}/test_file.xlsx",
+            f"analyzed/{test_customer_id}/{test_user_id}/{upload_id}/{job_two}/test_file.xlsx",
+        ],
+    )
+
+
+def test_download__post_returns_400_if_no_jobs_sent(mocker):
+    test_user_id = uuid.uuid4()
+    access_token = get_token(scope=["users:free"], userid=test_user_id)
+    kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}, "json": {"jobs": []}}
+
+    response = test_client.post("/jobs/download", **kwargs)
+    assert response.status_code == 400
