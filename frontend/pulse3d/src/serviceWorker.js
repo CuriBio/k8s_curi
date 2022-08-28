@@ -51,7 +51,7 @@ let ClientSource = null;
 const sendLogoutMsg = () => {
   clearAccountInfo();
   ClientSource.postMessage({ logout: true });
-  console.log("[SW] logout ping sent");
+  console.debug("[SW] logout ping sent");
 };
 
 const clearAccountInfo = () => {
@@ -99,7 +99,7 @@ const modifyRequest = async (req, url) => {
 };
 
 const handleRefreshRequest = async () => {
-  console.log("[SW] Requesting new tokens in handleRefreshRequest");
+  console.debug("[SW] Requesting new tokens in handleRefreshRequest");
 
   let res = null;
   try {
@@ -109,7 +109,7 @@ const handleRefreshRequest = async () => {
       headers: { Authorization: `Bearer ${tokens.refresh}` },
     });
   } catch (e) {
-    console.log("[SW] ERROR in refresh req:", e.message);
+    console.debug("[SW] ERROR in refresh req:", e.message);
     return { error: JSON.stringify(e.message) };
   }
 
@@ -195,12 +195,12 @@ const interceptResponse = async (req, url) => {
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
-  console.log("[SW] Service worker installed!");
+  console.debug("[SW] Service worker installed!");
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
-  console.log("[SW] Service worker ready!");
+  console.debug("[SW] Service worker ready!");
 });
 
 // Intercept all fetch requests

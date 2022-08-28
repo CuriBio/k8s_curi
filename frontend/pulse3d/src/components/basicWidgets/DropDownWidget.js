@@ -6,6 +6,7 @@ import { forwardRef, useEffect, useState } from "react";
 import styled from "styled-components";
 import OutlinedInput from "@mui/material/OutlinedInput";
 import Tooltip from "@mui/material/Tooltip";
+import { initial } from "cypress/types/lodash";
 
 const ErrorText = styled.span`
   color: red;
@@ -56,6 +57,7 @@ export default function DropDownWidget({
   disabled = false,
   disableOptions = Array(options.length).fill(false),
   optionsTooltipText,
+  initialSelected,
 }) {
   const [selected, setSelected] = useState("");
   const [errorMsg, setErrorMsg] = useState(error);
@@ -67,9 +69,13 @@ export default function DropDownWidget({
       setErrorMsg("");
     }
   };
+  useEffect(() => {
+    // initialSelected needs to be the index of item
+    if (initialSelected) setSelected(initialSelected);
+  }, []);
 
   useEffect(() => {
-    if (reset) setSelected("");
+    if (reset) setSelected(initialSelected ? initialSelected : "");
   }, [reset]);
 
   return (
