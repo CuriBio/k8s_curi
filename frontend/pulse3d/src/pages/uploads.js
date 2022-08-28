@@ -446,7 +446,7 @@ export default function Uploads() {
                     }}
                   >
                     <TableCell />
-                    {accountType === "Admin" && (
+                    {accountType === "admin" && (
                       <TableCell
                         sx={{
                           color: "var(--light-gray)",

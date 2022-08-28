@@ -132,7 +132,7 @@ export default function Row({
             {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
           </IconButton>
         </TableCell>
-        {accountType === "Admin" && (
+        {accountType === "admin" && (
           <TableCell component="th" scope="row">
             {row.username}
           </TableCell>
