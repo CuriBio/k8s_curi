@@ -35,6 +35,12 @@ rules:
       - create
       - patch
       - delete
+  - apiGroups:
+      - "argoproj.io"
+    resources:
+      - workflowartifactgctasks
+    verbs:
+      - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
