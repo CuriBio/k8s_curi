@@ -68,6 +68,7 @@ def copy_s3_file(bucket: str, source_key: str, target_key: str) -> None:
         s3 = boto3.resource("s3")
         copy_source = {"Bucket": bucket, "Key": source_key}
         s3.meta.client.copy(copy_source, bucket, target_key)
+        
     except ClientError as e:
         raise S3Error(f"Failed to copy {source_key} to {target_key} with error: {repr(e)}")
 
@@ -120,9 +121,10 @@ def download_file_from_s3(bucket, key, file_path) -> None:
         try:
             s3.Object(bucket, key).load()
         except:
-            return 404
+            raise Exception(f"Object at {key} was not found.")
 
         s3_client.download_file(Bucket=bucket, Key=key, Filename=file_path)
+        
     except ClientError as e:
         raise S3Error(f"Failed to download file {bucket}/{key}: {repr(e)}")
 

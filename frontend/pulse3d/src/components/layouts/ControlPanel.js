@@ -128,7 +128,7 @@ export default function ControlPanel() {
   const [selected, setSelected] = useState("Home");
   const [expanded, setExpanded] = useState(null);
   const { accountType } = useContext(AuthContext);
-  const buttons = accountType === "Admin" ? adminButtons : userButtons;
+  const buttons = accountType === "admin" ? adminButtons : userButtons;
 
   useEffect(() => {
     const currentPage = buttons.filter(

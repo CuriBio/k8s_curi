@@ -2,15 +2,21 @@ import json
 import logging
 from typing import List, Optional
 import uuid
+import boto3
+import os
 
+from stream_zip import ZIP_64, stream_zip
+from datetime import datetime
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from auth import ProtectedAny
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET
 from jobs import create_upload, create_job, get_uploads, get_jobs, delete_jobs, delete_uploads
-from models.models import UploadRequest, UploadResponse, JobRequest, JobResponse
+from models.models import UploadRequest, UploadResponse, JobRequest, JobResponse, DownloadRequest
 from models.types import TupleParam
+
 from utils.db import AsyncpgPoolDep
 from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error
 
@@ -20,7 +26,6 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(openapi_url=None)
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
-
 
 app.add_middleware(
     CORSMiddleware,
@@ -327,3 +332,64 @@ async def soft_delete_jobs(
     except Exception as e:
         logger.error(f"Failed to soft delete jobs: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@app.post("/jobs/download")
+async def download_analyses(
+    request: Request,
+    details: DownloadRequest,
+    token=Depends(ProtectedAny(scope=["users:free"])),
+):
+
+    jobs = details.jobs
+    user_id = str(uuid.UUID(token["userid"]))
+    customer_id = str(uuid.UUID(token["customer_id"]))
+
+    # check if for some reason an empty list was sent
+    if not jobs:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nothing to download.",
+        )
+
+    try:
+        unique_filenames = list()
+        keys = list()
+
+        for job in jobs:
+            upload_id = job.uploadId
+            job_id = job.jobId
+            filename = job.analyzedFile
+            keys.append(f"analyzed/{customer_id}/{user_id}/{upload_id}/{job_id}/{filename}")
+
+            if filename in unique_filenames:
+                # grabs index of file in list of duplicate filenames to append to filename to differentiate
+                duplicate_filename = [j.jobId for j in jobs if j.analyzedFile == filename]
+                idx = duplicate_filename.index(job_id)
+                # add duplicate index to differentiate duplicate filenames
+                root, ext = os.path.splitext(filename)
+                filename = "".join([f"{root}_({idx})", ext])
+
+            unique_filenames.append(filename)
+
+        # Grab ZIP file from in-memory, make response with correct MIME-type
+        return StreamingResponse(
+            content=stream_zip(
+                _yield_s3_objects(bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=unique_filenames)
+            ),
+            media_type="application/zip",
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to download analyses: {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _yield_s3_objects(bucket: str, keys: List[str], filenames: List[str]):
+    try:
+        s3 = boto3.session.Session().resource("s3")
+        for (idx, key) in enumerate(keys):
+            obj = s3.Object(bucket_name=PULSE3D_UPLOADS_BUCKET, key=key)
+            yield filenames[idx], datetime.now(), 0o600, ZIP_64, obj.get()["Body"]
+
+    except Exception as e:
+        raise S3Error(f"Failed to access {bucket}/{key}: {repr(e)}")

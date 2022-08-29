@@ -2,8 +2,6 @@ import Image from "next/image";
 import styled from "styled-components";
 import DropDownMenu from "@/components/basicWidgets/ButtonDropDown";
 import { useRouter } from "next/router";
-import { AuthContext } from "../../pages/_app";
-import { useContext } from "react";
 // required for static export, default loader errors on build
 const imageLoader = ({ src }) => {
   return `/public/${src}`;
@@ -37,7 +35,6 @@ const Main = styled.main`
 
 export default function Layout({ children }) {
   const router = useRouter();
-  const authStatus = useContext(AuthContext);
 
   const logoutUser = async () => {
     await fetch("https://curibio.com/logout", {
@@ -80,7 +77,7 @@ export default function Layout({ children }) {
           loader={imageLoader}
           unoptimized
         />
-        {!authStatus || (
+        {router.pathname !== "/login" && (
           <DropDownMenu
             items={["Logout"]}
             label={"Menu"}
