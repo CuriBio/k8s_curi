@@ -380,8 +380,6 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
     expected_analysis_params = {
         param: None
         for param in (
-            "baseline_widths_to_use",
-            "max_y",
             "prominence_factors",
             "width_factors",
             "twitch_widths",
