@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
 import uuid
 
-from .types import Number, AdvancedParamTuple
+from .types import Number, TupleParam
 
 
 class UploadRequest(BaseModel):
@@ -18,15 +18,15 @@ class UploadResponse(BaseModel):
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
-
+    baseline_widths_to_use: Optional[TupleParam]
     max_y: Optional[Number]
 
     twitch_widths: Optional[List[int]]
     start_time: Optional[Number]
     end_time: Optional[Number]
 
-    prominence_factors: Optional[AdvancedParamTuple]
-    width_factors: Optional[AdvancedParamTuple]
+    prominence_factors: Optional[TupleParam]
+    width_factors: Optional[TupleParam]
 
 
 class JobResponse(BaseModel):
