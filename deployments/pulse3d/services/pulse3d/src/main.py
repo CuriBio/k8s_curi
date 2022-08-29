@@ -28,10 +28,7 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://dashboard.curibio-test.com",
-        "https://dashboard.curibio.com",
-    ],
+    allow_origins=["https://dashboard.curibio-test.com", "https://dashboard.curibio.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -318,6 +315,7 @@ async def soft_delete_jobs(
     except Exception as e:
         logger.error(f"Failed to soft delete jobs: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @app.post("/jobs/download")
 async def download_analyses(

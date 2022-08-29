@@ -168,7 +168,11 @@ const interceptResponse = async (req, url) => {
       // set tokens if login was successful
       const data = await response.json();
       setTokens(data);
-      const accountType = jwtDecode(tokens.access).account_type; // either token will work here
+      let accountType = jwtDecode(tokens.access).account_type; // either token will work here
+      if (accountType === "customer") {
+        // token types are 'user' and 'customer', but FE uses 'user' and 'admin'
+        accountType = "admin";
+      }
       console.log("[SW] Setting account type:", accountType);
       setAccountType(accountType);
     }
