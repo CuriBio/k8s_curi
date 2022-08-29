@@ -380,6 +380,8 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
     expected_analysis_params = {
         param: None
         for param in (
+            "baseline_widths_to_use",
+            "max_y",
             "prominence_factors",
             "width_factors",
             "twitch_widths",
@@ -416,7 +418,15 @@ def test_jobs__post__basic_params_given(mocker):
 
     expected_analysis_params = {
         param: None
-        for param in ("prominence_factors", "width_factors", "twitch_widths", "start_time", "end_time")
+        for param in (
+            "baseline_widths_to_use",
+            "max_y",
+            "prominence_factors",
+            "width_factors",
+            "twitch_widths",
+            "start_time",
+            "end_time",
+        )
     }
     expected_analysis_params.update(test_analysis_params)
 
@@ -453,9 +463,61 @@ def test_jobs__post__advanced_params_given(param_name, param_tuple, mocker):
 
     expected_analysis_params = {
         param: None
-        for param in ("prominence_factors", "width_factors", "twitch_widths", "start_time", "end_time")
+        for param in (
+            "baseline_widths_to_use",
+            "max_y",
+            "prominence_factors",
+            "width_factors",
+            "twitch_widths",
+            "start_time",
+            "end_time",
+        )
     }
     expected_analysis_params.update({param_name: format_mapping[param_tuple]})
+
+    mocked_create_job.assert_called_once()
+    assert mocked_create_job.call_args[1]["meta"]["analysis_params"] == expected_analysis_params
+
+
+@pytest.mark.parametrize("param_tuple", [(1, 2), (None, 2), (1, None), (None, None)])
+def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocker):
+    expected_job_id = uuid.uuid4()
+    test_upload_id = uuid.uuid4()
+    test_user_id = uuid.uuid4()
+    test_analysis_params = {"baseline_widths_to_use": param_tuple}
+
+    access_token = get_token(scope=["users:free"], userid=test_user_id)
+
+    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=expected_job_id)
+
+    kwargs = {
+        "json": {"upload_id": str(test_upload_id), **test_analysis_params},
+        "headers": {"Authorization": f"Bearer {access_token}"},
+    }
+    response = test_client.post("/jobs", **kwargs)
+    assert response.status_code == 200
+
+    format_mapping = {
+        (1, 2): (1, 2),
+        (None, 2): (10, 2),
+        (1, None): (1, 90),
+        (None, None): None,
+    }
+
+    expected_analysis_params = {
+        param: None
+        for param in (
+            "baseline_widths_to_use",
+            "max_y",
+            "prominence_factors",
+            "width_factors",
+            "twitch_widths",
+            "start_time",
+            "end_time",
+        )
+    }
+
+    expected_analysis_params.update({"baseline_widths_to_use": format_mapping[param_tuple]})
 
     mocked_create_job.assert_called_once()
     assert mocked_create_job.call_args[1]["meta"]["analysis_params"] == expected_analysis_params
@@ -558,7 +620,7 @@ def test_download__post_returns_zip(mocker):
     response = test_client.post("/jobs/download", **kwargs)
     assert response.headers["content-type"] == "application/zip"
     assert response.status_code == 200
-    
+
     mocked_s3_util.assert_called_with(
         bucket="test-pulse3d-uploads",
         filenames=["test_file.xlsx", "test_file_(1).xlsx"],
