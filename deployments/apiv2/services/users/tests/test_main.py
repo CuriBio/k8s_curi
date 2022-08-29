@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 import json
-from random import choice
+from random import choice, randint
 import uuid
 
 from argon2 import PasswordHasher
@@ -13,8 +13,12 @@ from auth import create_token
 from auth.settings import REFRESH_TOKEN_EXPIRE_MINUTES
 from src import main
 from src.models.tokens import AuthTokens
+from src.models.users import USERNAME_MIN_LEN, USERNAME_MAX_LEN, USERNAME_VALID_SPECIAL_CHARS
 
 test_client = TestClient(main.app)
+
+
+TEST_PASSWORD = "Testpw123!"
 
 
 def get_token(*, userid=None, customer_id=None, scope=None, account_type=None, refresh=False):
@@ -179,16 +183,22 @@ def test_login__incorrect_password(mocked_asyncpg_con):
     assert response.json() == {"detail": "Invalid credentials"}
 
 
-@pytest.mark.parametrize("use_cb_customer_id", [True, False])
-def test_register__user__success(
-    use_cb_customer_id, mocked_asyncpg_con, spied_pw_hasher, cb_customer_id, mocker
+@pytest.mark.parametrize("special_char", ["", *USERNAME_VALID_SPECIAL_CHARS])
+def test_register__user__allows_valid_usernames(
+    special_char, mocked_asyncpg_con, spied_pw_hasher, cb_customer_id, mocker
 ):
+    use_cb_customer_id = choice([True, False])
+    end_with_num = choice([True, False])
+
     registration_details = {
         "email": "user@example.com",
-        "username": "testusername",
-        "password1": "Testpw1234",
-        "password2": "Testpw1234",
+        "username": f"test{special_char}username",
+        "password1": TEST_PASSWORD,
+        "password2": TEST_PASSWORD,
     }
+
+    if end_with_num:
+        registration_details["username"] += str(randint(0, 9))
 
     test_user_id = uuid.uuid4()
     test_customer_id = cb_customer_id if use_cb_customer_id else uuid.uuid4()
@@ -225,8 +235,8 @@ def test_register__user__success(
 def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, cb_customer_id, mocker):
     registration_details = {
         "email": "test@email.com",
-        "password1": "Testpw1234",
-        "password2": "Testpw1234",
+        "password1": TEST_PASSWORD,
+        "password2": TEST_PASSWORD,
     }
 
     test_user_id = uuid.uuid4()
@@ -253,12 +263,19 @@ def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, cb_cus
     spied_pw_hasher.assert_called_once_with(mocker.ANY, registration_details["password1"])
 
 
-def test_register__user__invalid_username(cb_customer_id):
+@pytest.mark.parametrize(
+    "length,err_msg",
+    [
+        (USERNAME_MIN_LEN - 1, "Username does not meet min length"),
+        (USERNAME_MAX_LEN + 1, "Username exceeds max length"),
+    ],
+)
+def test_register__user__invalid_username_length(length, err_msg, cb_customer_id):
     registration_details = {
         "email": "test@email.com",
-        "username": "bad-username",
-        "password1": "Testpw1234",
-        "password2": "Testpw1234",
+        "username": "a" * length,
+        "password1": TEST_PASSWORD,
+        "password2": TEST_PASSWORD,
     }
 
     access_token = get_token(userid=cb_customer_id, scope=["users:admin"], account_type="customer")
@@ -267,7 +284,82 @@ def test_register__user__invalid_username(cb_customer_id):
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
-    assert response.json()["detail"][-1]["msg"] == "Username must be alphanumeric"
+    assert response.json()["detail"][-1]["msg"] == err_msg
+
+
+@pytest.mark.parametrize("special_char", ["@", "#", "$", "*", "&", "%"])
+def test_register__user__with_invalid_char_in_username(special_char, cb_customer_id):
+    registration_details = {
+        "email": "test@email.com",
+        "username": f"bad{special_char}username",
+        "password1": TEST_PASSWORD,
+        "password2": TEST_PASSWORD,
+    }
+
+    access_token = get_token(userid=cb_customer_id, scope=["users:admin"], account_type="customer")
+
+    response = test_client.post(
+        "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert response.status_code == 422
+    assert (
+        response.json()["detail"][-1]["msg"]
+        == f"Username can only contain letters, numbers, and these special characters: {USERNAME_VALID_SPECIAL_CHARS}"
+    )
+
+
+@pytest.mark.parametrize("bad_first_char", [*USERNAME_VALID_SPECIAL_CHARS, str(randint(0, 9))])
+def test_register__user__with_invalid_first_char(bad_first_char, cb_customer_id):
+    registration_details = {
+        "email": "test@email.com",
+        "username": f"{bad_first_char}username",
+        "password1": TEST_PASSWORD,
+        "password2": TEST_PASSWORD,
+    }
+
+    access_token = get_token(userid=cb_customer_id, scope=["users:admin"], account_type="customer")
+
+    response = test_client.post(
+        "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"][-1]["msg"] == "Username must start with a letter"
+
+
+@pytest.mark.parametrize("bad_final_char", USERNAME_VALID_SPECIAL_CHARS)
+def test_register__user__with_invalid_final_char(bad_final_char, cb_customer_id):
+    registration_details = {
+        "email": "test@email.com",
+        "username": f"username{bad_final_char}",
+        "password1": TEST_PASSWORD,
+        "password2": TEST_PASSWORD,
+    }
+
+    access_token = get_token(userid=cb_customer_id, scope=["users:admin"], account_type="customer")
+
+    response = test_client.post(
+        "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"][-1]["msg"] == "Username must end with a letter or number"
+
+
+@pytest.mark.parametrize("special_char", USERNAME_VALID_SPECIAL_CHARS)
+def test_register__user__with_consecutive_special_chars(special_char, cb_customer_id):
+    registration_details = {
+        "email": "test@email.com",
+        "username": f"a-{special_char}a",
+        "password1": TEST_PASSWORD,
+        "password2": TEST_PASSWORD,
+    }
+
+    access_token = get_token(userid=cb_customer_id, scope=["users:admin"], account_type="customer")
+
+    response = test_client.post(
+        "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"][-1]["msg"] == "Username cannot contain consecutive special characters"
 
 
 @pytest.mark.parametrize(
@@ -284,8 +376,8 @@ def test_register__user__unique_constraint_violations(
     registration_details = {
         "email": "test@email.com",
         "username": "testusername",
-        "password1": "Testpw1234",
-        "password2": "Testpw1234",
+        "password1": TEST_PASSWORD,
+        "password2": TEST_PASSWORD,
     }
 
     test_user_id = uuid.uuid4()
@@ -312,8 +404,8 @@ def test_register__customer__unique_constraint_violations(
 ):
     registration_details = {
         "email": "test@email.com",
-        "password1": "Testpw1234",
-        "password2": "Testpw1234",
+        "password1": TEST_PASSWORD,
+        "password2": TEST_PASSWORD,
     }
 
     access_token = get_token(userid=cb_customer_id, scope=["users:admin"], account_type="customer")

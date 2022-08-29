@@ -3,7 +3,6 @@
 // need to be included in any build steps, just the compiled webpack output
 
 import jwtDecode from "jwt-decode";
-
 import { Mutex } from "async-mutex";
 
 const refreshMutex = new Mutex();
@@ -50,8 +49,16 @@ const clearTokens = () => {
 let ClientSource = null;
 
 const sendLogoutMsg = () => {
+  clearAccountInfo();
   ClientSource.postMessage({ logout: true });
   console.log("[SW] logout ping sent");
+};
+
+const clearAccountInfo = () => {
+  clearTokens();
+  clearAccountType();
+  // TODO change all console.log to console.debug and figure out how to enable debug logging
+  console.log("[SW] account info cleared");
 };
 
 /* Request intercept functions */
@@ -79,7 +86,6 @@ const modifyRequest = async (req, url) => {
     // and the request should fail with 403
     headers.append("Authorization", `Bearer ${tokens.access}`);
   }
-
   // apply new headers. Make sure to clone the original request obj if consuming the body by calling json()
   // since it typically can only be consumed once
   const modifiedReq = new Request(getUrl(url), {
@@ -161,6 +167,9 @@ const interceptResponse = async (req, url) => {
       // set tokens if login was successful
       const data = await response.json();
       setTokens(data);
+      const accountType = jwtDecode(tokens.access).account_type; // either token will work here
+      console.log("[SW] Setting account type:", accountType);
+      setAccountType(accountType);
     }
     // send the response without the tokens so they are always contained within this service worker
     return new Response(JSON.stringify({}), {
@@ -170,12 +179,12 @@ const interceptResponse = async (req, url) => {
     });
   } else {
     const response = await requestWithRefresh(req, url);
+
     if (url.pathname.includes("logout")) {
-      // just clear tokens if user purposefully logs out
-      clearTokens();
+      // just clear account info if user purposefully logs out
+      clearAccountInfo();
     } else if (response.status === 401) {
-      // clear tokens and send logout ping if any other request receives an unauthorized response
-      clearTokens();
+      // if any other request receives an unauthorized response, send logout ping (this fn will also clear account info)
       sendLogoutMsg();
     }
     return response;
@@ -204,24 +213,15 @@ self.addEventListener("fetch", async (e) => {
   } else e.respondWith(fetch(e.request));
 });
 
-// Clear token on postMessage
 self.onmessage = ({ data, source }) => {
   ClientSource = source;
-  if (data.msgType === "clear") {
-    // TODO Tanner (8/24/22): might want to only clear if not already cleared
-    console.log("[SW] Clearing tokens and account type in ServiceWorker");
-    clearTokens();
-    clearAccountType();
-  } else if (data.msgType === "authCheck") {
-    console.log("[SW] Returning authentication check ");
+  if (data.msgType === "authCheck") {
+    console.log("[SW] Returning authentication check");
     source.postMessage({
-      authCheck: tokens.access !== null,
+      isLoggedIn: tokens.access !== null,
       accountType,
       routerPathname: data.routerPathname,
     });
-  } else if (data.msgType == "setAccountType") {
-    console.log("[SW] Setting account type:", data.accountType);
-    setAccountType(data.accountType);
   }
 };
 
