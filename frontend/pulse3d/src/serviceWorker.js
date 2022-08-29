@@ -26,6 +26,7 @@ const tokens = {
   access: null,
   refresh: null,
 };
+
 let logoutTimer = null;
 
 const setTokens = ({ access, refresh }) => {
