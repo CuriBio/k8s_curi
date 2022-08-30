@@ -322,8 +322,8 @@ export default function AnalysisParamForm({
         </ParamContainer>
         <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
           <Label htmlFor="twitchWidths">
-            Twitch Width:
-            <ToolTip title="Specifies which twitch width values to add to the per twitch metrics sheet and aggregate metrics sheet.">
+            Twitch Widths (%):
+            <ToolTip title="Specifies which twitch width percentagess to add to the per twitch metrics sheet and aggregate metrics sheet.">
               <InfoOutlinedIcon />
             </ToolTip>
           </Label>
@@ -356,13 +356,13 @@ export default function AnalysisParamForm({
                 }
                 checkedState={checkedBaseline}
               />
-              Use Basline Width
+              Use Baseline Width
             </WALabel>
             {checkedBaseline || <WAOverlay />}
             <ParamContainer>
               <Label htmlFor="baseToPeak">
                 Base to Peak:
-                <ToolTip title="Specifies the base line metrics for twitch widths.">
+                <ToolTip title="Specifies the baseline metrics for twitch width percentages.">
                   <InfoOutlinedIcon />
                 </ToolTip>
               </Label>
@@ -386,7 +386,7 @@ export default function AnalysisParamForm({
             <ParamContainer>
               <Label htmlFor="peakToBase">
                 Peak to Relaxation:
-                <ToolTip title="Specifies the base line metrics for twitch widths.">
+                <ToolTip title="Specifies the baseline metrics for twitch width percentages.">
                   <InfoOutlinedIcon />
                 </ToolTip>
               </Label>
