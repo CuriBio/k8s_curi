@@ -1,4 +1,4 @@
-"""add deleted field to uploads table
+"""add deleted field to uploads table 
 
 Revision ID: 5b1cb92fa435
 Revises: 3a2553a6d4b2
@@ -15,6 +15,7 @@ down_revision = "3a2553a6d4b2"
 branch_labels = None
 depends_on = None
 
+
 def upgrade():
     op.add_column("uploads", sa.Column("deleted", sa.Boolean(), server_default="f"))
     op.execute("""ALTER TYPE "JobStatus" ADD VALUE 'deleted'""")
@@ -29,6 +30,8 @@ def downgrade():
     # create type with original enum values
     op.execute("""CREATE TYPE "JobStatus" AS ENUM('pending', 'error', 'finished')""")
     # set enums to column
-    op.execute("""ALTER TABLE jobs_result ALTER COLUMN status TYPE "JobStatus" USING status::text::"JobStatus" """)
+    op.execute(
+        """ALTER TABLE jobs_result ALTER COLUMN status TYPE "JobStatus" USING status::text::"JobStatus" """
+    )
     # drop the old type, cleanup
     op.execute("""DROP TYPE oldJobStatus""")
