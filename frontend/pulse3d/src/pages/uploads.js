@@ -376,7 +376,6 @@ export default function Uploads() {
     });
 
     if (response.status === 200) {
-      console.log("good request");
       const now = formatDateTime();
       const zipFilename = `MA-analyses__${now}__${jobs.length}.zip`;
 
