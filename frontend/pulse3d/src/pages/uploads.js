@@ -364,7 +364,7 @@ export default function Uploads() {
   const downloadMultiFiles = async (jobs) => {
     try {
       //streamsaver has to be required here otherwise you get build errors with "document is not defined"
-      const streamSaver = require("streamsaver");
+      const { createWriteStream } = require("streamsaver");
 
       //request only presigned urls for selected jobs
       const url = `https://curibio.com/jobs/download`;
@@ -389,7 +389,7 @@ export default function Uploads() {
           a.click();
           a.remove();
         } else {
-          const fileStream = streamSaver.createWriteStream(zipFilename);
+          const fileStream = createWriteStream(zipFilename);
           const writer = fileStream.getWriter();
 
           if (response.body.pipeTo) {
