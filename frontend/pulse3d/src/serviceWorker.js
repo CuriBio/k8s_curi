@@ -26,6 +26,7 @@ const tokens = {
   access: null,
   refresh: null,
 };
+
 let logoutTimer = null;
 
 const setTokens = ({ access, refresh }) => {
@@ -167,7 +168,11 @@ const interceptResponse = async (req, url) => {
       // set tokens if login was successful
       const data = await response.json();
       setTokens(data);
-      const accountType = jwtDecode(tokens.access).account_type; // either token will work here
+      let accountType = jwtDecode(tokens.access).account_type; // either token will work here
+      if (accountType === "customer") {
+        // token types are 'user' and 'customer', but FE uses 'user' and 'admin'
+        accountType = "admin";
+      }
       console.log("[SW] Setting account type:", accountType);
       setAccountType(accountType);
     }
@@ -183,8 +188,8 @@ const interceptResponse = async (req, url) => {
     if (url.pathname.includes("logout")) {
       // just clear account info if user purposefully logs out
       clearAccountInfo();
-    } else if (response.status === 401) {
-      // if any other request receives an unauthorized response, send logout ping (this fn will also clear account info)
+    } else if (response.status === 401 || response.status === 403) {
+      // if any other request receives an unauthorized or forbidden error code, send logout ping (this fn will also clear account info)
       sendLogoutMsg();
     }
     return response;

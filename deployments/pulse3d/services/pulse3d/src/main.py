@@ -16,7 +16,8 @@ from auth import ProtectedAny
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET
 from jobs import create_upload, create_job, get_uploads, get_jobs, delete_jobs, delete_uploads
 from models.models import UploadRequest, UploadResponse, JobRequest, JobResponse, DownloadRequest
-from models.types import AdvancedParamTuple
+from models.types import TupleParam
+
 from utils.db import AsyncpgPoolDep
 from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error, download_directory_from_s3
 
@@ -244,6 +245,7 @@ async def create_new_job(
         analysis_params = {
             param: dict(details)[param]
             for param in (
+                "baseline_widths_to_use",
                 "max_y",
                 "prominence_factors",
                 "width_factors",
@@ -258,6 +260,10 @@ async def create_new_job(
             analysis_params["prominence_factors"], 6  # TODO grab these default values from pulse3D
         )
         analysis_params["width_factors"] = _format_advanced_options(analysis_params["width_factors"], 7)
+
+        analysis_params["baseline_widths_to_use"] = _format_baseline(
+            analysis_params["baseline_widths_to_use"]
+        )
 
         logger.info(f"Using params: {analysis_params}")
 
@@ -284,9 +290,7 @@ async def create_new_job(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def _format_advanced_options(
-    options: Optional[AdvancedParamTuple], default_value: int
-) -> Optional[AdvancedParamTuple]:
+def _format_advanced_options(options: Optional[TupleParam], default_value: int) -> Optional[TupleParam]:
     if options is None or options == (None, None):
         return None
 
@@ -294,6 +298,16 @@ def _format_advanced_options(
     formatted_options = tuple([option if option is not None else default_value for option in options])
 
     return formatted_options
+
+
+def _format_baseline(options: Optional[TupleParam]):
+    if options is None or options == (None, None):
+        return None
+    if options[0] is None:
+        return 10, options[1]
+    if options[1] is None:
+        return options[0], 90
+    return options[0], options[1]
 
 
 @app.delete("/jobs")
