@@ -190,8 +190,11 @@ async def delete_jobs(*, con, account_type, account_id, job_ids):
 
     query_params = [account_id]
     places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
-    if account_type == "users":
-        query = f"UPDATE jobs_result SET status='deleted' WHERE user_id=$1 AND job_id IN ({places})"
+    if account_type == "user":
+        query = (
+            "UPDATE jobs_result AS j SET status='deleted' FROM uploads "
+            f"WHERE j.upload_id=uploads.id AND uploads.user_id=$1 AND job_id IN ({places})"
+        )
     else:
         # this is essentially doing a JOIN on uploads WHERE jobs_result.upload_id=uploads.id
         # and JOIN on users WHERE uploads.user_id=users.id
