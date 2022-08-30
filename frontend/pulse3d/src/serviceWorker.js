@@ -188,8 +188,8 @@ const interceptResponse = async (req, url) => {
     if (url.pathname.includes("logout")) {
       // just clear account info if user purposefully logs out
       clearAccountInfo();
-    } else if (response.status === 401) {
-      // if any other request receives an unauthorized response, send logout ping (this fn will also clear account info)
+    } else if (response.status === 401 || response.status === 403) {
+      // if any other request receives an unauthorized or forbidden error code, send logout ping (this fn will also clear account info)
       sendLogoutMsg();
     }
     return response;
