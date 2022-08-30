@@ -339,17 +339,33 @@ async def get_interactive_waveform_data(
 
             # download_directory_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file_path=tmpdir)
 
-            # from pulse3D.plate_recording import PlateRecording
-            # from pulse3D.constants import MICRO_TO_BASE_CONVERSION
+            from pulse3D.plate_recording import PlateRecording
+            from pulse3D.peak_detection import peak_detector
+            from pulse3D.constants import MICRO_TO_BASE_CONVERSION, WELL_NAME_UUID
+            import numpy as np
 
             logger.info("Reading h5 files and generating dataframe")
-            # pr = PlateRecording(
-            #     os.path.join(
-            #         os.path.expanduser("~"), "Desktop", "ML2022123456_overnight test_2022_06_14_155050.zip"
-            #     )
-            # )
 
-            # df = pr.to_dataframe()
+            pr = PlateRecording(
+                os.path.join(
+                    os.path.expanduser("~"), "Desktop", "ML2022123456_overnight test_2022_06_14_155050.zip"
+                )
+            )
+
+            df = pr.to_dataframe()
+            columns = [df[c] for c in df.columns]
+            time = columns[:1][0]
+            force = columns[1:]
+            peaks_and_valleys = list()
+            for (idx, well) in enumerate(pr.wells):
+                logger.info(f"Finding peaks and valleys for well {well[WELL_NAME_UUID]}")
+                interpolated_well_data = np.row_stack([time, force[idx]])
+
+                peaks_and_valleys.append(
+                    peak_detector(
+                        interpolated_well_data,
+                    )
+                )
 
             # columns = [list(df[c]) for c in df.columns]
             # time = columns[:1][0]
@@ -363,7 +379,7 @@ async def get_interactive_waveform_data(
             with open("/Users/lucipak/Desktop/test_data.txt", "r") as f:
                 coords = f.read()
 
-            return json.loads(coords)
+            return {"coordinates": json.loads(coords), "peaks_valleys": peaks_and_valleys}
 
     except Exception as e:
         logger.error(f"Failed to get interactive waveform data: {repr(e)}")

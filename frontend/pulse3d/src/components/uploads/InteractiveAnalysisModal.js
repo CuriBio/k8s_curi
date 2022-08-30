@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import DropDownWidget from "../basicWidgets/DropDownWidget";
 import WaveformGraph from "./WaveformGraph";
 import { WellTitle as LabwareDefinition } from "@/utils/labwareCalculations";
+import CircularSpinner from "../basicWidgets/CircularSpinner";
 const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
 
 const Container = styled.div`
@@ -38,19 +39,28 @@ const GraphContainer = styled.div`
   padding: 15px;
 `;
 
+const SpinnerContainer = styled.div`
+  height: 100%;
+  display: flex;
+  align-items: center;
+  margin-bottom: 45px;
+`;
+
 export default function InteractiveWaveformModal({ uploadId }) {
   const [selectedWell, setSelectedWell] = useState(0);
   const [data, setData] = useState([]);
   const [dataToGraph, setDataToGraph] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const getWaveformData = async () => {
     try {
       const response = await fetch(
         `https://curibio.com/uploads/waveform_data?upload_id=${uploadId}`
       );
-      const coordinates = await response.json();
-      console.log(typeof coordinates)
+      const { coordinates, peaks_valleys } = await response.json();
+      console.log(JSON.stringify(peaks_valleys));
       setData([...coordinates]);
+      setIsLoading(false);
     } catch (e) {
       console.log("ERROR getting waveform data: ", e);
     }
@@ -75,16 +85,25 @@ export default function InteractiveWaveformModal({ uploadId }) {
 
   return (
     <Container>
-      <DropdownContainer>
-        <DropdownLabel>Select Well:</DropdownLabel>
-        <DropDownWidget
-          options={wellNames}
-          handleSelection={handleWellSelection}
-        />
-      </DropdownContainer>
-      <GraphContainer>
-        <WaveformGraph dataToGraph={dataToGraph} />
-      </GraphContainer>
+      {isLoading ? (
+        <SpinnerContainer>
+          <CircularSpinner size={300} />
+        </SpinnerContainer>
+      ) : (
+        <>
+          <DropdownContainer>
+            <DropdownLabel>Select Well:</DropdownLabel>
+            <DropDownWidget
+              options={wellNames}
+              handleSelection={handleWellSelection}
+              initialSelected={0}
+            />
+          </DropdownContainer>
+          <GraphContainer>
+            <WaveformGraph dataToGraph={dataToGraph} />
+          </GraphContainer>
+        </>
+      )}
     </Container>
   );
 }

@@ -38,7 +38,7 @@ export default function WaveformGraph({ dataToGraph }) {
       height = 300 - margin.top - margin.bottom;
 
     const dynamicWidth = width + 500;
-    
+
     // append the svg object to the body of the page
     const svg = d3
       .select("#waveformGraph")
@@ -92,12 +92,69 @@ export default function WaveformGraph({ dataToGraph }) {
       .attr("stroke", "steelblue")
       .attr("stroke-width", 1.5)
       .attr("d", valueLine);
+
+    // This allows to find the closest X index of the mouse:
+    const bisect = d3.bisector(function (d) {
+      return d.x;
+    }).left;
+
+    // Create the circle that travels along the curve of chart
+    const focus = svg
+      .append("g")
+      .append("circle")
+      .style("fill", "none")
+      .attr("stroke", "black")
+      .attr("r", 8.5)
+      .style("opacity", 0);
+
+    // Create the text that travels along the curve of chart
+    const focusText = svg
+      .append("g")
+      .append("text")
+      .style("opacity", 0)
+      .attr("text-anchor", "left")
+      .attr("alignment-baseline", "middle");
+
+    // Create a rect on top of the svg area: this rectangle recovers mouse position
+    svg
+      .append("rect")
+      .style("fill", "none")
+      .style("pointer-events", "all")
+      .attr("width", width)
+      .attr("height", height)
+      .on("mouseover", mouseover)
+      .on("mousemove", mousemove)
+      .on("mouseout", mouseout)
+      // .on("click", )
+
+    const mouseover = () => {
+      focus.style("opacity", 1);
+      focusText.style("opacity", 1);
+    };
+
+    const mousemove = (e) => {
+      // recover coordinate we need
+      const x0 = Number(x.invert(d3.pointer(e, svg.node())[0]).toFixed(2));
+      const selectedData = dataToGraph.find((x) => x[0] === x0);
+      focus.attr("cx", x(selectedData[0])).attr("cy", y(selectedData[1]));
+      focusText
+        .html("[ " + selectedData[0] + ", " + selectedData[1].toFixed(2) + " ]")
+        .attr("x", x(selectedData[0]) + 15)
+        .attr("y", y(selectedData[1]));
+    };
+
+    const mouseout = () => {
+      focus.style("opacity", 0);
+      focusText.style("opacity", 0);
+    };
   };
+
   useEffect(() => {
     // always remove existing graph before plotting new graph
     d3.select("#waveformGraph").select("svg").remove();
     createGraph();
   }, [dataToGraph]);
+
   return (
     <Container>
       <YAxisLabel>Active Twitch Force (uN)</YAxisLabel>
