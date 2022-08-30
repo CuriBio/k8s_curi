@@ -3,6 +3,7 @@ import CheckboxWidget from "../basicWidgets/CheckboxWidget";
 import { isArrayOfNumbers } from "../../utils/generic";
 import FormInput from "../basicWidgets/FormInput";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import Tooltip from "@mui/material/Tooltip";
 
 const Container = styled.div`
   padding-top: 1rem;
@@ -149,15 +150,8 @@ const AdditionalParamLabel = styled.span`
   font-weight: 900;
 `;
 
-const ToolTip = styled.div`
-  font-weight: 900;
-  font-style: italic;
-  font-size: 0.7rem;
-  margin: 0;
-  &:hover {
-    color: var(--teal-green);
-    cursor: help;
-  }
+const TooltipText = styled.span`
+  font-size: 15px;
 `;
 
 export default function AnalysisParamForm({
@@ -299,9 +293,17 @@ export default function AnalysisParamForm({
         <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
           <Label htmlFor="maxY">
             Y-Axis Range (µN):
-            <ToolTip title="Specifies the maximum y-axis range of Active Twitch Force in the output xlsx.">
+            <Tooltip
+              title={
+                <TooltipText>
+                  {
+                    "Specifies the maximum y-axis bound of graphs generated in the output xlsx file."
+                  }
+                </TooltipText>
+              }
+            >
               <InfoOutlinedIcon />
-            </ToolTip>
+            </Tooltip>
           </Label>
           <InputErrorContainer>
             <FormInput
@@ -323,9 +325,17 @@ export default function AnalysisParamForm({
         <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
           <Label htmlFor="twitchWidths">
             Twitch Widths (%):
-            <ToolTip title="Specifies which twitch width percentagess to add to the per twitch metrics sheet and aggregate metrics sheet.">
+            <Tooltip
+              title={
+                <TooltipText>
+                  {
+                    "Specifies which twitch width percentages to add to the Per Twitch metrics sheet and Aggregate Metrics sheet."
+                  }
+                </TooltipText>
+              }
+            >
               <InfoOutlinedIcon />
-            </ToolTip>
+            </Tooltip>
           </Label>
           <InputErrorContainer>
             <FormInput
@@ -362,9 +372,18 @@ export default function AnalysisParamForm({
             <ParamContainer>
               <Label htmlFor="baseToPeak">
                 Base to Peak:
-                <ToolTip title="Specifies the baseline metrics for twitch width percentages.">
+                <Tooltip
+                  title={
+                    <TooltipText>
+                      {
+                        // TODO this needs to be more specific
+                        "Specifies the baseline metrics for twitch width percentages."
+                      }
+                    </TooltipText>
+                  }
+                >
                   <InfoOutlinedIcon />
-                </ToolTip>
+                </Tooltip>
               </Label>
               <InputErrorContainer>
                 <FormInput
@@ -386,9 +405,18 @@ export default function AnalysisParamForm({
             <ParamContainer>
               <Label htmlFor="peakToBase">
                 Peak to Relaxation:
-                <ToolTip title="Specifies the baseline metrics for twitch width percentages.">
+                <Tooltip
+                  title={
+                    <TooltipText>
+                      {
+                        // TODO this needs to be more specific
+                        "Specifies the baseline metrics for twitch width percentages."
+                      }
+                    </TooltipText>
+                  }
+                >
                   <InfoOutlinedIcon />
-                </ToolTip>
+                </Tooltip>
               </Label>
               <InputErrorContainer>
                 <FormInput
@@ -427,9 +455,17 @@ export default function AnalysisParamForm({
             <ParamContainer>
               <Label htmlFor="startTime">
                 Start Time (s):
-                <ToolTip title="Specifies the earliest timepoint (in seconds) to use in analysis.">
+                <Tooltip
+                  title={
+                    <TooltipText>
+                      {
+                        "Specifies the earliest timepoint (in seconds) to use in analysis."
+                      }
+                    </TooltipText>
+                  }
+                >
                   <InfoOutlinedIcon />
-                </ToolTip>
+                </Tooltip>
               </Label>
               <InputErrorContainer>
                 <FormInput
@@ -451,9 +487,17 @@ export default function AnalysisParamForm({
             <ParamContainer>
               <Label htmlFor="endTime">
                 End Time (s):
-                <ToolTip title="Specifies the latest timepoint (in seconds) to use in analysis.">
+                <Tooltip
+                  title={
+                    <TooltipText>
+                      {
+                        "Specifies the latest timepoint (in seconds) to use in analysis."
+                      }
+                    </TooltipText>
+                  }
+                >
                   <InfoOutlinedIcon />
-                </ToolTip>
+                </Tooltip>
               </Label>
               <InputErrorContainer>
                 <FormInput
@@ -491,9 +535,17 @@ export default function AnalysisParamForm({
             <TwoParamContainer>
               <Label htmlFor="prominenceFactorPeaks">
                 Prominence (µN):
-                <ToolTip title="Specifies the minimum required vertical distance between a local max and its lowest contour line to be classified as a peak.">
+                <Tooltip
+                  title={
+                    <TooltipText>
+                      {
+                        "Specifies the minimum required vertical distance between a local max and its lowest contour line to be classified as a peak."
+                      }
+                    </TooltipText>
+                  }
+                >
                   <InfoOutlinedIcon />
-                </ToolTip>
+                </Tooltip>
               </Label>
               <InputErrorContainer>
                 <label htmlFor="prominenceFactorPeaks">Peaks</label>
@@ -542,9 +594,17 @@ export default function AnalysisParamForm({
             <TwoParamContainer>
               <Label htmlFor="widthFactorPeaks">
                 Width (ms):
-                <ToolTip title="Specifies the minimum required width of the base of a local max to be classified as a peak.">
+                <Tooltip
+                  title={
+                    <TooltipText>
+                      {
+                        "Specifies the minimum required width of the base of a local max to be classified as a peak."
+                      }
+                    </TooltipText>
+                  }
+                >
                   <InfoOutlinedIcon />
-                </ToolTip>
+                </Tooltip>
               </Label>
               <InputErrorContainer>
                 <label htmlFor="widthFactorPeaks">Peaks</label>
