@@ -362,37 +362,55 @@ export default function Uploads() {
   };
 
   const downloadMultiFiles = async (jobs) => {
-    //streamsaver has to be required here otherwise you get build errors with "document is not defined"
-    const { createWriteStream } = require("streamsaver");
-    //request only presigned urls for selected jobs
-    const url = `https://curibio.com/jobs/download`;
-    const response = await fetch(url, {
-      method: "POST",
-      body: JSON.stringify({ jobs }),
-    });
+    try {
+      //streamsaver has to be required here otherwise you get build errors with "document is not defined"
+      const { createWriteStream } = require("streamsaver");
 
-    if (response.status === 200) {
-      console.log("good request");
-      const now = formatDateTime();
-      const zipFilename = `MA-analyses__${now}__${jobs.length}.zip`;
+      //request only presigned urls for selected jobs
+      const url = `https://curibio.com/jobs/download`;
+      const response = await fetch(url, {
+        method: "POST",
+        body: JSON.stringify({ jobs }),
+      });
 
-      const fileStream = createWriteStream(zipFilename);
-      const writer = fileStream.getWriter();
+      if (response.status === 200) {
+        const now = formatDateTime();
+        const zipFilename = `MA-analyses__${now}__${jobs.length}.zip`;
 
-      if (response.body.pipeTo) {
-        writer.releaseLock();
-        return response.body.pipeTo(fileStream);
+        // only stream to file if not firefox
+        if (navigator.userAgent.indexOf("Firefox") != -1) {
+          const file = await response.blob();
+          const url = window.URL.createObjectURL(file);
+
+          const a = document.createElement("a");
+          document.body.appendChild(a);
+          a.setAttribute("href", url);
+          a.setAttribute("download", zipFilename);
+          a.click();
+          a.remove();
+        } else {
+          const fileStream = createWriteStream(zipFilename);
+          const writer = fileStream.getWriter();
+
+          if (response.body.pipeTo) {
+            writer.releaseLock();
+            return response.body.pipeTo(fileStream);
+          }
+
+          const reader = response.body.getReader();
+
+          () =>
+            reader
+              .read()
+              .then(({ value, done }) =>
+                done ? writer.close() : writer.write(value).then(pump)
+              )();
+        }
+      } else {
+        throw Error();
       }
-
-      const reader = response.body.getReader();
-
-      () =>
-        reader
-          .read()
-          .then(({ value, done }) =>
-            done ? writer.close() : writer.write(value).then(pump)
-          )();
-    } else {
+    } catch (e) {
+      console.log(`ERROR during multi file download: ${e}`);
       throw Error();
     }
   };
