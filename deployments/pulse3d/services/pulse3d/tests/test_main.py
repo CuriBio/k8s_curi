@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 import json
+import os
 import uuid
 
 import pytest
@@ -94,7 +95,7 @@ def test_uploads__get(test_token_scope, test_upload_ids, mocked_asyncpg_con, moc
     )
 
 
-def test__uploads__post(mocked_asyncpg_con, mocker):
+def test_uploads__post(mocked_asyncpg_con, mocker):
     mocked_asyncpg_con.transaction = mocker.MagicMock()
 
     expected_upload_id = uuid.uuid4()
@@ -582,59 +583,112 @@ def test_jobs__delete__failure_to_delete_jobs(mocker):
     assert response.status_code == 500
 
 
-def test_download__post_returns_zip(mocker):
-    mocked_s3_util = mocker.patch.object(main, "_yield_s3_objects", autospec=True)
+@pytest.mark.parametrize("test_token_scope", [["users:free"], ["users:admin"]])
+@pytest.mark.parametrize("test_job_ids", [[uuid.uuid4() for _ in range(r)] for r in range(1, 4)])
+def test_jobs_download__post__no_duplicate_analysis_file_names(
+    test_token_scope, test_job_ids, mocked_asyncpg_con, mocker
+):
+    test_account_id = uuid.uuid4()
+    account_type = "customer" if test_token_scope == ["users:admin"] else "user"
+    access_token = get_token(scope=test_token_scope, account_type=account_type, userid=test_account_id)
 
-    upload_id = uuid.uuid4()
-    job_one = uuid.uuid4()
-    job_two = uuid.uuid4()
-    test_user_id = uuid.uuid4()
-    test_customer_id = uuid.uuid4()
+    test_statuses = ["finished", "finished", "pending", "error"]
+    test_job_rows = [
+        {
+            "status": status,
+            "job_id": f"job{i}",
+            "upload_id": str(job_id),
+            "created_at": i,
+            "job_meta": f"jmeta{i}",
+            "object_key": f"/obj/prefix/file{i}.xlsx",
+        }
+        for i, (status, job_id) in enumerate(zip(test_statuses, test_job_ids))
+    ]
 
-    access_token = get_token(scope=["users:free"], userid=test_user_id, customer_id=test_customer_id)
+    mocked_get_jobs = mocker.patch.object(main, "get_jobs", autospec=True, return_value=test_job_rows)
+    mocked_yield_objs = mocker.patch.object(main, "_yield_s3_objects", autospec=True)
 
-    kwargs = {
-        "headers": {"Authorization": f"Bearer {access_token}"},
-        "json": {
-            "jobs": [
-                {
-                    "jobId": str(job_one),
-                    "uploadId": str(upload_id),
-                    "analyzedFile": "test_file.xlsx",
-                    "datetime": "2022-01-01-120000",
-                    "status": "completed",
-                    "analysisParams": {},
-                },
-                {
-                    "jobId": str(job_two),
-                    "uploadId": str(upload_id),
-                    "analyzedFile": "test_file.xlsx",
-                    "datetime": "2022-01-01-120000",
-                    "status": "completed",
-                    "analysisParams": {},
-                },
-            ]
-        },
-    }
+    test_job_ids_strs = [str(job_id) for job_id in test_job_ids]
 
+    kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}, "json": {"job_ids": test_job_ids_strs}}
     response = test_client.post("/jobs/download", **kwargs)
-    assert response.headers["content-type"] == "application/zip"
     assert response.status_code == 200
+    assert response.headers["content-type"] == "application/zip"
 
-    mocked_s3_util.assert_called_with(
+    mocked_get_jobs.assert_called_once_with(
+        con=mocked_asyncpg_con,
+        account_type=account_type,
+        account_id=str(test_account_id),
+        job_ids=test_job_ids_strs,
+    )
+
+    expected_keys = [job_row["object_key"] for job_row in test_job_rows if job_row["status"] == "finished"]
+    mocked_yield_objs.assert_called_once_with(
         bucket="test-pulse3d-uploads",
-        filenames=["test_file.xlsx", "test_file_(1).xlsx"],
-        keys=[
-            f"analyzed/{test_customer_id}/{test_user_id}/{upload_id}/{job_one}/test_file.xlsx",
-            f"analyzed/{test_customer_id}/{test_user_id}/{upload_id}/{job_two}/test_file.xlsx",
-        ],
+        filenames=[os.path.basename(key) for key in expected_keys],
+        keys=expected_keys,
     )
 
 
-def test_download__post_returns_400_if_no_jobs_sent(mocker):
-    test_user_id = uuid.uuid4()
-    access_token = get_token(scope=["users:free"], userid=test_user_id)
-    kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}, "json": {"jobs": []}}
+@pytest.mark.parametrize("test_token_scope", [["users:free"], ["users:admin"]])
+def test_download__post__duplicate_analysis_file_names(mocked_asyncpg_con, test_token_scope, mocker):
+    test_account_id = uuid.uuid4()
+    account_type = "customer" if test_token_scope == ["users:admin"] else "user"
+    access_token = get_token(scope=test_token_scope, account_type=account_type, userid=test_account_id)
+
+    test_job_ids = [uuid.uuid4() for _ in range(3)]
+
+    test_job_rows = [
+        {
+            "status": "finished",
+            "job_id": f"job{i}",
+            "upload_id": str(job_id),
+            "created_at": i,
+            "job_meta": f"jmeta{i}",
+            "object_key": f"/prefix/{i}/file.xlsx",
+        }
+        for i, job_id in enumerate(test_job_ids)
+    ]
+
+    mocked_get_jobs = mocker.patch.object(main, "get_jobs", autospec=True, return_value=test_job_rows)
+    mocked_yield_objs = mocker.patch.object(main, "_yield_s3_objects", autospec=True)
+
+    test_job_ids_strs = [str(job_id) for job_id in test_job_ids]
+
+    kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}, "json": {"job_ids": test_job_ids_strs}}
+    response = test_client.post("/jobs/download", **kwargs)
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/zip"
+
+    mocked_get_jobs.assert_called_once_with(
+        con=mocked_asyncpg_con,
+        account_type=account_type,
+        account_id=str(test_account_id),
+        job_ids=test_job_ids_strs,
+    )
+
+    expected_keys = [job_row["object_key"] for job_row in test_job_rows]
+    mocked_yield_objs.assert_called_once_with(
+        bucket="test-pulse3d-uploads",
+        filenames=["file.xlsx", "file_(1).xlsx", "file_(2).xlsx"],
+        keys=expected_keys,
+    )
+
+
+@pytest.mark.parametrize("test_job_ids,test_error_code", [(None, 422), ([], 400)])
+def test_download__post__no_job_ids_given(test_job_ids, test_error_code, mocker):
+    mocked_get_jobs = mocker.patch.object(main, "get_jobs", autospec=True)
+    mocked_yield_objs = mocker.patch.object(main, "_yield_s3_objects", autospec=True)
+
+    access_token = get_token(scope=["users:free"])
+
+    kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
+    # in None case, don't even pass a param
+    if test_job_ids is not None:
+        kwargs["json"] = {"job_ids": test_job_ids}
 
     response = test_client.post("/jobs/download", **kwargs)
-    assert response.status_code == 400
+    assert response.status_code == test_error_code
+
+    mocked_get_jobs.assert_not_called()
+    mocked_yield_objs.assert_not_called()
