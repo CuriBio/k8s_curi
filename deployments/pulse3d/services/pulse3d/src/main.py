@@ -1,5 +1,4 @@
 from collections import defaultdict
-from email.policy import default
 import json
 import logging
 from typing import List, Optional, Tuple, Union
@@ -317,10 +316,8 @@ async def soft_delete_jobs(
 ):
     # make sure at least one job ID was given
     if not job_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No job IDs given",
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No job IDs given")
+
     # need to convert UUIDs to str to avoid issues with DB
     job_ids = [str(job_id) for job_id in job_ids]
 
@@ -342,13 +339,13 @@ async def download_analyses(
     token=Depends(ProtectedAny(scope=["users:free", "users:admin"])),
 ):
     job_ids = details.job_ids
-    # check if for some reason an empty list was sent
+
+    # make sure at least one job ID was given
     if not job_ids:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No job IDs given")
 
     # need to convert UUIDs to str to avoid issues with DB
-    if job_ids:
-        job_ids = [str(job_id) for job_id in job_ids]
+    job_ids = [str(job_id) for job_id in job_ids]
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -369,10 +366,10 @@ async def download_analyses(
 
             if filename in unique_filenames:
                 num_times_repeated[filename] += 1
-                idx = num_times_repeated[filename]
-                # add duplicate index to differentiate duplicate filenames
+                duplicate_num = num_times_repeated[filename]
+                # add duplicate num to differentiate duplicate filenames
                 root, ext = os.path.splitext(filename)
-                filename = f"{root}_({idx}){ext}"
+                filename = f"{root}_({duplicate_num}){ext}"
 
             unique_filenames.append(filename)
 
@@ -390,7 +387,7 @@ async def download_analyses(
 
 
 def _yield_s3_objects(bucket: str, keys: List[str], filenames: List[str]):
-    # TODO consider moving this to core s3 utils
+    # TODO consider moving this to core s3 utils if more routes need to start using it
     try:
         s3 = boto3.session.Session().resource("s3")
         for idx, key in enumerate(keys):
