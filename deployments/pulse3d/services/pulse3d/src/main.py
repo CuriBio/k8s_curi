@@ -336,7 +336,16 @@ async def soft_delete_jobs(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.get("/uploads/waveform_data")
+from pydantic import BaseModel
+from typing import Any
+
+
+class DataResponse(BaseModel):
+    coordinates: List[Any]
+    peaks_valleys: List[Any]
+
+
+@app.get("/uploads/waveform_data", response_model=DataResponse)
 async def get_interactive_waveform_data(
     request: Request,
     upload_id: uuid.UUID = Query(True),
@@ -362,7 +371,7 @@ async def get_interactive_waveform_data(
 
             pr = PlateRecording(
                 os.path.join(
-                    os.path.expanduser("~"), "Desktop", "ML2022123456_overnight test_2022_06_14_155050.zip"
+                    "/Users/lucipak/Library/ApplicationSupport/Electron/recordings/ML22001000-2__2022_08_18_190725"
                 )
             )
 
@@ -371,29 +380,31 @@ async def get_interactive_waveform_data(
             time = columns[:1][0]
             force = columns[1:]
             peaks_and_valleys = list()
+            coordinates = list()
+
             for (idx, well) in enumerate(pr.wells):
                 logger.info(f"Finding peaks and valleys for well {well[WELL_NAME_UUID]}")
                 interpolated_well_data = np.row_stack([time, force[idx]])
-
-                peaks_and_valleys.append(
-                    peak_detector(
-                        interpolated_well_data,
-                    )
+                p_and_v = peak_detector(
+                    interpolated_well_data,
                 )
+                peaks_and_valleys.append([p_and_v[0].tolist(), p_and_v[1].tolist()])
+
+                well_coords = [
+                    [time[i] / MICRO_TO_BASE_CONVERSION, val] for (i, val) in enumerate(force[idx])
+                ]
+                coordinates.append(well_coords)
 
             # columns = [list(df[c]) for c in df.columns]
             # time = columns[:1][0]
             # force = columns[1:]
-            # coordinates = list()
 
             # for well in force:
-            #     well_coords = [[time[i] / MICRO_TO_BASE_CONVERSION, val] for (i, val) in enumerate(well)]
-            #     coordinates.append(well_coords)
 
-            with open("/Users/lucipak/Desktop/test_data.txt", "r") as f:
-                coords = f.read()
+            # with open("/Users/lucipak/Desktop/test_data.txt", "r") as f:
+            #     coords = f.read()
 
-            return {"coordinates": json.loads(coords), "peaks_valleys": peaks_and_valleys}
+            return DataResponse(coordinates=coordinates, peaks_valleys=peaks_and_valleys)
 
     except Exception as e:
         logger.error(f"Failed to get interactive waveform data: {repr(e)}")

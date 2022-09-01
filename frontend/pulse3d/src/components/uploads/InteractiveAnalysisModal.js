@@ -51,6 +51,8 @@ export default function InteractiveWaveformModal({ uploadId }) {
   const [data, setData] = useState([]);
   const [dataToGraph, setDataToGraph] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [peaksValleys, setPeaksValleys] = useState([]);
+  const [markers, setMarkers] = useState([]);
 
   const getWaveformData = async () => {
     try {
@@ -58,7 +60,7 @@ export default function InteractiveWaveformModal({ uploadId }) {
         `https://curibio.com/uploads/waveform_data?upload_id=${uploadId}`
       );
       const { coordinates, peaks_valleys } = await response.json();
-      console.log(JSON.stringify(peaks_valleys));
+      setPeaksValleys([...peaks_valleys]);
       setData([...coordinates]);
       setIsLoading(false);
     } catch (e) {
@@ -72,7 +74,10 @@ export default function InteractiveWaveformModal({ uploadId }) {
 
   useEffect(() => {
     // will error on init because there won't be an index 0
-    if (data.length > 0) setDataToGraph([...data[selectedWell]]);
+    if (data.length > 0) {
+      setDataToGraph([...data[selectedWell]]);
+      setMarkers([...peaksValleys[selectedWell]]);
+    }
   }, [data, selectedWell]);
 
   const wellNames = Array(24)
@@ -100,7 +105,7 @@ export default function InteractiveWaveformModal({ uploadId }) {
             />
           </DropdownContainer>
           <GraphContainer>
-            <WaveformGraph dataToGraph={dataToGraph} />
+            <WaveformGraph dataToGraph={dataToGraph} initialPeaksValleys={markers} />
           </GraphContainer>
         </>
       )}

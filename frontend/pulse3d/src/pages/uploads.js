@@ -394,6 +394,7 @@ export default function Uploads() {
           a.click();
           a.remove();
         } else {
+          console.log("INSIDE");
           const fileStream = createWriteStream(zipFilename);
           const writer = fileStream.getWriter();
 
@@ -436,13 +437,13 @@ export default function Uploads() {
                 ...Array(2).fill(
                   checkedJobs.length === 0 && checkedUploads.length === 0
                 ),
-                checkedJobs.length !== 1,
+                checkedUploads.length !== 1,
               ]}
               optionsTooltipText={[
                 ...Array(2).fill(
                   "Must make a selection below before actions become available."
                 ),
-                "Can only be performed on one job at a time",
+                "You must select one upload to enable interactive analysis.",
               ]}
               handleSelection={handleDropdownSelection}
               reset={resetDropdown}
@@ -565,3 +566,5 @@ export default function Uploads() {
 Uploads.getLayout = (page) => {
   return <DashboardLayout>{page}</DashboardLayout>;
 };
+
+
