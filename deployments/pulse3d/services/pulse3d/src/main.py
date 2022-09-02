@@ -1,6 +1,7 @@
+from collections import defaultdict
 import json
 import logging
-from typing import List, Optional
+from typing import List, Optional, Tuple, Union
 import uuid
 import boto3
 import os
@@ -14,7 +15,7 @@ from fastapi.responses import StreamingResponse
 from auth import ProtectedAny
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET
 from jobs import create_upload, create_job, get_uploads, get_jobs, delete_jobs, delete_uploads
-from models.models import UploadRequest, UploadResponse, JobRequest, JobResponse, DownloadRequest
+from models.models import UploadRequest, UploadResponse, JobRequest, JobResponse, JobDownloadRequest
 from models.types import TupleParam
 
 from utils.db import AsyncpgPoolDep
@@ -181,50 +182,56 @@ async def get_info_of_jobs(
         job_ids = [str(job_id) for job_id in job_ids]
 
     try:
-        account_type = token["account_type"]
-        account_id = str(uuid.UUID(token["userid"]))
-        logger.info(f"Retrieving job info with IDs: {job_ids} for {account_type}: {account_id}")
-
         async with request.state.pgpool.acquire() as con:
-            jobs = await get_jobs(con=con, account_type=account_type, account_id=account_id, job_ids=job_ids)
-            response = {"jobs": []}
-            for job in jobs:
-                obj_key = job["object_key"]
-                job_info = {
-                    "id": job["job_id"],
-                    "status": job["status"],
-                    "upload_id": job["upload_id"],
-                    "object_key": obj_key,
-                    "created_at": job["created_at"],
-                    "meta": job["job_meta"],
-                }
+            jobs = await _get_jobs(con, token, job_ids)
 
-                if job_info["status"] == "finished" and download:
-                    # This is in case any current users uploaded files before object_key was dropped from uploads table and added to jobs_result
-                    if obj_key:
-                        logger.info(f"Generating presigned download url for {obj_key}")
-                        try:
-                            job_info["url"] = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, obj_key)
-                        except Exception as e:
-                            logger.error(f"Error generating presigned url for {obj_key}: {str(e)}")
-                            job_info["url"] = "Error creating download link"
-                    else:
-                        job_info["url"] = None
+        response = {"jobs": []}
+        for job in jobs:
+            obj_key = job["object_key"]
+            job_info = {
+                "id": job["job_id"],
+                "status": job["status"],
+                "upload_id": job["upload_id"],
+                "object_key": obj_key,
+                "created_at": job["created_at"],
+                "meta": job["job_meta"],
+            }
 
-                elif job_info["status"] == "error":
+            if job_info["status"] == "finished" and download:
+                # This is in case any current users uploaded files before object_key was dropped from uploads table and added to jobs_result
+                if obj_key:
+                    logger.info(f"Generating presigned download url for {obj_key}")
                     try:
-                        job_info["error_info"] = json.loads(job["job_meta"])["error"]
-                    except KeyError:  # protects against downgrading and updating deleted statuses to errors
-                        job_info["error_info"] = "Was previously deleted"
+                        job_info["url"] = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, obj_key)
+                    except Exception as e:
+                        logger.error(f"Error generating presigned url for {obj_key}: {str(e)}")
+                        job_info["url"] = "Error creating download link"
+                else:
+                    job_info["url"] = None
 
-                response["jobs"].append(job_info)
-            if not response["jobs"]:
-                response["error"] = "No jobs found"
+            elif job_info["status"] == "error":
+                try:
+                    job_info["error_info"] = json.loads(job["job_meta"])["error"]
+                except KeyError:  # protects against downgrading and updating deleted statuses to errors
+                    job_info["error_info"] = "Was previously deleted"
+
+            response["jobs"].append(job_info)
+        if not response["jobs"]:
+            response["error"] = "No jobs found"
+
         return response
 
     except Exception as e:
         logger.error(f"Failed to get jobs: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+async def _get_jobs(con, token, job_ids):
+    account_type = token["account_type"]
+    account_id = str(uuid.UUID(token["userid"]))
+    logger.info(f"Retrieving job info with IDs: {job_ids} for {account_type}: {account_id}")
+
+    return await get_jobs(con=con, account_type=account_type, account_id=account_id, job_ids=job_ids)
 
 
 @app.post("/jobs")
@@ -250,15 +257,13 @@ async def create_new_job(
             )
         }
 
-        # convert prominence and width factors into a format compatible with pulse3D
-        analysis_params["prominence_factors"] = _format_advanced_options(
-            analysis_params["prominence_factors"], 6  # TODO grab these default values from pulse3D
-        )
-        analysis_params["width_factors"] = _format_advanced_options(analysis_params["width_factors"], 7)
-
-        analysis_params["baseline_widths_to_use"] = _format_baseline(
-            analysis_params["baseline_widths_to_use"]
-        )
+        # convert these params into a format compatible with pulse3D
+        for param, default_values in (  # TODO grab default values from pulse3D package
+            ("prominence_factors", 6),
+            ("width_factors", 7),
+            ("baseline_widths_to_use", (10, 90)),
+        ):
+            analysis_params[param] = _format_tuple_param(analysis_params[param], default_values)
 
         logger.info(f"Using params: {analysis_params}")
 
@@ -285,24 +290,22 @@ async def create_new_job(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def _format_advanced_options(options: Optional[TupleParam], default_value: int) -> Optional[TupleParam]:
-    if options is None or options == (None, None):
+def _format_tuple_param(
+    options: Optional[TupleParam], default_values: Union[int, Tuple[int, ...]]
+) -> Optional[TupleParam]:
+    if options is None or all(op is None for op in options):
         return None
+
+    if isinstance(default_values, int):
+        default_values = (default_values,) * len(options)
 
     # set any unspecified values to the default value
-    formatted_options = tuple([option if option is not None else default_value for option in options])
+    formatted_options = tuple(
+        option if option is not None else default_value
+        for option, default_value in zip(options, default_values)
+    )
 
     return formatted_options
-
-
-def _format_baseline(options: Optional[TupleParam]):
-    if options is None or options == (None, None):
-        return None
-    if options[0] is None:
-        return 10, options[1]
-    if options[1] is None:
-        return options[0], 90
-    return options[0], options[1]
 
 
 @app.delete("/jobs")
@@ -313,10 +316,8 @@ async def soft_delete_jobs(
 ):
     # make sure at least one job ID was given
     if not job_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No job IDs given",
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No job IDs given")
+
     # need to convert UUIDs to str to avoid issues with DB
     job_ids = [str(job_id) for job_id in job_ids]
 
@@ -334,38 +335,41 @@ async def soft_delete_jobs(
 @app.post("/jobs/download")
 async def download_analyses(
     request: Request,
-    details: DownloadRequest,
-    token=Depends(ProtectedAny(scope=["users:free"])),
+    details: JobDownloadRequest,
+    token=Depends(ProtectedAny(scope=["users:free", "users:admin"])),
 ):
+    job_ids = details.job_ids
 
-    jobs = details.jobs
-    user_id = str(uuid.UUID(token["userid"]))
-    customer_id = str(uuid.UUID(token["customer_id"]))
+    # make sure at least one job ID was given
+    if not job_ids:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No job IDs given")
 
-    # check if for some reason an empty list was sent
-    if not jobs:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Nothing to download.",
-        )
+    # need to convert UUIDs to str to avoid issues with DB
+    job_ids = [str(job_id) for job_id in job_ids]
 
     try:
+        async with request.state.pgpool.acquire() as con:
+            jobs = await _get_jobs(con, token, job_ids)
+
+        num_times_repeated = defaultdict(lambda: 0)
+
         unique_filenames = list()
         keys = list()
-
         for job in jobs:
-            upload_id = job.uploadId
-            job_id = job.jobId
-            filename = job.analyzedFile
-            keys.append(f"analyzed/{customer_id}/{user_id}/{upload_id}/{job_id}/{filename}")
+            if job["status"] != "finished":
+                continue
+
+            obj_key = job["object_key"]
+            keys.append(obj_key)
+
+            filename = os.path.basename(obj_key)
 
             if filename in unique_filenames:
-                # grabs index of file in list of duplicate filenames to append to filename to differentiate
-                duplicate_filename = [j.jobId for j in jobs if j.analyzedFile == filename]
-                idx = duplicate_filename.index(job_id)
-                # add duplicate index to differentiate duplicate filenames
+                num_times_repeated[filename] += 1
+                duplicate_num = num_times_repeated[filename]
+                # add duplicate num to differentiate duplicate filenames
                 root, ext = os.path.splitext(filename)
-                filename = "".join([f"{root}_({idx})", ext])
+                filename = f"{root}_({duplicate_num}){ext}"
 
             unique_filenames.append(filename)
 
@@ -383,9 +387,10 @@ async def download_analyses(
 
 
 def _yield_s3_objects(bucket: str, keys: List[str], filenames: List[str]):
+    # TODO consider moving this to core s3 utils if more routes need to start using it
     try:
         s3 = boto3.session.Session().resource("s3")
-        for (idx, key) in enumerate(keys):
+        for idx, key in enumerate(keys):
             obj = s3.Object(bucket_name=PULSE3D_UPLOADS_BUCKET, key=key)
             yield filenames[idx], datetime.now(), 0o600, ZIP_64, obj.get()["Body"]
 
