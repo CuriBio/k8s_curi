@@ -146,6 +146,8 @@ spec:
               value: "{{item.service}}"
             - name: deployment
               value: "{{item.deployment}}"
+            - name: version
+              value: "{{item.version}}"
             - name: sha
               value: "{{workflow.parameters.sha}}"
         withParam: "{{steps.checkout.outputs.result}}"
