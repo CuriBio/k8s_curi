@@ -1,4 +1,5 @@
 import argparse
+import glob
 import json
 import os
 import sys
@@ -6,54 +7,66 @@ import subprocess
 
 import requests
 
+from typing import List
+
 
 K8S_REPO_BASE_URL = "https://api.github.com/repos/CuriBio/k8s_curi"
 
 
-def parse_py_dep_version(file_path: str, dep_name: str) -> str:
-    with open(file_path) as f:
+SVC_PATH_PATTERN = "deployments/**/services/*"
+WORKER_PATH_PATTERN = "jobs/**/*-worker"
+ALL_SVC_PATHS = frozenset(
+    [*glob.glob(SVC_PATH_PATTERN, recursive=True), *glob.glob(WORKER_PATH_PATTERN, recursive=True)]
+)
+
+CORE_LIB_PATH = "core/lib"
+
+
+def parse_py_dep_version(svc_path: str, dep_name: str) -> str:
+    req_file = os.path.join(svc_path, "src", "requirements.txt")
+    with open(req_file) as f:
         for line in f.readlines():
             if line.startswith(dep_name):
-                return line.split("==")[-1]
+                return line.strip().split("==")[-1]
 
-    raise Exception(f"{dep_name} not found in {file_path}")
+    raise Exception(f"{dep_name} not found in {req_file}")
 
 
-def find_changed(sha: str):
+def get_dir_args(*dirs: List[str]) -> List[str]:
+    return [arg for dir_ in dirs for arg in ("--", dir_)]
+
+
+def find_changed_svcs():
+    patterns_to_check = [f"{path}/**" for path in (SVC_PATH_PATTERN, WORKER_PATH_PATTERN, CORE_LIB_PATH)]
+
+    completed_process = subprocess.run(
+        ["git", "--no-pager", "diff", "--name-only", *get_dir_args(*patterns_to_check), ":!*.tf"],
+        stdout=subprocess.PIPE,
+    )
+
+    changed_paths_list = completed_process.stdout.decode("utf-8").split("\n")[:-1]
+
+    # if any core lib files were changed, consider all svcs changed,
+    # otherwise just include the svcs that actually had files changed
+    if any(ch_path.startswith(CORE_LIB_PATH) for ch_path in changed_paths_list):
+        changed_svc_paths = ALL_SVC_PATHS
+    else:
+        changed_svc_paths = set(ch_path.split("/src")[0] for ch_path in changed_paths_list)
+
     list_to_return = []
+    for ch_path in changed_svc_paths:
+        dep_type, dep_name, *_, svc = ch_path.split("/")
 
-    for dir in ["./deployments", "./jobs"]:
-        completed_process = subprocess.run(
-            ["git", "--no-pager", "diff", sha, "--name-only", "--", dir, ":!*.tf"], stdout=subprocess.PIPE
-        )
-        changed_paths_list = completed_process.stdout.decode("utf-8").split("\n")[:-1]
+        if svc == "pulse3d" and dep_type == "deployments":
+            # if it's the pulse3d svc under ./deployments/, then change the svc name from pulse3d to pulse3d_api
+            svc = "pulse3d_api"
 
-        for ch_path in changed_paths_list:
-            subdirs = ch_path.split("/")
+        # need to output the pulse3d package version so it can be included in the name of the pulse3d-worker docker image
+        version = parse_py_dep_version(ch_path, "pulse3d") if svc == "pulse3d-worker" else "latest"
 
-            # set service name to be the folder one above src
-            svc = subdirs[subdirs.index("src") - 1]
-            if svc == "pulse3d" and dir == "./deployments":
-                # if it's the /deployment pulse3d directory, then change the service name from pulse3d to pulse3d_api
-                svc = "pulse3d_api"
+        # TODO test all this in a PR
 
-            # need to output the pulse3d package version so it can be included in the name of the pulse3d-worker docker image
-            version = (
-                parse_py_dep_version(ch_path, "pulse3d")
-                if dir == "./jobs" and os.path.basename(ch_path) == "requirements.txt"
-                else "latest"
-            )
-
-            # TODO test all this in a PR
-
-            list_to_return.append(
-                {
-                    "path": f"./{'/'.join(subdirs[:-2])}",
-                    "deployment": subdirs[1],
-                    "svc": svc,
-                    "version": version,
-                }
-            )
+        list_to_return.append({"path": ch_path, "deployment": dep_name, "svc": svc, "version": version})
 
     return list_to_return
 
@@ -112,7 +125,7 @@ def main():
 
     if args.status and args.sha:
         if args.changed:
-            changed = (find_changed_tf if args.terraform else find_changed)(args.sha)
+            changed = (find_changed_tf if args.terraform else find_changed_svcs)(args.sha)
 
             # printing here in order to expose the names of the svcs or terraform files with changes
             # to the process calling this python script. It is not a debug statement, don't delete it
