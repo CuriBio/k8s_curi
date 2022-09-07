@@ -66,7 +66,7 @@ def find_changed_svcs(sha: str):
 
         # TODO test all this in a PR
 
-        list_to_return.append({"path": ch_path, "deployment": dep_name, "svc": svc, "version": version})
+        list_to_return.append({"path": ch_path, "deployment": dep_name, "service": svc, "version": version})
 
     return list_to_return
 
