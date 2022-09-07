@@ -121,6 +121,7 @@ const adminButtons = [
     page: "/new-user",
     options: [],
   },
+  { label: "Users Info", disabled: false, page: "/users-info", options: [] },
 ];
 
 export default function ControlPanel() {
