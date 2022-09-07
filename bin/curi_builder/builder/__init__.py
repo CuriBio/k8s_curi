@@ -36,11 +36,11 @@ def get_dir_args(*dirs: List[str]) -> List[str]:
     return [arg for dir_ in dirs for arg in ("--", dir_)]
 
 
-def find_changed_svcs():
+def find_changed_svcs(sha: str):
     patterns_to_check = [f"{path}/**" for path in (SVC_PATH_PATTERN, WORKER_PATH_PATTERN, CORE_LIB_PATH)]
 
     completed_process = subprocess.run(
-        ["git", "--no-pager", "diff", "--name-only", *get_dir_args(*patterns_to_check), ":!*.tf"],
+        ["git", "--no-pager", "diff", sha, "--name-only", *get_dir_args(*patterns_to_check), ":!*.tf"],
         stdout=subprocess.PIPE,
     )
 
