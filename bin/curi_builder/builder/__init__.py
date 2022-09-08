@@ -49,7 +49,8 @@ def find_changed_svcs(sha: str):
     # if any core lib files were changed, consider all svcs changed,
     # otherwise just include the svcs that actually had files changed
     if any(ch_path.startswith(CORE_LIB_PATH) for ch_path in changed_paths_list):
-        changed_svc_paths = ALL_SVC_PATHS
+        # Tanner (9/8/22): building the pheno svcs is causing issues in CI, so filtering them out here
+        changed_svc_paths = set(path for path in ALL_SVC_PATHS if "pheno" not in path)
     else:
         changed_svc_paths = set(ch_path.split("/src")[0] for ch_path in changed_paths_list)
 
