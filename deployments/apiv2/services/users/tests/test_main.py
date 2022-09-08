@@ -606,7 +606,6 @@ def test_users__put_delete__invalid_token_scope_given():
 
 
 def test_users__put_deactivate__success(mocked_asyncpg_con):
-    # assert not "TODO"
     expected_scope = ["users:admin"]
     test_customer_id = uuid.uuid4()
     access_token = get_token(userid=test_customer_id, scope=expected_scope, account_type="customer")
