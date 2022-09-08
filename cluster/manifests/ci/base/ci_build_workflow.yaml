@@ -25,64 +25,68 @@ spec:
   templates:
   - name: ci-build
     steps:
-    - - name: checkout
-        templateRef:
-          name: git-sync
-          template: checkout
-        arguments:
-          parameters:
-            - name: repo
-              value: "{{workflow.parameters.repo}}"
-            - name: branch
-              value: "{{workflow.parameters.branch}}"
-            - name: sha
-              value: "{{workflow.parameters.sha}}"
-            - name: base-sha
-              value: "{{workflow.parameters.base-sha}}"
-    - - name: changed-tf
-        templateRef:
-          name: git-sync
-          template: changed-tf
-        arguments:
-          parameters:
-          - name: sha
-            value: "{{workflow.parameters.base-sha}}"
-    - - name: check-db-upgrades
-        templateRef:
-          name: build-service
-          template: db-migrations-dry-run
-        arguments:
-          parameters:
-            - name: number
-              value: "{{workflow.parameters.number}}"
-      - name: build-services
-        templateRef:
-          name: build-service
-          template: kaniko-build-service
-        arguments:
-          parameters:
-            - name: path
-              value: "{{item.path}}"
-            - name: service
-              value: "{{item.service}}"
-            - name: deployment
-              value: "{{item.deployment}}"
-            - name: sha
-              value: "{{workflow.parameters.sha}}"
-        withParam: "{{steps.checkout.outputs.result}}"
-      - name: ci-terraform-plan
-        templateRef:
-          name: terraform-plan-template
-          template: ci-terraform-plan
-        arguments:
-          parameters:
-          - name: path
-            value: "{{item.path}}"
-          - name: number
-            value: "{{workflow.parameters.number}}"
+    - name: checkout
+      templateRef:
+        name: git-sync
+        template: checkout
+      arguments:
+        parameters:
+          - name: repo
+            value: "{{workflow.parameters.repo}}"
+          - name: branch
+            value: "{{workflow.parameters.branch}}"
           - name: sha
             value: "{{workflow.parameters.sha}}"
-        withParam: "{{steps.changed-tf.outputs.result}}"
+          - name: base-sha
+            value: "{{workflow.parameters.base-sha}}"
+    - name: check-db-upgrades
+      dependencies: [checkout]
+      templateRef:
+        name: build-service
+        template: db-migrations-dry-run
+      arguments:
+        parameters:
+          - name: number
+            value: "{{workflow.parameters.number}}"
+    - name: build-services
+      dependencies: [checkout]
+      templateRef:
+        name: build-service
+        template: kaniko-build-service
+      arguments:
+        parameters:
+          - name: path
+            value: "{{item.path}}"
+          - name: service
+            value: "{{item.service}}"
+          - name: deployment
+            value: "{{item.deployment}}"
+          - name: sha
+            value: "{{workflow.parameters.sha}}"
+      withParam: "{{steps.checkout.outputs.result}}"
+    - name: changed-tf
+      dependencies: [checkout]
+      templateRef:
+        name: git-sync
+        template: changed-tf
+      arguments:
+        parameters:
+        - name: sha
+          value: "{{workflow.parameters.base-sha}}"
+    - name: ci-terraform-plan
+      dependencies: [changed-tf]
+      templateRef:
+        name: terraform-plan-template
+        template: ci-terraform-plan
+      arguments:
+        parameters:
+        - name: path
+          value: "{{item.path}}"
+        - name: number
+          value: "{{workflow.parameters.number}}"
+        - name: sha
+          value: "{{workflow.parameters.sha}}"
+      withParam: "{{steps.changed-tf.outputs.result}}"
 
 ---
 apiVersion: argoproj.io/v1alpha1
@@ -112,59 +116,63 @@ spec:
   templates:
   - name: ci-build-push
     steps:
-    - - name: checkout
-        templateRef:
-          name: git-sync
-          template: checkout
-        arguments:
-          parameters:
-            - name: repo
-              value: "{{workflow.parameters.repo}}"
-            - name: branch
-              value: "{{workflow.parameters.branch}}"
-            - name: sha
-              value: "{{workflow.parameters.sha}}"
-            - name: base-sha
-              value: "{{workflow.parameters.base-sha}}"
-    - - name: changed-tf
-        templateRef:
-          name: git-sync
-          template: changed-tf
-        arguments:
-          parameters:
-          - name: sha
-            value: "{{workflow.parameters.base-sha}}"
-    - - name: upgrade-db
-        templateRef:
-          name: build-push-service
-          template: db-migrations
-      - name: build-services
-        templateRef:
-          name: build-push-service
-          template: kaniko-build-push-service
-        arguments:
-          parameters:
-            - name: path
-              value: "{{item.path}}"
-            - name: service
-              value: "{{item.service}}"
-            - name: deployment
-              value: "{{item.deployment}}"
-            - name: version
-              value: "{{item.version}}"
-            - name: sha
-              value: "{{workflow.parameters.sha}}"
-        withParam: "{{steps.checkout.outputs.result}}"
-      - name: ci-terraform-apply
-        templateRef:
-          name: terraform-apply-template
-          template: ci-terraform-apply
-        arguments:
-          parameters:
-          - name: path
-            value: "{{item.path}}"
-          - name: number
-            value: "{{workflow.parameters.number}}"
+    - name: checkout
+      templateRef:
+        name: git-sync
+        template: checkout
+      arguments:
+        parameters:
+          - name: repo
+            value: "{{workflow.parameters.repo}}"
+          - name: branch
+            value: "{{workflow.parameters.branch}}"
           - name: sha
             value: "{{workflow.parameters.sha}}"
-        withParam: "{{steps.changed-tf.outputs.result}}"
+          - name: base-sha
+            value: "{{workflow.parameters.base-sha}}"
+    - name: upgrade-db
+      dependencies: [checkout]
+      templateRef:
+        name: build-push-service
+        template: db-migrations
+    - name: build-services
+      dependencies: [checkout]
+      templateRef:
+        name: build-push-service
+        template: kaniko-build-push-service
+      arguments:
+        parameters:
+          - name: path
+            value: "{{item.path}}"
+          - name: service
+            value: "{{item.service}}"
+          - name: deployment
+            value: "{{item.deployment}}"
+          - name: version
+            value: "{{item.version}}"
+          - name: sha
+            value: "{{workflow.parameters.sha}}"
+      withParam: "{{steps.checkout.outputs.result}}"
+    - name: changed-tf
+      dependencies: [checkout]
+      templateRef:
+        name: git-sync
+        template: changed-tf
+      arguments:
+        parameters:
+        - name: sha
+          value: "{{workflow.parameters.base-sha}}"
+    - name: ci-terraform-apply
+      dependencies: [changed-tf]
+      templateRef:
+        name: terraform-apply-template
+        template: ci-terraform-apply
+      arguments:
+        parameters:
+        - name: path
+          value: "{{item.path}}"
+        - name: number
+          value: "{{workflow.parameters.number}}"
+        - name: sha
+          value: "{{workflow.parameters.sha}}"
+      withParam: "{{steps.changed-tf.outputs.result}}"
