@@ -39,7 +39,7 @@ export default function UserInfo() {
   const [users, setUsers] = useState([]);
   const [actionAlertVisible, setActionAlertVisible] = useState(false);
   const [modalMessage, setModalMessage] = useState();
-  const [actionToPreform, setActionToPreform] = useState("");
+  const [actionToPreform, setActionToPerform] = useState("");
   const [confirm, setConfirm] = useState(false);
   const [emailToDelete, setEmailToDelete] = useState("");
 
@@ -58,11 +58,11 @@ export default function UserInfo() {
   const userActionSelection = async (option, name, email) => {
     if (option === 1) {
       setModalMessage(`Are you sure you would like to deactivate ${name}?`);
-      setActionToPreform("deactivate");
+      setActionToPerform("deactivate");
       setEmailToDelete(email);
     } else if (option === 0) {
       setModalMessage(`Are you sure you would like to delete ${name}?`);
-      setActionToPreform("delete");
+      setActionToPerform("delete");
       setEmailToDelete(email);
     }
   };
@@ -72,12 +72,8 @@ export default function UserInfo() {
       const response = await fetch("https://curibio.com/users");
       if (response && response.status === 200) {
         const usersJson = await response.json();
-        const userList = [];
-        for (const user of usersJson) {
-          userList.push(user);
-        }
-        setUsers(userList);
-        setCurrentRows(userList.slice(0, 10));
+        setUsers(usersJson);
+        setCurrentRows(usersJson.slice(0, 10));
       }
     } catch (e) {
       console.log("ERROR fetching all users info");
@@ -117,10 +113,10 @@ export default function UserInfo() {
       <ModalWidget
         open={actionAlertVisible}
         labels={[modalMessage]}
-        buttons={["yes", "no"]}
-        header={"attention"}
+        buttons={["Yes", "No"]}
+        header={"Attention"}
         closeModal={(idx, label) => {
-          if (label === "yes") {
+          if (label === "Yes") {
             setConfirm(true);
           } else {
             setConfirm(false);
