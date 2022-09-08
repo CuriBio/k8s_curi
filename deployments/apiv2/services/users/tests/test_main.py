@@ -519,17 +519,53 @@ def test_logout__no_token_given():
     assert response.status_code == 403
 
 
-def test_get_all_users_info(mocked_asyncpg_con, cb_customer_id):
-    expected_scope = ["users:admin"]
-    access_token = get_token(userid=cb_customer_id, scope=expected_scope, account_type="customer")
-    response = test_client.get("/users", headers={"Authorization": f"Bearer {access_token}"})
+def test_users__get__success(mocked_asyncpg_con):
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(userid=test_customer_id, account_type="customer")
 
+    num_users_found = 3
+    mocked_asyncpg_con.fetch.return_value = expected_users_info = [
+        {
+            "name": f"name{i}",
+            "email": f"user{i}@email.com",
+            "created_at": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+            "last_login": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+            "suspended": choice([True, False]),
+        }
+        for i in range(num_users_found)
+    ]
+
+    response = test_client.get("/users", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 200
 
+    for user_info_dict in expected_users_info:
+        for new_name, old_name in (
+            ("date_created", "created_at"),
+            ("last_loggedin", "last_login"),
+            ("deactivated", "suspended"),
+        ):
+            user_info_dict[new_name] = user_info_dict.pop(old_name)
 
-def test_delete_a_user(mocked_asyncpg_con, cb_customer_id):
+    assert response.json() == expected_users_info
+
+    mocked_asyncpg_con.fetch.assert_called_once_with(
+        "SELECT name, email, created_at, last_login, suspended FROM users WHERE customer_id=$1 AND deleted_at IS NULL ORDER BY suspended",
+        test_customer_id,
+    )
+
+
+def test_users__get__invalid_token_scope_given():
+    # arbitrarily deciding to use user account type here
+    access_token = get_token(scope=["users:free"])
+    response = test_client.get("/users", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 401
+
+
+def test_user_actions__delete__success(mocked_asyncpg_con):
+    assert not "TODO"
     expected_scope = ["users:admin"]
-    access_token = get_token(userid=cb_customer_id, scope=expected_scope, account_type="customer")
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(userid=test_customer_id, scope=expected_scope, account_type="customer")
     response = test_client.delete(
         "/user-actions/testUser@curibio.com", headers={"Authorization": f"Bearer {access_token}"}
     )
@@ -537,10 +573,30 @@ def test_delete_a_user(mocked_asyncpg_con, cb_customer_id):
     assert response.status_code == 200
 
 
-def test_deactivate_a_user(mocked_asyncpg_con, cb_customer_id):
+def test_user_actions__delete__no_email_given():
     expected_scope = ["users:admin"]
+    access_token = get_token(scope=expected_scope, account_type="customer")
+    response = test_client.delete("/user-actions", headers={"Authorization": f"Bearer {access_token}"})
+
+    assert response.status_code == 404
+
+
+def test_user_actions__delete__invalid_token_scope_given():
+    # arbitrarily deciding to use user account type here
+    access_token = get_token(scope=["users:free"])
+    response = test_client.delete(
+        "/user-actions/test@email.com", headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert response.status_code == 401
+
+
+def test_user_actions__put__success(mocked_asyncpg_con):
+    assert not "TODO"
+    expected_scope = ["users:admin"]
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(userid=test_customer_id, scope=expected_scope, account_type="customer")
+
     action_to_take = {"action_type": "deactivate"}
-    access_token = get_token(userid=cb_customer_id, scope=expected_scope, account_type="customer")
 
     response = test_client.put(
         "/user-actions/testUser@curibio.com",
@@ -549,3 +605,24 @@ def test_deactivate_a_user(mocked_asyncpg_con, cb_customer_id):
     )
 
     assert response.status_code == 200
+
+
+def test_user_actions__put__no_action_given():
+    test_customer_id = uuid.uuid4()
+    expected_scope = ["users:admin"]
+    access_token = get_token(userid=test_customer_id, scope=expected_scope, account_type="customer")
+
+    response = test_client.put(
+        "/user-actions/testUser@curibio.com", headers={"Authorization": f"Bearer {access_token}"}
+    )
+
+    assert response.status_code == 422
+
+
+def test_user_actions__put__invalid_token_scope_given():
+    # arbitrarily deciding to use user account type here
+    access_token = get_token(scope=["users:free"])
+    response = test_client.put(
+        "/user-actions/test@email.com", headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert response.status_code == 401

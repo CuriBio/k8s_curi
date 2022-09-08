@@ -344,42 +344,32 @@ async def register(
 
 @app.get("/users")
 async def get_users(request: Request, token=Depends(ProtectedAny(scope=["users:admin"]))):
-    """Get all the information for all the users connected to the admin account that started this request.
+    """Get info for all the users under the given customer account.
+
     By default it will be sorted with all active users showing up first, then all the deactivated users
     """
     try:
         async with request.state.pgpool.acquire() as con:
-            list_of_users = []
             customer_id = uuid.UUID(hex=token["userid"])
-            active_rows = await con.fetch(
-                "SELECT name, email, created_at, last_login,suspended FROM users WHERE customer_id=$1 AND deleted_at IS NULL AND suspended='f'",
-                customer_id,
+
+            query = (
+                "SELECT name, email, created_at, last_login, suspended FROM users "
+                "WHERE customer_id=$1 AND deleted_at IS NULL "
+                "ORDER BY suspended"
             )
-            for row in active_rows:
-                list_of_users.append(
-                    {
-                        "name": row.get("name", ""),
-                        "email": row.get("email", ""),
-                        "date_created": row.get("created_at", ""),
-                        "last_loggedin": row.get("last_login"),
-                        "deactivated": row.get("suspended"),
-                    }
-                )
-            deactive_rows = await con.fetch(
-                "SELECT name, email, created_at, last_login,suspended FROM users WHERE customer_id=$1 AND deleted_at IS NULL AND suspended='t'",
-                customer_id,
-            )
-            for row in deactive_rows:
-                list_of_users.append(
-                    {
-                        "name": row.get("name", ""),
-                        "email": row.get("email", ""),
-                        "date_created": row.get("created_at", ""),
-                        "last_loggedin": row.get("last_login"),
-                        "deactivated": row.get("suspended"),
-                    }
-                )
-            return list_of_users
+            result = await con.fetch(query, customer_id)
+
+            return [
+                {
+                    "name": row.get("name", ""),
+                    "email": row.get("email", ""),
+                    "date_created": row.get("created_at", ""),
+                    "last_loggedin": row.get("last_login"),
+                    "deactivated": row.get("suspended"),
+                }
+                for row in result
+            ]
+
     except Exception as e:
         logger.exception(f"users GET: Unexpected error {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
