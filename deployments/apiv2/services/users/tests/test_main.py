@@ -517,3 +517,35 @@ def test_logout__success(account_type, mocked_asyncpg_con):
 def test_logout__no_token_given():
     response = test_client.post("/logout")
     assert response.status_code == 403
+
+
+def test_get_all_users_info(mocked_asyncpg_con, cb_customer_id):
+    expected_scope = ["users:admin"]
+    access_token = get_token(userid=cb_customer_id, scope=expected_scope, account_type="customer")
+    response = test_client.get("/users", headers={"Authorization": f"Bearer {access_token}"})
+
+    assert response.status_code == 200
+
+
+def test_delete_a_user(mocked_asyncpg_con, cb_customer_id):
+    expected_scope = ["users:admin"]
+    access_token = get_token(userid=cb_customer_id, scope=expected_scope, account_type="customer")
+    response = test_client.delete(
+        "/user-actions/testUser@curibio.com", headers={"Authorization": f"Bearer {access_token}"}
+    )
+
+    assert response.status_code == 200
+
+
+def test_deactivate_a_user(mocked_asyncpg_con, cb_customer_id):
+    expected_scope = ["users:admin"]
+    action_to_take = {"action_type": "deactivate"}
+    access_token = get_token(userid=cb_customer_id, scope=expected_scope, account_type="customer")
+
+    response = test_client.put(
+        "/user-actions/testUser@curibio.com",
+        json=action_to_take,
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
