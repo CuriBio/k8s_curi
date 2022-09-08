@@ -64,7 +64,7 @@ spec:
               value: "{{item.deployment}}"
             - name: sha
               value: "{{workflow.parameters.sha}}"
-        withParam: "{{steps.checkout.outputs.result}}"
+        withParam: "{{tasks.checkout.outputs.result}}"
       - name: changed-tf
         dependencies: [checkout]
         templateRef:
@@ -87,7 +87,7 @@ spec:
             value: "{{workflow.parameters.number}}"
           - name: sha
             value: "{{workflow.parameters.sha}}"
-        withParam: "{{steps.changed-tf.outputs.result}}"
+        withParam: "{{tasks.changed-tf.outputs.result}}"
 
 ---
 apiVersion: argoproj.io/v1alpha1
@@ -154,7 +154,7 @@ spec:
               value: "{{item.version}}"
             - name: sha
               value: "{{workflow.parameters.sha}}"
-        withParam: "{{steps.checkout.outputs.result}}"
+        withParam: "{{tasks.checkout.outputs.result}}"
       - name: changed-tf
         dependencies: [checkout]
         templateRef:
@@ -177,4 +177,4 @@ spec:
             value: "{{workflow.parameters.number}}"
           - name: sha
             value: "{{workflow.parameters.sha}}"
-        withParam: "{{steps.changed-tf.outputs.result}}"
+        withParam: "{{tasks.changed-tf.outputs.result}}"
