@@ -561,37 +561,52 @@ def test_users__get__invalid_token_scope_given():
     assert response.status_code == 401
 
 
-def test_user_actions__delete__success(mocked_asyncpg_con):
-    assert not "TODO"
+@freeze_time()
+def test_users__put_delete__success(mocked_asyncpg_con):
     expected_scope = ["users:admin"]
     test_customer_id = uuid.uuid4()
     access_token = get_token(userid=test_customer_id, scope=expected_scope, account_type="customer")
-    response = test_client.delete(
-        "/user-actions/testUser@curibio.com", headers={"Authorization": f"Bearer {access_token}"}
+    action_to_take = {"action_type": "delete"}
+
+    response = test_client.put(
+        "/users/testUser@curibio.com",
+        json=action_to_take,
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 200
 
+    mocked_asyncpg_con.execute.assert_called_once_with(
+        f"UPDATE users SET deleted_at=$1  WHERE email=$2", datetime.now(), "testUser@curibio.com"
+    )
 
-def test_user_actions__delete__no_email_given():
+
+def test_users__put_delete__no_email_given():
     expected_scope = ["users:admin"]
     access_token = get_token(scope=expected_scope, account_type="customer")
-    response = test_client.delete("/user-actions", headers={"Authorization": f"Bearer {access_token}"})
+    action_to_take = {"action_type": "delete"}
 
-    assert response.status_code == 404
+    response = test_client.delete(
+        "/users", json=action_to_take, headers={"Authorization": f"Bearer {access_token}"}
+    )
+
+    assert response.status_code == 405
 
 
-def test_user_actions__delete__invalid_token_scope_given():
+def test_users__put_delete__invalid_token_scope_given():
     # arbitrarily deciding to use user account type here
     access_token = get_token(scope=["users:free"])
+    action_to_take = {"action_type": "delete"}
+
     response = test_client.delete(
-        "/user-actions/test@email.com", headers={"Authorization": f"Bearer {access_token}"}
+        "/users/test@email.com", json=action_to_take, headers={"Authorization": f"Bearer {access_token}"}
     )
-    assert response.status_code == 401
+
+    assert response.status_code == 405
 
 
-def test_user_actions__put__success(mocked_asyncpg_con):
-    assert not "TODO"
+def test_users__put_deactivate__success(mocked_asyncpg_con):
+    # assert not "TODO"
     expected_scope = ["users:admin"]
     test_customer_id = uuid.uuid4()
     access_token = get_token(userid=test_customer_id, scope=expected_scope, account_type="customer")
@@ -599,30 +614,32 @@ def test_user_actions__put__success(mocked_asyncpg_con):
     action_to_take = {"action_type": "deactivate"}
 
     response = test_client.put(
-        "/user-actions/testUser@curibio.com",
+        "/users/testUser@curibio.com",
         json=action_to_take,
         headers={"Authorization": f"Bearer {access_token}"},
     )
 
     assert response.status_code == 200
 
+    mocked_asyncpg_con.execute.assert_called_once_with(
+        f"UPDATE users SET suspended='t' WHERE email=$1", "testUser@curibio.com"
+    )
 
-def test_user_actions__put__no_action_given():
+
+def test_users__put__no_action_given():
     test_customer_id = uuid.uuid4()
     expected_scope = ["users:admin"]
     access_token = get_token(userid=test_customer_id, scope=expected_scope, account_type="customer")
 
     response = test_client.put(
-        "/user-actions/testUser@curibio.com", headers={"Authorization": f"Bearer {access_token}"}
+        "/users/testUser@curibio.com", headers={"Authorization": f"Bearer {access_token}"}
     )
 
     assert response.status_code == 422
 
 
-def test_user_actions__put__invalid_token_scope_given():
+def test_users__put__invalid_token_scope_given():
     # arbitrarily deciding to use user account type here
     access_token = get_token(scope=["users:free"])
-    response = test_client.put(
-        "/user-actions/test@email.com", headers={"Authorization": f"Bearer {access_token}"}
-    )
+    response = test_client.put("/users/test@email.com", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 401

@@ -44,12 +44,13 @@ export default function UserInfo() {
   const [emailToDelete, setEmailToDelete] = useState("");
 
   const deleteUser = async () => {
-    fetch(`https://curibio.com/user-actions/${emailToDelete}`, {
-      method: "DELETE",
+    fetch(`https://curibio.com/users/${emailToDelete}`, {
+      method: "PUT",
+      body: JSON.stringify({ action_type: "delete" }),
     });
   };
   const deactivateUser = async () => {
-    fetch(`https://curibio.com/user-actions/${emailToDelete}`, {
+    fetch(`https://curibio.com/users/${emailToDelete}`, {
       method: "PUT",
       body: JSON.stringify({ action_type: "deactivate" }),
     });

@@ -67,10 +67,10 @@ const clearAccountInfo = () => {
 const getUrl = ({ pathname, search }) => {
   let url = "";
   //This lets the url be dynamic
-  if (pathname.split("/").includes("user-actions")) {
+  if (pathname.split("/").includes("users")) {
     url = USERS_URL;
   } else {
-    const userUrls = ["/login", "/logout", "/refresh", "/register", "/users"];
+    const userUrls = ["/login", "/logout", "/refresh", "/register"];
     url = userUrls.includes(pathname) ? USERS_URL : PULSE3D_URL;
   }
   return new URL(`${url}${pathname}${search}`);
@@ -98,9 +98,7 @@ const modifyRequest = async (req, url) => {
   const modifiedReq = new Request(getUrl(url), {
     headers,
     body:
-      req.method === "POST" || req.method === "PUT"
-        ? JSON.stringify(await req.clone().json())
-        : null,
+      req.method !== "GET" ? JSON.stringify(await req.clone().json()) : null,
     method: req.method,
   });
 
