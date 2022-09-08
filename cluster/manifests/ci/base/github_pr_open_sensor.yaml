@@ -24,7 +24,7 @@ spec:
               - opened
               - edited
               - reopened
-              - synchronized
+              - synchronize
           - path: body.pull_request.state
             type: string
             value:

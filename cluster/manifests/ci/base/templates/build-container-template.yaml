@@ -12,6 +12,7 @@ spec:
       - name: repo
       - name: branch
       - name: sha
+      - name: base-sha
     script:
       image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
       workingDir: /tmp/git
@@ -32,7 +33,7 @@ spec:
         cd k8s_curi
         git fetch -q origin "{{inputs.parameters.branch}}" && git checkout -q "{{inputs.parameters.branch}}"
 
-        SERVICES=$(builder --changed --status=pending --sha={{inputs.parameters.sha}})
+        SERVICES=$(builder --changed --status=pending --sha={{inputs.parameters.sha}} --base-sha={{inputs.parameters.base-sha}})
         echo $SERVICES
   - name: changed-tf
     inputs:

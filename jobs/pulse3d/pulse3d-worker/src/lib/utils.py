@@ -46,3 +46,6 @@ def get_s3_object_contents(bucket: str, key: str):
         return s3_client.head_object(Bucket=bucket, Key=key).get("ContentLength") / 1000
     except Exception as e:
         raise Exception(f"error retrieving s3 object size: {e}")
+
+
+# test

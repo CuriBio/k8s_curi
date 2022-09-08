@@ -36,11 +36,11 @@ def get_dir_args(*dirs: List[str]) -> List[str]:
     return [arg for dir_ in dirs for arg in ("--", dir_)]
 
 
-def find_changed_svcs():
+def find_changed_svcs(sha: str):
     patterns_to_check = [f"{path}/**" for path in (SVC_PATH_PATTERN, WORKER_PATH_PATTERN, CORE_LIB_PATH)]
 
     completed_process = subprocess.run(
-        ["git", "--no-pager", "diff", "--name-only", *get_dir_args(*patterns_to_check), ":!*.tf"],
+        ["git", "--no-pager", "diff", sha, "--name-only", *get_dir_args(*patterns_to_check), ":!*.tf"],
         stdout=subprocess.PIPE,
     )
 
@@ -66,7 +66,7 @@ def find_changed_svcs():
 
         # TODO test all this in a PR
 
-        list_to_return.append({"path": ch_path, "deployment": dep_name, "svc": svc, "version": version})
+        list_to_return.append({"path": ch_path, "deployment": dep_name, "service": svc, "version": version})
 
     return list_to_return
 
@@ -112,6 +112,7 @@ def main():
     parser.add_argument("--status", type=str, default=None)
     parser.add_argument("--context", type=str, default=None)
     parser.add_argument("--sha", type=str)
+    parser.add_argument("--base-sha", type=str, default=None)
     parser.add_argument("--pr-number", type=int, default=None)
     parser.add_argument("--pr-comment", type=str, default=None)
     parser.add_argument("--terraform", action=argparse.BooleanOptionalAction, default=False)
@@ -124,8 +125,8 @@ def main():
     task_failed = False
 
     if args.status and args.sha:
-        if args.changed:
-            changed = (find_changed_tf if args.terraform else find_changed_svcs)(args.sha)
+        if args.changed and args.base_sha:
+            changed = (find_changed_tf if args.terraform else find_changed_svcs)(args.base_sha)
 
             # printing here in order to expose the names of the svcs or terraform files with changes
             # to the process calling this python script. It is not a debug statement, don't delete it
