@@ -36,6 +36,8 @@ spec:
             - name: branch
               value: "{{workflow.parameters.branch}}"
             - name: sha
+              value: "{{workflow.parameters.sha}}"
+            - name: base-sha
               value: "{{workflow.parameters.base-sha}}"
     - - name: changed-tf
         templateRef:

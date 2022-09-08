@@ -112,6 +112,7 @@ def main():
     parser.add_argument("--status", type=str, default=None)
     parser.add_argument("--context", type=str, default=None)
     parser.add_argument("--sha", type=str)
+    parser.add_argument("--base-sha", type=str, default=None)
     parser.add_argument("--pr-number", type=int, default=None)
     parser.add_argument("--pr-comment", type=str, default=None)
     parser.add_argument("--terraform", action=argparse.BooleanOptionalAction, default=False)
@@ -124,8 +125,8 @@ def main():
     task_failed = False
 
     if args.status and args.sha:
-        if args.changed:
-            changed = (find_changed_tf if args.terraform else find_changed_svcs)(args.sha)
+        if args.changed and args.base_sha:
+            changed = (find_changed_tf if args.terraform else find_changed_svcs)(args.base_sha)
 
             # printing here in order to expose the names of the svcs or terraform files with changes
             # to the process calling this python script. It is not a debug statement, don't delete it
