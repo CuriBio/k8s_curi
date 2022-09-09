@@ -43,16 +43,10 @@ export default function UserInfo() {
   const [confirm, setConfirm] = useState(false);
   const [emailToEdit, setEmailToEdit] = useState("");
 
-  const deleteUser = async () => {
+  const sendActionPutRequest = async () => {
     fetch(`https://curibio.com/users/${emailToEdit}`, {
       method: "PUT",
-      body: JSON.stringify({ action_type: "delete" }),
-    });
-  };
-  const deactivateUser = async () => {
-    fetch(`https://curibio.com/users/${emailToEdit}`, {
-      method: "PUT",
-      body: JSON.stringify({ action_type: "deactivate" }),
+      body: JSON.stringify({ action_type: actionToPreform }),
     });
   };
 
@@ -93,10 +87,8 @@ export default function UserInfo() {
 
   useEffect(() => {
     try {
-      if (actionToPreform === "delete" && confirm) {
-        deleteUser();
-      } else if (actionToPreform === "deactivate" && confirm) {
-        deactivateUser();
+      if (actionToPreform !== "" && confirm) {
+        sendActionPutRequest();
       }
     } catch (e) {
       console.log("ERROR on user action ");

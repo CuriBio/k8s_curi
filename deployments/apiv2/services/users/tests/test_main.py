@@ -563,9 +563,8 @@ def test_users__get__invalid_token_scope_given():
 
 @freeze_time()
 def test_users__put__successful_deletion(mocked_asyncpg_con):
-    expected_scope = ["users:admin"]
     test_customer_id = uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, scope=expected_scope, account_type="customer")
+    access_token = get_token(userid=test_customer_id, account_type="customer")
     action_to_take = {"action_type": "delete"}
 
     response = test_client.put(
@@ -582,8 +581,7 @@ def test_users__put__successful_deletion(mocked_asyncpg_con):
 
 
 def test_users__put_delete__no_email_given():
-    expected_scope = ["users:admin"]
-    access_token = get_token(scope=expected_scope, account_type="customer")
+    access_token = get_token(account_type="customer")
     action_to_take = {"action_type": "delete"}
 
     response = test_client.put(
@@ -594,9 +592,9 @@ def test_users__put_delete__no_email_given():
 
 
 def test_users__put__successful_deactivation(mocked_asyncpg_con):
-    expected_scope = ["users:admin"]
+
     test_customer_id = uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, scope=expected_scope, account_type="customer")
+    access_token = get_token(userid=test_customer_id, account_type="customer")
 
     action_to_take = {"action_type": "deactivate"}
 
@@ -615,8 +613,7 @@ def test_users__put__successful_deactivation(mocked_asyncpg_con):
 
 def test_users__put__no_action_given():
     test_customer_id = uuid.uuid4()
-    expected_scope = ["users:admin"]
-    access_token = get_token(userid=test_customer_id, scope=expected_scope, account_type="customer")
+    access_token = get_token(userid=test_customer_id, account_type="customer")
 
     response = test_client.put(
         "/users/testUser@curibio.com", headers={"Authorization": f"Bearer {access_token}"}
