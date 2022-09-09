@@ -2,7 +2,6 @@ import Box from "@mui/material/Box";
 import Modal from "@mui/material/Modal";
 import ButtonWidget from "./ButtonWidget";
 import styled from "styled-components";
-import CircularSpinner from "./CircularSpinner";
 
 const ButtonContainer = styled.div`
   display: flex;
@@ -57,7 +56,7 @@ export default function ModalWidget({
                 <ButtonWidget
                   key={idx}
                   label={label}
-                  clickFn={() => closeModal(idx)}
+                  clickFn={() => closeModal(idx, label)}
                 />
               );
             })}
