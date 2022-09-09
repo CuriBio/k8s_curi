@@ -41,16 +41,16 @@ export default function UserInfo() {
   const [modalMessage, setModalMessage] = useState();
   const [actionToPreform, setActionToPerform] = useState("");
   const [confirm, setConfirm] = useState(false);
-  const [emailToDelete, setEmailToDelete] = useState("");
+  const [emailToEdit, setEmailToEdit] = useState("");
 
   const deleteUser = async () => {
-    fetch(`https://curibio.com/users/${emailToDelete}`, {
+    fetch(`https://curibio.com/users/${emailToEdit}`, {
       method: "PUT",
       body: JSON.stringify({ action_type: "delete" }),
     });
   };
   const deactivateUser = async () => {
-    fetch(`https://curibio.com/users/${emailToDelete}`, {
+    fetch(`https://curibio.com/users/${emailToEdit}`, {
       method: "PUT",
       body: JSON.stringify({ action_type: "deactivate" }),
     });
@@ -60,11 +60,11 @@ export default function UserInfo() {
     if (option === 1) {
       setModalMessage(`Are you sure you would like to deactivate ${name}?`);
       setActionToPerform("deactivate");
-      setEmailToDelete(email);
+      setEmailToEdit(email);
     } else if (option === 0) {
       setModalMessage(`Are you sure you would like to delete ${name}?`);
       setActionToPerform("delete");
-      setEmailToDelete(email);
+      setEmailToEdit(email);
     }
   };
 

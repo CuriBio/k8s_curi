@@ -562,7 +562,7 @@ def test_users__get__invalid_token_scope_given():
 
 
 @freeze_time()
-def test_users__put_delete__success(mocked_asyncpg_con):
+def test_users__put__successful_deletion(mocked_asyncpg_con):
     expected_scope = ["users:admin"]
     test_customer_id = uuid.uuid4()
     access_token = get_token(userid=test_customer_id, scope=expected_scope, account_type="customer")
@@ -586,26 +586,14 @@ def test_users__put_delete__no_email_given():
     access_token = get_token(scope=expected_scope, account_type="customer")
     action_to_take = {"action_type": "delete"}
 
-    response = test_client.delete(
+    response = test_client.put(
         "/users", json=action_to_take, headers={"Authorization": f"Bearer {access_token}"}
     )
 
     assert response.status_code == 405
 
 
-def test_users__put_delete__invalid_token_scope_given():
-    # arbitrarily deciding to use user account type here
-    access_token = get_token(scope=["users:free"])
-    action_to_take = {"action_type": "delete"}
-
-    response = test_client.delete(
-        "/users/test@email.com", json=action_to_take, headers={"Authorization": f"Bearer {access_token}"}
-    )
-
-    assert response.status_code == 405
-
-
-def test_users__put_deactivate__success(mocked_asyncpg_con):
+def test_users__put__successful_deactivation(mocked_asyncpg_con):
     expected_scope = ["users:admin"]
     test_customer_id = uuid.uuid4()
     access_token = get_token(userid=test_customer_id, scope=expected_scope, account_type="customer")
