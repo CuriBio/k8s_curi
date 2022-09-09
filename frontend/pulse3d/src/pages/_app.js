@@ -62,7 +62,6 @@ function Pulse({ Component, pageProps }) {
         // the router pathname is sent to the SW and then sent back here since for some reason this message handler
         // will not use the correct pathname if directly accessing router.pathname
         const currentPage = data.routerPathname;
-
         if (data.isLoggedIn) {
           // if logged in and on a page that shouldn't be accessed, or on the login page, redirect to home page (currently /uploads)
           // TODO Tanner (8/23/22): this probably isn't the best solution for redirecting to other pages. Should look into a better way to do this

@@ -15,7 +15,14 @@ from fastapi.responses import StreamingResponse
 from auth import ProtectedAny
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET
 from jobs import create_upload, create_job, get_uploads, get_jobs, delete_jobs, delete_uploads
-from models.models import UploadRequest, UploadResponse, JobRequest, JobResponse, DownloadRequest
+from models.models import (
+    UploadRequest,
+    UploadResponse,
+    JobRequest,
+    JobResponse,
+    DownloadRequest,
+    WaveformDataResponse,
+)
 from models.types import TupleParam
 
 from utils.db import AsyncpgPoolDep
@@ -272,7 +279,7 @@ async def create_new_job(
             job_id = await create_job(
                 con=con,
                 upload_id=details.upload_id,
-                queue="pulse3d",
+                queue="test_pulse3d",
                 priority=priority,
                 meta={"analysis_params": analysis_params},
             )
@@ -336,16 +343,7 @@ async def soft_delete_jobs(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-from pydantic import BaseModel
-from typing import Any
-
-
-class DataResponse(BaseModel):
-    coordinates: List[Any]
-    peaks_valleys: List[Any]
-
-
-@app.get("/uploads/waveform_data", response_model=DataResponse)
+@app.get("/uploads/waveform_data", response_model=WaveformDataResponse)
 async def get_interactive_waveform_data(
     request: Request,
     upload_id: uuid.UUID = Query(True),
@@ -357,54 +355,47 @@ async def get_interactive_waveform_data(
         upload_id = str(upload_id)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            # key = f"uploads/{customer_id}/{account_id}/{upload_id}"
-            # logger.info(f"Downloading recording data from {key}")
+            key = f"uploads/{customer_id}/{account_id}/{upload_id}"
+            logger.info(f"Downloading recording data from {key}")
 
-            # download_directory_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file_path=tmpdir)
+            download_directory_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file_path=tmpdir)
 
-            from pulse3D.plate_recording import PlateRecording
+            import sys
+            sys.path.insert(0, "/Users/lucipak/Documents/work/CuriBio/pulse3d/src")
             from pulse3D.peak_detection import peak_detector
             from pulse3D.constants import MICRO_TO_BASE_CONVERSION, WELL_NAME_UUID
             import numpy as np
+            import pandas as pd
 
+            for root, _, files in os.walk(tmpdir):
+                for f in files:
+                    if "parquet" in f:
+                        parquet_path = os.path.join(root, f)
+                    elif "zip" in f:
+                        zip_path = os.path.join(root, f)
+
+            df = pd.read_parquet(parquet_path)
             logger.info("Reading h5 files and generating dataframe")
 
-            pr = PlateRecording(
-                os.path.join(
-                    "/Users/lucipak/Library/ApplicationSupport/Electron/recordings/ML22001000-2__2022_08_18_190725"
-                )
-            )
+            columns = [c for c in df.columns if "__raw" not in c]
+            time = df["time"]
+            peaks_and_valleys = dict()
+            coordinates = dict()
 
-            df = pr.to_dataframe()
-            columns = [df[c] for c in df.columns]
-            time = columns[:1][0]
-            force = columns[1:]
-            peaks_and_valleys = list()
-            coordinates = list()
+            for well in columns[1:]:
+                logger.info(f"Finding peaks and valleys for well at {well}")
 
-            for (idx, well) in enumerate(pr.wells):
-                logger.info(f"Finding peaks and valleys for well {well[WELL_NAME_UUID]}")
-                interpolated_well_data = np.row_stack([time, force[idx]])
+                interpolated_well_data = np.row_stack([time, df[well]])
                 p_and_v = peak_detector(
                     interpolated_well_data,
                 )
-                peaks_and_valleys.append([p_and_v[0].tolist(), p_and_v[1].tolist()])
+                # needs to be converted to lists to be sent as json in response
+                peaks_and_valleys[well] = [p_and_v[0].tolist(), p_and_v[1].tolist()]
 
-                well_coords = [
-                    [time[i] / MICRO_TO_BASE_CONVERSION, val] for (i, val) in enumerate(force[idx])
-                ]
-                coordinates.append(well_coords)
+                well_coords = [[time[i] / MICRO_TO_BASE_CONVERSION, val] for (i, val) in enumerate(df[well])]
+                coordinates[well] = well_coords
 
-            # columns = [list(df[c]) for c in df.columns]
-            # time = columns[:1][0]
-            # force = columns[1:]
-
-            # for well in force:
-
-            # with open("/Users/lucipak/Desktop/test_data.txt", "r") as f:
-            #     coords = f.read()
-
-            return DataResponse(coordinates=coordinates, peaks_valleys=peaks_and_valleys)
+            return WaveformDataResponse(coordinates=coordinates, peaks_valleys=peaks_and_valleys)
 
     except Exception as e:
         logger.error(f"Failed to get interactive waveform data: {repr(e)}")

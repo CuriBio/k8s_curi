@@ -36,6 +36,7 @@ class JobResponse(BaseModel):
     status: str
     priority: int
 
+
 class DownloadItem(BaseModel):
     jobId: uuid.UUID
     uploadId: uuid.UUID
@@ -48,3 +49,7 @@ class DownloadItem(BaseModel):
 class DownloadRequest(BaseModel):
     jobs: List[DownloadItem]
 
+
+class WaveformDataResponse(BaseModel):
+    coordinates: Dict[str, List[Any]]
+    peaks_valleys: Dict[str, List[Any]]

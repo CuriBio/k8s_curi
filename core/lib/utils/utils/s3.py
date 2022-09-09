@@ -134,7 +134,6 @@ def download_directory_from_s3(bucket, key, file_path) -> None:
         s3_client = boto3.resource("s3")
         bucket = s3_client.Bucket(bucket)
         objs = list(bucket.objects.filter(Prefix=key))
-
         for obj in objs:
             # get relative path to keep subdirectory structure
             rel_path = os.path.relpath(obj.key, key)

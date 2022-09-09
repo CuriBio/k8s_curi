@@ -5,12 +5,18 @@ import WaveformGraph from "./WaveformGraph";
 import { WellTitle as LabwareDefinition } from "@/utils/labwareCalculations";
 import CircularSpinner from "../basicWidgets/CircularSpinner";
 const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
+import ButtonWidget from "../basicWidgets/ButtonWidget";
 
 const Container = styled.div`
   height: 700px;
   display: flex;
   flex-direction: column;
   align-items: center;
+`;
+
+const HeaderContainer = styled.div`
+  font-size: 24px;
+  margin: 20px;
 `;
 
 const DropdownContainer = styled.div`
@@ -29,14 +35,15 @@ const DropdownLabel = styled.span`
 `;
 
 const GraphContainer = styled.div`
-  height: 350px;
+  height: 390px;
   border-radius: 7px;
   background-color: var(--med-gray);
   position: relative;
-  width: 1400px;
+  width: 1350px;
   margin-top: 4%;
   overflow: hidden;
   padding: 15px;
+  display: flex;
 `;
 
 const SpinnerContainer = styled.div`
@@ -45,23 +52,39 @@ const SpinnerContainer = styled.div`
   align-items: center;
   margin-bottom: 45px;
 `;
+const ButtonContainer = styled.div`
+  position: relative;
+  height: 50px;
+  width: 100%;
+  top: 8vh;
+  display: flex;
+`;
 
-export default function InteractiveWaveformModal({ uploadId }) {
-  const [selectedWell, setSelectedWell] = useState(0);
-  const [data, setData] = useState([]);
-  const [dataToGraph, setDataToGraph] = useState([]);
+export default function InteractiveWaveformModal({
+  selectedJob,
+  setOpenInteractiveAnalysis,
+}) {
+  const [selectedWell, setSelectedWell] = useState("A1");
+  const [originalData, setOriginalData] = useState([]); // original waveform data from GET request, unedited
+  const [dataToGraph, setDataToGraph] = useState([]); // well-specfic coordinates to graph
   const [isLoading, setIsLoading] = useState(true);
-  const [peaksValleys, setPeaksValleys] = useState([]);
-  const [markers, setMarkers] = useState([]);
+  const [markers, setMarkers] = useState([]); // peak and valleyy markers
+  const [editablePeaksValleys, setEditablePeaksValleys] = useState(); // user edited peaks/valleys as changes are made, should get stored in localStorage
+  const [editableStartEndTimes, setEditableStartEndTimes] = useState({
+    startTime: null,
+    endTime: null,
+  });
 
   const getWaveformData = async () => {
     try {
       const response = await fetch(
-        `https://curibio.com/uploads/waveform_data?upload_id=${uploadId}`
+        `https://curibio.com/uploads/waveform_data?upload_id=${selectedJob.uploadId}`
       );
-      const { coordinates, peaks_valleys } = await response.json();
-      setPeaksValleys([...peaks_valleys]);
-      setData([...coordinates]);
+
+      const waveformData = await response.json();
+      setOriginalData(waveformData);
+      setEditablePeaksValleys(waveformData.peaks_valleys);
+
       setIsLoading(false);
     } catch (e) {
       console.log("ERROR getting waveform data: ", e);
@@ -70,26 +93,47 @@ export default function InteractiveWaveformModal({ uploadId }) {
 
   useEffect(() => {
     getWaveformData();
-  }, [uploadId]);
+    setEditableStartEndTimes({
+      startTime: selectedJob.analysisParams.start_time,
+      endtime: selectedJob.analysisParams.end_time,
+    });
+  }, [selectedJob]);
 
   useEffect(() => {
     // will error on init because there won't be an index 0
-    if (data.length > 0) {
-      setDataToGraph([...data[selectedWell]]);
-      setMarkers([...peaksValleys[selectedWell]]);
+    if (originalData && Object.keys(originalData).length > 0) {
+      setDataToGraph([...originalData.coordinates[selectedWell]]);
+      setMarkers([...editablePeaksValleys[selectedWell]]);
     }
-  }, [data, selectedWell]);
+  }, [originalData, selectedWell]);
 
   const wellNames = Array(24)
     .fill()
     .map((_, idx) => twentyFourPlateDefinition.getWellNameFromIndex(idx));
 
   const handleWellSelection = (idx) => {
-    setSelectedWell(idx);
+    setSelectedWell(wellNames[idx]);
+  };
+
+  const saveWellChanges = (peaks, valleys, startTime, endTime) => {
+    // console.log("INSIDE FUNCTION");
+    // console.log("PEAKS: ", peaks);
+    // console.log("VALLEYS: ", valleys);
+    console.log("START: ", startTime);
+    console.log("END: ", endTime);
+    setEditableStartEndTimes({
+      startTime: startTime || editableStartEndTimes.startTime,
+      endTime: endTime || editableStartEndTimes.endTime,
+    });
+
+    const newPeaksValleys = editablePeaksValleys;
+    newPeaksValleys[selectedWell] = [[...peaks], [...valleys]];
+    setEditablePeaksValleys(newPeaksValleys);
   };
 
   return (
     <Container>
+      <HeaderContainer>Interactive Waveform Analysis</HeaderContainer>
       {isLoading ? (
         <SpinnerContainer>
           <CircularSpinner size={300} />
@@ -105,8 +149,60 @@ export default function InteractiveWaveformModal({ uploadId }) {
             />
           </DropdownContainer>
           <GraphContainer>
-            <WaveformGraph dataToGraph={dataToGraph} initialPeaksValleys={markers} />
+            <WaveformGraph
+              dataToGraph={dataToGraph}
+              initialPeaksValleys={markers}
+              startTime={editableStartEndTimes.startTime}
+              endTime={editableStartEndTimes.endTime}
+              saveWellChanges={saveWellChanges}
+            />
           </GraphContainer>
+          <ButtonContainer>
+            <ButtonWidget
+              width="150px"
+              height="50px"
+              position="relative"
+              borderRadius="3px"
+              left="70px"
+              // backgroundColor={
+              //   isButtonDisabled ? "var(--dark-gray)" : "var(--dark-blue)"
+              // }
+              // disabled={isButtonDisabled}
+              // inProgress={inProgress}
+              label="Cancel"
+              clickFn={() => setOpenInteractiveAnalysis(false)}
+            />
+
+            <ButtonWidget
+              width="150px"
+              height="50px"
+              position="relative"
+              borderRadius="3px"
+              left="890px"
+              // backgroundColor={
+              //   isButtonDisabled ? "var(--dark-gray)" : "var(--dark-blue)"
+              // }
+              // disabled={isButtonDisabled}
+              // inProgress={inProgress}
+              label="Reset All"
+              // clickFn={checkForMultiRecZips}
+            />
+
+            <ButtonWidget
+              width="150px"
+              height="50px"
+              position="relative"
+              borderRadius="3px"
+              left="900px"
+              // backgroundColor={
+              //   isButtonDisabled ? "var(--dark-gray)" : "var(--dark-blue)"
+              // }
+              // disabled={isButtonDisabled}
+              // inProgress={inProgress}
+              label="Run Analysis"
+              // clickFn={checkForMultiRecZips}
+            />
+          </ButtonContainer>
         </>
       )}
     </Container>

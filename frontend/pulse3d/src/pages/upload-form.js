@@ -398,7 +398,6 @@ export default function UploadForm() {
       const filteredFiles = files.filter(
         (f) => !failedUploadsMsg.includes(f.name)
       );
-      console.log("FILES: ", filteredFiles);
       await handleUpload(filteredFiles);
     }
     // goes after because this dependency triggers reset

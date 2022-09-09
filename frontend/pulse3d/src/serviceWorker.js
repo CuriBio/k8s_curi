@@ -176,6 +176,7 @@ const interceptResponse = async (req, url) => {
       console.log("[SW] Setting account type:", accountType);
       setAccountType(accountType);
     }
+
     // send the response without the tokens so they are always contained within this service worker
     return new Response(JSON.stringify({}), {
       headers: response.headers,
@@ -212,7 +213,6 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", async (e) => {
   let destURL = new URL(e.request.url);
   // only intercept routes to pulse and user apis
-
   if (destURL.hostname === "curibio.com") {
     e.respondWith(interceptResponse(e.request, destURL));
   } else e.respondWith(fetch(e.request));

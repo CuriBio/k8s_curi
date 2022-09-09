@@ -30,6 +30,16 @@ const SpinnerContainer = styled.div`
   align-items: center;
   width: 80%;
 `;
+
+const InteractiveAnalysisContainer = styled.div`
+  width: 78%;
+  margin: 1%;
+  background-color: white;
+  height: 73vh;
+  overflow: scroll;
+  border-radius: 5px;
+`;
+
 const PageContainer = styled.div`
   width: 80%;
 `;
@@ -220,7 +230,8 @@ export default function Uploads() {
         setModalState("generic");
       }
     } else if (option === 2) {
-      setSelectedAnalysis(checkedUploads[0]);
+      const jobDetails = jobs.filter(({ jobId }) => jobId == checkedJobs[0]);
+      setSelectedAnalysis(jobDetails[0]);
       setOpenInteractiveAnalysis(true);
     }
 
@@ -427,7 +438,7 @@ export default function Uploads() {
         <SpinnerContainer id="spinnerContainer">
           <CircularSpinner color={"secondary"} size={200} />
         </SpinnerContainer>
-      ) : (
+      ) : !openInteractiveAnalysis ? (
         <PageContainer>
           <DropDownContainer>
             <DropDownWidget
@@ -437,13 +448,13 @@ export default function Uploads() {
                 ...Array(2).fill(
                   checkedJobs.length === 0 && checkedUploads.length === 0
                 ),
-                checkedUploads.length !== 1,
+                checkedJobs.length !== 1,
               ]}
               optionsTooltipText={[
                 ...Array(2).fill(
                   "Must make a selection below before actions become available."
                 ),
-                "You must select one upload to enable interactive analysis.",
+                "You must select one job to enable interactive analysis.",
               ]}
               handleSelection={handleDropdownSelection}
               reset={resetDropdown}
@@ -528,6 +539,13 @@ export default function Uploads() {
             </TableContainer>
           </Container>
         </PageContainer>
+      ) : (
+        <InteractiveAnalysisContainer>
+          <InteractiveAnalysisModal
+            selectedJob={selectedAnalysis}
+            setOpenInteractiveAnalysis={setOpenInteractiveAnalysis}
+          />
+        </InteractiveAnalysisContainer>
       )}
       <ModalWidget
         open={modalState === "generic"}
@@ -550,15 +568,6 @@ export default function Uploads() {
           <CircularSpinner size={200} color={"secondary"} />
         </ModalSpinnerContainer>
       </ModalWidget>
-      <ModalWidget
-        open={openInteractiveAnalysis}
-        labels={[]}
-        buttons={[]}
-        header="Interactive Waveform Analysis"
-        width={1500}
-      >
-        <InteractiveAnalysisModal uploadId={selectedAnalysis} />
-      </ModalWidget>
     </>
   );
 }
@@ -566,5 +575,3 @@ export default function Uploads() {
 Uploads.getLayout = (page) => {
   return <DashboardLayout>{page}</DashboardLayout>;
 };
-
-
