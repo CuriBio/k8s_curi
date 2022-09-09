@@ -43,7 +43,7 @@ export default function UserInfo() {
   const [confirm, setConfirm] = useState(false);
   const [emailToEdit, setEmailToEdit] = useState("");
 
-  const sendActionPutRequest = async () => {
+  const sendUserActionPutRequest = async () => {
     fetch(`https://curibio.com/users/${emailToEdit}`, {
       method: "PUT",
       body: JSON.stringify({ action_type: actionToPreform }),
@@ -88,7 +88,7 @@ export default function UserInfo() {
   useEffect(() => {
     try {
       if (actionToPreform !== "" && confirm) {
-        sendActionPutRequest();
+        sendUserActionPutRequest();
       }
     } catch (e) {
       console.log("ERROR on user action ");
