@@ -1,5 +1,5 @@
 FROM alpine:latest as venv
-RUN apk add --no-cache --update python3 py3-pip git
+RUN apk add --no-cache --update python3 python3-dev py3-pip git build-base
 
 WORKDIR /builder
 COPY ./setup.py /builder

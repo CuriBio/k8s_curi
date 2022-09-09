@@ -12,6 +12,7 @@ spec:
       - name: repo
       - name: branch
       - name: sha
+      - name: base-sha
     script:
       image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
       workingDir: /tmp/git
@@ -32,7 +33,7 @@ spec:
         cd k8s_curi
         git fetch -q origin "{{inputs.parameters.branch}}" && git checkout -q "{{inputs.parameters.branch}}"
 
-        SERVICES=$(builder --changed --status=pending --sha={{inputs.parameters.sha}})
+        SERVICES=$(builder --changed --status=pending --sha={{inputs.parameters.sha}} --base-sha={{inputs.parameters.base-sha}})
         echo $SERVICES
   - name: changed-tf
     inputs:
@@ -238,6 +239,7 @@ spec:
       - name: path
       - name: service
       - name: deployment
+      - name: version
       - name: sha
     steps:
     - - name: set-status-pending
@@ -262,6 +264,8 @@ spec:
             value: "{{inputs.parameters.service}}"
           - name: deployment
             value: "{{inputs.parameters.deployment}}"
+          - name: version
+            value: "{{inputs.parameters.version}}"
     - - name: set-output-status-success
         when: "{{steps.build-service.status}} == Succeeded"
         templateRef:
@@ -294,6 +298,7 @@ spec:
       - name: path
       - name: service
       - name: deployment
+      - name: version
     container:
       image: gcr.io/kaniko-project/executor:v1.8.0-debug 
       command: [/kaniko/executor]
@@ -303,7 +308,7 @@ spec:
         - name: AWS_SDK_LOAD_CONFIG
           value: 'true'
       args:
-      - --destination=245339368379.dkr.ecr.us-east-2.amazonaws.com/{{inputs.parameters.service}}:latest
+      - --destination=245339368379.dkr.ecr.us-east-2.amazonaws.com/{{inputs.parameters.service}}:{{inputs.parameters.version}}
       - --context=/tmp/git/k8s_curi/
       - --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
       volumeMounts:

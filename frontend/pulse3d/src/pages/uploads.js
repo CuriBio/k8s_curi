@@ -355,7 +355,7 @@ export default function Uploads() {
   };
 
   const downloadSingleFile = async ({ jobId }) => {
-    //request only presigned urls for selected jobs
+    // request only presigned urls for selected job
     const url = `https://curibio.com/jobs?job_ids=${jobId}`;
     const response = await fetch(url);
 
@@ -382,18 +382,20 @@ export default function Uploads() {
 
       const { createWriteStream } = require("streamsaver");
 
-      //request only presigned urls for selected jobs
       const url = `https://curibio.com/jobs/download`;
+
+      const jobIds = jobs.map(({ jobId }) => jobId);
       const response = await fetch(url, {
         method: "POST",
-        body: JSON.stringify({ jobs }),
+        body: JSON.stringify({ job_ids: jobIds }),
       });
 
       if (response.status === 200) {
         const now = formatDateTime();
         const zipFilename = `MA-analyses__${now}__${jobs.length}.zip`;
 
-        // only stream to file if not firefox
+        // only stream to file if not firefox. Once the underlying issue with streaming on
+        // firefox is fixed, should remove this
         if (navigator.userAgent.indexOf("Firefox") != -1) {
           const file = await response.blob();
           const url = window.URL.createObjectURL(file);

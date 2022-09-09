@@ -1,62 +1,94 @@
 import argparse
-import json
 import glob
+import json
 import os
 import sys
 import subprocess
 
 import requests
 
+from typing import List
+
 
 K8S_REPO_BASE_URL = "https://api.github.com/repos/CuriBio/k8s_curi"
 
 
-def find_changed(sha: str):
-    list_to_return = []
+SVC_PATH_PATTERN = "deployments/**/services/*"
+WORKER_PATH_PATTERN = "jobs/**/*-worker"
+ALL_SVC_PATHS = frozenset(
+    [*glob.glob(SVC_PATH_PATTERN, recursive=True), *glob.glob(WORKER_PATH_PATTERN, recursive=True)]
+)
 
-    for dir in ["./deployments", "./jobs"]:
-        completed_process = subprocess.run(
-            ["git", "--no-pager", "diff", sha, "--name-only", "--", dir, ":!*.tf"], stdout=subprocess.PIPE
-        )
-        changes_list = completed_process.stdout.decode("utf-8").split("\n")[:-1]
-        list_to_return += [
-            {
-                "path": f"./{'/'.join(ch.split('/')[:-2])}",
-                "deployment": ch.split("/")[1],
-                # Splits the path into an array and return the element right before the src folder.
-                # If its the /deployment pulse3d directory, then change the service name from pulse3d to pulse3d_api
-                # Else set service name to be the folder one above src
-                "service": "pulse3d_api"
-                if ch.split("/")[ch.split("/").index("src") - 1] == "pulse3d" and dir == "./deployments"
-                else ch.split("/")[ch.split("/").index("src") - 1],
-            }
-            for ch in changes_list
-        ]
+CORE_LIB_PATH = "core/lib"
+
+
+def parse_py_dep_version(svc_path: str, dep_name: str) -> str:
+    req_file = os.path.join(svc_path, "src", "requirements.txt")
+    with open(req_file) as f:
+        for line in f.readlines():
+            if line.startswith(dep_name):
+                return line.strip().split("==")[-1]
+
+    raise Exception(f"{dep_name} not found in {req_file}")
+
+
+def get_dir_args(*dirs: List[str]) -> List[str]:
+    return [arg for dir_ in dirs for arg in ("--", dir_)]
+
+
+def find_changed_svcs(sha: str):
+    patterns_to_check = [f"{path}/**" for path in (SVC_PATH_PATTERN, WORKER_PATH_PATTERN, CORE_LIB_PATH)]
+
+    completed_process = subprocess.run(
+        ["git", "--no-pager", "diff", sha, "--name-only", *get_dir_args(*patterns_to_check), ":!*.tf"],
+        stdout=subprocess.PIPE,
+    )
+
+    changed_paths_list = completed_process.stdout.decode("utf-8").split("\n")[:-1]
+
+    # if any core lib files were changed, consider all svcs changed,
+    # otherwise just include the svcs that actually had files changed
+    if any(ch_path.startswith(CORE_LIB_PATH) for ch_path in changed_paths_list):
+        # Tanner (9/8/22): building the pheno svcs is causing issues in CI, so filtering them out here
+        changed_svc_paths = set(path for path in ALL_SVC_PATHS if "pheno" not in path)
+    else:
+        changed_svc_paths = set(ch_path.split("/src")[0] for ch_path in changed_paths_list)
+
+    list_to_return = []
+    for ch_path in changed_svc_paths:
+        dep_type, dep_name, *_, svc = ch_path.split("/")
+
+        if svc == "pulse3d" and dep_type == "deployments":
+            # if it's the pulse3d svc under ./deployments/, then change the svc name from pulse3d to pulse3d_api
+            svc = "pulse3d_api"
+
+        # need to output the pulse3d package version so it can be included in the name of the pulse3d-worker docker image
+        version = parse_py_dep_version(ch_path, "pulse3d") if svc == "pulse3d-worker" else "latest"
+
+        # TODO test all this in a PR
+
+        list_to_return.append({"path": ch_path, "deployment": dep_name, "service": svc, "version": version})
 
     return list_to_return
-    # ds = glob.glob('./deployments/**/Dockerfile', recursive=True)
-    # return [{"path": f"./{'/'.join(d.split('/')[:-1])}", "deployment": d.split("/")[2], "service": d.split("/")[4]} for d in ds]
 
 
 def find_changed_tf(sha):
     # get diff for all directories containing changed tf excluding those found in /cluster and /core
     completed_process = subprocess.run(
-        ["git", "--no-pager", "diff", sha, "--name-only", "--", "*.tf", ":!cluster", ":!core"], stdout=subprocess.PIPE
+        ["git", "--no-pager", "diff", sha, "--name-only", "--", "*.tf", ":!cluster", ":!core"],
+        stdout=subprocess.PIPE,
     )
     changed_paths = completed_process.stdout.decode("utf-8").split("\n")[:-1]
     # get only the first terraform directory, remove files
-    tf_dir_paths = [path.split("/terraform")[0] + "/terraform" for path in changed_paths]
-    # return unique tf paths
-    return [{"path": path.split("/terraform")[0] + "/terraform"} for path in list(set(tf_dir_paths))]
+    tf_dirs = set("".join(path.partition("/terraform")[:2]) for path in changed_paths)
+
+    return [{"path": path} for path in tf_dirs]
 
 
-def set_status(build, status, sha, token):
+def set_status(context, status, sha, token):
     req = {
-        "headers": {
-            "Authorization": f"Bearer {token.strip()}",
-            "Content-Type": "application/json",
-        },
-        "data": json.dumps({"state": status, "context": build}),
+        "headers": {"Authorization": f"Bearer {token.strip()}", "Content-Type": "application/json"},
+        "data": json.dumps({"state": status, "context": context}),
         "url": f"{K8S_REPO_BASE_URL}/statuses/{sha}",
     }
 
@@ -81,27 +113,33 @@ def main():
     parser.add_argument("--status", type=str, default=None)
     parser.add_argument("--context", type=str, default=None)
     parser.add_argument("--sha", type=str)
+    parser.add_argument("--base-sha", type=str, default=None)
     parser.add_argument("--pr-number", type=int, default=None)
     parser.add_argument("--pr-comment", type=str, default=None)
     parser.add_argument("--terraform", action=argparse.BooleanOptionalAction, default=False)
     args = parser.parse_args()
 
     token = os.getenv("TOKEN")
+    if not token:
+        raise Exception("No token set")
 
     task_failed = False
 
-    if args.changed and args.sha and token:
+    if args.status and args.sha:
+        if args.changed and args.base_sha:
+            changed = (find_changed_tf if args.terraform else find_changed_svcs)(args.base_sha)
 
-        changed = find_changed_tf(args.sha) if args.terraform else find_changed(args.sha)
-        print(json.dumps(changed))
+            # printing here in order to expose the names of the svcs or terraform files with changes
+            # to the process calling this python script. It is not a debug statement, don't delete it
+            print(json.dumps(changed))
 
-        if args.status and not args.terraform:
             for c in changed:
                 context = c["path"] if args.terraform else f"{c['deployment']}/{c['service']}"
                 task_failed |= set_status(context, args.status, args.sha, token)
 
-    elif args.status and args.context and token:
-        task_failed |= set_status(args.context, args.status, args.sha, token)
+        if args.context:
+            task_failed |= set_status(args.context, args.status, args.sha, token)
+
     elif args.pr_number and args.pr_comment:
         task_failed |= post_pr_comment(args.pr_number, args.pr_comment, token)
 

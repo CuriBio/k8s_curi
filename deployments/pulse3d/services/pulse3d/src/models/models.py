@@ -46,10 +46,10 @@ class DownloadItem(BaseModel):
     analysisParams: Dict[Any, Any]
 
 
-class DownloadRequest(BaseModel):
-    jobs: List[DownloadItem]
-
-
 class WaveformDataResponse(BaseModel):
     coordinates: Dict[str, List[Any]]
     peaks_valleys: Dict[str, List[Any]]
+
+
+class JobDownloadRequest(BaseModel):
+    job_ids: List[uuid.UUID]
