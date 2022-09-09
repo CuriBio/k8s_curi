@@ -82,6 +82,20 @@ def test_startup__sets_global_cb_customer_id(mocked_asyncpg_con):
     )
 
 
+@pytest.mark.parametrize(
+    "method,route",
+    [
+        ("POST", "/register"),
+        ("POST", "/refresh"),
+        ("POST", "/logout"),
+        ("GET", "/users"),
+        ("PUT", "/users/test@email.com"),
+    ],
+)
+def test_routes_requiring_auth_without_tokens(method, route):
+    assert getattr(test_client, method.lower())(route).status_code == 403
+
+
 @freeze_time()
 def test_login__user__success(cb_customer_id, mocked_asyncpg_con, mocker):
     login_details = {
@@ -433,13 +447,6 @@ def test_register__invalid_token_scope_given():
     assert response.status_code == 401
 
 
-def test_register__no_token_given():
-    # arbitrarily deciding to use customer login here
-    registration_details = {"email": "user@new.com", "password1": "pw", "password2": "pw"}
-    response = test_client.post("/register", json=registration_details)
-    assert response.status_code == 403
-
-
 @freeze_time()
 @pytest.mark.parametrize("account_type", ["user", "customer"])
 def test_refresh__success(account_type, mocked_asyncpg_con):
@@ -496,11 +503,6 @@ def test_refresh__wrong_token_type_given():
     assert response.status_code == 401
 
 
-def test_refresh__no_token_given():
-    response = test_client.post("/refresh")
-    assert response.status_code == 403
-
-
 @pytest.mark.parametrize("account_type", ["user", "customer"])
 def test_logout__success(account_type, mocked_asyncpg_con):
     test_id = uuid.uuid4()
@@ -512,11 +514,6 @@ def test_logout__success(account_type, mocked_asyncpg_con):
     mocked_asyncpg_con.execute.assert_called_once_with(
         f"UPDATE {account_type}s SET refresh_token = NULL WHERE id = $1", test_id
     )
-
-
-def test_logout__no_token_given():
-    response = test_client.post("/logout")
-    assert response.status_code == 403
 
 
 def test_users__get__success(mocked_asyncpg_con):
@@ -565,45 +562,32 @@ def test_users__get__invalid_token_scope_given():
 def test_users__put__successful_deletion(mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
     access_token = get_token(userid=test_customer_id, account_type="customer")
-    action_to_take = {"action_type": "delete"}
+
+    test_email = "testUser@curibio.com"
 
     response = test_client.put(
-        "/users/testUser@curibio.com",
-        json=action_to_take,
+        f"/users/{test_email}",
+        json={"action_type": "delete"},
         headers={"Authorization": f"Bearer {access_token}"},
     )
-
     assert response.status_code == 200
 
     mocked_asyncpg_con.execute.assert_called_once_with(
-        f"UPDATE users SET deleted_at=$1  WHERE email=$2", datetime.now(), "testUser@curibio.com"
+        f"UPDATE users SET deleted_at=$1 WHERE email=$2", datetime.now(), test_email
     )
-
-
-def test_users__put_delete__no_email_given():
-    access_token = get_token(account_type="customer")
-    action_to_take = {"action_type": "delete"}
-
-    response = test_client.put(
-        "/users", json=action_to_take, headers={"Authorization": f"Bearer {access_token}"}
-    )
-
-    assert response.status_code == 405
 
 
 def test_users__put__successful_deactivation(mocked_asyncpg_con):
-
     test_customer_id = uuid.uuid4()
     access_token = get_token(userid=test_customer_id, account_type="customer")
 
-    action_to_take = {"action_type": "deactivate"}
+    test_email = "testUser@curibio.com"
 
     response = test_client.put(
-        "/users/testUser@curibio.com",
-        json=action_to_take,
+        f"/users/{test_email}",
+        json={"action_type": "deactivate"},
         headers={"Authorization": f"Bearer {access_token}"},
     )
-
     assert response.status_code == 200
 
     mocked_asyncpg_con.execute.assert_called_once_with(
@@ -611,15 +595,38 @@ def test_users__put__successful_deactivation(mocked_asyncpg_con):
     )
 
 
-def test_users__put__no_action_given():
-    test_customer_id = uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, account_type="customer")
+def test_users__put__invalid_action_type_given():
+    access_token = get_token(account_type="customer")
+
+    response = test_client.put(
+        "/users/testUser@curibio.com",
+        json={"action_type": "bad"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == 400
+
+
+def test_users__put__no_action_type_given():
+    access_token = get_token(account_type="customer")
 
     response = test_client.put(
         "/users/testUser@curibio.com", headers={"Authorization": f"Bearer {access_token}"}
     )
-
     assert response.status_code == 422
+
+
+def test_users__put__bad_email_given():
+    access_token = get_token(account_type="customer")
+
+    response = test_client.put("/users/not_an_email", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 422
+
+
+def test_users__put__no_email_given():
+    access_token = get_token(account_type="customer")
+
+    response = test_client.put("/users", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 405
 
 
 def test_users__put__invalid_token_scope_given():

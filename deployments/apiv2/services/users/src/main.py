@@ -371,33 +371,37 @@ async def get_users(request: Request, token=Depends(ProtectedAny(scope=["users:a
             ]
 
     except Exception as e:
-        logger.exception(f"users GET: Unexpected error {repr(e)}")
+        logger.exception(f"users: Unexpected error {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.put("/users/{email_of_user_to_edit}")
+@app.put("/users/{email}")
 async def deactivate_user(
     request: Request,
-    action_to_take: UserAction,
-    email_of_user_to_edit: EmailStr,
+    details: UserAction,
+    email: EmailStr,
     token=Depends(ProtectedAny(scope=["users:admin"])),
 ):
-    """Edit a users information
+    """Edit a user's information in the database.
 
-    The action to take on the user should be passed in the body of PUT request as action_type
-        -deactivate: set suspended field to true
-        -delete: set deleted_at field to current time
+    The action to take on the user should be passed in the body of PUT request as action_type:
+        - deactivate: set suspended field to true
+        - delete: set deleted_at field to current time
     """
+    action = details.action_type
+
+    if action == "deactivate":
+        update_query = "UPDATE users SET suspended='t' WHERE email=$1"
+        query_args = (email,)
+    elif action == "delete":
+        update_query = "UPDATE users SET deleted_at=$1 WHERE email=$2"
+        query_args = (datetime.datetime.now(), email)
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid action type")
+
     try:
         async with request.state.pgpool.acquire() as con:
-            if action_to_take.action_type == "deactivate":
-                update_query = "UPDATE users SET suspended='t' WHERE email=$1"
-                await con.execute(update_query, email_of_user_to_edit)
-
-            elif action_to_take.action_type == "delete":
-                update_query = "UPDATE users SET deleted_at=$1  WHERE email=$2"
-                await con.execute(update_query, datetime.datetime.now(), email_of_user_to_edit)
-
+            await con.execute(update_query, *query_args)
     except Exception as e:
-        logger.exception(f"user-actions PUT: Unexpected error {repr(e)}")
+        logger.exception(f"users/{email}: Unexpected error {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

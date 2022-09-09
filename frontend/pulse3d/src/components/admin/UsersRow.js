@@ -2,7 +2,12 @@ import TableRow from "@mui/material/TableRow";
 import TableCell from "@mui/material/TableCell";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 
-export default function UsersRow({ row, modalPopUp, userActions }) {
+export default function UsersRow({
+  row,
+  dropDownOptions,
+  modalPopUp,
+  userActions,
+}) {
   const usersAction = (option) => {
     modalPopUp();
     userActions(option, row.name, row.email);
@@ -85,7 +90,7 @@ export default function UsersRow({ row, modalPopUp, userActions }) {
           <TableCell>
             <DropDownWidget
               label="Actions"
-              options={["Delete", "Deactivate"]}
+              options={dropDownOptions}
               handleSelection={usersAction}
             />
           </TableCell>

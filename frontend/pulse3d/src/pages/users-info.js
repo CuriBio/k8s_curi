@@ -43,6 +43,8 @@ export default function UserInfo() {
   const [confirm, setConfirm] = useState(false);
   const [emailToEdit, setEmailToEdit] = useState("");
 
+  const dropDownOptions = ["Delete", "Deactivate"];
+
   const sendUserActionPutRequest = async () => {
     fetch(`https://curibio.com/users/${emailToEdit}`, {
       method: "PUT",
@@ -51,15 +53,11 @@ export default function UserInfo() {
   };
 
   const userActionSelection = async (option, name, email) => {
-    if (option === 1) {
-      setModalMessage(`Are you sure you would like to deactivate ${name}?`);
-      setActionToPerform("deactivate");
-      setEmailToEdit(email);
-    } else if (option === 0) {
-      setModalMessage(`Are you sure you would like to delete ${name}?`);
-      setActionToPerform("delete");
-      setEmailToEdit(email);
-    }
+    let action = dropDownOptions[option].toLowerCase();
+
+    setModalMessage(`Are you sure you would like to ${action} ${name}?`);
+    setActionToPerform(action);
+    setEmailToEdit(email);
   };
 
   const getAllUsers = async () => {
@@ -86,12 +84,12 @@ export default function UserInfo() {
   }, [users]);
 
   useEffect(() => {
-    try {
-      if (actionToPreform !== "" && confirm) {
+    if (actionToPreform && confirm) {
+      try {
         sendUserActionPutRequest();
+      } catch (e) {
+        console.log("ERROR on user action");
       }
-    } catch (e) {
-      console.log("ERROR on user action ");
     }
   }, [confirm]);
 
@@ -109,11 +107,7 @@ export default function UserInfo() {
         buttons={["Yes", "No"]}
         header={"Attention"}
         closeModal={(idx, label) => {
-          if (label === "Yes") {
-            setConfirm(true);
-          } else {
-            setConfirm(false);
-          }
+          setConfirm(label === "Yes");
           setActionAlertVisible(false);
         }}
       />
@@ -191,6 +185,7 @@ export default function UserInfo() {
                   <Row
                     key={row.email}
                     row={row}
+                    dropDownOptions={dropDownOptions}
                     modalPopUp={() => {
                       setActionAlertVisible(true);
                     }}
