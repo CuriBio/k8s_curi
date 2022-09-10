@@ -19,13 +19,19 @@ depends_on = None
 
 
 def upgrade():
-    states = ("testing", "internal", "external")
+    states = ("testing", "internal", "external", "deprecated")
 
     op.create_table(
         "pulse3d_versions",
         sa.Column("version", sa.VARCHAR(15), primary_key=True),
-        sa.Column("date_added", sa.DateTime(timezone=False), server_default=func.now(), nullable=False),
-        sa.Column("end_of_support", sa.DateTime(timezone=False)),
+        sa.Column("created_at", sa.DateTime(timezone=False), server_default=func.now(), nullable=False),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=False),
+            server_default=func.now(),
+            onupdate=func.now(),
+            nullable=False,
+        ),
         sa.Column(
             "state",
             sa.Enum(*states, name="WorkerState", create_type=True),

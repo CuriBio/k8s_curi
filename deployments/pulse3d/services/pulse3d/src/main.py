@@ -396,3 +396,15 @@ def _yield_s3_objects(bucket: str, keys: List[str], filenames: List[str]):
 
     except Exception as e:
         raise S3Error(f"Failed to access {bucket}/{key}: {repr(e)}")
+
+
+@app.get("/pulse3d_versions")
+async def get_pulse3d_versions(request: Request):
+    """Retrieve info of all the active pulse3d releases listed in the DB."""
+    try:
+        async with request.state.pgpool.acquire() as con:
+            query = "SELECT * FROM pulse3d_versions WHERE state != 'deprecated'"
+            return [row["version"] async for row in con.cursor(query)]
+    except Exception as e:
+        logger.error(f"Failed to retrieve info of pulse3d versions: {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
