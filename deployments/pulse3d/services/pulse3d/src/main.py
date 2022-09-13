@@ -400,7 +400,9 @@ async def get_versions(request: Request):
     """Retrieve info of all the active pulse3d releases listed in the DB."""
     try:
         async with request.state.pgpool.acquire() as con:
-            rows = await con.fetch("SELECT * FROM pulse3d_versions WHERE state != 'deprecated'")
+            rows = await con.fetch(  # TODO should eventually sort these using a more robust method
+                "SELECT * FROM pulse3d_versions WHERE state != 'deprecated' ORDER BY created_at"
+            )
 
         return [row["version"] for row in rows]
 

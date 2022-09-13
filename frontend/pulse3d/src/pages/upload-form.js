@@ -11,6 +11,7 @@ import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout, {
   UploadsContext,
 } from "@/components/layouts/DashboardLayout";
+import semverSort from "semver-sort";
 
 const Container = styled.div`
   width: 70%;
@@ -74,6 +75,20 @@ const defaultUploadErrorLabel =
 const defaultZipErrorLabel =
   "The following file(s) will not be uploaded because they either contain multiple recordings or do not have the correct number of H5 files.";
 
+const getDefaultAnalysisParams = () => {
+  return {
+    baseToPeak: "",
+    peakToBase: "",
+    maxY: "",
+    prominenceFactor: "",
+    widthFactor: "",
+    twitchWidths: "",
+    startTime: "",
+    endTime: "",
+    pulse3dVersion: "",
+  };
+};
+
 export default function UploadForm() {
   const { query } = useRouter();
   const { uploads } = useContext(UploadsContext);
@@ -92,16 +107,25 @@ export default function UploadForm() {
   const [checkedBaseline, setCheckedBaseline] = useState(false);
   const [tabSelection, setTabSelection] = useState(query.id);
   const [modalState, setModalState] = useState(false);
-  const [analysisParams, setAnalysisParams] = useState({
-    baseToPeak: "",
-    peakToBase: "",
-    maxY: "",
-    prominenceFactor: "",
-    widthFactor: "",
-    twitchWidths: "",
-    startTime: "",
-    endTime: "",
-  });
+  const [pulse3dVersions, setPulse3dVersions] = useState([]);
+  const [analysisParams, setAnalysisParams] = useState(
+    getDefaultAnalysisParams()
+  );
+
+  // TODO remove this value once entire advanced analysis section is under a single checkbox
+  const [resetDropDown, setResetDropDown] = useState(0);
+
+  useEffect(() => {
+    // when page loads, get all available pulse3d versions
+    async function getPulse3dVersions() {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/versions`
+      );
+      const sortedVersions = semverSort.desc(await response.json());
+      setPulse3dVersions(sortedVersions);
+    }
+    getPulse3dVersions();
+  }, []);
 
   useEffect(() => {
     // checks if error value exists, no file is selected, or upload is in progress
@@ -148,22 +172,13 @@ export default function UploadForm() {
 
   const resetState = () => {
     setFiles([]);
-    setAnalysisParams({
-      baseToPeak: "",
-      peakToBase: "",
-      maxY: "",
-      prominenceFactorPeaks: "",
-      prominenceFactorValleys: "",
-      widthFactorPeaks: "",
-      widthFactorValleys: "",
-      twitchWidths: "",
-      startTime: "",
-      endTime: "",
-    });
+    setAnalysisParams(getDefaultAnalysisParams());
     setFailedUploadsMsg([defaultUploadErrorLabel]);
     setModalButtons(["Close"]);
     setCheckedWindow(false);
     setParamErrors({});
+    // Tanner (9/13/22): this is a really hacky way of triggering this since the value must actually change, but it will be unnecessary once the single checkbox is added
+    setResetDropDown(resetDropDown + 1);
   };
 
   const formatTupleParams = (firstParam, secondParam) => {
@@ -196,6 +211,7 @@ export default function UploadForm() {
         twitchWidths,
         startTime,
         endTime,
+        pulse3dVersion,
       } = analysisParams;
       const jobResponse = await fetch(
         `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`,
@@ -216,6 +232,8 @@ export default function UploadForm() {
             twitch_widths: twitchWidths === "" ? null : twitchWidths,
             start_time: startTime === "" ? null : startTime,
             end_time: endTime === "" ? null : endTime,
+            version:
+              pulse3dVersion === "" ? pulse3dVersions[0] : pulse3dVersion,
           }),
         }
       );
@@ -280,10 +298,10 @@ export default function UploadForm() {
       }
     }
 
-    await handleUpload(files);
+    await handleNewAnalysis(files);
   };
 
-  const handleUpload = async (files) => {
+  const handleNewAnalysis = async (files) => {
     // update state to trigger in progress spinner over submit button
     if (files.length > 0) {
       setInProgress(true);
@@ -405,7 +423,7 @@ export default function UploadForm() {
         (f) => !failedUploadsMsg.includes(f.name)
       );
       console.log("FILES: ", filteredFiles);
-      await handleUpload(filteredFiles);
+      await handleNewAnalysis(filteredFiles);
     }
     // goes after because this dependency triggers reset
     setModalState(false);
@@ -448,6 +466,8 @@ export default function UploadForm() {
           setParamErrors={setParamErrors}
           setAnalysisParams={setAnalysisParams}
           analysisParams={analysisParams}
+          pulse3dVersions={pulse3dVersions}
+          resetDropDown={resetDropDown}
         />
         <ButtonContainer>
           {uploadSuccess ? <SuccessText>Upload Successful!</SuccessText> : null}

@@ -721,5 +721,5 @@ def test_versions__get(token, mocked_asyncpg_con, mocker):
     assert response.json() == expected_versions
 
     mocked_asyncpg_con.fetch.assert_called_once_with(
-        "SELECT * FROM pulse3d_versions WHERE state != 'deprecated'"
+        "SELECT * FROM pulse3d_versions WHERE state != 'deprecated' ORDER BY created_at"
     )

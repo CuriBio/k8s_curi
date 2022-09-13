@@ -2,6 +2,7 @@ import styled from "styled-components";
 import CheckboxWidget from "../basicWidgets/CheckboxWidget";
 import { isArrayOfNumbers } from "../../utils/generic";
 import FormInput from "../basicWidgets/FormInput";
+import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
 
@@ -154,6 +155,13 @@ const TooltipText = styled.span`
   font-size: 15px;
 `;
 
+const DropDownContainer = styled.div`
+  width: 25%;
+  height: 125%;
+  background: white;
+  border-radius: 5px;
+`;
+
 export default function AnalysisParamForm({
   checkedBaseline,
   setCheckedBaseline,
@@ -167,6 +175,8 @@ export default function AnalysisParamForm({
   paramErrors,
   setParamErrors,
   analysisParams,
+  pulse3dVersions,
+  resetDropDown,
 }) {
   const updateParams = (newParams) => {
     const updatedParams = { ...analysisParams, ...newParams };
@@ -284,12 +294,47 @@ export default function AnalysisParamForm({
     setParamErrors(updatedParamErrors);
   };
 
+  const handleDropDownSelect = (idx) => {
+    updateParams({
+      pulse3dVersion: pulse3dVersions[idx],
+    });
+  };
+
   return (
     <Container>
       <AdditionalParamLabel>
         Additional Analysis Params (Optional)
       </AdditionalParamLabel>
       <InputContainer>
+        <ParamContainer style={{ width: "43%", marginTop: "2%" }}>
+          <Label
+            htmlFor="pulse3dVersion"
+            style={{ width: "57%", paddingLeft: "16%" }}
+          >
+            Pulse3d Version:
+            <Tooltip
+              title={
+                <TooltipText>
+                  {
+                    "Specifies which version of the pulse3d analysis software to use."
+                  }
+                </TooltipText>
+              }
+            >
+              <InfoOutlinedIcon />
+            </Tooltip>
+          </Label>
+          <DropDownContainer>
+            <DropDownWidget
+              options={pulse3dVersions}
+              label="Select"
+              reset={
+                resetDropDown /* TODO reset if user unchecks use advanced params once the entire section is under a single checkbox. Also remove this value entirely */
+              }
+              handleSelection={handleDropDownSelect}
+            />
+          </DropDownContainer>
+        </ParamContainer>
         <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
           <Label htmlFor="maxY">
             Y-Axis Range (µN):

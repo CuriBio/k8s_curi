@@ -24,7 +24,6 @@ from models.users import (
     UserProfile,
     UserAction,
 )
-from pydantic import EmailStr
 from utils.db import AsyncpgPoolDep
 
 
