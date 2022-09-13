@@ -30,7 +30,11 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://dashboard.curibio-test.com", "https://dashboard.curibio.com"],
+    allow_origins=[
+        # TODO use a single ENV var for this instead
+        "https://dashboard.curibio-test.com",
+        "https://dashboard.curibio.com",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -254,33 +258,34 @@ async def create_new_job(
             )
         }
 
+        # TODO now that the pulse3d version is configurable, need to remove these default values and let pulse3d handle it
         # convert these params into a format compatible with pulse3D
-        for param, default_values in (  # TODO grab default values from pulse3D package
+        for param, default_values in (
             ("prominence_factors", 6),
             ("width_factors", 7),
             ("baseline_widths_to_use", (10, 90)),
         ):
             analysis_params[param] = _format_tuple_param(analysis_params[param], default_values)
 
-        logger.info(f"Using params: {analysis_params}")
+        logger.info(f"Using v{details.version} with params: {analysis_params}")
 
+        priority = 10
         async with request.state.pgpool.acquire() as con:
-            priority = 10
             job_id = await create_job(
                 con=con,
                 upload_id=details.upload_id,
                 queue="pulse3d",
                 priority=priority,
-                meta={"analysis_params": analysis_params},
+                meta={"analysis_params": analysis_params, "version": details.version},
             )
 
-            return JobResponse(
-                id=job_id,
-                user_id=user_id,
-                upload_id=details.upload_id,
-                status="pending",
-                priority=priority,
-            )
+        return JobResponse(
+            id=job_id,
+            user_id=user_id,
+            upload_id=details.upload_id,
+            status="pending",
+            priority=priority,
+        )
 
     except Exception as e:
         logger.exception(f"Failed to create job: {repr(e)}")

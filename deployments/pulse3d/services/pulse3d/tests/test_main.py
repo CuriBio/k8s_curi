@@ -1,4 +1,5 @@
 from datetime import datetime
+from random import randint
 from fastapi.testclient import TestClient
 import json
 import os
@@ -10,6 +11,10 @@ from auth import create_token
 from src import main
 
 test_client = TestClient(main.app)
+
+
+def random_semver():
+    return ".".join([str(randint(0, 99)) for _ in range(3)])
 
 
 def get_token(scope, account_type="user", userid=None, customer_id=None):
@@ -360,13 +365,14 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
     expected_job_priority = 10
     test_upload_id = uuid.uuid4()
     test_user_id = uuid.uuid4()
+    test_version = random_semver()
 
     access_token = get_token(scope=["users:free"], userid=test_user_id)
 
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=expected_job_id)
 
     kwargs = {
-        "json": {"upload_id": str(test_upload_id)},
+        "json": {"upload_id": str(test_upload_id), "version": test_version},
         "headers": {"Authorization": f"Bearer {access_token}"},
     }
     response = test_client.post("/jobs", **kwargs)
@@ -397,22 +403,19 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
         upload_id=test_upload_id,
         queue="pulse3d",
         priority=expected_job_priority,
-        meta={"analysis_params": expected_analysis_params},
+        meta={"analysis_params": expected_analysis_params, "version": test_version},
     )
 
 
 def test_jobs__post__basic_params_given(mocker):
-    expected_job_id = uuid.uuid4()
-    test_upload_id = uuid.uuid4()
-    test_user_id = uuid.uuid4()
     test_analysis_params = {"twitch_widths": [10, 20], "start_time": 0, "end_time": 1}
 
-    access_token = get_token(scope=["users:free"], userid=test_user_id)
+    access_token = get_token(scope=["users:free"])
 
-    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=expected_job_id)
+    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
 
     kwargs = {
-        "json": {"upload_id": str(test_upload_id), **test_analysis_params},
+        "json": {"upload_id": str(uuid.uuid4()), "version": random_semver(), **test_analysis_params},
         "headers": {"Authorization": f"Bearer {access_token}"},
     }
     response = test_client.post("/jobs", **kwargs)
@@ -439,17 +442,14 @@ def test_jobs__post__basic_params_given(mocker):
 @pytest.mark.parametrize("param_name", ["prominence_factors", "width_factors"])
 @pytest.mark.parametrize("param_tuple", [(1, 2), (None, 2), (1, None), (None, None)])
 def test_jobs__post__advanced_params_given(param_name, param_tuple, mocker):
-    expected_job_id = uuid.uuid4()
-    test_upload_id = uuid.uuid4()
-    test_user_id = uuid.uuid4()
     test_analysis_params = {param_name: param_tuple}
 
-    access_token = get_token(scope=["users:free"], userid=test_user_id)
+    access_token = get_token(scope=["users:free"])
 
-    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=expected_job_id)
+    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
 
     kwargs = {
-        "json": {"upload_id": str(test_upload_id), **test_analysis_params},
+        "json": {"upload_id": str(uuid.uuid4()), "version": random_semver(), **test_analysis_params},
         "headers": {"Authorization": f"Bearer {access_token}"},
     }
     response = test_client.post("/jobs", **kwargs)
@@ -483,17 +483,14 @@ def test_jobs__post__advanced_params_given(param_name, param_tuple, mocker):
 
 @pytest.mark.parametrize("param_tuple", [(1, 2), (None, 2), (1, None), (None, None)])
 def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocker):
-    expected_job_id = uuid.uuid4()
-    test_upload_id = uuid.uuid4()
-    test_user_id = uuid.uuid4()
     test_analysis_params = {"baseline_widths_to_use": param_tuple}
 
-    access_token = get_token(scope=["users:free"], userid=test_user_id)
+    access_token = get_token(scope=["users:free"])
 
-    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=expected_job_id)
+    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
 
     kwargs = {
-        "json": {"upload_id": str(test_upload_id), **test_analysis_params},
+        "json": {"upload_id": str(uuid.uuid4()), "version": random_semver(), **test_analysis_params},
         "headers": {"Authorization": f"Bearer {access_token}"},
     }
     response = test_client.post("/jobs", **kwargs)

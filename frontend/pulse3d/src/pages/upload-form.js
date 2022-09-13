@@ -85,7 +85,7 @@ const getDefaultAnalysisParams = () => {
     twitchWidths: "",
     startTime: "",
     endTime: "",
-    pulse3dVersion: "",
+    selectedPulse3dVersion: "",
   };
 };
 
@@ -211,7 +211,7 @@ export default function UploadForm() {
         twitchWidths,
         startTime,
         endTime,
-        pulse3dVersion,
+        selectedPulse3dVersion,
       } = analysisParams;
       const jobResponse = await fetch(
         `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`,
@@ -233,7 +233,9 @@ export default function UploadForm() {
             start_time: startTime === "" ? null : startTime,
             end_time: endTime === "" ? null : endTime,
             version:
-              pulse3dVersion === "" ? pulse3dVersions[0] : pulse3dVersion,
+              selectedPulse3dVersion === ""
+                ? pulse3dVersions[0]
+                : selectedPulse3dVersion,
           }),
         }
       );
