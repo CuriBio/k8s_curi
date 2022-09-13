@@ -105,7 +105,9 @@ export default function Uploads() {
 
   const getAllJobs = async () => {
     try {
-      const response = await fetch("https://curibio.com/jobs?download=False");
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?download=False`
+      );
 
       if (response && response.status === 200) {
         const { jobs } = await response.json();
@@ -228,7 +230,7 @@ export default function Uploads() {
       let failedDeletion = false;
       // soft delete all jobs
       if (checkedUploads.length > 0) {
-        const uploadsURL = `https://curibio.com/uploads?`;
+        const uploadsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads?`;
         checkedUploads.map((id) => (uploadsURL += `upload_ids=${id}&`));
         const uploadsResponse = await fetch(uploadsURL.slice(0, -1), {
           method: "DELETE",
@@ -237,7 +239,7 @@ export default function Uploads() {
       }
       // soft delete all jobs
       if (checkedJobs.length > 0) {
-        const jobsuURL = `https://curibio.com/jobs?`;
+        const jobsuURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;
         checkedJobs.map((id) => (jobsuURL += `job_ids=${id}&`));
         const jobsResponse = await fetch(jobsuURL.slice(0, -1), {
           method: "DELETE",
@@ -341,7 +343,7 @@ export default function Uploads() {
 
   const downloadSingleFile = async ({ jobId }) => {
     // request only presigned urls for selected job
-    const url = `https://curibio.com/jobs?job_ids=${jobId}`;
+    const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?job_ids=${jobId}`;
     const response = await fetch(url);
 
     if (response.status === 200) {
@@ -366,7 +368,7 @@ export default function Uploads() {
       // streamsaver has to be required here otherwise you get build errors with "document is not defined"
       const { createWriteStream } = require("streamsaver");
 
-      const url = `https://curibio.com/jobs/download`;
+      const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/download`;
 
       const jobIds = jobs.map(({ jobId }) => jobId);
       const response = await fetch(url, {

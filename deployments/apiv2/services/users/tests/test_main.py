@@ -88,8 +88,8 @@ def test_startup__sets_global_cb_customer_id(mocked_asyncpg_con):
         ("POST", "/register"),
         ("POST", "/refresh"),
         ("POST", "/logout"),
-        ("GET", "/users"),
-        ("PUT", "/users/test@email.com"),
+        ("GET", f"/"),
+        ("PUT", f"/{uuid.uuid4()}"),
     ],
 )
 def test_routes_requiring_auth_without_tokens(method, route):
@@ -516,13 +516,14 @@ def test_logout__success(account_type, mocked_asyncpg_con):
     )
 
 
-def test_users__get__success(mocked_asyncpg_con):
+def test_user_id__get__no_id_given(mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
     access_token = get_token(userid=test_customer_id, account_type="customer")
 
     num_users_found = 3
     mocked_asyncpg_con.fetch.return_value = expected_users_info = [
         {
+            "id": uuid.uuid4(),
             "name": f"name{i}",
             "email": f"user{i}@email.com",
             "created_at": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
@@ -532,105 +533,133 @@ def test_users__get__success(mocked_asyncpg_con):
         for i in range(num_users_found)
     ]
 
-    response = test_client.get("/users", headers={"Authorization": f"Bearer {access_token}"})
+    response = test_client.get("/", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 200
 
-    for user_info_dict in expected_users_info:
-        for new_name, old_name in (
-            ("date_created", "created_at"),
-            ("last_loggedin", "last_login"),
-            ("deactivated", "suspended"),
-        ):
-            user_info_dict[new_name] = user_info_dict.pop(old_name)
+    # convert IDs to a string since fastapi does this automatically
+    for user_info in expected_users_info:
+        user_info["id"] = str(user_info["id"])
 
     assert response.json() == expected_users_info
 
     mocked_asyncpg_con.fetch.assert_called_once_with(
-        "SELECT name, email, created_at, last_login, suspended FROM users WHERE customer_id=$1 AND deleted_at IS NULL ORDER BY suspended",
+        f"SELECT {', '.join(expected_users_info[0])} FROM users WHERE customer_id=$1 AND deleted_at IS NULL ORDER BY suspended",
         test_customer_id,
     )
 
 
-def test_users__get__invalid_token_scope_given():
-    # arbitrarily deciding to use user account type here
+def test_user_id__get__id_given(mocked_asyncpg_con):
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(userid=test_customer_id, account_type="customer")
+
+    test_user_id = uuid.uuid4()
+
+    mocked_asyncpg_con.fetchrow.return_value = expected_user_info = {
+        "id": uuid.uuid4(),
+        "name": f"name",
+        "email": f"user@email.com",
+        "created_at": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+        "last_login": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+        "suspended": choice([True, False]),
+    }
+
+    response = test_client.get(f"/{test_user_id}", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 200
+
+    # convert ID to a string since fastapi does this automatically
+    expected_user_info["id"] = str(expected_user_info["id"])
+
+    assert response.json() == expected_user_info
+
+    mocked_asyncpg_con.fetchrow.assert_called_once_with(
+        f"SELECT {', '.join(expected_user_info)} FROM users WHERE customer_id=$1 AND id=$2 AND deleted_at IS NULL",
+        test_customer_id,
+        test_user_id,
+    )
+
+
+def test_user_id__get__id_given__user_not_found(mocked_asyncpg_con):
+    access_token = get_token(account_type="customer")
+
+    mocked_asyncpg_con.fetchrow.return_value = None
+
+    response = test_client.get(f"/{uuid.uuid4()}", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize("user_id", ["", uuid.uuid4()])
+def test_user_id__get__invalid_token_scope_given(user_id):
+    # account type does not matter here
     access_token = get_token(scope=["users:free"])
-    response = test_client.get("/users", headers={"Authorization": f"Bearer {access_token}"})
+    response = test_client.get(f"/{user_id}", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 401
 
 
 @freeze_time()
-def test_users__put__successful_deletion(mocked_asyncpg_con):
+def test_user_id__put__successful_deletion(mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
     access_token = get_token(userid=test_customer_id, account_type="customer")
 
-    test_email = "testUser@curibio.com"
+    test_user_id = uuid.uuid4()
 
     response = test_client.put(
-        f"/users/{test_email}",
+        f"/{test_user_id}",
         json={"action_type": "delete"},
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 200
 
     mocked_asyncpg_con.execute.assert_called_once_with(
-        f"UPDATE users SET deleted_at=$1 WHERE email=$2", datetime.now(), test_email
+        f"UPDATE users SET deleted_at=$1 WHERE id=$2", datetime.now(), test_user_id
     )
 
 
-def test_users__put__successful_deactivation(mocked_asyncpg_con):
+def test_user_id__put__successful_deactivation(mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
     access_token = get_token(userid=test_customer_id, account_type="customer")
 
-    test_email = "testUser@curibio.com"
+    test_user_id = uuid.uuid4()
 
     response = test_client.put(
-        f"/users/{test_email}",
+        f"/{test_user_id}",
         json={"action_type": "deactivate"},
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 200
 
     mocked_asyncpg_con.execute.assert_called_once_with(
-        f"UPDATE users SET suspended='t' WHERE email=$1", "testUser@curibio.com"
+        f"UPDATE users SET suspended='t' WHERE id=$1", test_user_id
     )
 
 
-def test_users__put__invalid_action_type_given():
+def test_user_id__put__invalid_action_type_given():
     access_token = get_token(account_type="customer")
 
     response = test_client.put(
-        "/users/testUser@curibio.com",
-        json={"action_type": "bad"},
-        headers={"Authorization": f"Bearer {access_token}"},
+        f"/{uuid.uuid4()}", json={"action_type": "bad"}, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 400
 
 
-def test_users__put__no_action_type_given():
+def test_user_id__put__no_action_type_given():
     access_token = get_token(account_type="customer")
 
-    response = test_client.put(
-        "/users/testUser@curibio.com", headers={"Authorization": f"Bearer {access_token}"}
-    )
+    response = test_client.put(f"/{uuid.uuid4()}", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 422
 
 
-def test_users__put__bad_email_given():
-    access_token = get_token(account_type="customer")
-
-    response = test_client.put("/users/not_an_email", headers={"Authorization": f"Bearer {access_token}"})
-    assert response.status_code == 422
-
-
-def test_users__put__no_email_given():
-    access_token = get_token(account_type="customer")
-
-    response = test_client.put("/users", headers={"Authorization": f"Bearer {access_token}"})
-    assert response.status_code == 405
-
-
-def test_users__put__invalid_token_scope_given():
+def test_user_id__put__invalid_token_scope_given():
     # arbitrarily deciding to use user account type here
     access_token = get_token(scope=["users:free"])
-    response = test_client.put("/users/test@email.com", headers={"Authorization": f"Bearer {access_token}"})
+    response = test_client.put(f"/{uuid.uuid4()}", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 401
+
+
+@pytest.mark.parametrize("method", ["PUT", "GET"])
+def test_user_id__bad_user_id_given(method):
+    access_token = get_token(account_type="customer")
+
+    response = getattr(test_client, method.lower())(
+        "/not_a_uuid", headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert response.status_code == 422
