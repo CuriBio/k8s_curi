@@ -41,30 +41,28 @@ export default function UserInfo() {
   const [modalMessage, setModalMessage] = useState();
   const [actionToPreform, setActionToPerform] = useState("");
   const [confirm, setConfirm] = useState(false);
-  const [emailToEdit, setEmailToEdit] = useState("");
+  const [userIdToEdit, setUserIdToEdit] = useState("");
+
+  const dropDownOptions = ["Delete", "Deactivate"];
 
   const sendUserActionPutRequest = async () => {
-    fetch(`https://curibio.com/users/${emailToEdit}`, {
+    fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/${userIdToEdit}`, {
       method: "PUT",
       body: JSON.stringify({ action_type: actionToPreform }),
     });
   };
 
-  const userActionSelection = async (option, name, email) => {
-    if (option === 1) {
-      setModalMessage(`Are you sure you would like to deactivate ${name}?`);
-      setActionToPerform("deactivate");
-      setEmailToEdit(email);
-    } else if (option === 0) {
-      setModalMessage(`Are you sure you would like to delete ${name}?`);
-      setActionToPerform("delete");
-      setEmailToEdit(email);
-    }
+  const userActionSelection = async (option, username, userId) => {
+    let action = option.toLowerCase();
+
+    setModalMessage(`Are you sure you would like to ${action} ${username}?`);
+    setActionToPerform(action);
+    setUserIdToEdit(userId);
   };
 
   const getAllUsers = async () => {
     try {
-      const response = await fetch("https://curibio.com/users");
+      const response = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/`);
       if (response && response.status === 200) {
         const usersJson = await response.json();
         setUsers(usersJson);
@@ -86,12 +84,12 @@ export default function UserInfo() {
   }, [users]);
 
   useEffect(() => {
-    try {
-      if (actionToPreform !== "" && confirm) {
+    if (actionToPreform && confirm) {
+      try {
         sendUserActionPutRequest();
+      } catch (e) {
+        console.log("ERROR on user action");
       }
-    } catch (e) {
-      console.log("ERROR on user action ");
     }
   }, [confirm]);
 
@@ -109,11 +107,7 @@ export default function UserInfo() {
         buttons={["Yes", "No"]}
         header={"Attention"}
         closeModal={(idx, label) => {
-          if (label === "Yes") {
-            setConfirm(true);
-          } else {
-            setConfirm(false);
-          }
+          setConfirm(label === "Yes");
           setActionAlertVisible(false);
         }}
       />
@@ -189,8 +183,9 @@ export default function UserInfo() {
               <TableBody>
                 {currentRows.map((row) => (
                   <Row
-                    key={row.email}
+                    key={row.id}
                     row={row}
+                    dropDownOptions={dropDownOptions}
                     modalPopUp={() => {
                       setActionAlertVisible(true);
                     }}

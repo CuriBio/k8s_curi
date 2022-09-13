@@ -25,7 +25,9 @@ export default function DashboardLayout({ children }) {
 
   const getUploads = async () => {
     try {
-      const response = await fetch("https://curibio.com/uploads");
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads`
+      );
 
       if (response && response.status === 200) {
         const uploadsArr = await response.json();

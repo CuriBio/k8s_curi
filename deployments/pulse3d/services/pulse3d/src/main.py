@@ -30,10 +30,7 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://dashboard.curibio-test.com",
-        "https://dashboard.curibio.com",
-    ],
+    allow_origins=["https://dashboard.curibio-test.com", "https://dashboard.curibio.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -124,10 +121,7 @@ async def soft_delete_uploads(
 ):
     # make sure at least one upload ID was given
     if not upload_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No upload IDs given",
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No upload IDs given")
     # need to convert UUIDs to str to avoid issues with DB
     upload_ids = [str(upload_id) for upload_id in upload_ids]
 
@@ -399,3 +393,17 @@ def _yield_s3_objects(bucket: str, keys: List[str], filenames: List[str]):
 
     except Exception as e:
         raise S3Error(f"Failed to access {bucket}/{key}: {repr(e)}")
+
+
+@app.get("/versions")
+async def get_versions(request: Request):
+    """Retrieve info of all the active pulse3d releases listed in the DB."""
+    try:
+        async with request.state.pgpool.acquire() as con:
+            rows = await con.fetch("SELECT * FROM pulse3d_versions WHERE state != 'deprecated'")
+
+        return [row["version"] for row in rows]
+
+    except Exception as e:
+        logger.error(f"Failed to retrieve info of pulse3d versions: {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

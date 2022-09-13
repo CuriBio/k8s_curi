@@ -197,25 +197,28 @@ export default function UploadForm() {
         startTime,
         endTime,
       } = analysisParams;
-      const jobResponse = await fetch("https://curibio.com/jobs", {
-        method: "POST",
-        body: JSON.stringify({
-          upload_id: uploadId,
-          baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
-          max_y: maxY === "" ? null : maxY,
-          prominence_factors: formatTupleParams(
-            prominenceFactorPeaks,
-            prominenceFactorValleys
-          ),
-          width_factors: formatTupleParams(
-            widthFactorPeaks,
-            widthFactorValleys
-          ),
-          twitch_widths: twitchWidths === "" ? null : twitchWidths,
-          start_time: startTime === "" ? null : startTime,
-          end_time: endTime === "" ? null : endTime,
-        }),
-      });
+      const jobResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            upload_id: uploadId,
+            baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
+            max_y: maxY === "" ? null : maxY,
+            prominence_factors: formatTupleParams(
+              prominenceFactorPeaks,
+              prominenceFactorValleys
+            ),
+            width_factors: formatTupleParams(
+              widthFactorPeaks,
+              widthFactorValleys
+            ),
+            twitch_widths: twitchWidths === "" ? null : twitchWidths,
+            start_time: startTime === "" ? null : startTime,
+            end_time: endTime === "" ? null : endTime,
+          }),
+        }
+      );
       if (jobResponse.status !== 200) {
         failedUploadsMsg.push(filename);
         console.log("ERROR posting new job: ", await jobResponse.json());
@@ -337,14 +340,17 @@ export default function UploadForm() {
         return;
       }
 
-      const uploadResponse = await fetch("https://curibio.com/uploads", {
-        method: "POST",
-        body: JSON.stringify({
-          filename,
-          md5s: hexToBase64(fileHash),
-          upload_type: "mantarray",
-        }),
-      });
+      const uploadResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            filename,
+            md5s: hexToBase64(fileHash),
+            upload_type: "mantarray",
+          }),
+        }
+      );
 
       // break flow if initial request returns error status code
       if (uploadResponse.status !== 200) {

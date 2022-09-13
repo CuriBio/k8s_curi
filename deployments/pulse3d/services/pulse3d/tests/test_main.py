@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi.testclient import TestClient
 import json
 import os
@@ -692,3 +693,33 @@ def test_download__post__no_job_ids_given(test_job_ids, test_error_code, mocker)
 
     mocked_get_jobs.assert_not_called()
     mocked_yield_objs.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        get_token(["users:free"], account_type="user"),
+        get_token(["users:admin"], account_type="customer"),
+        None,
+    ],
+)
+def test_versions__get(token, mocked_asyncpg_con, mocker):
+    # arbitrary number of versions
+    expected_versions = [f"1.0.{i}" for i in range(3)]
+
+    mocked_asyncpg_con.fetch.return_value = [
+        {"version": version, "created_at": datetime.now(), "updated_at": datetime.now(), "state": f"state{i}"}
+        for i, version in enumerate(expected_versions)
+    ]
+
+    kwargs = {}
+    if token:
+        kwargs["headers"] = {"Authorization": f"Bearer {token}"}
+
+    response = test_client.get("/versions", **kwargs)
+    assert response.status_code == 200
+    assert response.json() == expected_versions
+
+    mocked_asyncpg_con.fetch.assert_called_once_with(
+        "SELECT * FROM pulse3d_versions WHERE state != 'deprecated'"
+    )
