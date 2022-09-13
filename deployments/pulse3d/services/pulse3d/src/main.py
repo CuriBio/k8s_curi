@@ -30,10 +30,7 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://dashboard.curibio-test.com",
-        "https://dashboard.curibio.com",
-    ],
+    allow_origins=["https://dashboard.curibio-test.com", "https://dashboard.curibio.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -398,13 +395,15 @@ def _yield_s3_objects(bucket: str, keys: List[str], filenames: List[str]):
         raise S3Error(f"Failed to access {bucket}/{key}: {repr(e)}")
 
 
-@app.get("/pulse3d_versions")
-async def get_pulse3d_versions(request: Request):
+@app.get("/versions")
+async def get_versions(request: Request):
     """Retrieve info of all the active pulse3d releases listed in the DB."""
     try:
         async with request.state.pgpool.acquire() as con:
-            query = "SELECT * FROM pulse3d_versions WHERE state != 'deprecated'"
-            return [row["version"] async for row in con.cursor(query)]
+            rows = await con.fetch("SELECT * FROM pulse3d_versions WHERE state != 'deprecated'")
+
+        return [row["version"] for row in rows]
+
     except Exception as e:
         logger.error(f"Failed to retrieve info of pulse3d versions: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
