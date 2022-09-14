@@ -401,7 +401,7 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
     mocked_create_job.assert_called_once_with(
         con=mocked_asyncpg_con,
         upload_id=test_upload_id,
-        queue="pulse3d",
+        queue=f"pulse3d-v{test_version}",
         priority=expected_job_priority,
         meta={"analysis_params": expected_analysis_params, "version": test_version},
     )

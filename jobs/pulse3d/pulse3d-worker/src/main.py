@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 PULSE3D_VERSION = pkg_resources.get_distribution("pulse3D").version
 
 
-@get_item(queue="pulse3d")
+@get_item(queue=f"pulse3d-v{PULSE3D_VERSION}")
 async def process(con, item):
     logger.info(f"Processing item: {item}")
 
