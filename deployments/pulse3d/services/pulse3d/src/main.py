@@ -430,7 +430,7 @@ async def get_interactive_waveform_data(
     if job_id is None or upload_id is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Missing required data to gt data.",
+            detail=f"Missing required ids to get job metadata.",
         )
 
     upload_id = str(upload_id)
@@ -450,7 +450,6 @@ async def get_interactive_waveform_data(
             key = f"uploads/{customer_id}/{account_id}/{upload_id}"
             logger.info(f"Downloading recording data from {key}")
 
-            # grabbing whole directory becuase there isn't
             download_directory_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file_path=tmpdir)
 
             # read the time force dataframe from the parquet file
@@ -460,13 +459,13 @@ async def get_interactive_waveform_data(
             # remove raw data columns
             columns = [c for c in df.columns if "__raw" not in c]
             # this is to handle analyses run before PR.to_dataframe() where time is in seconds
-            old_parquet_file = not [c for c in df.columns if "__raw" in c]
+            needs_unit_conversion = not [c for c in df.columns if "__raw" in c]
 
             time = df["Time (s)"].tolist()
-            if not old_parquet_file:
+            if needs_unit_conversion:
                 logger.info("Old parquet file found so converting time column to microseconds")
-                # needs to be us
-                time = [i / MICRO_TO_BASE_CONVERSION for i in time]
+                # needs to be us for peak_detector
+                time = [i * MICRO_TO_BASE_CONVERSION for i in time]
 
             # set up empty dictionaries to be passed in response
             coordinates = dict()
@@ -480,7 +479,7 @@ async def get_interactive_waveform_data(
                 logger.info(f"Finding peaks and valleys for well at {well}")
 
                 well_force = df[well]
-                if old_parquet_file:
+                if needs_unit_conversion:
                     # not exact, but this isn't used outside of graphing in FE, real raw data doesn't get changed
                     min_value = min(well_force)
                     well_force -= min_value
@@ -505,7 +504,7 @@ async def get_interactive_waveform_data(
                     peaks_and_valleys[well] = [peaks.tolist(), valleys.tolist()]
 
                 well_coords = [
-                    [time[i], val] for (i, val) in enumerate(well_force)
+                    [time[i] / MICRO_TO_BASE_CONVERSION, val] for (i, val) in enumerate(well_force)
                 ]
                 coordinates[well] = well_coords
                 

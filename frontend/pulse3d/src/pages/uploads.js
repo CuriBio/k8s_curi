@@ -415,7 +415,6 @@ export default function Uploads() {
           a.click();
           a.remove();
         } else {
-          console.log("INSIDE");
           const fileStream = createWriteStream(zipFilename);
           const writer = fileStream.getWriter();
 
