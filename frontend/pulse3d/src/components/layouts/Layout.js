@@ -40,7 +40,7 @@ export default function Layout({ children }) {
   const router = useRouter();
 
   const logoutUser = async () => {
-    await fetch("https://curibio.com/logout", {
+    await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/logout`, {
       method: "POST",
       body: JSON.stringify({}),
     });

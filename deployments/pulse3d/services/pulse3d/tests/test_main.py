@@ -1,4 +1,5 @@
-from xml.etree.ElementInclude import include
+from datetime import datetime
+from random import randint
 from fastapi.testclient import TestClient
 import json
 import os
@@ -15,6 +16,10 @@ from labware_domain_models import LabwareDefinition
 TWENTY_FOUR_WELL_PLATE = LabwareDefinition(row_count=4, column_count=6)
 
 test_client = TestClient(main.app)
+
+
+def random_semver():
+    return ".".join([str(randint(0, 99)) for _ in range(3)])
 
 
 def get_token(scope, account_type="user", userid=None, customer_id=None):
@@ -365,13 +370,14 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
     expected_job_priority = 10
     test_upload_id = uuid.uuid4()
     test_user_id = uuid.uuid4()
+    test_version = random_semver()
 
     access_token = get_token(scope=["users:free"], userid=test_user_id)
 
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=expected_job_id)
 
     kwargs = {
-        "json": {"upload_id": str(test_upload_id)},
+        "json": {"upload_id": str(test_upload_id), "version": test_version},
         "headers": {"Authorization": f"Bearer {access_token}"},
     }
     response = test_client.post("/jobs", **kwargs)
@@ -401,24 +407,21 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
     mocked_create_job.assert_called_once_with(
         con=mocked_asyncpg_con,
         upload_id=test_upload_id,
-        queue="pulse3d",
+        queue=f"pulse3d-v{test_version}",
         priority=expected_job_priority,
-        meta={"analysis_params": expected_analysis_params},
+        meta={"analysis_params": expected_analysis_params, "version": test_version},
     )
 
 
 def test_jobs__post__basic_params_given(mocker):
-    expected_job_id = uuid.uuid4()
-    test_upload_id = uuid.uuid4()
-    test_user_id = uuid.uuid4()
-    test_analysis_params = {"twitch_widths": [10, 20], "start_time": 0.0, "end_time": 1.0}
+    test_analysis_params = {"twitch_widths": [10, 20], "start_time": 0, "end_time": 1}
 
-    access_token = get_token(scope=["users:free"], userid=test_user_id)
+    access_token = get_token(scope=["users:free"])
 
-    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=expected_job_id)
+    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
 
     kwargs = {
-        "json": {"upload_id": str(test_upload_id), **test_analysis_params},
+        "json": {"upload_id": str(uuid.uuid4()), "version": random_semver(), **test_analysis_params},
         "headers": {"Authorization": f"Bearer {access_token}"},
     }
     response = test_client.post("/jobs", **kwargs)
@@ -446,17 +449,14 @@ def test_jobs__post__basic_params_given(mocker):
 @pytest.mark.parametrize("param_name", ["prominence_factors", "width_factors"])
 @pytest.mark.parametrize("param_tuple", [(1, 2), (None, 2), (1, None), (None, None)])
 def test_jobs__post__advanced_params_given(param_name, param_tuple, mocker):
-    expected_job_id = uuid.uuid4()
-    test_upload_id = uuid.uuid4()
-    test_user_id = uuid.uuid4()
     test_analysis_params = {param_name: param_tuple}
 
-    access_token = get_token(scope=["users:free"], userid=test_user_id)
+    access_token = get_token(scope=["users:free"])
 
-    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=expected_job_id)
+    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
 
     kwargs = {
-        "json": {"upload_id": str(test_upload_id), **test_analysis_params},
+        "json": {"upload_id": str(uuid.uuid4()), "version": random_semver(), **test_analysis_params},
         "headers": {"Authorization": f"Bearer {access_token}"},
     }
     response = test_client.post("/jobs", **kwargs)
@@ -491,17 +491,14 @@ def test_jobs__post__advanced_params_given(param_name, param_tuple, mocker):
 
 @pytest.mark.parametrize("param_tuple", [(1, 2), (None, 2), (1, None), (None, None)])
 def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocker):
-    expected_job_id = uuid.uuid4()
-    test_upload_id = uuid.uuid4()
-    test_user_id = uuid.uuid4()
     test_analysis_params = {"baseline_widths_to_use": param_tuple}
 
-    access_token = get_token(scope=["users:free"], userid=test_user_id)
+    access_token = get_token(scope=["users:free"])
 
-    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=expected_job_id)
+    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
 
     kwargs = {
-        "json": {"upload_id": str(test_upload_id), **test_analysis_params},
+        "json": {"upload_id": str(uuid.uuid4()), "version": random_semver(), **test_analysis_params},
         "headers": {"Authorization": f"Bearer {access_token}"},
     }
     response = test_client.post("/jobs", **kwargs)
@@ -797,3 +794,32 @@ def _create_test_df(include_raw_data: bool = True):
             data[f"{well_name}__raw"] = pd.Series(test_df_data)
 
     return pd.DataFrame(data)
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        get_token(["users:free"], account_type="user"),
+        get_token(["users:admin"], account_type="customer"),
+        None,
+    ],
+)
+def test_versions__get(token, mocked_asyncpg_con, mocker):
+    # arbitrary number of versions
+    expected_versions = [f"1.0.{i}" for i in range(3)]
+
+    mocked_asyncpg_con.fetch.return_value = [
+        {"version": version, "created_at": datetime.now(), "updated_at": datetime.now(), "state": f"state{i}"}
+        for i, version in enumerate(expected_versions)
+    ]
+
+    kwargs = {}
+    if token:
+        kwargs["headers"] = {"Authorization": f"Bearer {token}"}
+
+    response = test_client.get("/versions", **kwargs)
+    assert response.status_code == 200
+    assert response.json() == expected_versions
+
+    mocked_asyncpg_con.fetch.assert_called_once_with(
+        "SELECT * FROM pulse3d_versions WHERE state != 'deprecated' ORDER BY created_at"
+    )

@@ -105,7 +105,7 @@ export default function InteractiveWaveformModal({
   const getWaveformData = async () => {
     try {
       const response = await fetch(
-        `https://curibio.com/jobs/waveform_data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}`
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform_data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}`
       );
 
       if (response.status === 200) {
@@ -189,10 +189,13 @@ export default function InteractiveWaveformModal({
         end_time: editableStartEndTimes.endTime,
       };
 
-      const jobResponse = await fetch("https://curibio.com/jobs", {
-        method: "POST",
-        body: JSON.stringify(requestBody),
-      });
+      const jobResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`,
+        {
+          method: "POST",
+          body: JSON.stringify(requestBody),
+        }
+      );
       if (jobResponse.status !== 200) {
         // TODO make modal
         console.log("ERROR posting new job: ", await jobResponse.json());

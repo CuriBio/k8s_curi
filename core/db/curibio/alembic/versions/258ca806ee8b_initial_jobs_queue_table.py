@@ -28,7 +28,12 @@ def upgrade():
         ),
         sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=False), server_default=func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=False), server_default=func.now(), onupdate=func.now()),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=False),
+            server_default=func.now(),
+            onupdate=func.now(),  # Tanner (9/12/22): onupdate will not actually add a trigger to update this col in the DB. See revision 871f6d005d86 for how to add a trigger correctly
+        ),
         sa.Column("meta", postgresql.JSONB, server_default="{}", nullable=True),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
     )

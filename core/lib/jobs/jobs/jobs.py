@@ -11,8 +11,8 @@ class EmptyQueue(Exception):
 
 def get_item(*, queue):
     query = (
-        "DELETE FROM jobs_queue WHERE id = "
-        "(SELECT id FROM jobs_queue WHERE queue=$1 ORDER BY priority DESC, created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1) "
+        "DELETE FROM jobs_queue "
+        "WHERE id = (SELECT id FROM jobs_queue WHERE queue=$1 ORDER BY priority DESC, created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1) "
         "RETURNING id, upload_id, created_at, meta"
     )
 
@@ -20,7 +20,8 @@ def get_item(*, queue):
         @wraps(fn)
         async def _inner(*, con):
             async with con.transaction():
-                if not (item := await con.fetchrow(query, queue)):
+                item = await con.fetchrow(query, queue)
+                if not item:
                     raise EmptyQueue(queue)
 
                 ts = time.time()

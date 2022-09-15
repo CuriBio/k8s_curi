@@ -46,6 +46,7 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        # TODO use a single ENV var for this instead
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
     ],
@@ -139,10 +140,7 @@ async def soft_delete_uploads(
 ):
     # make sure at least one upload ID was given
     if not upload_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No upload IDs given",
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No upload IDs given")
     # need to convert UUIDs to str to avoid issues with DB
     upload_ids = [str(upload_id) for upload_id in upload_ids]
 
@@ -254,54 +252,58 @@ async def _get_jobs(con, token, job_ids):
 
 @app.post("/jobs")
 async def create_new_job(
-    request: Request,
-    details: JobRequest,
-    token=Depends(ProtectedAny(scope=["users:free"])),
+    request: Request, details: JobRequest, token=Depends(ProtectedAny(scope=["users:free"]))
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
         logger.info(f"Creating pulse3d job for upload {details.upload_id} with user ID: {user_id}")
 
-        analysis_params = {
-            param: dict(details)[param]
-            for param in (
-                "baseline_widths_to_use",
-                "max_y",
-                "prominence_factors",
-                "width_factors",
-                "twitch_widths",
-                "start_time",
-                "end_time",
-                "peaks_valleys",
-            )
-        }
+        params = [
+            "baseline_widths_to_use",
+            "prominence_factors",
+            "width_factors",
+            "twitch_widths",
+            "start_time",
+            "end_time",
+                            "peaks_valleys",
 
+        ]
+        # TODO could make this if condition `details.version <= "0.25.0"` using the semver package
+        if details.version != "0.24.6":
+            # max_y param was added in 0.25.0
+            params.append("max_y")
+
+        details_dict = dict(details)
+        analysis_params = {param: details_dict[param] for param in params}
+
+        # TODO now that the pulse3d version is configurable, need to remove these default values and let pulse3d handle it
         # convert these params into a format compatible with pulse3D
-        for param, default_values in (  # TODO grab default values from pulse3D package
+        for param, default_values in (
             ("prominence_factors", 6),
             ("width_factors", 7),
             ("baseline_widths_to_use", (10, 90)),
         ):
             analysis_params[param] = _format_tuple_param(analysis_params[param], default_values)
 
-        logger.info(f"Using params: {analysis_params}")
+        logger.info(f"Using v{details.version} with params: {analysis_params}")
+
+        priority = 10
         async with request.state.pgpool.acquire() as con:
-            priority = 10
             job_id = await create_job(
                 con=con,
                 upload_id=details.upload_id,
-                queue="pulse3d",
+                queue=f"pulse3d-v{details.version}",
                 priority=priority,
-                meta={"analysis_params": analysis_params},
+                meta={"analysis_params": analysis_params, "version": details.version},
             )
 
-            return JobResponse(
-                id=job_id,
-                user_id=user_id,
-                upload_id=details.upload_id,
-                status="pending",
-                priority=priority,
-            )
+        return JobResponse(
+            id=job_id,
+            user_id=user_id,
+            upload_id=details.upload_id,
+            status="pending",
+            priority=priority,
+        )
 
     except Exception as e:
         logger.exception(f"Failed to create job: {repr(e)}")
@@ -518,4 +520,19 @@ async def get_interactive_waveform_data(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
     except Exception as e:
         logger.error(f"Failed to get interactive waveform data: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@app.get("/versions")
+async def get_versions(request: Request):
+    """Retrieve info of all the active pulse3d releases listed in the DB."""
+    try:
+        async with request.state.pgpool.acquire() as con:
+            rows = await con.fetch(  # TODO should eventually sort these using a more robust method
+                "SELECT * FROM pulse3d_versions WHERE state != 'deprecated' ORDER BY created_at"
+            )
+
+        return [row["version"] for row in rows]
+
+    except Exception as e:
+        logger.error(f"Failed to retrieve info of pulse3d versions: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
