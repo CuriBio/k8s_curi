@@ -141,13 +141,6 @@ export default function UploadForm() {
   }, [paramErrors, files, inProgress]);
 
   useEffect(() => {
-    // resets state when upload status changes
-    if (uploadSuccess || !modalState) {
-      resetState();
-    }
-  }, [uploadSuccess, modalState]);
-
-  useEffect(() => {
     // resets upload status when user makes changes
     if (
       (files.length > 0 && files[0] instanceof File) ||
@@ -158,6 +151,7 @@ export default function UploadForm() {
   }, [files, analysisParams]);
 
   useEffect(() => {
+    // reset all params if the user switches between the "re-analyze" and "new upload" versions of this page
     setTabSelection(query.id);
     resetState();
   }, [query]);
@@ -217,7 +211,6 @@ export default function UploadForm() {
       let requestBody = {
         upload_id: uploadId,
         baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
-
         prominence_factors: formatTupleParams(
           prominenceFactorPeaks,
           prominenceFactorValleys
@@ -251,6 +244,11 @@ export default function UploadForm() {
       failedUploadsMsg.push(filename);
       console.log("ERROR posting new job");
     }
+  };
+
+  const submitNewAnalysis = async () => {
+    await checkForMultiRecZips();
+    resetState();
   };
 
   const checkForMultiRecZips = async () => {
@@ -300,7 +298,8 @@ export default function UploadForm() {
           ...badZipfiles.map((f) => f.name),
         ]);
 
-        return setModalState(true);
+        setModalState(true);
+        return;
       }
     }
 
@@ -496,7 +495,7 @@ export default function UploadForm() {
             disabled={isButtonDisabled}
             inProgress={inProgress}
             label="Submit"
-            clickFn={checkForMultiRecZips}
+            clickFn={submitNewAnalysis}
           />
         </ButtonContainer>
       </Uploads>

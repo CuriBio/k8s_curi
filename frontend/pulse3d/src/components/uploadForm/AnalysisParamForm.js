@@ -245,9 +245,7 @@ export default function AnalysisParamForm({
       // make sure it's an array of positive numbers
       if (isArrayOfNumbers(twitchWidthArr, true)) {
         formattedTwitchWidths = Array.from(new Set(twitchWidthArr));
-        console.log("formattedTwitchWidths:", formattedTwitchWidths);
       } else {
-        console.log(`Invalid twitchWidths: ${newValue}`);
         setParamErrors({
           ...paramErrors,
           twitchWidths: "*Must be comma-separated, positive numbers",
