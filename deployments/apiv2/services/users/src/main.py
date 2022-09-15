@@ -1,3 +1,4 @@
+import datetime
 import logging
 import json
 from typing import Union
@@ -14,7 +15,16 @@ from auth import ProtectedAny, create_token, decode_token
 from core.config import DATABASE_URL
 from models.errors import LoginError, RegistrationError
 from models.tokens import AuthTokens
-from models.users import CustomerLogin, UserLogin, CustomerCreate, UserCreate, CustomerProfile, UserProfile
+from models.users import (
+    CustomerLogin,
+    UserLogin,
+    CustomerCreate,
+    UserCreate,
+    CustomerProfile,
+    UserProfile,
+    UserAction,
+)
+from pydantic import EmailStr
 from utils.db import AsyncpgPoolDep
 
 
@@ -32,7 +42,6 @@ app.add_middleware(
     allow_origins=[
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
-        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -330,4 +339,65 @@ async def register(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.exception(f"register: Unexpected error {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.get("/users")
+async def get_users(request: Request, token=Depends(ProtectedAny(scope=["users:admin"]))):
+    """Get info for all the users under the given customer account.
+
+    By default it will be sorted with all active users showing up first, then all the deactivated users
+    """
+    try:
+        async with request.state.pgpool.acquire() as con:
+            customer_id = uuid.UUID(hex=token["userid"])
+
+            query = (
+                "SELECT name, email, created_at, last_login, suspended FROM users "
+                "WHERE customer_id=$1 AND deleted_at IS NULL "
+                "ORDER BY suspended"
+            )
+            result = await con.fetch(query, customer_id)
+
+            return [
+                {
+                    "name": row.get("name", ""),
+                    "email": row.get("email", ""),
+                    "date_created": row.get("created_at", ""),
+                    "last_loggedin": row.get("last_login"),
+                    "deactivated": row.get("suspended"),
+                }
+                for row in result
+            ]
+
+    except Exception as e:
+        logger.exception(f"users GET: Unexpected error {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.put("/users/{email_of_user_to_edit}")
+async def deactivate_user(
+    request: Request,
+    action_to_take: UserAction,
+    email_of_user_to_edit: EmailStr,
+    token=Depends(ProtectedAny(scope=["users:admin"])),
+):
+    """Edit a users information
+
+    The action to take on the user should be passed in the body of PUT request as action_type
+        -deactivate: set suspended field to true
+        -delete: set deleted_at field to current time
+    """
+    try:
+        async with request.state.pgpool.acquire() as con:
+            if action_to_take.action_type == "deactivate":
+                update_query = "UPDATE users SET suspended='t' WHERE email=$1"
+                await con.execute(update_query, email_of_user_to_edit)
+
+            elif action_to_take.action_type == "delete":
+                update_query = "UPDATE users SET deleted_at=$1  WHERE email=$2"
+                await con.execute(update_query, datetime.datetime.now(), email_of_user_to_edit)
+
+    except Exception as e:
+        logger.exception(f"user-actions PUT: Unexpected error {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

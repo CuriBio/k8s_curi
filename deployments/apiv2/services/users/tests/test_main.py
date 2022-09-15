@@ -517,3 +517,113 @@ def test_logout__success(account_type, mocked_asyncpg_con):
 def test_logout__no_token_given():
     response = test_client.post("/logout")
     assert response.status_code == 403
+
+
+def test_users__get__success(mocked_asyncpg_con):
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(userid=test_customer_id, account_type="customer")
+
+    num_users_found = 3
+    mocked_asyncpg_con.fetch.return_value = expected_users_info = [
+        {
+            "name": f"name{i}",
+            "email": f"user{i}@email.com",
+            "created_at": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+            "last_login": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+            "suspended": choice([True, False]),
+        }
+        for i in range(num_users_found)
+    ]
+
+    response = test_client.get("/users", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 200
+
+    for user_info_dict in expected_users_info:
+        for new_name, old_name in (
+            ("date_created", "created_at"),
+            ("last_loggedin", "last_login"),
+            ("deactivated", "suspended"),
+        ):
+            user_info_dict[new_name] = user_info_dict.pop(old_name)
+
+    assert response.json() == expected_users_info
+
+    mocked_asyncpg_con.fetch.assert_called_once_with(
+        "SELECT name, email, created_at, last_login, suspended FROM users WHERE customer_id=$1 AND deleted_at IS NULL ORDER BY suspended",
+        test_customer_id,
+    )
+
+
+def test_users__get__invalid_token_scope_given():
+    # arbitrarily deciding to use user account type here
+    access_token = get_token(scope=["users:free"])
+    response = test_client.get("/users", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 401
+
+
+@freeze_time()
+def test_users__put__successful_deletion(mocked_asyncpg_con):
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(userid=test_customer_id, account_type="customer")
+    action_to_take = {"action_type": "delete"}
+
+    response = test_client.put(
+        "/users/testUser@curibio.com",
+        json=action_to_take,
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+
+    mocked_asyncpg_con.execute.assert_called_once_with(
+        f"UPDATE users SET deleted_at=$1  WHERE email=$2", datetime.now(), "testUser@curibio.com"
+    )
+
+
+def test_users__put_delete__no_email_given():
+    access_token = get_token(account_type="customer")
+    action_to_take = {"action_type": "delete"}
+
+    response = test_client.put(
+        "/users", json=action_to_take, headers={"Authorization": f"Bearer {access_token}"}
+    )
+
+    assert response.status_code == 405
+
+
+def test_users__put__successful_deactivation(mocked_asyncpg_con):
+
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(userid=test_customer_id, account_type="customer")
+
+    action_to_take = {"action_type": "deactivate"}
+
+    response = test_client.put(
+        "/users/testUser@curibio.com",
+        json=action_to_take,
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+
+    mocked_asyncpg_con.execute.assert_called_once_with(
+        f"UPDATE users SET suspended='t' WHERE email=$1", "testUser@curibio.com"
+    )
+
+
+def test_users__put__no_action_given():
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(userid=test_customer_id, account_type="customer")
+
+    response = test_client.put(
+        "/users/testUser@curibio.com", headers={"Authorization": f"Bearer {access_token}"}
+    )
+
+    assert response.status_code == 422
+
+
+def test_users__put__invalid_token_scope_given():
+    # arbitrarily deciding to use user account type here
+    access_token = get_token(scope=["users:free"])
+    response = test_client.put("/users/test@email.com", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 401

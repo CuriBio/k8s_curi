@@ -95,3 +95,7 @@ class CustomerProfile(BaseModel):
     email: EmailStr
     user_id: str
     scope: list
+
+
+class UserAction(BaseModel):
+    action_type: str
