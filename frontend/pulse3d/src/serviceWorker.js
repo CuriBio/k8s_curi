@@ -205,7 +205,7 @@ self.addEventListener("activate", (event) => {
 // Intercept all fetch requests
 self.addEventListener("fetch", async (e) => {
   let destURL = new URL(e.request.url);
-  // only intercept routes to pulse3d and user APIs
+  // only intercept requests to pulse3d and user APIs
   if (
     e.request.url.includes(USERS_URL) ||
     e.request.url.includes(PULSE3D_URL)

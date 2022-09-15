@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import os
+import pkg_resources
 import sys
 import tempfile
 
@@ -24,12 +25,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-@get_item(queue="pulse3d")
+PULSE3D_VERSION = pkg_resources.get_distribution("pulse3D").version
+
+
+@get_item(queue=f"pulse3d-v{PULSE3D_VERSION}")
 async def process(con, item):
     logger.info(f"Processing item: {item}")
 
     s3_client = boto3.client("s3")
-    job_metadata = {}
+    job_metadata = {"processed_by": PULSE3D_VERSION}
     outfile_key = None
     try:
         try:
@@ -138,7 +142,7 @@ async def process(con, item):
                     )
 
                 except Exception as e:
-                    logger.exception(f"Upload failed, {e}")
+                    logger.exception(f"Upload failed: {e}")
                     raise
 
                 try:
@@ -171,7 +175,7 @@ async def process(con, item):
 
 async def main():
     try:
-        logger.info("Worker started")
+        logger.info(f"Worker v{PULSE3D_VERSION} started")
 
         DB_PASS = os.getenv("POSTGRES_PASSWORD")
         DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
@@ -192,7 +196,7 @@ async def main():
                         logger.exception("Processing queue item failed")
                         return
     finally:
-        logger.info("Worker terminating")
+        logger.info(f"Worker v{PULSE3D_VERSION} terminating")
 
 
 if __name__ == "__main__":

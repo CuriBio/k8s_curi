@@ -18,6 +18,8 @@ class UploadResponse(BaseModel):
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
+    version: str
+
     baseline_widths_to_use: Optional[TupleParam]
     max_y: Optional[Number]
 

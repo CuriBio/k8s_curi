@@ -175,7 +175,7 @@ export default function Row({
                       status,
                       analysisParams,
                     }) => (
-                      <TableRow key={datetime} sx={{ height: "60px" }}>
+                      <TableRow key={jobId} sx={{ height: "60px" }}>
                         <JobCell>{analyzedFile}</JobCell>
                         <JobCell>{datetime}</JobCell>
                         <JobCell align="center">

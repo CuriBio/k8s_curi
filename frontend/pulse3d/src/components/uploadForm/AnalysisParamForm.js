@@ -2,6 +2,7 @@ import styled from "styled-components";
 import CheckboxWidget from "../basicWidgets/CheckboxWidget";
 import { isArrayOfNumbers } from "../../utils/generic";
 import FormInput from "../basicWidgets/FormInput";
+import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
 
@@ -154,6 +155,13 @@ const TooltipText = styled.span`
   font-size: 15px;
 `;
 
+const DropDownContainer = styled.div`
+  width: 25%;
+  height: 125%;
+  background: white;
+  border-radius: 5px;
+`;
+
 export default function AnalysisParamForm({
   checkedBaseline,
   setCheckedBaseline,
@@ -167,6 +175,8 @@ export default function AnalysisParamForm({
   paramErrors,
   setParamErrors,
   analysisParams,
+  pulse3dVersions,
+  resetDropDown,
 }) {
   const updateParams = (newParams) => {
     const updatedParams = { ...analysisParams, ...newParams };
@@ -235,9 +245,7 @@ export default function AnalysisParamForm({
       // make sure it's an array of positive numbers
       if (isArrayOfNumbers(twitchWidthArr, true)) {
         formattedTwitchWidths = Array.from(new Set(twitchWidthArr));
-        console.log("formattedTwitchWidths:", formattedTwitchWidths);
       } else {
-        console.log(`Invalid twitchWidths: ${newValue}`);
         setParamErrors({
           ...paramErrors,
           twitchWidths: "*Must be comma-separated, positive numbers",
@@ -284,20 +292,29 @@ export default function AnalysisParamForm({
     setParamErrors(updatedParamErrors);
   };
 
+  const handleDropDownSelect = (idx) => {
+    updateParams({
+      selectedPulse3dVersion: pulse3dVersions[idx],
+    });
+  };
+
   return (
     <Container>
       <AdditionalParamLabel>
         Additional Analysis Params (Optional)
       </AdditionalParamLabel>
       <InputContainer>
-        <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
-          <Label htmlFor="maxY">
-            Y-Axis Range (µN):
+        <ParamContainer style={{ width: "43%", marginTop: "2%" }}>
+          <Label
+            htmlFor="selectedPulse3dVersion"
+            style={{ width: "57%", paddingLeft: "16%" }}
+          >
+            Pulse3d Version:
             <Tooltip
               title={
                 <TooltipText>
                   {
-                    "Specifies the maximum y-axis bound of graphs generated in the output xlsx file."
+                    "Specifies which version of the pulse3d analysis software to use."
                   }
                 </TooltipText>
               }
@@ -305,23 +322,52 @@ export default function AnalysisParamForm({
               <InfoOutlinedIcon />
             </Tooltip>
           </Label>
-          <InputErrorContainer>
-            <FormInput
-              name="maxY"
-              placeholder={"Auto find max y"}
-              value={inputVals.maxY}
-              onChangeFn={(e) => {
-                updateParams({
-                  maxY: e.target.value,
-                });
-              }}
-            >
-              <ErrorText id="maxYError" role="errorMsg">
-                {errorMessages.maxY}
-              </ErrorText>
-            </FormInput>
-          </InputErrorContainer>
+          <DropDownContainer>
+            <DropDownWidget
+              options={pulse3dVersions}
+              label="Select"
+              reset={
+                resetDropDown /* TODO reset if user unchecks use advanced params once the entire section is under a single checkbox. Also remove resetDropDown entirely */
+              }
+              handleSelection={handleDropDownSelect}
+            />
+          </DropDownContainer>
         </ParamContainer>
+        {inputVals.selectedPulse3dVersion !== "0.24.6" && (
+          // Tanner (9/15/21): at the time of writing this, 0.24.6 is the only available pulse3D version that does not support maxY
+          <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
+            <Label htmlFor="maxY">
+              Y-Axis Range (µN):
+              <Tooltip
+                title={
+                  <TooltipText>
+                    {
+                      "Specifies the maximum y-axis bound of graphs generated in the output xlsx file."
+                    }
+                  </TooltipText>
+                }
+              >
+                <InfoOutlinedIcon />
+              </Tooltip>
+            </Label>
+            <InputErrorContainer>
+              <FormInput
+                name="maxY"
+                placeholder={"Auto find max y"}
+                value={inputVals.maxY}
+                onChangeFn={(e) => {
+                  updateParams({
+                    maxY: e.target.value,
+                  });
+                }}
+              >
+                <ErrorText id="maxYError" role="errorMsg">
+                  {errorMessages.maxY}
+                </ErrorText>
+              </FormInput>
+            </InputErrorContainer>
+          </ParamContainer>
+        )}
         <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
           <Label htmlFor="twitchWidths">
             Twitch Widths (%):

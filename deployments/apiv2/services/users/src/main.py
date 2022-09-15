@@ -24,7 +24,6 @@ from models.users import (
     UserProfile,
     UserAction,
 )
-from pydantic import EmailStr
 from utils.db import AsyncpgPoolDep
 
 
@@ -39,7 +38,11 @@ CB_CUSTOMER_ID: uuid.UUID
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://dashboard.curibio-test.com", "https://dashboard.curibio.com"],
+    allow_origins=[
+        # TODO use a single ENV var for this instead
+        "https://dashboard.curibio-test.com",
+        "https://dashboard.curibio.com",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
