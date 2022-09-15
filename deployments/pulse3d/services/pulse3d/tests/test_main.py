@@ -1,12 +1,18 @@
+from xml.etree.ElementInclude import include
 from fastapi.testclient import TestClient
 import json
 import os
 import uuid
-
+import pandas as pd
 import pytest
 
 from auth import create_token
+from utils.s3 import S3Error
 from src import main
+
+from labware_domain_models import LabwareDefinition
+
+TWENTY_FOUR_WELL_PLATE = LabwareDefinition(row_count=4, column_count=6)
 
 test_client = TestClient(main.app)
 
@@ -405,7 +411,7 @@ def test_jobs__post__basic_params_given(mocker):
     expected_job_id = uuid.uuid4()
     test_upload_id = uuid.uuid4()
     test_user_id = uuid.uuid4()
-    test_analysis_params = {"twitch_widths": [10, 20], "start_time": 0, "end_time": 1}
+    test_analysis_params = {"twitch_widths": [10, 20], "start_time": 0.0, "end_time": 1.0}
 
     access_token = get_token(scope=["users:free"], userid=test_user_id)
 
@@ -428,6 +434,7 @@ def test_jobs__post__basic_params_given(mocker):
             "twitch_widths",
             "start_time",
             "end_time",
+            "peaks_valleys",
         )
     }
     expected_analysis_params.update(test_analysis_params)
@@ -695,3 +702,98 @@ def test_download__post__no_job_ids_given(test_job_ids, test_error_code, mocker)
 
     mocked_get_jobs.assert_not_called()
     mocked_yield_objs.assert_not_called()
+
+
+@pytest.mark.parametrize("test_query_params", [f"upload_id={uuid.uuid4()}", f"job_id={uuid.uuid4()}"])
+def test_waveform_data__get__returns_400_if_no_job_or_upload_id_is_found(mocker, test_query_params):
+    access_token = get_token(scope=["users:free"])
+    kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
+
+    response = test_client.get(f"/jobs/waveform_data?{test_query_params}", **kwargs)
+
+    assert response.status_code == 400
+
+
+def test_waveform_data__get__returns_500_if_getting_job_metadata_from_db_errors(mocker):
+    mocker.patch.object(main, "get_jobs", autospec=True, return_value=S3Error())
+
+    access_token = get_token(scope=["users:free"])
+    kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
+
+    test_job_id = uuid.uuid4()
+    test_upload_id = uuid.uuid4()
+
+    response = test_client.get(
+        f"/jobs/waveform_data?upload_id={test_upload_id}&job_id={test_job_id}", **kwargs
+    )
+
+    assert response.status_code == 500
+
+@pytest.mark.parametrize("include_raw_data,expected_conversion", [[False, 1], [True, 1e4]])
+def test_waveform_data__get__handles_time_unit_if_old_parquet_file(
+    mocker,include_raw_data,expected_conversion
+):
+    expected_analysis_params = {
+        param: None
+        for param in (
+            "baseline_widths_to_use",
+            "max_y",
+            "prominence_factors",
+            "width_factors",
+            "twitch_widths",
+            "start_time",
+            "end_time",
+        )
+    }
+    # empty for this test
+    expected_analysis_params["peaks_valleys"] = {}
+    test_jobs = [{"job_meta": json.dumps({"analysis_params": expected_analysis_params})}]
+
+    # set up mocked df returned from parquet file
+    mocker.patch.object(main, "get_jobs", autospec=True, return_value=test_jobs)
+    mocker.patch.object(main, "download_directory_from_s3", autospec=True)
+    mocked_read = mocker.patch.object(pd, "read_parquet", autospec=True, return_value=_create_test_df(include_raw_data))
+    mocked_df = mocked_read.return_value
+    expected_time = mocked_df["Time (s)"].tolist()
+    
+    access_token = get_token(scope=["users:free"])
+    kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
+
+    test_job_id = uuid.uuid4()
+    test_upload_id = uuid.uuid4()
+
+    response = test_client.get(
+        f"/jobs/waveform_data?upload_id={test_upload_id}&job_id={test_job_id}", **kwargs
+    )
+
+    assert response.status_code == 200
+    response_body = response.json()
+
+    coordinates = response_body["coordinates"].values()
+    # assert coordinates will be sent for each well
+    assert len(coordinates) == 24 
+    
+    for well_coords in response_body["coordinates"].values():
+        # each time point should be contained
+        assert len(well_coords) == len(expected_time)
+        # old parquet time data is sent in seconds so no conversion should happen
+        assert [i[0] * expected_conversion for i in enumerate(well_coords)] == expected_time
+
+
+def _create_test_df(include_raw_data: bool = True):
+    data = {}
+
+    if include_raw_data:
+        test_df_data = [1e4 * i for i in range(10)]
+    else:
+        test_df_data = [i for i in range(10)]
+
+    data["Time (s)"] = pd.Series(test_df_data)
+
+    for well_idx in range(24):
+        well_name = TWENTY_FOUR_WELL_PLATE.get_well_name_from_well_index(well_idx)
+        data[well_name] = pd.Series(test_df_data)
+        if include_raw_data:
+            data[f"{well_name}__raw"] = pd.Series(test_df_data)
+
+    return pd.DataFrame(data)

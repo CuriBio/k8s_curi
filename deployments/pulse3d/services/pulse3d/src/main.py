@@ -419,40 +419,39 @@ def _yield_s3_objects(bucket: str, keys: List[str], filenames: List[str]):
 @app.get("/jobs/waveform_data", response_model=WaveformDataResponse)
 async def get_interactive_waveform_data(
     request: Request,
-    upload_id: uuid.UUID = Query(True),
-    job_id: uuid.UUID = Query(True),
+    upload_id: uuid.UUID = Query(None),
+    job_id: uuid.UUID = Query(None),
     token=Depends(ProtectedAny(scope=["users:free"])),
 ):
+
+    account_id = str(uuid.UUID(token["userid"]))
+    customer_id = str(uuid.UUID(token["customer_id"]))
+
+    if job_id is None or upload_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Missing required data to gt data.",
+        )
+
+    upload_id = str(upload_id)
+    job_id = str(job_id)
+
+    # grab jobs meta data to use in peak_detector if necessary
+    # TODO remove this step when peaks and valleys get saved to parquet on initial analysis
     try:
-        account_id = str(uuid.UUID(token["userid"]))
-        customer_id = str(uuid.UUID(token["customer_id"]))
-        upload_id = str(upload_id)
+        async with request.state.pgpool.acquire() as con:
+            logger.info(f"Getting metadata for job {job_id}")
+            jobs = await _get_jobs(con, token, [job_id])
 
-        # grab jobs meta data to use in peak_detector if necessary
-        # TODO remove this step when peaks and valleys get saved to parquet on initial analysis
-        try:
-            async with request.state.pgpool.acquire() as con:
-                logger.info(f"Getting metadata for job {job_id}")
-                jobs = await _get_jobs(con, token, [str(job_id)])
-
-            parsed_meta = json.loads(jobs[0]["job_meta"])
-            analysis_params = parsed_meta["analysis_params"]
-        except KeyError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No job with that ID was found",
-            )
+        parsed_meta = json.loads(jobs[0]["job_meta"])
+        analysis_params = parsed_meta["analysis_params"]
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            try:
-                key = f"uploads/{customer_id}/{account_id}/{upload_id}"
-                logger.info(f"Downloading recording data from {key}")
-                download_directory_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file_path=tmpdir)
-            except S3Error:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="There was an error downloading the parquet file from s3",
-                )
+            key = f"uploads/{customer_id}/{account_id}/{upload_id}"
+            logger.info(f"Downloading recording data from {key}")
+
+            # grabbing whole directory becuase there isn't
+            download_directory_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file_path=tmpdir)
 
             # read the time force dataframe from the parquet file
             parquet_path = glob(os.path.join(tmpdir, "time_force_data", "*.parquet"), recursive=True)
@@ -461,12 +460,13 @@ async def get_interactive_waveform_data(
             # remove raw data columns
             columns = [c for c in df.columns if "__raw" not in c]
             # this is to handle analyses run before PR.to_dataframe() where time is in seconds
-            needs_unit_conversion = not [c for c in df.columns if "__raw" in c]
+            old_parquet_file = not [c for c in df.columns if "__raw" in c]
 
             time = df["Time (s)"].tolist()
-            if needs_unit_conversion:
+            if not old_parquet_file:
+                logger.info("Old parquet file found so converting time column to microseconds")
                 # needs to be us
-                time = [i * MICRO_TO_BASE_CONVERSION for i in time]
+                time = [i / MICRO_TO_BASE_CONVERSION for i in time]
 
             # set up empty dictionaries to be passed in response
             coordinates = dict()
@@ -480,7 +480,7 @@ async def get_interactive_waveform_data(
                 logger.info(f"Finding peaks and valleys for well at {well}")
 
                 well_force = df[well]
-                if needs_unit_conversion:
+                if old_parquet_file:
                     # not exact, but this isn't used outside of graphing in FE, real raw data doesn't get changed
                     min_value = min(well_force)
                     well_force -= min_value
@@ -505,12 +505,18 @@ async def get_interactive_waveform_data(
                     peaks_and_valleys[well] = [peaks.tolist(), valleys.tolist()]
 
                 well_coords = [
-                    [time[i] / MICRO_TO_BASE_CONVERSION, val] for (i, val) in enumerate(well_force)
+                    [time[i], val] for (i, val) in enumerate(well_force)
                 ]
                 coordinates[well] = well_coords
-
+                
             return WaveformDataResponse(coordinates=coordinates, peaks_valleys=peaks_and_valleys)
 
+    except KeyError:
+        logger.error(f"Job metadata was not returned from database.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    except S3Error as e:
+        logger.error(f"Error from s3: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
     except Exception as e:
-        logger.error(f"Failed to get interactive waveform data: {repr(e)}")
+        logger.error(f"Failed to get interactive waveform data: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
