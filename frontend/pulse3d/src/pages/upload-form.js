@@ -85,7 +85,7 @@ const getDefaultAnalysisParams = () => {
     twitchWidths: "",
     startTime: "",
     endTime: "",
-    selectedPulse3dVersion: "",
+    selectedPulse3dVersion: "", // Tanner (9/15/22): The pulse3d version technically isn't a param, so could move this value to its own state if needed
   };
 };
 
@@ -213,30 +213,34 @@ export default function UploadForm() {
         endTime,
         selectedPulse3dVersion,
       } = analysisParams;
+
+      let requestBody = {
+        upload_id: uploadId,
+        baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
+
+        prominence_factors: formatTupleParams(
+          prominenceFactorPeaks,
+          prominenceFactorValleys
+        ),
+        width_factors: formatTupleParams(widthFactorPeaks, widthFactorValleys),
+        twitch_widths: twitchWidths === "" ? null : twitchWidths,
+        start_time: startTime === "" ? null : startTime,
+        end_time: endTime === "" ? null : endTime,
+        version:
+          selectedPulse3dVersion === ""
+            ? pulse3dVersions[0]
+            : selectedPulse3dVersion,
+      };
+      if (requestBody.version !== "0.24.6") {
+        // Tanner (9/15/21): at the time of writing this, 0.24.6 is the only available pulse3D version that does not support the max_y param
+        requestBody.max_y = maxY === "" ? null : maxY;
+      }
+
       const jobResponse = await fetch(
         `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`,
         {
           method: "POST",
-          body: JSON.stringify({
-            upload_id: uploadId,
-            baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
-            max_y: maxY === "" ? null : maxY,
-            prominence_factors: formatTupleParams(
-              prominenceFactorPeaks,
-              prominenceFactorValleys
-            ),
-            width_factors: formatTupleParams(
-              widthFactorPeaks,
-              widthFactorValleys
-            ),
-            twitch_widths: twitchWidths === "" ? null : twitchWidths,
-            start_time: startTime === "" ? null : startTime,
-            end_time: endTime === "" ? null : endTime,
-            version:
-              selectedPulse3dVersion === ""
-                ? pulse3dVersions[0]
-                : selectedPulse3dVersion,
-          }),
+          body: JSON.stringify(requestBody),
         }
       );
       if (jobResponse.status !== 200) {

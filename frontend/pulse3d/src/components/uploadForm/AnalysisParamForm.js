@@ -296,7 +296,7 @@ export default function AnalysisParamForm({
 
   const handleDropDownSelect = (idx) => {
     updateParams({
-      pulse3dVersion: pulse3dVersions[idx],
+      selectedPulse3dVersion: pulse3dVersions[idx],
     });
   };
 
@@ -308,7 +308,7 @@ export default function AnalysisParamForm({
       <InputContainer>
         <ParamContainer style={{ width: "43%", marginTop: "2%" }}>
           <Label
-            htmlFor="pulse3dVersion"
+            htmlFor="selectedPulse3dVersion"
             style={{ width: "57%", paddingLeft: "16%" }}
           >
             Pulse3d Version:
@@ -329,44 +329,47 @@ export default function AnalysisParamForm({
               options={pulse3dVersions}
               label="Select"
               reset={
-                resetDropDown /* TODO reset if user unchecks use advanced params once the entire section is under a single checkbox. Also remove this value entirely */
+                resetDropDown /* TODO reset if user unchecks use advanced params once the entire section is under a single checkbox. Also remove resetDropDown entirely */
               }
               handleSelection={handleDropDownSelect}
             />
           </DropDownContainer>
         </ParamContainer>
-        <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
-          <Label htmlFor="maxY">
-            Y-Axis Range (µN):
-            <Tooltip
-              title={
-                <TooltipText>
-                  {
-                    "Specifies the maximum y-axis bound of graphs generated in the output xlsx file."
-                  }
-                </TooltipText>
-              }
-            >
-              <InfoOutlinedIcon />
-            </Tooltip>
-          </Label>
-          <InputErrorContainer>
-            <FormInput
-              name="maxY"
-              placeholder={"Auto find max y"}
-              value={inputVals.maxY}
-              onChangeFn={(e) => {
-                updateParams({
-                  maxY: e.target.value,
-                });
-              }}
-            >
-              <ErrorText id="maxYError" role="errorMsg">
-                {errorMessages.maxY}
-              </ErrorText>
-            </FormInput>
-          </InputErrorContainer>
-        </ParamContainer>
+        {inputVals.selectedPulse3dVersion !== "0.24.6" && (
+          // Tanner (9/15/21): at the time of writing this, 0.24.6 is the only available pulse3D version that does not support maxY
+          <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
+            <Label htmlFor="maxY">
+              Y-Axis Range (µN):
+              <Tooltip
+                title={
+                  <TooltipText>
+                    {
+                      "Specifies the maximum y-axis bound of graphs generated in the output xlsx file."
+                    }
+                  </TooltipText>
+                }
+              >
+                <InfoOutlinedIcon />
+              </Tooltip>
+            </Label>
+            <InputErrorContainer>
+              <FormInput
+                name="maxY"
+                placeholder={"Auto find max y"}
+                value={inputVals.maxY}
+                onChangeFn={(e) => {
+                  updateParams({
+                    maxY: e.target.value,
+                  });
+                }}
+              >
+                <ErrorText id="maxYError" role="errorMsg">
+                  {errorMessages.maxY}
+                </ErrorText>
+              </FormInput>
+            </InputErrorContainer>
+          </ParamContainer>
+        )}
         <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
           <Label htmlFor="twitchWidths">
             Twitch Widths (%):

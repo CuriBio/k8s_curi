@@ -34,6 +34,7 @@ app.add_middleware(
         # TODO use a single ENV var for this instead
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
+        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -237,26 +238,27 @@ async def _get_jobs(con, token, job_ids):
 
 @app.post("/jobs")
 async def create_new_job(
-    request: Request,
-    details: JobRequest,
-    token=Depends(ProtectedAny(scope=["users:free"])),
+    request: Request, details: JobRequest, token=Depends(ProtectedAny(scope=["users:free"]))
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
         logger.info(f"Creating pulse3d job for upload {details.upload_id} with user ID: {user_id}")
 
-        analysis_params = {
-            param: dict(details)[param]
-            for param in (
-                "baseline_widths_to_use",
-                "max_y",
-                "prominence_factors",
-                "width_factors",
-                "twitch_widths",
-                "start_time",
-                "end_time",
-            )
-        }
+        params = [
+            "baseline_widths_to_use",
+            "prominence_factors",
+            "width_factors",
+            "twitch_widths",
+            "start_time",
+            "end_time",
+        ]
+        # TODO could make this if condition `details.version <= "0.25.0"` using the semver package
+        if details.version != "0.24.6":
+            # max_y param was added in 0.25.0
+            params.append("max_y")
+
+        details_dict = dict(details)
+        analysis_params = {param: details_dict[param] for param in params}
 
         # TODO now that the pulse3d version is configurable, need to remove these default values and let pulse3d handle it
         # convert these params into a format compatible with pulse3D
