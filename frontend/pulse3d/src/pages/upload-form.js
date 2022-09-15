@@ -220,7 +220,7 @@ export default function UploadForm() {
         twitch_widths: twitchWidths === "" ? null : twitchWidths,
         start_time: startTime === "" ? null : startTime,
         end_time: endTime === "" ? null : endTime,
-        // pulse3d versions are currently sorted in desc order, so the default version will always be the latest
+        // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
         version:
           selectedPulse3dVersion === ""
             ? pulse3dVersions[0]
