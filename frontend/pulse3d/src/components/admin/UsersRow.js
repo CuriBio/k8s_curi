@@ -21,6 +21,7 @@ export default function UsersRow({
 
   return (
     <TableRow key={row.id}>
+      {/* TODO: could probably create all these TableCells in a loop of some sort */}
       <TableCell align="center" style={tableCellStyle}>
         {status}
       </TableCell>

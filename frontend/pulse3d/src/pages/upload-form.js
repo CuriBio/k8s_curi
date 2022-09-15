@@ -121,6 +121,7 @@ export default function UploadForm() {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_PULSE3D_URL}/versions`
       );
+      // sort in desc order so that the latest version shows up first
       const sortedVersions = semverSort.desc(await response.json());
       setPulse3dVersions(sortedVersions);
     }
@@ -208,7 +209,7 @@ export default function UploadForm() {
         selectedPulse3dVersion,
       } = analysisParams;
 
-      let requestBody = {
+      const requestBody = {
         upload_id: uploadId,
         baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
         prominence_factors: formatTupleParams(
@@ -219,6 +220,7 @@ export default function UploadForm() {
         twitch_widths: twitchWidths === "" ? null : twitchWidths,
         start_time: startTime === "" ? null : startTime,
         end_time: endTime === "" ? null : endTime,
+        // pulse3d versions are currently sorted in desc order, so the default version will always be the latest
         version:
           selectedPulse3dVersion === ""
             ? pulse3dVersions[0]
