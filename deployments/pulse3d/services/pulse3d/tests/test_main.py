@@ -388,6 +388,7 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
             "twitch_widths",
             "start_time",
             "end_time",
+            "peaks_valleys",
         )
     }
 
@@ -472,6 +473,7 @@ def test_jobs__post__advanced_params_given(param_name, param_tuple, mocker):
             "twitch_widths",
             "start_time",
             "end_time",
+            "peaks_valleys",
         )
     }
     expected_analysis_params.update({param_name: format_mapping[param_tuple]})
@@ -515,6 +517,7 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocker):
             "twitch_widths",
             "start_time",
             "end_time",
+            "peaks_valleys",
         )
     }
 

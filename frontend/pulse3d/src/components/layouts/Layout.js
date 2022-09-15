@@ -23,6 +23,9 @@ const Container = styled.div`
   min-width: 1800px;
   min-height: 100vh;
   background-color: var(--dark-gray);
+  &::-webkit-scrollbar {
+    display: none;
+  }
 `;
 
 const Main = styled.main`

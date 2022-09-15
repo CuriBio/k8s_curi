@@ -20,6 +20,7 @@ class JobRequest(BaseModel):
     upload_id: uuid.UUID
     baseline_widths_to_use: Optional[TupleParam]
     max_y: Optional[Number]
+    peaks_valleys: Optional[Dict[str, List[List[Number]]]]
 
     twitch_widths: Optional[List[int]]
     start_time: Optional[Number]

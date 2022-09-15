@@ -11,7 +11,6 @@ import asyncpg
 import boto3
 import pandas as pd
 
-sys.path.insert(0, "/Users/lucipak/Documents/work/CuriBio/pulse3d/src")
 from pulse3D.plate_recording import PlateRecording
 from pulse3D.excel_writer import write_xlsx
 
@@ -27,7 +26,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-@get_item(queue="test_pulse3d")
+@get_item(queue="pulse3d")
 async def process(con, item):
     logger.info(f"Processing item: {item}")
 
@@ -72,8 +71,8 @@ async def process(con, item):
                 parquet_path = os.path.join(tmpdir, parquet_filename)
 
                 # attempt to download parquet file if recording has already been analyzed
-                logger.info(f"Attempting to downloading {parquet_filename} to {tmpdir}/{parquet_filename}")
-                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, parquet_key, f"{tmpdir}/{parquet_filename}")
+                logger.info(f"Attempting to downloading {parquet_filename} to {parquet_path}")
+                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, parquet_key, parquet_path)
                 re_analysis = True
 
             except Exception as e:  # continue with analysis even if original force data is not found
@@ -96,10 +95,8 @@ async def process(con, item):
                     outfile = write_xlsx(recordings[0], **analysis_params)
                 else:
                     logger.info(f"Loading previous time force data from {parquet_filename}")
-                    old_dataframe = pd.read_parquet(parquet_path)
-                    recording = PlateRecording.from_dataframe(
-                        os.path.join(tmpdir, filename), df=old_dataframe
-                    )
+                    existing_df = pd.read_parquet(parquet_path)
+                    recording = PlateRecording.from_dataframe(os.path.join(tmpdir, filename), df=existing_df)
                     recording = next(recording)
                     outfile = write_xlsx(recording, **analysis_params)
 
@@ -194,13 +191,12 @@ async def process(con, item):
 async def main():
     try:
         logger.info("Worker started")
-
-        # DB_PASS = os.getenv("POSTGRES_PASSWORD")
-        # DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
-        # DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
-        # DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
-        dsn = "postgresql://root:HjnlH9RaeTt7uRuF7Uwco6BX4l0jgp39@localhost:5556/curibio"
-        # dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
+        DB_PASS = os.getenv("POSTGRES_PASSWORD")
+        DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
+        DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
+        DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
+        dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
+        
         async with asyncpg.create_pool(dsn=dsn) as pool:
             async with pool.acquire() as con:
                 while True:

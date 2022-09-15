@@ -6,12 +6,18 @@ import uuid
 import tempfile
 import boto3
 import os
+import numpy as np
+import pandas as pd
+from glob import glob
 
 from stream_zip import ZIP_64, stream_zip
 from datetime import datetime
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+
+from pulse3D.peak_detection import peak_detector
+from pulse3D.constants import MICRO_TO_BASE_CONVERSION
 
 from auth import ProtectedAny
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET
@@ -42,7 +48,6 @@ app.add_middleware(
     allow_origins=[
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
-        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -267,6 +272,7 @@ async def create_new_job(
                 "twitch_widths",
                 "start_time",
                 "end_time",
+                "peaks_valleys",
             )
         }
 
@@ -279,13 +285,12 @@ async def create_new_job(
             analysis_params[param] = _format_tuple_param(analysis_params[param], default_values)
 
         logger.info(f"Using params: {analysis_params}")
-
         async with request.state.pgpool.acquire() as con:
             priority = 10
             job_id = await create_job(
                 con=con,
                 upload_id=details.upload_id,
-                queue="test_pulse3d",
+                queue="pulse3d",
                 priority=priority,
                 meta={"analysis_params": analysis_params},
             )
@@ -342,65 +347,6 @@ async def soft_delete_jobs(
             )
     except Exception as e:
         logger.error(f"Failed to soft delete jobs: {repr(e)}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@app.get("/uploads/waveform_data", response_model=WaveformDataResponse)
-async def get_interactive_waveform_data(
-    request: Request,
-    upload_id: uuid.UUID = Query(True),
-    token=Depends(ProtectedAny(scope=["users:free"])),
-):
-    try:
-        account_id = str(uuid.UUID(token["userid"]))
-        customer_id = str(uuid.UUID(token["customer_id"]))
-        upload_id = str(upload_id)
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            key = f"uploads/{customer_id}/{account_id}/{upload_id}"
-            logger.info(f"Downloading recording data from {key}")
-
-            download_directory_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file_path=tmpdir)
-
-            import sys
-            sys.path.insert(0, "/Users/lucipak/Documents/work/CuriBio/pulse3d/src")
-            from pulse3D.peak_detection import peak_detector
-            from pulse3D.constants import MICRO_TO_BASE_CONVERSION, WELL_NAME_UUID
-            import numpy as np
-            import pandas as pd
-
-            for root, _, files in os.walk(tmpdir):
-                for f in files:
-                    if "parquet" in f:
-                        parquet_path = os.path.join(root, f)
-                    elif "zip" in f:
-                        zip_path = os.path.join(root, f)
-
-            df = pd.read_parquet(parquet_path)
-            logger.info("Reading h5 files and generating dataframe")
-
-            columns = [c for c in df.columns if "__raw" not in c]
-            time = df["time"]
-            peaks_and_valleys = dict()
-            coordinates = dict()
-
-            for well in columns[1:]:
-                logger.info(f"Finding peaks and valleys for well at {well}")
-
-                interpolated_well_data = np.row_stack([time, df[well]])
-                p_and_v = peak_detector(
-                    interpolated_well_data,
-                )
-                # needs to be converted to lists to be sent as json in response
-                peaks_and_valleys[well] = [p_and_v[0].tolist(), p_and_v[1].tolist()]
-
-                well_coords = [[time[i] / MICRO_TO_BASE_CONVERSION, val] for (i, val) in enumerate(df[well])]
-                coordinates[well] = well_coords
-
-            return WaveformDataResponse(coordinates=coordinates, peaks_valleys=peaks_and_valleys)
-
-    except Exception as e:
-        logger.error(f"Failed to get interactive waveform data: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -468,3 +414,103 @@ def _yield_s3_objects(bucket: str, keys: List[str], filenames: List[str]):
 
     except Exception as e:
         raise S3Error(f"Failed to access {bucket}/{key}: {repr(e)}")
+
+
+@app.get("/jobs/waveform_data", response_model=WaveformDataResponse)
+async def get_interactive_waveform_data(
+    request: Request,
+    upload_id: uuid.UUID = Query(True),
+    job_id: uuid.UUID = Query(True),
+    token=Depends(ProtectedAny(scope=["users:free"])),
+):
+    try:
+        account_id = str(uuid.UUID(token["userid"]))
+        customer_id = str(uuid.UUID(token["customer_id"]))
+        upload_id = str(upload_id)
+
+        # grab jobs meta data to use in peak_detector if necessary
+        # TODO remove this step when peaks and valleys get saved to parquet on initial analysis
+        try:
+            async with request.state.pgpool.acquire() as con:
+                logger.info(f"Getting metadata for job {job_id}")
+                jobs = await _get_jobs(con, token, [str(job_id)])
+
+            parsed_meta = json.loads(jobs[0]["job_meta"])
+            analysis_params = parsed_meta["analysis_params"]
+        except KeyError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No job with that ID was found",
+            )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            try:
+                key = f"uploads/{customer_id}/{account_id}/{upload_id}"
+                logger.info(f"Downloading recording data from {key}")
+                download_directory_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file_path=tmpdir)
+            except S3Error:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="There was an error downloading the parquet file from s3",
+                )
+
+            # read the time force dataframe from the parquet file
+            parquet_path = glob(os.path.join(tmpdir, "time_force_data", "*.parquet"), recursive=True)
+            df = pd.read_parquet(parquet_path)
+
+            # remove raw data columns
+            columns = [c for c in df.columns if "__raw" not in c]
+            # this is to handle analyses run before PR.to_dataframe() where time is in seconds
+            needs_unit_conversion = not [c for c in df.columns if "__raw" in c]
+
+            time = df["Time (s)"].tolist()
+            if needs_unit_conversion:
+                # needs to be us
+                time = [i * MICRO_TO_BASE_CONVERSION for i in time]
+
+            # set up empty dictionaries to be passed in response
+            coordinates = dict()
+            # old jobs won't have this param yet and it will default to None on first analysis
+            peaks_valleys_needed = (
+                "peaks_valleys" not in analysis_params or analysis_params["peaks_valleys"] is None
+            )
+            peaks_and_valleys = analysis_params["peaks_valleys"] if not peaks_valleys_needed else dict()
+
+            for well in columns[1:]:
+                logger.info(f"Finding peaks and valleys for well at {well}")
+
+                well_force = df[well]
+                if needs_unit_conversion:
+                    # not exact, but this isn't used outside of graphing in FE, real raw data doesn't get changed
+                    min_value = min(well_force)
+                    well_force -= min_value
+                    well_force *= MICRO_TO_BASE_CONVERSION
+
+                interpolated_well_data = np.row_stack([time, well_force])
+
+                if peaks_valleys_needed:
+                    # TODO remove once peaks and valleys get stored in parquet files
+                    peak_detector_params = {
+                        param: analysis_params[param]
+                        for param in (
+                            "prominence_factors",
+                            "width_factors",
+                            "start_time",
+                            "end_time",
+                        )
+                        if analysis_params[param] is not None
+                    }
+                    peaks, valleys = peak_detector(interpolated_well_data, **peak_detector_params)
+                    # needs to be converted to lists to be sent as json in response
+                    peaks_and_valleys[well] = [peaks.tolist(), valleys.tolist()]
+
+                well_coords = [
+                    [time[i] / MICRO_TO_BASE_CONVERSION, val] for (i, val) in enumerate(well_force)
+                ]
+                coordinates[well] = well_coords
+
+            return WaveformDataResponse(coordinates=coordinates, peaks_valleys=peaks_and_valleys)
+
+    except Exception as e:
+        logger.error(f"Failed to get interactive waveform data: {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -445,18 +445,19 @@ export default function UploadForm() {
         <ButtonContainer>
           {uploadSuccess ? <SuccessText>Upload Successful!</SuccessText> : null}
           <ButtonWidget
-            width={"135px"}
-            height={"45px"}
-            position={"relative"}
-            borderRadius={"3px"}
+            width="135px"
+            height="45px"
+            position="relative"
+            borderRadius="3px"
             label="Reset"
             clickFn={resetState}
           />
           <ButtonWidget
-            width={"135px"}
-            height={"45px"}
-            position={"relative"}
-            borderRadius={"3px"}
+            width="135px"
+            height="45px"
+            position="relative"
+            borderRadius="3px"
+            left="10px"
             backgroundColor={
               isButtonDisabled ? "var(--dark-gray)" : "var(--dark-blue)"
             }

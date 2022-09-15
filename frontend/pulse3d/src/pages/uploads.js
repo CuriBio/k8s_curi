@@ -35,9 +35,9 @@ const InteractiveAnalysisContainer = styled.div`
   width: 78%;
   margin: 1%;
   background-color: white;
-  height: 73vh;
-  overflow: scroll;
+  height: 800px;
   border-radius: 5px;
+  overflow: none;
 `;
 
 const PageContainer = styled.div`
@@ -115,6 +115,19 @@ export default function Uploads() {
   const [modalButtons, setModalButtons] = useState([]);
   const [openInteractiveAnalysis, setOpenInteractiveAnalysis] = useState(false);
   const [selectedAnalysis, setSelectedAnalysis] = useState();
+
+  useEffect(() => {
+    if (!openInteractiveAnalysis) {
+      // reset when interactive analysis modal closes
+      resetTable();
+    }
+  }, [openInteractiveAnalysis]);
+
+  const resetTable = () => {
+    setResetDropdown(true);
+    setCheckedUploads([]);
+    setCheckedJobs([]);
+  };
 
   const getAllJobs = async () => {
     try {
@@ -291,18 +304,14 @@ export default function Uploads() {
       // failed Deletions has it's own modal so prevent closure else reset
       if (!failedDeletion) {
         setModalState(false);
-        setResetDropdown(true);
-        setCheckedUploads([]);
-        setCheckedJobs([]);
+        resetTable();
       }
     } else {
       // close in progress modal
       // also resets for any 'Close' modal button events
       // index 0 in buttons
       setModalState(false);
-      setResetDropdown(true);
-      setCheckedUploads([]);
-      setCheckedJobs([]);
+      resetTable();
     }
   };
 
@@ -379,12 +388,11 @@ export default function Uploads() {
   const downloadMultiFiles = async (jobs) => {
     try {
       //streamsaver has to be required here otherwise you get build errors with "document is not defined"
-
       const { createWriteStream } = require("streamsaver");
 
       const url = `https://curibio.com/jobs/download`;
-
       const jobIds = jobs.map(({ jobId }) => jobId);
+
       const response = await fetch(url, {
         method: "POST",
         body: JSON.stringify({ job_ids: jobIds }),
@@ -450,13 +458,15 @@ export default function Uploads() {
                 ...Array(2).fill(
                   checkedJobs.length === 0 && checkedUploads.length === 0
                 ),
-                checkedJobs.length !== 1,
+                checkedJobs.length !== 1 ||
+                  jobs.filter((job) => job.jobId === checkedJobs[0])[0]
+                    .status !== "finished",
               ]}
               optionsTooltipText={[
                 ...Array(2).fill(
                   "Must make a selection below before actions become available."
                 ),
-                "You must select one job to enable interactive analysis.",
+                "You must select one successful job to enable interactive analysis.",
               ]}
               handleSelection={handleDropdownSelection}
               reset={resetDropdown}

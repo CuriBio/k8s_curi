@@ -8,9 +8,21 @@ const Container = styled.div`
   height: 320px;
   background-color: white;
   overflow-x: scroll;
+  overflow-y: hidden;
   border-radius: 7px;
   display: flex;
   flex-direction: row;
+  &::-webkit-scrollbar {
+    height: 15px;
+    background-color: var(--dark-gray);
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--dark-blue);
+    cursor: pointer;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: var(--teal-green);
+  }
 `;
 
 const XAxisLabel = styled.div`
@@ -49,13 +61,19 @@ export default function WaveformGraph({
   initialPeaksValleys,
   startTime,
   endTime,
-  saveWellChanges,
+  setEditableStartEndTimes,
+  editablePeaksValleys,
+  currentWell,
+  setEditablePeaksValleys,
+  xRange,
 }) {
   const [valleys, setValleys] = useState([]);
   const [peaks, setPeaks] = useState([]);
   const [newStartTime, setNewStartTime] = useState();
   const [newEndTime, setNewEndTime] = useState();
 
+  /* NOTE!! The order of the variables and functions in createGraph() are important to functionality.
+     could eventually try to break this up, but it's more sensitive in react than vue */
   const createGraph = () => {
     /* --------------------------------------
       SET UP SVG GRAPH AND VARIABLES
@@ -64,12 +82,18 @@ export default function WaveformGraph({
       return d[0];
     });
 
+    // if windowed analysis, use else use recording max and min times
+    const xMin = xRange.min ? xRange.min : dataToGraph[0][0];
+    const xMax = xRange.max ? xRange.max : maxTime;
+    const lengthOfRecording = xMax - xMin;
+
     const margin = { top: 20, right: 20, bottom: 30, left: 50 },
       width = 1270 - margin.left - margin.right,
       height = 300 - margin.top - margin.bottom;
 
     // currently sets 10 secs inside the graph window and multiples width to fit length of recording
-    const widthMultiple = maxTime / 10 < 1 ? 1 : maxTime / 10;
+    const widthMultiple =
+      lengthOfRecording / 10 < 1 ? 1 : lengthOfRecording / 10;
     const dynamicWidth = width * widthMultiple;
 
     // append the svg object to the body of the page
@@ -82,14 +106,7 @@ export default function WaveformGraph({
       .attr("transform", `translate(${margin.left}, ${margin.top})`);
 
     // Add X axis and Y axis
-    const x = d3
-      .scaleLinear()
-      .range([0, dynamicWidth])
-      .domain(
-        d3.extent(dataToGraph, (d) => {
-          return d[0];
-        })
-      );
+    const x = d3.scaleLinear().range([0, dynamicWidth]).domain([xMin, xMax]);
 
     // add .1 extra to y max and y min to auto scale the graph a little outside of true max and mins
     const yRange =
@@ -109,16 +126,9 @@ export default function WaveformGraph({
         }) + yRange,
       ]);
 
-    console.log("OG: ", newStartTime, newEndTime);
-    // calculate start and end times in pixels
-    const initialStartTime = newStartTime ? x(newStartTime) : 0;
-    const initialEndTime = newEndTime
-      ? x(newEndTime)
-      : x(
-          d3.max(dataToGraph, (d) => {
-            return d[0];
-          })
-        );
+    // calculate start and end times in pixels. If windowed time found, use, else recording max and min
+    const initialStartTime = x(startTime ? startTime : xMin);
+    const initialEndTime = x(endTime ? endTime : xMax);
 
     // waveform line
     const dataLine = d3
@@ -139,7 +149,7 @@ export default function WaveformGraph({
       .attr("alignment-baseline", "middle");
 
     /* --------------------------------------
-      X AND Y AXES
+      APPEND X AND Y AXES
     -------------------------------------- */
     svg
       .append("g")
@@ -187,11 +197,14 @@ export default function WaveformGraph({
 
             d3.select(this).attr("x", position);
 
+            // reposition start time line and set value to state
             startTimeLine.attr("x1", position).attr("x2", position);
+            setNewStartTime(x.invert(position));
 
-            endTimeLine
-              .attr("x1", position + parseFloat(timeWidth))
-              .attr("x2", position + parseFloat(timeWidth));
+            // reposition end time line and set value to state
+            const endPosition = position + parseFloat(timeWidth);
+            endTimeLine.attr("x1", endPosition).attr("x2", endPosition);
+            setNewEndTime(x.invert(endPosition));
           })
           .on("end", function () {
             d3.select(this).attr("opacity", 0.2).attr("cursor", "default");
@@ -203,7 +216,9 @@ export default function WaveformGraph({
     -------------------------------------- */
     svg
       .append("path")
-      .data([dataToGraph])
+      .data([
+        dataToGraph.filter((coord) => coord[0] <= xMax && coord[0] >= xMin),
+      ])
       .attr("fill", "none")
       .attr("stroke", "steelblue")
       .attr("stroke-width", 1.5)
@@ -230,7 +245,7 @@ export default function WaveformGraph({
         If this is skipped, user will be able to drag circle anywhere on graph, unrelated to data line.
       */
       const draggedIdx = dataToGraph.findIndex(
-        (x) => x[0] === Number(d[0].toFixed(2))
+        (x) => Number(x[0].toFixed(2)) === Number(d[0].toFixed(2))
       );
 
       // assigns circle node new x and y coordinates based off drag event
@@ -277,14 +292,19 @@ export default function WaveformGraph({
       // indexToReplace is the index of the selected peak or valley in the peaks/valley state arrays that need to be changed
       const indexToChange = d3.select(this).attr("indexToReplace");
       const newSelectedIndex = dataToGraph.findIndex(
-        (coords) => coords[0] === Number(x.invert(d.x).toFixed(2))
+        (coords) =>
+          Number(coords[0].toFixed(2)) === Number(x.invert(d.x).toFixed(2))
       );
 
       // TODO check here for alternating peaks and valleys, if not, return to original position and notify user
       if (peakOrValley === "peak") {
-        peaks.splice(indexToChange, 1, newSelectedIndex);
+        const peaksCopy = peaks;
+        peaksCopy.splice(indexToChange, 1, newSelectedIndex);
+        setPeaks([...peaksCopy]); // required to change dependencies
       } else {
-        valleys.splice(indexToChange, 1, newSelectedIndex);
+        const valleysCopy = valleys;
+        valleysCopy.splice(indexToChange, 1, newSelectedIndex);
+        setValleys([...valleysCopy]); // required to change dependencies
       }
     }
 
@@ -295,7 +315,7 @@ export default function WaveformGraph({
       .enter()
       .append("path")
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
-      .attr("transform", function (d) {
+      .attr("transform", (d) => {
         return (
           "translate(" +
           x(dataToGraph[d][0]) +
@@ -305,10 +325,15 @@ export default function WaveformGraph({
         );
       })
       .attr("id", "peak")
-      .attr("indexToReplace", (d) => initialPeaksValleys[0].indexOf(d))
+      .attr("indexToReplace", (d) => initialPeaksValleys[0].indexOf(d)) // keep track of index in peaks array to splice later
       .style("fill", "orange")
       .attr("stroke", "orange")
       .style("cursor", "pointer")
+      .style("display", (d) => {
+        // only display them inside windowed analysis times
+        const xTime = dataToGraph[d][0];
+        return xTime > xMax || xTime < xMin ? "none" : null;
+      })
       .call(
         d3
           .drag()
@@ -316,7 +341,6 @@ export default function WaveformGraph({
           .on("drag", dragging)
           .on("end", dragEnded)
       );
-
     // graph all the valley markers
     svg
       .selectAll("#waveformGraph")
@@ -324,7 +348,7 @@ export default function WaveformGraph({
       .enter()
       .append("path")
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
-      .attr("transform", function (d) {
+      .attr("transform", (d) => {
         return (
           "translate(" +
           x(dataToGraph[d][0]) +
@@ -334,10 +358,15 @@ export default function WaveformGraph({
         );
       })
       .attr("id", "valley")
-      .attr("indexToReplace", (d) => initialPeaksValleys[1].indexOf(d))
+      .attr("indexToReplace", (d) => initialPeaksValleys[1].indexOf(d)) // keep track of index in valleys array to splice later
       .style("fill", "green")
       .attr("stroke", "green")
       .style("cursor", "pointer")
+      .style("display", (d) => {
+        // only display them inside windowed analysis times
+        const xTime = dataToGraph[d][0];
+        return xTime > xMax || xTime < xMin ? "none" : null;
+      })
       .call(
         d3
           .drag()
@@ -374,7 +403,8 @@ export default function WaveformGraph({
         d3.select(this).attr("x1", xPosition).attr("x2", xPosition);
 
         // save adjusted time to pass up to parent component to use across all wells
-        const newTimeSec = x.invert(xPosition);
+        // fix to two decimal places, otherwise GET /jobs/waveform_data will error
+        const newTimeSec = parseFloat(x.invert(xPosition).toFixed(2));
         time === "startTime"
           ? setNewStartTime(newTimeSec)
           : setNewEndTime(newTimeSec);
@@ -401,7 +431,6 @@ export default function WaveformGraph({
       .attr("stroke", "black")
       .style("cursor", "pointer")
       .call(lineDrag);
-
     // end of window analysis line
     const endTimeLine = svg
       .append("line")
@@ -417,23 +446,39 @@ export default function WaveformGraph({
   };
 
   useEffect(() => {
-    // always remove existing graph before plotting new graph
-    d3.select("#waveformGraph").select("svg").remove();
-
     if (initialPeaksValleys.length > 0) {
-      setPeaks(initialPeaksValleys[0]);
-      setValleys(initialPeaksValleys[1]);
+      // always remove existing graph before plotting new graph
+      d3.select("#waveformGraph").select("svg").remove();
+      /* 
+        TODO!! this is bad form to directly mutate state, 
+        but so far is the only way it will render the new peaks and valleys
+        when selecting between wells in dropdown
+      */
+      peaks.splice(0, peaks.length);
+      initialPeaksValleys[0].map((x) => peaks.push(x));
+
+      valleys.splice(0, valleys.length);
+      initialPeaksValleys[1].map((x) => valleys.push(x));
+
       setNewStartTime(startTime);
       setNewEndTime(endTime);
-
-      // console.log("INSDIE GRAPH");
-      // console.log("PEAKS: ", peaks);
-      // console.log("VALLEYS: ", valleys);
       createGraph();
     }
+  }, [initialPeaksValleys]);
 
-    return () => saveWellChanges(peaks, valleys, newStartTime, newEndTime);
-  }, [dataToGraph, initialPeaksValleys]);
+  useEffect(() => {
+    setEditableStartEndTimes({
+      startTime: newStartTime,
+      endTime: newEndTime,
+    });
+  }, [newStartTime, newEndTime]);
+
+  useEffect(() => {
+    // ensures you don't edit the original array by creating deep copy
+    const newEntries = JSON.parse(JSON.stringify(editablePeaksValleys));
+    newEntries[currentWell] = [[...peaks], [...valleys]];
+    setEditablePeaksValleys(newEntries);
+  }, [peaks, valleys]);
 
   return (
     <>

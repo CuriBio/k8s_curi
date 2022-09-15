@@ -6,12 +6,14 @@ import { WellTitle as LabwareDefinition } from "@/utils/labwareCalculations";
 import CircularSpinner from "../basicWidgets/CircularSpinner";
 const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
 import ButtonWidget from "../basicWidgets/ButtonWidget";
+import ModalWidget from "../basicWidgets/ModalWidget";
 
 const Container = styled.div`
-  height: 700px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
+  overflow: hidden;
 `;
 
 const HeaderContainer = styled.div`
@@ -58,18 +60,43 @@ const ButtonContainer = styled.div`
   width: 100%;
   top: 8vh;
   display: flex;
+  justify-content: space-evenly;
 `;
+
+const uploadModalLabels = {
+  success: {
+    header: "Success!",
+    messages: [
+      "You have successfully started a new analysis.",
+      "It will appear in the uploads table shortly.",
+    ],
+  },
+  error: {
+    header: "Error Occurred!",
+    messages: [
+      "There was an issue while attempting to start this analysis.",
+      "Please try again later.",
+    ],
+  },
+};
 
 export default function InteractiveWaveformModal({
   selectedJob,
   setOpenInteractiveAnalysis,
 }) {
   const [selectedWell, setSelectedWell] = useState("A1");
-  const [originalData, setOriginalData] = useState([]); // original waveform data from GET request, unedited
+  const [uploadInProgress, setUploadInProgress] = useState(false);
+  const [originalData, setOriginalData] = useState({}); // original waveform data from GET request, unedited
   const [dataToGraph, setDataToGraph] = useState([]); // well-specfic coordinates to graph
   const [isLoading, setIsLoading] = useState(true);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [modalLabels, setModalLabels] = useState(uploadModalLabels.success);
   const [markers, setMarkers] = useState([]); // peak and valleyy markers
   const [editablePeaksValleys, setEditablePeaksValleys] = useState(); // user edited peaks/valleys as changes are made, should get stored in localStorage
+  const [xRange, setXRange] = useState({
+    min: null,
+    max: null, // random
+  });
   const [editableStartEndTimes, setEditableStartEndTimes] = useState({
     startTime: null,
     endTime: null,
@@ -78,14 +105,19 @@ export default function InteractiveWaveformModal({
   const getWaveformData = async () => {
     try {
       const response = await fetch(
-        `https://curibio.com/uploads/waveform_data?upload_id=${selectedJob.uploadId}`
+        `https://curibio.com/jobs/waveform_data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}`
       );
 
-      const waveformData = await response.json();
-      setOriginalData(waveformData);
-      setEditablePeaksValleys(waveformData.peaks_valleys);
-
-      setIsLoading(false);
+      if (response.status === 200) {
+        const waveformData = await response.json();
+        // original data is set and never changed to hold original state in case of reset
+        setOriginalData(waveformData);
+        setEditablePeaksValleys(waveformData.peaks_valleys);
+      } else {
+        // open error modal and kick users back to /uploads page if random  error
+        setModalLabels(uploadModalLabels.error);
+        setStatusModalOpen(true);
+      }
     } catch (e) {
       console.log("ERROR getting waveform data: ", e);
     }
@@ -95,17 +127,34 @@ export default function InteractiveWaveformModal({
     getWaveformData();
     setEditableStartEndTimes({
       startTime: selectedJob.analysisParams.start_time,
-      endtime: selectedJob.analysisParams.end_time,
+      endTime: selectedJob.analysisParams.end_time,
+    });
+    // set to hold state of start and stop original times
+    setXRange({
+      min: selectedJob.analysisParams.start_time,
+      max: selectedJob.analysisParams.end_time,
     });
   }, [selectedJob]);
 
   useEffect(() => {
-    // will error on init because there won't be an index 0
-    if (originalData && Object.keys(originalData).length > 0) {
-      setDataToGraph([...originalData.coordinates[selectedWell]]);
-      setMarkers([...editablePeaksValleys[selectedWell]]);
+    if (!uploadInProgress && Object.keys(originalData).length > 0) {
+      setStatusModalOpen(true);
     }
-  }, [originalData, selectedWell]);
+  }, [uploadInProgress]);
+
+  useEffect(() => {
+    // will error on init because there won't be an index 0
+    if (Object.keys(originalData).length > 0) {
+      setDataToGraph([...originalData.coordinates[selectedWell]]);
+    }
+  }, [selectedWell, originalData]);
+
+  useEffect(() => {
+    if (dataToGraph.length > 0) {
+      setMarkers([...editablePeaksValleys[selectedWell]]);
+      setIsLoading(false);
+    }
+  }, [dataToGraph, editablePeaksValleys]);
 
   const wellNames = Array(24)
     .fill()
@@ -115,20 +164,55 @@ export default function InteractiveWaveformModal({
     setSelectedWell(wellNames[idx]);
   };
 
-  const saveWellChanges = (peaks, valleys, startTime, endTime) => {
-    // console.log("INSIDE FUNCTION");
-    // console.log("PEAKS: ", peaks);
-    // console.log("VALLEYS: ", valleys);
-    console.log("START: ", startTime);
-    console.log("END: ", endTime);
+  const resetAllChanges = () => {
+    // reset start and end times
     setEditableStartEndTimes({
-      startTime: startTime || editableStartEndTimes.startTime,
-      endTime: endTime || editableStartEndTimes.endTime,
+      startTime: selectedJob.analysisParams.start_time,
+      endTime: selectedJob.analysisParams.end_time,
     });
+    // reset dropdown to "A1"
+    handleWellSelection(0);
+    // reset peaks and valleys
+    setEditablePeaksValleys({ ...originalData.peaks_valleys });
+  };
 
-    const newPeaksValleys = editablePeaksValleys;
-    newPeaksValleys[selectedWell] = [[...peaks], [...valleys]];
-    setEditablePeaksValleys(newPeaksValleys);
+  const postNewJob = async () => {
+    try {
+      setUploadInProgress(true);
+
+      // reassign new peaks and valleys if different
+      const requestBody = {
+        ...selectedJob.analysisParams,
+        upload_id: selectedJob.uploadId,
+        peaks_valleys: editablePeaksValleys,
+        start_time: editableStartEndTimes.startTime,
+        end_time: editableStartEndTimes.endTime,
+      };
+
+      const jobResponse = await fetch("https://curibio.com/jobs", {
+        method: "POST",
+        body: JSON.stringify(requestBody),
+      });
+      if (jobResponse.status !== 200) {
+        // TODO make modal
+        console.log("ERROR posting new job: ", await jobResponse.json());
+        setModalLabels(uploadModalLabels.error);
+      } else {
+        setModalLabels(uploadModalLabels.success);
+      }
+
+      setUploadInProgress(false);
+    } catch (e) {
+      // TODO make modal
+      console.log("ERROR posting new job");
+      setModalLabels(uploadModalLabels.error);
+      setUploadInProgress(false);
+    }
+  };
+
+  const closeInteractiveAnalysis = () => {
+    setOpenInteractiveAnalysis(false);
+    setStatusModalOpen(false);
   };
 
   return (
@@ -145,6 +229,7 @@ export default function InteractiveWaveformModal({
             <DropDownWidget
               options={wellNames}
               handleSelection={handleWellSelection}
+              reset={selectedWell == "A1"}
               initialSelected={0}
             />
           </DropdownContainer>
@@ -154,7 +239,11 @@ export default function InteractiveWaveformModal({
               initialPeaksValleys={markers}
               startTime={editableStartEndTimes.startTime}
               endTime={editableStartEndTimes.endTime}
-              saveWellChanges={saveWellChanges}
+              currentWell={selectedWell}
+              setEditableStartEndTimes={setEditableStartEndTimes}
+              setEditablePeaksValleys={setEditablePeaksValleys}
+              editablePeaksValleys={editablePeaksValleys}
+              xRange={xRange}
             />
           </GraphContainer>
           <ButtonContainer>
@@ -163,12 +252,7 @@ export default function InteractiveWaveformModal({
               height="50px"
               position="relative"
               borderRadius="3px"
-              left="70px"
-              // backgroundColor={
-              //   isButtonDisabled ? "var(--dark-gray)" : "var(--dark-blue)"
-              // }
-              // disabled={isButtonDisabled}
-              // inProgress={inProgress}
+              left="-100px"
               label="Cancel"
               clickFn={() => setOpenInteractiveAnalysis(false)}
             />
@@ -178,14 +262,13 @@ export default function InteractiveWaveformModal({
               height="50px"
               position="relative"
               borderRadius="3px"
-              left="890px"
-              // backgroundColor={
-              //   isButtonDisabled ? "var(--dark-gray)" : "var(--dark-blue)"
-              // }
-              // disabled={isButtonDisabled}
-              // inProgress={inProgress}
+              left="320px"
               label="Reset All"
-              // clickFn={checkForMultiRecZips}
+              backgroundColor={
+                uploadInProgress ? "var(--dark-gray)" : "var(--dark-blue)"
+              }
+              disabled={uploadInProgress}
+              clickFn={resetAllChanges}
             />
 
             <ButtonWidget
@@ -193,18 +276,24 @@ export default function InteractiveWaveformModal({
               height="50px"
               position="relative"
               borderRadius="3px"
-              left="900px"
-              // backgroundColor={
-              //   isButtonDisabled ? "var(--dark-gray)" : "var(--dark-blue)"
-              // }
-              // disabled={isButtonDisabled}
-              // inProgress={inProgress}
+              left="100px"
               label="Run Analysis"
-              // clickFn={checkForMultiRecZips}
+              backgroundColor={
+                uploadInProgress ? "var(--dark-gray)" : "var(--dark-blue)"
+              }
+              disabled={uploadInProgress}
+              inProgress={uploadInProgress}
+              clickFn={postNewJob}
             />
           </ButtonContainer>
         </>
       )}
+      <ModalWidget
+        open={statusModalOpen}
+        closeModal={closeInteractiveAnalysis}
+        header={modalLabels.header}
+        labels={modalLabels.messages}
+      />
     </Container>
   );
 }
