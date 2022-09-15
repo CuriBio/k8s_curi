@@ -265,8 +265,7 @@ async def create_new_job(
             "twitch_widths",
             "start_time",
             "end_time",
-                            "peaks_valleys",
-
+            "peaks_valleys",
         ]
         # TODO could make this if condition `details.version <= "0.25.0"` using the semver package
         if details.version != "0.24.6":
@@ -509,7 +508,7 @@ async def get_interactive_waveform_data(
                     [time[i] / MICRO_TO_BASE_CONVERSION, val] for (i, val) in enumerate(well_force)
                 ]
                 coordinates[well] = well_coords
-                
+
             return WaveformDataResponse(coordinates=coordinates, peaks_valleys=peaks_and_valleys)
 
     except KeyError:
@@ -521,6 +520,7 @@ async def get_interactive_waveform_data(
     except Exception as e:
         logger.error(f"Failed to get interactive waveform data: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @app.get("/versions")
 async def get_versions(request: Request):
