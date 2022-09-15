@@ -108,8 +108,8 @@ async def process(con, item):
             try:
                 if not re_analysis:
                     logger.info("Writing time force data to parquet file for new upload")
-                    time_force_dt = recordings[0].to_dataframe(tmpdir)
-                    time_force_dt.to_parquet(parquet_path)
+                    time_force_df = recordings[0].to_dataframe(tmpdir)
+                    time_force_df.to_parquet(parquet_path)
 
                     with open(parquet_path, "rb") as file:
                         contents = file.read()
@@ -196,7 +196,7 @@ async def main():
         DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
         DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
         dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
-        
+
         async with asyncpg.create_pool(dsn=dsn) as pool:
             async with pool.acquire() as con:
                 while True:

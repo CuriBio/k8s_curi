@@ -36,7 +36,6 @@ const ButtonContainer = styled.div`
   display: flex;
   flex-direction: row;
 `;
-import { useEffect } from "react";
 
 export default function Login() {
   const router = useRouter();
@@ -47,35 +46,31 @@ export default function Login() {
   const submitForm = async () => {
     setErrorMsg(""); // reset to show user something happened
 
-    // if (Object.values(userData).includes(""))
-    //   setErrorMsg("*All fields are required");
-    // // this state gets passed to web worker to attempt login request
-    // else {
-    try {
-      const res = await fetch("https://curibio.com/login", {
-        method: "POST",
-        body: JSON.stringify({
-          username: "lucipak",
-          password: "Test123Test123",
-          customer_id: "60e88e2a-b101-49e2-9734-96f299fe8959",
-        }),
-        mode: "no-cors",
-      });
+    if (Object.values(userData).includes(""))
+      setErrorMsg("*All fields are required");
+    // this state gets passed to web worker to attempt login request
+    else {
+      try {
+        const res = await fetch("https://curibio.com/login", {
+          method: "POST",
+          body: JSON.stringify(userData),
+          mode: "no-cors",
+        });
 
-      if (res) {
-        if (res.status === 200) {
-          router.push("/uploads"); // routes to next page
-        } else {
-          res.status === 401 || res.status === 422
-            ? setErrorMsg("*Invalid credentials. Try again.")
-            : setErrorMsg("*Internal error. Please try again later.");
+        if (res) {
+          if (res.status === 200) {
+            router.push("/uploads"); // routes to next page
+          } else {
+            res.status === 401 || res.status === 422
+              ? setErrorMsg("*Invalid credentials. Try again.")
+              : setErrorMsg("*Internal error. Please try again later.");
+          }
         }
+      } catch (e) {
+        console.log("ERROR logging in");
+        setErrorMsg("*Internal error. Please try again later.");
       }
-    } catch (e) {
-      console.log("ERROR logging in");
-      setErrorMsg("*Internal error. Please try again later.");
     }
-    // }
   };
 
   return (
