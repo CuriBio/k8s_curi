@@ -33,6 +33,7 @@ app.add_middleware(
     allow_origins=[
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
+        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -250,6 +251,7 @@ async def create_new_job(
         analysis_params = {
             param: dict(details)[param]
             for param in (
+                "disable_y_normalization",
                 "baseline_widths_to_use",
                 "max_y",
                 "prominence_factors",

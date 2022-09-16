@@ -93,6 +93,7 @@ export default function UploadForm() {
   const [tabSelection, setTabSelection] = useState(query.id);
   const [modalState, setModalState] = useState(false);
   const [analysisParams, setAnalysisParams] = useState({
+    disableYNormalization: false,
     baseToPeak: "",
     peakToBase: "",
     maxY: "",
@@ -149,6 +150,7 @@ export default function UploadForm() {
   const resetState = () => {
     setFiles([]);
     setAnalysisParams({
+      disableYNormalization: false,
       baseToPeak: "",
       peakToBase: "",
       maxY: "",
@@ -186,6 +188,7 @@ export default function UploadForm() {
   const postNewJob = async (uploadId, filename) => {
     try {
       const {
+        disableYNormalization,
         baseToPeak,
         peakToBase,
         maxY,
@@ -197,10 +200,30 @@ export default function UploadForm() {
         startTime,
         endTime,
       } = analysisParams;
+      console.log(
+        JSON.stringify({
+          upload_id: uploadId,
+          disable_y_normalization: disableYNormalization,
+          baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
+          max_y: maxY === "" ? null : maxY,
+          prominence_factors: formatTupleParams(
+            prominenceFactorPeaks,
+            prominenceFactorValleys
+          ),
+          width_factors: formatTupleParams(
+            widthFactorPeaks,
+            widthFactorValleys
+          ),
+          twitch_widths: twitchWidths === "" ? null : twitchWidths,
+          start_time: startTime === "" ? null : startTime,
+          end_time: endTime === "" ? null : endTime,
+        })
+      );
       const jobResponse = await fetch("https://curibio.com/jobs", {
         method: "POST",
         body: JSON.stringify({
           upload_id: uploadId,
+          disable_Y_Normalization: disableYNormalization,
           baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
           max_y: maxY === "" ? null : maxY,
           prominence_factors: formatTupleParams(

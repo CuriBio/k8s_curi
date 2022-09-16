@@ -4,6 +4,7 @@ import { isArrayOfNumbers } from "../../utils/generic";
 import FormInput from "../basicWidgets/FormInput";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
+import { useState } from "react";
 
 const Container = styled.div`
   padding-top: 1rem;
@@ -154,6 +155,8 @@ const TooltipText = styled.span`
   font-size: 15px;
 `;
 
+const BooleanInput = styled.input``;
+
 export default function AnalysisParamForm({
   checkedBaseline,
   setCheckedBaseline,
@@ -168,6 +171,7 @@ export default function AnalysisParamForm({
   setParamErrors,
   analysisParams,
 }) {
+  const [disableAxisIsChecked, setDisableAxisIsChecked] = useState(false);
   const updateParams = (newParams) => {
     const updatedParams = { ...analysisParams, ...newParams };
 
@@ -290,6 +294,31 @@ export default function AnalysisParamForm({
         Additional Analysis Params (Optional)
       </AdditionalParamLabel>
       <InputContainer>
+        <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
+          <Label htmlFor="disableYNormalization">
+            Disable Y-Axis Normalization :
+            <Tooltip
+              title={
+                <TooltipText>
+                  {"When checked, disables normalization for the y-axis."}
+                </TooltipText>
+              }
+            >
+              <InfoOutlinedIcon />
+            </Tooltip>
+          </Label>
+          <BooleanInput
+            type="checkbox"
+            id="disableYNormalization"
+            onChange={() => {
+              updateParams({
+                disableYNormalization: !disableAxisIsChecked,
+              });
+              setDisableAxisIsChecked(!disableAxisIsChecked);
+            }}
+          ></BooleanInput>
+        </ParamContainer>
+
         <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
           <Label htmlFor="maxY">
             Y-Axis Range (µN):
