@@ -20,7 +20,7 @@ class UploadResponse(BaseModel):
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
 
-    disable_y_normalization: bool
+    disable_y_normalization: Optional[bool]
     baseline_widths_to_use: Optional[TupleParam]
     max_y: Optional[Number]
 

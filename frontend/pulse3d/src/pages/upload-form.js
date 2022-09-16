@@ -200,30 +200,11 @@ export default function UploadForm() {
         startTime,
         endTime,
       } = analysisParams;
-      console.log(
-        JSON.stringify({
-          upload_id: uploadId,
-          disable_y_normalization: disableYNormalization,
-          baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
-          max_y: maxY === "" ? null : maxY,
-          prominence_factors: formatTupleParams(
-            prominenceFactorPeaks,
-            prominenceFactorValleys
-          ),
-          width_factors: formatTupleParams(
-            widthFactorPeaks,
-            widthFactorValleys
-          ),
-          twitch_widths: twitchWidths === "" ? null : twitchWidths,
-          start_time: startTime === "" ? null : startTime,
-          end_time: endTime === "" ? null : endTime,
-        })
-      );
       const jobResponse = await fetch("https://curibio.com/jobs", {
         method: "POST",
         body: JSON.stringify({
           upload_id: uploadId,
-          disable_Y_Normalization: disableYNormalization,
+          disable_y_normalization: disableYNormalization,
           baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
           max_y: maxY === "" ? null : maxY,
           prominence_factors: formatTupleParams(
