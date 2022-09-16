@@ -155,7 +155,10 @@ const TooltipText = styled.span`
   font-size: 15px;
 `;
 
-const BooleanInput = styled.input``;
+const BooleanInput = styled.input`
+  height: 150%;
+  width: 100%;
+`;
 
 export default function AnalysisParamForm({
   checkedBaseline,
