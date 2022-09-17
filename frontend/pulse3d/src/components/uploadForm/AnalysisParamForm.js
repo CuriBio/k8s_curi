@@ -566,7 +566,7 @@ export default function AnalysisParamForm({
         </WindowAnalysisContainer>
         <AdvancedAnalysisContainer>
           <WAOverlayContainer>
-            <WALabel>
+            <WALabel style={{ width: 210 }}>
               <CheckboxWidget
                 color={"secondary"}
                 size={"small"}

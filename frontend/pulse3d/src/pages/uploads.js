@@ -14,6 +14,7 @@ import DashboardLayout, {
 import styled from "styled-components";
 import { useContext, useState, useEffect } from "react";
 import Row from "@/components/uploads/TableRow";
+import InteractiveAnalysisModal from "@/components/uploads/InteractiveAnalysisModal";
 import { AuthContext } from "@/pages/_app";
 
 const Container = styled.div`
@@ -29,6 +30,16 @@ const SpinnerContainer = styled.div`
   align-items: center;
   width: 80%;
 `;
+
+const InteractiveAnalysisContainer = styled.div`
+  width: 78%;
+  margin: 1%;
+  background-color: white;
+  height: 800px;
+  border-radius: 5px;
+  overflow: none;
+`;
+
 const PageContainer = styled.div`
   width: 80%;
 `;
@@ -93,7 +104,7 @@ const modalObjs = {
 export default function Uploads() {
   const { accountType } = useContext(AuthContext);
   const { uploads, setFetchUploads } = useContext(UploadsContext);
-  const [jobs, setJobs] = useState();
+  const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [checkedJobs, setCheckedJobs] = useState([]);
@@ -102,6 +113,21 @@ export default function Uploads() {
   const [modalState, setModalState] = useState(false);
   const [modalLabels, setModalLabels] = useState({ header: "", messages: [] });
   const [modalButtons, setModalButtons] = useState([]);
+  const [openInteractiveAnalysis, setOpenInteractiveAnalysis] = useState(false);
+  const [selectedAnalysis, setSelectedAnalysis] = useState();
+
+  useEffect(() => {
+    if (!openInteractiveAnalysis) {
+      // reset when interactive analysis modal closes
+      resetTable();
+    }
+  }, [openInteractiveAnalysis]);
+
+  const resetTable = () => {
+    setResetDropdown(true);
+    setCheckedUploads([]);
+    setCheckedJobs([]);
+  };
 
   const getAllJobs = async () => {
     try {
@@ -171,33 +197,31 @@ export default function Uploads() {
   }, [uploads]);
 
   useEffect(() => {
-    if (jobs) {
-      const formattedUploads = uploads
-        .map(({ username, id, filename, created_at }) => {
-          const formattedTime = formatDateTime(created_at);
-          const recName = filename ? filename.split(".")[0] : null;
-          const uploadJobs = jobs
-            .filter(({ uploadId }) => uploadId === id)
-            .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+    const formattedUploads = uploads
+      .map(({ username, id, filename, created_at }) => {
+        const formattedTime = formatDateTime(created_at);
+        const recName = filename ? filename.split(".")[0] : null;
+        const uploadJobs = jobs
+          .filter(({ uploadId }) => uploadId === id)
+          .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
 
-          const lastAnalyzed = uploadJobs[0]
-            ? uploadJobs[0].datetime
-            : formattedTime;
+        const lastAnalyzed = uploadJobs[0]
+          ? uploadJobs[0].datetime
+          : formattedTime;
 
-          return {
-            username,
-            name: recName,
-            id,
-            createdAt: formattedTime,
-            lastAnalyzed,
-            jobs: uploadJobs,
-          };
-        })
-        .sort((a, b) => new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed));
+        return {
+          username,
+          name: recName,
+          id,
+          createdAt: formattedTime,
+          lastAnalyzed,
+          jobs: uploadJobs,
+        };
+      })
+      .sort((a, b) => new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed));
 
-      setRows([...formattedUploads]);
-      setLoading(false);
-    }
+    setRows([...formattedUploads]);
+    setLoading(false);
   }, [jobs]);
 
   const handleDropdownSelection = (option) => {
@@ -220,6 +244,10 @@ export default function Uploads() {
         setModalLabels(modalObjs.containsFailedJob);
         setModalState("generic");
       }
+    } else if (option === 2) {
+      const jobDetails = jobs.filter(({ jobId }) => jobId == checkedJobs[0]);
+      setSelectedAnalysis(jobDetails[0]);
+      setOpenInteractiveAnalysis(true);
     }
 
     setResetDropdown(false);
@@ -278,18 +306,14 @@ export default function Uploads() {
       // failed Deletions has it's own modal so prevent closure else reset
       if (!failedDeletion) {
         setModalState(false);
-        setResetDropdown(true);
-        setCheckedUploads([]);
-        setCheckedJobs([]);
+        resetTable();
       }
     } else {
       // close in progress modal
       // also resets for any 'Close' modal button events
       // index 0 in buttons
       setModalState(false);
-      setResetDropdown(true);
-      setCheckedUploads([]);
-      setCheckedJobs([]);
+      resetTable();
     }
   };
 
@@ -365,12 +389,11 @@ export default function Uploads() {
 
   const downloadMultiFiles = async (jobs) => {
     try {
-      // streamsaver has to be required here otherwise you get build errors with "document is not defined"
+      //streamsaver has to be required here otherwise you get build errors with "document is not defined"
       const { createWriteStream } = require("streamsaver");
-
       const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/download`;
-
       const jobIds = jobs.map(({ jobId }) => jobId);
+
       const response = await fetch(url, {
         method: "POST",
         body: JSON.stringify({ job_ids: jobIds }),
@@ -425,18 +448,26 @@ export default function Uploads() {
         <SpinnerContainer id="spinnerContainer">
           <CircularSpinner color={"secondary"} size={200} />
         </SpinnerContainer>
-      ) : (
+      ) : !openInteractiveAnalysis ? (
         <PageContainer>
           <DropDownContainer>
             <DropDownWidget
               label="Actions"
-              options={["Download", "Delete"]}
-              disableOptions={Array(2).fill(
-                checkedJobs.length === 0 && checkedUploads.length === 0
-              )}
-              optionsTooltipText={Array(2).fill(
-                "Must make a selection below before actions become available."
-              )}
+              options={["Download", "Delete", "Interactive Analysis"]}
+              disableOptions={[
+                ...Array(2).fill(
+                  checkedJobs.length === 0 && checkedUploads.length === 0
+                ),
+                checkedJobs.length !== 1 ||
+                  jobs.filter((job) => job.jobId === checkedJobs[0])[0]
+                    .status !== "finished",
+              ]}
+              optionsTooltipText={[
+                ...Array(2).fill(
+                  "Must make a selection below before actions become available."
+                ),
+                "You must select one successful job to enable interactive analysis.",
+              ]}
               handleSelection={handleDropdownSelection}
               reset={resetDropdown}
             />
@@ -520,6 +551,13 @@ export default function Uploads() {
             </TableContainer>
           </Container>
         </PageContainer>
+      ) : (
+        <InteractiveAnalysisContainer>
+          <InteractiveAnalysisModal
+            selectedJob={selectedAnalysis}
+            setOpenInteractiveAnalysis={setOpenInteractiveAnalysis}
+          />
+        </InteractiveAnalysisContainer>
       )}
       <ModalWidget
         open={modalState === "generic"}

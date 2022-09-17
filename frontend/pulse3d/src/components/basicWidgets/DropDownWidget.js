@@ -2,7 +2,7 @@ import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
 import Select, { SelectProps } from "@mui/material/Select";
-import { forwardRef, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import styled from "styled-components";
 import OutlinedInput from "@mui/material/OutlinedInput";
 import Tooltip from "@mui/material/Tooltip";
@@ -56,6 +56,7 @@ export default function DropDownWidget({
   disabled = false,
   disableOptions = Array(options.length).fill(false),
   optionsTooltipText,
+  initialSelected,
 }) {
   const [selected, setSelected] = useState("");
   const [errorMsg, setErrorMsg] = useState(error);
@@ -67,9 +68,13 @@ export default function DropDownWidget({
       setErrorMsg("");
     }
   };
+  useEffect(() => {
+    // initialSelected needs to be the index of item
+    if (initialSelected) setSelected(initialSelected);
+  }, []);
 
   useEffect(() => {
-    if (reset) setSelected("");
+    if (reset) setSelected(initialSelected ? initialSelected : "");
   }, [reset]);
 
   return (
@@ -83,10 +88,17 @@ export default function DropDownWidget({
         onChange={handleChange}
         value={selected}
         renderValue={(selected) => {
-          if (selected.length === 0) {
+          /* 
+             Must be initialSelected === undefined and not !initialSelected,
+             An index of 0 will pass !initialSelected as truthy
+          */
+          if (selected.length === 0 && initialSelected === undefined) {
             return <Placeholder>{label}</Placeholder>;
+          } else if (selected === "" && initialSelected !== undefined) {
+            return options[initialSelected];
+          } else {
+            return options[selected];
           }
-          return options[selected];
         }}
       >
         <MenuItem disabled>

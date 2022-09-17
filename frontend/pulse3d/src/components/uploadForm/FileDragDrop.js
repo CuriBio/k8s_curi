@@ -20,6 +20,9 @@ const Container = styled.div`
   &:hover {
     background-color: var(--light-gray);
   }
+  &::-webkit-scrollbar {
+    display: none;
+  }
 `;
 
 const DropZone = styled.div`

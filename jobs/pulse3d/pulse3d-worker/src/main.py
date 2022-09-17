@@ -10,6 +10,8 @@ import tempfile
 
 import asyncpg
 import boto3
+import pandas as pd
+
 from pulse3D.plate_recording import PlateRecording
 from pulse3D.excel_writer import write_xlsx
 
@@ -45,6 +47,7 @@ async def process(con, item):
                 "FROM uploads AS up JOIN users ON up.user_id = users.id "
                 "WHERE up.id=$1"
             )
+
             upload_details = await con.fetchrow(query, upload_id)
 
             prefix = upload_details["prefix"]
@@ -72,8 +75,8 @@ async def process(con, item):
                 parquet_path = os.path.join(tmpdir, parquet_filename)
 
                 # attempt to download parquet file if recording has already been analyzed
-                logger.info(f"Attempting to downloading {parquet_filename} to {tmpdir}/{parquet_filename}")
-                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, parquet_key, f"{tmpdir}/{parquet_filename}")
+                logger.info(f"Attempting to downloading {parquet_filename} to {parquet_path}")
+                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, parquet_key, parquet_path)
                 re_analysis = True
 
             except Exception as e:  # continue with analysis even if original force data is not found
@@ -81,10 +84,6 @@ async def process(con, item):
                 re_analysis = False
 
             try:
-                logger.info("Starting pulse3d analysis")
-                recordings = list(PlateRecording.from_directory(tmpdir, not re_analysis))
-                logger.info(f"{len(recordings)} recording(s) found")
-
                 # remove params that were not given as these already have default values
                 analysis_params = {
                     key: val
@@ -92,12 +91,19 @@ async def process(con, item):
                     if val is not None
                 }
 
-                if re_analysis:
+                logger.info("Starting pulse3d analysis")
+                if not re_analysis:
+                    recordings = list(PlateRecording.from_directory(tmpdir))
+                    logger.info(f"{len(recordings)} recording(s) found")
+                    # Tanner (6/8/22): only supports analyzing one recording at a time right now. Functionality can be added whenever analyzing multiple files becomes necessary
+                    outfile = write_xlsx(recordings[0], **analysis_params)
+                else:
                     logger.info(f"Loading previous time force data from {parquet_filename}")
-                    recordings[0].load_time_force_data(parquet_path)
+                    existing_df = pd.read_parquet(parquet_path)
+                    recording = PlateRecording.from_dataframe(os.path.join(tmpdir, filename), df=existing_df)
+                    recording = next(recording)
+                    outfile = write_xlsx(recording, **analysis_params)
 
-                # Tanner (6/8//22): only supports analyzing one recording at a time right now. Functionality can be added whenever analyzing multiple files becomes necessary
-                outfile = write_xlsx(recordings[0], **analysis_params)
                 outfile_prefix = prefix.replace("uploads/", "analyzed/")
             except Exception as e:
                 logger.exception(f"Analysis failed: {e}")
@@ -106,8 +112,8 @@ async def process(con, item):
             try:
                 if not re_analysis:
                     logger.info("Writing time force data to parquet file for new upload")
-                    time_force_dt, _ = recordings[0].write_time_force_csv(tmpdir)
-                    time_force_dt.to_parquet(parquet_path)
+                    time_force_df = recordings[0].to_dataframe(tmpdir)
+                    time_force_df.to_parquet(parquet_path)
 
                     with open(parquet_path, "rb") as file:
                         contents = file.read()
@@ -147,10 +153,23 @@ async def process(con, item):
 
                 try:
                     logger.info(f"Inserting {outfile} metadata into db for upload {upload_id}")
-                    for r in recordings:
+                    if not re_analysis:
+                        for r in recordings:
+                            await insert_metadata_into_pg(
+                                con,
+                                r,
+                                upload_details["customer_id"],
+                                upload_details["user_id"],
+                                upload_id,
+                                file,
+                                outfile_key,
+                                md5s,
+                                re_analysis,
+                            )
+                    else:
                         await insert_metadata_into_pg(
                             con,
-                            r,
+                            recording,
                             upload_details["customer_id"],
                             upload_details["user_id"],
                             upload_id,
@@ -181,8 +200,8 @@ async def main():
         DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
         DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
         DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
-
         dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
+
         async with asyncpg.create_pool(dsn=dsn) as pool:
             async with pool.acquire() as con:
                 while True:

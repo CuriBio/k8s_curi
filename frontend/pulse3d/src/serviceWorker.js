@@ -170,6 +170,7 @@ const interceptResponse = async (req, url) => {
       console.log("[SW] Setting account type:", accountType);
       setAccountType(accountType);
     }
+
     // send the response without the tokens so they are always contained within this service worker
     return new Response(JSON.stringify({}), {
       headers: response.headers,
