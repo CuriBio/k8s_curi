@@ -40,7 +40,16 @@ def find_changed_svcs(sha: str):
     patterns_to_check = [f"{path}/**" for path in (SVC_PATH_PATTERN, WORKER_PATH_PATTERN, CORE_LIB_PATH)]
 
     completed_process = subprocess.run(
-        ["git", "--no-pager", "diff", sha, "--name-only", *get_dir_args(*patterns_to_check), ":!*.tf"],
+        [
+            "git",
+            "--no-pager",
+            "diff",
+            sha,
+            "--name-only",
+            *get_dir_args(*patterns_to_check),
+            ":!*.tf",
+            ":!*/tests/*",
+        ],
         stdout=subprocess.PIPE,
     )
 
@@ -64,8 +73,6 @@ def find_changed_svcs(sha: str):
 
         # need to output the pulse3d package version so it can be included in the name of the pulse3d-worker docker image
         version = parse_py_dep_version(ch_path, "pulse3d") if svc == "pulse3d-worker" else "latest"
-
-        # TODO test all this in a PR
 
         list_to_return.append({"path": ch_path, "deployment": dep_name, "service": svc, "version": version})
 
