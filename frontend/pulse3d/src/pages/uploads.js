@@ -155,7 +155,8 @@ export default function Uploads() {
               datetime: formattedTime,
               status,
               analysisParams,
-              version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
+              // version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
+              version: "0.25.2"
             };
           }
         );

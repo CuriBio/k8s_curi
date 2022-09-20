@@ -92,7 +92,10 @@ async def process(con, item):
                 }
 
                 logger.info("Starting pulse3d analysis")
-                if not re_analysis or PULSE3D_VERSION == "0.24.6": # from_dataframe does not exist for versions before 0.24.6
+                if not re_analysis or PULSE3D_VERSION in (
+                    "0.24.6",
+                    "0.25.1",
+                ):  # from_dataframe does not exist for versions before 0.24.6
                     recordings = list(PlateRecording.from_directory(tmpdir))
                     logger.info(f"{len(recordings)} recording(s) found")
                     # Tanner (6/8/22): only supports analyzing one recording at a time right now. Functionality can be added whenever analyzing multiple files becomes necessary
@@ -165,7 +168,7 @@ async def process(con, item):
                             md5s,
                             re_analysis,
                         )
-                   
+
                 except Exception as e:
                     logger.exception(f"Failed to insert metadata to db for upload {upload_id}: {e}")
                     raise

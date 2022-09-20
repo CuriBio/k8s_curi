@@ -269,8 +269,13 @@ async def create_new_job(
         # TODO could make this if condition `details.version <= "0.25.0"` using the semver package
         if details.version != "0.24.6":
             # max_y param was added in 0.25.0
-            # peaks_valleys was added in 0.25.1
-            params += ["max_y", "peaks_valleys"]
+            params.append("max_y")
+        if details.version in (
+            "0.24.6",
+            "0.25.1",
+        ):
+            # peaks_valleys was added in 0.25.2
+            params.append("peaks_valleys")
 
         details_dict = dict(details)
         analysis_params = {param: details_dict[param] for param in params}
