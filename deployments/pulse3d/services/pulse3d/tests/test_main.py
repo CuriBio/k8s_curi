@@ -381,7 +381,7 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
     expected_analysis_params = {
         param: None
         for param in (
-            "disable_y_normalization",
+            "normalize_y_axis",
             "baseline_widths_to_use",
             "max_y",
             "prominence_factors",
@@ -421,7 +421,7 @@ def test_jobs__post__basic_params_given(mocker):
     expected_analysis_params = {
         param: None
         for param in (
-            "disable_y_normalization",
+            "normalize_y_axis",
             "baseline_widths_to_use",
             "max_y",
             "prominence_factors",
@@ -467,7 +467,7 @@ def test_jobs__post__advanced_params_given(param_name, param_tuple, mocker):
     expected_analysis_params = {
         param: None
         for param in (
-            "disable_y_normalization",
+            "normalize_y_axis",
             "baseline_widths_to_use",
             "max_y",
             "prominence_factors",
@@ -511,7 +511,7 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocker):
     expected_analysis_params = {
         param: None
         for param in (
-            "disable_y_normalization",
+            "normalize_y_axis",
             "baseline_widths_to_use",
             "max_y",
             "prominence_factors",
