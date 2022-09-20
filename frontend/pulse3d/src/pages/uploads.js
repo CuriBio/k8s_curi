@@ -103,7 +103,8 @@ const modalObjs = {
 
 export default function Uploads() {
   const { accountType } = useContext(AuthContext);
-  const { uploads, setFetchUploads } = useContext(UploadsContext);
+  const { uploads, setFetchUploads, pulse3dVersions } =
+    useContext(UploadsContext);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -144,7 +145,9 @@ export default function Uploads() {
               ? object_key.split("/")[object_key.split("/").length - 1]
               : "";
             const formattedTime = formatDateTime(created_at);
-            const analysisParams = JSON.parse(meta)["analysis_params"];
+            const parsedMeta = JSON.parse(meta);
+            const analysisParams = parsedMeta.analysis_params;
+
             return {
               jobId: id,
               uploadId: upload_id,
@@ -152,6 +155,7 @@ export default function Uploads() {
               datetime: formattedTime,
               status,
               analysisParams,
+              version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
             };
           }
         );

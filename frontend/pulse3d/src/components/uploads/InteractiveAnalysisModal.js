@@ -187,6 +187,7 @@ export default function InteractiveWaveformModal({
         peaks_valleys: editablePeaksValleys,
         start_time: editableStartEndTimes.startTime,
         end_time: editableStartEndTimes.endTime,
+        version: selectedJob.version
       };
 
       const jobResponse = await fetch(

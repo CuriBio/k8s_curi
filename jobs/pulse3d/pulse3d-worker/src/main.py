@@ -92,7 +92,7 @@ async def process(con, item):
                 }
 
                 logger.info("Starting pulse3d analysis")
-                if not re_analysis:
+                if not re_analysis or PULSE3D_VERSION == "0.24.6": # from_dataframe does not exist for versions before 0.24.6
                     recordings = list(PlateRecording.from_directory(tmpdir))
                     logger.info(f"{len(recordings)} recording(s) found")
                     # Tanner (6/8/22): only supports analyzing one recording at a time right now. Functionality can be added whenever analyzing multiple files becomes necessary
@@ -101,7 +101,7 @@ async def process(con, item):
                     logger.info(f"Loading previous time force data from {parquet_filename}")
                     existing_df = pd.read_parquet(parquet_path)
                     recording = PlateRecording.from_dataframe(os.path.join(tmpdir, filename), df=existing_df)
-                    recording = next(recording)
+                    recordings = [next(recording)]
                     outfile = write_xlsx(recording, **analysis_params)
 
                 outfile_prefix = prefix.replace("uploads/", "analyzed/")
@@ -153,23 +153,10 @@ async def process(con, item):
 
                 try:
                     logger.info(f"Inserting {outfile} metadata into db for upload {upload_id}")
-                    if not re_analysis:
-                        for r in recordings:
-                            await insert_metadata_into_pg(
-                                con,
-                                r,
-                                upload_details["customer_id"],
-                                upload_details["user_id"],
-                                upload_id,
-                                file,
-                                outfile_key,
-                                md5s,
-                                re_analysis,
-                            )
-                    else:
+                    for r in recordings:
                         await insert_metadata_into_pg(
                             con,
-                            recording,
+                            r,
                             upload_details["customer_id"],
                             upload_details["user_id"],
                             upload_id,
@@ -178,6 +165,7 @@ async def process(con, item):
                             md5s,
                             re_analysis,
                         )
+                   
                 except Exception as e:
                     logger.exception(f"Failed to insert metadata to db for upload {upload_id}: {e}")
                     raise

@@ -11,7 +11,6 @@ import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout, {
   UploadsContext,
 } from "@/components/layouts/DashboardLayout";
-import semverSort from "semver-sort";
 
 const Container = styled.div`
   width: 70%;
@@ -91,7 +90,7 @@ const getDefaultAnalysisParams = () => {
 
 export default function UploadForm() {
   const { query } = useRouter();
-  const { uploads } = useContext(UploadsContext);
+  const { uploads, pulse3dVersions } = useContext(UploadsContext);
   const [files, setFiles] = useState([]);
   const [formattedUploads, setFormattedUploads] = useState([]);
   const [isButtonDisabled, setIsButtonDisabled] = useState(true);
@@ -107,26 +106,12 @@ export default function UploadForm() {
   const [checkedBaseline, setCheckedBaseline] = useState(false);
   const [tabSelection, setTabSelection] = useState(query.id);
   const [modalState, setModalState] = useState(false);
-  const [pulse3dVersions, setPulse3dVersions] = useState([]);
   const [analysisParams, setAnalysisParams] = useState(
     getDefaultAnalysisParams()
   );
 
   // TODO remove this value once entire advanced analysis section is under a single checkbox
   const [resetDropDown, setResetDropDown] = useState(0);
-
-  useEffect(() => {
-    // when page loads, get all available pulse3d versions
-    async function getPulse3dVersions() {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/versions`
-      );
-      // sort in desc order so that the latest version shows up first
-      const sortedVersions = semverSort.desc(await response.json());
-      setPulse3dVersions(sortedVersions);
-    }
-    getPulse3dVersions();
-  }, []);
 
   useEffect(() => {
     // checks if error value exists, no file is selected, or upload is in progress
