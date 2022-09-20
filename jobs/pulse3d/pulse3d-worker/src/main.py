@@ -95,7 +95,7 @@ async def process(con, item):
                 if not re_analysis or PULSE3D_VERSION in (
                     "0.24.6",
                     "0.25.1",
-                ):  # from_dataframe does not exist for versions before 0.24.6
+                ):  # from_dataframe does not exist for versions before 0.25.2
                     recordings = list(PlateRecording.from_directory(tmpdir))
                     logger.info(f"{len(recordings)} recording(s) found")
                     # Tanner (6/8/22): only supports analyzing one recording at a time right now. Functionality can be added whenever analyzing multiple files becomes necessary
