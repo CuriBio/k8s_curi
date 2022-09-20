@@ -298,7 +298,7 @@ export default function AnalysisParamForm({
       </AdditionalParamLabel>
       <InputContainer>
         <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
-          <Label htmlFor="disableYNormalization">
+          <Label htmlFor="normalizeYAxis">
             Disable Y-Axis Normalization :
             <Tooltip
               title={
@@ -312,10 +312,10 @@ export default function AnalysisParamForm({
           </Label>
           <BooleanInput
             type="checkbox"
-            id="disableYNormalization"
+            id="normalizeYAxis"
             onChange={() => {
               updateParams({
-                disableYNormalization: !disableAxisIsChecked,
+                normalizeYAxis: disableAxisIsChecked,
               });
               setDisableAxisIsChecked(!disableAxisIsChecked);
             }}

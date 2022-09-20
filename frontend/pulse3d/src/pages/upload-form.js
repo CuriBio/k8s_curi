@@ -93,7 +93,7 @@ export default function UploadForm() {
   const [tabSelection, setTabSelection] = useState(query.id);
   const [modalState, setModalState] = useState(false);
   const [analysisParams, setAnalysisParams] = useState({
-    disableYNormalization: false,
+    normalizeYAxis: true,
     baseToPeak: "",
     peakToBase: "",
     maxY: "",
@@ -150,7 +150,7 @@ export default function UploadForm() {
   const resetState = () => {
     setFiles([]);
     setAnalysisParams({
-      disableYNormalization: false,
+      normalizeYAxis: true,
       baseToPeak: "",
       peakToBase: "",
       maxY: "",
@@ -188,7 +188,7 @@ export default function UploadForm() {
   const postNewJob = async (uploadId, filename) => {
     try {
       const {
-        disableYNormalization,
+        normalizeYAxis,
         baseToPeak,
         peakToBase,
         maxY,
@@ -204,7 +204,7 @@ export default function UploadForm() {
         method: "POST",
         body: JSON.stringify({
           upload_id: uploadId,
-          disable_y_normalization: disableYNormalization,
+          normalize_y_axis: normalizeYAxis,
           baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
           max_y: maxY === "" ? null : maxY,
           prominence_factors: formatTupleParams(
