@@ -49,6 +49,7 @@ app.add_middleware(
         # TODO use a single ENV var for this instead
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
+        "http://localhost:3000"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -291,7 +292,7 @@ async def create_new_job(
             job_id = await create_job(
                 con=con,
                 upload_id=details.upload_id,
-                queue=f"pulse3d-v{details.version}",
+                queue=f"test_pulse3d-v{details.version}",
                 priority=priority,
                 meta={"analysis_params": analysis_params, "version": details.version},
             )

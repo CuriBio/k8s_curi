@@ -2,6 +2,7 @@ import styled from "styled-components";
 import { useEffect, useState } from "react";
 import * as d3 from "d3";
 // import ZoomWidget from "../basicWidgets/ZoomWidget";
+import ButtonWidget from "../basicWidgets/ButtonWidget";
 
 const Container = styled.div`
   width: 1270px;
@@ -9,6 +10,8 @@ const Container = styled.div`
   background-color: white;
   overflow-x: scroll;
   overflow-y: hidden;
+  position: relative;
+  left: 50px;
   border-radius: 7px;
   display: flex;
   flex-direction: row;
@@ -23,6 +26,11 @@ const Container = styled.div`
   &::-webkit-scrollbar-thumb:hover {
     background-color: var(--teal-green);
   }
+`;
+
+const ColumnContainer = styled.div`
+  bottom: 15px;
+  position: relative;
 `;
 
 const XAxisLabel = styled.div`
@@ -50,10 +58,30 @@ const YAxisContainer = styled.div`
   transform: rotate(-90deg);
   height: 50px;
   width: 50px;
-  top: 35%;
+  top: 44%;
   display: flex;
   align-items: center;
   justify-content: center;
+`;
+
+const AddDeleteContainer = styled.div`
+  position: relative;
+  height: 40px;
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  justify-content: flex-end;
+  font-size: 16px;
+  align-items: center;
+  padding-right: 15px;
+  padding-bottom: 4px;
+`;
+
+const LabelDiv = styled.div`
+  width: 100px;
+  display: flex;
+  justify-content: end;
+  padding-right: 10px;
 `;
 
 export default function WaveformGraph({
@@ -66,6 +94,7 @@ export default function WaveformGraph({
   currentWell,
   setEditablePeaksValleys,
   xRange,
+  setErrorMessage,
 }) {
   const [valleys, setValleys] = useState([]);
   const [peaks, setPeaks] = useState([]);
@@ -227,8 +256,8 @@ export default function WaveformGraph({
     /* --------------------------------------
       PEAKS AND VALLEYS
     -------------------------------------- */
-    // NOTE!! these have to be in this syntax, not const () => {}
-    function dragStarted() {
+    // NOTE!! these have to be in this syntax, not const () => {}  -- not sure why yet
+    function dragStarted(d) {
       // Makes the radius of the valley/peak marker larger when selected to show user
       d3.select(this).raise().attr("r", 10);
     }
@@ -296,16 +325,14 @@ export default function WaveformGraph({
           Number(coords[0].toFixed(2)) === Number(x.invert(d.x).toFixed(2))
       );
 
-      // TODO check here for alternating peaks and valleys, if not, return to original position and notify user
-      if (peakOrValley === "peak") {
-        const peaksCopy = peaks;
-        peaksCopy.splice(indexToChange, 1, newSelectedIndex);
-        setPeaks([...peaksCopy]); // required to change dependencies
-      } else {
-        const valleysCopy = valleys;
-        valleysCopy.splice(indexToChange, 1, newSelectedIndex);
-        setValleys([...valleysCopy]); // required to change dependencies
-      }
+      // Changing the x/y coordinates on the graph does not auto update the original array used to plot peaks and valleys so you need to update them separately
+     if (peakOrValley === "peak") {
+       peaks.splice(indexToChange, 1, newSelectedIndex);
+       setPeaks([...peaks]); // required to change dependencies
+     } else {
+       valleys.splice(indexToChange, 1, newSelectedIndex);
+       setValleys([...valleys]); // required to change dependencies
+     }
     }
 
     // graph all the peak markers
@@ -314,6 +341,8 @@ export default function WaveformGraph({
       .data(initialPeaksValleys[0])
       .enter()
       .append("path")
+      .attr("id", "peak")
+      .attr("indexToReplace", (d) => initialPeaksValleys[0].indexOf(d)) // keep track of index in peaks array to splice later
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
         return (
@@ -324,8 +353,6 @@ export default function WaveformGraph({
           ") rotate(180)"
         );
       })
-      .attr("id", "peak")
-      .attr("indexToReplace", (d) => initialPeaksValleys[0].indexOf(d)) // keep track of index in peaks array to splice later
       .style("fill", "orange")
       .attr("stroke", "orange")
       .style("cursor", "pointer")
@@ -347,6 +374,8 @@ export default function WaveformGraph({
       .data(initialPeaksValleys[1])
       .enter()
       .append("path")
+      .attr("id", "valley")
+      .attr("indexToReplace", (d) => initialPeaksValleys[1].indexOf(d)) // keep track of index in valleys array to splice later
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
         return (
@@ -357,8 +386,6 @@ export default function WaveformGraph({
           ")"
         );
       })
-      .attr("id", "valley")
-      .attr("indexToReplace", (d) => initialPeaksValleys[1].indexOf(d)) // keep track of index in valleys array to splice later
       .style("fill", "green")
       .attr("stroke", "green")
       .style("cursor", "pointer")
@@ -480,13 +507,66 @@ export default function WaveformGraph({
     setEditablePeaksValleys(newEntries);
   }, [peaks, valleys]);
 
+  const addNewPeakValley = (type) => {
+    // find first index of data displayed on graph
+    const indexToInsert = dataToGraph.findIndex(
+      (coord) => coord[0] >= xRange.min
+    );
+    // the useEffect above actually adds peak/valley to graph
+    if (type === 0) {
+      setPeaks([...peaks, indexToInsert]);
+    } else {
+      setValleys([...valleys, indexToInsert]);
+    }
+  };
+
   return (
     <>
       <YAxisContainer>
         <YAxisLabel>Active Twitch Force (uN)</YAxisLabel>
         {/* <ZoomWidget size={"20px"} /> */}
       </YAxisContainer>
-      <div>
+      <ColumnContainer>
+        <AddDeleteContainer>
+          <LabelDiv>Peaks:</LabelDiv>
+          <ButtonWidget
+            width="75px"
+            height="30px"
+            position="relative"
+            borderRadius="3px"
+            fontSize="14px"
+            label="Add"
+            clickFn={() => addNewPeakValley(0)}
+          />
+          <ButtonWidget
+            width="75px"
+            height="30px"
+            position="relative"
+            borderRadius="3px"
+            fontSize="14px"
+            label="Delete"
+            clickFn={() => console.log("here")}
+          />
+          <LabelDiv>Valleys:</LabelDiv>
+          <ButtonWidget
+            width="75px"
+            height="30px"
+            position="relative"
+            borderRadius="3px"
+            fontSize="14px"
+            label="Add"
+            clickFn={() => addNewPeakValley(1)}
+          />
+          <ButtonWidget
+            width="75px"
+            height="30px"
+            position="relative"
+            borderRadius="3px"
+            fontSize="14px"
+            label="Delete"
+            clickFn={() => console.log("here")}
+          />
+        </AddDeleteContainer>
         <Container>
           <div id="waveformGraph" />
         </Container>
@@ -494,7 +574,7 @@ export default function WaveformGraph({
           <XAxisLabel>Time (seconds)</XAxisLabel>
           {/* <ZoomWidget size={"20px"} /> */}
         </XAxisContainer>
-      </div>
+      </ColumnContainer>
     </>
   );
 }

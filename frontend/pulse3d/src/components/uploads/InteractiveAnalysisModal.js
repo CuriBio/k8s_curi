@@ -37,15 +37,16 @@ const DropdownLabel = styled.span`
 `;
 
 const GraphContainer = styled.div`
-  height: 390px;
+  height: 410px;
   border-radius: 7px;
   background-color: var(--med-gray);
   position: relative;
   width: 1350px;
   margin-top: 4%;
   overflow: hidden;
-  padding: 15px;
+  padding: 0px 15px;
   display: flex;
+  flex-direction: column;
 `;
 
 const SpinnerContainer = styled.div`
@@ -61,6 +62,17 @@ const ButtonContainer = styled.div`
   top: 8vh;
   display: flex;
   justify-content: space-evenly;
+`;
+
+const ErrorLabel = styled.div`
+  position: relative;
+  width: 80%;
+  height: 40px;
+  align-items: center;
+  color: red;
+  font-style: italic;
+  display: flex;
+  justify-content: flex-end;
 `;
 
 const uploadModalLabels = {
@@ -85,7 +97,7 @@ export default function InteractiveWaveformModal({
   setOpenInteractiveAnalysis,
 }) {
   const [selectedWell, setSelectedWell] = useState("A1");
-  const [uploadInProgress, setUploadInProgress] = useState(false);
+  const [uploadInProgress, setUploadInProgress] = useState(false); // determines state of interactive analysis upload
   const [originalData, setOriginalData] = useState({}); // original waveform data from GET request, unedited
   const [dataToGraph, setDataToGraph] = useState([]); // well-specfic coordinates to graph
   const [isLoading, setIsLoading] = useState(true);
@@ -93,6 +105,7 @@ export default function InteractiveWaveformModal({
   const [modalLabels, setModalLabels] = useState(uploadModalLabels.success);
   const [markers, setMarkers] = useState([]); // peak and valleyy markers
   const [editablePeaksValleys, setEditablePeaksValleys] = useState(); // user edited peaks/valleys as changes are made, should get stored in localStorage
+  const [errorMessage, setErrorMessage] = useState();
   const [xRange, setXRange] = useState({
     min: null,
     max: null, // random
@@ -164,16 +177,13 @@ export default function InteractiveWaveformModal({
     setSelectedWell(wellNames[idx]);
   };
 
-  const resetAllChanges = () => {
-    // reset start and end times
-    setEditableStartEndTimes({
-      startTime: selectedJob.analysisParams.start_time,
-      endTime: selectedJob.analysisParams.end_time,
-    });
-    // reset dropdown to "A1"
-    handleWellSelection(0);
-    // reset peaks and valleys
-    setEditablePeaksValleys({ ...originalData.peaks_valleys });
+  const resetWellChanges = () => {
+    // reset peaks and valleys for current well
+    editablePeaksValleys[selectedWell] =
+      originalData.peaks_valleys[selectedWell];
+
+    // reset state
+    setEditablePeaksValleys({ ...editablePeaksValleys });
   };
 
   const postNewJob = async () => {
@@ -196,8 +206,8 @@ export default function InteractiveWaveformModal({
           body: JSON.stringify(requestBody),
         }
       );
+
       if (jobResponse.status !== 200) {
-        // TODO make modal
         console.log("ERROR posting new job: ", await jobResponse.json());
         setModalLabels(uploadModalLabels.error);
       } else {
@@ -206,7 +216,6 @@ export default function InteractiveWaveformModal({
 
       setUploadInProgress(false);
     } catch (e) {
-      // TODO make modal
       console.log("ERROR posting new job");
       setModalLabels(uploadModalLabels.error);
       setUploadInProgress(false);
@@ -247,8 +256,10 @@ export default function InteractiveWaveformModal({
               setEditablePeaksValleys={setEditablePeaksValleys}
               editablePeaksValleys={editablePeaksValleys}
               xRange={xRange}
+              setErrorMessage={setErrorMessage}
             />
           </GraphContainer>
+          <ErrorLabel>{errorMessage}</ErrorLabel>
           <ButtonContainer>
             <ButtonWidget
               width="150px"
@@ -259,19 +270,18 @@ export default function InteractiveWaveformModal({
               label="Cancel"
               clickFn={() => setOpenInteractiveAnalysis(false)}
             />
-
             <ButtonWidget
               width="150px"
               height="50px"
               position="relative"
               borderRadius="3px"
               left="320px"
-              label="Reset All"
+              label="Reset Well"
               backgroundColor={
                 uploadInProgress ? "var(--dark-gray)" : "var(--dark-blue)"
               }
               disabled={uploadInProgress}
-              clickFn={resetAllChanges}
+              clickFn={resetWellChanges}
             />
 
             <ButtonWidget

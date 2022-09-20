@@ -37,7 +37,7 @@ const setTokens = ({ access, refresh }) => {
   const expTime = new Date(jwtDecode(tokens.refresh).exp * 1000);
   const currentTime = new Date().getTime();
   const millisBeforeLogOut = expTime - currentTime;
-  logoutTimer = setTimeout(sendLogoutMsg, millisBeforeLogOut);
+  // logoutTimer = setTimeout(sendLogoutMsg, millisBeforeLogOut);
 };
 
 const clearTokens = () => {
@@ -185,7 +185,7 @@ const interceptResponse = async (req, url) => {
       clearAccountInfo();
     } else if (response.status === 401 || response.status === 403) {
       // if any other request receives an unauthorized or forbidden error code, send logout ping (this fn will also clear account info)
-      sendLogoutMsg();
+      // sendLogoutMsg();
     }
     return response;
   }
