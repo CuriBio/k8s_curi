@@ -197,6 +197,7 @@ export default function InteractiveWaveformModal({
         peaks_valleys: editablePeaksValleys,
         start_time: editableStartEndTimes.startTime,
         end_time: editableStartEndTimes.endTime,
+        version: selectedJob.version
       };
 
       const jobResponse = await fetch(
@@ -206,8 +207,8 @@ export default function InteractiveWaveformModal({
           body: JSON.stringify(requestBody),
         }
       );
-
       if (jobResponse.status !== 200) {
+        // TODO make modal
         console.log("ERROR posting new job: ", await jobResponse.json());
         setModalLabels(uploadModalLabels.error);
       } else {

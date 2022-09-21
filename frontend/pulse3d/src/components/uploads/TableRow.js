@@ -119,25 +119,6 @@ export default function Row({
     }
   };
 
-  const formatAnalysisParams = (analysisParams, analyzedFile) => {
-    // Tanner (8/23/22): older analyses did not store the analysis params in the metadata of their DB entries,
-    // so guarding against that case
-    if (analysisParams) {
-      return Object.keys(analysisParams).map((param) => {
-        if (analysisParams[param]) {
-          const splitParam = param.split("_");
-          return (
-            <li key={analyzedFile + "__" + param}>
-              {splitParam[0] + " " + splitParam[1]}:{" "}
-              {JSON.stringify(analysisParams[param])}
-            </li>
-          );
-        }
-      });
-    }
-    return "Not found";
-  };
-
   return (
     <>
       <TableRow sx={{ "& > *": { borderBottom: "unset", height: "60px" } }}>
@@ -198,15 +179,19 @@ export default function Row({
                           <JobCell>{analyzedFile}</JobCell>
                           <JobCell>{datetime}</JobCell>
                           <JobCell align="center">
-                            {Object.keys(analysisParams).map((param) => {
-                              if (analysisParams[param]) {
-                                return formatAnalysisParamColumn(
-                                  param,
-                                  analyzedFile,
-                                  analysisParams[param]
-                                );
-                              }
-                            })}
+                            {analysisParams
+                              ? // Tanner (8/23/22): older analyses did not store the analysis params in the metadata of their DB entries,
+                                // so guarding against that case
+                                Object.keys(analysisParams).map((param) => {
+                                  if (analysisParams[param]) {
+                                    return formatAnalysisParamColumn(
+                                      param,
+                                      analyzedFile,
+                                      analysisParams[param]
+                                    );
+                                  }
+                                })
+                              : "Not Found"}
                           </JobCell>
                           <JobCell align="center">{status}</JobCell>
                           <JobCell align="center">
