@@ -74,9 +74,23 @@ const defaultUploadErrorLabel =
 const defaultZipErrorLabel =
   "The following file(s) will not be uploaded because they either contain multiple recordings or do not have the correct number of H5 files.";
 
+const getDefaultAnalysisParams = () => {
+  return {
+    baseToPeak: "",
+    peakToBase: "",
+    maxY: "",
+    prominenceFactor: "",
+    widthFactor: "",
+    twitchWidths: "",
+    startTime: "",
+    endTime: "",
+    selectedPulse3dVersion: "", // Tanner (9/15/22): The pulse3d version technically isn't a param, so could move this value to its own state if needed
+  };
+};
+
 export default function UploadForm() {
   const { query } = useRouter();
-  const { uploads } = useContext(UploadsContext);
+  const { uploads, pulse3dVersions } = useContext(UploadsContext);
   const [files, setFiles] = useState([]);
   const [formattedUploads, setFormattedUploads] = useState([]);
   const [isButtonDisabled, setIsButtonDisabled] = useState(true);
@@ -103,7 +117,7 @@ export default function UploadForm() {
     startTime: "",
     endTime: "",
   });
-
+  
   useEffect(() => {
     // checks if error value exists, no file is selected, or upload is in progress
     const checkConditions =
@@ -118,13 +132,6 @@ export default function UploadForm() {
   }, [paramErrors, files, inProgress]);
 
   useEffect(() => {
-    // resets state when upload status changes
-    if (uploadSuccess || !modalState) {
-      resetState();
-    }
-  }, [uploadSuccess, modalState]);
-
-  useEffect(() => {
     // resets upload status when user makes changes
     if (
       (files.length > 0 && files[0] instanceof File) ||
@@ -135,6 +142,7 @@ export default function UploadForm() {
   }, [files, analysisParams]);
 
   useEffect(() => {
+    // reset all params if the user switches between the "re-analyze" and "new upload" versions of this page
     setTabSelection(query.id);
     resetState();
   }, [query]);
@@ -166,6 +174,8 @@ export default function UploadForm() {
     setModalButtons(["Close"]);
     setCheckedWindow(false);
     setParamErrors({});
+    // Tanner (9/13/22): this is a really hacky way of triggering this since the value must actually change, but it will be unnecessary once the single checkbox is added
+    setResetDropDown(resetDropDown + 1);
   };
 
   const formatTupleParams = (firstParam, secondParam) => {
@@ -199,6 +209,7 @@ export default function UploadForm() {
         twitchWidths,
         startTime,
         endTime,
+        selectedPulse3dVersion,
       } = analysisParams;
       const jobResponse = await fetch("https://curibio.com/jobs", {
         method: "POST",
@@ -230,6 +241,11 @@ export default function UploadForm() {
     }
   };
 
+  const submitNewAnalysis = async () => {
+    await checkForMultiRecZips();
+    resetState();
+  };
+
   const checkForMultiRecZips = async () => {
     var JSZip = require("jszip");
 
@@ -259,6 +275,7 @@ export default function UploadForm() {
           return !onlyOneRec || !recordingContainsValidNumFiles;
         } catch (e) {
           console.log(`ERROR unable to read zip file: ${file.name} ${e}`);
+          failedUploadsMsg.push(file.name);
           return true;
         }
       });
@@ -277,14 +294,15 @@ export default function UploadForm() {
           ...badZipfiles.map((f) => f.name),
         ]);
 
-        return setModalState(true);
+        setModalState(true);
+        return;
       }
     }
 
-    await handleUpload(files);
+    await handleNewAnalysis(files);
   };
 
-  const handleUpload = async (files) => {
+  const handleNewAnalysis = async (files) => {
     // update state to trigger in progress spinner over submit button
     if (files.length > 0) {
       setInProgress(true);
@@ -341,14 +359,17 @@ export default function UploadForm() {
         return;
       }
 
-      const uploadResponse = await fetch("https://curibio.com/uploads", {
-        method: "POST",
-        body: JSON.stringify({
-          filename,
-          md5s: hexToBase64(fileHash),
-          upload_type: "mantarray",
-        }),
-      });
+      const uploadResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            filename,
+            md5s: hexToBase64(fileHash),
+            upload_type: "mantarray",
+          }),
+        }
+      );
 
       // break flow if initial request returns error status code
       if (uploadResponse.status !== 200) {
@@ -403,7 +424,7 @@ export default function UploadForm() {
         (f) => !failedUploadsMsg.includes(f.name)
       );
       console.log("FILES: ", filteredFiles);
-      await handleUpload(filteredFiles);
+      await handleNewAnalysis(filteredFiles);
     }
     // goes after because this dependency triggers reset
     setModalState(false);
@@ -446,29 +467,32 @@ export default function UploadForm() {
           setParamErrors={setParamErrors}
           setAnalysisParams={setAnalysisParams}
           analysisParams={analysisParams}
+          pulse3dVersions={pulse3dVersions}
+          resetDropDown={resetDropDown}
         />
         <ButtonContainer>
           {uploadSuccess ? <SuccessText>Upload Successful!</SuccessText> : null}
           <ButtonWidget
-            width={"135px"}
-            height={"45px"}
-            position={"relative"}
-            borderRadius={"3px"}
+            width="135px"
+            height="45px"
+            position="relative"
+            borderRadius="3px"
             label="Reset"
             clickFn={resetState}
           />
           <ButtonWidget
-            width={"135px"}
-            height={"45px"}
-            position={"relative"}
-            borderRadius={"3px"}
+            width="135px"
+            height="45px"
+            position="relative"
+            borderRadius="3px"
+            left="10px"
             backgroundColor={
               isButtonDisabled ? "var(--dark-gray)" : "var(--dark-blue)"
             }
             disabled={isButtonDisabled}
             inProgress={inProgress}
             label="Submit"
-            clickFn={checkForMultiRecZips}
+            clickFn={submitNewAnalysis}
           />
         </ButtonContainer>
       </Uploads>

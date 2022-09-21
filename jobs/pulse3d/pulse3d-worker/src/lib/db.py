@@ -17,6 +17,7 @@ async def insert_metadata_into_pg(
     con, pr, customer_id, user_id, upload_id, file, outfile_key, md5s, re_analysis
 ):
     """
+    TODO fix this, use standard docstyle
     args:
         contains pgpool connection, PlateRecording, <file>.xlsx, object key for outfile, and the md5 hash
     """

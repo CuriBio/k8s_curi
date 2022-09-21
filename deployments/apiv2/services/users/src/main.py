@@ -24,7 +24,6 @@ from models.users import (
     UserProfile,
     UserAction,
 )
-from pydantic import EmailStr
 from utils.db import AsyncpgPoolDep
 
 
@@ -40,6 +39,7 @@ CB_CUSTOMER_ID: uuid.UUID
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        # TODO use a single ENV var for this instead
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
     ],
@@ -63,27 +63,6 @@ async def startup():
         # might be a better way to do this without using global
         global CB_CUSTOMER_ID
         CB_CUSTOMER_ID = await con.fetchval("SELECT id FROM customers WHERE email = 'software@curibio.com'")
-
-
-@app.get("/users/me", response_model=UserProfile)
-async def index(request: Request, token=Depends(ProtectedAny(scope=["users:free"]))):
-    try:
-        async with request.state.pgpool.acquire() as con:
-            user_id = uuid.UUID(hex=token["userid"])
-            rows = await con.fetchrow(
-                "select id, name, email, account_type, created_at, updated_at, data->'scope' as scope from users where id = $1",
-                user_id,
-            )
-
-            return UserProfile(
-                username=rows.get("name", ""),
-                email=rows.get("email", ""),
-                user_id=rows.get("id", "") if "id" in rows else "",
-                account_type=rows.get("account_type", ""),
-                scope=json.loads(rows.get("scope", "[]")),
-            )
-    except:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @app.post("/login", response_model=AuthTokens)
@@ -342,62 +321,85 @@ async def register(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.get("/users")
-async def get_users(request: Request, token=Depends(ProtectedAny(scope=["users:admin"]))):
+@app.get("/")
+async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=["users:admin"]))):
     """Get info for all the users under the given customer account.
 
-    By default it will be sorted with all active users showing up first, then all the deactivated users
+    List of users returned will be sorted with all active users showing up first, then all the suspended (deactivated) users
     """
+    customer_id = uuid.UUID(hex=token["userid"])
+
+    query = (
+        "SELECT id, name, email, created_at, last_login, suspended FROM users "
+        "WHERE customer_id=$1 AND deleted_at IS NULL "
+        "ORDER BY suspended"
+    )
     try:
         async with request.state.pgpool.acquire() as con:
-            customer_id = uuid.UUID(hex=token["userid"])
-
-            query = (
-                "SELECT name, email, created_at, last_login, suspended FROM users "
-                "WHERE customer_id=$1 AND deleted_at IS NULL "
-                "ORDER BY suspended"
-            )
             result = await con.fetch(query, customer_id)
 
-            return [
-                {
-                    "name": row.get("name", ""),
-                    "email": row.get("email", ""),
-                    "date_created": row.get("created_at", ""),
-                    "last_loggedin": row.get("last_login"),
-                    "deactivated": row.get("suspended"),
-                }
-                for row in result
-            ]
+        return [dict(row) for row in result]
 
     except Exception as e:
-        logger.exception(f"users GET: Unexpected error {repr(e)}")
+        logger.exception(f"GET /: Unexpected error {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.put("/users/{email_of_user_to_edit}")
-async def deactivate_user(
-    request: Request,
-    action_to_take: UserAction,
-    email_of_user_to_edit: EmailStr,
-    token=Depends(ProtectedAny(scope=["users:admin"])),
-):
-    """Edit a users information
+@app.get("/{user_id}")
+async def get_user(request: Request, user_id: uuid.UUID, token=Depends(ProtectedAny(scope=["users:admin"]))):
+    """Get info for the user with the given under the given customer account."""
+    customer_id = uuid.UUID(hex=token["userid"])
 
-    The action to take on the user should be passed in the body of PUT request as action_type
-        -deactivate: set suspended field to true
-        -delete: set deleted_at field to current time
-    """
+    query = (
+        "SELECT id, name, email, created_at, last_login, suspended FROM users "
+        "WHERE customer_id=$1 AND id=$2 AND deleted_at IS NULL"
+    )
     try:
         async with request.state.pgpool.acquire() as con:
-            if action_to_take.action_type == "deactivate":
-                update_query = "UPDATE users SET suspended='t' WHERE email=$1"
-                await con.execute(update_query, email_of_user_to_edit)
+            row = await con.fetchrow(query, customer_id, user_id)
 
-            elif action_to_take.action_type == "delete":
-                update_query = "UPDATE users SET deleted_at=$1  WHERE email=$2"
-                await con.execute(update_query, datetime.datetime.now(), email_of_user_to_edit)
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"User ID: {user_id} not found under Customer ID: {customer_id}",
+            )
 
+        return dict(row)
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.exception(f"user-actions PUT: Unexpected error {repr(e)}")
+        logger.exception(f"GET /{user_id}: Unexpected error {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.put("/{user_id}")
+async def update_user(
+    request: Request,
+    details: UserAction,
+    user_id: uuid.UUID,
+    token=Depends(ProtectedAny(scope=["users:admin"])),
+):
+    """Update a user's information in the database.
+
+    The action to take on the user should be passed in the body of PUT request as action_type:
+        - deactivate: set suspended field to true
+        - delete: set deleted_at field to current time
+    """
+    action = details.action_type
+
+    if action == "deactivate":
+        update_query = "UPDATE users SET suspended='t' WHERE id=$1"
+        query_args = (user_id,)
+    elif action == "delete":
+        update_query = "UPDATE users SET deleted_at=$1 WHERE id=$2"
+        query_args = (datetime.datetime.now(), user_id)
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid action type")
+
+    try:
+        async with request.state.pgpool.acquire() as con:
+            await con.execute(update_query, *query_args)
+    except Exception as e:
+        logger.exception(f"PUT /{user_id}: Unexpected error {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

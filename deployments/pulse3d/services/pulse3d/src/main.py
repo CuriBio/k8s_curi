@@ -3,8 +3,12 @@ import json
 import logging
 from typing import List, Optional, Tuple, Union
 import uuid
+import tempfile
 import boto3
 import os
+import numpy as np
+import pandas as pd
+from glob import glob
 
 from stream_zip import ZIP_64, stream_zip
 from datetime import datetime
@@ -12,14 +16,25 @@ from fastapi import FastAPI, Request, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
+from pulse3D.peak_detection import peak_detector
+from pulse3D.constants import MICRO_TO_BASE_CONVERSION
+
 from auth import ProtectedAny
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET
 from jobs import create_upload, create_job, get_uploads, get_jobs, delete_jobs, delete_uploads
-from models.models import UploadRequest, UploadResponse, JobRequest, JobResponse, JobDownloadRequest
+from models.models import (
+    UploadRequest,
+    UploadResponse,
+    JobRequest,
+    JobResponse,
+    JobDownloadRequest,
+    WaveformDataResponse,
+)
+
 from models.types import TupleParam
 
 from utils.db import AsyncpgPoolDep
-from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error
+from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error, download_directory_from_s3
 
 
 # logging is configured in log_config.yaml
@@ -31,6 +46,7 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        # TODO use a single ENV var for this instead
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
     ],
@@ -124,10 +140,7 @@ async def soft_delete_uploads(
 ):
     # make sure at least one upload ID was given
     if not upload_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No upload IDs given",
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No upload IDs given")
     # need to convert UUIDs to str to avoid issues with DB
     upload_ids = [str(upload_id) for upload_id in upload_ids]
 
@@ -239,14 +252,11 @@ async def _get_jobs(con, token, job_ids):
 
 @app.post("/jobs")
 async def create_new_job(
-    request: Request,
-    details: JobRequest,
-    token=Depends(ProtectedAny(scope=["users:free"])),
+    request: Request, details: JobRequest, token=Depends(ProtectedAny(scope=["users:free"]))
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
         logger.info(f"Creating pulse3d job for upload {details.upload_id} with user ID: {user_id}")
-
         analysis_params = {
             param: dict(details)[param]
             for param in (
@@ -260,34 +270,34 @@ async def create_new_job(
                 "end_time",
             )
         }
-
+        # TODO now that the pulse3d version is configurable, need to remove these default values and let pulse3d handle it
         # convert these params into a format compatible with pulse3D
-        for param, default_values in (  # TODO grab default values from pulse3D package
+        for param, default_values in (
             ("prominence_factors", 6),
             ("width_factors", 7),
             ("baseline_widths_to_use", (10, 90)),
         ):
             analysis_params[param] = _format_tuple_param(analysis_params[param], default_values)
 
-        logger.info(f"Using params: {analysis_params}")
+        logger.info(f"Using v{details.version} with params: {analysis_params}")
 
+        priority = 10
         async with request.state.pgpool.acquire() as con:
-            priority = 10
             job_id = await create_job(
                 con=con,
                 upload_id=details.upload_id,
-                queue="pulse3d",
+                queue=f"pulse3d-v{details.version}",
                 priority=priority,
-                meta={"analysis_params": analysis_params},
+                meta={"analysis_params": analysis_params, "version": details.version},
             )
 
-            return JobResponse(
-                id=job_id,
-                user_id=user_id,
-                upload_id=details.upload_id,
-                status="pending",
-                priority=priority,
-            )
+        return JobResponse(
+            id=job_id,
+            user_id=user_id,
+            upload_id=details.upload_id,
+            status="pending",
+            priority=priority,
+        )
 
     except Exception as e:
         logger.exception(f"Failed to create job: {repr(e)}")
@@ -400,3 +410,124 @@ def _yield_s3_objects(bucket: str, keys: List[str], filenames: List[str]):
 
     except Exception as e:
         raise S3Error(f"Failed to access {bucket}/{key}: {repr(e)}")
+
+
+@app.get("/jobs/waveform_data", response_model=WaveformDataResponse)
+async def get_interactive_waveform_data(
+    request: Request,
+    upload_id: uuid.UUID = Query(None),
+    job_id: uuid.UUID = Query(None),
+    token=Depends(ProtectedAny(scope=["users:free"])),
+):
+
+    account_id = str(uuid.UUID(token["userid"]))
+    customer_id = str(uuid.UUID(token["customer_id"]))
+
+    if job_id is None or upload_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Missing required ids to get job metadata.",
+        )
+
+    upload_id = str(upload_id)
+    job_id = str(job_id)
+
+    # grab jobs meta data to use in peak_detector if necessary
+    # TODO remove this step when peaks and valleys get saved to parquet on initial analysis
+    try:
+        async with request.state.pgpool.acquire() as con:
+            logger.info(f"Getting metadata for job {job_id}")
+            jobs = await _get_jobs(con, token, [job_id])
+
+        parsed_meta = json.loads(jobs[0]["job_meta"])
+        analysis_params = parsed_meta["analysis_params"]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            key = f"uploads/{customer_id}/{account_id}/{upload_id}"
+            logger.info(f"Downloading recording data from {key}")
+
+            download_directory_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file_path=tmpdir)
+
+            # read the time force dataframe from the parquet file
+            parquet_path = glob(os.path.join(tmpdir, "time_force_data", "*.parquet"), recursive=True)
+            df = pd.read_parquet(parquet_path)
+
+            # remove raw data columns
+            columns = [c for c in df.columns if "__raw" not in c]
+            # this is to handle analyses run before PR.to_dataframe() where time is in seconds
+            needs_unit_conversion = not [c for c in df.columns if "__raw" in c]
+
+            time = df["Time (s)"].tolist()
+            if needs_unit_conversion:
+                logger.info("Old parquet file found so converting time column to microseconds")
+                # needs to be us for peak_detector
+                time = [i * MICRO_TO_BASE_CONVERSION for i in time]
+
+            # set up empty dictionaries to be passed in response
+            coordinates = dict()
+            # old jobs won't have this param yet and it will default to None on first analysis
+            peaks_valleys_needed = (
+                "peaks_valleys" not in analysis_params or analysis_params["peaks_valleys"] is None
+            )
+            peaks_and_valleys = analysis_params["peaks_valleys"] if not peaks_valleys_needed else dict()
+
+            for well in columns[1:]:
+                logger.info(f"Finding peaks and valleys for well at {well}")
+
+                well_force = df[well]
+                if needs_unit_conversion:
+                    # not exact, but this isn't used outside of graphing in FE, real raw data doesn't get changed
+                    min_value = min(well_force)
+                    well_force -= min_value
+                    well_force *= MICRO_TO_BASE_CONVERSION
+
+                interpolated_well_data = np.row_stack([time, well_force])
+
+                if peaks_valleys_needed:
+                    # TODO remove once peaks and valleys get stored in parquet files
+                    peak_detector_params = {
+                        param: analysis_params[param]
+                        for param in (
+                            "prominence_factors",
+                            "width_factors",
+                            "start_time",
+                            "end_time",
+                        )
+                        if analysis_params[param] is not None
+                    }
+                    peaks, valleys = peak_detector(interpolated_well_data, **peak_detector_params)
+                    # needs to be converted to lists to be sent as json in response
+                    peaks_and_valleys[well] = [peaks.tolist(), valleys.tolist()]
+
+                well_coords = [
+                    [time[i] / MICRO_TO_BASE_CONVERSION, val] for (i, val) in enumerate(well_force)
+                ]
+                coordinates[well] = well_coords
+
+            return WaveformDataResponse(coordinates=coordinates, peaks_valleys=peaks_and_valleys)
+
+    except KeyError:
+        logger.error(f"Job metadata was not returned from database.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    except S3Error as e:
+        logger.error(f"Error from s3: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception as e:
+        logger.error(f"Failed to get interactive waveform data: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.get("/versions")
+async def get_versions(request: Request):
+    """Retrieve info of all the active pulse3d releases listed in the DB."""
+    try:
+        async with request.state.pgpool.acquire() as con:
+            rows = await con.fetch(  # TODO should eventually sort these using a more robust method
+                "SELECT * FROM pulse3d_versions WHERE state != 'deprecated' ORDER BY created_at"
+            )
+
+        return [row["version"] for row in rows]
+
+    except Exception as e:
+        logger.error(f"Failed to retrieve info of pulse3d versions: {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

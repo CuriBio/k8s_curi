@@ -7,8 +7,8 @@ import { Mutex } from "async-mutex";
 
 const refreshMutex = new Mutex();
 
-const PULSE3D_URL = new URLSearchParams(location.search).get("pulse3d_url");
 const USERS_URL = new URLSearchParams(location.search).get("users_url");
+const PULSE3D_URL = new URLSearchParams(location.search).get("pulse3d_url");
 
 /* Global state of SW */
 
@@ -64,20 +64,8 @@ const clearAccountInfo = () => {
 
 /* Request intercept functions */
 
-const getUrl = ({ pathname, search }) => {
-  let url = "";
-  //This lets the url be dynamic
-  if (pathname.split("/").includes("users")) {
-    url = USERS_URL;
-  } else {
-    const userUrls = ["/login", "/logout", "/refresh", "/register"];
-    url = userUrls.includes(pathname) ? USERS_URL : PULSE3D_URL;
-  }
-  return new URL(`${url}${pathname}${search}`);
-};
-
 const isLoginRequest = (url) => {
-  return url.pathname === "/login";
+  return url.pathname.includes("/login");
 };
 
 const modifyRequest = async (req, url) => {
@@ -95,10 +83,11 @@ const modifyRequest = async (req, url) => {
   }
   // apply new headers. Make sure to clone the original request obj if consuming the body by calling json()
   // since it typically can only be consumed once
-  const modifiedReq = new Request(getUrl(url), {
+  const modifiedReq = new Request(url, {
     headers,
-    body:
-      req.method !== "GET" ? JSON.stringify(await req.clone().json()) : null,
+    body: !["GET", "DELETE"].includes(req.method)
+      ? JSON.stringify(await req.clone().json())
+      : null,
     method: req.method,
   });
 
@@ -110,7 +99,7 @@ const handleRefreshRequest = async () => {
 
   let res = null;
   try {
-    res = await fetch(getUrl({ pathname: "/refresh", search: "" }), {
+    res = await fetch(`${USERS_URL}/refresh`, {
       method: "POST",
       body: JSON.stringify({}),
       headers: { Authorization: `Bearer ${tokens.refresh}` },
@@ -182,6 +171,7 @@ const interceptResponse = async (req, url) => {
       console.log("[SW] Setting account type:", accountType);
       setAccountType(accountType);
     }
+
     // send the response without the tokens so they are always contained within this service worker
     return new Response(JSON.stringify({}), {
       headers: response.headers,
@@ -217,11 +207,15 @@ self.addEventListener("activate", (event) => {
 // Intercept all fetch requests
 self.addEventListener("fetch", async (e) => {
   let destURL = new URL(e.request.url);
-  // only intercept routes to pulse and user apis
-
-  if (destURL.hostname === "curibio.com") {
+  // only intercept requests to pulse3d and user APIs
+  if (
+    e.request.url.includes(USERS_URL) ||
+    e.request.url.includes(PULSE3D_URL)
+  ) {
     e.respondWith(interceptResponse(e.request, destURL));
-  } else e.respondWith(fetch(e.request));
+  } else {
+    e.respondWith(fetch(e.request));
+  }
 });
 
 self.onmessage = ({ data, source }) => {

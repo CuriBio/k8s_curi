@@ -101,23 +101,22 @@ export default function Row({
     }
   };
 
-  const formatAnalysisParams = (analysisParams, analyzedFile) => {
-    // Tanner (8/23/22): older analyses did not store the analysis params in the metadata of their DB entries,
-    // so guarding against that case
-    if (analysisParams) {
-      return Object.keys(analysisParams).map((param) => {
-        if (analysisParams[param]) {
-          const splitParam = param.split("_");
-          return (
-            <li key={analyzedFile + "__" + param}>
-              {splitParam[0] + " " + splitParam[1]}:{" "}
-              {JSON.stringify(analysisParams[param])}
-            </li>
-          );
-        }
-      });
+  const formatAnalysisParamColumn = (param, analyzedFile, value) => {
+    const splitParam = param.split("_");
+    if ("peaks_valleys" !== param) {
+      return (
+        <li key={analyzedFile + "__" + param}>
+          {splitParam[0] + " " + splitParam[1]}: {JSON.stringify(value)}
+        </li>
+      );
+    } else {
+      if (value && Object.keys(value).length === 24)
+        return (
+          <li key={analyzedFile + "__" + param}>
+            user-defined peaks/valleys: true
+          </li>
+        );
     }
-    return "Not found";
   };
 
   return (
@@ -174,25 +173,39 @@ export default function Row({
                       datetime,
                       status,
                       analysisParams,
-                    }) => (
-                      <TableRow key={datetime} sx={{ height: "60px" }}>
-                        <JobCell>{analyzedFile}</JobCell>
-                        <JobCell>{datetime}</JobCell>
-                        <JobCell align="center">
-                          {formatAnalysisParams(analysisParams, analyzedFile)}
-                        </JobCell>
-                        <JobCell align="center">{status}</JobCell>
-                        <JobCell align="center">
-                          <CheckboxWidget
-                            checkedState={checkedJobs.includes(jobId)}
-                            disabled={status === "pending"} // disable if pending
-                            handleCheckbox={(checked) =>
-                              handleCheckedJobs(jobId, row.id, checked)
-                            }
-                          />
-                        </JobCell>
-                      </TableRow>
-                    )
+                    }) => {
+                      return (
+                        <TableRow key={datetime} sx={{ height: "60px" }}>
+                          <JobCell>{analyzedFile}</JobCell>
+                          <JobCell>{datetime}</JobCell>
+                          <JobCell align="center">
+                            {analysisParams
+                              ? // Tanner (8/23/22): older analyses did not store the analysis params in the metadata of their DB entries,
+                                // so guarding against that case
+                                Object.keys(analysisParams).map((param) => {
+                                  if (analysisParams[param]) {
+                                    return formatAnalysisParamColumn(
+                                      param,
+                                      analyzedFile,
+                                      analysisParams[param]
+                                    );
+                                  }
+                                })
+                              : "Not Found"}
+                          </JobCell>
+                          <JobCell align="center">{status}</JobCell>
+                          <JobCell align="center">
+                            <CheckboxWidget
+                              checkedState={checkedJobs.includes(jobId)}
+                              disabled={status === "pending"} // disable if pending
+                              handleCheckbox={(checked) =>
+                                handleCheckedJobs(jobId, row.id, checked)
+                              }
+                            />
+                          </JobCell>
+                        </TableRow>
+                      );
+                    }
                   )}
                 </TableBody>
               </Table>

@@ -83,7 +83,7 @@ export default function NewUserForm() {
       setErrorMsg("* All fields are required");
     // this state gets passed to web worker to attempt login request
     else {
-      const res = await fetch("https://curibio.com/register", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/register`, {
         method: "POST",
         body: JSON.stringify(userData),
       });
