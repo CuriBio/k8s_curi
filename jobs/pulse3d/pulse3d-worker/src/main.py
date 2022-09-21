@@ -128,7 +128,7 @@ async def process(con, item):
                         time_force_df, _ = recordings[0].write_time_force_csv(tmpdir)
                     else:
                         # to_dataframe gets added 0.24.9
-                        time_force_df = recordings[0].to_dataframe(tmpdir)
+                        time_force_df = recordings[0].to_dataframe()
 
                     time_force_df.to_parquet(parquet_path)
 
