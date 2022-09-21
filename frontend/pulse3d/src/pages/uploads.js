@@ -156,7 +156,7 @@ export default function Uploads() {
               status,
               analysisParams,
               // version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
-              version: "0.25.2"
+              version: "0.25.2",
             };
           }
         );
@@ -260,6 +260,8 @@ export default function Uploads() {
 
   const handleDeletions = async () => {
     try {
+      console.log("checkedUploads: ", checkedUploads);
+
       let failedDeletion = false;
       // soft delete uploads
       if (checkedUploads.length > 0) {
@@ -268,8 +270,11 @@ export default function Uploads() {
         const uploadsResponse = await fetch(uploadsURL.slice(0, -1), {
           method: "DELETE",
         });
+        console.log("INSIDE UPLOADS: ", uploadsURL, uploadsResponse);
         failedDeletion ||= uploadsResponse.status !== 200;
       }
+      console.log("checkedJobs: ", checkedJobs);
+
       // soft delete all jobs
       if (checkedJobs.length > 0) {
         const jobsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;
@@ -277,9 +282,11 @@ export default function Uploads() {
         const jobsResponse = await fetch(jobsURL.slice(0, -1), {
           method: "DELETE",
         });
+        console.log("INSIDE JOBS: ", jobsURL, jobsResponse);
+
         failedDeletion ||= jobsResponse.status !== 200;
       }
-
+      console.log("failedDeletion: ", failedDeletion);
       if (failedDeletion) {
         setModalButtons(["Close"]);
         setModalLabels(modalObjs.failedDeletion);
