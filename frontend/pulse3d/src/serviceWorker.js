@@ -85,8 +85,9 @@ const modifyRequest = async (req, url) => {
   // since it typically can only be consumed once
   const modifiedReq = new Request(url, {
     headers,
-    body:
-      req.method !== "GET" ? JSON.stringify(await req.clone().json()) : null,
+    body: !["GET", "DELETE"].includes(req.method)
+      ? JSON.stringify(await req.clone().json())
+      : null,
     method: req.method,
   });
 

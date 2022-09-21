@@ -103,7 +103,8 @@ const modalObjs = {
 
 export default function Uploads() {
   const { accountType } = useContext(AuthContext);
-  const { uploads, setFetchUploads } = useContext(UploadsContext);
+  const { uploads, setFetchUploads, pulse3dVersions } =
+    useContext(UploadsContext);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -144,7 +145,9 @@ export default function Uploads() {
               ? object_key.split("/")[object_key.split("/").length - 1]
               : "";
             const formattedTime = formatDateTime(created_at);
-            const analysisParams = JSON.parse(meta)["analysis_params"];
+            const parsedMeta = JSON.parse(meta);
+            const analysisParams = parsedMeta.analysis_params;
+
             return {
               jobId: id,
               uploadId: upload_id,
@@ -152,6 +155,8 @@ export default function Uploads() {
               datetime: formattedTime,
               status,
               analysisParams,
+              // version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
+              version: "0.25.2",
             };
           }
         );
@@ -256,25 +261,27 @@ export default function Uploads() {
   const handleDeletions = async () => {
     try {
       let failedDeletion = false;
-      // soft delete all jobs
+      // soft delete uploads
       if (checkedUploads.length > 0) {
         const uploadsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads?`;
         checkedUploads.map((id) => (uploadsURL += `upload_ids=${id}&`));
         const uploadsResponse = await fetch(uploadsURL.slice(0, -1), {
           method: "DELETE",
         });
+
         failedDeletion ||= uploadsResponse.status !== 200;
       }
+
       // soft delete all jobs
       if (checkedJobs.length > 0) {
-        const jobsuURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;
-        checkedJobs.map((id) => (jobsuURL += `job_ids=${id}&`));
-        const jobsResponse = await fetch(jobsuURL.slice(0, -1), {
+        const jobsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;
+        checkedJobs.map((id) => (jobsURL += `job_ids=${id}&`));
+        const jobsResponse = await fetch(jobsURL.slice(0, -1), {
           method: "DELETE",
         });
+
         failedDeletion ||= jobsResponse.status !== 200;
       }
-
       if (failedDeletion) {
         setModalButtons(["Close"]);
         setModalLabels(modalObjs.failedDeletion);
