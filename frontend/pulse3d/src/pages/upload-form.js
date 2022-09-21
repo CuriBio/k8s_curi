@@ -267,6 +267,7 @@ export default function UploadForm() {
           return !onlyOneRec || !recordingContainsValidNumFiles;
         } catch (e) {
           console.log(`ERROR unable to read zip file: ${file.name} ${e}`);
+          failedUploadsMsg.push(file.name);
           return true;
         }
       });

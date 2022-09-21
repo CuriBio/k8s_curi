@@ -26,14 +26,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
 PULSE3D_VERSION = pkg_resources.get_distribution("pulse3D").version
 
 
 @get_item(queue=f"pulse3d-v{PULSE3D_VERSION}")
 async def process(con, item):
     logger.info(f"Processing item: {item}")
-
     s3_client = boto3.client("s3")
     job_metadata = {"processed_by": PULSE3D_VERSION}
     outfile_key = None
@@ -98,12 +96,23 @@ async def process(con, item):
                 ):  # from_dataframe does not exist for versions before 0.25.2
                     recordings = list(PlateRecording.from_directory(tmpdir))
                     logger.info(f"{len(recordings)} recording(s) found")
-
                 else:
                     logger.info(f"Loading previous time force data from {parquet_filename}")
                     existing_df = pd.read_parquet(parquet_path)
-                    recording = PlateRecording.from_dataframe(os.path.join(tmpdir, filename), df=existing_df)
-                    recordings = list(recording)
+                    # If a user attempts to perform re-analysis on a 0.24.6 or 0.25.1 with v0.25.2 or above, it will fail
+                    # because the parquet file won't have the raw data columns, so perform analysis again.
+                    try:
+                        recording = PlateRecording.from_dataframe(
+                            os.path.join(tmpdir, filename), df=existing_df
+                        )
+                        recordings = list(recording)
+                    except:
+                        logger.info(
+                            f"Previous dataframe found is not compatible with v{PULSE3D_VERSION}, performing analysis again"
+                        )
+                        recordings = list(PlateRecording.from_directory(tmpdir))
+                        logger.info(f"{len(recordings)} recording(s) found")
+                        # TODO could potentially set re_analysis to False here to rewrite parquet file with updated columns
 
                 # Tanner (6/8/22): only supports analyzing one recording at a time right now. Functionality can be added whenever analyzing multiple files becomes necessary
                 outfile = write_xlsx(recordings[0], **analysis_params)
@@ -116,7 +125,7 @@ async def process(con, item):
                 if not re_analysis:
                     logger.info("Writing time force data to parquet file for new upload")
                     if PULSE3D_VERSION == "0.24.6":
-                        time_force_df,_ = recordings[0].write_time_force_csv(tmpdir)
+                        time_force_df, _ = recordings[0].write_time_force_csv(tmpdir)
                     else:
                         # to_dataframe gets added 0.24.9
                         time_force_df = recordings[0].to_dataframe(tmpdir)
@@ -191,13 +200,11 @@ async def process(con, item):
 async def main():
     try:
         logger.info(f"Worker v{PULSE3D_VERSION} started")
-
-        # DB_PASS = os.getenv("POSTGRES_PASSWORD")
-        # DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
-        # DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
-        # DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
-        # dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
-        dsn = "postgresql://root:HjnlH9RaeTt7uRuF7Uwco6BX4l0jgp39@localhost:5556/curibio"
+        DB_PASS = os.getenv("POSTGRES_PASSWORD")
+        DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
+        DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
+        DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
+        dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
 
         async with asyncpg.create_pool(dsn=dsn) as pool:
             async with pool.acquire() as con:
