@@ -124,6 +124,7 @@ async def process(con, item):
             try:
                 if not re_analysis:
                     logger.info("Writing time force data to parquet file for new upload")
+                    # TODO use semver to check pulse3d against version  greater than 0.24.9
                     if PULSE3D_VERSION == "0.24.6":
                         time_force_df, _ = recordings[0].write_time_force_csv(tmpdir)
                     else:

@@ -102,8 +102,6 @@ export default function Row({
   };
 
   const formatAnalysisParamColumn = (param, analyzedFile, value) => {
-    // Tanner (8/23/22): older analyses did not store the analysis params in the metadata of their DB entries,
-    // so guarding against that case
     const splitParam = param.split("_");
     if ("peaks_valleys" !== param) {
       return (
@@ -182,7 +180,9 @@ export default function Row({
                           <JobCell>{datetime}</JobCell>
                           <JobCell align="center">
                             {analysisParams
-                              ? Object.keys(analysisParams).map((param) => {
+                              ? // Tanner (8/23/22): older analyses did not store the analysis params in the metadata of their DB entries,
+                                // so guarding against that case
+                                Object.keys(analysisParams).map((param) => {
                                   if (analysisParams[param]) {
                                     return formatAnalysisParamColumn(
                                       param,

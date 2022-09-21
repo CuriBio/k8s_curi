@@ -270,10 +270,11 @@ async def create_new_job(
         if details.version != "0.24.6":
             # max_y param was added in 0.25.0
             params.append("max_y")
-        if details.version in (
+        if details.version not in (
             "0.24.6",
             "0.25.1",
         ):
+            # TODO add unit tests
             # peaks_valleys was added in 0.25.2
             params.append("peaks_valleys")
 
