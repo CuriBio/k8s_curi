@@ -261,7 +261,7 @@ export default function Uploads() {
   const handleDeletions = async () => {
     try {
       let failedDeletion = false;
-      // soft delete all jobs
+      // soft delete uploads
       if (checkedUploads.length > 0) {
         const uploadsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads?`;
         checkedUploads.map((id) => (uploadsURL += `upload_ids=${id}&`));
@@ -272,9 +272,9 @@ export default function Uploads() {
       }
       // soft delete all jobs
       if (checkedJobs.length > 0) {
-        const jobsuURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;
-        checkedJobs.map((id) => (jobsuURL += `job_ids=${id}&`));
-        const jobsResponse = await fetch(jobsuURL.slice(0, -1), {
+        const jobsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;
+        checkedJobs.map((id) => (jobsURL += `job_ids=${id}&`));
+        const jobsResponse = await fetch(jobsURL.slice(0, -1), {
           method: "DELETE",
         });
         failedDeletion ||= jobsResponse.status !== 200;

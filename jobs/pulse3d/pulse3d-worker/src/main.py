@@ -98,15 +98,15 @@ async def process(con, item):
                 ):  # from_dataframe does not exist for versions before 0.25.2
                     recordings = list(PlateRecording.from_directory(tmpdir))
                     logger.info(f"{len(recordings)} recording(s) found")
-                    # Tanner (6/8/22): only supports analyzing one recording at a time right now. Functionality can be added whenever analyzing multiple files becomes necessary
-                    outfile = write_xlsx(recordings[0], **analysis_params)
+
                 else:
                     logger.info(f"Loading previous time force data from {parquet_filename}")
                     existing_df = pd.read_parquet(parquet_path)
                     recording = PlateRecording.from_dataframe(os.path.join(tmpdir, filename), df=existing_df)
-                    recordings = [next(recording)]
-                    outfile = write_xlsx(recording, **analysis_params)
+                    recordings = list(recording)
 
+                # Tanner (6/8/22): only supports analyzing one recording at a time right now. Functionality can be added whenever analyzing multiple files becomes necessary
+                outfile = write_xlsx(recordings[0], **analysis_params)
                 outfile_prefix = prefix.replace("uploads/", "analyzed/")
             except Exception as e:
                 logger.exception(f"Analysis failed: {e}")
@@ -115,7 +115,12 @@ async def process(con, item):
             try:
                 if not re_analysis:
                     logger.info("Writing time force data to parquet file for new upload")
-                    time_force_df = recordings[0].to_dataframe(tmpdir)
+                    if PULSE3D_VERSION == "0.24.6":
+                        time_force_df,_ = recordings[0].write_time_force_csv(tmpdir)
+                    else:
+                        # to_dataframe gets added 0.24.9
+                        time_force_df = recordings[0].to_dataframe(tmpdir)
+
                     time_force_df.to_parquet(parquet_path)
 
                     with open(parquet_path, "rb") as file:
@@ -187,11 +192,12 @@ async def main():
     try:
         logger.info(f"Worker v{PULSE3D_VERSION} started")
 
-        DB_PASS = os.getenv("POSTGRES_PASSWORD")
-        DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
-        DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
-        DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
-        dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
+        # DB_PASS = os.getenv("POSTGRES_PASSWORD")
+        # DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
+        # DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
+        # DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
+        # dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
+        dsn = "postgresql://root:HjnlH9RaeTt7uRuF7Uwco6BX4l0jgp39@localhost:5556/curibio"
 
         async with asyncpg.create_pool(dsn=dsn) as pool:
             async with pool.acquire() as con:
