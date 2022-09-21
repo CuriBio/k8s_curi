@@ -260,8 +260,6 @@ export default function Uploads() {
 
   const handleDeletions = async () => {
     try {
-      console.log("checkedUploads: ", checkedUploads);
-
       let failedDeletion = false;
       // soft delete uploads
       if (checkedUploads.length > 0) {
@@ -270,10 +268,9 @@ export default function Uploads() {
         const uploadsResponse = await fetch(uploadsURL.slice(0, -1), {
           method: "DELETE",
         });
-        console.log("INSIDE UPLOADS: ", uploadsURL, uploadsResponse);
+
         failedDeletion ||= uploadsResponse.status !== 200;
       }
-      console.log("checkedJobs: ", checkedJobs);
 
       // soft delete all jobs
       if (checkedJobs.length > 0) {
@@ -282,11 +279,9 @@ export default function Uploads() {
         const jobsResponse = await fetch(jobsURL.slice(0, -1), {
           method: "DELETE",
         });
-        console.log("INSIDE JOBS: ", jobsURL, jobsResponse);
 
         failedDeletion ||= jobsResponse.status !== 200;
       }
-      console.log("failedDeletion: ", failedDeletion);
       if (failedDeletion) {
         setModalButtons(["Close"]);
         setModalLabels(modalObjs.failedDeletion);
