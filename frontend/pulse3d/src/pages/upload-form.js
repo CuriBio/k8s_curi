@@ -11,6 +11,7 @@ import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout, {
   UploadsContext,
 } from "@/components/layouts/DashboardLayout";
+import semverSort from "semver-sort";
 
 const Container = styled.div`
   width: 70%;
@@ -74,6 +75,20 @@ const defaultUploadErrorLabel =
 const defaultZipErrorLabel =
   "The following file(s) will not be uploaded because they either contain multiple recordings or do not have the correct number of H5 files.";
 
+const getDefaultAnalysisParams = () => {
+  return {
+    baseToPeak: "",
+    peakToBase: "",
+    maxY: "",
+    prominenceFactor: "",
+    widthFactor: "",
+    twitchWidths: "",
+    startTime: "",
+    endTime: "",
+    selectedPulse3dVersion: "", // Tanner (9/15/22): The pulse3d version technically isn't a param, so could move this value to its own state if needed
+  };
+};
+
 export default function UploadForm() {
   const { query } = useRouter();
   const { uploads } = useContext(UploadsContext);
@@ -92,16 +107,26 @@ export default function UploadForm() {
   const [checkedBaseline, setCheckedBaseline] = useState(false);
   const [tabSelection, setTabSelection] = useState(query.id);
   const [modalState, setModalState] = useState(false);
-  const [analysisParams, setAnalysisParams] = useState({
-    baseToPeak: "",
-    peakToBase: "",
-    maxY: "",
-    prominenceFactor: "",
-    widthFactor: "",
-    twitchWidths: "",
-    startTime: "",
-    endTime: "",
-  });
+  const [pulse3dVersions, setPulse3dVersions] = useState([]);
+  const [analysisParams, setAnalysisParams] = useState(
+    getDefaultAnalysisParams()
+  );
+
+  // TODO remove this value once entire advanced analysis section is under a single checkbox
+  const [resetDropDown, setResetDropDown] = useState(0);
+
+  useEffect(() => {
+    // when page loads, get all available pulse3d versions
+    async function getPulse3dVersions() {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/versions`
+      );
+      // sort in desc order so that the latest version shows up first
+      const sortedVersions = semverSort.desc(await response.json());
+      setPulse3dVersions(sortedVersions);
+    }
+    getPulse3dVersions();
+  }, []);
 
   useEffect(() => {
     // checks if error value exists, no file is selected, or upload is in progress
@@ -117,13 +142,6 @@ export default function UploadForm() {
   }, [paramErrors, files, inProgress]);
 
   useEffect(() => {
-    // resets state when upload status changes
-    if (uploadSuccess || !modalState) {
-      resetState();
-    }
-  }, [uploadSuccess, modalState]);
-
-  useEffect(() => {
     // resets upload status when user makes changes
     if (
       (files.length > 0 && files[0] instanceof File) ||
@@ -134,6 +152,7 @@ export default function UploadForm() {
   }, [files, analysisParams]);
 
   useEffect(() => {
+    // reset all params if the user switches between the "re-analyze" and "new upload" versions of this page
     setTabSelection(query.id);
     resetState();
   }, [query]);
@@ -148,22 +167,13 @@ export default function UploadForm() {
 
   const resetState = () => {
     setFiles([]);
-    setAnalysisParams({
-      baseToPeak: "",
-      peakToBase: "",
-      maxY: "",
-      prominenceFactorPeaks: "",
-      prominenceFactorValleys: "",
-      widthFactorPeaks: "",
-      widthFactorValleys: "",
-      twitchWidths: "",
-      startTime: "",
-      endTime: "",
-    });
+    setAnalysisParams(getDefaultAnalysisParams());
     setFailedUploadsMsg([defaultUploadErrorLabel]);
     setModalButtons(["Close"]);
     setCheckedWindow(false);
     setParamErrors({});
+    // Tanner (9/13/22): this is a really hacky way of triggering this since the value must actually change, but it will be unnecessary once the single checkbox is added
+    setResetDropDown(resetDropDown + 1);
   };
 
   const formatTupleParams = (firstParam, secondParam) => {
@@ -196,26 +206,38 @@ export default function UploadForm() {
         twitchWidths,
         startTime,
         endTime,
+        selectedPulse3dVersion,
       } = analysisParams;
-      const jobResponse = await fetch("https://curibio.com/jobs", {
-        method: "POST",
-        body: JSON.stringify({
-          upload_id: uploadId,
-          baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
-          max_y: maxY === "" ? null : maxY,
-          prominence_factors: formatTupleParams(
-            prominenceFactorPeaks,
-            prominenceFactorValleys
-          ),
-          width_factors: formatTupleParams(
-            widthFactorPeaks,
-            widthFactorValleys
-          ),
-          twitch_widths: twitchWidths === "" ? null : twitchWidths,
-          start_time: startTime === "" ? null : startTime,
-          end_time: endTime === "" ? null : endTime,
-        }),
-      });
+
+      const requestBody = {
+        upload_id: uploadId,
+        baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
+        prominence_factors: formatTupleParams(
+          prominenceFactorPeaks,
+          prominenceFactorValleys
+        ),
+        width_factors: formatTupleParams(widthFactorPeaks, widthFactorValleys),
+        twitch_widths: twitchWidths === "" ? null : twitchWidths,
+        start_time: startTime === "" ? null : startTime,
+        end_time: endTime === "" ? null : endTime,
+        // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
+        version:
+          selectedPulse3dVersion === ""
+            ? pulse3dVersions[0]
+            : selectedPulse3dVersion,
+      };
+      if (requestBody.version !== "0.24.6") {
+        // Tanner (9/15/21): at the time of writing this, 0.24.6 is the only available pulse3D version that does not support the max_y param
+        requestBody.max_y = maxY === "" ? null : maxY;
+      }
+
+      const jobResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`,
+        {
+          method: "POST",
+          body: JSON.stringify(requestBody),
+        }
+      );
       if (jobResponse.status !== 200) {
         failedUploadsMsg.push(filename);
         console.log("ERROR posting new job: ", await jobResponse.json());
@@ -224,6 +246,11 @@ export default function UploadForm() {
       failedUploadsMsg.push(filename);
       console.log("ERROR posting new job");
     }
+  };
+
+  const submitNewAnalysis = async () => {
+    await checkForMultiRecZips();
+    resetState();
   };
 
   const checkForMultiRecZips = async () => {
@@ -273,14 +300,15 @@ export default function UploadForm() {
           ...badZipfiles.map((f) => f.name),
         ]);
 
-        return setModalState(true);
+        setModalState(true);
+        return;
       }
     }
 
-    await handleUpload(files);
+    await handleNewAnalysis(files);
   };
 
-  const handleUpload = async (files) => {
+  const handleNewAnalysis = async (files) => {
     // update state to trigger in progress spinner over submit button
     if (files.length > 0) {
       setInProgress(true);
@@ -337,14 +365,17 @@ export default function UploadForm() {
         return;
       }
 
-      const uploadResponse = await fetch("https://curibio.com/uploads", {
-        method: "POST",
-        body: JSON.stringify({
-          filename,
-          md5s: hexToBase64(fileHash),
-          upload_type: "mantarray",
-        }),
-      });
+      const uploadResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            filename,
+            md5s: hexToBase64(fileHash),
+            upload_type: "mantarray",
+          }),
+        }
+      );
 
       // break flow if initial request returns error status code
       if (uploadResponse.status !== 200) {
@@ -399,7 +430,7 @@ export default function UploadForm() {
         (f) => !failedUploadsMsg.includes(f.name)
       );
       console.log("FILES: ", filteredFiles);
-      await handleUpload(filteredFiles);
+      await handleNewAnalysis(filteredFiles);
     }
     // goes after because this dependency triggers reset
     setModalState(false);
@@ -442,29 +473,32 @@ export default function UploadForm() {
           setParamErrors={setParamErrors}
           setAnalysisParams={setAnalysisParams}
           analysisParams={analysisParams}
+          pulse3dVersions={pulse3dVersions}
+          resetDropDown={resetDropDown}
         />
         <ButtonContainer>
           {uploadSuccess ? <SuccessText>Upload Successful!</SuccessText> : null}
           <ButtonWidget
-            width={"135px"}
-            height={"45px"}
-            position={"relative"}
-            borderRadius={"3px"}
+            width="135px"
+            height="45px"
+            position="relative"
+            borderRadius="3px"
             label="Reset"
             clickFn={resetState}
           />
           <ButtonWidget
-            width={"135px"}
-            height={"45px"}
-            position={"relative"}
-            borderRadius={"3px"}
+            width="135px"
+            height="45px"
+            position="relative"
+            borderRadius="3px"
+            left="10px"
             backgroundColor={
               isButtonDisabled ? "var(--dark-gray)" : "var(--dark-blue)"
             }
             disabled={isButtonDisabled}
             inProgress={inProgress}
             label="Submit"
-            clickFn={checkForMultiRecZips}
+            clickFn={submitNewAnalysis}
           />
         </ButtonContainer>
       </Uploads>

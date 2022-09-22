@@ -23,6 +23,9 @@ const Container = styled.div`
   min-width: 1800px;
   min-height: 100vh;
   background-color: var(--dark-gray);
+  &::-webkit-scrollbar {
+    display: none;
+  }
 `;
 
 const Main = styled.main`
@@ -37,7 +40,7 @@ export default function Layout({ children }) {
   const router = useRouter();
 
   const logoutUser = async () => {
-    await fetch("https://curibio.com/logout", {
+    await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/logout`, {
       method: "POST",
       body: JSON.stringify({}),
     });
