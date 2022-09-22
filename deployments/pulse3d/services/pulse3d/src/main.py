@@ -274,7 +274,7 @@ async def create_new_job(
         if details.version.split(".") >= VersionInfo.parse("0.25.4"):
             # normalize_y_axis added in 0.25.4
             params.append("normalize_y_axis")
-        if details.version >= VersionInfo.parse("0.25.2"):
+        if details.version.split(".") >= VersionInfo.parse("0.25.2"):
             # TODO add unit tests
             # peaks_valleys was added in 0.25.2
             params.append("peaks_valleys")
