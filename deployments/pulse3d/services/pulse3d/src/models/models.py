@@ -1,4 +1,3 @@
-from xmlrpc.client import Boolean
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
 import uuid
@@ -21,7 +20,7 @@ class JobRequest(BaseModel):
     upload_id: uuid.UUID
     version: str
 
-    normalize_y_axis: Optional[Boolean]
+    normalize_y_axis: Optional[bool]
 
     baseline_widths_to_use: Optional[TupleParam]
     max_y: Optional[Number]
