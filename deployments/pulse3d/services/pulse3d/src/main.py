@@ -265,7 +265,6 @@ async def create_new_job(
             "twitch_widths",
             "start_time",
             "end_time",
-            "peaks_valleys",
         ]
         # TODO could make this if condition `details.version <= "0.25.0"` using the semver package
         if details.version != "0.24.6":

@@ -193,12 +193,6 @@ export default function InteractiveWaveformModal({
   }, [selectedJob]);
 
   useEffect(() => {
-    if (!uploadInProgress && Object.keys(originalData).length > 0) {
-      setModalOpen("status");
-    }
-  }, [uploadInProgress]);
-
-  useEffect(() => {
     // will error on init because there won't be an index 0
     if (Object.keys(originalData).length > 0) {
       setDataToGraph([...originalData.coordinates[selectedWell]]);
@@ -255,6 +249,7 @@ export default function InteractiveWaveformModal({
       }
 
       setUploadInProgress(false);
+      setModalOpen("status");
       // once interactive analysis is closed, clear storage.
       // currently clearing for successful uploads
       sessionStorage.removeItem(selectedJob.jobId);
@@ -262,6 +257,7 @@ export default function InteractiveWaveformModal({
       console.log("ERROR posting new job");
       setModalLabels(constantModalLabels.error);
       setUploadInProgress(false);
+      setModalOpen("status");
     }
   };
 
