@@ -10,6 +10,7 @@ import os
 import numpy as np
 import pandas as pd
 from glob import glob
+from semver import VersionInfo
 
 from stream_zip import ZIP_64, stream_zip
 from datetime import datetime
@@ -251,10 +252,6 @@ async def _get_jobs(con, token, job_ids):
     return await get_jobs(con=con, account_type=account_type, account_id=account_id, job_ids=job_ids)
 
 
-def _string_version_to_numbers(version_string: string) -> List[int]:
-    return version_string.split(".", 3)
-
-
 @app.post("/jobs")
 async def create_new_job(
     request: Request, details: JobRequest, token=Depends(ProtectedAny(scope=["users:free"]))
@@ -271,18 +268,13 @@ async def create_new_job(
             "start_time",
             "end_time",
         ]
-        # TODO could make this if condition `details.version <= "0.25.0"` using the semver package
-        version = _string_version_to_numbers(details.version)
-        if version[0] >= 0 and version[1] >= 25 and version[2] >= 0:
+        if details.version.split(".") >= VersionInfo.parse("0.25.0"):
             # max_y param was added in 0.25.0
             params.append("max_y")
-        if version[0] >= 0 and version[1] >= 25 and version[2] >= 4:
+        if details.version.split(".") >= VersionInfo.parse("0.25.4"):
             # normalize_y_axis added in 0.25.4
             params.append("normalize_y_axis")
-        if details.version not in (
-            "0.24.6",
-            "0.25.1",
-        ):
+        if details.version >= VersionInfo.parse("0.25.2"):
             # TODO add unit tests
             # peaks_valleys was added in 0.25.2
             params.append("peaks_valleys")
