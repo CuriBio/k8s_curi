@@ -93,6 +93,7 @@ export default function UploadForm() {
   const [tabSelection, setTabSelection] = useState(query.id);
   const [modalState, setModalState] = useState(false);
   const [analysisParams, setAnalysisParams] = useState({
+    normalizeYAxis: "",
     baseToPeak: "",
     peakToBase: "",
     maxY: "",
@@ -149,6 +150,7 @@ export default function UploadForm() {
   const resetState = () => {
     setFiles([]);
     setAnalysisParams({
+      normalizeYAxis: "",
       baseToPeak: "",
       peakToBase: "",
       maxY: "",
@@ -186,6 +188,7 @@ export default function UploadForm() {
   const postNewJob = async (uploadId, filename) => {
     try {
       const {
+        normalizeYAxis,
         baseToPeak,
         peakToBase,
         maxY,
@@ -197,10 +200,13 @@ export default function UploadForm() {
         startTime,
         endTime,
       } = analysisParams;
+      console.log(normalizeYAxis);
+      console.log(maxY);
       const jobResponse = await fetch("https://curibio.com/jobs", {
         method: "POST",
         body: JSON.stringify({
           upload_id: uploadId,
+          normalize_y_axis: normalizeYAxis,
           baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
           max_y: maxY === "" ? null : maxY,
           prominence_factors: formatTupleParams(

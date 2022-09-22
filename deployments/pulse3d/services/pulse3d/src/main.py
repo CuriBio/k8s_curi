@@ -250,6 +250,7 @@ async def create_new_job(
         analysis_params = {
             param: dict(details)[param]
             for param in (
+                "normalize_y_axis",
                 "baseline_widths_to_use",
                 "max_y",
                 "prominence_factors",

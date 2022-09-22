@@ -21,17 +21,29 @@ export default function FormInput({
   value = "",
   onChangeFn,
   children,
+  disabled,
 }) {
   return (
     <>
       {label ? <Label htmlFor={name}>{label}</Label> : null}
-      <Field
-        id={name}
-        placeholder={placeholder}
-        type={type}
-        value={value}
-        onChange={onChangeFn}
-      />
+      {disabled ? (
+        <Field
+          id={name}
+          placeholder={placeholder}
+          type={type}
+          value={value}
+          onChange={onChangeFn}
+          readOnly
+        />
+      ) : (
+        <Field
+          id={name}
+          placeholder={placeholder}
+          type={type}
+          value={value}
+          onChange={onChangeFn}
+        />
+      )}
       {children}
     </>
   );

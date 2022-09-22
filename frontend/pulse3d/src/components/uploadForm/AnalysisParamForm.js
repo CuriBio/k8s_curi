@@ -4,6 +4,7 @@ import { isArrayOfNumbers } from "../../utils/generic";
 import FormInput from "../basicWidgets/FormInput";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
+import { useEffect, useState } from "react";
 
 const Container = styled.div`
   padding-top: 1rem;
@@ -168,6 +169,9 @@ export default function AnalysisParamForm({
   setParamErrors,
   analysisParams,
 }) {
+  const [isCheckedYAxisNormalization, setIsCheckedYAxisNormalization] =
+    useState(false);
+
   const updateParams = (newParams) => {
     const updatedParams = { ...analysisParams, ...newParams };
 
@@ -284,12 +288,46 @@ export default function AnalysisParamForm({
     setParamErrors(updatedParamErrors);
   };
 
+  //expand later if other inputs also need to be disabled and cleared
+  useEffect(() => {
+    inputVals.maxY = "";
+    updateParams({
+      maxY: "",
+    });
+  }, [isCheckedYAxisNormalization]);
+
   return (
     <Container>
       <AdditionalParamLabel>
         Additional Analysis Params (Optional)
       </AdditionalParamLabel>
       <InputContainer>
+        <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
+          <Label htmlFor="normalizeYAxis">
+            Disable Y-Axis Normalization:
+            <Tooltip
+              title={
+                <TooltipText>
+                  {"When checked, disables normalization for the y-axis."}
+                </TooltipText>
+              }
+            >
+              <InfoOutlinedIcon />
+            </Tooltip>
+          </Label>
+          <FormInput
+            name="normalizeYAxis"
+            type="checkbox"
+            value={inputVals.maxY}
+            onChangeFn={() => {
+              updateParams({
+                normalizeYAxis: !isCheckedYAxisNormalization,
+              });
+              setIsCheckedYAxisNormalization(!isCheckedYAxisNormalization);
+            }}
+          ></FormInput>
+        </ParamContainer>
+
         <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
           <Label htmlFor="maxY">
             Y-Axis Range (µN):
@@ -315,6 +353,7 @@ export default function AnalysisParamForm({
                   maxY: e.target.value,
                 });
               }}
+              disabled={isCheckedYAxisNormalization}
             >
               <ErrorText id="maxYError" role="errorMsg">
                 {errorMessages.maxY}
