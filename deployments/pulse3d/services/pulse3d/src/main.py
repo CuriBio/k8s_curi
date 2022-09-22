@@ -1,6 +1,7 @@
 from collections import defaultdict
 import json
 import logging
+import string
 from typing import List, Optional, Tuple, Union
 import uuid
 import tempfile
@@ -250,6 +251,10 @@ async def _get_jobs(con, token, job_ids):
     return await get_jobs(con=con, account_type=account_type, account_id=account_id, job_ids=job_ids)
 
 
+def _string_version_to_numbers(version_string: string) -> List[int]:
+    return version_string.split(".", 3)
+
+
 @app.post("/jobs")
 async def create_new_job(
     request: Request, details: JobRequest, token=Depends(ProtectedAny(scope=["users:free"]))
@@ -267,10 +272,12 @@ async def create_new_job(
             "end_time",
         ]
         # TODO could make this if condition `details.version <= "0.25.0"` using the semver package
-        if details.version != "0.24.6":
+        version = _string_version_to_numbers(details.version)
+        if version[0] >= 0 and version[1] >= 25 and version[2] >= 0:
             # max_y param was added in 0.25.0
-            # normalize_y_axis added in 0.25.4
             params.append("max_y")
+        if version[0] >= 0 and version[1] >= 25 and version[2] >= 4:
+            # normalize_y_axis added in 0.25.4
             params.append("normalize_y_axis")
         if details.version not in (
             "0.24.6",
