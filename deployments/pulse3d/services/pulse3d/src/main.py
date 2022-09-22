@@ -259,7 +259,6 @@ async def create_new_job(
         logger.info(f"Creating pulse3d job for upload {details.upload_id} with user ID: {user_id}")
 
         params = [
-            "normalize_y_axis",
             "baseline_widths_to_use",
             "prominence_factors",
             "width_factors",
@@ -270,7 +269,9 @@ async def create_new_job(
         # TODO could make this if condition `details.version <= "0.25.0"` using the semver package
         if details.version != "0.24.6":
             # max_y param was added in 0.25.0
+            # normalize_y_axis added in 0.25.4
             params.append("max_y")
+            params.append("normalize_y_axis")
         if details.version not in (
             "0.24.6",
             "0.25.1",
