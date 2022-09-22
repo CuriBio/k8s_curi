@@ -200,13 +200,6 @@ export default function WaveformGraph({
       })
       .on("contextmenu", (e) => {
         e.preventDefault();
-        // setMenuItems(contextMenuItems.add);
-        // contextMenu
-        //   .attr("target", x.invert(e.offsetX - 50)) // gives context menu easy access to target peak/valley
-        //   .style("position", "absolute")
-        //   .style("left", e.layerX + 80 + "px") // layer does not take in scroll component so x and y stay within visible window
-        //   .style("top", e.layerY + 50 + "px")
-        //   .style("display", "block");
       })
       .append("g")
       .attr("transform", `translate(${margin.left}, ${margin.top})`);
