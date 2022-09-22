@@ -12,6 +12,7 @@ spec:
         containers:
           - name: pulse3d-worker
             image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.24.6
+            imagePullPolicy: Always
             env:
               - name: POSTGRES_PASSWORD
                 valueFrom:
@@ -50,6 +51,7 @@ spec:
         containers:
           - name: pulse3d-worker
             image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.25.1
+            imagePullPolicy: Always
             env:
               - name: POSTGRES_PASSWORD
                 valueFrom:
@@ -88,6 +90,7 @@ spec:
         containers:
           - name: pulse3d-worker
             image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.25.2
+            imagePullPolicy: Always
             env:
               - name: POSTGRES_PASSWORD
                 valueFrom:
