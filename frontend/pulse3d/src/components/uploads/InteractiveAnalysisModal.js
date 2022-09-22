@@ -61,7 +61,7 @@ const ButtonContainer = styled.div`
   width: 100%;
   top: 8vh;
   display: flex;
-  justify-content: space-evenly;
+  justify-content: flex-end;
 `;
 
 const ErrorLabel = styled.div`
@@ -75,13 +75,14 @@ const ErrorLabel = styled.div`
   justify-content: flex-end;
 `;
 
-const uploadModalLabels = {
+const constantModalLabels = {
   success: {
     header: "Success!",
     messages: [
       "You have successfully started a new analysis.",
       "It will appear in the uploads table shortly.",
     ],
+    buttons: ["Close"],
   },
   error: {
     header: "Error Occurred!",
@@ -89,8 +90,21 @@ const uploadModalLabels = {
       "There was an issue while attempting to start this analysis.",
       "Please try again later.",
     ],
+    buttons: ["Close"],
+  },
+  dataFound: {
+    header: "Important!",
+    messages: [
+      "Previous changes have been found for this analysis.",
+      "Do you want to use it or start over?",
+    ],
+    buttons: ["Start Over", "Use"],
   },
 };
+
+const wellNames = Array(24)
+  .fill()
+  .map((_, idx) => twentyFourPlateDefinition.getWellNameFromIndex(idx));
 
 export default function InteractiveWaveformModal({
   selectedJob,
@@ -101,11 +115,11 @@ export default function InteractiveWaveformModal({
   const [originalData, setOriginalData] = useState({}); // original waveform data from GET request, unedited
   const [dataToGraph, setDataToGraph] = useState([]); // well-specfic coordinates to graph
   const [isLoading, setIsLoading] = useState(true);
-  const [statusModalOpen, setStatusModalOpen] = useState(false);
-  const [modalLabels, setModalLabels] = useState(uploadModalLabels.success);
-  const [markers, setMarkers] = useState([]); // peak and valleyy markers
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalLabels, setModalLabels] = useState(constantModalLabels.success);
   const [editablePeaksValleys, setEditablePeaksValleys] = useState(); // user edited peaks/valleys as changes are made, should get stored in localStorage
   const [errorMessage, setErrorMessage] = useState();
+  const [markers, setMarkers] = useState([]);
   const [xRange, setXRange] = useState({
     min: null,
     max: null, // random
@@ -128,20 +142,49 @@ export default function InteractiveWaveformModal({
         setEditablePeaksValleys(waveformData.peaks_valleys);
       } else {
         // open error modal and kick users back to /uploads page if random  error
-        setModalLabels(uploadModalLabels.error);
-        setStatusModalOpen(true);
+        setModalLabels(constantModalLabels.error);
+        setModalOpen("status");
       }
     } catch (e) {
       console.log("ERROR getting waveform data: ", e);
     }
   };
 
-  useEffect(() => {
-    getWaveformData();
+  const getNewData = async () => {
+    await getWaveformData();
     setEditableStartEndTimes({
       startTime: selectedJob.analysisParams.start_time,
       endTime: selectedJob.analysisParams.end_time,
     });
+  };
+
+  const checkForExistingData = () => {
+    const data = sessionStorage.getItem(selectedJob.jobId);
+    // returns null if key doesn't exist in storage
+    if (data) {
+      setModalLabels(constantModalLabels.dataFound);
+      setModalOpen("dataFound");
+    } else {
+      getNewData();
+    }
+  };
+
+  const loadExistingData = () => {
+    // this happens very fast so not storing to react state the first call, see line 162
+    const jsonData = sessionStorage.getItem(selectedJob.jobId);
+    const existingData = JSON.parse(jsonData);
+
+    // not destructuring existingData to prevent confusion with local state names
+    setOriginalData(existingData.originalData);
+    setEditablePeaksValleys(existingData.editablePeaksValleys);
+    setEditableStartEndTimes({
+      startTime: existingData.editableStartEndTimes.startTime,
+      endTime: existingData.editableStartEndTimes.endTime,
+    });
+  };
+
+  useEffect(() => {
+    checkForExistingData();
     // set to hold state of start and stop original times
     setXRange({
       min: selectedJob.analysisParams.start_time,
@@ -151,7 +194,7 @@ export default function InteractiveWaveformModal({
 
   useEffect(() => {
     if (!uploadInProgress && Object.keys(originalData).length > 0) {
-      setStatusModalOpen(true);
+      setModalOpen("status");
     }
   }, [uploadInProgress]);
 
@@ -168,10 +211,6 @@ export default function InteractiveWaveformModal({
       setIsLoading(false);
     }
   }, [dataToGraph, editablePeaksValleys]);
-
-  const wellNames = Array(24)
-    .fill()
-    .map((_, idx) => twentyFourPlateDefinition.getWellNameFromIndex(idx));
 
   const handleWellSelection = (idx) => {
     setSelectedWell(wellNames[idx]);
@@ -197,7 +236,7 @@ export default function InteractiveWaveformModal({
         peaks_valleys: editablePeaksValleys,
         start_time: editableStartEndTimes.startTime,
         end_time: editableStartEndTimes.endTime,
-        version: selectedJob.version
+        version: selectedJob.version,
       };
 
       const jobResponse = await fetch(
@@ -210,22 +249,65 @@ export default function InteractiveWaveformModal({
       if (jobResponse.status !== 200) {
         // TODO make modal
         console.log("ERROR posting new job: ", await jobResponse.json());
-        setModalLabels(uploadModalLabels.error);
+        setModalLabels(constantModalLabels.error);
       } else {
-        setModalLabels(uploadModalLabels.success);
+        setModalLabels(constantModalLabels.success);
       }
 
       setUploadInProgress(false);
+      // once interactive analysis is closed, clear storage.
+      // currently clearing for successful uploads
+      sessionStorage.removeItem(selectedJob.jobId);
     } catch (e) {
       console.log("ERROR posting new job");
-      setModalLabels(uploadModalLabels.error);
+      setModalLabels(constantModalLabels.error);
       setUploadInProgress(false);
     }
   };
 
-  const closeInteractiveAnalysis = () => {
-    setOpenInteractiveAnalysis(false);
-    setStatusModalOpen(false);
+  const handleModalClose = (i) => {
+    if (modalOpen === "status") setOpenInteractiveAnalysis(false);
+    else if (i === 0) getNewData();
+    else loadExistingData();
+
+    setModalOpen(false);
+    sessionStorage.removeItem(selectedJob.jobId);
+  };
+
+  const saveChanges = () => {
+    sessionStorage.setItem(
+      selectedJob.jobId,
+      JSON.stringify({
+        editableStartEndTimes,
+        editablePeaksValleys,
+        originalData,
+      })
+    );
+  };
+  const deletePeakValley = (peakValley, idx) => {
+    const typeIdx = ["peak", "valley"].indexOf(peakValley);
+    const targetIdx = editablePeaksValleys[selectedWell][typeIdx].indexOf(
+      Number(idx)
+    );
+    if (targetIdx > -1) {
+      // remove desired marker
+      editablePeaksValleys[selectedWell][typeIdx].splice(targetIdx, 1);
+      setEditablePeaksValleys({ ...editablePeaksValleys });
+      setMarkers([...editablePeaksValleys[selectedWell]]);
+    }
+  };
+
+  const addPeakValley = (peakValley, targetTime) => {
+    const typeIdx = ["peak", "valley"].indexOf(peakValley);
+
+    const indexToAdd = dataToGraph.findIndex(
+      (coord) =>
+        Number(coord[0].toFixed(2)) === Number(Number(targetTime).toFixed(2))
+    );
+
+    editablePeaksValleys[selectedWell][typeIdx].push(indexToAdd);
+    setEditablePeaksValleys({ ...editablePeaksValleys });
+    setMarkers([...editablePeaksValleys[selectedWell]]);
   };
 
   return (
@@ -257,7 +339,10 @@ export default function InteractiveWaveformModal({
               setEditablePeaksValleys={setEditablePeaksValleys}
               editablePeaksValleys={editablePeaksValleys}
               xRange={xRange}
-              setErrorMessage={setErrorMessage}
+              resetWellChanges={resetWellChanges}
+              saveChanges={saveChanges}
+              deletePeakValley={deletePeakValley}
+              addPeakValley={addPeakValley}
             />
           </GraphContainer>
           <ErrorLabel>{errorMessage}</ErrorLabel>
@@ -267,7 +352,7 @@ export default function InteractiveWaveformModal({
               height="50px"
               position="relative"
               borderRadius="3px"
-              left="-100px"
+              left="-70px"
               label="Cancel"
               clickFn={() => setOpenInteractiveAnalysis(false)}
             />
@@ -276,21 +361,7 @@ export default function InteractiveWaveformModal({
               height="50px"
               position="relative"
               borderRadius="3px"
-              left="320px"
-              label="Reset Well"
-              backgroundColor={
-                uploadInProgress ? "var(--dark-gray)" : "var(--dark-blue)"
-              }
-              disabled={uploadInProgress}
-              clickFn={resetWellChanges}
-            />
-
-            <ButtonWidget
-              width="150px"
-              height="50px"
-              position="relative"
-              borderRadius="3px"
-              left="100px"
+              left="-50px"
               label="Run Analysis"
               backgroundColor={
                 uploadInProgress ? "var(--dark-gray)" : "var(--dark-blue)"
@@ -303,8 +374,9 @@ export default function InteractiveWaveformModal({
         </>
       )}
       <ModalWidget
-        open={statusModalOpen}
-        closeModal={closeInteractiveAnalysis}
+        open={["status", "dataFound"].includes(modalOpen)}
+        buttons={modalLabels.buttons}
+        closeModal={handleModalClose}
         header={modalLabels.header}
         labels={modalLabels.messages}
       />

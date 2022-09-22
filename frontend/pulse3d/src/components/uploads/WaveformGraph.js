@@ -2,6 +2,9 @@ import styled from "styled-components";
 import { useEffect, useState } from "react";
 import * as d3 from "d3";
 // import ZoomWidget from "../basicWidgets/ZoomWidget";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import Tooltip from "@mui/material/Tooltip";
+import MenuItem from "@mui/material/MenuItem";
 import ButtonWidget from "../basicWidgets/ButtonWidget";
 
 const Container = styled.div`
@@ -26,6 +29,10 @@ const Container = styled.div`
   &::-webkit-scrollbar-thumb:hover {
     background-color: var(--teal-green);
   }
+`;
+
+const TooltipText = styled.span`
+  font-size: 15px;
 `;
 
 const ColumnContainer = styled.div`
@@ -64,7 +71,7 @@ const YAxisContainer = styled.div`
   justify-content: center;
 `;
 
-const AddDeleteContainer = styled.div`
+const ToolbarContainer = styled.div`
   position: relative;
   height: 40px;
   display: flex;
@@ -73,16 +80,31 @@ const AddDeleteContainer = styled.div`
   justify-content: flex-end;
   font-size: 16px;
   align-items: center;
-  padding-right: 15px;
+  padding-right: 35px;
   padding-bottom: 4px;
 `;
 
-const LabelDiv = styled.div`
-  width: 100px;
+const HowTo = styled.div`
+  width: 180px;
   display: flex;
-  justify-content: end;
+  line-height: 1.5;
+  justify-content: space-between;
   padding-right: 10px;
 `;
+
+const ContextMenuContainer = styled.div`
+  font-size: 16px;
+  background-color: white;
+  display: none;
+  border-radius: 6px;
+  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%),
+    0px 8px 10px 1px rgb(0 0 0 / 20%), 0px 3px 14px 2px rgb(0 0 0 / 12%);
+`;
+
+const contextMenuItems = {
+  delete: ["Delete"],
+  add: ["Add Peak", "Add Valley"],
+};
 
 export default function WaveformGraph({
   dataToGraph,
@@ -94,12 +116,16 @@ export default function WaveformGraph({
   currentWell,
   setEditablePeaksValleys,
   xRange,
-  setErrorMessage,
+  resetWellChanges,
+  saveChanges,
+  deletePeakValley,
+  addPeakValley,
 }) {
   const [valleys, setValleys] = useState([]);
   const [peaks, setPeaks] = useState([]);
   const [newStartTime, setNewStartTime] = useState();
   const [newEndTime, setNewEndTime] = useState();
+  const [menuItems, setMenuItems] = useState(contextMenuItems.delete);
 
   /* NOTE!! The order of the variables and functions in createGraph() are important to functionality.
      could eventually try to break this up, but it's more sensitive in react than vue */
@@ -124,15 +150,6 @@ export default function WaveformGraph({
     const widthMultiple =
       lengthOfRecording / 10 < 1 ? 1 : lengthOfRecording / 10;
     const dynamicWidth = width * widthMultiple;
-
-    // append the svg object to the body of the page
-    const svg = d3
-      .select("#waveformGraph")
-      .append("svg")
-      .attr("width", dynamicWidth + margin.left + margin.right)
-      .attr("height", height + margin.top + margin.bottom)
-      .append("g")
-      .attr("transform", `translate(${margin.left}, ${margin.top})`);
 
     // Add X axis and Y axis
     const x = d3.scaleLinear().range([0, dynamicWidth]).domain([xMin, xMax]);
@@ -169,6 +186,31 @@ export default function WaveformGraph({
         return y(d[1]);
       });
 
+    // setup custom  context menu
+    const contextMenu = d3.select("#contextmenu");
+
+    // append the svg object to the body of the page
+    const svg = d3
+      .select("#waveformGraph")
+      .append("svg")
+      .attr("width", dynamicWidth + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .on("mousedown", () => {
+        contextMenu.style("display", "none");
+      })
+      .on("contextmenu", (e) => {
+        e.preventDefault();
+        // setMenuItems(contextMenuItems.add);
+        // contextMenu
+        //   .attr("target", x.invert(e.offsetX - 50)) // gives context menu easy access to target peak/valley
+        //   .style("position", "absolute")
+        //   .style("left", e.layerX + 80 + "px") // layer does not take in scroll component so x and y stay within visible window
+        //   .style("top", e.layerY + 50 + "px")
+        //   .style("display", "block");
+      })
+      .append("g")
+      .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
     // Create the text that travels along the curve of chart
     const focusText = svg
       .append("g")
@@ -204,6 +246,9 @@ export default function WaveformGraph({
           .drag()
           // NOTE!! these callbacks have to be in this syntax, not const () => {}
           .on("start", function (d) {
+            // close context menu if it's open
+            contextMenu.style("display", "none");
+
             d3.select(this)
               .attr("opacity", 0.4)
               .attr("cursor", "pointer")
@@ -250,14 +295,26 @@ export default function WaveformGraph({
       ])
       .attr("fill", "none")
       .attr("stroke", "steelblue")
-      .attr("stroke-width", 1.5)
-      .attr("d", dataLine);
+      .attr("stroke-width", 2)
+      .attr("d", dataLine)
+      .on("contextmenu", (e) => {
+        e.preventDefault();
+        setMenuItems(contextMenuItems.add);
+        contextMenu
+          .attr("target", x.invert(e.offsetX - 50)) // gives context menu easy access to target peak/valley
+          .style("position", "absolute")
+          .style("left", e.layerX + 80 + "px") // layer does not take in scroll component so x and y stay within visible window
+          .style("top", e.layerY + 50 + "px")
+          .style("display", "block");
+      });
 
     /* --------------------------------------
       PEAKS AND VALLEYS
     -------------------------------------- */
     // NOTE!! these have to be in this syntax, not const () => {}  -- not sure why yet
     function dragStarted(d) {
+      // close context menu if it's open
+      contextMenu.style("display", "none");
       // Makes the radius of the valley/peak marker larger when selected to show user
       d3.select(this).raise().attr("r", 10);
     }
@@ -326,13 +383,13 @@ export default function WaveformGraph({
       );
 
       // Changing the x/y coordinates on the graph does not auto update the original array used to plot peaks and valleys so you need to update them separately
-     if (peakOrValley === "peak") {
-       peaks.splice(indexToChange, 1, newSelectedIndex);
-       setPeaks([...peaks]); // required to change dependencies
-     } else {
-       valleys.splice(indexToChange, 1, newSelectedIndex);
-       setValleys([...valleys]); // required to change dependencies
-     }
+      if (peakOrValley === "peak") {
+        peaks.splice(indexToChange, 1, newSelectedIndex);
+        setPeaks([...peaks]); // required to change dependencies
+      } else {
+        valleys.splice(indexToChange, 1, newSelectedIndex);
+        setValleys([...valleys]); // required to change dependencies
+      }
     }
 
     // graph all the peak markers
@@ -361,6 +418,17 @@ export default function WaveformGraph({
         const xTime = dataToGraph[d][0];
         return xTime > xMax || xTime < xMin ? "none" : null;
       })
+      .on("contextmenu", (e, i) => {
+        e.preventDefault();
+        setMenuItems(contextMenuItems.delete);
+        contextMenu
+          .attr("target", i) // gives context menu easy access to target peak/valley
+          .attr("type", "peak")
+          .style("position", "absolute")
+          .style("left", e.layerX + 80 + "px") // layer does not take in scroll component so x and y stay within visible window
+          .style("top", e.layerY + 50 + "px")
+          .style("display", "block");
+      })
       .call(
         d3
           .drag()
@@ -369,6 +437,7 @@ export default function WaveformGraph({
           .on("end", dragEnded)
       );
     // graph all the valley markers
+
     svg
       .selectAll("#waveformGraph")
       .data(initialPeaksValleys[1])
@@ -400,7 +469,18 @@ export default function WaveformGraph({
           .on("start", dragStarted)
           .on("drag", dragging)
           .on("end", dragEnded)
-      );
+      )
+      .on("contextmenu", (e, i) => {
+        e.preventDefault();
+        setMenuItems(contextMenuItems.delete);
+        contextMenu
+          .attr("target", i) // gives context menu easy access to target peak/valley
+          .attr("type", "valley")
+          .style("position", "absolute")
+          .style("left", e.layerX + 80 + "px") // layer does not take in scroll component so x and y stay within visible window
+          .style("top", e.layerY + 50 + "px")
+          .style("display", "block");
+      });
 
     /* --------------------------------------
       START AND END TIME LINES
@@ -408,6 +488,8 @@ export default function WaveformGraph({
     const lineDrag = d3
       .drag()
       .on("start", function () {
+        // close context menu if it's open
+        contextMenu.style("display", "none");
         // increase stroke width when selected and dragging
         d3.select(this).attr("stroke-width", 6);
       })
@@ -507,17 +589,19 @@ export default function WaveformGraph({
     setEditablePeaksValleys(newEntries);
   }, [peaks, valleys]);
 
-  const addNewPeakValley = (type) => {
-    // find first index of data displayed on graph
-    const indexToInsert = dataToGraph.findIndex(
-      (coord) => coord[0] >= xRange.min
-    );
-    // the useEffect above actually adds peak/valley to graph
-    if (type === 0) {
-      setPeaks([...peaks, indexToInsert]);
+  const contextMenuClick = ({ target }) => {
+    const contextMenu = d3.select("#contextmenu");
+
+    if (target.id === "Delete") {
+      const peakValleyIndex = contextMenu.attr("target");
+      const peakValley = contextMenu.attr("type");
+      deletePeakValley(peakValley, peakValleyIndex);
     } else {
-      setValleys([...valleys, indexToInsert]);
+      const targetTime = contextMenu.attr("target");
+      const peakValley = target.id === "Add Peak" ? "peak" : "valley";
+      addPeakValley(peakValley, targetTime);
     }
+    contextMenu.style("display", "none");
   };
 
   return (
@@ -527,46 +611,51 @@ export default function WaveformGraph({
         {/* <ZoomWidget size={"20px"} /> */}
       </YAxisContainer>
       <ColumnContainer>
-        <AddDeleteContainer>
-          <LabelDiv>Peaks:</LabelDiv>
+        <ToolbarContainer>
+          <HowTo>
+            Edit Peaks / Valleys{" "}
+            <Tooltip
+              title={
+                <TooltipText>
+                  <li>
+                    Move:
+                    <br />
+                    Click and drag markers along the waveform line.
+                  </li>
+                  <li>
+                    Add:
+                    <br />
+                    Right-click along waveform line for placemenet.
+                  </li>
+                  <li>
+                    Delete:
+                    <br />
+                    Right-click directly on marker.
+                  </li>
+                </TooltipText>
+              }
+            >
+              <InfoOutlinedIcon />
+            </Tooltip>
+          </HowTo>
           <ButtonWidget
-            width="75px"
+            label="Reset"
+            width="80px"
             height="30px"
-            position="relative"
-            borderRadius="3px"
-            fontSize="14px"
-            label="Add"
-            clickFn={() => addNewPeakValley(0)}
+            fontSize={15}
+            borderRadius="5px"
+            clickFn={resetWellChanges}
           />
           <ButtonWidget
-            width="75px"
+            label="Save"
+            width="80px"
             height="30px"
-            position="relative"
-            borderRadius="3px"
-            fontSize="14px"
-            label="Delete"
-            clickFn={() => console.log("here")}
+            left="5px"
+            fontSize={15}
+            borderRadius="5px"
+            clickFn={saveChanges}
           />
-          <LabelDiv>Valleys:</LabelDiv>
-          <ButtonWidget
-            width="75px"
-            height="30px"
-            position="relative"
-            borderRadius="3px"
-            fontSize="14px"
-            label="Add"
-            clickFn={() => addNewPeakValley(1)}
-          />
-          <ButtonWidget
-            width="75px"
-            height="30px"
-            position="relative"
-            borderRadius="3px"
-            fontSize="14px"
-            label="Delete"
-            clickFn={() => console.log("here")}
-          />
-        </AddDeleteContainer>
+        </ToolbarContainer>
         <Container>
           <div id="waveformGraph" />
         </Container>
@@ -575,6 +664,15 @@ export default function WaveformGraph({
           {/* <ZoomWidget size={"20px"} /> */}
         </XAxisContainer>
       </ColumnContainer>
+      <ContextMenuContainer id="contextmenu">
+        {menuItems.map((item) => {
+          return (
+            <MenuItem id={item} key={item} onClick={contextMenuClick}>
+              {item}
+            </MenuItem>
+          );
+        })}
+      </ContextMenuContainer>
     </>
   );
 }
