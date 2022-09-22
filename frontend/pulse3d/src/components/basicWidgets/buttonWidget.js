@@ -11,6 +11,7 @@ const Button = styled.button(
   position: ${props.position || "inherit"};
   border-radius: ${props.borderRadius || "0px"};
   font-size: ${props.fontSize || "18px"};
+  box-shadow: 3px 3px 3px 0px rgb(0 0 0 / 30%), 7px 7px 7px 0px rgb(0 0 0 / 10%);
   &:hover {
     background-color: ${props.disabled || "var(--teal-green)"};
     cursor:${props.disabled || "pointer"};

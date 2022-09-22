@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import DropDownWidget from "../basicWidgets/DropDownWidget";
 import WaveformGraph from "./WaveformGraph";
 import { WellTitle as LabwareDefinition } from "@/utils/labwareCalculations";
@@ -7,7 +7,10 @@ import CircularSpinner from "../basicWidgets/CircularSpinner";
 const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
 import ButtonWidget from "../basicWidgets/ButtonWidget";
 import ModalWidget from "../basicWidgets/ModalWidget";
-
+import { UploadsContext } from "@/components/layouts/DashboardLayout";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import Tooltip from "@mui/material/Tooltip";
+import semver from "semver";
 const Container = styled.div`
   height: 100%;
   display: flex;
@@ -21,7 +24,7 @@ const HeaderContainer = styled.div`
   margin: 20px;
 `;
 
-const DropdownContainer = styled.div`
+const WellDropdownContainer = styled.div`
   height: 30px;
   display: flex;
   flex-direction: row;
@@ -29,11 +32,27 @@ const DropdownContainer = styled.div`
   width: 200px;
 `;
 
-const DropdownLabel = styled.span`
+const WellDropdownLabel = styled.span`
   line-height: 2;
   font-size: 20px;
   white-space: nowrap;
   padding-right: 15px;
+`;
+
+const VersionDropdownContainer = styled.div`
+  height: 30px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 300px;
+`;
+
+const VersionDropdownLabel = styled.span`
+  line-height: 2;
+  font-size: 16px;
+  white-space: nowrap;
+  padding-right: 15px;
+  display: flex;
 `;
 
 const GraphContainer = styled.div`
@@ -73,6 +92,9 @@ const ErrorLabel = styled.div`
   font-style: italic;
   display: flex;
   justify-content: flex-end;
+`;
+const TooltipText = styled.span`
+  font-size: 15px;
 `;
 
 const constantModalLabels = {
@@ -120,6 +142,8 @@ export default function InteractiveWaveformModal({
   const [editablePeaksValleys, setEditablePeaksValleys] = useState(); // user edited peaks/valleys as changes are made, should get stored in localStorage
   const [errorMessage, setErrorMessage] = useState();
   const [markers, setMarkers] = useState([]);
+  const [pulse3dVersion, setPulse3dVersion] = useState(0);
+  const [filteredVersions, setFilteredVersions] = useState([]);
   const [xRange, setXRange] = useState({
     min: null,
     max: null, // random
@@ -128,6 +152,8 @@ export default function InteractiveWaveformModal({
     startTime: null,
     endTime: null,
   });
+
+  const { pulse3dVersions } = useContext(UploadsContext);
 
   const getWaveformData = async () => {
     try {
@@ -184,6 +210,12 @@ export default function InteractiveWaveformModal({
   };
 
   useEffect(() => {
+    const compatibleVersions = pulse3dVersions.filter((v) =>
+      semver.satisfies(v, ">=0.25.2")
+    );
+
+    setFilteredVersions(compatibleVersions);
+
     checkForExistingData();
     // set to hold state of start and stop original times
     setXRange({
@@ -306,6 +338,10 @@ export default function InteractiveWaveformModal({
     setMarkers([...editablePeaksValleys[selectedWell]]);
   };
 
+  const handleDropDownSelect = (idx) => {
+    setPulse3dVersion(filteredVersions[idx]);
+  };
+
   return (
     <Container>
       <HeaderContainer>Interactive Waveform Analysis</HeaderContainer>
@@ -315,15 +351,15 @@ export default function InteractiveWaveformModal({
         </SpinnerContainer>
       ) : (
         <>
-          <DropdownContainer>
-            <DropdownLabel>Select Well:</DropdownLabel>
+          <WellDropdownContainer>
+            <WellDropdownLabel>Select Well:</WellDropdownLabel>
             <DropDownWidget
               options={wellNames}
               handleSelection={handleWellSelection}
               reset={selectedWell == "A1"}
               initialSelected={0}
             />
-          </DropdownContainer>
+          </WellDropdownContainer>
           <GraphContainer>
             <WaveformGraph
               dataToGraph={dataToGraph}
@@ -342,6 +378,29 @@ export default function InteractiveWaveformModal({
             />
           </GraphContainer>
           <ErrorLabel>{errorMessage}</ErrorLabel>
+          <VersionDropdownContainer>
+            <VersionDropdownLabel htmlFor="selectedPulse3dVersion">
+              Pulse3d Version:
+              <Tooltip
+                title={
+                  <TooltipText>
+                    {
+                      "Specifies which version of the pulse3d analysis software to use."
+                    }
+                  </TooltipText>
+                }
+              >
+                <InfoOutlinedIcon />
+              </Tooltip>
+            </VersionDropdownLabel>
+            <DropDownWidget
+              options={filteredVersions}
+              label="Select"
+              reset={pulse3dVersion === filteredVersions[0]}
+              handleSelection={handleDropDownSelect}
+              initialSelected={0}
+            />
+          </VersionDropdownContainer>
           <ButtonContainer>
             <ButtonWidget
               width="150px"

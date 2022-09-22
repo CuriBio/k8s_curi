@@ -1,7 +1,7 @@
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
-import Select, { SelectProps } from "@mui/material/Select";
+import Select from "@mui/material/Select";
 import { useEffect, useState } from "react";
 import styled from "styled-components";
 import OutlinedInput from "@mui/material/OutlinedInput";
@@ -78,7 +78,14 @@ export default function DropDownWidget({
   }, [reset]);
 
   return (
-    <FormControl fullWidth disabled={disabled}>
+    <FormControl
+      fullWidth
+      disabled={disabled}
+      sx={{
+        boxShadow:
+          "2px 2px 2px 0px rgb(0 0 0 / 20%), 5px 5px 5px 0px rgb(0 0 0 / 10%)",
+      }}
+    >
       <Select
         displayEmpty
         labelId="select-label"

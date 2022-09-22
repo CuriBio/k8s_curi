@@ -31,6 +31,11 @@ export default function FormInput({
         type={type}
         value={value}
         onChange={onChangeFn}
+        style={{
+          border: "none",
+          boxShadow:
+            "2px 2px 2px 0px rgb(0 0 0 / 20%), 5px 5px 5px 0px rgb(0 0 0 / 10%)",
+        }}
       />
       {children}
     </>

@@ -103,8 +103,7 @@ const modalObjs = {
 
 export default function Uploads() {
   const { accountType } = useContext(AuthContext);
-  const { uploads, setFetchUploads, pulse3dVersions } =
-    useContext(UploadsContext);
+  const { uploads, setFetchUploads } = useContext(UploadsContext);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
