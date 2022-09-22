@@ -201,6 +201,7 @@ async def process(con, item):
 async def main():
     try:
         logger.info(f"Worker v{PULSE3D_VERSION} started")
+
         DB_PASS = os.getenv("POSTGRES_PASSWORD")
         DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
         DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
