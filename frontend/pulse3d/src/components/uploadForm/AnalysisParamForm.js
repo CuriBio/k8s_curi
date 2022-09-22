@@ -5,6 +5,7 @@ import FormInput from "../basicWidgets/FormInput";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
+import { useEffect, useState } from "react";
 
 const Container = styled.div`
   padding-top: 1rem;
@@ -178,6 +179,8 @@ export default function AnalysisParamForm({
   pulse3dVersions,
   resetDropDown,
 }) {
+  const [normalizeYaxisisChecked, setNormalizeYaxisisChecked] = useState(true);
+
   const updateParams = (newParams) => {
     const updatedParams = { ...analysisParams, ...newParams };
 
@@ -298,6 +301,13 @@ export default function AnalysisParamForm({
     });
   };
 
+  //expand if more inputs need to be disabled and cleared based on other inputs
+  useEffect(() => {
+    updateParams({
+      maxY: "",
+    });
+  }, [normalizeYaxisisChecked]);
+
   return (
     <Container>
       <AdditionalParamLabel>
@@ -333,6 +343,39 @@ export default function AnalysisParamForm({
             />
           </DropDownContainer>
         </ParamContainer>
+
+        <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
+          <Label htmlFor="yAxisNormalization">
+            Disable Y-Axis Normalization:
+            <Tooltip
+              title={
+                <TooltipText>
+                  {"When selected, disables normalization of the y-axis."}
+                </TooltipText>
+              }
+            >
+              <InfoOutlinedIcon />
+            </Tooltip>
+          </Label>
+          <InputErrorContainer>
+            <FormInput
+              type="checkbox"
+              name="yAxisNormalization"
+              value={normalizeYaxisisChecked}
+              onChangeFn={(e) => {
+                updateParams({
+                  yAxisNormalization: normalizeYaxisisChecked,
+                });
+                setNormalizeYaxisisChecked(!normalizeYaxisisChecked);
+              }}
+            >
+              <ErrorText id="yAxisNormalization" role="errorMsg">
+                {errorMessages.yAxisNormalization}
+              </ErrorText>
+            </FormInput>
+          </InputErrorContainer>
+        </ParamContainer>
+
         {inputVals.selectedPulse3dVersion !== "0.24.6" && (
           // Tanner (9/15/21): at the time of writing this, 0.24.6 is the only available pulse3D version that does not support maxY
           <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
@@ -360,6 +403,7 @@ export default function AnalysisParamForm({
                     maxY: e.target.value,
                   });
                 }}
+                disabled={!normalizeYaxisisChecked}
               >
                 <ErrorText id="maxYError" role="errorMsg">
                   {errorMessages.maxY}

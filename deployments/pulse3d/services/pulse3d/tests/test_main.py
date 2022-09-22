@@ -393,6 +393,7 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
     expected_analysis_params = {
         param: None
         for param in (
+            "normalize_y_axis",
             "baseline_widths_to_use",
             "max_y",
             "prominence_factors",
@@ -430,6 +431,7 @@ def test_jobs__post__basic_params_given(mocker):
     expected_analysis_params = {
         param: None
         for param in (
+            "normalize_y_axis",
             "baseline_widths_to_use",
             "max_y",
             "prominence_factors",
@@ -473,6 +475,7 @@ def test_jobs__post__advanced_params_given(param_name, param_tuple, mocker):
     expected_analysis_params = {
         param: None
         for param in (
+            "normalize_y_axis",
             "baseline_widths_to_use",
             "max_y",
             "prominence_factors",
@@ -514,6 +517,7 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocker):
     expected_analysis_params = {
         param: None
         for param in (
+            "normalize_y_axis",
             "baseline_widths_to_use",
             "max_y",
             "prominence_factors",
@@ -726,13 +730,15 @@ def test_waveform_data__get__returns_500_if_getting_job_metadata_from_db_errors(
 
     assert response.status_code == 500
 
+
 @pytest.mark.parametrize("include_raw_data,expected_conversion", [[False, 1], [True, 1e4]])
 def test_waveform_data__get__handles_time_unit_if_old_parquet_file(
-    mocker,include_raw_data,expected_conversion
+    mocker, include_raw_data, expected_conversion
 ):
     expected_analysis_params = {
         param: None
         for param in (
+            "normalize_y_axis",
             "baseline_widths_to_use",
             "max_y",
             "prominence_factors",
@@ -749,10 +755,12 @@ def test_waveform_data__get__handles_time_unit_if_old_parquet_file(
     # set up mocked df returned from parquet file
     mocker.patch.object(main, "get_jobs", autospec=True, return_value=test_jobs)
     mocker.patch.object(main, "download_directory_from_s3", autospec=True)
-    mocked_read = mocker.patch.object(pd, "read_parquet", autospec=True, return_value=_create_test_df(include_raw_data))
+    mocked_read = mocker.patch.object(
+        pd, "read_parquet", autospec=True, return_value=_create_test_df(include_raw_data)
+    )
     mocked_df = mocked_read.return_value
     expected_time = mocked_df["Time (s)"].tolist()
-    
+
     access_token = get_token(scope=["users:free"])
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
 
@@ -768,8 +776,8 @@ def test_waveform_data__get__handles_time_unit_if_old_parquet_file(
 
     coordinates = response_body["coordinates"].values()
     # assert coordinates will be sent for each well
-    assert len(coordinates) == 24 
-    
+    assert len(coordinates) == 24
+
     for well_coords in response_body["coordinates"].values():
         # each time point should be contained
         assert len(well_coords) == len(expected_time)
@@ -794,6 +802,7 @@ def _create_test_df(include_raw_data: bool = True):
             data[f"{well_name}__raw"] = pd.Series(test_df_data)
 
     return pd.DataFrame(data)
+
 
 @pytest.mark.parametrize(
     "token",
