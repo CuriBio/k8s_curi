@@ -10,14 +10,15 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'c1ae9bb9fa14'
-down_revision = '871f6d005d86'
+revision = "c1ae9bb9fa14"
+down_revision = "871f6d005d86"
 branch_labels = None
 depends_on = None
 
 
 def upgrade():
-    pass
+    query = "INSERT INTO pulse3d_versions (version) VALUES ('0.25.4')"
+    op.execute(query)
 
 
 def downgrade():
