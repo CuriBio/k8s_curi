@@ -21,4 +21,5 @@ def upgrade():
 
 
 def downgrade():
-    pass
+    query = "DELETE FROM pulse3d_versions WHERE versions != '0.25.4'"
+    op.execute(query)
