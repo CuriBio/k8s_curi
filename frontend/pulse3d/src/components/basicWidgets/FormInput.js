@@ -34,7 +34,7 @@ export default function FormInput({
         style={{
           border: "none",
           boxShadow:
-            "2px 2px 2px 0px rgb(0 0 0 / 20%), 5px 5px 5px 0px rgb(0 0 0 / 10%)",
+            "0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%), 0px 3px 14px 2px rgb(0 0 0 / 12%)",
         }}
       />
       {children}

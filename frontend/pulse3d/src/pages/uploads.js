@@ -23,6 +23,7 @@ const Container = styled.div`
   justify-content: start;
   padding: 0% 3% 3% 3%;
   flex-direction: column;
+  
 `;
 const SpinnerContainer = styled.div`
   display: flex;

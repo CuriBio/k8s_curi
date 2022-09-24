@@ -10,11 +10,31 @@ const Container = styled.div`
   padding: 5px;
 `;
 
-export default function ZoomWidget({ size }) {
+const MinusIcon = styled((props) => <RemoveCircleOutlineIcon {...props} />)(
+  ({ size }) => ({
+    fontSize: size,
+    "&:hover": {
+      fill: "var(--teal-green)",
+      cursor: "pointer",
+    },
+  })
+);
+
+const PlusIcon = styled((props) => <AddCircleOutlineIcon {...props} />)(
+  ({ size }) => ({
+    fontSize: size,
+    "&:hover": {
+      fill: "var(--teal-green)",
+      cursor: "pointer",
+    },
+  })
+);
+
+export default function ZoomWidget({ size = "16px", zoomIn, zoomOut }) {
   return (
     <Container>
-      <RemoveCircleOutlineIcon sx={{ fontSize: size }} />
-      <AddCircleOutlineIcon sx={{ fontSize: size }} />
+      <MinusIcon size={size} onClick={zoomOut} />
+      <PlusIcon size={size} onClick={zoomIn} />
     </Container>
   );
 }

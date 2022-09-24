@@ -19,6 +19,7 @@ const Container = styled.div`
   padding-top: 3%;
   padding-left: 7%;
   padding-bottom: 3%;
+  
 `;
 
 const Header = styled.h2`

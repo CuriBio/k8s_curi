@@ -17,6 +17,8 @@ const Container = styled.div`
   flex-direction: column;
   align-items: center;
   overflow: hidden;
+  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%),
+    0px 8px 10px 1px rgb(0 0 0 / 20%), 0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
 
 const HeaderContainer = styled.div`
@@ -53,10 +55,11 @@ const VersionDropdownLabel = styled.span`
   white-space: nowrap;
   padding-right: 15px;
   display: flex;
+  align-items: center;
 `;
 
 const GraphContainer = styled.div`
-  height: 410px;
+  height: 415px;
   border-radius: 7px;
   background-color: var(--med-gray);
   position: relative;
@@ -66,6 +69,8 @@ const GraphContainer = styled.div`
   padding: 0px 15px;
   display: flex;
   flex-direction: column;
+  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%),
+    0px 8px 10px 1px rgb(0 0 0 / 20%), 0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
 
 const SpinnerContainer = styled.div`
@@ -78,7 +83,7 @@ const ButtonContainer = styled.div`
   position: relative;
   height: 50px;
   width: 100%;
-  top: 8vh;
+  top: 6vh;
   display: flex;
   justify-content: flex-end;
 `;
@@ -142,8 +147,9 @@ export default function InteractiveWaveformModal({
   const [editablePeaksValleys, setEditablePeaksValleys] = useState(); // user edited peaks/valleys as changes are made, should get stored in localStorage
   const [errorMessage, setErrorMessage] = useState();
   const [markers, setMarkers] = useState([]);
-  const [pulse3dVersion, setPulse3dVersion] = useState(0);
+  const [pulse3dVersionIdx, setPulse3dVersionIdx] = useState(0);
   const [filteredVersions, setFilteredVersions] = useState([]);
+  const [changelog, setChangelog] = useState({});
   const [xRange, setXRange] = useState({
     min: null,
     max: null, // random
@@ -214,8 +220,7 @@ export default function InteractiveWaveformModal({
       semver.satisfies(v, ">=0.25.2")
     );
 
-    setFilteredVersions(compatibleVersions);
-
+    setFilteredVersions([...compatibleVersions]);
     checkForExistingData();
     // set to hold state of start and stop original times
     setXRange({
@@ -223,6 +228,10 @@ export default function InteractiveWaveformModal({
       max: selectedJob.analysisParams.end_time,
     });
   }, [selectedJob]);
+
+  useEffect(() => {
+    updateChangelog();
+  }, [markers, editableStartEndTimes]);
 
   useEffect(() => {
     // will error on init because there won't be an index 0
@@ -262,7 +271,7 @@ export default function InteractiveWaveformModal({
         peaks_valleys: editablePeaksValleys,
         start_time: editableStartEndTimes.startTime,
         end_time: editableStartEndTimes.endTime,
-        version: selectedJob.version,
+        version: filteredVersions[pulse3dVersionIdx],
       };
 
       const jobResponse = await fetch(
@@ -303,20 +312,96 @@ export default function InteractiveWaveformModal({
   };
 
   const saveChanges = () => {
+    // TODO handle is for some reason this is full and returns error
     sessionStorage.setItem(
       selectedJob.jobId,
       JSON.stringify({
         editableStartEndTimes,
         editablePeaksValleys,
         originalData,
+        changelog,
       })
     );
   };
+
+  const updateChangelog = () => {
+    let changelogMessage;
+
+    if (changelog[selectedWell] && markers.length === 2) {
+      const wellChanges = changelog[selectedWell];
+      const { peaks, valleys, startTime, endTime } =
+        wellChanges[wellChanges.length - 1];
+
+      if (JSON.stringify(peaks) !== JSON.stringify(markers[0])) {
+        const diffIdx = peaks.findIndex(
+          (peakIdx, i) => peakIdx !== markers[0][i]
+        );
+        changelogMessage = `Peak at [ ${
+          dataToGraph[peaks[diffIdx]]
+        } ] was moved to [ ${dataToGraph[markers[0][diffIdx]]} ]`;
+      } else if (JSON.stringify(valleys) !== JSON.stringify(markers[1])) {
+        const diffIdx = valleys.findIndex(
+          (valleyIdx, i) => valleyIdx !== markers[1][i]
+        );
+        changelogMessage = `Valley at [ ${
+          dataToGraph[valleys[diffIdx]]
+        } ] was moved to [ ${dataToGraph[markers[1][diffIdx]]} ].`;
+      } else if (startTime !== editableStartEndTimes.startTime) {
+        changelogMessage = `Start time was changed from ${startTime} to ${editableStartEndTimes.startTime}.`;
+      } else if (endTime !== editableStartEndTimes.endTime) {
+        changelogMessage = `End time was changed from ${endTime} to ${editableStartEndTimes.endTime}.`;
+      }
+      if (changelogMessage !== undefined) {
+        changelog[selectedWell].push({
+          peaks: markers[0],
+          valleys: markers[1],
+          startTime: editableStartEndTimes.startTime,
+          endTime: editableStartEndTimes.endTime,
+          message: changelogMessage,
+        });
+      }
+    } else if (
+      markers.length === 2 &&
+      originalData.peaks_valleys[selectedWell]
+    ) {
+      const ogWellData = originalData.peaks_valleys[selectedWell];
+
+      if (JSON.stringify(ogWellData[0]) !== JSON.stringify(markers[0])) {
+        const diffIdx = ogWellData[0].findIndex(
+          (peakIdx, i) => peakIdx !== markers[0][i]
+        );
+        changelogMessage = `Peak at [ ${
+          dataToGraph[ogWellData[0][diffIdx]]
+        } ] was moved to [ ${dataToGraph[markers[0][diffIdx]]} ].`;
+      } else if (JSON.stringify(ogWellData[1]) !== JSON.stringify(markers[1])) {
+        const diffIdx = ogWellData[1].findIndex(
+          (peakIdx, i) => peakIdx !== markers[0][i]
+        );
+        changelogMessage = `Valley at [ ${
+          dataToGraph[ogWellData[1][diffIdx]]
+        } ] was moved to [ ${dataToGraph[markers[1][diffIdx]]} ].`;
+      } else if (xRange.min !== editableStartEndTimes.startTime) {
+        changelogMessage = `Start time was changed from ${xRange.min} to ${editableStartEndTimes.startTime}.`;
+      } else if (xRange.max !== editableStartEndTimes.endTime) {
+        changelogMessage = `End time was changed from ${xRange.max} to ${editableStartEndTimes.endTime}.`;
+      }
+      if (changelogMessage !== undefined) {
+        changelog[selectedWell] = [
+          {
+            peaks: markers[0],
+            valleys: markers[1],
+            startTime: editableStartEndTimes.startTime,
+            endTime: editableStartEndTimes.endTime,
+            message: changelogMessage,
+          },
+        ];
+      }
+    }
+  };
+
   const deletePeakValley = (peakValley, idx) => {
     const typeIdx = ["peak", "valley"].indexOf(peakValley);
-    const targetIdx = editablePeaksValleys[selectedWell][typeIdx].indexOf(
-      Number(idx)
-    );
+    const targetIdx = editablePeaksValleys[selectedWell][typeIdx].indexOf(idx);
     if (targetIdx > -1) {
       // remove desired marker
       editablePeaksValleys[selectedWell][typeIdx].splice(targetIdx, 1);
@@ -329,8 +414,7 @@ export default function InteractiveWaveformModal({
     const typeIdx = ["peak", "valley"].indexOf(peakValley);
 
     const indexToAdd = dataToGraph.findIndex(
-      (coord) =>
-        Number(coord[0].toFixed(2)) === Number(Number(targetTime).toFixed(2))
+      (coord) => Number(coord[0].toFixed(2)) === Number(targetTime.toFixed(2))
     );
 
     editablePeaksValleys[selectedWell][typeIdx].push(indexToAdd);
@@ -338,8 +422,8 @@ export default function InteractiveWaveformModal({
     setMarkers([...editablePeaksValleys[selectedWell]]);
   };
 
-  const handleDropDownSelect = (idx) => {
-    setPulse3dVersion(filteredVersions[idx]);
+  const handleVersionSelect = (idx) => {
+    setPulse3dVersionIdx(idx);
   };
 
   return (
@@ -396,8 +480,8 @@ export default function InteractiveWaveformModal({
             <DropDownWidget
               options={filteredVersions}
               label="Select"
-              reset={pulse3dVersion === filteredVersions[0]}
-              handleSelection={handleDropDownSelect}
+              reset={pulse3dVersionIdx === 0}
+              handleSelection={handleVersionSelect}
               initialSelected={0}
             />
           </VersionDropdownContainer>

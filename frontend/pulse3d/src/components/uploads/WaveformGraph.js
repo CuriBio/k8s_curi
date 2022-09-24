@@ -1,7 +1,7 @@
 import styled from "styled-components";
 import { useEffect, useState } from "react";
 import * as d3 from "d3";
-// import ZoomWidget from "../basicWidgets/ZoomWidget";
+import ZoomWidget from "../basicWidgets/ZoomWidget";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
 import MenuItem from "@mui/material/MenuItem";
@@ -31,12 +31,18 @@ const Container = styled.div`
   }
 `;
 
+const CursorLocLabel = styled.div`
+  font-size: 15px;
+  position: absolute;
+  left: 1100px;
+`;
+
 const TooltipText = styled.span`
   font-size: 15px;
 `;
 
 const ColumnContainer = styled.div`
-  bottom: 15px;
+  bottom: 25px;
   position: relative;
 `;
 
@@ -69,6 +75,7 @@ const YAxisContainer = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 2;
 `;
 
 const ToolbarContainer = styled.div`
@@ -97,12 +104,22 @@ const ContextMenuContainer = styled.div`
   background-color: white;
   display: none;
   border-radius: 6px;
-  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%),
-    0px 8px 10px 1px rgb(0 0 0 / 20%), 0px 3px 14px 2px rgb(0 0 0 / 12%);
+  box-shadow: 2px 2px 2px 0px rgb(0 0 0 / 20%), 5px 5px 5px 5px rgb(0 0 0 / 10%);
+`;
+
+const ChangelogLabel = styled.div`
+  font-size: 16px;
+  font-style: italic;
+  right: 600px;
+  position: relative;
+  &:hover {
+    color: var(--teal-green);
+    cursor: pointer;
+  }
 `;
 
 const contextMenuItems = {
-  delete: ["Delete"],
+  moveDelete: ["Move", "Delete"],
   add: ["Add Peak", "Add Valley"],
 };
 
@@ -125,8 +142,9 @@ export default function WaveformGraph({
   const [peaks, setPeaks] = useState([]);
   const [newStartTime, setNewStartTime] = useState();
   const [newEndTime, setNewEndTime] = useState();
-  const [menuItems, setMenuItems] = useState(contextMenuItems.delete);
-
+  const [menuItems, setMenuItems] = useState(contextMenuItems.moveDelete);
+  const [selectedMarkerToMove, setSelectedMarkerToMove] = useState();
+  const [cursorLoc, setCursorLoc] = useState([0, 0]);
   /* NOTE!! The order of the variables and functions in createGraph() are important to functionality.
      could eventually try to break this up, but it's more sensitive in react than vue */
   const createGraph = () => {
@@ -197,12 +215,35 @@ export default function WaveformGraph({
       .attr("height", height + margin.top + margin.bottom)
       .on("mousedown", () => {
         contextMenu.style("display", "none");
+        if (selectedMarkerToMove) {
+          // if set, remove selection on click elsewhere
+          setSelectedMarkerToMove();
+        }
       })
       .on("contextmenu", (e) => {
         e.preventDefault();
       })
+      .on("mouseover", (e) => {
+        // creates static cursor coordinates in lower right hand corner
+        setCursorLoc([
+          x.invert(e.offsetX - 50).toFixed(2), // counteract the margins
+          y.invert(e.layerY - 20).toFixed(2), // counteract the margins
+        ]);
+      })
+      .on("mouseout", () => {
+        // resets coordinates when user exits components with mouse
+        setCursorLoc([0, 0]);
+      })
       .append("g")
       .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+    d3.select("body").on("keydown", (e) => {
+      // handles key presses globally, haven't found a diff way to do it
+      if ([37, 39].includes(e.keyCode) && selectedMarkerToMove) {
+        e.preventDefault();
+        movePeakValley(e.keyCode);
+      }
+    });
 
     // Create the text that travels along the curve of chart
     const focusText = svg
@@ -211,6 +252,20 @@ export default function WaveformGraph({
       .style("opacity", 0)
       .attr("text-anchor", "left")
       .attr("alignment-baseline", "middle");
+
+    if (selectedMarkerToMove) {
+      const coords =
+        selectedMarkerToMove.type === "peak"
+          ? dataToGraph[peaks[selectedMarkerToMove.idx]]
+          : dataToGraph[valleys[selectedMarkerToMove.idx]];
+
+      focusText
+        .html("[ " + coords[0].toFixed(2) + ", " + coords[1].toFixed(2) + " ]")
+        .attr("x", x(coords[0]) + 15)
+        .attr("y", y(coords[1]) - 20)
+        .style("opacity", 1)
+        .style("z-index", 5);
+    }
 
     /* --------------------------------------
       APPEND X AND Y AXES
@@ -241,6 +296,10 @@ export default function WaveformGraph({
           .on("start", function (d) {
             // close context menu if it's open
             contextMenu.style("display", "none");
+            if (selectedMarkerToMove) {
+              // if set, remove selection on click elsewhere
+              setSelectedMarkerToMove();
+            }
 
             d3.select(this)
               .attr("opacity", 0.4)
@@ -266,14 +325,20 @@ export default function WaveformGraph({
 
             // reposition start time line and set value to state
             startTimeLine.attr("x1", position).attr("x2", position);
-            setNewStartTime(x.invert(position));
 
             // reposition end time line and set value to state
             const endPosition = position + parseFloat(timeWidth);
             endTimeLine.attr("x1", endPosition).attr("x2", endPosition);
-            setNewEndTime(x.invert(endPosition));
           })
           .on("end", function () {
+            const timeWidth = d3.select(this).attr("width");
+            const startPosition = d3.select(this).attr("x");
+            const endPosition = startPosition + parseFloat(timeWidth);
+            
+            // save new window analysis times to state
+            setNewStartTime(x.invert(startPosition));
+            setNewEndTime(x.invert(endPosition));
+
             d3.select(this).attr("opacity", 0.2).attr("cursor", "default");
           })
       );
@@ -314,6 +379,9 @@ export default function WaveformGraph({
 
     function dragging(d) {
       const peakOrValley = d3.select(this).attr("id");
+
+      // sets static cursor coordinates to empty because marker already has coordinates when dragging
+      setCursorLoc(["_ ", "_"]);
 
       // invert gives the location of the mouse based on the x and y domains
       d[0] = x.invert(d.x);
@@ -358,7 +426,7 @@ export default function WaveformGraph({
             " ]"
         )
         .attr("x", x(d[0]) + 15)
-        .attr("y", y(dataToGraph[draggedIdx][1]) + 15)
+        .attr("y", y(dataToGraph[draggedIdx][1]) - 20)
         .style("opacity", 1);
     }
 
@@ -384,7 +452,6 @@ export default function WaveformGraph({
         setValleys([...valleys]); // required to change dependencies
       }
     }
-
     // graph all the peak markers
     svg
       .selectAll("#waveformGraph")
@@ -413,7 +480,7 @@ export default function WaveformGraph({
       })
       .on("contextmenu", (e, i) => {
         e.preventDefault();
-        setMenuItems(contextMenuItems.delete);
+        setMenuItems(contextMenuItems.moveDelete);
         contextMenu
           .attr("target", i) // gives context menu easy access to target peak/valley
           .attr("type", "peak")
@@ -465,7 +532,7 @@ export default function WaveformGraph({
       )
       .on("contextmenu", (e, i) => {
         e.preventDefault();
-        setMenuItems(contextMenuItems.delete);
+        setMenuItems(contextMenuItems.moveDelete);
         contextMenu
           .attr("target", i) // gives context menu easy access to target peak/valley
           .attr("type", "valley")
@@ -504,19 +571,22 @@ export default function WaveformGraph({
         // assign new x values
         d3.select(this).attr("x1", xPosition).attr("x2", xPosition);
 
-        // save adjusted time to pass up to parent component to use across all wells
-        // fix to two decimal places, otherwise GET /jobs/waveform_data will error
-        const newTimeSec = parseFloat(x.invert(xPosition).toFixed(2));
-        time === "startTime"
-          ? setNewStartTime(newTimeSec)
-          : setNewEndTime(newTimeSec);
-
         // adjust rectangle fill to new adjusted width
         windowedAnalysisFill
           .attr("x", startingPos)
           .attr("width", endPos - startingPos);
       })
       .on("end", function () {
+        // save adjusted time to pass up to parent component to use across all wells
+        // fix to two decimal places, otherwise GET /jobs/waveform_data will error
+        const time = d3.select(this).attr("id");
+        const xPosition = d3.select(this).attr("x1");
+        const newTimeSec = parseFloat(x.invert(xPosition).toFixed(2));
+
+        time === "startTime"
+          ? setNewStartTime(newTimeSec)
+          : setNewEndTime(newTimeSec);
+
         // descrease stroke width when unselected and dropped
         d3.select(this).attr("stroke-width", 5);
       });
@@ -566,13 +636,14 @@ export default function WaveformGraph({
       setNewEndTime(endTime);
       createGraph();
     }
-  }, [initialPeaksValleys]);
+  }, [initialPeaksValleys, selectedMarkerToMove]);
 
   useEffect(() => {
     setEditableStartEndTimes({
       startTime: newStartTime,
       endTime: newEndTime,
     });
+    console.log("here");
   }, [newStartTime, newEndTime]);
 
   useEffect(() => {
@@ -584,27 +655,80 @@ export default function WaveformGraph({
 
   const contextMenuClick = ({ target }) => {
     const contextMenu = d3.select("#contextmenu");
+    const stringNode = contextMenu.attr("target");
+    const targetIdx = parseFloat(stringNode);
 
     if (target.id === "Delete") {
-      const peakValleyIndex = contextMenu.attr("target");
       const peakValley = contextMenu.attr("type");
-      deletePeakValley(peakValley, peakValleyIndex);
+      deletePeakValley(peakValley, targetIdx);
+    } else if (target.id === "Move") {
+      const peakValley = contextMenu.attr("type");
+
+      const idxToChange =
+        peakValley === "peak"
+          ? peaks.indexOf(targetIdx)
+          : valleys.indexOf(targetIdx);
+
+      setSelectedMarkerToMove({
+        type: peakValley,
+        idx: idxToChange,
+      });
     } else {
-      const targetTime = contextMenu.attr("target");
       const peakValley = target.id === "Add Peak" ? "peak" : "valley";
-      addPeakValley(peakValley, targetTime);
+      addPeakValley(peakValley, targetIdx);
     }
     contextMenu.style("display", "none");
   };
 
+  const movePeakValley = (keyCode) => {
+    const { type, idx } = selectedMarkerToMove;
+
+    if (keyCode === 37) {
+      // 37 is left arrow key
+      if (type === "peak") {
+        const idxVal = peaks[idx];
+        peaks.splice(idx, 1, (idxVal -= 1));
+        setPeaks([...peaks]); // required to change dependencies
+      } else {
+        const idxVal = valleys[idx];
+        valleys.splice(idx, 1, (idxVal -= 1));
+        setValleys([...valleys]); // required to change dependencies
+      }
+    } else if (keyCode === 39) {
+      // 39 is right arrow key
+      if (type === "peak") {
+        const idxVal = peaks[idx];
+        peaks.splice(idx, 1, (idxVal += 1));
+        setPeaks([...peaks]); // required to change dependencies
+      } else {
+        const idxVal = valleys[idx];
+        valleys.splice(idx, 1, (idxVal += 1));
+        setValleys([...valleys]); // required to change dependencies
+      }
+    }
+  };
+
+  const undoLastChange = () => {};
+
+  const handleZoomIn = (axis) => {
+    console.log(axis);
+  };
+  const handleZoomOut = (axis) => {
+    console.log(axis);
+  };
   return (
     <>
       <YAxisContainer>
         <YAxisLabel>Active Twitch Force (uN)</YAxisLabel>
-        {/* <ZoomWidget size={"20px"} /> */}
+        <ZoomWidget
+          size={"20px"}
+          zoomIn={() => handleZoomIn("y")}
+          zoomOut={() => handleZoomOut("y")}
+        />
       </YAxisContainer>
       <ColumnContainer>
         <ToolbarContainer>
+          <ChangelogLabel>View Changelog</ChangelogLabel>
           <HowTo>
             Edit Peaks / Valleys{" "}
             <Tooltip
@@ -613,7 +737,8 @@ export default function WaveformGraph({
                   <li>
                     Move:
                     <br />
-                    Click and drag markers along the waveform line.
+                    Click and drag markers along the waveform line. Or right
+                    click to use arrow keys.
                   </li>
                   <li>
                     Add:
@@ -632,9 +757,18 @@ export default function WaveformGraph({
             </Tooltip>
           </HowTo>
           <ButtonWidget
+            label="Undo"
+            width="80px"
+            height="30px"
+            fontSize={15}
+            borderRadius="5px"
+            clickFn={undoLastChange}
+          />
+          <ButtonWidget
             label="Reset"
             width="80px"
             height="30px"
+            left="5px"
             fontSize={15}
             borderRadius="5px"
             clickFn={resetWellChanges}
@@ -643,7 +777,7 @@ export default function WaveformGraph({
             label="Save"
             width="80px"
             height="30px"
-            left="5px"
+            left="10px"
             fontSize={15}
             borderRadius="5px"
             clickFn={saveChanges}
@@ -654,7 +788,15 @@ export default function WaveformGraph({
         </Container>
         <XAxisContainer>
           <XAxisLabel>Time (seconds)</XAxisLabel>
-          {/* <ZoomWidget size={"20px"} /> */}
+          <ZoomWidget
+            size={"20px"}
+            zoomIn={() => handleZoomIn("x")}
+            zoomOut={() => handleZoomOut("x")}
+          />
+
+          <CursorLocLabel>
+            Cursor: [ {cursorLoc[0]}, {cursorLoc[1]} ]
+          </CursorLocLabel>
         </XAxisContainer>
       </ColumnContainer>
       <ContextMenuContainer id="contextmenu">
