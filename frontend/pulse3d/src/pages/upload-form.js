@@ -76,6 +76,7 @@ const defaultZipErrorLabel =
 
 const getDefaultAnalysisParams = () => {
   return {
+    yAxisNormalization: false,
     baseToPeak: "",
     peakToBase: "",
     maxY: "",
@@ -181,6 +182,7 @@ export default function UploadForm() {
   const postNewJob = async (uploadId, filename) => {
     try {
       const {
+        yAxisNormalization,
         baseToPeak,
         peakToBase,
         maxY,
@@ -196,6 +198,7 @@ export default function UploadForm() {
 
       const requestBody = {
         upload_id: uploadId,
+        normalize_y_axis: yAxisNormalization,
         baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
         prominence_factors: formatTupleParams(
           prominenceFactorPeaks,
