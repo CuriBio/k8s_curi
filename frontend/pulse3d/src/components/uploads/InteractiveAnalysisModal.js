@@ -11,6 +11,7 @@ import { UploadsContext } from "@/components/layouts/DashboardLayout";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
 import semver from "semver";
+
 const Container = styled.div`
   height: 100%;
   display: flex;
@@ -150,6 +151,7 @@ export default function InteractiveWaveformModal({
   const [pulse3dVersionIdx, setPulse3dVersionIdx] = useState(0);
   const [filteredVersions, setFilteredVersions] = useState([]);
   const [changelog, setChangelog] = useState({});
+  const [openChangelog, setOpenChangelog] = useState(false);
   const [xRange, setXRange] = useState({
     min: null,
     max: null, // random
@@ -216,27 +218,37 @@ export default function InteractiveWaveformModal({
   };
 
   useEffect(() => {
+    // only available for versions greater than 0.25.2 when peaks_valley param was added
     const compatibleVersions = pulse3dVersions.filter((v) =>
       semver.satisfies(v, ">=0.25.2")
     );
-
     setFilteredVersions([...compatibleVersions]);
+
+    // check sessionStorage for saved data
     checkForExistingData();
-    // set to hold state of start and stop original times
-    setXRange({
-      min: selectedJob.analysisParams.start_time,
-      max: selectedJob.analysisParams.end_time,
-    });
   }, [selectedJob]);
 
   useEffect(() => {
+    // updates changelog when peaks/valleys and start/end times change
     updateChangelog();
   }, [markers, editableStartEndTimes]);
 
   useEffect(() => {
     // will error on init because there won't be an index 0
     if (Object.keys(originalData).length > 0) {
-      setDataToGraph([...originalData.coordinates[selectedWell]]);
+      const wellData = originalData.coordinates[selectedWell];
+      const { start_time, end_time } = selectedJob.analysisParams;
+      // update x min and max if no start or end time was ever defined so it isn't null in changelog messages
+      setXRange({
+        min: start_time
+          ? start_time
+          : Math.min(...wellData.map((coords) => coords[0])),
+        max: end_time
+          ? end_time
+          : Math.max(...wellData.map((coords) => coords[0])),
+      });
+
+      setDataToGraph([...wellData]);
     }
   }, [selectedWell, originalData]);
 
@@ -332,71 +344,105 @@ export default function InteractiveWaveformModal({
       const { peaks, valleys, startTime, endTime } =
         wellChanges[wellChanges.length - 1];
 
-      if (JSON.stringify(peaks) !== JSON.stringify(markers[0])) {
-        const diffIdx = peaks.findIndex(
-          (peakIdx, i) => peakIdx !== markers[0][i]
-        );
-        changelogMessage = `Peak at [ ${
-          dataToGraph[peaks[diffIdx]]
-        } ] was moved to [ ${dataToGraph[markers[0][diffIdx]]} ]`;
-      } else if (JSON.stringify(valleys) !== JSON.stringify(markers[1])) {
-        const diffIdx = valleys.findIndex(
-          (valleyIdx, i) => valleyIdx !== markers[1][i]
-        );
-        changelogMessage = `Valley at [ ${
-          dataToGraph[valleys[diffIdx]]
-        } ] was moved to [ ${dataToGraph[markers[1][diffIdx]]} ].`;
-      } else if (startTime !== editableStartEndTimes.startTime) {
-        changelogMessage = `Start time was changed from ${startTime} to ${editableStartEndTimes.startTime}.`;
-      } else if (endTime !== editableStartEndTimes.endTime) {
-        changelogMessage = `End time was changed from ${endTime} to ${editableStartEndTimes.endTime}.`;
-      }
-      if (changelogMessage !== undefined) {
-        changelog[selectedWell].push({
-          peaks: markers[0],
-          valleys: markers[1],
-          startTime: editableStartEndTimes.startTime,
-          endTime: editableStartEndTimes.endTime,
-          message: changelogMessage,
-        });
-      }
+      changelogMessage = getChangelogMessage(
+        peaks,
+        valleys,
+        startTime,
+        endTime
+      );
     } else if (
       markers.length === 2 &&
       originalData.peaks_valleys[selectedWell]
     ) {
       const ogWellData = originalData.peaks_valleys[selectedWell];
-
-      if (JSON.stringify(ogWellData[0]) !== JSON.stringify(markers[0])) {
-        const diffIdx = ogWellData[0].findIndex(
-          (peakIdx, i) => peakIdx !== markers[0][i]
-        );
-        changelogMessage = `Peak at [ ${
-          dataToGraph[ogWellData[0][diffIdx]]
-        } ] was moved to [ ${dataToGraph[markers[0][diffIdx]]} ].`;
-      } else if (JSON.stringify(ogWellData[1]) !== JSON.stringify(markers[1])) {
-        const diffIdx = ogWellData[1].findIndex(
-          (peakIdx, i) => peakIdx !== markers[0][i]
-        );
-        changelogMessage = `Valley at [ ${
-          dataToGraph[ogWellData[1][diffIdx]]
-        } ] was moved to [ ${dataToGraph[markers[1][diffIdx]]} ].`;
-      } else if (xRange.min !== editableStartEndTimes.startTime) {
-        changelogMessage = `Start time was changed from ${xRange.min} to ${editableStartEndTimes.startTime}.`;
-      } else if (xRange.max !== editableStartEndTimes.endTime) {
-        changelogMessage = `End time was changed from ${xRange.max} to ${editableStartEndTimes.endTime}.`;
-      }
-      if (changelogMessage !== undefined) {
-        changelog[selectedWell] = [
-          {
-            peaks: markers[0],
-            valleys: markers[1],
-            startTime: editableStartEndTimes.startTime,
-            endTime: editableStartEndTimes.endTime,
-            message: changelogMessage,
-          },
-        ];
-      }
+      changelogMessage = getChangelogMessage(
+        ogWellData[0],
+        ogWellData[1],
+        xRange.min,
+        xRange.max
+      );
     }
+
+    if (changelogMessage !== undefined) {
+      // if no changes have been made, there won't be a key set yet
+      if (!changelog[selectedWell]) changelog[selectedWell] = [];
+
+      changelog[selectedWell].push({
+        peaks: markers[0],
+        valleys: markers[1],
+        startTime: editableStartEndTimes.startTime,
+        endTime: editableStartEndTimes.endTime,
+        message: changelogMessage,
+      });
+
+      setChangelog({ ...changelog });
+    }
+  };
+
+  const getChangelogMessage = (
+    peaksToCompare,
+    valleysToCompare,
+    startToCompare,
+    endToCompare
+  ) => {
+    let changelogMessage;
+    const peaksDiff =
+      JSON.stringify(peaksToCompare) !== JSON.stringify(markers[0]);
+    const valleysDiff =
+      JSON.stringify(valleysToCompare) !== JSON.stringify(markers[1]);
+    const startTimeDiff =
+      startToCompare !== editableStartEndTimes.startTime &&
+      editableStartEndTimes.startTime;
+    const endTimeDiff =
+      endToCompare !== editableStartEndTimes.endTime &&
+      editableStartEndTimes.endTime;
+    const windowedTimeDiff = startTimeDiff && endTimeDiff;
+
+    if (peaksDiff) {
+      const diffIdx = peaksToCompare.findIndex(
+        (peakIdx, i) => peakIdx !== markers[0][i]
+      );
+      const oldPeakX = dataToGraph[peaksToCompare[diffIdx]][0];
+      const oldPeakY = dataToGraph[peaksToCompare[diffIdx]][1];
+      const newPeakX = dataToGraph[markers[0][diffIdx]][0];
+      const newPeakY = dataToGraph[markers[0][diffIdx]][1];
+
+      changelogMessage = `Peak at [ ${oldPeakX.toFixed(2)}, ${oldPeakY.toFixed(
+        2
+      )} ] was moved to [ ${newPeakX.toFixed(2)}, ${newPeakY.toFixed(2)} ].`;
+    } else if (valleysDiff) {
+      const diffIdx = valleysToCompare.findIndex(
+        (valleyIdx, i) => valleyIdx !== markers[0][i]
+      );
+      const oldValleyX = dataToGraph[valleysToCompare[diffIdx]][0];
+      const oldValleyY = dataToGraph[valleysToCompare[diffIdx]][1];
+      const newValleyX = dataToGraph[markers[1][diffIdx]][0];
+      const newValleyY = dataToGraph[markers[1][diffIdx]][1];
+
+      changelogMessage = `Valley at [ ${oldValleyX.toFixed(
+        2
+      )}, ${oldValleyY.toFixed(2)} ] was moved to [ ${newValleyX.toFixed(
+        2
+      )}, ${newValleyY.toFixed(2)} ].`;
+    // } else if (windowedTimeDiff) {
+    //   changelogMessage = `Start time was changed from ${startToCompare.toFixed(
+    //     2
+    //   )} to ${editableStartEndTimes.startTime.toFixed(
+    //     2
+    //   )} and end time was changed from ${endToCompare.toFixed(
+    //     2
+    //   )} to ${editableStartEndTimes.endTime.toFixed(2)}.`;
+    } else if (startTimeDiff) {
+      changelogMessage = `Start time was changed from ${startToCompare.toFixed(
+        2
+      )} to ${editableStartEndTimes.startTime.toFixed(2)}.`;
+    } else if (endTimeDiff) {
+      changelogMessage = `End time was changed from ${endToCompare.toFixed(
+        2
+      )} to ${editableStartEndTimes.endTime.toFixed(2)}.`;
+    }
+
+    return changelogMessage;
   };
 
   const deletePeakValley = (peakValley, idx) => {
@@ -459,6 +505,7 @@ export default function InteractiveWaveformModal({
               saveChanges={saveChanges}
               deletePeakValley={deletePeakValley}
               addPeakValley={addPeakValley}
+              openChangelog={() => setOpenChangelog(true)}
             />
           </GraphContainer>
           <ErrorLabel>{errorMessage}</ErrorLabel>
@@ -518,6 +565,17 @@ export default function InteractiveWaveformModal({
         closeModal={handleModalClose}
         header={modalLabels.header}
         labels={modalLabels.messages}
+      />
+      <ModalWidget
+        open={openChangelog}
+        buttons={["Close"]}
+        closeModal={() => setOpenChangelog(false)}
+        header={`Changelog for ${selectedWell}`}
+        labels={
+          changelog[selectedWell]
+            ? changelog[selectedWell].map(({ message }) => message)
+            : ["No changes found."]
+        }
       />
     </Container>
   );

@@ -18,7 +18,14 @@ const Text = styled.p`
   word-break: break-word;
   font-size: 18px;
   text-align: center;
+  width: 100%;
+  position: relative;
 `;
+ const ModalBody = styled.div`
+   max-height: 60vh;
+   overflow-y: scroll;
+   overflow-x: hidden;
+ `;
 
 export default function ModalWidget({
   open,
@@ -38,18 +45,21 @@ export default function ModalWidget({
     bgcolor: "background.paper",
     boxShadow: 24,
     borderRadius: "10px",
-    overflow: "hidden",
+    overflowY: "hidden",
   };
+
 
   return (
     <div>
       <Modal open={open}>
         <Box sx={style}>
           <Header>{header}</Header>
-          {labels.map((text, idx) => {
-            return <Text key={idx}>{text}</Text>;
-          })}
-          {children}
+          <ModalBody>
+            {labels.map((text, idx) => {
+              return <Text key={idx}>{text}</Text>;
+            })}
+            {children}
+          </ModalBody>
           <ButtonContainer>
             {buttons.map((label, idx) => {
               return (

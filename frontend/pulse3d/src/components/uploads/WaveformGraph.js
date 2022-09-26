@@ -137,6 +137,7 @@ export default function WaveformGraph({
   saveChanges,
   deletePeakValley,
   addPeakValley,
+  openChangelog,
 }) {
   const [valleys, setValleys] = useState([]);
   const [peaks, setPeaks] = useState([]);
@@ -312,7 +313,6 @@ export default function WaveformGraph({
           .on("drag", function (d) {
             const startingPos = d3.select(this).attr("startingPosFromLine");
             const timeWidth = d3.select(this).attr("width");
-
             // make sure you can't drag outside of window bounds
             const position =
               d.x - startingPos < 0
@@ -327,14 +327,14 @@ export default function WaveformGraph({
             startTimeLine.attr("x1", position).attr("x2", position);
 
             // reposition end time line and set value to state
-            const endPosition = position + parseFloat(timeWidth);
+            const endPosition = parseFloat(position) + parseFloat(timeWidth);
             endTimeLine.attr("x1", endPosition).attr("x2", endPosition);
           })
           .on("end", function () {
             const timeWidth = d3.select(this).attr("width");
             const startPosition = d3.select(this).attr("x");
-            const endPosition = startPosition + parseFloat(timeWidth);
-            
+            const endPosition = parseFloat(startPosition) + parseFloat(timeWidth);
+
             // save new window analysis times to state
             setNewStartTime(x.invert(startPosition));
             setNewEndTime(x.invert(endPosition));
@@ -639,11 +639,11 @@ export default function WaveformGraph({
   }, [initialPeaksValleys, selectedMarkerToMove]);
 
   useEffect(() => {
+    console.log()
     setEditableStartEndTimes({
       startTime: newStartTime,
       endTime: newEndTime,
     });
-    console.log("here");
   }, [newStartTime, newEndTime]);
 
   useEffect(() => {
@@ -728,7 +728,9 @@ export default function WaveformGraph({
       </YAxisContainer>
       <ColumnContainer>
         <ToolbarContainer>
-          <ChangelogLabel>View Changelog</ChangelogLabel>
+          <ChangelogLabel onClick={openChangelog}>
+            View Changelog
+          </ChangelogLabel>
           <HowTo>
             Edit Peaks / Valleys{" "}
             <Tooltip
