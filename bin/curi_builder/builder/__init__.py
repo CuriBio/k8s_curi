@@ -40,7 +40,16 @@ def find_changed_svcs(sha: str):
     patterns_to_check = [f"{path}/**" for path in (SVC_PATH_PATTERN, WORKER_PATH_PATTERN, CORE_LIB_PATH)]
 
     completed_process = subprocess.run(
-        ["git", "--no-pager", "diff", sha, "--name-only", *get_dir_args(*patterns_to_check), ":!*.tf"],
+        [
+            "git",
+            "--no-pager",
+            "diff",
+            sha,
+            "--name-only",
+            *get_dir_args(*patterns_to_check),
+            ":!*.tf",
+            ":!*/tests/*",
+        ],
         stdout=subprocess.PIPE,
     )
 
