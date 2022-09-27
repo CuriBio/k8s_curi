@@ -5,9 +5,7 @@ import { AuthContext } from "@/pages/_app";
 import ArrowForwardIosSharpIcon from "@mui/icons-material/ArrowForwardIosSharp";
 import MuiAccordion, { AccordionProps } from "@mui/material/Accordion";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
-import MuiAccordionSummary, {
-  AccordionSummaryProps,
-} from "@mui/material/AccordionSummary";
+import MuiAccordionSummary, { AccordionSummaryProps } from "@mui/material/AccordionSummary";
 import MuiAccordionDetails from "@mui/material/AccordionDetails";
 
 const Container = styled.div`
@@ -56,10 +54,7 @@ const theme = ({ color }) => {
 };
 
 const AccordionSummary = styled((AccordionSummaryProps) => (
-  <MuiAccordionSummary
-    {...AccordionSummaryProps}
-    sx={{ color: "var(--light-gray)" }}
-  />
+  <MuiAccordionSummary {...AccordionSummaryProps} sx={{ color: "var(--light-gray)" }} />
 ))(({ props }) => ({
   flexDirection: "row-reverse",
   backgroundColor: props.color,
@@ -132,9 +127,7 @@ export default function ControlPanel() {
   const buttons = accountType === "admin" ? adminButtons : userButtons;
 
   useEffect(() => {
-    const currentPage = buttons.filter(
-      ({ page }) => page === router.pathname
-    )[0];
+    const currentPage = buttons.filter(({ page }) => page === router.pathname)[0];
 
     if (currentPage) {
       const { label, options } = currentPage;
@@ -163,14 +156,10 @@ export default function ControlPanel() {
           }
         };
 
-        let backgroundColor =
-          selected === label ? "var(--teal-green)" : "var(--dark-blue)";
+        let backgroundColor = selected === label ? "var(--teal-green)" : "var(--dark-blue)";
 
         return (
-          <ThemeProvider
-            key={label}
-            theme={theme({ color: backgroundColor, disabled })}
-          >
+          <ThemeProvider key={label} theme={theme({ color: backgroundColor, disabled })}>
             <Accordion disabled={disabled} expanded={expanded === label}>
               <AccordionSummary
                 props={{ color: backgroundColor }}

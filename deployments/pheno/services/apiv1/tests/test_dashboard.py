@@ -3,9 +3,7 @@ from src.lib.models import *
 
 
 def test_usage_route__returns_correct_query_count(client, mock_cursor):
-    mock_cursor.fetchrow.return_value = {
-        "total_processingtime": 80
-    }
+    mock_cursor.fetchrow.return_value = {"total_processingtime": 80}
     client.get("/usage/1?month=2&year=2022")
     assert mock_cursor.fetchrow.await_count == 2
 

@@ -22,18 +22,16 @@ const Placeholder = styled.em`
   font-weight: bolder;
 `;
 
-const ListItem = styled((MenuItemProps) => <MenuItem {...MenuItemProps} />)(
-  () => ({
-    fontSize: "16px",
-    padding: "10px 30px",
-    "&:hover": {
-      backgroundColor: "var(--light-gray)",
-    },
-    "& .MuiMenu-list": {
-      backgroundColor: "blue",
-    },
-  })
-);
+const ListItem = styled((MenuItemProps) => <MenuItem {...MenuItemProps} />)(() => ({
+  fontSize: "16px",
+  padding: "10px 30px",
+  "&:hover": {
+    backgroundColor: "var(--light-gray)",
+  },
+  "& .MuiMenu-list": {
+    backgroundColor: "blue",
+  },
+}));
 const MenuProps = {
   PaperProps: {
     style: {
@@ -95,7 +93,7 @@ export default function DropDownWidget({
         onChange={handleChange}
         value={selected}
         renderValue={(selected) => {
-          /* 
+          /*
              Must be initialSelected === undefined and not !initialSelected,
              An index of 0 will pass !initialSelected as truthy
           */
@@ -113,11 +111,7 @@ export default function DropDownWidget({
         </MenuItem>
         {options.map((item, idx) => {
           return disableOptions[idx] ? (
-            <Tooltip
-              key={idx}
-              title={<TooltipText>{optionsTooltipText[idx]}</TooltipText>}
-              value={idx}
-            >
+            <Tooltip key={idx} title={<TooltipText>{optionsTooltipText[idx]}</TooltipText>} value={idx}>
               <div>
                 <ListItem disabled={true}>{item}</ListItem>
               </div>

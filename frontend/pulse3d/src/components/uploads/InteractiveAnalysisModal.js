@@ -18,8 +18,8 @@ const Container = styled.div`
   flex-direction: column;
   align-items: center;
   overflow: hidden;
-  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%),
-    0px 8px 10px 1px rgb(0 0 0 / 20%), 0px 3px 14px 2px rgb(0 0 0 / 12%);
+  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
+    0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
 
 const HeaderContainer = styled.div`
@@ -70,8 +70,8 @@ const GraphContainer = styled.div`
   padding: 0px 15px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%),
-    0px 8px 10px 1px rgb(0 0 0 / 20%), 0px 3px 14px 2px rgb(0 0 0 / 12%);
+  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
+    0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
 
 const SpinnerContainer = styled.div`
@@ -114,18 +114,12 @@ const constantModalLabels = {
   },
   error: {
     header: "Error Occurred!",
-    messages: [
-      "There was an issue while attempting to start this analysis.",
-      "Please try again later.",
-    ],
+    messages: ["There was an issue while attempting to start this analysis.", "Please try again later."],
     buttons: ["Close"],
   },
   dataFound: {
     header: "Important!",
-    messages: [
-      "Previous changes have been found for this analysis.",
-      "Do you want to use it or start over?",
-    ],
+    messages: ["Previous changes have been found for this analysis.", "Do you want to use it or start over?"],
     buttons: ["Start Over", "Use"],
   },
 };
@@ -134,10 +128,7 @@ const wellNames = Array(24)
   .fill()
   .map((_, idx) => twentyFourPlateDefinition.getWellNameFromIndex(idx));
 
-export default function InteractiveWaveformModal({
-  selectedJob,
-  setOpenInteractiveAnalysis,
-}) {
+export default function InteractiveWaveformModal({ selectedJob, setOpenInteractiveAnalysis }) {
   const [selectedWell, setSelectedWell] = useState("A1");
   const [uploadInProgress, setUploadInProgress] = useState(false); // determines state of interactive analysis upload
   const [originalData, setOriginalData] = useState({}); // original waveform data from GET request, unedited
@@ -219,9 +210,7 @@ export default function InteractiveWaveformModal({
 
   useEffect(() => {
     // only available for versions greater than 0.25.2 when peaks_valley param was added
-    const compatibleVersions = pulse3dVersions.filter((v) =>
-      semver.satisfies(v, ">=0.25.2")
-    );
+    const compatibleVersions = pulse3dVersions.filter((v) => semver.satisfies(v, ">=0.25.2"));
     setFilteredVersions([...compatibleVersions]);
 
     // check sessionStorage for saved data
@@ -240,12 +229,8 @@ export default function InteractiveWaveformModal({
       const { start_time, end_time } = selectedJob.analysisParams;
       // update x min and max if no start or end time was ever defined so it isn't null in changelog messages
       setXRange({
-        min: start_time
-          ? start_time
-          : Math.min(...wellData.map((coords) => coords[0])),
-        max: end_time
-          ? end_time
-          : Math.max(...wellData.map((coords) => coords[0])),
+        min: start_time ? start_time : Math.min(...wellData.map((coords) => coords[0])),
+        max: end_time ? end_time : Math.max(...wellData.map((coords) => coords[0])),
       });
 
       setDataToGraph([...wellData]);
@@ -265,8 +250,7 @@ export default function InteractiveWaveformModal({
 
   const resetWellChanges = () => {
     // reset peaks and valleys for current well
-    editablePeaksValleys[selectedWell] =
-      originalData.peaks_valleys[selectedWell];
+    editablePeaksValleys[selectedWell] = originalData.peaks_valleys[selectedWell];
 
     // reset state
     setEditablePeaksValleys({ ...editablePeaksValleys });
@@ -286,13 +270,10 @@ export default function InteractiveWaveformModal({
         version: filteredVersions[pulse3dVersionIdx],
       };
 
-      const jobResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`,
-        {
-          method: "POST",
-          body: JSON.stringify(requestBody),
-        }
-      );
+      const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
+        method: "POST",
+        body: JSON.stringify(requestBody),
+      });
       if (jobResponse.status !== 200) {
         // TODO make modal
         console.log("ERROR posting new job: ", await jobResponse.json());
@@ -341,26 +322,12 @@ export default function InteractiveWaveformModal({
 
     if (changelog[selectedWell] && markers.length === 2) {
       const wellChanges = changelog[selectedWell];
-      const { peaks, valleys, startTime, endTime } =
-        wellChanges[wellChanges.length - 1];
+      const { peaks, valleys, startTime, endTime } = wellChanges[wellChanges.length - 1];
 
-      changelogMessage = getChangelogMessage(
-        peaks,
-        valleys,
-        startTime,
-        endTime
-      );
-    } else if (
-      markers.length === 2 &&
-      originalData.peaks_valleys[selectedWell]
-    ) {
+      changelogMessage = getChangelogMessage(peaks, valleys, startTime, endTime);
+    } else if (markers.length === 2 && originalData.peaks_valleys[selectedWell]) {
       const ogWellData = originalData.peaks_valleys[selectedWell];
-      changelogMessage = getChangelogMessage(
-        ogWellData[0],
-        ogWellData[1],
-        xRange.min,
-        xRange.max
-      );
+      changelogMessage = getChangelogMessage(ogWellData[0], ogWellData[1], xRange.min, xRange.max);
     }
 
     if (changelogMessage !== undefined) {
@@ -379,59 +346,48 @@ export default function InteractiveWaveformModal({
     }
   };
 
-  const getChangelogMessage = (
-    peaksToCompare,
-    valleysToCompare,
-    startToCompare,
-    endToCompare
-  ) => {
+  const getChangelogMessage = (peaksToCompare, valleysToCompare, startToCompare, endToCompare) => {
     let changelogMessage;
-    const peaksDiff =
-      JSON.stringify(peaksToCompare) !== JSON.stringify(markers[0]);
-    const valleysDiff =
-      JSON.stringify(valleysToCompare) !== JSON.stringify(markers[1]);
-    const startTimeDiff =
-      startToCompare !== editableStartEndTimes.startTime &&
-      editableStartEndTimes.startTime;
-    const endTimeDiff =
-      endToCompare !== editableStartEndTimes.endTime &&
-      editableStartEndTimes.endTime;
-    const windowedTimeDiff = startTimeDiff && endTimeDiff;
-
+    const peaksDiff = JSON.stringify(peaksToCompare) !== JSON.stringify(markers[0]),
+      valleysDiff = JSON.stringify(valleysToCompare) !== JSON.stringify(markers[1]),
+      startTimeDiff =
+        startToCompare !== editableStartEndTimes.startTime &&
+        editableStartEndTimes.startTime !== null &&
+        startToCompare !== null,
+      endTimeDiff =
+        endToCompare !== editableStartEndTimes.endTime &&
+        editableStartEndTimes.endTime !== null &&
+        endToCompare !== null,
+      windowedTimeDiff = startTimeDiff && endTimeDiff;
+    console.log(startTimeDiff && endTimeDiff);
     if (peaksDiff) {
-      const diffIdx = peaksToCompare.findIndex(
-        (peakIdx, i) => peakIdx !== markers[0][i]
-      );
-      const oldPeakX = dataToGraph[peaksToCompare[diffIdx]][0];
-      const oldPeakY = dataToGraph[peaksToCompare[diffIdx]][1];
-      const newPeakX = dataToGraph[markers[0][diffIdx]][0];
-      const newPeakY = dataToGraph[markers[0][diffIdx]][1];
+      const diffIdx = peaksToCompare.findIndex((peakIdx, i) => peakIdx !== markers[0][i]),
+        oldPeakX = dataToGraph[peaksToCompare[diffIdx]][0],
+        oldPeakY = dataToGraph[peaksToCompare[diffIdx]][1],
+        newPeakX = dataToGraph[markers[0][diffIdx]][0],
+        newPeakY = dataToGraph[markers[0][diffIdx]][1];
 
       changelogMessage = `Peak at [ ${oldPeakX.toFixed(2)}, ${oldPeakY.toFixed(
         2
       )} ] was moved to [ ${newPeakX.toFixed(2)}, ${newPeakY.toFixed(2)} ].`;
     } else if (valleysDiff) {
-      const diffIdx = valleysToCompare.findIndex(
-        (valleyIdx, i) => valleyIdx !== markers[0][i]
-      );
-      const oldValleyX = dataToGraph[valleysToCompare[diffIdx]][0];
-      const oldValleyY = dataToGraph[valleysToCompare[diffIdx]][1];
-      const newValleyX = dataToGraph[markers[1][diffIdx]][0];
-      const newValleyY = dataToGraph[markers[1][diffIdx]][1];
+      const diffIdx = valleysToCompare.findIndex((valleyIdx, i) => valleyIdx !== markers[0][i]),
+        oldValleyX = dataToGraph[valleysToCompare[diffIdx]][0],
+        oldValleyY = dataToGraph[valleysToCompare[diffIdx]][1],
+        newValleyX = dataToGraph[markers[1][diffIdx]][0],
+        newValleyY = dataToGraph[markers[1][diffIdx]][1];
 
-      changelogMessage = `Valley at [ ${oldValleyX.toFixed(
+      changelogMessage = `Valley at [ ${oldValleyX.toFixed(2)}, ${oldValleyY.toFixed(
         2
-      )}, ${oldValleyY.toFixed(2)} ] was moved to [ ${newValleyX.toFixed(
+      )} ] was moved to [ ${newValleyX.toFixed(2)}, ${newValleyY.toFixed(2)} ].`;
+    } else if (windowedTimeDiff) {
+      changelogMessage = `Start time was changed from ${startToCompare.toFixed(
         2
-      )}, ${newValleyY.toFixed(2)} ].`;
-    // } else if (windowedTimeDiff) {
-    //   changelogMessage = `Start time was changed from ${startToCompare.toFixed(
-    //     2
-    //   )} to ${editableStartEndTimes.startTime.toFixed(
-    //     2
-    //   )} and end time was changed from ${endToCompare.toFixed(
-    //     2
-    //   )} to ${editableStartEndTimes.endTime.toFixed(2)}.`;
+      )} to ${editableStartEndTimes.startTime.toFixed(
+        2
+      )} and end time was changed from ${endToCompare.toFixed(2)} to ${editableStartEndTimes.endTime.toFixed(
+        2
+      )}.`;
     } else if (startTimeDiff) {
       changelogMessage = `Start time was changed from ${startToCompare.toFixed(
         2
@@ -515,9 +471,7 @@ export default function InteractiveWaveformModal({
               <Tooltip
                 title={
                   <TooltipText>
-                    {
-                      "Specifies which version of the pulse3d analysis software to use."
-                    }
+                    {"Specifies which version of the pulse3d analysis software to use."}
                   </TooltipText>
                 }
               >
@@ -549,9 +503,7 @@ export default function InteractiveWaveformModal({
               borderRadius="3px"
               left="-50px"
               label="Run Analysis"
-              backgroundColor={
-                uploadInProgress ? "var(--dark-gray)" : "var(--dark-blue)"
-              }
+              backgroundColor={uploadInProgress ? "var(--dark-gray)" : "var(--dark-blue)"}
               disabled={uploadInProgress}
               inProgress={uploadInProgress}
               clickFn={postNewJob}
@@ -569,6 +521,7 @@ export default function InteractiveWaveformModal({
       <ModalWidget
         open={openChangelog}
         buttons={["Close"]}
+        width={900}
         closeModal={() => setOpenChangelog(false)}
         header={`Changelog for ${selectedWell}`}
         labels={

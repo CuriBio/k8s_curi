@@ -73,7 +73,4 @@ def test_email_user_status__returns_500_status_code_to_catch_other_errors(mocker
     response = client.post("/emailUserStatus", json.dumps(test_req_body))
 
     assert response.status_code == 500
-    assert (
-        response.json()["detail"]
-        == "Unable to process request: failed to send email: fail"
-    )
+    assert response.json()["detail"] == "Unable to process request: failed to send email: fail"

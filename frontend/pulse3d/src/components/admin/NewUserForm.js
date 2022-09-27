@@ -79,8 +79,7 @@ export default function NewUserForm() {
     setErrorMsg(""); // reset to show user something happened
     setInProgress(true);
 
-    if (Object.values(userData).includes(""))
-      setErrorMsg("* All fields are required");
+    if (Object.values(userData).includes("")) setErrorMsg("* All fields are required");
     // this state gets passed to web worker to attempt login request
     else {
       const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/register`, {
@@ -110,8 +109,7 @@ export default function NewUserForm() {
   };
 
   const setErrorMessage = (nameOfInvalidField, reason) => {
-    const errorMsg =
-      nameOfInvalidField === "email" ? "Please enter a valid email" : reason;
+    const errorMsg = nameOfInvalidField === "email" ? "Please enter a valid email" : reason;
     if (errorMsg) setErrorMsg(`* ${errorMsg}`);
   };
 

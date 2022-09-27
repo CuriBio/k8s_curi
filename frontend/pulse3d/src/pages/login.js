@@ -48,8 +48,7 @@ export default function Login() {
   const submitForm = async () => {
     setErrorMsg(""); // reset to show user something happened
 
-    if (Object.values(userData).includes(""))
-      setErrorMsg("*All fields are required");
+    if (Object.values(userData).includes("")) setErrorMsg("*All fields are required");
     // this state gets passed to web worker to attempt login request
     else {
       try {
@@ -86,9 +85,7 @@ export default function Login() {
                 label={type}
                 key={idx}
                 isSelected={isSelected}
-                backgroundColor={
-                  isSelected ? "var(--teal-green)" : "var(--dark-blue)"
-                }
+                backgroundColor={isSelected ? "var(--teal-green)" : "var(--dark-blue)"}
                 clickFn={() => {
                   setUserData({});
                   setLoginType(type);
@@ -97,11 +94,7 @@ export default function Login() {
             );
           })}
         </ButtonContainer>
-        <LoginForm
-          userData={userData}
-          setUserData={setUserData}
-          loginType={loginType}
-        >
+        <LoginForm userData={userData} setUserData={setUserData} loginType={loginType}>
           <ErrorText id="loginError" role="errorMsg">
             {errorMsg}
           </ErrorText>

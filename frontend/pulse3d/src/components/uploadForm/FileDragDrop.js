@@ -59,9 +59,7 @@ export default function FileDragDrop({
         <DropZone style={dropZoneStyle}>
           {dropZoneText}
           <br />
-          <FileSelectionLabel>
-            [ {fileSelection || "No file selected"} ]
-          </FileSelectionLabel>
+          <FileSelectionLabel>[ {fileSelection || "No file selected"} ]</FileSelectionLabel>
         </DropZone>
       </FileUploader>
     </Container>

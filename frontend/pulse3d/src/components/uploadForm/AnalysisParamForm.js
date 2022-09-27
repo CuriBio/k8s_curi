@@ -5,6 +5,8 @@ import FormInput from "../basicWidgets/FormInput";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
+import { useEffect, useState } from "react";
+import semverGte from "semver/functions/gte";
 
 const Container = styled.div`
   padding-top: 1rem;
@@ -178,6 +180,8 @@ export default function AnalysisParamForm({
   pulse3dVersions,
   resetDropDown,
 }) {
+  const [normalizeYaxisisChecked, setNormalizeYaxisisChecked] = useState(true);
+
   const updateParams = (newParams) => {
     const updatedParams = { ...analysisParams, ...newParams };
 
@@ -209,18 +213,12 @@ export default function AnalysisParamForm({
     return value === null || value === "" || value >= minValue;
   };
 
-  const validatePositiveNumber = (
-    updatedParams,
-    paramName,
-    allowZero = true
-  ) => {
+  const validatePositiveNumber = (updatedParams, paramName, allowZero = true) => {
     const newValue = updatedParams[paramName];
 
     let errorMsg = "";
     if (!checkPositiveNumberEntry(newValue, allowZero)) {
-      errorMsg = allowZero
-        ? "*Must be a positive number"
-        : "*Must be a positive, non-zero number";
+      errorMsg = allowZero ? "*Must be a positive number" : "*Must be a positive, non-zero number";
     }
     setParamErrors({ ...paramErrors, [paramName]: errorMsg });
   };
@@ -298,24 +296,24 @@ export default function AnalysisParamForm({
     });
   };
 
+  //expand if more inputs need to be disabled and cleared based on other inputs
+  useEffect(() => {
+    updateParams({
+      maxY: "",
+    });
+  }, [normalizeYaxisisChecked]);
+
   return (
     <Container>
-      <AdditionalParamLabel>
-        Additional Analysis Params (Optional)
-      </AdditionalParamLabel>
+      <AdditionalParamLabel>Additional Analysis Params (Optional)</AdditionalParamLabel>
       <InputContainer>
         <ParamContainer style={{ width: "43%", marginTop: "2%" }}>
-          <Label
-            htmlFor="selectedPulse3dVersion"
-            style={{ width: "57%", paddingLeft: "16%" }}
-          >
+          <Label htmlFor="selectedPulse3dVersion" style={{ width: "57%", paddingLeft: "16%" }}>
             Pulse3d Version:
             <Tooltip
               title={
                 <TooltipText>
-                  {
-                    "Specifies which version of the pulse3d analysis software to use."
-                  }
+                  {"Specifies which version of the pulse3d analysis software to use."}
                 </TooltipText>
               }
             >
@@ -333,41 +331,78 @@ export default function AnalysisParamForm({
             />
           </DropDownContainer>
         </ParamContainer>
-        {inputVals.selectedPulse3dVersion !== "0.24.6" && (
-          // Tanner (9/15/21): at the time of writing this, 0.24.6 is the only available pulse3D version that does not support maxY
-          <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
-            <Label htmlFor="maxY">
-              Y-Axis Range (µN):
-              <Tooltip
-                title={
-                  <TooltipText>
-                    {
-                      "Specifies the maximum y-axis bound of graphs generated in the output xlsx file."
-                    }
-                  </TooltipText>
-                }
-              >
-                <InfoOutlinedIcon />
-              </Tooltip>
-            </Label>
-            <InputErrorContainer>
-              <FormInput
-                name="maxY"
-                placeholder={"Auto find max y"}
-                value={inputVals.maxY}
-                onChangeFn={(e) => {
-                  updateParams({
-                    maxY: e.target.value,
-                  });
-                }}
-              >
-                <ErrorText id="maxYError" role="errorMsg">
-                  {errorMessages.maxY}
-                </ErrorText>
-              </FormInput>
-            </InputErrorContainer>
-          </ParamContainer>
-        )}
+        {inputVals.selectedPulse3dVersion !== "" &&
+          semverGte(inputVals.selectedPulse3dVersion, "0.25.4") && (
+            //Disabling y-axis normalization added in version 0.25.4
+            <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
+              <Label htmlFor="yAxisNormalization">
+                Disable Y-Axis Normalization:
+                <Tooltip
+                  title={
+                    <TooltipText>
+                      {"When selected, disables normalization of the y-axis."}
+                    </TooltipText>
+                  }
+                >
+                  <InfoOutlinedIcon />
+                </Tooltip>
+              </Label>
+              <InputErrorContainer>
+                <FormInput
+                  type="checkbox"
+                  name="yAxisNormalization"
+                  value={normalizeYaxisisChecked}
+                  onChangeFn={(e) => {
+                    updateParams({
+                      yAxisNormalization: normalizeYaxisisChecked,
+                    });
+                    setNormalizeYaxisisChecked(!normalizeYaxisisChecked);
+                  }}
+                >
+                  <ErrorText id="yAxisNormalization" role="errorMsg">
+                    {errorMessages.yAxisNormalization}
+                  </ErrorText>
+                </FormInput>
+              </InputErrorContainer>
+            </ParamContainer>
+          )}
+        {inputVals.selectedPulse3dVersion !== "" &&
+          semverGte(inputVals.selectedPulse3dVersion, "0.25.0") && (
+            // Tanner (9/15/21): at the time of writing this, 0.24.6 is the only available pulse3D version that does not support maxY
+            <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
+              <Label htmlFor="maxY">
+                Y-Axis Range (µN):
+                <Tooltip
+                  title={
+                    <TooltipText>
+                      {
+                        "Specifies the maximum y-axis bound of graphs generated in the output xlsx file."
+                      }
+                    </TooltipText>
+                  }
+                >
+                  <InfoOutlinedIcon />
+                </Tooltip>
+              </Label>
+              <InputErrorContainer>
+                <FormInput
+                  name="maxY"
+                  placeholder={"Auto find max y"}
+                  value={inputVals.maxY}
+                  onChangeFn={(e) => {
+                    updateParams({
+                      maxY: e.target.value,
+                    });
+                  }}
+                  disabled={!normalizeYaxisisChecked}
+                >
+                  <ErrorText id="maxYError" role="errorMsg">
+                    {errorMessages.maxY}
+                  </ErrorText>
+                </FormInput>
+              </InputErrorContainer>
+            </ParamContainer>
+          )}
         <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
           <Label htmlFor="twitchWidths">
             Twitch Widths (%):
@@ -400,16 +435,13 @@ export default function AnalysisParamForm({
             </FormInput>
           </InputErrorContainer>
         </ParamContainer>
-
         <WindowAnalysisContainer>
           <WAOverlayContainer>
             <WALabel>
               <CheckboxWidget
                 color={"secondary"}
                 size={"small"}
-                handleCheckbox={(checkedBaseline) =>
-                  setCheckedBaseline(checkedBaseline)
-                }
+                handleCheckbox={(checkedBaseline) => setCheckedBaseline(checkedBaseline)}
                 checkedState={checkedBaseline}
               />
               Use Baseline Width
@@ -483,16 +515,13 @@ export default function AnalysisParamForm({
             </ParamContainer>
           </WAOverlayContainer>
         </WindowAnalysisContainer>
-
         <WindowAnalysisContainer>
           <WAOverlayContainer>
             <WALabel>
               <CheckboxWidget
                 color={"secondary"}
                 size={"small"}
-                handleCheckbox={(checkedWindow) =>
-                  setCheckedWindow(checkedWindow)
-                }
+                handleCheckbox={(checkedWindow) => setCheckedWindow(checkedWindow)}
                 checkedState={checkedWindow}
               />
               Use Window Analysis
@@ -504,9 +533,7 @@ export default function AnalysisParamForm({
                 <Tooltip
                   title={
                     <TooltipText>
-                      {
-                        "Specifies the earliest timepoint (in seconds) to use in analysis."
-                      }
+                      {"Specifies the earliest timepoint (in seconds) to use in analysis."}
                     </TooltipText>
                   }
                 >
@@ -536,9 +563,7 @@ export default function AnalysisParamForm({
                 <Tooltip
                   title={
                     <TooltipText>
-                      {
-                        "Specifies the latest timepoint (in seconds) to use in analysis."
-                      }
+                      {"Specifies the latest timepoint (in seconds) to use in analysis."}
                     </TooltipText>
                   }
                 >
@@ -570,9 +595,7 @@ export default function AnalysisParamForm({
               <CheckboxWidget
                 color={"secondary"}
                 size={"small"}
-                handleCheckbox={(checkedAdvanced) =>
-                  setCheckedAdvanced(checkedAdvanced)
-                }
+                handleCheckbox={(checkedAdvanced) => setCheckedAdvanced(checkedAdvanced)}
                 checkedState={checkedAdvanced}
               />
               Use Advanced Analysis
@@ -599,9 +622,7 @@ export default function AnalysisParamForm({
                   <FormInput
                     name="prominenceFactorPeaks"
                     placeholder={checkedAdvanced ? "6" : ""}
-                    value={
-                      !checkedAdvanced ? "" : inputVals.prominenceFactorPeaks
-                    }
+                    value={!checkedAdvanced ? "" : inputVals.prominenceFactorPeaks}
                     onChangeFn={(e) => {
                       updateParams({
                         prominenceFactorPeaks: e.target.value,
@@ -618,19 +639,14 @@ export default function AnalysisParamForm({
                   <FormInput
                     name="prominenceFactorValleys"
                     placeholder={checkedAdvanced ? "6" : ""}
-                    value={
-                      !checkedAdvanced ? "" : inputVals.prominenceFactorValleys
-                    }
+                    value={!checkedAdvanced ? "" : inputVals.prominenceFactorValleys}
                     onChangeFn={(e) => {
                       updateParams({
                         prominenceFactorValleys: e.target.value,
                       });
                     }}
                   >
-                    <ErrorText
-                      id="prominenceFactorValleysError"
-                      role="errorMsg"
-                    >
+                    <ErrorText id="prominenceFactorValleysError" role="errorMsg">
                       {errorMessages.prominenceFactorValleys}
                     </ErrorText>
                   </FormInput>

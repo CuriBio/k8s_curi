@@ -19,13 +19,14 @@ const Text = styled.p`
   font-size: 18px;
   text-align: center;
   width: 100%;
+  padding: 0 5%;
   position: relative;
 `;
- const ModalBody = styled.div`
-   max-height: 60vh;
-   overflow-y: scroll;
-   overflow-x: hidden;
- `;
+const ModalBody = styled.div`
+  max-height: 60vh;
+  overflow-y: scroll;
+  overflow-x: hidden;
+`;
 
 export default function ModalWidget({
   open,
@@ -48,7 +49,6 @@ export default function ModalWidget({
     overflowY: "hidden",
   };
 
-
   return (
     <div>
       <Modal open={open}>
@@ -62,13 +62,7 @@ export default function ModalWidget({
           </ModalBody>
           <ButtonContainer>
             {buttons.map((label, idx) => {
-              return (
-                <ButtonWidget
-                  key={idx}
-                  label={label}
-                  clickFn={() => closeModal(idx, label)}
-                />
-              );
+              return <ButtonWidget key={idx} label={label} clickFn={() => closeModal(idx, label)} />;
             })}
           </ButtonContainer>
         </Box>
