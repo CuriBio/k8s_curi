@@ -52,12 +52,7 @@ export default function DropDownMenu({ items, label, handleSelection }) {
       >
         {items.map((option, idx) => {
           return (
-            <MenuItem
-              key={option}
-              id={idx}
-              onClick={handleClick}
-              sx={{ fontSize: "18px", padding: "1" }}
-            >
+            <MenuItem key={option} id={idx} onClick={handleClick} sx={{ fontSize: "18px", padding: "1" }}>
               {option}
             </MenuItem>
           );

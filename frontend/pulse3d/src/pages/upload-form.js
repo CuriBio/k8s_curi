@@ -8,9 +8,7 @@ import SparkMD5 from "spark-md5";
 import { hexToBase64 } from "../utils/generic";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
-import DashboardLayout, {
-  UploadsContext,
-} from "@/components/layouts/DashboardLayout";
+import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
 
 const Container = styled.div`
   width: 70%;
@@ -19,7 +17,6 @@ const Container = styled.div`
   padding-top: 3%;
   padding-left: 7%;
   padding-bottom: 3%;
-  
 `;
 
 const Header = styled.h2`
@@ -77,6 +74,7 @@ const defaultZipErrorLabel =
 
 const getDefaultAnalysisParams = () => {
   return {
+    yAxisNormalization: false,
     baseToPeak: "",
     peakToBase: "",
     maxY: "",
@@ -98,18 +96,14 @@ export default function UploadForm() {
   const [paramErrors, setParamErrors] = useState({});
   const [inProgress, setInProgress] = useState(false);
   const [modalButtons, setModalButtons] = useState(["Close"]);
-  const [failedUploadsMsg, setFailedUploadsMsg] = useState([
-    defaultUploadErrorLabel,
-  ]);
+  const [failedUploadsMsg, setFailedUploadsMsg] = useState([defaultUploadErrorLabel]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [checkedWindow, setCheckedWindow] = useState(false);
   const [checkedAdvanced, setCheckedAdvanced] = useState(false);
   const [checkedBaseline, setCheckedBaseline] = useState(false);
   const [tabSelection, setTabSelection] = useState(query.id);
   const [modalState, setModalState] = useState(false);
-  const [analysisParams, setAnalysisParams] = useState(
-    getDefaultAnalysisParams()
-  );
+  const [analysisParams, setAnalysisParams] = useState(getDefaultAnalysisParams());
 
   // TODO remove this value once entire advanced analysis section is under a single checkbox
   const [resetDropDown, setResetDropDown] = useState(0);
@@ -118,10 +112,7 @@ export default function UploadForm() {
     // checks if error value exists, no file is selected, or upload is in progress
     const checkConditions =
       !Object.values(paramErrors).every((val) => val.length === 0) ||
-      !(
-        (files.length > 0 && files[0] instanceof File) ||
-        uploads.includes(files[0])
-      ) ||
+      !((files.length > 0 && files[0] instanceof File) || uploads.includes(files[0])) ||
       inProgress;
 
     setIsButtonDisabled(checkConditions);
@@ -144,9 +135,7 @@ export default function UploadForm() {
   }, [query]);
 
   useEffect(() => {
-    const uploadFilenames = uploads
-      .map((upload) => upload.filename)
-      .filter((name) => name);
+    const uploadFilenames = uploads.map((upload) => upload.filename).filter((name) => name);
 
     setFormattedUploads([...uploadFilenames]);
   }, [uploads]);
@@ -182,6 +171,7 @@ export default function UploadForm() {
   const postNewJob = async (uploadId, filename) => {
     try {
       const {
+        yAxisNormalization,
         baseToPeak,
         peakToBase,
         maxY,
@@ -197,33 +187,25 @@ export default function UploadForm() {
 
       const requestBody = {
         upload_id: uploadId,
+        normalize_y_axis: yAxisNormalization,
         baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
-        prominence_factors: formatTupleParams(
-          prominenceFactorPeaks,
-          prominenceFactorValleys
-        ),
+        prominence_factors: formatTupleParams(prominenceFactorPeaks, prominenceFactorValleys),
         width_factors: formatTupleParams(widthFactorPeaks, widthFactorValleys),
         twitch_widths: twitchWidths === "" ? null : twitchWidths,
         start_time: startTime === "" ? null : startTime,
         end_time: endTime === "" ? null : endTime,
         // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
-        version:
-          selectedPulse3dVersion === ""
-            ? pulse3dVersions[0]
-            : selectedPulse3dVersion,
+        version: selectedPulse3dVersion === "" ? pulse3dVersions[0] : selectedPulse3dVersion,
       };
       if (requestBody.version !== "0.24.6") {
         // Tanner (9/15/21): at the time of writing this, 0.24.6 is the only available pulse3D version that does not support the max_y param
         requestBody.max_y = maxY === "" ? null : maxY;
       }
 
-      const jobResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`,
-        {
-          method: "POST",
-          body: JSON.stringify(requestBody),
-        }
-      );
+      const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
+        method: "POST",
+        body: JSON.stringify(requestBody),
+      });
       if (jobResponse.status !== 200) {
         failedUploadsMsg.push(filename);
         console.log("ERROR posting new job: ", await jobResponse.json());
@@ -244,9 +226,7 @@ export default function UploadForm() {
 
     if (tabSelection === "1") {
       const asyncFilter = async (arr, predicate) =>
-        Promise.all(arr.map(predicate)).then((results) =>
-          arr.filter((_v, index) => results[index])
-        );
+        Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
       const badZipfiles = await asyncFilter(files, async (file) => {
         try {
@@ -257,13 +237,11 @@ export default function UploadForm() {
           const onlyOneRec = dirs.length === 0 || dirs.length === 1;
 
           const numFilesInRecording = Object.keys(files).filter(
-            (filename) =>
-              filename.includes(".h5") && !filename.includes("__MACOSX")
+            (filename) => filename.includes(".h5") && !filename.includes("__MACOSX")
           ).length;
 
           // Beta 1 recordings will contain 24 files, Beta 2 and V1 recordings will contain 48
-          const recordingContainsValidNumFiles =
-            numFilesInRecording === 24 || numFilesInRecording === 48;
+          const recordingContainsValidNumFiles = numFilesInRecording === 24 || numFilesInRecording === 48;
 
           return !onlyOneRec || !recordingContainsValidNumFiles;
         } catch (e) {
@@ -275,17 +253,10 @@ export default function UploadForm() {
 
       if (badZipfiles.length > 0) {
         // give users the option to proceed with clean files if any, otherwise just close
-        setModalButtons(
-          badZipfiles.length !== files.length
-            ? ["Cancel", "Proceed"]
-            : ["Close"]
-        );
+        setModalButtons(badZipfiles.length !== files.length ? ["Cancel", "Proceed"] : ["Close"]);
 
         // add files to modal to notify user which files are bad
-        setFailedUploadsMsg([
-          defaultZipErrorLabel,
-          ...badZipfiles.map((f) => f.name),
-        ]);
+        setFailedUploadsMsg([defaultZipErrorLabel, ...badZipfiles.map((f) => f.name)]);
 
         setModalState(true);
         return;
@@ -352,25 +323,19 @@ export default function UploadForm() {
         return;
       }
 
-      const uploadResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            filename,
-            md5s: hexToBase64(fileHash),
-            upload_type: "mantarray",
-          }),
-        }
-      );
+      const uploadResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads`, {
+        method: "POST",
+        body: JSON.stringify({
+          filename,
+          md5s: hexToBase64(fileHash),
+          upload_type: "mantarray",
+        }),
+      });
 
       // break flow if initial request returns error status code
       if (uploadResponse.status !== 200) {
         failedUploadsMsg.push(filename);
-        console.log(
-          "ERROR uploading file metadata to DB:  ",
-          await uploadResponse.json()
-        );
+        console.log("ERROR uploading file metadata to DB:  ", await uploadResponse.json());
         return;
       }
 
@@ -394,10 +359,7 @@ export default function UploadForm() {
         await postNewJob(uploadId, filename);
       } else {
         failedUploadsMsg.push(filename);
-        console.log(
-          "ERROR uploading file to s3:  ",
-          await uploadPostRes.json()
-        );
+        console.log("ERROR uploading file to s3:  ", await uploadPostRes.json());
       }
     } catch (e) {
       // catch all if service worker isn't working
@@ -413,9 +375,7 @@ export default function UploadForm() {
   const handleClose = async (idx) => {
     // if user chooses to proceed with upload when some files were flagged as bad
     if (idx === 1) {
-      const filteredFiles = files.filter(
-        (f) => !failedUploadsMsg.includes(f.name)
-      );
+      const filteredFiles = files.filter((f) => !failedUploadsMsg.includes(f.name));
       console.log("FILES: ", filteredFiles);
       await handleNewAnalysis(filteredFiles);
     }
@@ -431,11 +391,7 @@ export default function UploadForm() {
           <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
             handleFileChange={(files) => setFiles(Object.values(files))}
             dropZoneText={dropZoneText}
-            fileSelection={
-              files.length > 0
-                ? files.map(({ name }) => name).join(", ")
-                : "No files selected"
-            }
+            fileSelection={files.length > 0 ? files.map(({ name }) => name).join(", ") : "No files selected"}
           />
         ) : (
           <DropDownContainer>
@@ -479,9 +435,7 @@ export default function UploadForm() {
             position="relative"
             borderRadius="3px"
             left="10px"
-            backgroundColor={
-              isButtonDisabled ? "var(--dark-gray)" : "var(--dark-blue)"
-            }
+            backgroundColor={isButtonDisabled ? "var(--dark-gray)" : "var(--dark-blue)"}
             disabled={isButtonDisabled}
             inProgress={inProgress}
             label="Submit"

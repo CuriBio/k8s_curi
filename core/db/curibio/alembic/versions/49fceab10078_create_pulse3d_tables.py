@@ -78,7 +78,7 @@ def downgrade():
 
     op.drop_table("mantarray_session_log_files")
     op.drop_table("mantarray_recording_sessions")
-    
+
     with op.batch_alter_table("uploads") as batch_op:
         batch_op.drop_column("bucket")
         batch_op.drop_column("object_key")

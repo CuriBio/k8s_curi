@@ -30,9 +30,7 @@ export default function DashboardLayout({ children }) {
 
   const getUploads = async () => {
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads`
-      );
+      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads`);
 
       if (response && response.status === 200) {
         const uploadsArr = await response.json();
@@ -45,9 +43,7 @@ export default function DashboardLayout({ children }) {
 
   // when page loads, get all available pulse3d versions
   async function getPulse3dVersions() {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_PULSE3D_URL}/versions`
-    );
+    const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/versions`);
     // sort in desc order so that the latest version shows up first
     const versions = await response.json();
     const sortedVersions = semverRsort(versions);
@@ -55,9 +51,7 @@ export default function DashboardLayout({ children }) {
   }
 
   return (
-    <UploadsContext.Provider
-      value={{ uploads, setUploads, setFetchUploads, pulse3dVersions }}
-    >
+    <UploadsContext.Provider value={{ uploads, setUploads, setFetchUploads, pulse3dVersions }}>
       <Container>
         <ControlPanel />
         {children}

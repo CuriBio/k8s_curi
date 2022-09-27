@@ -9,6 +9,7 @@ import os
 import numpy as np
 import pandas as pd
 from glob import glob
+from semver import VersionInfo
 
 from stream_zip import ZIP_64, stream_zip
 from datetime import datetime
@@ -49,7 +50,6 @@ app.add_middleware(
         # TODO use a single ENV var for this instead
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
-        "http://localhost:3000"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -267,14 +267,13 @@ async def create_new_job(
             "start_time",
             "end_time",
         ]
-        # TODO could make this if condition `details.version <= "0.25.0"` using the semver package
-        if details.version != "0.24.6":
+        if details.version.split(".") >= VersionInfo.parse("0.25.0"):
             # max_y param was added in 0.25.0
             params.append("max_y")
-        if details.version not in (
-            "0.24.6",
-            "0.25.1",
-        ):
+        if details.version.split(".") >= VersionInfo.parse("0.25.4"):
+            # normalize_y_axis added in 0.25.4
+            params.append("normalize_y_axis")
+        if details.version.split(".") >= VersionInfo.parse("0.25.2"):
             # TODO add unit tests
             # peaks_valleys was added in 0.25.2
             params.append("peaks_valleys")

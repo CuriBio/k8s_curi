@@ -65,10 +65,7 @@ function Pulse({ Component, pageProps }) {
         if (data.isLoggedIn) {
           // if logged in and on a page that shouldn't be accessed, or on the login page, redirect to home page (currently /uploads)
           // TODO Tanner (8/23/22): this probably isn't the best solution for redirecting to other pages. Should look into a better way to do this
-          if (
-            currentPage === "/login" ||
-            !availablePages[data.accountType].includes(currentPage)
-          ) {
+          if (currentPage === "/login" || !availablePages[data.accountType].includes(currentPage)) {
             router.replace("/uploads", undefined, { shallow: true });
           }
         } else if (currentPage !== "/login") {

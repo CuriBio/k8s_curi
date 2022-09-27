@@ -11,3 +11,4 @@ build/
 .pytest_cache
 .vscode
 **/public/serviceWorker.js
+.pre-commit-config.yaml

@@ -92,13 +92,13 @@ module "pulse3d_cloudfront" {
     s3_bucket_oai = "Pulse access"
   }
   origin = {
-      
+
     s3_origin ={
       domain_name = aws_s3_bucket.pulse3d_static_bucket.bucket_regional_domain_name
       s3_origin_config = {
         origin_access_identity = "s3_bucket_oai"
       }
-    } 
+    }
   }
 
   default_cache_behavior = {
