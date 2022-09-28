@@ -20,10 +20,6 @@ const BoxCell = styled((props) => <TableCell {...props} colSpan={6} />)(() => ({
   borderBottom: "3px solid var(--dark-gray)",
 }));
 
-const SubHeaderCell = styled((props) => <TableCell {...props} />)(() => ({
-  color: "white",
-}));
-
 const SubHeader = styled((props) => <TableHead {...props} />)(() => ({
   backgroundColor: "var(--dark-blue)",
   borderBottom: "2px solid var(--dark-gray)",
@@ -63,9 +59,7 @@ export default function Row({
       setModalState("generic");
     } else if (checked) {
       // don't include duplicate job ids from individual selections
-      const noDuplicateJobs = affectedJobs.filter(
-        (id) => !checkedJobs.includes(id)
-      );
+      const noDuplicateJobs = affectedJobs.filter((id) => !checkedJobs.includes(id));
       setCheckedUploads([...checkedUploads, uploadId]);
       setCheckedJobs([...checkedJobs, ...noDuplicateJobs]);
     } else {
@@ -111,11 +105,7 @@ export default function Row({
       );
     } else {
       if (value && Object.keys(value).length === 24)
-        return (
-          <li key={analyzedFile + "__" + param}>
-            user-defined peaks/valleys: true
-          </li>
-        );
+        return <li key={analyzedFile + "__" + param}>user-defined peaks/valleys: true</li>;
     }
   };
 
@@ -123,11 +113,7 @@ export default function Row({
     <>
       <TableRow sx={{ "& > *": { borderBottom: "unset", height: "60px" } }}>
         <TableCell>
-          <IconButton
-            aria-label="expand row"
-            size="small"
-            onClick={() => setOpen(!open)}
-          >
+          <IconButton aria-label="expand row" size="small" onClick={() => setOpen(!open)}>
             {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
           </IconButton>
         </TableCell>
@@ -156,57 +142,49 @@ export default function Row({
               <Table size="medium">
                 <SubHeader>
                   <TableRow sx={{ height: "60px" }}>
-                    <SubHeaderCell>ANALYZED FILENAME</SubHeaderCell>
-                    <SubHeaderCell>CREATED&nbsp;AT</SubHeaderCell>
-                    <SubHeaderCell align="center">
+                    <TableCell sx={{ color: "white" }}>ANALYZED FILENAME</TableCell>
+                    <TableCell sx={{ color: "white" }}>CREATED&nbsp;AT</TableCell>
+                    <TableCell sx={{ color: "white" }} align="center">
                       ANALYSIS&nbsp;PARAMETERS
-                    </SubHeaderCell>
-                    <SubHeaderCell align="center">STATUS</SubHeaderCell>
+                    </TableCell>
+                    <TableCell sx={{ color: "white" }} align="center">
+                      STATUS
+                    </TableCell>
                     <TableCell />
                   </TableRow>
                 </SubHeader>
                 <TableBody>
-                  {row.jobs.map(
-                    ({
-                      jobId,
-                      analyzedFile,
-                      datetime,
-                      status,
-                      analysisParams,
-                    }) => {
-                      return (
-                        <TableRow key={datetime} sx={{ height: "60px" }}>
-                          <JobCell>{analyzedFile}</JobCell>
-                          <JobCell>{datetime}</JobCell>
-                          <JobCell align="center">
-                            {analysisParams
-                              ? // Tanner (8/23/22): older analyses did not store the analysis params in the metadata of their DB entries,
-                                // so guarding against that case
-                                Object.keys(analysisParams).map((param) => {
-                                  if (analysisParams[param]) {
-                                    return formatAnalysisParamColumn(
-                                      param,
-                                      analyzedFile,
-                                      analysisParams[param]
-                                    );
-                                  }
-                                })
-                              : "Not Found"}
-                          </JobCell>
-                          <JobCell align="center">{status}</JobCell>
-                          <JobCell align="center">
-                            <CheckboxWidget
-                              checkedState={checkedJobs.includes(jobId)}
-                              disabled={status === "pending"} // disable if pending
-                              handleCheckbox={(checked) =>
-                                handleCheckedJobs(jobId, row.id, checked)
-                              }
-                            />
-                          </JobCell>
-                        </TableRow>
-                      );
-                    }
-                  )}
+                  {row.jobs.map(({ jobId, analyzedFile, datetime, status, analysisParams }) => {
+                    return (
+                      <TableRow key={datetime} sx={{ height: "60px" }}>
+                        <JobCell>{analyzedFile}</JobCell>
+                        <JobCell>{datetime}</JobCell>
+                        <JobCell align="center">
+                          {analysisParams
+                            ? // Tanner (8/23/22): older analyses did not store the analysis params in the metadata of their DB entries,
+                              // so guarding against that case
+                              Object.keys(analysisParams).map((param) => {
+                                if (analysisParams[param]) {
+                                  return formatAnalysisParamColumn(
+                                    param,
+                                    analyzedFile,
+                                    analysisParams[param]
+                                  );
+                                }
+                              })
+                            : "Not Found"}
+                        </JobCell>
+                        <JobCell align="center">{status}</JobCell>
+                        <JobCell align="center">
+                          <CheckboxWidget
+                            checkedState={checkedJobs.includes(jobId)}
+                            disabled={status === "pending"} // disable if pending
+                            handleCheckbox={(checked) => handleCheckedJobs(jobId, row.id, checked)}
+                          />
+                        </JobCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </Box>

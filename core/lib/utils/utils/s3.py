@@ -47,7 +47,7 @@ def generate_presigned_urls_for_dir(bucket: str, key_prefix: str, objs_only: boo
 
     except (ClientError, S3Error) as e:
         raise S3Error(f"Failed to generate presigned urls for {bucket}/{key_prefix}: {repr(e)}")
-    
+
 
 def generate_presigned_post(bucket: str, key: str, md5s: str) -> Dict[Any, Any]:
     s3_client = boto3.client("s3", config=Config(signature_version="s3v4"))
@@ -68,7 +68,7 @@ def copy_s3_file(bucket: str, source_key: str, target_key: str) -> None:
         s3 = boto3.resource("s3")
         copy_source = {"Bucket": bucket, "Key": source_key}
         s3.meta.client.copy(copy_source, bucket, target_key)
-        
+
     except ClientError as e:
         raise S3Error(f"Failed to copy {source_key} to {target_key} with error: {repr(e)}")
 
@@ -124,7 +124,7 @@ def download_file_from_s3(bucket, key, file_path) -> None:
             raise Exception(f"Object at {key} was not found.")
 
         s3_client.download_file(Bucket=bucket, Key=key, Filename=file_path)
-        
+
     except ClientError as e:
         raise S3Error(f"Failed to download file {bucket}/{key}: {repr(e)}")
 

@@ -17,7 +17,7 @@ async def query_for_user_usage(user_id: int, month: int, year: int, cur=Depends(
     response_dict = dict()
 
     # query for count of each individual table
-    count_query = """SELECT 
+    count_query = """SELECT
         (SELECT COUNT(*) FROM trainings WHERE user_id=$1 AND EXTRACT(MONTH FROM created_at)=$2 AND EXTRACT(YEAR FROM created_at)=$3) as trainings,
         (SELECT COUNT(*) FROM experiments WHERE user_id=$1 AND EXTRACT(MONTH FROM created_at)=$2 AND EXTRACT(YEAR FROM created_at)=$3) as experiments,
         (SELECT COUNT(*) FROM segtrainings WHERE user_id=$1 AND EXTRACT(MONTH FROM created_at)=$2 AND EXTRACT(YEAR FROM created_at)=$3) as segtrainings,

@@ -2,12 +2,7 @@ import TableRow from "@mui/material/TableRow";
 import TableCell from "@mui/material/TableCell";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 
-export default function UsersRow({
-  row,
-  dropDownOptions,
-  modalPopUp,
-  userActions,
-}) {
+export default function UsersRow({ row, dropDownOptions, modalPopUp, userActions }) {
   const status = row.suspended ? "Deactivated" : "Active";
   const options = row.suspended ? dropDownOptions.slice(0, 1) : dropDownOptions;
   const tableCellStyle = {
@@ -38,11 +33,7 @@ export default function UsersRow({
         {row.last_login.substring(0, 10)}
       </TableCell>
       <TableCell>
-        <DropDownWidget
-          label="Action"
-          options={options}
-          handleSelection={usersAction}
-        />
+        <DropDownWidget label="Action" options={options} handleSelection={usersAction} />
       </TableCell>
     </TableRow>
   );

@@ -8,9 +8,7 @@ import Paper from "@mui/material/Paper";
 import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
-import DashboardLayout, {
-  UploadsContext,
-} from "@/components/layouts/DashboardLayout";
+import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
 import { useContext, useState, useEffect } from "react";
 import Row from "@/components/uploads/TableRow";
@@ -62,17 +60,11 @@ const ModalSpinnerContainer = styled.div`
 const modalObjs = {
   delete: {
     header: "Are you sure?",
-    messages: [
-      "Please confirm the deletion.",
-      "Be aware that this action cannot be undone.",
-    ],
+    messages: ["Please confirm the deletion.", "Be aware that this action cannot be undone."],
   },
   downloadError: {
     header: "Error Occurred!",
-    messages: [
-      "An error occurred while attempting to download.",
-      "Please try again.",
-    ],
+    messages: ["An error occurred while attempting to download.", "Please try again."],
   },
   empty: {
     header: null,
@@ -87,10 +79,7 @@ const modalObjs = {
   },
   failedDeletion: {
     header: "Error Occurred!",
-    messages: [
-      "There was an issue while deleting the files you selected.",
-      "Please try again later.",
-    ],
+    messages: ["There was an issue while deleting the files you selected.", "Please try again later."],
   },
   nothingToDownload: {
     header: "Oops..",
@@ -103,8 +92,7 @@ const modalObjs = {
 
 export default function Uploads() {
   const { accountType } = useContext(AuthContext);
-  const { uploads, setFetchUploads, pulse3dVersions } =
-    useContext(UploadsContext);
+  const { uploads, setFetchUploads } = useContext(UploadsContext);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -132,34 +120,28 @@ export default function Uploads() {
 
   const getAllJobs = async () => {
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?download=False`
-      );
+      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?download=False`);
 
       if (response && response.status === 200) {
         const { jobs } = await response.json();
 
-        jobs = jobs.map(
-          ({ id, upload_id, created_at, object_key, status, meta }) => {
-            const analyzedFile = object_key
-              ? object_key.split("/")[object_key.split("/").length - 1]
-              : "";
-            const formattedTime = formatDateTime(created_at);
-            const parsedMeta = JSON.parse(meta);
-            const analysisParams = parsedMeta.analysis_params;
+        jobs = jobs.map(({ id, upload_id, created_at, object_key, status, meta }) => {
+          const analyzedFile = object_key ? object_key.split("/")[object_key.split("/").length - 1] : "";
+          const formattedTime = formatDateTime(created_at);
+          const parsedMeta = JSON.parse(meta);
+          const analysisParams = parsedMeta.analysis_params;
 
-            return {
-              jobId: id,
-              uploadId: upload_id,
-              analyzedFile,
-              datetime: formattedTime,
-              status,
-              analysisParams,
-              // version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
-              version: "0.25.2",
-            };
-          }
-        );
+          return {
+            jobId: id,
+            uploadId: upload_id,
+            analyzedFile,
+            datetime: formattedTime,
+            status,
+            analysisParams,
+            // version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
+            version: "0.25.2",
+          };
+        });
 
         setJobs(jobs);
       }
@@ -210,9 +192,7 @@ export default function Uploads() {
           .filter(({ uploadId }) => uploadId === id)
           .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
 
-        const lastAnalyzed = uploadJobs[0]
-          ? uploadJobs[0].datetime
-          : formattedTime;
+        const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
 
         return {
           username,
@@ -328,16 +308,15 @@ export default function Uploads() {
     try {
       // removes any jobs with error + pending statuses
       const finishedJobs = jobs.filter(
-        ({ jobId, status }) =>
-          checkedJobs.includes(jobId) && status === "finished"
+        ({ jobId, status }) => checkedJobs.includes(jobId) && status === "finished"
       );
       const numberOfJobs = finishedJobs.length;
 
       if (numberOfJobs > 0) {
         setModalButtons(["Close"]);
 
-        /* 
-          Download correct number of files, 
+        /*
+          Download correct number of files,
           else throw error to prompt error modal
         */
         try {
@@ -436,9 +415,7 @@ export default function Uploads() {
           () =>
             reader
               .read()
-              .then(({ value, done }) =>
-                done ? writer.close() : writer.write(value).then(pump)
-              )();
+              .then(({ value, done }) => (done ? writer.close() : writer.write(value).then(pump)))();
         }
       } else {
         throw Error();
@@ -462,17 +439,12 @@ export default function Uploads() {
               label="Actions"
               options={["Download", "Delete", "Interactive Analysis"]}
               disableOptions={[
-                ...Array(2).fill(
-                  checkedJobs.length === 0 && checkedUploads.length === 0
-                ),
+                ...Array(2).fill(checkedJobs.length === 0 && checkedUploads.length === 0),
                 checkedJobs.length !== 1 ||
-                  jobs.filter((job) => job.jobId === checkedJobs[0])[0]
-                    .status !== "finished",
+                  jobs.filter((job) => job.jobId === checkedJobs[0])[0].status !== "finished",
               ]}
               optionsTooltipText={[
-                ...Array(2).fill(
-                  "Must make a selection below before actions become available."
-                ),
+                ...Array(2).fill("Must make a selection below before actions become available."),
                 "You must select one successful job to enable interactive analysis.",
               ]}
               handleSelection={handleDropdownSelection}
@@ -480,10 +452,7 @@ export default function Uploads() {
             />
           </DropDownContainer>
           <Container>
-            <TableContainer
-              component={Paper}
-              sx={{ backgroundColor: "var(--light-gray" }}
-            >
+            <TableContainer component={Paper} sx={{ backgroundColor: "var(--light-gray" }}>
               <Table aria-label="collapsible table" size="small">
                 <TableHead
                   sx={{
@@ -577,11 +546,7 @@ export default function Uploads() {
         open={["downloading", "deleting"].includes(modalState)}
         labels={[]}
         buttons={[]}
-        header={
-          modalState === "downloading"
-            ? "Downloading in progress..."
-            : "Deleting in progress..."
-        }
+        header={modalState === "downloading" ? "Downloading in progress..." : "Deleting in progress..."}
       >
         <ModalSpinnerContainer>
           <CircularSpinner size={200} color={"secondary"} />
