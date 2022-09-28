@@ -51,7 +51,7 @@ export default function Login() {
     // this state gets passed to web worker to attempt login request
     else {
       try {
-        const res = await fetch("https://curibio.com/login", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/login`, {
           method: "POST",
           body: JSON.stringify(userData),
           mode: "no-cors",

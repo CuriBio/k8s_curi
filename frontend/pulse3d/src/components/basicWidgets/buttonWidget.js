@@ -7,8 +7,6 @@ const Button = styled.button(
   font-size: inherit;
   border: none;
   width: 100%;
-  top: ${props.top || "0px"};
-  left: ${props.left || "0px"};
   height: 100%;
   position: ${props.position || "inherit"};
   border-radius: ${props.borderRadius || "0px"};
@@ -33,6 +31,8 @@ const Container = styled.div(
   position: relative;
   width: ${props.width || "100%"};
   height: ${props.height || "60px"};
+  top: ${props.top || "0px"};
+  left: ${props.left || "0px"};
 `
 );
 
