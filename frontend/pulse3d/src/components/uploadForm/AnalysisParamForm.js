@@ -331,43 +331,39 @@ export default function AnalysisParamForm({
             />
           </DropDownContainer>
         </ParamContainer>
-        {inputVals.selectedPulse3dVersion !== "" &&
-          semverGte(inputVals.selectedPulse3dVersion, "0.25.4") && (
-            //Disabling y-axis normalization added in version 0.25.4
-            <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
-              <Label htmlFor="yAxisNormalization">
-                Disable Y-Axis Normalization:
-                <Tooltip
-                  title={
-                    <TooltipText>
-                      {"When selected, disables normalization of the y-axis."}
-                    </TooltipText>
-                  }
-                >
-                  <InfoOutlinedIcon />
-                </Tooltip>
-              </Label>
-              <InputErrorContainer>
-                <FormInput
-                  type="checkbox"
-                  name="yAxisNormalization"
-                  value={normalizeYaxisisChecked}
-                  onChangeFn={(e) => {
-                    updateParams({
-                      yAxisNormalization: normalizeYaxisisChecked,
-                    });
-                    setNormalizeYaxisisChecked(!normalizeYaxisisChecked);
-                  }}
-                >
-                  <ErrorText id="yAxisNormalization" role="errorMsg">
-                    {errorMessages.yAxisNormalization}
-                  </ErrorText>
-                </FormInput>
-              </InputErrorContainer>
-            </ParamContainer>
-          )}
-        {inputVals.selectedPulse3dVersion !== "" &&
-          semverGte(inputVals.selectedPulse3dVersion, "0.25.0") && (
+        {inputVals.selectedPulse3dVersion !== "" && semverGte(inputVals.selectedPulse3dVersion, "0.25.4") && (
+          //Disabling y-axis normalization added in version 0.25.4
+          <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
+            <Label htmlFor="yAxisNormalization">
+              Disable Y-Axis Normalization:
+              <Tooltip
+                title={<TooltipText>{"When selected, disables normalization of the y-axis."}</TooltipText>}
+              >
+                <InfoOutlinedIcon />
+              </Tooltip>
+            </Label>
+            <InputErrorContainer>
+              <FormInput
+                type="checkbox"
+                name="yAxisNormalization"
+                value={normalizeYaxisisChecked}
+                onChangeFn={(e) => {
+                  updateParams({
+                    yAxisNormalization: normalizeYaxisisChecked,
+                  });
+                  setNormalizeYaxisisChecked(!normalizeYaxisisChecked);
+                }}
+              >
+                <ErrorText id="yAxisNormalization" role="errorMsg">
+                  {errorMessages.yAxisNormalization}
+                </ErrorText>
+              </FormInput>
+            </InputErrorContainer>
+          </ParamContainer>
+        )}
+
+        {inputVals.selectedPulse3dVersion === "" || // having this default to be shown since it will default to latest version which has it available
+          (semverGte(inputVals.selectedPulse3dVersion, "0.25.0") && (
             // Tanner (9/15/21): at the time of writing this, 0.24.6 is the only available pulse3D version that does not support maxY
             <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
               <Label htmlFor="maxY">
@@ -375,9 +371,7 @@ export default function AnalysisParamForm({
                 <Tooltip
                   title={
                     <TooltipText>
-                      {
-                        "Specifies the maximum y-axis bound of graphs generated in the output xlsx file."
-                      }
+                      {"Specifies the maximum y-axis bound of graphs generated in the output xlsx file."}
                     </TooltipText>
                   }
                 >
@@ -402,7 +396,7 @@ export default function AnalysisParamForm({
                 </FormInput>
               </InputErrorContainer>
             </ParamContainer>
-          )}
+          ))}
         <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
           <Label htmlFor="twitchWidths">
             Twitch Widths (%):

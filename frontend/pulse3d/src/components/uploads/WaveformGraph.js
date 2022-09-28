@@ -138,6 +138,7 @@ export default function WaveformGraph({
   deletePeakValley,
   addPeakValley,
   openChangelog,
+  undoLastChange,
 }) {
   const [valleys, setValleys] = useState([]);
   const [peaks, setPeaks] = useState([]);
@@ -146,6 +147,9 @@ export default function WaveformGraph({
   const [menuItems, setMenuItems] = useState(contextMenuItems.moveDelete);
   const [selectedMarkerToMove, setSelectedMarkerToMove] = useState();
   const [cursorLoc, setCursorLoc] = useState([0, 0]);
+  const [xZoomFactor, setXZoomFactor] = useState(1);
+  const [yZoomFactor, setYZoomFactor] = useState(1);
+
   /* NOTE!! The order of the variables and functions in createGraph() are important to functionality.
      could eventually try to break this up, but it's more sensitive in react than vue */
   const createGraph = () => {
@@ -159,15 +163,13 @@ export default function WaveformGraph({
     // if windowed analysis, use else use recording max and min times
     const xMin = xRange.min ? xRange.min : dataToGraph[0][0];
     const xMax = xRange.max ? xRange.max : maxTime;
-    const lengthOfRecording = xMax - xMin;
 
     const margin = { top: 20, right: 20, bottom: 30, left: 50 },
       width = 1270 - margin.left - margin.right,
       height = 300 - margin.top - margin.bottom;
 
-    // currently sets 10 secs inside the graph window and multiples width to fit length of recording
-    const widthMultiple = lengthOfRecording / 10 < 1 ? 1 : lengthOfRecording / 10;
-    const dynamicWidth = width * widthMultiple;
+    // TODO handle if zoom becomes smaller than smallest component width
+    const dynamicWidth = width * xZoomFactor;
 
     // Add X axis and Y axis
     const x = d3.scaleLinear().range([0, dynamicWidth]).domain([xMin, xMax]);
@@ -175,33 +177,32 @@ export default function WaveformGraph({
     // add .1 extra to y max and y min to auto scale the graph a little outside of true max and mins
     const yRange =
       d3.max(dataToGraph, (d) => {
-        return d[1];
-      }) * 0.1;
+        return d[1] * yZoomFactor;
+      }) * 0.2;
 
     const y = d3
       .scaleLinear()
       .range([height, 0])
       .domain([
         d3.min(dataToGraph, (d) => {
-          return d[1];
+          return d[1] * yZoomFactor;
         }) - yRange,
         d3.max(dataToGraph, (d) => {
-          return d[1];
+          return d[1] * yZoomFactor;
         }) + yRange,
       ]);
 
     // calculate start and end times in pixels. If windowed time found, use, else recording max and min
     const initialStartTime = x(startTime ? startTime : xMin);
-    const initialEndTime = x(endTime ? endTime : xMax);
-
+    const initialEndTime = x(endTime ? endTime : maxTime);
     // waveform line
     const dataLine = d3
       .line()
       .x((d) => {
-        return x(d[0]);
+        return x(d[0] / xZoomFactor);
       })
       .y((d) => {
-        return y(d[1]);
+        return y(d[1] / yZoomFactor);
       });
 
     // setup custom  context menu
@@ -213,6 +214,13 @@ export default function WaveformGraph({
       .append("svg")
       .attr("width", dynamicWidth + margin.left + margin.right)
       .attr("height", height + margin.top + margin.bottom)
+      .on("mousemove", (e) => {
+        // creates static cursor coordinates in lower right hand corner
+        setCursorLoc([
+          x.invert(e.offsetX - 50).toFixed(2), // counteract the margins
+          y.invert(e.layerY - 20).toFixed(2), // counteract the margins
+        ]);
+      })
       .on("mousedown", () => {
         contextMenu.style("display", "none");
         if (selectedMarkerToMove) {
@@ -222,13 +230,6 @@ export default function WaveformGraph({
       })
       .on("contextmenu", (e) => {
         e.preventDefault();
-      })
-      .on("mouseover", (e) => {
-        // creates static cursor coordinates in lower right hand corner
-        setCursorLoc([
-          x.invert(e.offsetX - 50).toFixed(2), // counteract the margins
-          y.invert(e.layerY - 20).toFixed(2), // counteract the margins
-        ]);
       })
       .on("mouseout", () => {
         // resets coordinates when user exits components with mouse
@@ -273,7 +274,7 @@ export default function WaveformGraph({
     svg
       .append("g")
       .attr("transform", `translate(0, ${height})`)
-      .call(d3.axisBottom(x).ticks(10 * widthMultiple));
+      .call(d3.axisBottom(x).ticks(10 * xZoomFactor));
 
     svg.append("g").call(d3.axisLeft(y));
 
@@ -343,7 +344,11 @@ export default function WaveformGraph({
     -------------------------------------- */
     svg
       .append("path")
-      .data([dataToGraph.filter((coord) => coord[0] <= xMax && coord[0] >= xMin)])
+      .data([
+        dataToGraph
+          .filter((coord) => coord[0] <= xMax && coord[0] >= xMin)
+          .map((x) => [x[0] * xZoomFactor, x[1] * yZoomFactor]),
+      ])
       .attr("fill", "none")
       .attr("stroke", "steelblue")
       .attr("stroke-width", 2)
@@ -532,7 +537,6 @@ export default function WaveformGraph({
         const time = d3.select(this).attr("id");
         const xPosition = d3.select(this).attr("x1");
         const newTimeSec = parseFloat(x.invert(xPosition).toFixed(2));
-
         time === "startTime" ? setNewStartTime(newTimeSec) : setNewEndTime(newTimeSec);
 
         // descrease stroke width when unselected and dropped
@@ -563,6 +567,18 @@ export default function WaveformGraph({
       .attr("stroke", "black")
       .style("cursor", "pointer")
       .call(lineDrag);
+
+    /* --------------------------------------
+      BLOCKERS (just top blocker for now)
+    -------------------------------------- */
+    svg
+      .append("rect")
+      .attr("x", 0)
+      .attr("y", -margin.top)
+      .attr("width", dynamicWidth + 1)
+      .attr("height", margin.top)
+      .attr("fill", "white")
+      .style("overflow", "hidden");
   };
 
   useEffect(() => {
@@ -584,7 +600,7 @@ export default function WaveformGraph({
       setNewEndTime(endTime);
       createGraph();
     }
-  }, [initialPeaksValleys, selectedMarkerToMove]);
+  }, [initialPeaksValleys, selectedMarkerToMove, xZoomFactor, yZoomFactor]);
 
   useEffect(() => {
     // sometimes this does get updated to null when moving windowed analysis fill
@@ -654,14 +670,26 @@ export default function WaveformGraph({
     }
   };
 
-  const undoLastChange = () => {};
-
   const handleZoomIn = (axis) => {
-    console.log(axis);
+    if (axis === "x") {
+      const newFactor = xZoomFactor * 1.5;
+      setXZoomFactor(newFactor);
+    } else {
+      const newFactor = yZoomFactor * 1.5;
+      setYZoomFactor(newFactor);
+    }
   };
+
   const handleZoomOut = (axis) => {
-    console.log(axis);
+    if (axis === "x") {
+      const newFactor = xZoomFactor / 1.5;
+      setXZoomFactor(newFactor);
+    } else {
+      const newFactor = yZoomFactor / 1.5;
+      setYZoomFactor(newFactor);
+    }
   };
+
   return (
     <>
       <YAxisContainer>

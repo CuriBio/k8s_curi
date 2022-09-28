@@ -143,6 +143,8 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   const [filteredVersions, setFilteredVersions] = useState([]);
   const [changelog, setChangelog] = useState({});
   const [openChangelog, setOpenChangelog] = useState(false);
+  const [undoing, setUndoing] = useState(false);
+
   const [xRange, setXRange] = useState({
     min: null,
     max: null, // random
@@ -153,6 +155,43 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   });
 
   const { pulse3dVersions } = useContext(UploadsContext);
+
+  useEffect(() => {
+    // only available for versions greater than 0.25.2 when peaks_valley param was added
+    const compatibleVersions = pulse3dVersions.filter((v) => semver.satisfies(v, ">=0.25.2"));
+    setFilteredVersions([...compatibleVersions]);
+
+    // check sessionStorage for saved data
+    checkForExistingData();
+  }, [selectedJob]);
+
+  useEffect(() => {
+    // updates changelog when peaks/valleys and start/end times change
+    if (!undoing) updateChangelog();
+    else setUndoing(false);
+  }, [markers, editableStartEndTimes]);
+
+  useEffect(() => {
+    // will error on init because there won't be an index 0
+    if (Object.keys(originalData).length > 0) {
+      const wellData = originalData.coordinates[selectedWell];
+      const { start_time, end_time } = selectedJob.analysisParams;
+      // update x min and max if no start or end time was ever defined so it isn't null in changelog messages
+      setXRange({
+        min: start_time ? start_time : Math.min(...wellData.map((coords) => coords[0])),
+        max: end_time ? end_time : Math.max(...wellData.map((coords) => coords[0])),
+      });
+
+      setDataToGraph([...wellData]);
+    }
+  }, [selectedWell, originalData]);
+
+  useEffect(() => {
+    if (dataToGraph.length > 0) {
+      setMarkers([...editablePeaksValleys[selectedWell]]);
+      setIsLoading(false);
+    }
+  }, [dataToGraph, editablePeaksValleys]);
 
   const getWaveformData = async () => {
     try {
@@ -202,47 +241,12 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     // not destructuring existingData to prevent confusion with local state names
     setOriginalData(existingData.originalData);
     setEditablePeaksValleys(existingData.editablePeaksValleys);
+    setChangelog(existingData.changelog);
     setEditableStartEndTimes({
       startTime: existingData.editableStartEndTimes.startTime,
       endTime: existingData.editableStartEndTimes.endTime,
     });
   };
-
-  useEffect(() => {
-    // only available for versions greater than 0.25.2 when peaks_valley param was added
-    const compatibleVersions = pulse3dVersions.filter((v) => semver.satisfies(v, ">=0.25.2"));
-    setFilteredVersions([...compatibleVersions]);
-
-    // check sessionStorage for saved data
-    checkForExistingData();
-  }, [selectedJob]);
-
-  useEffect(() => {
-    // updates changelog when peaks/valleys and start/end times change
-    updateChangelog();
-  }, [markers, editableStartEndTimes]);
-
-  useEffect(() => {
-    // will error on init because there won't be an index 0
-    if (Object.keys(originalData).length > 0) {
-      const wellData = originalData.coordinates[selectedWell];
-      const { start_time, end_time } = selectedJob.analysisParams;
-      // update x min and max if no start or end time was ever defined so it isn't null in changelog messages
-      setXRange({
-        min: start_time ? start_time : Math.min(...wellData.map((coords) => coords[0])),
-        max: end_time ? end_time : Math.max(...wellData.map((coords) => coords[0])),
-      });
-
-      setDataToGraph([...wellData]);
-    }
-  }, [selectedWell, originalData]);
-
-  useEffect(() => {
-    if (dataToGraph.length > 0) {
-      setMarkers([...editablePeaksValleys[selectedWell]]);
-      setIsLoading(false);
-    }
-  }, [dataToGraph, editablePeaksValleys]);
 
   const handleWellSelection = (idx) => {
     setSelectedWell(wellNames[idx]);
@@ -250,10 +254,14 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
 
   const resetWellChanges = () => {
     // reset peaks and valleys for current well
-    editablePeaksValleys[selectedWell] = originalData.peaks_valleys[selectedWell];
+    const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
+    const changelogCopy = JSON.parse(JSON.stringify(changelog));
 
+    peaksValleysCopy[selectedWell] = originalData.peaks_valleys[selectedWell];
+    changelogCopy[selectedWell] = [];
     // reset state
-    setEditablePeaksValleys({ ...editablePeaksValleys });
+    setEditablePeaksValleys(peaksValleysCopy);
+    setChangelog(changelogCopy);
   };
 
   const postNewJob = async () => {
@@ -320,7 +328,8 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   const updateChangelog = () => {
     let changelogMessage;
 
-    if (changelog[selectedWell] && markers.length === 2) {
+    // changelog will have length of 0 if a user Undo's until initial state
+    if (changelog[selectedWell] && changelog[selectedWell].length > 0 && markers.length === 2) {
       const wellChanges = changelog[selectedWell];
       const { peaks, valleys, startTime, endTime } = wellChanges[wellChanges.length - 1];
 
@@ -331,25 +340,19 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     }
 
     if (changelogMessage !== undefined) {
-      // if no changes have been made, there won't be a key set yet
-      if (!changelog[selectedWell]) changelog[selectedWell] = [];
-
-      changelog[selectedWell].push({
-        peaks: markers[0],
-        valleys: markers[1],
-        startTime: editableStartEndTimes.startTime,
-        endTime: editableStartEndTimes.endTime,
-        message: changelogMessage,
-      });
-
-      setChangelog({ ...changelog });
+      addToChangelog(changelogMessage);
     }
   };
 
   const getChangelogMessage = (peaksToCompare, valleysToCompare, startToCompare, endToCompare) => {
     let changelogMessage;
-    const peaksDiff = JSON.stringify(peaksToCompare) !== JSON.stringify(markers[0]),
-      valleysDiff = JSON.stringify(valleysToCompare) !== JSON.stringify(markers[1]),
+
+    const peaksMoved =
+        JSON.stringify(peaksToCompare) !== JSON.stringify(markers[0]) &&
+        peaksToCompare.length === markers[0].length, // added and deleted peaks is handled somewhere else
+      valleysMoved =
+        JSON.stringify(valleysToCompare) !== JSON.stringify(markers[1]) &&
+        valleysToCompare.length === markers[1].length, // added and deleted peaks is handled somewhere else,
       startTimeDiff =
         startToCompare !== editableStartEndTimes.startTime &&
         editableStartEndTimes.startTime !== null &&
@@ -359,8 +362,8 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
         editableStartEndTimes.endTime !== null &&
         endToCompare !== null,
       windowedTimeDiff = startTimeDiff && endTimeDiff;
-    console.log(startTimeDiff && endTimeDiff);
-    if (peaksDiff) {
+
+    if (peaksMoved) {
       const diffIdx = peaksToCompare.findIndex((peakIdx, i) => peakIdx !== markers[0][i]),
         oldPeakX = dataToGraph[peaksToCompare[diffIdx]][0],
         oldPeakY = dataToGraph[peaksToCompare[diffIdx]][1],
@@ -370,7 +373,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
       changelogMessage = `Peak at [ ${oldPeakX.toFixed(2)}, ${oldPeakY.toFixed(
         2
       )} ] was moved to [ ${newPeakX.toFixed(2)}, ${newPeakY.toFixed(2)} ].`;
-    } else if (valleysDiff) {
+    } else if (valleysMoved) {
       const diffIdx = valleysToCompare.findIndex((valleyIdx, i) => valleyIdx !== markers[0][i]),
         oldValleyX = dataToGraph[valleysToCompare[diffIdx]][0],
         oldValleyY = dataToGraph[valleysToCompare[diffIdx]][1],
@@ -403,29 +406,99 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
 
   const deletePeakValley = (peakValley, idx) => {
     const typeIdx = ["peak", "valley"].indexOf(peakValley);
-    const targetIdx = editablePeaksValleys[selectedWell][typeIdx].indexOf(idx);
+    const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
+    const targetIdx = peaksValleysCopy[selectedWell][typeIdx].indexOf(idx);
     if (targetIdx > -1) {
       // remove desired marker
-      editablePeaksValleys[selectedWell][typeIdx].splice(targetIdx, 1);
-      setEditablePeaksValleys({ ...editablePeaksValleys });
-      setMarkers([...editablePeaksValleys[selectedWell]]);
+      peaksValleysCopy[selectedWell][typeIdx].splice(targetIdx, 1);
+      setEditablePeaksValleys({ ...peaksValleysCopy });
+      setMarkers([...peaksValleysCopy[selectedWell]]);
+
+      const coordinates = dataToGraph[idx];
+      const changelogMessage = `${typeIdx === 0 ? "Peak" : "Valley"} at [ ${coordinates[0].toFixed(
+        2
+      )}, ${coordinates[1].toFixed(2)} ] was removed.`;
+
+      addToChangelog(changelogMessage);
     }
   };
 
   const addPeakValley = (peakValley, targetTime) => {
     const typeIdx = ["peak", "valley"].indexOf(peakValley);
-
+    const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
     const indexToAdd = dataToGraph.findIndex(
       (coord) => Number(coord[0].toFixed(2)) === Number(targetTime.toFixed(2))
     );
 
-    editablePeaksValleys[selectedWell][typeIdx].push(indexToAdd);
-    setEditablePeaksValleys({ ...editablePeaksValleys });
-    setMarkers([...editablePeaksValleys[selectedWell]]);
+    peaksValleysCopy[selectedWell][typeIdx].push(indexToAdd);
+
+    setEditablePeaksValleys({ ...peaksValleysCopy });
+    setMarkers([...peaksValleysCopy[selectedWell]]);
+
+    const coordinates = dataToGraph[indexToAdd];
+    const changelogMessage = `${typeIdx === 0 ? "Peak" : "Valley"} was added at [ ${coordinates[0].toFixed(
+      2
+    )}, ${coordinates[1].toFixed(2)} ]`;
+
+    addToChangelog(changelogMessage);
+  };
+
+  const addToChangelog = (message) => {
+    if (!changelog[selectedWell]) changelog[selectedWell] = [];
+    // if you don't deep copy state, later changes will affect change log entries here
+    const { startTime, endTime } = JSON.parse(JSON.stringify(editableStartEndTimes));
+    const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
+
+    changelog[selectedWell].push({
+      peaks: peaksValleysCopy[selectedWell][0],
+      valleys: peaksValleysCopy[selectedWell][1],
+      startTime,
+      endTime,
+      message,
+    });
+
+    setChangelog({ ...changelog });
   };
 
   const handleVersionSelect = (idx) => {
     setPulse3dVersionIdx(idx);
+  };
+
+  const undoLastChange = () => {
+    if (changelog[selectedWell] && changelog[selectedWell].length > 0) {
+      // undoing state tells the updateChangelog useEffect to not ignore the change and not as a new change
+      setUndoing(true);
+      // make copies so you control when state is updated
+      const changesCopy = JSON.parse(JSON.stringify(changelog[selectedWell]));
+      const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
+      const newWindowTimes = {};
+
+      // remove step with latest changes
+      changesCopy.pop();
+
+      if (changesCopy.length > 0) {
+        // grab state from the step before the undo step to set as current state
+        const { peaks, valleys, startTime, endTime } = changesCopy[changesCopy.length - 1];
+        // set old peaks and valleys to well
+        peaksValleysCopy[selectedWell] = [[...peaks], [...valleys]];
+
+        newWindowTimes.startTime = startTime;
+        newWindowTimes.endTime = endTime;
+      } else {
+        // if only one change was made, then you revert back to original state
+        newWindowTimes.startTime = xRange.min;
+        newWindowTimes.endTime = xRange.max;
+
+        peaksValleysCopy[selectedWell] = originalData.peaks_valleys[selectedWell];
+      }
+
+      // needs to be reassigned to hold state
+      changelog[selectedWell] = changesCopy;
+      // update values to state to rerender graph
+      setEditableStartEndTimes(newWindowTimes);
+      setEditablePeaksValleys(peaksValleysCopy);
+      setChangelog(changelog);
+    }
   };
 
   return (
@@ -462,6 +535,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
               deletePeakValley={deletePeakValley}
               addPeakValley={addPeakValley}
               openChangelog={() => setOpenChangelog(true)}
+              undoLastChange={undoLastChange}
             />
           </GraphContainer>
           <ErrorLabel>{errorMessage}</ErrorLabel>
@@ -525,7 +599,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
         closeModal={() => setOpenChangelog(false)}
         header={`Changelog for ${selectedWell}`}
         labels={
-          changelog[selectedWell]
+          changelog[selectedWell] && changelog[selectedWell].length > 0
             ? changelog[selectedWell].map(({ message }) => message)
             : ["No changes found."]
         }

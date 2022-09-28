@@ -20,10 +20,6 @@ const BoxCell = styled((props) => <TableCell {...props} colSpan={6} />)(() => ({
   borderBottom: "3px solid var(--dark-gray)",
 }));
 
-const SubHeaderCell = styled((props) => <TableCell {...props} />)(() => ({
-  color: "white",
-}));
-
 const SubHeader = styled((props) => <TableHead {...props} />)(() => ({
   backgroundColor: "var(--dark-blue)",
   borderBottom: "2px solid var(--dark-gray)",
@@ -146,10 +142,14 @@ export default function Row({
               <Table size="medium">
                 <SubHeader>
                   <TableRow sx={{ height: "60px" }}>
-                    <SubHeaderCell>ANALYZED FILENAME</SubHeaderCell>
-                    <SubHeaderCell>CREATED&nbsp;AT</SubHeaderCell>
-                    <SubHeaderCell align="center">ANALYSIS&nbsp;PARAMETERS</SubHeaderCell>
-                    <SubHeaderCell align="center">STATUS</SubHeaderCell>
+                    <TableCell sx={{ color: "white" }}>ANALYZED FILENAME</TableCell>
+                    <TableCell sx={{ color: "white" }}>CREATED&nbsp;AT</TableCell>
+                    <TableCell sx={{ color: "white" }} align="center">
+                      ANALYSIS&nbsp;PARAMETERS
+                    </TableCell>
+                    <TableCell sx={{ color: "white" }} align="center">
+                      STATUS
+                    </TableCell>
                     <TableCell />
                   </TableRow>
                 </SubHeader>
