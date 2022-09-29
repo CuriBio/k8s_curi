@@ -96,7 +96,7 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
         account_type = "user"
         select_query = (
             "SELECT password, id, data->'scope' AS scope "
-            "FROM users WHERE deleted_at IS NULL AND name = $1 AND customer_id = $2"
+            "FROM users WHERE deleted_at IS NULL AND name = $1 AND customer_id = $2 AND suspended = 'f'"
         )
         select_query_params = (details.username, str(details.customer_id))
         customer_id = details.customer_id
