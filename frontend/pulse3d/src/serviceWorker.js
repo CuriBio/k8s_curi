@@ -85,9 +85,7 @@ const modifyRequest = async (req, url) => {
   // since it typically can only be consumed once
   const modifiedReq = new Request(url, {
     headers,
-    body: !["GET", "DELETE"].includes(req.method)
-      ? JSON.stringify(await req.clone().json())
-      : null,
+    body: !["GET", "DELETE"].includes(req.method) ? JSON.stringify(await req.clone().json()) : null,
     method: req.method,
   });
 
@@ -208,10 +206,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", async (e) => {
   let destURL = new URL(e.request.url);
   // only intercept requests to pulse3d and user APIs
-  if (
-    e.request.url.includes(USERS_URL) ||
-    e.request.url.includes(PULSE3D_URL)
-  ) {
+  if (e.request.url.includes(USERS_URL) || e.request.url.includes(PULSE3D_URL)) {
     e.respondWith(interceptResponse(e.request, destURL));
   } else {
     e.respondWith(fetch(e.request));

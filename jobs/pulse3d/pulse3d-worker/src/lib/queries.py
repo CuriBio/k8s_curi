@@ -11,6 +11,6 @@ INSERT_INTO_MANTARRAY_RECORDING_SESSIONS = """
 
 
 INSERT_INTO_MANTARRAY_SESSION_LOG_FILES = """
-    INSERT INTO mantarray_session_log_files (session_log_id, bucket, object_key, upload_id, mantarray_recording_session_id, software_version, file_format_version, customer_id, user_id) 
+    INSERT INTO mantarray_session_log_files (session_log_id, bucket, object_key, upload_id, mantarray_recording_session_id, software_version, file_format_version, customer_id, user_id)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
     """

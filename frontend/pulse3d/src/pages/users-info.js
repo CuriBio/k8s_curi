@@ -94,9 +94,7 @@ export default function UserInfo() {
   }, [confirm]);
 
   useEffect(() => {
-    setCurrentRows(
-      rows.slice(10 * (currentPage - 1), 10 * (currentPage - 1) + 10)
-    );
+    setCurrentRows(rows.slice(10 * (currentPage - 1), 10 * (currentPage - 1) + 10));
   }, [currentPage]);
 
   return (
@@ -113,10 +111,7 @@ export default function UserInfo() {
       />
       <PageContainer>
         <Container>
-          <TableContainer
-            component={Paper}
-            sx={{ backgroundColor: "var(--light-gray" }}
-          >
+          <TableContainer component={Paper} sx={{ backgroundColor: "var(--light-gray" }}>
             <Table aria-label="collapsible table" size="small">
               <TableHead
                 sx={{
@@ -205,8 +200,7 @@ export default function UserInfo() {
                 marginRight: "1rem",
               }}
               onClick={() => {
-                const newPage =
-                  currentPage - 1 > 0 ? currentPage - 1 : currentPage;
+                const newPage = currentPage - 1 > 0 ? currentPage - 1 : currentPage;
                 setCurrentPage(newPage);
               }}
             >
@@ -222,9 +216,7 @@ export default function UserInfo() {
               }}
               onClick={() => {
                 const newPage =
-                  currentPage + 1 < Math.ceil(rows.length / 10) + 1
-                    ? currentPage + 1
-                    : currentPage;
+                  currentPage + 1 < Math.ceil(rows.length / 10) + 1 ? currentPage + 1 : currentPage;
                 setCurrentPage(newPage);
               }}
             >

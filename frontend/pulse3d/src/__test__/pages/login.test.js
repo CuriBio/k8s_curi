@@ -20,28 +20,25 @@ describe("Login", () => {
     ${"Customer ID"} | ${"Username"}
     ${"Customer ID"} | ${"Password"}
     ${"Username"}    | ${"Password"}
-  `(
-    "renders correct error message if field is left empty",
-    ({ input1, input2 }) => {
-      render(<Login />);
+  `("renders correct error message if field is left empty", ({ input1, input2 }) => {
+    render(<Login />);
 
-      const inputField1 = screen.getByLabelText(input1);
-      const inputField2 = screen.getByLabelText(input2);
+    const inputField1 = screen.getByLabelText(input1);
+    const inputField2 = screen.getByLabelText(input2);
 
-      fireEvent.input(inputField1, {
-        target: { value: "testInput1" },
-      });
-      fireEvent.input(inputField2, {
-        target: { value: "testInput2" },
-      });
+    fireEvent.input(inputField1, {
+      target: { value: "testInput1" },
+    });
+    fireEvent.input(inputField2, {
+      target: { value: "testInput2" },
+    });
 
-      const submitButton = screen.getByText("Submit");
-      fireEvent.click(submitButton);
+    const submitButton = screen.getByText("Submit");
+    fireEvent.click(submitButton);
 
-      const errorMessage = screen.getByRole("errorMsg");
-      waitFor(() => {
-        expect(errorMessage).toHaveValue("*All fields are required");
-      });
-    }
-  );
+    const errorMessage = screen.getByRole("errorMsg");
+    waitFor(() => {
+      expect(errorMessage).toHaveValue("*All fields are required");
+    });
+  });
 });

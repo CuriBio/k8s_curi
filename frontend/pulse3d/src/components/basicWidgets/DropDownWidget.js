@@ -1,7 +1,7 @@
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
-import Select, { SelectProps } from "@mui/material/Select";
+import Select from "@mui/material/Select";
 import { useEffect, useState } from "react";
 import styled from "styled-components";
 import OutlinedInput from "@mui/material/OutlinedInput";
@@ -22,18 +22,16 @@ const Placeholder = styled.em`
   font-weight: bolder;
 `;
 
-const ListItem = styled((MenuItemProps) => <MenuItem {...MenuItemProps} />)(
-  () => ({
-    fontSize: "16px",
-    padding: "10px 30px",
-    "&:hover": {
-      backgroundColor: "var(--light-gray)",
-    },
-    "& .MuiMenu-list": {
-      backgroundColor: "blue",
-    },
-  })
-);
+const ListItem = styled((MenuItemProps) => <MenuItem {...MenuItemProps} />)(() => ({
+  fontSize: "16px",
+  padding: "10px 30px",
+  "&:hover": {
+    backgroundColor: "var(--light-gray)",
+  },
+  "& .MuiMenu-list": {
+    backgroundColor: "blue",
+  },
+}));
 const MenuProps = {
   PaperProps: {
     style: {
@@ -78,7 +76,14 @@ export default function DropDownWidget({
   }, [reset]);
 
   return (
-    <FormControl fullWidth disabled={disabled}>
+    <FormControl
+      fullWidth
+      disabled={disabled}
+      sx={{
+        boxShadow:
+          "0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%), 0px 3px 14px 2px rgb(0 0 0 / 12%)",
+      }}
+    >
       <Select
         displayEmpty
         labelId="select-label"
@@ -88,7 +93,7 @@ export default function DropDownWidget({
         onChange={handleChange}
         value={selected}
         renderValue={(selected) => {
-          /* 
+          /*
              Must be initialSelected === undefined and not !initialSelected,
              An index of 0 will pass !initialSelected as truthy
           */
@@ -106,11 +111,7 @@ export default function DropDownWidget({
         </MenuItem>
         {options.map((item, idx) => {
           return disableOptions[idx] ? (
-            <Tooltip
-              key={idx}
-              title={<TooltipText>{optionsTooltipText[idx]}</TooltipText>}
-              value={idx}
-            >
+            <Tooltip key={idx} title={<TooltipText>{optionsTooltipText[idx]}</TooltipText>} value={idx}>
               <div>
                 <ListItem disabled={true}>{item}</ListItem>
               </div>
