@@ -11,3 +11,5 @@ typing-extensions==4.0.1
 uvicorn[standard]==0.16.0
 stream-zip==0.0.48
 pulse3d==0.25.2
+fastparquet==0.8.1
+pyarrow==8.0.0
