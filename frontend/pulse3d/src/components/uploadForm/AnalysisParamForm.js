@@ -28,10 +28,11 @@ const Container = styled.div`
 
 const TwoParamContainer = styled.div`
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   height: 100%;
-  align-items: center;
+  justify-content: center;
   padding: 1rem;
+  width: 50%;
 `;
 const ParamContainer = styled.div`
   display: flex;
@@ -40,13 +41,12 @@ const ParamContainer = styled.div`
   height: 70px;
   padding: 15px 0 10px 0;
   height: 70px;
-  width: 320px;
+  width: 420px;
 `;
 
 const InputContainer = styled.div`
   display: flex;
   flex-direction: column;
-  justify-content: space-evenly;
   align-items: center;
   width: 90%;
 `;
@@ -76,13 +76,13 @@ const WAOverlay = styled.div`
   position: absolute;
 `;
 const Label = styled.label`
-  width: 102%;
+  width: 110%;
   position: relative;
   height: 25px;
   padding: 10px;
   border-radius: 5px;
   display: flex;
-  justify-content: center;
+  justify-content: right;
   padding-right: 5%;
   white-space: nowrap;
 `;
@@ -109,29 +109,24 @@ const WAOverlayContainer = styled.div`
 
 const InputErrorContainer = styled.div`
   display: flex;
-  flex-direction: column;
-  width: 100%;
+  flex-direction: row;
+  width: 70%;
   overflow: visible;
 `;
 
 const FormModify = styled.div`
   display: flex;
   width: 400px;
+  flex-direction: column;
 `;
 
-const WALabel = styled.span`
-  background-color: var(--light-gray);
-  border-radius: 6px;
+const SectionLabel = styled.span`
   display: flex;
   align-items: center;
-  font-size: 14px;
-  border: 2px solid var(--dark-gray);
-  cursor: default;
-  z-index: 3;
-  position: absolute;
-  right: 55%;
-  bottom: 94%;
-  width: 205px;
+  font-size: 20px;
+  position: relative;
+  font-weight: bolder;
+  margin-top: 20px;
 `;
 
 const AdditionalParamLabel = styled.span`
@@ -162,6 +157,11 @@ const DropDownContainer = styled.div`
   height: 125%;
   background: white;
   border-radius: 5px;
+`;
+
+const SmallLabel = styled.label`
+  line-height: 2;
+  padding-right: 15px;
 `;
 
 export default function AnalysisParamForm({
@@ -213,18 +213,12 @@ export default function AnalysisParamForm({
     return value === null || value === "" || value >= minValue;
   };
 
-  const validatePositiveNumber = (
-    updatedParams,
-    paramName,
-    allowZero = true
-  ) => {
+  const validatePositiveNumber = (updatedParams, paramName, allowZero = true) => {
     const newValue = updatedParams[paramName];
 
     let errorMsg = "";
     if (!checkPositiveNumberEntry(newValue, allowZero)) {
-      errorMsg = allowZero
-        ? "*Must be a positive number"
-        : "*Must be a positive, non-zero number";
+      errorMsg = allowZero ? "*Must be a positive number" : "*Must be a positive, non-zero number";
     }
     setParamErrors({ ...paramErrors, [paramName]: errorMsg });
   };
@@ -311,26 +305,19 @@ export default function AnalysisParamForm({
 
   return (
     <Container>
-      <AdditionalParamLabel>
-        Additional Analysis Params (Optional)
-      </AdditionalParamLabel>
+      <AdditionalParamLabel>Additional Analysis Params (Optional)</AdditionalParamLabel>
       <InputContainer>
-        <ParamContainer style={{ width: "43%", marginTop: "2%" }}>
-          <Label
-            htmlFor="selectedPulse3dVersion"
-            style={{ width: "57%", paddingLeft: "16%" }}
-          >
+        <ParamContainer style={{ marginTop: "2%" }}>
+          <Label htmlFor="selectedPulse3dVersion" style={{ width: "54%", lineHeight: 2.5 }}>
             Pulse3d Version:
             <Tooltip
               title={
                 <TooltipText>
-                  {
-                    "Specifies which version of the pulse3d analysis software to use."
-                  }
+                  {"Specifies which version of the pulse3d analysis software to use."}
                 </TooltipText>
               }
             >
-              <InfoOutlinedIcon />
+              <InfoOutlinedIcon sx={{ fontSize: 20, margin: "10px 10px" }} />
             </Tooltip>
           </Label>
           <DropDownContainer>
@@ -344,79 +331,71 @@ export default function AnalysisParamForm({
             />
           </DropDownContainer>
         </ParamContainer>
-        {inputVals.selectedPulse3dVersion !== "" &&
-          semverGte(inputVals.selectedPulse3dVersion, "0.25.4") && (
-            //Disabling y-axis normalization added in version 0.25.4
-            <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
-              <Label htmlFor="yAxisNormalization">
-                Disable Y-Axis Normalization:
-                <Tooltip
-                  title={
-                    <TooltipText>
-                      {"When selected, disables normalization of the y-axis."}
-                    </TooltipText>
-                  }
-                >
-                  <InfoOutlinedIcon />
-                </Tooltip>
-              </Label>
-              <InputErrorContainer>
-                <FormInput
-                  type="checkbox"
-                  name="yAxisNormalization"
-                  value={normalizeYaxisisChecked}
-                  onChangeFn={(e) => {
-                    updateParams({
-                      yAxisNormalization: normalizeYaxisisChecked,
-                    });
-                    setNormalizeYaxisisChecked(!normalizeYaxisisChecked);
-                  }}
-                >
-                  <ErrorText id="yAxisNormalization" role="errorMsg">
-                    {errorMessages.yAxisNormalization}
-                  </ErrorText>
-                </FormInput>
-              </InputErrorContainer>
-            </ParamContainer>
-          )}
-        {inputVals.selectedPulse3dVersion !== "" &&
-          semverGte(inputVals.selectedPulse3dVersion, "0.25.0") && (
-            // Tanner (9/15/21): at the time of writing this, 0.24.6 is the only available pulse3D version that does not support maxY
-            <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
-              <Label htmlFor="maxY">
-                Y-Axis Range (µN):
-                <Tooltip
-                  title={
-                    <TooltipText>
-                      {
-                        "Specifies the maximum y-axis bound of graphs generated in the output xlsx file."
-                      }
-                    </TooltipText>
-                  }
-                >
-                  <InfoOutlinedIcon />
-                </Tooltip>
-              </Label>
-              <InputErrorContainer>
-                <FormInput
-                  name="maxY"
-                  placeholder={"Auto find max y"}
-                  value={inputVals.maxY}
-                  onChangeFn={(e) => {
-                    updateParams({
-                      maxY: e.target.value,
-                    });
-                  }}
-                  disabled={!normalizeYaxisisChecked}
-                >
-                  <ErrorText id="maxYError" role="errorMsg">
-                    {errorMessages.maxY}
-                  </ErrorText>
-                </FormInput>
-              </InputErrorContainer>
-            </ParamContainer>
-          )}
-        <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
+        {inputVals.selectedPulse3dVersion !== "" && semverGte(inputVals.selectedPulse3dVersion, "0.25.4") && (
+          //Disabling y-axis normalization added in version 0.25.4
+          <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
+            <Label htmlFor="yAxisNormalization">
+              Disable Y-Axis Normalization:
+              <Tooltip
+                title={<TooltipText>{"When selected, disables normalization of the y-axis."}</TooltipText>}
+              >
+                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+              </Tooltip>
+            </Label>
+            <InputErrorContainer>
+              <FormInput
+                type="checkbox"
+                name="yAxisNormalization"
+                value={normalizeYaxisisChecked}
+                onChangeFn={(e) => {
+                  updateParams({
+                    yAxisNormalization: normalizeYaxisisChecked,
+                  });
+                  setNormalizeYaxisisChecked(!normalizeYaxisisChecked);
+                }}
+              >
+                <ErrorText id="yAxisNormalization" role="errorMsg">
+                  {errorMessages.yAxisNormalization}
+                </ErrorText>
+              </FormInput>
+            </InputErrorContainer>
+          </ParamContainer>
+        )}
+        {inputVals.selectedPulse3dVersion !== "" && semverGte(inputVals.selectedPulse3dVersion, "0.25.0") && (
+          // Tanner (9/15/21): at the time of writing this, 0.24.6 is the only available pulse3D version that does not support maxY
+          <ParamContainer>
+            <Label htmlFor="maxY">
+              Y-Axis Range (µN):
+              <Tooltip
+                title={
+                  <TooltipText>
+                    {"Specifies the maximum y-axis bound of graphs generated in the output xlsx file."}
+                  </TooltipText>
+                }
+              >
+                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+              </Tooltip>
+            </Label>
+            <InputErrorContainer>
+              <FormInput
+                name="maxY"
+                placeholder={"Auto find max y"}
+                value={inputVals.maxY}
+                onChangeFn={(e) => {
+                  updateParams({
+                    maxY: e.target.value,
+                  });
+                }}
+                disabled={!normalizeYaxisisChecked}
+              >
+                <ErrorText id="maxYError" role="errorMsg">
+                  {errorMessages.maxY}
+                </ErrorText>
+              </FormInput>
+            </InputErrorContainer>
+          </ParamContainer>
+        )}
+        <ParamContainer>
           <Label htmlFor="twitchWidths">
             Twitch Widths (%):
             <Tooltip
@@ -428,7 +407,7 @@ export default function AnalysisParamForm({
                 </TooltipText>
               }
             >
-              <InfoOutlinedIcon />
+              <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
             </Tooltip>
           </Label>
           <InputErrorContainer>
@@ -448,295 +427,241 @@ export default function AnalysisParamForm({
             </FormInput>
           </InputErrorContainer>
         </ParamContainer>
-        <WindowAnalysisContainer>
-          <WAOverlayContainer>
-            <WALabel>
-              <CheckboxWidget
-                color={"secondary"}
-                size={"small"}
-                handleCheckbox={(checkedBaseline) =>
-                  setCheckedBaseline(checkedBaseline)
-                }
-                checkedState={checkedBaseline}
-              />
-              Use Baseline Width
-            </WALabel>
-            {checkedBaseline || <WAOverlay />}
-            <ParamContainer>
-              <Label htmlFor="baseToPeak">
-                Base to Peak:
-                <Tooltip
-                  title={
-                    <TooltipText>
-                      {
-                        // TODO this needs to be more specific
-                        "Specifies the baseline metrics for twitch width percentages."
-                      }
-                    </TooltipText>
+
+        <SectionLabel>Baseline Width</SectionLabel>
+
+        <ParamContainer>
+          <Label htmlFor="baseToPeak">
+            Base to Peak:
+            <Tooltip
+              title={
+                <TooltipText>
+                  {
+                    // TODO this needs to be more specific
+                    "Specifies the baseline metrics for twitch width percentages."
                   }
-                >
-                  <InfoOutlinedIcon />
-                </Tooltip>
-              </Label>
-              <InputErrorContainer>
-                <FormInput
-                  name="baseToPeak"
-                  placeholder={checkedBaseline ? "10" : ""}
-                  value={!checkedBaseline ? "" : inputVals.baseToPeak}
-                  onChangeFn={(e) => {
-                    updateParams({
-                      baseToPeak: e.target.value,
-                    });
-                  }}
-                >
-                  <ErrorText id="baseToPeakError" role="errorMsg">
-                    {errorMessages.baseToPeak}
-                  </ErrorText>
-                </FormInput>
-              </InputErrorContainer>
-            </ParamContainer>
-            <ParamContainer>
-              <Label htmlFor="peakToBase">
-                Peak to Relaxation:
-                <Tooltip
-                  title={
-                    <TooltipText>
-                      {
-                        // TODO this needs to be more specific
-                        "Specifies the baseline metrics for twitch width percentages."
-                      }
-                    </TooltipText>
+                </TooltipText>
+              }
+            >
+              <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+            </Tooltip>
+          </Label>
+          <InputErrorContainer>
+            <FormInput
+              name="baseToPeak"
+              placeholder={checkedBaseline ? "10" : ""}
+              value={!checkedBaseline ? "" : inputVals.baseToPeak}
+              onChangeFn={(e) => {
+                updateParams({
+                  baseToPeak: e.target.value,
+                });
+              }}
+            >
+              <ErrorText id="baseToPeakError" role="errorMsg">
+                {errorMessages.baseToPeak}
+              </ErrorText>
+            </FormInput>
+          </InputErrorContainer>
+        </ParamContainer>
+        <ParamContainer>
+          <Label htmlFor="peakToBase">
+            Peak to Relaxation:
+            <Tooltip
+              title={
+                <TooltipText>
+                  {
+                    // TODO this needs to be more specific
+                    "Specifies the baseline metrics for twitch width percentages."
                   }
-                >
-                  <InfoOutlinedIcon />
-                </Tooltip>
-              </Label>
-              <InputErrorContainer>
-                <FormInput
-                  name="peakToBase"
-                  placeholder={checkedBaseline ? "90" : ""}
-                  value={!checkedBaseline ? "" : inputVals.peakToBase}
-                  onChangeFn={(e) => {
-                    updateParams({
-                      peakToBase: e.target.value,
-                    });
-                  }}
-                >
-                  <ErrorText id="peakToBaseError" role="errorMsg">
-                    {errorMessages.peakToBase}
-                  </ErrorText>
-                </FormInput>
-              </InputErrorContainer>
-            </ParamContainer>
-          </WAOverlayContainer>
-        </WindowAnalysisContainer>
-        <WindowAnalysisContainer>
-          <WAOverlayContainer>
-            <WALabel>
-              <CheckboxWidget
-                color={"secondary"}
-                size={"small"}
-                handleCheckbox={(checkedWindow) =>
-                  setCheckedWindow(checkedWindow)
-                }
-                checkedState={checkedWindow}
-              />
-              Use Window Analysis
-            </WALabel>
-            {checkedWindow || <WAOverlay />}
-            <ParamContainer>
-              <Label htmlFor="startTime">
-                Start Time (s):
-                <Tooltip
-                  title={
-                    <TooltipText>
-                      {
-                        "Specifies the earliest timepoint (in seconds) to use in analysis."
-                      }
-                    </TooltipText>
+                </TooltipText>
+              }
+            >
+              <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+            </Tooltip>
+          </Label>
+          <InputErrorContainer>
+            <FormInput
+              name="peakToBase"
+              placeholder={checkedBaseline ? "90" : ""}
+              value={!checkedBaseline ? "" : inputVals.peakToBase}
+              onChangeFn={(e) => {
+                updateParams({
+                  peakToBase: e.target.value,
+                });
+              }}
+            >
+              <ErrorText id="peakToBaseError" role="errorMsg">
+                {errorMessages.peakToBase}
+              </ErrorText>
+            </FormInput>
+          </InputErrorContainer>
+        </ParamContainer>
+
+        <SectionLabel>Window Analysis</SectionLabel>
+        <ParamContainer>
+          <Label htmlFor="startTime">
+            Start Time (s):
+            <Tooltip
+              title={
+                <TooltipText>
+                  {"Specifies the earliest timepoint (in seconds) to use in analysis."}
+                </TooltipText>
+              }
+            >
+              <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+            </Tooltip>
+          </Label>
+          <InputErrorContainer>
+            <FormInput
+              name="startTime"
+              placeholder={checkedWindow ? "0" : ""}
+              value={!checkedWindow ? "" : inputVals.startTime}
+              onChangeFn={(e) => {
+                updateParams({
+                  startTime: e.target.value,
+                });
+              }}
+            >
+              <ErrorText id="startTimeError" role="errorMsg">
+                {errorMessages.startTime}
+              </ErrorText>
+            </FormInput>
+          </InputErrorContainer>
+        </ParamContainer>
+        <ParamContainer>
+          <Label htmlFor="endTime">
+            End Time (s):
+            <Tooltip
+              title={
+                <TooltipText>{"Specifies the latest timepoint (in seconds) to use in analysis."}</TooltipText>
+              }
+            >
+              <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+            </Tooltip>
+          </Label>
+          <InputErrorContainer>
+            <FormInput
+              name="endTime"
+              placeholder={checkedWindow ? "(End of recording)" : ""}
+              value={!checkedWindow ? "" : inputVals.endTime}
+              onChangeFn={(e) => {
+                updateParams({
+                  endTime: e.target.value,
+                });
+              }}
+            >
+              <ErrorText id="endTimeError" role="errorMsg">
+                {errorMessages.endTime}
+              </ErrorText>
+            </FormInput>
+          </InputErrorContainer>
+        </ParamContainer>
+
+        <SectionLabel>Advanced Analysis</SectionLabel>
+        <TwoParamContainer>
+          <Label htmlFor="prominenceFactorPeaks">
+            Prominence (µN):
+            <Tooltip
+              title={
+                <TooltipText>
+                  {
+                    "Specifies the minimum required vertical distance between a local max and its lowest contour line to be classified as a peak."
                   }
-                >
-                  <InfoOutlinedIcon />
-                </Tooltip>
-              </Label>
-              <InputErrorContainer>
-                <FormInput
-                  name="startTime"
-                  placeholder={checkedWindow ? "0" : ""}
-                  value={!checkedWindow ? "" : inputVals.startTime}
-                  onChangeFn={(e) => {
-                    updateParams({
-                      startTime: e.target.value,
-                    });
-                  }}
-                >
-                  <ErrorText id="startTimeError" role="errorMsg">
-                    {errorMessages.startTime}
-                  </ErrorText>
-                </FormInput>
-              </InputErrorContainer>
-            </ParamContainer>
-            <ParamContainer>
-              <Label htmlFor="endTime">
-                End Time (s):
-                <Tooltip
-                  title={
-                    <TooltipText>
-                      {
-                        "Specifies the latest timepoint (in seconds) to use in analysis."
-                      }
-                    </TooltipText>
+                </TooltipText>
+              }
+            >
+              <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+            </Tooltip>
+          </Label>
+          <InputErrorContainer>
+            <SmallLabel htmlFor="prominenceFactorPeaks">Peaks</SmallLabel>
+            <FormModify>
+              <FormInput
+                name="prominenceFactorPeaks"
+                placeholder={checkedAdvanced ? "6" : ""}
+                value={!checkedAdvanced ? "" : inputVals.prominenceFactorPeaks}
+                onChangeFn={(e) => {
+                  updateParams({
+                    prominenceFactorPeaks: e.target.value,
+                  });
+                }}
+              >
+                <ErrorText id="prominenceFactorPeaksError" role="errorMsg">
+                  {errorMessages.prominenceFactorPeaks}
+                </ErrorText>
+              </FormInput>
+            </FormModify>
+            <SmallLabel htmlFor="prominenceFactorValleys">Valleys</SmallLabel>
+            <FormModify>
+              <FormInput
+                name="prominenceFactorValleys"
+                placeholder={checkedAdvanced ? "6" : ""}
+                value={!checkedAdvanced ? "" : inputVals.prominenceFactorValleys}
+                onChangeFn={(e) => {
+                  updateParams({
+                    prominenceFactorValleys: e.target.value,
+                  });
+                }}
+              >
+                <ErrorText id="prominenceFactorValleysError" role="errorMsg">
+                  {errorMessages.prominenceFactorValleys}
+                </ErrorText>
+              </FormInput>
+            </FormModify>
+          </InputErrorContainer>
+        </TwoParamContainer>
+        <TwoParamContainer>
+          <Label htmlFor="widthFactorPeaks">
+            Width (ms):
+            <Tooltip
+              title={
+                <TooltipText>
+                  {
+                    "Specifies the minimum required width of the base of a local max to be classified as a peak."
                   }
-                >
-                  <InfoOutlinedIcon />
-                </Tooltip>
-              </Label>
-              <InputErrorContainer>
-                <FormInput
-                  name="endTime"
-                  placeholder={checkedWindow ? "(End of recording)" : ""}
-                  value={!checkedWindow ? "" : inputVals.endTime}
-                  onChangeFn={(e) => {
-                    updateParams({
-                      endTime: e.target.value,
-                    });
-                  }}
-                >
-                  <ErrorText id="endTimeError" role="errorMsg">
-                    {errorMessages.endTime}
-                  </ErrorText>
-                </FormInput>
-              </InputErrorContainer>
-            </ParamContainer>
-          </WAOverlayContainer>
-        </WindowAnalysisContainer>
-        <AdvancedAnalysisContainer>
-          <WAOverlayContainer>
-            <WALabel style={{ width: 210 }}>
-              <CheckboxWidget
-                color={"secondary"}
-                size={"small"}
-                handleCheckbox={(checkedAdvanced) =>
-                  setCheckedAdvanced(checkedAdvanced)
-                }
-                checkedState={checkedAdvanced}
-              />
-              Use Advanced Analysis
-            </WALabel>
-            {checkedAdvanced || <WAOverlay />}
-            <TwoParamContainer>
-              <Label htmlFor="prominenceFactorPeaks">
-                Prominence (µN):
-                <Tooltip
-                  title={
-                    <TooltipText>
-                      {
-                        "Specifies the minimum required vertical distance between a local max and its lowest contour line to be classified as a peak."
-                      }
-                    </TooltipText>
-                  }
-                >
-                  <InfoOutlinedIcon />
-                </Tooltip>
-              </Label>
-              <InputErrorContainer>
-                <label htmlFor="prominenceFactorPeaks">Peaks</label>
-                <FormModify>
-                  <FormInput
-                    name="prominenceFactorPeaks"
-                    placeholder={checkedAdvanced ? "6" : ""}
-                    value={
-                      !checkedAdvanced ? "" : inputVals.prominenceFactorPeaks
-                    }
-                    onChangeFn={(e) => {
-                      updateParams({
-                        prominenceFactorPeaks: e.target.value,
-                      });
-                    }}
-                  >
-                    <ErrorText id="prominenceFactorPeaksError" role="errorMsg">
-                      {errorMessages.prominenceFactorPeaks}
-                    </ErrorText>
-                  </FormInput>
-                </FormModify>
-                <label htmlFor="prominenceFactorValleys">Valleys</label>
-                <FormModify>
-                  <FormInput
-                    name="prominenceFactorValleys"
-                    placeholder={checkedAdvanced ? "6" : ""}
-                    value={
-                      !checkedAdvanced ? "" : inputVals.prominenceFactorValleys
-                    }
-                    onChangeFn={(e) => {
-                      updateParams({
-                        prominenceFactorValleys: e.target.value,
-                      });
-                    }}
-                  >
-                    <ErrorText
-                      id="prominenceFactorValleysError"
-                      role="errorMsg"
-                    >
-                      {errorMessages.prominenceFactorValleys}
-                    </ErrorText>
-                  </FormInput>
-                </FormModify>
-              </InputErrorContainer>
-            </TwoParamContainer>
-            <TwoParamContainer>
-              <Label htmlFor="widthFactorPeaks">
-                Width (ms):
-                <Tooltip
-                  title={
-                    <TooltipText>
-                      {
-                        "Specifies the minimum required width of the base of a local max to be classified as a peak."
-                      }
-                    </TooltipText>
-                  }
-                >
-                  <InfoOutlinedIcon />
-                </Tooltip>
-              </Label>
-              <InputErrorContainer>
-                <label htmlFor="widthFactorPeaks">Peaks</label>
-                <FormModify>
-                  <FormInput
-                    name="widthFactorPeaks"
-                    placeholder={checkedAdvanced ? "7" : ""}
-                    value={!checkedAdvanced ? "" : inputVals.widthFactorPeaks}
-                    onChangeFn={(e) => {
-                      updateParams({
-                        widthFactorPeaks: e.target.value,
-                      });
-                    }}
-                  >
-                    <ErrorText id="widthFactorPeaksError" role="errorMsg">
-                      {errorMessages.widthFactorPeaks}
-                    </ErrorText>
-                  </FormInput>
-                </FormModify>
-                <label htmlFor="widthFactorValleys">Valleys</label>
-                <FormModify>
-                  <FormInput
-                    name="widthFactorValleys"
-                    placeholder={checkedAdvanced ? "7" : ""}
-                    value={!checkedAdvanced ? "" : inputVals.widthFactorValleys}
-                    onChangeFn={(e) => {
-                      updateParams({
-                        widthFactorValleys: e.target.value,
-                      });
-                    }}
-                  >
-                    <ErrorText id="widthFactorValleysError" role="errorMsg">
-                      {errorMessages.widthFactorValleys}
-                    </ErrorText>
-                  </FormInput>
-                </FormModify>
-              </InputErrorContainer>
-            </TwoParamContainer>
-          </WAOverlayContainer>
-        </AdvancedAnalysisContainer>
+                </TooltipText>
+              }
+            >
+              <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+            </Tooltip>
+          </Label>
+          <InputErrorContainer>
+            <SmallLabel htmlFor="widthFactorPeaks">Peaks</SmallLabel>
+            <FormModify>
+              <FormInput
+                name="widthFactorPeaks"
+                placeholder={checkedAdvanced ? "7" : ""}
+                value={!checkedAdvanced ? "" : inputVals.widthFactorPeaks}
+                onChangeFn={(e) => {
+                  updateParams({
+                    widthFactorPeaks: e.target.value,
+                  });
+                }}
+              >
+                <ErrorText id="widthFactorPeaksError" role="errorMsg">
+                  {errorMessages.widthFactorPeaks}
+                </ErrorText>
+              </FormInput>
+            </FormModify>
+            <SmallLabel htmlFor="widthFactorValleys">Valleys</SmallLabel>
+            <FormModify>
+              <FormInput
+                name="widthFactorValleys"
+                placeholder={checkedAdvanced ? "7" : ""}
+                value={!checkedAdvanced ? "" : inputVals.widthFactorValleys}
+                onChangeFn={(e) => {
+                  updateParams({
+                    widthFactorValleys: e.target.value,
+                  });
+                }}
+              >
+                <ErrorText id="widthFactorValleysError" role="errorMsg">
+                  {errorMessages.widthFactorValleys}
+                </ErrorText>
+              </FormInput>
+            </FormModify>
+          </InputErrorContainer>
+        </TwoParamContainer>
       </InputContainer>
     </Container>
   );
