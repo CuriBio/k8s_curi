@@ -31,7 +31,7 @@ const TwoParamContainer = styled.div`
   flex-direction: row;
   height: 100%;
   justify-content: center;
-  width: 50%;
+  width: 420px;
   align-items: center;
 `;
 const ParamContainer = styled.div`
