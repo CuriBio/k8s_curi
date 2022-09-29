@@ -79,9 +79,10 @@ function Pulse({ Component, pageProps }) {
   // whenever the page updates, sends message to SW (if active) to check if a user is logged in
   useEffect(() => {
     sendSWMessage();
-    if (router.pathname.includes("login")) clearInterval(swInterval);
-    else keepSWALive();
-    console.log(swInterval);
+
+    // start pinging SW if not on login page to keep alive
+    if (!router.pathname.includes("login")) keepSWALive();
+    // clear on teardown/page redirections
     return () => clearInterval(swInterval);
   }, [router.pathname]);
 
