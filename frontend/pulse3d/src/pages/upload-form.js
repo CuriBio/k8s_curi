@@ -98,9 +98,7 @@ export default function UploadForm() {
   const [modalButtons, setModalButtons] = useState(["Close"]);
   const [failedUploadsMsg, setFailedUploadsMsg] = useState([defaultUploadErrorLabel]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [checkedWindow, setCheckedWindow] = useState(false);
-  const [checkedAdvanced, setCheckedAdvanced] = useState(false);
-  const [checkedBaseline, setCheckedBaseline] = useState(false);
+  const [checkedParams, setCheckedParams] = useState(false);
   const [tabSelection, setTabSelection] = useState(query.id);
   const [modalState, setModalState] = useState(false);
   const [analysisParams, setAnalysisParams] = useState(getDefaultAnalysisParams());
@@ -145,7 +143,7 @@ export default function UploadForm() {
     setAnalysisParams(getDefaultAnalysisParams());
     setFailedUploadsMsg([defaultUploadErrorLabel]);
     setModalButtons(["Close"]);
-    setCheckedWindow(false);
+    setCheckedParams(false);
     setParamErrors({});
     // Tanner (9/13/22): this is a really hacky way of triggering this since the value must actually change, but it will be unnecessary once the single checkbox is added
     setResetDropDown(resetDropDown + 1);
@@ -404,14 +402,10 @@ export default function UploadForm() {
           </DropDownContainer>
         )}
         <AnalysisParamForm
-          checkedBaseline={checkedBaseline}
-          setCheckedBaseline={setCheckedBaseline}
           errorMessages={paramErrors}
           inputVals={analysisParams}
-          checkedWindow={checkedWindow}
-          setCheckedWindow={setCheckedWindow}
-          checkedAdvanced={checkedAdvanced}
-          setCheckedAdvanced={setCheckedAdvanced}
+          checkedParams={checkedParams}
+          setCheckedParams={setCheckedParams}
           paramErrors={paramErrors}
           setParamErrors={setParamErrors}
           setAnalysisParams={setAnalysisParams}
