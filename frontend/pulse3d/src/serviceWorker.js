@@ -81,6 +81,7 @@ const modifyRequest = async (req, url) => {
     // and the request should fail with 403
     headers.append("Authorization", `Bearer ${tokens.access}`);
   }
+
   // apply new headers. Make sure to clone the original request obj if consuming the body by calling json()
   // since it typically can only be consumed once
   const modifiedReq = new Request(url, {
@@ -222,6 +223,8 @@ self.onmessage = ({ data, source }) => {
       accountType,
       routerPathname: data.routerPathname,
     });
+  } else if (data.msgType === "stayAlive") {
+    console.log("[SW] Staying alive");
   }
 };
 
