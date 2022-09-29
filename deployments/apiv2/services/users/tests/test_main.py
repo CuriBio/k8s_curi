@@ -126,7 +126,7 @@ def test_login__user__success(cb_customer_id, mocked_asyncpg_con, mocker):
     assert response.json() == AuthTokens(access=expected_access_token, refresh=expected_refresh_token)
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
-        "SELECT password, id, data->'scope' AS scope FROM users WHERE deleted_at IS NULL AND name = $1 AND customer_id = $2",
+        "SELECT password, id, data->'scope' AS scope FROM users WHERE deleted_at IS NULL AND name = $1 AND customer_id = $2 AND suspended = 'f'",
         login_details["username"],
         login_details["customer_id"],
     )
