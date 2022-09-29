@@ -27,22 +27,9 @@ export default function FormInput({
     <>
       {label ? <Label htmlFor={name}>{label}</Label> : null}
       {disabled ? (
-        <Field
-          id={name}
-          placeholder={"Disabled"}
-          type={type}
-          value={value}
-          onChange={onChangeFn}
-          readOnly
-        />
+        <Field id={name} placeholder={"Disabled"} type={type} value={value} onChange={onChangeFn} readOnly />
       ) : (
-        <Field
-          id={name}
-          placeholder={placeholder}
-          type={type}
-          value={value}
-          onChange={onChangeFn}
-        />
+        <Field id={name} placeholder={placeholder} type={type} value={value} onChange={onChangeFn} />
       )}
       {children}
     </>

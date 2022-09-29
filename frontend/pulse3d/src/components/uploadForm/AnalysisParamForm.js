@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import semverGte from "semver/functions/gte";
 
 const Container = styled.div`
-  padding-top: 1rem;
+  padding: 1rem;
   left: 5%;
   top: 12%;
   width: 90%;
@@ -31,8 +31,8 @@ const TwoParamContainer = styled.div`
   flex-direction: row;
   height: 100%;
   justify-content: center;
-  padding: 1rem;
   width: 50%;
+  align-items: center;
 `;
 const ParamContainer = styled.div`
   display: flex;
@@ -51,21 +51,6 @@ const InputContainer = styled.div`
   width: 90%;
 `;
 
-const WindowAnalysisContainer = styled.div`
-  border: 2px solid var(--dark-gray);
-  border-radius: 5px;
-  width: 60%;
-  margin-top: 4rem;
-`;
-const AdvancedAnalysisContainer = styled.div`
-  border: 2px solid var(--dark-gray);
-  border-radius: 5px;
-  width: 60%;
-  height: 100%;
-  margin-top: 4rem;
-  margin-bottom: 4rem;
-`;
-
 const WAOverlay = styled.div`
   border-radius: 5px;
   z-index: 2;
@@ -74,6 +59,7 @@ const WAOverlay = styled.div`
   background-color: var(--dark-gray);
   opacity: 0.6;
   position: absolute;
+  bottom: 0px;
 `;
 const Label = styled.label`
   width: 110%;
@@ -96,27 +82,16 @@ const ErrorText = styled.span`
   font-size: 13px;
 `;
 
-const WAOverlayContainer = styled.div`
-  position: relative;
-  z-index: 2;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-flow: column;
-  align-items: center;
-  justify-content: end;
-`;
-
 const InputErrorContainer = styled.div`
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   width: 70%;
   overflow: visible;
 `;
 
 const FormModify = styled.div`
   display: flex;
-  width: 400px;
+  width: 162px;
   flex-direction: column;
 `;
 
@@ -136,7 +111,7 @@ const AdditionalParamLabel = styled.span`
   left: 25%;
   display: flex;
   align-items: center;
-  width: 380px;
+  width: 400px;
   font-size: 17px;
   z-index: 3;
   border: 2px solid var(--dark-gray);
@@ -165,15 +140,11 @@ const SmallLabel = styled.label`
 `;
 
 export default function AnalysisParamForm({
-  checkedBaseline,
-  setCheckedBaseline,
   inputVals,
   errorMessages,
-  checkedWindow,
-  setCheckedWindow,
+  checkedParams,
+  setCheckedParams,
   setAnalysisParams,
-  checkedAdvanced,
-  setCheckedAdvanced,
   paramErrors,
   setParamErrors,
   analysisParams,
@@ -184,7 +155,6 @@ export default function AnalysisParamForm({
 
   const updateParams = (newParams) => {
     const updatedParams = { ...analysisParams, ...newParams };
-
     if ("twitchWidths" in newParams) {
       validateTwitchWidths(updatedParams);
     }
@@ -264,7 +234,6 @@ export default function AnalysisParamForm({
       endTime,
     })) {
       let error = "";
-
       // only perform this check if something has actually been entered
       if (boundValue) {
         const allowZero = boundName === "startTime";
@@ -283,7 +252,7 @@ export default function AnalysisParamForm({
       !updatedParamErrors.endTime &&
       updatedParams.startTime &&
       updatedParams.endTime &&
-      updatedParams.startTime >= updatedParams.endTime
+      Number(updatedParams.startTime) >= Number(updatedParams.endTime)
     ) {
       updatedParamErrors.endTime = "*Must be greater than Start Time";
     }
@@ -305,10 +274,19 @@ export default function AnalysisParamForm({
 
   return (
     <Container>
-      <AdditionalParamLabel>Additional Analysis Params (Optional)</AdditionalParamLabel>
+      <AdditionalParamLabel>
+        <CheckboxWidget
+          color={"secondary"}
+          size={"small"}
+          handleCheckbox={(checkedParams) => setCheckedParams(checkedParams)}
+          checkedState={checkedParams}
+        />
+        Use Additional Analysis Parameters
+      </AdditionalParamLabel>
+      {!checkedParams ? <WAOverlay /> : null}
       <InputContainer>
         <ParamContainer style={{ marginTop: "2%" }}>
-          <Label htmlFor="selectedPulse3dVersion" style={{ width: "54%", lineHeight: 2.5 }}>
+          <Label htmlFor="selectedPulse3dVersion" style={{ width: "62%", lineHeight: 2.5 }}>
             Pulse3d Version:
             <Tooltip
               title={
@@ -449,8 +427,8 @@ export default function AnalysisParamForm({
           <InputErrorContainer>
             <FormInput
               name="baseToPeak"
-              placeholder={checkedBaseline ? "10" : ""}
-              value={!checkedBaseline ? "" : inputVals.baseToPeak}
+              placeholder={checkedParams ? "10" : ""}
+              value={inputVals.baseToPeak}
               onChangeFn={(e) => {
                 updateParams({
                   baseToPeak: e.target.value,
@@ -482,8 +460,8 @@ export default function AnalysisParamForm({
           <InputErrorContainer>
             <FormInput
               name="peakToBase"
-              placeholder={checkedBaseline ? "90" : ""}
-              value={!checkedBaseline ? "" : inputVals.peakToBase}
+              placeholder={checkedParams ? "90" : ""}
+              value={inputVals.peakToBase}
               onChangeFn={(e) => {
                 updateParams({
                   peakToBase: e.target.value,
@@ -514,8 +492,8 @@ export default function AnalysisParamForm({
           <InputErrorContainer>
             <FormInput
               name="startTime"
-              placeholder={checkedWindow ? "0" : ""}
-              value={!checkedWindow ? "" : inputVals.startTime}
+              placeholder={checkedParams ? "0" : ""}
+              value={inputVals.startTime}
               onChangeFn={(e) => {
                 updateParams({
                   startTime: e.target.value,
@@ -542,8 +520,8 @@ export default function AnalysisParamForm({
           <InputErrorContainer>
             <FormInput
               name="endTime"
-              placeholder={checkedWindow ? "(End of recording)" : ""}
-              value={!checkedWindow ? "" : inputVals.endTime}
+              placeholder={checkedParams ? "(End of recording)" : ""}
+              value={inputVals.endTime}
               onChangeFn={(e) => {
                 updateParams({
                   endTime: e.target.value,
@@ -578,8 +556,8 @@ export default function AnalysisParamForm({
             <FormModify>
               <FormInput
                 name="prominenceFactorPeaks"
-                placeholder={checkedAdvanced ? "6" : ""}
-                value={!checkedAdvanced ? "" : inputVals.prominenceFactorPeaks}
+                placeholder={checkedParams ? "6" : ""}
+                value={inputVals.prominenceFactorPeaks}
                 onChangeFn={(e) => {
                   updateParams({
                     prominenceFactorPeaks: e.target.value,
@@ -595,8 +573,8 @@ export default function AnalysisParamForm({
             <FormModify>
               <FormInput
                 name="prominenceFactorValleys"
-                placeholder={checkedAdvanced ? "6" : ""}
-                value={!checkedAdvanced ? "" : inputVals.prominenceFactorValleys}
+                placeholder={checkedParams ? "6" : ""}
+                value={inputVals.prominenceFactorValleys}
                 onChangeFn={(e) => {
                   updateParams({
                     prominenceFactorValleys: e.target.value,
@@ -630,8 +608,8 @@ export default function AnalysisParamForm({
             <FormModify>
               <FormInput
                 name="widthFactorPeaks"
-                placeholder={checkedAdvanced ? "7" : ""}
-                value={!checkedAdvanced ? "" : inputVals.widthFactorPeaks}
+                placeholder={checkedParams ? "7" : ""}
+                value={inputVals.widthFactorPeaks}
                 onChangeFn={(e) => {
                   updateParams({
                     widthFactorPeaks: e.target.value,
@@ -647,8 +625,8 @@ export default function AnalysisParamForm({
             <FormModify>
               <FormInput
                 name="widthFactorValleys"
-                placeholder={checkedAdvanced ? "7" : ""}
-                value={!checkedAdvanced ? "" : inputVals.widthFactorValleys}
+                placeholder={checkedParams ? "7" : ""}
+                value={inputVals.widthFactorValleys}
                 onChangeFn={(e) => {
                   updateParams({
                     widthFactorValleys: e.target.value,

@@ -102,9 +102,7 @@ export default function UploadForm() {
     defaultUploadErrorLabel,
   ]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [checkedWindow, setCheckedWindow] = useState(false);
-  const [checkedAdvanced, setCheckedAdvanced] = useState(false);
-  const [checkedBaseline, setCheckedBaseline] = useState(false);
+  const [checkedParams, setCheckedParams] = useState(false);
   const [tabSelection, setTabSelection] = useState(query.id);
   const [modalState, setModalState] = useState(false);
   const [analysisParams, setAnalysisParams] = useState(
@@ -156,7 +154,7 @@ export default function UploadForm() {
     setAnalysisParams(getDefaultAnalysisParams());
     setFailedUploadsMsg([defaultUploadErrorLabel]);
     setModalButtons(["Close"]);
-    setCheckedWindow(false);
+    setCheckedParams(false);
     setParamErrors({});
     // Tanner (9/13/22): this is a really hacky way of triggering this since the value must actually change, but it will be unnecessary once the single checkbox is added
     setResetDropDown(resetDropDown + 1);
@@ -433,11 +431,7 @@ export default function UploadForm() {
           <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
             handleFileChange={(files) => setFiles(Object.values(files))}
             dropZoneText={dropZoneText}
-            fileSelection={
-              files.length > 0
-                ? files.map(({ name }) => name).join(", ")
-                : "No files selected"
-            }
+            fileSelection={files.length > 0 ? files.map(({ name }) => name).join(", ") : "No files selected"}
           />
         ) : (
           <DropDownContainer>
@@ -450,14 +444,10 @@ export default function UploadForm() {
           </DropDownContainer>
         )}
         <AnalysisParamForm
-          checkedBaseline={checkedBaseline}
-          setCheckedBaseline={setCheckedBaseline}
           errorMessages={paramErrors}
           inputVals={analysisParams}
-          checkedWindow={checkedWindow}
-          setCheckedWindow={setCheckedWindow}
-          checkedAdvanced={checkedAdvanced}
-          setCheckedAdvanced={setCheckedAdvanced}
+          checkedParams={checkedParams}
+          setCheckedParams={setCheckedParams}
           paramErrors={paramErrors}
           setParamErrors={setParamErrors}
           setAnalysisParams={setAnalysisParams}
@@ -481,9 +471,7 @@ export default function UploadForm() {
             position="relative"
             borderRadius="3px"
             left="10px"
-            backgroundColor={
-              isButtonDisabled ? "var(--dark-gray)" : "var(--dark-blue)"
-            }
+            backgroundColor={isButtonDisabled ? "var(--dark-gray)" : "var(--dark-blue)"}
             disabled={isButtonDisabled}
             inProgress={inProgress}
             label="Submit"
