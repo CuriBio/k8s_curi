@@ -41,8 +41,6 @@ const currentNodeVersion = semver.clean(process.version);
 if (semver.satisfies(currentNodeVersion, nodeVersionReq)) {
   process.exit(0);
 } else {
-  errorInRed(
-    `Invalid node version: ${currentNodeVersion} for requirement: ${nodeVersionReq}`
-  );
+  errorInRed(`Invalid node version: ${currentNodeVersion} for requirement: ${nodeVersionReq}`);
   process.exit(1);
 }

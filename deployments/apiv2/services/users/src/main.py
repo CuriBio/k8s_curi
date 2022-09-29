@@ -257,7 +257,9 @@ async def register(
         # still hash even if user or customer exists to avoid timing analysis leaks
         phash = ph.hash(details.password1.get_secret_value())
 
-        is_customer_registration_attempt = customer_id == CB_CUSTOMER_ID and type(details) is CustomerCreate
+        is_customer_registration_attempt = (
+            customer_id == CB_CUSTOMER_ID and type(details) is CustomerCreate  # noqa: F821
+        )
 
         register_type = "customer" if is_customer_registration_attempt else "user"
         logger.info(f"Attempting {register_type} registration")

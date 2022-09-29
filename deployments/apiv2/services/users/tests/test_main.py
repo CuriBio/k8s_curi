@@ -88,7 +88,7 @@ def test_startup__sets_global_cb_customer_id(mocked_asyncpg_con):
         ("POST", "/register"),
         ("POST", "/refresh"),
         ("POST", "/logout"),
-        ("GET", f"/"),
+        ("GET", "/"),
         ("PUT", f"/{uuid.uuid4()}"),
     ],
 )
@@ -556,8 +556,8 @@ def test_user_id__get__id_given(mocked_asyncpg_con):
 
     mocked_asyncpg_con.fetchrow.return_value = expected_user_info = {
         "id": uuid.uuid4(),
-        "name": f"name",
-        "email": f"user@email.com",
+        "name": "name",
+        "email": "user@email.com",
         "created_at": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
         "last_login": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
         "suspended": choice([True, False]),
@@ -610,7 +610,7 @@ def test_user_id__put__successful_deletion(mocked_asyncpg_con):
     assert response.status_code == 200
 
     mocked_asyncpg_con.execute.assert_called_once_with(
-        f"UPDATE users SET deleted_at=$1 WHERE id=$2", datetime.now(), test_user_id
+        "UPDATE users SET deleted_at=$1 WHERE id=$2", datetime.now(), test_user_id
     )
 
 
@@ -628,7 +628,7 @@ def test_user_id__put__successful_deactivation(mocked_asyncpg_con):
     assert response.status_code == 200
 
     mocked_asyncpg_con.execute.assert_called_once_with(
-        f"UPDATE users SET suspended='t' WHERE id=$1", test_user_id
+        "UPDATE users SET suspended='t' WHERE id=$1", test_user_id
     )
 
 

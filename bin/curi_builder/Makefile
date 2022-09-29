@@ -2,7 +2,7 @@ ecr_repo = 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
 
 .PHONY: build buildx push tag apply
 build:
-	docker build -t builder . 
+	docker build -t builder .
 
 buildx:
 	docker buildx build -t builder . --platform linux/amd64 --load

@@ -225,7 +225,7 @@ def main(argsIn):
             print("=> transfer learning")
             logging.info("=> transfer learning")
             for name, child in model.named_children():
-                if name in ['layer2','layer3','layer4']:   
+                if name in ['layer2','layer3','layer4']:
                     for param in child.parameters():
                         param.requires_grad = True
 

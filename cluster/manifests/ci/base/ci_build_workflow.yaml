@@ -16,7 +16,7 @@ spec:
       - name: branch
   volumeClaimTemplates:
   - metadata:
-      name: workdir 
+      name: workdir
     spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
@@ -108,7 +108,7 @@ spec:
       - name: branch
   volumeClaimTemplates:
   - metadata:
-      name: workdir 
+      name: workdir
     spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
