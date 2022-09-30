@@ -224,6 +224,7 @@ self.onmessage = ({ data, source }) => {
       routerPathname: data.routerPathname,
     });
   } else if (data.msgType === "stayAlive") {
+    // TODO should have this do something else so that there isn't a log msg produced every 20 seconds
     console.log("[SW] Staying alive");
   }
 };

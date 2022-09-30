@@ -22,7 +22,7 @@ mkdir -p $dstFolder/data/Val/LABEL
 
 if [ "$make_labels" = true ]
 then
-        echo "making the masks of denosied images for training data" 
+        echo "making the masks of denosied images for training data"
 	python make_labels_ionpath.py $rootdir/denoised/Train/ $rootdir/denoised_mask/Train/
         echo "making the masks of denoised images for validation data"
 	python make_labels_ionpath.py $rootdir/denoised/Val/ $rootdir/denoised_mask/Val/

@@ -151,7 +151,7 @@ export default function AnalysisParamForm({
   pulse3dVersions,
   resetDropDown,
 }) {
-  const [normalizeYaxisisChecked, setNormalizeYaxisisChecked] = useState(true);
+  const [normalizeYAxis, setNormalizeYAxis] = useState(true);
 
   const updateParams = (newParams) => {
     const updatedParams = { ...analysisParams, ...newParams };
@@ -270,7 +270,7 @@ export default function AnalysisParamForm({
     updateParams({
       maxY: "",
     });
-  }, [normalizeYaxisisChecked]);
+  }, [normalizeYAxis]);
 
   return (
     <Container>
@@ -324,12 +324,12 @@ export default function AnalysisParamForm({
               <FormInput
                 type="checkbox"
                 name="yAxisNormalization"
-                value={normalizeYaxisisChecked}
+                value={normalizeYAxis}
                 onChangeFn={(e) => {
                   updateParams({
-                    yAxisNormalization: normalizeYaxisisChecked,
+                    yAxisNormalization: normalizeYAxis,
                   });
-                  setNormalizeYaxisisChecked(!normalizeYaxisisChecked);
+                  setNormalizeYAxis(!normalizeYAxis);
                 }}
               >
                 <ErrorText id="yAxisNormalization" role="errorMsg">
@@ -364,7 +364,7 @@ export default function AnalysisParamForm({
                     maxY: e.target.value,
                   });
                 }}
-                disabled={!normalizeYaxisisChecked}
+                disabled={!normalizeYAxis}
               >
                 <ErrorText id="maxYError" role="errorMsg">
                   {errorMessages.maxY}

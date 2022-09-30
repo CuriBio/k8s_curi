@@ -437,7 +437,7 @@ async def get_interactive_waveform_data(
     if job_id is None or upload_id is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Missing required ids to get job metadata.",
+            detail="Missing required ids to get job metadata.",
         )
 
     upload_id = str(upload_id)
@@ -518,7 +518,7 @@ async def get_interactive_waveform_data(
             return WaveformDataResponse(coordinates=coordinates, peaks_valleys=peaks_and_valleys)
 
     except KeyError:
-        logger.error(f"Job metadata was not returned from database.")
+        logger.error("Job metadata was not returned from database.")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     except S3Error as e:
         logger.error(f"Error from s3: {e}")

@@ -55,4 +55,4 @@ python evaluate.py --true_path $inputFolder/Val/LABEL \
 				   --acceptable_noise 20 \
                                    --labels $labels \
 				   --log-file $logFilename
- 
+

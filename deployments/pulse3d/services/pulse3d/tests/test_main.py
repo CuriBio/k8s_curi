@@ -22,6 +22,25 @@ def random_semver():
     return ".".join([str(randint(0, 99)) for _ in range(3)])
 
 
+def create_test_df(include_raw_data: bool = True):
+    data = {}
+
+    if include_raw_data:
+        test_df_data = [1e4 * i for i in range(10)]
+    else:
+        test_df_data = [i for i in range(10)]
+
+    data["Time (s)"] = pd.Series(test_df_data)
+
+    for well_idx in range(24):
+        well_name = TWENTY_FOUR_WELL_PLATE.get_well_name_from_well_index(well_idx)
+        data[well_name] = pd.Series(test_df_data)
+        if include_raw_data:
+            data[f"{well_name}__raw"] = pd.Series(test_df_data)
+
+    return pd.DataFrame(data)
+
+
 def get_token(scope, account_type="user", userid=None, customer_id=None):
     if not userid:
         userid = uuid.uuid4()
@@ -706,7 +725,7 @@ def test_download__post__no_job_ids_given(test_job_ids, test_error_code, mocker)
 
 
 @pytest.mark.parametrize("test_query_params", [f"upload_id={uuid.uuid4()}", f"job_id={uuid.uuid4()}"])
-def test_waveform_data__get__returns_400_if_no_job_or_upload_id_is_found(mocker, test_query_params):
+def test_waveform_data__get__no_job_or_upload_id_is_found(mocker, test_query_params):
     access_token = get_token(scope=["users:free"])
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
 
@@ -715,7 +734,7 @@ def test_waveform_data__get__returns_400_if_no_job_or_upload_id_is_found(mocker,
     assert response.status_code == 400
 
 
-def test_waveform_data__get__returns_500_if_getting_job_metadata_from_db_errors(mocker):
+def test_waveform_data__get__getting_job_metadata_from_db_errors(mocker):
     mocker.patch.object(main, "get_jobs", autospec=True, return_value=S3Error())
 
     access_token = get_token(scope=["users:free"])
@@ -756,7 +775,7 @@ def test_waveform_data__get__handles_time_unit_if_old_parquet_file(
     mocker.patch.object(main, "get_jobs", autospec=True, return_value=test_jobs)
     mocker.patch.object(main, "download_directory_from_s3", autospec=True)
     mocked_read = mocker.patch.object(
-        pd, "read_parquet", autospec=True, return_value=_create_test_df(include_raw_data)
+        pd, "read_parquet", autospec=True, return_value=create_test_df(include_raw_data)
     )
     mocked_df = mocked_read.return_value
     expected_time = mocked_df["Time (s)"].tolist()
@@ -783,25 +802,6 @@ def test_waveform_data__get__handles_time_unit_if_old_parquet_file(
         assert len(well_coords) == len(expected_time)
         # old parquet time data is sent in seconds so no conversion should happen
         assert [i[0] * expected_conversion for i in enumerate(well_coords)] == expected_time
-
-
-def _create_test_df(include_raw_data: bool = True):
-    data = {}
-
-    if include_raw_data:
-        test_df_data = [1e4 * i for i in range(10)]
-    else:
-        test_df_data = [i for i in range(10)]
-
-    data["Time (s)"] = pd.Series(test_df_data)
-
-    for well_idx in range(24):
-        well_name = TWENTY_FOUR_WELL_PLATE.get_well_name_from_well_index(well_idx)
-        data[well_name] = pd.Series(test_df_data)
-        if include_raw_data:
-            data[f"{well_name}__raw"] = pd.Series(test_df_data)
-
-    return pd.DataFrame(data)
 
 
 @pytest.mark.parametrize(

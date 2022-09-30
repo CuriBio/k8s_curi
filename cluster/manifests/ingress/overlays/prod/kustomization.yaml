@@ -19,6 +19,6 @@ patchesJson6902:
     name: alb-nginx-ingress
     namespace: nginx-ingress
   patch: |-
-    - op: replace 
+    - op: replace
       path: /spec/tls
       value: [{"hosts": ["*.curibio.com"]}]
