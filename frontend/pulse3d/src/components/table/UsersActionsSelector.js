@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import styled from "styled-components";
 
 const Container = styled.div`
@@ -10,16 +11,10 @@ const Container = styled.div`
 export default function UsersActionSelector(props) {
   const sendUserActionPutRequest = async (actionToPreform) => {
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_USERS_URL}/${props.data.id}`,
-        {
-          method: "PUT",
-          body: JSON.stringify({ action_type: actionToPreform }),
-        }
-      );
-      if (response.status !== 200) {
-        console.log("Error none 200 response from server on put user action");
-      }
+      await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/${props.data.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ action_type: actionToPreform }),
+      });
     } catch {
       console.log("Error on put request to get users");
     }

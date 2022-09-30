@@ -4,6 +4,7 @@ import styled from "styled-components";
 import DataTable from "react-data-table-component";
 import UsersActionSelector from "@/components/table/UsersActionsSelector";
 import FilterHeader from "@/components/table/FilterHeader";
+import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 const columns = [
   {
     name: "Status",
@@ -79,6 +80,7 @@ export default function UserInfo() {
   const [filterString, setFilterString] = useState("");
   const [filtercolumn, setFilterColumn] = useState("");
   const [usersData, setUsersData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const getAllUsers = async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/`);
@@ -86,20 +88,31 @@ export default function UserInfo() {
         const usersJson = await response.json();
         setUsersData(usersJson);
         setDisplayData(usersJson);
+        setLoading(false);
       }
     } catch (e) {
       console.log("ERROR fetching all users info");
     }
   };
-
+  //gets users at load
   useEffect(() => {
     getAllUsers();
   }, []);
+  //when user data changes make sure to refilter the results
+  useEffect(() => {
+    if (usersData.length > 0 && filtercolumn.length > 0) {
+      const newList = usersData.filter((user) =>
+        user[toUserField[filtercolumn]].includes(filterString)
+      );
+      setDisplayData(newList);
+    }
+  }, [usersData]);
 
   const toUserField = {
     Name: "name",
     Email: "email",
   };
+  //when the column on the filter changes refilter results
   useEffect(() => {
     const newList = usersData.filter((user) =>
       user[toUserField[filtercolumn]].includes(filterString)
@@ -128,6 +141,8 @@ export default function UserInfo() {
             conditionalRowStyles={conditionalRowStyles}
             pagination
             defaultSortFieldId={1}
+            progressPending={loading}
+            progressComponent={<CircularSpinner />}
             subHeader
             subHeaderAlign="right"
             subHeaderComponent={
@@ -135,6 +150,7 @@ export default function UserInfo() {
                 columns={["", "Name", "Email", "", ""]}
                 setFilterString={setFilterString}
                 setFilterColumn={setFilterColumn}
+                loading={loading}
               />
             }
           />

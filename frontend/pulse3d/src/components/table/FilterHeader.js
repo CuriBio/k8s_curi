@@ -21,33 +21,35 @@ export default function FilterHeader(props) {
   useEffect(() => {
     props.setFilterString(input);
   }, [input]);
-  const searchFields = props.columns.map((column, idx) =>
-    column !== "" ? (
-      <input
-        key={idx}
-        id={column}
-        className="searchBox"
-        type="text"
-        placeholder={column}
-        onChange={(e) => {
-          setInput(e.target.value);
-          setColumnName(column);
-        }}
-      />
-    ) : (
-      <input
-        disabled
-        key={idx}
-        className="searchBox"
-        type="text"
-        placeholder={column}
-        onChange={(e) => {
-          setInput(e.target.value);
-          setColumnName(column);
-        }}
-        style={{ backgroundColor: "var(--dark-blue)", border: "none" }}
-      />
-    )
-  );
+  const searchFields = props.columns.map((column, idx) => {
+    if (!props.loading) {
+      return column === "" ? (
+        <input
+          disabled
+          key={idx}
+          className="searchBox"
+          type="text"
+          placeholder={column}
+          onChange={(e) => {
+            setInput(e.target.value);
+            setColumnName(column);
+          }}
+          style={{ backgroundColor: "var(--dark-blue)", border: "none" }}
+        />
+      ) : (
+        <input
+          key={idx}
+          id={column}
+          className="searchBox"
+          type="text"
+          placeholder={column}
+          onChange={(e) => {
+            setInput(e.target.value);
+            setColumnName(column);
+          }}
+        />
+      );
+    }
+  });
   return <Test>{searchFields}</Test>;
 }
