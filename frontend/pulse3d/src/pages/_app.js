@@ -36,7 +36,7 @@ function Pulse({ Component, pageProps }) {
   const router = useRouter();
   const [accountType, setAccountType] = useState();
   const [showLoggedOutAlert, setLoggedOutAlert] = useState(false);
-
+  let swInterval = null;
   // register the SW once
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -79,6 +79,11 @@ function Pulse({ Component, pageProps }) {
   // whenever the page updates, sends message to SW (if active) to check if a user is logged in
   useEffect(() => {
     sendSWMessage();
+
+    // start pinging SW if not on login page to keep alive
+    if (!router.pathname.includes("login")) keepSWALive();
+    // clear on teardown/page redirections
+    return () => clearInterval(swInterval);
   }, [router.pathname]);
 
   const sendSWMessage = () => {
@@ -88,6 +93,20 @@ function Pulse({ Component, pageProps }) {
           msgType: "authCheck",
           routerPathname: router.pathname,
         });
+      });
+    }
+  };
+
+  const keepSWALive = () => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.ready.then((registration) => {
+        swInterval = setInterval(
+          () =>
+            registration.active.postMessage({
+              msgType: "stayAlive",
+            }),
+          20e3
+        );
       });
     }
   };
