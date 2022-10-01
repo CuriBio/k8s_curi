@@ -24,6 +24,8 @@ const ModalContainer = styled.div`
   border-radius: 3%;
   overflow: hidden;
   margin-top: 100px;
+  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
+    0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
 const ErrorText = styled.span`
   color: red;
@@ -119,7 +121,10 @@ export default function NewUserForm() {
         open={userCreatedVisible}
         closeModal={() => setUserCreatedVisible(false)}
         header="Success"
-        labels={["User was created successfully"]}
+        labels={[
+          "User was created successfully",
+          "Please have them check their inbox for a verification email to begin accessing their account.",
+        ]}
       />
       <Header>New User Details</Header>
       <InputContainer>

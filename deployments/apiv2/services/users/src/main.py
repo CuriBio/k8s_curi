@@ -10,10 +10,12 @@ from asyncpg.exceptions import UniqueViolationError
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Response
 from fastapi.middleware.cors import CORSMiddleware
 from jwt.exceptions import InvalidTokenError
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+from pydantic import EmailStr
 
 from auth import ProtectedAny, create_token, decode_token
 from core.config import DATABASE_URL
-from models.errors import LoginError, RegistrationError
+from models.errors import LoginError, RegistrationError, EmailRegistrationError
 from models.tokens import AuthTokens
 from models.users import (
     CustomerLogin,
@@ -25,7 +27,7 @@ from models.users import (
     UserAction,
 )
 from utils.db import AsyncpgPoolDep
-
+from fastapi.templating import Jinja2Templates
 
 # logging is configured in log_config.yaml
 logger = logging.getLogger(__name__)
@@ -36,12 +38,15 @@ app = FastAPI(openapi_url=None)
 
 CB_CUSTOMER_ID: uuid.UUID
 
+TEMPLATES = Jinja2Templates(directory="templates")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         # TODO use a single ENV var for this instead
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
+        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -270,9 +275,10 @@ async def register(
             query_params = (details.email, phash)
         else:
             scope = ["users:free"]
+            # initially set suspended state to True
             insert_query = (
-                "INSERT INTO users (name, email, password, account_type, data, customer_id) "
-                "VALUES ($1, $2, $3, $4, $5, $6) RETURNING id"
+                "INSERT INTO users (name, email, password, account_type, data, customer_id, suspended) "
+                "VALUES ($1, $2, $3, $4, $5, $6, 't') RETURNING id"
             )
             query_params = (
                 details.username,
@@ -305,6 +311,8 @@ async def register(
                         failed_msg = "Account registration failed"
                     raise RegistrationError(failed_msg)
 
+                await _send_registration_email(details.username, details.email)
+
                 if is_customer_registration_attempt:
                     return CustomerProfile(email=details.email, user_id=result.hex, scope=scope)
                 else:
@@ -316,11 +324,42 @@ async def register(
                         scope=scope,
                     )
 
+    except EmailRegistrationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except RegistrationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.exception(f"register: Unexpected error {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+async def _send_registration_email(username: str, email: EmailStr) -> None:
+
+    conf = ConnectionConfig(
+        MAIL_USERNAME="no-reply@curibio.com",
+        MAIL_PASSWORD="BAEa$X5C2PaxZ*x+Zd",
+        MAIL_FROM="no-reply@curibio.com",
+        MAIL_PORT=587,
+        MAIL_SERVER="smtp.gmail.com",
+        MAIL_FROM_NAME="CuriBio team",
+        MAIL_TLS=True,
+        MAIL_SSL=False,
+        USE_CREDENTIALS=True,
+        TEMPLATE_FOLDER="./templates",
+    )
+
+    try:
+        message = MessageSchema(
+            subject="Please verify your email address",
+            recipients=[email],  # List of recipients, as many as you can pass
+            template_body={"username": username},
+        )
+
+        fm = FastMail(conf)
+        await fm.send_message(message, template_name="registration.html")
+
+    except Exception as e:
+        raise EmailRegistrationError(e)
 
 
 @app.get("/")

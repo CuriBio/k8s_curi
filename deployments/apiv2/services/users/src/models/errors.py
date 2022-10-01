@@ -4,3 +4,7 @@ class LoginError(Exception):
 
 class RegistrationError(Exception):
     pass
+
+
+class EmailRegistrationError(Exception):
+    pass
