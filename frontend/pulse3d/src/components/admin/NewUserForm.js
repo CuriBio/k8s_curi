@@ -86,13 +86,7 @@ export default function NewUserForm() {
     // else {
     const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/register`, {
       method: "POST",
-      // body: JSON.stringify(userData),
-      body: JSON.stringify({
-        email: "pak.luci.13@gmail.com",
-        username: "emailTestUser",
-        password1: "Qqq30916!Qqq30916!",
-        password2: "Qqq30916!Qqq30916!",
-      }),
+      body: JSON.stringify(userData),
     });
 
     if (res) {
@@ -128,8 +122,8 @@ export default function NewUserForm() {
         closeModal={() => setUserCreatedVisible(false)}
         header="Success"
         labels={[
-          "User was created successfully",
-          "Please have them check their inbox for a verification email to begin accessing their account. Link will expire after 30 minutes.",
+          "User was created successfully!",
+          "Please have them check their inbox for a verification email to begin accessing their account. Link will expire after 24 hours.",
         ]}
       />
       <Header>New User Details</Header>

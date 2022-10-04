@@ -1,4 +1,3 @@
-from base64 import decode
 import datetime
 import logging
 import json
@@ -8,12 +7,11 @@ import uuid
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
-from fastapi import FastAPI, Request, Depends, HTTPException, status, Response, Query
+from fastapi import FastAPI, Request, Depends, HTTPException, status, Response
 from fastapi.middleware.cors import CORSMiddleware
 from jwt.exceptions import InvalidTokenError
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from pydantic import EmailStr
-from starlette.responses import RedirectResponse
 
 from auth import ProtectedAny, create_token, decode_token
 from core.config import DATABASE_URL
@@ -48,7 +46,6 @@ app.add_middleware(
         # TODO use a single ENV var for this instead
         "https://dashboard.curibio-test.com",
         "https://dashboard.curibio.com",
-        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -259,7 +256,6 @@ async def register(
     """
     ph = PasswordHasher()
     customer_id = uuid.UUID(hex=token["userid"])
-
     try:
         # still hash even if user or customer exists to avoid timing analysis leaks
         phash = ph.hash(details.password1.get_secret_value())
@@ -313,12 +309,14 @@ async def register(
                         failed_msg = "Account registration failed"
                     raise RegistrationError(failed_msg)
 
-                # create email verification token
+                # create email verification token, exp 24 hours
                 verification_token = create_token(
                     userid=result, customer_id=customer_id, scope=["users:verify"], account_type="user"
                 )
-
-                await _send_registration_email(details.username, details.email, verification_token.token)
+                # send email with token
+                await _send_registration_email(
+                    details.username, details.email, verification_token.token, request.client.host
+                )
 
                 if is_customer_registration_attempt:
                     return CustomerProfile(email=details.email, user_id=result.hex, scope=scope)
@@ -340,8 +338,12 @@ async def register(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-async def _send_registration_email(username: str, email: EmailStr, verification_token: str) -> None:
-    verification_url = f"http://localhost:3000/verify?token={verification_token}"
+async def _send_registration_email(
+    username: str, email: EmailStr, verification_token: str, host: str
+) -> None:
+    # does not currently work for localhost, just dashboard.curibio-test.com and dashboard.curibio.com
+    # localhost will error with https
+    verification_url = f"https://{host}/verify?token={verification_token}"
 
     conf = ConnectionConfig(
         MAIL_USERNAME="no-reply@curibio.com",
@@ -349,7 +351,7 @@ async def _send_registration_email(username: str, email: EmailStr, verification_
         MAIL_FROM="no-reply@curibio.com",
         MAIL_PORT=587,
         MAIL_SERVER="smtp.gmail.com",
-        MAIL_FROM_NAME="CuriBio team",
+        MAIL_FROM_NAME="Curi Bio Team",
         MAIL_TLS=True,
         MAIL_SSL=False,
         USE_CREDENTIALS=True,
@@ -359,8 +361,11 @@ async def _send_registration_email(username: str, email: EmailStr, verification_
     try:
         message = MessageSchema(
             subject="Please verify your email address",
-            recipients=[email],  # List of recipients, as many as you can pass
-            template_body={"username": username, "verification_url": verification_url},
+            recipients=[email],
+            template_body={
+                "username": username,
+                "verification_url": verification_url,
+            },  # pass any variables you want to use in the email template
         )
 
         fm = FastMail(conf)
@@ -371,9 +376,7 @@ async def _send_registration_email(username: str, email: EmailStr, verification_
 
 
 @app.get("/")
-async def get_all_users(
-    request: Request, token=Depends(ProtectedAny(scope=["users:admin"]), use_cache=False)
-):
+async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=["users:admin"]))):
     """Get info for all the users under the given customer account.
 
     List of users returned will be sorted with all active users showing up first, then all the suspended (deactivated) users
@@ -421,9 +424,7 @@ async def verify_user_email(
 
 
 @app.get("/{user_id}")
-async def get_user(
-    request: Request, user_id: uuid.UUID, token=Depends(ProtectedAny(scope=["users:admin"]), use_cache=False)
-):
+async def get_user(request: Request, user_id: uuid.UUID, token=Depends(ProtectedAny(scope=["users:admin"]))):
     """Get info for the user with the given under the given customer account."""
     customer_id = uuid.UUID(hex=token["userid"])
 
@@ -455,7 +456,7 @@ async def update_user(
     request: Request,
     details: UserAction,
     user_id: uuid.UUID,
-    token=Depends(ProtectedAny(scope=["users:admin"]), use_cache=False),
+    token=Depends(ProtectedAny(scope=["users:admin"])),
 ):
     """Update a user's information in the database.
 
