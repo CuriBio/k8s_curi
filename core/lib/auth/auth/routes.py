@@ -14,6 +14,7 @@ from .settings import (
     JWT_ALGORITHM,
     ACCESS_TOKEN_EXPIRE_MINUTES,
     REFRESH_TOKEN_EXPIRE_MINUTES,
+    EMAIL_VER_TOKEN_EXPIRE_MINUTES
 )
 
 
@@ -28,7 +29,6 @@ class ProtectedAny:
 
         self.scope = set(scope)
         self.refresh = refresh
-
         # Tanner (5/24/22): currently /refresh and /logout don't have any required scope,
         # so don't need to check the scope of tokens that they receive
         self.check_scope = check_scope
@@ -39,11 +39,12 @@ class ProtectedAny:
         try:
             payload = decode_token(token)
             payload_scopes = set(payload["scope"])
-
+            
             # check if the wrong type of token was given
             if payload["refresh"] != self.refresh:
                 raise Exception()
             # if checking scope, make sure that the access token has the required scope
+            print("Just before conditional", self.check_scope, self.scope, payload_scopes)
             if self.check_scope and not self.scope.intersection(payload_scopes):
                 raise Exception()
 
@@ -80,9 +81,15 @@ def create_token(
     if account_type == "customer":
         if customer_id:
             raise ValueError("Customer tokens cannot have a customer ID")
-
-    exp_dur = REFRESH_TOKEN_EXPIRE_MINUTES if refresh else ACCESS_TOKEN_EXPIRE_MINUTES
-
+    
+    # three different constant exp times based on token type    
+    if refresh:
+        exp_dur = REFRESH_TOKEN_EXPIRE_MINUTES # 30min
+    elif "users:verify" in scope:
+        exp_dur = EMAIL_VER_TOKEN_EXPIRE_MINUTES # 30min
+    else:
+        exp_dur = ACCESS_TOKEN_EXPIRE_MINUTES # 5min
+    
     now = datetime.now(tz=timezone.utc)
     iat = timegm(now.utctimetuple())
     exp = timegm((now + timedelta(minutes=exp_dur)).utctimetuple())
@@ -90,38 +97,7 @@ def create_token(
     jwt_meta = JWTMeta(aud=JWT_AUDIENCE, scope=scope, iat=iat, exp=exp, refresh=refresh)
     jwt_details = JWTDetails(customer_id=customer_id, userid=userid.hex, account_type=account_type)
     jwt_payload = JWTPayload(**jwt_meta.dict(), **jwt_details.dict())
-
+    
     jwt_token = jwt.encode(payload=jwt_payload.dict(), key=str(JWT_SECRET_KEY), algorithm=JWT_ALGORITHM)
-    return Token(token=jwt_token)
 
-
-def create_email_verification_token(*, userid: UUID, customer_id: Optional[UUID]):
-    # make sure tokens have at least 1 scope
-    if not scope:
-        raise ValueError("Tokens must have at least 1 scope")
-    # make sure account type is valid
-    if account_type not in ("user", "customer"):
-        raise ValueError(f"Valid account types are 'user' and 'customer', not '{account_type}'")
-    if account_type == "user":
-        # make sure a user is not given admin privileges
-        if "users:admin" in scope:
-            raise ValueError("User tokens cannot have scope 'users:admin'")
-        if not customer_id:
-            raise ValueError("User tokens must have a customer ID")
-        customer_id = customer_id.hex
-    if account_type == "customer":
-        if customer_id:
-            raise ValueError("Customer tokens cannot have a customer ID")
-
-    exp_dur = REFRESH_TOKEN_EXPIRE_MINUTES if refresh else ACCESS_TOKEN_EXPIRE_MINUTES
-
-    now = datetime.now(tz=timezone.utc)
-    iat = timegm(now.utctimetuple())
-    exp = timegm((now + timedelta(minutes=exp_dur)).utctimetuple())
-
-    jwt_meta = JWTMeta(aud=JWT_AUDIENCE, scope=scope, iat=iat, exp=exp, refresh=refresh)
-    jwt_details = JWTDetails(customer_id=customer_id, userid=userid.hex, account_type=account_type)
-    jwt_payload = JWTPayload(**jwt_meta.dict(), **jwt_details.dict())
-
-    jwt_token = jwt.encode(payload=jwt_payload.dict(), key=str(JWT_SECRET_KEY), algorithm=JWT_ALGORITHM)
     return Token(token=jwt_token)

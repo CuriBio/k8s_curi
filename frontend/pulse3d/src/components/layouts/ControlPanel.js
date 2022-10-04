@@ -125,7 +125,7 @@ export default function ControlPanel() {
   const [expanded, setExpanded] = useState(null);
   const { accountType } = useContext(AuthContext);
   const buttons = accountType === "admin" ? adminButtons : userButtons;
-
+  console.log(accountType);
   useEffect(() => {
     const currentPage = buttons.filter(({ page }) => page === router.pathname)[0];
 

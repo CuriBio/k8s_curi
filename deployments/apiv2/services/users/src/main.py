@@ -1,3 +1,4 @@
+from base64 import decode
 import datetime
 import logging
 import json
@@ -7,11 +8,12 @@ import uuid
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
-from fastapi import FastAPI, Request, Depends, HTTPException, status, Response
+from fastapi import FastAPI, Request, Depends, HTTPException, status, Response, Query
 from fastapi.middleware.cors import CORSMiddleware
 from jwt.exceptions import InvalidTokenError
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from pydantic import EmailStr
+from starlette.responses import RedirectResponse
 
 from auth import ProtectedAny, create_token, decode_token
 from core.config import DATABASE_URL
@@ -240,7 +242,7 @@ async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False)
 async def register(
     request: Request,
     details: Union[CustomerCreate, UserCreate],
-    token=Depends(ProtectedAny(scope=["users:admin"])),
+    token=Depends(ProtectedAny(scope=["users:admin"])), 
 ):
     """Register a user or customer account.
 
@@ -275,10 +277,10 @@ async def register(
             query_params = (details.email, phash)
         else:
             scope = ["users:free"]
-            # initially set suspended state to True
+            # suspended and verified get set to False by default
             insert_query = (
-                "INSERT INTO users (name, email, password, account_type, data, customer_id, suspended) "
-                "VALUES ($1, $2, $3, $4, $5, $6, 't') RETURNING id"
+                "INSERT INTO users (name, email, password, account_type, data, customer_id) "
+                "VALUES ($1, $2, $3, $4, $5, $6) RETURNING id"
             )
             query_params = (
                 details.username,
@@ -311,7 +313,12 @@ async def register(
                         failed_msg = "Account registration failed"
                     raise RegistrationError(failed_msg)
 
-                await _send_registration_email(details.username, details.email)
+                # create email verification token
+                verification_token = create_token(
+                    userid=result, customer_id=customer_id, scope=["users:verify"], account_type="user"
+                )
+                                                
+                await _send_registration_email(details.username, details.email, verification_token.token)
 
                 if is_customer_registration_attempt:
                     return CustomerProfile(email=details.email, user_id=result.hex, scope=scope)
@@ -333,8 +340,9 @@ async def register(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-async def _send_registration_email(username: str, email: EmailStr) -> None:
-
+async def _send_registration_email(username: str, email: EmailStr, verification_token: str) -> None:
+    verification_url = f"http://localhost:3000/verify?token={verification_token}"
+    
     conf = ConnectionConfig(
         MAIL_USERNAME="no-reply@curibio.com",
         MAIL_PASSWORD="BAEa$X5C2PaxZ*x+Zd",
@@ -352,7 +360,7 @@ async def _send_registration_email(username: str, email: EmailStr) -> None:
         message = MessageSchema(
             subject="Please verify your email address",
             recipients=[email],  # List of recipients, as many as you can pass
-            template_body={"username": username},
+            template_body={"username": username, "verification_url": verification_url},
         )
 
         fm = FastMail(conf)
@@ -363,7 +371,7 @@ async def _send_registration_email(username: str, email: EmailStr) -> None:
 
 
 @app.get("/")
-async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=["users:admin"]))):
+async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=["users:admin"]), use_cache=False)):
     """Get info for all the users under the given customer account.
 
     List of users returned will be sorted with all active users showing up first, then all the suspended (deactivated) users
@@ -385,9 +393,20 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=["use
         logger.exception(f"GET /: Unexpected error {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@app.get("/verify")
+async def verify_user_email(
+    request: Request,
+    token=Depends(ProtectedAny(scope=["users:verify"])),
+): 
+     user_id = uuid.UUID(hex=token["userid"])
+     customer_id = uuid.UUID(hex=token["customer_id"])
+     
+     print(user_id, customer_id)
+
+    
 
 @app.get("/{user_id}")
-async def get_user(request: Request, user_id: uuid.UUID, token=Depends(ProtectedAny(scope=["users:admin"]))):
+async def get_user(request: Request, user_id: uuid.UUID, token=Depends(ProtectedAny(scope=["users:admin"]),use_cache=False)):
     """Get info for the user with the given under the given customer account."""
     customer_id = uuid.UUID(hex=token["userid"])
 
@@ -419,7 +438,7 @@ async def update_user(
     request: Request,
     details: UserAction,
     user_id: uuid.UUID,
-    token=Depends(ProtectedAny(scope=["users:admin"])),
+    token=Depends(ProtectedAny(scope=["users:admin"]), use_cache=False),
 ):
     """Update a user's information in the database.
 
@@ -444,3 +463,5 @@ async def update_user(
     except Exception as e:
         logger.exception(f"PUT /{user_id}: Unexpected error {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
