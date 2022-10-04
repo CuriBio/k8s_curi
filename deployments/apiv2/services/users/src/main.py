@@ -388,6 +388,7 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=["use
         "WHERE customer_id=$1 AND deleted_at IS NULL "
         "ORDER BY suspended"
     )
+    
     try:
         async with request.state.pgpool.acquire() as con:
             result = await con.fetch(query, customer_id)
