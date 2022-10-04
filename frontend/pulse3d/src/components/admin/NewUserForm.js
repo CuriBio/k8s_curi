@@ -81,31 +81,31 @@ export default function NewUserForm() {
     setErrorMsg(""); // reset to show user something happened
     setInProgress(true);
 
-    // if (Object.values(userData).includes("")) setErrorMsg("* All fields are required");
-    // // this state gets passed to web worker to attempt login request
-    // else {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/register`, {
-      method: "POST",
-      body: JSON.stringify(userData),
-    });
+    if (Object.values(userData).includes("")) setErrorMsg("* All fields are required");
+    // this state gets passed to web worker to attempt login request
+    else {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/register`, {
+        method: "POST",
+        body: JSON.stringify(userData),
+      });
 
-    if (res) {
-      if (res.status === 201) {
-        setUserCreatedVisible(true);
-        resetForm();
-      } else if (res.status === 422) {
-        const error = await res.json();
-        // some very unuseful errors get returned from the serve, so filter those out and use the first meaningful error message
-        const firstError = error.detail.find((d) => d.msg);
-        const nameOfInvalidField = firstError.loc[1];
-        const reason = firstError.msg;
-        setErrorMessage(nameOfInvalidField, reason);
-      } else if (res.status === 400) {
-        const error = await res.json();
-        setErrorMsg(`* ${error.detail}`);
+      if (res) {
+        if (res.status === 201) {
+          setUserCreatedVisible(true);
+          resetForm();
+        } else if (res.status === 422) {
+          const error = await res.json();
+          // some very unuseful errors get returned from the serve, so filter those out and use the first meaningful error message
+          const firstError = error.detail.find((d) => d.msg);
+          const nameOfInvalidField = firstError.loc[1];
+          const reason = firstError.msg;
+          setErrorMessage(nameOfInvalidField, reason);
+        } else if (res.status === 400) {
+          const error = await res.json();
+          setErrorMsg(`* ${error.detail}`);
+        } else setErrorMsg(`* Internal server error. Try again later.`);
       } else setErrorMsg(`* Internal server error. Try again later.`);
-    } else setErrorMsg(`* Internal server error. Try again later.`);
-    // }s
+    }
 
     setInProgress(false);
   };
