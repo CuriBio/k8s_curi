@@ -43,8 +43,8 @@ class ProtectedAny:
             # check if the wrong type of token was given
             if payload["refresh"] != self.refresh:
                 raise Exception()
+            
             # if checking scope, make sure that the access token has the required scope
-            print("Just before conditional", self.check_scope, self.scope, payload_scopes)
             if self.check_scope and not self.scope.intersection(payload_scopes):
                 raise Exception()
 

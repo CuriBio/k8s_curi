@@ -345,7 +345,7 @@ async def _send_registration_email(username: str, email: EmailStr, verification_
 
     conf = ConnectionConfig(
         MAIL_USERNAME="no-reply@curibio.com",
-        MAIL_PASSWORD="BAEa$X5C2PaxZ*x+Zd",
+        MAIL_PASSWORD="",
         MAIL_FROM="no-reply@curibio.com",
         MAIL_PORT=587,
         MAIL_SERVER="smtp.gmail.com",
