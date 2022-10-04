@@ -213,7 +213,7 @@ self.addEventListener("fetch", async (e) => {
   // only intercept requests to pulse3d and user APIs
   if (
     (e.request.url.includes(USERS_URL) || e.request.url.includes(PULSE3D_URL)) &&
-    !isVerifyRequest(destURL)
+    !isVerifyRequest(destURL) // we don't need to intercept verify request because it's handling own token
   ) {
     e.respondWith(interceptResponse(e.request, destURL));
   } else {
