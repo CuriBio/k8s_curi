@@ -242,7 +242,7 @@ async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False)
 async def register(
     request: Request,
     details: Union[CustomerCreate, UserCreate],
-    token=Depends(ProtectedAny(scope=["users:admin"])), 
+    token=Depends(ProtectedAny(scope=["users:admin"])),
 ):
     """Register a user or customer account.
 
@@ -317,7 +317,7 @@ async def register(
                 verification_token = create_token(
                     userid=result, customer_id=customer_id, scope=["users:verify"], account_type="user"
                 )
-                                                
+
                 await _send_registration_email(details.username, details.email, verification_token.token)
 
                 if is_customer_registration_attempt:
@@ -342,7 +342,7 @@ async def register(
 
 async def _send_registration_email(username: str, email: EmailStr, verification_token: str) -> None:
     verification_url = f"http://localhost:3000/verify?token={verification_token}"
-    
+
     conf = ConnectionConfig(
         MAIL_USERNAME="no-reply@curibio.com",
         MAIL_PASSWORD="BAEa$X5C2PaxZ*x+Zd",
@@ -371,7 +371,9 @@ async def _send_registration_email(username: str, email: EmailStr, verification_
 
 
 @app.get("/")
-async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=["users:admin"]), use_cache=False)):
+async def get_all_users(
+    request: Request, token=Depends(ProtectedAny(scope=["users:admin"]), use_cache=False)
+):
     """Get info for all the users under the given customer account.
 
     List of users returned will be sorted with all active users showing up first, then all the suspended (deactivated) users
@@ -393,20 +395,22 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=["use
         logger.exception(f"GET /: Unexpected error {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
 @app.get("/verify")
 async def verify_user_email(
     request: Request,
     token=Depends(ProtectedAny(scope=["users:verify"])),
-): 
-     user_id = uuid.UUID(hex=token["userid"])
-     customer_id = uuid.UUID(hex=token["customer_id"])
-     
-     print(user_id, customer_id)
+):
+    user_id = uuid.UUID(hex=token["userid"])
+    customer_id = uuid.UUID(hex=token["customer_id"])
 
-    
+    print(user_id, customer_id)
+
 
 @app.get("/{user_id}")
-async def get_user(request: Request, user_id: uuid.UUID, token=Depends(ProtectedAny(scope=["users:admin"]),use_cache=False)):
+async def get_user(
+    request: Request, user_id: uuid.UUID, token=Depends(ProtectedAny(scope=["users:admin"]), use_cache=False)
+):
     """Get info for the user with the given under the given customer account."""
     customer_id = uuid.UUID(hex=token["userid"])
 
@@ -463,5 +467,3 @@ async def update_user(
     except Exception as e:
         logger.exception(f"PUT /{user_id}: Unexpected error {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-

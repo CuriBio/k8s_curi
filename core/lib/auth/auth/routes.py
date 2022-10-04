@@ -14,7 +14,7 @@ from .settings import (
     JWT_ALGORITHM,
     ACCESS_TOKEN_EXPIRE_MINUTES,
     REFRESH_TOKEN_EXPIRE_MINUTES,
-    EMAIL_VER_TOKEN_EXPIRE_MINUTES
+    EMAIL_VER_TOKEN_EXPIRE_MINUTES,
 )
 
 
@@ -39,7 +39,7 @@ class ProtectedAny:
         try:
             payload = decode_token(token)
             payload_scopes = set(payload["scope"])
-            
+
             # check if the wrong type of token was given
             if payload["refresh"] != self.refresh:
                 raise Exception()
@@ -81,15 +81,15 @@ def create_token(
     if account_type == "customer":
         if customer_id:
             raise ValueError("Customer tokens cannot have a customer ID")
-    
-    # three different constant exp times based on token type    
+
+    # three different constant exp times based on token type
     if refresh:
-        exp_dur = REFRESH_TOKEN_EXPIRE_MINUTES # 30min
+        exp_dur = REFRESH_TOKEN_EXPIRE_MINUTES  # 30min
     elif "users:verify" in scope:
-        exp_dur = EMAIL_VER_TOKEN_EXPIRE_MINUTES # 30min
+        exp_dur = EMAIL_VER_TOKEN_EXPIRE_MINUTES  # 30min
     else:
-        exp_dur = ACCESS_TOKEN_EXPIRE_MINUTES # 5min
-    
+        exp_dur = ACCESS_TOKEN_EXPIRE_MINUTES  # 5min
+
     now = datetime.now(tz=timezone.utc)
     iat = timegm(now.utctimetuple())
     exp = timegm((now + timedelta(minutes=exp_dur)).utctimetuple())
@@ -97,7 +97,7 @@ def create_token(
     jwt_meta = JWTMeta(aud=JWT_AUDIENCE, scope=scope, iat=iat, exp=exp, refresh=refresh)
     jwt_details = JWTDetails(customer_id=customer_id, userid=userid.hex, account_type=account_type)
     jwt_payload = JWTPayload(**jwt_meta.dict(), **jwt_details.dict())
-    
+
     jwt_token = jwt.encode(payload=jwt_payload.dict(), key=str(JWT_SECRET_KEY), algorithm=JWT_ALGORITHM)
 
     return Token(token=jwt_token)
