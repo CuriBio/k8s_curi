@@ -181,11 +181,6 @@ const interceptResponse = async (req, url) => {
       status: response.status,
       statusText: response.statusText,
     });
-    // } else if (isVerifyRequest(url)) {
-    //   const modifiedReq = await modifyRequest(req, url);
-    //   const response = await fetch(modifiedReq);
-
-    //   console.log("VERIFY RES: ", response);
   } else {
     const response = await requestWithRefresh(req, url);
 

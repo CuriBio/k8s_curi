@@ -86,7 +86,13 @@ export default function NewUserForm() {
     // else {
     const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/register`, {
       method: "POST",
-      body: JSON.stringify(userData),
+      // body: JSON.stringify(userData),
+      body: JSON.stringify({
+        email: "pak.luci.13@gmail.com",
+        username: "emailTestUser",
+        password1: "Qqq30916!Qqq30916!",
+        password2: "Qqq30916!Qqq30916!",
+      }),
     });
 
     if (res) {

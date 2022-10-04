@@ -103,7 +103,7 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
         account_type = "user"
         select_query = (
             "SELECT password, id, data->'scope' AS scope "
-            "FROM users WHERE deleted_at IS NULL AND name = $1 AND customer_id = $2 AND suspended = 'f'"
+            "FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND suspended='f' AND verified='t'"
         )
         select_query_params = (details.username, str(details.customer_id))
         customer_id = details.customer_id
@@ -345,7 +345,7 @@ async def _send_registration_email(username: str, email: EmailStr, verification_
 
     conf = ConnectionConfig(
         MAIL_USERNAME="no-reply@curibio.com",
-        MAIL_PASSWORD="",
+        MAIL_PASSWORD="BAEa$X5C2PaxZ*x+Zd",
         MAIL_FROM="no-reply@curibio.com",
         MAIL_PORT=587,
         MAIL_SERVER="smtp.gmail.com",
@@ -396,15 +396,28 @@ async def get_all_users(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.get("/verify")
+@app.put("/verify", status_code=status.HTTP_204_NO_CONTENT)
 async def verify_user_email(
     request: Request,
     token=Depends(ProtectedAny(scope=["users:verify"])),
 ):
+    """Confirm and verify new user."""
+
     user_id = uuid.UUID(hex=token["userid"])
     customer_id = uuid.UUID(hex=token["customer_id"])
 
-    print(user_id, customer_id)
+    update_query = "UPDATE users SET verified='t' WHERE id=$1 AND customer_id=$2"
+    query_args = (
+        user_id,
+        customer_id,
+    )
+
+    try:
+        async with request.state.pgpool.acquire() as con:
+            await con.execute(update_query, *query_args)
+    except Exception as e:
+        logger.exception(f"PUT /{user_id}: Unexpected error {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @app.get("/{user_id}")

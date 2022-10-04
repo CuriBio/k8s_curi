@@ -18,6 +18,7 @@ depends_on = None
 
 def upgrade():
     op.add_column("users", sa.Column("verified", sa.Boolean(), server_default="f"))
+    op.execute("UPDATE users SET verified='t'")
 
 
 def downgrade():
