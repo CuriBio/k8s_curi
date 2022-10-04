@@ -14,7 +14,7 @@ from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from pydantic import EmailStr
 
 from auth import ProtectedAny, create_token, decode_token
-from core.config import DATABASE_URL
+from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD
 from models.errors import LoginError, RegistrationError, EmailRegistrationError
 from models.tokens import AuthTokens
 from models.users import (
@@ -346,9 +346,9 @@ async def _send_registration_email(
     verification_url = f"https://{host}/verify?token={verification_token}"
 
     conf = ConnectionConfig(
-        MAIL_USERNAME="no-reply@curibio.com",
-        MAIL_PASSWORD="BAEa$X5C2PaxZ*x+Zd",
-        MAIL_FROM="no-reply@curibio.com",
+        MAIL_USERNAME=CURIBIO_EMAIL,
+        MAIL_PASSWORD=CURIBIO_EMAIL_PASSWORD,
+        MAIL_FROM=CURIBIO_EMAIL,
         MAIL_PORT=587,
         MAIL_SERVER="smtp.gmail.com",
         MAIL_FROM_NAME="Curi Bio Team",
