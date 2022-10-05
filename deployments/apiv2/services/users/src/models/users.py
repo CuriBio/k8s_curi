@@ -76,8 +76,7 @@ class UserCreate(CustomerCreate):
             USERNAME_REGEX_STR, v
         ), f"Username can only contain letters, numbers, and these special characters: {USERNAME_VALID_SPECIAL_CHARS}"
         assert not re.findall(
-            f"[{USERNAME_VALID_SPECIAL_CHARS}]{{2,}}",
-            v,
+            f"[{USERNAME_VALID_SPECIAL_CHARS}]{{2,}}", v
         ), "Username cannot contain consecutive special characters"
 
         return v
