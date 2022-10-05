@@ -78,7 +78,6 @@ async def process(con, item):
                 logger.info(f"Attempting to downloading {parquet_filename} to {parquet_path}")
                 s3_client.download_file(PULSE3D_UPLOADS_BUCKET, parquet_key, parquet_path)
                 re_analysis = True
-
             except Exception:  # continue with analysis even if original force data is not found
                 logger.error(f"No existing data found for recording {parquet_filename}")
                 re_analysis = False
@@ -145,7 +144,6 @@ async def process(con, item):
                         )
                 else:
                     logger.info("Skipping step to write time force data for upload.")
-
             except Exception as e:
                 logger.exception(f"Writing or uploading time force data failed: {e}")
                 raise
@@ -163,7 +161,6 @@ async def process(con, item):
                     s3_client.put_object(
                         Body=contents, Bucket=PULSE3D_UPLOADS_BUCKET, Key=outfile_key, ContentMD5=md5s
                     )
-
                 except Exception as e:
                     logger.exception(f"Upload failed: {e}")
                     raise
@@ -182,7 +179,6 @@ async def process(con, item):
                             md5s,
                             re_analysis,
                         )
-
                 except Exception as e:
                     logger.exception(f"Failed to insert metadata to db for upload {upload_id}: {e}")
                     raise
