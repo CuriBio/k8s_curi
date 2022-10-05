@@ -14,6 +14,7 @@ import pandas as pd
 
 from pulse3D.plate_recording import PlateRecording
 from pulse3D.excel_writer import write_xlsx
+from semver import VersionInfo
 
 from jobs import get_item, EmptyQueue
 from lib.db import insert_metadata_into_pg, PULSE3D_UPLOADS_BUCKET
@@ -27,6 +28,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 PULSE3D_VERSION = pkg_resources.get_distribution("pulse3D").version
+PULSE3D_VERSION_SEMVER = VersionInfo.parse(PULSE3D_VERSION)
 
 
 @get_item(queue=f"pulse3d-v{PULSE3D_VERSION}")
@@ -90,10 +92,8 @@ async def process(con, item):
                 }
 
                 logger.info("Starting pulse3d analysis")
-                if not re_analysis or PULSE3D_VERSION in (
-                    "0.24.6",
-                    "0.25.1",
-                ):  # from_dataframe does not exist for versions before 0.25.2
+                if not re_analysis or PULSE3D_VERSION_SEMVER <= "0.25.2":
+                    # from_dataframe does not exist for versions before 0.25.2
                     recordings = list(PlateRecording.from_directory(tmpdir))
                     logger.info(f"{len(recordings)} recording(s) found")
                 else:
@@ -124,12 +124,11 @@ async def process(con, item):
             try:
                 if not re_analysis:
                     logger.info("Writing time force data to parquet file for new upload")
-                    # TODO use semver to check pulse3d against version  greater than 0.24.9
-                    if PULSE3D_VERSION == "0.24.6":
-                        time_force_df, _ = recordings[0].write_time_force_csv(tmpdir)
-                    else:
-                        # to_dataframe gets added 0.24.9
+                    if PULSE3D_VERSION_SEMVER >= "0.24.9":
+                        # to_dataframe get added 0.24.9
                         time_force_df = recordings[0].to_dataframe()
+                    else:
+                        time_force_df, _ = recordings[0].write_time_force_csv(tmpdir)
 
                     time_force_df.to_parquet(parquet_path)
 
