@@ -267,16 +267,15 @@ async def create_new_job(
             "start_time",
             "end_time",
         ]
-        if details.version.split(".") >= VersionInfo.parse("0.25.0"):
-            # max_y param was added in 0.25.0
+
+        # TODO add unit tests for these
+        # don't add params unless the selected pulse3d version supports it
+        if details.version >= VersionInfo.parse("0.25.0"):
             params.append("max_y")
-        if details.version.split(".") >= VersionInfo.parse("0.25.4"):
-            # normalize_y_axis added in 0.25.4
-            params.append("normalize_y_axis")
-        if details.version.split(".") >= VersionInfo.parse("0.25.2"):
-            # TODO add unit tests
-            # peaks_valleys was added in 0.25.2
+        if details.version >= VersionInfo.parse("0.25.2"):
             params.append("peaks_valleys")
+        if details.version >= VersionInfo.parse("0.25.4"):
+            params.append("normalize_y_axis")
 
         details_dict = dict(details)
         analysis_params = {param: details_dict[param] for param in params}
