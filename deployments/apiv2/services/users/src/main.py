@@ -14,7 +14,7 @@ from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from pydantic import EmailStr
 
 from auth import ProtectedAny, create_token, decode_token
-from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD
+from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
 from models.errors import LoginError, RegistrationError, EmailRegistrationError
 from models.tokens import AuthTokens
 from models.users import (
@@ -98,6 +98,7 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
         customer_id = None
     else:
         account_type = "user"
+        # suspended is for deactivated accounts and verified is for new users needing to verify through email
         select_query = (
             "SELECT password, id, data->'scope' AS scope "
             "FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND suspended='f' AND verified='t'"
@@ -309,12 +310,14 @@ async def register(
                         failed_msg = "Account registration failed"
                     raise RegistrationError(failed_msg)
 
-                # create email verification token, exp 24 hours
-                verification_token = create_token(
-                    userid=result, customer_id=customer_id, scope=["users:verify"], account_type="user"
-                )
-                # send email with token
-                await _send_registration_email(details.username, details.email, verification_token.token)
+                # only send verification emails to new users, not new customers
+                if not is_customer_registration_attempt:
+                    # create email verification token, exp 24 hours
+                    verification_token = create_token(
+                        userid=result, customer_id=customer_id, scope=["users:verify"], account_type="user"
+                    )
+                    # send email with token
+                    await _send_registration_email(details.username, details.email, verification_token.token)
 
                 if is_customer_registration_attempt:
                     return CustomerProfile(email=details.email, user_id=result.hex, scope=scope)
@@ -338,7 +341,7 @@ async def register(
 
 async def _send_registration_email(username: str, email: EmailStr, verification_token: str) -> None:
     # Tried to use request.client.host to dynamically change this domain based on cluster env, but it only sends nginx domain
-    verification_url = f"https://dashboard.curibio.com/verify?token={verification_token}"
+    verification_url = f"https://{DASHBOARD_URL}/verify?token={verification_token}"
 
     try:
         conf = ConnectionConfig(
