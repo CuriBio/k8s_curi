@@ -170,6 +170,7 @@ export default function AnalysisParamForm({
       "maxY",
       "baseToPeak",
       "peakToBase",
+      "stiffnessFactor",
     ]) {
       if (paramName in newParams) {
         validatePositiveNumber(updatedParams, paramName, false);
@@ -301,11 +302,11 @@ export default function AnalysisParamForm({
           <DropDownContainer>
             <DropDownWidget
               options={pulse3dVersions}
-              label="Select"
               reset={
                 resetDropDown /* TODO reset if user unchecks use advanced params once the entire section is under a single checkbox. Also remove resetDropDown entirely */
               }
               handleSelection={handleDropDownSelect}
+              initialSelected={0}
             />
           </DropDownContainer>
         </ParamContainer>
@@ -340,7 +341,7 @@ export default function AnalysisParamForm({
           </ParamContainer>
         )}
         {inputVals.selectedPulse3dVersion !== "" && semverGte(inputVals.selectedPulse3dVersion, "0.25.0") && (
-          // Tanner (9/15/21): at the time of writing this, 0.24.6 is the only available pulse3D version that does not support maxY
+          // Tanner (9/15/21): maxY added in 0.25.0
           <ParamContainer>
             <Label htmlFor="maxY">
               Y-Axis Range (µN):
@@ -405,6 +406,41 @@ export default function AnalysisParamForm({
             </FormInput>
           </InputErrorContainer>
         </ParamContainer>
+        {inputVals.selectedPulse3dVersion !== "" && semverGte(inputVals.selectedPulse3dVersion, "0.26.1") && (
+          // Tanner (9/15/21): stiffnessFactor added in 0.26.1
+          <ParamContainer>
+            <Label htmlFor="stiffnessFactor">
+              Post Stiffness Factor:
+              <Tooltip
+                title={
+                  <TooltipText>
+                    {
+                      "Specifies the post stiffness factor. If omitted, will use the value encoded in the barcode."
+                    }
+                  </TooltipText>
+                }
+              >
+                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+              </Tooltip>
+            </Label>
+            <InputErrorContainer>
+              <FormInput
+                name="stiffnessFactor"
+                placeholder={"Auto determine"}
+                value={inputVals.stiffnessFactor}
+                onChangeFn={(e) => {
+                  updateParams({
+                    stiffnessFactor: e.target.value,
+                  });
+                }}
+              >
+                <ErrorText id="stiffnessFactorError" role="errorMsg">
+                  {errorMessages.stiffnessFactor}
+                </ErrorText>
+              </FormInput>
+            </InputErrorContainer>
+          </ParamContainer>
+        )}
 
         <SectionLabel>Baseline Width</SectionLabel>
 

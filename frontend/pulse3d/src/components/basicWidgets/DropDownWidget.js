@@ -59,20 +59,26 @@ export default function DropDownWidget({
   const [selected, setSelected] = useState("");
   const [errorMsg, setErrorMsg] = useState(error);
 
-  const handleChange = (e) => {
-    if (!disableOptions[e.target.value]) {
-      handleSelection(e.target.value);
-      setSelected(e.target.value);
+  const handleChange = (idx) => {
+    if (!disableOptions[idx]) {
+      handleSelection(idx);
+      setSelected(idx);
       setErrorMsg("");
     }
   };
+
+  const handleDropdownChange = (e) => {
+    handleChange(e.target.value);
+  };
+
   useEffect(() => {
+    console.log("$$$", initialSelected);
     // initialSelected needs to be the index of item
-    if (initialSelected) setSelected(initialSelected);
+    if (initialSelected != null) handleChange(initialSelected);
   }, []);
 
   useEffect(() => {
-    if (reset) setSelected(initialSelected ? initialSelected : "");
+    if (reset) setSelected(initialSelected != null ? initialSelected : "");
   }, [reset]);
 
   return (
@@ -90,7 +96,7 @@ export default function DropDownWidget({
         id="select-dropdown"
         input={<OutlinedInput />}
         MenuProps={MenuProps}
-        onChange={handleChange}
+        onChange={handleDropdownChange}
         value={selected}
         renderValue={(selected) => {
           /*

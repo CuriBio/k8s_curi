@@ -10,7 +10,7 @@ import ModalWidget from "../basicWidgets/ModalWidget";
 import { UploadsContext } from "@/components/layouts/DashboardLayout";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
-import semver from "semver";
+import semverGte from "semver/functions/gte";
 
 const Container = styled.div`
   height: 100%;
@@ -158,7 +158,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
 
   useEffect(() => {
     // only available for versions greater than 0.25.2 when peaks_valley param was added
-    const compatibleVersions = pulse3dVersions.filter((v) => semver.satisfies(v, ">=0.25.2"));
+    const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.25.2"));
     setFilteredVersions([...compatibleVersions]);
 
     // check sessionStorage for saved data
