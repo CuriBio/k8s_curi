@@ -98,6 +98,7 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
         customer_id = None
     else:
         account_type = "user"
+        # suspended is for deactivated accounts and verified is for new users needing to verify through email
         select_query = (
             "SELECT password, id, data->'scope' AS scope "
             "FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND suspended='f' AND verified='t'"
@@ -308,13 +309,15 @@ async def register(
                         # default catch-all error message
                         failed_msg = "Account registration failed"
                     raise RegistrationError(failed_msg)
-
-                # create email verification token, exp 24 hours
-                verification_token = create_token(
-                    userid=result, customer_id=customer_id, scope=["users:verify"], account_type="user"
-                )
-                # send email with token
-                await _send_registration_email(details.username, details.email, verification_token.token)
+                
+                # only send verification emails to new users, not new customers
+                if not is_customer_registration_attempt:
+                    # create email verification token, exp 24 hours
+                    verification_token = create_token(
+                        userid=result, customer_id=customer_id, scope=["users:verify"], account_type="user"
+                    )
+                    # send email with token
+                    await _send_registration_email(details.username, details.email, verification_token.token)
 
                 if is_customer_registration_attempt:
                     return CustomerProfile(email=details.email, user_id=result.hex, scope=scope)
