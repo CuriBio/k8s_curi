@@ -338,10 +338,8 @@ async def register(
 
 async def _send_registration_email(username: str, email: EmailStr, verification_token: str) -> None:
     # Tried to use request.client.host to dynamically change this domain based on cluster env, but it only sends nginx domain
-    verification_url = f"https://dashboard.curibio-test.com/verify?token={verification_token}"
-    logger.info(f"LUCI TEST URL: {verification_url}")
-    logger.info(f"LUCI CURI EMAIL: {CURIBIO_EMAIL}")
-    logger.info(f"LUCI USER EMAIL: {email}")
+    verification_url = f"https://dashboard.curibio.com/verify?token={verification_token}"
+
     try:
         conf = ConnectionConfig(
             MAIL_USERNAME=CURIBIO_EMAIL,
