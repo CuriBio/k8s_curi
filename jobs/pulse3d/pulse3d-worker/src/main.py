@@ -14,7 +14,6 @@ import pandas as pd
 
 from pulse3D.plate_recording import PlateRecording
 from pulse3D.excel_writer import write_xlsx
-from semver import VersionInfo
 
 from jobs import get_item, EmptyQueue
 from lib.db import insert_metadata_into_pg, PULSE3D_UPLOADS_BUCKET
@@ -28,7 +27,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 PULSE3D_VERSION = pkg_resources.get_distribution("pulse3D").version
-PULSE3D_VERSION_SEMVER = VersionInfo.parse(PULSE3D_VERSION)
+
+
+def _load_from_dir(recording_dir, stiffness_factor):
+    recordings = list(PlateRecording.from_directory(recording_dir, stiffness_factor=stiffness_factor))
+    logger.info(f"{len(recordings)} recording(s) found")
+    return recordings
 
 
 @get_item(queue=f"pulse3d-v{PULSE3D_VERSION}")
@@ -90,44 +94,43 @@ async def process(con, item):
                     if val is not None
                 }
 
+                stiffness_factor = analysis_params.get("stiffness_factor")
+
                 logger.info("Starting pulse3d analysis")
-                if not re_analysis or PULSE3D_VERSION_SEMVER <= "0.25.2":
-                    # from_dataframe does not exist for versions before 0.25.2
-                    recordings = list(PlateRecording.from_directory(tmpdir))
-                    logger.info(f"{len(recordings)} recording(s) found")
-                else:
+                if re_analysis:
                     logger.info(f"Loading previous time force data from {parquet_filename}")
                     existing_df = pd.read_parquet(parquet_path)
-                    # If a user attempts to perform re-analysis on a 0.24.6 or 0.25.1 with v0.25.2 or above, it will fail
-                    # because the parquet file won't have the raw data columns, so perform analysis again.
                     try:
                         recording = PlateRecording.from_dataframe(
                             os.path.join(tmpdir, filename), df=existing_df
                         )
                         recordings = list(recording)
                     except:
+                        # If a user attempts to perform re-analysis on an analysis from < 0.25.2, it will fail
+                        # because the parquet file won't have the raw data columns, so need to re-analyze
+                        # TODO should rewrite parquet file with updated columns
                         logger.info(
                             f"Previous dataframe found is not compatible with v{PULSE3D_VERSION}, performing analysis again"
                         )
-                        recordings = list(PlateRecording.from_directory(tmpdir))
-                        logger.info(f"{len(recordings)} recording(s) found")
-                        # TODO could potentially set re_analysis to False here to rewrite parquet file with updated columns
+                        recordings = _load_from_dir(tmpdir, stiffness_factor)
+                else:
+                    recordings = _load_from_dir(tmpdir, stiffness_factor)
 
                 # Tanner (6/8/22): only supports analyzing one recording at a time right now. Functionality can be added whenever analyzing multiple files becomes necessary
-                outfile = write_xlsx(recordings[0], **analysis_params)
+                first_recording = recordings[0]
+
+                outfile = write_xlsx(first_recording, **analysis_params)
                 outfile_prefix = prefix.replace("uploads/", "analyzed/")
             except Exception as e:
                 logger.exception(f"Analysis failed: {e}")
                 raise
 
-            try:
-                if not re_analysis:
+            if re_analysis:
+                logger.info("Skipping step to write time force data for upload")
+            else:
+                try:
                     logger.info("Writing time force data to parquet file for new upload")
-                    if PULSE3D_VERSION_SEMVER >= "0.24.9":
-                        # to_dataframe get added 0.24.9
-                        time_force_df = recordings[0].to_dataframe()
-                    else:
-                        time_force_df, _ = recordings[0].write_time_force_csv(tmpdir)
+                    time_force_df = first_recording.to_dataframe()
 
                     time_force_df.to_parquet(parquet_path)
 
@@ -142,11 +145,9 @@ async def process(con, item):
                         s3_client.put_object(
                             Body=contents, Bucket=PULSE3D_UPLOADS_BUCKET, Key=paraquet_key, ContentMD5=md5s
                         )
-                else:
-                    logger.info("Skipping step to write time force data for upload.")
-            except Exception as e:
-                logger.exception(f"Writing or uploading time force data failed: {e}")
-                raise
+                except Exception as e:
+                    logger.exception(f"Writing or uploading time force data failed: {e}")
+                    raise
 
             with open(outfile, "rb") as file:
                 try:
@@ -167,18 +168,17 @@ async def process(con, item):
 
                 try:
                     logger.info(f"Inserting {outfile} metadata into db for upload {upload_id}")
-                    for r in recordings:
-                        await insert_metadata_into_pg(
-                            con,
-                            r,
-                            upload_details["customer_id"],
-                            upload_details["user_id"],
-                            upload_id,
-                            file,
-                            outfile_key,
-                            md5s,
-                            re_analysis,
-                        )
+                    await insert_metadata_into_pg(
+                        con,
+                        first_recording,
+                        upload_details["customer_id"],
+                        upload_details["user_id"],
+                        upload_id,
+                        file,
+                        outfile_key,
+                        md5s,
+                        re_analysis,
+                    )
                 except Exception as e:
                     logger.exception(f"Failed to insert metadata to db for upload {upload_id}: {e}")
                     raise

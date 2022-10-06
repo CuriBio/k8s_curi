@@ -13,3 +13,4 @@ stream-zip==0.0.48
 pulse3d==0.26.1
 fastparquet==0.8.1
 pyarrow==8.0.0
+semver==2.13.0
