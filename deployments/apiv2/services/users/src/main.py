@@ -309,7 +309,7 @@ async def register(
                         # default catch-all error message
                         failed_msg = "Account registration failed"
                     raise RegistrationError(failed_msg)
-                
+
                 # only send verification emails to new users, not new customers
                 if not is_customer_registration_attempt:
                     # create email verification token, exp 24 hours
