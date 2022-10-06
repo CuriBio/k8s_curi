@@ -20,4 +20,4 @@ def upgrade():
 
 
 def downgrade():
-    op.execute("DELETE FROM pulse3d_versions WHERE version == '0.25.4'")
+    op.execute("DELETE FROM pulse3d_versions WHERE version='0.25.4'")
