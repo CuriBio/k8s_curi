@@ -46,7 +46,7 @@ export default function Verify() {
   const [openErrorModal, setOpenErrorModal] = useState(false);
 
   useEffect(() => {
-    if (router.pathname.includes("verify")) {
+    if (router.pathname.includes("verify") && router.query.token) {
       verifyEmail(router.query);
       // this removes token param from url to make it not visible to users
       router.replace("/verify", undefined, { shallow: true });
@@ -55,24 +55,22 @@ export default function Verify() {
 
   const verifyEmail = async ({ token }) => {
     try {
-      if (token) {
-        // attach jwt token to verify request
-        const headers = new Headers({
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        });
-        const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/verify`, {
-          method: "PUT",
-          headers,
-        });
+      // attach jwt token to verify request
+      const headers = new Headers({
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/verify`, {
+        method: "PUT",
+        headers,
+      });
 
-        if (res.status === 204) {
-          // once verified, auto redirect user to login page
-          router.replace("/login", undefined, { shallow: true });
-        } else {
-          // else open error modal to let user know it didn't work
-          setOpenErrorModal(true);
-        }
+      if (res.status === 204) {
+        // once verified, auto redirect user to login page
+        router.replace("/login", undefined, { shallow: true });
+      } else {
+        // else open error modal to let user know it didn't work
+        setOpenErrorModal(true);
       }
     } catch (e) {
       console.log(`ERROR verifying new user account: ${e}`);

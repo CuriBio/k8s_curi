@@ -18,6 +18,7 @@ ENV PATH /app/venv/bin:$PATH
 
 WORKDIR /app
 COPY ./deployments/apiv2/services/users/src/core/ ./core
+COPY ./deployments/apiv2/services/users/src/templates/ ./templates
 COPY ./deployments/apiv2/services/users/src/models/ ./models
 COPY ./deployments/apiv2/services/users/src/main.py ./
 COPY ./deployments/apiv2/services/users/log_config.yaml ./

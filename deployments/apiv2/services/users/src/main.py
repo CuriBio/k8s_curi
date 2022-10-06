@@ -314,9 +314,7 @@ async def register(
                     userid=result, customer_id=customer_id, scope=["users:verify"], account_type="user"
                 )
                 # send email with token
-                await _send_registration_email(
-                    details.username, details.email, verification_token.token, request.client.host
-                )
+                await _send_registration_email(details.username, details.email, verification_token.token)
 
                 if is_customer_registration_attempt:
                     return CustomerProfile(email=details.email, user_id=result.hex, scope=scope)
@@ -338,27 +336,25 @@ async def register(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-async def _send_registration_email(
-    username: str, email: EmailStr, verification_token: str, host: str
-) -> None:
-    # does not currently work for localhost, just dashboard.curibio-test.com and dashboard.curibio.com
-    # localhost will error with https
-    verification_url = f"https://{host}/verify?token={verification_token}"
-
-    conf = ConnectionConfig(
-        MAIL_USERNAME=CURIBIO_EMAIL,
-        MAIL_PASSWORD=CURIBIO_EMAIL_PASSWORD,
-        MAIL_FROM=CURIBIO_EMAIL,
-        MAIL_PORT=587,
-        MAIL_SERVER="smtp.gmail.com",
-        MAIL_FROM_NAME="Curi Bio Team",
-        MAIL_TLS=True,
-        MAIL_SSL=False,
-        USE_CREDENTIALS=True,
-        TEMPLATE_FOLDER="./templates",
-    )
-
+async def _send_registration_email(username: str, email: EmailStr, verification_token: str) -> None:
+    # Tried to use request.client.host to dynamically change this domain based on cluster env, but it only sends nginx domain
+    verification_url = f"https://dashboard.curibio-test.com/verify?token={verification_token}"
+    logger.info(f"LUCI TEST URL: {verification_url}")
+    logger.info(f"LUCI CURI EMAIL: {CURIBIO_EMAIL}")
+    logger.info(f"LUCI USER EMAIL: {email}")
     try:
+        conf = ConnectionConfig(
+            MAIL_USERNAME=CURIBIO_EMAIL,
+            MAIL_PASSWORD=CURIBIO_EMAIL_PASSWORD,
+            MAIL_FROM=CURIBIO_EMAIL,
+            MAIL_PORT=587,
+            MAIL_SERVER="smtp.gmail.com",
+            MAIL_FROM_NAME="Curi Bio Team",
+            MAIL_TLS=True,
+            MAIL_SSL=False,
+            USE_CREDENTIALS=True,
+            TEMPLATE_FOLDER="./templates",
+        )
         message = MessageSchema(
             subject="Please verify your email address",
             recipients=[email],
@@ -424,6 +420,8 @@ async def verify_user_email(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+# Luci (10/5/22) Following two routes need to be last otherwise will mess with the ProtectedAny scope used in Auth
+# Please see https://fastapi.tiangolo.com/tutorial/path-params/#order-matters
 @app.get("/{user_id}")
 async def get_user(request: Request, user_id: uuid.UUID, token=Depends(ProtectedAny(scope=["users:admin"]))):
     """Get info for the user with the given under the given customer account."""

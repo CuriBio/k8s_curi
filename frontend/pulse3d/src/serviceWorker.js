@@ -217,7 +217,6 @@ self.addEventListener("fetch", async (e) => {
   ) {
     e.respondWith(interceptResponse(e.request, destURL));
   } else {
-    console.log(e.request);
     e.respondWith(fetch(e.request));
   }
 });
