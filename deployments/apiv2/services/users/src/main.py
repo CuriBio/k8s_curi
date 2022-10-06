@@ -14,7 +14,7 @@ from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from pydantic import EmailStr
 
 from auth import ProtectedAny, create_token, decode_token
-from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD
+from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
 from models.errors import LoginError, RegistrationError, EmailRegistrationError
 from models.tokens import AuthTokens
 from models.users import (
@@ -338,7 +338,7 @@ async def register(
 
 async def _send_registration_email(username: str, email: EmailStr, verification_token: str) -> None:
     # Tried to use request.client.host to dynamically change this domain based on cluster env, but it only sends nginx domain
-    verification_url = f"https://dashboard.curibio.com/verify?token={verification_token}"
+    verification_url = f"https://{DASHBOARD_URL}/verify?token={verification_token}"
 
     try:
         conf = ConnectionConfig(
