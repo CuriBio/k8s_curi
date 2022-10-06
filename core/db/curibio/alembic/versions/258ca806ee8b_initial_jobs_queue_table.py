@@ -20,7 +20,6 @@ depends_on = None
 
 
 def upgrade():
-
     op.create_table(
         "uploads",
         sa.Column(
