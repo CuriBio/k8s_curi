@@ -14,6 +14,7 @@ from .settings import (
     JWT_ALGORITHM,
     ACCESS_TOKEN_EXPIRE_MINUTES,
     REFRESH_TOKEN_EXPIRE_MINUTES,
+    EMAIL_VER_TOKEN_EXPIRE_MINUTES,
 )
 
 
@@ -28,7 +29,6 @@ class ProtectedAny:
 
         self.scope = set(scope)
         self.refresh = refresh
-
         # Tanner (5/24/22): currently /refresh and /logout don't have any required scope,
         # so don't need to check the scope of tokens that they receive
         self.check_scope = check_scope
@@ -43,6 +43,7 @@ class ProtectedAny:
             # check if the wrong type of token was given
             if payload["refresh"] != self.refresh:
                 raise Exception()
+
             # if checking scope, make sure that the access token has the required scope
             if self.check_scope and not self.scope.intersection(payload_scopes):
                 raise Exception()
@@ -81,7 +82,13 @@ def create_token(
         if customer_id:
             raise ValueError("Customer tokens cannot have a customer ID")
 
-    exp_dur = REFRESH_TOKEN_EXPIRE_MINUTES if refresh else ACCESS_TOKEN_EXPIRE_MINUTES
+    # three different constant exp times based on token type
+    if refresh:
+        exp_dur = REFRESH_TOKEN_EXPIRE_MINUTES  # 30min
+    elif "users:verify" in scope:
+        exp_dur = EMAIL_VER_TOKEN_EXPIRE_MINUTES  # 30min
+    else:
+        exp_dur = ACCESS_TOKEN_EXPIRE_MINUTES  # 5min
 
     now = datetime.now(tz=timezone.utc)
     iat = timegm(now.utctimetuple())
@@ -92,4 +99,5 @@ def create_token(
     jwt_payload = JWTPayload(**jwt_meta.dict(), **jwt_details.dict())
 
     jwt_token = jwt.encode(payload=jwt_payload.dict(), key=str(JWT_SECRET_KEY), algorithm=JWT_ALGORITHM)
+
     return Token(token=jwt_token)
