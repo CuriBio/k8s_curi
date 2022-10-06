@@ -28,13 +28,13 @@ const columns = [
     name: "Date Created",
     center: true,
     sortable: true,
-    selector: (row) => row.created_at,
+    selector: (row) => formatDateTime(row.created_at),
   },
   {
     name: "Last Loggedin",
     center: true,
     sortable: true,
-    selector: (row) => row.last_login,
+    selector: (row) => formatDateTime(row.last_login),
   },
 ];
 const customStyles = {
@@ -75,6 +75,27 @@ const Container = styled.div`
   padding: 0% 3% 3% 3%;
   margin-top: 1rem;
 `;
+const formatDateTime = (datetime) => {
+  if (datetime)
+    return new Date(datetime + "Z").toLocaleDateString(undefined, {
+      hour: "numeric",
+      minute: "numeric",
+    });
+  else {
+    const now = new Date();
+    const datetime =
+      now.getFullYear() +
+      "-" +
+      (now.getMonth() + 1) +
+      "-" +
+      now.getDate() +
+      "-" +
+      now.getHours() +
+      now.getMinutes() +
+      now.getSeconds();
+    return datetime;
+  }
+};
 export default function UserInfo() {
   const [displayData, setDisplayData] = useState([]);
   const [filterString, setFilterString] = useState("");
@@ -98,6 +119,7 @@ export default function UserInfo() {
   useEffect(() => {
     getAllUsers();
   }, []);
+
   //when user data changes make sure to refilter the results
   useEffect(() => {
     if (usersData.length > 0 && filtercolumn.length > 0) {
@@ -111,15 +133,27 @@ export default function UserInfo() {
   const toUserField = {
     Name: "name",
     Email: "email",
+    "Date Created": "created_at",
+    "Last Loggedin": "last_login",
   };
-  //when the column on the filter changes refilter results
+  //when filter string changes refilter results
   useEffect(() => {
-    const newList = usersData.filter((user) =>
-      user[toUserField[filtercolumn]].includes(filterString)
-    );
+    const newList = usersData.filter((user) => {
+      //if the column containes date data
+      //TODO add better date filter
+      if (
+        toUserField[filtercolumn] === "created_at" ||
+        toUserField[filtercolumn] === "last_login"
+      ) {
+        return formatDateTime(user[toUserField[filtercolumn]])
+          .toLocaleLowerCase()
+          .includes(filterString.toLocaleLowerCase());
+      } else if (user[toUserField[filtercolumn]]) {
+        return user[toUserField[filtercolumn]].includes(filterString);
+      }
+    });
     setDisplayData(newList);
   }, [filterString]);
-  useEffect(() => {}, [filtercolumn]);
 
   const ExpandedComponent = ({ data }) => (
     <UsersActionSelector
@@ -144,10 +178,9 @@ export default function UserInfo() {
             progressPending={loading}
             progressComponent={<CircularSpinner />}
             subHeader
-            subHeaderAlign="right"
             subHeaderComponent={
               <FilterHeader
-                columns={["", "Name", "Email", "", ""]}
+                columns={["", "Name", "Email", "Date Created", "Last Loggedin"]}
                 setFilterString={setFilterString}
                 setFilterColumn={setFilterColumn}
                 loading={loading}
