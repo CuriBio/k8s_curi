@@ -66,7 +66,7 @@ async def process(con, item):
                 raise
 
             try:
-                logger.info(f"Checking if time force data exists in s3")
+                logger.info("Checking if time force data exists in s3")
 
                 parquet_filename = f"{os.path.splitext(filename)[0]}.parquet"
                 parquet_key = f"{prefix}/time_force_data/{parquet_filename}"
@@ -77,7 +77,7 @@ async def process(con, item):
                 s3_client.download_file(PULSE3D_UPLOADS_BUCKET, parquet_key, parquet_path)
                 re_analysis = True
 
-            except Exception as e:  # continue with analysis even if original force data is not found
+            except Exception:  # continue with analysis even if original force data is not found
                 logger.error(f"No existing data found for recording {parquet_filename}")
                 re_analysis = False
 
@@ -212,12 +212,12 @@ async def main():
             async with pool.acquire() as con:
                 while True:
                     try:
-                        logger.info(f"Pulling job from queue")
+                        logger.info("Pulling job from queue")
                         await process(con=con)
                     except EmptyQueue as e:
                         logger.info(f"No jobs in queue {e}")
                         return
-                    except Exception as e:
+                    except Exception:
                         logger.exception("Processing queue item failed")
                         return
     finally:

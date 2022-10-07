@@ -10,10 +10,12 @@ from asyncpg.exceptions import UniqueViolationError
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Response
 from fastapi.middleware.cors import CORSMiddleware
 from jwt.exceptions import InvalidTokenError
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+from pydantic import EmailStr
 
 from auth import ProtectedAny, create_token, decode_token
-from core.config import DATABASE_URL
-from models.errors import LoginError, RegistrationError
+from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
+from models.errors import LoginError, RegistrationError, EmailRegistrationError
 from models.tokens import AuthTokens
 from models.users import (
     CustomerLogin,
@@ -25,7 +27,7 @@ from models.users import (
     UserAction,
 )
 from utils.db import AsyncpgPoolDep
-
+from fastapi.templating import Jinja2Templates
 
 # logging is configured in log_config.yaml
 logger = logging.getLogger(__name__)
@@ -35,6 +37,8 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 app = FastAPI(openapi_url=None)
 
 CB_CUSTOMER_ID: uuid.UUID
+
+TEMPLATES = Jinja2Templates(directory="templates")
 
 app.add_middleware(
     CORSMiddleware,
@@ -94,9 +98,10 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
         customer_id = None
     else:
         account_type = "user"
+        # suspended is for deactivated accounts and verified is for new users needing to verify through email
         select_query = (
             "SELECT password, id, data->'scope' AS scope "
-            "FROM users WHERE deleted_at IS NULL AND name = $1 AND customer_id = $2 AND suspended = 'f'"
+            "FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND suspended='f' AND verified='t'"
         )
         select_query_params = (details.username, str(details.customer_id))
         customer_id = details.customer_id
@@ -252,12 +257,13 @@ async def register(
     """
     ph = PasswordHasher()
     customer_id = uuid.UUID(hex=token["userid"])
-
     try:
         # still hash even if user or customer exists to avoid timing analysis leaks
         phash = ph.hash(details.password1.get_secret_value())
 
-        is_customer_registration_attempt = customer_id == CB_CUSTOMER_ID and type(details) is CustomerCreate
+        is_customer_registration_attempt = (
+            customer_id == CB_CUSTOMER_ID and type(details) is CustomerCreate  # noqa: F821
+        )
 
         register_type = "customer" if is_customer_registration_attempt else "user"
         logger.info(f"Attempting {register_type} registration")
@@ -268,6 +274,7 @@ async def register(
             query_params = (details.email, phash)
         else:
             scope = ["users:free"]
+            # suspended and verified get set to False by default
             insert_query = (
                 "INSERT INTO users (name, email, password, account_type, data, customer_id) "
                 "VALUES ($1, $2, $3, $4, $5, $6) RETURNING id"
@@ -303,6 +310,15 @@ async def register(
                         failed_msg = "Account registration failed"
                     raise RegistrationError(failed_msg)
 
+                # only send verification emails to new users, not new customers
+                if not is_customer_registration_attempt:
+                    # create email verification token, exp 24 hours
+                    verification_token = create_token(
+                        userid=result, customer_id=customer_id, scope=["users:verify"], account_type="user"
+                    )
+                    # send email with token
+                    await _send_registration_email(details.username, details.email, verification_token.token)
+
                 if is_customer_registration_attempt:
                     return CustomerProfile(email=details.email, user_id=result.hex, scope=scope)
                 else:
@@ -314,11 +330,46 @@ async def register(
                         scope=scope,
                     )
 
+    except EmailRegistrationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except RegistrationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.exception(f"register: Unexpected error {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+async def _send_registration_email(username: str, email: EmailStr, verification_token: str) -> None:
+    # Tried to use request.client.host to dynamically change this domain based on cluster env, but it only sends nginx domain
+    verification_url = f"https://{DASHBOARD_URL}/verify?token={verification_token}"
+
+    try:
+        conf = ConnectionConfig(
+            MAIL_USERNAME=CURIBIO_EMAIL,
+            MAIL_PASSWORD=CURIBIO_EMAIL_PASSWORD,
+            MAIL_FROM=CURIBIO_EMAIL,
+            MAIL_PORT=587,
+            MAIL_SERVER="smtp.gmail.com",
+            MAIL_FROM_NAME="Curi Bio Team",
+            MAIL_TLS=True,
+            MAIL_SSL=False,
+            USE_CREDENTIALS=True,
+            TEMPLATE_FOLDER="./templates",
+        )
+        message = MessageSchema(
+            subject="Please verify your email address",
+            recipients=[email],
+            template_body={
+                "username": username,
+                "verification_url": verification_url,
+            },  # pass any variables you want to use in the email template
+        )
+
+        fm = FastMail(conf)
+        await fm.send_message(message, template_name="registration.html")
+
+    except Exception as e:
+        raise EmailRegistrationError(e)
 
 
 @app.get("/")
@@ -333,6 +384,7 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=["use
         "SELECT id, name, email, created_at, last_login, suspended FROM users "
         "WHERE customer_id=$1 AND deleted_at IS NULL "
     )
+
     try:
         async with request.state.pgpool.acquire() as con:
             result = await con.fetch(query, customer_id)
@@ -344,6 +396,32 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=["use
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@app.put("/verify", status_code=status.HTTP_204_NO_CONTENT)
+async def verify_user_email(
+    request: Request,
+    token=Depends(ProtectedAny(scope=["users:verify"])),
+):
+    """Confirm and verify new user."""
+
+    user_id = uuid.UUID(hex=token["userid"])
+    customer_id = uuid.UUID(hex=token["customer_id"])
+
+    update_query = "UPDATE users SET verified='t' WHERE id=$1 AND customer_id=$2"
+    query_args = (
+        user_id,
+        customer_id,
+    )
+
+    try:
+        async with request.state.pgpool.acquire() as con:
+            await con.execute(update_query, *query_args)
+    except Exception as e:
+        logger.exception(f"PUT /{user_id}: Unexpected error {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# Luci (10/5/22) Following two routes need to be last otherwise will mess with the ProtectedAny scope used in Auth
+# Please see https://fastapi.tiangolo.com/tutorial/path-params/#order-matters
 @app.get("/{user_id}")
 async def get_user(request: Request, user_id: uuid.UUID, token=Depends(ProtectedAny(scope=["users:admin"]))):
     """Get info for the user with the given under the given customer account."""

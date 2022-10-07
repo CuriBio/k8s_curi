@@ -36,6 +36,16 @@ spec:
             secretKeyRef:
               name: curibio-jwt-secret
               key: jwt-secret
+        - name: CURIBIO_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: curibio-email-creds
+              key: curibio-email
+        - name: CURIBIO_EMAIL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: curibio-email-creds
+              key: curibio-email-password
         imagePullPolicy: Always
         ports:
         - containerPort: 9001

@@ -12,7 +12,7 @@ patchesJson6902:
     kind: Ingress
     name: pulse3d-ingress
   patch: |-
-    - op: replace 
+    - op: replace
       path: /spec/rules/0/host
       value: "pulse3d.curibio.com"
 - target:

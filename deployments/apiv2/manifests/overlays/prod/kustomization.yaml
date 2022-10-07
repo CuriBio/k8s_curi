@@ -7,18 +7,19 @@ resources:
 - curibio-jwt-secret.yaml
 - curibio-users-creds.yaml
 - curibio-mantarray-creds.yaml
+- curibio-email-creds.yaml
 
 patchesJson6902:
 - target:
     kind: Ingress
     name: apiv2-ingress
   patch: |-
-    - op: replace 
+    - op: replace
       path: /spec/rules/0/host
       value: "apiv2.curibio.com"
 - target:
     kind: Deployment
-    name: apiv2 
+    name: apiv2
   patch: |-
     - op: replace
       path: /spec/template/spec/containers/0/image
@@ -29,3 +30,8 @@ patchesJson6902:
     - op: replace
       path: /spec/template/spec/containers/1/env/0/value
       value: prod
+    - op: add
+      path: /spec/template/spec/containers/0/env
+      value:
+        - name: DASHBOARD_URL
+          value: dashboard.curibio.com

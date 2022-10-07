@@ -108,7 +108,7 @@ def _add_service(deployment_dir, deployment_name, service_name):
 def _add_deployment(deployment_dir, deployment_name):
     """Adds new deployment directory"""
     deployment_path = f"{deployment_dir}/{deployment_name}"
-    tf_path = f"{deployment_dir}/terraform"
+    # tf_path = f"{deployment_dir}/terraform"
 
     if os.path.isdir(deployment_path):
         log.warning(f"Deployment {deployment_name} already exists at {deployment_path}, skipping")

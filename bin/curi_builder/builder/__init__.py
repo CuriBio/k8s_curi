@@ -138,7 +138,7 @@ def main():
 
             # printing here in order to expose the names of the svcs or terraform files with changes
             # to the process calling this python script. It is not a debug statement, don't delete it
-            print(json.dumps(changed))
+            print(json.dumps(changed))  # allow-print
 
             for c in changed:
                 context = c["path"] if args.terraform else f"{c['deployment']}/{c['service']}"
