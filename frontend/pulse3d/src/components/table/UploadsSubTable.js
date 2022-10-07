@@ -14,8 +14,10 @@ const SubHeader = styled.div`
   justify-content: space-around;
 `;
 const SubRow = styled.div`
+  font-size: 0.75rem;
   width: 20%;
   text-align: center;
+  margin: 1rem 0;
 `;
 
 export default memo(function UploadsSubTable(props) {
@@ -23,6 +25,24 @@ export default memo(function UploadsSubTable(props) {
     props.jobs.map((job) => job.checked)
   );
   const rows = props.jobs.map((job, idx) => {
+    let paramsString = [];
+    Object.keys(job.analysisParams).forEach((param) => {
+      if (job.analysisParams[param] !== null) {
+        console.log(param);
+        if (param === "peaks_valleys") {
+          paramsString.push(
+            <div key={Math.random()}>{`${param} : user set`}</div>
+          );
+          return;
+        }
+        paramsString.push(
+          <div key={Math.random()}>
+            {`${param} : ${job.analysisParams[param]}`}
+          </div>
+        );
+      }
+    });
+
     return (
       <SubContainer key={Math.random()}>
         <input
@@ -49,7 +69,7 @@ export default memo(function UploadsSubTable(props) {
         />
         <SubRow>{job.jobId}</SubRow>
         <SubRow>{job.datetime}</SubRow>
-        <SubRow>{job.analysisParams ? "true" : "false"}</SubRow>
+        <SubRow>{paramsString.length === 0 ? "None" : paramsString}</SubRow>
         <SubRow>{job.status}</SubRow>
       </SubContainer>
     );
