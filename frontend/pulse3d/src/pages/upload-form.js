@@ -9,6 +9,7 @@ import { hexToBase64 } from "../utils/generic";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
+import semverGte from "semver/functions/gte";
 
 const Container = styled.div`
   width: 70%;
@@ -72,24 +73,25 @@ const defaultUploadErrorLabel =
 const defaultZipErrorLabel =
   "The following file(s) will not be uploaded because they either contain multiple recordings or do not have the correct number of H5 files.";
 
-const getDefaultAnalysisParams = () => {
-  return {
-    yAxisNormalization: false,
-    baseToPeak: "",
-    peakToBase: "",
-    maxY: "",
-    prominenceFactor: "",
-    widthFactor: "",
-    twitchWidths: "",
-    startTime: "",
-    endTime: "",
-    selectedPulse3dVersion: "", // Tanner (9/15/22): The pulse3d version technically isn't a param, so could move this value to its own state if needed
-  };
-};
-
 export default function UploadForm() {
-  const { query } = useRouter();
   const { uploads, pulse3dVersions } = useContext(UploadsContext);
+
+  const getDefaultAnalysisParams = () => {
+    return {
+      yAxisNormalization: false,
+      baseToPeak: "",
+      peakToBase: "",
+      maxY: "",
+      prominenceFactor: "",
+      widthFactor: "",
+      twitchWidths: "",
+      startTime: "",
+      endTime: "",
+      selectedPulse3dVersion: pulse3dVersions[0] || "", // Tanner (9/15/22): The pulse3d version technically isn't a param, but it lives in the same part of the form as the params
+    };
+  };
+
+  const { query } = useRouter();
   const [files, setFiles] = useState([]);
   const [formattedUploads, setFormattedUploads] = useState([]);
   const [isButtonDisabled, setIsButtonDisabled] = useState(true);
@@ -103,8 +105,18 @@ export default function UploadForm() {
   const [modalState, setModalState] = useState(false);
   const [analysisParams, setAnalysisParams] = useState(getDefaultAnalysisParams());
 
-  // TODO remove this value once entire advanced analysis section is under a single checkbox
-  const [resetDropDown, setResetDropDown] = useState(0);
+  const resetAnalysisParams = () => {
+    setAnalysisParams(getDefaultAnalysisParams());
+  };
+
+  const updateCheckParams = (newCheckedParams) => {
+    if (checkedParams && !newCheckedParams) {
+      // if unchecking, reset all params
+      resetAnalysisParams();
+      setParamErrors({});
+    }
+    setCheckedParams(newCheckedParams);
+  };
 
   useEffect(() => {
     // checks if error value exists, no file is selected, or upload is in progress
@@ -120,7 +132,7 @@ export default function UploadForm() {
     // resets upload status when user makes changes
     if (
       (files.length > 0 && files[0] instanceof File) ||
-      Object.values(analysisParams).some((val) => val.length > 0)
+      JSON.stringify(analysisParams) != JSON.stringify(getDefaultAnalysisParams())
     ) {
       setUploadSuccess(false);
     }
@@ -140,13 +152,9 @@ export default function UploadForm() {
 
   const resetState = () => {
     setFiles([]);
-    setAnalysisParams(getDefaultAnalysisParams());
+    updateCheckParams(false); // this will also reset the analysis params and their error message
     setFailedUploadsMsg([defaultUploadErrorLabel]);
     setModalButtons(["Close"]);
-    setCheckedParams(false);
-    setParamErrors({});
-    // Tanner (9/13/22): this is a really hacky way of triggering this since the value must actually change, but it will be unnecessary once the single checkbox is added
-    setResetDropDown(resetDropDown + 1);
   };
 
   const formatTupleParams = (firstParam, secondParam) => {
@@ -181,6 +189,7 @@ export default function UploadForm() {
         startTime,
         endTime,
         selectedPulse3dVersion,
+        stiffnessFactor,
       } = analysisParams;
 
       const requestBody = {
@@ -195,11 +204,12 @@ export default function UploadForm() {
         // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
         version: selectedPulse3dVersion === "" ? pulse3dVersions[0] : selectedPulse3dVersion,
       };
-      if (requestBody.version !== "0.24.6") {
-        // Tanner (9/15/21): at the time of writing this, 0.24.6 is the only available pulse3D version that does not support the max_y param
+      if (semverGte(selectedPulse3dVersion, "0.25.0")) {
         requestBody.max_y = maxY === "" ? null : maxY;
       }
-
+      if (semverGte(selectedPulse3dVersion, "0.27.0")) {
+        requestBody.stiffness_factor = stiffnessFactor === "" ? null : stiffnessFactor;
+      }
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
         method: "POST",
         body: JSON.stringify(requestBody),
@@ -404,13 +414,12 @@ export default function UploadForm() {
           errorMessages={paramErrors}
           inputVals={analysisParams}
           checkedParams={checkedParams}
-          setCheckedParams={setCheckedParams}
+          setCheckedParams={updateCheckParams}
           paramErrors={paramErrors}
           setParamErrors={setParamErrors}
           setAnalysisParams={setAnalysisParams}
           analysisParams={analysisParams}
           pulse3dVersions={pulse3dVersions}
-          resetDropDown={resetDropDown}
         />
         <ButtonContainer>
           {uploadSuccess ? <SuccessText>Upload Successful!</SuccessText> : null}

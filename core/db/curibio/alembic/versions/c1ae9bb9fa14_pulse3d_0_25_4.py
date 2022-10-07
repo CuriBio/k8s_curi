@@ -1,4 +1,4 @@
-"""pulse3 0.25.4
+"""pulse3d 0.25.4
 
 Revision ID: c1ae9bb9fa14
 Revises: 871f6d005d86
@@ -16,10 +16,8 @@ depends_on = None
 
 
 def upgrade():
-    query = "INSERT INTO pulse3d_versions (version) VALUES ('0.25.4')"
-    op.execute(query)
+    op.execute("INSERT INTO pulse3d_versions (version) VALUES ('0.25.4')")
 
 
 def downgrade():
-    query = "DELETE FROM pulse3d_versions WHERE version = '0.25.4'"
-    op.execute(query)
+    op.execute("DELETE FROM pulse3d_versions WHERE version='0.25.4'")

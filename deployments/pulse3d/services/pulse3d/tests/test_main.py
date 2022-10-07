@@ -6,20 +6,26 @@ import os
 import uuid
 import pandas as pd
 import pytest
+from semver import VersionInfo
 
 from auth import create_token
 from utils.s3 import S3Error
 from src import main
 
 from labware_domain_models import LabwareDefinition
+from pulse3D.constants import DEFAULT_BASELINE_WIDTHS, DEFAULT_PROMINENCE_FACTORS, DEFAULT_WIDTH_FACTORS
 
 TWENTY_FOUR_WELL_PLATE = LabwareDefinition(row_count=4, column_count=6)
 
 test_client = TestClient(main.app)
 
 
-def random_semver():
-    return ".".join([str(randint(0, 99)) for _ in range(3)])
+def random_semver(*, max_version="99.99.99"):
+    version_components = max_version.split(".")
+    if len(version_components) > 3:
+        raise ValueError("max_version can only contain a major, minor, and patch version")
+
+    return ".".join([str(randint(0, int(max))) for max in version_components])
 
 
 def create_test_df(include_raw_data: bool = True):
@@ -389,7 +395,7 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
     expected_job_priority = 10
     test_upload_id = uuid.uuid4()
     test_user_id = uuid.uuid4()
-    test_version = random_semver()
+    test_version = random_semver(max_version="0.24.0")
 
     access_token = get_token(scope=["users:free"], userid=test_user_id)
 
@@ -412,15 +418,12 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
     expected_analysis_params = {
         param: None
         for param in (
-            "normalize_y_axis",
             "baseline_widths_to_use",
-            "max_y",
             "prominence_factors",
             "width_factors",
             "twitch_widths",
             "start_time",
             "end_time",
-            "peaks_valleys",
         )
     }
 
@@ -441,7 +444,11 @@ def test_jobs__post__basic_params_given(mocker):
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
 
     kwargs = {
-        "json": {"upload_id": str(uuid.uuid4()), "version": random_semver(), **test_analysis_params},
+        "json": {
+            "upload_id": str(uuid.uuid4()),
+            "version": random_semver(max_version="0.24.0"),
+            **test_analysis_params,
+        },
         "headers": {"Authorization": f"Bearer {access_token}"},
     }
     response = test_client.post("/jobs", **kwargs)
@@ -450,15 +457,12 @@ def test_jobs__post__basic_params_given(mocker):
     expected_analysis_params = {
         param: None
         for param in (
-            "normalize_y_axis",
             "baseline_widths_to_use",
-            "max_y",
             "prominence_factors",
             "width_factors",
             "twitch_widths",
             "start_time",
             "end_time",
-            "peaks_valleys",
         )
     }
     expected_analysis_params.update(test_analysis_params)
@@ -477,32 +481,35 @@ def test_jobs__post__advanced_params_given(param_name, param_tuple, mocker):
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
 
     kwargs = {
-        "json": {"upload_id": str(uuid.uuid4()), "version": random_semver(), **test_analysis_params},
+        "json": {
+            "upload_id": str(uuid.uuid4()),
+            "version": random_semver(max_version="0.24.0"),
+            **test_analysis_params,
+        },
         "headers": {"Authorization": f"Bearer {access_token}"},
     }
     response = test_client.post("/jobs", **kwargs)
     assert response.status_code == 200
 
-    expected_default_value = 6 if param_name == "prominence_factors" else 7
+    expected_default_value_tuple = (
+        DEFAULT_PROMINENCE_FACTORS if param_name == "prominence_factors" else DEFAULT_WIDTH_FACTORS
+    )
     format_mapping = {
         (1, 2): (1, 2),
-        (None, 2): (expected_default_value, 2),
-        (1, None): (1, expected_default_value),
+        (None, 2): (expected_default_value_tuple[0], 2),
+        (1, None): (1, expected_default_value_tuple[1]),
         (None, None): None,
     }
 
     expected_analysis_params = {
         param: None
         for param in (
-            "normalize_y_axis",
             "baseline_widths_to_use",
-            "max_y",
             "prominence_factors",
             "width_factors",
             "twitch_widths",
             "start_time",
             "end_time",
-            "peaks_valleys",
         )
     }
     expected_analysis_params.update({param_name: format_mapping[param_tuple]})
@@ -520,7 +527,11 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocker):
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
 
     kwargs = {
-        "json": {"upload_id": str(uuid.uuid4()), "version": random_semver(), **test_analysis_params},
+        "json": {
+            "upload_id": str(uuid.uuid4()),
+            "version": random_semver(max_version="0.24.0"),
+            **test_analysis_params,
+        },
         "headers": {"Authorization": f"Bearer {access_token}"},
     }
     response = test_client.post("/jobs", **kwargs)
@@ -528,27 +539,62 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocker):
 
     format_mapping = {
         (1, 2): (1, 2),
-        (None, 2): (10, 2),
-        (1, None): (1, 90),
+        (None, 2): (DEFAULT_BASELINE_WIDTHS[0], 2),
+        (1, None): (1, DEFAULT_BASELINE_WIDTHS[1]),
         (None, None): None,
     }
 
     expected_analysis_params = {
         param: None
         for param in (
-            "normalize_y_axis",
             "baseline_widths_to_use",
-            "max_y",
             "prominence_factors",
             "width_factors",
             "twitch_widths",
             "start_time",
             "end_time",
-            "peaks_valleys",
         )
     }
 
     expected_analysis_params.update({"baseline_widths_to_use": format_mapping[param_tuple]})
+
+    mocked_create_job.assert_called_once()
+    assert mocked_create_job.call_args[1]["meta"]["analysis_params"] == expected_analysis_params
+
+
+@pytest.mark.parametrize("version", ["0.24.6", "0.25.0", "0.25.2", "0.25.4", "0.26.0"])
+def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d_version(version, mocker):
+    access_token = get_token(scope=["users:free"])
+
+    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
+
+    kwargs = {
+        "json": {"upload_id": str(uuid.uuid4()), "version": version},
+        "headers": {"Authorization": f"Bearer {access_token}"},
+    }
+    response = test_client.post("/jobs", **kwargs)
+    assert response.status_code == 200
+
+    expected_analysis_param_keys = [
+        "baseline_widths_to_use",
+        "prominence_factors",
+        "width_factors",
+        "twitch_widths",
+        "start_time",
+        "end_time",
+    ]
+
+    pulse3d_semver = VersionInfo.parse(version)
+    if pulse3d_semver >= "0.25.0":
+        expected_analysis_param_keys.append("max_y")
+    if pulse3d_semver >= "0.25.2":
+        expected_analysis_param_keys.append("peaks_valleys")
+    if pulse3d_semver >= "0.25.4":
+        expected_analysis_param_keys.append("normalize_y_axis")
+    if pulse3d_semver >= "0.26.0":
+        expected_analysis_param_keys.append("stiffness_factor")
+
+    expected_analysis_params = {param: None for param in expected_analysis_param_keys}
 
     mocked_create_job.assert_called_once()
     assert mocked_create_job.call_args[1]["meta"]["analysis_params"] == expected_analysis_params
