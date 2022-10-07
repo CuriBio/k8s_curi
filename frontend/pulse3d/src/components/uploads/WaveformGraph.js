@@ -694,7 +694,7 @@ export default function WaveformGraph({
     <>
       <YAxisContainer>
         <YAxisLabel>Active Twitch Force (uN)</YAxisLabel>
-        <ZoomWidget size={"20px"} zoomIn={() => handleZoomIn("y")} zoomOut={() => handleZoomOut("y")} />
+        <ZoomWidget size={"20px"} zoomIn={() => handleZoomOut("y")} zoomOut={() => handleZoomIn("y")} />
       </YAxisContainer>
       <ColumnContainer>
         <ToolbarContainer>

@@ -72,13 +72,16 @@ const isLoginRequest = (url) => {
   return url.pathname.includes("/login");
 };
 
+const isVerifyRequest = (url) => {
+  return url.pathname.includes("/verify");
+};
+
 const modifyRequest = async (req, url) => {
   // setup new headers
   const headers = new Headers({
     ...req.headers,
     "Content-Type": "application/json",
   });
-
   if (!isLoginRequest(url) && tokens.access) {
     // login request does not require the Authorization header,
     // and if there are no tokens that should mean that no account is logged in
@@ -167,6 +170,7 @@ const interceptResponse = async (req, url) => {
       const data = await response.json();
       setTokens(data);
       let accountType = jwtDecode(tokens.access).account_type; // either token will work here
+
       if (accountType === "customer") {
         // token types are 'user' and 'customer', but FE uses 'user' and 'admin'
         accountType = "admin";
@@ -211,7 +215,10 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", async (e) => {
   let destURL = new URL(e.request.url);
   // only intercept requests to pulse3d and user APIs
-  if (e.request.url.includes(USERS_URL) || e.request.url.includes(PULSE3D_URL)) {
+  if (
+    (e.request.url.includes(USERS_URL) || e.request.url.includes(PULSE3D_URL)) &&
+    !isVerifyRequest(destURL) // we don't need to intercept verify request because it's handling own token
+  ) {
     e.respondWith(interceptResponse(e.request, destURL));
   } else {
     e.respondWith(fetch(e.request));

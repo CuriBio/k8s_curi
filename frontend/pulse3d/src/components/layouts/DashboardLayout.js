@@ -43,11 +43,15 @@ export default function DashboardLayout({ children }) {
 
   // when page loads, get all available pulse3d versions
   async function getPulse3dVersions() {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/versions`);
-    // sort in desc order so that the latest version shows up first
-    const versions = await response.json();
-    const sortedVersions = semverRsort(versions);
-    setPulse3dVersions(sortedVersions);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/versions`);
+      // sort in desc order so that the latest version shows up first
+      const versions = await response.json();
+      const sortedVersions = semverRsort(versions);
+      setPulse3dVersions(sortedVersions);
+    } catch (e) {
+      console.log(`ERROR getting pulse3d versions: ${e}`);
+    }
   }
 
   return (

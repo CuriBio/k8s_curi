@@ -324,21 +324,15 @@ export default function AnalysisParamForm({
               </Tooltip>
             </Label>
             <InputErrorContainer>
-              <FormInput
-                type="checkbox"
-                name="yAxisNormalization"
-                value={normalizeYAxis}
-                onChangeFn={(e) => {
+              <CheckboxWidget
+                checkedState={!normalizeYAxis}
+                handleCheckbox={(state) => {
                   updateParams({
-                    yAxisNormalization: normalizeYAxis,
+                    yAxisNormalization: state,
                   });
-                  setNormalizeYAxis(!normalizeYAxis);
+                  setNormalizeYAxis(!state);
                 }}
-              >
-                <ErrorText id="yAxisNormalization" role="errorMsg">
-                  {errorMessages.yAxisNormalization}
-                </ErrorText>
-              </FormInput>
+              />
             </InputErrorContainer>
           </ParamContainer>
         )}

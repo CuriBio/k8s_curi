@@ -126,7 +126,7 @@ def test_login__user__success(cb_customer_id, mocked_asyncpg_con, mocker):
     assert response.json() == AuthTokens(access=expected_access_token, refresh=expected_refresh_token)
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
-        "SELECT password, id, data->'scope' AS scope FROM users WHERE deleted_at IS NULL AND name = $1 AND customer_id = $2 AND suspended = 'f'",
+        "SELECT password, id, data->'scope' AS scope FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND suspended='f' AND verified='t'",
         login_details["username"],
         login_details["customer_id"],
     )
@@ -201,6 +201,8 @@ def test_login__incorrect_password(mocked_asyncpg_con):
 def test_register__user__allows_valid_usernames(
     special_char, mocked_asyncpg_con, spied_pw_hasher, cb_customer_id, mocker
 ):
+
+    mocker.patch.object(main, "_send_registration_email", autospec=True)
     use_cb_customer_id = choice([True, False])
     end_with_num = choice([True, False])
 
@@ -219,7 +221,6 @@ def test_register__user__allows_valid_usernames(
     access_token = get_token(userid=test_customer_id, scope=["users:admin"], account_type="customer")
 
     mocked_asyncpg_con.fetchval.return_value = test_user_id
-
     expected_scope = ["users:free"]
 
     response = test_client.post(

@@ -381,7 +381,6 @@ export default function UploadForm() {
     // if user chooses to proceed with upload when some files were flagged as bad
     if (idx === 1) {
       const filteredFiles = files.filter((f) => !failedUploadsMsg.includes(f.name));
-      console.log("FILES: ", filteredFiles);
       await handleNewAnalysis(filteredFiles);
     }
     // goes after because this dependency triggers reset

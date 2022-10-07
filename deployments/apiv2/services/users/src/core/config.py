@@ -5,6 +5,10 @@ config = Config(".env")
 
 APP_NAME = config("APP_NAME", cast=str, default="CuriBio/Auth")
 
+DASHBOARD_URL = config("DASHBOARD_URL", cast=str, default="dashboard.curibio-test.com")
+CURIBIO_EMAIL = config("CURIBIO_EMAIL", cast=str)
+CURIBIO_EMAIL_PASSWORD = config("CURIBIO_EMAIL_PASSWORD", cast=str)
+
 POSTGRES_USER = config("POSTGRES_USER", cast=str)
 POSTGRES_PASSWORD = config("POSTGRES_PASSWORD", cast=Secret)
 POSTGRES_SERVER = config("POSTGRES_SERVER", cast=str, default="localhost")
