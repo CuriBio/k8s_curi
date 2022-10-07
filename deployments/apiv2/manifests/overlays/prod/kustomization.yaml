@@ -34,4 +34,4 @@ patchesJson6902:
       path: /spec/template/spec/containers/0/env
       value:
         - name: DASHBOARD_URL
-          value: dashboard.curibio.com
+          value: "https://dashboard.curibio.com"

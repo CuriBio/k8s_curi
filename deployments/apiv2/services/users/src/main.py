@@ -42,11 +42,7 @@ TEMPLATES = Jinja2Templates(directory="templates")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        # TODO use a single ENV var for this instead
-        "https://dashboard.curibio-test.com",
-        "https://dashboard.curibio.com",
-    ],
+    allow_origins=[DASHBOARD_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -341,7 +337,7 @@ async def register(
 
 async def _send_registration_email(username: str, email: EmailStr, verification_token: str) -> None:
     # Tried to use request.client.host to dynamically change this domain based on cluster env, but it only sends nginx domain
-    verification_url = f"https://{DASHBOARD_URL}/verify?token={verification_token}"
+    verification_url = f"{DASHBOARD_URL}/verify?token={verification_token}"
 
     try:
         conf = ConnectionConfig(

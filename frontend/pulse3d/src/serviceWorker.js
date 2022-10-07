@@ -10,6 +10,18 @@ const refreshMutex = new Mutex();
 const USERS_URL = new URLSearchParams(location.search).get("users_url");
 const PULSE3D_URL = new URLSearchParams(location.search).get("pulse3d_url");
 
+// add timestamps to logging
+const originalLog = console.log;
+console.log = function () {
+  const time = new Date().toLocaleTimeString("en-US", {
+    hour12: false,
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+  });
+  originalLog(...[`[SW @ ${time}]`, ...arguments]);
+};
+
 /* Global state of SW */
 
 let accountType = null;
@@ -33,7 +45,11 @@ const setTokens = ({ access, refresh }) => {
   tokens.access = access.token;
   tokens.refresh = refresh.token;
 
-  // set up logout timer
+  // clear old logout timer if one already exists
+  if (logoutTimer) {
+    clearTimeout(logoutTimer);
+  }
+  // set up new logout timer
   const expTime = new Date(jwtDecode(tokens.refresh).exp * 1000);
   const currentTime = new Date().getTime();
   const millisBeforeLogOut = expTime - currentTime;
@@ -52,14 +68,14 @@ let ClientSource = null;
 const sendLogoutMsg = () => {
   clearAccountInfo();
   ClientSource.postMessage({ logout: true });
-  console.log("[SW] logout ping sent");
+  console.log("logout ping sent");
 };
 
 const clearAccountInfo = () => {
   clearTokens();
   clearAccountType();
   // TODO change all console.log to console.debug and figure out how to enable debug logging
-  console.log("[SW] account info cleared");
+  console.log("account info cleared");
 };
 
 /* Request intercept functions */
@@ -97,7 +113,7 @@ const modifyRequest = async (req, url) => {
 };
 
 const handleRefreshRequest = async () => {
-  console.log("[SW] Requesting new tokens in handleRefreshRequest");
+  console.log("Requesting new tokens in handleRefreshRequest");
 
   let res = null;
   try {
@@ -107,7 +123,7 @@ const handleRefreshRequest = async () => {
       headers: { Authorization: `Bearer ${tokens.refresh}` },
     });
   } catch (e) {
-    console.log("[SW] ERROR in refresh req:", e.message);
+    console.log("ERROR in refresh req:", e.message);
     return { error: JSON.stringify(e.message) };
   }
 
@@ -171,7 +187,7 @@ const interceptResponse = async (req, url) => {
         // token types are 'user' and 'customer', but FE uses 'user' and 'admin'
         accountType = "admin";
       }
-      console.log("[SW] Setting account type:", accountType);
+      console.log("Setting account type:", accountType);
       setAccountType(accountType);
     }
 
@@ -199,12 +215,12 @@ const interceptResponse = async (req, url) => {
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
-  console.log("[SW] Service worker installed!");
+  console.log("Service worker installed!");
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
-  console.log("[SW] Service worker ready!");
+  console.log("Service worker ready!");
 });
 
 // Intercept all fetch requests
@@ -224,7 +240,7 @@ self.addEventListener("fetch", async (e) => {
 self.onmessage = ({ data, source }) => {
   ClientSource = source;
   if (data.msgType === "authCheck") {
-    console.log("[SW] Returning authentication check");
+    console.log("Returning authentication check");
     source.postMessage({
       isLoggedIn: tokens.access !== null,
       accountType,
@@ -232,7 +248,7 @@ self.onmessage = ({ data, source }) => {
     });
   } else if (data.msgType === "stayAlive") {
     // TODO should have this do something else so that there isn't a log msg produced every 20 seconds
-    console.log("[SW] Staying alive");
+    console.log("Staying alive");
   }
 };
 

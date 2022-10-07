@@ -22,6 +22,8 @@ class JobRequest(BaseModel):
 
     normalize_y_axis: Optional[bool]
 
+    stiffness_factor: Optional[int]
+
     baseline_widths_to_use: Optional[TupleParam]
     max_y: Optional[Number]
     peaks_valleys: Optional[Dict[str, List[List[Number]]]]

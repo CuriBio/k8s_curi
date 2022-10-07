@@ -5,7 +5,7 @@ import FormInput from "../basicWidgets/FormInput";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import semverGte from "semver/functions/gte";
 
 const Container = styled.div`
@@ -149,9 +149,13 @@ export default function AnalysisParamForm({
   setParamErrors,
   analysisParams,
   pulse3dVersions,
-  resetDropDown,
 }) {
   const [normalizeYAxis, setNormalizeYAxis] = useState(true);
+
+  const pulse3dVersionGte = (version) => {
+    const { selectedPulse3dVersion } = inputVals;
+    return selectedPulse3dVersion && semverGte(selectedPulse3dVersion, version);
+  };
 
   const updateParams = (newParams) => {
     const updatedParams = { ...analysisParams, ...newParams };
@@ -170,10 +174,15 @@ export default function AnalysisParamForm({
       "maxY",
       "baseToPeak",
       "peakToBase",
+      "stiffnessFactor",
     ]) {
       if (paramName in newParams) {
         validatePositiveNumber(updatedParams, paramName, false);
       }
+    }
+    if (!updatedParams.normalizeYAxis) {
+      // if not normalizating Y-Axis, then clear the entered value
+      updatedParams.maxY = "";
     }
     setAnalysisParams(updatedParams);
   };
@@ -248,10 +257,13 @@ export default function AnalysisParamForm({
     }
 
     if (
-      !updatedParamErrors.startTime &&
-      !updatedParamErrors.endTime &&
+      // both window bounds have a value entered
       updatedParams.startTime &&
       updatedParams.endTime &&
+      // neither window bound is invalid individually
+      !updatedParamErrors.startTime &&
+      !updatedParamErrors.endTime &&
+      // bounds do not conflict with each other
       Number(updatedParams.startTime) >= Number(updatedParams.endTime)
     ) {
       updatedParamErrors.endTime = "*Must be greater than Start Time";
@@ -265,20 +277,13 @@ export default function AnalysisParamForm({
     });
   };
 
-  //expand if more inputs need to be disabled and cleared based on other inputs
-  useEffect(() => {
-    updateParams({
-      maxY: "",
-    });
-  }, [normalizeYAxis]);
-
   return (
     <Container>
       <AdditionalParamLabel>
         <CheckboxWidget
           color={"secondary"}
           size={"small"}
-          handleCheckbox={(checkedParams) => setCheckedParams(checkedParams)}
+          handleCheckbox={(bool) => setCheckedParams(bool)}
           checkedState={checkedParams}
         />
         Use Additional Analysis Parameters
@@ -287,11 +292,11 @@ export default function AnalysisParamForm({
       <InputContainer>
         <ParamContainer style={{ marginTop: "2%" }}>
           <Label htmlFor="selectedPulse3dVersion" style={{ width: "62%", lineHeight: 2.5 }}>
-            Pulse3d Version:
+            Pulse3D Version:
             <Tooltip
               title={
                 <TooltipText>
-                  {"Specifies which version of the pulse3d analysis software to use."}
+                  {"Specifies which version of the Pulse3D analysis software to use."}
                 </TooltipText>
               }
             >
@@ -301,15 +306,13 @@ export default function AnalysisParamForm({
           <DropDownContainer>
             <DropDownWidget
               options={pulse3dVersions}
-              label="Select"
-              reset={
-                resetDropDown /* TODO reset if user unchecks use advanced params once the entire section is under a single checkbox. Also remove resetDropDown entirely */
-              }
+              reset={!checkedParams}
               handleSelection={handleDropDownSelect}
+              initialSelected={0}
             />
           </DropDownContainer>
         </ParamContainer>
-        {inputVals.selectedPulse3dVersion !== "" && semverGte(inputVals.selectedPulse3dVersion, "0.25.4") && (
+        {pulse3dVersionGte("0.25.4") && (
           //Disabling y-axis normalization added in version 0.25.4
           <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
             <Label htmlFor="yAxisNormalization">
@@ -333,8 +336,8 @@ export default function AnalysisParamForm({
             </InputErrorContainer>
           </ParamContainer>
         )}
-        {inputVals.selectedPulse3dVersion !== "" && semverGte(inputVals.selectedPulse3dVersion, "0.25.0") && (
-          // Tanner (9/15/21): at the time of writing this, 0.24.6 is the only available pulse3D version that does not support maxY
+        {pulse3dVersionGte("0.25.0") && (
+          // Tanner (9/15/21): maxY added in 0.25.0
           <ParamContainer>
             <Label htmlFor="maxY">
               Y-Axis Range (µN):
@@ -351,7 +354,7 @@ export default function AnalysisParamForm({
             <InputErrorContainer>
               <FormInput
                 name="maxY"
-                placeholder={"Auto find max y"}
+                placeholder={checkedParams ? "Auto find max y" : ""}
                 value={inputVals.maxY}
                 onChangeFn={(e) => {
                   updateParams({
@@ -385,7 +388,7 @@ export default function AnalysisParamForm({
           <InputErrorContainer>
             <FormInput
               name="twitchWidths"
-              placeholder={"50, 90"}
+              placeholder={checkedParams ? "50, 90" : ""}
               value={inputVals.twitchWidths}
               onChangeFn={(e) => {
                 updateParams({
@@ -399,6 +402,41 @@ export default function AnalysisParamForm({
             </FormInput>
           </InputErrorContainer>
         </ParamContainer>
+        {pulse3dVersionGte("0.27.0") && (
+          // Tanner (9/15/21): stiffnessFactor added in 0.27.0
+          <ParamContainer>
+            <Label htmlFor="stiffnessFactor">
+              Post Stiffness Factor:
+              <Tooltip
+                title={
+                  <TooltipText>
+                    {
+                      "Specifies the post stiffness factor. If omitted, will use the value encoded in the barcode."
+                    }
+                  </TooltipText>
+                }
+              >
+                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+              </Tooltip>
+            </Label>
+            <InputErrorContainer>
+              <FormInput
+                name="stiffnessFactor"
+                placeholder={checkedParams ? "Auto determine" : ""}
+                value={inputVals.stiffnessFactor}
+                onChangeFn={(e) => {
+                  updateParams({
+                    stiffnessFactor: e.target.value,
+                  });
+                }}
+              >
+                <ErrorText id="stiffnessFactorError" role="errorMsg">
+                  {errorMessages.stiffnessFactor}
+                </ErrorText>
+              </FormInput>
+            </InputErrorContainer>
+          </ParamContainer>
+        )}
 
         <SectionLabel>Baseline Width</SectionLabel>
 
