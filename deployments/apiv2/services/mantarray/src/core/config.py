@@ -2,6 +2,7 @@ from starlette.config import Config
 from starlette.datastructures import Secret
 
 config = Config(".env")
+VERSION = "0.1.0"
 
 CLUSTER_NAME = config("CLUSTER_NAME", cast=str)
 POSTGRES_USER = config("POSTGRES_USER", cast=str)
