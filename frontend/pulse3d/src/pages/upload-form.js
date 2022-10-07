@@ -9,6 +9,7 @@ import { hexToBase64 } from "../utils/generic";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
+import semverGte from "semver/functions/gte";
 
 const Container = styled.div`
   width: 70%;
@@ -188,6 +189,7 @@ export default function UploadForm() {
         startTime,
         endTime,
         selectedPulse3dVersion,
+        stiffnessFactor,
       } = analysisParams;
 
       const requestBody = {
@@ -202,11 +204,12 @@ export default function UploadForm() {
         // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
         version: selectedPulse3dVersion === "" ? pulse3dVersions[0] : selectedPulse3dVersion,
       };
-      if (requestBody.version !== "0.24.6") {
-        // Tanner (9/15/21): at the time of writing this, 0.24.6 is the only available pulse3D version that does not support the max_y param
+      if (semverGte(selectedPulse3dVersion, "0.25.0")) {
         requestBody.max_y = maxY === "" ? null : maxY;
       }
-
+      if (semverGte(selectedPulse3dVersion, "0.27.0")) {
+        requestBody.stiffness_factor = stiffnessFactor === "" ? null : stiffnessFactor;
+      }
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
         method: "POST",
         body: JSON.stringify(requestBody),

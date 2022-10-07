@@ -94,10 +94,12 @@ async def process(con, item):
                     if val is not None
                 }
 
-                stiffness_factor = analysis_params.get("stiffness_factor")
+                # Tanner (10/7/22): popping here since write_xlsx doesn't take this as a kwarg
+                stiffness_factor = analysis_params.pop("stiffness_factor", None)
 
                 logger.info("Starting pulse3d analysis")
-                if re_analysis:
+                if re_analysis and not stiffness_factor:
+                    # if a stiffness factor is provided, can't load from data frame since a re-analysis is required to get the correct force values
                     logger.info(f"Loading previous time force data from {parquet_filename}")
                     existing_df = pd.read_parquet(parquet_path)
                     try:

@@ -5,7 +5,7 @@ import FormInput from "../basicWidgets/FormInput";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import semverGte from "semver/functions/gte";
 
 const Container = styled.div`
