@@ -28,7 +28,6 @@ export default memo(function UploadsSubTable(props) {
     let paramsString = [];
     Object.keys(job.analysisParams).forEach((param) => {
       if (job.analysisParams[param] !== null) {
-        console.log(param);
         if (param === "peaks_valleys") {
           paramsString.push(
             <div key={Math.random()}>{`${param} : user set`}</div>
