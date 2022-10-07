@@ -26,7 +26,7 @@ from pulse3D.constants import (
 )
 
 from auth import ProtectedAny
-from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET
+from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET, DASHBOARD_URL
 from jobs import create_upload, create_job, get_uploads, get_jobs, delete_jobs, delete_uploads
 from models.models import (
     UploadRequest,
@@ -51,12 +51,7 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        # TODO use a single ENV var for this instead
-        "https://dashboard.curibio-test.com",
-        "https://dashboard.curibio.com",
-        "http://localhost:3000",
-    ],
+    allow_origins=[DASHBOARD_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
