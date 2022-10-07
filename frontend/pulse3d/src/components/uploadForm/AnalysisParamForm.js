@@ -408,8 +408,8 @@ export default function AnalysisParamForm({
             </FormInput>
           </InputErrorContainer>
         </ParamContainer>
-        {pulse3dVersionGte("0.26.1") && (
-          // Tanner (9/15/21): stiffnessFactor added in 0.26.1
+        {pulse3dVersionGte("0.27.0") && (
+          // Tanner (9/15/21): stiffnessFactor added in 0.27.0
           <ParamContainer>
             <Label htmlFor="stiffnessFactor">
               Post Stiffness Factor:
