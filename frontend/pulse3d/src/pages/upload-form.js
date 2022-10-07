@@ -132,7 +132,7 @@ export default function UploadForm() {
     // resets upload status when user makes changes
     if (
       (files.length > 0 && files[0] instanceof File) ||
-      Object.values(analysisParams).some((val) => val.length > 0)
+      JSON.stringify(analysisParams) != JSON.stringify(getDefaultAnalysisParams())
     ) {
       setUploadSuccess(false);
     }
