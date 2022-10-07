@@ -3,6 +3,9 @@
 
 const path = require("path");
 
+const mode = process.env.NODE_ENV || "development";
+console.log(`Building service worker in ${mode} mode\n`);
+
 module.exports = {
   entry: {
     bundle: path.join(__dirname, "./serviceWorker.js"),
@@ -13,5 +16,5 @@ module.exports = {
     path: path.join(__dirname, "public"),
   },
 
-  mode: process.env.NODE_ENV || "development",
+  mode,
 };

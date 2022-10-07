@@ -33,7 +33,11 @@ const setTokens = ({ access, refresh }) => {
   tokens.access = access.token;
   tokens.refresh = refresh.token;
 
-  // set up logout timer
+  // clear old logout timer if one already exists
+  if (logoutTimer) {
+    clearTimeout(logoutTimer);
+  }
+  // set up new logout timer
   const expTime = new Date(jwtDecode(tokens.refresh).exp * 1000);
   const currentTime = new Date().getTime();
   const millisBeforeLogOut = expTime - currentTime;

@@ -72,13 +72,16 @@ export default function DropDownWidget({
   };
 
   useEffect(() => {
-    console.log("$$$", initialSelected);
     // initialSelected needs to be the index of item
-    if (initialSelected != null) handleChange(initialSelected);
+    if (initialSelected != null) {
+      handleChange(initialSelected);
+    }
   }, []);
 
   useEffect(() => {
-    if (reset) setSelected(initialSelected != null ? initialSelected : "");
+    if (reset) {
+      setSelected(initialSelected != null ? initialSelected : "");
+    }
   }, [reset]);
 
   return (
