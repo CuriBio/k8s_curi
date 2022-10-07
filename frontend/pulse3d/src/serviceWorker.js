@@ -10,6 +10,18 @@ const refreshMutex = new Mutex();
 const USERS_URL = new URLSearchParams(location.search).get("users_url");
 const PULSE3D_URL = new URLSearchParams(location.search).get("pulse3d_url");
 
+// add timestamps to logging
+originalLog = console.log;
+console.log = function () {
+  const time = new Date().toLocaleTimeString("en-US", {
+    hour12: false,
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+  });
+  originalLog(...[time, "--", ...arguments]);
+};
+
 /* Global state of SW */
 
 let accountType = null;
