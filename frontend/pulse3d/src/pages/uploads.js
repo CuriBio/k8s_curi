@@ -221,8 +221,6 @@ export default function Uploads() {
       );
 
       if (failedJobs.length === 0) {
-        setModalLabels(modalObjs.empty);
-        setModalState("downloading");
         downloadAnalyses();
       } else {
         setModalButtons(["Close", "Continue"]);
@@ -278,8 +276,6 @@ export default function Uploads() {
   const handleModalClose = async (idx) => {
     if (modalButtons[idx] === "Continue") {
       // this block gets hit when user chooses to continue without 'error' status analyses
-      setModalLabels(modalObjs.empty);
-      setModalState("downloading");
       downloadAnalyses();
     } else if (modalButtons[idx] === "Confirm") {
       // set in progress
@@ -322,22 +318,29 @@ export default function Uploads() {
         try {
           if (numberOfJobs === 1) {
             await downloadSingleFile(finishedJobs[0]);
+            // table only resets on download success modal close, so this needs to be handled here
+            resetTable();
           } else if (numberOfJobs > 1) {
+            // show active downloading modal only for multifile downloads
+            setModalLabels(modalObjs.empty);
+            setModalState("downloading");
+
             await downloadMultiFiles(finishedJobs);
+
+            // show successful download modal only for multifile downloads
+            setModalLabels({
+              header: "Success!",
+              messages: [
+                `The following number of analyses have been successfully downloaded: ${numberOfJobs}`,
+                "They can be found in your local downloads folder.",
+              ],
+            });
+
+            setModalState("generic");
           }
         } catch (e) {
           throw Error(e);
         }
-
-        setModalLabels({
-          header: "Success!",
-          messages: [
-            `The following number of analyses have been successfully downloaded: ${numberOfJobs}`,
-            "They can be found in your local downloads folder.",
-          ],
-        });
-
-        setModalState("generic");
       } else {
         // let user know in the off chance that the only files they selected are not finished analyzing or failed
         setModalLabels(modalObjs.nothingToDownload);
