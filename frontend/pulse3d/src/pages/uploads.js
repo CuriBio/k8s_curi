@@ -240,6 +240,7 @@ export default function Uploads() {
     setResetDropdown(true);
     setCheckedUploads([]);
     setCheckedJobs([]);
+    getAllJobs();
   };
 
   const getAllJobs = async () => {
