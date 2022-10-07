@@ -318,6 +318,8 @@ export default function Uploads() {
         try {
           if (numberOfJobs === 1) {
             await downloadSingleFile(finishedJobs[0]);
+            // table only resets on download success modal close, so this needs to be handled here
+            resetTable();
           } else if (numberOfJobs > 1) {
             // show active downloading modal only for multifile downloads
             setModalLabels(modalObjs.empty);
@@ -339,7 +341,6 @@ export default function Uploads() {
         } catch (e) {
           throw Error(e);
         }
-
       } else {
         // let user know in the off chance that the only files they selected are not finished analyzing or failed
         setModalLabels(modalObjs.nothingToDownload);
