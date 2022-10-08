@@ -4,6 +4,7 @@ from starlette.datastructures import Secret
 config = Config(".env")
 
 APP_NAME = config("APP_NAME", cast=str, default="CuriBio/Auth")
+# version used to tag the docker image
 VERSION = "0.1.0"
 
 DASHBOARD_URL = config("DASHBOARD_URL", cast=str, default="https://dashboard.curibio-test.com")

@@ -2,6 +2,7 @@ from starlette.config import Config
 from starlette.datastructures import Secret
 
 config = Config(".env")
+# version used to tag the docker image
 VERSION = "0.1.0"
 
 APP_NAME = config("APP_NAME", cast=str, default="CuriBio/Pulse3d")
