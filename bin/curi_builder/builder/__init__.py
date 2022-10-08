@@ -32,6 +32,17 @@ def parse_py_dep_version(svc_path: str, dep_name: str) -> str:
     raise Exception(f"{dep_name} not found in {req_file}")
 
 
+def get_svc_version(svc_path: str) -> str:
+    # Version will be hardcoded in each services config file
+    config_file = os.path.join(svc_path, "src", "core", "config.py")
+    with open(config_file) as f:
+        for line in f.readlines():
+            if line.startswith("VERSION"):
+                return line.strip().split(" = ")[-1]
+
+    raise Exception(f"Version not found in {config_file}")
+
+
 def get_dir_args(*dirs: List[str]) -> List[str]:
     return [arg for dir_ in dirs for arg in ("--", dir_)]
 
@@ -72,7 +83,14 @@ def find_changed_svcs(sha: str):
             svc = "pulse3d_api"
 
         # need to output the pulse3d package version so it can be included in the name of the pulse3d-worker docker image
-        version = parse_py_dep_version(ch_path, "pulse3d") if svc == "pulse3d-worker" else "latest"
+        if svc == "pulse3d-worker":
+            version = parse_py_dep_version(ch_path, "pulse3d")
+        elif dep_type == "deployments":
+            # get version from service config to tag docker images
+            version = get_svc_version(ch_path)
+        else:
+            # protecting any missed changes
+            version = "latest"
 
         list_to_return.append({"path": ch_path, "deployment": dep_name, "service": svc, "version": version})
 
