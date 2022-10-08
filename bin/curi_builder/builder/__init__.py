@@ -82,9 +82,8 @@ def find_changed_svcs(sha: str):
             svc = "pulse3d_api"
 
         # need to output the pulse3d package version so it can be included in the name of the pulse3d-worker docker image
-        version = (
-            parse_py_dep_version(ch_path, "pulse3d") if svc == "pulse3d-worker" else get_svc_version(ch_path)
-        )
+        version = parse_py_dep_version(ch_path, "pulse3d") if svc == "pulse3d-worker" else get_svc_version(ch_path)
+        
 
         list_to_return.append({"path": ch_path, "deployment": dep_name, "service": svc, "version": version})
 
