@@ -182,16 +182,13 @@ export default function Uploads() {
 
   useEffect(() => {
     setTimeout(async () => {
-      // don't call get jobs if downloading ro deleting in progress because it backs up server
+      // don't call get jobs if downloading or deleting in progress because it backs up server
       if (!["downloading", "deleting"].includes(modalState) && updateData) {
         await getAllJobs();
         toggleUpdateData(!updateData);
       }
     }, [1e4]);
   }, [updateData]);
-  useEffect(() => {
-    console.log("checked time out in the effect is : " + checkedJobs);
-  }, [checkedJobs]);
 
   useEffect(() => {
     if (displayRows.length > 0) {
@@ -200,7 +197,7 @@ export default function Uploads() {
       }, 5000);
     }
   }, [displayRows]);
-  const tofilterField =
+  const toFilterField =
     accountType === "admin"
       ? {
           Owner: "username",
@@ -220,12 +217,12 @@ export default function Uploads() {
   useEffect(() => {
     const newList = rows.filter((row) => {
       //if the column being filtered is a date
-      if (tofilterField[filtercolumn] === "createdAt" || tofilterField[filtercolumn] === "lastAnalyzed") {
-        return row[tofilterField[filtercolumn]]
+      if (toFilterField[filtercolumn] === "createdAt" || toFilterField[filtercolumn] === "lastAnalyzed") {
+        return row[toFilterField[filtercolumn]]
           .toLocaleLowerCase()
           .includes(filterString.toLocaleLowerCase());
-      } else if (row[tofilterField[filtercolumn]]) {
-        return row[tofilterField[filtercolumn]].includes(filterString);
+      } else if (row[toFilterField[filtercolumn]]) {
+        return row[toFilterField[filtercolumn]].includes(filterString);
       }
     });
     setDisplayRows(newList);
@@ -256,7 +253,6 @@ export default function Uploads() {
           const parsedMeta = JSON.parse(meta);
           const analysisParams = parsedMeta.analysis_params;
           const isChecked = checkedJobs.includes(id);
-          console.log(checkedJobs.includes(id) + " : maybe");
           return {
             jobId: id,
             uploadId: upload_id,
@@ -302,14 +298,10 @@ export default function Uploads() {
     getAllJobs();
     // start 10 second interval
 
-    setTimeout(() => {
-      // don't call get jobs if downloading ro deleting in progress because it backs up server
-      if (!["downloading", "deleting"].includes(modalState)) {
-        toggleUpdateData(!updateData);
-      } //getAllJobs();
-    }, [1e4]);
-    //clear interval when switching pages
-    //return () => clearInterval(uploadsInterval);
+    // don't call get jobs if downloading or deleting in progress because it backs up server
+    if (!["downloading", "deleting"].includes(modalState)) {
+      toggleUpdateData(!updateData);
+    }
   }, [uploads]);
 
   useEffect(() => {
@@ -322,7 +314,6 @@ export default function Uploads() {
           .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
 
         const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
-        console.log();
         return {
           username,
           name: recName,

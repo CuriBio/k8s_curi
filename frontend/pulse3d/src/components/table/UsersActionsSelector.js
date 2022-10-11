@@ -32,7 +32,7 @@ export default function UsersActionSelector(props) {
         >
           Delete
         </button>
-        {!props.data.suspended ? (
+        {!props.data.suspended && (
           <button
             onClick={() => {
               buttonAction("deactivate");
@@ -40,7 +40,7 @@ export default function UsersActionSelector(props) {
           >
             Deactivate
           </button>
-        ) : null}
+        )}
       </Container>
     </>
   );

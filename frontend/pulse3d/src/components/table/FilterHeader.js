@@ -1,4 +1,3 @@
-import { CheckBox } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import styled from "styled-components";
 const InputsContainer = styled.div`
@@ -25,34 +24,21 @@ export default function FilterHeader(props) {
     props.setFilterString(input);
   }, [input]);
 
-  const searchFields = props.columns.map((column, idx) => {
-    if (!props.loading) {
-      return column === "" ? (
-        <input
-          disabled
-          key={idx}
-          className="searchBox"
-          type="text"
-          onChange={(e) => {
-            setInput(e.target.value);
-            setColumnName(column);
-          }}
-          style={{ backgroundColor: "var(--dark-blue)", border: "none" }}
-        />
-      ) : (
-        <input
-          key={idx}
-          id={column}
-          className="searchBox"
-          type="text"
-          placeholder={`Search ${column}`}
-          onChange={(e) => {
-            setInput(e.target.value);
-            setColumnName(column);
-          }}
-        />
-      );
-    }
-  });
+  const searchFields = props.columns.map((column, idx) => (
+    <input
+      //if a "" is passed in as a column label then disable it.
+      disabled={column === ""}
+      key={idx}
+      id={column}
+      className="searchBox"
+      type="text"
+      placeholder={column !== "" ? `Search ${column}` : null}
+      onChange={(e) => {
+        setInput(e.target.value);
+        setColumnName(column);
+      }}
+      style={column === "" ? { backgroundColor: "var(--dark-blue)", border: "none" } : null}
+    />
+  ));
   return <InputsContainer>{searchFields}</InputsContainer>;
 }

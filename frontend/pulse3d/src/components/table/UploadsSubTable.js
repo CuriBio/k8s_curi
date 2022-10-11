@@ -40,14 +40,8 @@ export default memo(function UploadsSubTable(props) {
           type="checkbox"
           checked={isChecked[idx]}
           onChange={() => {
-            if (!isChecked[idx]) {
-              props.setJobToEdit({ id: job.jobId, action: "add" });
-
-              setIsChecked(isChecked.map((checked, index) => (idx === index ? !checked : checked)));
-            } else {
-              props.setJobToEdit({ id: job.jobId, action: "remove" });
-              setIsChecked(isChecked.map((checked, index) => (idx === index ? !checked : checked)));
-            }
+            props.setJobToEdit({ id: job.jobId, action: isChecked[idx] ? "remove" : "add" });
+            setIsChecked(isChecked.map((checked, index) => (idx === index ? !checked : checked)));
           }}
         />
         <SubRow>{job.jobId}</SubRow>
