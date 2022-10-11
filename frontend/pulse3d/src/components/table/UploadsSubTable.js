@@ -27,10 +27,12 @@ export default memo(function UploadsSubTable(props) {
     Object.keys(job.analysisParams).forEach((param) => {
       if (job.analysisParams[param] !== null) {
         if (param === "peaks_valleys") {
-          paramsString.push(<div key={Math.random()}>{`${param} : user set`}</div>);
+          paramsString.push(<div key={Math.random()}>{`${param.replace("_", " ")} : user set`}</div>);
           return;
         }
-        paramsString.push(<div key={Math.random()}>{`${param} : ${job.analysisParams[param]}`}</div>);
+        paramsString.push(
+          <div key={Math.random()}>{`${param.replace("_", " ")} : ${job.analysisParams[param]}`}</div>
+        );
       }
     });
 
