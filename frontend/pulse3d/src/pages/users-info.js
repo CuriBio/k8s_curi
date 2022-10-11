@@ -123,9 +123,7 @@ export default function UserInfo() {
   //when user data changes make sure to refilter the results
   useEffect(() => {
     if (usersData.length > 0 && filtercolumn.length > 0) {
-      const newList = usersData.filter((user) =>
-        user[toUserField[filtercolumn]].includes(filterString)
-      );
+      const newList = usersData.filter((user) => user[toUserField[filtercolumn]].includes(filterString));
       setDisplayData(newList);
     }
   }, [usersData]);
@@ -141,10 +139,7 @@ export default function UserInfo() {
     const newList = usersData.filter((user) => {
       //if the column containes date data
       //TODO add better date filter
-      if (
-        toUserField[filtercolumn] === "created_at" ||
-        toUserField[filtercolumn] === "last_login"
-      ) {
+      if (toUserField[filtercolumn] === "created_at" || toUserField[filtercolumn] === "last_login") {
         return formatDateTime(user[toUserField[filtercolumn]])
           .toLocaleLowerCase()
           .includes(filterString.toLocaleLowerCase());
@@ -156,11 +151,7 @@ export default function UserInfo() {
   }, [filterString]);
 
   const ExpandedComponent = ({ data }) => (
-    <UsersActionSelector
-      data={data}
-      getAllUsers={getAllUsers}
-      setUsersData={setUsersData}
-    />
+    <UsersActionSelector data={data} getAllUsers={getAllUsers} setUsersData={setUsersData} />
   );
   return (
     <>

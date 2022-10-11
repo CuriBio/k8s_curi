@@ -1,9 +1,7 @@
 import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
-import DashboardLayout, {
-  UploadsContext,
-} from "@/components/layouts/DashboardLayout";
+import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
 import { useContext, useState, useEffect } from "react";
 import InteractiveAnalysisModal from "@/components/uploads/InteractiveAnalysisModal";
@@ -132,17 +130,11 @@ const ModalSpinnerContainer = styled.div`
 const modalObjs = {
   delete: {
     header: "Are you sure?",
-    messages: [
-      "Please confirm the deletion.",
-      "Be aware that this action cannot be undone.",
-    ],
+    messages: ["Please confirm the deletion.", "Be aware that this action cannot be undone."],
   },
   downloadError: {
     header: "Error Occurred!",
-    messages: [
-      "An error occurred while attempting to download.",
-      "Please try again.",
-    ],
+    messages: ["An error occurred while attempting to download.", "Please try again."],
   },
   empty: {
     header: null,
@@ -157,10 +149,7 @@ const modalObjs = {
   },
   failedDeletion: {
     header: "Error Occurred!",
-    messages: [
-      "There was an issue while deleting the files you selected.",
-      "Please try again later.",
-    ],
+    messages: ["There was an issue while deleting the files you selected.", "Please try again later."],
   },
   nothingToDownload: {
     header: "Oops..",
@@ -189,10 +178,26 @@ export default function Uploads() {
   const [pending, setPending] = useState(true);
   const [filterString, setFilterString] = useState("");
   const [filtercolumn, setFilterColumn] = useState("");
+  const [updateData, toggleUpdateData] = useState(false);
+
+  useEffect(() => {
+    setTimeout(async () => {
+      // don't call get jobs if downloading ro deleting in progress because it backs up server
+      if (!["downloading", "deleting"].includes(modalState) && updateData) {
+        await getAllJobs();
+        toggleUpdateData(!updateData);
+      }
+    }, [1e4]);
+  }, [updateData]);
+  useEffect(() => {
+    console.log("checked time out in the effect is : " + checkedJobs);
+  }, [checkedJobs]);
 
   useEffect(() => {
     if (displayRows.length > 0) {
-      setPending(false);
+      setTimeout(() => {
+        setPending(false);
+      }, 5000);
     }
   }, [displayRows]);
   const tofilterField =
@@ -215,10 +220,7 @@ export default function Uploads() {
   useEffect(() => {
     const newList = rows.filter((row) => {
       //if the column being filtered is a date
-      if (
-        tofilterField[filtercolumn] === "createdAt" ||
-        tofilterField[filtercolumn] === "lastAnalyzed"
-      ) {
+      if (tofilterField[filtercolumn] === "createdAt" || tofilterField[filtercolumn] === "lastAnalyzed") {
         return row[tofilterField[filtercolumn]]
           .toLocaleLowerCase()
           .includes(filterString.toLocaleLowerCase());
@@ -245,37 +247,29 @@ export default function Uploads() {
 
   const getAllJobs = async () => {
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?download=False`
-      );
-
+      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?download=False`);
       if (response && response.status === 200) {
         const { jobs } = await response.json();
-
-        jobs = jobs.map(
-          ({ id, upload_id, created_at, object_key, status, meta }) => {
-            const analyzedFile = object_key
-              ? object_key.split("/")[object_key.split("/").length - 1]
-              : "";
-            const formattedTime = formatDateTime(created_at);
-            const parsedMeta = JSON.parse(meta);
-            const analysisParams = parsedMeta.analysis_params;
-
-            return {
-              jobId: id,
-              uploadId: upload_id,
-              analyzedFile,
-              datetime: formattedTime,
-              status,
-              analysisParams,
-              // version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
-              version: "0.25.2",
-              checked: false,
-            };
-          }
-        );
-
-        setJobs(jobs);
+        const newJobs = jobs.map(({ id, upload_id, created_at, object_key, status, meta }) => {
+          const analyzedFile = object_key ? object_key.split("/")[object_key.split("/").length - 1] : "";
+          const formattedTime = formatDateTime(created_at);
+          const parsedMeta = JSON.parse(meta);
+          const analysisParams = parsedMeta.analysis_params;
+          const isChecked = checkedJobs.includes(id);
+          console.log(checkedJobs.includes(id) + " : maybe");
+          return {
+            jobId: id,
+            uploadId: upload_id,
+            analyzedFile,
+            datetime: formattedTime,
+            status,
+            analysisParams,
+            // version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
+            version: "0.25.2",
+            checked: isChecked,
+          };
+        });
+        setJobs(newJobs);
       }
     } catch (e) {
       console.log("ERROR fetching jobs in /uploads");
@@ -307,13 +301,15 @@ export default function Uploads() {
   useEffect(() => {
     getAllJobs();
     // start 10 second interval
-    /*
-    const uploadsInterval = setInterval(() => {
+
+    setTimeout(() => {
       // don't call get jobs if downloading ro deleting in progress because it backs up server
-      if (!["downloading", "deleting"].includes(modalState)) getAllJobs();
+      if (!["downloading", "deleting"].includes(modalState)) {
+        toggleUpdateData(!updateData);
+      } //getAllJobs();
     }, [1e4]);
     //clear interval when switching pages
-    return () => clearInterval(uploadsInterval);*/
+    //return () => clearInterval(uploadsInterval);
   }, [uploads]);
 
   useEffect(() => {
@@ -325,10 +321,8 @@ export default function Uploads() {
           .filter(({ uploadId }) => uploadId === id)
           .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
 
-        const lastAnalyzed = uploadJobs[0]
-          ? uploadJobs[0].datetime
-          : formattedTime;
-
+        const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
+        console.log();
         return {
           username,
           name: recName,
@@ -336,7 +330,6 @@ export default function Uploads() {
           createdAt: formattedTime,
           lastAnalyzed,
           jobs: uploadJobs,
-          checked: false,
         };
       })
       .sort((a, b) => new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed));
@@ -445,8 +438,7 @@ export default function Uploads() {
     try {
       // removes any jobs with error + pending statuses
       const finishedJobs = jobs.filter(
-        ({ jobId, status }) =>
-          checkedJobs.includes(jobId) && status === "finished"
+        ({ jobId, status }) => checkedJobs.includes(jobId) && status === "finished"
       );
       const numberOfJobs = finishedJobs.length;
 
@@ -553,9 +545,7 @@ export default function Uploads() {
           () =>
             reader
               .read()
-              .then(({ value, done }) =>
-                done ? writer.close() : writer.write(value).then(pump)
-              )();
+              .then(({ value, done }) => (done ? writer.close() : writer.write(value).then(pump)))();
         }
       } else {
         throw Error();
@@ -618,17 +608,12 @@ export default function Uploads() {
               label="Actions"
               options={["Download", "Delete", "Interactive Analysis"]}
               disableOptions={[
-                ...Array(2).fill(
-                  checkedJobs.length === 0 && checkedUploads.length === 0
-                ),
+                ...Array(2).fill(checkedJobs.length === 0 && checkedUploads.length === 0),
                 checkedJobs.length !== 1 ||
-                  jobs.filter((job) => job.jobId === checkedJobs[0])[0]
-                    .status !== "finished",
+                  jobs.filter((job) => job.jobId === checkedJobs[0])[0].status !== "finished",
               ]}
               optionsTooltipText={[
-                ...Array(2).fill(
-                  "Must make a selection below before actions become available."
-                ),
+                ...Array(2).fill("Must make a selection below before actions become available."),
                 "You must select one successful job to enable interactive analysis.",
               ]}
               handleSelection={handleDropdownSelection}
@@ -638,9 +623,7 @@ export default function Uploads() {
           <Container>
             <DataTable
               data={displayRows}
-              columns={
-                accountType === "admin" ? adminColumns : noneAdminColumns
-              }
+              columns={accountType === "admin" ? adminColumns : noneAdminColumns}
               pagination
               expandableRows
               expandableRowsComponent={ExpandedComponent}
@@ -655,13 +638,7 @@ export default function Uploads() {
                 <FilterHeader
                   columns={
                     accountType === "admin"
-                      ? [
-                          "Owner",
-                          "Recording",
-                          "ID",
-                          "Date Created",
-                          "Last Anylyzed",
-                        ]
+                      ? ["Owner", "Recording", "ID", "Date Created", "Last Anylyzed"]
                       : ["Recording", "ID", "Date Created", "Last Anylyzed"]
                   }
                   setFilterString={setFilterString}
@@ -698,11 +675,7 @@ export default function Uploads() {
         open={["downloading", "deleting"].includes(modalState)}
         labels={[]}
         buttons={[]}
-        header={
-          modalState === "downloading"
-            ? "Downloading in progress..."
-            : "Deleting in progress..."
-        }
+        header={modalState === "downloading" ? "Downloading in progress..." : "Deleting in progress..."}
       >
         <ModalSpinnerContainer>
           <CircularSpinner size={200} color={"secondary"} />

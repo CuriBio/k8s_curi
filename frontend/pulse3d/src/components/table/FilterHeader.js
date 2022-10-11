@@ -1,3 +1,4 @@
+import { CheckBox } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import styled from "styled-components";
 const InputsContainer = styled.div`
@@ -12,13 +13,11 @@ export default function FilterHeader(props) {
   //when collumn changes then reset all inputs
   useEffect(() => {
     props.setFilterColumn(columnName);
-    Array.from(document.getElementsByClassName("searchBox")).forEach(
-      (input) => {
-        if (input.id !== columnName) {
-          input.value = "";
-        }
+    Array.from(document.getElementsByClassName("searchBox")).forEach((input) => {
+      if (input.id !== columnName) {
+        input.value = "";
       }
-    );
+    });
   }, [columnName]);
 
   //when input changes update the filterstring

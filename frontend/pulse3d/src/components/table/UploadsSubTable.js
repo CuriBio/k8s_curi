@@ -21,24 +21,16 @@ const SubRow = styled.div`
 `;
 
 export default memo(function UploadsSubTable(props) {
-  const [isChecked, setIsChecked] = useState(
-    props.jobs.map((job) => job.checked)
-  );
+  const [isChecked, setIsChecked] = useState(props.jobs.map((job) => job.checked));
   const rows = props.jobs.map((job, idx) => {
     let paramsString = [];
     Object.keys(job.analysisParams).forEach((param) => {
       if (job.analysisParams[param] !== null) {
         if (param === "peaks_valleys") {
-          paramsString.push(
-            <div key={Math.random()}>{`${param} : user set`}</div>
-          );
+          paramsString.push(<div key={Math.random()}>{`${param} : user set`}</div>);
           return;
         }
-        paramsString.push(
-          <div key={Math.random()}>
-            {`${param} : ${job.analysisParams[param]}`}
-          </div>
-        );
+        paramsString.push(<div key={Math.random()}>{`${param} : ${job.analysisParams[param]}`}</div>);
       }
     });
 
@@ -51,18 +43,10 @@ export default memo(function UploadsSubTable(props) {
             if (!isChecked[idx]) {
               props.setJobToEdit({ id: job.jobId, action: "add" });
 
-              setIsChecked(
-                isChecked.map((checked, index) =>
-                  idx === index ? !checked : checked
-                )
-              );
+              setIsChecked(isChecked.map((checked, index) => (idx === index ? !checked : checked)));
             } else {
               props.setJobToEdit({ id: job.jobId, action: "remove" });
-              setIsChecked(
-                isChecked.map((checked, index) =>
-                  idx === index ? !checked : checked
-                )
-              );
+              setIsChecked(isChecked.map((checked, index) => (idx === index ? !checked : checked)));
             }
           }}
         />
