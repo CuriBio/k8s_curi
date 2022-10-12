@@ -27,7 +27,7 @@ export default memo(function UploadsSubTable(props) {
     Object.keys(job.analysisParams).forEach((param) => {
       if (job.analysisParams[param] !== null) {
         const paramVal = param === "peaks_valleys" ? "user set" : job.analysisParams[param];
-        paramsString.push(<div key={Math.random()}> {`${param.replace("_", " ")}: ${paramVal}`}</div>);
+        paramsString.push(<div key={job.jobId + param}> {`${param.replace("_", " ")}: ${paramVal}`}</div>);
       }
     });
 
