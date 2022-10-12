@@ -50,12 +50,15 @@ export default function DashboardLayout({ children }) {
       const testingVersions = versions.filter(({ state }) => state === "testing");
       const externalVersions = versions.filter(({ state }) => state === "external");
 
+      // sort versions in testing state and add [testing] tag to UI
+      // testing versions only to be used in test cluster
       const sortedTestingVersions = semverRsort(testingVersions.map(({ version }) => version)).map(
         (version) => version + " " + "[ testing ]"
       );
+      // sort versions in external state, no tag required
       const sortedExternalVersions = semverRsort(externalVersions.map(({ version }) => version));
 
-      if (process.env.NODE_ENV === "development") {
+      if (process.env.NEXT_PUBLIC_CLUSTER === "test") {
         setPulse3dVersions([...sortedExternalVersions, ...sortedTestingVersions]);
       } else {
         setPulse3dVersions(sortedExternalVersions);
