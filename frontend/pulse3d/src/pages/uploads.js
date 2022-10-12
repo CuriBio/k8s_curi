@@ -1,20 +1,90 @@
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
-import Paper from "@mui/material/Paper";
 import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
 import { useContext, useState, useEffect } from "react";
-import Row from "@/components/uploads/TableRow";
 import InteractiveAnalysisModal from "@/components/uploads/InteractiveAnalysisModal";
 import { AuthContext } from "@/pages/_app";
-
+import DataTable from "react-data-table-component";
+import FilterHeader from "@/components/table/FilterHeader";
+import UploadsSubTable from "@/components/table/UploadsSubTable";
+let adminColumns = [
+  {
+    name: "File Owner",
+    center: true,
+    sortable: true,
+    selector: (row) => row.username,
+  },
+  {
+    name: "Recording Name",
+    center: true,
+    sortable: true,
+    selector: (row) => (row.name ? row.name : "none"),
+  },
+  {
+    name: "Upload ID",
+    center: true,
+    sortable: true,
+    selector: (row) => row.id,
+  },
+  {
+    name: "Created Date",
+    center: true,
+    sortable: true,
+    selector: (row) => row.createdAt,
+  },
+  {
+    name: "Last Analyzed",
+    center: true,
+    sortable: true,
+    selector: (row) => row.lastAnalyzed,
+  },
+];
+let noneAdminColumns = [
+  {
+    name: "Recording Name",
+    center: true,
+    sortable: true,
+    selector: (row) => (row.name ? row.name : "none"),
+  },
+  {
+    name: "Upload ID",
+    center: true,
+    sortable: true,
+    selector: (row) => row.id,
+  },
+  {
+    name: "Created Date",
+    center: true,
+    sortable: true,
+    selector: (row) => row.createdAt,
+  },
+  {
+    name: "Last Analyzed",
+    center: true,
+    sortable: true,
+    selector: (row) => row.lastAnalyzed,
+  },
+];
+const customStyles = {
+  headRow: {
+    style: {
+      backgroundColor: "var(--dark-blue)",
+      color: "white",
+    },
+  },
+  subHeader: {
+    style: {
+      backgroundColor: "var(--dark-blue)",
+    },
+  },
+  rows: {
+    style: {
+      backgroundColor: "var(--light-gray)",
+    },
+  },
+};
 const Container = styled.div`
   display: flex;
   position: relative;
@@ -95,6 +165,7 @@ export default function Uploads() {
   const { uploads, setFetchUploads } = useContext(UploadsContext);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
+  const [displayRows, setDisplayRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [checkedJobs, setCheckedJobs] = useState([]);
   const [checkedUploads, setCheckedUploads] = useState([]);
@@ -104,6 +175,58 @@ export default function Uploads() {
   const [modalButtons, setModalButtons] = useState([]);
   const [openInteractiveAnalysis, setOpenInteractiveAnalysis] = useState(false);
   const [selectedAnalysis, setSelectedAnalysis] = useState();
+  const [pending, setPending] = useState(true);
+  const [filterString, setFilterString] = useState("");
+  const [filtercolumn, setFilterColumn] = useState("");
+  const [updateData, toggleUpdateData] = useState(false);
+
+  useEffect(() => {
+    setTimeout(async () => {
+      // don't call get jobs if downloading or deleting in progress because it backs up server
+      if (!["downloading", "deleting"].includes(modalState) && updateData) {
+        await getAllJobs();
+        toggleUpdateData(!updateData);
+      }
+    }, [1e4]);
+  }, [updateData]);
+
+  useEffect(() => {
+    if (displayRows.length > 0) {
+      setTimeout(() => {
+        setPending(false);
+      }, 5000);
+    }
+  }, [displayRows]);
+  const toFilterField =
+    accountType === "admin"
+      ? {
+          Owner: "username",
+          Recording: "name",
+          ID: "id",
+          "Date Created": "createdAt",
+          "Last Anylyzed": "lastAnalyzed",
+        }
+      : {
+          Recording: "name",
+          ID: "id",
+          "Date Created": "createdAt",
+          "Last Anylyzed": "lastAnalyzed",
+        };
+
+  //when filter string changes refilter results
+  useEffect(() => {
+    const newList = rows.filter((row) => {
+      //if the column being filtered is a date
+      if (toFilterField[filtercolumn] === "createdAt" || toFilterField[filtercolumn] === "lastAnalyzed") {
+        return row[toFilterField[filtercolumn]]
+          .toLocaleLowerCase()
+          .includes(filterString.toLocaleLowerCase());
+      } else if (row[toFilterField[filtercolumn]]) {
+        return row[toFilterField[filtercolumn]].includes(filterString);
+      }
+    });
+    setDisplayRows(newList);
+  }, [filterString]);
 
   useEffect(() => {
     if (!openInteractiveAnalysis) {
@@ -116,21 +239,20 @@ export default function Uploads() {
     setResetDropdown(true);
     setCheckedUploads([]);
     setCheckedJobs([]);
+    getAllJobs();
   };
 
   const getAllJobs = async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?download=False`);
-
       if (response && response.status === 200) {
         const { jobs } = await response.json();
-
-        jobs = jobs.map(({ id, upload_id, created_at, object_key, status, meta }) => {
+        const newJobs = jobs.map(({ id, upload_id, created_at, object_key, status, meta }) => {
           const analyzedFile = object_key ? object_key.split("/")[object_key.split("/").length - 1] : "";
           const formattedTime = formatDateTime(created_at);
           const parsedMeta = JSON.parse(meta);
           const analysisParams = parsedMeta.analysis_params;
-
+          const isChecked = checkedJobs.includes(id);
           return {
             jobId: id,
             uploadId: upload_id,
@@ -140,10 +262,10 @@ export default function Uploads() {
             analysisParams,
             // version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
             version: "0.25.2",
+            checked: isChecked,
           };
         });
-
-        setJobs(jobs);
+        setJobs(newJobs);
       }
     } catch (e) {
       console.log("ERROR fetching jobs in /uploads");
@@ -175,12 +297,11 @@ export default function Uploads() {
   useEffect(() => {
     getAllJobs();
     // start 10 second interval
-    const uploadsInterval = setInterval(() => {
-      // don't call get jobs if downloading ro deleting in progress because it backs up server
-      if (!["downloading", "deleting"].includes(modalState)) getAllJobs();
-    }, [1e4]);
-    //clear interval when switching pages
-    return () => clearInterval(uploadsInterval);
+
+    // don't call get jobs if downloading or deleting in progress because it backs up server
+    if (!["downloading", "deleting"].includes(modalState)) {
+      toggleUpdateData(!updateData);
+    }
   }, [uploads]);
 
   useEffect(() => {
@@ -193,7 +314,6 @@ export default function Uploads() {
           .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
 
         const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
-
         return {
           username,
           name: recName,
@@ -206,6 +326,7 @@ export default function Uploads() {
       .sort((a, b) => new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed));
 
     setRows([...formattedUploads]);
+    setDisplayRows([...formattedUploads]);
     setLoading(false);
   }, [jobs]);
 
@@ -428,7 +549,46 @@ export default function Uploads() {
       throw Error();
     }
   };
-
+  const ExpandedComponent = ({ data }) => {
+    const [jobToEdit, setJobToEdit] = useState();
+    //takes care of adding the state of checked jobs
+    useEffect(() => {
+      if (jobToEdit) {
+        if (jobToEdit.action === "add") {
+          for (let i = 0; i < jobs.length; i++) {
+            if (jobs[i].jobId === jobToEdit.id) {
+              jobs[i].checked = true;
+              setCheckedJobs([...checkedJobs, jobs[i].jobId]);
+              return;
+            }
+          }
+        } else if (jobToEdit.action === "remove") {
+          for (let i = 0; i < jobs.length; i++) {
+            if (jobs[i].jobId === jobToEdit.id) {
+              jobs[i].checked = false;
+              if (checkedJobs.length === 1) {
+                setCheckedJobs([]);
+                return;
+              }
+              let temp = checkedJobs;
+              const location = temp.indexOf(jobToEdit.id);
+              temp.splice(location, 1);
+              setCheckedJobs(temp);
+              return;
+            }
+          }
+        }
+      }
+    }, [jobToEdit]);
+    return (
+      <UploadsSubTable
+        jobs={data.jobs}
+        setJobToEdit={(e) => {
+          setJobToEdit(e);
+        }}
+      />
+    );
+  };
   return (
     <>
       {loading ? (
@@ -455,79 +615,39 @@ export default function Uploads() {
             />
           </DropDownContainer>
           <Container>
-            <TableContainer component={Paper} sx={{ backgroundColor: "var(--light-gray" }}>
-              <Table aria-label="collapsible table" size="small">
-                <TableHead
-                  sx={{
-                    backgroundColor: "var(--dark-blue)",
-                  }}
-                >
-                  <TableRow
-                    sx={{
-                      height: "60px",
-                    }}
-                  >
-                    <TableCell />
-                    {accountType === "admin" && (
-                      <TableCell
-                        sx={{
-                          color: "var(--light-gray)",
-                        }}
-                      >
-                        USERNAME&nbsp;OF&nbsp;FILE&nbsp;OWNER
-                      </TableCell>
-                    )}
-                    <TableCell
-                      sx={{
-                        color: "var(--light-gray)",
-                      }}
-                    >
-                      RECORDING&nbsp;NAME
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: "var(--light-gray)",
-                      }}
-                      align="center"
-                    >
-                      UPLOAD&nbsp;ID
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: "var(--light-gray)",
-                      }}
-                      align="center"
-                    >
-                      CREATED&nbsp;AT
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: "var(--light-gray)",
-                      }}
-                      align="center"
-                    >
-                      LAST&nbsp;ANALYZED
-                    </TableCell>
-                    <TableCell />
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {rows.map((row) => (
-                    <Row
-                      key={row.id}
-                      row={row}
-                      setCheckedJobs={setCheckedJobs}
-                      checkedJobs={checkedJobs}
-                      setCheckedUploads={setCheckedUploads}
-                      checkedUploads={checkedUploads}
-                      setModalLabels={setModalLabels}
-                      setModalButtons={setModalButtons}
-                      setModalState={setModalState}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+            <DataTable
+              data={displayRows}
+              columns={accountType === "admin" ? adminColumns : noneAdminColumns}
+              pagination
+              expandableRows
+              expandableRowsComponent={ExpandedComponent}
+              customStyles={customStyles}
+              progressPending={pending}
+              progressComponent={<CircularSpinner />}
+              selectableRows
+              selectableRowsNoSelectAll
+              subHeader
+              subHeaderAlign="left"
+              subHeaderComponent={
+                <FilterHeader
+                  columns={
+                    accountType === "admin"
+                      ? ["Owner", "Recording", "ID", "Date Created", "Last Anylyzed"]
+                      : ["Recording", "ID", "Date Created", "Last Anylyzed"]
+                  }
+                  setFilterString={setFilterString}
+                  setFilterColumn={setFilterColumn}
+                  loading={pending}
+                />
+              }
+              onSelectedRowsChange={({ selectedRows, selectedCount }) => {
+                let arr = [];
+                for (let i = 0; i < selectedCount; i++) {
+                  arr.push(selectedRows[i].id);
+                }
+                setCheckedUploads(arr);
+              }}
+            />
           </Container>
         </PageContainer>
       ) : (

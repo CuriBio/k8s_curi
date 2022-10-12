@@ -379,7 +379,6 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=["use
     query = (
         "SELECT id, name, email, created_at, last_login, suspended FROM users "
         "WHERE customer_id=$1 AND deleted_at IS NULL "
-        "ORDER BY suspended"
     )
 
     try:
