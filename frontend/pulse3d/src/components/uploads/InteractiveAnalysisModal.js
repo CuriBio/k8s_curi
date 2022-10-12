@@ -158,7 +158,8 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
 
   useEffect(() => {
     // only available for versions greater than 0.25.2 when peaks_valley param was added
-    const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.25.2"));
+    // remove [testing] if being used
+    const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v.split(" ")[0], "0.25.2"));
     setFilteredVersions([...compatibleVersions]);
 
     // check sessionStorage for saved data
@@ -275,7 +276,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
         peaks_valleys: editablePeaksValleys,
         start_time: editableStartEndTimes.startTime,
         end_time: editableStartEndTimes.endTime,
-        version: filteredVersions[pulse3dVersionIdx],
+        version: filteredVersions[pulse3dVersionIdx].split(" ")[0], // remove [testing] if being used
       };
 
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
