@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import styled from "styled-components";
 import OutlinedInput from "@mui/material/OutlinedInput";
 import Tooltip from "@mui/material/Tooltip";
-import { SignalWifiStatusbarNull } from "@mui/icons-material";
 
 const ErrorText = styled.span`
   color: red;
@@ -73,7 +72,7 @@ export default function DropDownWidget({
 
   useEffect(() => {
     // initialSelected needs to be the index of item
-    if (initialSelected != SignalWifiStatusbarNull) {
+    if (initialSelected != null) {
       handleChange(initialSelected);
     }
   }, []);
