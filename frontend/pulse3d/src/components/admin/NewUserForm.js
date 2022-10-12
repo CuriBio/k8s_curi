@@ -1,9 +1,10 @@
 import styled from "styled-components";
 import { useEffect, useState } from "react";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
-import { useRouter } from "next/router";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import FormInput from "../basicWidgets/FormInput";
 import ModalWidget from "../basicWidgets/ModalWidget";
+import Tooltip from "@mui/material/Tooltip";
 
 const InputContainer = styled.div`
   height: 460px;
@@ -14,6 +15,10 @@ const InputContainer = styled.div`
   align-items: center;
   padding: 5%;
   width: inherit;
+`;
+
+const TooltipText = styled.span`
+  font-size: 15px;
 `;
 
 const ModalContainer = styled.div`
@@ -27,6 +32,7 @@ const ModalContainer = styled.div`
   box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
     0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
+
 const ErrorText = styled.span`
   color: red;
   font-style: italic;
@@ -52,8 +58,21 @@ const ButtonContainer = styled.div`
   flex-direction: row;
 `;
 
+const Label = styled.label`
+  position: relative;
+  width: 80%;
+  height: 40px;
+  padding: 5px;
+  line-height: 2;
+  display: flex;
+`;
+
+const TooltipContainer = styled.div`
+  position: relative;
+  margin-left: 5px;
+`;
+
 export default function NewUserForm() {
-  const router = useRouter();
   const [userData, setUserData] = useState({
     email: "",
     username: "",
@@ -64,7 +83,7 @@ export default function NewUserForm() {
   const [errorMsg, setErrorMsg] = useState("");
   const [inProgress, setInProgress] = useState(false);
   const [userCreatedVisible, setUserCreatedVisible] = useState(false);
-
+  const [passwordBorder, setPasswordBorder] = useState("none");
   const resetForm = () => {
     setErrorMsg(""); // reset to show user something happened
     setUserData({
@@ -73,6 +92,7 @@ export default function NewUserForm() {
       password1: "",
       password2: "",
     });
+    setPasswordBorder("none");
   };
 
   useEffect(() => resetForm(), []);
@@ -115,6 +135,23 @@ export default function NewUserForm() {
     if (errorMsg) setErrorMsg(`* ${errorMsg}`);
   };
 
+  const checkPasswordsMatch = () => {
+    if (userData.password2.length > 0) {
+      // if a user has started to enter values in the password confirmation input
+      // if the two passwords match, change border to green
+      if (userData.password2 === userData.password1) setPasswordBorder("3px solid green");
+      // else change to red if they aren't matching
+      else {
+        setErrorMsg("* Passwords do not match");
+        setPasswordBorder("3px solid red");
+      }
+    } else setPasswordBorder("none"); // else set the border to none if user isn't inputting anything
+  };
+
+  useEffect(() => {
+    checkPasswordsMatch();
+  }, [userData.password1, userData.password2]);
+
   return (
     <ModalContainer>
       <ModalWidget
@@ -154,9 +191,30 @@ export default function NewUserForm() {
             });
           }}
         />
+        <Label htmlFor="passwordOne">
+          Password{" "}
+          <TooltipContainer>
+            <Tooltip
+              sx={{
+                fontSize: "18px",
+                marginTop: "7px",
+                cursor: "pointer",
+              }}
+              title={
+                <TooltipText>
+                  <li>Must be at least 10 characters.</li>
+                  <li>
+                    Must contain at least one uppercase, one lowercase, one number, and one special character.
+                  </li>
+                </TooltipText>
+              }
+            >
+              <InfoOutlinedIcon />
+            </Tooltip>
+          </TooltipContainer>
+        </Label>
         <FormInput
           name="passwordOne"
-          label="Password"
           placeholder="Password"
           type="password"
           value={userData.password1}
@@ -167,10 +225,11 @@ export default function NewUserForm() {
               password1: e.target.value,
             });
           }}
+          borderStyle={passwordBorder}
         />
         <FormInput
           name="passwordTwo"
-          label="Password"
+          label="Confirm Password"
           placeholder="Password"
           type="password"
           value={userData.password2}
@@ -181,6 +240,7 @@ export default function NewUserForm() {
               password2: e.target.value,
             });
           }}
+          borderStyle={passwordBorder}
         />
         <ErrorText id="userError" role="errorMsg">
           {errorMsg}
