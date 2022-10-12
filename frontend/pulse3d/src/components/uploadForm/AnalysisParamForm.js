@@ -154,7 +154,13 @@ export default function AnalysisParamForm({
 
   const pulse3dVersionGte = (version) => {
     const { selectedPulse3dVersion } = inputVals;
-    return selectedPulse3dVersion && semverGte(selectedPulse3dVersion, version);
+
+    // this currently gets called on render when selectedPulse3dVersion is undefined
+    const versionNameOnly = selectedPulse3dVersion
+      ? selectedPulse3dVersion.split(" ")[0]
+      : selectedPulse3dVersion;
+
+    return selectedPulse3dVersion && semverGte(versionNameOnly, version);
   };
 
   const updateParams = (newParams) => {

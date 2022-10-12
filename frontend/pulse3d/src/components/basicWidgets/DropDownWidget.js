@@ -1,4 +1,3 @@
-import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
 import Select from "@mui/material/Select";
@@ -6,6 +5,7 @@ import { useEffect, useState } from "react";
 import styled from "styled-components";
 import OutlinedInput from "@mui/material/OutlinedInput";
 import Tooltip from "@mui/material/Tooltip";
+import { SignalWifiStatusbarNull } from "@mui/icons-material";
 
 const ErrorText = styled.span`
   color: red;
@@ -73,7 +73,7 @@ export default function DropDownWidget({
 
   useEffect(() => {
     // initialSelected needs to be the index of item
-    if (initialSelected != null) {
+    if (initialSelected != SignalWifiStatusbarNull) {
       handleChange(initialSelected);
     }
   }, []);
@@ -100,7 +100,7 @@ export default function DropDownWidget({
         input={<OutlinedInput />}
         MenuProps={MenuProps}
         onChange={handleDropdownChange}
-        value={selected}
+        value={options[selected] ? selected : ""}
         renderValue={(selected) => {
           /*
              Must be initialSelected === undefined and not !initialSelected,

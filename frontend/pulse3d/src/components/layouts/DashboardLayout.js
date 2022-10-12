@@ -47,8 +47,19 @@ export default function DashboardLayout({ children }) {
       const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/versions`);
       // sort in desc order so that the latest version shows up first
       const versions = await response.json();
-      const sortedVersions = semverRsort(versions);
-      setPulse3dVersions(sortedVersions);
+      const testingVersions = versions.filter(({ state }) => state === "testing");
+      const externalVersions = versions.filter(({ state }) => state === "external");
+
+      const sortedTestingVersions = semverRsort(testingVersions.map(({ version }) => version)).map(
+        (version) => version + " " + "[ testing ]"
+      );
+      const sortedExternalVersions = semverRsort(externalVersions.map(({ version }) => version));
+
+      if (process.env.NODE_ENV === "development") {
+        setPulse3dVersions([...sortedExternalVersions, ...sortedTestingVersions]);
+      } else {
+        setPulse3dVersions(sortedExternalVersions);
+      }
     } catch (e) {
       console.log(`ERROR getting pulse3d versions: ${e}`);
     }

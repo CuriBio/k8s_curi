@@ -192,6 +192,9 @@ export default function UploadForm() {
         stiffnessFactor,
       } = analysisParams;
 
+      const versionNumOnly =
+        selectedPulse3dVersion === "" ? pulse3dVersions[0] : selectedPulse3dVersion.split(" ")[0];
+
       const requestBody = {
         upload_id: uploadId,
         normalize_y_axis: yAxisNormalization,
@@ -202,12 +205,12 @@ export default function UploadForm() {
         start_time: startTime === "" ? null : startTime,
         end_time: endTime === "" ? null : endTime,
         // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
-        version: selectedPulse3dVersion === "" ? pulse3dVersions[0] : selectedPulse3dVersion,
+        version: versionNumOnly,
       };
-      if (semverGte(selectedPulse3dVersion, "0.25.0")) {
+      if (semverGte(versionNumOnly, "0.25.0")) {
         requestBody.max_y = maxY === "" ? null : maxY;
       }
-      if (semverGte(selectedPulse3dVersion, "0.27.0")) {
+      if (semverGte(versionNumOnly, "0.27.0")) {
         requestBody.stiffness_factor = stiffnessFactor === "" ? null : stiffnessFactor;
       }
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
@@ -220,7 +223,7 @@ export default function UploadForm() {
       }
     } catch (e) {
       failedUploadsMsg.push(filename);
-      console.log("ERROR posting new job");
+      console.log("ERROR posting new job", e);
     }
   };
 

@@ -51,7 +51,7 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[DASHBOARD_URL],
+    allow_origins=[DASHBOARD_URL, "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -530,7 +530,7 @@ async def get_versions(request: Request):
                 "SELECT * FROM pulse3d_versions WHERE state != 'deprecated' ORDER BY created_at"
             )
 
-        return [row["version"] for row in rows]
+        return [{"version": row["version"], "state": row["state"]} for row in rows]
 
     except Exception as e:
         logger.error(f"Failed to retrieve info of pulse3d versions: {repr(e)}")
