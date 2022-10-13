@@ -138,31 +138,47 @@ export default function NewUserForm() {
   };
 
   const checkPasswordsMatch = () => {
-    if (userData.password2.length > 0) {
-      // if a user has started to enter values in the password confirmation input
-      // if the two passwords match, change border to green
-      if (userData.password2 === userData.password1) {
-        setPassword2Border("3px solid green");
-        setErrorMsg("");
-        // else change to red if they aren't matching
+    // only update this state once initial password passes requirements to prevent multiple error messages
+    // preference for password requirement error message over not matching
+    if (password1Border.includes("green")) {
+      if (userData.password2.length > 0) {
+        // if a user has started to enter values in the password confirmation input
+        // if the two passwords match, change border to green
+        if (userData.password2 === userData.password1) {
+          setPassword2Border("3px solid green");
+          setErrorMsg("");
+          // else change to red if they aren't matching
+        } else {
+          setErrorMsg("* Passwords do not match");
+          setPassword2Border("3px solid red");
+        }
       } else {
-        setErrorMsg("* Passwords do not match");
-        setPassword2Border("3px solid red");
+        // else set the border to none if user isn't inputting anything
+        setPassword2Border("none");
+        setErrorMsg("");
       }
-    } else {
-      setPassword2Border("none"); // else set the border to none if user isn't inputting anything
-      setErrorMsg("");
     }
   };
 
   const validatePassword = () => {
+    // this removes all borders/error messages once a user has backspaced to an empty input field
     if (userData.password1.length > 0) {
+      // min 10 chars, one number, one uppercase, one lowercase, one special character
       const reqRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[@$!%*?&]).{10,}/;
       const isValid = reqRegex.test(userData.password1);
 
-      if (isValid) setPassword1Border("3px solid green");
-      else setPassword1Border("3px solid red");
-    } else setPassword1Border("none");
+      if (isValid) {
+        setPassword1Border("3px solid green");
+        setErrorMsg("");
+      } else {
+        setPassword1Border("3px solid red");
+        setErrorMsg("* Password does not meet requirements");
+      }
+    } else {
+      // else set the border to none if user isn't inputting anything
+      setPassword1Border("none");
+      setErrorMsg("");
+    }
   };
 
   useEffect(() => {
