@@ -154,7 +154,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     endTime: null,
   });
 
-  const { pulse3dVersions } = useContext(UploadsContext);
+  const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
 
   useEffect(() => {
     // only available for versions greater than 0.25.2 when peaks_valley param was added
@@ -553,7 +553,12 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
               </Tooltip>
             </VersionDropdownLabel>
             <DropDownWidget
-              options={filteredVersions}
+              options={filteredVersions.map((version) => {
+                const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
+                return selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing"
+                  ? version + " " + "[ testing ]"
+                  : version;
+              })}
               label="Select"
               reset={pulse3dVersionIdx === 0}
               handleSelection={handleVersionSelect}

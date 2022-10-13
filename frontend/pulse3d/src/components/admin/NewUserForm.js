@@ -139,13 +139,18 @@ export default function NewUserForm() {
     if (userData.password2.length > 0) {
       // if a user has started to enter values in the password confirmation input
       // if the two passwords match, change border to green
-      if (userData.password2 === userData.password1) setPasswordBorder("3px solid green");
-      // else change to red if they aren't matching
-      else {
+      if (userData.password2 === userData.password1) {
+        setPasswordBorder("3px solid green");
+        setErrorMsg("");
+        // else change to red if they aren't matching
+      } else {
         setErrorMsg("* Passwords do not match");
         setPasswordBorder("3px solid red");
       }
-    } else setPasswordBorder("none"); // else set the border to none if user isn't inputting anything
+    } else {
+      setPasswordBorder("none"); // else set the border to none if user isn't inputting anything
+      setErrorMsg("");
+    }
   };
 
   useEffect(() => {
@@ -219,7 +224,6 @@ export default function NewUserForm() {
           type="password"
           value={userData.password1}
           onChangeFn={(e) => {
-            setErrorMsg("");
             setUserData({
               ...userData,
               password1: e.target.value,
@@ -234,7 +238,6 @@ export default function NewUserForm() {
           type="password"
           value={userData.password2}
           onChangeFn={(e) => {
-            setErrorMsg("");
             setUserData({
               ...userData,
               password2: e.target.value,

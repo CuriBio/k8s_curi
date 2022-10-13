@@ -10,7 +10,7 @@ const columns = [
     name: "Status",
     center: true,
     sortable: true,
-    selector: (row) => (row.suspended ? "Deactive" : "Active"),
+    selector: (row) => (row.suspended ? "Inactive" : "Active"),
   },
   {
     name: "Name",
@@ -75,6 +75,11 @@ const Container = styled.div`
   padding: 0% 3% 3% 3%;
   margin-top: 1rem;
 `;
+
+const SpinnerContainer = styled.div`
+  margin: 50px;
+`;
+
 const formatDateTime = (datetime) => {
   if (datetime)
     return new Date(datetime + "Z").toLocaleDateString(undefined, {
@@ -167,7 +172,11 @@ export default function UserInfo() {
             pagination
             defaultSortFieldId={1}
             progressPending={loading}
-            progressComponent={<CircularSpinner />}
+            progressComponent={
+              <SpinnerContainer>
+                <CircularSpinner size={200} color={"secondary"} />
+              </SpinnerContainer>
+            }
             subHeader
             subHeaderComponent={
               <FilterHeader
