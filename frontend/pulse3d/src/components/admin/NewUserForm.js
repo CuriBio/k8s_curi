@@ -83,7 +83,8 @@ export default function NewUserForm() {
   const [errorMsg, setErrorMsg] = useState("");
   const [inProgress, setInProgress] = useState(false);
   const [userCreatedVisible, setUserCreatedVisible] = useState(false);
-  const [passwordBorder, setPasswordBorder] = useState("none");
+  const [password2Border, setPassword2Border] = useState("none");
+  const [password1Border, setPassword1Border] = useState("none");
   const resetForm = () => {
     setErrorMsg(""); // reset to show user something happened
     setUserData({
@@ -92,7 +93,8 @@ export default function NewUserForm() {
       password1: "",
       password2: "",
     });
-    setPasswordBorder("none");
+    setPassword2Border("none");
+    setPassword1Border("none");
   };
 
   useEffect(() => resetForm(), []);
@@ -139,16 +141,33 @@ export default function NewUserForm() {
     if (userData.password2.length > 0) {
       // if a user has started to enter values in the password confirmation input
       // if the two passwords match, change border to green
-      if (userData.password2 === userData.password1) setPasswordBorder("3px solid green");
-      // else change to red if they aren't matching
-      else {
+      if (userData.password2 === userData.password1) {
+        setPassword2Border("3px solid green");
+        setErrorMsg("");
+        // else change to red if they aren't matching
+      } else {
         setErrorMsg("* Passwords do not match");
-        setPasswordBorder("3px solid red");
+        setPassword2Border("3px solid red");
       }
-    } else setPasswordBorder("none"); // else set the border to none if user isn't inputting anything
+    } else {
+      setPassword2Border("none"); // else set the border to none if user isn't inputting anything
+      setErrorMsg("");
+    }
+  };
+
+  const validatePassword = () => {
+    if (userData.password1.length > 0) {
+      const reqRegex = new RegExp("^(?=.*[a-z])(?=.*[A-Z])(?=.*d)(?=.*[@$!%*?&])[A-Za-zd@$!%*?&]{10,}$");
+      console.log(reqRegex);
+      const isValid = reqRegex.test(userData.password1);
+      console.log(isValid);
+      if (isValid) setPassword1Border("3px solid green");
+      else setPassword1Border("3px solid red");
+    } else setPassword1Border("none");
   };
 
   useEffect(() => {
+    validatePassword();
     checkPasswordsMatch();
   }, [userData.password1, userData.password2]);
 
@@ -219,13 +238,12 @@ export default function NewUserForm() {
           type="password"
           value={userData.password1}
           onChangeFn={(e) => {
-            setErrorMsg("");
             setUserData({
               ...userData,
               password1: e.target.value,
             });
           }}
-          borderStyle={passwordBorder}
+          borderStyle={password1Border}
         />
         <FormInput
           name="passwordTwo"
@@ -234,13 +252,12 @@ export default function NewUserForm() {
           type="password"
           value={userData.password2}
           onChangeFn={(e) => {
-            setErrorMsg("");
             setUserData({
               ...userData,
               password2: e.target.value,
             });
           }}
-          borderStyle={passwordBorder}
+          borderStyle={password2Border}
         />
         <ErrorText id="userError" role="errorMsg">
           {errorMsg}
