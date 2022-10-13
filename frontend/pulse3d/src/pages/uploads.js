@@ -14,30 +14,35 @@ let adminColumns = [
     name: "File Owner",
     center: true,
     sortable: true,
+    center: false,
     selector: (row) => row.username,
   },
   {
     name: "Recording Name",
     center: true,
     sortable: true,
+    center: false,
     selector: (row) => (row.name ? row.name : "none"),
   },
   {
     name: "Upload ID",
     center: true,
     sortable: true,
+    center: false,
     selector: (row) => row.id,
   },
   {
     name: "Created Date",
     center: true,
     sortable: true,
+    center: false,
     selector: (row) => row.createdAt,
   },
   {
     name: "Last Analyzed",
     center: true,
     sortable: true,
+    center: false,
     selector: (row) => row.lastAnalyzed,
   },
 ];
@@ -46,24 +51,28 @@ let noneAdminColumns = [
     name: "Recording Name",
     center: true,
     sortable: true,
+    center: false,
     selector: (row) => (row.name ? row.name : "none"),
   },
   {
     name: "Upload ID",
     center: true,
     sortable: true,
+    center: false,
     selector: (row) => row.id,
   },
   {
     name: "Created Date",
     center: true,
     sortable: true,
+    center: false,
     selector: (row) => row.createdAt,
   },
   {
     name: "Last Analyzed",
     center: true,
     sortable: true,
+    center: false,
     selector: (row) => row.lastAnalyzed,
   },
 ];
@@ -84,6 +93,7 @@ const customStyles = {
       backgroundColor: "var(--light-gray)",
       borderLeft: "2px solid var(--dark-gray)",
       borderRight: "2px solid var(--dark-gray)",
+      justifySelf: "end",
     },
   },
 };
@@ -640,6 +650,20 @@ export default function Uploads() {
               }
               onSelectedRowsChange={({ selectedRows, selectedCount }) => {
                 let arr = [];
+                if (selectedRows.length > 0) {
+                  selectedRows.forEach((row) => {
+                    row.jobs.forEach((job) => {
+                      if (!job.checked) {
+                        for (let i = 0; i < jobs.length; i++) {
+                          if (jobs[i].jobId === job.jobId) {
+                            jobs[i].checked = true;
+                            setCheckedJobs([...checkedJobs, jobs[i].jobId]);
+                          }
+                        }
+                      }
+                    });
+                  });
+                }
                 for (let i = 0; i < selectedCount; i++) {
                   arr.push(selectedRows[i].id);
                 }
