@@ -188,6 +188,31 @@ export default function Uploads() {
   const [filterString, setFilterString] = useState("");
   const [filtercolumn, setFilterColumn] = useState("");
   const [updateData, toggleUpdateData] = useState(false);
+  const [checkedUploadsLength, setCheckedUploadsLength] = useState(checkedUploads.length);
+  const [prevCheckedUploads, setPrevCheckedUploads] = useState(checkedUploads);
+
+  useEffect(() => {
+    if (checkedUploadsLength < checkedUploads.length) {
+      //if upload is checked then check all jobs in upload
+      console.log("checked upload id " + checkedUploads[0]);
+      jobs.forEach((job) => {
+        if (job.uploadId === checkedUploads[0]) {
+          job.checked = true;
+        }
+      });
+    } else {
+      //if upload is unchecked
+      const uncheckedId = prevCheckedUploads.filter((x) => !checkedUploads.includes(x));
+      console.log(uncheckedId);
+      jobs.forEach((job) => {
+        if (job.uploadId === uncheckedId[0]) {
+          job.checked = false;
+        }
+      });
+    }
+    setCheckedUploadsLength(checkedUploads.length);
+    setPrevCheckedUploads(checkedUploads);
+  }, [checkedUploads]);
 
   useEffect(() => {
     setTimeout(async () => {
@@ -650,20 +675,6 @@ export default function Uploads() {
               }
               onSelectedRowsChange={({ selectedRows, selectedCount }) => {
                 let arr = [];
-                if (selectedRows.length > 0) {
-                  selectedRows.forEach((row) => {
-                    row.jobs.forEach((job) => {
-                      if (!job.checked) {
-                        for (let i = 0; i < jobs.length; i++) {
-                          if (jobs[i].jobId === job.jobId) {
-                            jobs[i].checked = true;
-                            setCheckedJobs([...checkedJobs, jobs[i].jobId]);
-                          }
-                        }
-                      }
-                    });
-                  });
-                }
                 for (let i = 0; i < selectedCount; i++) {
                   arr.push(selectedRows[i].id);
                 }
