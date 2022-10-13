@@ -188,6 +188,36 @@ export default function Uploads() {
   const [filterString, setFilterString] = useState("");
   const [filtercolumn, setFilterColumn] = useState("");
   const [updateData, toggleUpdateData] = useState(false);
+  const [checkedUploadsLength, setCheckedUploadsLength] = useState(checkedUploads.length);
+  const [prevCheckedUploads, setPrevCheckedUploads] = useState(checkedUploads);
+
+  useEffect(() => {
+    if (checkedUploadsLength < checkedUploads.length) {
+      //if upload is checked then check all jobs in upload
+      let toAdd = [];
+      jobs.forEach((job) => {
+        if (job.uploadId === checkedUploads[0]) {
+          job.checked = true;
+          toAdd.push(job.jobId);
+        }
+      });
+      setCheckedJobs([...checkedJobs, ...toAdd]);
+    } else {
+      //if upload is unchecked
+      const uncheckedId = prevCheckedUploads.filter((x) => !checkedUploads.includes(x));
+      jobs.forEach((job) => {
+        if (job.uploadId === uncheckedId[0]) {
+          job.checked = false;
+          let temp = checkedJobs;
+          const location = temp.indexOf(job.jobId);
+          temp.splice(location, 1);
+          setCheckedJobs(temp);
+        }
+      });
+    }
+    setCheckedUploadsLength(checkedUploads.length);
+    setPrevCheckedUploads(checkedUploads);
+  }, [checkedUploads]);
 
   useEffect(() => {
     setTimeout(async () => {
@@ -650,20 +680,6 @@ export default function Uploads() {
               }
               onSelectedRowsChange={({ selectedRows, selectedCount }) => {
                 let arr = [];
-                if (selectedRows.length > 0) {
-                  selectedRows.forEach((row) => {
-                    row.jobs.forEach((job) => {
-                      if (!job.checked) {
-                        for (let i = 0; i < jobs.length; i++) {
-                          if (jobs[i].jobId === job.jobId) {
-                            jobs[i].checked = true;
-                            setCheckedJobs([...checkedJobs, jobs[i].jobId]);
-                          }
-                        }
-                      }
-                    });
-                  });
-                }
                 for (let i = 0; i < selectedCount; i++) {
                   arr.push(selectedRows[i].id);
                 }
