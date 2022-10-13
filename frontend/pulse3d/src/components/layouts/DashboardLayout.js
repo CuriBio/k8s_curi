@@ -17,6 +17,7 @@ export default function DashboardLayout({ children }) {
   const [uploads, setUploads] = useState([]);
   const [fetchUploads, setFetchUploads] = useState(false);
   const [pulse3dVersions, setPulse3dVersions] = useState([]);
+  const [metaPulse3dVersions, setMetaPulse3dVersions] = useState([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -47,14 +48,14 @@ export default function DashboardLayout({ children }) {
       const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/versions`);
       // sort in desc order so that the latest version shows up first
       const versions = await response.json();
+      setMetaPulse3dVersions(versions); // keep track of states
+
       const testingVersions = versions.filter(({ state }) => state === "testing");
       const externalVersions = versions.filter(({ state }) => state === "external");
 
       // sort versions in testing state and add [testing] tag to UI
       // testing versions only to be used in test cluster
-      const sortedTestingVersions = semverRsort(testingVersions.map(({ version }) => version)).map(
-        (version) => version + " " + "[ testing ]"
-      );
+      const sortedTestingVersions = semverRsort(testingVersions.map(({ version }) => version));
       // sort versions in external state, no tag required
       const sortedExternalVersions = semverRsort(externalVersions.map(({ version }) => version));
 
@@ -69,7 +70,9 @@ export default function DashboardLayout({ children }) {
   }
 
   return (
-    <UploadsContext.Provider value={{ uploads, setUploads, setFetchUploads, pulse3dVersions }}>
+    <UploadsContext.Provider
+      value={{ uploads, setUploads, setFetchUploads, pulse3dVersions, metaPulse3dVersions }}
+    >
       <Container>
         <ControlPanel />
         {children}

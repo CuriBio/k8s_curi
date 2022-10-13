@@ -154,12 +154,11 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     endTime: null,
   });
 
-  const { pulse3dVersions } = useContext(UploadsContext);
+  const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
 
   useEffect(() => {
     // only available for versions greater than 0.25.2 when peaks_valley param was added
-    // remove [testing] if being used
-    const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v.split(" ")[0], "0.25.2"));
+    const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.25.2"));
     setFilteredVersions([...compatibleVersions]);
 
     // check sessionStorage for saved data
@@ -276,7 +275,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
         peaks_valleys: editablePeaksValleys,
         start_time: editableStartEndTimes.startTime,
         end_time: editableStartEndTimes.endTime,
-        version: filteredVersions[pulse3dVersionIdx].split(" ")[0], // remove [testing] if being used
+        version: filteredVersions[pulse3dVersionIdx],
       };
 
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
@@ -554,7 +553,12 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
               </Tooltip>
             </VersionDropdownLabel>
             <DropDownWidget
-              options={filteredVersions}
+              options={filteredVersions.map((version) => {
+                const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
+                return selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing"
+                  ? version + " " + "[ testing ]"
+                  : version;
+              })}
               label="Select"
               reset={pulse3dVersionIdx === 0}
               handleSelection={handleVersionSelect}

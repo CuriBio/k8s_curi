@@ -5,8 +5,9 @@ import FormInput from "../basicWidgets/FormInput";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
-import { useState } from "react";
+import { useState, useContext } from "react";
 import semverGte from "semver/functions/gte";
+import { UploadsContext } from "@/components/layouts/DashboardLayout";
 
 const Container = styled.div`
   padding: 1rem;
@@ -148,19 +149,14 @@ export default function AnalysisParamForm({
   paramErrors,
   setParamErrors,
   analysisParams,
-  pulse3dVersions,
 }) {
   const [normalizeYAxis, setNormalizeYAxis] = useState(true);
+  const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
 
   const pulse3dVersionGte = (version) => {
     const { selectedPulse3dVersion } = inputVals;
 
-    // this currently gets called on render when selectedPulse3dVersion is undefined
-    const versionNameOnly = selectedPulse3dVersion
-      ? selectedPulse3dVersion.split(" ")[0]
-      : selectedPulse3dVersion;
-
-    return selectedPulse3dVersion && semverGte(versionNameOnly, version);
+    return selectedPulse3dVersion && semverGte(selectedPulse3dVersion, version);
   };
 
   const updateParams = (newParams) => {
@@ -311,7 +307,12 @@ export default function AnalysisParamForm({
           </Label>
           <DropDownContainer>
             <DropDownWidget
-              options={pulse3dVersions}
+              options={pulse3dVersions.map((version) => {
+                const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
+                return selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing"
+                  ? version + " " + "[ testing ]"
+                  : version;
+              })}
               reset={!checkedParams}
               handleSelection={handleDropDownSelect}
               initialSelected={0}
