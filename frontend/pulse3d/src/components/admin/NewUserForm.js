@@ -157,10 +157,9 @@ export default function NewUserForm() {
 
   const validatePassword = () => {
     if (userData.password1.length > 0) {
-      const reqRegex = new RegExp("^(?=.*[a-z])(?=.*[A-Z])(?=.*d)(?=.*[@$!%*?&])[A-Za-zd@$!%*?&]{10,}$");
-      console.log(reqRegex);
+      const reqRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[@$!%*?&]).{10,}/;
       const isValid = reqRegex.test(userData.password1);
-      console.log(isValid);
+
       if (isValid) setPassword1Border("3px solid green");
       else setPassword1Border("3px solid red");
     } else setPassword1Border("none");
