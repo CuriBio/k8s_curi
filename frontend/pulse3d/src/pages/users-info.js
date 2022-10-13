@@ -10,7 +10,7 @@ const columns = [
     name: "Status",
     center: true,
     sortable: true,
-    selector: (row) => (row.suspended ? "Deactive" : "Active"),
+    selector: (row) => (row.suspended ? "Inactive" : "Active"),
   },
   {
     name: "Name",
