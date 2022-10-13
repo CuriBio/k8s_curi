@@ -24,6 +24,7 @@ export default memo(function UploadsSubTable(props) {
   const [isChecked, setIsChecked] = useState(props.jobs.map((job) => job.checked));
   const rows = props.jobs.map((job, idx) => {
     let paramsString = [];
+
     Object.keys(job.analysisParams).forEach((param) => {
       if (job.analysisParams[param] !== null) {
         const paramVal = param === "peaks_valleys" ? "user set" : job.analysisParams[param];

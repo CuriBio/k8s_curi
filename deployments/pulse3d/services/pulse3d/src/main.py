@@ -527,10 +527,10 @@ async def get_versions(request: Request):
     try:
         async with request.state.pgpool.acquire() as con:
             rows = await con.fetch(  # TODO should eventually sort these using a more robust method
-                "SELECT * FROM pulse3d_versions WHERE state != 'deprecated' ORDER BY created_at"
+                "SELECT version, state FROM pulse3d_versions WHERE state != 'deprecated' ORDER BY created_at"
             )
 
-        return [row["version"] for row in rows]
+        return [dict(row) for row in rows]
 
     except Exception as e:
         logger.error(f"Failed to retrieve info of pulse3d versions: {repr(e)}")

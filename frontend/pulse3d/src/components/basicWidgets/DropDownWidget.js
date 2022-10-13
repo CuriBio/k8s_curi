@@ -1,4 +1,3 @@
-import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
 import Select from "@mui/material/Select";
@@ -100,7 +99,7 @@ export default function DropDownWidget({
         input={<OutlinedInput />}
         MenuProps={MenuProps}
         onChange={handleDropdownChange}
-        value={selected}
+        value={options[selected] ? selected : ""}
         renderValue={(selected) => {
           /*
              Must be initialSelected === undefined and not !initialSelected,

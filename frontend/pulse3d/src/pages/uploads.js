@@ -82,9 +82,12 @@ const customStyles = {
   rows: {
     style: {
       backgroundColor: "var(--light-gray)",
+      borderLeft: "2px solid var(--dark-gray)",
+      borderRight: "2px solid var(--dark-gray)",
     },
   },
 };
+
 const Container = styled.div`
   display: flex;
   position: relative;
@@ -93,10 +96,7 @@ const Container = styled.div`
   flex-direction: column;
 `;
 const SpinnerContainer = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 80%;
+  margin: 50px;
 `;
 
 const InteractiveAnalysisContainer = styled.div`
@@ -166,7 +166,6 @@ export default function Uploads() {
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [checkedJobs, setCheckedJobs] = useState([]);
   const [checkedUploads, setCheckedUploads] = useState([]);
   const [resetDropdown, setResetDropdown] = useState(false);
@@ -204,13 +203,13 @@ export default function Uploads() {
           Recording: "name",
           ID: "id",
           "Date Created": "createdAt",
-          "Last Anylyzed": "lastAnalyzed",
+          "Last Analyzed": "lastAnalyzed",
         }
       : {
           Recording: "name",
           ID: "id",
           "Date Created": "createdAt",
-          "Last Anylyzed": "lastAnalyzed",
+          "Last Analyzed": "lastAnalyzed",
         };
 
   //when filter string changes refilter results
@@ -327,7 +326,6 @@ export default function Uploads() {
 
     setRows([...formattedUploads]);
     setDisplayRows([...formattedUploads]);
-    setLoading(false);
   }, [jobs]);
 
   const handleDropdownSelection = (option) => {
@@ -591,11 +589,7 @@ export default function Uploads() {
   };
   return (
     <>
-      {loading ? (
-        <SpinnerContainer id="spinnerContainer">
-          <CircularSpinner color={"secondary"} size={200} />
-        </SpinnerContainer>
-      ) : !openInteractiveAnalysis ? (
+      {!openInteractiveAnalysis ? (
         <PageContainer>
           <DropDownContainer>
             <DropDownWidget
@@ -623,7 +617,11 @@ export default function Uploads() {
               expandableRowsComponent={ExpandedComponent}
               customStyles={customStyles}
               progressPending={pending}
-              progressComponent={<CircularSpinner />}
+              progressComponent={
+                <SpinnerContainer>
+                  <CircularSpinner size={200} color={"secondary"} />
+                </SpinnerContainer>
+              }
               selectableRows
               selectableRowsNoSelectAll
               subHeader
@@ -632,8 +630,8 @@ export default function Uploads() {
                 <FilterHeader
                   columns={
                     accountType === "admin"
-                      ? ["Owner", "Recording", "ID", "Date Created", "Last Anylyzed"]
-                      : ["Recording", "ID", "Date Created", "Last Anylyzed"]
+                      ? ["Owner", "Recording", "ID", "Date Created", "Last Analyzed"]
+                      : ["Recording", "ID", "Date Created", "Last Analyzed"]
                   }
                   setFilterString={setFilterString}
                   setFilterColumn={setFilterColumn}
