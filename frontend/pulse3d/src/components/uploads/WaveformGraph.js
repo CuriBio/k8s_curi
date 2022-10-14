@@ -380,7 +380,6 @@ export default function WaveformGraph({
 
       // sets static cursor coordinates to empty because marker already has coordinates when dragging
       setCursorLoc(["_ ", "_"]);
-
       // invert gives the location of the mouse based on the x and y domains
       d[0] = x.invert(d.x);
       d[1] = y.invert(d.y);
