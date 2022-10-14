@@ -8,37 +8,32 @@ import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 const columns = [
   {
     name: "Status",
-    center: true,
-    sortable: true,
     center: false,
+    sortable: true,
     selector: (row) => (row.suspended ? "Inactive" : "Active"),
   },
   {
     name: "Name",
-    center: true,
-    sortable: true,
     center: false,
+    sortable: true,
     selector: (row) => row.name,
   },
   {
     name: "Email",
-    center: true,
-    sortable: true,
     center: false,
+    sortable: true,
     selector: (row) => row.email,
   },
   {
     name: "Date Created",
-    center: true,
-    sortable: true,
     center: false,
+    sortable: true,
     selector: (row) => formatDateTime(row.created_at),
   },
   {
     name: "Last Loggedin",
-    center: true,
-    sortable: true,
     center: false,
+    sortable: true,
     selector: (row) => formatDateTime(row.last_login),
   },
 ];

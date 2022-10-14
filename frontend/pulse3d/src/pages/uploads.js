@@ -12,67 +12,58 @@ import UploadsSubTable from "@/components/table/UploadsSubTable";
 let adminColumns = [
   {
     name: "File Owner",
-    center: true,
-    sortable: true,
     center: false,
+    sortable: true,
     selector: (row) => row.username,
   },
   {
     name: "Recording Name",
-    center: true,
-    sortable: true,
     center: false,
+    sortable: true,
     selector: (row) => (row.name ? row.name : "none"),
   },
   {
     name: "Upload ID",
-    center: true,
-    sortable: true,
     center: false,
+    sortable: true,
     selector: (row) => row.id,
   },
   {
     name: "Created Date",
-    center: true,
-    sortable: true,
     center: false,
+    sortable: true,
     selector: (row) => row.createdAt,
   },
   {
     name: "Last Analyzed",
-    center: true,
-    sortable: true,
     center: false,
+    sortable: true,
     selector: (row) => row.lastAnalyzed,
   },
 ];
 let noneAdminColumns = [
   {
     name: "Recording Name",
-    center: true,
-    sortable: true,
     center: false,
+    sortable: true,
     selector: (row) => (row.name ? row.name : "none"),
   },
   {
     name: "Upload ID",
-    center: true,
-    sortable: true,
     center: false,
+    sortable: true,
     selector: (row) => row.id,
   },
   {
     name: "Created Date",
-    center: true,
-    sortable: true,
     center: false,
+    sortable: true,
     selector: (row) => row.createdAt,
   },
   {
     name: "Last Analyzed",
-    center: true,
-    sortable: true,
     center: false,
+    sortable: true,
     selector: (row) => row.lastAnalyzed,
   },
 ];
@@ -188,7 +179,7 @@ export default function Uploads() {
   const [filterString, setFilterString] = useState("");
   const [filtercolumn, setFilterColumn] = useState("");
   const [updateData, toggleUpdateData] = useState(false);
-  const [checkedUploadsLength, setCheckedUploadsLength] = useState(checkedUploads.length);
+  const [checkedUploadsLength, setCheckedUploadsLength] = useState(0);
   const [prevCheckedUploads, setPrevCheckedUploads] = useState(checkedUploads);
 
   useEffect(() => {
@@ -230,10 +221,8 @@ export default function Uploads() {
   }, [updateData]);
 
   useEffect(() => {
-    if (displayRows.length > 0) {
-      setTimeout(() => {
-        setPending(false);
-      }, 5000);
+    if (jobs.length > 0) {
+      setPending(false);
     }
   }, [displayRows]);
   const toFilterField =
@@ -344,25 +333,23 @@ export default function Uploads() {
   }, [uploads]);
 
   useEffect(() => {
-    const formattedUploads = uploads
-      .map(({ username, id, filename, created_at }) => {
-        const formattedTime = formatDateTime(created_at);
-        const recName = filename ? filename.split(".")[0] : null;
-        const uploadJobs = jobs
-          .filter(({ uploadId }) => uploadId === id)
-          .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+    const formattedUploads = uploads.map(({ username, id, filename, created_at }) => {
+      const formattedTime = formatDateTime(created_at);
+      const recName = filename ? filename.split(".")[0] : null;
+      const uploadJobs = jobs
+        .filter(({ uploadId }) => uploadId === id)
+        .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
 
-        const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
-        return {
-          username,
-          name: recName,
-          id,
-          createdAt: formattedTime,
-          lastAnalyzed,
-          jobs: uploadJobs,
-        };
-      })
-      .sort((a, b) => new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed));
+      const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
+      return {
+        username,
+        name: recName,
+        id,
+        createdAt: formattedTime,
+        lastAnalyzed,
+        jobs: uploadJobs,
+      };
+    });
 
     setRows([...formattedUploads]);
     setDisplayRows([...formattedUploads]);
