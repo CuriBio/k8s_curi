@@ -36,7 +36,7 @@ function Pulse({ Component, pageProps }) {
   const router = useRouter();
   const [accountType, setAccountType] = useState();
   const [showLoggedOutAlert, setLoggedOutAlert] = useState(false);
-
+  let swInterval = null;
   // register the SW once
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -53,22 +53,19 @@ function Pulse({ Component, pageProps }) {
       navigator.serviceWorker.addEventListener("message", ({ data }) => {
         // data returned is a boolean if auth tokens are present. Otherwise return user to login
         // might need auth check to include actual fetch request in SW to check token status if this becomes a problem
-        if (data.logout) {
+        const currentPage = data.routerPathname;
+        // this prevents the inactivity from popping up when a user is already on the login page or verified page
+        if (data.logout && currentPage && currentPage !== "/verify" && currentPage !== "/login") {
           setLoggedOutAlert(true);
           return;
         }
         setAccountType(data.accountType);
-
         // the router pathname is sent to the SW and then sent back here since for some reason this message handler
         // will not use the correct pathname if directly accessing router.pathname
-        const currentPage = data.routerPathname;
         if (data.isLoggedIn) {
           // if logged in and on a page that shouldn't be accessed, or on the login page, redirect to home page (currently /uploads)
           // TODO Tanner (8/23/22): this probably isn't the best solution for redirecting to other pages. Should look into a better way to do this
-          if (
-            currentPage === "/login" ||
-            !availablePages[data.accountType].includes(currentPage)
-          ) {
+          if (currentPage === "/login" || !availablePages[data.accountType].includes(currentPage)) {
             router.replace("/uploads", undefined, { shallow: true });
           }
         } else if (currentPage !== "/login") {
@@ -82,6 +79,11 @@ function Pulse({ Component, pageProps }) {
   // whenever the page updates, sends message to SW (if active) to check if a user is logged in
   useEffect(() => {
     sendSWMessage();
+
+    // start pinging SW if not on login page to keep alive
+    if (!router.pathname.includes("login")) keepSWALive();
+    // clear on teardown/page redirections
+    return () => clearInterval(swInterval);
   }, [router.pathname]);
 
   const sendSWMessage = () => {
@@ -91,6 +93,20 @@ function Pulse({ Component, pageProps }) {
           msgType: "authCheck",
           routerPathname: router.pathname,
         });
+      });
+    }
+  };
+
+  const keepSWALive = () => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.ready.then((registration) => {
+        swInterval = setInterval(
+          () =>
+            registration.active.postMessage({
+              msgType: "stayAlive",
+            }),
+          20e3
+        );
       });
     }
   };

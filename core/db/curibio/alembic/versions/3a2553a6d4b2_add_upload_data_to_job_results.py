@@ -5,7 +5,6 @@ Revises: 6dbe71e474d2
 Create Date: 2022-07-01 10:47:47.761528
 
 """
-from distutils.command.upload import upload
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql

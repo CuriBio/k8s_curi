@@ -76,7 +76,7 @@ def run_migrations_online():
         with context.begin_transaction() as transaction:
             context.run_migrations()
             if "dry-run" in context.get_x_argument():
-                print("Dry run complete, rolling back")
+                print("Dry run complete, rolling back")  # allow-print
                 transaction.rollback()
 
 

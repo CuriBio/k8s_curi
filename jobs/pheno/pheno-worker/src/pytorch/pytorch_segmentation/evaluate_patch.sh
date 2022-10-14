@@ -49,4 +49,4 @@ python evaluate.py --true_path $patchFolder/Val/LABEL \
 				   --acceptable_noise 20 \
                                    --labels $labels \
 				   --log-file $logFilename
- 
+

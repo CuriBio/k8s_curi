@@ -2,6 +2,8 @@ from starlette.config import Config
 from starlette.datastructures import Secret
 
 config = Config(".env")
+# version used to tag the docker image
+VERSION = "0.1.0"
 
 APP_NAME = config("APP_NAME", cast=str, default="CuriBio/Pulse3d")
 JWT_SECRET_KEY = config("JWT_SECRET_KEY", cast=Secret)
@@ -14,6 +16,8 @@ POSTGRES_PASSWORD = config("POSTGRES_PASSWORD", cast=Secret)
 POSTGRES_SERVER = config("POSTGRES_SERVER", cast=str, default="localhost")
 POSTGRES_PORT = config("POSTGRES_PORT", cast=str, default="5432")
 POSTGRES_DB = config("POSTGRES_DB", cast=str)
+
+DASHBOARD_URL = config("DASHBOARD_URL", cast=str, default="https://dashboard.curibio-test.com")
 
 PULSE3D_UPLOADS_BUCKET = config("UPLOADS_BUCKET_ENV", cast=str, default="test-pulse3d-uploads")
 MANTARRAY_LOGS_BUCKET = config("MANTARRAY_LOGS_BUCKET_ENV", cast=str, default="test-mantarray-logs")

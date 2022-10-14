@@ -26,14 +26,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
 PULSE3D_VERSION = pkg_resources.get_distribution("pulse3D").version
+
+
+def _load_from_dir(recording_dir, stiffness_factor):
+    recordings = list(PlateRecording.from_directory(recording_dir, stiffness_factor=stiffness_factor))
+    logger.info(f"{len(recordings)} recording(s) found")
+    return recordings
 
 
 @get_item(queue=f"pulse3d-v{PULSE3D_VERSION}")
 async def process(con, item):
     logger.info(f"Processing item: {item}")
-
     s3_client = boto3.client("s3")
     job_metadata = {"processed_by": PULSE3D_VERSION}
     outfile_key = None
@@ -68,7 +72,7 @@ async def process(con, item):
                 raise
 
             try:
-                logger.info(f"Checking if time force data exists in s3")
+                logger.info("Checking if time force data exists in s3")
 
                 parquet_filename = f"{os.path.splitext(filename)[0]}.parquet"
                 parquet_key = f"{prefix}/time_force_data/{parquet_filename}"
@@ -78,8 +82,7 @@ async def process(con, item):
                 logger.info(f"Attempting to downloading {parquet_filename} to {parquet_path}")
                 s3_client.download_file(PULSE3D_UPLOADS_BUCKET, parquet_key, parquet_path)
                 re_analysis = True
-
-            except Exception as e:  # continue with analysis even if original force data is not found
+            except Exception:  # continue with analysis even if original force data is not found
                 logger.error(f"No existing data found for recording {parquet_filename}")
                 re_analysis = False
 
@@ -91,29 +94,45 @@ async def process(con, item):
                     if val is not None
                 }
 
+                # Tanner (10/7/22): popping here since write_xlsx doesn't take this as a kwarg
+                stiffness_factor = analysis_params.pop("stiffness_factor", None)
+
                 logger.info("Starting pulse3d analysis")
-                if not re_analysis:
-                    recordings = list(PlateRecording.from_directory(tmpdir))
-                    logger.info(f"{len(recordings)} recording(s) found")
-                    # Tanner (6/8/22): only supports analyzing one recording at a time right now. Functionality can be added whenever analyzing multiple files becomes necessary
-                    outfile = write_xlsx(recordings[0], **analysis_params)
-                else:
+                if re_analysis and not stiffness_factor:
+                    # if a stiffness factor is provided, can't load from data frame since a re-analysis is required to get the correct force values
                     logger.info(f"Loading previous time force data from {parquet_filename}")
                     existing_df = pd.read_parquet(parquet_path)
-                    recording = PlateRecording.from_dataframe(os.path.join(tmpdir, filename), df=existing_df)
-                    recording = next(recording)
-                    outfile = write_xlsx(recording, **analysis_params)
+                    try:
+                        recording = PlateRecording.from_dataframe(
+                            os.path.join(tmpdir, filename), df=existing_df
+                        )
+                        recordings = list(recording)
+                    except:
+                        # If a user attempts to perform re-analysis on an analysis from < 0.25.2, it will fail
+                        # because the parquet file won't have the raw data columns, so need to re-analyze
+                        # TODO should rewrite parquet file with updated columns
+                        logger.info(
+                            f"Previous dataframe found is not compatible with v{PULSE3D_VERSION}, performing analysis again"
+                        )
+                        recordings = _load_from_dir(tmpdir, stiffness_factor)
+                else:
+                    recordings = _load_from_dir(tmpdir, stiffness_factor)
 
+                # Tanner (6/8/22): only supports analyzing one recording at a time right now. Functionality can be added whenever analyzing multiple files becomes necessary
+                first_recording = recordings[0]
+
+                outfile = write_xlsx(first_recording, **analysis_params)
                 outfile_prefix = prefix.replace("uploads/", "analyzed/")
             except Exception as e:
                 logger.exception(f"Analysis failed: {e}")
                 raise
 
-            try:
-                if not re_analysis:
+            if re_analysis:
+                logger.info("Skipping step to write time force data for upload")
+            else:
+                try:
                     logger.info("Writing time force data to parquet file for new upload")
-                    time_force_df = recordings[0].to_dataframe(tmpdir)
-                    time_force_df.to_parquet(parquet_path)
+                    first_recording.to_dataframe().to_parquet(parquet_path)
 
                     with open(parquet_path, "rb") as file:
                         contents = file.read()
@@ -126,12 +145,9 @@ async def process(con, item):
                         s3_client.put_object(
                             Body=contents, Bucket=PULSE3D_UPLOADS_BUCKET, Key=paraquet_key, ContentMD5=md5s
                         )
-                else:
-                    logger.info("Skipping step to write time force data for upload.")
-
-            except Exception as e:
-                logger.exception(f"Writing or uploading time force data failed: {e}")
-                raise
+                except Exception as e:
+                    logger.exception(f"Writing or uploading time force data failed: {e}")
+                    raise
 
             with open(outfile, "rb") as file:
                 try:
@@ -146,38 +162,23 @@ async def process(con, item):
                     s3_client.put_object(
                         Body=contents, Bucket=PULSE3D_UPLOADS_BUCKET, Key=outfile_key, ContentMD5=md5s
                     )
-
                 except Exception as e:
                     logger.exception(f"Upload failed: {e}")
                     raise
 
                 try:
                     logger.info(f"Inserting {outfile} metadata into db for upload {upload_id}")
-                    if not re_analysis:
-                        for r in recordings:
-                            await insert_metadata_into_pg(
-                                con,
-                                r,
-                                upload_details["customer_id"],
-                                upload_details["user_id"],
-                                upload_id,
-                                file,
-                                outfile_key,
-                                md5s,
-                                re_analysis,
-                            )
-                    else:
-                        await insert_metadata_into_pg(
-                            con,
-                            recording,
-                            upload_details["customer_id"],
-                            upload_details["user_id"],
-                            upload_id,
-                            file,
-                            outfile_key,
-                            md5s,
-                            re_analysis,
-                        )
+                    await insert_metadata_into_pg(
+                        con,
+                        first_recording,
+                        upload_details["customer_id"],
+                        upload_details["user_id"],
+                        upload_id,
+                        file,
+                        outfile_key,
+                        md5s,
+                        re_analysis,
+                    )
                 except Exception as e:
                     logger.exception(f"Failed to insert metadata to db for upload {upload_id}: {e}")
                     raise
@@ -206,12 +207,12 @@ async def main():
             async with pool.acquire() as con:
                 while True:
                     try:
-                        logger.info(f"Pulling job from queue")
+                        logger.info("Pulling job from queue")
                         await process(con=con)
                     except EmptyQueue as e:
                         logger.info(f"No jobs in queue {e}")
                         return
-                    except Exception as e:
+                    except Exception:
                         logger.exception("Processing queue item failed")
                         return
     finally:

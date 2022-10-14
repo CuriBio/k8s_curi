@@ -112,7 +112,6 @@ def test_firmware__create_dependency_mapping__returns_correct_mappings(
 )
 def test_firmware__get_cfw_from_hw__returns_correct_values(hw_version, channel_fw_version):
     test_cfw_to_hw = {
-        "1.0.0": "1.0.0",
         "1.0.0": "2.0.0",
         "2.0.0": "2.0.0",
         "3.0.0": "2.0.0",

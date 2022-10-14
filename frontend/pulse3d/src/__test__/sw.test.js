@@ -17,8 +17,7 @@ describe("Service worker", () => {
   describe("initialization", () => {
     let serviceWorkerInternals;
     beforeEach(() => {
-      serviceWorkerInternals =
-        require("../serviceWorker.js").accessToInternalsForTesting;
+      serviceWorkerInternals = require("../serviceWorker.js").accessToInternalsForTesting;
     });
 
     it("should add listeners", () => {

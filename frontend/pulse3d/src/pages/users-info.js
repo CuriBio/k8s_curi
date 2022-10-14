@@ -1,236 +1,192 @@
 import DashboardLayout from "@/components/layouts/DashboardLayout";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
-import Paper from "@mui/material/Paper";
 import { useState, useEffect } from "react";
-import Row from "@/components/admin/UsersRow";
 import styled from "styled-components";
-import ModalWidget from "@/components/basicWidgets/ModalWidget";
+import DataTable from "react-data-table-component";
+import UsersActionSelector from "@/components/table/UsersActionsSelector";
+import FilterHeader from "@/components/table/FilterHeader";
+import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
+const columns = [
+  {
+    name: "Status",
+    center: true,
+    sortable: true,
+    selector: (row) => (row.suspended ? "Inactive" : "Active"),
+  },
+  {
+    name: "Name",
+    center: true,
+    sortable: true,
+    selector: (row) => row.name,
+  },
+  {
+    name: "Email",
+    center: true,
+    sortable: true,
+    selector: (row) => row.email,
+  },
+  {
+    name: "Date Created",
+    center: true,
+    sortable: true,
+    selector: (row) => formatDateTime(row.created_at),
+  },
+  {
+    name: "Last Loggedin",
+    center: true,
+    sortable: true,
+    selector: (row) => formatDateTime(row.last_login),
+  },
+];
+const customStyles = {
+  headRow: {
+    style: {
+      backgroundColor: "var(--dark-blue)",
+      color: "white",
+    },
+  },
+  subHeader: {
+    style: {
+      backgroundColor: "var(--dark-blue)",
+    },
+  },
+};
+
+const conditionalRowStyles = [
+  {
+    when: (row) => row.suspended === true,
+    style: {
+      color: "var(--dark-gray  )",
+    },
+  },
+  {
+    when: (row) => row.suspended === false,
+    style: {
+      color: "var(--teal-green)",
+    },
+  },
+];
 
 const PageContainer = styled.div`
   width: 80%;
 `;
 
-const Pagination = styled.div`
-  width: 100%;
-  background-color: var(--dark-gray);
-  display: flex;
-  justify-content: right;
-  padding: 1rem 1rem;
-`;
-
 const Container = styled.div`
-  display: flex;
   position: relative;
-  justify-content: start;
   padding: 0% 3% 3% 3%;
-  flex-direction: column;
   margin-top: 1rem;
 `;
 
-export default function UserInfo() {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rows, setRows] = useState([]);
-  const [currentRows, setCurrentRows] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [actionAlertVisible, setActionAlertVisible] = useState(false);
-  const [modalMessage, setModalMessage] = useState();
-  const [actionToPreform, setActionToPerform] = useState("");
-  const [confirm, setConfirm] = useState(false);
-  const [userIdToEdit, setUserIdToEdit] = useState("");
+const SpinnerContainer = styled.div`
+  margin: 50px;
+`;
 
-  const dropDownOptions = ["Delete", "Deactivate"];
-
-  const sendUserActionPutRequest = async () => {
-    fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/${userIdToEdit}`, {
-      method: "PUT",
-      body: JSON.stringify({ action_type: actionToPreform }),
+const formatDateTime = (datetime) => {
+  if (datetime)
+    return new Date(datetime + "Z").toLocaleDateString(undefined, {
+      hour: "numeric",
+      minute: "numeric",
     });
-  };
-
-  const userActionSelection = async (option, username, userId) => {
-    let action = option.toLowerCase();
-
-    setModalMessage(`Are you sure you would like to ${action} ${username}?`);
-    setActionToPerform(action);
-    setUserIdToEdit(userId);
-  };
-
+  else {
+    const now = new Date();
+    const datetime =
+      now.getFullYear() +
+      "-" +
+      (now.getMonth() + 1) +
+      "-" +
+      now.getDate() +
+      "-" +
+      now.getHours() +
+      now.getMinutes() +
+      now.getSeconds();
+    return datetime;
+  }
+};
+export default function UserInfo() {
+  const [displayData, setDisplayData] = useState([]);
+  const [filterString, setFilterString] = useState("");
+  const [filtercolumn, setFilterColumn] = useState("");
+  const [usersData, setUsersData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const getAllUsers = async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/`);
       if (response && response.status === 200) {
         const usersJson = await response.json();
-        setUsers(usersJson);
-        setCurrentRows(usersJson.slice(0, 10));
+        setUsersData(usersJson);
+        setDisplayData(usersJson);
+        setLoading(false);
       }
     } catch (e) {
       console.log("ERROR fetching all users info");
     }
   };
-
+  //gets users at load
   useEffect(() => {
     getAllUsers();
   }, []);
 
+  //when user data changes make sure to refilter the results
   useEffect(() => {
-    if (users) {
-      setRows([...users]);
+    if (usersData.length > 0 && filtercolumn.length > 0) {
+      const newList = usersData.filter((user) => user[toUserField[filtercolumn]].includes(filterString));
+      setDisplayData(newList);
     }
-  }, [users]);
+  }, [usersData]);
 
+  const toUserField = {
+    Name: "name",
+    Email: "email",
+    "Date Created": "created_at",
+    "Last Loggedin": "last_login",
+  };
+  //when filter string changes refilter results
   useEffect(() => {
-    if (actionToPreform && confirm) {
-      try {
-        sendUserActionPutRequest();
-      } catch (e) {
-        console.log("ERROR on user action");
+    const newList = usersData.filter((user) => {
+      //if the column containes date data
+      //TODO add better date filter
+      if (toUserField[filtercolumn] === "created_at" || toUserField[filtercolumn] === "last_login") {
+        return formatDateTime(user[toUserField[filtercolumn]])
+          .toLocaleLowerCase()
+          .includes(filterString.toLocaleLowerCase());
+      } else if (user[toUserField[filtercolumn]]) {
+        return user[toUserField[filtercolumn]].includes(filterString);
       }
-    }
-  }, [confirm]);
+    });
+    setDisplayData(newList);
+  }, [filterString]);
 
-  useEffect(() => {
-    setCurrentRows(
-      rows.slice(10 * (currentPage - 1), 10 * (currentPage - 1) + 10)
-    );
-  }, [currentPage]);
-
+  const ExpandedComponent = ({ data }) => (
+    <UsersActionSelector data={data} getAllUsers={getAllUsers} setUsersData={setUsersData} />
+  );
   return (
     <>
-      <ModalWidget
-        open={actionAlertVisible}
-        labels={[modalMessage]}
-        buttons={["Yes", "No"]}
-        header={"Attention"}
-        closeModal={(idx, label) => {
-          setConfirm(label === "Yes");
-          setActionAlertVisible(false);
-        }}
-      />
       <PageContainer>
         <Container>
-          <TableContainer
-            component={Paper}
-            sx={{ backgroundColor: "var(--light-gray" }}
-          >
-            <Table aria-label="collapsible table" size="small">
-              <TableHead
-                sx={{
-                  backgroundColor: "var(--dark-blue)",
-                }}
-              >
-                <TableRow
-                  sx={{
-                    height: "60px",
-                  }}
-                  align="center"
-                >
-                  <TableCell
-                    sx={{
-                      color: "var(--light-gray)",
-                    }}
-                    align="center"
-                  >
-                    Status
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      color: "var(--light-gray)",
-                    }}
-                    align="center"
-                  >
-                    Name
-                  </TableCell>
-
-                  <TableCell
-                    sx={{
-                      color: "var(--light-gray)",
-                    }}
-                    align="center"
-                  >
-                    Email
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      color: "var(--light-gray)",
-                    }}
-                    align="center"
-                  >
-                    Date Created
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      color: "var(--light-gray)",
-                    }}
-                    align="center"
-                  >
-                    Last Logged In
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      color: "var(--light-gray)",
-                    }}
-                    align="center"
-                  >
-                    Actions
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {currentRows.map((row) => (
-                  <Row
-                    key={row.id}
-                    row={row}
-                    dropDownOptions={dropDownOptions}
-                    modalPopUp={() => {
-                      setActionAlertVisible(true);
-                    }}
-                    userActions={userActionSelection}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <Pagination>
-            {" "}
-            <button
-              style={{
-                color: "var(--light-gray)",
-                backgroundColor: "var(--dark-blue)",
-                border: "none",
-                marginRight: "1rem",
-              }}
-              onClick={() => {
-                const newPage =
-                  currentPage - 1 > 0 ? currentPage - 1 : currentPage;
-                setCurrentPage(newPage);
-              }}
-            >
-              Prev
-            </button>
-            {`Page ${currentPage} of ${Math.ceil(rows.length / 10)}`}
-            <button
-              style={{
-                color: "var(--light-gray)",
-                backgroundColor: "var(--dark-blue)",
-                border: "none",
-                marginLeft: "1rem",
-              }}
-              onClick={() => {
-                const newPage =
-                  currentPage + 1 < Math.ceil(rows.length / 10) + 1
-                    ? currentPage + 1
-                    : currentPage;
-                setCurrentPage(newPage);
-              }}
-            >
-              Next
-            </button>
-          </Pagination>
+          <DataTable
+            columns={columns}
+            data={displayData}
+            customStyles={customStyles}
+            expandableRows
+            expandableRowsComponent={ExpandedComponent}
+            conditionalRowStyles={conditionalRowStyles}
+            pagination
+            defaultSortFieldId={1}
+            progressPending={loading}
+            progressComponent={
+              <SpinnerContainer>
+                <CircularSpinner size={200} color={"secondary"} />
+              </SpinnerContainer>
+            }
+            subHeader
+            subHeaderComponent={
+              <FilterHeader
+                columns={["", "Name", "Email", "Date Created", "Last Loggedin"]}
+                setFilterString={setFilterString}
+                setFilterColumn={setFilterColumn}
+                loading={loading}
+              />
+            }
+          />
         </Container>
       </PageContainer>
     </>

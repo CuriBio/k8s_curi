@@ -8,10 +8,8 @@ import SparkMD5 from "spark-md5";
 import { hexToBase64 } from "../utils/generic";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
-import DashboardLayout, {
-  UploadsContext,
-} from "@/components/layouts/DashboardLayout";
-import semverSort from "semver-sort";
+import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
+import semverGte from "semver/functions/gte";
 
 const Container = styled.div`
   width: 70%;
@@ -75,67 +73,56 @@ const defaultUploadErrorLabel =
 const defaultZipErrorLabel =
   "The following file(s) will not be uploaded because they either contain multiple recordings or do not have the correct number of H5 files.";
 
-const getDefaultAnalysisParams = () => {
-  return {
-    baseToPeak: "",
-    peakToBase: "",
-    maxY: "",
-    prominenceFactor: "",
-    widthFactor: "",
-    twitchWidths: "",
-    startTime: "",
-    endTime: "",
-    selectedPulse3dVersion: "", // Tanner (9/15/22): The pulse3d version technically isn't a param, so could move this value to its own state if needed
-  };
-};
-
 export default function UploadForm() {
+  const { uploads, pulse3dVersions } = useContext(UploadsContext);
+
+  const getDefaultAnalysisParams = () => {
+    return {
+      yAxisNormalization: false,
+      baseToPeak: "",
+      peakToBase: "",
+      maxY: "",
+      prominenceFactor: "",
+      widthFactor: "",
+      twitchWidths: "",
+      startTime: "",
+      endTime: "",
+      selectedPulse3dVersion: pulse3dVersions[0] || "", // Tanner (9/15/22): The pulse3d version technically isn't a param, but it lives in the same part of the form as the params
+    };
+  };
+
   const { query } = useRouter();
-  const { uploads } = useContext(UploadsContext);
   const [files, setFiles] = useState([]);
   const [formattedUploads, setFormattedUploads] = useState([]);
   const [isButtonDisabled, setIsButtonDisabled] = useState(true);
   const [paramErrors, setParamErrors] = useState({});
   const [inProgress, setInProgress] = useState(false);
   const [modalButtons, setModalButtons] = useState(["Close"]);
-  const [failedUploadsMsg, setFailedUploadsMsg] = useState([
-    defaultUploadErrorLabel,
-  ]);
+  const [failedUploadsMsg, setFailedUploadsMsg] = useState([defaultUploadErrorLabel]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [checkedWindow, setCheckedWindow] = useState(false);
-  const [checkedAdvanced, setCheckedAdvanced] = useState(false);
-  const [checkedBaseline, setCheckedBaseline] = useState(false);
+  const [checkedParams, setCheckedParams] = useState(false);
   const [tabSelection, setTabSelection] = useState(query.id);
   const [modalState, setModalState] = useState(false);
-  const [pulse3dVersions, setPulse3dVersions] = useState([]);
-  const [analysisParams, setAnalysisParams] = useState(
-    getDefaultAnalysisParams()
-  );
+  const [analysisParams, setAnalysisParams] = useState(getDefaultAnalysisParams());
 
-  // TODO remove this value once entire advanced analysis section is under a single checkbox
-  const [resetDropDown, setResetDropDown] = useState(0);
+  const resetAnalysisParams = () => {
+    setAnalysisParams(getDefaultAnalysisParams());
+  };
 
-  useEffect(() => {
-    // when page loads, get all available pulse3d versions
-    async function getPulse3dVersions() {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/versions`
-      );
-      // sort in desc order so that the latest version shows up first
-      const sortedVersions = semverSort.desc(await response.json());
-      setPulse3dVersions(sortedVersions);
+  const updateCheckParams = (newCheckedParams) => {
+    if (checkedParams && !newCheckedParams) {
+      // if unchecking, reset all params
+      resetAnalysisParams();
+      setParamErrors({});
     }
-    getPulse3dVersions();
-  }, []);
+    setCheckedParams(newCheckedParams);
+  };
 
   useEffect(() => {
     // checks if error value exists, no file is selected, or upload is in progress
     const checkConditions =
       !Object.values(paramErrors).every((val) => val.length === 0) ||
-      !(
-        (files.length > 0 && files[0] instanceof File) ||
-        uploads.includes(files[0])
-      ) ||
+      !((files.length > 0 && files[0] instanceof File) || uploads.includes(files[0])) ||
       inProgress;
 
     setIsButtonDisabled(checkConditions);
@@ -145,7 +132,7 @@ export default function UploadForm() {
     // resets upload status when user makes changes
     if (
       (files.length > 0 && files[0] instanceof File) ||
-      Object.values(analysisParams).some((val) => val.length > 0)
+      JSON.stringify(analysisParams) != JSON.stringify(getDefaultAnalysisParams())
     ) {
       setUploadSuccess(false);
     }
@@ -158,22 +145,16 @@ export default function UploadForm() {
   }, [query]);
 
   useEffect(() => {
-    const uploadFilenames = uploads
-      .map((upload) => upload.filename)
-      .filter((name) => name);
+    const uploadFilenames = uploads.map((upload) => upload.filename).filter((name) => name);
 
     setFormattedUploads([...uploadFilenames]);
   }, [uploads]);
 
   const resetState = () => {
     setFiles([]);
-    setAnalysisParams(getDefaultAnalysisParams());
+    updateCheckParams(false); // this will also reset the analysis params and their error message
     setFailedUploadsMsg([defaultUploadErrorLabel]);
     setModalButtons(["Close"]);
-    setCheckedWindow(false);
-    setParamErrors({});
-    // Tanner (9/13/22): this is a really hacky way of triggering this since the value must actually change, but it will be unnecessary once the single checkbox is added
-    setResetDropDown(resetDropDown + 1);
   };
 
   const formatTupleParams = (firstParam, secondParam) => {
@@ -196,6 +177,7 @@ export default function UploadForm() {
   const postNewJob = async (uploadId, filename) => {
     try {
       const {
+        yAxisNormalization,
         baseToPeak,
         peakToBase,
         maxY,
@@ -207,44 +189,40 @@ export default function UploadForm() {
         startTime,
         endTime,
         selectedPulse3dVersion,
+        stiffnessFactor,
       } = analysisParams;
+
+      const version = selectedPulse3dVersion === "" ? pulse3dVersions[0] : selectedPulse3dVersion;
 
       const requestBody = {
         upload_id: uploadId,
+        normalize_y_axis: yAxisNormalization,
         baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
-        prominence_factors: formatTupleParams(
-          prominenceFactorPeaks,
-          prominenceFactorValleys
-        ),
+        prominence_factors: formatTupleParams(prominenceFactorPeaks, prominenceFactorValleys),
         width_factors: formatTupleParams(widthFactorPeaks, widthFactorValleys),
         twitch_widths: twitchWidths === "" ? null : twitchWidths,
         start_time: startTime === "" ? null : startTime,
         end_time: endTime === "" ? null : endTime,
         // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
-        version:
-          selectedPulse3dVersion === ""
-            ? pulse3dVersions[0]
-            : selectedPulse3dVersion,
+        version,
       };
-      if (requestBody.version !== "0.24.6") {
-        // Tanner (9/15/21): at the time of writing this, 0.24.6 is the only available pulse3D version that does not support the max_y param
+      if (semverGte(version, "0.25.0")) {
         requestBody.max_y = maxY === "" ? null : maxY;
       }
-
-      const jobResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`,
-        {
-          method: "POST",
-          body: JSON.stringify(requestBody),
-        }
-      );
+      if (semverGte(version, "0.27.0")) {
+        requestBody.stiffness_factor = stiffnessFactor === "" ? null : stiffnessFactor;
+      }
+      const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
+        method: "POST",
+        body: JSON.stringify(requestBody),
+      });
       if (jobResponse.status !== 200) {
         failedUploadsMsg.push(filename);
         console.log("ERROR posting new job: ", await jobResponse.json());
       }
     } catch (e) {
       failedUploadsMsg.push(filename);
-      console.log("ERROR posting new job");
+      console.log("ERROR posting new job", e);
     }
   };
 
@@ -258,9 +236,7 @@ export default function UploadForm() {
 
     if (tabSelection === "1") {
       const asyncFilter = async (arr, predicate) =>
-        Promise.all(arr.map(predicate)).then((results) =>
-          arr.filter((_v, index) => results[index])
-        );
+        Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
       const badZipfiles = await asyncFilter(files, async (file) => {
         try {
@@ -271,34 +247,26 @@ export default function UploadForm() {
           const onlyOneRec = dirs.length === 0 || dirs.length === 1;
 
           const numFilesInRecording = Object.keys(files).filter(
-            (filename) =>
-              filename.includes(".h5") && !filename.includes("__MACOSX")
+            (filename) => filename.includes(".h5") && !filename.includes("__MACOSX")
           ).length;
 
           // Beta 1 recordings will contain 24 files, Beta 2 and V1 recordings will contain 48
-          const recordingContainsValidNumFiles =
-            numFilesInRecording === 24 || numFilesInRecording === 48;
+          const recordingContainsValidNumFiles = numFilesInRecording === 24 || numFilesInRecording === 48;
 
           return !onlyOneRec || !recordingContainsValidNumFiles;
         } catch (e) {
           console.log(`ERROR unable to read zip file: ${file.name} ${e}`);
+          failedUploadsMsg.push(file.name);
           return true;
         }
       });
 
       if (badZipfiles.length > 0) {
         // give users the option to proceed with clean files if any, otherwise just close
-        setModalButtons(
-          badZipfiles.length !== files.length
-            ? ["Cancel", "Proceed"]
-            : ["Close"]
-        );
+        setModalButtons(badZipfiles.length !== files.length ? ["Cancel", "Proceed"] : ["Close"]);
 
         // add files to modal to notify user which files are bad
-        setFailedUploadsMsg([
-          defaultZipErrorLabel,
-          ...badZipfiles.map((f) => f.name),
-        ]);
+        setFailedUploadsMsg([defaultZipErrorLabel, ...badZipfiles.map((f) => f.name)]);
 
         setModalState(true);
         return;
@@ -365,25 +333,19 @@ export default function UploadForm() {
         return;
       }
 
-      const uploadResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            filename,
-            md5s: hexToBase64(fileHash),
-            upload_type: "mantarray",
-          }),
-        }
-      );
+      const uploadResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads`, {
+        method: "POST",
+        body: JSON.stringify({
+          filename,
+          md5s: hexToBase64(fileHash),
+          upload_type: "mantarray",
+        }),
+      });
 
       // break flow if initial request returns error status code
       if (uploadResponse.status !== 200) {
         failedUploadsMsg.push(filename);
-        console.log(
-          "ERROR uploading file metadata to DB:  ",
-          await uploadResponse.json()
-        );
+        console.log("ERROR uploading file metadata to DB:  ", await uploadResponse.json());
         return;
       }
 
@@ -407,10 +369,7 @@ export default function UploadForm() {
         await postNewJob(uploadId, filename);
       } else {
         failedUploadsMsg.push(filename);
-        console.log(
-          "ERROR uploading file to s3:  ",
-          await uploadPostRes.json()
-        );
+        console.log("ERROR uploading file to s3:  ", await uploadPostRes.json());
       }
     } catch (e) {
       // catch all if service worker isn't working
@@ -426,10 +385,7 @@ export default function UploadForm() {
   const handleClose = async (idx) => {
     // if user chooses to proceed with upload when some files were flagged as bad
     if (idx === 1) {
-      const filteredFiles = files.filter(
-        (f) => !failedUploadsMsg.includes(f.name)
-      );
-      console.log("FILES: ", filteredFiles);
+      const filteredFiles = files.filter((f) => !failedUploadsMsg.includes(f.name));
       await handleNewAnalysis(filteredFiles);
     }
     // goes after because this dependency triggers reset
@@ -444,11 +400,7 @@ export default function UploadForm() {
           <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
             handleFileChange={(files) => setFiles(Object.values(files))}
             dropZoneText={dropZoneText}
-            fileSelection={
-              files.length > 0
-                ? files.map(({ name }) => name).join(", ")
-                : "No files selected"
-            }
+            fileSelection={files.length > 0 ? files.map(({ name }) => name).join(", ") : "No files selected"}
           />
         ) : (
           <DropDownContainer>
@@ -461,20 +413,14 @@ export default function UploadForm() {
           </DropDownContainer>
         )}
         <AnalysisParamForm
-          checkedBaseline={checkedBaseline}
-          setCheckedBaseline={setCheckedBaseline}
           errorMessages={paramErrors}
           inputVals={analysisParams}
-          checkedWindow={checkedWindow}
-          setCheckedWindow={setCheckedWindow}
-          checkedAdvanced={checkedAdvanced}
-          setCheckedAdvanced={setCheckedAdvanced}
+          checkedParams={checkedParams}
+          setCheckedParams={updateCheckParams}
           paramErrors={paramErrors}
           setParamErrors={setParamErrors}
           setAnalysisParams={setAnalysisParams}
           analysisParams={analysisParams}
-          pulse3dVersions={pulse3dVersions}
-          resetDropDown={resetDropDown}
         />
         <ButtonContainer>
           {uploadSuccess ? <SuccessText>Upload Successful!</SuccessText> : null}
@@ -492,9 +438,7 @@ export default function UploadForm() {
             position="relative"
             borderRadius="3px"
             left="10px"
-            backgroundColor={
-              isButtonDisabled ? "var(--dark-gray)" : "var(--dark-blue)"
-            }
+            backgroundColor={isButtonDisabled ? "var(--dark-gray)" : "var(--dark-blue)"}
             disabled={isButtonDisabled}
             inProgress={inProgress}
             label="Submit"

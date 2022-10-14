@@ -4,7 +4,7 @@ repo_root=$(shell git rev-parse --show-toplevel)
 .PHONY: build buildx push tag apply
 build:
 	cd ${repo_root} && \
-	docker build -t pheno-worker . -f ${repo_root}/jobs/pheno/pheno-worker/Dockerfile -m 4g 
+	docker build -t pheno-worker . -f ${repo_root}/jobs/pheno/pheno-worker/Dockerfile -m 4g
 
 buildx:
 	docker buildx build -t pheno-worker . --platform linux/amd64 --load

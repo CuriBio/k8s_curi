@@ -1,80 +1,82 @@
-version: '3.8'
+version: "3.8"
 services:
-    apiv2-users:
-        build:
-            context: .
-            dockerfile: ./deployments/apiv2/services/users/Dockerfile
-        environment:
-            - POSTGRES_SERVER=host.docker.internal
-            - POSTGRES_DB=${POSTGRES_DB}
-            - POSTGRES_USER=${CURIBIO_USERS_USER}
-            - POSTGRES_PASSWORD=${TABLE_USER_PASS}
-            - JWT_SECRET_KEY=${JWT_SECRET_KEY}
-            - AWS_PROFILE=${AWS_PROFILE}
-            - AWS_REGION=us-east-2
-        volumes:
-            - ~/.aws/:/root/.aws:ro
-        ports:
-            - "9001:9001"
-        platform: "linux/amd64"
-        depends_on:
-            - psql-proxy
-    apiv2-mantarray:
-        build:
-            context: .
-            dockerfile: ./deployments/apiv2/services/mantarray/Dockerfile
-        environment:
-            - CLUSTER_NAME=test
-            - POSTGRES_SERVER=host.docker.internal
-            - POSTGRES_DB=${POSTGRES_DB}
-            - POSTGRES_USER=${CURIBIO_MANTARRAY_USER}
-            - POSTGRES_PASSWORD=${MANTARRAY_USER_PASS_RO}
-            - JWT_SECRET_KEY=${JWT_SECRET_KEY}
-            - AWS_PROFILE=${AWS_PROFILE}
-            - AWS_REGION=us-east-2
-        volumes:
-            - ~/.aws/:/root/.aws:ro
-        ports:
-            - "9000:9000"
-        platform: "linux/amd64"
-        depends_on:
-            - psql-proxy
-    pulse3d:
-        build:
-            context: .
-            dockerfile: ./deployments/pulse3d/services/pulse3d/Dockerfile
-        environment:
-            - POSTGRES_SERVER=host.docker.internal
-            - POSTGRES_DB=${POSTGRES_DB}
-            - POSTGRES_USER=${CURIBIO_JOBS_USER}
-            - POSTGRES_PASSWORD=${JOBS_USER_PASS}
-            - UPLOADS_BUCKET_ENV=${TEST_UPLOADS_BUCKET}
-            - JWT_SECRET_KEY=${JWT_SECRET_KEY}
-            - AWS_PROFILE=${AWS_PROFILE}
-            - AWS_REGION=us-east-2
-        volumes:
-            - ~/.aws/:/root/.aws:ro
-        ports:
-            - "8000:8000"
-        platform: "linux/amd64"
-        depends_on:
-            - psql-proxy
-    psql-proxy:
-        build:
-            context: .
-            dockerfile: ./bin/psql_proxy/Dockerfile
-        command: sh -c "
-            kubectl --kubeconfig ~/.kube/curi_test_config run $${PROXY} -it --image=alpine/socat --tty --rm --expose=true --port=5432 tcp-listen:5432,fork,reuseaddr tcp-connect:psql-rds.default:5432 &
-            kubectl --kubeconfig /root/.kube/$${KUBECONFIG} port-forward --address 0.0.0.0 svc/$${PROXY} 5432:5432
-            "
-        environment:
-            - AWS_PROFILE=${AWS_PROFILE}
-            - AWS_REGION=us-east-2
-            - KUBECONFIG=curi_test_config
-            - PROXY=psql-proxy
-        volumes:
-            - ~/.aws/:/root/.aws:ro
-            - ~/.kube/:/root/.kube:ro
-        ports:
-            - "5432:5432"
-        platform: "linux/amd64"
+  apiv2-users:
+    build:
+      context: .
+      dockerfile: ./deployments/apiv2/services/users/Dockerfile
+    environment:
+      - POSTGRES_SERVER=host.docker.internal
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${CURIBIO_USERS_USER}
+      - POSTGRES_PASSWORD=${TABLE_USER_PASS}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - AWS_PROFILE=${AWS_PROFILE}
+      - AWS_REGION=us-east-2
+      - CURIBIO_EMAIL=${CURIBIO_EMAIL}
+      - CURIBIO_EMAIL_PASSWORD=${CURIBIO_EMAIL_PASSWORD}
+    volumes:
+      - ~/.aws/:/root/.aws:ro
+    ports:
+      - "9001:9001"
+    platform: "linux/amd64"
+    depends_on:
+      - psql-proxy
+  apiv2-mantarray:
+    build:
+      context: .
+      dockerfile: ./deployments/apiv2/services/mantarray/Dockerfile
+    environment:
+      - CLUSTER_NAME=test
+      - POSTGRES_SERVER=host.docker.internal
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${CURIBIO_MANTARRAY_USER}
+      - POSTGRES_PASSWORD=${MANTARRAY_USER_PASS_RO}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - AWS_PROFILE=${AWS_PROFILE}
+      - AWS_REGION=us-east-2
+    volumes:
+      - ~/.aws/:/root/.aws:ro
+    ports:
+      - "9000:9000"
+    platform: "linux/amd64"
+    depends_on:
+      - psql-proxy
+  pulse3d:
+    build:
+      context: .
+      dockerfile: ./deployments/pulse3d/services/pulse3d/Dockerfile
+    environment:
+      - POSTGRES_SERVER=host.docker.internal
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${CURIBIO_JOBS_USER}
+      - POSTGRES_PASSWORD=${JOBS_USER_PASS}
+      - UPLOADS_BUCKET_ENV=${TEST_UPLOADS_BUCKET}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - AWS_PROFILE=${AWS_PROFILE}
+      - AWS_REGION=us-east-2
+    volumes:
+      - ~/.aws/:/root/.aws:ro
+    ports:
+      - "8000:8000"
+    platform: "linux/amd64"
+    depends_on:
+      - psql-proxy
+  psql-proxy:
+    build:
+      context: .
+      dockerfile: ./bin/psql_proxy/Dockerfile
+    command: sh -c "
+      kubectl --kubeconfig ~/.kube/curi_test_config run $${PROXY} -it --image=alpine/socat --tty --rm --expose=true --port=5432 tcp-listen:5432,fork,reuseaddr tcp-connect:psql-rds.default:5432 &
+      kubectl --kubeconfig /root/.kube/$${KUBECONFIG} port-forward --address 0.0.0.0 svc/$${PROXY} 5432:5432
+      "
+    environment:
+      - AWS_PROFILE=${AWS_PROFILE}
+      - AWS_REGION=us-east-2
+      - KUBECONFIG=curi_test_config
+      - PROXY=psql-proxy
+    volumes:
+      - ~/.aws/:/root/.aws:ro
+      - ~/.kube/:/root/.kube:ro
+    ports:
+      - "5432:5432"
+    platform: "linux/amd64"

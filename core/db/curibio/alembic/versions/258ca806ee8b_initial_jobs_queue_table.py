@@ -1,7 +1,7 @@
 """initial jobs queue table
 
 Revision ID: 258ca806ee8b
-Revises: 
+Revises:
 Create Date: 2022-03-14 15:32:48.959338
 
 """
@@ -20,7 +20,6 @@ depends_on = None
 
 
 def upgrade():
-
     op.create_table(
         "uploads",
         sa.Column(

@@ -18,6 +18,6 @@ patchesJson6902:
     kind: Ingress
     name: github
   patch: |-
-    - op: replace 
+    - op: replace
       path: /spec/rules/0/host
       value: "githooks.curibio-test.com"

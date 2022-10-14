@@ -43,7 +43,7 @@ def general_dice(y_true, y_pred, labels):
         else:
             return 0
 
-    for id in set(y_true.flatten()):	
+    for id in set(y_true.flatten()):
         if id == 0:
             continue
         if id in labels:
@@ -75,7 +75,7 @@ def main(argsIn):
     args = parser.parse_args(argsIn)
     acceptable_noise = args.acceptable_noise
     labels = list(map(int, args.labels.split(',')))
-    
+
     logging.basicConfig(filename=args.log_file, level=logging.INFO)
     logging.info('entered evaluation')
 

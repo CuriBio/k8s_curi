@@ -88,7 +88,7 @@ def test_startup__sets_global_cb_customer_id(mocked_asyncpg_con):
         ("POST", "/register"),
         ("POST", "/refresh"),
         ("POST", "/logout"),
-        ("GET", f"/"),
+        ("GET", "/"),
         ("PUT", f"/{uuid.uuid4()}"),
     ],
 )
@@ -126,7 +126,7 @@ def test_login__user__success(cb_customer_id, mocked_asyncpg_con, mocker):
     assert response.json() == AuthTokens(access=expected_access_token, refresh=expected_refresh_token)
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
-        "SELECT password, id, data->'scope' AS scope FROM users WHERE deleted_at IS NULL AND name = $1 AND customer_id = $2",
+        "SELECT password, id, data->'scope' AS scope FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND suspended='f' AND verified='t'",
         login_details["username"],
         login_details["customer_id"],
     )
@@ -201,6 +201,8 @@ def test_login__incorrect_password(mocked_asyncpg_con):
 def test_register__user__allows_valid_usernames(
     special_char, mocked_asyncpg_con, spied_pw_hasher, cb_customer_id, mocker
 ):
+
+    mocker.patch.object(main, "_send_registration_email", autospec=True)
     use_cb_customer_id = choice([True, False])
     end_with_num = choice([True, False])
 
@@ -219,7 +221,6 @@ def test_register__user__allows_valid_usernames(
     access_token = get_token(userid=test_customer_id, scope=["users:admin"], account_type="customer")
 
     mocked_asyncpg_con.fetchval.return_value = test_user_id
-
     expected_scope = ["users:free"]
 
     response = test_client.post(
@@ -556,8 +557,8 @@ def test_user_id__get__id_given(mocked_asyncpg_con):
 
     mocked_asyncpg_con.fetchrow.return_value = expected_user_info = {
         "id": uuid.uuid4(),
-        "name": f"name",
-        "email": f"user@email.com",
+        "name": "name",
+        "email": "user@email.com",
         "created_at": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
         "last_login": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
         "suspended": choice([True, False]),
@@ -610,7 +611,7 @@ def test_user_id__put__successful_deletion(mocked_asyncpg_con):
     assert response.status_code == 200
 
     mocked_asyncpg_con.execute.assert_called_once_with(
-        f"UPDATE users SET deleted_at=$1 WHERE id=$2", datetime.now(), test_user_id
+        "UPDATE users SET deleted_at=$1 WHERE id=$2", datetime.now(), test_user_id
     )
 
 
@@ -628,7 +629,7 @@ def test_user_id__put__successful_deactivation(mocked_asyncpg_con):
     assert response.status_code == 200
 
     mocked_asyncpg_con.execute.assert_called_once_with(
-        f"UPDATE users SET suspended='t' WHERE id=$1", test_user_id
+        "UPDATE users SET suspended='t' WHERE id=$1", test_user_id
     )
 
 

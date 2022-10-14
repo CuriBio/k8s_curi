@@ -9,6 +9,7 @@ import os
 import numpy as np
 import pandas as pd
 from glob import glob
+from semver import VersionInfo
 
 from stream_zip import ZIP_64, stream_zip
 from datetime import datetime
@@ -17,10 +18,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from pulse3D.peak_detection import peak_detector
-from pulse3D.constants import MICRO_TO_BASE_CONVERSION
+from pulse3D.constants import (
+    MICRO_TO_BASE_CONVERSION,
+    DEFAULT_BASELINE_WIDTHS,
+    DEFAULT_PROMINENCE_FACTORS,
+    DEFAULT_WIDTH_FACTORS,
+)
 
 from auth import ProtectedAny
-from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET
+from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET, DASHBOARD_URL
 from jobs import create_upload, create_job, get_uploads, get_jobs, delete_jobs, delete_uploads
 from models.models import (
     UploadRequest,
@@ -45,11 +51,7 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        # TODO use a single ENV var for this instead
-        "https://dashboard.curibio-test.com",
-        "https://dashboard.curibio.com",
-    ],
+    allow_origins=[DASHBOARD_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -93,9 +95,7 @@ async def get_info_of_uploads(
 
 @app.post("/uploads", response_model=UploadResponse)
 async def create_recording_upload(
-    request: Request,
-    details: UploadRequest,
-    token=Depends(ProtectedAny(scope=["users:free"])),
+    request: Request, details: UploadRequest, token=Depends(ProtectedAny(scope=["users:free"]))
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
@@ -158,9 +158,7 @@ async def soft_delete_uploads(
 # TODO Tanner (4/21/22): probably want to move this to a more general svc (maybe in apiv2-dep) dedicated to uploading misc files to s3
 @app.post("/logs")
 async def create_log_upload(
-    request: Request,
-    details: UploadRequest,
-    token=Depends(ProtectedAny(scope=["users:free"])),
+    request: Request, details: UploadRequest, token=Depends(ProtectedAny(scope=["users:free"]))
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
@@ -265,22 +263,27 @@ async def create_new_job(
             "twitch_widths",
             "start_time",
             "end_time",
-            "peaks_valleys",
         ]
-        # TODO could make this if condition `details.version <= "0.25.0"` using the semver package
-        if details.version != "0.24.6":
-            # max_y param was added in 0.25.0
+
+        # don't add params unless the selected pulse3d version supports it
+        pulse3d_semver = VersionInfo.parse(details.version)
+        if pulse3d_semver >= "0.25.0":
             params.append("max_y")
+        if pulse3d_semver >= "0.25.2":
+            params.append("peaks_valleys")
+        if pulse3d_semver >= "0.25.4":
+            params.append("normalize_y_axis")
+        if pulse3d_semver >= "0.26.0":
+            params.append("stiffness_factor")
 
         details_dict = dict(details)
         analysis_params = {param: details_dict[param] for param in params}
 
-        # TODO now that the pulse3d version is configurable, need to remove these default values and let pulse3d handle it
         # convert these params into a format compatible with pulse3D
         for param, default_values in (
-            ("prominence_factors", 6),
-            ("width_factors", 7),
-            ("baseline_widths_to_use", (10, 90)),
+            ("prominence_factors", DEFAULT_PROMINENCE_FACTORS),
+            ("width_factors", DEFAULT_WIDTH_FACTORS),
+            ("baseline_widths_to_use", DEFAULT_BASELINE_WIDTHS),
         ):
             analysis_params[param] = _format_tuple_param(analysis_params[param], default_values)
 
@@ -297,11 +300,7 @@ async def create_new_job(
             )
 
         return JobResponse(
-            id=job_id,
-            user_id=user_id,
-            upload_id=details.upload_id,
-            status="pending",
-            priority=priority,
+            id=job_id, user_id=user_id, upload_id=details.upload_id, status="pending", priority=priority
         )
 
     except Exception as e:
@@ -320,7 +319,7 @@ def _format_tuple_param(
 
     # set any unspecified values to the default value
     formatted_options = tuple(
-        option if option is not None else default_value
+        (option if option is not None else default_value)
         for option, default_value in zip(options, default_values)
     )
 
@@ -431,7 +430,7 @@ async def get_interactive_waveform_data(
     if job_id is None or upload_id is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Missing required ids to get job metadata.",
+            detail="Missing required ids to get job metadata.",
         )
 
     upload_id = str(upload_id)
@@ -512,7 +511,7 @@ async def get_interactive_waveform_data(
             return WaveformDataResponse(coordinates=coordinates, peaks_valleys=peaks_and_valleys)
 
     except KeyError:
-        logger.error(f"Job metadata was not returned from database.")
+        logger.error("Job metadata was not returned from database.")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     except S3Error as e:
         logger.error(f"Error from s3: {e}")
@@ -528,10 +527,10 @@ async def get_versions(request: Request):
     try:
         async with request.state.pgpool.acquire() as con:
             rows = await con.fetch(  # TODO should eventually sort these using a more robust method
-                "SELECT * FROM pulse3d_versions WHERE state != 'deprecated' ORDER BY created_at"
+                "SELECT version, state FROM pulse3d_versions WHERE state != 'deprecated' ORDER BY created_at"
             )
 
-        return [row["version"] for row in rows]
+        return [dict(row) for row in rows]
 
     except Exception as e:
         logger.error(f"Failed to retrieve info of pulse3d versions: {repr(e)}")

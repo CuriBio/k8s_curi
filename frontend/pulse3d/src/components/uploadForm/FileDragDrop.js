@@ -15,7 +15,6 @@ const Container = styled.div`
   border-radius: 5px;
   background-color: var(--med-gray);
   cursor: pointer;
-  padding-top: 20px;
   font-weight: bold;
   &:hover {
     background-color: var(--light-gray);
@@ -33,6 +32,7 @@ const DropZone = styled.div`
   text-align: center;
   line-height: 2;
   cursor: pointer;
+  height: 170px;
 `;
 
 const FileSelectionLabel = styled.div`
@@ -59,9 +59,7 @@ export default function FileDragDrop({
         <DropZone style={dropZoneStyle}>
           {dropZoneText}
           <br />
-          <FileSelectionLabel>
-            [ {fileSelection || "No file selected"} ]
-          </FileSelectionLabel>
+          <FileSelectionLabel>[ {fileSelection || "No file selected"} ]</FileSelectionLabel>
         </DropZone>
       </FileUploader>
     </Container>

@@ -12,7 +12,7 @@ FROM python:3.9-slim as prod
 ARG DEBIAN_FRONTEND=noninteractive
 
 COPY --from=venv /app/venv /app/venv/
-ENV PATH /app/venv/bin:$PATH 
+ENV PATH /app/venv/bin:$PATH
 
 WORKDIR /app
 COPY ./jobs/pulse3d/pulse3d-worker/src/main.py ./

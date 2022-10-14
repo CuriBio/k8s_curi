@@ -3,21 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "_ce": "node ./check-engines.js",
     "dev": "npm run build-sw && next dev",
-    "build": "npm run build-sw && next build",
-    "build-sw": "webpack",
-    "export:prod": "echo 'NEXT_PUBLIC_PULSE3D_URL=https://pulse3d.curibio.com \nNEXT_PUBLIC_USERS_URL=https://apiv2.curibio.com/users' > .env.production && npm run build && next export",
-    "export:test": "echo 'NEXT_PUBLIC_PULSE3D_URL=https://pulse3d.curibio-test.com \nNEXT_PUBLIC_USERS_URL=https://apiv2.curibio-test.com/users' > .env.production && npm run build && next export",
-    "start": "next start",
+    "build": "NODE_ENV=production npm run build-sw && next build",
+    "build-sw": "npm run _ce && webpack",
+    "export:prod": "echo 'NEXT_PUBLIC_PULSE3D_URL=https://pulse3d.curibio.com\nNEXT_PUBLIC_USERS_URL=https://apiv2.curibio.com/users\nNEXT_PUBLIC_CLUSTER=prod' > .env.production && npm run build && next export",
+    "export:test": "echo 'NEXT_PUBLIC_PULSE3D_URL=https://pulse3d.curibio-test.com\nNEXT_PUBLIC_USERS_URL=https://apiv2.curibio-test.com/users\nNEXT_PUBLIC_CLUSTER=test' > .env.production && npm run build && next export",
+    "start": "npm run _ce && next start",
     "lint": "next lint",
-    "test:unit": "jest --watchAll --coverage",
+    "test:unit": "npm run _ce && jest --watchAll --coverage",
     "cy:open-only": "cypress open",
     "cy:run-only": "cypress run",
     "cy:open": "start-server-and-test dev 3000 cy:open-only",
     "cy:run": "start-server-and-test dev 3000 cy:run-only"
   },
   "engines": {
-    "node": "^17.0.0"
+    "node": "^16.17.0"
   },
   "dependencies": {
     "@emotion/react": "^11.9.0",
@@ -31,9 +32,11 @@
     "jwt-decode": "3.1.2",
     "next": "12.1.6",
     "react": "18.1.0",
+    "react-data-table-component": "^7.5.3",
     "react-dom": "18.1.0",
     "react-drag-drop-files": "^2.3.7",
     "react-hook-form": "^7.31.1",
+    "semver": "^7.3.7",
     "semver-sort": "1.0.0",
     "spark-md5": "^3.0.2",
     "streamsaver": "^2.0.6",
