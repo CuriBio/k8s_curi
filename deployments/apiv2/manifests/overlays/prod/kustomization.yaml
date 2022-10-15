@@ -31,7 +31,7 @@ patchesJson6902:
       path: /spec/template/spec/containers/1/env/0/value
       value: prod
     - op: add
-      path: /spec/template/spec/containers/0/env
+      path: /spec/template/spec/containers/0/env/0
       value:
-        - name: DASHBOARD_URL
-          value: "https://dashboard.curibio.com"
+        name: DASHBOARD_URL
+        value: "https://dashboard.curibio.com"
