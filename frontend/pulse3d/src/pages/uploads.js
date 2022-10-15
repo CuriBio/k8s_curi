@@ -296,11 +296,14 @@ export default function Uploads() {
   useEffect(() => {
     getAllJobs();
     // start 10 second interval
-
+    const uploadsInterval = setInterval(() => getAllJobs(), [1e4]);
     // don't call get jobs if downloading or deleting in progress because it backs up server
     if (!["downloading", "deleting"].includes(modalState)) {
       toggleUpdateData(!updateData);
     }
+    
+    //clear interval when switching pages
+    return () => clearInterval(uploadsInterval);
   }, [uploads]);
 
   useEffect(() => {
