@@ -48,10 +48,6 @@ export default function Layout({ children }) {
     router.replace("/login", undefined, { shallow: true });
   };
 
-  const redirectHome = () => {
-    if (router.pathname !== "/login") router.replace("/uploads", undefined, { shallow: true });
-  };
-
   return (
     <Container>
       <Header>
@@ -62,7 +58,7 @@ export default function Layout({ children }) {
         <link rel="manifest" href="/site.webmanifest" />
         <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5" />
         <meta name="theme-color" content="#ffffff" />
-        <a href="https://curibio.com/">
+        <a href="https://curibio.com">
           <Image
             src={"CuriBio_logo_white.png"}
             alt="CuriBio Logo"
