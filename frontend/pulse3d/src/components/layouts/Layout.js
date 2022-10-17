@@ -68,6 +68,7 @@ export default function Layout({ children }) {
           width={90}
           height={35}
           loader={imageLoader}
+          style={{ cursor: "pointer" }}
           unoptimized
           onClick={redirectHome}
         />
