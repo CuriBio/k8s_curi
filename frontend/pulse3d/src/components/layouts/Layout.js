@@ -48,6 +48,10 @@ export default function Layout({ children }) {
     router.replace("/login", undefined, { shallow: true });
   };
 
+  const redirectHome = () => {
+    if (router.pathname !== "/login") router.replace("/uploads", undefined, { shallow: true });
+  };
+
   return (
     <Container>
       <Header>
@@ -65,6 +69,7 @@ export default function Layout({ children }) {
           height={35}
           loader={imageLoader}
           unoptimized
+          onClick={redirectHome}
         />
         {router.pathname !== "/login" && (
           <DropDownMenu items={["Logout"]} label={"Menu"} handleSelection={logoutUser} />
