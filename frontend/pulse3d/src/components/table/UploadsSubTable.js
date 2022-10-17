@@ -38,11 +38,14 @@ export default memo(function UploadsSubTable(props) {
           type="checkbox"
           checked={isChecked[idx]}
           onChange={() => {
-            props.setJobToEdit({ id: job.jobId, action: isChecked[idx] ? "remove" : "add" });
+            props.setJobToEdit({
+              id: job.jobId,
+              action: isChecked[idx] ? "remove" : "add",
+            });
             setIsChecked(isChecked.map((checked, index) => (idx === index ? !checked : checked)));
           }}
         />
-        <SubRow>{job.jobId}</SubRow>
+        <SubRow>{job.analyzedFile}</SubRow>
         <SubRow>{job.datetime}</SubRow>
         <SubRow>{paramsString.length === 0 ? "None" : paramsString}</SubRow>
         <SubRow>{job.status}</SubRow>

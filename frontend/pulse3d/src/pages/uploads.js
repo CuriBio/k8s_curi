@@ -9,64 +9,41 @@ import { AuthContext } from "@/pages/_app";
 import DataTable from "react-data-table-component";
 import FilterHeader from "@/components/table/FilterHeader";
 import UploadsSubTable from "@/components/table/UploadsSubTable";
-let adminColumns = [
+
+const uploadTableColumns = [
   {
     name: "File Owner",
-    center: true,
-    sortable: true,
+    admin: true,
     selector: (row) => row.username,
   },
   {
     name: "Recording Name",
-    center: true,
-    sortable: true,
-    selector: (row) => (row.name ? row.name : "none"),
+    admin: false,
+    selector: (row) => row.name || "none",
   },
   {
     name: "Upload ID",
-    center: true,
-    sortable: true,
+    admin: false,
     selector: (row) => row.id,
   },
   {
     name: "Created Date",
-    center: true,
-    sortable: true,
+    admin: false,
     selector: (row) => row.createdAt,
   },
   {
     name: "Last Analyzed",
-    center: true,
-    sortable: true,
+    admin: false,
     selector: (row) => row.lastAnalyzed,
   },
 ];
-let noneAdminColumns = [
-  {
-    name: "Recording Name",
-    center: true,
-    sortable: true,
-    selector: (row) => (row.name ? row.name : "none"),
-  },
-  {
-    name: "Upload ID",
-    center: true,
-    sortable: true,
-    selector: (row) => row.id,
-  },
-  {
-    name: "Created Date",
-    center: true,
-    sortable: true,
-    selector: (row) => row.createdAt,
-  },
-  {
-    name: "Last Analyzed",
-    center: true,
-    sortable: true,
-    selector: (row) => row.lastAnalyzed,
-  },
-];
+
+// These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
+const columnProperties = {
+  center: true,
+  sortable: true,
+};
+
 const customStyles = {
   headRow: {
     style: {
@@ -212,7 +189,7 @@ export default function Uploads() {
           "Last Analyzed": "lastAnalyzed",
         };
 
-  //when filter string changes refilter results
+  //when filter string changes, refilter results
   useEffect(() => {
     const newList = rows.filter((row) => {
       //if the column being filtered is a date
@@ -301,7 +278,7 @@ export default function Uploads() {
     if (!["downloading", "deleting"].includes(modalState)) {
       toggleUpdateData(!updateData);
     }
-    
+
     //clear interval when switching pages
     return () => clearInterval(uploadsInterval);
   }, [uploads]);
@@ -614,7 +591,17 @@ export default function Uploads() {
           <Container>
             <DataTable
               data={displayRows}
-              columns={accountType === "admin" ? adminColumns : noneAdminColumns}
+              columns={uploadTableColumns
+                .filter(
+                  // if admin user then show all columns, else just show non-admin columns
+                  (e) => accountType === "admin" || !e.admin
+                )
+                .map((e) => {
+                  return {
+                    ...columnProperties,
+                    ...e,
+                  };
+                })}
               pagination
               expandableRows
               expandableRowsComponent={ExpandedComponent}
