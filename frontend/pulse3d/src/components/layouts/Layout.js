@@ -62,16 +62,17 @@ export default function Layout({ children }) {
         <link rel="manifest" href="/site.webmanifest" />
         <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5" />
         <meta name="theme-color" content="#ffffff" />
-        <Image
-          src={"CuriBio_logo_white.png"}
-          alt="CuriBio Logo"
-          width={90}
-          height={35}
-          loader={imageLoader}
-          style={{ cursor: "pointer" }}
-          unoptimized
-          onClick={redirectHome}
-        />
+        <a href="https://curibio.com/">
+          <Image
+            src={"CuriBio_logo_white.png"}
+            alt="CuriBio Logo"
+            width={90}
+            height={35}
+            loader={imageLoader}
+            style={{ cursor: "pointer" }}
+            unoptimized
+          />
+        </a>
         {router.pathname !== "/login" && (
           <DropDownMenu items={["Logout"]} label={"Menu"} handleSelection={logoutUser} />
         )}
