@@ -379,8 +379,8 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=["use
     query = (
         "SELECT id, name, email, created_at, last_login, suspended FROM users "
         "WHERE customer_id=$1 AND deleted_at IS NULL "
+        "ORDER BY suspended"
     )
-
     try:
         async with request.state.pgpool.acquire() as con:
             result = await con.fetch(query, customer_id)
@@ -430,7 +430,6 @@ async def get_user(request: Request, user_id: uuid.UUID, token=Depends(Protected
     try:
         async with request.state.pgpool.acquire() as con:
             row = await con.fetchrow(query, customer_id, user_id)
-
         if not row:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

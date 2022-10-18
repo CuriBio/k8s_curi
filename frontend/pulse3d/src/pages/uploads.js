@@ -3,71 +3,54 @@ import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
-import React, { useContext, useState, useEffect, useRef } from "react";
+import { useContext, useState, useEffect } from "react";
 import InteractiveAnalysisModal from "@/components/uploads/InteractiveAnalysisModal";
 import { AuthContext } from "@/pages/_app";
 import DataTable from "react-data-table-component";
 import FilterHeader from "@/components/table/FilterHeader";
 import UploadsSubTable from "@/components/table/UploadsSubTable";
 
-let adminColumns = [
+
+
+const uploadTableColumns = [
   {
     name: "File Owner",
-    center: false,
-    sortable: true,
+    admin: true,
+
     selector: (row) => row.username,
   },
   {
     name: "Recording Name",
-    center: false,
-    sortable: true,
-    selector: (row) => (row.name ? row.name : "none"),
+    admin: false,
+    selector: (row) => row.name || "none",
   },
   {
     name: "Upload ID",
-    center: false,
-    sortable: true,
+    admin: false,
     selector: (row) => row.id,
   },
   {
     name: "Created Date",
-    center: false,
-    sortable: true,
+
+    admin: false,
+
     selector: (row) => row.createdAt,
   },
   {
     name: "Last Analyzed",
-    center: false,
-    sortable: true,
+
+
+    admin: false,
     selector: (row) => row.lastAnalyzed,
   },
 ];
-let noneAdminColumns = [
-  {
-    name: "Recording Name",
-    center: false,
-    sortable: true,
-    selector: (row) => (row.name ? row.name : "none"),
-  },
-  {
-    name: "Upload ID",
-    center: false,
-    sortable: true,
-    selector: (row) => row.id,
-  },
-  {
-    name: "Created Date",
-    center: false,
-    sortable: true,
-    selector: (row) => row.createdAt,
-  },
-  {
-    name: "Last Analyzed",
-    center: false,
-    sortable: true,
-    selector: (row) => row.lastAnalyzed,
-  },
-];
+
+// These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
+const columnProperties = {
+  center: true,
+  sortable: true,
+};
+
 const customStyles = {
   headRow: {
     style: {
@@ -85,7 +68,6 @@ const customStyles = {
       backgroundColor: "var(--light-gray)",
       borderLeft: "2px solid var(--dark-gray)",
       borderRight: "2px solid var(--dark-gray)",
-      justifySelf: "end",
     },
   },
 };
@@ -99,6 +81,7 @@ const Container = styled.div`
 `;
 const SpinnerContainer = styled.div`
   margin: 50px;
+
 `;
 
 const InteractiveAnalysisContainer = styled.div`
@@ -109,6 +92,7 @@ const InteractiveAnalysisContainer = styled.div`
   border-radius: 5px;
   overflow: none;
 `;
+
 
 const PageContainer = styled.div`
   width: 80%;
@@ -180,6 +164,7 @@ export default function Uploads() {
   const [filterString, setFilterString] = useState("");
   const [filtercolumn, setFilterColumn] = useState("");
   const [updateData, toggleUpdateData] = useState(false);
+
   const [checkedUploadsLength, setCheckedUploadsLength] = useState(0);
   const [prevCheckedUploads, setPrevCheckedUploads] = useState(checkedUploads);
   const [selectedRow, setSelectedRow] = useState([]);
@@ -212,6 +197,7 @@ export default function Uploads() {
     setPrevCheckedUploads(selectedRow);
   }, [selectedRow]);
 
+
   useEffect(() => {
     setTimeout(async () => {
       // don't call get jobs if downloading or deleting in progress because it backs up server
@@ -223,8 +209,10 @@ export default function Uploads() {
   }, [updateData]);
 
   useEffect(() => {
+
     if (jobs.length > 0) {
       setPending(false);
+
     }
   }, [displayRows]);
   const toFilterField =
@@ -243,7 +231,9 @@ export default function Uploads() {
           "Last Analyzed": "lastAnalyzed",
         };
 
-  //when filter string changes refilter results
+
+  //when filter string changes, refilter results
+
   useEffect(() => {
     const newList = rows.filter((row) => {
       //if the column being filtered is a date
@@ -327,11 +317,11 @@ export default function Uploads() {
   useEffect(() => {
     getAllJobs();
     // start 10 second interval
-
     // don't call get jobs if downloading or deleting in progress because it backs up server
     if (!["downloading", "deleting"].includes(modalState)) {
       toggleUpdateData(!updateData);
     }
+
   }, [uploads]);
 
   useEffect(() => {
@@ -353,6 +343,7 @@ export default function Uploads() {
         checked: isChecked,
       };
     });
+
 
     setRows([...formattedUploads]);
     setDisplayRows([...formattedUploads]);
@@ -579,7 +570,9 @@ export default function Uploads() {
   };
   const ExpandedComponent = ({ data }) => {
     const [jobToEdit, setJobToEdit] = useState();
+
     const [checkArray, setCheckArray] = useState(data.jobs.map((job) => job.checked));
+
     //takes care of adding the state of checked jobs
     useEffect(() => {
       if (jobToEdit) {
@@ -588,11 +581,13 @@ export default function Uploads() {
             if (jobs[i].jobId === jobToEdit.id) {
               jobs[i].checked = true;
               setCheckedJobs([...checkedJobs, jobs[i].jobId]);
+
             }
           }
         } else if (jobToEdit.action === "remove") {
           for (let i = 0; i < jobs.length; i++) {
             if (jobs[i].jobId === jobToEdit.id) {
+
               for (let j = 0; j < displayRows.length; j++) {
                 if (displayRows[j].id === jobs[i].uploadId) {
                   displayRows[j].checked = false;
@@ -621,12 +616,14 @@ export default function Uploads() {
         if (temp.length === checkArray.length) {
           setCheckArray(temp);
         }
+2
       }
     }, [jobToEdit]);
     return (
       <UploadsSubTable
         jobs={data.jobs}
         checkedArray={checkArray}
+
         setJobToEdit={(e) => {
           setJobToEdit(e);
         }}
@@ -657,7 +654,18 @@ export default function Uploads() {
           <Container>
             <DataTable
               data={displayRows}
-              columns={accountType === "admin" ? adminColumns : noneAdminColumns}
+
+              columns={uploadTableColumns
+                .filter(
+                  // if admin user then show all columns, else just show non-admin columns
+                  (e) => accountType === "admin" || !e.admin
+                )
+                .map((e) => {
+                  return {
+                    ...columnProperties,
+                    ...e,
+                  };
+                })}
               pagination
               expandableRows
               expandableRowsComponent={ExpandedComponent}
@@ -682,6 +690,7 @@ export default function Uploads() {
                   loading={pending}
                 />
               }
+
               selectableRowsNoSelectAll
               selectableRows
               selectableRowSelected={(row) => row.checked}

@@ -20,14 +20,12 @@ const SubRow = styled.div`
   margin: 1rem 0;
 `;
 
-export default function UploadsSubTable(props) {
-  const [isChecked] = useState(
-    props.checkedArray.map((val, idx) => {
-      return { checked: val, index: idx };
-    })
-  );
+
+export default memo(function UploadsSubTable(props) {
+  const [isChecked, setIsChecked] = useState(props.jobs.map((job) => job.checked));
   const rows = props.jobs.map((job, idx) => {
     let paramsString = [];
+
     Object.keys(job.analysisParams).forEach((param) => {
       if (job.analysisParams[param] !== null) {
         const paramVal = param === "peaks_valleys" ? "user set" : job.analysisParams[param];
@@ -39,12 +37,17 @@ export default function UploadsSubTable(props) {
       <SubContainer key={Math.random()}>
         <input
           type="checkbox"
-          checked={isChecked[idx].checked}
+
+          checked={isChecked[idx]}
           onChange={() => {
-            props.setJobToEdit({ id: job.jobId, action: isChecked[idx].checked ? "remove" : "add" });
+            props.setJobToEdit({
+              id: job.jobId,
+              action: isChecked[idx] ? "remove" : "add",
+            });
+            setIsChecked(isChecked.map((checked, index) => (idx === index ? !checked : checked)));
           }}
         />
-        <SubRow>{job.jobId}</SubRow>
+        <SubRow>{job.analyzedFile}</SubRow>
         <SubRow>{job.datetime}</SubRow>
         <SubRow>{paramsString.length === 0 ? "None" : paramsString}</SubRow>
         <SubRow>{job.status}</SubRow>
@@ -62,4 +65,4 @@ export default function UploadsSubTable(props) {
       {rows}
     </div>
   );
-}
+});

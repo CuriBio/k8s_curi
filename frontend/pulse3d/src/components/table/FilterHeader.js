@@ -4,7 +4,7 @@ import styled from "styled-components";
 const InputsContainer = styled.div`
   width: 100%;
   display: flex;
-  justify-content: space-around;
+  justify-content: space-evenly;
 `;
 
 export default function FilterHeader({ setFilterColumn, setFilterString, columns }) {

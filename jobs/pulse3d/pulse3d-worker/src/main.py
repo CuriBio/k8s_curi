@@ -132,9 +132,8 @@ async def process(con, item):
             else:
                 try:
                     logger.info("Writing time force data to parquet file for new upload")
-                    time_force_df = first_recording.to_dataframe()
+                    first_recording.to_dataframe().to_parquet(parquet_path)
 
-                    time_force_df.to_parquet(parquet_path)
 
                     with open(parquet_path, "rb") as file:
                         contents = file.read()

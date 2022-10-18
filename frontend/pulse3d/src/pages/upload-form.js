@@ -78,7 +78,7 @@ export default function UploadForm() {
 
   const getDefaultAnalysisParams = () => {
     return {
-      yAxisNormalization: false,
+      normalizeYAxis: "",
       baseToPeak: "",
       peakToBase: "",
       maxY: "",
@@ -177,7 +177,8 @@ export default function UploadForm() {
   const postNewJob = async (uploadId, filename) => {
     try {
       const {
-        yAxisNormalization,
+
+        normalizeYAxis,
         baseToPeak,
         peakToBase,
         maxY,
@@ -196,7 +197,7 @@ export default function UploadForm() {
 
       const requestBody = {
         upload_id: uploadId,
-        normalize_y_axis: yAxisNormalization,
+        normalize_y_axis: normalizeYAxis === "" ? null : normalizeYAxis,
         baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
         prominence_factors: formatTupleParams(prominenceFactorPeaks, prominenceFactorValleys),
         width_factors: formatTupleParams(widthFactorPeaks, widthFactorValleys),
