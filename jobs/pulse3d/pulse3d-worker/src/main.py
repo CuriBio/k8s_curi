@@ -29,13 +29,7 @@ logger = logging.getLogger(__name__)
 PULSE3D_VERSION = pkg_resources.get_distribution("pulse3D").version
 
 
-def _load_from_dir(recording_dir, stiffness_factor):
-    recordings = list(PlateRecording.from_directory(recording_dir, stiffness_factor=stiffness_factor))
-    logger.info(f"{len(recordings)} recording(s) found")
-    return recordings
-
-
-@get_item(queue=f"pulse3d-v{PULSE3D_VERSION}")
+@get_item(queue="pulse3d")
 async def process(con, item):
     logger.info(f"Processing item: {item}")
     s3_client = boto3.client("s3")
@@ -132,9 +126,7 @@ async def process(con, item):
             else:
                 try:
                     logger.info("Writing time force data to parquet file for new upload")
-                    time_force_df = first_recording.to_dataframe()
-
-                    time_force_df.to_parquet(parquet_path)
+                    first_recording.to_dataframe().to_parquet(parquet_path)
 
                     with open(parquet_path, "rb") as file:
                         contents = file.read()

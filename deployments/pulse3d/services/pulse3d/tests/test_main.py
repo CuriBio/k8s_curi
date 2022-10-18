@@ -1,4 +1,3 @@
-from datetime import datetime
 from random import randint
 from fastapi.testclient import TestClient
 import json
@@ -16,6 +15,7 @@ from labware_domain_models import LabwareDefinition
 from pulse3D.constants import DEFAULT_BASELINE_WIDTHS, DEFAULT_PROMINENCE_FACTORS, DEFAULT_WIDTH_FACTORS
 
 TWENTY_FOUR_WELL_PLATE = LabwareDefinition(row_count=4, column_count=6)
+
 
 test_client = TestClient(main.app)
 
@@ -820,6 +820,7 @@ def test_waveform_data__get__handles_time_unit_if_old_parquet_file(
     # set up mocked df returned from parquet file
     mocker.patch.object(main, "get_jobs", autospec=True, return_value=test_jobs)
     mocker.patch.object(main, "download_directory_from_s3", autospec=True)
+
     mocked_read = mocker.patch.object(
         pd, "read_parquet", autospec=True, return_value=create_test_df(include_raw_data)
     )
@@ -842,7 +843,6 @@ def test_waveform_data__get__handles_time_unit_if_old_parquet_file(
     coordinates = response_body["coordinates"].values()
     # assert coordinates will be sent for each well
     assert len(coordinates) == 24
-
     for well_coords in response_body["coordinates"].values():
         # each time point should be contained
         assert len(well_coords) == len(expected_time)
@@ -860,11 +860,9 @@ def test_waveform_data__get__handles_time_unit_if_old_parquet_file(
 )
 def test_versions__get(token, mocked_asyncpg_con, mocker):
     # arbitrary number of versions
-    expected_versions = [f"1.0.{i}" for i in range(3)]
 
-    mocked_asyncpg_con.fetch.return_value = [
-        {"version": version, "created_at": datetime.now(), "updated_at": datetime.now(), "state": f"state{i}"}
-        for i, version in enumerate(expected_versions)
+    mocked_asyncpg_con.fetch.return_value = expected_version_dicts = [
+        {"version": f"1.0.{i}", "state": f"state{i}"} for i in range(3)
     ]
 
     kwargs = {}
@@ -873,8 +871,8 @@ def test_versions__get(token, mocked_asyncpg_con, mocker):
 
     response = test_client.get("/versions", **kwargs)
     assert response.status_code == 200
-    assert response.json() == expected_versions
+    assert response.json() == expected_version_dicts
 
     mocked_asyncpg_con.fetch.assert_called_once_with(
-        "SELECT * FROM pulse3d_versions WHERE state != 'deprecated' ORDER BY created_at"
+        "SELECT version, state FROM pulse3d_versions WHERE state != 'deprecated' ORDER BY created_at"
     )

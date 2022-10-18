@@ -68,6 +68,7 @@ let noneAdminColumns = [
     selector: (row) => row.lastAnalyzed,
   },
 ];
+
 const customStyles = {
   headRow: {
     style: {
@@ -85,7 +86,6 @@ const customStyles = {
       backgroundColor: "var(--light-gray)",
       borderLeft: "2px solid var(--dark-gray)",
       borderRight: "2px solid var(--dark-gray)",
-      justifySelf: "end",
     },
   },
 };
@@ -183,6 +183,46 @@ export default function Uploads() {
   const [checkedUploadsLength, setCheckedUploadsLength] = useState(0);
   const [prevCheckedUploads, setPrevCheckedUploads] = useState(checkedUploads);
   const [selectedRow, setSelectedRow] = useState([]);
+
+  useEffect(() => {
+    setTimeout(async () => {
+      // don't call get jobs if downloading or deleting in progress because it backs up server
+      if (!["downloading", "deleting"].includes(modalState) && updateData) {
+        await getAllJobs();
+        toggleUpdateData(!updateData);
+      }
+    }, [1e4]);
+  }, [updateData]);
+
+  useEffect(() => {
+    if (displayRows.length > 0) {
+      setTimeout(() => {
+        setPending(false);
+      }, 5000);
+    }
+  }, [displayRows]);
+
+  //when filter string changes, refilter results
+  useEffect(() => {
+    const newList = rows.filter((row) => {
+      //if the column being filtered is a date
+      if (toFilterField[filtercolumn] === "createdAt" || toFilterField[filtercolumn] === "lastAnalyzed") {
+        return row[toFilterField[filtercolumn]]
+          .toLocaleLowerCase()
+          .includes(filterString.toLocaleLowerCase());
+      } else if (row[toFilterField[filtercolumn]]) {
+        return row[toFilterField[filtercolumn]].includes(filterString);
+      }
+    });
+    setDisplayRows(newList);
+  }, [filterString]);
+
+  useEffect(() => {
+    if (!openInteractiveAnalysis) {
+      // reset when interactive analysis modal closes
+      resetTable();
+    }
+  }, [openInteractiveAnalysis]);
 
   useEffect(() => {
     if (checkedUploadsLength < selectedRow.length) {
@@ -327,11 +367,14 @@ export default function Uploads() {
   useEffect(() => {
     getAllJobs();
     // start 10 second interval
-
+    const uploadsInterval = setInterval(() => getAllJobs(), [1e4]);
     // don't call get jobs if downloading or deleting in progress because it backs up server
     if (!["downloading", "deleting"].includes(modalState)) {
       toggleUpdateData(!updateData);
     }
+
+    //clear interval when switching pages
+    return () => clearInterval(uploadsInterval);
   }, [uploads]);
 
   useEffect(() => {

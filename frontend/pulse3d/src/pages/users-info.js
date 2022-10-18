@@ -5,38 +5,36 @@ import DataTable from "react-data-table-component";
 import UsersActionSelector from "@/components/table/UsersActionsSelector";
 import FilterHeader from "@/components/table/FilterHeader";
 import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
+
 const columns = [
   {
     name: "Status",
-    center: false,
-    sortable: true,
     selector: (row) => (row.suspended ? "Inactive" : "Active"),
   },
   {
     name: "Name",
-    center: false,
-    sortable: true,
     selector: (row) => row.name,
   },
   {
     name: "Email",
-    center: false,
-    sortable: true,
     selector: (row) => row.email,
   },
   {
     name: "Date Created",
-    center: false,
-    sortable: true,
     selector: (row) => formatDateTime(row.created_at),
   },
   {
     name: "Last Loggedin",
-    center: false,
-    sortable: true,
     selector: (row) => formatDateTime(row.last_login),
   },
 ];
+
+// These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
+const columnProperties = {
+  center: true,
+  sortable: true,
+};
+
 const customStyles = {
   headRow: {
     style: {

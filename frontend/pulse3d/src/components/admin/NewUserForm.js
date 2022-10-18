@@ -83,7 +83,8 @@ export default function NewUserForm() {
   const [errorMsg, setErrorMsg] = useState("");
   const [inProgress, setInProgress] = useState(false);
   const [userCreatedVisible, setUserCreatedVisible] = useState(false);
-  const [passwordBorder, setPasswordBorder] = useState("none");
+  const [password2Border, setPassword2Border] = useState("none");
+  const [password1Border, setPassword1Border] = useState("none");
   const resetForm = () => {
     setErrorMsg(""); // reset to show user something happened
     setUserData({
@@ -92,7 +93,8 @@ export default function NewUserForm() {
       password1: "",
       password2: "",
     });
-    setPasswordBorder("none");
+    setPassword2Border("none");
+    setPassword1Border("none");
   };
 
   useEffect(() => resetForm(), []);
@@ -136,24 +138,51 @@ export default function NewUserForm() {
   };
 
   const checkPasswordsMatch = () => {
-    if (userData.password2.length > 0) {
-      // if a user has started to enter values in the password confirmation input
-      // if the two passwords match, change border to green
-      if (userData.password2 === userData.password1) {
-        setPasswordBorder("3px solid green");
-        setErrorMsg("");
-        // else change to red if they aren't matching
+    // only update this state once initial password passes requirements to prevent multiple error messages
+    // preference for password requirement error message over not matching
+    if (password1Border.includes("green")) {
+      if (userData.password2.length > 0) {
+        // if a user has started to enter values in the password confirmation input
+        // if the two passwords match, change border to green
+        if (userData.password2 === userData.password1) {
+          setPassword2Border("3px solid green");
+          setErrorMsg("");
+          // else change to red if they aren't matching
+        } else {
+          setErrorMsg("* Passwords do not match");
+          setPassword2Border("3px solid red");
+        }
       } else {
-        setErrorMsg("* Passwords do not match");
-        setPasswordBorder("3px solid red");
+        // else set the border to none if user isn't inputting anything
+        setPassword2Border("none");
+        setErrorMsg("");
+      }
+    }
+  };
+
+  const validatePassword = () => {
+    // this removes all borders/error messages once a user has backspaced to an empty input field
+    if (userData.password1.length > 0) {
+      // min 10 chars, one number, one uppercase, one lowercase, one special character
+      const reqRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[@$!%*?&]).{10,}/;
+      const isValid = reqRegex.test(userData.password1);
+
+      if (isValid) {
+        setPassword1Border("3px solid green");
+        setErrorMsg("");
+      } else {
+        setPassword1Border("3px solid red");
+        setErrorMsg("* Password does not meet requirements");
       }
     } else {
-      setPasswordBorder("none"); // else set the border to none if user isn't inputting anything
+      // else set the border to none if user isn't inputting anything
+      setPassword1Border("none");
       setErrorMsg("");
     }
   };
 
   useEffect(() => {
+    validatePassword();
     checkPasswordsMatch();
   }, [userData.password1, userData.password2]);
 
@@ -229,7 +258,7 @@ export default function NewUserForm() {
               password1: e.target.value,
             });
           }}
-          borderStyle={passwordBorder}
+          borderStyle={password1Border}
         />
         <FormInput
           name="passwordTwo"
@@ -243,7 +272,7 @@ export default function NewUserForm() {
               password2: e.target.value,
             });
           }}
-          borderStyle={passwordBorder}
+          borderStyle={password2Border}
         />
         <ErrorText id="userError" role="errorMsg">
           {errorMsg}

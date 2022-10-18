@@ -42,7 +42,10 @@ TEMPLATES = Jinja2Templates(directory="templates")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[DASHBOARD_URL],
+    allow_origins=[
+        "https://dashboard.curibio-test.com",
+        "https://dashboard.curibio.com",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -63,6 +66,27 @@ async def startup():
         # might be a better way to do this without using global
         global CB_CUSTOMER_ID
         CB_CUSTOMER_ID = await con.fetchval("SELECT id FROM customers WHERE email = 'software@curibio.com'")
+
+
+@app.get("/users/me", response_model=UserProfile)
+async def index(request: Request, token=Depends(ProtectedAny(scope=["users:free"]))):
+    try:
+        async with request.state.pgpool.acquire() as con:
+            user_id = uuid.UUID(hex=token["userid"])
+            rows = await con.fetchrow(
+                "select id, name, email, account_type, created_at, updated_at, data->'scope' as scope from users where id = $1",
+                user_id,
+            )
+
+            return UserProfile(
+                username=rows.get("name", ""),
+                email=rows.get("email", ""),
+                user_id=rows.get("id", "") if "id" in rows else "",
+                account_type=rows.get("account_type", ""),
+                scope=json.loads(rows.get("scope", "[]")),
+            )
+    except:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @app.post("/login", response_model=AuthTokens)
@@ -379,8 +403,8 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=["use
     query = (
         "SELECT id, name, email, created_at, last_login, suspended FROM users "
         "WHERE customer_id=$1 AND deleted_at IS NULL "
+        "ORDER BY suspended"
     )
-
     try:
         async with request.state.pgpool.acquire() as con:
             result = await con.fetch(query, customer_id)
