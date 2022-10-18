@@ -20,11 +20,14 @@ const SubRow = styled.div`
   margin: 1rem 0;
 `;
 
-export default memo(function UploadsSubTable(props) {
-  const [isChecked, setIsChecked] = useState(props.jobs.map((job) => job.checked));
+export default function UploadsSubTable(props) {
+  const [isChecked] = useState(
+    props.checkedArray.map((val, idx) => {
+      return { checked: val, index: idx };
+    })
+  );
   const rows = props.jobs.map((job, idx) => {
     let paramsString = [];
-
     Object.keys(job.analysisParams).forEach((param) => {
       if (job.analysisParams[param] !== null) {
         const paramVal = param === "peaks_valleys" ? "user set" : job.analysisParams[param];
@@ -36,10 +39,9 @@ export default memo(function UploadsSubTable(props) {
       <SubContainer key={Math.random()}>
         <input
           type="checkbox"
-          checked={isChecked[idx]}
+          checked={isChecked[idx].checked}
           onChange={() => {
-            props.setJobToEdit({ id: job.jobId, action: isChecked[idx] ? "remove" : "add" });
-            setIsChecked(isChecked.map((checked, index) => (idx === index ? !checked : checked)));
+            props.setJobToEdit({ id: job.jobId, action: isChecked[idx].checked ? "remove" : "add" });
           }}
         />
         <SubRow>{job.jobId}</SubRow>
@@ -60,4 +62,4 @@ export default memo(function UploadsSubTable(props) {
       {rows}
     </div>
   );
-});
+}

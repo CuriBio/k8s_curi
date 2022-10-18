@@ -3,12 +3,13 @@ import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
-import { useContext, useState, useEffect } from "react";
+import React, { useContext, useState, useEffect, useRef } from "react";
 import InteractiveAnalysisModal from "@/components/uploads/InteractiveAnalysisModal";
 import { AuthContext } from "@/pages/_app";
 import DataTable from "react-data-table-component";
 import FilterHeader from "@/components/table/FilterHeader";
 import UploadsSubTable from "@/components/table/UploadsSubTable";
+
 let adminColumns = [
   {
     name: "File Owner",
@@ -181,13 +182,14 @@ export default function Uploads() {
   const [updateData, toggleUpdateData] = useState(false);
   const [checkedUploadsLength, setCheckedUploadsLength] = useState(0);
   const [prevCheckedUploads, setPrevCheckedUploads] = useState(checkedUploads);
+  const [selectedRow, setSelectedRow] = useState([]);
 
   useEffect(() => {
-    if (checkedUploadsLength < checkedUploads.length) {
+    if (checkedUploadsLength < selectedRow.length) {
       //if upload is checked then check all jobs in upload
       let toAdd = [];
       jobs.forEach((job) => {
-        if (job.uploadId === checkedUploads[0]) {
+        if (job.uploadId === selectedRow[0]) {
           job.checked = true;
           toAdd.push(job.jobId);
         }
@@ -195,7 +197,7 @@ export default function Uploads() {
       setCheckedJobs([...checkedJobs, ...toAdd]);
     } else {
       //if upload is unchecked
-      const uncheckedId = prevCheckedUploads.filter((x) => !checkedUploads.includes(x));
+      const uncheckedId = prevCheckedUploads.filter((x) => !selectedRow.includes(x));
       jobs.forEach((job) => {
         if (job.uploadId === uncheckedId[0]) {
           job.checked = false;
@@ -206,9 +208,9 @@ export default function Uploads() {
         }
       });
     }
-    setCheckedUploadsLength(checkedUploads.length);
-    setPrevCheckedUploads(checkedUploads);
-  }, [checkedUploads]);
+    setCheckedUploadsLength(selectedRow.length);
+    setPrevCheckedUploads(selectedRow);
+  }, [selectedRow]);
 
   useEffect(() => {
     setTimeout(async () => {
@@ -339,7 +341,7 @@ export default function Uploads() {
       const uploadJobs = jobs
         .filter(({ uploadId }) => uploadId === id)
         .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
-
+      const isChecked = selectedRow.includes(id);
       const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
       return {
         username,
@@ -348,6 +350,7 @@ export default function Uploads() {
         createdAt: formattedTime,
         lastAnalyzed,
         jobs: uploadJobs,
+        checked: isChecked,
       };
     });
 
@@ -576,6 +579,7 @@ export default function Uploads() {
   };
   const ExpandedComponent = ({ data }) => {
     const [jobToEdit, setJobToEdit] = useState();
+    const [checkArray, setCheckArray] = useState(data.jobs.map((job) => job.checked));
     //takes care of adding the state of checked jobs
     useEffect(() => {
       if (jobToEdit) {
@@ -584,30 +588,45 @@ export default function Uploads() {
             if (jobs[i].jobId === jobToEdit.id) {
               jobs[i].checked = true;
               setCheckedJobs([...checkedJobs, jobs[i].jobId]);
-              return;
             }
           }
         } else if (jobToEdit.action === "remove") {
           for (let i = 0; i < jobs.length; i++) {
             if (jobs[i].jobId === jobToEdit.id) {
+              for (let j = 0; j < displayRows.length; j++) {
+                if (displayRows[j].id === jobs[i].uploadId) {
+                  displayRows[j].checked = false;
+                  let temp = selectedRow;
+                  setSelectedRow(temp.filter((row) => row !== displayRows[j].id));
+                }
+              }
               jobs[i].checked = false;
               if (checkedJobs.length === 1) {
                 setCheckedJobs([]);
-                return;
+              } else {
+                let temp = checkedJobs;
+                const location = temp.indexOf(jobToEdit.id);
+                temp.splice(location, 1);
+                setCheckedJobs(temp);
               }
-              let temp = checkedJobs;
-              const location = temp.indexOf(jobToEdit.id);
-              temp.splice(location, 1);
-              setCheckedJobs(temp);
-              return;
             }
           }
+        }
+        let temp = [];
+        data.jobs.forEach((job) => {
+          if (checkedJobs.includes(job.jobId)) {
+            temp.push(job.checked);
+          }
+        });
+        if (temp.length === checkArray.length) {
+          setCheckArray(temp);
         }
       }
     }, [jobToEdit]);
     return (
       <UploadsSubTable
         jobs={data.jobs}
+        checkedArray={checkArray}
         setJobToEdit={(e) => {
           setJobToEdit(e);
         }}
@@ -649,28 +668,33 @@ export default function Uploads() {
                   <CircularSpinner size={200} color={"secondary"} />
                 </SpinnerContainer>
               }
-              selectableRows
-              selectableRowsNoSelectAll
               subHeader
               subHeaderAlign="left"
               subHeaderComponent={
                 <FilterHeader
                   columns={
                     accountType === "admin"
-                      ? ["Owner", "Recording", "ID", "Date Created", "Last Analyzed"]
-                      : ["Recording", "ID", "Date Created", "Last Analyzed"]
+                      ? ["", "Owner", "Recording", "ID", "Date Created", "Last Analyzed"]
+                      : ["", "Recording", "ID", "Date Created", "Last Analyzed"]
                   }
                   setFilterString={setFilterString}
                   setFilterColumn={setFilterColumn}
                   loading={pending}
                 />
               }
-              onSelectedRowsChange={({ selectedRows, selectedCount }) => {
-                let arr = [];
-                for (let i = 0; i < selectedCount; i++) {
-                  arr.push(selectedRows[i].id);
+              selectableRowsNoSelectAll
+              selectableRows
+              selectableRowSelected={(row) => row.checked}
+              onSelectedRowsChange={({ selectedRows }) => {
+                for (let i = 0; i < displayRows.length; i++) {
+                  if (selectedRows.includes(displayRows[i])) {
+                    console.log("here");
+                    displayRows[i].checked = true;
+                  } else {
+                    displayRows[i].checked = false;
+                    //console.log("uncheck all jobs in this upload " + displayRows[i].id);
+                  }
                 }
-                setCheckedUploads(arr);
               }}
             />
           </Container>
