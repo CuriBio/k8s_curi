@@ -69,7 +69,8 @@ function Pulse({ Component, pageProps }) {
             router.replace("/uploads", undefined, { shallow: true });
           }
         } else if (currentPage !== "/login" && currentPage !== "/verify") {
-          // always redirect to login page if not logged in and attempting to access a page requiring authentication
+          // always redirect to login page if not logged in and not an account verification 
+          // protects unauthorized page access
           router.replace("/login", undefined, { shallow: true });
         }
       });
