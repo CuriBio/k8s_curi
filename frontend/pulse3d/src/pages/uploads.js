@@ -688,11 +688,9 @@ export default function Uploads() {
               onSelectedRowsChange={({ selectedRows }) => {
                 for (let i = 0; i < displayRows.length; i++) {
                   if (selectedRows.includes(displayRows[i])) {
-                    console.log("here");
                     displayRows[i].checked = true;
                   } else {
                     displayRows[i].checked = false;
-                    //console.log("uncheck all jobs in this upload " + displayRows[i].id);
                   }
                 }
               }}
