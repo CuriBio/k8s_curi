@@ -68,7 +68,7 @@ function Pulse({ Component, pageProps }) {
           if (currentPage === "/login" || !availablePages[data.accountType].includes(currentPage)) {
             router.replace("/uploads", undefined, { shallow: true });
           }
-        } else if (currentPage !== "/login") {
+        } else if (currentPage !== "/login" && currentPage !== "/verify") {
           // always redirect to login page if not logged in and attempting to access a page requiring authentication
           router.replace("/login", undefined, { shallow: true });
         }
