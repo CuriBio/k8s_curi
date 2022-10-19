@@ -403,14 +403,9 @@ async def verify_user_email(
     customer_id = uuid.UUID(hex=token["customer_id"])
 
     update_query = "UPDATE users SET verified='t' WHERE id=$1 AND customer_id=$2"
-    query_args = (
-        user_id,
-        customer_id,
-    )
-
     try:
         async with request.state.pgpool.acquire() as con:
-            await con.execute(update_query, *query_args)
+            await con.execute(update_query, user_id, customer_id)
     except Exception as e:
         logger.exception(f"PUT /{user_id}: Unexpected error {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

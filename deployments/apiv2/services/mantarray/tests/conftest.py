@@ -16,8 +16,8 @@ os.environ["POSTGRES_USER"] = POSTGRES_USER
 os.environ["POSTGRES_PASSWORD"] = POSTGRES_PASSWORD
 
 # minimal mocking required to ensure that test collection won't fail and no connections to cloud need to be made
-for mod_to_mock in ("boto3",):
-    sys.modules[mod_to_mock] = MagicMock()
+# for mod_to_mock in ("boto3",):
+#     sys.modules[mod_to_mock] = MagicMock()
 
 
 def get_secret_value_se(SecretId):
