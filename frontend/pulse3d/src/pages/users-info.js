@@ -178,10 +178,7 @@ export default function UserInfo() {
           <DataTable
             columns={columns.map((e) => {
               return {
-                ...
-                
-                
-                ,
+                ...columnProperties,
                 ...e,
               };
             })}

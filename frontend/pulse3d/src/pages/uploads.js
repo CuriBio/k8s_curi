@@ -10,36 +10,34 @@ import DataTable from "react-data-table-component";
 import FilterHeader from "@/components/table/FilterHeader";
 import UploadsSubTable from "@/components/table/UploadsSubTable";
 
-
-
 const uploadTableColumns = [
   {
     name: "File Owner",
     admin: true,
-
+    center: false,
     selector: (row) => row.username,
   },
   {
     name: "Recording Name",
     admin: false,
+    center: false,
     selector: (row) => row.name || "none",
   },
   {
     name: "Upload ID",
     admin: false,
+    center: false,
     selector: (row) => row.id,
   },
   {
     name: "Created Date",
-
     admin: false,
-
+    center: false,
     selector: (row) => row.createdAt,
   },
   {
     name: "Last Analyzed",
-
-
+    center: false,
     admin: false,
     selector: (row) => row.lastAnalyzed,
   },
@@ -81,7 +79,6 @@ const Container = styled.div`
 `;
 const SpinnerContainer = styled.div`
   margin: 50px;
-
 `;
 
 const InteractiveAnalysisContainer = styled.div`
@@ -92,7 +89,6 @@ const InteractiveAnalysisContainer = styled.div`
   border-radius: 5px;
   overflow: none;
 `;
-
 
 const PageContainer = styled.div`
   width: 80%;
@@ -164,39 +160,7 @@ export default function Uploads() {
   const [filterString, setFilterString] = useState("");
   const [filtercolumn, setFilterColumn] = useState("");
   const [updateData, toggleUpdateData] = useState(false);
-
-  const [checkedUploadsLength, setCheckedUploadsLength] = useState(0);
-  const [prevCheckedUploads, setPrevCheckedUploads] = useState(checkedUploads);
-  const [selectedRow, setSelectedRow] = useState([]);
-
-  useEffect(() => {
-    if (checkedUploadsLength < selectedRow.length) {
-      //if upload is checked then check all jobs in upload
-      let toAdd = [];
-      jobs.forEach((job) => {
-        if (job.uploadId === selectedRow[0]) {
-          job.checked = true;
-          toAdd.push(job.jobId);
-        }
-      });
-      setCheckedJobs([...checkedJobs, ...toAdd]);
-    } else {
-      //if upload is unchecked
-      const uncheckedId = prevCheckedUploads.filter((x) => !selectedRow.includes(x));
-      jobs.forEach((job) => {
-        if (job.uploadId === uncheckedId[0]) {
-          job.checked = false;
-          let temp = checkedJobs;
-          const location = temp.indexOf(job.jobId);
-          temp.splice(location, 1);
-          setCheckedJobs(temp);
-        }
-      });
-    }
-    setCheckedUploadsLength(selectedRow.length);
-    setPrevCheckedUploads(selectedRow);
-  }, [selectedRow]);
-
+  const [selectedUploads, setSelectedUploads] = useState([]);
 
   useEffect(() => {
     setTimeout(async () => {
@@ -209,10 +173,8 @@ export default function Uploads() {
   }, [updateData]);
 
   useEffect(() => {
-
     if (jobs.length > 0) {
       setPending(false);
-
     }
   }, [displayRows]);
   const toFilterField =
@@ -230,7 +192,6 @@ export default function Uploads() {
           "Date Created": "createdAt",
           "Last Analyzed": "lastAnalyzed",
         };
-
 
   //when filter string changes, refilter results
 
@@ -321,7 +282,6 @@ export default function Uploads() {
     if (!["downloading", "deleting"].includes(modalState)) {
       toggleUpdateData(!updateData);
     }
-
   }, [uploads]);
 
   useEffect(() => {
@@ -331,7 +291,7 @@ export default function Uploads() {
       const uploadJobs = jobs
         .filter(({ uploadId }) => uploadId === id)
         .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
-      const isChecked = selectedRow.includes(id);
+      const isChecked = selectedUploads.includes(id);
       const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
       return {
         username,
@@ -343,7 +303,6 @@ export default function Uploads() {
         checked: isChecked,
       };
     });
-
 
     setRows([...formattedUploads]);
     setDisplayRows([...formattedUploads]);
@@ -581,18 +540,16 @@ export default function Uploads() {
             if (jobs[i].jobId === jobToEdit.id) {
               jobs[i].checked = true;
               setCheckedJobs([...checkedJobs, jobs[i].jobId]);
-
             }
           }
         } else if (jobToEdit.action === "remove") {
           for (let i = 0; i < jobs.length; i++) {
             if (jobs[i].jobId === jobToEdit.id) {
-
               for (let j = 0; j < displayRows.length; j++) {
                 if (displayRows[j].id === jobs[i].uploadId) {
                   displayRows[j].checked = false;
-                  let temp = selectedRow;
-                  setSelectedRow(temp.filter((row) => row !== displayRows[j].id));
+                  let temp = selectedUploads;
+                  setSelectedUploads(temp.filter((row) => row !== displayRows[j].id));
                 }
               }
               jobs[i].checked = false;
@@ -616,14 +573,12 @@ export default function Uploads() {
         if (temp.length === checkArray.length) {
           setCheckArray(temp);
         }
-2
       }
     }, [jobToEdit]);
     return (
       <UploadsSubTable
         jobs={data.jobs}
         checkedArray={checkArray}
-
         setJobToEdit={(e) => {
           setJobToEdit(e);
         }}
@@ -654,7 +609,6 @@ export default function Uploads() {
           <Container>
             <DataTable
               data={displayRows}
-
               columns={uploadTableColumns
                 .filter(
                   // if admin user then show all columns, else just show non-admin columns
@@ -690,7 +644,6 @@ export default function Uploads() {
                   loading={pending}
                 />
               }
-
               selectableRowsNoSelectAll
               selectableRows
               selectableRowSelected={(row) => row.checked}
@@ -702,6 +655,7 @@ export default function Uploads() {
                     displayRows[i].checked = false;
                   }
                 }
+                setDisplayRows(displayRows);
               }}
             />
           </Container>
