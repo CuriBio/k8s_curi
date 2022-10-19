@@ -43,7 +43,7 @@ export default function Login() {
   const router = useRouter();
   const [errorMsg, setErrorMsg] = useState(null);
   const [loginType, setLoginType] = useState("User");
-  const [userData, setUserData] = useState({});
+  const [userData, setUserData] = useState({ service: "pulse3d" });
 
   const submitForm = async () => {
     setErrorMsg(""); // reset to show user something happened

@@ -73,8 +73,8 @@ def create_token(
         raise ValueError(f"Valid account types are 'user' and 'customer', not '{account_type}'")
     if account_type == "user":
         # make sure a user is not given admin privileges
-        if "users:admin" in scope:
-            raise ValueError("User tokens cannot have scope 'users:admin'")
+        if "customer" in scope:
+            raise ValueError(f"User tokens cannot have scope '{scope}'")
         if not customer_id:
             raise ValueError("User tokens must have a customer ID")
         customer_id = customer_id.hex
@@ -93,7 +93,6 @@ def create_token(
     now = datetime.now(tz=timezone.utc)
     iat = timegm(now.utctimetuple())
     exp = timegm((now + timedelta(minutes=exp_dur)).utctimetuple())
-
     jwt_meta = JWTMeta(aud=JWT_AUDIENCE, scope=scope, iat=iat, exp=exp, refresh=refresh)
     jwt_details = JWTDetails(customer_id=customer_id, userid=userid.hex, account_type=account_type)
     jwt_payload = JWTPayload(**jwt_meta.dict(), **jwt_details.dict())

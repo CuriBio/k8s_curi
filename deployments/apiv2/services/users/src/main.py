@@ -236,7 +236,7 @@ async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False)
 async def register(
     request: Request,
     details: Union[CustomerCreate, UserCreate],
-    token=Depends(ProtectedAny(scope=["users:admin"])),
+    token=Depends(ProtectedAny(scope=["customer:free", "customer:paid"])),
 ):
     """Register a user or customer account.
 
@@ -253,6 +253,8 @@ async def register(
     """
     ph = PasswordHasher()
     customer_id = uuid.UUID(hex=token["userid"])
+    is_free_account = "free" in token["scope"]
+
     try:
         # still hash even if user or customer exists to avoid timing analysis leaks
         phash = ph.hash(details.password1.get_secret_value())

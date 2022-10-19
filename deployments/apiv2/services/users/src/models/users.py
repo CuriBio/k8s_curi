@@ -15,6 +15,7 @@ class UserLogin(BaseModel):
     customer_id: UUID
     username: str
     password: SecretStr
+    service: str
 
 
 class CustomerCreate(BaseModel):
@@ -63,6 +64,7 @@ USERNAME_REGEX_STR = f"^[a-zA-Z]+[a-zA-Z0-9{USERNAME_VALID_SPECIAL_CHARS}]+$"
 
 class UserCreate(CustomerCreate):
     username: str
+    service: str
 
     @validator("username")
     def username_alphanumeric(cls, v):

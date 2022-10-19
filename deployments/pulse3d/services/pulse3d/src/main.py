@@ -75,7 +75,11 @@ async def startup():
 async def get_info_of_uploads(
     request: Request,
     upload_ids: Optional[List[uuid.UUID]] = Query(None),
-    token=Depends(ProtectedAny(scope=["users:free", "users:admin"])),
+    token=Depends(
+        ProtectedAny(
+            scope=["pulse3d:user:free", "pulse3d:user:paid", "customer:free", "customer:paid", "users:admin"]
+        )
+    ),
 ):
     # need to convert to UUIDs to str to avoid issues with DB
     if upload_ids:
@@ -95,7 +99,9 @@ async def get_info_of_uploads(
 
 @app.post("/uploads", response_model=UploadResponse)
 async def create_recording_upload(
-    request: Request, details: UploadRequest, token=Depends(ProtectedAny(scope=["users:free"]))
+    request: Request,
+    details: UploadRequest,
+    token=Depends(ProtectedAny(scope=["pulse3d:user:free", "pulse3d:user:paid"])),
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
@@ -136,7 +142,9 @@ async def create_recording_upload(
 async def soft_delete_uploads(
     request: Request,
     upload_ids: List[uuid.UUID] = Query(None),
-    token=Depends(ProtectedAny(scope=["users:free", "users:admin"])),
+    token=Depends(
+        ProtectedAny(scope=["pulse3d:user:free", "pulse3d:user:paid", "customer:free", "customer:paid"])
+    ),
 ):
     # make sure at least one upload ID was given
     if not upload_ids:
@@ -158,7 +166,9 @@ async def soft_delete_uploads(
 # TODO Tanner (4/21/22): probably want to move this to a more general svc (maybe in apiv2-dep) dedicated to uploading misc files to s3
 @app.post("/logs")
 async def create_log_upload(
-    request: Request, details: UploadRequest, token=Depends(ProtectedAny(scope=["users:free"]))
+    request: Request,
+    details: UploadRequest,
+    token=Depends(ProtectedAny(scope=["pulse3d:user:free", "pulse3d:user:paid"])),
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
@@ -189,7 +199,11 @@ async def get_info_of_jobs(
     request: Request,
     job_ids: Optional[List[uuid.UUID]] = Query(None),
     download: bool = Query(True),
-    token=Depends(ProtectedAny(scope=["users:free", "users:admin"])),
+    token=Depends(
+        ProtectedAny(
+            scope=["pulse3d:user:free", "pulse3d:user:paid", "customer:free", "customer:paid", "users:admin"]
+        )
+    ),
 ):
     # need to convert UUIDs to str to avoid issues with DB
     if job_ids:
@@ -250,7 +264,9 @@ async def _get_jobs(con, token, job_ids):
 
 @app.post("/jobs")
 async def create_new_job(
-    request: Request, details: JobRequest, token=Depends(ProtectedAny(scope=["users:free"]))
+    request: Request,
+    details: JobRequest,
+    token=Depends(ProtectedAny(scope=["pulse3d:user:free", "pulse3d:user:paid"])),
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
@@ -330,7 +346,9 @@ def _format_tuple_param(
 async def soft_delete_jobs(
     request: Request,
     job_ids: List[uuid.UUID] = Query(None),
-    token=Depends(ProtectedAny(scope=["users:free", "users:admin"])),
+    token=Depends(
+        ProtectedAny(scope=["pulse3d:user:free", "pulse3d:user:paid", "customer:free", "customer:paid"])
+    ),
 ):
     # make sure at least one job ID was given
     if not job_ids:
@@ -354,7 +372,9 @@ async def soft_delete_jobs(
 async def download_analyses(
     request: Request,
     details: JobDownloadRequest,
-    token=Depends(ProtectedAny(scope=["users:free", "users:admin"])),
+    token=Depends(
+        ProtectedAny(scope=["pulse3d:user:free", "pulse3d:user:paid", "customer:free", "customer:paid"])
+    ),
 ):
     job_ids = details.job_ids
 
@@ -421,7 +441,7 @@ async def get_interactive_waveform_data(
     request: Request,
     upload_id: uuid.UUID = Query(None),
     job_id: uuid.UUID = Query(None),
-    token=Depends(ProtectedAny(scope=["users:free"])),
+    token=Depends(ProtectedAny(scope=["pulse3d:user:free", "pulse3d:user:paid"])),
 ):
 
     account_id = str(uuid.UUID(token["userid"]))

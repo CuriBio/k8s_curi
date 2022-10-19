@@ -70,8 +70,10 @@ const PageContainer = styled.div`
 
 const Container = styled.div`
   position: relative;
-  padding: 0% 3% 3% 3%;
+  margin: 0% 3% 3% 3%;
   margin-top: 1rem;
+  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
+    0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
 
 const SpinnerContainer = styled.div`

@@ -1,13 +1,14 @@
 from starlette.config import Config
 from starlette.datastructures import Secret
 
-config = Config(".env")
-
+# config = Config(".env")
+config = Config("/Users/lucipak/Documents/gpg/.env_localhost")
 APP_NAME = config("APP_NAME", cast=str, default="CuriBio/Auth")
 # version used to tag the docker image
 VERSION = "0.1.0"
 
-DASHBOARD_URL = config("DASHBOARD_URL", cast=str, default="https://dashboard.curibio-test.com")
+# DASHBOARD_URL = config("DASHBOARD_URL", cast=str, default="https://dashboard.curibio-test.com")
+DASHBOARD_URL = config("DASHBOARD_URL", cast=str, default="http://localhost:3000")
 CURIBIO_EMAIL = config("CURIBIO_EMAIL", cast=str)
 CURIBIO_EMAIL_PASSWORD = config("CURIBIO_EMAIL_PASSWORD", cast=str)
 
