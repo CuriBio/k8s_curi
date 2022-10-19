@@ -20,7 +20,6 @@ const SubRow = styled.div`
   margin: 1rem 0;
 `;
 
-
 export default memo(function UploadsSubTable(props) {
   const [isChecked, setIsChecked] = useState(props.jobs.map((job) => job.checked));
   const rows = props.jobs.map((job, idx) => {
@@ -37,7 +36,6 @@ export default memo(function UploadsSubTable(props) {
       <SubContainer key={Math.random()}>
         <input
           type="checkbox"
-
           checked={isChecked[idx]}
           onChange={() => {
             props.setJobToEdit({

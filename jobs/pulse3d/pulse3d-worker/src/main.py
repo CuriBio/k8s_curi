@@ -134,7 +134,6 @@ async def process(con, item):
                     logger.info("Writing time force data to parquet file for new upload")
                     first_recording.to_dataframe().to_parquet(parquet_path)
 
-
                     with open(parquet_path, "rb") as file:
                         contents = file.read()
                         md5 = hashlib.md5(contents).digest()

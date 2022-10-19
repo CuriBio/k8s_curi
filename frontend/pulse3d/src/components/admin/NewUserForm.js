@@ -272,7 +272,6 @@ export default function NewUserForm() {
               password2: e.target.value,
             });
           }}
-
           borderStyle={password2Border}
         />
         <ErrorText id="userError" role="errorMsg">

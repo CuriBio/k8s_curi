@@ -151,7 +151,6 @@ export default function AnalysisParamForm({
   analysisParams,
 }) {
   const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
-
   const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
 
   const pulse3dVersionGte = (version) => {
@@ -183,10 +182,8 @@ export default function AnalysisParamForm({
       }
     }
     if (!updatedParams.normalizeYAxis) {
-
       // if not normalizing y-axis, then clear the entered value.
       // A value can only be entered for max Y if y-axis normalization is enabled
-
       updatedParams.maxY = "";
     }
     setAnalysisParams(updatedParams);
@@ -335,14 +332,12 @@ export default function AnalysisParamForm({
             </Label>
             <InputErrorContainer>
               <CheckboxWidget
-
                 checkedState={disableYAxisNormalization}
                 handleCheckbox={(disable) => {
                   updateParams({
                     normalizeYAxis: !disable,
                   });
                   setDisableYAxisNormalization(disable);
-
                 }}
               />
             </InputErrorContainer>
@@ -373,9 +368,7 @@ export default function AnalysisParamForm({
                     maxY: e.target.value,
                   });
                 }}
-
                 disabled={disableYAxisNormalization}
-
               >
                 <ErrorText id="maxYError" role="errorMsg">
                   {errorMessages.maxY}

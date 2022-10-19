@@ -177,7 +177,6 @@ export default function UploadForm() {
   const postNewJob = async (uploadId, filename) => {
     try {
       const {
-
         normalizeYAxis,
         baseToPeak,
         peakToBase,

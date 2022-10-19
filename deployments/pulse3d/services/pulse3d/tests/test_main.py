@@ -16,6 +16,7 @@ from pulse3D.constants import DEFAULT_BASELINE_WIDTHS, DEFAULT_PROMINENCE_FACTOR
 
 TWENTY_FOUR_WELL_PLATE = LabwareDefinition(row_count=4, column_count=6)
 
+
 test_client = TestClient(main.app)
 
 
@@ -859,6 +860,7 @@ def test_waveform_data__get__handles_time_unit_if_old_parquet_file(
 )
 def test_versions__get(token, mocked_asyncpg_con, mocker):
     # arbitrary number of versions
+
     mocked_asyncpg_con.fetch.return_value = expected_version_dicts = [
         {"version": f"1.0.{i}", "state": f"state{i}"} for i in range(3)
     ]
