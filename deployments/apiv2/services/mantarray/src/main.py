@@ -44,7 +44,7 @@ async def root(request: Request):
     return templates.TemplateResponse("table.html", {"request": request, "units": units})
 
 
-@app.get("/software/{main_fw_version}")
+@app.get("/software-range/{main_fw_version}")
 async def get_software_for_main_fw(
     request: Request, main_fw_version: str = Path(..., regex=r"^\d+\.\d+\.\d+$")
 ):

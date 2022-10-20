@@ -1,3 +1,4 @@
+import functools
 import re
 
 import boto3
@@ -12,7 +13,25 @@ VERSION_REGEX_STR = r"\d+\.\d+\.\d+"
 FIRMWARE_FILE_REGEX = re.compile(rf"^{VERSION_REGEX_STR}\.bin$")
 
 SOFTWARE_INSTALLER_PREFIX = "software/MantarrayController-Setup-prod"
-SOFTWARE_INSTALLER_VERSION_REGEX = re.compile(rf"{SOFTWARE_INSTALLER_PREFIX}-({VERSION_REGEX_STR})\.exe")
+SOFTWARE_INSTALLER_VERSION_REGEX = re.compile(rf"{SOFTWARE_INSTALLER_PREFIX}-({VERSION_REGEX_STR})\.exe$")
+
+
+class NoPreviousSoftwareVersionError(Exception):
+    pass
+
+
+def filter_and_sort_semvers(version_container, filter_fn, return_keys=False):
+    def filter_fn_adj(*args):
+        return filter_fn(*[VersionInfo.parse(arg) for arg in args])
+
+    if isinstance(version_container, dict):
+        filtered = [(k if return_keys else v) for k, v in version_container.items() if filter_fn_adj(k, v)]
+    else:
+        if return_keys:
+            raise ValueError("Cannot use return_keys if version_container is not a dict")
+        filtered = [v for v in version_container if filter_fn_adj(v)]
+
+    return sorted(filtered, key=VersionInfo.parse)
 
 
 def create_dependency_mapping():
@@ -52,12 +71,16 @@ def create_dependency_mapping():
 
 
 def get_cfw_from_hw(cfw_to_hw, device_hw_version):
-    cfw_to_hw = {cfw: VersionInfo.parse(hw) for cfw, hw in cfw_to_hw.items()}
+    fass_partial = functools.partial(filter_and_sort_semvers, cfw_to_hw, return_keys=True)
     try:
-        cfw_version = sorted(cfw for cfw, hw in cfw_to_hw.items() if hw == device_hw_version)[-1]
+        return fass_partial(lambda _, hw: hw == device_hw_version)[-1]
     except IndexError:
-        cfw_version = sorted(cfw for cfw, hw in cfw_to_hw.items() if device_hw_version < hw)[0]
-    return cfw_version
+        # if this point reached, then the given HW version is not directly referenced by any channel FW
+        # files in S3, so assume that the lowest channel FW version to point to a greater HW version
+        # is the correct channel FW version
+        # Tanner (10/19/22): in practice, this should never happen since a HW update will always
+        # require a channel FW update
+        return fass_partial(lambda _, hw: hw > device_hw_version)[0]
 
 
 def resolve_versions(hardware_version):
@@ -81,19 +104,19 @@ def get_previous_software_version(sw_version):
     # Tanner (10/18/22): this will always error in test cluster since this bucket does not exist
     bucket = "downloads.curibio.com"
 
-    sw_installer_objs = s3_client.list_objects(Bucket=bucket, Prefix=SOFTWARE_INSTALLER_PREFIX)
-    sw_installer_names = [item["Key"] for item in sw_installer_objs["Contents"]]
-    sw_versions = [
+    all_sw_installer_objs = s3_client.list_objects(Bucket=bucket, Prefix=SOFTWARE_INSTALLER_PREFIX)
+    all_sw_installer_names = [item["Key"] for item in all_sw_installer_objs["Contents"]]
+
+    prod_sw_versions = [
         regex_res[0]
-        for name in sw_installer_names
+        for name in all_sw_installer_names
         if (regex_res := SOFTWARE_INSTALLER_VERSION_REGEX.findall(name))
     ]
 
-    sw_version_info = VersionInfo.parse(sw_version)
     try:
-        previous_sw_version = sorted(v for v in sw_versions if v < sw_version_info)[-1]
+        previous_sw_version = filter_and_sort_semvers(prod_sw_versions, lambda sw: sw < sw_version)[-1]
     except IndexError:
-        previous_sw_version = None
+        raise NoPreviousSoftwareVersionError()
 
     return previous_sw_version
 
@@ -103,13 +126,15 @@ def get_required_sw_version_range(main_fw_version):
 
     min_sw_version = mfw_to_sw[main_fw_version]
 
-    main_fw_version_info = VersionInfo.parse(main_fw_version)
     try:
-        next_main_fw_version = sorted(v for v in mfw_to_sw if v > main_fw_version_info)[0]
+        next_min_sw_version = filter_and_sort_semvers(
+            set(mfw_to_sw.values()), lambda sw: sw > min_sw_version
+        )[0]
     except IndexError:
+        # is this point is reached, then the given main FW version is the latest version,
+        # and thus currently does not have a defined upper bound of compatiblity
         max_sw_version = None
     else:
-        sw_version_upper_bound = mfw_to_sw[next_main_fw_version]
-        max_sw_version = get_previous_software_version(sw_version_upper_bound)
+        max_sw_version = get_previous_software_version(next_min_sw_version)
 
     return {"min_sw": min_sw_version, "max_sw": max_sw_version}

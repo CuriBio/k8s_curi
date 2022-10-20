@@ -66,7 +66,7 @@ def test_software__get__success(mocker):
 
     test_main_fw_version = random_semver()
 
-    response = test_client.get(f"/software/{test_main_fw_version}")
+    response = test_client.get(f"/software-range/{test_main_fw_version}")
     assert response.status_code == 200
     assert response.json() == expected_max_min
 
