@@ -128,7 +128,7 @@ export default function Uploads() {
   const [filterString, setFilterString] = useState("");
   const [filtercolumn, setFilterColumn] = useState("");
   const [updateData, toggleUpdateData] = useState(false);
-  const [selectedUploads, setSelectedUploads] = useState([]);
+  
   const uploadTableColumns = [
     {
       name: "File Owner",
@@ -248,8 +248,8 @@ export default function Uploads() {
             datetime: formattedTime,
             status,
             analysisParams,
-            // version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
-            version: "0.25.2",
+            version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
+            // version: "0.25.2",
             checked: isChecked,
           };
         });
@@ -298,7 +298,6 @@ export default function Uploads() {
       const uploadJobs = jobs
         .filter(({ uploadId }) => uploadId === id)
         .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
-      const isChecked = selectedUploads.includes(id);
       const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
       return {
         username,
@@ -307,7 +306,6 @@ export default function Uploads() {
         createdAt: formattedTime,
         lastAnalyzed,
         jobs: uploadJobs,
-        checked: isChecked,
       };
     });
 
@@ -541,30 +539,40 @@ export default function Uploads() {
   };
 
   const handleCheckedUploads = (e) => {
+    // first check if change is adding or removing an upload
     if (!checkedUploads.includes(e.target.id)) {
+      // if adding, push to state
       checkedUploads.push(e.target.id);
     } else {
+      // if removing, splice to state
       const idxToSplice = checkedUploads.indexOf(e.target.id);
       checkedUploads.splice(idxToSplice, 1);
     }
+    // set state
     setCheckedUploads([...checkedUploads]);
 
     const newCheckedJobs = [];
 
+    // every checked upload should have all of it's jobs checked
+    // so it's resetting checkedJobs to empty array, then concat all relevant jobs
     checkedUploads.map((upload) => {
       const idx = displayRows.map((row) => row.id).indexOf(upload);
       const jobIds = displayRows[idx].jobs.map(({ jobId }) => newCheckedJobs.push(jobId));
       newCheckedJobs.concat(jobIds);
     });
 
+    // set jobs in state
     setCheckedJobs([...newCheckedJobs]);
   };
 
   const handleCheckedJobs = (e) => {
+    // check if action is unchecking a job
     if (checkedJobs.includes(e.target.id)) {
+      // remove from job state
       const idxToSplice = checkedJobs.indexOf(e.target.id);
       checkedJobs.splice(idxToSplice, 1);
 
+      // remove corresponding upload as checked because a checked upload cannot have any unchecked jobs
       checkedUploads.map((upload, uploadIdx) => {
         const idx = displayRows.map((row) => row.id).indexOf(upload);
         const jobIds = displayRows[idx].jobs.map(({ jobId }) => jobId);
@@ -572,9 +580,11 @@ export default function Uploads() {
         if (missingJobs.length > 0) checkedUploads.splice(uploadIdx, 1);
       });
 
+      // set checked uploads
       setCheckedUploads([...checkedUploads]);
-    } else checkedJobs.push(e.target.id);
+    } else checkedJobs.push(e.target.id); // else if action is checking a job, then push job id to state
 
+    // set checked jobs either way
     setCheckedJobs([...checkedJobs]);
   };
 
