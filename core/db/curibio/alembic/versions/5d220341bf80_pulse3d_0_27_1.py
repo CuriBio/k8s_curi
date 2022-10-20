@@ -17,7 +17,7 @@ depends_on = None
 
 
 def upgrade():
-    op.execute("INSERT INTO pulse3d_versions (version) VALUES ('0.27.1')")
+    op.execute("INSERT INTO pulse3d_versions (version, state) VALUES ('0.27.1', 'external')")
 
 
 def downgrade():
