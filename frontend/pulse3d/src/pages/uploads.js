@@ -9,39 +9,7 @@ import { AuthContext } from "@/pages/_app";
 import DataTable from "react-data-table-component";
 import FilterHeader from "@/components/table/FilterHeader";
 import UploadsSubTable from "@/components/table/UploadsSubTable";
-
-const uploadTableColumns = [
-  {
-    name: "File Owner",
-    admin: true,
-    center: false,
-    selector: (row) => row.username,
-  },
-  {
-    name: "Recording Name",
-    admin: false,
-    center: false,
-    selector: (row) => row.name || "none",
-  },
-  {
-    name: "Upload ID",
-    admin: false,
-    center: false,
-    selector: (row) => row.id,
-  },
-  {
-    name: "Created Date",
-    admin: false,
-    center: false,
-    selector: (row) => row.createdAt,
-  },
-  {
-    name: "Last Analyzed",
-    center: false,
-    admin: false,
-    selector: (row) => row.lastAnalyzed,
-  },
-];
+import Checkbox from "@mui/material/Checkbox";
 
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
@@ -161,7 +129,46 @@ export default function Uploads() {
   const [filtercolumn, setFilterColumn] = useState("");
   const [updateData, toggleUpdateData] = useState(false);
   const [selectedUploads, setSelectedUploads] = useState([]);
-
+  const uploadTableColumns = [
+    {
+      name: "File Owner",
+      admin: true,
+      center: false,
+      selector: (row) => row.username,
+    },
+    {
+      name: "Recording Name",
+      admin: false,
+      center: false,
+      selector: (row) => row.name || "none",
+    },
+    {
+      name: "Upload ID",
+      admin: false,
+      center: false,
+      selector: (row) => row.id,
+    },
+    {
+      name: "Created Date",
+      admin: false,
+      center: false,
+      selector: (row) => row.createdAt,
+    },
+    {
+      name: "Last Analyzed",
+      center: false,
+      admin: false,
+      selector: (row) => row.lastAnalyzed,
+    },
+    {
+      name: "",
+      center: true,
+      admin: false,
+      selector: (row) => (
+        <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
+      ),
+    },
+  ];
   useEffect(() => {
     setTimeout(async () => {
       // don't call get jobs if downloading or deleting in progress because it backs up server
@@ -528,63 +535,49 @@ export default function Uploads() {
     }
   };
   const ExpandedComponent = ({ data }) => {
-    const [jobToEdit, setJobToEdit] = useState();
-
-    const [checkArray, setCheckArray] = useState(data.jobs.map((job) => job.checked));
-
-    //takes care of adding the state of checked jobs
-    useEffect(() => {
-      if (jobToEdit) {
-        if (jobToEdit.action === "add") {
-          for (let i = 0; i < jobs.length; i++) {
-            if (jobs[i].jobId === jobToEdit.id) {
-              jobs[i].checked = true;
-              setCheckedJobs([...checkedJobs, jobs[i].jobId]);
-            }
-          }
-        } else if (jobToEdit.action === "remove") {
-          for (let i = 0; i < jobs.length; i++) {
-            if (jobs[i].jobId === jobToEdit.id) {
-              for (let j = 0; j < displayRows.length; j++) {
-                if (displayRows[j].id === jobs[i].uploadId) {
-                  displayRows[j].checked = false;
-                  let temp = selectedUploads;
-                  setSelectedUploads(temp.filter((row) => row !== displayRows[j].id));
-                }
-              }
-              jobs[i].checked = false;
-              if (checkedJobs.length === 1) {
-                setCheckedJobs([]);
-              } else {
-                let temp = checkedJobs;
-                const location = temp.indexOf(jobToEdit.id);
-                temp.splice(location, 1);
-                setCheckedJobs(temp);
-              }
-            }
-          }
-        }
-        let temp = [];
-        data.jobs.forEach((job) => {
-          if (checkedJobs.includes(job.jobId)) {
-            temp.push(job.checked);
-          }
-        });
-        if (temp.length === checkArray.length) {
-          setCheckArray(temp);
-        }
-      }
-    }, [jobToEdit]);
     return (
-      <UploadsSubTable
-        jobs={data.jobs}
-        checkedArray={checkArray}
-        setJobToEdit={(e) => {
-          setJobToEdit(e);
-        }}
-      />
+      <UploadsSubTable jobs={data.jobs} checkedJobs={checkedJobs} handleCheckedJobs={handleCheckedJobs} />
     );
   };
+
+  const handleCheckedUploads = (e) => {
+    if (!checkedUploads.includes(e.target.id)) {
+      checkedUploads.push(e.target.id);
+    } else {
+      const idxToSplice = checkedUploads.indexOf(e.target.id);
+      checkedUploads.splice(idxToSplice, 1);
+    }
+    setCheckedUploads([...checkedUploads]);
+
+    const newCheckedJobs = [];
+
+    checkedUploads.map((upload) => {
+      const idx = displayRows.map((row) => row.id).indexOf(upload);
+      const jobIds = displayRows[idx].jobs.map(({ jobId }) => newCheckedJobs.push(jobId));
+      newCheckedJobs.concat(jobIds);
+    });
+
+    setCheckedJobs([...newCheckedJobs]);
+  };
+
+  const handleCheckedJobs = (e) => {
+    if (checkedJobs.includes(e.target.id)) {
+      const idxToSplice = checkedJobs.indexOf(e.target.id);
+      checkedJobs.splice(idxToSplice, 1);
+
+      checkedUploads.map((upload, uploadIdx) => {
+        const idx = displayRows.map((row) => row.id).indexOf(upload);
+        const jobIds = displayRows[idx].jobs.map(({ jobId }) => jobId);
+        const missingJobs = jobIds.filter((id) => !checkedJobs.includes(id));
+        if (missingJobs.length > 0) checkedUploads.splice(uploadIdx, 1);
+      });
+
+      setCheckedUploads([...checkedUploads]);
+    } else checkedJobs.push(e.target.id);
+
+    setCheckedJobs([...checkedJobs]);
+  };
+
   return (
     <>
       {!openInteractiveAnalysis ? (
@@ -645,18 +638,6 @@ export default function Uploads() {
                 />
               }
               selectableRowsNoSelectAll
-              selectableRows
-              selectableRowSelected={(row) => row.checked}
-              onSelectedRowsChange={({ selectedRows }) => {
-                for (let i = 0; i < displayRows.length; i++) {
-                  if (selectedRows.includes(displayRows[i])) {
-                    displayRows[i].checked = true;
-                  } else {
-                    displayRows[i].checked = false;
-                  }
-                }
-                setDisplayRows(displayRows);
-              }}
             />
           </Container>
         </PageContainer>

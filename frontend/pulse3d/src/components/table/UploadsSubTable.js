@@ -1,5 +1,6 @@
 import { useState, memo } from "react";
 import styled from "styled-components";
+import Checkbox from "@mui/material/Checkbox";
 
 const SubContainer = styled.div`
   display: flex;
@@ -20,9 +21,8 @@ const SubRow = styled.div`
   margin: 1rem 0;
 `;
 
-export default memo(function UploadsSubTable(props) {
-  const [isChecked, setIsChecked] = useState(props.jobs.map((job) => job.checked));
-  const rows = props.jobs.map((job, idx) => {
+export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, jobs }) {
+  const rows = jobs.map((job) => {
     let paramsString = [];
 
     Object.keys(job.analysisParams).forEach((param) => {
@@ -34,21 +34,11 @@ export default memo(function UploadsSubTable(props) {
 
     return (
       <SubContainer key={Math.random()}>
-        <input
-          type="checkbox"
-          checked={isChecked[idx]}
-          onChange={() => {
-            props.setJobToEdit({
-              id: job.jobId,
-              action: isChecked[idx] ? "remove" : "add",
-            });
-            setIsChecked(isChecked.map((checked, index) => (idx === index ? !checked : checked)));
-          }}
-        />
         <SubRow>{job.analyzedFile}</SubRow>
         <SubRow>{job.datetime}</SubRow>
         <SubRow>{paramsString.length === 0 ? "None" : paramsString}</SubRow>
         <SubRow>{job.status}</SubRow>
+        <Checkbox id={job.jobId} checked={checkedJobs.includes(job.jobId)} onChange={handleCheckedJobs} />
       </SubContainer>
     );
   });
