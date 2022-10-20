@@ -1,0 +1,24 @@
+"""pulse3D 0.27.1
+
+Revision ID: 5d220341bf80
+Revises: 705b8a7903c8
+Create Date: 2022-10-20 13:51:12.789508
+
+"""
+from alembic import op
+import sqlalchemy as sa
+
+
+# revision identifiers, used by Alembic.
+revision = "5d220341bf80"
+down_revision = "705b8a7903c8"
+branch_labels = None
+depends_on = None
+
+
+def upgrade():
+    op.execute("INSERT INTO pulse3d_versions (version) VALUES ('0.27.1')")
+
+
+def downgrade():
+    op.execute("DELETE FROM pulse3d_versions WHERE version='0.27.1'")
