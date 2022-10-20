@@ -112,7 +112,7 @@ const modalObjs = {
 
 export default function Uploads() {
   const { accountType } = useContext(AuthContext);
-  const { uploads, setFetchUploads } = useContext(UploadsContext);
+  const { uploads, setFetchUploads, pulse3dVersions } = useContext(UploadsContext);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
@@ -128,7 +128,7 @@ export default function Uploads() {
   const [filterString, setFilterString] = useState("");
   const [filtercolumn, setFilterColumn] = useState("");
   const [updateData, toggleUpdateData] = useState(false);
-  
+
   const uploadTableColumns = [
     {
       name: "File Owner",
@@ -205,13 +205,8 @@ export default function Uploads() {
   useEffect(() => {
     const newList = rows.filter((row) => {
       //if the column being filtered is a date
-      if (toFilterField[filtercolumn] === "createdAt" || toFilterField[filtercolumn] === "lastAnalyzed") {
-        return row[toFilterField[filtercolumn]]
-          .toLocaleLowerCase()
-          .includes(filterString.toLocaleLowerCase());
-      } else if (row[toFilterField[filtercolumn]]) {
-        return row[toFilterField[filtercolumn]].includes(filterString);
-      }
+
+      return row[toFilterField[filtercolumn]].toLocaleLowerCase().includes(filterString.toLocaleLowerCase());
     });
     setDisplayRows(newList);
   }, [filterString]);
@@ -257,6 +252,7 @@ export default function Uploads() {
       }
     } catch (e) {
       console.log("ERROR fetching jobs in /uploads");
+      console.log(e);
     }
   };
 
