@@ -13,7 +13,7 @@ import Checkbox from "@mui/material/Checkbox";
 
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
-  center: true,
+  center: false,
   sortable: true,
 };
 
@@ -38,18 +38,12 @@ const customStyles = {
     },
   },
 };
-const filterBoxstylesAdmin = [
+const filterBoxstyles = [
   { position: "relative", left: "40px", width: "170px", margin: "0 10px 0 0" }, //file owner
   { position: "relative", left: "40px", width: "300px", margin: "0 300px 0 0" }, //recording name
   { position: "relative", left: "40px", width: "290px", margin: "0 10px 0 0" }, //upload id
   { position: "relative", left: "40px", width: "100px", margin: "0 100px 0 0" }, //created
-  { position: "relative", left: "40px", width: "100px", margin: "0 10px 0 0" }, //lastAnalyzed
-];
-const filterBoxstyles = [
-  { position: "relative", left: "40px", width: "300px", margin: "0 300px 0 0" }, //recording name
-  { position: "relative", left: "40px", width: "280px", margin: "0 20px 0 0" }, //upload id
-  { position: "relative", left: "40px", width: "130px", margin: "0 70px 0 0" }, //created
-  { position: "relative", left: "40px", width: "130px", margin: "0 10px 0 0" }, //lastAnalyzed
+  { position: "relative", left: "40px", width: "110px", margin: "0 0px 0 0" }, //lastAnalyzed
 ];
 
 const Container = styled.div`
@@ -151,41 +145,35 @@ export default function Uploads() {
       name: "File Owner",
       width: "180px",
       admin: true,
-      center: false,
       selector: (row) => row.username,
     },
     {
       name: "Recording Name",
       width: "600px",
       admin: false,
-      center: false,
       selector: (row) => row.name,
     },
     {
       name: "Upload ID",
       width: "300px",
       admin: false,
-      center: false,
       selector: (row) => row.id,
     },
     {
       name: "Created Date",
       width: "200px",
       admin: false,
-      center: false,
       selector: (row) => row.createdAt,
     },
     {
       name: "Last Analyzed",
       width: "200px",
-      center: false,
       admin: false,
       selector: (row) => row.lastAnalyzed,
     },
     {
       name: "",
       width: "100px",
-      center: false,
       admin: false,
       selector: (row) => (
         <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
@@ -195,7 +183,7 @@ export default function Uploads() {
   useEffect(() => {
     setTimeout(async () => {
       // don't call get jobs if downloading or deleting in progress because it backs up server
-      if (!["downloading", "deleting"].includes(modalState) && updateData) {
+      if (!["downloading", "deleting"].includes(modalState)) {
         await getAllJobs();
         toggleUpdateData(!updateData);
       }
@@ -224,7 +212,6 @@ export default function Uploads() {
         };
 
   //when filter string changes, refilter results
-
   useEffect(() => {
     if (filtercolumn) {
       const newList = rows.filter((row) => {
@@ -269,7 +256,6 @@ export default function Uploads() {
             status,
             analysisParams,
             version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
-            // version: "0.25.2",
             checked: isChecked,
           };
         });
@@ -304,7 +290,6 @@ export default function Uploads() {
 
   useEffect(() => {
     getAllJobs();
-    // start 10 second interval
     // don't call get jobs if downloading or deleting in progress because it backs up server
     if (!["downloading", "deleting"].includes(modalState)) {
       toggleUpdateData(!updateData);
@@ -665,7 +650,7 @@ export default function Uploads() {
                   setFilterString={setFilterString}
                   setFilterColumn={setFilterColumn}
                   loading={pending}
-                  filterBoxstyles={accountType === "admin" ? filterBoxstylesAdmin : filterBoxstyles}
+                  filterBoxstyles={accountType === "admin" ? filterBoxstyles : filterBoxstyles.slice(1)}
                 />
               }
               selectableRowsNoSelectAll
