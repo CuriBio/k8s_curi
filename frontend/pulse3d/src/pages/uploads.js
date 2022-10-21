@@ -39,11 +39,11 @@ const customStyles = {
   },
 };
 const filterBoxstyles = [
-  { position: "relative", left: "40px", width: "170px", margin: "0 10px 0 0" }, //file owner
-  { position: "relative", left: "40px", width: "300px", margin: "0 300px 0 0" }, //recording name
-  { position: "relative", left: "40px", width: "290px", margin: "0 10px 0 0" }, //upload id
-  { position: "relative", left: "40px", width: "100px", margin: "0 100px 0 0" }, //created
-  { position: "relative", left: "40px", width: "100px", margin: "0 0px 0 0" }, //lastAnalyzed
+  { position: "relative", left: "40px", width: "150px", margin: "0 30px 0 0" }, //file owner
+  { position: "relative", left: "40px", width: "150px", margin: "0 400px 0 0" }, //recording name
+  { position: "relative", left: "40px", width: "150px", margin: "0 150px 0 0" }, //upload id
+  { position: "relative", left: "40px", width: "150px", margin: "0 50px 0 0" }, //created
+  { position: "relative", left: "40px", width: "150px", margin: "0 0 0 0" }, //lastAnalyzed
 ];
 
 const Container = styled.div`
@@ -149,7 +149,7 @@ export default function Uploads() {
     },
     {
       name: "Recording Name",
-      width: "600px",
+      width: "550px",
       admin: false,
       selector: (row) => row.name,
     },
