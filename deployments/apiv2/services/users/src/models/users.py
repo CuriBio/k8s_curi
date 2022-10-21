@@ -1,5 +1,5 @@
 import re
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, SecretStr
@@ -22,6 +22,7 @@ class CustomerCreate(BaseModel):
     email: EmailStr
     password1: SecretStr
     password2: SecretStr
+    scope: List[str]
     # adding this attr and its validator to force /register to use UserCreate if a username is given
     username: Optional[str]
 
@@ -65,7 +66,8 @@ USERNAME_REGEX_STR = f"^[a-zA-Z]+[a-zA-Z0-9{USERNAME_VALID_SPECIAL_CHARS}]+$"
 class UserCreate(CustomerCreate):
     username: str
     service: str
-
+    scope: Optional[List[str]]
+    
     @validator("username")
     def username_alphanumeric(cls, v):
         assert len(v) >= USERNAME_MIN_LEN, "Username does not meet min length"
@@ -89,13 +91,13 @@ class UserProfile(BaseModel):
     email: EmailStr
     user_id: str
     account_type: str
-    scope: list
+    scope: List[str]
 
 
 class CustomerProfile(BaseModel):
     email: EmailStr
     user_id: str
-    scope: list
+    scope: List[str]
 
 
 class UserAction(BaseModel):

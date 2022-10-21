@@ -95,11 +95,12 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
     else:
         account_type = "user"
         # suspended is for deactivated accounts and verified is for new users needing to verify through email
+        # select for service specific usage restrictions listed under the customer account
         select_query = (
-            "SELECT password, id, data->'scope' AS scope "
-            "FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND suspended='f' AND verified='t'"
+            "SELECT password, id, data->'scope' AS scope, (select usage_restrictions->$1 from customers where id = users.customer_id) as usage_restrictions "
+            "FROM users WHERE deleted_at IS NULL AND name=$2 AND customer_id=$3 AND suspended='f' AND verified='t'"
         )
-        select_query_params = (details.username, str(details.customer_id))
+        select_query_params = (details.service, details.username, str(details.customer_id))
         customer_id = details.customer_id
 
     try:
@@ -126,7 +127,8 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
                 ph.hash(pw)
                 raise LoginError(failed_msg)
             else:
-                scope = ["users:admin"] if is_customer_login_attempt else json.loads(row.get("scope", "[]"))
+                # both users and customers have scopes
+                scope = json.loads(row.get("scope", "[]"))
                 return await _create_new_tokens(con, row["id"], customer_id, scope, account_type)
 
     except LoginError as e:
@@ -216,6 +218,7 @@ async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False)
     It is up to the client to discard the access token in order to truly logout the user.
     """
     userid = uuid.UUID(hex=token["userid"])
+    
     if token["account_type"] == "customer":
         update_query = "UPDATE customers SET refresh_token = NULL WHERE id = $1"
     else:
@@ -236,7 +239,7 @@ async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False)
 async def register(
     request: Request,
     details: Union[CustomerCreate, UserCreate],
-    token=Depends(ProtectedAny(scope=["customer:free", "customer:paid"])),
+    token=Depends(ProtectedAny(scope=["pulse3d:customer:free", "pulse3d:customer:paid"])),
 ):
     """Register a user or customer account.
 
@@ -247,14 +250,11 @@ async def register(
     assume this is an attempt to register a new customer account.
 
     Otherwise, attempt to register a regular user under the customer ID in the auth token
-
-    **NOTE** there is currently no way to register a paid user, so all registered users will be created in
-    the free tier until a way to designate the tier is specced out and added
     """
     ph = PasswordHasher()
     customer_id = uuid.UUID(hex=token["userid"])
-    is_free_account = "free" in token["scope"]
-
+    customer_scopes = token["scope"]
+    
     try:
         # still hash even if user or customer exists to avoid timing analysis leaks
         phash = ph.hash(details.password1.get_secret_value())
@@ -266,12 +266,22 @@ async def register(
         register_type = "customer" if is_customer_registration_attempt else "user"
         logger.info(f"Attempting {register_type} registration")
 
+        # scope will not be sent in request body for both customer and user registration
         if is_customer_registration_attempt:
-            scope = ["users:admin"]
-            insert_query = "INSERT INTO customers (email, password) VALUES ($1, $2) RETURNING id"
-            query_params = (details.email, phash)
+            scope = details.scope
+            insert_query = "INSERT INTO customers (email, password, data) VALUES ($1, $2, $3) RETURNING id"
+            query_params = (
+                details.email,
+                phash,
+                json.dumps({"scope": scope}),
+            )
         else:
-            scope = ["users:free"]
+            # new user scope will default to free, will update to paid if paid scope found in customer token
+            # TODO add handling for multiple service scopes and exception handling if none found
+            customer_scopes_for_service = [s for s in customer_scopes if details.service in s]
+            customer_tier = customer_scopes_for_service[0].split(":")[-1]
+            # for now, assuming that each user registration will only be called with one service
+            user_scope = [f"{details.service}:user:{customer_tier}"]
             # suspended and verified get set to False by default
             insert_query = (
                 "INSERT INTO users (name, email, password, account_type, data, customer_id) "
@@ -281,8 +291,8 @@ async def register(
                 details.username,
                 details.email,
                 phash,
-                "free",
-                json.dumps({"scope": scope}),
+                customer_tier,
+                json.dumps({"scope": user_scope}),
                 customer_id,
             )
 
@@ -318,14 +328,14 @@ async def register(
                     await _send_registration_email(details.username, details.email, verification_token.token)
 
                 if is_customer_registration_attempt:
-                    return CustomerProfile(email=details.email, user_id=result.hex, scope=scope)
+                    return CustomerProfile(email=details.email, user_id=result.hex, scope=details.scope)
                 else:
                     return UserProfile(
                         username=details.username,
                         email=details.email,
                         user_id=result.hex,
                         account_type="free",
-                        scope=scope,
+                        scope=user_scope,
                     )
 
     except EmailRegistrationError as e:
