@@ -10,6 +10,7 @@ import DataTable from "react-data-table-component";
 import FilterHeader from "@/components/table/FilterHeader";
 import UploadsSubTable from "@/components/table/UploadsSubTable";
 import Checkbox from "@mui/material/Checkbox";
+import { red } from "@mui/material/colors";
 
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
@@ -22,6 +23,7 @@ const customStyles = {
     style: {
       backgroundColor: "var(--dark-blue)",
       color: "white",
+      fontSize: "1.2rem",
     },
   },
   subHeader: {
@@ -37,6 +39,19 @@ const customStyles = {
     },
   },
 };
+const filterBoxstylesAdmin = [
+  { margin: "0 0 0 19%" },
+  { margin: "0 0 0 6.3%" },
+  { margin: "0 0 0 6.4%" },
+  { margin: "0 0 0 6.6%" },
+  { margin: "0 0 0 6.5%" },
+];
+const filterBoxstyles = [
+  { margin: "0 0 0 22.3%" },
+  { margin: "0 0 0 9.7%" },
+  { margin: "0 0 0 9.7%" },
+  { margin: "0 0 0 9.7%" },
+];
 
 const Container = styled.div`
   display: flex;
@@ -112,7 +127,7 @@ const modalObjs = {
 
 export default function Uploads() {
   const { accountType } = useContext(AuthContext);
-  const { uploads, setFetchUploads } = useContext(UploadsContext);
+  const { uploads, setFetchUploads, pulse3dVersions } = useContext(UploadsContext);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
@@ -128,8 +143,16 @@ export default function Uploads() {
   const [filterString, setFilterString] = useState("");
   const [filtercolumn, setFilterColumn] = useState("");
   const [updateData, toggleUpdateData] = useState(false);
-  
+
   const uploadTableColumns = [
+    {
+      name: "Select",
+      center: false,
+      admin: false,
+      selector: (row) => (
+        <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
+      ),
+    },
     {
       name: "File Owner",
       admin: true,
@@ -159,14 +182,6 @@ export default function Uploads() {
       center: false,
       admin: false,
       selector: (row) => row.lastAnalyzed,
-    },
-    {
-      name: "",
-      center: true,
-      admin: false,
-      selector: (row) => (
-        <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
-      ),
     },
   ];
   useEffect(() => {
@@ -203,17 +218,15 @@ export default function Uploads() {
   //when filter string changes, refilter results
 
   useEffect(() => {
-    const newList = rows.filter((row) => {
-      //if the column being filtered is a date
-      if (toFilterField[filtercolumn] === "createdAt" || toFilterField[filtercolumn] === "lastAnalyzed") {
+    if (filtercolumn) {
+      const newList = rows.filter((row) => {
+        console.log(row);
         return row[toFilterField[filtercolumn]]
           .toLocaleLowerCase()
           .includes(filterString.toLocaleLowerCase());
-      } else if (row[toFilterField[filtercolumn]]) {
-        return row[toFilterField[filtercolumn]].includes(filterString);
-      }
-    });
-    setDisplayRows(newList);
+      });
+      setDisplayRows(newList);
+    }
   }, [filterString]);
 
   useEffect(() => {
@@ -639,12 +652,13 @@ export default function Uploads() {
                 <FilterHeader
                   columns={
                     accountType === "admin"
-                      ? ["", "Owner", "Recording", "ID", "Date Created", "Last Analyzed"]
-                      : ["", "Recording", "ID", "Date Created", "Last Analyzed"]
+                      ? ["Owner", "Recording", "ID", "Date Created", "Last Analyzed"]
+                      : ["Recording", "ID", "Date Created", "Last Analyzed"]
                   }
                   setFilterString={setFilterString}
                   setFilterColumn={setFilterColumn}
                   loading={pending}
+                  filterBoxstyles={accountType === "admin" ? filterBoxstylesAdmin : filterBoxstyles}
                 />
               }
               selectableRowsNoSelectAll

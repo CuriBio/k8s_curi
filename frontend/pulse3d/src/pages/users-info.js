@@ -8,12 +8,6 @@ import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 
 const columns = [
   {
-    name: "Status",
-    center: false,
-    sortable: true,
-    selector: (row) => (row.suspended ? "Inactive" : "Active"),
-  },
-  {
     name: "Name",
 
     center: false,
@@ -42,6 +36,12 @@ const columns = [
     center: false,
     sortable: true,
     selector: (row) => formatDateTime(row.last_login),
+  },
+  {
+    name: "Status",
+    center: false,
+    sortable: true,
+    selector: (row) => (row.suspended ? "Inactive" : "Active"),
   },
 ];
 
@@ -77,6 +77,12 @@ const conditionalRowStyles = [
       color: "var(--teal-green)",
     },
   },
+];
+const filterBoxstyles = [
+  { margin: "0 0 0 2%" },
+  { margin: "0 0 0 9.8%" },
+  { margin: "0 0 0 9.8%" },
+  { margin: "0 0 0 9.8%" },
 ];
 
 const PageContainer = styled.div`
@@ -156,14 +162,9 @@ export default function UserInfo() {
   useEffect(() => {
     const newList = usersData.filter((user) => {
       //if the column containes date data
-      //TODO add better date filter
-      if (toUserField[filtercolumn] === "created_at" || toUserField[filtercolumn] === "last_login") {
-        return formatDateTime(user[toUserField[filtercolumn]])
-          .toLocaleLowerCase()
-          .includes(filterString.toLocaleLowerCase());
-      } else if (user[toUserField[filtercolumn]]) {
-        return user[toUserField[filtercolumn]].includes(filterString);
-      }
+      return formatDateTime(user[toUserField[filtercolumn]])
+        .toLocaleLowerCase()
+        .includes(filterString.toLocaleLowerCase());
     });
     setDisplayData(newList);
   }, [filterString]);
@@ -188,7 +189,7 @@ export default function UserInfo() {
             expandableRowsComponent={ExpandedComponent}
             conditionalRowStyles={conditionalRowStyles}
             pagination
-            defaultSortFieldId={1}
+            defaultSortFieldId={5}
             progressPending={loading}
             progressComponent={
               <SpinnerContainer>
@@ -198,10 +199,11 @@ export default function UserInfo() {
             subHeader
             subHeaderComponent={
               <FilterHeader
-                columns={["", "Name", "Email", "Date Created", "Last Loggedin"]}
+                columns={["Name", "Email", "Date Created", "Last Loggedin"]}
                 setFilterString={setFilterString}
                 setFilterColumn={setFilterColumn}
                 loading={loading}
+                filterBoxstyles={filterBoxstyles}
               />
             }
           />

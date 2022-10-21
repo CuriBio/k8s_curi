@@ -5,6 +5,7 @@ import Checkbox from "@mui/material/Checkbox";
 const SubContainer = styled.div`
   display: flex;
   justify-content: space-around;
+  margin: 0 1rem;
 `;
 const SubHeader = styled.div`
   display: flex;
@@ -12,15 +13,25 @@ const SubHeader = styled.div`
   color: white;
   margin: 0 1rem;
   padding: 0.4rem;
-  justify-content: space-around;
+  justify-content: flex-start;
+  font-size: 0.85rem;
+  border-radius: 3px;
 `;
 const SubRow = styled.div`
   font-size: 0.75rem;
-  width: 20%;
-  text-align: center;
   margin: 1rem 0;
+  width: 100%;
 `;
-
+const SubRowFileName = styled.div`
+  font-size: 0.75rem;
+  margin: 1rem 0;
+  width: 200%;
+`;
+const SubRowCheckbox = styled.div`
+  font-size: 0.75rem;
+  margin: 1rem 0;
+  width: 50%;
+`;
 export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, jobs }) {
   const rows = jobs.map((job) => {
     let paramsString = [];
@@ -34,21 +45,24 @@ export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, j
 
     return (
       <SubContainer key={Math.random()}>
-        <SubRow>{job.analyzedFile}</SubRow>
+        <SubRowCheckbox>
+          <Checkbox id={job.jobId} checked={checkedJobs.includes(job.jobId)} onChange={handleCheckedJobs} />
+        </SubRowCheckbox>
+        <SubRowFileName>{job.analyzedFile ? job.analyzedFile : "none"}</SubRowFileName>
         <SubRow>{job.datetime}</SubRow>
         <SubRow>{paramsString.length === 0 ? "None" : paramsString}</SubRow>
         <SubRow>{job.status}</SubRow>
-        <Checkbox id={job.jobId} checked={checkedJobs.includes(job.jobId)} onChange={handleCheckedJobs} />
       </SubContainer>
     );
   });
   return (
     <div>
       <SubHeader>
-        <div>Analyzed Filename</div>
-        <div>Created Date</div>
-        <div>Analysis Parameters</div>
-        <div>Status</div>
+        <div style={{ width: "8.9%" }}>Select</div>
+        <div style={{ width: "36.6%" }}>Analyzed Filename</div>
+        <div style={{ width: "18.2%" }}>Created Date</div>
+        <div style={{ width: "18.2%" }}>Analysis Parameters</div>
+        <div style={{ width: "0%" }}>Status</div>
       </SubHeader>
       {rows}
     </div>
