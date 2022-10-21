@@ -381,7 +381,10 @@ async def _send_registration_email(username: str, email: EmailStr, verification_
 
 
 @app.get("/")
-async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=["users:admin"]))):
+async def get_all_users(
+    request: Request,
+    token=Depends(ProtectedAny(scope=["pulse3d:customer:free", "pulse3d:customer:paid", "users:admin"])),
+):
     """Get info for all the users under the given customer account.
 
     List of users returned will be sorted with all active users showing up first, then all the suspended (deactivated) users
@@ -431,7 +434,11 @@ async def verify_user_email(
 # Luci (10/5/22) Following two routes need to be last otherwise will mess with the ProtectedAny scope used in Auth
 # Please see https://fastapi.tiangolo.com/tutorial/path-params/#order-matters
 @app.get("/{user_id}")
-async def get_user(request: Request, user_id: uuid.UUID, token=Depends(ProtectedAny(scope=["users:admin"]))):
+async def get_user(
+    request: Request,
+    user_id: uuid.UUID,
+    token=Depends(ProtectedAny(scope=["pulse3d:customer:free", "pulse3d:customer:paid", "users:admin"])),
+):
     """Get info for the user with the given under the given customer account."""
     customer_id = uuid.UUID(hex=token["userid"])
 
@@ -463,7 +470,15 @@ async def update_user(
     request: Request,
     details: UserAction,
     user_id: uuid.UUID,
-    token=Depends(ProtectedAny(scope=["users:admin"])),
+    token=Depends(
+        ProtectedAny(
+            scope=[
+                "users:admin",
+                "pulse3d:customer:free",
+                "pulse3d:customer:paid",
+            ]
+        )
+    ),
 ):
     """Update a user's information in the database.
 
