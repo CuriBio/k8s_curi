@@ -220,7 +220,6 @@ export default function Uploads() {
   useEffect(() => {
     if (filtercolumn) {
       const newList = rows.filter((row) => {
-        console.log(row);
         return row[toFilterField[filtercolumn]]
           .toLocaleLowerCase()
           .includes(filterString.toLocaleLowerCase());
