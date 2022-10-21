@@ -9,45 +9,29 @@ import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 const columns = [
   {
     name: "Name",
-
-    center: false,
-    sortable: true,
-
     selector: (row) => row.name,
   },
   {
     name: "Email",
-
-    center: false,
-    sortable: true,
-
     selector: (row) => row.email,
   },
   {
     name: "Date Created",
-
-    center: false,
-    sortable: true,
-
     selector: (row) => formatDateTime(row.created_at),
   },
   {
     name: "Last Loggedin",
-    center: false,
-    sortable: true,
     selector: (row) => formatDateTime(row.last_login),
   },
   {
     name: "Status",
-    center: false,
-    sortable: true,
     selector: (row) => (row.suspended ? "Inactive" : "Active"),
   },
 ];
 
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
-  center: true,
+  center: false,
   sortable: true,
 };
 const customStyles = {

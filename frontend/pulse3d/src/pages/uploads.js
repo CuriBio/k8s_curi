@@ -13,7 +13,7 @@ import Checkbox from "@mui/material/Checkbox";
 
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
-  center: true,
+  center: false,
   sortable: true,
 };
 
@@ -151,41 +151,35 @@ export default function Uploads() {
       name: "File Owner",
       width: "180px",
       admin: true,
-      center: false,
       selector: (row) => row.username,
     },
     {
       name: "Recording Name",
       width: "600px",
       admin: false,
-      center: false,
       selector: (row) => row.name,
     },
     {
       name: "Upload ID",
       width: "300px",
       admin: false,
-      center: false,
       selector: (row) => row.id,
     },
     {
       name: "Created Date",
       width: "200px",
       admin: false,
-      center: false,
       selector: (row) => row.createdAt,
     },
     {
       name: "Last Analyzed",
       width: "200px",
-      center: false,
       admin: false,
       selector: (row) => row.lastAnalyzed,
     },
     {
       name: "",
       width: "100px",
-      center: false,
       admin: false,
       selector: (row) => (
         <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
@@ -224,7 +218,6 @@ export default function Uploads() {
         };
 
   //when filter string changes, refilter results
-
   useEffect(() => {
     if (filtercolumn) {
       const newList = rows.filter((row) => {
@@ -269,7 +262,6 @@ export default function Uploads() {
             status,
             analysisParams,
             version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
-            // version: "0.25.2",
             checked: isChecked,
           };
         });
@@ -304,7 +296,6 @@ export default function Uploads() {
 
   useEffect(() => {
     getAllJobs();
-    // start 10 second interval
     // don't call get jobs if downloading or deleting in progress because it backs up server
     if (!["downloading", "deleting"].includes(modalState)) {
       toggleUpdateData(!updateData);
