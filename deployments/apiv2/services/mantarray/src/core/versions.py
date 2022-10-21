@@ -8,6 +8,8 @@ from .config import CLUSTER_NAME
 from utils.s3 import generate_presigned_url
 
 
+DOWNLOADS_BUCKET_NAME = "downloads.curibio.com" if CLUSTER_NAME == "prod" else "downloads.curibio-test.com"
+
 VERSION_REGEX_STR = r"\d+\.\d+\.\d+"
 
 FIRMWARE_FILE_REGEX = re.compile(rf"^{VERSION_REGEX_STR}\.bin$")
@@ -101,10 +103,9 @@ def get_download_url(version, firmware_type):
 def get_previous_software_version(sw_version):
     s3_client = boto3.client("s3")
 
-    # Tanner (10/18/22): this will always error in test cluster since this bucket does not exist
-    bucket = "downloads.curibio.com"
-
-    all_sw_installer_objs = s3_client.list_objects(Bucket=bucket, Prefix=SOFTWARE_INSTALLER_PREFIX)
+    all_sw_installer_objs = s3_client.list_objects(
+        Bucket=DOWNLOADS_BUCKET_NAME, Prefix=SOFTWARE_INSTALLER_PREFIX
+    )
     all_sw_installer_names = [item["Key"] for item in all_sw_installer_objs["Contents"]]
 
     prod_sw_versions = [

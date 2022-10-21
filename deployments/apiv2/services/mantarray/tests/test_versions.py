@@ -3,7 +3,7 @@ from random import choice, randint
 
 from .conftest import CLUSTER_NAME
 from src.core import versions
-from src.core.versions import SOFTWARE_INSTALLER_PREFIX
+from src.core.versions import SOFTWARE_INSTALLER_PREFIX, DOWNLOADS_BUCKET_NAME
 
 
 def random_semver():
@@ -219,7 +219,7 @@ def test_get_previous_sw_version__lists_software_installer_objects_from_s3_corre
     versions.get_previous_software_version("1.1.1")
 
     mocked_s3_client.list_objects.assert_called_once_with(
-        Bucket="downloads.curibio.com", Prefix=SOFTWARE_INSTALLER_PREFIX
+        Bucket=DOWNLOADS_BUCKET_NAME, Prefix=SOFTWARE_INSTALLER_PREFIX
     )
 
 
