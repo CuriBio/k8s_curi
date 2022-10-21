@@ -10,7 +10,6 @@ import DataTable from "react-data-table-component";
 import FilterHeader from "@/components/table/FilterHeader";
 import UploadsSubTable from "@/components/table/UploadsSubTable";
 import Checkbox from "@mui/material/Checkbox";
-import { red } from "@mui/material/colors";
 
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
@@ -40,17 +39,17 @@ const customStyles = {
   },
 };
 const filterBoxstylesAdmin = [
-  { margin: "0 0 0 19%" },
-  { margin: "0 0 0 6.3%" },
-  { margin: "0 0 0 6.4%" },
-  { margin: "0 0 0 6.6%" },
-  { margin: "0 0 0 6.5%" },
+  { position: "relative", left: "40px", width: "170px", margin: "0 10px 0 0" }, //file owner
+  { position: "relative", left: "40px", width: "300px", margin: "0 300px 0 0" }, //recording name
+  { position: "relative", left: "40px", width: "290px", margin: "0 10px 0 0" }, //upload id
+  { position: "relative", left: "40px", width: "100px", margin: "0 100px 0 0" }, //created
+  { position: "relative", left: "40px", width: "100px", margin: "0 10px 0 0" }, //lastAnalyzed
 ];
 const filterBoxstyles = [
-  { margin: "0 0 0 22.3%" },
-  { margin: "0 0 0 9.7%" },
-  { margin: "0 0 0 9.7%" },
-  { margin: "0 0 0 9.7%" },
+  { position: "relative", left: "40px", width: "300px", margin: "0 300px 0 0" }, //recording name
+  { position: "relative", left: "40px", width: "280px", margin: "0 20px 0 0" }, //upload id
+  { position: "relative", left: "40px", width: "130px", margin: "0 70px 0 0" }, //created
+  { position: "relative", left: "40px", width: "130px", margin: "0 10px 0 0" }, //lastAnalyzed
 ];
 
 const Container = styled.div`
@@ -74,7 +73,7 @@ const InteractiveAnalysisContainer = styled.div`
 `;
 
 const PageContainer = styled.div`
-  width: 80%;
+  width: 85%;
 `;
 const DropDownContainer = styled.div`
   width: 250px;
@@ -124,6 +123,9 @@ const modalObjs = {
     ],
   },
 };
+const Test = styled.div`
+  background-color: yellow;
+`;
 
 export default function Uploads() {
   const { accountType } = useContext(AuthContext);
@@ -146,42 +148,48 @@ export default function Uploads() {
 
   const uploadTableColumns = [
     {
-      name: "Select",
-      center: false,
-      admin: false,
-      selector: (row) => (
-        <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
-      ),
-    },
-    {
       name: "File Owner",
+      width: "180px",
       admin: true,
       center: false,
       selector: (row) => row.username,
     },
     {
       name: "Recording Name",
+      width: "600px",
       admin: false,
       center: false,
-      selector: (row) => row.name || "none",
+      selector: (row) => row.name,
     },
     {
       name: "Upload ID",
+      width: "300px",
       admin: false,
       center: false,
       selector: (row) => row.id,
     },
     {
       name: "Created Date",
+      width: "200px",
       admin: false,
       center: false,
       selector: (row) => row.createdAt,
     },
     {
       name: "Last Analyzed",
+      width: "200px",
       center: false,
       admin: false,
       selector: (row) => row.lastAnalyzed,
+    },
+    {
+      name: "",
+      width: "100px",
+      center: false,
+      admin: false,
+      selector: (row) => (
+        <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
+      ),
     },
   ];
   useEffect(() => {
@@ -651,8 +659,8 @@ export default function Uploads() {
                 <FilterHeader
                   columns={
                     accountType === "admin"
-                      ? ["Owner", "Recording", "ID", "Date Created", "Last Analyzed"]
-                      : ["Recording", "ID", "Date Created", "Last Analyzed"]
+                      ? ["Owner", "Recording", "ID", "Date", "Analyzed"]
+                      : ["Recording", "ID", "Date", "Analyzed"]
                   }
                   setFilterString={setFilterString}
                   setFilterColumn={setFilterColumn}

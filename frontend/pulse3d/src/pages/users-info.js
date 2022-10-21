@@ -79,14 +79,14 @@ const conditionalRowStyles = [
   },
 ];
 const filterBoxstyles = [
-  { margin: "0 0 0 2%" },
-  { margin: "0 0 0 9.8%" },
-  { margin: "0 0 0 9.8%" },
-  { margin: "0 0 0 9.8%" },
+  { position: "relative", left: "35px", width: "10vw" },
+  { position: "relative", left: "139px", width: "10vw" },
+  { position: "relative", left: "243px", width: "10vw" },
+  { position: "relative", left: "342px", width: "10vw" },
 ];
 
 const PageContainer = styled.div`
-  width: 80%;
+  width: 85%;
 `;
 
 const Container = styled.div`
