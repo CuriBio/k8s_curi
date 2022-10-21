@@ -117,9 +117,6 @@ const modalObjs = {
     ],
   },
 };
-const Test = styled.div`
-  background-color: yellow;
-`;
 
 export default function Uploads() {
   const { accountType } = useContext(AuthContext);
@@ -138,7 +135,6 @@ export default function Uploads() {
   const [pending, setPending] = useState(true);
   const [filterString, setFilterString] = useState("");
   const [filtercolumn, setFilterColumn] = useState("");
-  const [updateData, toggleUpdateData] = useState(false);
 
   const uploadTableColumns = [
     {
@@ -180,15 +176,6 @@ export default function Uploads() {
       ),
     },
   ];
-  useEffect(() => {
-    setTimeout(async () => {
-      // don't call get jobs if downloading or deleting in progress because it backs up server
-      if (!["downloading", "deleting"].includes(modalState)) {
-        await getAllJobs();
-        toggleUpdateData(!updateData);
-      }
-    }, [1e4]);
-  }, [updateData]);
 
   useEffect(() => {
     if (jobs.length > 0) {
@@ -291,8 +278,12 @@ export default function Uploads() {
   useEffect(() => {
     getAllJobs();
     // don't call get jobs if downloading or deleting in progress because it backs up server
-    if (!["downloading", "deleting"].includes(modalState)) {
-      toggleUpdateData(!updateData);
+    if (!["downloading", "deleting"].includes(modalState) && uploads.length > 0) {
+      setInterval(async () => {
+        if (!["downloading", "deleting"].includes(modalState)) {
+          await getAllJobs();
+        }
+      }, [1e4]);
     }
   }, [uploads]);
 
