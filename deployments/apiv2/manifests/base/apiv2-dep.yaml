@@ -50,7 +50,7 @@ spec:
         ports:
         - containerPort: 9001
       - name: mantarray
-        image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.1.0
+        image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.2.0
         env:
         - name: CLUSTER_NAME
           value: test
