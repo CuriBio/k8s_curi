@@ -20,7 +20,7 @@ def upgrade():
     op.add_column("customers", sa.Column("usage_restrictions", postgresql.JSONB, server_default="{}", nullable=True))
     # default all existing to free pulse3d users
     op.execute("UPDATE users SET data = '{ "scope": ["pulse3d:user:free"] }' ")
-    
+
     op.execute("UPDATE customers SET data = '{ "scope": ["pulse3d:customer:free"] }' AND usage_restrictions = '{"pulse3d": {"uploads": "10", "jobs": "20"}}'")
 
 

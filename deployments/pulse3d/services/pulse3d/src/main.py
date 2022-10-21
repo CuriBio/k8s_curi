@@ -77,7 +77,13 @@ async def get_info_of_uploads(
     upload_ids: Optional[List[uuid.UUID]] = Query(None),
     token=Depends(
         ProtectedAny(
-            scope=["pulse3d:user:free", "pulse3d:user:paid", "pulse3d:customer:free", "pulse3d:customer:paid", "users:admin"]
+            scope=[
+                "pulse3d:user:free",
+                "pulse3d:user:paid",
+                "pulse3d:customer:free",
+                "pulse3d:customer:paid",
+                "users:admin",
+            ]
         )
     ),
 ):
@@ -143,7 +149,9 @@ async def soft_delete_uploads(
     request: Request,
     upload_ids: List[uuid.UUID] = Query(None),
     token=Depends(
-        ProtectedAny(scope=["pulse3d:user:free", "pulse3d:user:paid", "pulse3d:customer:free", "pulse3d:customer:paid"])
+        ProtectedAny(
+            scope=["pulse3d:user:free", "pulse3d:user:paid", "pulse3d:customer:free", "pulse3d:customer:paid"]
+        )
     ),
 ):
     # make sure at least one upload ID was given
@@ -201,7 +209,13 @@ async def get_info_of_jobs(
     download: bool = Query(True),
     token=Depends(
         ProtectedAny(
-            scope=["pulse3d:user:free", "pulse3d:user:paid", "pulse3d:customer:free", "pulse3d:customer:paid", "users:admin"]
+            scope=[
+                "pulse3d:user:free",
+                "pulse3d:user:paid",
+                "pulse3d:customer:free",
+                "pulse3d:customer:paid",
+                "users:admin",
+            ]
         )
     ),
 ):
@@ -347,7 +361,9 @@ async def soft_delete_jobs(
     request: Request,
     job_ids: List[uuid.UUID] = Query(None),
     token=Depends(
-        ProtectedAny(scope=["pulse3d:user:free", "pulse3d:user:paid", "pulse3d:customer:free", "pulse3d:customer:paid"])
+        ProtectedAny(
+            scope=["pulse3d:user:free", "pulse3d:user:paid", "pulse3d:customer:free", "pulse3d:customer:paid"]
+        )
     ),
 ):
     # make sure at least one job ID was given
@@ -373,7 +389,9 @@ async def download_analyses(
     request: Request,
     details: JobDownloadRequest,
     token=Depends(
-        ProtectedAny(scope=["pulse3d:user:free", "pulse3d:user:paid", "pulse3d:customer:free", "pulse3d:customer:paid"])
+        ProtectedAny(
+            scope=["pulse3d:user:free", "pulse3d:user:paid", "pulse3d:customer:free", "pulse3d:customer:paid"]
+        )
     ),
 ):
     job_ids = details.job_ids

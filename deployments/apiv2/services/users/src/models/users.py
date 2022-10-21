@@ -67,7 +67,7 @@ class UserCreate(CustomerCreate):
     username: str
     service: str
     scope: Optional[List[str]]
-    
+
     @validator("username")
     def username_alphanumeric(cls, v):
         assert len(v) >= USERNAME_MIN_LEN, "Username does not meet min length"

@@ -218,7 +218,7 @@ async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False)
     It is up to the client to discard the access token in order to truly logout the user.
     """
     userid = uuid.UUID(hex=token["userid"])
-    
+
     if token["account_type"] == "customer":
         update_query = "UPDATE customers SET refresh_token = NULL WHERE id = $1"
     else:
@@ -254,7 +254,7 @@ async def register(
     ph = PasswordHasher()
     customer_id = uuid.UUID(hex=token["userid"])
     customer_scopes = token["scope"]
-    
+
     try:
         # still hash even if user or customer exists to avoid timing analysis leaks
         phash = ph.hash(details.password1.get_secret_value())
