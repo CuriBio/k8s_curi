@@ -9,38 +9,11 @@ import { AuthContext } from "@/pages/_app";
 import DataTable from "react-data-table-component";
 import FilterHeader from "@/components/table/FilterHeader";
 import UploadsSubTable from "@/components/table/UploadsSubTable";
-
-const uploadTableColumns = [
-  {
-    name: "File Owner",
-    admin: true,
-    selector: (row) => row.username,
-  },
-  {
-    name: "Recording Name",
-    admin: false,
-    selector: (row) => row.name || "none",
-  },
-  {
-    name: "Upload ID",
-    admin: false,
-    selector: (row) => row.id,
-  },
-  {
-    name: "Created Date",
-    admin: false,
-    selector: (row) => row.createdAt,
-  },
-  {
-    name: "Last Analyzed",
-    admin: false,
-    selector: (row) => row.lastAnalyzed,
-  },
-];
+import Checkbox from "@mui/material/Checkbox";
 
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
-  center: true,
+  center: false,
   sortable: true,
 };
 
@@ -49,6 +22,7 @@ const customStyles = {
     style: {
       backgroundColor: "var(--dark-blue)",
       color: "white",
+      fontSize: "1.2rem",
     },
   },
   subHeader: {
@@ -64,6 +38,13 @@ const customStyles = {
     },
   },
 };
+const filterBoxstyles = [
+  { position: "relative", left: "40px", width: "150px", margin: "0 30px 0 0" }, //file owner
+  { position: "relative", left: "40px", width: "150px", margin: "0 400px 0 0" }, //recording name
+  { position: "relative", left: "40px", width: "150px", margin: "0 150px 0 0" }, //upload id
+  { position: "relative", left: "40px", width: "150px", margin: "0 50px 0 0" }, //created
+  { position: "relative", left: "40px", width: "150px", margin: "0 0 0 0" }, //lastAnalyzed
+];
 
 const Container = styled.div`
   display: flex;
@@ -86,7 +67,7 @@ const InteractiveAnalysisContainer = styled.div`
 `;
 
 const PageContainer = styled.div`
-  width: 80%;
+  width: 85%;
 `;
 const DropDownContainer = styled.div`
   width: 250px;
@@ -136,10 +117,10 @@ const modalObjs = {
     ],
   },
 };
-
+let statusUpdateInterval;
 export default function Uploads() {
   const { accountType } = useContext(AuthContext);
-  const { uploads, setFetchUploads } = useContext(UploadsContext);
+  const { uploads, setFetchUploads, pulse3dVersions } = useContext(UploadsContext);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
@@ -154,23 +135,51 @@ export default function Uploads() {
   const [pending, setPending] = useState(true);
   const [filterString, setFilterString] = useState("");
   const [filtercolumn, setFilterColumn] = useState("");
-  const [updateData, toggleUpdateData] = useState(false);
+
+  const uploadTableColumns = [
+    {
+      name: "File Owner",
+      width: "180px",
+      admin: true,
+      selector: (row) => row.username,
+    },
+    {
+      name: "Recording Name",
+      width: "550px",
+      admin: false,
+      selector: (row) => row.name,
+    },
+    {
+      name: "Upload ID",
+      width: "300px",
+      admin: false,
+      selector: (row) => row.id,
+    },
+    {
+      name: "Created Date",
+      width: "200px",
+      admin: false,
+      selector: (row) => row.createdAt,
+    },
+    {
+      name: "Last Analyzed",
+      width: "200px",
+      admin: false,
+      selector: (row) => row.lastAnalyzed,
+    },
+    {
+      name: "",
+      width: "100px",
+      admin: false,
+      selector: (row) => (
+        <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
+      ),
+    },
+  ];
 
   useEffect(() => {
-    setTimeout(async () => {
-      // don't call get jobs if downloading or deleting in progress because it backs up server
-      if (!["downloading", "deleting"].includes(modalState) && updateData) {
-        await getAllJobs();
-        toggleUpdateData(!updateData);
-      }
-    }, [1e4]);
-  }, [updateData]);
-
-  useEffect(() => {
-    if (displayRows.length > 0) {
-      setTimeout(() => {
-        setPending(false);
-      }, 5000);
+    if (jobs.length > 0) {
+      setPending(false);
     }
   }, [displayRows]);
   const toFilterField =
@@ -191,17 +200,14 @@ export default function Uploads() {
 
   //when filter string changes, refilter results
   useEffect(() => {
-    const newList = rows.filter((row) => {
-      //if the column being filtered is a date
-      if (toFilterField[filtercolumn] === "createdAt" || toFilterField[filtercolumn] === "lastAnalyzed") {
+    if (filtercolumn) {
+      const newList = rows.filter((row) => {
         return row[toFilterField[filtercolumn]]
           .toLocaleLowerCase()
           .includes(filterString.toLocaleLowerCase());
-      } else if (row[toFilterField[filtercolumn]]) {
-        return row[toFilterField[filtercolumn]].includes(filterString);
-      }
-    });
-    setDisplayRows(newList);
+      });
+      setDisplayRows(newList);
+    }
   }, [filterString]);
 
   useEffect(() => {
@@ -236,8 +242,7 @@ export default function Uploads() {
             datetime: formattedTime,
             status,
             analysisParams,
-            // version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
-            version: "0.25.2",
+            version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
             checked: isChecked,
           };
         });
@@ -272,37 +277,35 @@ export default function Uploads() {
 
   useEffect(() => {
     getAllJobs();
-    // start 10 second interval
-    const uploadsInterval = setInterval(() => getAllJobs(), [1e4]);
     // don't call get jobs if downloading or deleting in progress because it backs up server
-    if (!["downloading", "deleting"].includes(modalState)) {
-      toggleUpdateData(!updateData);
+    if (uploads.length > 0 && !statusUpdateInterval) {
+      statusUpdateInterval = setInterval(async () => {
+        if (!["downloading", "deleting"].includes(modalState)) {
+          await getAllJobs();
+        }
+      }, [1e4]);
     }
-
     //clear interval when switching pages
-    return () => clearInterval(uploadsInterval);
+    return () => clearInterval(statusUpdateInterval);
   }, [uploads]);
 
   useEffect(() => {
-    const formattedUploads = uploads
-      .map(({ username, id, filename, created_at }) => {
-        const formattedTime = formatDateTime(created_at);
-        const recName = filename ? filename.split(".")[0] : null;
-        const uploadJobs = jobs
-          .filter(({ uploadId }) => uploadId === id)
-          .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
-
-        const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
-        return {
-          username,
-          name: recName,
-          id,
-          createdAt: formattedTime,
-          lastAnalyzed,
-          jobs: uploadJobs,
-        };
-      })
-      .sort((a, b) => new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed));
+    const formattedUploads = uploads.map(({ username, id, filename, created_at }) => {
+      const formattedTime = formatDateTime(created_at);
+      const recName = filename ? filename.split(".")[0] : null;
+      const uploadJobs = jobs
+        .filter(({ uploadId }) => uploadId === id)
+        .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+      const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
+      return {
+        username,
+        name: recName,
+        id,
+        createdAt: formattedTime,
+        lastAnalyzed,
+        jobs: uploadJobs,
+      };
+    });
 
     setRows([...formattedUploads]);
     setDisplayRows([...formattedUploads]);
@@ -528,45 +531,61 @@ export default function Uploads() {
     }
   };
   const ExpandedComponent = ({ data }) => {
-    const [jobToEdit, setJobToEdit] = useState();
-    //takes care of adding the state of checked jobs
-    useEffect(() => {
-      if (jobToEdit) {
-        if (jobToEdit.action === "add") {
-          for (let i = 0; i < jobs.length; i++) {
-            if (jobs[i].jobId === jobToEdit.id) {
-              jobs[i].checked = true;
-              setCheckedJobs([...checkedJobs, jobs[i].jobId]);
-              return;
-            }
-          }
-        } else if (jobToEdit.action === "remove") {
-          for (let i = 0; i < jobs.length; i++) {
-            if (jobs[i].jobId === jobToEdit.id) {
-              jobs[i].checked = false;
-              if (checkedJobs.length === 1) {
-                setCheckedJobs([]);
-                return;
-              }
-              let temp = checkedJobs;
-              const location = temp.indexOf(jobToEdit.id);
-              temp.splice(location, 1);
-              setCheckedJobs(temp);
-              return;
-            }
-          }
-        }
-      }
-    }, [jobToEdit]);
     return (
-      <UploadsSubTable
-        jobs={data.jobs}
-        setJobToEdit={(e) => {
-          setJobToEdit(e);
-        }}
-      />
+      <UploadsSubTable jobs={data.jobs} checkedJobs={checkedJobs} handleCheckedJobs={handleCheckedJobs} />
     );
   };
+
+  const handleCheckedUploads = (e) => {
+    // first check if change is adding or removing an upload
+    if (!checkedUploads.includes(e.target.id)) {
+      // if adding, push to state
+      checkedUploads.push(e.target.id);
+    } else {
+      // if removing, splice to state
+      const idxToSplice = checkedUploads.indexOf(e.target.id);
+      checkedUploads.splice(idxToSplice, 1);
+    }
+    // set state
+    setCheckedUploads([...checkedUploads]);
+
+    const newCheckedJobs = [];
+
+    // every checked upload should have all of it's jobs checked
+    // so it's resetting checkedJobs to empty array, then concat all relevant jobs
+    checkedUploads.map((upload) => {
+      const idx = displayRows.map((row) => row.id).indexOf(upload);
+      const jobIds = displayRows[idx].jobs.map(({ jobId }) => newCheckedJobs.push(jobId));
+      newCheckedJobs.concat(jobIds);
+    });
+
+    // set jobs in state
+    setCheckedJobs([...newCheckedJobs]);
+  };
+
+  const handleCheckedJobs = (e) => {
+    // check if action is unchecking a job
+    if (checkedJobs.includes(e.target.id)) {
+      // remove from job state
+      const idxToSplice = checkedJobs.indexOf(e.target.id);
+      checkedJobs.splice(idxToSplice, 1);
+
+      // remove corresponding upload as checked because a checked upload cannot have any unchecked jobs
+      checkedUploads.map((upload, uploadIdx) => {
+        const idx = displayRows.map((row) => row.id).indexOf(upload);
+        const jobIds = displayRows[idx].jobs.map(({ jobId }) => jobId);
+        const missingJobs = jobIds.filter((id) => !checkedJobs.includes(id));
+        if (missingJobs.length > 0) checkedUploads.splice(uploadIdx, 1);
+      });
+
+      // set checked uploads
+      setCheckedUploads([...checkedUploads]);
+    } else checkedJobs.push(e.target.id); // else if action is checking a job, then push job id to state
+
+    // set checked jobs either way
+    setCheckedJobs([...checkedJobs]);
+  };
+
   return (
     <>
       {!openInteractiveAnalysis ? (
@@ -612,29 +631,22 @@ export default function Uploads() {
                   <CircularSpinner size={200} color={"secondary"} />
                 </SpinnerContainer>
               }
-              selectableRows
-              selectableRowsNoSelectAll
               subHeader
               subHeaderAlign="left"
               subHeaderComponent={
                 <FilterHeader
                   columns={
                     accountType === "admin"
-                      ? ["Owner", "Recording", "ID", "Date Created", "Last Analyzed"]
-                      : ["Recording", "ID", "Date Created", "Last Analyzed"]
+                      ? ["Owner", "Recording", "ID", "Date", "Analyzed"]
+                      : ["Recording", "ID", "Date", "Analyzed"]
                   }
                   setFilterString={setFilterString}
                   setFilterColumn={setFilterColumn}
                   loading={pending}
+                  filterBoxstyles={accountType === "admin" ? filterBoxstyles : filterBoxstyles.slice(1)}
                 />
               }
-              onSelectedRowsChange={({ selectedRows, selectedCount }) => {
-                let arr = [];
-                for (let i = 0; i < selectedCount; i++) {
-                  arr.push(selectedRows[i].id);
-                }
-                setCheckedUploads(arr);
-              }}
+              selectableRowsNoSelectAll
             />
           </Container>
         </PageContainer>

@@ -30,7 +30,7 @@ const ErrorText = styled.span`
   font-style: italic;
   text-align: left;
   position: relative;
-  width: 80%;
+  width: 85%;
   padding-top: 2%;
 `;
 
