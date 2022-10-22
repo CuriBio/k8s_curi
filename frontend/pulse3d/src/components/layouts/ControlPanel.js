@@ -162,9 +162,7 @@ export default function ControlPanel({ clearTimers }) {
           <ThemeProvider key={label} theme={theme({ color: backgroundColor, disabled })}>
             <Accordion
               onClick={() => {
-                if (clearTimers) {
-                  clearTimers();
-                }
+                clearTimers();
               }}
               disabled={disabled}
               expanded={expanded === label}

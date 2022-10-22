@@ -274,7 +274,6 @@ export default function Uploads() {
       return datetime;
     }
   };
-  useEffect(() => {}, []);
 
   useEffect(() => {
     getAllJobs();
