@@ -15,9 +15,7 @@
     "cy:open-only": "cypress open",
     "cy:run-only": "cypress run",
     "cy:open": "start-server-and-test dev 3000 cy:open-only",
-    "cy:run": "start-server-and-test dev 3000 cy:run-only",
-    "export:test-w": "@powershell Set-Content -Encoding unicode .env.production NEXT_PUBLIC_PULSE3D_URL=https://pulse3d.curibio-test.com`nNEXT_PUBLIC_USERS_URL=https://apiv2.curibio-test.com/users`nNEXT_PUBLIC_CLUSTER=test && npm run build-w && next export",
-    "build-w": "SET NODE_ENV=production npm run build-sw && next build"
+    "cy:run": "start-server-and-test dev 3000 cy:run-only"
   },
   "engines": {
     "node": "^16.17.0"

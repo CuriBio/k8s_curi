@@ -117,7 +117,7 @@ const modalObjs = {
     ],
   },
 };
-
+let statusUpdateInterval;
 export default function Uploads() {
   const { accountType } = useContext(AuthContext);
   const { uploads, setFetchUploads, pulse3dVersions } = useContext(UploadsContext);
@@ -274,16 +274,19 @@ export default function Uploads() {
       return datetime;
     }
   };
+  useEffect(() => {}, []);
 
   useEffect(() => {
     getAllJobs();
     // don't call get jobs if downloading or deleting in progress because it backs up server
     if (!["downloading", "deleting"].includes(modalState) && uploads.length > 0) {
-      setInterval(async () => {
-        if (!["downloading", "deleting"].includes(modalState)) {
-          await getAllJobs();
-        }
-      }, [1e4]);
+      if (!statusUpdateInterval) {
+        statusUpdateInterval = setInterval(async () => {
+          if (!["downloading", "deleting"].includes(modalState)) {
+            await getAllJobs();
+          }
+        }, [1e4]);
+      }
     }
   }, [uploads]);
 
@@ -678,5 +681,13 @@ export default function Uploads() {
 }
 
 Uploads.getLayout = (page) => {
-  return <DashboardLayout>{page}</DashboardLayout>;
+  return (
+    <DashboardLayout
+      clearTimers={() => {
+        clearInterval(statusUpdateInterval);
+      }}
+    >
+      {page}
+    </DashboardLayout>
+  );
 };

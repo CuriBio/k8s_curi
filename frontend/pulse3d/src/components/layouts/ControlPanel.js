@@ -119,7 +119,7 @@ const adminButtons = [
   { label: "Users Info", disabled: false, page: "/users-info", options: [] },
 ];
 
-export default function ControlPanel() {
+export default function ControlPanel({ clearTimers }) {
   const router = useRouter();
   const [selected, setSelected] = useState("Home");
   const [expanded, setExpanded] = useState(null);
@@ -160,7 +160,15 @@ export default function ControlPanel() {
 
         return (
           <ThemeProvider key={label} theme={theme({ color: backgroundColor, disabled })}>
-            <Accordion disabled={disabled} expanded={expanded === label}>
+            <Accordion
+              onClick={() => {
+                if (clearTimers) {
+                  clearTimers();
+                }
+              }}
+              disabled={disabled}
+              expanded={expanded === label}
+            >
               <AccordionSummary
                 props={{ color: backgroundColor }}
                 onClick={handleSelected}
