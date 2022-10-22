@@ -119,7 +119,7 @@ const adminButtons = [
   { label: "Users Info", disabled: false, page: "/users-info", options: [] },
 ];
 
-export default function ControlPanel({ clearTimers }) {
+export default function ControlPanel() {
   const router = useRouter();
   const [selected, setSelected] = useState("Home");
   const [expanded, setExpanded] = useState(null);
