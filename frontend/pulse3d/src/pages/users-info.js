@@ -8,10 +8,6 @@ import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 
 const columns = [
   {
-    name: "Status",
-    selector: (row) => (row.suspended ? "Inactive" : "Active"),
-  },
-  {
     name: "Name",
     selector: (row) => row.name,
   },
@@ -27,14 +23,17 @@ const columns = [
     name: "Last Loggedin",
     selector: (row) => formatDateTime(row.last_login),
   },
+  {
+    name: "Status",
+    selector: (row) => (row.suspended ? "Inactive" : "Active"),
+  },
 ];
 
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
-  center: true,
+  center: false,
   sortable: true,
 };
-
 const customStyles = {
   headRow: {
     style: {
@@ -63,9 +62,15 @@ const conditionalRowStyles = [
     },
   },
 ];
+const filterBoxstyles = [
+  { position: "relative", left: "35px", width: "10vw" },
+  { position: "relative", left: "139px", width: "10vw" },
+  { position: "relative", left: "243px", width: "10vw" },
+  { position: "relative", left: "342px", width: "10vw" },
+];
 
 const PageContainer = styled.div`
-  width: 80%;
+  width: 85%;
 `;
 
 const Container = styled.div`
@@ -143,14 +148,9 @@ export default function UserInfo() {
   useEffect(() => {
     const newList = usersData.filter((user) => {
       //if the column containes date data
-      //TODO add better date filter
-      if (toUserField[filtercolumn] === "created_at" || toUserField[filtercolumn] === "last_login") {
-        return formatDateTime(user[toUserField[filtercolumn]])
-          .toLocaleLowerCase()
-          .includes(filterString.toLocaleLowerCase());
-      } else if (user[toUserField[filtercolumn]]) {
-        return user[toUserField[filtercolumn]].includes(filterString);
-      }
+      return formatDateTime(user[toUserField[filtercolumn]])
+        .toLocaleLowerCase()
+        .includes(filterString.toLocaleLowerCase());
     });
     setDisplayData(newList);
   }, [filterString]);
@@ -175,7 +175,7 @@ export default function UserInfo() {
             expandableRowsComponent={ExpandedComponent}
             conditionalRowStyles={conditionalRowStyles}
             pagination
-            defaultSortFieldId={1}
+            defaultSortFieldId={5}
             progressPending={loading}
             progressComponent={
               <SpinnerContainer>
@@ -185,10 +185,11 @@ export default function UserInfo() {
             subHeader
             subHeaderComponent={
               <FilterHeader
-                columns={["", "Name", "Email", "Date Created", "Last Loggedin"]}
+                columns={["Name", "Email", "Date Created", "Last Loggedin"]}
                 setFilterString={setFilterString}
                 setFilterColumn={setFilterColumn}
                 loading={loading}
+                filterBoxstyles={filterBoxstyles}
               />
             }
           />

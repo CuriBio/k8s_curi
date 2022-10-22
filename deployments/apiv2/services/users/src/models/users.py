@@ -5,6 +5,19 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr, SecretStr
 from pydantic import constr, validator
 
+USERNAME_MIN_LEN = 3
+USERNAME_MAX_LEN = 32
+USERNAME_VALID_SPECIAL_CHARS = "_.+-"  # make sure that - is that last char so the regexes work
+USERNAME_REGEX_STR = f"^[a-zA-Z]+[a-zA-Z0-9{USERNAME_VALID_SPECIAL_CHARS}]+$"
+
+PASSWORD_REGEX = r"""(
+    ^(?=.*[A-Z])
+    (?=.*[a-z])
+    (?=.*[!@#$%^&*><?_=+~-])
+    (?=.*[0-9])
+    .{10,}
+    $)"""
+
 
 class CustomerLogin(BaseModel):
     email: EmailStr
@@ -28,16 +41,7 @@ class CustomerCreate(BaseModel):
 
     @validator("password1")
     def password_requirements(cls, v):
-        valid = re.compile(
-            r"""(
-                ^(?=.*[A-Z])
-                (?=.*[a-z])
-                (?=.*[!@#$%^&*><?_=+~-])
-                (?=.*[0-9])
-                .{10,}
-                $)""",
-            re.VERBOSE,
-        )
+        valid = re.compile(PASSWORD_REGEX, re.VERBOSE)
 
         assert valid.search(
             v.get_secret_value()
@@ -55,12 +59,6 @@ class CustomerCreate(BaseModel):
     def username_alphanumeric(cls, v):
         assert v is None
         return v
-
-
-USERNAME_MIN_LEN = 3
-USERNAME_MAX_LEN = 32
-USERNAME_VALID_SPECIAL_CHARS = "_.+-"  # make sure that - is that last char so the regexes work
-USERNAME_REGEX_STR = f"^[a-zA-Z]+[a-zA-Z0-9{USERNAME_VALID_SPECIAL_CHARS}]+$"
 
 
 class UserCreate(CustomerCreate):

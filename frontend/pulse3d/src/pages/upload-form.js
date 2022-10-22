@@ -12,12 +12,10 @@ import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardL
 import semverGte from "semver/functions/gte";
 
 const Container = styled.div`
-  width: 70%;
+  width: 85%;
   justify-content: center;
   position: relative;
-  padding-top: 3%;
-  padding-left: 7%;
-  padding-bottom: 3%;
+  padding: 3rem 15rem;
 `;
 
 const Header = styled.h2`
