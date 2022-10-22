@@ -160,13 +160,7 @@ export default function ControlPanel({ clearTimers }) {
 
         return (
           <ThemeProvider key={label} theme={theme({ color: backgroundColor, disabled })}>
-            <Accordion
-              onClick={() => {
-                clearTimers();
-              }}
-              disabled={disabled}
-              expanded={expanded === label}
-            >
+            <Accordion disabled={disabled} expanded={expanded === label}>
               <AccordionSummary
                 props={{ color: backgroundColor }}
                 onClick={handleSelected}

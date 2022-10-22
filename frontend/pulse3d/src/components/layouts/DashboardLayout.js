@@ -13,7 +13,7 @@ const Container = styled.div`
 
 export const UploadsContext = createContext();
 
-export default function DashboardLayout({ children, clearTimers }) {
+export default function DashboardLayout({ children }) {
   const [uploads, setUploads] = useState([]);
   const [fetchUploads, setFetchUploads] = useState(false);
   const [pulse3dVersions, setPulse3dVersions] = useState([]);
@@ -74,13 +74,7 @@ export default function DashboardLayout({ children, clearTimers }) {
       value={{ uploads, setUploads, setFetchUploads, pulse3dVersions, metaPulse3dVersions }}
     >
       <Container>
-        <ControlPanel
-          clearTimers={() => {
-            if (clearTimers) {
-              clearTimers();
-            }
-          }}
-        />
+        <ControlPanel />
         {children}
       </Container>
     </UploadsContext.Provider>

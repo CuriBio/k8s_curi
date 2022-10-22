@@ -278,15 +278,15 @@ export default function Uploads() {
   useEffect(() => {
     getAllJobs();
     // don't call get jobs if downloading or deleting in progress because it backs up server
-    if (!["downloading", "deleting"].includes(modalState) && uploads.length > 0) {
-      if (!statusUpdateInterval) {
-        statusUpdateInterval = setInterval(async () => {
-          if (!["downloading", "deleting"].includes(modalState)) {
-            await getAllJobs();
-          }
-        }, [1e4]);
-      }
+    if (uploads.length > 0 && !statusUpdateInterval) {
+      statusUpdateInterval = setInterval(async () => {
+        if (!["downloading", "deleting"].includes(modalState)) {
+          await getAllJobs();
+        }
+      }, [1e4]);
     }
+    //clear interval when switching pages
+    return () => clearInterval(statusUpdateInterval);
   }, [uploads]);
 
   useEffect(() => {
@@ -680,13 +680,5 @@ export default function Uploads() {
 }
 
 Uploads.getLayout = (page) => {
-  return (
-    <DashboardLayout
-      clearTimers={() => {
-        clearInterval(statusUpdateInterval);
-      }}
-    >
-      {page}
-    </DashboardLayout>
-  );
+  return <DashboardLayout>{page}</DashboardLayout>;
 };
