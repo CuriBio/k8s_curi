@@ -3,10 +3,11 @@ import styled from "styled-components";
 import { useEffect, useState, useContext } from "react";
 import { AuthContext } from "@/pages/_app";
 import ArrowForwardIosSharpIcon from "@mui/icons-material/ArrowForwardIosSharp";
-import MuiAccordion, { AccordionProps } from "@mui/material/Accordion";
+import MuiAccordion from "@mui/material/Accordion";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
-import MuiAccordionSummary, { AccordionSummaryProps } from "@mui/material/AccordionSummary";
+import MuiAccordionSummary from "@mui/material/AccordionSummary";
 import MuiAccordionDetails from "@mui/material/AccordionDetails";
+import ModalWidget from "@/components/basicWidgets/ModalWidget";
 
 const Container = styled.div`
   height: inherit;
@@ -92,22 +93,6 @@ export const Accordion = styled((AccordionProps) => (
   boxShadow: "none",
 }));
 
-const userButtons = [
-  { label: "Home", disabled: false, page: "/uploads", options: [] },
-  {
-    label: "Run Analysis",
-    disabled: false,
-    page: "/upload-form",
-    options: ["Re-analyze Existing Upload", "Analyze New Files"],
-  },
-  {
-    label: "Account Settings",
-    disabled: true,
-    page: "/account",
-    options: [],
-  },
-];
-
 const adminButtons = [
   { label: "Home", disabled: false, page: "/uploads", options: [] },
   {
@@ -118,12 +103,50 @@ const adminButtons = [
   },
   { label: "Users Info", disabled: false, page: "/users-info", options: [] },
 ];
+const modalObjs = {
+  jobsReached: {
+    header: "Warning!",
+    messages: [
+      "All usage limits have been reached for this customer account.",
+      "Users will not be able to upload new recording files or perform re-analysis on existing files.",
+    ],
+  },
+  uploadsReached: {
+    header: "Warning!",
+    messages: [
+      "The upload limit has been reached for this customer account.",
+      "Users will only be allowed to perform re-analysis on existing files.",
+    ],
+  },
+};
 
 export default function ControlPanel() {
   const router = useRouter();
   const [selected, setSelected] = useState("Home");
   const [expanded, setExpanded] = useState(null);
-  const { accountType } = useContext(AuthContext);
+  const { accountType, usageQuota } = useContext(AuthContext);
+  const [modalState, setModalState] = useState(false);
+  const [modalLabels, setModalLabels] = useState({ header: "", messages: [] });
+
+  const userButtons = [
+    { label: "Home", disabled: false, page: "/uploads", options: [] },
+    {
+      label: "Run Analysis",
+      disabled: usageQuota && usageQuota.jobs_reached, // disabled completely if jobs quota has been reached
+      page: "/upload-form",
+      options:
+        usageQuota && usageQuota.uploads_reached // prevent new analyses if uploads quota reached
+          ? ["Re-analyze Existing Upload"]
+          : ["Re-analyze Existing Upload", "Analyze New Files"],
+    },
+    {
+      label: "Account Settings",
+      disabled: true,
+      page: "/account",
+      options: [],
+    },
+  ];
+
   const buttons = accountType === "admin" ? adminButtons : userButtons;
 
   useEffect(() => {
@@ -134,7 +157,22 @@ export default function ControlPanel() {
       if (label !== selected) setSelected(label);
       if (options.length > 0) setExpanded(label);
     }
+    if (router.query.checkUsage) {
+      setModalState(true);
+      router.replace("/uploads");
+    }
   }, [router, buttons]);
+
+  useEffect(() => {
+    // modal will open for admin and user accounts to notify them
+    // only open modal if one of the restrictions has been reached
+    if (usageQuota && (usageQuota.jobs_reached || usageQuota.uploads_reached)) {
+      // if jobs are reached, then all uploading/analyses will be disabled
+      // else if just uploads are reached, user can still perform re-analysis
+      if (usageQuota.jobs_reached) setModalLabels(modalObjs.jobsReached);
+      else if (usageQuota.uploads_reached) setModalLabels(modalObjs.uploadsReached);
+    }
+  }, [usageQuota]);
 
   return (
     <Container>
@@ -191,6 +229,12 @@ export default function ControlPanel() {
                 </ListContainer>
               </AccordionDetails>
             </Accordion>
+            <ModalWidget
+              open={modalState}
+              labels={modalLabels.messages}
+              closeModal={() => setModalState(false)}
+              header={modalLabels.header}
+            />
           </ThemeProvider>
         );
       })}

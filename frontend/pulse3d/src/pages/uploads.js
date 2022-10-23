@@ -119,7 +119,6 @@ const modalObjs = {
     ],
   },
 };
-let statusUpdateInterval;
 export default function Uploads() {
   const { accountType } = useContext(AuthContext);
   const { uploads, setFetchUploads, pulse3dVersions } = useContext(UploadsContext);
@@ -153,19 +152,19 @@ export default function Uploads() {
     },
     {
       name: "Upload ID",
-      width: "300px",
+      width: "350px",
       admin: false,
       selector: (row) => row.id,
     },
     {
       name: "Created Date",
-      width: "200px",
+      width: "300px",
       admin: false,
       selector: (row) => row.createdAt,
     },
     {
       name: "Last Analyzed",
-      width: "200px",
+      width: "230px",
       admin: false,
       selector: (row) => row.lastAnalyzed,
     },
@@ -184,6 +183,7 @@ export default function Uploads() {
       setPending(false);
     }
   }, [displayRows]);
+
   const toFilterField =
     accountType === "admin"
       ? {
@@ -248,7 +248,7 @@ export default function Uploads() {
             checked: isChecked,
           };
         });
-        setJobs(newJobs);
+        setJobs([...newJobs]);
       }
     } catch (e) {
       console.log("ERROR fetching jobs in /uploads");
@@ -279,8 +279,10 @@ export default function Uploads() {
 
   useEffect(() => {
     getAllJobs();
+    let statusUpdateInterval;
+
     // don't call get jobs if downloading or deleting in progress because it backs up server
-    if (uploads.length > 0 && !statusUpdateInterval) {
+    if (uploads.length > 0) {
       statusUpdateInterval = setInterval(async () => {
         if (!["downloading", "deleting"].includes(modalState)) {
           await getAllJobs();

@@ -60,7 +60,7 @@ export default function Login() {
 
         if (res) {
           if (res.status === 200) {
-            router.push("/uploads"); // routes to next page
+            router.push("/uploads?checkUsage=true", "/uploads"); // routes to next page
           } else {
             res.status === 401 || res.status === 422
               ? setErrorMsg("*Invalid credentials. Try again.")
@@ -87,7 +87,7 @@ export default function Login() {
                 isSelected={isSelected}
                 backgroundColor={isSelected ? "var(--teal-green)" : "var(--dark-blue)"}
                 clickFn={() => {
-                  setUserData({});
+                  setUserData({ service: "pulse3d" });
                   setLoginType(type);
                 }}
               />

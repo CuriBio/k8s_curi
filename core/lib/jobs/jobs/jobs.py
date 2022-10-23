@@ -85,8 +85,8 @@ async def create_upload(*, con, upload_params):
     # the WITH clause in this query is necessary to make sure the given user_id actually exists
     query = (
         "WITH row AS (SELECT id AS user_id FROM users WHERE id=$1) "
-        "INSERT INTO uploads (user_id, id, md5, prefix, filename, type) "
-        "SELECT user_id, $2, $3, $4, $5, $6 FROM row "
+        "INSERT INTO uploads (user_id, id, md5, prefix, filename, type, customer_id) "
+        "SELECT user_id, $2, $3, $4, $5, $6, $7 FROM row "
         "RETURNING id"
     )
 
@@ -98,6 +98,7 @@ async def create_upload(*, con, upload_params):
         upload_params["prefix"].format(upload_id=upload_id),
         upload_params["filename"],
         upload_params["type"],
+        upload_params["customer_id"],
     )
 
 
@@ -153,7 +154,7 @@ async def get_jobs(*, con, account_type, account_id, job_ids=None):
     return jobs
 
 
-async def create_job(*, con, upload_id, queue, priority, meta):
+async def create_job(*, con, upload_id, queue, priority, meta, customer_id):
     # the WITH clause in this query is necessary to make sure the given upload_id actually exists
     enqueue_job_query = (
         "WITH row AS (SELECT id FROM uploads WHERE id=$1) "
@@ -172,6 +173,7 @@ async def create_job(*, con, upload_id, queue, priority, meta):
             "runtime": 0,
             "finished_at": None,
             "meta": json.dumps(meta),
+            "customer_id": customer_id,
         }
 
         cols = ", ".join(list(data))
@@ -213,3 +215,16 @@ def _get_placeholders_str(num_placeholders, start=1):
     if start < 1:
         raise ValueError("Initial placeholder value must be >= 1")
     return ", ".join(f"${i}" for i in range(start, start + num_placeholders))
+
+
+async def check_pulse3d_customer_quota(con, customer_id):
+
+    query = "SELECT COUNT(*) as total_uploads, (SELECT count(*) FROM jobs_result WHERE customer_id=$1) as total_jobs, (SELECT usage_restrictions->'pulse3d' FROM customers WHERE id=$1) as usage FROM uploads WHERE customer_id=$1"
+
+    total_uploads, total_jobs, usage = await con.fetchrow(query, customer_id)
+    usage_dict = json.loads(usage)
+
+    return {
+        "uploads_reached": total_uploads == usage_dict["uploads"],
+        "jobs_reached": total_jobs == usage_dict["jobs"],
+    }

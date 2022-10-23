@@ -14,6 +14,7 @@ from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from pydantic import EmailStr
 
 from auth import ProtectedAny, create_token, decode_token
+from jobs import check_pulse3d_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
 from models.errors import LoginError, RegistrationError, EmailRegistrationError
 from models.tokens import AuthTokens
@@ -25,6 +26,7 @@ from models.users import (
     CustomerProfile,
     UserProfile,
     UserAction,
+    LoginResponse,
 )
 from utils.db import AsyncpgPoolDep
 from fastapi.templating import Jinja2Templates
@@ -65,7 +67,7 @@ async def startup():
         CB_CUSTOMER_ID = await con.fetchval("SELECT id FROM customers WHERE email = 'software@curibio.com'")
 
 
-@app.post("/login", response_model=AuthTokens)
+@app.post("/login", response_model=LoginResponse)
 async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
     """Login a user or customer account.
 
@@ -96,17 +98,25 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
         account_type = "user"
         # suspended is for deactivated accounts and verified is for new users needing to verify through email
         # select for service specific usage restrictions listed under the customer account
-        select_query = (
-            "SELECT password, id, data->'scope' AS scope, (select usage_restrictions->$1 from customers where id = users.customer_id) as usage_restrictions "
-            "FROM users WHERE deleted_at IS NULL AND name=$2 AND customer_id=$3 AND suspended='f' AND verified='t'"
+        select_query = "SELECT password, id, data->'scope' AS scope FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND suspended='f' AND verified='t'"
+        select_query_params = (
+            details.username,
+            str(details.customer_id),
         )
-        select_query_params = (details.service, details.username, str(details.customer_id))
         customer_id = details.customer_id
-
     try:
         async with request.state.pgpool.acquire() as con:
+
             row = await con.fetchrow(select_query, *select_query_params)
             pw = details.password.get_secret_value()
+
+            if details.service == "pulse3d":
+                # renaming to cust_id instead of reassigning customer_id so that tokens work with customer accounts
+                cust_id = customer_id if customer_id is not None else row["id"]
+                usage_quota = await check_pulse3d_customer_quota(con, cust_id)
+            else:
+                # set None for all other services until scopes/restrictions considered
+                usage_quota = None
 
             # if no record is returned by query then fetchrow will return None,
             # so need to set to a dict with a bad password hash
@@ -129,7 +139,8 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
             else:
                 # both users and customers have scopes
                 scope = json.loads(row.get("scope", "[]"))
-                return await _create_new_tokens(con, row["id"], customer_id, scope, account_type)
+                tokens = await _create_new_tokens(con, row["id"], customer_id, scope, account_type)
+                return LoginResponse(tokens=tokens, usage_quota=usage_quota)
 
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))

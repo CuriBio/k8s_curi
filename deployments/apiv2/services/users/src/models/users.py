@@ -1,9 +1,11 @@
 import re
-from typing import Optional, List
+from typing import Optional, List, Dict
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, SecretStr
 from pydantic import constr, validator
+
+from models.tokens import AuthTokens
 
 USERNAME_MIN_LEN = 3
 USERNAME_MAX_LEN = 32
@@ -22,6 +24,7 @@ PASSWORD_REGEX = r"""(
 class CustomerLogin(BaseModel):
     email: EmailStr
     password: SecretStr
+    service: str
 
 
 class UserLogin(BaseModel):
@@ -100,3 +103,8 @@ class CustomerProfile(BaseModel):
 
 class UserAction(BaseModel):
     action_type: str
+
+
+class LoginResponse(BaseModel):
+    tokens: AuthTokens
+    usage_quota: Optional[Dict[str, bool]]

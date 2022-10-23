@@ -27,7 +27,15 @@ from pulse3D.constants import (
 
 from auth import ProtectedAny
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET, DASHBOARD_URL
-from jobs import create_upload, create_job, get_uploads, get_jobs, delete_jobs, delete_uploads
+from jobs import (
+    create_upload,
+    create_job,
+    get_uploads,
+    get_jobs,
+    delete_jobs,
+    delete_uploads,
+    check_pulse3d_customer_quota,
+)
 from models.models import (
     UploadRequest,
     UploadResponse,
@@ -36,7 +44,7 @@ from models.models import (
     JobDownloadRequest,
     WaveformDataResponse,
 )
-
+from models.errors import CustomerUsageLimitReached
 from models.types import TupleParam
 
 from utils.db import AsyncpgPoolDep
@@ -119,8 +127,15 @@ async def create_recording_upload(
             "md5": details.md5s,
             "user_id": user_id,
             "type": details.upload_type,
+            "customer_id": customer_id,
         }
         async with request.state.pgpool.acquire() as con:
+
+            usage_quota = await check_pulse3d_customer_quota(con, customer_id)
+            if usage_quota["uploads_reached"] or usage_quota["jobs_reached"]:
+                # since a new upload will kick off a new job, we want to prevent if job or upload limits have been reached
+                raise CustomerUsageLimitReached()
+
             # Tanner (7/5/22): using a transaction here so that if _generate_presigned_post fails
             # then the new upload row won't be committed
             async with con.transaction():
@@ -136,6 +151,9 @@ async def create_recording_upload(
 
                 return UploadResponse(id=upload_id, params=params)
 
+    except CustomerUsageLimitReached as e:
+        logger.exception(str(e))
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=usage_quota)
     except S3Error as e:
         logger.exception(str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
@@ -284,6 +302,7 @@ async def create_new_job(
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
+        customer_id = str(uuid.UUID(token["customer_id"]))
         logger.info(f"Creating pulse3d job for upload {details.upload_id} with user ID: {user_id}")
 
         params = [
@@ -321,18 +340,28 @@ async def create_new_job(
 
         priority = 10
         async with request.state.pgpool.acquire() as con:
+
+            usage_quota = await check_pulse3d_customer_quota(con, customer_id)
+            if usage_quota["jobs_reached"]:
+                # since a new upload will kick off a new job, we want to prevent if job or upload limits have been reached
+                raise CustomerUsageLimitReached()
+
             job_id = await create_job(
                 con=con,
                 upload_id=details.upload_id,
                 queue=f"pulse3d-v{details.version}",
                 priority=priority,
                 meta={"analysis_params": analysis_params, "version": details.version},
+                customer_id=customer_id,
             )
 
         return JobResponse(
             id=job_id, user_id=user_id, upload_id=details.upload_id, status="pending", priority=priority
         )
 
+    except CustomerUsageLimitReached as e:
+        logger.exception(str(e))
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=usage_quota)
     except Exception as e:
         logger.exception(f"Failed to create job: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
