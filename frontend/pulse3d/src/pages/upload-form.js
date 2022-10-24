@@ -151,7 +151,7 @@ export default function UploadForm() {
   const resetState = () => {
     setFiles([]);
     updateCheckParams(false); // this will also reset the analysis params and their error message
-    setFailedUploadsMsg([defaultUploadErrorLabel]);
+    setFailedUploadsMsg(failedUploadsMsg);
     setModalButtons(["Close"]);
   };
 
