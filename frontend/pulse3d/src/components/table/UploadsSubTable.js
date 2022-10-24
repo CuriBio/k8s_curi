@@ -51,7 +51,9 @@ export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, j
         <SubRowFileName>{job.analyzedFile ? job.analyzedFile : "none"}</SubRowFileName>
         <SubRow>{job.datetime}</SubRow>
         <SubRow>{paramsString.length === 0 ? "None" : paramsString}</SubRow>
-        <SubRow>{job.status}</SubRow>
+        <SubRow>
+          {job.status === "finished" ? "Completed" : job.status[0].toUpperCase() + job.status.slice(1)}
+        </SubRow>
       </SubContainer>
     );
   });
