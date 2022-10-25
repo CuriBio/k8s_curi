@@ -388,6 +388,7 @@ export default function UploadForm() {
     }
     // goes after because this dependency triggers reset
     setModalState(false);
+    setFailedUploadsMsg([defaultUploadErrorLabel]);
   };
 
   return (
