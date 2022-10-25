@@ -155,7 +155,7 @@ async def get_jobs(*, con, account_type, account_id, job_ids=None):
     return jobs
 
 
-async def create_job(*, con, upload_id, queue, priority, meta, customer_id):
+async def create_job(*, con, upload_id, queue, priority, meta, customer_id, job_type):
     # the WITH clause in this query is necessary to make sure the given upload_id actually exists
     enqueue_job_query = (
         "WITH row AS (SELECT id FROM uploads WHERE id=$1) "
@@ -175,6 +175,7 @@ async def create_job(*, con, upload_id, queue, priority, meta, customer_id):
             "finished_at": None,
             "meta": json.dumps(meta),
             "customer_id": customer_id,
+            "type": job_type
         }
 
         cols = ", ".join(list(data))
