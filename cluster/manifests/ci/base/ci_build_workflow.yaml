@@ -73,6 +73,8 @@ spec:
         arguments:
           parameters:
             - name: sha
+              value: "{{workflow.parameters.sha}}"
+            - name: base-sha
               value: "{{workflow.parameters.base-sha}}"
       - name: ci-terraform-plan
         dependencies: [changed-tf]
@@ -163,6 +165,8 @@ spec:
         arguments:
           parameters:
           - name: sha
+            value: "{{workflow.parameters.sha}}"
+          - name: base-sha
             value: "{{workflow.parameters.base-sha}}"
       - name: ci-terraform-apply
         dependencies: [changed-tf]
