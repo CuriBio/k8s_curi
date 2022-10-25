@@ -1,8 +1,7 @@
 from starlette.config import Config
 from starlette.datastructures import Secret
 
-# config = Config(".env")
-config = Config("/Users/lucipak/Documents/gpg/.env_localhost")
+config = Config(".env")
 
 ACCESS_TOKEN_EXPIRE_MINUTES = config("ACCESS_TOKEN_EXPIRE_MINUTES", cast=int, default=5)  # 5 minutes
 REFRESH_TOKEN_EXPIRE_MINUTES = config("REFRESH_TOKEN_EXPIRE_MINUTES", cast=int, default=30)  # 30 minutes
