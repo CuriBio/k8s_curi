@@ -27,7 +27,7 @@ resource "aws_s3_bucket_acl" "main_firmware_bucket" {
 }
 
 resource "aws_s3_bucket" "channel_firmware_bucket" {
-  bucket = "${var.cluster_name}-channel-firmware-test"
+  bucket = "${var.cluster_name}-channel-firmware"
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "channel_firmware_bucket" {
