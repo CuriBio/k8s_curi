@@ -137,7 +137,7 @@ export default function ControlPanel() {
       options:
         usageQuota && usageQuota.uploads_reached // prevent new analyses if uploads quota reached
           ? ["Re-analyze Existing Upload"]
-          : ["Re-analyze Existing Upload", "Analyze New Files"],
+          : ["Analyze New Files", "Re-analyze Existing Upload"],
     },
     {
       label: "Account Settings",

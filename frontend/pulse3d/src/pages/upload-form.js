@@ -169,7 +169,7 @@ export default function UploadForm() {
   const resetState = () => {
     setFiles([]);
     updateCheckParams(false); // this will also reset the analysis params and their error message
-    setFailedUploadsMsg([defaultUploadErrorLabel]);
+    setFailedUploadsMsg(failedUploadsMsg);
     setModalButtons(["Close"]);
   };
 
@@ -426,13 +426,14 @@ export default function UploadForm() {
     }
     // goes after because this dependency triggers reset
     setModalState(false);
+    setFailedUploadsMsg([defaultUploadErrorLabel]);
   };
 
   return (
     <Container>
       <Uploads>
         <Header>Run Analysis</Header>
-        {tabSelection === "1" ? (
+        {tabSelection === "0" ? (
           <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
             handleFileChange={(files) => setFiles(Object.values(files))}
             dropZoneText={dropZoneText}
