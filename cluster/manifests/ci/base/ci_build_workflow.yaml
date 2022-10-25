@@ -72,8 +72,8 @@ spec:
           template: changed-tf
         arguments:
           parameters:
-          - name: sha
-            value: "{{workflow.parameters.base-sha}}"
+            - name: sha
+              value: "{{workflow.parameters.base-sha}}"
       - name: ci-terraform-plan
         dependencies: [changed-tf]
         templateRef:
@@ -81,12 +81,12 @@ spec:
           template: ci-terraform-plan
         arguments:
           parameters:
-          - name: path
-            value: "{{item.path}}"
-          - name: number
-            value: "{{workflow.parameters.number}}"
-          - name: sha
-            value: "{{workflow.parameters.sha}}"
+            - name: path
+              value: "{{item.path}}"
+            - name: number
+              value: "{{workflow.parameters.number}}"
+            - name: sha
+              value: "{{workflow.parameters.sha}}"
         withParam: "{{tasks.changed-tf.outputs.result}}"
 
 ---
