@@ -1,6 +1,6 @@
 # Init cluster (only need this if the cluster isn't already setup)
 
-terraform init -backend-config=backend/test_env_config.yaml
+terraform init -backend-config=backend/test_env_config.tfvars
 
 # Create cluster (only need this if the cluster isn't already setup)
 
