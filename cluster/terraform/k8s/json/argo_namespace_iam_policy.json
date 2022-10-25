@@ -39,7 +39,8 @@
                 "s3:GetBucketWebsite",
                 "s3:GetBucketVersioning",
                 "s3:GetAccelerateConfiguration",
-                "s3:GetBucketRequestPayment"
+                "s3:GetBucketRequestPayment",
+                "s3:GetBucketLogging"
             ],
             "Resource": [
                 "arn:aws:s3:::curi-eks-prod-cluster-tf-state",
