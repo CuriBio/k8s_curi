@@ -66,14 +66,14 @@ function Pulse({ Component, pageProps }) {
         const currentPage = data.routerPathname;
         // this prevents the inactivity from popping up when a user is already on the login page or verified page
         // do this with multiple messages
-        // if (data.usageQuota) setUsageQuota(data.usageQuota);
+        if (data.usageQuota) setUsageQuota(data.usageQuota);
+        console.log("usageQuota: ", data.usageQuota);
 
         if (data.logout && currentPage && currentPage !== "/verify" && currentPage !== "/login") {
           setLoggedOutAlert(true);
         } else if (data.isLoggedIn) {
           // the router pathname is sent to the SW and then sent back here since for some reason this message handler
           setAccountType(data.accountType);
-          setUsageQuota(data.usageQuota);
           // if logged in and on a page that shouldn't be accessed, or on the login page, redirect to home page (currently /uploads)
           // TODO Tanner (8/23/22): this probably isn't the best solution for redirecting to other pages. Should look into a better way to do this
           if (currentPage === "/login" || !availablePages[data.accountType].includes(currentPage)) {
@@ -81,7 +81,6 @@ function Pulse({ Component, pageProps }) {
           }
         } else if (!data.isLoggedIn && currentPage !== "/login" && currentPage !== "/verify") {
           setAccountType(data.accountType);
-          setUsageQuota(data.usageQuota);
           // always redirect to login page if not logged in and not an account verification
           // protects unauthorized page access
           router.replace("/login", undefined, { shallow: true });

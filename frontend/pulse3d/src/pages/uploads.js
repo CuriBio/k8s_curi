@@ -120,7 +120,7 @@ const modalObjs = {
   },
 };
 export default function Uploads() {
-  const { accountType } = useContext(AuthContext);
+  const { accountType, usageQuota } = useContext(AuthContext);
   const { uploads, setFetchUploads, pulse3dVersions } = useContext(UploadsContext);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
@@ -597,15 +597,22 @@ export default function Uploads() {
           <DropDownContainer>
             <DropDownWidget
               label="Actions"
-              options={["Download", "Delete", "Interactive Analysis"]}
+              options={
+                accountType === "admin"
+                  ? ["Download", "Delete"]
+                  : ["Download", "Delete", "Interactive Analysis"]
+              }
               disableOptions={[
                 ...Array(2).fill(checkedJobs.length === 0 && checkedUploads.length === 0),
                 checkedJobs.length !== 1 ||
-                  jobs.filter((job) => job.jobId === checkedJobs[0])[0].status !== "finished",
+                  jobs.filter((job) => job.jobId === checkedJobs[0])[0].status !== "finished" ||
+                  (usageQuota && usageQuota.jobs_reached),
               ]}
               optionsTooltipText={[
                 ...Array(2).fill("Must make a selection below before actions become available."),
-                "You must select one successful job to enable interactive analysis.",
+                usageQuota && usageQuota.jobs_reached
+                  ? "Interactive analysis is disabled because customer limit has been reached."
+                  : "You must select one successful job to enable interactive analysis.",
               ]}
               handleSelection={handleDropdownSelection}
               reset={resetDropdown}

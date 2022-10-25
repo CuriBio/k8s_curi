@@ -3,6 +3,7 @@ from functools import wraps
 import json
 import time
 import uuid
+from typing import Dict
 
 
 class EmptyQueue(Exception):
@@ -217,14 +218,29 @@ def _get_placeholders_str(num_placeholders, start=1):
     return ", ".join(f"${i}" for i in range(start, start + num_placeholders))
 
 
-async def check_pulse3d_customer_quota(con, customer_id):
+async def check_customer_quota(con, customer_id, service) -> Dict[str, bool]:
+    """Query DB for service-specific customer account usage.
 
-    query = "SELECT COUNT(*) as total_uploads, (SELECT count(*) FROM jobs_result WHERE customer_id=$1) as total_jobs, (SELECT usage_restrictions->'pulse3d' FROM customers WHERE id=$1) as usage FROM uploads WHERE customer_id=$1"
+    Returns:
+        - Dictionary containing boolean values for if uploads or job quotas have been reached
+    """
 
-    total_uploads, total_jobs, usage = await con.fetchrow(query, customer_id)
-    usage_dict = json.loads(usage)
+    async with con.transaction():
 
-    return {
-        "uploads_reached": total_uploads == usage_dict["uploads"],
-        "jobs_reached": total_jobs == usage_dict["jobs"],
-    }
+        # grab total uploads and jobs of customer for specific service
+        jobs_type = "mantarray"  # REMEMBER TO CHANGE BACK AFTER MIGRATING TO USE PULSE3D
+        query = "select count(*) from jobs_result where customer_id=$1 and type=$2 group by upload_id"
+        customer_data = [row["count"] async for row in con.cursor(query, customer_id, jobs_type)]
+        total_uploads = len(customer_data)
+        total_jobs = sum(customer_data)
+
+        # get service specific usage restrictions for the customer account
+        usage_query = "select usage_restrictions->$1 as usage from customers where id=$2"
+        usage_json = await con.fetchrow(usage_query, service, customer_id)
+        usage_dict = json.loads(usage_json["usage"])
+
+        # return boolean values if reached
+        return {
+            "uploads_reached": total_uploads == usage_dict["uploads"],
+            "jobs_reached": total_jobs == usage_dict["jobs"],
+        }

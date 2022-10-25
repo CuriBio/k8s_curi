@@ -6,7 +6,7 @@ from .jobs import create_upload
 from .jobs import get_uploads
 from .jobs import delete_jobs
 from .jobs import delete_uploads
-from .jobs import check_pulse3d_customer_quota
+from .jobs import check_customer_quota
 
 __all__ = [
     "EmtpyQueue",
@@ -17,5 +17,5 @@ __all__ = [
     "get_jobs",
     "delete_jobs",
     "delete_uploads",
-    "check_pulse3d_customer_quota",
+    "check_customer_quota",
 ]

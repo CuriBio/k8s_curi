@@ -14,7 +14,7 @@ from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from pydantic import EmailStr
 
 from auth import ProtectedAny, create_token, decode_token
-from jobs import check_pulse3d_customer_quota
+from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
 from models.errors import LoginError, RegistrationError, EmailRegistrationError
 from models.tokens import AuthTokens
@@ -113,7 +113,7 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
             if details.service == "pulse3d":
                 # renaming to cust_id instead of reassigning customer_id so that tokens work with customer accounts
                 cust_id = customer_id if customer_id is not None else row["id"]
-                usage_quota = await check_pulse3d_customer_quota(con, cust_id)
+                usage_quota = await check_customer_quota(con, str(cust_id), details.service)
             else:
                 # set None for all other services until scopes/restrictions considered
                 usage_quota = None

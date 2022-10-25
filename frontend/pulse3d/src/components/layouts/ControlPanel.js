@@ -150,94 +150,101 @@ export default function ControlPanel() {
   const buttons = accountType === "admin" ? adminButtons : userButtons;
 
   useEffect(() => {
+    // this checks if a page changes without button is clicked from a forced redirection
     const currentPage = buttons.filter(({ page }) => page === router.pathname)[0];
 
     if (currentPage) {
       const { label, options } = currentPage;
       if (label !== selected) setSelected(label);
       if (options.length > 0) setExpanded(label);
+      else if (options.length === 0) setExpanded(null);
     }
-    if (router.query.checkUsage) {
-      setModalState(true);
-      router.replace("/uploads");
-    }
-  }, [router, buttons]);
+  }, [router]);
 
   useEffect(() => {
-    // modal will open for admin and user accounts to notify them
-    // only open modal if one of the restrictions has been reached
-    if (usageQuota && (usageQuota.jobs_reached || usageQuota.uploads_reached)) {
-      // if jobs are reached, then all uploading/analyses will be disabled
-      // else if just uploads are reached, user can still perform re-analysis
-      if (usageQuota.jobs_reached) setModalLabels(modalObjs.jobsReached);
-      else if (usageQuota.uploads_reached) setModalLabels(modalObjs.uploadsReached);
+    if (usageQuota) {
+      // the query param is the only way to check if a user has just logged in versus refreshing the page
+      const userJustLoggedIn = router.query.checkUsage && router.pathname === "/uploads";
+      // modal will open for admin and user accounts to notify them
+      // only open modal if one of the restrictions has been reached
+      if ((usageQuota.jobs_reached || usageQuota.uploads_reached) && userJustLoggedIn) {
+        // setting local state to compare against when it changes during a session to pop up new modal
+        // if jobs are reached, then all uploading/analyses will be disabled
+        // else if just uploads are reached, user can still perform re-analysis
+        if (usageQuota.jobs_reached) setModalLabels(modalObjs.jobsReached);
+        else if (usageQuota.uploads_reached) setModalLabels(modalObjs.uploadsReached);
+
+        setModalState(true);
+      }
     }
   }, [usageQuota]);
 
   return (
-    <Container>
-      {buttons.map(({ disabled, label, page, options }, idx) => {
-        const handleListClick = (e) => {
-          e.preventDefault();
-          router.push({ pathname: page, query: { id: e.target.value } });
-        };
+    <>
+      <Container>
+        {buttons.map(({ disabled, label, page, options }, idx) => {
+          const handleListClick = (e) => {
+            e.preventDefault();
+            router.push({ pathname: page, query: { id: e.target.value } });
+          };
 
-        const handleSelected = (e) => {
-          e.preventDefault();
-          setSelected(label);
+          const handleSelected = (e) => {
+            e.preventDefault();
+            setSelected(label);
 
-          if (options.length === 0) {
-            router.push(page);
-            setExpanded(null);
-          } else {
-            setExpanded(expanded === label ? null : label);
-          }
-        };
+            if (options.length === 0) {
+              router.push(page);
+              setExpanded(null);
+            } else {
+              setExpanded(expanded === label ? null : label);
+            }
+          };
 
-        let backgroundColor = selected === label ? "var(--teal-green)" : "var(--dark-blue)";
+          let backgroundColor = selected === label ? "var(--teal-green)" : "var(--dark-blue)";
 
-        return (
-          <ThemeProvider key={label} theme={theme({ color: backgroundColor, disabled })}>
-            <Accordion disabled={disabled} expanded={expanded === label}>
-              <AccordionSummary
-                props={{ color: backgroundColor }}
-                onClick={handleSelected}
-                value={idx}
-                expandIcon={
-                  options.length > 0 ? (
-                    <ArrowForwardIosSharpIcon
-                      sx={{
-                        fontSize: "0.9rem",
-                        position: "relative",
-                        color: "var(--light-gray)",
-                        marginLeft: "12px",
-                        height: "100%",
-                      }}
-                    />
-                  ) : null
-                }
-              >
-                {label}
-              </AccordionSummary>
-              <AccordionDetails>
-                <ListContainer>
-                  {options.map((val, idx) => (
-                    <ListItem key={val} value={idx} onClick={handleListClick}>
-                      {val}
-                    </ListItem>
-                  ))}
-                </ListContainer>
-              </AccordionDetails>
-            </Accordion>
-            <ModalWidget
-              open={modalState}
-              labels={modalLabels.messages}
-              closeModal={() => setModalState(false)}
-              header={modalLabels.header}
-            />
-          </ThemeProvider>
-        );
-      })}
-    </Container>
+          return (
+            <ThemeProvider key={label} theme={theme({ color: backgroundColor, disabled })}>
+              <Accordion disabled={disabled} expanded={expanded === label}>
+                <AccordionSummary
+                  props={{ color: backgroundColor }}
+                  onClick={handleSelected}
+                  value={idx}
+                  expandIcon={
+                    options.length > 0 ? (
+                      <ArrowForwardIosSharpIcon
+                        sx={{
+                          fontSize: "0.9rem",
+                          position: "relative",
+                          color: "var(--light-gray)",
+                          marginLeft: "12px",
+                          height: "100%",
+                        }}
+                      />
+                    ) : null
+                  }
+                >
+                  {label}
+                </AccordionSummary>
+                <AccordionDetails>
+                  <ListContainer>
+                    {options.map((val, idx) => (
+                      <ListItem key={val} value={idx} onClick={handleListClick}>
+                        {val}
+                      </ListItem>
+                    ))}
+                  </ListContainer>
+                </AccordionDetails>
+              </Accordion>
+            </ThemeProvider>
+          );
+        })}
+      </Container>
+      <ModalWidget
+        open={modalState}
+        labels={modalLabels.messages}
+        closeModal={() => setModalState(false)}
+        header={modalLabels.header}
+      />
+    </>
   );
 }

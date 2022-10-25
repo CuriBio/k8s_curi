@@ -9,9 +9,10 @@ const refreshMutex = new Mutex();
 
 const USERS_URL = new URLSearchParams(location.search).get("users_url");
 const PULSE3D_URL = new URLSearchParams(location.search).get("pulse3d_url");
-
+const USAGE_URLS = ["/login", "/uploads", "/jobs"];
 // add timestamps to logging
 const originalLog = console.log;
+
 console.log = function () {
   const time = new Date().toLocaleTimeString("en-US", {
     hour12: false,
@@ -33,6 +34,13 @@ const setAccountType = (type) => {
 
 const clearAccountType = () => {
   accountType = null;
+};
+
+// this only gets used if a response gets returned that the quota has been filled by another user during a users session
+const sendUsageQuota = (usage) => {
+  ClientSource.postMessage({ usageQuota: usage });
+  console.log("Sending just usage quota");
+  setUsageQuota(usage);
 };
 
 const setUsageQuota = (usage) => {
@@ -213,18 +221,22 @@ const interceptResponse = async (req, url) => {
   } else {
     const response = await requestWithRefresh(req, url);
 
-    if (url.pathname.includes("logout")) {
+    // these URLs will return usage_error in the body with a 200 response
+    if (USAGE_URLS.includes(url.pathname) && req.method === "POST" && response.status == 200) {
+      const resBodyToCheck = await response.json();
+
+      // set the usage error to SW state to send in auth check, will return a 200 status
+      if (resBodyToCheck.usage_error) setUsageQuota(resBodyToCheck.usage_error);
+      // make sure to send the rest of the body for the uploads-form to handle response itself
+      return new Response(JSON.stringify(resBodyToCheck));
+    } else if (url.pathname.includes("logout")) {
       // just clear account info if user purposefully logs out
       clearAccountInfo();
     } else if (response.status === 401 || response.status === 403) {
-      const usageUrls = ["/jobs", "/uploads"];
-      if (usageUrls.includes(url.pathname) && req.method === "POST" && response.status === 403) {
-        const data = await response.json();
-        sendUsageQuota(data.detail);
-      }
       // if any other request receives an unauthorized or forbidden error code, send logout ping (this fn will also clear account info)
-      else sendLogoutMsg();
+      sendLogoutMsg();
     }
+
     return response;
   }
 };

@@ -17,7 +17,17 @@ depends_on = None
 
 
 def upgrade():
+
     op.add_column("customers", sa.Column("usage_restrictions", pg.JSONB, server_default="{}", nullable=True))
+    op.add_column(
+        "jobs_result",
+        sa.Column(  # keeping old types here, will update to pulse3d type in next migration
+            "type",
+            sa.Enum("mantarray", "nautilus", "pulse2d", name="UploadType"),
+            nullable=True,
+            server_default="mantarray",
+        ),
+    )
 
     # create foreign key contraints for tables that have customer_id column
     for table in ("uploads", "jobs_result"):
@@ -34,6 +44,7 @@ def upgrade():
 
 def downgrade():
     op.drop_column("customers", "usage_restrictions")
+    op.drop_column("jobs_result", "type")
 
     # remove foreign key constraint in users, mantarray_recording_sessions, mantarray_session_log_files
     for table in ("uploads", "jobs_result"):
