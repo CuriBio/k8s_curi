@@ -8,6 +8,8 @@ Create Date: 2022-10-19 10:39:53.261901
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as pg
+import json
+
 
 # revision identifiers, used by Alembic.
 revision = "4aac7b465d29"
@@ -19,6 +21,10 @@ depends_on = None
 def upgrade():
 
     op.add_column("customers", sa.Column("usage_restrictions", pg.JSONB, server_default="{}", nullable=True))
+    op.execute(
+        f"update customers set usage_restrictions='{json.dumps({'pulse3d': {'uploads': -1, 'jobs': -1}})}'"
+    )
+
     op.add_column(
         "jobs_result",
         sa.Column(  # keeping old types here, will update to pulse3d type in next migration

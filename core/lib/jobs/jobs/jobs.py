@@ -226,6 +226,10 @@ async def check_customer_quota(con, customer_id, service) -> Dict[str, bool]:
     """
 
     async with con.transaction():
+        # get service specific usage restrictions for the customer account
+        usage_query = "select usage_restrictions->$1 as usage from customers where id=$2"
+        usage_json = await con.fetchrow(usage_query, service, customer_id)
+        usage_dict = json.loads(usage_json["usage"])
 
         # grab total uploads and jobs of customer for specific service
         jobs_type = "mantarray"  # REMEMBER TO CHANGE BACK AFTER MIGRATING TO USE PULSE3D
@@ -234,13 +238,8 @@ async def check_customer_quota(con, customer_id, service) -> Dict[str, bool]:
         total_uploads = len(customer_data)
         total_jobs = sum(customer_data)
 
-        # get service specific usage restrictions for the customer account
-        usage_query = "select usage_restrictions->$1 as usage from customers where id=$2"
-        usage_json = await con.fetchrow(usage_query, service, customer_id)
-        usage_dict = json.loads(usage_json["usage"])
-
         # return boolean values if reached
         return {
-            "uploads_reached": total_uploads == usage_dict["uploads"],
-            "jobs_reached": total_jobs == usage_dict["jobs"],
+            "uploads_reached": total_uploads >= usage_dict["uploads"] and usage_dict["uploads"] != -1,
+            "jobs_reached": total_jobs >= usage_dict["jobs"] and usage_dict["jobs"] != -1,
         }
