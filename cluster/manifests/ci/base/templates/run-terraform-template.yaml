@@ -71,7 +71,7 @@ spec:
           cd {{inputs.parameters.path}}
           terraform init -backend-config=backend/prod_env_config.tfvars
 
-          PLAN_OUTPUT=$(terraform plan -var-file=prod_env.tfvars)
+          PLAN_OUTPUT=$(terraform plan -var-file=prod_env.tfvars -no-color)
           builder --pr-number={{inputs.parameters.number}} --pr-comment="PLAN FOR: {{inputs.parameters.path}} <br /> $PLAN_OUTPUT"
 
 ---
@@ -141,4 +141,4 @@ spec:
           cd {{inputs.parameters.path}}
 
           terraform init -backend-config=backend/prod_env_config.tfvars
-          terraform apply -auto-approve -var-file=prod_env.tfvars
+          terraform apply -auto-approve -var-file=prod_env.tfvars -no-color
