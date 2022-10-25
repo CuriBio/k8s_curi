@@ -134,7 +134,7 @@ export default function Uploads() {
   const [selectedAnalysis, setSelectedAnalysis] = useState();
   const [pending, setPending] = useState(true);
   const [filterString, setFilterString] = useState("");
-  const [filtercolumn, setFilterColumn] = useState("");
+  const [filterColumn, setFilterColumn] = useState("");
 
   const uploadTableColumns = [
     {
@@ -188,24 +188,25 @@ export default function Uploads() {
           Owner: "username",
           Recording: "name",
           ID: "id",
-          "Date Created": "createdAt",
-          "Last Analyzed": "lastAnalyzed",
+          Date: "createdAt",
+          Analyzed: "lastAnalyzed",
         }
       : {
           Recording: "name",
           ID: "id",
-          "Date Created": "createdAt",
-          "Last Analyzed": "lastAnalyzed",
+          Date: "createdAt",
+          Analyzed: "lastAnalyzed",
         };
 
+  const filterColumns = () => {
+    return rows.filter((row) => {
+      return row[toFilterField[filterColumn]].toLocaleLowerCase().includes(filterString.toLocaleLowerCase());
+    });
+  };
   //when filter string changes, refilter results
   useEffect(() => {
-    if (filtercolumn) {
-      const newList = rows.filter((row) => {
-        return row[toFilterField[filtercolumn]]
-          .toLocaleLowerCase()
-          .includes(filterString.toLocaleLowerCase());
-      });
+    if (filterColumn) {
+      const newList = filterColumns();
       setDisplayRows(newList);
     }
   }, [filterString]);
@@ -309,6 +310,11 @@ export default function Uploads() {
 
     setRows([...formattedUploads]);
     setDisplayRows([...formattedUploads]);
+
+    if (filterColumn) {
+      const newList = filterColumns();
+      setDisplayRows(newList);
+    }
   }, [jobs]);
 
   const handleDropdownSelection = (option) => {
@@ -626,6 +632,7 @@ export default function Uploads() {
               expandableRowsComponent={ExpandedComponent}
               customStyles={customStyles}
               progressPending={pending}
+              defaultSortFieldId={5}
               progressComponent={
                 <SpinnerContainer>
                   <CircularSpinner size={200} color={"secondary"} />
