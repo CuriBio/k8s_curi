@@ -72,12 +72,7 @@ spec:
           terraform init -backend-config=backend/prod_env_config.tfvars
 
           PLAN_OUTPUT=$(terraform plan -var-file=prod_env.tfvars)
-          if [[ "$PLAN_OUTPUT" == "" ]]; then
-            echo "No changes found"
-          else
-            echo "Changes found"
-            builder --pr-number={{inputs.parameters.number}} --pr-comment="PLAN FOR: {{inputs.parameters.path}} <br /> $PLAN_OUTPUT"
-          fi
+          builder --pr-number={{inputs.parameters.number}} --pr-comment="PLAN FOR: {{inputs.parameters.path}} <br /> $PLAN_OUTPUT"
 
 ---
 apiVersion: argoproj.io/v1alpha1
