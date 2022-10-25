@@ -44,11 +44,15 @@ def get_svc_version(svc_path: str) -> str:
 
 
 def get_dir_args(*dirs: List[str]) -> List[str]:
-    return [arg for dir_ in dirs for arg in ("--", dir_)]
+    return [f"{dir_}/{arg}" for dir_ in dirs for arg in ("src/**", "log_config.yaml", "Dockerfile")]
+
+
+def get_svc_name_from_path(file_path: str):
+    return file_path.split("/src")[0] if "/src" in file_path else os.path.dirname(file_path)
 
 
 def find_changed_svcs(sha: str):
-    patterns_to_check = [f"{path}/**" for path in (SVC_PATH_PATTERN, WORKER_PATH_PATTERN, CORE_LIB_PATH)]
+    patterns_to_check = (SVC_PATH_PATTERN, WORKER_PATH_PATTERN)
 
     completed_process = subprocess.run(
         [
@@ -57,9 +61,9 @@ def find_changed_svcs(sha: str):
             "diff",
             sha,
             "--name-only",
+            "--",
             *get_dir_args(*patterns_to_check),
-            ":!*.tf",
-            ":!*/tests/*",
+            f"{CORE_LIB_PATH}/**",
         ],
         stdout=subprocess.PIPE,
     )
@@ -72,7 +76,7 @@ def find_changed_svcs(sha: str):
         # Tanner (9/8/22): building the pheno svcs is causing issues in CI, so filtering them out here
         changed_svc_paths = set(path for path in ALL_SVC_PATHS if "pheno" not in path)
     else:
-        changed_svc_paths = set(ch_path.split("/src")[0] for ch_path in changed_paths_list)
+        changed_svc_paths = set(get_svc_name_from_path(ch_path) for ch_path in changed_paths_list)
 
     list_to_return = []
     for ch_path in changed_svc_paths:
@@ -97,10 +101,21 @@ def find_changed_svcs(sha: str):
     return list_to_return
 
 
-def find_changed_tf(sha):
+def find_changed_tf(sha: str):
     # get diff for all directories containing changed tf excluding those found in /cluster and /core
     completed_process = subprocess.run(
-        ["git", "--no-pager", "diff", sha, "--name-only", "--", "*.tf", ":!cluster", ":!core"],
+        [
+            "git",
+            "--no-pager",
+            "diff",
+            sha,
+            "--name-only",
+            "--",
+            "*.tf",
+            "*.tfvars",
+            ":!cluster",
+            ":!core",
+        ],
         stdout=subprocess.PIPE,
     )
     changed_paths = completed_process.stdout.decode("utf-8").split("\n")[:-1]
