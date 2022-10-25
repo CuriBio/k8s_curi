@@ -20,7 +20,7 @@ const columns = [
     selector: (row) => formatDateTime(row.created_at),
   },
   {
-    name: "Last Loggedin",
+    name: "Last Log In",
     selector: (row) => formatDateTime(row.last_login),
   },
   {
@@ -140,13 +140,13 @@ export default function UserInfo() {
     Name: "name",
     Email: "email",
     "Date Created": "created_at",
-    "Last Loggedin": "last_login",
+    "Last Log In": "last_login",
   };
   //when filter string changes refilter results
   useEffect(() => {
     const newList = usersData.filter((user) => {
       //if the column containes date data
-      if (["Date Created", "Last Loggedin"].includes(filtercolumn)) {
+      if (["Date Created", "Last Log In"].includes(filtercolumn)) {
         return formatDateTime(user[toUserField[filtercolumn]])
           .toLocaleLowerCase()
           .includes(filterString.toLocaleLowerCase());
@@ -187,7 +187,7 @@ export default function UserInfo() {
             subHeader
             subHeaderComponent={
               <FilterHeader
-                columns={["Name", "Email", "Date Created", "Last Loggedin"]}
+                columns={["Name", "Email", "Date Created", "Last Log In"]}
                 setFilterString={setFilterString}
                 setFilterColumn={setFilterColumn}
                 loading={loading}
