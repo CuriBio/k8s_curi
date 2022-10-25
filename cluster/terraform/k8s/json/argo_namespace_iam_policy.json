@@ -34,7 +34,8 @@
                 "s3:GetObject",
                 "s3:ListBucket",
                 "s3:GetBucketPolicy",
-                "s3:GetBucketAcl"
+                "s3:GetBucketAcl",
+                "s3:GetBucketCors"
             ],
             "Resource": [
                 "arn:aws:s3:::curi-eks-prod-cluster-tf-state",
