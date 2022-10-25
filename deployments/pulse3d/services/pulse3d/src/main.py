@@ -353,7 +353,7 @@ async def create_new_job(
                 priority=priority,
                 meta={"analysis_params": analysis_params, "version": details.version},
                 customer_id=customer_id,
-                job_type=service
+                job_type=service,
             )
 
         return JobResponse(

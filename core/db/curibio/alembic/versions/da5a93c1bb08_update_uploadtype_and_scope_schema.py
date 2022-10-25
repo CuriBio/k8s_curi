@@ -19,7 +19,7 @@ def upgrade():
     # default all existing customers and users to paid pulse3d
     op.execute(f"update users set data='{json.dumps({'scope': ['pulse3d:user:paid']})}'")
     op.execute(f"update customers set data='{json.dumps({'scope': ['pulse3d:customer:paid']})}'")
-    
+
     # change mantarray uploadtype to pulse3d
     # set existing mantarray types to other accepted type that is not currently being used
     op.execute("""UPDATE uploads SET type='nautilus' WHERE type='mantarray'""")

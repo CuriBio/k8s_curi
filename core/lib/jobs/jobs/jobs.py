@@ -175,7 +175,7 @@ async def create_job(*, con, upload_id, queue, priority, meta, customer_id, job_
             "finished_at": None,
             "meta": json.dumps(meta),
             "customer_id": customer_id,
-            "type": job_type
+            "type": job_type,
         }
 
         cols = ", ".join(list(data))
