@@ -20,7 +20,7 @@ const columns = [
     selector: (row) => formatDateTime(row.created_at),
   },
   {
-    name: "Last Log In",
+    name: "Last Loggedin",
     selector: (row) => formatDateTime(row.last_login),
   },
   {
@@ -140,7 +140,7 @@ export default function UserInfo() {
     Name: "name",
     Email: "email",
     "Date Created": "created_at",
-    "Last Log In": "last_login",
+    "Last Loggedin": "last_login",
   };
   //when filter string changes refilter results
   useEffect(() => {
@@ -183,7 +183,7 @@ export default function UserInfo() {
             subHeader
             subHeaderComponent={
               <FilterHeader
-                columns={["Name", "Email", "Date Created", "Last Log In"]}
+                columns={["Name", "Email", "Date Created", "Last Loggedin"]}
                 setFilterString={setFilterString}
                 setFilterColumn={setFilterColumn}
                 loading={loading}
