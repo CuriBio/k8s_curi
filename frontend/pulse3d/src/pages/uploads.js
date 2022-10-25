@@ -198,14 +198,15 @@ export default function Uploads() {
           "Last Analyzed": "lastAnalyzed",
         };
 
+  const filterColumn = () => {
+    return rows.filter((row) => {
+      return row[toFilterField[filtercolumn]].toLocaleLowerCase().includes(filterString.toLocaleLowerCase());
+    });
+  };
   //when filter string changes, refilter results
   useEffect(() => {
     if (filtercolumn) {
-      const newList = rows.filter((row) => {
-        return row[toFilterField[filtercolumn]]
-          .toLocaleLowerCase()
-          .includes(filterString.toLocaleLowerCase());
-      });
+      const newList = filterColumn();
       setDisplayRows(newList);
     }
   }, [filterString]);
@@ -309,6 +310,11 @@ export default function Uploads() {
 
     setRows([...formattedUploads]);
     setDisplayRows([...formattedUploads]);
+
+    if (filtercolumn) {
+      const newList = filterColumn();
+      setDisplayRows(newList);
+    }
   }, [jobs]);
 
   const handleDropdownSelection = (option) => {

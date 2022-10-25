@@ -146,9 +146,13 @@ export default function UserInfo() {
   useEffect(() => {
     const newList = usersData.filter((user) => {
       //if the column containes date data
-      return formatDateTime(user[toUserField[filtercolumn]])
-        .toLocaleLowerCase()
-        .includes(filterString.toLocaleLowerCase());
+      if (["Date Created", "Last Loggedin"].includes(filtercolumn)) {
+        return formatDateTime(user[toUserField[filtercolumn]])
+          .toLocaleLowerCase()
+          .includes(filterString.toLocaleLowerCase());
+      } else {
+        return user[toUserField[filtercolumn]].toLocaleLowerCase().includes(filterString.toLocaleLowerCase());
+      }
     });
     setDisplayData(newList);
   }, [filterString]);
