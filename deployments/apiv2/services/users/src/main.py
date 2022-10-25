@@ -110,14 +110,10 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
             row = await con.fetchrow(select_query, *select_query_params)
             pw = details.password.get_secret_value()
 
-            if details.service == "pulse3d":
-                # renaming to cust_id instead of reassigning customer_id so that tokens work with customer accounts
-                cust_id = customer_id if customer_id is not None else row["id"]
-                usage_quota = await check_customer_quota(con, str(cust_id), details.service)
-            else:
-                # set None for all other services until scopes/restrictions considered
-                usage_quota = None
-
+            # renaming to cust_id instead of reassigning customer_id so that tokens work with customer accounts
+            cust_id = customer_id if customer_id is not None else row["id"]
+            usage_quota = await check_customer_quota(con, str(cust_id), details.service)
+            
             # if no record is returned by query then fetchrow will return None,
             # so need to set to a dict with a bad password hash
             if row is None:
