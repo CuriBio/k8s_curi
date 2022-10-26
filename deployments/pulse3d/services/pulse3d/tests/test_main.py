@@ -7,12 +7,13 @@ import pandas as pd
 import pytest
 from semver import VersionInfo
 
-from auth import create_token
+from auth import create_token, PULSE3D_SCOPES
 from utils.s3 import S3Error
 from src import main
 
 from labware_domain_models import LabwareDefinition
 from pulse3D.constants import DEFAULT_BASELINE_WIDTHS, DEFAULT_PROMINENCE_FACTORS, DEFAULT_WIDTH_FACTORS
+from src.models.models import UsageErrorResponse
 
 TWENTY_FOUR_WELL_PLATE = LabwareDefinition(row_count=4, column_count=6)
 
@@ -96,7 +97,7 @@ def test_logs__post(mocker):
 
 @pytest.mark.parametrize(
     "test_token_scope",
-    [["pulse3d:user:paid"], ["pulse3d:customer:paid"], ["pulse3d:user:free"], ["pulse3d:customer:free"]],
+    [[s] for s in PULSE3D_SCOPES],
 )
 @pytest.mark.parametrize(
     "test_upload_ids", [None, [], uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]]
@@ -134,7 +135,7 @@ def test_uploads__get(test_token_scope, test_upload_ids, mocked_asyncpg_con, moc
     )
 
 
-def test_uploads__post(mocked_asyncpg_con, mocker):
+def test_uploads__post_if_customer_quota_has_not_been_reached(mocked_asyncpg_con, mocker):
     mocker.patch.object(
         main,
         "check_customer_quota",
@@ -154,7 +155,7 @@ def test_uploads__post(mocked_asyncpg_con, mocker):
 
     test_file_name = "recording_file"
     test_md5s = "testhash"
-    test_upload_type = "mantarray"
+    test_upload_type = "pulse3d"
     test_user_id = uuid.uuid4()
     test_customer_id = uuid.uuid4()
 
@@ -184,8 +185,39 @@ def test_uploads__post(mocked_asyncpg_con, mocker):
 
 
 @pytest.mark.parametrize(
+    "usage_dict",
+    [{"jobs_reached": False, "uploads_reached": True}, {"jobs_reached": True, "uploads_reached": True}],
+)
+def test_uploads__post_if_customer_quota_has_been_reached(mocked_asyncpg_con, mocker, usage_dict):
+    mocked_usage_check = mocker.patch.object(
+        main,
+        "check_customer_quota",
+        return_value=usage_dict,
+        autospec=True,
+    )
+
+    mocked_create_upload = mocker.spy(main, "create_upload")
+    test_file_name = "recording_file"
+    test_md5s = "testhash"
+    test_upload_type = "pulse3d"
+    test_user_id = uuid.uuid4()
+    test_customer_id = uuid.uuid4()
+
+    access_token = get_token(scope=["pulse3d:user:free"], customer_id=test_customer_id, userid=test_user_id)
+    kwargs = {
+        "headers": {"Authorization": f"Bearer {access_token}"},
+        "json": {"filename": test_file_name, "md5s": test_md5s, "upload_type": test_upload_type},
+    }
+
+    response = test_client.post("/uploads", **kwargs)
+    assert response.status_code == 200
+    assert response.json() == UsageErrorResponse(usage_error=mocked_usage_check.return_value)
+    mocked_create_upload.assert_not_called()
+
+
+@pytest.mark.parametrize(
     "test_token_scope",
-    [["pulse3d:user:free"], ["pulse3d:customer:free"], ["pulse3d:user:paid"], ["pulse3d:customer:paid"]],
+    [[s] for s in PULSE3D_SCOPES],
 )
 @pytest.mark.parametrize("test_upload_ids", [uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]])
 def test_uploads__delete(test_token_scope, test_upload_ids, mocked_asyncpg_con, mocker):
@@ -250,7 +282,7 @@ def test_uploads__delete__failure_to_delete_uploads(mocker):
 @pytest.mark.parametrize("download", [True, False, None])
 @pytest.mark.parametrize(
     "test_token_scope",
-    [["pulse3d:user:free"], ["pulse3d:customer:free"], ["pulse3d:user:paid"], ["pulse3d:customer:paid"]],
+    [[s] for s in PULSE3D_SCOPES],
 )
 @pytest.mark.parametrize(
     "test_job_ids", [None, [], uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]]
@@ -499,6 +531,38 @@ def test_jobs__post__basic_params_given(mocker):
     assert mocked_create_job.call_args[1]["meta"]["analysis_params"] == expected_analysis_params
 
 
+@pytest.mark.parametrize(
+    "usage_dict",
+    [
+        {"jobs_reached": True, "uploads_reached": True},
+        {"jobs_reached": True, "uploads_reached": False},
+    ],
+)
+def test_jobs__post__returns_error_dict_if_quota_has_been_reached(mocker, usage_dict):
+    mocked_usage_check = mocker.patch.object(
+        main,
+        "check_customer_quota",
+        return_value=usage_dict,
+        autospec=True,
+    )
+    test_analysis_params = {"twitch_widths": [10, 20], "start_time": 0, "end_time": 1}
+    access_token = get_token(scope=["pulse3d:user:free"])
+    spied_create_job = mocker.spy(main, "create_job")
+
+    kwargs = {
+        "json": {
+            "upload_id": str(uuid.uuid4()),
+            "version": random_semver(max_version="0.24.0"),
+            **test_analysis_params,
+        },
+        "headers": {"Authorization": f"Bearer {access_token}"},
+    }
+    response = test_client.post("/jobs", **kwargs)
+    assert response.status_code == 200
+    assert response.json() == UsageErrorResponse(usage_error=mocked_usage_check.return_value)
+    spied_create_job.assert_not_called()
+
+
 @pytest.mark.parametrize("param_name", ["prominence_factors", "width_factors"])
 @pytest.mark.parametrize("param_tuple", [(1, 2), (None, 2), (1, None), (None, None)])
 def test_jobs__post__advanced_params_given(param_name, param_tuple, mocker):
@@ -642,7 +706,7 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
 
 @pytest.mark.parametrize(
     "test_token_scope",
-    [["pulse3d:user:free"], ["pulse3d:customer:free"], ["pulse3d:user:paid"], ["pulse3d:customer:paid"]],
+    [[s] for s in PULSE3D_SCOPES],
 )
 @pytest.mark.parametrize("test_job_ids", [uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]])
 def test_jobs__delete(test_token_scope, test_job_ids, mocked_asyncpg_con, mocker):
@@ -704,7 +768,7 @@ def test_jobs__delete__failure_to_delete_jobs(mocker):
 
 @pytest.mark.parametrize(
     "test_token_scope",
-    [["pulse3d:user:free"], ["pulse3d:customer:free"], ["pulse3d:user:paid"], ["pulse3d:customer:paid"]],
+    [[s] for s in PULSE3D_SCOPES],
 )
 @pytest.mark.parametrize("test_job_ids", [[uuid.uuid4() for _ in range(r)] for r in range(1, 4)])
 def test_jobs_download__post__no_duplicate_analysis_file_names(
@@ -754,7 +818,7 @@ def test_jobs_download__post__no_duplicate_analysis_file_names(
 
 @pytest.mark.parametrize(
     "test_token_scope",
-    [["pulse3d:user:free"], ["pulse3d:customer:free"], ["pulse3d:user:paid"], ["pulse3d:customer:paid"]],
+    [[s] for s in PULSE3D_SCOPES],
 )
 def test_download__post__duplicate_analysis_file_names(mocked_asyncpg_con, test_token_scope, mocker):
     test_account_id = uuid.uuid4()

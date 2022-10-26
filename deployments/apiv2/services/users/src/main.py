@@ -13,7 +13,7 @@ from jwt.exceptions import InvalidTokenError
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from pydantic import EmailStr
 
-from auth import ProtectedAny, create_token, decode_token, CUSTOMER_PULSE3D_SCOPES
+from auth import ProtectedAny, create_token, decode_token, PULSE3D_CUSTOMER_SCOPES
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
 from models.errors import LoginError, RegistrationError, EmailRegistrationError
@@ -245,7 +245,7 @@ async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False)
 async def register(
     request: Request,
     details: Union[CustomerCreate, UserCreate],
-    token=Depends(ProtectedAny(scope=CUSTOMER_PULSE3D_SCOPES)),
+    token=Depends(ProtectedAny(scope=PULSE3D_CUSTOMER_SCOPES)),
 ):
     """Register a user or customer account.
 
@@ -389,7 +389,7 @@ async def _send_registration_email(username: str, email: EmailStr, verification_
 @app.get("/")
 async def get_all_users(
     request: Request,
-    token=Depends(ProtectedAny(scope=CUSTOMER_PULSE3D_SCOPES)),
+    token=Depends(ProtectedAny(scope=PULSE3D_CUSTOMER_SCOPES)),
 ):
     """Get info for all the users under the given customer account.
 
@@ -438,7 +438,7 @@ async def verify_user_email(
 async def get_user(
     request: Request,
     user_id: uuid.UUID,
-    token=Depends(ProtectedAny(scope=CUSTOMER_PULSE3D_SCOPES)),
+    token=Depends(ProtectedAny(scope=PULSE3D_CUSTOMER_SCOPES)),
 ):
     """Get info for the user with the given under the given customer account."""
     customer_id = uuid.UUID(hex=token["userid"])
@@ -471,7 +471,7 @@ async def update_user(
     request: Request,
     details: UserAction,
     user_id: uuid.UUID,
-    token=Depends(ProtectedAny(scope=CUSTOMER_PULSE3D_SCOPES)),
+    token=Depends(ProtectedAny(scope=PULSE3D_CUSTOMER_SCOPES)),
 ):
     """Update a user's information in the database.
 

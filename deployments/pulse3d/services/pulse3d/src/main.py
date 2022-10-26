@@ -143,6 +143,7 @@ async def create_recording_upload(
                 return UploadResponse(id=upload_id, params=params)
 
     except CustomerUsageQuotaReached:
+        # does not return error status, just returns error in body of 200 response
         return UsageErrorResponse(usage_error=usage_quota)
     except S3Error as e:
         logger.exception(str(e))
@@ -336,6 +337,7 @@ async def create_new_job(
             id=job_id, user_id=user_id, upload_id=details.upload_id, status="pending", priority=priority
         )
     except CustomerUsageQuotaReached:
+        # does not return error status, just returns error in body of 200 response
         return UsageErrorResponse(usage_error=usage_quota)
     except Exception as e:
         logger.exception(f"Failed to create job: {repr(e)}")
