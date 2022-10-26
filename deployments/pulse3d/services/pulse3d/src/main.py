@@ -25,7 +25,7 @@ from pulse3D.constants import (
     DEFAULT_WIDTH_FACTORS,
 )
 
-from auth import ProtectedAny
+from auth import ProtectedAny, PULSE3D_USER_SCOPES, PULSE3D_SCOPES
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET, DASHBOARD_URL
 from jobs import (
     create_upload,
@@ -36,7 +36,6 @@ from jobs import (
     delete_uploads,
     check_customer_quota,
 )
-from models.constants import PULSE3D_USER_SCOPES, PULSE3D_SCOPES
 from models.models import (
     UploadRequest,
     UploadResponse,

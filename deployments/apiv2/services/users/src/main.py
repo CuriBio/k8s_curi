@@ -13,7 +13,7 @@ from jwt.exceptions import InvalidTokenError
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from pydantic import EmailStr
 
-from auth import ProtectedAny, create_token, decode_token
+from auth import ProtectedAny, create_token, decode_token, CUSTOMER_PULSE3D_SCOPES
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
 from models.errors import LoginError, RegistrationError, EmailRegistrationError
@@ -39,7 +39,6 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 app = FastAPI(openapi_url=None)
 
 CB_CUSTOMER_ID: uuid.UUID
-CUSTOMER_PULSE3D_SCOPES = ["pulse3d:customer:free", "pulse3d:customer:paid"]
 
 TEMPLATES = Jinja2Templates(directory="templates")
 

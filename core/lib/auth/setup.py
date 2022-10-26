@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="auth",
-    version="0.0.1",
+    version="0.0.2",
     description="CuriBio auth utils",
     packages=find_packages(include=["auth"]),
     install_requires=[
