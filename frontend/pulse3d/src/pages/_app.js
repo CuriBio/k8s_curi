@@ -67,7 +67,6 @@ function Pulse({ Component, pageProps }) {
         // this prevents the inactivity from popping up when a user is already on the login page or verified page
         // do this with multiple messages
         if (data.usageQuota) setUsageQuota(data.usageQuota);
-        console.log("usageQuota: ", data.usageQuota);
 
         if (data.logout && currentPage && currentPage !== "/verify" && currentPage !== "/login") {
           setLoggedOutAlert(true);
