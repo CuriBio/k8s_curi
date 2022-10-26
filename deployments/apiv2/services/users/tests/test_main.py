@@ -29,7 +29,7 @@ def get_token(*, userid=None, customer_id=None, scope=None, account_type=None, r
     if not customer_id and account_type == "user":
         customer_id = uuid.uuid4()
     if not scope:
-        scope = ["users:free"] if account_type == "user" else ["pulse3d:customer:paid"]
+        scope = ["pulse3d:user:free"] if account_type == "user" else ["pulse3d:customer:paid"]
 
     return create_token(
         userid=userid, customer_id=customer_id, scope=scope, account_type=account_type, refresh=refresh

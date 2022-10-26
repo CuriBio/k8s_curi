@@ -75,14 +75,14 @@ const modalObj = {
   uploadsReachedDuringSession: {
     header: "Warning!",
     messages: [
-      "The upload limit has been reached for this customer account during your session.",
+      "The upload limit has been reached for this customer account during your session preventing this recording from being uploaded.",
       "You will only be allowed to perform re-analysis on existing files.",
     ],
   },
   jobsReachedDuringSession: {
     header: "Warning!",
     messages: [
-      "All usage limits have been reached for this customer account during your session.",
+      "All usage limits have been reached for this customer account during your session preventing this analyses from starting.",
       "You will not be able to upload new recording files or perform re-analysis on existing files.",
     ],
   },
@@ -366,8 +366,7 @@ export default function UploadForm() {
         body: JSON.stringify({
           filename,
           md5s: hexToBase64(fileHash),
-          upload_type: "mantarray",
-          // upload_type: "pulse3d",
+          upload_type: "pulse3d",
         }),
       });
 
@@ -433,7 +432,7 @@ export default function UploadForm() {
     <Container>
       <Uploads>
         <Header>Run Analysis</Header>
-        {tabSelection === "0" ? (
+        {tabSelection === "1" ? (
           <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
             handleFileChange={(files) => setFiles(Object.values(files))}
             dropZoneText={dropZoneText}
