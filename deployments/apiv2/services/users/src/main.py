@@ -39,6 +39,7 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 app = FastAPI(openapi_url=None)
 
 CB_CUSTOMER_ID: uuid.UUID
+CUSTOMER_PULSE3D_SCOPES = ["pulse3d:customer:free", "pulse3d:customer:paid"]
 
 TEMPLATES = Jinja2Templates(directory="templates")
 
@@ -245,7 +246,7 @@ async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False)
 async def register(
     request: Request,
     details: Union[CustomerCreate, UserCreate],
-    token=Depends(ProtectedAny(scope=["pulse3d:customer:free", "pulse3d:customer:paid"])),
+    token=Depends(ProtectedAny(scope=CUSTOMER_PULSE3D_SCOPES)),
 ):
     """Register a user or customer account.
 
@@ -389,7 +390,7 @@ async def _send_registration_email(username: str, email: EmailStr, verification_
 @app.get("/")
 async def get_all_users(
     request: Request,
-    token=Depends(ProtectedAny(scope=["pulse3d:customer:free", "pulse3d:customer:paid", "users:admin"])),
+    token=Depends(ProtectedAny(scope=CUSTOMER_PULSE3D_SCOPES)),
 ):
     """Get info for all the users under the given customer account.
 
@@ -438,7 +439,7 @@ async def verify_user_email(
 async def get_user(
     request: Request,
     user_id: uuid.UUID,
-    token=Depends(ProtectedAny(scope=["pulse3d:customer:free", "pulse3d:customer:paid", "users:admin"])),
+    token=Depends(ProtectedAny(scope=CUSTOMER_PULSE3D_SCOPES)),
 ):
     """Get info for the user with the given under the given customer account."""
     customer_id = uuid.UUID(hex=token["userid"])
@@ -471,15 +472,7 @@ async def update_user(
     request: Request,
     details: UserAction,
     user_id: uuid.UUID,
-    token=Depends(
-        ProtectedAny(
-            scope=[
-                "users:admin",
-                "pulse3d:customer:free",
-                "pulse3d:customer:paid",
-            ]
-        )
-    ),
+    token=Depends(ProtectedAny(scope=CUSTOMER_PULSE3D_SCOPES)),
 ):
     """Update a user's information in the database.
 

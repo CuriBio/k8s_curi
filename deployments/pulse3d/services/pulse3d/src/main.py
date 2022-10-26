@@ -36,6 +36,7 @@ from jobs import (
     delete_uploads,
     check_customer_quota,
 )
+from models.constants import PULSE3D_USER_SCOPES, PULSE3D_SCOPES
 from models.models import (
     UploadRequest,
     UploadResponse,
@@ -84,17 +85,7 @@ async def startup():
 async def get_info_of_uploads(
     request: Request,
     upload_ids: Optional[List[uuid.UUID]] = Query(None),
-    token=Depends(
-        ProtectedAny(
-            scope=[
-                "pulse3d:user:free",
-                "pulse3d:user:paid",
-                "pulse3d:customer:free",
-                "pulse3d:customer:paid",
-                "users:admin",
-            ]
-        )
-    ),
+    token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)),
 ):
     # need to convert to UUIDs to str to avoid issues with DB
     if upload_ids:
@@ -116,7 +107,7 @@ async def get_info_of_uploads(
 async def create_recording_upload(
     request: Request,
     details: UploadRequest,
-    token=Depends(ProtectedAny(scope=["pulse3d:user:free", "pulse3d:user:paid"])),
+    token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES)),
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
@@ -166,11 +157,7 @@ async def create_recording_upload(
 async def soft_delete_uploads(
     request: Request,
     upload_ids: List[uuid.UUID] = Query(None),
-    token=Depends(
-        ProtectedAny(
-            scope=["pulse3d:user:free", "pulse3d:user:paid", "pulse3d:customer:free", "pulse3d:customer:paid"]
-        )
-    ),
+    token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)),
 ):
     # make sure at least one upload ID was given
     if not upload_ids:
@@ -194,7 +181,7 @@ async def soft_delete_uploads(
 async def create_log_upload(
     request: Request,
     details: UploadRequest,
-    token=Depends(ProtectedAny(scope=["pulse3d:user:free", "pulse3d:user:paid"])),
+    token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES)),
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
@@ -225,17 +212,7 @@ async def get_info_of_jobs(
     request: Request,
     job_ids: Optional[List[uuid.UUID]] = Query(None),
     download: bool = Query(True),
-    token=Depends(
-        ProtectedAny(
-            scope=[
-                "pulse3d:user:free",
-                "pulse3d:user:paid",
-                "pulse3d:customer:free",
-                "pulse3d:customer:paid",
-                "users:admin",
-            ]
-        )
-    ),
+    token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)),
 ):
     # need to convert UUIDs to str to avoid issues with DB
     if job_ids:
@@ -298,7 +275,7 @@ async def _get_jobs(con, token, job_ids):
 async def create_new_job(
     request: Request,
     details: JobRequest,
-    token=Depends(ProtectedAny(scope=["pulse3d:user:free", "pulse3d:user:paid"])),
+    token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES)),
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
@@ -388,11 +365,7 @@ def _format_tuple_param(
 async def soft_delete_jobs(
     request: Request,
     job_ids: List[uuid.UUID] = Query(None),
-    token=Depends(
-        ProtectedAny(
-            scope=["pulse3d:user:free", "pulse3d:user:paid", "pulse3d:customer:free", "pulse3d:customer:paid"]
-        )
-    ),
+    token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)),
 ):
     # make sure at least one job ID was given
     if not job_ids:
@@ -416,11 +389,7 @@ async def soft_delete_jobs(
 async def download_analyses(
     request: Request,
     details: JobDownloadRequest,
-    token=Depends(
-        ProtectedAny(
-            scope=["pulse3d:user:free", "pulse3d:user:paid", "pulse3d:customer:free", "pulse3d:customer:paid"]
-        )
-    ),
+    token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)),
 ):
     job_ids = details.job_ids
 
@@ -487,7 +456,7 @@ async def get_interactive_waveform_data(
     request: Request,
     upload_id: uuid.UUID = Query(None),
     job_id: uuid.UUID = Query(None),
-    token=Depends(ProtectedAny(scope=["pulse3d:user:free", "pulse3d:user:paid"])),
+    token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES)),
 ):
 
     account_id = str(uuid.UUID(token["userid"]))

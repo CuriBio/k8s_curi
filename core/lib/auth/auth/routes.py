@@ -22,7 +22,9 @@ security = HTTPBearer()
 
 
 class ProtectedAny:
-    def __init__(self, scope: List[str] = ["users:free"], refresh: bool = False, check_scope: bool = True):
+    def __init__(
+        self, scope: List[str] = ["pulse3d:user:paid"], refresh: bool = False, check_scope: bool = True
+    ):
         # don't check scope if using this for refresh tokens
         if refresh:
             check_scope = False
