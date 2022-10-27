@@ -10,7 +10,7 @@ import DataTable from "react-data-table-component";
 import FilterHeader from "@/components/table/FilterHeader";
 import UploadsSubTable from "@/components/table/UploadsSubTable";
 import Checkbox from "@mui/material/Checkbox";
-import moment from "moment";
+
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
   center: false,
