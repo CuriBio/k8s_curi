@@ -45,7 +45,12 @@ export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, j
     return (
       <SubContainer key={Math.random()}>
         <SubRowCheckbox>
-          <Checkbox id={job.jobId} checked={checkedJobs.includes(job.jobId)} onChange={handleCheckedJobs} />
+          <Checkbox
+            id={job.jobId}
+            disabled={job.status === "pending"}
+            checked={checkedJobs.includes(job.jobId)}
+            onChange={handleCheckedJobs}
+          />
         </SubRowCheckbox>
         <SubRowFileName>{job.analyzedFile ? job.analyzedFile : "None"}</SubRowFileName>
         <SubRow>{job.datetime}</SubRow>

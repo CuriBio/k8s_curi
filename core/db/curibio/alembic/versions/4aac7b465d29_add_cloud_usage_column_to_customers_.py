@@ -41,10 +41,10 @@ def upgrade():
         op.create_foreign_key(f"fk_{table}_customers", table, "customers", ["customer_id"], ["id"])
 
     op.execute(
-        "UPDATE uploads SET customer_id=(SELECT customer_id from users where uploads.user_id=users.id)"
+        "UPDATE uploads SET customer_id=(SELECT customer_id FROM users WHERE uploads.user_id=users.id)"
     )
     op.execute(
-        "UPDATE jobs_result SET customer_id=(SELECT customer_id from uploads where jobs_result.upload_id=uploads.id)"
+        "UPDATE jobs_result SET customer_id=(SELECT customer_id FROM uploads WHERE jobs_result.upload_id=uploads.id)"
     )
 
 

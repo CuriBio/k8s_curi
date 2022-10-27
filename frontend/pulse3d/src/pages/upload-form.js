@@ -138,7 +138,7 @@ export default function UploadForm() {
     // checks if error value exists, no file is selected, or upload is in progress
     const checkConditions =
       !Object.values(paramErrors).every((val) => val.length === 0) ||
-      !((files.length > 0 && files[0] instanceof File) || uploads.includes(files[0])) ||
+      !((files.length > 0 && files[0] instanceof File) || (uploads && uploads.includes(files[0]))) ||
       inProgress;
 
     setIsButtonDisabled(checkConditions);
@@ -161,9 +161,11 @@ export default function UploadForm() {
   }, [router.query]);
 
   useEffect(() => {
-    const uploadFilenames = uploads.map((upload) => upload.filename).filter((name) => name);
+    if (uploads) {
+      const uploadFilenames = uploads.map((upload) => upload.filename).filter((name) => name);
 
-    setFormattedUploads([...uploadFilenames]);
+      setFormattedUploads([...uploadFilenames]);
+    }
   }, [uploads]);
 
   const resetState = () => {
@@ -262,7 +264,7 @@ export default function UploadForm() {
   const checkForMultiRecZips = async () => {
     var JSZip = require("jszip");
 
-    if (tabSelection === "1") {
+    if (tabSelection === "0") {
       const asyncFilter = async (arr, predicate) =>
         Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
@@ -409,7 +411,6 @@ export default function UploadForm() {
     } catch (e) {
       // catch all if service worker isn't working
       console.log("ERROR posting to presigned url");
-      failedUploadsMsg.push(filename);
     }
   };
 

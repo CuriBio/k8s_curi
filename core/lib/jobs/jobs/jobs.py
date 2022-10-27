@@ -229,12 +229,12 @@ async def check_customer_quota(con, customer_id, service) -> Dict[str, bool]:
 
     async with con.transaction():
         # get service specific usage restrictions for the customer account
-        usage_query = "select usage_restrictions->$1 as usage from customers where id=$2"
+        usage_query = "SELECT usage_restrictions->$1 AS usage FROM customers WHERE id=$2"
         usage_json = await con.fetchrow(usage_query, service, customer_id)
         usage_dict = json.loads(usage_json["usage"])
         # grab total uploads and jobs of customer for specific service
         jobs_type = "mantarray"  # REMEMBER TO CHANGE BACK AFTER MIGRATING TO USE PULSE3D
-        query = "select count(*) from jobs_result where customer_id=$1 and type=$2 group by upload_id"
+        query = "SELECT count(*) FROM jobs_result WHERE customer_id=$1 AND type=$2 GROUP BY upload_id"
         customer_data = [row["count"] async for row in con.cursor(query, customer_id, jobs_type)]
         total_uploads = len(customer_data)
         total_jobs = sum(customer_data)

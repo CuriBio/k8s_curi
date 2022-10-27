@@ -13,7 +13,7 @@ from jwt.exceptions import InvalidTokenError
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from pydantic import EmailStr
 
-from auth import ProtectedAny, create_token, decode_token, PULSE3D_CUSTOMER_SCOPES
+from auth import ProtectedAny, create_token, decode_token, CUSTOMER_SCOPES
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
 from models.errors import LoginError, RegistrationError, EmailRegistrationError
@@ -134,9 +134,20 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
                 cust_id = customer_id if customer_id is not None else row["id"]
                 usage_quota = await check_customer_quota(con, str(cust_id), details.service)
                 scope = json.loads(row.get("scope", "[]"))
+
+                if is_customer_login_attempt:
+                    # get tier of service scope in list of customer scopes
+                    scope = [s for s in scope if details.service in s]
+                    # replace with customer scope
+                    # raises IndexError if not found
+                    scope[0] = scope[0].replace(details.service, "customer")
+
                 tokens = await _create_new_tokens(con, row["id"], customer_id, scope, account_type)
                 return LoginResponse(tokens=tokens, usage_quota=usage_quota)
-
+    except IndexError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="No scope for service found in customer scopes"
+        )
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     except Exception as e:
@@ -245,7 +256,7 @@ async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False)
 async def register(
     request: Request,
     details: Union[CustomerCreate, UserCreate],
-    token=Depends(ProtectedAny(scope=PULSE3D_CUSTOMER_SCOPES)),
+    token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES)),
 ):
     """Register a user or customer account.
 
@@ -274,20 +285,20 @@ async def register(
 
         # scope will not be sent in request body for both customer and user registration
         if is_customer_registration_attempt:
-            scope = details.scope
+            scope = details.scope 
             insert_query = "INSERT INTO customers (email, password, data) VALUES ($1, $2, $3) RETURNING id"
             query_params = (
                 details.email,
                 phash,
-                json.dumps({"scope": scope}),
+                json.dumps({"scope": scope}), 
             )
         else:
             # new user scope will default to free, will update to paid if paid scope found in customer token
             # TODO add handling for multiple service scopes and exception handling if none found
             customer_scopes_for_service = [s for s in customer_scopes if details.service in s]
-            customer_tier = customer_scopes_for_service[0].split(":")[-1]
+            customer_tier = customer_scopes_for_service[0].split(":")[-1] # 'free' or 'paid'
             # for now, assuming that each user registration will only be called with one service
-            user_scope = [f"{details.service}:user:{customer_tier}"]
+            user_scope = [f"{details.service}:{customer_tier}"]
             # suspended and verified get set to False by default
             insert_query = (
                 "INSERT INTO users (name, email, password, account_type, data, customer_id) "
@@ -389,7 +400,7 @@ async def _send_registration_email(username: str, email: EmailStr, verification_
 @app.get("/")
 async def get_all_users(
     request: Request,
-    token=Depends(ProtectedAny(scope=PULSE3D_CUSTOMER_SCOPES)),
+    token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES)),
 ):
     """Get info for all the users under the given customer account.
 
@@ -438,7 +449,7 @@ async def verify_user_email(
 async def get_user(
     request: Request,
     user_id: uuid.UUID,
-    token=Depends(ProtectedAny(scope=PULSE3D_CUSTOMER_SCOPES)),
+    token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES)),
 ):
     """Get info for the user with the given under the given customer account."""
     customer_id = uuid.UUID(hex=token["userid"])
@@ -471,7 +482,7 @@ async def update_user(
     request: Request,
     details: UserAction,
     user_id: uuid.UUID,
-    token=Depends(ProtectedAny(scope=PULSE3D_CUSTOMER_SCOPES)),
+    token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES)),
 ):
     """Update a user's information in the database.
 

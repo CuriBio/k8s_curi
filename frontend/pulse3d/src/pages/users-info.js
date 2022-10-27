@@ -76,7 +76,7 @@ const PageContainer = styled.div`
 const Container = styled.div`
   position: relative;
   margin: 0% 3% 3% 3%;
-  margin-top: 1rem;
+  margin-top: 3rem;
   box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
     0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
@@ -125,6 +125,7 @@ export default function UserInfo() {
       console.log("ERROR fetching all users info");
     }
   };
+
   //gets users at load
   useEffect(() => {
     getAllUsers();
@@ -144,6 +145,7 @@ export default function UserInfo() {
     "Date Created": "created_at",
     "Last Login": "last_login",
   };
+
   //when filter string changes refilter results
   useEffect(() => {
     const newList = usersData.filter((user) => {
