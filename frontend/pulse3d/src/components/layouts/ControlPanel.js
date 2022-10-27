@@ -12,7 +12,7 @@ const Container = styled.div`
   height: inherit;
   background-color: var(--dark-blue);
   min-width: 200px;
-  width: 15%;
+  width: 300px;
   position: relative;
   display: flex;
   flex-direction: column;

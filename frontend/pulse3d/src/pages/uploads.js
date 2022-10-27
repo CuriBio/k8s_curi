@@ -42,16 +42,18 @@ const filterBoxstyles = [
   { position: "relative", left: "40px", width: "150px", margin: "0 30px 0 0" }, //file owner
   { position: "relative", left: "40px", width: "150px", margin: "0 400px 0 0" }, //recording name
   { position: "relative", left: "40px", width: "150px", margin: "0 150px 0 0" }, //upload id
-  { position: "relative", left: "40px", width: "150px", margin: "0 50px 0 0" }, //created
-  { position: "relative", left: "40px", width: "150px", margin: "0 0 0 0" }, //lastAnalyzed
+  { position: "relative", left: "90px", width: "150px", margin: "0 50px 0 0" }, //created
+  { position: "relative", left: "190px", width: "150px", margin: "0 0 0 0" }, //lastAnalyzed
 ];
 
 const Container = styled.div`
   display: flex;
   position: relative;
   justify-content: start;
-  padding: 0% 3% 3% 3%;
+  margin: 0% 3% 3% 3%;
   flex-direction: column;
+  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
+    0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
 const SpinnerContainer = styled.div`
   margin: 50px;
@@ -117,7 +119,6 @@ const modalObjs = {
     ],
   },
 };
-let statusUpdateInterval;
 export default function Uploads() {
   const { accountType } = useContext(AuthContext);
   const { uploads, setFetchUploads, pulse3dVersions } = useContext(UploadsContext);
@@ -151,20 +152,22 @@ export default function Uploads() {
     },
     {
       name: "Upload ID",
-      width: "300px",
+      width: "350px",
       admin: false,
       selector: (row) => row.id,
     },
     {
       name: "Created Date",
-      width: "200px",
+      width: "300px",
       admin: false,
       selector: (row) => row.createdAt,
     },
     {
       name: "Last Analyzed",
-      width: "200px",
+      width: "230px",
+      id: "lastAnalyzed",
       admin: false,
+      sortFunction: (rowA, rowB) => new Date(rowB.lastAnalyzed) - new Date(rowA.lastAnalyzed),
       selector: (row) => row.lastAnalyzed,
     },
     {
@@ -178,10 +181,12 @@ export default function Uploads() {
   ];
 
   useEffect(() => {
-    if (jobs.length > 0) {
+    // removing loading spinner once jobs have been recieved or if 0 jobs were receieved because there were zero uploads for new users
+    if (jobs.length > 0 || (jobs.length === 0 && uploads)) {
       setPending(false);
     }
   }, [displayRows]);
+
   const toFilterField =
     accountType === "admin"
       ? {
@@ -277,43 +282,47 @@ export default function Uploads() {
   };
 
   useEffect(() => {
-    getAllJobs();
-    // don't call get jobs if downloading or deleting in progress because it backs up server
-    if (uploads.length > 0 && !statusUpdateInterval) {
-      statusUpdateInterval = setInterval(async () => {
-        if (!["downloading", "deleting"].includes(modalState)) {
-          await getAllJobs();
-        }
-      }, [1e4]);
+    if (uploads) {
+      getAllJobs();
+
+      if (uploads.length > 0) {
+        const statusUpdateInterval = setInterval(async () => {
+          if (!["downloading", "deleting"].includes(modalState)) {
+            await getAllJobs();
+          }
+        }, [1e4]);
+
+        return () => clearInterval(statusUpdateInterval);
+      }
     }
-    //clear interval when switching pages
-    return () => clearInterval(statusUpdateInterval);
   }, [uploads]);
 
   useEffect(() => {
-    const formattedUploads = uploads.map(({ username, id, filename, created_at }) => {
-      const formattedTime = formatDateTime(created_at);
-      const recName = filename ? filename.split(".")[0] : null;
-      const uploadJobs = jobs
-        .filter(({ uploadId }) => uploadId === id)
-        .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
-      const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
-      return {
-        username,
-        name: recName,
-        id,
-        createdAt: formattedTime,
-        lastAnalyzed,
-        jobs: uploadJobs,
-      };
-    });
+    if (uploads) {
+      const formattedUploads = uploads.map(({ username, id, filename, created_at }) => {
+        const formattedTime = formatDateTime(created_at);
+        const recName = filename ? filename.split(".")[0] : null;
+        const uploadJobs = jobs
+          .filter(({ uploadId }) => uploadId === id)
+          .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+        const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
+        return {
+          username,
+          name: recName,
+          id,
+          createdAt: formattedTime,
+          lastAnalyzed,
+          jobs: uploadJobs,
+        };
+      });
 
-    setRows([...formattedUploads]);
-    setDisplayRows([...formattedUploads]);
+      setRows([...formattedUploads]);
+      setDisplayRows([...formattedUploads]);
 
-    if (filterColumn) {
-      const newList = filterColumns();
-      setDisplayRows(newList);
+      if (filterColumn) {
+        const newList = filterColumns();
+        setDisplayRows(newList);
+      }
     }
   }, [jobs]);
 
@@ -536,6 +545,7 @@ export default function Uploads() {
       throw Error();
     }
   };
+
   const ExpandedComponent = ({ data }) => {
     return (
       <UploadsSubTable jobs={data.jobs} checkedJobs={checkedJobs} handleCheckedJobs={handleCheckedJobs} />
@@ -561,7 +571,10 @@ export default function Uploads() {
     // so it's resetting checkedJobs to empty array, then concat all relevant jobs
     checkedUploads.map((upload) => {
       const idx = displayRows.map((row) => row.id).indexOf(upload);
-      const jobIds = displayRows[idx].jobs.map(({ jobId }) => newCheckedJobs.push(jobId));
+      const jobIds = displayRows[idx].jobs.map(({ jobId, status }) => {
+        // only add jobs to checked array if not pending
+        if (status !== "pending") newCheckedJobs.push(jobId);
+      });
       newCheckedJobs.concat(jobIds);
     });
 
@@ -581,6 +594,7 @@ export default function Uploads() {
         const idx = displayRows.map((row) => row.id).indexOf(upload);
         const jobIds = displayRows[idx].jobs.map(({ jobId }) => jobId);
         const missingJobs = jobIds.filter((id) => !checkedJobs.includes(id));
+
         if (missingJobs.length > 0) checkedUploads.splice(uploadIdx, 1);
       });
 
@@ -632,7 +646,7 @@ export default function Uploads() {
               expandableRowsComponent={ExpandedComponent}
               customStyles={customStyles}
               progressPending={pending}
-              defaultSortFieldId={5}
+              defaultSortFieldId="lastAnalyzed"
               progressComponent={
                 <SpinnerContainer>
                   <CircularSpinner size={200} color={"secondary"} />
