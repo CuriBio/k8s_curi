@@ -192,7 +192,10 @@ export default function UploadForm() {
         stiffnessFactor,
       } = analysisParams;
 
-      const version = selectedPulse3dVersion === "" ? pulse3dVersions[0] : selectedPulse3dVersion;
+      const version =
+        selectedPulse3dVersion === "" || !selectedPulse3dVersion
+          ? pulse3dVersions[0]
+          : selectedPulse3dVersion;
 
       const requestBody = {
         upload_id: uploadId,
