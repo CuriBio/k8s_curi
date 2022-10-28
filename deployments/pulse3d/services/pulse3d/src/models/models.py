@@ -64,7 +64,3 @@ class JobDownloadRequest(BaseModel):
 
 class UsageErrorResponse(BaseModel):
     usage_error: Dict[str, bool]
-
-
-class CustomerUsageQuotaReached(Exception):
-    pass

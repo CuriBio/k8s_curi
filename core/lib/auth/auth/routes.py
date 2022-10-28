@@ -1,6 +1,6 @@
 from calendar import timegm
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from uuid import UUID
 
 from fastapi import HTTPException, Depends, status
@@ -100,3 +100,13 @@ def create_token(
     jwt_token = jwt.encode(payload=jwt_payload.dict(), key=str(JWT_SECRET_KEY), algorithm=JWT_ALGORITHM)
 
     return Token(token=jwt_token)
+
+
+def split_scope_account_data(scope: str) -> Tuple[str, str]:
+    # example: 'pulse3d:paid' 'pulse3d:free'
+
+    split_scope = scope.split(":")
+    service = split_scope[0]
+    customer_tier = split_scope[-1]
+
+    return service, customer_tier

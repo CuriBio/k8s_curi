@@ -13,7 +13,7 @@ from jwt.exceptions import InvalidTokenError
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from pydantic import EmailStr
 
-from auth import ProtectedAny, create_token, decode_token, CUSTOMER_SCOPES
+from auth import ProtectedAny, create_token, decode_token, CUSTOMER_SCOPES, split_scope_account_data
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
 from models.errors import LoginError, RegistrationError, EmailRegistrationError
@@ -138,16 +138,16 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
                 if is_customer_login_attempt:
                     # get tier of service scope in list of customer scopes
                     scope = [s for s in scope if details.service in s]
+                    if not scope:
+                        raise LoginError("No scope for service found in customer scopes")
+
                     # replace with customer scope
-                    # raises IndexError if not found
-                    scope[0] = scope[0].replace(details.service, "customer")
+                    _, customer_tier = split_scope_account_data(scope[0])
+                    scope[0] = f"customer:{customer_tier}"
 
                 tokens = await _create_new_tokens(con, row["id"], customer_id, scope, account_type)
                 return LoginResponse(tokens=tokens, usage_quota=usage_quota)
-    except IndexError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="No scope for service found in customer scopes"
-        )
+
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     except Exception as e:
@@ -293,9 +293,8 @@ async def register(
                 json.dumps({"scope": scope}),
             )
         else:
-            # new user scope will default to free, will update to paid if paid scope found in customer token
             # TODO add handling for multiple service scopes and exception handling if none found
-            customer_tier = customer_scope[0].split(":")[-1]  # 'free' or 'paid'
+            _, customer_tier = split_scope_account_data(customer_scope[0])  # 'free' or 'paid'
             # for now, assuming that each user registration will only be called with one service
             user_scope = [f"{details.service}:{customer_tier}"]
             # suspended and verified get set to False by default

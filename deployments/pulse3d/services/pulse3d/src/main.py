@@ -25,7 +25,7 @@ from pulse3D.constants import (
     DEFAULT_WIDTH_FACTORS,
 )
 
-from auth import ProtectedAny, PULSE3D_USER_SCOPES, PULSE3D_SCOPES
+from auth import ProtectedAny, PULSE3D_USER_SCOPES, PULSE3D_SCOPES, split_scope_account_data
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET, DASHBOARD_URL
 from jobs import (
     create_upload,
@@ -43,7 +43,6 @@ from models.models import (
     JobResponse,
     JobDownloadRequest,
     WaveformDataResponse,
-    CustomerUsageQuotaReached,
     UsageErrorResponse,
 )
 from models.types import TupleParam
@@ -111,7 +110,7 @@ async def create_recording_upload(
     try:
         user_id = str(uuid.UUID(token["userid"]))
         customer_id = str(uuid.UUID(token["customer_id"]))
-        service = token["scope"][0].split(":")[0]
+        service, _ = split_scope_account_data(token["scope"][0])
 
         upload_params = {
             "prefix": f"uploads/{customer_id}/{user_id}/{{upload_id}}",
@@ -124,7 +123,7 @@ async def create_recording_upload(
         async with request.state.pgpool.acquire() as con:
             usage_quota = await check_customer_quota(con, customer_id, service)
             if usage_quota["uploads_reached"]:
-                raise CustomerUsageQuotaReached()
+                return UsageErrorResponse(usage_error=usage_quota)
 
             # Tanner (7/5/22): using a transaction here so that if _generate_presigned_post fails
             # then the new upload row won't be committed
@@ -140,10 +139,6 @@ async def create_recording_upload(
                 )
 
                 return UploadResponse(id=upload_id, params=params)
-
-    except CustomerUsageQuotaReached:
-        # does not return error status, just returns error in body of 200 response
-        return UsageErrorResponse(usage_error=usage_quota)
     except S3Error as e:
         logger.exception(str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
@@ -279,7 +274,7 @@ async def create_new_job(
     try:
         user_id = str(uuid.UUID(token["userid"]))
         customer_id = str(uuid.UUID(token["customer_id"]))
-        service = token["scope"][0].split(":")[0]
+        service, _ = split_scope_account_data(token["scope"][0])
         logger.info(f"Creating {service} job for upload {details.upload_id} with user ID: {user_id}")
 
         params = [
@@ -320,7 +315,7 @@ async def create_new_job(
 
             usage_quota = await check_customer_quota(con, customer_id, service)
             if usage_quota["jobs_reached"]:
-                raise CustomerUsageQuotaReached()
+                return UsageErrorResponse(usage_error=usage_quota)
 
             job_id = await create_job(
                 con=con,
@@ -335,9 +330,6 @@ async def create_new_job(
         return JobResponse(
             id=job_id, user_id=user_id, upload_id=details.upload_id, status="pending", priority=priority
         )
-    except CustomerUsageQuotaReached:
-        # does not return error status, just returns error in body of 200 response
-        return UsageErrorResponse(usage_error=usage_quota)
     except Exception as e:
         logger.exception(f"Failed to create job: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
