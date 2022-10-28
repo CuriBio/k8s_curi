@@ -157,7 +157,7 @@ export default function ControlPanel() {
       const { label, options } = currentPage;
       if (label !== selected) setSelected(label);
       if (options.length > 0) setExpanded(label);
-      else if (options.length === 0) setExpanded(null);
+      else setExpanded(null);
     }
   }, [router]);
 

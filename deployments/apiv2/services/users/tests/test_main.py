@@ -29,7 +29,7 @@ def get_token(*, userid=None, customer_id=None, scope=None, account_type=None, r
     if not customer_id and account_type == "user":
         customer_id = uuid.uuid4()
     if not scope:
-        scope = ["pulse3d:user:free"] if account_type == "user" else ["pulse3d:customer:paid"]
+        scope = ["pulse3d:free"] if account_type == "user" else ["customer:paid"]
 
     return create_token(
         userid=userid, customer_id=customer_id, scope=scope, account_type=account_type, refresh=refresh
@@ -160,7 +160,7 @@ def test_login__customer__success(mocked_asyncpg_con, mocker):
     login_details = {"email": "test@email.com", "password": "test_password", "service": "pulse3d"}
     pw_hash = PasswordHasher().hash(login_details["password"])
     test_customer_id = uuid.uuid4()
-    customer_scope = ["pulse3d:customer:free"]
+    customer_scope = ["pulse3d:free"]
 
     mocked_asyncpg_con.fetchrow.return_value = {
         "password": pw_hash,
@@ -172,12 +172,16 @@ def test_login__customer__success(mocked_asyncpg_con, mocker):
     expected_access_token = create_token(
         userid=test_customer_id,
         customer_id=None,
-        scope=customer_scope,
+        scope=["customer:free"],
         account_type="customer",
         refresh=False,
     )
     expected_refresh_token = create_token(
-        userid=test_customer_id, customer_id=None, scope=customer_scope, account_type="customer", refresh=True
+        userid=test_customer_id,
+        customer_id=None,
+        scope=["customer:free"],
+        account_type="customer",
+        refresh=True,
     )
 
     response = test_client.post("/login", json=login_details)
@@ -244,12 +248,10 @@ def test_register__user__allows_valid_usernames(
 
     test_user_id = uuid.uuid4()
     test_customer_id = cb_customer_id if use_cb_customer_id else uuid.uuid4()
-    access_token = get_token(
-        userid=test_customer_id, scope=["pulse3d:customer:paid"], account_type="customer"
-    )
+    access_token = get_token(userid=test_customer_id, scope=["customer:paid"], account_type="customer")
 
     mocked_asyncpg_con.fetchval.return_value = test_user_id
-    expected_scope = ["pulse3d:user:paid"]
+    expected_scope = ["pulse3d:paid"]
 
     response = test_client.post(
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -280,11 +282,11 @@ def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, cb_cus
         "email": "test@email.com",
         "password1": TEST_PASSWORD,
         "password2": TEST_PASSWORD,
-        "scope": ["pulse3d:customer:paid"],
+        "scope": ["customer:paid"],
     }
 
     test_user_id = uuid.uuid4()
-    expected_scope = ["pulse3d:customer:paid"]
+    expected_scope = ["customer:paid"]
     access_token = get_token(userid=cb_customer_id, scope=expected_scope, account_type="customer")
 
     mocked_asyncpg_con.fetchval.return_value = test_user_id
@@ -324,7 +326,7 @@ def test_register__user__invalid_username_length(length, err_msg, cb_customer_id
         "service": "pulse3d",
     }
 
-    access_token = get_token(userid=cb_customer_id, scope=["pulse3d:customer:paid"], account_type="customer")
+    access_token = get_token(userid=cb_customer_id, scope=["customer:paid"], account_type="customer")
 
     response = test_client.post(
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -343,7 +345,7 @@ def test_register__user__with_invalid_char_in_username(special_char, cb_customer
         "service": "pulse3d",
     }
 
-    access_token = get_token(userid=cb_customer_id, scope=["pulse3d:customer:paid"], account_type="customer")
+    access_token = get_token(userid=cb_customer_id, scope=["customer:paid"], account_type="customer")
 
     response = test_client.post(
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -365,7 +367,7 @@ def test_register__user__with_invalid_first_char(bad_first_char, cb_customer_id)
         "service": "pulse3d",
     }
 
-    access_token = get_token(userid=cb_customer_id, scope=["pulse3d:customer:paid"], account_type="customer")
+    access_token = get_token(userid=cb_customer_id, scope=["customer:paid"], account_type="customer")
 
     response = test_client.post(
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -384,7 +386,7 @@ def test_register__user__with_invalid_final_char(bad_final_char, cb_customer_id)
         "service": "pulse3d",
     }
 
-    access_token = get_token(userid=cb_customer_id, scope=["pulse3d:customer:paid"], account_type="customer")
+    access_token = get_token(userid=cb_customer_id, scope=["customer:paid"], account_type="customer")
 
     response = test_client.post(
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -403,7 +405,7 @@ def test_register__user__with_consecutive_special_chars(special_char, cb_custome
         "service": "pulse3d",
     }
 
-    access_token = get_token(userid=cb_customer_id, scope=["pulse3d:customer:paid"], account_type="customer")
+    access_token = get_token(userid=cb_customer_id, scope=["customer:paid"], account_type="customer")
 
     response = test_client.post(
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -432,7 +434,7 @@ def test_register__user__unique_constraint_violations(
     }
 
     test_user_id = uuid.uuid4()
-    access_token = get_token(userid=test_user_id, scope=["pulse3d:customer:paid"], account_type="customer")
+    access_token = get_token(userid=test_user_id, scope=["customer:paid"], account_type="customer")
 
     mocked_asyncpg_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)
 
@@ -457,10 +459,10 @@ def test_register__customer__unique_constraint_violations(
         "email": "test@email.com",
         "password1": TEST_PASSWORD,
         "password2": TEST_PASSWORD,
-        "scope": ["pulse3d:customer:paid"],
+        "scope": ["customer:paid"],
     }
 
-    access_token = get_token(userid=cb_customer_id, scope=["pulse3d:customer:paid"], account_type="customer")
+    access_token = get_token(userid=cb_customer_id, scope=["customer:paid"], account_type="customer")
 
     # setting this
     mocked_asyncpg_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)

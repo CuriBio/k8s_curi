@@ -80,7 +80,7 @@ def test_logs__post(mocker):
     test_user_id = uuid.uuid4()
     test_customer_id = uuid.uuid4()
 
-    access_token = get_token(scope=["pulse3d:user:free"], customer_id=test_customer_id, userid=test_user_id)
+    access_token = get_token(scope=["pulse3d:free"], customer_id=test_customer_id, userid=test_user_id)
     kwargs = {
         "headers": {"Authorization": f"Bearer {access_token}"},
         "json": {"filename": test_file_name, "upload_type": "logs"},
@@ -106,7 +106,7 @@ def test_uploads__get(test_token_scope, test_upload_ids, mocked_asyncpg_con, moc
     mocked_get_uploads = mocker.patch.object(main, "get_uploads", autospec=True, return_value=[])
 
     test_account_id = uuid.uuid4()
-    account_type = "customer" if test_token_scope == ["pulse3d:customer:paid"] else "user"
+    account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
     access_token = get_token(scope=test_token_scope, account_type=account_type, userid=test_account_id)
 
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
@@ -159,7 +159,7 @@ def test_uploads__post_if_customer_quota_has_not_been_reached(mocked_asyncpg_con
     test_user_id = uuid.uuid4()
     test_customer_id = uuid.uuid4()
 
-    access_token = get_token(scope=["pulse3d:user:paid"], customer_id=test_customer_id, userid=test_user_id)
+    access_token = get_token(scope=["pulse3d:paid"], customer_id=test_customer_id, userid=test_user_id)
     kwargs = {
         "headers": {"Authorization": f"Bearer {access_token}"},
         "json": {"filename": test_file_name, "md5s": test_md5s, "upload_type": test_upload_type},
@@ -203,7 +203,7 @@ def test_uploads__post_if_customer_quota_has_been_reached(mocked_asyncpg_con, mo
     test_user_id = uuid.uuid4()
     test_customer_id = uuid.uuid4()
 
-    access_token = get_token(scope=["pulse3d:user:free"], customer_id=test_customer_id, userid=test_user_id)
+    access_token = get_token(scope=["pulse3d:free"], customer_id=test_customer_id, userid=test_user_id)
     kwargs = {
         "headers": {"Authorization": f"Bearer {access_token}"},
         "json": {"filename": test_file_name, "md5s": test_md5s, "upload_type": test_upload_type},
@@ -224,7 +224,7 @@ def test_uploads__delete(test_token_scope, test_upload_ids, mocked_asyncpg_con, 
     mocked_delete_uploads = mocker.patch.object(main, "delete_uploads", autospec=True)
 
     test_account_id = uuid.uuid4()
-    account_type = "customer" if test_token_scope == ["pulse3d:customer:free"] else "user"
+    account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
     access_token = get_token(scope=test_token_scope, account_type=account_type, userid=test_account_id)
     kwargs = {
         "headers": {"Authorization": f"Bearer {access_token}"},
@@ -252,7 +252,7 @@ def test_uploads__delete(test_token_scope, test_upload_ids, mocked_asyncpg_con, 
 def test_uploads__delete__no_upload_ids_given(test_upload_ids, mocker):
     mocked_delete_uploads = mocker.patch.object(main, "delete_uploads", autospec=True)
 
-    access_token = get_token(scope=["pulse3d:user:free"])
+    access_token = get_token(scope=["pulse3d:free"])
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
 
     # in None case, don't even pass a query param
@@ -269,7 +269,7 @@ def test_uploads__delete__failure_to_delete_uploads(mocker):
     mocker.patch.object(main, "delete_uploads", autospec=True, side_effect=Exception())
 
     test_user_id = uuid.uuid4()
-    access_token = get_token(scope=["pulse3d:user:free"], userid=test_user_id)
+    access_token = get_token(scope=["pulse3d:free"], userid=test_user_id)
     kwargs = {
         "headers": {"Authorization": f"Bearer {access_token}"},
         "params": {"upload_ids": [uuid.uuid4()]},
@@ -315,7 +315,7 @@ def test_jobs__get__jobs_found(download, test_token_scope, test_job_ids, mocked_
     mocked_generate = mocker.patch.object(main, "generate_presigned_url", autospec=True, return_value="url0")
 
     test_account_id = uuid.uuid4()
-    account_type = "customer" if test_token_scope == ["pulse3d:customer:free"] else "user"
+    account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
     access_token = get_token(scope=test_token_scope, account_type=account_type, userid=test_account_id)
 
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}, "params": {}}
@@ -385,7 +385,7 @@ def test_jobs__get__error_with_creating_presigned_url_for_single_file(mocked_asy
     )
 
     test_user_id = uuid.uuid4()
-    access_token = get_token(scope=["pulse3d:user:free"], userid=test_user_id)
+    access_token = get_token(scope=["pulse3d:free"], userid=test_user_id)
 
     kwargs = {
         "headers": {"Authorization": f"Bearer {access_token}"},
@@ -425,7 +425,7 @@ def test_jobs__get__no_jobs_found(mocked_asyncpg_con, mocker):
     mocked_get_uploads = mocker.patch.object(main, "get_uploads", autospec=True)
 
     test_user_id = uuid.uuid4()
-    access_token = get_token(scope=["pulse3d:user:free"], userid=test_user_id)
+    access_token = get_token(scope=["pulse3d:free"], userid=test_user_id)
 
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
     response = test_client.get("/jobs", **kwargs)
@@ -446,7 +446,7 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
     test_customer_id = uuid.uuid4()
     test_version = random_semver(max_version="0.24.0")
 
-    access_token = get_token(scope=["pulse3d:user:free"], userid=test_user_id, customer_id=test_customer_id)
+    access_token = get_token(scope=["pulse3d:free"], userid=test_user_id, customer_id=test_customer_id)
 
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=expected_job_id)
     mocker.patch.object(
@@ -495,7 +495,7 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
 def test_jobs__post__basic_params_given(mocker):
     test_analysis_params = {"twitch_widths": [10, 20], "start_time": 0, "end_time": 1}
 
-    access_token = get_token(scope=["pulse3d:user:free"])
+    access_token = get_token(scope=["pulse3d:free"])
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
     mocker.patch.object(
         main,
@@ -546,7 +546,7 @@ def test_jobs__post__returns_error_dict_if_quota_has_been_reached(mocker, usage_
         autospec=True,
     )
     test_analysis_params = {"twitch_widths": [10, 20], "start_time": 0, "end_time": 1}
-    access_token = get_token(scope=["pulse3d:user:free"])
+    access_token = get_token(scope=["pulse3d:free"])
     spied_create_job = mocker.spy(main, "create_job")
 
     kwargs = {
@@ -568,7 +568,7 @@ def test_jobs__post__returns_error_dict_if_quota_has_been_reached(mocker, usage_
 def test_jobs__post__advanced_params_given(param_name, param_tuple, mocker):
     test_analysis_params = {param_name: param_tuple}
 
-    access_token = get_token(scope=["pulse3d:user:free"])
+    access_token = get_token(scope=["pulse3d:free"])
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
     mocker.patch.object(
         main,
@@ -623,7 +623,7 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocker):
         autospec=True,
     )
     test_analysis_params = {"baseline_widths_to_use": param_tuple}
-    access_token = get_token(scope=["pulse3d:user:free"])
+    access_token = get_token(scope=["pulse3d:free"])
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
 
     kwargs = {
@@ -664,7 +664,7 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocker):
 
 @pytest.mark.parametrize("version", ["0.24.6", "0.25.0", "0.25.2", "0.25.4", "0.26.0"])
 def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d_version(version, mocker):
-    access_token = get_token(scope=["pulse3d:user:free"])
+    access_token = get_token(scope=["pulse3d:free"])
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
     mocker.patch.object(
         main,
@@ -713,7 +713,7 @@ def test_jobs__delete(test_token_scope, test_job_ids, mocked_asyncpg_con, mocker
     mocked_delete_jobs = mocker.patch.object(main, "delete_jobs", autospec=True)
 
     test_account_id = uuid.uuid4()
-    account_type = "customer" if test_token_scope == ["pulse3d:customer:free"] else "user"
+    account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
     access_token = get_token(scope=test_token_scope, account_type=account_type, userid=test_account_id)
     kwargs = {
         "headers": {"Authorization": f"Bearer {access_token}"},
@@ -742,7 +742,7 @@ def test_jobs__delete__no_job_ids_given(test_job_ids, mocker):
     mocked_delete_jobs = mocker.patch.object(main, "delete_jobs", autospec=True)
 
     test_user_id = uuid.uuid4()
-    access_token = get_token(scope=["pulse3d:user:free"], userid=test_user_id)
+    access_token = get_token(scope=["pulse3d:free"], userid=test_user_id)
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
 
     # in None case, don't even pass a query param
@@ -759,7 +759,7 @@ def test_jobs__delete__failure_to_delete_jobs(mocker):
     mocker.patch.object(main, "delete_jobs", autospec=True, side_effect=Exception())
 
     test_user_id = uuid.uuid4()
-    access_token = get_token(scope=["pulse3d:user:free"], userid=test_user_id)
+    access_token = get_token(scope=["pulse3d:free"], userid=test_user_id)
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}, "params": {"job_ids": [uuid.uuid4()]}}
 
     response = test_client.delete("/jobs", **kwargs)
@@ -775,7 +775,7 @@ def test_jobs_download__post__no_duplicate_analysis_file_names(
     test_token_scope, test_job_ids, mocked_asyncpg_con, mocker
 ):
     test_account_id = uuid.uuid4()
-    account_type = "customer" if test_token_scope == ["pulse3d:customer:free"] else "user"
+    account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
     access_token = get_token(scope=test_token_scope, account_type=account_type, userid=test_account_id)
 
     test_statuses = ["finished", "finished", "pending", "error"]
@@ -822,7 +822,7 @@ def test_jobs_download__post__no_duplicate_analysis_file_names(
 )
 def test_download__post__duplicate_analysis_file_names(mocked_asyncpg_con, test_token_scope, mocker):
     test_account_id = uuid.uuid4()
-    account_type = "customer" if test_token_scope == ["pulse3d:customer:free"] else "user"
+    account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
     access_token = get_token(scope=test_token_scope, account_type=account_type, userid=test_account_id)
 
     test_job_ids = [uuid.uuid4() for _ in range(3)]
@@ -869,7 +869,7 @@ def test_download__post__no_job_ids_given(test_job_ids, test_error_code, mocker)
     mocked_get_jobs = mocker.patch.object(main, "get_jobs", autospec=True)
     mocked_yield_objs = mocker.patch.object(main, "_yield_s3_objects", autospec=True)
 
-    access_token = get_token(scope=["pulse3d:user:free"])
+    access_token = get_token(scope=["pulse3d:free"])
 
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
     # in None case, don't even pass a param
@@ -885,7 +885,7 @@ def test_download__post__no_job_ids_given(test_job_ids, test_error_code, mocker)
 
 @pytest.mark.parametrize("test_query_params", [f"upload_id={uuid.uuid4()}", f"job_id={uuid.uuid4()}"])
 def test_waveform_data__get__no_job_or_upload_id_is_found(mocker, test_query_params):
-    access_token = get_token(scope=["pulse3d:user:free"])
+    access_token = get_token(scope=["pulse3d:free"])
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
 
     response = test_client.get(f"/jobs/waveform_data?{test_query_params}", **kwargs)
@@ -896,7 +896,7 @@ def test_waveform_data__get__no_job_or_upload_id_is_found(mocker, test_query_par
 def test_waveform_data__get__getting_job_metadata_from_db_errors(mocker):
     mocker.patch.object(main, "get_jobs", autospec=True, return_value=S3Error())
 
-    access_token = get_token(scope=["pulse3d:user:free"])
+    access_token = get_token(scope=["pulse3d:free"])
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
 
     test_job_id = uuid.uuid4()
@@ -940,7 +940,7 @@ def test_waveform_data__get__handles_time_unit_if_old_parquet_file(
     mocked_df = mocked_read.return_value
     expected_time = mocked_df["Time (s)"].tolist()
 
-    access_token = get_token(scope=["pulse3d:user:free"])
+    access_token = get_token(scope=["pulse3d:free"])
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
 
     test_job_id = uuid.uuid4()
@@ -966,10 +966,10 @@ def test_waveform_data__get__handles_time_unit_if_old_parquet_file(
 @pytest.mark.parametrize(
     "token",
     [
-        get_token(["pulse3d:user:free"], account_type="user"),
-        get_token(["pulse3d:customer:free"], account_type="customer"),
-        get_token(["pulse3d:user:paid"], account_type="user"),
-        get_token(["pulse3d:customer:paid"], account_type="customer"),
+        get_token(["pulse3d:free"], account_type="user"),
+        get_token(["customer:free"], account_type="customer"),
+        get_token(["pulse3d:paid"], account_type="user"),
+        get_token(["customer:paid"], account_type="customer"),
         None,
     ],
 )

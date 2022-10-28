@@ -252,7 +252,7 @@ export default function Uploads() {
             checked: isChecked,
           };
         });
-        setJobs([...newJobs]);
+        setJobs(newJobs);
       }
     } catch (e) {
       console.log("ERROR fetching jobs in /uploads");
