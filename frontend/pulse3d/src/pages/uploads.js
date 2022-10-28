@@ -43,6 +43,13 @@ const customStyles = {
     },
   },
 };
+const filterBoxstyles = [
+  { position: "relative", left: "25px", width: "150px", margin: "0 30px 0 0" }, //file owner
+  { position: "relative", left: "0px", width: "150px", margin: "0 245px 0 0" }, //recording name
+  { position: "relative", left: "0px", width: "150px", margin: "0 200px 0 0" }, //upload id
+  { position: "relative", left: "0px", width: "150px", margin: "0 50px 0 0" }, //created
+  { position: "relative", left: "0px", width: "150px", margin: "0 0 0 0" }, //lastAnalyzed
+];
 
 const Container = styled.div`
   display: flex;
@@ -134,20 +141,13 @@ export default function Uploads() {
   const [pending, setPending] = useState(true);
   const [filterString, setFilterString] = useState("");
   const [filterColumn, setFilterColumn] = useState("");
-
   const [ownerWidth, setOwnerWidth] = useState("150px");
   const [recordingWidth, setRecordingWidth] = useState("400px");
   const [uploadWidth, setUploadWidth] = useState("350px");
   const [createdWidth, setCreatedWidth] = useState("200px");
   const [analyzedWidth, setAnalyzedWidth] = useState("200px");
   const [checkWidth, setCheckWidth] = useState("50px");
-  const filterBoxstyles = [
-    { position: "relative", left: "25px", width: "150px", margin: "0 30px 0 0" }, //file owner
-    { position: "relative", left: "0px", width: "150px", margin: "0 245px 0 0" }, //recording name
-    { position: "relative", left: "0px", width: "150px", margin: "0 200px 0 0" }, //upload id
-    { position: "relative", left: "0px", width: "150px", margin: "0 50px 0 0" }, //created
-    { position: "relative", left: "0px", width: "150px", margin: "0 0 0 0" }, //lastAnalyzed
-  ];
+
   const uploadTableColumns = [
     {
       name: "File Owner",
