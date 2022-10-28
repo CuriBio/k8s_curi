@@ -16,7 +16,7 @@ const RowCell = styled.div`
   padding-left: 20px;
 `;
 export default function ResizableColumn({ content, width, setSelfWidth, setRightNeighbor, rightWidth }) {
-  const [initialX, setIntialX] = useState();
+  const [initialX, setInitialX] = useState();
 
   const updateWidth = (e) => {
     const difference = e.clientX - initialX;
@@ -26,7 +26,7 @@ export default function ResizableColumn({ content, width, setSelfWidth, setRight
     }
     setSelfWidth(`${newWidth}px`);
     setRightNeighbor(`${parseInt(rightWidth) - difference}px`);
-    setIntialX(e.clientX);
+    setInitialX(e.clientX);
   };
 
   return (
@@ -34,7 +34,7 @@ export default function ResizableColumn({ content, width, setSelfWidth, setRight
       <RowCell style={{ width: `${width}px` }}>{content}</RowCell>
       <ResizeDiv
         onMouseDown={(e) => {
-          setIntialX(e.clientX);
+          setInitialX(e.clientX);
         }}
         onDrag={(e) => {
           updateWidth(e);
