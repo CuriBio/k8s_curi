@@ -120,7 +120,7 @@ export default function UploadForm() {
     // checks if error value exists, no file is selected, or upload is in progress
     const checkConditions =
       !Object.values(paramErrors).every((val) => val.length === 0) ||
-      !((files.length > 0 && files[0] instanceof File) || uploads.includes(files[0])) ||
+      !((files.length > 0 && files[0] instanceof File) || (uploads && uploads.includes(files[0]))) ||
       inProgress;
 
     setIsButtonDisabled(checkConditions);
@@ -143,15 +143,17 @@ export default function UploadForm() {
   }, [query]);
 
   useEffect(() => {
-    const uploadFilenames = uploads.map((upload) => upload.filename).filter((name) => name);
+    if (uploads) {
+      const uploadFilenames = uploads.map((upload) => upload.filename).filter((name) => name);
 
-    setFormattedUploads([...uploadFilenames]);
+      setFormattedUploads([...uploadFilenames]);
+    }
   }, [uploads]);
 
   const resetState = () => {
     setFiles([]);
     updateCheckParams(false); // this will also reset the analysis params and their error message
-    setFailedUploadsMsg([defaultUploadErrorLabel]);
+    setFailedUploadsMsg(failedUploadsMsg);
     setModalButtons(["Close"]);
   };
 
@@ -190,7 +192,10 @@ export default function UploadForm() {
         stiffnessFactor,
       } = analysisParams;
 
-      const version = selectedPulse3dVersion === "" ? pulse3dVersions[0] : selectedPulse3dVersion;
+      const version =
+        selectedPulse3dVersion === "" || !selectedPulse3dVersion
+          ? pulse3dVersions[0]
+          : selectedPulse3dVersion;
 
       const requestBody = {
         upload_id: uploadId,
@@ -232,7 +237,7 @@ export default function UploadForm() {
   const checkForMultiRecZips = async () => {
     var JSZip = require("jszip");
 
-    if (tabSelection === "1") {
+    if (tabSelection === "0") {
       const asyncFilter = async (arr, predicate) =>
         Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
@@ -372,7 +377,6 @@ export default function UploadForm() {
     } catch (e) {
       // catch all if service worker isn't working
       console.log("ERROR posting to presigned url");
-      failedUploadsMsg.push(filename);
     }
   };
 
@@ -388,13 +392,14 @@ export default function UploadForm() {
     }
     // goes after because this dependency triggers reset
     setModalState(false);
+    setFailedUploadsMsg([defaultUploadErrorLabel]);
   };
 
   return (
     <Container>
       <Uploads>
         <Header>Run Analysis</Header>
-        {tabSelection === "1" ? (
+        {tabSelection === "0" ? (
           <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
             handleFileChange={(files) => setFiles(Object.values(files))}
             dropZoneText={dropZoneText}

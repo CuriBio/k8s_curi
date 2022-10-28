@@ -10,6 +10,7 @@ import DataTable from "react-data-table-component";
 import FilterHeader from "@/components/table/FilterHeader";
 import UploadsSubTable from "@/components/table/UploadsSubTable";
 import Checkbox from "@mui/material/Checkbox";
+import ResizableColumn from "@/components/table/ResizableColumn";
 
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
@@ -33,25 +34,31 @@ const customStyles = {
   rows: {
     style: {
       backgroundColor: "var(--light-gray)",
+      borderTop: "1px solid black",
+      borderBottom: "1px solid black",
       borderLeft: "2px solid var(--dark-gray)",
       borderRight: "2px solid var(--dark-gray)",
+      minHeight: "0px",
+      height: "30px",
     },
   },
 };
 const filterBoxstyles = [
-  { position: "relative", left: "40px", width: "150px", margin: "0 30px 0 0" }, //file owner
-  { position: "relative", left: "40px", width: "150px", margin: "0 400px 0 0" }, //recording name
-  { position: "relative", left: "40px", width: "150px", margin: "0 150px 0 0" }, //upload id
-  { position: "relative", left: "40px", width: "150px", margin: "0 50px 0 0" }, //created
-  { position: "relative", left: "40px", width: "150px", margin: "0 0 0 0" }, //lastAnalyzed
+  { position: "relative", left: "25px", width: "150px", margin: "0 30px 0 0" }, //file owner
+  { position: "relative", left: "0px", width: "150px", margin: "0 245px 0 0" }, //recording name
+  { position: "relative", left: "0px", width: "150px", margin: "0 200px 0 0" }, //upload id
+  { position: "relative", left: "0px", width: "150px", margin: "0 50px 0 0" }, //created
+  { position: "relative", left: "0px", width: "150px", margin: "0 0 0 0" }, //lastAnalyzed
 ];
 
 const Container = styled.div`
   display: flex;
   position: relative;
   justify-content: start;
-  padding: 0% 3% 3% 3%;
+  margin: 0% 3% 3% 3%;
   flex-direction: column;
+  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
+    0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
 const SpinnerContainer = styled.div`
   margin: 50px;
@@ -117,7 +124,6 @@ const modalObjs = {
     ],
   },
 };
-let statusUpdateInterval;
 export default function Uploads() {
   const { accountType } = useContext(AuthContext);
   const { uploads, setFetchUploads, pulse3dVersions } = useContext(UploadsContext);
@@ -134,43 +140,119 @@ export default function Uploads() {
   const [selectedAnalysis, setSelectedAnalysis] = useState();
   const [pending, setPending] = useState(true);
   const [filterString, setFilterString] = useState("");
-  const [filtercolumn, setFilterColumn] = useState("");
+  const [filterColumn, setFilterColumn] = useState("");
+  const [ownerWidth, setOwnerWidth] = useState("150px");
+  const [recordingWidth, setRecordingWidth] = useState("400px");
+  const [uploadWidth, setUploadWidth] = useState("350px");
+  const [createdWidth, setCreatedWidth] = useState("200px");
+  const [analyzedWidth, setAnalyzedWidth] = useState("200px");
+  const [checkWidth, setCheckWidth] = useState("50px");
 
   const uploadTableColumns = [
     {
       name: "File Owner",
-      width: "180px",
+      width: ownerWidth,
       admin: true,
-      selector: (row) => row.username,
+      compact: true,
+      cell: (row) => (
+        <ResizableColumn
+          first={true}
+          content={row.username}
+          width={ownerWidth.replace("px", "")}
+          setSelfWidth={(newWidth) => {
+            setOwnerWidth(newWidth);
+          }}
+          rightWidth={recordingWidth.replace("px", "")}
+          setRightNeighbor={(newWidth) => {
+            setRecordingWidth(newWidth);
+          }}
+        />
+      ),
     },
     {
       name: "Recording Name",
-      width: "550px",
+      width: recordingWidth,
       admin: false,
-      selector: (row) => row.name,
+      compact: true,
+      cell: (row) => (
+        <ResizableColumn
+          content={row.name}
+          width={recordingWidth.replace("px", "")}
+          setSelfWidth={(e) => {
+            setRecordingWidth(e);
+          }}
+          rightWidth={uploadWidth.replace("px", "")}
+          setRightNeighbor={(newWidth) => {
+            setUploadWidth(newWidth);
+          }}
+        />
+      ),
     },
     {
       name: "Upload ID",
-      width: "300px",
+      width: uploadWidth,
       admin: false,
-      selector: (row) => row.id,
+      compact: true,
+      cell: (row) => (
+        <ResizableColumn
+          content={row.id}
+          width={uploadWidth.replace("px", "")}
+          setSelfWidth={(e) => {
+            setUploadWidth(e);
+          }}
+          rightWidth={createdWidth.replace("px", "")}
+          setRightNeighbor={(newWidth) => {
+            setCreatedWidth(newWidth);
+          }}
+        />
+      ),
     },
     {
       name: "Created Date",
-      width: "200px",
+      width: createdWidth,
       admin: false,
-      selector: (row) => row.createdAt,
+      compact: true,
+      cell: (row) => (
+        <ResizableColumn
+          content={row.createdAt}
+          width={createdWidth.replace("px", "")}
+          setSelfWidth={(e) => {
+            setCreatedWidth(e);
+          }}
+          rightWidth={analyzedWidth.replace("px", "")}
+          setRightNeighbor={(newWidth) => {
+            setAnalyzedWidth(newWidth);
+          }}
+        />
+      ),
     },
     {
       name: "Last Analyzed",
-      width: "200px",
+      width: analyzedWidth,
+      id: "lastAnalyzed",
       admin: false,
-      selector: (row) => row.lastAnalyzed,
+      compact: true,
+      sortFunction: (rowA, rowB) => new Date(rowB.lastAnalyzed) - new Date(rowA.lastAnalyzed),
+      cell: (row) => (
+        <ResizableColumn
+          last={true}
+          content={row.lastAnalyzed}
+          width={analyzedWidth.replace("px", "")}
+          setSelfWidth={(e) => {
+            setAnalyzedWidth(e);
+          }}
+          rightWidth={checkWidth.replace("px", "")}
+          setRightNeighbor={(newWidth) => {
+            setCheckWidth(newWidth);
+          }}
+        />
+      ),
     },
     {
       name: "",
-      width: "100px",
+      width: checkWidth,
       admin: false,
+      compact: true,
       selector: (row) => (
         <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
       ),
@@ -178,34 +260,37 @@ export default function Uploads() {
   ];
 
   useEffect(() => {
-    if (jobs.length > 0) {
+    // removing loading spinner once jobs have been recieved or if 0 jobs were receieved because there were zero uploads for new users
+    if (jobs.length > 0 || (jobs.length === 0 && uploads)) {
       setPending(false);
     }
   }, [displayRows]);
+
   const toFilterField =
     accountType === "admin"
       ? {
           Owner: "username",
           Recording: "name",
           ID: "id",
-          "Date Created": "createdAt",
-          "Last Analyzed": "lastAnalyzed",
+          Date: "createdAt",
+          Analyzed: "lastAnalyzed",
         }
       : {
           Recording: "name",
           ID: "id",
-          "Date Created": "createdAt",
-          "Last Analyzed": "lastAnalyzed",
+          Date: "createdAt",
+          Analyzed: "lastAnalyzed",
         };
 
+  const filterColumns = () => {
+    return rows.filter((row) => {
+      return row[toFilterField[filterColumn]].toLocaleLowerCase().includes(filterString.toLocaleLowerCase());
+    });
+  };
   //when filter string changes, refilter results
   useEffect(() => {
-    if (filtercolumn) {
-      const newList = rows.filter((row) => {
-        return row[toFilterField[filtercolumn]]
-          .toLocaleLowerCase()
-          .includes(filterString.toLocaleLowerCase());
-      });
+    if (filterColumn) {
+      const newList = filterColumns();
       setDisplayRows(newList);
     }
   }, [filterString]);
@@ -276,39 +361,48 @@ export default function Uploads() {
   };
 
   useEffect(() => {
-    getAllJobs();
-    // don't call get jobs if downloading or deleting in progress because it backs up server
-    if (uploads.length > 0 && !statusUpdateInterval) {
-      statusUpdateInterval = setInterval(async () => {
-        if (!["downloading", "deleting"].includes(modalState)) {
-          await getAllJobs();
-        }
-      }, [1e4]);
+    if (uploads) {
+      getAllJobs();
+
+      if (uploads.length > 0) {
+        const statusUpdateInterval = setInterval(async () => {
+          if (!["downloading", "deleting"].includes(modalState)) {
+            await getAllJobs();
+          }
+        }, [1e4]);
+
+        return () => clearInterval(statusUpdateInterval);
+      }
     }
-    //clear interval when switching pages
-    return () => clearInterval(statusUpdateInterval);
   }, [uploads]);
 
   useEffect(() => {
-    const formattedUploads = uploads.map(({ username, id, filename, created_at }) => {
-      const formattedTime = formatDateTime(created_at);
-      const recName = filename ? filename.split(".")[0] : null;
-      const uploadJobs = jobs
-        .filter(({ uploadId }) => uploadId === id)
-        .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
-      const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
-      return {
-        username,
-        name: recName,
-        id,
-        createdAt: formattedTime,
-        lastAnalyzed,
-        jobs: uploadJobs,
-      };
-    });
+    if (uploads) {
+      const formattedUploads = uploads.map(({ username, id, filename, created_at }) => {
+        const formattedTime = formatDateTime(created_at);
+        const recName = filename ? filename.split(".")[0] : null;
+        const uploadJobs = jobs
+          .filter(({ uploadId }) => uploadId === id)
+          .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+        const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
+        return {
+          username,
+          name: recName,
+          id,
+          createdAt: formattedTime,
+          lastAnalyzed,
+          jobs: uploadJobs,
+        };
+      });
 
-    setRows([...formattedUploads]);
-    setDisplayRows([...formattedUploads]);
+      setRows([...formattedUploads]);
+      setDisplayRows([...formattedUploads]);
+
+      if (filterColumn) {
+        const newList = filterColumns();
+        setDisplayRows(newList);
+      }
+    }
   }, [jobs]);
 
   const handleDropdownSelection = (option) => {
@@ -530,6 +624,7 @@ export default function Uploads() {
       throw Error();
     }
   };
+
   const ExpandedComponent = ({ data }) => {
     return (
       <UploadsSubTable jobs={data.jobs} checkedJobs={checkedJobs} handleCheckedJobs={handleCheckedJobs} />
@@ -555,7 +650,10 @@ export default function Uploads() {
     // so it's resetting checkedJobs to empty array, then concat all relevant jobs
     checkedUploads.map((upload) => {
       const idx = displayRows.map((row) => row.id).indexOf(upload);
-      const jobIds = displayRows[idx].jobs.map(({ jobId }) => newCheckedJobs.push(jobId));
+      const jobIds = displayRows[idx].jobs.map(({ jobId, status }) => {
+        // only add jobs to checked array if not pending
+        if (status !== "pending") newCheckedJobs.push(jobId);
+      });
       newCheckedJobs.concat(jobIds);
     });
 
@@ -609,6 +707,7 @@ export default function Uploads() {
           </DropDownContainer>
           <Container>
             <DataTable
+              striped={true}
               data={displayRows}
               columns={uploadTableColumns
                 .filter(
@@ -626,6 +725,7 @@ export default function Uploads() {
               expandableRowsComponent={ExpandedComponent}
               customStyles={customStyles}
               progressPending={pending}
+              defaultSortFieldId="lastAnalyzed"
               progressComponent={
                 <SpinnerContainer>
                   <CircularSpinner size={200} color={"secondary"} />

@@ -12,7 +12,7 @@ const Container = styled.div`
   height: inherit;
   background-color: var(--dark-blue);
   min-width: 200px;
-  width: 15%;
+  width: 300px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -98,7 +98,7 @@ const userButtons = [
     label: "Run Analysis",
     disabled: false,
     page: "/upload-form",
-    options: ["Re-analyze Existing Upload", "Analyze New Files"],
+    options: ["Analyze New Files", "Re-analyze Existing Upload"],
   },
   {
     label: "Account Settings",

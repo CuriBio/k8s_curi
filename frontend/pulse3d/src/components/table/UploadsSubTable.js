@@ -29,7 +29,6 @@ const SubRowFileName = styled.div`
 `;
 const SubRowCheckbox = styled.div`
   font-size: 0.75rem;
-  margin: 1rem 0;
   width: 50%;
 `;
 export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, jobs }) {
@@ -46,12 +45,19 @@ export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, j
     return (
       <SubContainer key={Math.random()}>
         <SubRowCheckbox>
-          <Checkbox id={job.jobId} checked={checkedJobs.includes(job.jobId)} onChange={handleCheckedJobs} />
+          <Checkbox
+            id={job.jobId}
+            disabled={job.status === "pending"}
+            checked={checkedJobs.includes(job.jobId)}
+            onChange={handleCheckedJobs}
+          />
         </SubRowCheckbox>
-        <SubRowFileName>{job.analyzedFile ? job.analyzedFile : "none"}</SubRowFileName>
+        <SubRowFileName>{job.analyzedFile ? job.analyzedFile : "None"}</SubRowFileName>
         <SubRow>{job.datetime}</SubRow>
         <SubRow>{paramsString.length === 0 ? "None" : paramsString}</SubRow>
-        <SubRow>{job.status}</SubRow>
+        <SubRow>
+          {job.status === "finished" ? "Completed" : job.status[0].toUpperCase() + job.status.slice(1)}
+        </SubRow>
       </SubContainer>
     );
   });
