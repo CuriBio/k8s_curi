@@ -10,7 +10,7 @@ import DataTable from "react-data-table-component";
 import FilterHeader from "@/components/table/FilterHeader";
 import UploadsSubTable from "@/components/table/UploadsSubTable";
 import Checkbox from "@mui/material/Checkbox";
-import ReasizableColumn from "@/components/table/ResizableColumn";
+import ResizableColumn from "@/components/table/ResizableColumn";
 
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
@@ -155,7 +155,7 @@ export default function Uploads() {
       admin: true,
       compact: true,
       cell: (row) => (
-        <ReasizableColumn
+        <ResizableColumn
           first={true}
           content={row.username}
           width={ownerWidth.replace("px", "")}
@@ -175,7 +175,7 @@ export default function Uploads() {
       admin: false,
       compact: true,
       cell: (row) => (
-        <ReasizableColumn
+        <ResizableColumn
           content={row.name}
           width={recordingWidth.replace("px", "")}
           setSelfWidth={(e) => {
@@ -194,7 +194,7 @@ export default function Uploads() {
       admin: false,
       compact: true,
       cell: (row) => (
-        <ReasizableColumn
+        <ResizableColumn
           content={row.id}
           width={uploadWidth.replace("px", "")}
           setSelfWidth={(e) => {
@@ -213,7 +213,7 @@ export default function Uploads() {
       admin: false,
       compact: true,
       cell: (row) => (
-        <ReasizableColumn
+        <ResizableColumn
           content={row.createdAt}
           width={createdWidth.replace("px", "")}
           setSelfWidth={(e) => {
@@ -234,7 +234,7 @@ export default function Uploads() {
       compact: true,
       sortFunction: (rowA, rowB) => new Date(rowB.lastAnalyzed) - new Date(rowA.lastAnalyzed),
       cell: (row) => (
-        <ReasizableColumn
+        <ResizableColumn
           last={true}
           content={row.lastAnalyzed}
           width={analyzedWidth.replace("px", "")}

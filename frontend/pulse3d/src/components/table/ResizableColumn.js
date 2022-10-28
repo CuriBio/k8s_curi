@@ -1,6 +1,6 @@
 import { useState } from "react";
 import styled from "styled-components";
-const ResizeRigth = styled.div`
+const ResizeDiv = styled.div`
   width: 5px;
   height: 100%;
   min-width: 2px;
@@ -15,26 +15,26 @@ const RowCell = styled.div`
   align-items: center;
   padding-left: 20px;
 `;
-export default function ReasizableColumn({ content, width, setSelfWidth, setRightNeighbor, rightWidth }) {
-  const [initialX, setIntialx] = useState();
+export default function ResizableColumn({ content, width, setSelfWidth, setRightNeighbor, rightWidth }) {
+  const [initialX, setIntialX] = useState();
 
   const updateWidth = (e) => {
-    const differnce = e.clientX - initialX;
-    const newWidth = parseInt(width) + differnce;
+    const difference = e.clientX - initialX;
+    const newWidth = parseInt(width) + difference;
     if (newWidth < 100) {
       return;
     }
     setSelfWidth(`${newWidth}px`);
-    setRightNeighbor(`${parseInt(rightWidth) - differnce}px`);
-    setIntialx(e.clientX);
+    setRightNeighbor(`${parseInt(rightWidth) - difference}px`);
+    setIntialX(e.clientX);
   };
 
   return (
     <>
       <RowCell style={{ width: `${width}px` }}>{content}</RowCell>
-      <ResizeRigth
+      <ResizeDiv
         onMouseDown={(e) => {
-          setIntialx(e.clientX);
+          setIntialX(e.clientX);
         }}
         onDrag={(e) => {
           updateWidth(e);
