@@ -3,11 +3,9 @@ import styled from "styled-components";
 
 const InputsContainer = styled.div`
   width: 100%;
-  display: flex;
-  justify-content: space-evenly;
 `;
 
-export default function FilterHeader({ setFilterColumn, setFilterString, columns }) {
+export default function FilterHeader({ setFilterColumn, setFilterString, columns, filterBoxstyles }) {
   const [input, setInput] = useState("");
   const [columnName, setColumnName] = useState("");
 
@@ -39,7 +37,7 @@ export default function FilterHeader({ setFilterColumn, setFilterString, columns
         setInput(e.target.value);
         setColumnName(column);
       }}
-      style={column === "" ? { backgroundColor: "var(--dark-blue)", border: "none" } : null}
+      style={column === "" ? { backgroundColor: "var(--dark-blue)", border: "none" } : filterBoxstyles[idx]}
     />
   ));
 
