@@ -10,6 +10,7 @@ import DataTable from "react-data-table-component";
 import FilterHeader from "@/components/table/FilterHeader";
 import UploadsSubTable from "@/components/table/UploadsSubTable";
 import Checkbox from "@mui/material/Checkbox";
+import ReasizableColumn from "@/components/table/ResizableColumn";
 
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
@@ -33,18 +34,15 @@ const customStyles = {
   rows: {
     style: {
       backgroundColor: "var(--light-gray)",
+      borderTop: "1px solid black",
+      borderBottom: "1px solid black",
       borderLeft: "2px solid var(--dark-gray)",
       borderRight: "2px solid var(--dark-gray)",
+      minHeight: "0px",
+      height: "30px",
     },
   },
 };
-const filterBoxstyles = [
-  { position: "relative", left: "40px", width: "150px", margin: "0 30px 0 0" }, //file owner
-  { position: "relative", left: "40px", width: "150px", margin: "0 400px 0 0" }, //recording name
-  { position: "relative", left: "40px", width: "150px", margin: "0 150px 0 0" }, //upload id
-  { position: "relative", left: "90px", width: "150px", margin: "0 50px 0 0" }, //created
-  { position: "relative", left: "190px", width: "150px", margin: "0 0 0 0" }, //lastAnalyzed
-];
 
 const Container = styled.div`
   display: flex;
@@ -137,43 +135,124 @@ export default function Uploads() {
   const [filterString, setFilterString] = useState("");
   const [filterColumn, setFilterColumn] = useState("");
 
+  const [ownerWidth, setOwnerWidth] = useState("150px");
+  const [recordingWidth, setRecordingWidth] = useState("400px");
+  const [uploadWidth, setUploadWidth] = useState("350px");
+  const [createdWidth, setCreatedWidth] = useState("200px");
+  const [analyzedWidth, setAnalyzedWidth] = useState("200px");
+  const [checkWidth, setCheckWidth] = useState("50px");
+  const filterBoxstyles = [
+    { position: "relative", left: "25px", width: "150px", margin: "0 30px 0 0" }, //file owner
+    { position: "relative", left: "0px", width: "150px", margin: "0 245px 0 0" }, //recording name
+    { position: "relative", left: "0px", width: "150px", margin: "0 200px 0 0" }, //upload id
+    { position: "relative", left: "0px", width: "150px", margin: "0 50px 0 0" }, //created
+    { position: "relative", left: "0px", width: "150px", margin: "0 0 0 0" }, //lastAnalyzed
+  ];
   const uploadTableColumns = [
     {
       name: "File Owner",
-      width: "180px",
+      width: ownerWidth,
       admin: true,
-      selector: (row) => row.username,
+      compact: true,
+      cell: (row) => (
+        <ReasizableColumn
+          first={true}
+          content={row.username}
+          width={ownerWidth.replace("px", "")}
+          setSelfWidth={(newWidth) => {
+            setOwnerWidth(newWidth);
+          }}
+          rightWidth={recordingWidth.replace("px", "")}
+          setRightNeighbor={(newWidth) => {
+            setRecordingWidth(newWidth);
+          }}
+        />
+      ),
     },
     {
       name: "Recording Name",
-      width: "550px",
+      width: recordingWidth,
       admin: false,
-      selector: (row) => row.name,
+      compact: true,
+      cell: (row) => (
+        <ReasizableColumn
+          content={row.name}
+          width={recordingWidth.replace("px", "")}
+          setSelfWidth={(e) => {
+            setRecordingWidth(e);
+          }}
+          rightWidth={uploadWidth.replace("px", "")}
+          setRightNeighbor={(newWidth) => {
+            setUploadWidth(newWidth);
+          }}
+        />
+      ),
     },
     {
       name: "Upload ID",
-      width: "350px",
+      width: uploadWidth,
       admin: false,
-      selector: (row) => row.id,
+      compact: true,
+      cell: (row) => (
+        <ReasizableColumn
+          content={row.id}
+          width={uploadWidth.replace("px", "")}
+          setSelfWidth={(e) => {
+            setUploadWidth(e);
+          }}
+          rightWidth={createdWidth.replace("px", "")}
+          setRightNeighbor={(newWidth) => {
+            setCreatedWidth(newWidth);
+          }}
+        />
+      ),
     },
     {
       name: "Created Date",
-      width: "300px",
+      width: createdWidth,
       admin: false,
-      selector: (row) => row.createdAt,
+      compact: true,
+      cell: (row) => (
+        <ReasizableColumn
+          content={row.createdAt}
+          width={createdWidth.replace("px", "")}
+          setSelfWidth={(e) => {
+            setCreatedWidth(e);
+          }}
+          rightWidth={analyzedWidth.replace("px", "")}
+          setRightNeighbor={(newWidth) => {
+            setAnalyzedWidth(newWidth);
+          }}
+        />
+      ),
     },
     {
       name: "Last Analyzed",
-      width: "230px",
+      width: analyzedWidth,
       id: "lastAnalyzed",
       admin: false,
+      compact: true,
       sortFunction: (rowA, rowB) => new Date(rowB.lastAnalyzed) - new Date(rowA.lastAnalyzed),
-      selector: (row) => row.lastAnalyzed,
+      cell: (row) => (
+        <ReasizableColumn
+          last={true}
+          content={row.lastAnalyzed}
+          width={analyzedWidth.replace("px", "")}
+          setSelfWidth={(e) => {
+            setAnalyzedWidth(e);
+          }}
+          rightWidth={checkWidth.replace("px", "")}
+          setRightNeighbor={(newWidth) => {
+            setCheckWidth(newWidth);
+          }}
+        />
+      ),
     },
     {
       name: "",
-      width: "100px",
+      width: checkWidth,
       admin: false,
+      compact: true,
       selector: (row) => (
         <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
       ),
@@ -629,6 +708,7 @@ export default function Uploads() {
           </DropDownContainer>
           <Container>
             <DataTable
+              striped={true}
               data={displayRows}
               columns={uploadTableColumns
                 .filter(
