@@ -104,7 +104,6 @@ def create_token(
 
 def split_scope_account_data(scope: str) -> Tuple[str, str]:
     # example: 'pulse3d:paid' 'pulse3d:free'
-
     split_scope = scope.split(":")
     service = split_scope[0]
     customer_tier = split_scope[-1]
