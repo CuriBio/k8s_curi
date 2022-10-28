@@ -232,12 +232,12 @@ async def check_customer_quota(con, customer_id, service) -> Dict[str, bool]:
         usage_query = "SELECT usage_restrictions->$1 AS usage FROM customers WHERE id=$2"
         usage_json = await con.fetchrow(usage_query, service, customer_id)
         usage_dict = json.loads(usage_json["usage"])
+
         # grab total uploads and jobs of customer for specific service
-        jobs_type = "mantarray"  # REMEMBER TO CHANGE BACK AFTER MIGRATING TO USE PULSE3D
-        query = "SELECT count(*) FROM jobs_result WHERE customer_id=$1 AND type=$2 GROUP BY upload_id"
-        customer_data = [row["count"] async for row in con.cursor(query, customer_id, jobs_type)]
-        total_uploads = len(customer_data)
-        total_jobs = sum(customer_data)
+        query = "SELECT COUNT(*) as total_uploads, SUM(jobs_count) as total_jobs FROM (SELECT COUNT(*) AS jobs_count FROM jobs_result WHERE customer_id=$1 AND type=$2 GROUP BY upload_id) dt"
+        customer_data = await con.fetchrow(query, customer_id, service)
+        total_uploads = customer_data["total_uploads"]
+        total_jobs = customer_data["total_jobs"] if customer_data["total_jobs"] is not None else 0
 
         # return boolean values if reached, -1 means infinite uploads/jobs allowed for paid account
         return {

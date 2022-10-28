@@ -144,7 +144,7 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
 
                 tokens = await _create_new_tokens(con, row["id"], customer_id, scope, account_type)
                 return LoginResponse(tokens=tokens, usage_quota=usage_quota)
-    except IndexError as e:
+    except IndexError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="No scope for service found in customer scopes"
         )
@@ -270,8 +270,8 @@ async def register(
     """
     ph = PasswordHasher()
     customer_id = uuid.UUID(hex=token["userid"])
-    customer_scopes = token["scope"]
-
+    # 'customer:paid' or 'customer:free'
+    customer_scope = token["scope"]
     try:
         # still hash even if user or customer exists to avoid timing analysis leaks
         phash = ph.hash(details.password1.get_secret_value())
@@ -285,18 +285,17 @@ async def register(
 
         # scope will not be sent in request body for both customer and user registration
         if is_customer_registration_attempt:
-            scope = details.scope 
+            scope = details.scope
             insert_query = "INSERT INTO customers (email, password, data) VALUES ($1, $2, $3) RETURNING id"
             query_params = (
                 details.email,
                 phash,
-                json.dumps({"scope": scope}), 
+                json.dumps({"scope": scope}),
             )
         else:
             # new user scope will default to free, will update to paid if paid scope found in customer token
             # TODO add handling for multiple service scopes and exception handling if none found
-            customer_scopes_for_service = [s for s in customer_scopes if details.service in s]
-            customer_tier = customer_scopes_for_service[0].split(":")[-1] # 'free' or 'paid'
+            customer_tier = customer_scope[0].split(":")[-1]  # 'free' or 'paid'
             # for now, assuming that each user registration will only be called with one service
             user_scope = [f"{details.service}:{customer_tier}"]
             # suspended and verified get set to False by default
@@ -304,6 +303,7 @@ async def register(
                 "INSERT INTO users (name, email, password, account_type, data, customer_id) "
                 "VALUES ($1, $2, $3, $4, $5, $6) RETURNING id"
             )
+
             query_params = (
                 details.username,
                 details.email,

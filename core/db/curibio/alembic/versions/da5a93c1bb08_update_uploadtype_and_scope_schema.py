@@ -1,10 +1,10 @@
-"update UploadType and scope schema
+"""update UploadType and scope schema
 
 Revision ID: da5a93c1bb08
 Revises: 4aac7b465d29
 Create Date: 2022-10-26 07:20:30.894705
 
-"
+"""
 from alembic import op
 import json
 

@@ -122,7 +122,6 @@ async def create_recording_upload(
             "customer_id": customer_id,
         }
         async with request.state.pgpool.acquire() as con:
-
             usage_quota = await check_customer_quota(con, customer_id, service)
             if usage_quota["uploads_reached"]:
                 raise CustomerUsageQuotaReached()

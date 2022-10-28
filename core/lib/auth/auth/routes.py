@@ -22,9 +22,7 @@ security = HTTPBearer()
 
 
 class ProtectedAny:
-    def __init__(
-        self, scope: List[str] = ["pulse3d:user:paid"], refresh: bool = False, check_scope: bool = True
-    ):
+    def __init__(self, scope: List[str] = ["pulse3d:paid"], refresh: bool = False, check_scope: bool = True):
         # don't check scope if using this for refresh tokens
         if refresh:
             check_scope = False
@@ -75,7 +73,7 @@ def create_token(
         raise ValueError(f"Valid account types are 'user' and 'customer', not '{account_type}'")
     if account_type == "user":
         # make sure a user is not given admin privileges
-        if "customer" in scope:
+        if any("customer" in s for s in scope):
             raise ValueError(f"User tokens cannot have scope '{scope}'")
         if not customer_id:
             raise ValueError("User tokens must have a customer ID")
