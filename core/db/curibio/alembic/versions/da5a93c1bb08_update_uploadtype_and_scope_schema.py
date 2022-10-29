@@ -43,6 +43,11 @@ def upgrade():
             server_default="pulse3d",
         ),
     )
+    op.execute("GRANT ALL PRIVILEGES ON TABLE jobs_result TO curibio_users")
+    op.execute("GRANT SELECT ON TABLE jobs_result TO curibio_users_ro")
+
+    op.execute("GRANT ALL PRIVILEGES ON TABLE customers TO curibio_jobs")
+    op.execute("GRANT SELECT ON TABLE customers TO curibio_jobs_ro")
 
 
 def downgrade():
@@ -58,9 +63,12 @@ def downgrade():
     op.execute("""CREATE TYPE "UploadType" AS ENUM('mantarray', 'nautilus', 'pulse2d')""")
     # set enums to column
     op.execute("""ALTER TABLE uploads ALTER COLUMN type TYPE "UploadType" USING type::text::"UploadType" """)
-    op.execute(
-        """ALTER TABLE jobs_result ALTER COLUMN type TYPE "UploadType" USING type::text::"UploadType" """
-    )
+
     # drop the old type, cleanup
     op.execute("DROP TYPE oldUploadType")
     op.execute("UPDATE uploads SET type='mantarray' where type='nautilus'")
+
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE jobs_result FROM curibio_users")
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE jobs_result FROM curibio_users_ro")
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE customers FROM curibio_jobs")
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE customers FROM curibio_jobs_ro")

@@ -227,8 +227,8 @@ export default function ControlPanel() {
                 </AccordionSummary>
                 <AccordionDetails>
                   <ListContainer>
-                    {options.map((val, idx) => (
-                      <ListItem key={val} value={idx} onClick={handleListClick}>
+                    {options.map((val) => (
+                      <ListItem key={val} value={val} onClick={handleListClick}>
                         {val}
                       </ListItem>
                     ))}
