@@ -9,7 +9,7 @@ export default function FilterHeader({ setFilterColumn, setFilterString, columns
   const [input, setInput] = useState("");
   const [columnName, setColumnName] = useState("");
 
-  //when collumn changes then reset all inputs
+  //when column changes then reset all inputs
   useEffect(() => {
     setFilterColumn(columnName);
     Array.from(document.getElementsByClassName("searchBox")).forEach((input) => {

@@ -9,9 +9,10 @@ const refreshMutex = new Mutex();
 
 const USERS_URL = new URLSearchParams(location.search).get("users_url");
 const PULSE3D_URL = new URLSearchParams(location.search).get("pulse3d_url");
-
+const USAGE_URLS = ["/login", "/uploads", "/jobs"];
 // add timestamps to logging
 const originalLog = console.log;
+
 console.log = function () {
   const time = new Date().toLocaleTimeString("en-US", {
     hour12: false,
@@ -25,6 +26,7 @@ console.log = function () {
 /* Global state of SW */
 
 let accountType = null;
+let usageQuota = null;
 
 const setAccountType = (type) => {
   accountType = type;
@@ -34,6 +36,20 @@ const clearAccountType = () => {
   accountType = null;
 };
 
+// this only gets used if a response gets returned that the quota has been filled by another user during a users session
+const sendUsageQuota = (usage) => {
+  ClientSource.postMessage({ usageQuota: usage });
+  console.log("Sending just usage quota");
+  setUsageQuota(usage);
+};
+
+const setUsageQuota = (usage) => {
+  usageQuota = usage;
+};
+
+const clearUsageQuota = () => {
+  usageQuota = null;
+};
 const tokens = {
   access: null,
   refresh: null,
@@ -74,6 +90,7 @@ const sendLogoutMsg = () => {
 const clearAccountInfo = () => {
   clearTokens();
   clearAccountType();
+  clearUsageQuota();
   // TODO change all console.log to console.debug and figure out how to enable debug logging
   console.log("account info cleared");
 };
@@ -94,6 +111,7 @@ const modifyRequest = async (req, url) => {
     ...req.headers,
     "Content-Type": "application/json",
   });
+
   if (!isLoginRequest(url) && tokens.access) {
     // login request does not require the Authorization header,
     // and if there are no tokens that should mean that no account is logged in
@@ -180,15 +198,18 @@ const interceptResponse = async (req, url) => {
     if (response.status === 200) {
       // set tokens if login was successful
       const data = await response.json();
-      setTokens(data);
+      setTokens(data.tokens);
       let accountType = jwtDecode(tokens.access).account_type; // either token will work here
 
       if (accountType === "customer") {
         // token types are 'user' and 'customer', but FE uses 'user' and 'admin'
         accountType = "admin";
       }
+
       console.log("Setting account type:", accountType);
       setAccountType(accountType);
+      // sending usage at login, is separate from auth check request because it's not needed as often
+      setUsageQuota(data.usage_quota);
     }
 
     // send the response without the tokens so they are always contained within this service worker
@@ -200,13 +221,22 @@ const interceptResponse = async (req, url) => {
   } else {
     const response = await requestWithRefresh(req, url);
 
-    if (url.pathname.includes("logout")) {
+    // these URLs will return usage_error in the body with a 200 response
+    if (USAGE_URLS.includes(url.pathname) && req.method === "POST" && response.status == 200) {
+      const resBodyToCheck = await response.json();
+
+      // set the usage error to SW state to send in auth check, will return a 200 status
+      if (resBodyToCheck.usage_error) setUsageQuota(resBodyToCheck.usage_error);
+      // make sure to send the rest of the body for the uploads-form to handle response itself
+      return new Response(JSON.stringify(resBodyToCheck));
+    } else if (url.pathname.includes("logout")) {
       // just clear account info if user purposefully logs out
       clearAccountInfo();
     } else if (response.status === 401 || response.status === 403) {
       // if any other request receives an unauthorized or forbidden error code, send logout ping (this fn will also clear account info)
       sendLogoutMsg();
     }
+
     return response;
   }
 };
@@ -245,6 +275,7 @@ self.onmessage = ({ data, source }) => {
       isLoggedIn: tokens.access !== null,
       accountType,
       routerPathname: data.routerPathname,
+      usageQuota,
     });
   } else if (data.msgType === "stayAlive") {
     // TODO should have this do something else so that there isn't a log msg produced every 20 seconds

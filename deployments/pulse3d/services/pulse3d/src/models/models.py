@@ -60,3 +60,7 @@ class WaveformDataResponse(BaseModel):
 
 class JobDownloadRequest(BaseModel):
     job_ids: List[uuid.UUID]
+
+
+class UsageErrorResponse(BaseModel):
+    usage_error: Dict[str, bool]

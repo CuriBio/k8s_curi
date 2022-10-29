@@ -20,7 +20,7 @@ const columns = [
     selector: (row) => formatDateTime(row.created_at),
   },
   {
-    name: "Last Loggedin",
+    name: "Last Login",
     selector: (row) => formatDateTime(row.last_login),
   },
   {
@@ -75,8 +75,10 @@ const PageContainer = styled.div`
 
 const Container = styled.div`
   position: relative;
-  padding: 0% 3% 3% 3%;
-  margin-top: 1rem;
+  margin: 0% 3% 3% 3%;
+  margin-top: 3rem;
+  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
+    0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
 
 const SpinnerContainer = styled.div`
@@ -123,6 +125,7 @@ export default function UserInfo() {
       console.log("ERROR fetching all users info");
     }
   };
+
   //gets users at load
   useEffect(() => {
     getAllUsers();
@@ -140,15 +143,20 @@ export default function UserInfo() {
     Name: "name",
     Email: "email",
     "Date Created": "created_at",
-    "Last Loggedin": "last_login",
+    "Last Login": "last_login",
   };
+
   //when filter string changes refilter results
   useEffect(() => {
     const newList = usersData.filter((user) => {
       //if the column containes date data
-      return formatDateTime(user[toUserField[filtercolumn]])
-        .toLocaleLowerCase()
-        .includes(filterString.toLocaleLowerCase());
+      if (["Date Created", "Last Login"].includes(filtercolumn)) {
+        return formatDateTime(user[toUserField[filtercolumn]])
+          .toLocaleLowerCase()
+          .includes(filterString.toLocaleLowerCase());
+      } else {
+        return user[toUserField[filtercolumn]].toLocaleLowerCase().includes(filterString.toLocaleLowerCase());
+      }
     });
     setDisplayData(newList);
   }, [filterString]);
@@ -183,7 +191,7 @@ export default function UserInfo() {
             subHeader
             subHeaderComponent={
               <FilterHeader
-                columns={["Name", "Email", "Date Created", "Last Loggedin"]}
+                columns={["Name", "Email", "Date Created", "Last Login"]}
                 setFilterString={setFilterString}
                 setFilterColumn={setFilterColumn}
                 loading={loading}

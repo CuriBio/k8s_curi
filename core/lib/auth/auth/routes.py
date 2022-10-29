@@ -1,6 +1,6 @@
 from calendar import timegm
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from uuid import UUID
 
 from fastapi import HTTPException, Depends, status
@@ -22,7 +22,7 @@ security = HTTPBearer()
 
 
 class ProtectedAny:
-    def __init__(self, scope: List[str] = ["users:free"], refresh: bool = False, check_scope: bool = True):
+    def __init__(self, scope: List[str] = ["pulse3d:paid"], refresh: bool = False, check_scope: bool = True):
         # don't check scope if using this for refresh tokens
         if refresh:
             check_scope = False
@@ -73,8 +73,8 @@ def create_token(
         raise ValueError(f"Valid account types are 'user' and 'customer', not '{account_type}'")
     if account_type == "user":
         # make sure a user is not given admin privileges
-        if "users:admin" in scope:
-            raise ValueError("User tokens cannot have scope 'users:admin'")
+        if any("customer" in s for s in scope):
+            raise ValueError(f"User tokens cannot have scope '{scope}'")
         if not customer_id:
             raise ValueError("User tokens must have a customer ID")
         customer_id = customer_id.hex
@@ -93,7 +93,6 @@ def create_token(
     now = datetime.now(tz=timezone.utc)
     iat = timegm(now.utctimetuple())
     exp = timegm((now + timedelta(minutes=exp_dur)).utctimetuple())
-
     jwt_meta = JWTMeta(aud=JWT_AUDIENCE, scope=scope, iat=iat, exp=exp, refresh=refresh)
     jwt_details = JWTDetails(customer_id=customer_id, userid=userid.hex, account_type=account_type)
     jwt_payload = JWTPayload(**jwt_meta.dict(), **jwt_details.dict())
@@ -101,3 +100,12 @@ def create_token(
     jwt_token = jwt.encode(payload=jwt_payload.dict(), key=str(JWT_SECRET_KEY), algorithm=JWT_ALGORITHM)
 
     return Token(token=jwt_token)
+
+
+def split_scope_account_data(scope: str) -> Tuple[str, str]:
+    # example: 'pulse3d:paid' 'pulse3d:free'
+    split_scope = scope.split(":")
+    service = split_scope[0]
+    customer_tier = split_scope[-1]
+
+    return service, customer_tier

@@ -14,7 +14,7 @@ const Container = styled.div`
 export const UploadsContext = createContext();
 
 export default function DashboardLayout({ children }) {
-  const [uploads, setUploads] = useState([]);
+  const [uploads, setUploads] = useState();
   const [fetchUploads, setFetchUploads] = useState(false);
   const [pulse3dVersions, setPulse3dVersions] = useState([]);
   const [metaPulse3dVersions, setMetaPulse3dVersions] = useState([]);
