@@ -185,7 +185,7 @@ export default function ControlPanel() {
         {buttons.map(({ disabled, label, page, options }, idx) => {
           const handleListClick = (e) => {
             e.preventDefault();
-            router.push({ pathname: page, query: { id: e.target.value } });
+            router.push({ pathname: page, query: { id: e.target.id } });
           };
 
           const handleSelected = (e) => {
@@ -228,7 +228,7 @@ export default function ControlPanel() {
                 <AccordionDetails>
                   <ListContainer>
                     {options.map((val) => (
-                      <ListItem key={val} value={val} onClick={handleListClick}>
+                      <ListItem key={val} id={val} onClick={handleListClick}>
                         {val}
                       </ListItem>
                     ))}
