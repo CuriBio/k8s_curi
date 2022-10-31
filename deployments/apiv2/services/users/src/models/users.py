@@ -4,7 +4,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, SecretStr
 from pydantic import constr, validator
-
 from models.tokens import AuthTokens
 
 USERNAME_MIN_LEN = 3
