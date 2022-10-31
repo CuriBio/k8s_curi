@@ -68,7 +68,7 @@ def downgrade():
     op.execute("DROP TYPE oldUploadType")
     op.execute("UPDATE uploads SET type='mantarray' where type='nautilus'")
 
-    op.execute("REVOKE ALL PRIVILEGES ON TABLE jobs_result FROM curibio_users")
-    op.execute("REVOKE ALL PRIVILEGES ON TABLE jobs_result FROM curibio_users_ro")
-    op.execute("REVOKE ALL PRIVILEGES ON TABLE customers FROM curibio_jobs")
-    op.execute("REVOKE ALL PRIVILEGES ON TABLE customers FROM curibio_jobs_ro")
+    op.execute("REVOKE SELECT ON TABLE jobs_result FROM curibio_users")
+    op.execute("REVOKE SELECT ON TABLE jobs_result FROM curibio_users_ro")
+    op.execute("REVOKE SELECT ON TABLE customers FROM curibio_jobs")
+    op.execute("REVOKE SELECT ON TABLE customers FROM curibio_jobs_ro")
