@@ -75,7 +75,7 @@ async def process(con, item):
                 logger.info("Checking if time force data exists in s3")
 
                 # adding prefix here representing the version of pulse3D used
-                parquet_filename = f"{PULSE3D_VERSION}_{os.path.splitext(filename)[0]}.parquet"
+                parquet_filename = f"{PULSE3D_VERSION}/{os.path.splitext(filename)[0]}.parquet"
                 parquet_key = f"{prefix}/time_force_data/{parquet_filename}"
                 parquet_path = os.path.join(tmpdir, parquet_filename)
 
