@@ -154,6 +154,7 @@ export default function Uploads() {
       width: ownerWidth,
       admin: true,
       compact: true,
+      sortFunction: (rowA, rowB) => rowA.username.localeCompare(rowB.username),
       cell: (row) => (
         <ResizableColumn
           first={true}
@@ -174,6 +175,7 @@ export default function Uploads() {
       width: recordingWidth,
       admin: false,
       compact: true,
+      sortFunction: (rowA, rowB) => rowA.name.localeCompare(rowB.name),
       cell: (row) => (
         <ResizableColumn
           content={row.name}
@@ -193,6 +195,7 @@ export default function Uploads() {
       width: uploadWidth,
       admin: false,
       compact: true,
+      sortFunction: (rowA, rowB) => rowA.id.localeCompare(rowB.id),
       cell: (row) => (
         <ResizableColumn
           content={row.id}
@@ -212,6 +215,7 @@ export default function Uploads() {
       width: createdWidth,
       admin: false,
       compact: true,
+      sortFunction: (rowA, rowB) => new Date(rowB.createdAt) - new Date(rowA.createdAt),
       cell: (row) => (
         <ResizableColumn
           content={row.createdAt}
@@ -381,9 +385,7 @@ export default function Uploads() {
       const formattedUploads = uploads.map(({ username, id, filename, created_at }) => {
         const formattedTime = formatDateTime(created_at);
         const recName = filename ? filename.split(".")[0] : null;
-        const uploadJobs = jobs
-          .filter(({ uploadId }) => uploadId === id)
-          .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+        const uploadJobs = jobs.filter(({ uploadId }) => uploadId === id);
         const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
         return {
           username,
@@ -649,8 +651,8 @@ export default function Uploads() {
     // every checked upload should have all of it's jobs checked
     // so it's resetting checkedJobs to empty array, then concat all relevant jobs
     checkedUploads.map((upload) => {
-      const idx = displayRows.map((row) => row.id).indexOf(upload);
-      const jobIds = displayRows[idx].jobs.map(({ jobId, status }) => {
+      const idx = rows.map((row) => row.id).indexOf(upload);
+      const jobIds = rows[idx].jobs.map(({ jobId, status }) => {
         // only add jobs to checked array if not pending
         if (status !== "pending") newCheckedJobs.push(jobId);
       });
@@ -670,8 +672,8 @@ export default function Uploads() {
 
       // remove corresponding upload as checked because a checked upload cannot have any unchecked jobs
       checkedUploads.map((upload, uploadIdx) => {
-        const idx = displayRows.map((row) => row.id).indexOf(upload);
-        const jobIds = displayRows[idx].jobs.map(({ jobId }) => jobId);
+        const idx = rows.map((row) => row.id).indexOf(upload);
+        const jobIds = rows[idx].jobs.map(({ jobId }) => jobId);
         const missingJobs = jobIds.filter((id) => !checkedJobs.includes(id));
 
         if (missingJobs.length > 0) checkedUploads.splice(uploadIdx, 1);
@@ -747,7 +749,6 @@ export default function Uploads() {
                   filterBoxstyles={accountType === "admin" ? filterBoxstyles : filterBoxstyles.slice(1)}
                 />
               }
-              selectableRowsNoSelectAll
             />
           </Container>
         </PageContainer>

@@ -39,6 +39,7 @@ export default function ResizableColumn({ content, width, setSelfWidth, setRight
         onDrag={(e) => {
           updateWidth(e);
         }}
+        draggable={true}
       />
     </>
   );
