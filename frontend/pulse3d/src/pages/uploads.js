@@ -675,8 +675,6 @@ export default function Uploads() {
       // remove corresponding upload as checked because a checked upload cannot have any unchecked jobs
       checkedUploads.map((upload, uploadIdx) => {
         const idx = rows.map((row) => row.id).indexOf(upload);
-        // console.log(idx);
-        // console.log(rows[idx])
         const jobIds = rows[idx].jobs.map(({ jobId }) => jobId);
         const missingJobs = jobIds.filter((id) => !checkedJobs.includes(id));
         if (missingJobs.length > 0) checkedUploads.splice(uploadIdx, 1);
@@ -689,13 +687,6 @@ export default function Uploads() {
     // set checked jobs either way
     setCheckedJobs([...checkedJobs]);
   };
-
-  useEffect(() => {
-    console.log("check jobs: " + checkedJobs);
-  }, [checkedJobs]);
-  useEffect(() => {
-    console.log("check uploads: " + checkedUploads);
-  }, [checkedUploads]);
   return (
     <>
       {!openInteractiveAnalysis ? (
