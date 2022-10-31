@@ -264,7 +264,7 @@ export default function UploadForm() {
   const checkForMultiRecZips = async () => {
     var JSZip = require("jszip");
 
-    if (tabSelection === "1") {
+    if (tabSelection === "Analyze New Files") {
       const asyncFilter = async (arr, predicate) =>
         Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
@@ -433,7 +433,7 @@ export default function UploadForm() {
     <Container>
       <Uploads>
         <Header>Run Analysis</Header>
-        {tabSelection === "0" ? (
+        {tabSelection === "Analyze New Files" ? (
           <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
             handleFileChange={(files) => setFiles(Object.values(files))}
             dropZoneText={dropZoneText}
