@@ -35,9 +35,11 @@ export default function ResizableColumn({ content, width, setSelfWidth, setRight
       <ResizeDiv
         onMouseDown={(e) => {
           setInitialX(e.clientX);
+          console.log("yes");
         }}
         onDrag={(e) => {
           updateWidth(e);
+          console.log("s");
         }}
       />
     </>

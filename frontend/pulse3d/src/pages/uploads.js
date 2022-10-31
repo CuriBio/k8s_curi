@@ -296,7 +296,6 @@ export default function Uploads() {
     if (filterColumn) {
       const newList = filterColumns();
       setDisplayRows(newList);
-      console.log("here");
     }
   }, [filterString]);
 
@@ -387,7 +386,6 @@ export default function Uploads() {
         const formattedTime = formatDateTime(created_at);
         const recName = filename ? filename.split(".")[0] : null;
         const uploadJobs = jobs.filter(({ uploadId }) => uploadId === id);
-        //.sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
         const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
         return {
           username,
