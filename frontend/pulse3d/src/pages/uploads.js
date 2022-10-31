@@ -154,6 +154,7 @@ export default function Uploads() {
       width: ownerWidth,
       admin: true,
       compact: true,
+      sortFunction: (rowA, rowB) => rowB.username > rowA.username,
       cell: (row) => (
         <ResizableColumn
           first={true}
@@ -174,6 +175,7 @@ export default function Uploads() {
       width: recordingWidth,
       admin: false,
       compact: true,
+      sortFunction: (rowA, rowB) => rowB.name < rowA.name,
       cell: (row) => (
         <ResizableColumn
           content={row.name}
@@ -193,6 +195,7 @@ export default function Uploads() {
       width: uploadWidth,
       admin: false,
       compact: true,
+      sortFunction: (rowA, rowB) => rowB.id > rowA.id,
       cell: (row) => (
         <ResizableColumn
           content={row.id}
@@ -212,6 +215,7 @@ export default function Uploads() {
       width: createdWidth,
       admin: false,
       compact: true,
+      sortFunction: (rowA, rowB) => new Date(rowB.createdAt) - new Date(rowA.createdAt),
       cell: (row) => (
         <ResizableColumn
           content={row.createdAt}
@@ -292,6 +296,7 @@ export default function Uploads() {
     if (filterColumn) {
       const newList = filterColumns();
       setDisplayRows(newList);
+      console.log("here");
     }
   }, [filterString]);
 
@@ -381,9 +386,8 @@ export default function Uploads() {
       const formattedUploads = uploads.map(({ username, id, filename, created_at }) => {
         const formattedTime = formatDateTime(created_at);
         const recName = filename ? filename.split(".")[0] : null;
-        const uploadJobs = jobs
-          .filter(({ uploadId }) => uploadId === id)
-          .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+        const uploadJobs = jobs.filter(({ uploadId }) => uploadId === id);
+        //.sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
         const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
         return {
           username,
@@ -753,7 +757,6 @@ export default function Uploads() {
                   filterBoxstyles={accountType === "admin" ? filterBoxstyles : filterBoxstyles.slice(1)}
                 />
               }
-              selectableRowsNoSelectAll
             />
           </Container>
         </PageContainer>
