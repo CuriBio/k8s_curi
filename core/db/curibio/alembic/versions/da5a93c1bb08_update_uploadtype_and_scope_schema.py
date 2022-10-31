@@ -43,10 +43,10 @@ def upgrade():
             server_default="pulse3d",
         ),
     )
-    op.execute("GRANT ALL PRIVILEGES ON TABLE jobs_result TO curibio_users")
+    op.execute("GRANT SELECT ON TABLE jobs_result TO curibio_users")
     op.execute("GRANT SELECT ON TABLE jobs_result TO curibio_users_ro")
 
-    op.execute("GRANT ALL PRIVILEGES ON TABLE customers TO curibio_jobs")
+    op.execute("GRANT SELECT ON TABLE customers TO curibio_jobs")
     op.execute("GRANT SELECT ON TABLE customers TO curibio_jobs_ro")
 
 
