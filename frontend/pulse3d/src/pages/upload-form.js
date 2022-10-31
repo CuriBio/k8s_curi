@@ -211,9 +211,6 @@ export default function UploadForm() {
         stiffnessFactor,
       } = analysisParams;
 
-      console.log("stiffnessFactor:", stiffnessFactor);
-      return;
-
       const version =
         selectedPulse3dVersion === "" || !selectedPulse3dVersion
           ? pulse3dVersions[0]
@@ -273,7 +270,6 @@ export default function UploadForm() {
         Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
       const badZipfiles = await asyncFilter(files, async (file) => {
-        console.log("!!!", file);
         try {
           const zip = new JSZip();
           const { files: loadedFiles } = await zip.loadAsync(file);

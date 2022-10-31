@@ -22,8 +22,8 @@ export default function DashboardLayout({ children }) {
 
   const stiffnessFactorDetails = {
     Auto: null,
-    Cardiac: 1,
-    "Skeletal Muscle": 12,
+    "Cardiac (1x)": 1,
+    "Skeletal Muscle (12x)": 12,
   };
 
   useEffect(() => {
