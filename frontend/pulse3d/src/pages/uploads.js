@@ -653,8 +653,8 @@ export default function Uploads() {
     // every checked upload should have all of it's jobs checked
     // so it's resetting checkedJobs to empty array, then concat all relevant jobs
     checkedUploads.map((upload) => {
-      const idx = displayRows.map((row) => row.id).indexOf(upload);
-      const jobIds = displayRows[idx].jobs.map(({ jobId, status }) => {
+      const idx = rows.map((row) => row.id).indexOf(upload);
+      const jobIds = rows[idx].jobs.map(({ jobId, status }) => {
         // only add jobs to checked array if not pending
         if (status !== "pending") newCheckedJobs.push(jobId);
       });
@@ -674,8 +674,10 @@ export default function Uploads() {
 
       // remove corresponding upload as checked because a checked upload cannot have any unchecked jobs
       checkedUploads.map((upload, uploadIdx) => {
-        const idx = displayRows.map((row) => row.id).indexOf(upload);
-        const jobIds = displayRows[idx].jobs.map(({ jobId }) => jobId);
+        const idx = rows.map((row) => row.id).indexOf(upload);
+        // console.log(idx);
+        // console.log(rows[idx])
+        const jobIds = rows[idx].jobs.map(({ jobId }) => jobId);
         const missingJobs = jobIds.filter((id) => !checkedJobs.includes(id));
         if (missingJobs.length > 0) checkedUploads.splice(uploadIdx, 1);
       });
@@ -688,6 +690,12 @@ export default function Uploads() {
     setCheckedJobs([...checkedJobs]);
   };
 
+  useEffect(() => {
+    console.log("check jobs: " + checkedJobs);
+  }, [checkedJobs]);
+  useEffect(() => {
+    console.log("check uploads: " + checkedUploads);
+  }, [checkedUploads]);
   return (
     <>
       {!openInteractiveAnalysis ? (
