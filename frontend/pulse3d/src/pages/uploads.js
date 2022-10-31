@@ -154,7 +154,6 @@ export default function Uploads() {
       name: "File Owner",
       width: ownerWidth,
       admin: true,
-
       sortFunction: (rowA, rowB) => rowA.username.localeCompare(rowB.username),
       cell: (row) => (
         <ResizableColumn
@@ -175,7 +174,6 @@ export default function Uploads() {
       name: "Recording Name",
       width: recordingWidth,
       admin: false,
-
       sortFunction: (rowA, rowB) => rowA.name.localeCompare(rowB.name),
       cell: (row) => (
         <ResizableColumn
@@ -195,7 +193,6 @@ export default function Uploads() {
       name: "Upload ID",
       width: uploadWidth,
       admin: false,
-
       sortFunction: (rowA, rowB) => rowA.id.localeCompare(rowB.id),
       cell: (row) => (
         <ResizableColumn
@@ -215,7 +212,6 @@ export default function Uploads() {
       name: "Created Date",
       width: createdWidth,
       admin: false,
-
       sortFunction: (rowA, rowB) => new Date(rowB.createdAt) - new Date(rowA.createdAt),
       cell: (row) => (
         <ResizableColumn
@@ -236,7 +232,6 @@ export default function Uploads() {
       width: analyzedWidth,
       id: "lastAnalyzed",
       admin: false,
-
       sortFunction: (rowA, rowB) => new Date(rowB.lastAnalyzed) - new Date(rowA.lastAnalyzed),
       cell: (row) => (
         <ResizableColumn
@@ -257,7 +252,6 @@ export default function Uploads() {
       name: "",
       width: checkWidth,
       admin: false,
-
       selector: (row) => (
         <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
       ),
