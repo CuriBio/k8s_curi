@@ -13,7 +13,8 @@ from jwt.exceptions import InvalidTokenError
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from pydantic import EmailStr
 
-from auth import ProtectedAny, create_token, decode_token
+from auth import ProtectedAny, create_token, decode_token, CUSTOMER_SCOPES, split_scope_account_data
+from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
 from models.errors import LoginError, RegistrationError, EmailRegistrationError
 from models.tokens import AuthTokens
@@ -25,6 +26,7 @@ from models.users import (
     CustomerProfile,
     UserProfile,
     UserAction,
+    LoginResponse,
 )
 from utils.db import AsyncpgPoolDep
 from fastapi.templating import Jinja2Templates
@@ -65,7 +67,7 @@ async def startup():
         CB_CUSTOMER_ID = await con.fetchval("SELECT id FROM customers WHERE email = 'software@curibio.com'")
 
 
-@app.post("/login", response_model=AuthTokens)
+@app.post("/login", response_model=LoginResponse)
 async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
     """Login a user or customer account.
 
@@ -95,15 +97,16 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
     else:
         account_type = "user"
         # suspended is for deactivated accounts and verified is for new users needing to verify through email
-        select_query = (
-            "SELECT password, id, data->'scope' AS scope "
-            "FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND suspended='f' AND verified='t'"
+        # select for service specific usage restrictions listed under the customer account
+        select_query = "SELECT password, id, data->'scope' AS scope FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND suspended='f' AND verified='t'"
+        select_query_params = (
+            details.username,
+            str(details.customer_id),
         )
-        select_query_params = (details.username, str(details.customer_id))
         customer_id = details.customer_id
-
     try:
         async with request.state.pgpool.acquire() as con:
+
             row = await con.fetchrow(select_query, *select_query_params)
             pw = details.password.get_secret_value()
 
@@ -126,8 +129,24 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
                 ph.hash(pw)
                 raise LoginError(failed_msg)
             else:
-                scope = ["users:admin"] if is_customer_login_attempt else json.loads(row.get("scope", "[]"))
-                return await _create_new_tokens(con, row["id"], customer_id, scope, account_type)
+                # both users and customers have scopes
+                # check account usage quotas
+                cust_id = customer_id if customer_id is not None else row["id"]
+                usage_quota = await check_customer_quota(con, str(cust_id), details.service)
+                scope = json.loads(row.get("scope", "[]"))
+
+                if is_customer_login_attempt:
+                    # get tier of service scope in list of customer scopes
+                    scope = [s for s in scope if details.service in s]
+                    if not scope:
+                        raise LoginError("No scope for service found in customer scopes")
+
+                    # replace with customer scope
+                    _, customer_tier = split_scope_account_data(scope[0])
+                    scope[0] = f"customer:{customer_tier}"
+
+                tokens = await _create_new_tokens(con, row["id"], customer_id, scope, account_type)
+                return LoginResponse(tokens=tokens, usage_quota=usage_quota)
 
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
@@ -216,6 +235,7 @@ async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False)
     It is up to the client to discard the access token in order to truly logout the user.
     """
     userid = uuid.UUID(hex=token["userid"])
+
     if token["account_type"] == "customer":
         update_query = "UPDATE customers SET refresh_token = NULL WHERE id = $1"
     else:
@@ -236,7 +256,7 @@ async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False)
 async def register(
     request: Request,
     details: Union[CustomerCreate, UserCreate],
-    token=Depends(ProtectedAny(scope=["users:admin"])),
+    token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES)),
 ):
     """Register a user or customer account.
 
@@ -247,12 +267,11 @@ async def register(
     assume this is an attempt to register a new customer account.
 
     Otherwise, attempt to register a regular user under the customer ID in the auth token
-
-    **NOTE** there is currently no way to register a paid user, so all registered users will be created in
-    the free tier until a way to designate the tier is specced out and added
     """
     ph = PasswordHasher()
     customer_id = uuid.UUID(hex=token["userid"])
+    # 'customer:paid' or 'customer:free'
+    customer_scope = token["scope"]
     try:
         # still hash even if user or customer exists to avoid timing analysis leaks
         phash = ph.hash(details.password1.get_secret_value())
@@ -264,23 +283,32 @@ async def register(
         register_type = "customer" if is_customer_registration_attempt else "user"
         logger.info(f"Attempting {register_type} registration")
 
+        # scope will not be sent in request body for both customer and user registration
         if is_customer_registration_attempt:
-            scope = ["users:admin"]
-            insert_query = "INSERT INTO customers (email, password) VALUES ($1, $2) RETURNING id"
-            query_params = (details.email, phash)
+            scope = details.scope
+            insert_query = "INSERT INTO customers (email, password, data) VALUES ($1, $2, $3) RETURNING id"
+            query_params = (
+                details.email,
+                phash,
+                json.dumps({"scope": scope}),
+            )
         else:
-            scope = ["users:free"]
+            # TODO add handling for multiple service scopes and exception handling if none found
+            _, customer_tier = split_scope_account_data(customer_scope[0])  # 'free' or 'paid'
+            # for now, assuming that each user registration will only be called with one service
+            user_scope = [f"{details.service}:{customer_tier}"]
             # suspended and verified get set to False by default
             insert_query = (
                 "INSERT INTO users (name, email, password, account_type, data, customer_id) "
                 "VALUES ($1, $2, $3, $4, $5, $6) RETURNING id"
             )
+
             query_params = (
                 details.username,
                 details.email,
                 phash,
-                "free",
-                json.dumps({"scope": scope}),
+                customer_tier,
+                json.dumps({"scope": user_scope}),
                 customer_id,
             )
 
@@ -316,14 +344,14 @@ async def register(
                     await _send_registration_email(details.username, details.email, verification_token.token)
 
                 if is_customer_registration_attempt:
-                    return CustomerProfile(email=details.email, user_id=result.hex, scope=scope)
+                    return CustomerProfile(email=details.email, user_id=result.hex, scope=details.scope)
                 else:
                     return UserProfile(
                         username=details.username,
                         email=details.email,
                         user_id=result.hex,
-                        account_type="free",
-                        scope=scope,
+                        account_type=customer_tier,
+                        scope=user_scope,
                     )
 
     except EmailRegistrationError as e:
@@ -369,7 +397,10 @@ async def _send_registration_email(username: str, email: EmailStr, verification_
 
 
 @app.get("/")
-async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=["users:admin"]))):
+async def get_all_users(
+    request: Request,
+    token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES)),
+):
     """Get info for all the users under the given customer account.
 
     List of users returned will be sorted with all active users showing up first, then all the suspended (deactivated) users
@@ -414,7 +445,11 @@ async def verify_user_email(
 # Luci (10/5/22) Following two routes need to be last otherwise will mess with the ProtectedAny scope used in Auth
 # Please see https://fastapi.tiangolo.com/tutorial/path-params/#order-matters
 @app.get("/{user_id}")
-async def get_user(request: Request, user_id: uuid.UUID, token=Depends(ProtectedAny(scope=["users:admin"]))):
+async def get_user(
+    request: Request,
+    user_id: uuid.UUID,
+    token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES)),
+):
     """Get info for the user with the given under the given customer account."""
     customer_id = uuid.UUID(hex=token["userid"])
 
@@ -446,7 +481,7 @@ async def update_user(
     request: Request,
     details: UserAction,
     user_id: uuid.UUID,
-    token=Depends(ProtectedAny(scope=["users:admin"])),
+    token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES)),
 ):
     """Update a user's information in the database.
 

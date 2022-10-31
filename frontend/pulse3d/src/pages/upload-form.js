@@ -71,6 +71,22 @@ const defaultUploadErrorLabel =
 const defaultZipErrorLabel =
   "The following file(s) will not be uploaded because they either contain multiple recordings or do not have the correct number of H5 files.";
 
+const modalObj = {
+  uploadsReachedDuringSession: {
+    header: "Warning!",
+    messages: [
+      "The upload limit has been reached for this customer account during your session preventing this recording from being uploaded.",
+      "You will only be allowed to perform re-analysis on existing files.",
+    ],
+  },
+  jobsReachedDuringSession: {
+    header: "Warning!",
+    messages: [
+      "All usage limits have been reached for this customer account during your session preventing this analyses from starting.",
+      "You will not be able to upload new recording files or perform re-analysis on existing files.",
+    ],
+  },
+};
 export default function UploadForm() {
   const { uploads, pulse3dVersions } = useContext(UploadsContext);
 
@@ -89,7 +105,7 @@ export default function UploadForm() {
     };
   };
 
-  const { query } = useRouter();
+  const router = useRouter();
   const [files, setFiles] = useState([]);
   const [formattedUploads, setFormattedUploads] = useState([]);
   const [isButtonDisabled, setIsButtonDisabled] = useState(true);
@@ -99,8 +115,10 @@ export default function UploadForm() {
   const [failedUploadsMsg, setFailedUploadsMsg] = useState([defaultUploadErrorLabel]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [checkedParams, setCheckedParams] = useState(false);
-  const [tabSelection, setTabSelection] = useState(query.id);
+  const [tabSelection, setTabSelection] = useState(router.query.id);
   const [modalState, setModalState] = useState(false);
+  const [usageModalState, setUsageModalState] = useState(false);
+  const [usageModalLabels, setUsageModalLabels] = useState(modalObj.uploadsReachedDuringSession);
   const [analysisParams, setAnalysisParams] = useState(getDefaultAnalysisParams());
 
   const resetAnalysisParams = () => {
@@ -138,9 +156,9 @@ export default function UploadForm() {
 
   useEffect(() => {
     // reset all params if the user switches between the "re-analyze" and "new upload" versions of this page
-    setTabSelection(query.id);
+    setTabSelection(router.query.id);
     resetState();
-  }, [query]);
+  }, [router.query]);
 
   useEffect(() => {
     if (uploads) {
@@ -209,6 +227,7 @@ export default function UploadForm() {
         // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
         version,
       };
+
       if (semverGte(version, "0.25.0")) {
         requestBody.max_y = maxY === "" ? null : maxY;
       }
@@ -219,7 +238,15 @@ export default function UploadForm() {
         method: "POST",
         body: JSON.stringify(requestBody),
       });
-      if (jobResponse.status !== 200) {
+
+      const jobData = await jobResponse.json();
+      // 403 gets returned in quota limit reached responses
+      // modal gets handled in ControlPanel
+      if (jobData.usage_error) {
+        console.log("ERROR starting job because customer job limit has been reached");
+        setUsageModalLabels(modalObj.jobsReachedDuringSession);
+        setUsageModalState(true);
+      } else if (jobResponse.status !== 200) {
         failedUploadsMsg.push(filename);
         console.log("ERROR posting new job: ", await jobResponse.json());
       }
@@ -237,7 +264,7 @@ export default function UploadForm() {
   const checkForMultiRecZips = async () => {
     var JSZip = require("jszip");
 
-    if (tabSelection === "0") {
+    if (tabSelection === "Analyze New Files") {
       const asyncFilter = async (arr, predicate) =>
         Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
@@ -341,18 +368,25 @@ export default function UploadForm() {
         body: JSON.stringify({
           filename,
           md5s: hexToBase64(fileHash),
-          upload_type: "mantarray",
+          upload_type: "pulse3d",
         }),
       });
 
-      // break flow if initial request returns error status code
       if (uploadResponse.status !== 200) {
+        // break flow if initial request returns error status code
         failedUploadsMsg.push(filename);
         console.log("ERROR uploading file metadata to DB:  ", await uploadResponse.json());
         return;
       }
 
       const data = await uploadResponse.json();
+
+      if (data.usage_error) {
+        console.log("ERROR uploading file because customer upload limit has been reached");
+        setUsageModalLabels(modalObj.uploadsReachedDuringSession);
+        setUsageModalState(true);
+        return;
+      }
       const uploadDetails = data.params;
       const uploadId = data.id;
       const formData = new FormData();
@@ -399,7 +433,7 @@ export default function UploadForm() {
     <Container>
       <Uploads>
         <Header>Run Analysis</Header>
-        {tabSelection === "0" ? (
+        {tabSelection === "Analyze New Files" ? (
           <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
             handleFileChange={(files) => setFiles(Object.values(files))}
             dropZoneText={dropZoneText}
@@ -455,6 +489,15 @@ export default function UploadForm() {
         buttons={modalButtons}
         closeModal={handleClose}
         header="Error Occurred"
+      />
+      <ModalWidget
+        open={usageModalState}
+        labels={usageModalLabels.messages}
+        closeModal={() => {
+          setUsageModalState(false);
+          router.replace("/uploads", undefined, { shallow: true });
+        }}
+        header={usageModalLabels.header}
       />
     </Container>
   );

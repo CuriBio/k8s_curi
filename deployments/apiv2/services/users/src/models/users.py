@@ -1,9 +1,10 @@
 import re
-from typing import Optional
+from typing import Optional, List, Dict
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, SecretStr
 from pydantic import constr, validator
+from models.tokens import AuthTokens
 
 USERNAME_MIN_LEN = 3
 USERNAME_MAX_LEN = 32
@@ -22,18 +23,21 @@ PASSWORD_REGEX = r"""(
 class CustomerLogin(BaseModel):
     email: EmailStr
     password: SecretStr
+    service: str
 
 
 class UserLogin(BaseModel):
     customer_id: UUID
     username: str
     password: SecretStr
+    service: str
 
 
 class CustomerCreate(BaseModel):
     email: EmailStr
     password1: SecretStr
     password2: SecretStr
+    scope: List[str]
     # adding this attr and its validator to force /register to use UserCreate if a username is given
     username: Optional[str]
 
@@ -61,6 +65,8 @@ class CustomerCreate(BaseModel):
 
 class UserCreate(CustomerCreate):
     username: str
+    service: str
+    scope: Optional[List[str]]
 
     @validator("username")
     def username_alphanumeric(cls, v):
@@ -85,14 +91,19 @@ class UserProfile(BaseModel):
     email: EmailStr
     user_id: str
     account_type: str
-    scope: list
+    scope: List[str]
 
 
 class CustomerProfile(BaseModel):
     email: EmailStr
     user_id: str
-    scope: list
+    scope: List[str]
 
 
 class UserAction(BaseModel):
     action_type: str
+
+
+class LoginResponse(BaseModel):
+    tokens: AuthTokens
+    usage_quota: Optional[Dict[str, bool]]

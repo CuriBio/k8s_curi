@@ -16,6 +16,7 @@ import ResizableColumn from "@/components/table/ResizableColumn";
 const columnProperties = {
   center: false,
   sortable: true,
+  compact: true,
 };
 
 const customStyles = {
@@ -125,7 +126,7 @@ const modalObjs = {
   },
 };
 export default function Uploads() {
-  const { accountType } = useContext(AuthContext);
+  const { accountType, usageQuota } = useContext(AuthContext);
   const { uploads, setFetchUploads, pulse3dVersions } = useContext(UploadsContext);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
@@ -153,7 +154,7 @@ export default function Uploads() {
       name: "File Owner",
       width: ownerWidth,
       admin: true,
-      compact: true,
+
       sortFunction: (rowA, rowB) => rowA.username.localeCompare(rowB.username),
       cell: (row) => (
         <ResizableColumn
@@ -174,7 +175,7 @@ export default function Uploads() {
       name: "Recording Name",
       width: recordingWidth,
       admin: false,
-      compact: true,
+
       sortFunction: (rowA, rowB) => rowA.name.localeCompare(rowB.name),
       cell: (row) => (
         <ResizableColumn
@@ -194,7 +195,7 @@ export default function Uploads() {
       name: "Upload ID",
       width: uploadWidth,
       admin: false,
-      compact: true,
+
       sortFunction: (rowA, rowB) => rowA.id.localeCompare(rowB.id),
       cell: (row) => (
         <ResizableColumn
@@ -214,7 +215,7 @@ export default function Uploads() {
       name: "Created Date",
       width: createdWidth,
       admin: false,
-      compact: true,
+
       sortFunction: (rowA, rowB) => new Date(rowB.createdAt) - new Date(rowA.createdAt),
       cell: (row) => (
         <ResizableColumn
@@ -235,7 +236,7 @@ export default function Uploads() {
       width: analyzedWidth,
       id: "lastAnalyzed",
       admin: false,
-      compact: true,
+
       sortFunction: (rowA, rowB) => new Date(rowB.lastAnalyzed) - new Date(rowA.lastAnalyzed),
       cell: (row) => (
         <ResizableColumn
@@ -256,7 +257,7 @@ export default function Uploads() {
       name: "",
       width: checkWidth,
       admin: false,
-      compact: true,
+
       selector: (row) => (
         <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
       ),
@@ -675,7 +676,6 @@ export default function Uploads() {
         const idx = rows.map((row) => row.id).indexOf(upload);
         const jobIds = rows[idx].jobs.map(({ jobId }) => jobId);
         const missingJobs = jobIds.filter((id) => !checkedJobs.includes(id));
-
         if (missingJobs.length > 0) checkedUploads.splice(uploadIdx, 1);
       });
 
@@ -694,15 +694,22 @@ export default function Uploads() {
           <DropDownContainer>
             <DropDownWidget
               label="Actions"
-              options={["Download", "Delete", "Interactive Analysis"]}
+              options={
+                accountType === "admin"
+                  ? ["Download", "Delete"]
+                  : ["Download", "Delete", "Interactive Analysis"]
+              }
               disableOptions={[
                 ...Array(2).fill(checkedJobs.length === 0 && checkedUploads.length === 0),
                 checkedJobs.length !== 1 ||
-                  jobs.filter((job) => job.jobId === checkedJobs[0])[0].status !== "finished",
+                  jobs.filter((job) => job.jobId === checkedJobs[0])[0].status !== "finished" ||
+                  (usageQuota && usageQuota.jobs_reached),
               ]}
               optionsTooltipText={[
                 ...Array(2).fill("Must make a selection below before actions become available."),
-                "You must select one successful job to enable interactive analysis.",
+                usageQuota && usageQuota.jobs_reached
+                  ? "Interactive analysis is disabled because customer limit has been reached."
+                  : "You must select one successful job to enable interactive analysis.",
               ]}
               handleSelection={handleDropdownSelection}
               reset={resetDropdown}

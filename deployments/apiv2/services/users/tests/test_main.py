@@ -13,7 +13,7 @@ from auth import create_token
 from auth.settings import REFRESH_TOKEN_EXPIRE_MINUTES
 from src import main
 from src.models.tokens import AuthTokens
-from src.models.users import USERNAME_MIN_LEN, USERNAME_MAX_LEN, USERNAME_VALID_SPECIAL_CHARS
+from src.models.users import USERNAME_MIN_LEN, USERNAME_MAX_LEN, USERNAME_VALID_SPECIAL_CHARS, LoginResponse
 
 test_client = TestClient(main.app)
 
@@ -29,7 +29,7 @@ def get_token(*, userid=None, customer_id=None, scope=None, account_type=None, r
     if not customer_id and account_type == "user":
         customer_id = uuid.uuid4()
     if not scope:
-        scope = ["users:free"] if account_type == "user" else ["users:admin"]
+        scope = ["pulse3d:free"] if account_type == "user" else ["customer:paid"]
 
     return create_token(
         userid=userid, customer_id=customer_id, scope=scope, account_type=account_type, refresh=refresh
@@ -98,10 +98,17 @@ def test_routes_requiring_auth_without_tokens(method, route):
 
 @freeze_time()
 def test_login__user__success(cb_customer_id, mocked_asyncpg_con, mocker):
+    mocked_usage_check = mocker.patch.object(
+        main,
+        "check_customer_quota",
+        return_value={"uploads_reached": True, "jobs_reached": False},
+        autospec=True,
+    )
     login_details = {
         "customer_id": str(cb_customer_id),
         "username": "test_username",
         "password": "test_password",
+        "service": "pulse3d",
     }
     pw_hash = PasswordHasher().hash(login_details["password"])
     test_user_id = uuid.uuid4()
@@ -123,7 +130,11 @@ def test_login__user__success(cb_customer_id, mocked_asyncpg_con, mocker):
 
     response = test_client.post("/login", json=login_details)
     assert response.status_code == 200
-    assert response.json() == AuthTokens(access=expected_access_token, refresh=expected_refresh_token)
+
+    assert response.json() == LoginResponse(
+        tokens=AuthTokens(access=expected_access_token, refresh=expected_refresh_token),
+        usage_quota=mocked_usage_check.return_value,
+    )
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
         "SELECT password, id, data->'scope' AS scope FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND suspended='f' AND verified='t'",
@@ -139,28 +150,46 @@ def test_login__user__success(cb_customer_id, mocked_asyncpg_con, mocker):
 
 @freeze_time()
 def test_login__customer__success(mocked_asyncpg_con, mocker):
-    login_details = {"email": "test@email.com", "password": "test_password"}
+    mocked_usage_check = mocker.patch.object(
+        main,
+        "check_customer_quota",
+        return_value={"uploads_reached": True, "jobs_reached": False},
+        asutospec=True,
+    )
+
+    login_details = {"email": "test@email.com", "password": "test_password", "service": "pulse3d"}
     pw_hash = PasswordHasher().hash(login_details["password"])
     test_customer_id = uuid.uuid4()
-    customer_scope = ["users:admin"]
+    customer_scope = ["pulse3d:free"]
 
-    mocked_asyncpg_con.fetchrow.return_value = {"password": pw_hash, "id": test_customer_id}
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "password": pw_hash,
+        "id": test_customer_id,
+        "scope": json.dumps(customer_scope),
+    }
     spied_create_token = mocker.spy(main, "create_token")
 
     expected_access_token = create_token(
         userid=test_customer_id,
         customer_id=None,
-        scope=customer_scope,
+        scope=["customer:free"],
         account_type="customer",
         refresh=False,
     )
     expected_refresh_token = create_token(
-        userid=test_customer_id, customer_id=None, scope=customer_scope, account_type="customer", refresh=True
+        userid=test_customer_id,
+        customer_id=None,
+        scope=["customer:free"],
+        account_type="customer",
+        refresh=True,
     )
 
     response = test_client.post("/login", json=login_details)
     assert response.status_code == 200
-    assert response.json() == AuthTokens(access=expected_access_token, refresh=expected_refresh_token)
+    assert response.json() == LoginResponse(
+        tokens=AuthTokens(access=expected_access_token, refresh=expected_refresh_token),
+        usage_quota=mocked_usage_check.return_value,
+    )
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
         "SELECT password, id, data->'scope' AS scope FROM customers WHERE deleted_at IS NULL AND email = $1",
@@ -177,7 +206,7 @@ def test_login__customer__success(mocked_asyncpg_con, mocker):
 
 def test_login__no_matching_record_in_db(mocked_asyncpg_con):
     # arbitrarily deciding to use customer login here
-    login_details = {"email": "test@email.com", "password": "test_password"}
+    login_details = {"email": "test@email.com", "password": "test_password", "service": "pulse3d"}
 
     mocked_asyncpg_con.fetchrow.return_value = None
 
@@ -188,7 +217,7 @@ def test_login__no_matching_record_in_db(mocked_asyncpg_con):
 
 def test_login__incorrect_password(mocked_asyncpg_con):
     # arbitrarily deciding to use customer login here
-    login_details = {"email": "test@email.com", "password": "test_password"}
+    login_details = {"email": "test@email.com", "password": "test_password", "service": "pulse3d"}
 
     mocked_asyncpg_con.fetchrow.return_value = {"password": "bad_hash", "id": uuid.uuid4()}
 
@@ -211,6 +240,7 @@ def test_register__user__allows_valid_usernames(
         "username": f"test{special_char}username",
         "password1": TEST_PASSWORD,
         "password2": TEST_PASSWORD,
+        "service": "pulse3d",
     }
 
     if end_with_num:
@@ -218,10 +248,10 @@ def test_register__user__allows_valid_usernames(
 
     test_user_id = uuid.uuid4()
     test_customer_id = cb_customer_id if use_cb_customer_id else uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, scope=["users:admin"], account_type="customer")
+    access_token = get_token(userid=test_customer_id, scope=["customer:paid"], account_type="customer")
 
     mocked_asyncpg_con.fetchval.return_value = test_user_id
-    expected_scope = ["users:free"]
+    expected_scope = ["pulse3d:paid"]
 
     response = test_client.post(
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -231,7 +261,7 @@ def test_register__user__allows_valid_usernames(
         "username": registration_details["username"],
         "email": registration_details["email"],
         "user_id": test_user_id.hex,
-        "account_type": "free",
+        "account_type": "paid",
         "scope": expected_scope,
     }
 
@@ -240,7 +270,7 @@ def test_register__user__allows_valid_usernames(
         registration_details["username"],
         registration_details["email"],
         spied_pw_hasher.spy_return,
-        "free",
+        "paid",
         json.dumps({"scope": expected_scope}),
         test_customer_id,
     )
@@ -252,10 +282,11 @@ def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, cb_cus
         "email": "test@email.com",
         "password1": TEST_PASSWORD,
         "password2": TEST_PASSWORD,
+        "scope": ["customer:paid"],
     }
 
     test_user_id = uuid.uuid4()
-    expected_scope = ["users:admin"]
+    expected_scope = ["customer:paid"]
     access_token = get_token(userid=cb_customer_id, scope=expected_scope, account_type="customer")
 
     mocked_asyncpg_con.fetchval.return_value = test_user_id
@@ -271,9 +302,10 @@ def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, cb_cus
     }
 
     mocked_asyncpg_con.fetchval.assert_called_once_with(
-        "INSERT INTO customers (email, password) VALUES ($1, $2) RETURNING id",
+        "INSERT INTO customers (email, password, data) VALUES ($1, $2, $3) RETURNING id",
         registration_details["email"],
         spied_pw_hasher.spy_return,
+        json.dumps({"scope": expected_scope}),
     )
     spied_pw_hasher.assert_called_once_with(mocker.ANY, registration_details["password1"])
 
@@ -291,9 +323,10 @@ def test_register__user__invalid_username_length(length, err_msg, cb_customer_id
         "username": "a" * length,
         "password1": TEST_PASSWORD,
         "password2": TEST_PASSWORD,
+        "service": "pulse3d",
     }
 
-    access_token = get_token(userid=cb_customer_id, scope=["users:admin"], account_type="customer")
+    access_token = get_token(userid=cb_customer_id, scope=["customer:paid"], account_type="customer")
 
     response = test_client.post(
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -309,9 +342,10 @@ def test_register__user__with_invalid_char_in_username(special_char, cb_customer
         "username": f"bad{special_char}username",
         "password1": TEST_PASSWORD,
         "password2": TEST_PASSWORD,
+        "service": "pulse3d",
     }
 
-    access_token = get_token(userid=cb_customer_id, scope=["users:admin"], account_type="customer")
+    access_token = get_token(userid=cb_customer_id, scope=["customer:paid"], account_type="customer")
 
     response = test_client.post(
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -330,9 +364,10 @@ def test_register__user__with_invalid_first_char(bad_first_char, cb_customer_id)
         "username": f"{bad_first_char}username",
         "password1": TEST_PASSWORD,
         "password2": TEST_PASSWORD,
+        "service": "pulse3d",
     }
 
-    access_token = get_token(userid=cb_customer_id, scope=["users:admin"], account_type="customer")
+    access_token = get_token(userid=cb_customer_id, scope=["customer:paid"], account_type="customer")
 
     response = test_client.post(
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -348,9 +383,10 @@ def test_register__user__with_invalid_final_char(bad_final_char, cb_customer_id)
         "username": f"username{bad_final_char}",
         "password1": TEST_PASSWORD,
         "password2": TEST_PASSWORD,
+        "service": "pulse3d",
     }
 
-    access_token = get_token(userid=cb_customer_id, scope=["users:admin"], account_type="customer")
+    access_token = get_token(userid=cb_customer_id, scope=["customer:paid"], account_type="customer")
 
     response = test_client.post(
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -366,9 +402,10 @@ def test_register__user__with_consecutive_special_chars(special_char, cb_custome
         "username": f"a-{special_char}a",
         "password1": TEST_PASSWORD,
         "password2": TEST_PASSWORD,
+        "service": "pulse3d",
     }
 
-    access_token = get_token(userid=cb_customer_id, scope=["users:admin"], account_type="customer")
+    access_token = get_token(userid=cb_customer_id, scope=["customer:paid"], account_type="customer")
 
     response = test_client.post(
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -393,10 +430,11 @@ def test_register__user__unique_constraint_violations(
         "username": "testusername",
         "password1": TEST_PASSWORD,
         "password2": TEST_PASSWORD,
+        "service": "pulse3d",
     }
 
     test_user_id = uuid.uuid4()
-    access_token = get_token(userid=test_user_id, scope=["users:admin"], account_type="customer")
+    access_token = get_token(userid=test_user_id, scope=["customer:paid"], account_type="customer")
 
     mocked_asyncpg_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)
 
@@ -421,9 +459,10 @@ def test_register__customer__unique_constraint_violations(
         "email": "test@email.com",
         "password1": TEST_PASSWORD,
         "password2": TEST_PASSWORD,
+        "scope": ["customer:paid"],
     }
 
-    access_token = get_token(userid=cb_customer_id, scope=["users:admin"], account_type="customer")
+    access_token = get_token(userid=cb_customer_id, scope=["customer:paid"], account_type="customer")
 
     # setting this
     mocked_asyncpg_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)

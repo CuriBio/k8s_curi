@@ -25,9 +25,17 @@ from pulse3D.constants import (
     DEFAULT_WIDTH_FACTORS,
 )
 
-from auth import ProtectedAny
+from auth import ProtectedAny, PULSE3D_USER_SCOPES, PULSE3D_SCOPES, split_scope_account_data
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET, DASHBOARD_URL
-from jobs import create_upload, create_job, get_uploads, get_jobs, delete_jobs, delete_uploads
+from jobs import (
+    create_upload,
+    create_job,
+    get_uploads,
+    get_jobs,
+    delete_jobs,
+    delete_uploads,
+    check_customer_quota,
+)
 from models.models import (
     UploadRequest,
     UploadResponse,
@@ -35,8 +43,8 @@ from models.models import (
     JobResponse,
     JobDownloadRequest,
     WaveformDataResponse,
+    UsageErrorResponse,
 )
-
 from models.types import TupleParam
 
 from utils.db import AsyncpgPoolDep
@@ -75,7 +83,7 @@ async def startup():
 async def get_info_of_uploads(
     request: Request,
     upload_ids: Optional[List[uuid.UUID]] = Query(None),
-    token=Depends(ProtectedAny(scope=["users:free", "users:admin"])),
+    token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)),
 ):
     # need to convert to UUIDs to str to avoid issues with DB
     if upload_ids:
@@ -93,13 +101,16 @@ async def get_info_of_uploads(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.post("/uploads", response_model=UploadResponse)
+@app.post("/uploads", response_model=Union[UploadResponse, UsageErrorResponse])
 async def create_recording_upload(
-    request: Request, details: UploadRequest, token=Depends(ProtectedAny(scope=["users:free"]))
+    request: Request,
+    details: UploadRequest,
+    token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES)),
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
         customer_id = str(uuid.UUID(token["customer_id"]))
+        service, _ = split_scope_account_data(token["scope"][0])
 
         upload_params = {
             "prefix": f"uploads/{customer_id}/{user_id}/{{upload_id}}",
@@ -107,8 +118,13 @@ async def create_recording_upload(
             "md5": details.md5s,
             "user_id": user_id,
             "type": details.upload_type,
+            "customer_id": customer_id,
         }
         async with request.state.pgpool.acquire() as con:
+            usage_quota = await check_customer_quota(con, customer_id, service)
+            if usage_quota["uploads_reached"]:
+                return UsageErrorResponse(usage_error=usage_quota)
+
             # Tanner (7/5/22): using a transaction here so that if _generate_presigned_post fails
             # then the new upload row won't be committed
             async with con.transaction():
@@ -123,7 +139,6 @@ async def create_recording_upload(
                 )
 
                 return UploadResponse(id=upload_id, params=params)
-
     except S3Error as e:
         logger.exception(str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
@@ -136,7 +151,7 @@ async def create_recording_upload(
 async def soft_delete_uploads(
     request: Request,
     upload_ids: List[uuid.UUID] = Query(None),
-    token=Depends(ProtectedAny(scope=["users:free", "users:admin"])),
+    token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)),
 ):
     # make sure at least one upload ID was given
     if not upload_ids:
@@ -158,7 +173,9 @@ async def soft_delete_uploads(
 # TODO Tanner (4/21/22): probably want to move this to a more general svc (maybe in apiv2-dep) dedicated to uploading misc files to s3
 @app.post("/logs")
 async def create_log_upload(
-    request: Request, details: UploadRequest, token=Depends(ProtectedAny(scope=["users:free"]))
+    request: Request,
+    details: UploadRequest,
+    token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES)),
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
@@ -189,7 +206,7 @@ async def get_info_of_jobs(
     request: Request,
     job_ids: Optional[List[uuid.UUID]] = Query(None),
     download: bool = Query(True),
-    token=Depends(ProtectedAny(scope=["users:free", "users:admin"])),
+    token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)),
 ):
     # need to convert UUIDs to str to avoid issues with DB
     if job_ids:
@@ -250,11 +267,15 @@ async def _get_jobs(con, token, job_ids):
 
 @app.post("/jobs")
 async def create_new_job(
-    request: Request, details: JobRequest, token=Depends(ProtectedAny(scope=["users:free"]))
+    request: Request,
+    details: JobRequest,
+    token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES)),
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
-        logger.info(f"Creating pulse3d job for upload {details.upload_id} with user ID: {user_id}")
+        customer_id = str(uuid.UUID(token["customer_id"]))
+        service, _ = split_scope_account_data(token["scope"][0])
+        logger.info(f"Creating {service} job for upload {details.upload_id} with user ID: {user_id}")
 
         params = [
             "baseline_widths_to_use",
@@ -291,18 +312,24 @@ async def create_new_job(
 
         priority = 10
         async with request.state.pgpool.acquire() as con:
+
+            usage_quota = await check_customer_quota(con, customer_id, service)
+            if usage_quota["jobs_reached"]:
+                return UsageErrorResponse(usage_error=usage_quota)
+
             job_id = await create_job(
                 con=con,
                 upload_id=details.upload_id,
                 queue=f"pulse3d-v{details.version}",
                 priority=priority,
                 meta={"analysis_params": analysis_params, "version": details.version},
+                customer_id=customer_id,
+                job_type=service,
             )
 
         return JobResponse(
             id=job_id, user_id=user_id, upload_id=details.upload_id, status="pending", priority=priority
         )
-
     except Exception as e:
         logger.exception(f"Failed to create job: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -330,7 +357,7 @@ def _format_tuple_param(
 async def soft_delete_jobs(
     request: Request,
     job_ids: List[uuid.UUID] = Query(None),
-    token=Depends(ProtectedAny(scope=["users:free", "users:admin"])),
+    token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)),
 ):
     # make sure at least one job ID was given
     if not job_ids:
@@ -354,7 +381,7 @@ async def soft_delete_jobs(
 async def download_analyses(
     request: Request,
     details: JobDownloadRequest,
-    token=Depends(ProtectedAny(scope=["users:free", "users:admin"])),
+    token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)),
 ):
     job_ids = details.job_ids
 
@@ -421,7 +448,7 @@ async def get_interactive_waveform_data(
     request: Request,
     upload_id: uuid.UUID = Query(None),
     job_id: uuid.UUID = Query(None),
-    token=Depends(ProtectedAny(scope=["users:free"])),
+    token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES)),
 ):
 
     account_id = str(uuid.UUID(token["userid"]))
