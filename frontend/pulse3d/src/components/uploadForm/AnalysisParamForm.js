@@ -416,7 +416,7 @@ export default function AnalysisParamForm({
                 title={
                   <TooltipText>
                     {
-                      "Specifies the post stiffness factor. If omitted, will use the value encoded in the barcode."
+                      "Specifies the post stiffness factor. If set to auto, will use the value encoded in the barcode."
                     }
                   </TooltipText>
                 }
