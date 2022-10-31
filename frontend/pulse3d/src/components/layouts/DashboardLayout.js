@@ -20,6 +20,12 @@ export default function DashboardLayout({ children }) {
   const [metaPulse3dVersions, setMetaPulse3dVersions] = useState([]);
   const router = useRouter();
 
+  const stiffnessFactorDetails = {
+    Auto: null,
+    Cardiac: 1,
+    "Skeletal Muscle": 12,
+  };
+
   useEffect(() => {
     if (router.pathname === "/uploads") {
       getUploads();
@@ -71,7 +77,14 @@ export default function DashboardLayout({ children }) {
 
   return (
     <UploadsContext.Provider
-      value={{ uploads, setUploads, setFetchUploads, pulse3dVersions, metaPulse3dVersions }}
+      value={{
+        uploads,
+        setUploads,
+        setFetchUploads,
+        pulse3dVersions,
+        metaPulse3dVersions,
+        stiffnessFactorDetails,
+      }}
     >
       <Container>
         <ControlPanel />

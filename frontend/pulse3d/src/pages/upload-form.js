@@ -101,6 +101,7 @@ export default function UploadForm() {
       twitchWidths: "",
       startTime: "",
       endTime: "",
+      stiffnessFactor: null,
       selectedPulse3dVersion: pulse3dVersions[0] || "", // Tanner (9/15/22): The pulse3d version technically isn't a param, but it lives in the same part of the form as the params
     };
   };
@@ -210,6 +211,9 @@ export default function UploadForm() {
         stiffnessFactor,
       } = analysisParams;
 
+      console.log("stiffnessFactor:", stiffnessFactor);
+      return;
+
       const version =
         selectedPulse3dVersion === "" || !selectedPulse3dVersion
           ? pulse3dVersions[0]
@@ -269,14 +273,15 @@ export default function UploadForm() {
         Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
       const badZipfiles = await asyncFilter(files, async (file) => {
+        console.log("!!!", file);
         try {
           const zip = new JSZip();
-          const { files } = await zip.loadAsync(file);
+          const { files: loadedFiles } = await zip.loadAsync(file);
 
-          const dirs = Object.values(files).filter(({ dir }) => dir);
+          const dirs = Object.values(loadedFiles).filter(({ dir }) => dir);
           const onlyOneRec = dirs.length === 0 || dirs.length === 1;
 
-          const numFilesInRecording = Object.keys(files).filter(
+          const numFilesInRecording = Object.keys(loadedFiles).filter(
             (filename) => filename.includes(".h5") && !filename.includes("__MACOSX")
           ).length;
 
@@ -285,8 +290,8 @@ export default function UploadForm() {
 
           return !onlyOneRec || !recordingContainsValidNumFiles;
         } catch (e) {
-          console.log(`ERROR unable to read zip file: ${file.name} ${e}`);
-          failedUploadsMsg.push(file.name);
+          console.log(`ERROR unable to read zip file: ${file.filename} ${e}`);
+          failedUploadsMsg.push(file.filename);
           return true;
         }
       });

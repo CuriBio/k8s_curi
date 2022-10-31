@@ -151,7 +151,7 @@ export default function AnalysisParamForm({
   analysisParams,
 }) {
   const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
-  const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
+  const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails } = useContext(UploadsContext);
 
   const pulse3dVersionGte = (version) => {
     const { selectedPulse3dVersion } = inputVals;
@@ -273,12 +273,6 @@ export default function AnalysisParamForm({
     setParamErrors(updatedParamErrors);
   };
 
-  const handleDropDownSelect = (idx) => {
-    updateParams({
-      selectedPulse3dVersion: pulse3dVersions[idx],
-    });
-  };
-
   return (
     <Container>
       <AdditionalParamLabel>
@@ -314,7 +308,11 @@ export default function AnalysisParamForm({
                   : version;
               })}
               reset={!checkedParams}
-              handleSelection={handleDropDownSelect}
+              handleSelection={(idx) => {
+                updateParams({
+                  selectedPulse3dVersion: pulse3dVersions[idx],
+                });
+              }}
               initialSelected={0}
             />
           </DropDownContainer>
@@ -426,7 +424,19 @@ export default function AnalysisParamForm({
                 <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
               </Tooltip>
             </Label>
-            <InputErrorContainer>
+            <DropDownContainer>
+              <DropDownWidget
+                options={Object.keys(stiffnessFactorDetails)}
+                reset={!checkedParams}
+                handleSelection={(idx) => {
+                  updateParams({
+                    stiffnessFactor: Object.values(stiffnessFactorDetails)[idx],
+                  });
+                }}
+                initialSelected={0}
+              />
+            </DropDownContainer>
+            {/* <InputErrorContainer>
               <FormInput
                 name="stiffnessFactor"
                 placeholder={checkedParams ? "Auto determine" : ""}
@@ -441,7 +451,7 @@ export default function AnalysisParamForm({
                   {errorMessages.stiffnessFactor}
                 </ErrorText>
               </FormInput>
-            </InputErrorContainer>
+            </InputErrorContainer> */}
           </ParamContainer>
         )}
 
