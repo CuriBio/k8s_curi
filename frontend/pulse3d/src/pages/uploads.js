@@ -154,7 +154,7 @@ export default function Uploads() {
       width: ownerWidth,
       admin: true,
       compact: true,
-      sortFunction: (rowA, rowB) => rowB.username > rowA.username,
+      sortFunction: (rowA, rowB) => rowA.username.localeCompare(rowB.username),
       cell: (row) => (
         <ResizableColumn
           first={true}
@@ -175,7 +175,7 @@ export default function Uploads() {
       width: recordingWidth,
       admin: false,
       compact: true,
-      sortFunction: (rowA, rowB) => rowB.name < rowA.name,
+      sortFunction: (rowA, rowB) => rowA.name.localeCompare(rowB.name),
       cell: (row) => (
         <ResizableColumn
           content={row.name}
@@ -195,7 +195,7 @@ export default function Uploads() {
       width: uploadWidth,
       admin: false,
       compact: true,
-      sortFunction: (rowA, rowB) => rowB.id > rowA.id,
+      sortFunction: (rowA, rowB) => rowA.id.localeCompare(rowB.id),
       cell: (row) => (
         <ResizableColumn
           content={row.id}
