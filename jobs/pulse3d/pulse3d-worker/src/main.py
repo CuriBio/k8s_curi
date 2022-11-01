@@ -75,8 +75,8 @@ async def process(con, item):
                 logger.info("Checking if time force data exists in s3")
 
                 # adding prefix here representing the version of pulse3D used
-                parquet_filename = f"{PULSE3D_VERSION}/{os.path.splitext(filename)[0]}.parquet"
-                parquet_key = f"{prefix}/time_force_data/{parquet_filename}"
+                parquet_filename = f"{os.path.splitext(filename)[0]}.parquet"
+                parquet_key = f"{prefix}/time_force_data/{PULSE3D_VERSION}/{parquet_filename}"
                 parquet_path = os.path.join(tmpdir, parquet_filename)
 
                 # attempt to download parquet file if recording has already been analyzed
@@ -140,11 +140,10 @@ async def process(con, item):
                         md5 = hashlib.md5(contents).digest()
                         md5s = base64.b64encode(md5).decode()
 
-                        paraquet_key = f"{prefix}/time_force_data/{parquet_filename}"
-                        logger.info(f"Uploading time force data to {paraquet_key}")
+                        logger.info(f"Uploading time force data to {parquet_key}")
 
                         s3_client.put_object(
-                            Body=contents, Bucket=PULSE3D_UPLOADS_BUCKET, Key=paraquet_key, ContentMD5=md5s
+                            Body=contents, Bucket=PULSE3D_UPLOADS_BUCKET, Key=parquet_key, ContentMD5=md5s
                         )
                 except Exception as e:
                     logger.exception(f"Writing or uploading time force data failed: {e}")
