@@ -4,12 +4,16 @@ import logging
 from typing import List, Optional, Tuple, Union
 import uuid
 import tempfile
+from attr import has
 import boto3
 import os
+from importlib_metadata import version
 import numpy as np
 import pandas as pd
 from glob import glob
 from semver import VersionInfo
+from sqlalchemy import null
+from validator_collection import none
 
 from stream_zip import ZIP_64, stream_zip
 from datetime import datetime
@@ -478,9 +482,15 @@ async def get_interactive_waveform_data(
             logger.info(f"Downloading recording data from {key}")
 
             download_directory_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file_path=tmpdir)
-
             # read the time force dataframe from the parquet file
-            parquet_path = glob(os.path.join(tmpdir, "time_force_data", "*.parquet"), recursive=True)
+            # older versions of pulse3d to not inlcude the version data
+            if hasattr(parsed_meta, "version"):
+                parquet_path = glob(
+                    os.path.join(tmpdir, "time_force_data/", parsed_meta["version"], "*.parquet"),
+                    recursive=True,
+                )
+            else:
+                parquet_path = glob(os.path.join(tmpdir, "time_force_data", "*.parquet"), recursive=True)
             df = pd.read_parquet(parquet_path)
 
             # remove raw data columns
