@@ -478,6 +478,7 @@ async def get_interactive_waveform_data(
             logger.info(f"Downloading recording data from {key}")
 
             download_directory_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file_path=tmpdir)
+
             # read the time force dataframe from the parquet file
             # older versions of pulse3d to not inlcude the version data
             if hasattr(parsed_meta, "version"):
