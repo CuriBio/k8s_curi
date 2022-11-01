@@ -4,10 +4,8 @@ import logging
 from typing import List, Optional, Tuple, Union
 import uuid
 import tempfile
-from attr import has
 import boto3
 import os
-from importlib_metadata import version
 import numpy as np
 import pandas as pd
 from glob import glob
