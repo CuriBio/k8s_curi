@@ -19,7 +19,6 @@ depends_on = None
 
 
 def upgrade():
-
     op.add_column("customers", sa.Column("usage_restrictions", pg.JSONB, server_default="{}", nullable=True))
     op.execute(
         f"update customers set usage_restrictions='{json.dumps({'pulse3d': {'uploads': -1, 'jobs': -1}})}'"
