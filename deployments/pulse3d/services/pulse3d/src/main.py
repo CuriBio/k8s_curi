@@ -480,7 +480,15 @@ async def get_interactive_waveform_data(
             download_directory_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file_path=tmpdir)
 
             # read the time force dataframe from the parquet file
-            parquet_path = glob(os.path.join(tmpdir, "time_force_data", "*.parquet"), recursive=True)
+            # older versions of pulse3d do not inlcude the version data
+            if pulse3d_version := parsed_meta.get("version"):
+                parquet_path = glob(
+                    os.path.join(tmpdir, "time_force_data", pulse3d_version, "*.parquet"),
+                    recursive=True,
+                )
+            else:
+                parquet_path = glob(os.path.join(tmpdir, "time_force_data", "*.parquet"), recursive=True)
+
             df = pd.read_parquet(parquet_path)
 
             # remove raw data columns
