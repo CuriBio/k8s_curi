@@ -13,13 +13,12 @@ import json
 
 # revision identifiers, used by Alembic.
 revision = "4aac7b465d29"
-down_revision = "705b8a7903c8"
+down_revision = "5d220341bf80"
 branch_labels = None
 depends_on = None
 
 
 def upgrade():
-
     op.add_column("customers", sa.Column("usage_restrictions", pg.JSONB, server_default="{}", nullable=True))
     op.execute(
         f"update customers set usage_restrictions='{json.dumps({'pulse3d': {'uploads': -1, 'jobs': -1}})}'"
