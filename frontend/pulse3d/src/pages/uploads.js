@@ -45,19 +45,20 @@ const customStyles = {
   },
 };
 const filterBoxstyles = [
-  { position: "relative", left: "25px", width: "150px", margin: "0 30px 0 0" }, //file owner
-  { position: "relative", left: "0px", width: "150px", margin: "0 245px 0 0" }, //recording name
-  { position: "relative", left: "0px", width: "150px", margin: "0 200px 0 0" }, //upload id
-  { position: "relative", left: "0px", width: "150px", margin: "0 50px 0 0" }, //created
-  { position: "relative", left: "0px", width: "150px", margin: "0 0 0 0" }, //lastAnalyzed
+  { position: "relative", width: "150px", margin: "0 5px 0 0" }, //file owner
+  { position: "relative", width: "150px", margin: "0 210px 0 0" }, //recording name
+  { position: "relative", width: "150px", margin: "0 150px 0 0" }, //upload id
+  { position: "relative", width: "150px", margin: "0 12px 0 0" }, //created
+  { position: "relative", width: "150px", margin: "0 0 0 0" }, //lastAnalyzed
 ];
 
-const Container = styled.div`
+const TableContainer = styled.div`
   display: flex;
   position: relative;
   justify-content: start;
   margin: 0% 3% 3% 3%;
   flex-direction: column;
+  overflow: auto;
   box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
     0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
@@ -142,11 +143,11 @@ export default function Uploads() {
   const [pending, setPending] = useState(true);
   const [filterString, setFilterString] = useState("");
   const [filterColumn, setFilterColumn] = useState("");
-  const [ownerWidth, setOwnerWidth] = useState("150px");
-  const [recordingWidth, setRecordingWidth] = useState("400px");
-  const [uploadWidth, setUploadWidth] = useState("350px");
-  const [createdWidth, setCreatedWidth] = useState("200px");
-  const [analyzedWidth, setAnalyzedWidth] = useState("200px");
+  const [ownerWidth, setOwnerWidth] = useState("130px");
+  const [recordingWidth, setRecordingWidth] = useState("360px");
+  const [uploadWidth, setUploadWidth] = useState("300px");
+  const [createdWidth, setCreatedWidth] = useState("165px");
+  const [analyzedWidth, setAnalyzedWidth] = useState("165px");
   const [checkWidth, setCheckWidth] = useState("50px");
 
   const uploadTableColumns = [
@@ -709,7 +710,7 @@ export default function Uploads() {
               reset={resetDropdown}
             />
           </DropDownContainer>
-          <Container>
+          <TableContainer>
             <DataTable
               striped={true}
               data={displayRows}
@@ -750,8 +751,9 @@ export default function Uploads() {
                   filterBoxstyles={accountType === "admin" ? filterBoxstyles : filterBoxstyles.slice(1)}
                 />
               }
+              responsive={false}
             />
-          </Container>
+          </TableContainer>
         </PageContainer>
       ) : (
         <InteractiveAnalysisContainer>

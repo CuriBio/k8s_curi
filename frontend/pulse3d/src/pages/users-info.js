@@ -63,10 +63,10 @@ const conditionalRowStyles = [
   },
 ];
 const filterBoxstyles = [
-  { position: "relative", left: "35px", width: "10vw" },
-  { position: "relative", left: "139px", width: "10vw" },
-  { position: "relative", left: "243px", width: "10vw" },
-  { position: "relative", left: "342px", width: "10vw" },
+  { position: "relative", width: "15%", margin: "0 5% 0 0" },
+  { position: "relative", width: "15%", margin: "0 5% 0 0" },
+  { position: "relative", width: "15%", margin: "0 5% 0 0" },
+  { position: "relative", width: "15%", margin: "0 5% 0 0" },
 ];
 
 const PageContainer = styled.div`
@@ -154,7 +154,7 @@ export default function UserInfo() {
         return formatDateTime(user[toUserField[filtercolumn]])
           .toLocaleLowerCase()
           .includes(filterString.toLocaleLowerCase());
-      } else {
+      } else if (["Name", "Email"].includes(filtercolumn)) {
         return user[toUserField[filtercolumn]].toLocaleLowerCase().includes(filterString.toLocaleLowerCase());
       }
     });
