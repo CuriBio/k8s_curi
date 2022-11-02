@@ -319,7 +319,7 @@ export default function AnalysisParamForm({
         </ParamContainer>
         {pulse3dVersionGte("0.25.4") && (
           //Disabling y-axis normalization added in version 0.25.4
-          <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
+          <ParamContainer style={{ width: "6%", marginTop: "2%" }}>
             <Label htmlFor="yAxisNormalization">
               Disable Y-Axis Normalization:
               <Tooltip
@@ -328,7 +328,7 @@ export default function AnalysisParamForm({
                 <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
               </Tooltip>
             </Label>
-            <InputErrorContainer>
+            <InputErrorContainer style={{ marginLeft: "12%" }}>
               <CheckboxWidget
                 checkedState={disableYAxisNormalization}
                 handleCheckbox={(disable) => {
@@ -410,18 +410,18 @@ export default function AnalysisParamForm({
         {pulse3dVersionGte("0.27.0") && (
           // Tanner (9/15/21): stiffnessFactor added in 0.27.0
           <ParamContainer>
-            <Label htmlFor="stiffnessFactor">
+            <Label htmlFor="stiffnessFactor" style={{ width: "62%", lineHeight: 2.5 }}>
               Post Stiffness Factor:
               <Tooltip
                 title={
                   <TooltipText>
                     {
-                      "Specifies the post stiffness factor. If set to auto, will use the value encoded in the barcode."
+                      "Specifies the post stiffness factor. If set to 'auto', will use the value encoded in the barcode."
                     }
                   </TooltipText>
                 }
               >
-                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "10px 10px" }} />
               </Tooltip>
             </Label>
             <DropDownContainer>
