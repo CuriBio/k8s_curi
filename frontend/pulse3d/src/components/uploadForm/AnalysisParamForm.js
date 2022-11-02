@@ -151,7 +151,7 @@ export default function AnalysisParamForm({
   analysisParams,
 }) {
   const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
-  const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
+  const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails } = useContext(UploadsContext);
 
   const pulse3dVersionGte = (version) => {
     const { selectedPulse3dVersion } = inputVals;
@@ -273,12 +273,6 @@ export default function AnalysisParamForm({
     setParamErrors(updatedParamErrors);
   };
 
-  const handleDropDownSelect = (idx) => {
-    updateParams({
-      selectedPulse3dVersion: pulse3dVersions[idx],
-    });
-  };
-
   return (
     <Container>
       <AdditionalParamLabel>
@@ -314,14 +308,18 @@ export default function AnalysisParamForm({
                   : version;
               })}
               reset={!checkedParams}
-              handleSelection={handleDropDownSelect}
+              handleSelection={(idx) => {
+                updateParams({
+                  selectedPulse3dVersion: pulse3dVersions[idx],
+                });
+              }}
               initialSelected={0}
             />
           </DropDownContainer>
         </ParamContainer>
         {pulse3dVersionGte("0.25.4") && (
           //Disabling y-axis normalization added in version 0.25.4
-          <ParamContainer style={{ width: "33%", marginTop: "2%" }}>
+          <ParamContainer style={{ width: "6%", marginTop: "2%" }}>
             <Label htmlFor="yAxisNormalization">
               Disable Y-Axis Normalization:
               <Tooltip
@@ -330,7 +328,7 @@ export default function AnalysisParamForm({
                 <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
               </Tooltip>
             </Label>
-            <InputErrorContainer>
+            <InputErrorContainer style={{ marginLeft: "12%" }}>
               <CheckboxWidget
                 checkedState={disableYAxisNormalization}
                 handleCheckbox={(disable) => {
@@ -412,36 +410,32 @@ export default function AnalysisParamForm({
         {pulse3dVersionGte("0.27.0") && (
           // Tanner (9/15/21): stiffnessFactor added in 0.27.0
           <ParamContainer>
-            <Label htmlFor="stiffnessFactor">
+            <Label htmlFor="stiffnessFactor" style={{ width: "62%", lineHeight: 2.5 }}>
               Post Stiffness Factor:
               <Tooltip
                 title={
                   <TooltipText>
                     {
-                      "Specifies the post stiffness factor. If omitted, will use the value encoded in the barcode."
+                      "Specifies the post stiffness factor. If set to 'auto', will use the value encoded in the barcode."
                     }
                   </TooltipText>
                 }
               >
-                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "10px 10px" }} />
               </Tooltip>
             </Label>
-            <InputErrorContainer>
-              <FormInput
-                name="stiffnessFactor"
-                placeholder={checkedParams ? "Auto determine" : ""}
-                value={inputVals.stiffnessFactor}
-                onChangeFn={(e) => {
+            <DropDownContainer>
+              <DropDownWidget
+                options={Object.keys(stiffnessFactorDetails)}
+                reset={!checkedParams}
+                handleSelection={(idx) => {
                   updateParams({
-                    stiffnessFactor: e.target.value,
+                    stiffnessFactor: Object.values(stiffnessFactorDetails)[idx],
                   });
                 }}
-              >
-                <ErrorText id="stiffnessFactorError" role="errorMsg">
-                  {errorMessages.stiffnessFactor}
-                </ErrorText>
-              </FormInput>
-            </InputErrorContainer>
+                initialSelected={0}
+              />
+            </DropDownContainer>
           </ParamContainer>
         )}
 

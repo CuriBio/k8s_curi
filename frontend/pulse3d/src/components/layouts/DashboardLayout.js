@@ -20,6 +20,13 @@ export default function DashboardLayout({ children }) {
   const [metaPulse3dVersions, setMetaPulse3dVersions] = useState([]);
   const router = useRouter();
 
+  const stiffnessFactorDetails = {
+    Auto: null,
+    "Cardiac (1x)": 1,
+    "Skeletal Muscle (12x)": 12,
+    // Tanner (11/1/22): if we need to add an option for variable stiffness in the dropdown, a new version of pulse3d will need to be released
+  };
+
   useEffect(() => {
     if (router.pathname === "/uploads") {
       getUploads();
@@ -71,7 +78,14 @@ export default function DashboardLayout({ children }) {
 
   return (
     <UploadsContext.Provider
-      value={{ uploads, setUploads, setFetchUploads, pulse3dVersions, metaPulse3dVersions }}
+      value={{
+        uploads,
+        setUploads,
+        setFetchUploads,
+        pulse3dVersions,
+        metaPulse3dVersions,
+        stiffnessFactorDetails,
+      }}
     >
       <Container>
         <ControlPanel />
