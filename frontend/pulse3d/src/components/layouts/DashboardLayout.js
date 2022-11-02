@@ -24,6 +24,7 @@ export default function DashboardLayout({ children }) {
     Auto: null,
     "Cardiac (1x)": 1,
     "Skeletal Muscle (12x)": 12,
+    // Tanner (11/1/22): if we need to add an option for variable stiffness in the dropdown, a new version of pulse3d will need to be released
   };
 
   useEffect(() => {
