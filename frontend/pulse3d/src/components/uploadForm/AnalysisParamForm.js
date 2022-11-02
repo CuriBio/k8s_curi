@@ -436,22 +436,6 @@ export default function AnalysisParamForm({
                 initialSelected={0}
               />
             </DropDownContainer>
-            {/* <InputErrorContainer>
-              <FormInput
-                name="stiffnessFactor"
-                placeholder={checkedParams ? "Auto determine" : ""}
-                value={inputVals.stiffnessFactor}
-                onChangeFn={(e) => {
-                  updateParams({
-                    stiffnessFactor: e.target.value,
-                  });
-                }}
-              >
-                <ErrorText id="stiffnessFactorError" role="errorMsg">
-                  {errorMessages.stiffnessFactor}
-                </ErrorText>
-              </FormInput>
-            </InputErrorContainer> */}
           </ParamContainer>
         )}
 
