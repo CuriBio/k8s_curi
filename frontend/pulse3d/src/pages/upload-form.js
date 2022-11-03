@@ -136,6 +136,19 @@ export default function UploadForm() {
   };
 
   useEffect(() => {
+    if (files.length > 0) {
+      const incompatible_names = [];
+      files.forEach((file) =>
+        file.name.includes("(") || file.name.includes(")") ? incompatible_names.push(file.name) : null
+      );
+      if (incompatible_names.length > 0) {
+        setFailedUploadsMsg(["File name can not have parenthesis in name :", ...incompatible_names]);
+        setModalState(true);
+        setFiles([]);
+      }
+    }
+  }, [files]);
+  useEffect(() => {
     // checks if error value exists, no file is selected, or upload is in progress
     const checkConditions =
       !Object.values(paramErrors).every((val) => val.length === 0) ||
