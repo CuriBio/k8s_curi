@@ -410,7 +410,7 @@ export default function Uploads() {
   const handleDeletions = async () => {
     try {
       let failedDeletion = false;
-      // soft delete uploads
+      //soft delete uploads
       if (checkedUploads.length > 0) {
         const uploadsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads?`;
         checkedUploads.map((id) => (uploadsURL += `upload_ids=${id}&`));
