@@ -94,7 +94,12 @@ export default function Login() {
             );
           })}
         </ButtonContainer>
-        <LoginForm userData={userData} setUserData={setUserData} loginType={loginType}>
+        <LoginForm
+          userData={userData}
+          setUserData={setUserData}
+          loginType={loginType}
+          submitForm={submitForm}
+        >
           <ErrorText id="loginError" role="errorMsg">
             {errorMsg}
           </ErrorText>

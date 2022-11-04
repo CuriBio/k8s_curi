@@ -15,7 +15,7 @@ const Container = styled.div`
   width: 85%;
   justify-content: center;
   position: relative;
-  padding: 3rem 15rem;
+  padding: 3rem;
 `;
 
 const Header = styled.h2`

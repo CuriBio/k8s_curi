@@ -14,9 +14,14 @@ const InputContainer = styled.div(
 `
 );
 
-export default function LoginForm({ children, setUserData, userData, loginType }) {
+export default function LoginForm({ children, setUserData, userData, loginType, submitForm }) {
   return (
-    <InputContainer user={loginType === "User"}>
+    <InputContainer
+      user={loginType === "User"}
+      onKeyDown={(e) => {
+        e.key === "Enter" ? submitForm() : null;
+      }}
+    >
       {loginType === "User" ? (
         <>
           <FormInput

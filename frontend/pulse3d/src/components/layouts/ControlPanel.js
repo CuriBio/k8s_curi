@@ -122,7 +122,7 @@ const modalObjs = {
 
 export default function ControlPanel() {
   const router = useRouter();
-  const [selected, setSelected] = useState("Home");
+  const [selected, setSelected] = useState(router.pathname.replace("-", " ").replace("/", ""));
   const [expanded, setExpanded] = useState(null);
   const { accountType, usageQuota } = useContext(AuthContext);
   const [modalState, setModalState] = useState(false);
@@ -199,8 +199,8 @@ export default function ControlPanel() {
               setExpanded(expanded === label ? null : label);
             }
           };
-
-          let backgroundColor = selected === label ? "var(--teal-green)" : "var(--dark-blue)";
+          let backgroundColor =
+            selected.toLocaleLowerCase() === label.toLowerCase() ? "var(--teal-green)" : "var(--dark-blue)";
 
           return (
             <ThemeProvider key={label} theme={theme({ color: backgroundColor, disabled })}>
