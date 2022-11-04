@@ -143,6 +143,7 @@ export default function Uploads() {
       cell: (row) => (
         <Checkbox
           id={row.id}
+          disabled={row.jobs.filter((job) => job.status !== "finished").length > 0}
           checked={checkedUploads.includes(row.id)}
           onChange={handleCheckedUploads}
           style={{ width: "1px", margin: "0" }}

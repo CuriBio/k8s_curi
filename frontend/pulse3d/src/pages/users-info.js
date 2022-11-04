@@ -49,7 +49,7 @@ const SpinnerContainer = styled.div`
 
 const formatDateTime = (datetime) => {
   if (datetime)
-    return new Date(datetime + "Z").toLocaleDateString(undefined, {
+    return new Date(datetime).toLocaleDateString(undefined, {
       hour: "numeric",
       minute: "numeric",
     });
@@ -72,7 +72,7 @@ export default function UserInfo() {
   const [resetDropdown, setResetDropdown] = useState(false);
   const [displayData, setDisplayData] = useState([]);
   const [filterString, setFilterString] = useState("");
-  const [filtercolumn, setFilterColumn] = useState("");
+  const [filterColumn, setFilterColumn] = useState("");
   const [usersData, setUsersData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [nameWidth, setNameWidth] = useState("200px");
@@ -84,6 +84,7 @@ export default function UserInfo() {
 
   const columns = [
     {
+      width: "1px",
       cell: (row) => (
         <Checkbox
           id={row.id}
@@ -100,7 +101,6 @@ export default function UserInfo() {
               setCheckedUsers(temp);
             }
           }}
-          style={{ width: "1px", margin: "0" }}
         />
       ),
     },
@@ -191,14 +191,14 @@ export default function UserInfo() {
         />
       ),
       width: statusWidth,
-      sortFunction: (rowA, rowB) => rowB.suspended - rowA.suspended,
+      sortFunction: (rowA, rowB) => rowA.suspended.localeCompare(rowB.suspended),
       cell: (row) => (
         <ResizableColumn
           content={
-            row.suspended ? (
-              <div style={{ color: "red" }}>inactive</div>
+            row.suspended === "active" ? (
+              <div style={{ color: "var(--teal-green)" }}>{row.suspended}</div>
             ) : (
-              <div style={{ color: "var(--teal-green)" }}>active</div>
+              <div style={{ color: "red" }}>{row.suspended}</div>
             )
           }
           width={statusWidth.replace("px", "")}
@@ -212,8 +212,18 @@ export default function UserInfo() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/`);
       if (response && response.status === 200) {
         const usersJson = await response.json();
-        setUsersData(usersJson);
-        setDisplayData(usersJson);
+        const formatedUserJson = usersJson.map(({ created_at, email, id, last_login, name, suspended }) => {
+          return {
+            created_at: formatDateTime(created_at),
+            email: email,
+            id: id,
+            last_login: formatDateTime(last_login),
+            name: name,
+            suspended: suspended ? "suspended" : "active",
+          };
+        });
+        setUsersData(formatedUserJson);
+        setDisplayData(formatedUserJson);
         setLoading(false);
       }
     } catch (e) {
@@ -226,8 +236,20 @@ export default function UserInfo() {
     getAllUsers();
   }, []);
 
+  const filterColumns = () => {
+    return usersData.filter((row) => {
+      return row[filterColumn].toLocaleLowerCase().includes(filterString.toLocaleLowerCase());
+    });
+  };
   //when filter string changes refilter results
-  useEffect(() => {}, [filterString]);
+  useEffect(() => {
+    if (filterColumn) {
+      const newList = filterColumns();
+      if (newList.length > 0) {
+        setDisplayData(newList);
+      }
+    }
+  }, [filterString]);
 
   const sendUserActionPutRequest = async (actionToPreform) => {
     await checkedUsers.forEach(async (checkedUser) => {
@@ -286,7 +308,7 @@ export default function UserInfo() {
                     checkedUsers.length === 0 ||
                       usersData
                         .filter((user) => checkedUsers.includes(user.id))
-                        .filter((checkedUsers) => checkedUsers.suspended).length !== 0,
+                        .filter((checkedUsers) => checkedUsers.suspended === "suspended").length !== 0,
                   ]}
                   optionsTooltipText={[
                     "Must make a selection below before actions become available.",
