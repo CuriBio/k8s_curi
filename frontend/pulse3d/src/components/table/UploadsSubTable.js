@@ -1,35 +1,36 @@
-import { useState, memo } from "react";
+import { memo } from "react";
 import styled from "styled-components";
 import Checkbox from "@mui/material/Checkbox";
 
+const Container = styled.div`
+  padding: 0 3.5rem;
+`;
+
 const SubContainer = styled.div`
   display: flex;
-  justify-content: space-around;
+  justify-content: space-between;
+  align-items: center;
   margin: 0 1rem;
 `;
 const SubHeader = styled.div`
   display: flex;
+  justify-content: space-between;
   background-color: var(--dark-blue);
   color: white;
-  margin: 0 1rem;
-  padding: 0.4rem;
-  justify-content: flex-start;
+  padding: 0.4rem 2rem;
   font-size: 0.85rem;
   border-radius: 3px;
 `;
 const SubRow = styled.div`
   font-size: 0.75rem;
   margin: 1rem 0;
-  width: 100%;
 `;
 const SubRowFileName = styled.div`
   font-size: 0.75rem;
   margin: 1rem 0;
-  width: 200%;
 `;
-const SubRowCheckbox = styled.div`
-  font-size: 0.75rem;
-  width: 50%;
+const FilenameHeader = styled.div`
+  width: 20rem;
 `;
 export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, jobs }) {
   const rows = jobs.map((job) => {
@@ -44,15 +45,15 @@ export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, j
 
     return (
       <SubContainer key={Math.random()}>
-        <SubRowCheckbox>
+        <SubRowFileName>
           <Checkbox
             id={job.jobId}
             disabled={job.status === "pending"}
             checked={checkedJobs.includes(job.jobId)}
             onChange={handleCheckedJobs}
           />
-        </SubRowCheckbox>
-        <SubRowFileName>{job.analyzedFile ? job.analyzedFile : "None"}</SubRowFileName>
+          {job.analyzedFile ? job.analyzedFile : "None"}
+        </SubRowFileName>
         <SubRow>{job.datetime}</SubRow>
         <SubRow>{paramsString.length === 0 ? "None" : paramsString}</SubRow>
         <SubRow>
@@ -62,15 +63,14 @@ export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, j
     );
   });
   return (
-    <div>
+    <Container>
       <SubHeader>
-        <div style={{ width: "8.9%" }}>Select</div>
-        <div style={{ width: "36.6%" }}>Analyzed Filename</div>
-        <div style={{ width: "18.2%" }}>Created Date</div>
-        <div style={{ width: "18.2%" }}>Analysis Parameters</div>
-        <div style={{ width: "0%" }}>Status</div>
+        <FilenameHeader>Analyzed Filename</FilenameHeader>
+        <div>Created Date</div>
+        <div>Analysis Parameters</div>
+        <div>Status</div>
       </SubHeader>
       {rows}
-    </div>
+    </Container>
   );
 });

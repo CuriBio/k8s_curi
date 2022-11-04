@@ -3,6 +3,7 @@ import { useState } from "react";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import LoginForm from "@/components/account/LoginForm";
 import { useRouter } from "next/router";
+import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
   position: relative;
@@ -38,14 +39,23 @@ const ButtonContainer = styled.div`
   display: flex;
   flex-direction: row;
 `;
-
+const LoadingDiv = styled.div`
+  display: flex;
+  justify-content: center;
+`;
 export default function Login() {
   const router = useRouter();
   const [errorMsg, setErrorMsg] = useState(null);
   const [loginType, setLoginType] = useState("User");
   const [userData, setUserData] = useState({ service: "pulse3d" });
+  const [submitButtonLabel, setSubmitButtonLabel] = useState("Submit");
 
   const submitForm = async () => {
+    setSubmitButtonLabel(
+      <LoadingDiv>
+        <CircularSpinner size={40} color={"secondary"} />
+      </LoadingDiv>
+    );
     setErrorMsg(""); // reset to show user something happened
 
     if (Object.values(userData).includes("")) setErrorMsg("*All fields are required");
@@ -72,11 +82,17 @@ export default function Login() {
         setErrorMsg("*Internal error. Please try again later.");
       }
     }
+    setSubmitButtonLabel("Submit");
   };
 
   return (
     <BackgroundContainer>
-      <ModalContainer user={loginType === "User"}>
+      <ModalContainer
+        user={loginType === "User"}
+        onKeyDown={(e) => {
+          e.key === "Enter" ? submitForm() : null;
+        }}
+      >
         <ButtonContainer>
           {["User", "Admin"].map((type, idx) => {
             const isSelected = type === loginType;
@@ -94,12 +110,17 @@ export default function Login() {
             );
           })}
         </ButtonContainer>
-        <LoginForm userData={userData} setUserData={setUserData} loginType={loginType}>
+        <LoginForm
+          userData={userData}
+          setUserData={setUserData}
+          loginType={loginType}
+          submitForm={submitForm}
+        >
           <ErrorText id="loginError" role="errorMsg">
             {errorMsg}
           </ErrorText>
         </LoginForm>
-        <ButtonWidget label={"Submit"} clickFn={submitForm} />
+        <ButtonWidget label={submitButtonLabel} clickFn={submitForm} />
       </ModalContainer>
     </BackgroundContainer>
   );
