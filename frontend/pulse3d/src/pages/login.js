@@ -90,9 +90,7 @@ export default function Login() {
       <ModalContainer
         user={loginType === "User"}
         onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            submitForm();
-          }
+          e.key === "Enter" ? submitForm() : null;
         }}
       >
         <ButtonContainer>
