@@ -181,7 +181,7 @@ export default function AnalysisParamForm({
         validatePositiveNumber(updatedParams, paramName, false);
       }
     }
-    if (!updatedParams.normalizeYAxis) {
+    if (newParams.normalizeYAxis === false) {
       // if not normalizing y-axis, then clear the entered value.
       // A value can only be entered for max Y if y-axis normalization is enabled
       updatedParams.maxY = "";
