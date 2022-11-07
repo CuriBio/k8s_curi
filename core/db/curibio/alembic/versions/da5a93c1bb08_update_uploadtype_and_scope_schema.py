@@ -20,7 +20,7 @@ def upgrade():
     # default all existing customers and users to paid pulse3d
     op.execute(f"update users set data='{json.dumps({'scope': ['pulse3d:paid']})}'")
     op.execute(f"update customers set data='{json.dumps({'scope': ['pulse3d:paid']})}'")
-
+    op.execute("update users set account_type='paid'")
     # change mantarray uploadtype to pulse3d
     # set existing mantarray types to other accepted type that is not currently being used
     op.execute("UPDATE uploads SET type='nautilus' WHERE type='mantarray'")
@@ -55,6 +55,8 @@ def downgrade():
 
     op.execute(f"update users set data='{json.dumps({'scope': ['users:free']})}'")
     op.execute(f"update customers set data='{json.dumps({'scope': ['users:admin']})}'")
+    op.execute("update users set account_type='free'")
+
     # set existing mantarray types to other accepted type that is not currently being used
     op.execute("UPDATE uploads SET type='nautilus' WHERE type='pulse3d'")
     # rename type name to random name so existing name can be used again

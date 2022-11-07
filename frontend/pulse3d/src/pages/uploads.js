@@ -696,8 +696,8 @@ export default function Uploads() {
                     label="Actions"
                     options={
                       accountType === "admin"
-                        ? ["Download", "Delete", "Interactive Analysis"]
-                        : ["Download", "Delete"]
+                        ? ["Download", "Delete"]
+                        : ["Download", "Delete", "Interactive Analysis"]
                     }
                     disableOptions={[
                       ...Array(2).fill(checkedJobs.length === 0 && checkedUploads.length === 0),
