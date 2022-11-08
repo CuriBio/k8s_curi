@@ -140,12 +140,7 @@ export default function Uploads() {
       width: "3%",
       admin: false,
       cell: (row) => (
-        <Checkbox
-          id={row.id}
-          checked={checkedUploads.includes(row.id)}
-          onChange={handleCheckedUploads}
-          disabled={row.jobs.filter((job) => job.status == "pending").length > 0}
-        />
+        <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
       ),
     },
     {
