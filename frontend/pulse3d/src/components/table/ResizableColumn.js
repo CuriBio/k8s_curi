@@ -1,7 +1,7 @@
 import styled from "styled-components";
 const RowCell = styled.div`
-  padding-left: 20px;
+  width: 100%;
 `;
-export default function ResizableColumn({ content, width }) {
-  return <RowCell style={{ width: `${width}px` }}>{content}</RowCell>;
+export default function ResizableColumn({ content }) {
+  return <RowCell>{content}</RowCell>;
 }

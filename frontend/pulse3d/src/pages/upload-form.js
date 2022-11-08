@@ -283,7 +283,6 @@ export default function UploadForm() {
 
           // Beta 1 recordings will contain 24 files, Beta 2 and V1 recordings will contain 48
           const recordingContainsValidNumFiles = numFilesInRecording === 24 || numFilesInRecording === 48;
-
           return !onlyOneRec || !recordingContainsValidNumFiles;
         } catch (e) {
           console.log(`ERROR unable to read zip file: ${file.filename} ${e}`);
@@ -422,7 +421,6 @@ export default function UploadForm() {
   const handleClose = async (idx) => {
     // if user chooses to proceed with upload when some files were flagged as bad
     if (idx === 1) {
-      const filteredFiles = files.filter((f) => !failedUploadsMsg.includes(f.name));
       await handleNewAnalysis(filteredFiles);
     }
     // goes after because this dependency triggers reset

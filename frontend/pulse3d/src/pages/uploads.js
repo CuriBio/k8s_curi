@@ -16,7 +16,6 @@ import ColumnHead from "@/components/table/ColumnHead";
 const columnProperties = {
   center: false,
   sortable: true,
-  compact: true,
 };
 
 const customStyles = {
@@ -30,24 +29,24 @@ const customStyles = {
   subHeader: {
     style: {
       backgroundColor: "var(--dark-blue)",
-      padding: "1rem",
     },
   },
   expanderCell: {
     style: { flex: "0" },
   },
-  expanderButton: {
-    style: { flex: "0", margin: "0", width: "2rem" },
+  expanderButton: {},
+  rows: {
+    style: {
+      height: "60px",
+    },
+  },
+  cells: {
+    style: { padding: "0 2rem 0 0" },
   },
 };
 
 const TableContainer = styled.div`
-  width: 95%%;
-  display: flex;
-  position: relative;
-  justify-content: start;
   margin: 3% 3% 3% 3%;
-  flex-direction: column;
   overflow: auto;
   box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
     0px 3px 14px 2px rgb(0 0 0 / 12%);
@@ -130,24 +129,18 @@ export default function Uploads() {
   const [pending, setPending] = useState(true);
   const [filterString, setFilterString] = useState("");
   const [filterColumn, setFilterColumn] = useState("");
-  const [ownerWidth, setOwnerWidth] = useState("180px");
-  const [recordingWidth, setRecordingWidth] = useState("300px");
-  const [uploadWidth, setUploadWidth] = useState("250px");
-  const [createdWidth, setCreatedWidth] = useState("250px");
-  const [analyzedWidth, setAnalyzedWidth] = useState("200px");
-
+  const [ownerWidth, setOwnerWidth] = useState("10%");
+  const [recordingWidth, setRecordingWidth] = useState("30%");
+  const [uploadWidth, setUploadWidth] = useState("23%");
+  const [createdWidth, setCreatedWidth] = useState("15%");
+  const [analyzedWidth, setAnalyzedWidth] = useState("15%");
+  const [sortColumn, setSortColumns] = useState("");
   const uploadTableColumns = [
     {
-      width: "30px",
+      width: "3%",
       admin: false,
       cell: (row) => (
-        <Checkbox
-          id={row.id}
-          disabled={row.jobs.filter((job) => job.status !== "finished").length > 0}
-          checked={checkedUploads.includes(row.id)}
-          onChange={handleCheckedUploads}
-          style={{ width: "1px", margin: "0" }}
-        />
+        <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
       ),
     },
     {
@@ -157,16 +150,19 @@ export default function Uploads() {
           setFilterString={setFilterString}
           columnName="username"
           setFilterColumn={setFilterColumn}
-          width={ownerWidth.replace("px", "")}
+          width={ownerWidth.replace("%", "")}
+          filterColumn={filterColumn}
           setSelfWidth={setOwnerWidth}
           setRightNeighbor={setRecordingWidth}
-          rightWidth={recordingWidth.replace("px", "")}
+          rightWidth={recordingWidth.replace("%", "")}
+          setSortColumns={setSortColumns}
+          sortColumn={sortColumn}
         />
       ),
       width: ownerWidth,
       admin: true,
       sortFunction: (rowA, rowB) => rowA.username.localeCompare(rowB.username),
-      cell: (row) => <ResizableColumn content={row.username} width={ownerWidth.replace("px", "")} />,
+      cell: (row) => <ResizableColumn content={row.username} />,
     },
     {
       name: (
@@ -175,16 +171,19 @@ export default function Uploads() {
           setFilterString={setFilterString}
           columnName="name"
           setFilterColumn={setFilterColumn}
-          width={recordingWidth.replace("px", "")}
+          width={recordingWidth.replace("%", "")}
+          filterColumn={filterColumn}
           setSelfWidth={setRecordingWidth}
           setRightNeighbor={setUploadWidth}
-          rightWidth={uploadWidth.replace("px", "")}
+          rightWidth={uploadWidth.replace("%", "")}
+          setSortColumns={setSortColumns}
+          sortColumn={sortColumn}
         />
       ),
       width: recordingWidth,
       admin: false,
       sortFunction: (rowA, rowB) => rowA.name.localeCompare(rowB.name),
-      cell: (row) => <ResizableColumn content={row.name} width={recordingWidth.replace("px", "")} />,
+      cell: (row) => <ResizableColumn content={row.name} />,
     },
     {
       name: (
@@ -193,16 +192,19 @@ export default function Uploads() {
           setFilterString={setFilterString}
           columnName="id"
           setFilterColumn={setFilterColumn}
-          width={uploadWidth.replace("px", "")}
+          width={uploadWidth.replace("%", "")}
+          filterColumn={filterColumn}
           setSelfWidth={setUploadWidth}
           setRightNeighbor={setCreatedWidth}
-          rightWidth={createdWidth.replace("px", "")}
+          rightWidth={createdWidth.replace("%", "")}
+          setSortColumns={setSortColumns}
+          sortColumn={sortColumn}
         />
       ),
       width: uploadWidth,
       admin: false,
       sortFunction: (rowA, rowB) => rowA.id.localeCompare(rowB.id),
-      cell: (row) => <ResizableColumn content={row.id} width={uploadWidth.replace("px", "")} />,
+      cell: (row) => <ResizableColumn content={row.id} />,
     },
     {
       name: (
@@ -211,27 +213,33 @@ export default function Uploads() {
           setFilterString={setFilterString}
           columnName="createdAt"
           setFilterColumn={setFilterColumn}
-          width={createdWidth.replace("px", "")}
+          width={createdWidth.replace("%", "")}
+          filterColumn={filterColumn}
           setSelfWidth={setCreatedWidth}
           setRightNeighbor={setAnalyzedWidth}
-          rightWidth={analyzedWidth.replace("px", "")}
+          rightWidth={analyzedWidth.replace("%", "")}
+          setSortColumns={setSortColumns}
+          sortColumn={sortColumn}
         />
       ),
       width: createdWidth,
       admin: false,
       sortFunction: (rowA, rowB) => new Date(rowB.createdAt) - new Date(rowA.createdAt),
-      cell: (row) => <ResizableColumn content={row.createdAt} width={createdWidth.replace("px", "")} />,
+      cell: (row) => <ResizableColumn content={row.createdAt} />,
     },
     {
       name: (
         <ColumnHead
-          title="Last Anylyzed"
+          title="Last Analyzed"
           setFilterString={setFilterString}
           columnName="lastAnalyzed"
           setFilterColumn={setFilterColumn}
-          width={analyzedWidth.replace("px", "")}
+          width={analyzedWidth.replace("%", "")}
+          filterColumn={filterColumn}
           setSelfWidth={setAnalyzedWidth}
           setRightNeighbor={() => {}}
+          setSortColumns={setSortColumns}
+          sortColumn={sortColumn}
           last={true}
         />
       ),
@@ -239,9 +247,7 @@ export default function Uploads() {
       id: "lastAnalyzed",
       admin: false,
       sortFunction: (rowA, rowB) => new Date(rowB.lastAnalyzed) - new Date(rowA.lastAnalyzed),
-      cell: (row) => (
-        <ResizableColumn last={true} content={row.lastAnalyzed} width={analyzedWidth.replace("px", "")} />
-      ),
+      cell: (row) => <ResizableColumn last={true} content={row.lastAnalyzed} />,
     },
   ];
 
@@ -262,7 +268,6 @@ export default function Uploads() {
     if (filterColumn) {
       const newList = filterColumns();
       if (newList.length > 0) {
-        console.log("setting to " + newList);
         setDisplayRows(newList);
       }
     }
@@ -665,8 +670,8 @@ export default function Uploads() {
         <PageContainer>
           <TableContainer>
             <DataTable
-              responsive={true}
               data={displayRows}
+              compact={true}
               columns={uploadTableColumns
                 .filter(
                   // if admin user then show all columns, else just show non-admin columns
@@ -689,6 +694,7 @@ export default function Uploads() {
                   <CircularSpinner size={200} color={"secondary"} />
                 </SpinnerContainer>
               }
+              sortIcon={<></>}
               subHeader={true}
               subHeaderComponent={
                 <DropDownContainer>
