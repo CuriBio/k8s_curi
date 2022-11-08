@@ -242,8 +242,6 @@ export default function UploadForm() {
           wellsWithFlippedWaveforms === "" ? null : wellsWithFlippedWaveforms;
       }
 
-      console.log("$$$", requestBody.inverted_post_magnet_wells);
-
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
         method: "POST",
         body: JSON.stringify(requestBody),

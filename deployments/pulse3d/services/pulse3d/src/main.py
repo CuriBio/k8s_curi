@@ -301,7 +301,6 @@ async def create_new_job(
             params.append("inverted_post_magnet_wells")
 
         details_dict = dict(details)
-        logger.info("$$$" + str(details_dict))
         analysis_params = {param: details_dict[param] for param in params}
 
         # convert these params into a format compatible with pulse3D
