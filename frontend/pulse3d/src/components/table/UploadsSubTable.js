@@ -25,13 +25,7 @@ const FilenameHeader = styled.div`
   padding-left: 3.9%;
   width: 40%;
 `;
-const DateHeader = styled.div`
-  width: 20%;
-`;
-const ParamsHeader = styled.div`
-  width: 20%;
-`;
-const StatusHeader = styled.div`
+const Header = styled.div`
   width: 20%;
 `;
 
@@ -39,15 +33,7 @@ const SubRowFileName = styled.div`
   font-size: 0.75rem;
   width: 40%;
 `;
-const SubRowDate = styled.div`
-  font-size: 0.75rem;
-  width: 20%;
-`;
-const SubRowParams = styled.div`
-  font-size: 0.75rem;
-  width: 20%;
-`;
-const SubRowStatus = styled.div`
+const SubRow = styled.div`
   font-size: 0.75rem;
   width: 20%;
 `;
@@ -73,11 +59,11 @@ export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, j
           />
           {job.analyzedFile ? job.analyzedFile : "None"}
         </SubRowFileName>
-        <SubRowDate>{job.datetime}</SubRowDate>
-        <SubRowParams>{paramsString.length === 0 ? "None" : paramsString}</SubRowParams>
-        <SubRowStatus>
+        <SubRow>{job.datetime}</SubRow>
+        <SubRow>{paramsString.length === 0 ? "None" : paramsString}</SubRow>
+        <SubRow>
           {job.status === "finished" ? "Completed" : job.status[0].toUpperCase() + job.status.slice(1)}
-        </SubRowStatus>
+        </SubRow>
       </SubContainer>
     );
   });
@@ -85,9 +71,9 @@ export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, j
     <Container>
       <SubHeader>
         <FilenameHeader>Analyzed Filename</FilenameHeader>
-        <DateHeader>Created Date</DateHeader>
-        <ParamsHeader>Analysis Parameters</ParamsHeader>
-        <StatusHeader>Status</StatusHeader>
+        <Header>Created Date</Header>
+        <Header>Analysis Parameters</Header>
+        <Header>Status</Header>
       </SubHeader>
       {rows}
     </Container>

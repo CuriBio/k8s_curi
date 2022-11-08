@@ -421,6 +421,7 @@ export default function UploadForm() {
   const handleClose = async (idx) => {
     // if user chooses to proceed with upload when some files were flagged as bad
     if (idx === 1) {
+      const filteredFiles = files.filter((f) => !failedUploadsMsg.includes(f.name));
       await handleNewAnalysis(filteredFiles);
     }
     // goes after because this dependency triggers reset

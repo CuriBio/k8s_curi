@@ -39,14 +39,6 @@ const customStyles = {
   },
 };
 
-const modalObjs = {
-  deactivate: {
-    header: "Attention",
-    messages: [
-      "You are trying to deactivate some already inactive accounts. They will be ignored. Error Users :",
-    ],
-  },
-};
 const DropDownContainer = styled.div`
   width: 250px;
   background-color: white;
@@ -102,11 +94,10 @@ export default function UserInfo() {
   const [loginWidth, setLoginWidth] = useState("20%");
   const [statusWidth, setStatusWidth] = useState("20%");
   const [checkedUsers, setCheckedUsers] = useState([]);
-  const [sortColumn, setSortColumns] = useState("");
+  const [sortColumn, setSortColumn] = useState("");
   const [modalState, setModalState] = useState(false);
   const [modalLabels, setModalLabels] = useState({ header: "", messages: [] });
   const [modalButtons, setModalButtons] = useState([]);
-
   const columns = [
     {
       width: "5%",
@@ -140,8 +131,9 @@ export default function UserInfo() {
           setSelfWidth={setNameWidth}
           setRightNeighbor={setEmailWidth}
           rightWidth={emailWidth.replace("%", "")}
-          setSortColumns={setSortColumns}
+          setSortColumns={setSortColumn}
           sortColumn={sortColumn}
+          filterColumn={filterColumn}
         />
       ),
       width: nameWidth,
@@ -159,8 +151,9 @@ export default function UserInfo() {
           setSelfWidth={setEmailWidth}
           setRightNeighbor={setDateWidth}
           rightWidth={dateWidth.replace("%", "")}
-          setSortColumns={setSortColumns}
+          setSortColumns={setSortColumn}
           sortColumn={sortColumn}
+          filterColumn={filterColumn}
         />
       ),
       width: emailWidth,
@@ -178,8 +171,9 @@ export default function UserInfo() {
           setSelfWidth={setDateWidth}
           setRightNeighbor={setLoginWidth}
           rightWidth={loginWidth.replace("%", "")}
-          setSortColumns={setSortColumns}
+          setSortColumns={setSortColumn}
           sortColumn={sortColumn}
+          filterColumn={filterColumn}
         />
       ),
       width: dateWidth,
@@ -197,8 +191,9 @@ export default function UserInfo() {
           setSelfWidth={setLoginWidth}
           setRightNeighbor={setStatusWidth}
           rightWidth={statusWidth.replace("%", "")}
-          setSortColumns={setSortColumns}
+          setSortColumns={setSortColumn}
           sortColumn={sortColumn}
+          filterColumn={filterColumn}
         />
       ),
       id: "last_login",
@@ -216,8 +211,9 @@ export default function UserInfo() {
           width={statusWidth.replace("%", "")}
           setSelfWidth={setStatusWidth}
           setRightNeighbor={() => {}}
-          setSortColumns={setSortColumns}
+          setSortColumns={setSortColumn}
           sortColumn={sortColumn}
+          filterColumn={filterColumn}
           last={true}
         />
       ),
@@ -343,7 +339,13 @@ export default function UserInfo() {
                 <DropDownWidget
                   label="Actions"
                   options={["Delete", "Deactivate"]}
-                  disableOptions={[checkedUsers.length === 0, checkedUsers.length === 0]}
+                  disableOptions={[
+                    checkedUsers.length === 0,
+                    checkedUsers.length === 0 ||
+                      usersData
+                        .filter((user) => checkedUsers.includes(user.id))
+                        .filter((checkedUsers) => checkedUsers.suspended === "suspended").length !== 0,
+                  ]}
                   optionsTooltipText={[
                     "Must make a selection below before actions become available.",
                     "Must select a user who is active before actions become available.",
@@ -356,15 +358,6 @@ export default function UserInfo() {
           />
         </Container>
       </PageContainer>
-      <ModalWidget
-        open={modalState === "generic"}
-        labels={modalLabels.messages}
-        buttons={modalButtons}
-        closeModal={() => {
-          setModalState("");
-        }}
-        header={modalLabels.header}
-      />
     </>
   );
 }

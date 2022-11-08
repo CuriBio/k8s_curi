@@ -48,11 +48,7 @@ export default function ColumnHead({
     const difference = parseInt((e.clientX - initialX) / 10);
     const newWidth = parseInt(width) + difference;
     const newNeighborWidth = parseInt(rightWidth) - difference;
-    //prevent user from making columns to small
-    // if (newWidth < 150 || newNeighborWidth < 150) {
-    //   return;
-    // }
-    //steps
+    // size the columns in steps
     if (Math.abs(difference) < 3 || newWidth < 9 || newNeighborWidth < 9) {
       return;
     }

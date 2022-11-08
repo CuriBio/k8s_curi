@@ -134,13 +134,18 @@ export default function Uploads() {
   const [uploadWidth, setUploadWidth] = useState("23%");
   const [createdWidth, setCreatedWidth] = useState("15%");
   const [analyzedWidth, setAnalyzedWidth] = useState("15%");
-  const [sortColumn, setSortColumns] = useState("");
+  const [sortColumn, setSortColumn] = useState("");
   const uploadTableColumns = [
     {
       width: "3%",
       admin: false,
       cell: (row) => (
-        <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
+        <Checkbox
+          id={row.id}
+          checked={checkedUploads.includes(row.id)}
+          onChange={handleCheckedUploads}
+          disabled={row.jobs.filter((job) => job.status == "pending").length > 0}
+        />
       ),
     },
     {
@@ -155,7 +160,7 @@ export default function Uploads() {
           setSelfWidth={setOwnerWidth}
           setRightNeighbor={setRecordingWidth}
           rightWidth={recordingWidth.replace("%", "")}
-          setSortColumns={setSortColumns}
+          setSortColumns={setSortColumn}
           sortColumn={sortColumn}
         />
       ),
@@ -176,7 +181,7 @@ export default function Uploads() {
           setSelfWidth={setRecordingWidth}
           setRightNeighbor={setUploadWidth}
           rightWidth={uploadWidth.replace("%", "")}
-          setSortColumns={setSortColumns}
+          setSortColumns={setSortColumn}
           sortColumn={sortColumn}
         />
       ),
@@ -197,7 +202,7 @@ export default function Uploads() {
           setSelfWidth={setUploadWidth}
           setRightNeighbor={setCreatedWidth}
           rightWidth={createdWidth.replace("%", "")}
-          setSortColumns={setSortColumns}
+          setSortColumns={setSortColumn}
           sortColumn={sortColumn}
         />
       ),
@@ -218,7 +223,7 @@ export default function Uploads() {
           setSelfWidth={setCreatedWidth}
           setRightNeighbor={setAnalyzedWidth}
           rightWidth={analyzedWidth.replace("%", "")}
-          setSortColumns={setSortColumns}
+          setSortColumns={setSortColumn}
           sortColumn={sortColumn}
         />
       ),
@@ -238,7 +243,7 @@ export default function Uploads() {
           filterColumn={filterColumn}
           setSelfWidth={setAnalyzedWidth}
           setRightNeighbor={() => {}}
-          setSortColumns={setSortColumns}
+          setSortColumns={setSortColumn}
           sortColumn={sortColumn}
           last={true}
         />
