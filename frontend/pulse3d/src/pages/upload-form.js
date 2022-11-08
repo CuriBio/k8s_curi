@@ -103,6 +103,7 @@ export default function UploadForm() {
       endTime: "",
       stiffnessFactor: null,
       selectedPulse3dVersion: pulse3dVersions[0] || "", // Tanner (9/15/22): The pulse3d version technically isn't a param, but it lives in the same part of the form as the params
+      wellsWithFlippedWaveforms: "",
     };
   };
 
@@ -209,6 +210,7 @@ export default function UploadForm() {
         endTime,
         selectedPulse3dVersion,
         stiffnessFactor,
+        wellsWithFlippedWaveforms,
       } = analysisParams;
 
       const version =
@@ -235,14 +237,18 @@ export default function UploadForm() {
       if (semverGte(version, "0.27.0")) {
         requestBody.stiffness_factor = stiffnessFactor === "" ? null : stiffnessFactor;
       }
+      if (semverGte(version, "0.27.4")) {
+        requestBody.wellsWithFlippedWaveforms =
+          wellsWithFlippedWaveforms === "" ? null : wellsWithFlippedWaveforms;
+      }
+
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
         method: "POST",
         body: JSON.stringify(requestBody),
       });
 
       const jobData = await jobResponse.json();
-      // 403 gets returned in quota limit reached responses
-      // modal gets handled in ControlPanel
+      // 403 gets returned in quota limit reached responses modal gets handled in ControlPanel
       if (jobData.usage_error) {
         console.log("ERROR starting job because customer job limit has been reached");
         setUsageModalLabels(modalObj.jobsReachedDuringSession);
