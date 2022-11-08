@@ -26,7 +26,6 @@ const customStyles = {
       backgroundColor: "var(--dark-blue)",
     },
   },
-  expanderCell: {},
   expanderButton: {
     style: { flex: "0", margin: "0" },
   },
