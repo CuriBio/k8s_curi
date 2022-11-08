@@ -234,13 +234,15 @@ export default function UploadForm() {
       if (semverGte(version, "0.25.0")) {
         requestBody.max_y = maxY === "" ? null : maxY;
       }
-      if (semverGte(version, "0.27.0")) {
+      if (semverGte(version, "0.26.0")) {
         requestBody.stiffness_factor = stiffnessFactor === "" ? null : stiffnessFactor;
       }
       if (semverGte(version, "0.27.4")) {
-        requestBody.wellsWithFlippedWaveforms =
+        requestBody.inverted_post_magnet_wells =
           wellsWithFlippedWaveforms === "" ? null : wellsWithFlippedWaveforms;
       }
+
+      console.log("$$$", requestBody.inverted_post_magnet_wells);
 
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
         method: "POST",

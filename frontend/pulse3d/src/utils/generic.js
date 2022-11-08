@@ -33,7 +33,7 @@ const isArrayOfWellNames = (arr) => {
       }
       const row = n[0];
       const col = n[1];
-      if (!"ABCD".includes(row) || !"1234".includes(col)) {
+      if (!"ABCD".includes(row) || !"123456".includes(col)) {
         return false;
       }
     }

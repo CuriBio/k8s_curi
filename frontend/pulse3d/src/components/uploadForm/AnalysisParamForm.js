@@ -253,7 +253,7 @@ export default function AnalysisParamForm({
       } else {
         setParamErrors({
           ...paramErrors,
-          wellsWithFlippedWaveforms: "*Must be comma-separated Well Names (i.e. A1, D4)",
+          wellsWithFlippedWaveforms: "*Must be comma-separated Well Names (i.e. A1, D6)",
         });
         return;
       }
@@ -433,8 +433,8 @@ export default function AnalysisParamForm({
             </FormInput>
           </InputErrorContainer>
         </ParamContainer>
-        {pulse3dVersionGte("0.27.0") && (
-          // Tanner (9/15/21): stiffnessFactor added in 0.27.0
+        {pulse3dVersionGte("0.26.0") && (
+          // Tanner (9/15/21): stiffnessFactor added in 0.26.0
           <ParamContainer>
             <Label htmlFor="stiffnessFactor" style={{ width: "62%", lineHeight: 2.5 }}>
               Post Stiffness Factor:
@@ -471,7 +471,9 @@ export default function AnalysisParamForm({
               <Tooltip
                 title={
                   <TooltipText>
-                    {"Specifies the wells which should have their waveforms flipped before analysis begins."}
+                    {
+                      "Specifies the names wells (i.e. A1, D6) which should have their waveforms flipped before analysis begins."
+                    }
                   </TooltipText>
                 }
               >
@@ -481,7 +483,7 @@ export default function AnalysisParamForm({
             <InputErrorContainer>
               <FormInput
                 name="wellsWithFlippedWaveforms"
-                placeholder={checkedParams ? "A1, D4" : ""}
+                placeholder={checkedParams ? "None" : ""}
                 value={inputVals.wellsWithFlippedWaveforms}
                 onChangeFn={(e) => {
                   updateParams({

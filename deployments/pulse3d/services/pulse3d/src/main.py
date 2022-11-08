@@ -247,6 +247,7 @@ async def get_info_of_jobs(
                     job_info["error_info"] = "Was previously deleted"
 
             response["jobs"].append(job_info)
+
         if not response["jobs"]:
             response["error"] = "No jobs found"
 
@@ -296,8 +297,11 @@ async def create_new_job(
             params.append("normalize_y_axis")
         if pulse3d_semver >= "0.26.0":
             params.append("stiffness_factor")
+        if pulse3d_semver >= "0.27.4":
+            params.append("inverted_post_magnet_wells")
 
         details_dict = dict(details)
+        logger.info("$$$" + str(details_dict))
         analysis_params = {param: details_dict[param] for param in params}
 
         # convert these params into a format compatible with pulse3D
@@ -312,7 +316,6 @@ async def create_new_job(
 
         priority = 10
         async with request.state.pgpool.acquire() as con:
-
             usage_quota = await check_customer_quota(con, customer_id, service)
             if usage_quota["jobs_reached"]:
                 return UsageErrorResponse(usage_error=usage_quota)
