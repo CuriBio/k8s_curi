@@ -54,7 +54,6 @@ const AccordionTab = styled((props) => <AccordionSummary {...props} />)(() => ({
   },
 }));
 
-
 const OutlinedComp = styled((props) => <OutlinedInput {...props} />)(() => ({
   height: "40px",
 }));
