@@ -779,8 +779,8 @@ export default function Uploads() {
                     reset={resetDropdown}
                     disableSubOptions={{ Download: [checkedJobs.length === 0, checkedUploads.length === 0] }}
                     subOptionsTooltipText={[
-                      "Must make a job selection below before becoming available.",
-                      "Must make an upload selection below before becoming available.",
+                      "Must make a job selection before becoming available.",
+                      "Must make an upload selection before becoming available.",
                     ]}
                   />
                 </DropDownContainer>
