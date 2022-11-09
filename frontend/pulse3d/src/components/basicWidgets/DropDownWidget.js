@@ -26,13 +26,11 @@ const Placeholder = styled.em`
 `;
 
 const ListItem = styled((MenuItemProps) => <MenuItem {...MenuItemProps} />)(() => ({
-  fontSize: "16px",
+  fontSize: "15px",
   padding: "10px 30px",
+  fontFamily: "Mulish",
   "&:hover": {
     backgroundColor: "var(--light-gray)",
-  },
-  "& .MuiMenu-list": {
-    backgroundColor: "blue",
   },
   "&:focus": {
     background: "white",
@@ -43,15 +41,13 @@ const ListItem = styled((MenuItemProps) => <MenuItem {...MenuItemProps} />)(() =
 }));
 
 const AccordionTab = styled((props) => <AccordionSummary {...props} />)(() => ({
-  fontSize: "16px",
+  fontSize: "15px",
   "&.MuiAccordionSummary-root.Mui-expanded": {
     minHeight: "0px",
   },
-
   "&:hover": {
     background: "var(--light-gray)",
   },
-
   "& .MuiAccordionSummary-content": {
     margin: "11px 15px",
     minHeight: "0px",
@@ -59,8 +55,9 @@ const AccordionTab = styled((props) => <AccordionSummary {...props} />)(() => ({
 }));
 
 const SubListItem = styled((MenuItemProps) => <MenuItem {...MenuItemProps} />)(() => ({
-  fontSize: "14px",
+  fontSize: "15px",
   padding: "10px 30px",
+  fontFamily: "Mulish",
   "&:hover": {
     backgroundColor: "var(--light-gray)",
   },
@@ -153,6 +150,16 @@ export default function DropDownWidget({
     handleSubSelection({ [option]: subIdx });
   };
 
+  const getDisabledListItem = (tooltipOptions, idx, item) => {
+    return (
+      <Tooltip key={idx} title={<TooltipText>{tooltipOptions[idx]}</TooltipText>} value={idx}>
+        <div>
+          <ListItem disabled={true}>{item}</ListItem>
+        </div>
+      </Tooltip>
+    );
+  };
+
   return (
     <FormControl
       fullWidth
@@ -190,14 +197,7 @@ export default function DropDownWidget({
           <Placeholder>{label}</Placeholder>
         </MenuItem>
         {options.map((item, idx) => {
-          if (disableOptions[idx])
-            return (
-              <Tooltip key={idx} title={<TooltipText>{optionsTooltipText[idx]}</TooltipText>} value={idx}>
-                <div>
-                  <ListItem disabled={true}>{item}</ListItem>
-                </div>
-              </Tooltip>
-            );
+          if (disableOptions[idx]) return getDisabledListItem(optionsTooltipText, idx, item);
           else if (subOptions[item] && subOptions[item].length > 0)
             return (
               <Accordion key={idx} value={idx} onClick={() => setSelected(0)}>
@@ -207,17 +207,7 @@ export default function DropDownWidget({
                 <AccordionDetails>
                   {subOptions[item].map((option, idx) => {
                     if (disableSubOptions[item][idx]) {
-                      return (
-                        <Tooltip
-                          key={idx}
-                          title={<TooltipText>{subOptionsTooltipText[idx]}</TooltipText>}
-                          value={idx}
-                        >
-                          <div>
-                            <SubListItem disabled={true}>{option}</SubListItem>
-                          </div>
-                        </Tooltip>
-                      );
+                      return getDisabledListItem(subOptionsTooltipText, idx, option);
                     } else
                       return (
                         <SubListItem
