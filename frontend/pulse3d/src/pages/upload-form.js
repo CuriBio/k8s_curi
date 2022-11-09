@@ -113,7 +113,7 @@ export default function UploadForm() {
   const [paramErrors, setParamErrors] = useState({});
   const [inProgress, setInProgress] = useState(false);
   const [modalButtons, setModalButtons] = useState(["Close"]);
-  const [failedUploadsMsg, setFailedUploadsMsg] = useState([defaultUploadErrorLabel]);
+  const [failedUploadsMsg, setFailedUploadsMsg] = useState([defaultZipErrorLabel]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [checkedParams, setCheckedParams] = useState(false);
   const [tabSelection, setTabSelection] = useState(router.query.id);
@@ -290,14 +290,12 @@ export default function UploadForm() {
           return true;
         }
       });
-
       if (badZipfiles.length > 0) {
         // give users the option to proceed with clean files if any, otherwise just close
         setModalButtons(badZipfiles.length !== files.length ? ["Cancel", "Proceed"] : ["Close"]);
 
         // add files to modal to notify user which files are bad
         setFailedUploadsMsg([defaultZipErrorLabel, ...badZipfiles.map((f) => f.name)]);
-
         setModalState(true);
         return;
       }
