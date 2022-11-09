@@ -472,7 +472,7 @@ export default function AnalysisParamForm({
                 title={
                   <TooltipText>
                     {
-                      "Specifies the names wells (i.e. A1, D6) which should have their waveforms flipped before analysis begins."
+                      "Specifies the names of wells (i.e. A1, D6) which should have their waveforms flipped before analysis begins."
                     }
                   </TooltipText>
                 }
