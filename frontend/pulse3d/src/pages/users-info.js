@@ -7,6 +7,7 @@ import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 import ResizableColumn from "@/components/table/ResizableColumn";
 import ColumnHead from "@/components/table/ColumnHead";
 import Checkbox from "@mui/material/Checkbox";
+import ModalWidget from "@/components/basicWidgets/ModalWidget";
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
   center: false,
@@ -17,12 +18,24 @@ const customStyles = {
     style: {
       backgroundColor: "var(--dark-blue)",
       color: "white",
+      fontSize: "1.2rem",
     },
   },
   subHeader: {
     style: {
       backgroundColor: "var(--dark-blue)",
     },
+  },
+  expanderButton: {
+    style: { flex: "0", margin: "0" },
+  },
+  rows: {
+    style: {
+      height: "60px",
+    },
+  },
+  cells: {
+    style: { padding: "0 0 0 1.3%" },
   },
 };
 
@@ -75,16 +88,19 @@ export default function UserInfo() {
   const [filterColumn, setFilterColumn] = useState("");
   const [usersData, setUsersData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [nameWidth, setNameWidth] = useState("200px");
-  const [emailWidth, setEmailWidth] = useState("200px");
-  const [dateWidth, setDateWidth] = useState("200px");
-  const [loginWidth, setLoginWidth] = useState("200px");
-  const [statusWidth, setStatusWidth] = useState("200px");
+  const [nameWidth, setNameWidth] = useState("15%");
+  const [emailWidth, setEmailWidth] = useState("20%");
+  const [dateWidth, setDateWidth] = useState("20%");
+  const [loginWidth, setLoginWidth] = useState("20%");
+  const [statusWidth, setStatusWidth] = useState("20%");
   const [checkedUsers, setCheckedUsers] = useState([]);
-
+  const [sortColumn, setSortColumn] = useState("");
+  const [modalState, setModalState] = useState(false);
+  const [modalLabels, setModalLabels] = useState({ header: "", messages: [] });
+  const [modalButtons, setModalButtons] = useState([]);
   const columns = [
     {
-      width: "1px",
+      width: "5%",
       cell: (row) => (
         <Checkbox
           id={row.id}
@@ -111,15 +127,18 @@ export default function UserInfo() {
           setFilterString={setFilterString}
           columnName="name"
           setFilterColumn={setFilterColumn}
-          width={nameWidth.replace("px", "")}
+          width={nameWidth.replace("%", "")}
           setSelfWidth={setNameWidth}
           setRightNeighbor={setEmailWidth}
-          rightWidth={emailWidth.replace("px", "")}
+          rightWidth={emailWidth.replace("%", "")}
+          setSortColumns={setSortColumn}
+          sortColumn={sortColumn}
+          filterColumn={filterColumn}
         />
       ),
       width: nameWidth,
       sortFunction: (rowA, rowB) => rowA.name.localeCompare(rowB.name),
-      cell: (row) => <ResizableColumn content={row.name} width={nameWidth.replace("px", "")} />,
+      cell: (row) => <ResizableColumn content={row.name} />,
     },
     {
       name: (
@@ -128,15 +147,18 @@ export default function UserInfo() {
           setFilterString={setFilterString}
           columnName="email"
           setFilterColumn={setFilterColumn}
-          width={emailWidth.replace("px", "")}
+          width={emailWidth.replace("%", "")}
           setSelfWidth={setEmailWidth}
           setRightNeighbor={setDateWidth}
-          rightWidth={dateWidth.replace("px", "")}
+          rightWidth={dateWidth.replace("%", "")}
+          setSortColumns={setSortColumn}
+          sortColumn={sortColumn}
+          filterColumn={filterColumn}
         />
       ),
       width: emailWidth,
       sortFunction: (rowA, rowB) => rowA.email.localeCompare(rowB.email),
-      cell: (row) => <ResizableColumn content={row.email} width={emailWidth.replace("px", "")} />,
+      cell: (row) => <ResizableColumn content={row.email} />,
     },
     {
       name: (
@@ -145,17 +167,18 @@ export default function UserInfo() {
           setFilterString={setFilterString}
           columnName="created_at"
           setFilterColumn={setFilterColumn}
-          width={dateWidth.replace("px", "")}
+          width={dateWidth.replace("%", "")}
           setSelfWidth={setDateWidth}
           setRightNeighbor={setLoginWidth}
-          rightWidth={loginWidth.replace("px", "")}
+          rightWidth={loginWidth.replace("%", "")}
+          setSortColumns={setSortColumn}
+          sortColumn={sortColumn}
+          filterColumn={filterColumn}
         />
       ),
       width: dateWidth,
       sortFunction: (rowA, rowB) => new Date(rowB.created_at) - new Date(rowA.created_at),
-      cell: (row) => (
-        <ResizableColumn content={formatDateTime(row.created_at)} width={dateWidth.replace("px", "")} />
-      ),
+      cell: (row) => <ResizableColumn content={formatDateTime(row.created_at)} />,
     },
     {
       name: (
@@ -164,18 +187,19 @@ export default function UserInfo() {
           setFilterString={setFilterString}
           columnName="last_login"
           setFilterColumn={setFilterColumn}
-          width={loginWidth.replace("px", "")}
+          width={loginWidth.replace("%", "")}
           setSelfWidth={setLoginWidth}
           setRightNeighbor={setStatusWidth}
-          rightWidth={statusWidth.replace("px", "")}
+          rightWidth={statusWidth.replace("%", "")}
+          setSortColumns={setSortColumn}
+          sortColumn={sortColumn}
+          filterColumn={filterColumn}
         />
       ),
       id: "last_login",
       width: loginWidth,
       sortFunction: (rowA, rowB) => new Date(rowB.last_login) - new Date(rowA.last_login),
-      cell: (row) => (
-        <ResizableColumn content={formatDateTime(row.last_login)} width={loginWidth.replace("px", "")} />
-      ),
+      cell: (row) => <ResizableColumn content={formatDateTime(row.last_login)} />,
     },
     {
       name: (
@@ -184,9 +208,12 @@ export default function UserInfo() {
           setFilterString={setFilterString}
           columnName="suspended"
           setFilterColumn={setFilterColumn}
-          width={statusWidth.replace("px", "")}
+          width={statusWidth.replace("%", "")}
           setSelfWidth={setStatusWidth}
           setRightNeighbor={() => {}}
+          setSortColumns={setSortColumn}
+          sortColumn={sortColumn}
+          filterColumn={filterColumn}
           last={true}
         />
       ),
@@ -272,6 +299,14 @@ export default function UserInfo() {
     if (option === 0) {
       await sendUserActionPutRequest("delete");
     } else if (option === 1) {
+      const checkUsersData = usersData.filter((user) => checkedUsers.includes(user.id));
+      let deactiveUsers = checkUsersData.filter((user) => user.suspended === "suspended");
+      deactiveUsers = deactiveUsers.map((user) => user.name);
+      modalObjs.deactivate.messages.push(deactiveUsers);
+      setModalButtons(["Close"]);
+      setModalLabels(modalObjs.deactivate);
+      setModalState("generic");
+      setCheckedUsers(checkedUsers.filter((user) => deactiveUsers.includes(user.name)));
       await sendUserActionPutRequest("deactivate");
     }
   };
@@ -280,6 +315,7 @@ export default function UserInfo() {
       <PageContainer>
         <Container>
           <DataTable
+            sortIcon={<></>}
             responsive={true}
             columns={columns.map((e) => {
               return {
