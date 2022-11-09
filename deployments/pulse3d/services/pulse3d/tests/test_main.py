@@ -771,7 +771,7 @@ def test_jobs__delete__failure_to_delete_jobs(mocker):
     [[s] for s in PULSE3D_SCOPES],
 )
 @pytest.mark.parametrize("test_job_ids", [[uuid.uuid4() for _ in range(r)] for r in range(1, 4)])
-def test_jobs_jobs_download__post__no_duplicate_analysis_file_names(
+def test_jobs_download__post__no_duplicate_analysis_file_names(
     test_token_scope, test_job_ids, mocked_asyncpg_con, mocker
 ):
     test_account_id = uuid.uuid4()
