@@ -4,13 +4,13 @@ import Checkbox from "@mui/material/Checkbox";
 
 const Container = styled.div`
   padding: 0 3.5rem;
-  background-color: #ececed8f;
 `;
 
 const SubContainer = styled.div`
   width: 100%;
   display: flex;
   align-items: center;
+  background-color: #ececed8f;
 `;
 const SubHeader = styled.div`
   background-color: var(--dark-blue);

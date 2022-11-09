@@ -63,7 +63,7 @@ class JobDownloadRequest(BaseModel):
 
 
 class UploadDownloadRequest(BaseModel):
-    uploads_ids: List[uuid.UUID]
+    upload_ids: List[uuid.UUID]
 
 
 class UsageErrorResponse(BaseModel):

@@ -44,15 +44,17 @@ const ListItem = styled((MenuItemProps) => <MenuItem {...MenuItemProps} />)(() =
 
 const AccordionTab = styled((props) => <AccordionSummary {...props} />)(() => ({
   fontSize: "16px",
+  "&.MuiAccordionSummary-root.Mui-expanded": {
+    minHeight: "0px",
+  },
+
   "&:hover": {
     background: "var(--light-gray)",
   },
-  "&:focus": {
-    minHeight: "0px",
-    background: "var(--light-gray)",
-  },
+
   "& .MuiAccordionSummary-content": {
     margin: "11px 15px",
+    minHeight: "0px",
   },
 }));
 
@@ -92,6 +94,9 @@ export default function DropDownWidget({
   disableOptions = Array(options.length).fill(false),
   optionsTooltipText,
   initialSelected,
+  handleSubSelection,
+  disableSubOptions = {},
+  subOptionsTooltipText = [],
 }) {
   const [selected, setSelected] = useState("");
   const [errorMsg, setErrorMsg] = useState(error);
@@ -106,7 +111,6 @@ export default function DropDownWidget({
   };
 
   const handleDropdownChange = (e) => {
-    console.log("here");
     if (!subOptions[options[e.target.value]]) handleChange(e.target.value);
   };
 
@@ -143,6 +147,10 @@ export default function DropDownWidget({
         setOpen(false);
       }
     }
+  };
+
+  const handleSubChange = (option, subIdx) => {
+    handleSubSelection({ [option]: subIdx });
   };
 
   return (
@@ -197,12 +205,32 @@ export default function DropDownWidget({
                   {item}
                 </AccordionTab>
                 <AccordionDetails>
-                  {subOptions[item].map((option) => {
-                    return (
-                      <SubListItem key={option} value={option}>
-                        {option}
-                      </SubListItem>
-                    );
+                  {subOptions[item].map((option, idx) => {
+                    if (disableSubOptions[item][idx]) {
+                      return (
+                        <Tooltip
+                          key={idx}
+                          title={<TooltipText>{subOptionsTooltipText[idx]}</TooltipText>}
+                          value={idx}
+                        >
+                          <div>
+                            <SubListItem disabled={true}>{option}</SubListItem>
+                          </div>
+                        </Tooltip>
+                      );
+                    } else
+                      return (
+                        <SubListItem
+                          key={idx}
+                          value={idx}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleSubChange(item, idx);
+                          }}
+                        >
+                          {option}
+                        </SubListItem>
+                      );
                   })}
                 </AccordionDetails>
               </Accordion>

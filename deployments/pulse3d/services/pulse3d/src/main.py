@@ -177,7 +177,7 @@ async def download_zip_files(
     details: UploadDownloadRequest,
     token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)),
 ):
-    upload_ids = details.uploads_ids
+    upload_ids = details.upload_ids
 
     # make sure at least one job ID was given
     if not upload_ids:
@@ -199,7 +199,7 @@ async def download_zip_files(
 
         if len(upload_ids) == 1:
             # if only one file requested, return single presigned URL
-            return generate_presigned_url(PULSE3D_UPLOADS_BUCKET, keys[0])
+            return {"filename": filenames[0], "url": generate_presigned_url(PULSE3D_UPLOADS_BUCKET, keys[0])}
         else:
             # Grab ZIP file from in-memory, make response with correct MIME-type
             return StreamingResponse(
