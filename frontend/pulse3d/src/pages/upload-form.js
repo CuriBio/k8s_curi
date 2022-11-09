@@ -290,7 +290,9 @@ export default function UploadForm() {
           return true;
         }
       });
+      console.log(badZipfiles);
       if (badZipfiles.length > 0) {
+        console.log("here");
         // give users the option to proceed with clean files if any, otherwise just close
         setModalButtons(badZipfiles.length !== files.length ? ["Cancel", "Proceed"] : ["Close"]);
 
