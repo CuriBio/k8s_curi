@@ -1,6 +1,6 @@
 import styled from "styled-components";
 import CheckboxWidget from "../basicWidgets/CheckboxWidget";
-import { isArrayOfNumbers } from "../../utils/generic";
+import { isArrayOfNumbers, loadCsvInputToArray, isArrayOfWellNames } from "../../utils/generic";
 import FormInput from "../basicWidgets/FormInput";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
@@ -163,6 +163,9 @@ export default function AnalysisParamForm({
     if ("twitchWidths" in newParams) {
       validateTwitchWidths(updatedParams);
     }
+    if ("wellsWithFlippedWaveforms" in newParams) {
+      validateWellNames(updatedParams);
+    }
     if ("startTime" in newParams || "endTime" in newParams) {
       // need to validate start and end time together
       validateWindowBounds(updatedParams);
@@ -211,7 +214,7 @@ export default function AnalysisParamForm({
       formattedTwitchWidths = "";
     } else {
       let twitchWidthArr;
-      // make sure it's a valid list
+      // make sure it's a valid array
       try {
         twitchWidthArr = JSON.parse(`[${newValue}]`);
       } catch (e) {
@@ -234,6 +237,29 @@ export default function AnalysisParamForm({
     }
     setParamErrors({ ...paramErrors, twitchWidths: "" });
     updatedParams.twitchWidths = formattedTwitchWidths;
+  };
+
+  const validateWellNames = (updatedParams) => {
+    const newValue = updatedParams.wellsWithFlippedWaveforms;
+    let formattedWellNames;
+    if (newValue === null || newValue === "") {
+      formattedWellNames = "";
+    } else {
+      // load into an array
+      let wellNameArr = loadCsvInputToArray(newValue);
+      // make sure it's an array of valid well names
+      if (isArrayOfWellNames(wellNameArr, true)) {
+        formattedWellNames = Array.from(new Set(wellNameArr));
+      } else {
+        setParamErrors({
+          ...paramErrors,
+          wellsWithFlippedWaveforms: "*Must be comma-separated Well Names (i.e. A1, D6)",
+        });
+        return;
+      }
+    }
+    setParamErrors({ ...paramErrors, wellsWithFlippedWaveforms: "" });
+    updatedParams.wellsWithFlippedWaveforms = formattedWellNames;
   };
 
   const validateWindowBounds = (updatedParams) => {
@@ -407,8 +433,8 @@ export default function AnalysisParamForm({
             </FormInput>
           </InputErrorContainer>
         </ParamContainer>
-        {pulse3dVersionGte("0.27.0") && (
-          // Tanner (9/15/21): stiffnessFactor added in 0.27.0
+        {pulse3dVersionGte("0.26.0") && (
+          // Tanner (9/15/21): stiffnessFactor added in 0.26.0
           <ParamContainer>
             <Label htmlFor="stiffnessFactor" style={{ width: "62%", lineHeight: 2.5 }}>
               Post Stiffness Factor:
@@ -436,6 +462,40 @@ export default function AnalysisParamForm({
                 initialSelected={0}
               />
             </DropDownContainer>
+          </ParamContainer>
+        )}
+        {pulse3dVersionGte("0.27.4") && (
+          <ParamContainer style={{ padding: "20px 0px 10px 0px", width: "500px" }}>
+            <Label htmlFor="wellsWithFlippedWaveforms">
+              Wells With Flipped Waveforms:
+              <Tooltip
+                title={
+                  <TooltipText>
+                    {
+                      "Specifies the names of wells (i.e. A1, D6) which should have their waveforms flipped before analysis begins."
+                    }
+                  </TooltipText>
+                }
+              >
+                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+              </Tooltip>
+            </Label>
+            <InputErrorContainer>
+              <FormInput
+                name="wellsWithFlippedWaveforms"
+                placeholder={checkedParams ? "None" : ""}
+                value={inputVals.wellsWithFlippedWaveforms}
+                onChangeFn={(e) => {
+                  updateParams({
+                    wellsWithFlippedWaveforms: e.target.value,
+                  });
+                }}
+              >
+                <ErrorText id="twitchWidthError" role="errorMsg">
+                  {errorMessages.wellsWithFlippedWaveforms}
+                </ErrorText>
+              </FormInput>
+            </InputErrorContainer>
           </ParamContainer>
         )}
 
