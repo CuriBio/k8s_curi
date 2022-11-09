@@ -69,9 +69,10 @@ const PageContainer = styled.div`
   width: 85%;
 `;
 const DropDownContainer = styled.div`
-  width: 250px;
+  width: 200px;
   background-color: white;
   border-radius: 5px;
+  height: 40px;
 `;
 const ModalSpinnerContainer = styled.div`
   position: relative;
@@ -699,6 +700,7 @@ export default function Uploads() {
                         ? ["Download", "Delete"]
                         : ["Download", "Delete", "Interactive Analysis"]
                     }
+                    subOptions={{ Download: ["Download Analyses", "Download Recording Files"] }}
                     disableOptions={[
                       ...Array(2).fill(checkedJobs.length === 0 && checkedUploads.length === 0),
                       checkedJobs.length !== 1 ||

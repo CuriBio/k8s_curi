@@ -44,6 +44,7 @@ from models.models import (
     JobDownloadRequest,
     WaveformDataResponse,
     UsageErrorResponse,
+    UploadDownloadRequest,
 )
 from models.types import TupleParam
 
@@ -167,6 +168,49 @@ async def soft_delete_uploads(
             )
     except Exception as e:
         logger.error(repr(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.post("/uploads/download")
+async def download_zip_files(
+    request: Request,
+    details: UploadDownloadRequest,
+    token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)),
+):
+    upload_ids = details.uploads_ids
+
+    # make sure at least one job ID was given
+    if not upload_ids:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No upload IDs given")
+
+    # need to convert UUIDs to str to avoid issues with DB
+    upload_ids = [str(id) for id in upload_ids]
+    user_id = str(uuid.UUID(token["userid"]))
+
+    try:
+        async with request.state.pgpool.acquire() as con:
+            uploads = await get_uploads(
+                con=con, account_type=token["account_type"], account_id=user_id, upload_ids=upload_ids
+            )
+
+        # get filenames and s3 keys to download
+        keys = [f"{upload['prefix']}/{upload['filename']}" for upload in uploads]
+        filenames = [upload["filename"] for upload in uploads]
+
+        if len(upload_ids) == 1:
+            # if only one file requested, return single presigned URL
+            return generate_presigned_url(PULSE3D_UPLOADS_BUCKET, keys[0])
+        else:
+            # Grab ZIP file from in-memory, make response with correct MIME-type
+            return StreamingResponse(
+                content=stream_zip(
+                    _yield_s3_objects(bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=filenames)
+                ),
+                media_type="application/zip",
+            )
+
+    except Exception as e:
+        logger.error(f"Failed to download recording files: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
