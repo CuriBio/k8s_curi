@@ -54,14 +54,6 @@ const AccordionTab = styled((props) => <AccordionSummary {...props} />)(() => ({
   },
 }));
 
-const SubListItem = styled((MenuItemProps) => <MenuItem {...MenuItemProps} />)(() => ({
-  fontSize: "15px",
-  padding: "10px 30px",
-  fontFamily: "Mulish",
-  "&:hover": {
-    backgroundColor: "var(--light-gray)",
-  },
-}));
 
 const OutlinedComp = styled((props) => <OutlinedInput {...props} />)(() => ({
   height: "40px",
@@ -108,6 +100,7 @@ export default function DropDownWidget({
   };
 
   const handleDropdownChange = (e) => {
+    // only trigger selection if selected option is not an accordion button because that should just open sub menu, not use as actual selection
     if (!subOptions[options[e.target.value]]) handleChange(e.target.value);
   };
 
@@ -197,7 +190,9 @@ export default function DropDownWidget({
           <Placeholder>{label}</Placeholder>
         </MenuItem>
         {options.map((item, idx) => {
+          // if parent option item is disabled, just return disabled list item with tooltip
           if (disableOptions[idx]) return getDisabledListItem(optionsTooltipText, idx, item);
+          // else if the parent option has sub menu with more options
           else if (subOptions[item] && subOptions[item].length > 0)
             return (
               <Accordion key={idx} value={idx} onClick={() => setSelected(0)}>
@@ -206,11 +201,12 @@ export default function DropDownWidget({
                 </AccordionTab>
                 <AccordionDetails>
                   {subOptions[item].map((option, idx) => {
+                    // if sub menu item is disabled, return disabled list item with tooltip
                     if (disableSubOptions[item][idx]) {
                       return getDisabledListItem(subOptionsTooltipText, idx, option);
                     } else
                       return (
-                        <SubListItem
+                        <ListItem
                           key={idx}
                           value={idx}
                           onClick={(e) => {
@@ -219,7 +215,7 @@ export default function DropDownWidget({
                           }}
                         >
                           {option}
-                        </SubListItem>
+                        </ListItem>
                       );
                   })}
                 </AccordionDetails>
