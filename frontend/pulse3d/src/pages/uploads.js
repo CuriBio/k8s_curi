@@ -365,6 +365,11 @@ export default function Uploads() {
   }, [uploads]);
 
   useEffect(() => {
+    // reset to false everytime it gets triggered
+    if (resetDropdown) setResetDropdown(false);
+  }, [resetDropdown]);
+
+  useEffect(() => {
     if (uploads) {
       const formattedUploads = uploads.map(({ username, id, filename, created_at }) => {
         const formattedTime = formatDateTime(created_at);
@@ -418,8 +423,6 @@ export default function Uploads() {
       setSelectedAnalysis(jobDetails[0]);
       setOpenInteractiveAnalysis(true);
     }
-
-    setResetDropdown(false);
   };
 
   const handleDownloadSubSelection = async ({ Download }) => {
@@ -820,6 +823,7 @@ export default function Uploads() {
                       "Must make a job selection before becoming available.",
                       "Must make an upload selection before becoming available.",
                     ]}
+                    setReset={setResetDropdown}
                   />
                 </DropDownContainer>
               }

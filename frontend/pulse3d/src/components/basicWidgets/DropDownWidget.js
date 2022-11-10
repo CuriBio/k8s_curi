@@ -83,11 +83,11 @@ export default function DropDownWidget({
   disableSubOptions = {},
   subOptionsTooltipText = [],
   height = 40,
+  setReset,
 }) {
   const [selected, setSelected] = useState("");
   const [errorMsg, setErrorMsg] = useState(error);
   const [open, setOpen] = useState(false);
-  const [localReset, setLocalReset] = useState(false);
 
   const handleChange = (idx) => {
     if (!disableOptions[idx]) {
@@ -120,20 +120,26 @@ export default function DropDownWidget({
   }, [open]);
 
   useEffect(() => {
+    console.log(reset);
     if (reset) {
       setSelected(initialSelected != null ? initialSelected : "");
     }
   }, [reset]);
 
+  // TODO 10/11/2022  Should find a better way to handle the opening and closing of the dropdowns instead of handling all click events
   const handleDropdownState = (e) => {
     const option = e.target.innerText;
     if (subOptions[option] && !disableOptions[options.indexOf(option)]) {
       setSelected(options.indexOf(option));
     } else {
-      /* Clicking on the select-dropdown to open will trigger this event and without this check, it will auto close and prevent dropdown from ever opening. If user selects outside select-dropdown component, then we want to close the modal */
-      if (!["select-dropdown", "dropdown-arrow-icon"].includes(e.target.id)) {
+      /* Clicking on the select-dropdown, the placeholder text, or the drop arrow to open will trigger this event and without this check, it will auto close and prevent dropdown from ever opening. If user selects outside these components, then we want to close the modal */
+      if (!["placeholder-text", "select-dropdown", "dropdown-arrow-icon"].includes(e.target.id)) {
         setOpen(false);
       }
+      // reset dropdown if user clicks outside of dropdown, mui adds a backdrop component that takes up entire view so any clicking will reset
+      // if setReset is not passed down, then it signals not to reset on clicking away
+      // this is important for accordion tab selections
+      if (setReset && e.target.className && e.target.className.includes("MuiBackdrop-root")) setReset(true);
     }
   };
 
@@ -176,7 +182,17 @@ export default function DropDownWidget({
              An index of 0 will pass !initialSelected as truthy
           */
           if (selected.length === 0 && initialSelected === undefined) {
-            return <Placeholder>{label}</Placeholder>;
+            return (
+              <Placeholder
+                id="placeholder-text"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setOpen(true);
+                }}
+              >
+                {label}
+              </Placeholder>
+            );
           } else if (selected === "" && initialSelected !== undefined) {
             return options[initialSelected];
           } else {
