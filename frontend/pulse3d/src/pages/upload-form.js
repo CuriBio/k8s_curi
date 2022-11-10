@@ -114,7 +114,7 @@ export default function UploadForm() {
   const [paramErrors, setParamErrors] = useState({});
   const [inProgress, setInProgress] = useState(false);
   const [modalButtons, setModalButtons] = useState(["Close"]);
-  const [failedUploadsMsg, setFailedUploadsMsg] = useState([defaultUploadErrorLabel]);
+  const [failedUploadsMsg, setFailedUploadsMsg] = useState([defaultZipErrorLabel]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [checkedParams, setCheckedParams] = useState(false);
   const [tabSelection, setTabSelection] = useState(router.query.id);
@@ -122,6 +122,18 @@ export default function UploadForm() {
   const [usageModalState, setUsageModalState] = useState(false);
   const [usageModalLabels, setUsageModalLabels] = useState(modalObj.uploadsReachedDuringSession);
   const [analysisParams, setAnalysisParams] = useState(getDefaultAnalysisParams());
+  const [badZipFiles, setBadZipFiles] = useState([]);
+
+  useEffect(() => {
+    if (badZipFiles.length > 0) {
+      // give users the option to proceed with clean files if any, otherwise just close
+      setModalButtons(badZipFiles.length !== files.length ? ["Cancel", "Proceed"] : ["Close"]);
+
+      // add files to modal to notify user which files are bad
+      setFailedUploadsMsg([defaultZipErrorLabel, ...badZipFiles.map((f) => f.name)]);
+      setModalState(true);
+    }
+  }, [badZipFiles]);
 
   const resetAnalysisParams = () => {
     setAnalysisParams(getDefaultAnalysisParams());
@@ -270,12 +282,12 @@ export default function UploadForm() {
 
   const checkForMultiRecZips = async () => {
     var JSZip = require("jszip");
-
+    let badZipfiles;
     if (tabSelection === "Analyze New Files") {
       const asyncFilter = async (arr, predicate) =>
         Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
-      const badZipfiles = await asyncFilter(files, async (file) => {
+      badZipfiles = await asyncFilter(files, async (file) => {
         try {
           const zip = new JSZip();
           const { files: loadedFiles } = await zip.loadAsync(file);
@@ -296,20 +308,19 @@ export default function UploadForm() {
           return true;
         }
       });
-
-      if (badZipfiles.length > 0) {
-        // give users the option to proceed with clean files if any, otherwise just close
-        setModalButtons(badZipfiles.length !== files.length ? ["Cancel", "Proceed"] : ["Close"]);
-
-        // add files to modal to notify user which files are bad
-        setFailedUploadsMsg([defaultZipErrorLabel, ...badZipfiles.map((f) => f.name)]);
-
-        setModalState(true);
-        return;
+      setBadZipFiles(badZipfiles);
+      let newFiles = files;
+      for (let i = 0; i < badZipfiles.length; i++) {
+        for (let j = 0; j < newFiles.length; j++) {
+          if (badZipfiles[i].name === newFiles[j].name) {
+            setFiles(newFiles.splice(j, 1));
+          }
+        }
       }
     }
-
-    await handleNewAnalysis(files);
+    if (files.length > 0) {
+      await handleNewAnalysis(files);
+    }
   };
 
   const handleNewAnalysis = async (files) => {
