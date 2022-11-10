@@ -32,9 +32,6 @@ const ListItem = styled((MenuItemProps) => <MenuItem {...MenuItemProps} />)(() =
   "&:hover": {
     backgroundColor: "var(--light-gray)",
   },
-  "&:focus": {
-    background: "white",
-  },
   "& .Mui-selected": {
     background: "white",
   },
@@ -54,8 +51,8 @@ const AccordionTab = styled((props) => <AccordionSummary {...props} />)(() => ({
   },
 }));
 
-const OutlinedComp = styled((props) => <OutlinedInput {...props} />)(() => ({
-  height: "40px",
+const OutlinedComp = styled((props) => <OutlinedInput {...props} />)(({ height }) => ({
+  height,
 }));
 
 const MenuProps = {
@@ -85,6 +82,7 @@ export default function DropDownWidget({
   handleSubSelection,
   disableSubOptions = {},
   subOptionsTooltipText = [],
+  height = 40,
 }) {
   const [selected, setSelected] = useState("");
   const [errorMsg, setErrorMsg] = useState(error);
@@ -166,7 +164,7 @@ export default function DropDownWidget({
         displayEmpty
         labelId="select-label"
         id="select-dropdown"
-        input={<OutlinedComp />}
+        input={<OutlinedComp height={`${height}px`} />}
         MenuProps={MenuProps}
         onChange={handleDropdownChange}
         open={open}

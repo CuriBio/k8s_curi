@@ -61,8 +61,7 @@ const DropDownContainer = styled.div`
   position: relative;
   height: 17%;
   align-items: center;
-  top: 5%;
-  margin-top: 1rem;
+  margin-top: 2rem;
 `;
 
 const dropZoneText = "CLICK HERE or DROP single recording ZIP files";
@@ -446,6 +445,7 @@ export default function UploadForm() {
               label="Select Recording"
               reset={files.length === 0}
               handleSelection={handleDropDownSelect}
+              height={50}
             />
           </DropDownContainer>
         )}

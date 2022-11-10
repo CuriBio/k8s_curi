@@ -134,8 +134,8 @@ export default function Uploads() {
   const [ownerWidth, setOwnerWidth] = useState("10%");
   const [recordingWidth, setRecordingWidth] = useState("30%");
   const [uploadWidth, setUploadWidth] = useState("25%");
-  const [createdWidth, setCreatedWidth] = useState("20%");
-  const [analyzedWidth, setAnalyzedWidth] = useState("20%");
+  const [createdWidth, setCreatedWidth] = useState("19%");
+  const [analyzedWidth, setAnalyzedWidth] = useState("19%");
   const [sortColumn, setSortColumn] = useState("");
   const uploadTableColumns = [
     {
@@ -281,6 +281,14 @@ export default function Uploads() {
       resetTable();
     }
   }, [openInteractiveAnalysis]);
+
+  useEffect(() => {
+    if (accountType === "admin") {
+      // admin accounts have an extra Owners column so the widths should be different
+      setCreatedWidth("13%");
+      setAnalyzedWidth("13%");
+    }
+  }, [accountType]);
 
   const resetTable = () => {
     setResetDropdown(true);
