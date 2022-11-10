@@ -299,12 +299,12 @@ export default function UserInfo() {
     if (option === 0) {
       await sendUserActionPutRequest("delete");
     } else if (option === 1) {
-      const checkUsersData = usersData.filter((user) => checkedUsers.includes(user.id));
+      const checkUsersData = usersData.filter(({ id }) => checkedUsers.includes(id));
       let deactiveUsers = checkUsersData
-        .filter((user) => user.suspended === "suspended")
-        .map((user) => user.name);
+        .filter(({ suspended }) => suspended === "suspended")
+        .map(({ name }) => name);
 
-      setCheckedUsers(checkedUsers.filter((user) => deactiveUsers.includes(user.name)));
+      setCheckedUsers(checkedUsers.filter(({ name }) => deactiveUsers.includes(name)));
       await sendUserActionPutRequest("deactivate");
     }
   };
