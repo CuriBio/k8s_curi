@@ -61,8 +61,7 @@ const DropDownContainer = styled.div`
   position: relative;
   height: 17%;
   align-items: center;
-  top: 5%;
-  margin-top: 1rem;
+  margin-top: 2rem;
 `;
 
 const dropZoneText = "CLICK HERE or DROP single recording ZIP files";
@@ -310,6 +309,7 @@ export default function UploadForm() {
       });
       setBadZipFiles(badZipfiles);
       let newFiles = files;
+
       for (let i = 0; i < badZipfiles.length; i++) {
         for (let j = 0; j < newFiles.length; j++) {
           if (badZipfiles[i].name === newFiles[j].name) {
@@ -463,6 +463,7 @@ export default function UploadForm() {
               label="Select Recording"
               reset={files.length === 0}
               handleSelection={handleDropDownSelect}
+              height={50}
             />
           </DropDownContainer>
         )}

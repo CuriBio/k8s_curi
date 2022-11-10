@@ -68,9 +68,11 @@ const PageContainer = styled.div`
   width: 85%;
 `;
 const DropDownContainer = styled.div`
-  width: 250px;
+  width: 200px;
   background-color: white;
   border-radius: 5px;
+  height: 40px;
+  margin: 10px 0px;
 `;
 const ModalSpinnerContainer = styled.div`
   position: relative;
@@ -131,9 +133,9 @@ export default function Uploads() {
   const [filterColumn, setFilterColumn] = useState("");
   const [ownerWidth, setOwnerWidth] = useState("10%");
   const [recordingWidth, setRecordingWidth] = useState("30%");
-  const [uploadWidth, setUploadWidth] = useState("23%");
-  const [createdWidth, setCreatedWidth] = useState("15%");
-  const [analyzedWidth, setAnalyzedWidth] = useState("15%");
+  const [uploadWidth, setUploadWidth] = useState("25%");
+  const [createdWidth, setCreatedWidth] = useState("19%");
+  const [analyzedWidth, setAnalyzedWidth] = useState("19%");
   const [sortColumn, setSortColumn] = useState("");
   const uploadTableColumns = [
     {
@@ -280,6 +282,14 @@ export default function Uploads() {
     }
   }, [openInteractiveAnalysis]);
 
+  useEffect(() => {
+    if (accountType === "admin") {
+      // admin accounts have an extra Owners column so the widths should be different
+      setCreatedWidth("13%");
+      setAnalyzedWidth("13%");
+    }
+  }, [accountType]);
+
   const resetTable = () => {
     setResetDropdown(true);
     setCheckedUploads([]);
@@ -412,34 +422,61 @@ export default function Uploads() {
     setResetDropdown(false);
   };
 
+  const handleDownloadSubSelection = async ({ Download }) => {
+    if (Download === 1) {
+      if (checkedUploads.length === 1) {
+        await downloadSingleFile({ uploadId: checkedUploads[0] });
+      } else if (checkedUploads.length > 1) {
+        // show active downloading modal only for multifile downloads
+        setModalLabels(modalObjs.empty);
+        setModalState("downloading");
+
+        await downloadMultiFiles(checkedUploads, true);
+
+        // show successful download modal only for multifile downloads
+        setModalLabels({
+          header: "Success!",
+          messages: [
+            `The following number of recording files have been successfully downloaded: ${checkedUploads.length}`,
+            "They can be found in your local downloads folder.",
+          ],
+        });
+        setModalButtons(["Close"]);
+        setModalState("generic");
+      }
+
+      setResetDropdown(false);
+    } else {
+      handleDropdownSelection(Download);
+    }
+  };
+
   const handleDeletions = async () => {
     //remove all pending from list
-    let uploadsToDelete = displayRows.filter((row) => checkedUploads.includes(row.id));
-    let jobsToDelete = [];
-    uploadsToDelete.forEach((upload) => {
-      upload.jobs.forEach((job) => {
-        if (job.status !== "pending") {
-          jobsToDelete.push(job.jobId);
-        }
+    const jobsToDelete = [];
+
+    const uploadsToDelete = displayRows
+      .filter(({ id }) => checkedUploads.includes(id))
+      .map(({ jobs }) => {
+        jobs.forEach(({ status, jobId }) => {
+          if (status !== "pending") {
+            jobsToDelete.push(jobId);
+          }
+        });
       });
-    });
-    let finalUploads = uploadsToDelete;
-    uploadsToDelete.map((upload, idx) => {
-      upload.jobs.forEach((job) => {
-        if (job.status === "pending") {
-          finalUploads = finalUploads.slice(0, idx) + finalUploads.slice(idx + 1);
-        }
-      });
-    });
-    if (finalUploads.length > 0) {
-      finalUploads = finalUploads.map((upload) => upload.id);
-    }
+
+    const finalUploadIds = uploadsToDelete
+      .filter(({ jobs }) => {
+        return jobs.filter((job) => job.status === "pending").length > 0;
+      })
+      .map(({ id }) => id);
+
     try {
       let failedDeletion = false;
       //soft delete uploads
-      if (finalUploads.length > 0) {
+      if (finalUploadIds.length > 0) {
         const uploadsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads?`;
-        finalUploads.map((id) => (uploadsURL += `upload_ids=${id}&`));
+        finalUploadIds.map((id) => (uploadsURL += `upload_ids=${id}&`));
         const uploadsResponse = await fetch(uploadsURL.slice(0, -1), {
           method: "DELETE",
         });
@@ -457,6 +494,7 @@ export default function Uploads() {
 
         failedDeletion ||= jobsResponse.status !== 200;
       }
+
       if (failedDeletion) {
         setModalButtons(["Close"]);
         setModalLabels(modalObjs.failedDeletion);
@@ -551,44 +589,69 @@ export default function Uploads() {
     }
   };
 
-  const downloadSingleFile = async ({ jobId }) => {
-    // request only presigned urls for selected job
-    const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?job_ids=${jobId}`;
-    const response = await fetch(url);
+  const downloadSingleFile = async ({ jobId, uploadId }) => {
+    // request only presigned urls for selected job/upload
+    let response = null,
+      presignedUrl = null,
+      name = null;
+    if (jobId) {
+      const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?job_ids=${jobId}`;
+      response = await fetch(url);
 
-    if (response.status === 200) {
-      const { jobs } = await response.json();
-      const presignedUrl = jobs[0].url;
-
-      if (presignedUrl) {
-        const a = document.createElement("a");
-        document.body.appendChild(a);
-        a.setAttribute("href", presignedUrl);
-        a.setAttribute("download", jobs[0].id);
-        a.click();
-        a.remove();
+      if (response.status === 200) {
+        const { jobs } = await response.json();
+        presignedUrl = jobs[0].url;
+        name = jobs[0].id;
       }
+    } else {
+      const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads/download`;
+      response = await fetch(url, { method: "POST", body: JSON.stringify({ upload_ids: [uploadId] }) });
+
+      if (response.status === 200) {
+        const { filename, url } = await response.json();
+        presignedUrl = url;
+        name = filename;
+      }
+    }
+
+    if (presignedUrl) {
+      const a = document.createElement("a");
+      document.body.appendChild(a);
+      a.setAttribute("href", presignedUrl);
+      a.setAttribute("download", name);
+      a.click();
+      a.remove();
     } else {
       throw Error();
     }
   };
 
-  const downloadMultiFiles = async (jobs) => {
+  const downloadMultiFiles = async (data, uploads = false) => {
     try {
       //streamsaver has to be required here otherwise you get build errors with "document is not defined"
       const { createWriteStream } = require("streamsaver");
-      const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/download`;
-      const jobIds = jobs.map(({ jobId }) => jobId);
+      let url = null,
+        zipFilename = null,
+        body = null;
+      const now = formatDateTime();
+
+      if (uploads) {
+        url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads/download`;
+        zipFilename = `MA-recordings__${now}__${data.length}.zip`;
+        body = { upload_ids: data };
+      } else {
+        const jobIds = data.map(({ jobId }) => jobId);
+        url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/download`;
+        zipFilename = `MA-analyses__${now}__${data.length}.zip`;
+        body = { job_ids: jobIds };
+      }
 
       const response = await fetch(url, {
         method: "POST",
-        body: JSON.stringify({ job_ids: jobIds }),
+        body: JSON.stringify(body),
       });
 
       if (response.status === 200) {
-        const now = formatDateTime();
-        const zipFilename = `MA-analyses__${now}__${jobs.length}.zip`;
-
         // only stream to file if not firefox. Once the underlying issue with streaming on
         // firefox is fixed, should remove this
         if (navigator.userAgent.indexOf("Firefox") != -1) {
@@ -726,6 +789,7 @@ export default function Uploads() {
                         ? ["Download", "Delete"]
                         : ["Download", "Delete", "Interactive Analysis"]
                     }
+                    subOptions={{ Download: ["Download Analyses", "Download Recording Files"] }}
                     disableOptions={[
                       ...Array(2).fill(checkedJobs.length === 0 && checkedUploads.length === 0),
                       checkedJobs.length !== 1 ||
@@ -739,7 +803,13 @@ export default function Uploads() {
                         : "You must select one successful job to enable interactive analysis.",
                     ]}
                     handleSelection={handleDropdownSelection}
+                    handleSubSelection={handleDownloadSubSelection}
                     reset={resetDropdown}
+                    disableSubOptions={{ Download: [checkedJobs.length === 0, checkedUploads.length === 0] }}
+                    subOptionsTooltipText={[
+                      "Must make a job selection before becoming available.",
+                      "Must make an upload selection before becoming available.",
+                    ]}
                   />
                 </DropDownContainer>
               }

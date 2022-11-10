@@ -7,7 +7,7 @@ import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 import ResizableColumn from "@/components/table/ResizableColumn";
 import ColumnHead from "@/components/table/ColumnHead";
 import Checkbox from "@mui/material/Checkbox";
-import ModalWidget from "@/components/basicWidgets/ModalWidget";
+
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
   center: false,
@@ -88,16 +88,14 @@ export default function UserInfo() {
   const [filterColumn, setFilterColumn] = useState("");
   const [usersData, setUsersData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [nameWidth, setNameWidth] = useState("15%");
+  const [nameWidth, setNameWidth] = useState("20%");
   const [emailWidth, setEmailWidth] = useState("20%");
   const [dateWidth, setDateWidth] = useState("20%");
   const [loginWidth, setLoginWidth] = useState("20%");
-  const [statusWidth, setStatusWidth] = useState("20%");
+  const [statusWidth, setStatusWidth] = useState("15%");
   const [checkedUsers, setCheckedUsers] = useState([]);
   const [sortColumn, setSortColumn] = useState("");
-  const [modalState, setModalState] = useState(false);
-  const [modalLabels, setModalLabels] = useState({ header: "", messages: [] });
-  const [modalButtons, setModalButtons] = useState([]);
+
   const columns = [
     {
       width: "5%",
@@ -294,22 +292,23 @@ export default function UserInfo() {
   const resetTable = () => {
     setCheckedUsers([]);
     getAllUsers();
+    setResetDropdown(true);
+    setResetDropdown(false);
   };
   const handleDropdownSelection = async (option) => {
     if (option === 0) {
       await sendUserActionPutRequest("delete");
     } else if (option === 1) {
-      const checkUsersData = usersData.filter((user) => checkedUsers.includes(user.id));
-      let deactiveUsers = checkUsersData.filter((user) => user.suspended === "suspended");
-      deactiveUsers = deactiveUsers.map((user) => user.name);
-      modalObjs.deactivate.messages.push(deactiveUsers);
-      setModalButtons(["Close"]);
-      setModalLabels(modalObjs.deactivate);
-      setModalState("generic");
-      setCheckedUsers(checkedUsers.filter((user) => deactiveUsers.includes(user.name)));
+      const checkUsersData = usersData.filter(({ id }) => checkedUsers.includes(id));
+      let deactiveUsers = checkUsersData
+        .filter(({ suspended }) => suspended === "suspended")
+        .map(({ name }) => name);
+
+      setCheckedUsers(checkedUsers.filter(({ name }) => deactiveUsers.includes(name)));
       await sendUserActionPutRequest("deactivate");
     }
   };
+
   return (
     <>
       <PageContainer>

@@ -822,7 +822,7 @@ def test_jobs_download__post__no_duplicate_analysis_file_names(
     "test_token_scope",
     [[s] for s in PULSE3D_SCOPES],
 )
-def test_download__post__duplicate_analysis_file_names(mocked_asyncpg_con, test_token_scope, mocker):
+def test_jobs_download__post__duplicate_analysis_file_names(mocked_asyncpg_con, test_token_scope, mocker):
     test_account_id = uuid.uuid4()
     account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
     access_token = get_token(scope=test_token_scope, account_type=account_type, userid=test_account_id)
@@ -867,7 +867,7 @@ def test_download__post__duplicate_analysis_file_names(mocked_asyncpg_con, test_
 
 
 @pytest.mark.parametrize("test_job_ids,test_error_code", [(None, 422), ([], 400)])
-def test_download__post__no_job_ids_given(test_job_ids, test_error_code, mocker):
+def test_jobs_download__post__no_job_ids_given(test_job_ids, test_error_code, mocker):
     mocked_get_jobs = mocker.patch.object(main, "get_jobs", autospec=True)
     mocked_yield_objs = mocker.patch.object(main, "_yield_s3_objects", autospec=True)
 
@@ -883,6 +883,128 @@ def test_download__post__no_job_ids_given(test_job_ids, test_error_code, mocker)
 
     mocked_get_jobs.assert_not_called()
     mocked_yield_objs.assert_not_called()
+
+
+@pytest.mark.parametrize("test_upload_ids,test_error_code", [(None, 422), ([], 400)])
+def test_uploads_download__post__no_job_ids_given(test_upload_ids, test_error_code, mocker):
+    mocked_get_uploads = mocker.patch.object(main, "get_uploads", autospec=True)
+    mocked_yield_objs = mocker.patch.object(main, "_yield_s3_objects", autospec=True)
+
+    access_token = get_token(scope=["pulse3d:free"])
+
+    kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
+    # in None case, don't even pass a param
+    if test_upload_ids is not None:
+        kwargs["json"] = {"upload_ids": test_upload_ids}
+
+    response = test_client.post("/uploads/download", **kwargs)
+    assert response.status_code == test_error_code
+
+    mocked_get_uploads.assert_not_called()
+    mocked_yield_objs.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "test_token_scope",
+    [[s] for s in PULSE3D_SCOPES],
+)
+def test_uploads_download__post__correctly_handles_single_file_downloads(
+    test_token_scope, mocked_asyncpg_con, mocker
+):
+    test_account_id = uuid.uuid4()
+    test_upload_ids = [uuid.uuid4()]
+    account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
+    access_token = get_token(scope=["pulse3d:free"], account_type=account_type, userid=test_account_id)
+    test_presigned_url = "https://s3.test-url.com/"
+    test_upload_rows = [
+        {
+            "filename": f"file_{upload}zip",
+            "prefix": "/obj/prefix/",
+        }
+        for upload in test_upload_ids
+    ]
+
+    mocked_get_uploads = mocker.patch.object(
+        main, "get_uploads", autospec=True, return_value=test_upload_rows
+    )
+    mocked_yield_objs = mocker.patch.object(main, "_yield_s3_objects", autospec=True)
+    mocked_presigned_url = mocker.patch.object(
+        main, "generate_presigned_url", return_value=test_presigned_url, autospec=True
+    )
+
+    test_upload_ids_strs = [str(id) for id in test_upload_ids]
+
+    kwargs = {
+        "headers": {"Authorization": f"Bearer {access_token}"},
+        "json": {"upload_ids": test_upload_ids_strs},
+    }
+    response = test_client.post("/uploads/download", **kwargs)
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/json"
+    assert response.json() == {
+        "filename": mocked_get_uploads.return_value[0]["filename"],
+        "url": mocked_presigned_url.return_value,
+    }
+
+    mocked_get_uploads.assert_called_once_with(
+        con=mocked_asyncpg_con,
+        account_type=account_type,
+        account_id=str(test_account_id),
+        upload_ids=test_upload_ids_strs,
+    )
+
+    mocked_yield_objs.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "test_token_scope",
+    [[s] for s in PULSE3D_SCOPES],
+)
+@pytest.mark.parametrize("test_upload_ids", [[uuid.uuid4() for _ in range(r)] for r in range(2, 4)])
+def test_uploads_download__post__correctly_handles_multiple_file_downloads(
+    test_token_scope, test_upload_ids, mocked_asyncpg_con, mocker
+):
+    test_account_id = uuid.uuid4()
+    account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
+    access_token = get_token(scope=["pulse3d:free"], account_type=account_type, userid=test_account_id)
+
+    test_upload_rows = [
+        {
+            "filename": f"file_{upload}zip",
+            "prefix": "/obj/prefix/",
+        }
+        for upload in test_upload_ids
+    ]
+
+    mocked_get_uploads = mocker.patch.object(
+        main, "get_uploads", autospec=True, return_value=test_upload_rows
+    )
+    mocked_yield_objs = mocker.patch.object(main, "_yield_s3_objects", autospec=True)
+
+    test_upload_ids_strs = [str(id) for id in test_upload_ids]
+
+    kwargs = {
+        "headers": {"Authorization": f"Bearer {access_token}"},
+        "json": {"upload_ids": test_upload_ids_strs},
+    }
+    response = test_client.post("/uploads/download", **kwargs)
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/zip"
+
+    mocked_get_uploads.assert_called_once_with(
+        con=mocked_asyncpg_con,
+        account_type=account_type,
+        account_id=str(test_account_id),
+        upload_ids=test_upload_ids_strs,
+    )
+
+    expected_keys = [upload_row["prefix"] + "/" + upload_row["filename"] for upload_row in test_upload_rows]
+
+    mocked_yield_objs.assert_called_once_with(
+        bucket="test-pulse3d-uploads",
+        filenames=[os.path.basename(key) for key in expected_keys],
+        keys=expected_keys,
+    )
 
 
 @pytest.mark.parametrize("test_query_params", [f"upload_id={uuid.uuid4()}", f"job_id={uuid.uuid4()}"])

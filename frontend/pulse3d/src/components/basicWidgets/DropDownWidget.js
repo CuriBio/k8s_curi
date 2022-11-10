@@ -5,6 +5,10 @@ import { useEffect, useState } from "react";
 import styled from "styled-components";
 import OutlinedInput from "@mui/material/OutlinedInput";
 import Tooltip from "@mui/material/Tooltip";
+import Accordion from "@mui/material/Accordion";
+import AccordionSummary from "@mui/material/AccordionSummary";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
 const ErrorText = styled.span`
   color: red;
@@ -22,15 +26,35 @@ const Placeholder = styled.em`
 `;
 
 const ListItem = styled((MenuItemProps) => <MenuItem {...MenuItemProps} />)(() => ({
-  fontSize: "16px",
+  fontSize: "15px",
   padding: "10px 30px",
+  fontFamily: "Mulish",
   "&:hover": {
     backgroundColor: "var(--light-gray)",
   },
-  "& .MuiMenu-list": {
-    backgroundColor: "blue",
+  "& .Mui-selected": {
+    background: "white",
   },
 }));
+
+const AccordionTab = styled((props) => <AccordionSummary {...props} />)(() => ({
+  fontSize: "15px",
+  "&.MuiAccordionSummary-root.Mui-expanded": {
+    minHeight: "0px",
+  },
+  "&:hover": {
+    background: "var(--light-gray)",
+  },
+  "& .MuiAccordionSummary-content": {
+    margin: "11px 15px",
+    minHeight: "0px",
+  },
+}));
+
+const OutlinedComp = styled((props) => <OutlinedInput {...props} />)(({ height }) => ({
+  height,
+}));
+
 const MenuProps = {
   PaperProps: {
     style: {
@@ -46,6 +70,7 @@ const TooltipText = styled.span`
 
 export default function DropDownWidget({
   options,
+  subOptions = {},
   label,
   error = "",
   handleSelection,
@@ -54,20 +79,26 @@ export default function DropDownWidget({
   disableOptions = Array(options.length).fill(false),
   optionsTooltipText,
   initialSelected,
+  handleSubSelection,
+  disableSubOptions = {},
+  subOptionsTooltipText = [],
+  height = 40,
 }) {
   const [selected, setSelected] = useState("");
   const [errorMsg, setErrorMsg] = useState(error);
+  const [open, setOpen] = useState(false);
 
   const handleChange = (idx) => {
     if (!disableOptions[idx]) {
-      handleSelection(idx);
       setSelected(idx);
       setErrorMsg("");
+      handleSelection(idx);
     }
   };
 
   const handleDropdownChange = (e) => {
-    handleChange(e.target.value);
+    // only trigger selection if selected option is not an accordion button because that should just open sub menu, not use as actual selection
+    if (!subOptions[options[e.target.value]]) handleChange(e.target.value);
   };
 
   useEffect(() => {
@@ -78,15 +109,52 @@ export default function DropDownWidget({
   }, []);
 
   useEffect(() => {
+    /*
+     Sensitive function, this was added to control opening and closing of popup dropdown so that opening an accordion-style item doesn't auto close the dropdown. Material UI applies a modal backdrop that prevents ability to use a ClickAwayListener so applying click event to window and removing when closed.
+    */
+    if (window !== undefined) {
+      if (open) window.addEventListener("click", handleDropdownState);
+    }
+    return () => window.removeEventListener("click", handleDropdownState);
+  }, [open]);
+
+  useEffect(() => {
     if (reset) {
       setSelected(initialSelected != null ? initialSelected : "");
     }
   }, [reset]);
 
+  const handleDropdownState = (e) => {
+    const option = e.target.innerText;
+    if (subOptions[option] && !disableOptions[options.indexOf(option)]) {
+      setSelected(options.indexOf(option));
+    } else {
+      /* Clicking on the select-dropdown to open will trigger this event and without this check, it will auto close and prevent dropdown from ever opening. If user selects outside select-dropdown component, then we want to close the modal */
+      if (e.target.id !== "select-dropdown") {
+        setOpen(false);
+      }
+    }
+  };
+
+  const handleSubChange = (option, subIdx) => {
+    handleSubSelection({ [option]: subIdx });
+  };
+
+  const getDisabledListItem = (tooltipOptions, idx, item) => {
+    return (
+      <Tooltip key={idx} title={<TooltipText>{tooltipOptions[idx]}</TooltipText>} value={idx}>
+        <div>
+          <ListItem disabled={true}>{item}</ListItem>
+        </div>
+      </Tooltip>
+    );
+  };
+
   return (
     <FormControl
       fullWidth
       disabled={disabled}
+      onClick={() => setOpen(true)}
       sx={{
         boxShadow:
           "0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%), 0px 3px 14px 2px rgb(0 0 0 / 12%)",
@@ -96,9 +164,10 @@ export default function DropDownWidget({
         displayEmpty
         labelId="select-label"
         id="select-dropdown"
-        input={<OutlinedInput />}
+        input={<OutlinedComp height={`${height}px`} />}
         MenuProps={MenuProps}
         onChange={handleDropdownChange}
+        open={open}
         value={options[selected] ? selected : ""}
         renderValue={(selected) => {
           /*
@@ -118,17 +187,43 @@ export default function DropDownWidget({
           <Placeholder>{label}</Placeholder>
         </MenuItem>
         {options.map((item, idx) => {
-          return disableOptions[idx] ? (
-            <Tooltip key={idx} title={<TooltipText>{optionsTooltipText[idx]}</TooltipText>} value={idx}>
-              <div>
-                <ListItem disabled={true}>{item}</ListItem>
-              </div>
-            </Tooltip>
-          ) : (
-            <ListItem key={idx} value={idx}>
-              {item}
-            </ListItem>
-          );
+          // if parent option item is disabled, just return disabled list item with tooltip
+          if (disableOptions[idx]) return getDisabledListItem(optionsTooltipText, idx, item);
+          // else if the parent option has sub menu with more options
+          else if (subOptions[item] && subOptions[item].length > 0)
+            return (
+              <Accordion key={idx} value={idx} onClick={() => setSelected(0)}>
+                <AccordionTab expandIcon={<ExpandMoreIcon />} id={`${item}-dropdown`}>
+                  {item}
+                </AccordionTab>
+                <AccordionDetails>
+                  {subOptions[item].map((option, idx) => {
+                    // if sub menu item is disabled, return disabled list item with tooltip
+                    if (disableSubOptions[item][idx]) {
+                      return getDisabledListItem(subOptionsTooltipText, idx, option);
+                    } else
+                      return (
+                        <ListItem
+                          key={idx}
+                          value={idx}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleSubChange(item, idx);
+                          }}
+                        >
+                          {option}
+                        </ListItem>
+                      );
+                  })}
+                </AccordionDetails>
+              </Accordion>
+            );
+          else
+            return (
+              <ListItem key={idx} value={idx}>
+                {item}
+              </ListItem>
+            );
         })}
       </Select>
       <ErrorText>{errorMsg}</ErrorText>

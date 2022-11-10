@@ -63,5 +63,9 @@ class JobDownloadRequest(BaseModel):
     job_ids: List[uuid.UUID]
 
 
+class UploadDownloadRequest(BaseModel):
+    upload_ids: List[uuid.UUID]
+
+
 class UsageErrorResponse(BaseModel):
     usage_error: Dict[str, bool]

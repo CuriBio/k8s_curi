@@ -129,8 +129,8 @@ const TooltipText = styled.span`
 `;
 
 const DropDownContainer = styled.div`
-  width: 25%;
-  height: 125%;
+  width: 35%;
+  height: 99%;
   background: white;
   border-radius: 5px;
 `;
