@@ -614,7 +614,7 @@ export default function Uploads() {
         name = filename;
       }
     }
-    console.log(name);
+    
     if (presignedUrl) {
       const a = document.createElement("a");
       document.body.appendChild(a);
