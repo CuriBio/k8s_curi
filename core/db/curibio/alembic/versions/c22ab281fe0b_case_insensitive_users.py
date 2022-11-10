@@ -16,8 +16,9 @@ depends_on = None
 
 
 def upgrade():
-    op.execute("UPDATE users set name = LOWER(name)")
+    op.execute("UPDATE users SET name = LOWER(name)")
 
 
 def downgrade():
+    # this cannot be undone as the cases used in the original usernames are lost
     pass
