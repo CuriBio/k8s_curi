@@ -454,7 +454,7 @@ async def get_user(
     customer_id = uuid.UUID(hex=token["userid"])
 
     query = (
-        "SELECT id, LOWER(name), email, created_at, last_login, suspended FROM users "
+        "SELECT id, name, email, created_at, last_login, suspended FROM users "
         "WHERE customer_id=$1 AND id=$2 AND deleted_at IS NULL"
     )
     try:
