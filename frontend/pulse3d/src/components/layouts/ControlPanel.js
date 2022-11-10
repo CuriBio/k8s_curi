@@ -8,13 +8,14 @@ import { ThemeProvider, createTheme } from "@mui/material/styles";
 import MuiAccordionSummary from "@mui/material/AccordionSummary";
 import MuiAccordionDetails from "@mui/material/AccordionDetails";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
+import { styled as muiStyled } from "@mui/material/styles";
 
 const Container = styled.div`
   height: inherit;
   background-color: var(--dark-blue);
   min-width: 200px;
   width: 15vw;
-  position: relative;
+  zposition: relative;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -54,44 +55,43 @@ const theme = ({ color }) => {
   });
 };
 
-const AccordionSummary = styled((AccordionSummaryProps) => (
-  <MuiAccordionSummary {...AccordionSummaryProps} sx={{ color: "var(--light-gray)" }} />
-))(({ props }) => ({
-  flexDirection: "row-reverse",
-  backgroundColor: props.color,
-  height: "75px",
-  "& .MuiAccordionSummary-expandIconWrapper.Mui-expanded": {
-    transform: "rotate(90deg)",
-    height: "100%",
-    paddingRight: "6px",
-  },
-  "& .MuiAccordionSummary-expandIconWrapper": {
-    height: "100%",
-  },
-  "& .MuiAccordionSummary-content": {
-    margin: "0px",
-    justifyContent: "center",
-    fontSize: "18px",
-  },
-  "&:hover": {
-    backgroundColor: props.disabled ? "var(--dark-blue)" : "var(--teal-green)",
-    cursor: props.disabled ? "default" : "pointer",
-  },
-}));
+const ArrowIcon = muiStyled(ArrowForwardIosSharpIcon)`
+  font-size: 0.9rem;
+  position: relative;
+  color: var(--light-gray);
+  margin-left: 12px;
+  height: 100%;
+`;
 
-const AccordionDetails = styled((AccordionDetailsProps) => (
-  <MuiAccordionDetails {...AccordionDetailsProps} />
-))(() => ({
-  backgroundColor: "var(--light-gray)",
-}));
+const AccordionSummary = muiStyled(MuiAccordionSummary)`
+  flex-direction: row-reverse;
+  height: 75px;
+  color: var(--light-gray);
+  & .MuiAccordionSummary-expandIconWrapper.Mui-expanded {
+    transform: rotate(90deg);
+    height: 100%;
+    padding-right: 6px;
+  }
+  & .MuiAccordionSummary-expandIconWrapper {
+    height: 100%;
+  }
+  & .MuiAccordionSummary-content {
+    margin: 0px;
+    justify-content: center;
+    display: flex;
+    font-size: 18px;
+  }
+`;
 
-export const Accordion = styled((AccordionProps) => (
-  <MuiAccordion disableGutters elevation={0} square {...AccordionProps} />
-))(() => ({
-  position: "unset",
-  border: "none",
-  boxShadow: "none",
-}));
+const AccordionDetails = muiStyled(MuiAccordionDetails)`
+  background: var(--light-gray);
+`;
+
+const Accordion = muiStyled(MuiAccordion)`
+  position: unset;
+  border: none;
+  box-shadow: none;
+`;
 
 const adminButtons = [
   { label: "Home", disabled: false, page: "/uploads", options: [] },
@@ -204,24 +204,24 @@ export default function ControlPanel() {
 
           return (
             <ThemeProvider key={label} theme={theme({ color: backgroundColor, disabled })}>
-              <Accordion disabled={disabled} expanded={expanded === label}>
+              <Accordion
+                disableGutters
+                elevation={0}
+                square
+                disabled={disabled}
+                expanded={expanded === label}
+              >
                 <AccordionSummary
-                  props={{ color: backgroundColor }}
+                  sx={{
+                    backgroundColor,
+                    ":hover": {
+                      background: disabled ? "var(--dark-blue)" : "var(--teal-green)",
+                      cursor: disabled ? "default" : "pointer",
+                    },
+                  }}
                   onClick={handleSelected}
                   value={idx}
-                  expandIcon={
-                    options.length > 0 ? (
-                      <ArrowForwardIosSharpIcon
-                        sx={{
-                          fontSize: "0.9rem",
-                          position: "relative",
-                          color: "var(--light-gray)",
-                          marginLeft: "12px",
-                          height: "100%",
-                        }}
-                      />
-                    ) : null
-                  }
+                  expandIcon={options.length > 0 ? <ArrowIcon /> : null}
                 >
                   {label}
                 </AccordionSummary>

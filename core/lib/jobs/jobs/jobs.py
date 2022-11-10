@@ -70,7 +70,7 @@ async def get_uploads(*, con, account_type, account_id, upload_ids=None):
         )
     if upload_ids:
         places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
-        query += f" AND id IN ({places})"
+        query += f" AND uploads.id IN ({places})"
         query_params.extend(upload_ids)
 
     async with con.transaction():

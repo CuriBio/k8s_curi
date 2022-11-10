@@ -213,10 +213,10 @@ async def main():
                         logger.info("Pulling job from queue")
                         await process(con=con)
                     except EmptyQueue as e:
-                        logger.info(f"No jobs in queue {e}")
+                        logger.info(f"No jobs in queue: {e}")
                         return
-                    except Exception:
-                        logger.exception("Processing queue item failed")
+                    except Exception as e:
+                        logger.exception(f"Processing queue item failed: {repr(e)}")
                         return
     finally:
         logger.info(f"Worker v{PULSE3D_VERSION} terminating")

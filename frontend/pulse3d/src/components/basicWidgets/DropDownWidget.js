@@ -9,6 +9,7 @@ import Accordion from "@mui/material/Accordion";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { styled as muiStyled } from "@mui/material/styles";
 
 const ErrorText = styled.span`
   color: red;
@@ -25,35 +26,36 @@ const Placeholder = styled.em`
   font-weight: bolder;
 `;
 
-const ListItem = styled((MenuItemProps) => <MenuItem {...MenuItemProps} />)(() => ({
-  fontSize: "15px",
-  padding: "10px 30px",
-  fontFamily: "Mulish",
-  "&:hover": {
-    backgroundColor: "var(--light-gray)",
-  },
-  "& .Mui-selected": {
-    background: "white",
-  },
-}));
+const ListItem = muiStyled(MenuItem)`
+  font-size: 15px;
+  padding: 10px 30px;
+  font-family: Mulish;
+  :hover {
+    background: var(--light-gray);
+  }
+  &.Mui-selected {
+    background: white;
+  }
+`;
 
-const AccordionTab = styled((props) => <AccordionSummary {...props} />)(() => ({
-  fontSize: "15px",
-  "&.MuiAccordionSummary-root.Mui-expanded": {
-    minHeight: "0px",
+const AccordionTab = muiStyled(AccordionSummary)`
+  font-size: 15px;
+  &.MuiAccordionSummary-root.Mui-expanded {
+    min-height: 0px;
+    height: 42px;
+  }
+  &.MuiAccordionSummary-root {
+    min-height: 0px;
+    height: 42px;
+    padding: 0px 30px;
+  }
+  :hover {
+    background: var(--light-gray)
+  }
+  &.MuiAccordionSummary-content {
+    margin: 11px 15px;
   },
-  "&:hover": {
-    background: "var(--light-gray)",
-  },
-  "& .MuiAccordionSummary-content": {
-    margin: "11px 15px",
-    minHeight: "0px",
-  },
-}));
-
-const OutlinedComp = styled((props) => <OutlinedInput {...props} />)(({ height }) => ({
-  height,
-}));
+`;
 
 const MenuProps = {
   PaperProps: {
@@ -120,7 +122,6 @@ export default function DropDownWidget({
   }, [open]);
 
   useEffect(() => {
-    console.log(reset);
     if (reset) {
       setSelected(initialSelected != null ? initialSelected : "");
     }
@@ -171,7 +172,7 @@ export default function DropDownWidget({
         displayEmpty
         labelId="select-label"
         id="select-dropdown"
-        input={<OutlinedComp height={`${height}px`} />}
+        input={<OutlinedInput sx={{ height: `${height}px` }} />}
         MenuProps={MenuProps}
         onChange={handleDropdownChange}
         open={open}
@@ -209,7 +210,7 @@ export default function DropDownWidget({
           // else if the parent option has sub menu with more options
           else if (subOptions[item] && subOptions[item].length > 0)
             return (
-              <Accordion key={idx} value={idx} onClick={() => setSelected(0)}>
+              <Accordion key={idx} value={idx} onClick={() => setSelected(idx)}>
                 <AccordionTab
                   expandIcon={
                     <ExpandMoreIcon
