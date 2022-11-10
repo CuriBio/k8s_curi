@@ -130,7 +130,7 @@ export default function DropDownWidget({
       setSelected(options.indexOf(option));
     } else {
       /* Clicking on the select-dropdown to open will trigger this event and without this check, it will auto close and prevent dropdown from ever opening. If user selects outside select-dropdown component, then we want to close the modal */
-      if (e.target.id !== "select-dropdown") {
+      if (!["select-dropdown", "dropdown-arrow-icon"].includes(e.target.id)) {
         setOpen(false);
       }
     }
@@ -193,7 +193,18 @@ export default function DropDownWidget({
           else if (subOptions[item] && subOptions[item].length > 0)
             return (
               <Accordion key={idx} value={idx} onClick={() => setSelected(0)}>
-                <AccordionTab expandIcon={<ExpandMoreIcon />} id={`${item}-dropdown`}>
+                <AccordionTab
+                  expandIcon={
+                    <ExpandMoreIcon
+                      id={`dropdown-arrow-icon`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setSelected(idx);
+                      }}
+                    />
+                  }
+                  id={`${item}-dropdown`}
+                >
                   {item}
                 </AccordionTab>
                 <AccordionDetails>
