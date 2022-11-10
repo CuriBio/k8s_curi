@@ -413,12 +413,33 @@ export default function Uploads() {
   };
 
   const handleDeletions = async () => {
+    //remove all pending from list
+    let uploadsToDelete = displayRows.filter((row) => checkedUploads.includes(row.id));
+    let jobsToDelete = [];
+    uploadsToDelete.forEach((upload) => {
+      upload.jobs.forEach((job) => {
+        if (job.status !== "pending") {
+          jobsToDelete.push(job.id);
+        }
+      });
+    });
+    let finalUploads = uploadsToDelete;
+    uploadsToDelete.map((upload, idx) => {
+      upload.jobs.forEach((job) => {
+        if (job.status === "pending") {
+          finalUploads = finalUploads.slice(0, idx) + finalUploads.slice(idx + 1);
+        }
+      });
+    });
+    if (finalUploads.length > 0) {
+      finalUploads = finalUploads.map((upload) => upload.id);
+    }
     try {
       let failedDeletion = false;
       //soft delete uploads
-      if (checkedUploads.length > 0) {
+      if (finalUploads.length > 0) {
         const uploadsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads?`;
-        checkedUploads.map((id) => (uploadsURL += `upload_ids=${id}&`));
+        finalUploads.map((id) => (uploadsURL += `upload_ids=${id}&`));
         const uploadsResponse = await fetch(uploadsURL.slice(0, -1), {
           method: "DELETE",
         });
@@ -427,9 +448,9 @@ export default function Uploads() {
       }
 
       // soft delete all jobs
-      if (checkedJobs.length > 0) {
+      if (jobsToDelete.length > 0) {
         const jobsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;
-        checkedJobs.map((id) => (jobsURL += `job_ids=${id}&`));
+        jobsToDelete.map((id) => (jobsURL += `job_ids=${id}&`));
         const jobsResponse = await fetch(jobsURL.slice(0, -1), {
           method: "DELETE",
         });
