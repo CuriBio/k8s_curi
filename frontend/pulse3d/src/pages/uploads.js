@@ -419,7 +419,7 @@ export default function Uploads() {
     uploadsToDelete.forEach((upload) => {
       upload.jobs.forEach((job) => {
         if (job.status !== "pending") {
-          jobsToDelete.push(job.id);
+          jobsToDelete.push(job.jobId);
         }
       });
     });
@@ -434,6 +434,7 @@ export default function Uploads() {
     if (finalUploads.length > 0) {
       finalUploads = finalUploads.map((upload) => upload.id);
     }
+    console.log(jobsToDelete);
     try {
       let failedDeletion = false;
       //soft delete uploads
