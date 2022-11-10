@@ -309,6 +309,7 @@ export default function UploadForm() {
       });
       setBadZipFiles(badZipfiles);
       let newFiles = files;
+
       for (let i = 0; i < badZipfiles.length; i++) {
         for (let j = 0; j < newFiles.length; j++) {
           if (badZipfiles[i].name === newFiles[j].name) {
