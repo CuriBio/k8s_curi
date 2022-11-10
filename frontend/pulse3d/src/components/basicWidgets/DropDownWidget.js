@@ -87,6 +87,7 @@ export default function DropDownWidget({
   const [selected, setSelected] = useState("");
   const [errorMsg, setErrorMsg] = useState(error);
   const [open, setOpen] = useState(false);
+  const [localReset, setLocalReset] = useState(false);
 
   const handleChange = (idx) => {
     if (!disableOptions[idx]) {

@@ -427,6 +427,7 @@ export default function Uploads() {
       try {
         if (checkedUploads.length === 1) {
           await downloadSingleFile({ uploadId: checkedUploads[0] });
+          resetTable();
         } else if (checkedUploads.length > 1) {
           // show active downloading modal only for multifile downloads
           setModalLabels(modalObjs.empty);
@@ -445,8 +446,6 @@ export default function Uploads() {
           setModalButtons(["Close"]);
           setModalState("generic");
         }
-        resetTable();
-        setResetDropdown(false);
       } catch (e) {
         console.log(`ERROR fetching presigned url to download recording files: ${e}`);
         setModalLabels(modalObjs.downloadError);
@@ -479,13 +478,14 @@ export default function Uploads() {
         // filter for uploads where there are no pending jobs to prevent deleting uploads for pending jobs
         const finalUploadIds = uploadsToDelete
           .filter(({ jobs }) => {
-            return jobs.filter((job) => job.status === "pending").length > 0;
+            return jobs.filter((job) => job.status === "pending").length == 0;
           })
           .map(({ id }) => id);
 
-        if (finalUploadIds.length > 0) {
+        if (finalUploadIds && finalUploadIds.length > 0) {
           const uploadsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads?`;
           finalUploadIds.map((id) => (uploadsURL += `upload_ids=${id}&`));
+
           const uploadsResponse = await fetch(uploadsURL.slice(0, -1), {
             method: "DELETE",
           });
@@ -799,7 +799,7 @@ export default function Uploads() {
                         ? ["Download", "Delete"]
                         : ["Download", "Delete", "Interactive Analysis"]
                     }
-                    subOptions={{ Download: ["Download Analyses", "Download Recording Files"] }}
+                    subOptions={{ Download: ["Download Analyses", "Download Raw Data"] }}
                     disableOptions={[
                       ...Array(2).fill(checkedJobs.length === 0 && checkedUploads.length === 0),
                       checkedJobs.length !== 1 ||
