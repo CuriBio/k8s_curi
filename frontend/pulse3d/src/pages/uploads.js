@@ -453,32 +453,30 @@ export default function Uploads() {
 
   const handleDeletions = async () => {
     //remove all pending from list
-    let uploadsToDelete = displayRows.filter((row) => checkedUploads.includes(row.id));
-    let jobsToDelete = [];
-    uploadsToDelete.forEach((upload) => {
-      upload.jobs.forEach((job) => {
-        if (job.status !== "pending") {
-          jobsToDelete.push(job.jobId);
-        }
+    const jobsToDelete = [];
+
+    const uploadsToDelete = displayRows
+      .filter(({ id }) => checkedUploads.includes(id))
+      .map(({ jobs }) => {
+        jobs.forEach(({ status, jobId }) => {
+          if (status !== "pending") {
+            jobsToDelete.push(jobId);
+          }
+        });
       });
-    });
-    let finalUploads = uploadsToDelete;
-    uploadsToDelete.map((upload, idx) => {
-      upload.jobs.forEach((job) => {
-        if (job.status === "pending") {
-          finalUploads = finalUploads.slice(0, idx) + finalUploads.slice(idx + 1);
-        }
-      });
-    });
-    if (finalUploads.length > 0) {
-      finalUploads = finalUploads.map((upload) => upload.id);
-    }
+
+    const finalUploadIds = uploadsToDelete
+      .filter(({ jobs }) => {
+        return jobs.filter((job) => job.status === "pending").length > 0;
+      })
+      .map(({ id }) => id);
+
     try {
       let failedDeletion = false;
       //soft delete uploads
-      if (finalUploads.length > 0) {
+      if (finalUploadIds.length > 0) {
         const uploadsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads?`;
-        finalUploads.map((id) => (uploadsURL += `upload_ids=${id}&`));
+        finalUploadIds.map((id) => (uploadsURL += `upload_ids=${id}&`));
         const uploadsResponse = await fetch(uploadsURL.slice(0, -1), {
           method: "DELETE",
         });
@@ -496,6 +494,7 @@ export default function Uploads() {
 
         failedDeletion ||= jobsResponse.status !== 200;
       }
+
       if (failedDeletion) {
         setModalButtons(["Close"]);
         setModalLabels(modalObjs.failedDeletion);
@@ -614,7 +613,7 @@ export default function Uploads() {
         name = filename;
       }
     }
-    
+
     if (presignedUrl) {
       const a = document.createElement("a");
       document.body.appendChild(a);
