@@ -36,7 +36,6 @@ export default function Verify() {
       // this removes token param from url to make it not visible to users
       router.replace("/verify", undefined, { shallow: true });
     }
-    console.log("here");
   }, [router]);
 
   const verifyEmail = async ({ token }) => {

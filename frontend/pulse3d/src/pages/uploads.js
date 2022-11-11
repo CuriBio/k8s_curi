@@ -365,6 +365,11 @@ export default function Uploads() {
   }, [uploads]);
 
   useEffect(() => {
+    // reset to false everytime it gets triggered
+    if (resetDropdown) setResetDropdown(false);
+  }, [resetDropdown]);
+
+  useEffect(() => {
     if (uploads) {
       const formattedUploads = uploads.map(({ username, id, filename, created_at }) => {
         const formattedTime = formatDateTime(created_at);
@@ -418,34 +423,38 @@ export default function Uploads() {
       setSelectedAnalysis(jobDetails[0]);
       setOpenInteractiveAnalysis(true);
     }
-
-    setResetDropdown(false);
   };
 
   const handleDownloadSubSelection = async ({ Download }) => {
     if (Download === 1) {
-      if (checkedUploads.length === 1) {
-        await downloadSingleFile({ uploadId: checkedUploads[0] });
-      } else if (checkedUploads.length > 1) {
-        // show active downloading modal only for multifile downloads
-        setModalLabels(modalObjs.empty);
-        setModalState("downloading");
+      try {
+        if (checkedUploads.length === 1) {
+          await downloadSingleFile({ uploadId: checkedUploads[0] });
+          resetTable();
+        } else if (checkedUploads.length > 1) {
+          // show active downloading modal only for multifile downloads
+          setModalLabels(modalObjs.empty);
+          setModalState("downloading");
 
-        await downloadMultiFiles(checkedUploads, true);
+          await downloadMultiFiles(checkedUploads, true);
 
-        // show successful download modal only for multifile downloads
-        setModalLabels({
-          header: "Success!",
-          messages: [
-            `The following number of recording files have been successfully downloaded: ${checkedUploads.length}`,
-            "They can be found in your local downloads folder.",
-          ],
-        });
+          // show successful download modal only for multifile downloads
+          setModalLabels({
+            header: "Success!",
+            messages: [
+              `The following number of recording files have been successfully downloaded: ${checkedUploads.length}`,
+              "They can be found in your local downloads folder.",
+            ],
+          });
+          setModalButtons(["Close"]);
+          setModalState("generic");
+        }
+      } catch (e) {
+        console.log(`ERROR fetching presigned url to download recording files: ${e}`);
+        setModalLabels(modalObjs.downloadError);
         setModalButtons(["Close"]);
         setModalState("generic");
       }
-
-      setResetDropdown(false);
     } else {
       handleDropdownSelection(Download);
     }
@@ -454,34 +463,38 @@ export default function Uploads() {
   const handleDeletions = async () => {
     //remove all pending from list
     const jobsToDelete = [];
-
-    const uploadsToDelete = displayRows
-      .filter(({ id }) => checkedUploads.includes(id))
-      .map(({ jobs }) => {
-        jobs.forEach(({ status, jobId }) => {
-          if (status !== "pending") {
-            jobsToDelete.push(jobId);
-          }
-        });
+    // get upload meta data
+    const uploadsToDelete = displayRows.filter(({ id }) => checkedUploads.includes(id));
+    // push non-pending jobs
+    uploadsToDelete.map(({ jobs }) => {
+      jobs.map(({ status, jobId }) => {
+        if (status !== "pending") {
+          jobsToDelete.push(jobId);
+        }
       });
-
-    const finalUploadIds = uploadsToDelete
-      .filter(({ jobs }) => {
-        return jobs.filter((job) => job.status === "pending").length > 0;
-      })
-      .map(({ id }) => id);
+    });
 
     try {
       let failedDeletion = false;
       //soft delete uploads
-      if (finalUploadIds.length > 0) {
-        const uploadsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads?`;
-        finalUploadIds.map((id) => (uploadsURL += `upload_ids=${id}&`));
-        const uploadsResponse = await fetch(uploadsURL.slice(0, -1), {
-          method: "DELETE",
-        });
+      if (uploadsToDelete) {
+        // filter for uploads where there are no pending jobs to prevent deleting uploads for pending jobs
+        const finalUploadIds = uploadsToDelete
+          .filter(({ jobs }) => {
+            return jobs.filter((job) => job.status === "pending").length == 0;
+          })
+          .map(({ id }) => id);
 
-        failedDeletion ||= uploadsResponse.status !== 200;
+        if (finalUploadIds && finalUploadIds.length > 0) {
+          const uploadsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads?`;
+          finalUploadIds.map((id) => (uploadsURL += `upload_ids=${id}&`));
+
+          const uploadsResponse = await fetch(uploadsURL.slice(0, -1), {
+            method: "DELETE",
+          });
+
+          failedDeletion ||= uploadsResponse.status !== 200;
+        }
       }
 
       // soft delete all jobs
@@ -536,92 +549,92 @@ export default function Uploads() {
   };
 
   const downloadAnalyses = async () => {
-    try {
-      // removes any jobs with error + pending statuses
-      const finishedJobs = jobs.filter(
-        ({ jobId, status }) => checkedJobs.includes(jobId) && status === "finished"
-      );
-      const numberOfJobs = finishedJobs.length;
+    // removes any jobs with error + pending statuses
+    const finishedJobs = jobs.filter(
+      ({ jobId, status }) => checkedJobs.includes(jobId) && status === "finished"
+    );
+    const numberOfJobs = finishedJobs.length;
 
-      if (numberOfJobs > 0) {
-        setModalButtons(["Close"]);
+    if (numberOfJobs > 0) {
+      setModalButtons(["Close"]);
 
-        /*
+      /*
           Download correct number of files,
           else throw error to prompt error modal
         */
-        try {
-          if (numberOfJobs === 1) {
-            await downloadSingleFile(finishedJobs[0]);
-            // table only resets on download success modal close, so this needs to be handled here
-            resetTable();
-          } else if (numberOfJobs > 1) {
-            // show active downloading modal only for multifile downloads
-            setModalLabels(modalObjs.empty);
-            setModalState("downloading");
+      try {
+        if (numberOfJobs === 1) {
+          await downloadSingleFile(finishedJobs[0]);
+          // table only resets on download success modal close, so this needs to be handled here
+          resetTable();
+        } else if (numberOfJobs > 1) {
+          // show active downloading modal only for multifile downloads
+          setModalLabels(modalObjs.empty);
+          setModalState("downloading");
 
-            await downloadMultiFiles(finishedJobs);
+          await downloadMultiFiles(finishedJobs);
 
-            // show successful download modal only for multifile downloads
-            setModalLabels({
-              header: "Success!",
-              messages: [
-                `The following number of analyses have been successfully downloaded: ${numberOfJobs}`,
-                "They can be found in your local downloads folder.",
-              ],
-            });
+          // show successful download modal only for multifile downloads
+          setModalLabels({
+            header: "Success!",
+            messages: [
+              `The following number of analyses have been successfully downloaded: ${numberOfJobs}`,
+              "They can be found in your local downloads folder.",
+            ],
+          });
 
-            setModalState("generic");
-          }
-        } catch (e) {
-          throw Error(e);
+          setModalState("generic");
         }
-      } else {
-        // let user know in the off chance that the only files they selected are not finished analyzing or failed
-        setModalLabels(modalObjs.nothingToDownload);
-        setModalButtons(["Close"]);
+      } catch (e) {
+        console.log(`ERROR fetching presigned url to download analysis: ${e}`);
+        setModalLabels(modalObjs.downloadError);
         setModalState("generic");
       }
-    } catch (e) {
-      console.log(`ERROR fetching presigned url to download analysis: ${e}`);
-      setModalLabels(modalObjs.downloadError);
+    } else {
+      // let user know in the off chance that the only files they selected are not finished analyzing or failed
+      setModalLabels(modalObjs.nothingToDownload);
+      setModalButtons(["Close"]);
       setModalState("generic");
     }
   };
 
   const downloadSingleFile = async ({ jobId, uploadId }) => {
     // request only presigned urls for selected job/upload
-    let response = null,
-      presignedUrl = null,
-      name = null;
-    if (jobId) {
-      const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?job_ids=${jobId}`;
-      response = await fetch(url);
+    try {
+      let response = null,
+        presignedUrl = null,
+        name = null;
+      if (jobId) {
+        const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?job_ids=${jobId}`;
+        response = await fetch(url);
 
-      if (response.status === 200) {
-        const { jobs } = await response.json();
-        presignedUrl = jobs[0].url;
-        name = jobs[0].id;
+        if (response.status === 200) {
+          const { jobs } = await response.json();
+          presignedUrl = jobs[0].url;
+          name = jobs[0].id;
+        }
+      } else {
+        const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads/download`;
+        response = await fetch(url, { method: "POST", body: JSON.stringify({ upload_ids: [uploadId] }) });
+
+        if (response.status === 200) {
+          const { filename, url } = await response.json();
+          presignedUrl = url;
+          name = filename;
+        }
       }
-    } else {
-      const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads/download`;
-      response = await fetch(url, { method: "POST", body: JSON.stringify({ upload_ids: [uploadId] }) });
 
-      if (response.status === 200) {
-        const { filename, url } = await response.json();
-        presignedUrl = url;
-        name = filename;
+      if (presignedUrl) {
+        const a = document.createElement("a");
+        document.body.appendChild(a);
+        a.setAttribute("href", presignedUrl);
+        a.setAttribute("download", name);
+        a.click();
+        a.remove();
+      } else {
+        throw Error();
       }
-    }
-
-    if (presignedUrl) {
-      const a = document.createElement("a");
-      document.body.appendChild(a);
-      a.setAttribute("href", presignedUrl);
-      a.setAttribute("download", name);
-      a.click();
-      a.remove();
-    } else {
+    } catch (e) {
       throw Error();
     }
   };
@@ -789,7 +802,7 @@ export default function Uploads() {
                         ? ["Download", "Delete"]
                         : ["Download", "Delete", "Interactive Analysis"]
                     }
-                    subOptions={{ Download: ["Download Analyses", "Download Recording Files"] }}
+                    subOptions={{ Download: ["Download Analyses", "Download Raw Data"] }}
                     disableOptions={[
                       ...Array(2).fill(checkedJobs.length === 0 && checkedUploads.length === 0),
                       checkedJobs.length !== 1 ||
@@ -810,6 +823,7 @@ export default function Uploads() {
                       "Must make a job selection before becoming available.",
                       "Must make an upload selection before becoming available.",
                     ]}
+                    setReset={setResetDropdown}
                   />
                 </DropDownContainer>
               }

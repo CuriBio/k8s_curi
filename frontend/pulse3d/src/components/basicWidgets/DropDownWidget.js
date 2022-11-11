@@ -9,6 +9,7 @@ import Accordion from "@mui/material/Accordion";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { styled as muiStyled } from "@mui/material/styles";
 
 const ErrorText = styled.span`
   color: red;
@@ -25,35 +26,36 @@ const Placeholder = styled.em`
   font-weight: bolder;
 `;
 
-const ListItem = styled((MenuItemProps) => <MenuItem {...MenuItemProps} />)(() => ({
-  fontSize: "15px",
-  padding: "10px 30px",
-  fontFamily: "Mulish",
-  "&:hover": {
-    backgroundColor: "var(--light-gray)",
-  },
-  "& .Mui-selected": {
-    background: "white",
-  },
-}));
+const ListItem = muiStyled(MenuItem)`
+  font-size: 15px;
+  padding: 10px 30px;
+  font-family: Mulish;
+  :hover {
+    background: var(--light-gray);
+  }
+  &.Mui-selected {
+    background: white;
+  }
+`;
 
-const AccordionTab = styled((props) => <AccordionSummary {...props} />)(() => ({
-  fontSize: "15px",
-  "&.MuiAccordionSummary-root.Mui-expanded": {
-    minHeight: "0px",
+const AccordionTab = muiStyled(AccordionSummary)`
+  font-size: 15px;
+  &.MuiAccordionSummary-root.Mui-expanded {
+    min-height: 0px;
+    height: 42px;
+  }
+  &.MuiAccordionSummary-root {
+    min-height: 0px;
+    height: 42px;
+    padding: 0px 30px;
+  }
+  :hover {
+    background: var(--light-gray)
+  }
+  &.MuiAccordionSummary-content {
+    margin: 11px 15px;
   },
-  "&:hover": {
-    background: "var(--light-gray)",
-  },
-  "& .MuiAccordionSummary-content": {
-    margin: "11px 15px",
-    minHeight: "0px",
-  },
-}));
-
-const OutlinedComp = styled((props) => <OutlinedInput {...props} />)(({ height }) => ({
-  height,
-}));
+`;
 
 const MenuProps = {
   PaperProps: {
@@ -83,6 +85,7 @@ export default function DropDownWidget({
   disableSubOptions = {},
   subOptionsTooltipText = [],
   height = 40,
+  setReset,
 }) {
   const [selected, setSelected] = useState("");
   const [errorMsg, setErrorMsg] = useState(error);
@@ -124,15 +127,20 @@ export default function DropDownWidget({
     }
   }, [reset]);
 
+  // TODO 10/11/2022  Should find a better way to handle the opening and closing of the dropdowns instead of handling all click events
   const handleDropdownState = (e) => {
     const option = e.target.innerText;
     if (subOptions[option] && !disableOptions[options.indexOf(option)]) {
       setSelected(options.indexOf(option));
     } else {
-      /* Clicking on the select-dropdown to open will trigger this event and without this check, it will auto close and prevent dropdown from ever opening. If user selects outside select-dropdown component, then we want to close the modal */
-      if (e.target.id !== "select-dropdown") {
+      /* Clicking on the select-dropdown, the placeholder text, or the drop arrow to open will trigger this event and without this check, it will auto close and prevent dropdown from ever opening. If user selects outside these components, then we want to close the modal */
+      if (!["placeholder-text", "select-dropdown", "dropdown-arrow-icon"].includes(e.target.id)) {
         setOpen(false);
       }
+      // reset dropdown if user clicks outside of dropdown, mui adds a backdrop component that takes up entire view so any clicking will reset
+      // if setReset is not passed down, then it signals not to reset on clicking away
+      // this is important for accordion tab selections
+      if (setReset && e.target.className && e.target.className.includes("MuiBackdrop-root")) setReset(true);
     }
   };
 
@@ -164,7 +172,7 @@ export default function DropDownWidget({
         displayEmpty
         labelId="select-label"
         id="select-dropdown"
-        input={<OutlinedComp height={`${height}px`} />}
+        input={<OutlinedInput sx={{ height: `${height}px` }} />}
         MenuProps={MenuProps}
         onChange={handleDropdownChange}
         open={open}
@@ -175,7 +183,17 @@ export default function DropDownWidget({
              An index of 0 will pass !initialSelected as truthy
           */
           if (selected.length === 0 && initialSelected === undefined) {
-            return <Placeholder>{label}</Placeholder>;
+            return (
+              <Placeholder
+                id="placeholder-text"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setOpen(true);
+                }}
+              >
+                {label}
+              </Placeholder>
+            );
           } else if (selected === "" && initialSelected !== undefined) {
             return options[initialSelected];
           } else {
@@ -192,8 +210,19 @@ export default function DropDownWidget({
           // else if the parent option has sub menu with more options
           else if (subOptions[item] && subOptions[item].length > 0)
             return (
-              <Accordion key={idx} value={idx} onClick={() => setSelected(0)}>
-                <AccordionTab expandIcon={<ExpandMoreIcon />} id={`${item}-dropdown`}>
+              <Accordion key={idx} value={idx} onClick={() => setSelected(idx)}>
+                <AccordionTab
+                  expandIcon={
+                    <ExpandMoreIcon
+                      id={`dropdown-arrow-icon`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setSelected(idx);
+                      }}
+                    />
+                  }
+                  id={`${item}-dropdown`}
+                >
                   {item}
                 </AccordionTab>
                 <AccordionDetails>
