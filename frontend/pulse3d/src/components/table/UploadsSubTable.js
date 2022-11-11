@@ -1,66 +1,90 @@
-import { useState, memo } from "react";
+import { memo } from "react";
 import styled from "styled-components";
+import Checkbox from "@mui/material/Checkbox";
+
+const Container = styled.div`
+  padding: 0 3.5rem;
+`;
 
 const SubContainer = styled.div`
+  width: 100%;
   display: flex;
-  justify-content: space-around;
+  align-items: center;
+  background-color: #ececed8f;
 `;
 const SubHeader = styled.div`
-  display: flex;
   background-color: var(--dark-blue);
   color: white;
-  margin: 0 1rem;
-  padding: 0.4rem;
-  justify-content: space-around;
+  padding: 0.4rem 0;
+  font-size: 0.85rem;
+  border-radius: 3px;
+  display: flex;
+`;
+
+const FilenameHeader = styled.div`
+  padding-left: 3.9%;
+  width: 40%;
+`;
+const Header = styled.div`
+  width: 20%;
+`;
+
+const SubRowFileName = styled.div`
+  font-size: 0.75rem;
+  width: 40%;
 `;
 const SubRow = styled.div`
   font-size: 0.75rem;
   width: 20%;
-  text-align: center;
-  margin: 1rem 0;
 `;
-
-export default memo(function UploadsSubTable(props) {
-  const [isChecked, setIsChecked] = useState(props.jobs.map((job) => job.checked));
-  const rows = props.jobs.map((job, idx) => {
+export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, jobs }) {
+  const rows = jobs.map((job) => {
     let paramsString = [];
 
     Object.keys(job.analysisParams).forEach((param) => {
       if (job.analysisParams[param] !== null) {
-        const paramVal = param === "peaks_valleys" ? "user set" : job.analysisParams[param];
-        paramsString.push(<div key={job.jobId + param}> {`${param.replace("_", " ")}: ${paramVal}`}</div>);
+        let paramVal;
+        if (param === "peaks_valleys") {
+          paramVal = "user set";
+        } else {
+          paramVal = job.analysisParams[param];
+        }
+
+        if (param == "inverted_post_magnet_wells") {
+          param = "wells with flipped waveforms";
+        }
+        paramsString.push(<div key={job.jobId + param}> {`${param.replaceAll("_", " ")}: ${paramVal}`}</div>);
       }
     });
 
     return (
       <SubContainer key={Math.random()}>
-        <input
-          type="checkbox"
-          checked={isChecked[idx]}
-          onChange={() => {
-            props.setJobToEdit({
-              id: job.jobId,
-              action: isChecked[idx] ? "remove" : "add",
-            });
-            setIsChecked(isChecked.map((checked, index) => (idx === index ? !checked : checked)));
-          }}
-        />
-        <SubRow>{job.analyzedFile}</SubRow>
+        <SubRowFileName>
+          <Checkbox
+            id={job.jobId}
+            disabled={job.status === "pending"}
+            checked={checkedJobs.includes(job.jobId)}
+            onChange={handleCheckedJobs}
+          />
+          {job.analyzedFile ? job.analyzedFile : "None"}
+        </SubRowFileName>
         <SubRow>{job.datetime}</SubRow>
         <SubRow>{paramsString.length === 0 ? "None" : paramsString}</SubRow>
-        <SubRow>{job.status}</SubRow>
+        <SubRow>
+          {job.status === "finished" ? "Completed" : job.status[0].toUpperCase() + job.status.slice(1)}
+        </SubRow>
       </SubContainer>
     );
   });
   return (
-    <div>
+    <Container>
       <SubHeader>
-        <div>Analyzed Filename</div>
-        <div>Created Date</div>
-        <div>Analysis Parameters</div>
-        <div>Status</div>
+        <FilenameHeader>Analyzed Filename</FilenameHeader>
+        <Header>Created Date</Header>
+        <Header>Analysis Parameters</Header>
+        <Header>Status</Header>
       </SubHeader>
       {rows}
-    </div>
+    </Container>
   );
 });

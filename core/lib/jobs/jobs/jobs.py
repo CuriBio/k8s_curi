@@ -3,6 +3,7 @@ from functools import wraps
 import json
 import time
 import uuid
+from typing import Dict
 
 
 class EmptyQueue(Exception):
@@ -69,7 +70,7 @@ async def get_uploads(*, con, account_type, account_id, upload_ids=None):
         )
     if upload_ids:
         places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
-        query += f" AND id IN ({places})"
+        query += f" AND uploads.id IN ({places})"
         query_params.extend(upload_ids)
 
     async with con.transaction():
@@ -85,8 +86,8 @@ async def create_upload(*, con, upload_params):
     # the WITH clause in this query is necessary to make sure the given user_id actually exists
     query = (
         "WITH row AS (SELECT id AS user_id FROM users WHERE id=$1) "
-        "INSERT INTO uploads (user_id, id, md5, prefix, filename, type) "
-        "SELECT user_id, $2, $3, $4, $5, $6 FROM row "
+        "INSERT INTO uploads (user_id, id, md5, prefix, filename, type, customer_id) "
+        "SELECT user_id, $2, $3, $4, $5, $6, $7 FROM row "
         "RETURNING id"
     )
 
@@ -98,6 +99,7 @@ async def create_upload(*, con, upload_params):
         upload_params["prefix"].format(upload_id=upload_id),
         upload_params["filename"],
         upload_params["type"],
+        upload_params["customer_id"],
     )
 
 
@@ -153,7 +155,7 @@ async def get_jobs(*, con, account_type, account_id, job_ids=None):
     return jobs
 
 
-async def create_job(*, con, upload_id, queue, priority, meta):
+async def create_job(*, con, upload_id, queue, priority, meta, customer_id, job_type):
     # the WITH clause in this query is necessary to make sure the given upload_id actually exists
     enqueue_job_query = (
         "WITH row AS (SELECT id FROM uploads WHERE id=$1) "
@@ -172,6 +174,8 @@ async def create_job(*, con, upload_id, queue, priority, meta):
             "runtime": 0,
             "finished_at": None,
             "meta": json.dumps(meta),
+            "customer_id": customer_id,
+            "type": job_type,
         }
 
         cols = ", ".join(list(data))
@@ -213,3 +217,30 @@ def _get_placeholders_str(num_placeholders, start=1):
     if start < 1:
         raise ValueError("Initial placeholder value must be >= 1")
     return ", ".join(f"${i}" for i in range(start, start + num_placeholders))
+
+
+async def check_customer_quota(con, customer_id, service) -> Dict[str, bool]:
+    """Query DB for service-specific customer account usage.
+
+    Will be called for all account tiers, unlimited has a value of -1.
+    Returns:
+        - Dictionary containing boolean values for if uploads or job quotas have been reached
+    """
+
+    async with con.transaction():
+        # get service specific usage restrictions for the customer account
+        usage_query = "SELECT usage_restrictions->$1 AS usage FROM customers WHERE id=$2"
+        usage_json = await con.fetchrow(usage_query, service, customer_id)
+        usage_dict = json.loads(usage_json["usage"])
+
+        # grab total uploads and jobs of customer for specific service
+        query = "SELECT COUNT(*) as total_uploads, SUM(jobs_count) as total_jobs FROM (SELECT COUNT(*) AS jobs_count FROM jobs_result WHERE customer_id=$1 AND type=$2 GROUP BY upload_id) dt"
+        customer_data = await con.fetchrow(query, customer_id, service)
+        total_uploads = customer_data["total_uploads"]
+        total_jobs = customer_data["total_jobs"] if customer_data["total_jobs"] is not None else 0
+
+        # return boolean values if reached, -1 means infinite uploads/jobs allowed for paid account
+        return {
+            "uploads_reached": total_uploads >= usage_dict["uploads"] and usage_dict["uploads"] != -1,
+            "jobs_reached": total_jobs >= usage_dict["jobs"] and usage_dict["jobs"] != -1,
+        }

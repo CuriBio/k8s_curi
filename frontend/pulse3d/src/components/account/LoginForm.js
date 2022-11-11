@@ -14,7 +14,7 @@ const InputContainer = styled.div(
 `
 );
 
-export default function LoginForm({ children, setUserData, userData, loginType }) {
+export default function LoginForm({ children, setUserData, userData, loginType, submitForm }) {
   return (
     <InputContainer user={loginType === "User"}>
       {loginType === "User" ? (
@@ -39,7 +39,7 @@ export default function LoginForm({ children, setUserData, userData, loginType }
             onChangeFn={(e) => {
               setUserData({
                 ...userData,
-                username: e.target.value,
+                username: e.target.value.toLowerCase(),
               });
             }}
           />

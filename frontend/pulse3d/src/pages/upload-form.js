@@ -12,12 +12,10 @@ import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardL
 import semverGte from "semver/functions/gte";
 
 const Container = styled.div`
-  width: 70%;
+  width: 85%;
   justify-content: center;
   position: relative;
-  padding-top: 3%;
-  padding-left: 7%;
-  padding-bottom: 3%;
+  padding: 3rem;
 `;
 
 const Header = styled.h2`
@@ -63,8 +61,7 @@ const DropDownContainer = styled.div`
   position: relative;
   height: 17%;
   align-items: center;
-  top: 5%;
-  margin-top: 1rem;
+  margin-top: 2rem;
 `;
 
 const dropZoneText = "CLICK HERE or DROP single recording ZIP files";
@@ -73,6 +70,22 @@ const defaultUploadErrorLabel =
 const defaultZipErrorLabel =
   "The following file(s) will not be uploaded because they either contain multiple recordings or do not have the correct number of H5 files.";
 
+const modalObj = {
+  uploadsReachedDuringSession: {
+    header: "Warning!",
+    messages: [
+      "The upload limit has been reached for this customer account during your session preventing this recording from being uploaded.",
+      "You will only be allowed to perform re-analysis on existing files.",
+    ],
+  },
+  jobsReachedDuringSession: {
+    header: "Warning!",
+    messages: [
+      "All usage limits have been reached for this customer account during your session preventing this analyses from starting.",
+      "You will not be able to upload new recording files or perform re-analysis on existing files.",
+    ],
+  },
+};
 export default function UploadForm() {
   const { uploads, pulse3dVersions } = useContext(UploadsContext);
 
@@ -87,23 +100,39 @@ export default function UploadForm() {
       twitchWidths: "",
       startTime: "",
       endTime: "",
+      stiffnessFactor: null,
       selectedPulse3dVersion: pulse3dVersions[0] || "", // Tanner (9/15/22): The pulse3d version technically isn't a param, but it lives in the same part of the form as the params
+      wellsWithFlippedWaveforms: "",
     };
   };
 
-  const { query } = useRouter();
+  const router = useRouter();
   const [files, setFiles] = useState([]);
   const [formattedUploads, setFormattedUploads] = useState([]);
   const [isButtonDisabled, setIsButtonDisabled] = useState(true);
   const [paramErrors, setParamErrors] = useState({});
   const [inProgress, setInProgress] = useState(false);
   const [modalButtons, setModalButtons] = useState(["Close"]);
-  const [failedUploadsMsg, setFailedUploadsMsg] = useState([defaultUploadErrorLabel]);
+  const [failedUploadsMsg, setFailedUploadsMsg] = useState([defaultZipErrorLabel]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [checkedParams, setCheckedParams] = useState(false);
-  const [tabSelection, setTabSelection] = useState(query.id);
+  const [tabSelection, setTabSelection] = useState(router.query.id);
   const [modalState, setModalState] = useState(false);
+  const [usageModalState, setUsageModalState] = useState(false);
+  const [usageModalLabels, setUsageModalLabels] = useState(modalObj.uploadsReachedDuringSession);
   const [analysisParams, setAnalysisParams] = useState(getDefaultAnalysisParams());
+  const [badZipFiles, setBadZipFiles] = useState([]);
+
+  useEffect(() => {
+    if (badZipFiles.length > 0) {
+      // give users the option to proceed with clean files if any, otherwise just close
+      setModalButtons(badZipFiles.length !== files.length ? ["Cancel", "Proceed"] : ["Close"]);
+
+      // add files to modal to notify user which files are bad
+      setFailedUploadsMsg([defaultZipErrorLabel, ...badZipFiles.map((f) => f.name)]);
+      setModalState(true);
+    }
+  }, [badZipFiles]);
 
   const resetAnalysisParams = () => {
     setAnalysisParams(getDefaultAnalysisParams());
@@ -122,7 +151,7 @@ export default function UploadForm() {
     // checks if error value exists, no file is selected, or upload is in progress
     const checkConditions =
       !Object.values(paramErrors).every((val) => val.length === 0) ||
-      !((files.length > 0 && files[0] instanceof File) || uploads.includes(files[0])) ||
+      !((files.length > 0 && files[0] instanceof File) || (uploads && uploads.includes(files[0]))) ||
       inProgress;
 
     setIsButtonDisabled(checkConditions);
@@ -140,20 +169,22 @@ export default function UploadForm() {
 
   useEffect(() => {
     // reset all params if the user switches between the "re-analyze" and "new upload" versions of this page
-    setTabSelection(query.id);
+    setTabSelection(router.query.id);
     resetState();
-  }, [query]);
+  }, [router.query]);
 
   useEffect(() => {
-    const uploadFilenames = uploads.map((upload) => upload.filename).filter((name) => name);
+    if (uploads) {
+      const uploadFilenames = uploads.map((upload) => upload.filename).filter((name) => name);
 
-    setFormattedUploads([...uploadFilenames]);
+      setFormattedUploads([...uploadFilenames]);
+    }
   }, [uploads]);
 
   const resetState = () => {
     setFiles([]);
     updateCheckParams(false); // this will also reset the analysis params and their error message
-    setFailedUploadsMsg([defaultUploadErrorLabel]);
+    setFailedUploadsMsg(failedUploadsMsg);
     setModalButtons(["Close"]);
   };
 
@@ -190,9 +221,13 @@ export default function UploadForm() {
         endTime,
         selectedPulse3dVersion,
         stiffnessFactor,
+        wellsWithFlippedWaveforms,
       } = analysisParams;
 
-      const version = selectedPulse3dVersion === "" ? pulse3dVersions[0] : selectedPulse3dVersion;
+      const version =
+        selectedPulse3dVersion === "" || !selectedPulse3dVersion
+          ? pulse3dVersions[0]
+          : selectedPulse3dVersion;
 
       const requestBody = {
         upload_id: uploadId,
@@ -206,17 +241,30 @@ export default function UploadForm() {
         // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
         version,
       };
+
       if (semverGte(version, "0.25.0")) {
         requestBody.max_y = maxY === "" ? null : maxY;
       }
-      if (semverGte(version, "0.27.0")) {
+      if (semverGte(version, "0.26.0")) {
         requestBody.stiffness_factor = stiffnessFactor === "" ? null : stiffnessFactor;
       }
+      if (semverGte(version, "0.27.4")) {
+        requestBody.inverted_post_magnet_wells =
+          wellsWithFlippedWaveforms === "" ? null : wellsWithFlippedWaveforms;
+      }
+
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
         method: "POST",
         body: JSON.stringify(requestBody),
       });
-      if (jobResponse.status !== 200) {
+
+      const jobData = await jobResponse.json();
+      // 403 gets returned in quota limit reached responses modal gets handled in ControlPanel
+      if (jobData.usage_error) {
+        console.log("ERROR starting job because customer job limit has been reached");
+        setUsageModalLabels(modalObj.jobsReachedDuringSession);
+        setUsageModalState(true);
+      } else if (jobResponse.status !== 200) {
         failedUploadsMsg.push(filename);
         console.log("ERROR posting new job: ", await jobResponse.json());
       }
@@ -233,47 +281,46 @@ export default function UploadForm() {
 
   const checkForMultiRecZips = async () => {
     var JSZip = require("jszip");
-
-    if (tabSelection === "1") {
+    let badZipfiles;
+    if (tabSelection === "Analyze New Files") {
       const asyncFilter = async (arr, predicate) =>
         Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
-      const badZipfiles = await asyncFilter(files, async (file) => {
+      badZipfiles = await asyncFilter(files, async (file) => {
         try {
           const zip = new JSZip();
-          const { files } = await zip.loadAsync(file);
+          const { files: loadedFiles } = await zip.loadAsync(file);
 
-          const dirs = Object.values(files).filter(({ dir }) => dir);
+          const dirs = Object.values(loadedFiles).filter(({ dir }) => dir);
           const onlyOneRec = dirs.length === 0 || dirs.length === 1;
 
-          const numFilesInRecording = Object.keys(files).filter(
+          const numFilesInRecording = Object.keys(loadedFiles).filter(
             (filename) => filename.includes(".h5") && !filename.includes("__MACOSX")
           ).length;
 
           // Beta 1 recordings will contain 24 files, Beta 2 and V1 recordings will contain 48
           const recordingContainsValidNumFiles = numFilesInRecording === 24 || numFilesInRecording === 48;
-
           return !onlyOneRec || !recordingContainsValidNumFiles;
         } catch (e) {
-          console.log(`ERROR unable to read zip file: ${file.name} ${e}`);
-          failedUploadsMsg.push(file.name);
+          console.log(`ERROR unable to read zip file: ${file.filename} ${e}`);
+          failedUploadsMsg.push(file.filename);
           return true;
         }
       });
+      setBadZipFiles(badZipfiles);
+      let newFiles = files;
 
-      if (badZipfiles.length > 0) {
-        // give users the option to proceed with clean files if any, otherwise just close
-        setModalButtons(badZipfiles.length !== files.length ? ["Cancel", "Proceed"] : ["Close"]);
-
-        // add files to modal to notify user which files are bad
-        setFailedUploadsMsg([defaultZipErrorLabel, ...badZipfiles.map((f) => f.name)]);
-
-        setModalState(true);
-        return;
+      for (let i = 0; i < badZipfiles.length; i++) {
+        for (let j = 0; j < newFiles.length; j++) {
+          if (badZipfiles[i].name === newFiles[j].name) {
+            setFiles(newFiles.splice(j, 1));
+          }
+        }
       }
     }
-
-    await handleNewAnalysis(files);
+    if (files.length > 0) {
+      await handleNewAnalysis(files);
+    }
   };
 
   const handleNewAnalysis = async (files) => {
@@ -338,18 +385,25 @@ export default function UploadForm() {
         body: JSON.stringify({
           filename,
           md5s: hexToBase64(fileHash),
-          upload_type: "mantarray",
+          upload_type: "pulse3d",
         }),
       });
 
-      // break flow if initial request returns error status code
       if (uploadResponse.status !== 200) {
+        // break flow if initial request returns error status code
         failedUploadsMsg.push(filename);
         console.log("ERROR uploading file metadata to DB:  ", await uploadResponse.json());
         return;
       }
 
       const data = await uploadResponse.json();
+
+      if (data.usage_error) {
+        console.log("ERROR uploading file because customer upload limit has been reached");
+        setUsageModalLabels(modalObj.uploadsReachedDuringSession);
+        setUsageModalState(true);
+        return;
+      }
       const uploadDetails = data.params;
       const uploadId = data.id;
       const formData = new FormData();
@@ -374,7 +428,6 @@ export default function UploadForm() {
     } catch (e) {
       // catch all if service worker isn't working
       console.log("ERROR posting to presigned url");
-      failedUploadsMsg.push(filename);
     }
   };
 
@@ -390,13 +443,14 @@ export default function UploadForm() {
     }
     // goes after because this dependency triggers reset
     setModalState(false);
+    setFailedUploadsMsg([defaultUploadErrorLabel]);
   };
 
   return (
     <Container>
       <Uploads>
         <Header>Run Analysis</Header>
-        {tabSelection === "1" ? (
+        {tabSelection === "Analyze New Files" ? (
           <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
             handleFileChange={(files) => setFiles(Object.values(files))}
             dropZoneText={dropZoneText}
@@ -409,6 +463,7 @@ export default function UploadForm() {
               label="Select Recording"
               reset={files.length === 0}
               handleSelection={handleDropDownSelect}
+              height={50}
             />
           </DropDownContainer>
         )}
@@ -452,6 +507,15 @@ export default function UploadForm() {
         buttons={modalButtons}
         closeModal={handleClose}
         header="Error Occurred"
+      />
+      <ModalWidget
+        open={usageModalState}
+        labels={usageModalLabels.messages}
+        closeModal={() => {
+          setUsageModalState(false);
+          router.replace("/uploads", undefined, { shallow: true });
+        }}
+        header={usageModalLabels.header}
       />
     </Container>
   );

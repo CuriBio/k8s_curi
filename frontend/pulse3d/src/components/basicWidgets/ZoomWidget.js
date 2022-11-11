@@ -2,6 +2,7 @@ import * as React from "react";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import RemoveCircleOutlineIcon from "@mui/icons-material/RemoveCircleOutline";
 import styled from "styled-components";
+import { styled as muiStyled } from "@mui/material/styles";
 
 const Container = styled.div`
   display: flex;
@@ -10,27 +11,25 @@ const Container = styled.div`
   padding: 5px;
 `;
 
-const MinusIcon = styled((props) => <RemoveCircleOutlineIcon {...props} />)(({ size }) => ({
-  fontSize: size,
-  "&:hover": {
-    fill: "var(--teal-green)",
-    cursor: "pointer",
-  },
-}));
+const MinusIcon = muiStyled(RemoveCircleOutlineIcon)`
+  :hover {
+    fill: var(--teal-green);
+    cursor: pointer;
+  }
+`;
 
-const PlusIcon = styled((props) => <AddCircleOutlineIcon {...props} />)(({ size }) => ({
-  fontSize: size,
-  "&:hover": {
-    fill: "var(--teal-green)",
-    cursor: "pointer",
-  },
-}));
+const PlusIcon = muiStyled(AddCircleOutlineIcon)`
+  :hover {
+    fill: var(--teal-green);
+    cursor: pointer;
+  }
+`;
 
 export default function ZoomWidget({ size = "16px", zoomIn, zoomOut }) {
   return (
     <Container>
-      <MinusIcon size={size} onClick={zoomOut} />
-      <PlusIcon size={size} onClick={zoomIn} />
+      <MinusIcon sx={{ fontSize: size }} onClick={zoomOut} />
+      <PlusIcon sx={{ fontSize: size }} onClick={zoomIn} />
     </Container>
   );
 }
