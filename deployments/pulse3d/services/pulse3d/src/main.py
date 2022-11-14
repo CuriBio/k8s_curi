@@ -388,7 +388,7 @@ def _format_tuple_param(
         return None
 
     if isinstance(default_values, int):
-        default_values = (default_values,) * len(options)
+        default_values = (default_values / 1000,) * len(options)
 
     # set any unspecified values to the default value
     formatted_options = tuple(
