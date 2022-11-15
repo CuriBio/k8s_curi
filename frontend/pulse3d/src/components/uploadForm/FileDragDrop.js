@@ -60,9 +60,6 @@ export default function FileDragDrop({
         <FileUploader
           hoverTitle=" "
           handleChange={handleFileChange}
-          onSelect={(e) => {
-            console.log(e);
-          }}
           name="file"
           types={fileTypes}
           multiple={true}
