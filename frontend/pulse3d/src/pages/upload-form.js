@@ -485,7 +485,9 @@ export default function UploadForm() {
             position="relative"
             borderRadius="3px"
             label="Reset"
-            clickFn={resetState}
+            clickFn={() => {
+              window.location.reload();
+            }}
           />
           <ButtonWidget
             width="135px"
