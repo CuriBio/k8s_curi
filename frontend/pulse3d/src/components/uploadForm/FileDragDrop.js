@@ -1,5 +1,6 @@
 import styled from "styled-components";
 import { FileUploader } from "react-drag-drop-files";
+import { useEffect } from "react";
 
 const fileTypes = ["zip"];
 
@@ -46,22 +47,33 @@ export default function FileDragDrop({
   dropZoneText = "Drop Here",
   containerStyle = {},
   dropZoneStyle = {},
+  setResetDragDrop,
+  resetDragDrop,
 }) {
+  useEffect(() => {
+    if (resetDragDrop) setResetDragDrop(false);
+  }, [resetDragDrop]);
+
   return (
     <Container style={containerStyle}>
-      <FileUploader
-        hoverTitle=" "
-        handleChange={handleFileChange}
-        name="file"
-        types={fileTypes}
-        multiple={true}
-      >
-        <DropZone style={dropZoneStyle}>
-          {dropZoneText}
-          <br />
-          <FileSelectionLabel>[ {fileSelection || "No file selected"} ]</FileSelectionLabel>
-        </DropZone>
-      </FileUploader>
+      {!resetDragDrop && (
+        <FileUploader
+          hoverTitle=" "
+          handleChange={handleFileChange}
+          onSelect={(e) => {
+            console.log(e);
+          }}
+          name="file"
+          types={fileTypes}
+          multiple={true}
+        >
+          <DropZone style={dropZoneStyle}>
+            {dropZoneText}
+            <br />
+            <FileSelectionLabel>[ {fileSelection || "No file selected"} ]</FileSelectionLabel>
+          </DropZone>
+        </FileUploader>
+      )}
     </Container>
   );
 }
