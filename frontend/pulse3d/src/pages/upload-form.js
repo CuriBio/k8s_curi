@@ -122,6 +122,7 @@ export default function UploadForm() {
   const [usageModalLabels, setUsageModalLabels] = useState(modalObj.uploadsReachedDuringSession);
   const [analysisParams, setAnalysisParams] = useState(getDefaultAnalysisParams());
   const [badZipFiles, setBadZipFiles] = useState([]);
+  const [resetDragDrop, setResetDragDrop] = useState(false);
 
   useEffect(() => {
     if (badZipFiles.length > 0) {
@@ -182,6 +183,7 @@ export default function UploadForm() {
   }, [uploads]);
 
   const resetState = () => {
+    setResetDragDrop(true);
     setFiles([]);
     updateCheckParams(false); // this will also reset the analysis params and their error message
     setFailedUploadsMsg(failedUploadsMsg);
@@ -455,6 +457,8 @@ export default function UploadForm() {
             handleFileChange={(files) => setFiles(Object.values(files))}
             dropZoneText={dropZoneText}
             fileSelection={files.length > 0 ? files.map(({ name }) => name).join(", ") : "No files selected"}
+            setResetDragDrop={setResetDragDrop}
+            resetDragDrop={resetDragDrop}
           />
         ) : (
           <DropDownContainer>
