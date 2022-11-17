@@ -14,10 +14,10 @@ from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
 
 def load_data_to_df(file_name, pr):
     df = pd.read_excel(file_name, sheet_name=None, engine="openpyxl")
-    recording_length = int(df["continuous-waveforms"]["Time (seconds)"].iloc[-1]) * MICRO_TO_BASE_CONVERSION
-    formatted_metadata = format_metadata(df["metadata"], pr, recording_length)
+    time_series = df["continuous-waveforms"]["Time (seconds)"].dropna()
+    recording_length = round(time_series.iloc[-1] * MICRO_TO_BASE_CONVERSION)
 
-    return formatted_metadata
+    return format_metadata(df["metadata"], pr, recording_length)
 
 
 def format_metadata(meta_sheet, pr, recording_length: int):
