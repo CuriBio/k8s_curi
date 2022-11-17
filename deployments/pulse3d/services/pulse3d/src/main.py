@@ -45,6 +45,7 @@ from models.models import (
     WaveformDataResponse,
     UsageErrorResponse,
     UploadDownloadRequest,
+    UnauthorizedUserResponse,
 )
 from models.types import TupleParam
 
@@ -92,10 +93,25 @@ async def get_info_of_uploads(
 
     try:
         account_id = str(uuid.UUID(token["userid"]))
+        account_type = token["account_type"]
+
+        # give advanced privileges to access all uploads under customer_id
+        if "pulse3d:rw_all_data" in token["scope"]:
+            account_id = str(uuid.UUID(token["customer_id"]))
+            # catches in the else block like customers in get_uploads, just set here so it's not customer and become confusing
+            account_type = "dataUser"
+
         async with request.state.pgpool.acquire() as con:
-            return await get_uploads(
-                con=con, account_type=token["account_type"], account_id=account_id, upload_ids=upload_ids
+            uploads = await get_uploads(
+                con=con, account_type=account_type, account_id=account_id, upload_ids=upload_ids
             )
+            if account_type != "customer":
+                # customer accounts don't matter here because they don't have the ability to delete
+                for upload in uploads:
+                    # need way on FE to tell if user owns recordings besides username since current user's username is not stored on the FE. We want to prevent users from attempting to delete files that aren't theirs before calling /delete route
+                    upload["owner"] = str(upload["user_id"]) == str(uuid.UUID(token["userid"]))
+
+            return uploads
 
     except Exception as e:
         logger.exception(f"Failed to get uploads: {repr(e)}")
@@ -185,12 +201,17 @@ async def download_zip_files(
 
     # need to convert UUIDs to str to avoid issues with DB
     upload_ids = [str(id) for id in upload_ids]
-    user_id = str(uuid.UUID(token["userid"]))
+    account_id = str(uuid.UUID(token["userid"]))
+
+    # give advanced privileges to access all uploads under customer_id
+    if "pulse3d:rw_all_data" in token["scope"]:
+        account_id = str(uuid.UUID(token["customer_id"]))
+        account_type = "customer"
 
     try:
         async with request.state.pgpool.acquire() as con:
             uploads = await get_uploads(
-                con=con, account_type=token["account_type"], account_id=user_id, upload_ids=upload_ids
+                con=con, account_type=account_type, account_id=account_id, upload_ids=upload_ids
             )
 
         # get filenames and s3 keys to download
@@ -257,6 +278,9 @@ async def get_info_of_jobs(
         job_ids = [str(job_id) for job_id in job_ids]
 
     try:
+        user_id = str(uuid.UUID(token["userid"]))
+        account_type = token["account_type"]
+
         async with request.state.pgpool.acquire() as con:
             jobs = await _get_jobs(con, token, job_ids)
 
@@ -271,6 +295,11 @@ async def get_info_of_jobs(
                 "created_at": job["created_at"],
                 "meta": job["job_meta"],
             }
+
+            if account_type != "customer":
+                # customer accounts don't have the ability to delete so doesn't need this key:value
+                # need way on FE to tell if user owns recordings besides username since current user's username is not stored on the FE. We want to prevent users from attempting to delete files that aren't theirs before calling /delete route
+                job_info["owner"] = str(job["user_id"]) == user_id
 
             if job_info["status"] == "finished" and download:
                 # This is in case any current users uploaded files before object_key was dropped from uploads table and added to jobs_result
@@ -305,7 +334,14 @@ async def get_info_of_jobs(
 async def _get_jobs(con, token, job_ids):
     account_type = token["account_type"]
     account_id = str(uuid.UUID(token["userid"]))
+
     logger.info(f"Retrieving job info with IDs: {job_ids} for {account_type}: {account_id}")
+
+    # give advanced privileges to access all uploads under customer_id
+    if "pulse3d:rw_all_data" in token["scope"]:
+        account_id = str(uuid.UUID(token["customer_id"]))
+        # catches in the else block like customers in get_uploads, just set here so it's not customer and become confusing
+        account_type = "dataUser"
 
     return await get_jobs(con=con, account_type=account_type, account_id=account_id, job_ids=job_ids)
 
@@ -319,7 +355,8 @@ async def create_new_job(
     try:
         user_id = str(uuid.UUID(token["userid"]))
         customer_id = str(uuid.UUID(token["customer_id"]))
-        service, _ = split_scope_account_data(token["scope"][0])
+        user_scopes = token["scope"]
+        service, _ = split_scope_account_data(user_scopes[0])
         logger.info(f"Creating {service} job for upload {details.upload_id} with user ID: {user_id}")
 
         params = [
@@ -359,14 +396,26 @@ async def create_new_job(
 
         priority = 10
         async with request.state.pgpool.acquire() as con:
+            # first check user_id of upload matches user_id in token
+            # NOTE checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
+            # NOTE customer id is checked already because the customer_id in the token is being used to find upload details
+            if "pulse3d:rw_all_data" not in user_scopes:
+                row = await con.fetchrow("SELECT user_id FROM uploads where id=$1", details.upload_id)
+                # if users don't match and they don't have an all_data scope, then raise unauth error
+                if user_id != row["user_id"]:
+                    return UnauthorizedUserResponse(
+                        unauthorized_error="User does not have authorization to start this job."
+                    )
+
+            # second, check usage quota for customer account
             usage_quota = await check_customer_quota(con, customer_id, service)
             if usage_quota["jobs_reached"]:
                 return UsageErrorResponse(usage_error=usage_quota)
-
+            # finally create job
             job_id = await create_job(
                 con=con,
                 upload_id=details.upload_id,
-                queue=f"pulse3d-v{details.version}",
+                queue=f"luci-pulse3d-v{details.version}",
                 priority=priority,
                 meta={"analysis_params": analysis_params, "version": details.version},
                 customer_id=customer_id,
@@ -414,6 +463,11 @@ async def soft_delete_jobs(
 
     try:
         account_id = str(uuid.UUID(token["userid"]))
+        # user_scopes = token["scope"]
+
+        # if "pulse3d:rw_all_data" not in user_scopes:
+        #     row = await con.fetchrow("SELECT user_id FROM uploads where uploads.id=jobs_result.upload_id", details.upload_id)
+
         async with request.state.pgpool.acquire() as con:
             await delete_jobs(
                 con=con, account_type=token["account_type"], account_id=account_id, job_ids=job_ids

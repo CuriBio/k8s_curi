@@ -65,7 +65,6 @@ class CustomerCreate(BaseModel):
 
 class UserCreate(CustomerCreate):
     username: str
-    service: str
     scope: Optional[List[str]]
 
     @validator("username")

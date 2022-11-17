@@ -165,8 +165,8 @@ async def create_job(*, con, upload_id, queue, priority, meta, customer_id, job_
     async with con.transaction():
         # add job to queue
         row = await con.fetchrow(enqueue_job_query, upload_id, queue, priority, json.dumps(meta))
-
         job_id = row["id"]
+
         data = {
             "job_id": job_id,
             "upload_id": upload_id,
