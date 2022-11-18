@@ -151,6 +151,7 @@ export default function AnalysisParamForm({
   analysisParams,
 }) {
   const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
+  const [disableStimProtocols, setDisableStimProtocols] = useState(false);
   const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails } = useContext(UploadsContext);
 
   const pulse3dVersionGte = (version) => {
@@ -343,6 +344,36 @@ export default function AnalysisParamForm({
             />
           </DropDownContainer>
         </ParamContainer>
+
+        {pulse3dVersionGte("0.27.6") && (
+          //Disabling y-axis normalization added in version 0.25.4
+          <ParamContainer style={{ width: "6%", marginTop: "2%" }}>
+            <Label htmlFor="showStimMeta">
+              Show Stimulation Protocols:
+              <Tooltip
+                title={
+                  <TooltipText>
+                    {"When selected, adds a tab to output file with stimulation protocols."}
+                  </TooltipText>
+                }
+              >
+                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+              </Tooltip>
+            </Label>
+            <InputErrorContainer style={{ marginLeft: "12%" }}>
+              <CheckboxWidget
+                checkedState={disableStimProtocols}
+                handleCheckbox={(disable) => {
+                  updateParams({
+                    showStimMeta: !disable,
+                  });
+                  setDisableStimProtocols(disable);
+                }}
+              />
+            </InputErrorContainer>
+          </ParamContainer>
+        )}
+
         {pulse3dVersionGte("0.25.4") && (
           //Disabling y-axis normalization added in version 0.25.4
           <ParamContainer style={{ width: "6%", marginTop: "2%" }}>

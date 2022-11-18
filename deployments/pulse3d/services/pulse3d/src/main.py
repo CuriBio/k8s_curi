@@ -343,6 +343,8 @@ async def create_new_job(
             params.append("stiffness_factor")
         if pulse3d_semver >= "0.27.4":
             params.append("inverted_post_magnet_wells")
+        if pulse3d_semver >= "0.27.6":
+            params.append("show_stim_data")
 
         details_dict = dict(details)
         analysis_params = {param: details_dict[param] for param in params}
