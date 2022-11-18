@@ -257,7 +257,7 @@ export default function UploadForm() {
           wellsWithFlippedWaveforms === "" ? null : wellsWithFlippedWaveforms;
       }
       if (semverGte(version, "0.28.1")) {
-        requestBody.show_stim_meta = showStimMeta === "" ? null : showStimMeta;
+        requestBody.include_stim_protocols = showStimMeta === "" ? null : showStimMeta;
       }
 
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {

@@ -699,6 +699,10 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
         expected_analysis_param_keys.append("stiffness_factor")
     if pulse3d_semver >= "0.27.4":
         expected_analysis_param_keys.append("inverted_post_magnet_wells")
+    if pulse3d_semver >= "0.28.1":
+        expected_analysis_param_keys.append(
+            "include_stim_protocols",
+        )
 
     expected_analysis_params = {param: None for param in expected_analysis_param_keys}
 
@@ -1043,6 +1047,7 @@ def test_waveform_data__get__handles_time_unit_if_old_parquet_file(
             "normalize_y_axis",
             "baseline_widths_to_use",
             "max_y",
+            "include_stim_protocols",
             "prominence_factors",
             "width_factors",
             "twitch_widths",

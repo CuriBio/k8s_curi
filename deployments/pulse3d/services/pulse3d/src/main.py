@@ -344,7 +344,7 @@ async def create_new_job(
         if pulse3d_semver >= "0.27.4":
             params.append("inverted_post_magnet_wells")
         if pulse3d_semver >= "0.28.1":
-            params.append("show_stim_data")
+            params.append("include_stim_protocols")
 
         details_dict = dict(details)
         analysis_params = {param: details_dict[param] for param in params}
