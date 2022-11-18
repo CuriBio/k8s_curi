@@ -202,11 +202,12 @@ async def download_zip_files(
     # need to convert UUIDs to str to avoid issues with DB
     upload_ids = [str(id) for id in upload_ids]
     account_id = str(uuid.UUID(token["userid"]))
+    account_type = token["account_type"]
 
     # give advanced privileges to access all uploads under customer_id
     if "pulse3d:rw_all_data" in token["scope"]:
         account_id = str(uuid.UUID(token["customer_id"]))
-        account_type = "customer"
+        account_type = "dataUser"
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -402,7 +403,7 @@ async def create_new_job(
             if "pulse3d:rw_all_data" not in user_scopes:
                 row = await con.fetchrow("SELECT user_id FROM uploads where id=$1", details.upload_id)
                 # if users don't match and they don't have an all_data scope, then raise unauth error
-                if user_id != row["user_id"]:
+                if user_id != str(row["user_id"]):
                     return UnauthorizedUserResponse(
                         unauthorized_error="User does not have authorization to start this job."
                     )
@@ -415,7 +416,7 @@ async def create_new_job(
             job_id = await create_job(
                 con=con,
                 upload_id=details.upload_id,
-                queue=f"luci-pulse3d-v{details.version}",
+                queue=f"pulse3d-v{details.version}",
                 priority=priority,
                 meta={"analysis_params": analysis_params, "version": details.version},
                 customer_id=customer_id,
@@ -463,11 +464,6 @@ async def soft_delete_jobs(
 
     try:
         account_id = str(uuid.UUID(token["userid"]))
-        # user_scopes = token["scope"]
-
-        # if "pulse3d:rw_all_data" not in user_scopes:
-        #     row = await con.fetchrow("SELECT user_id FROM uploads where uploads.id=jobs_result.upload_id", details.upload_id)
-
         async with request.state.pgpool.acquire() as con:
             await delete_jobs(
                 con=con, account_type=token["account_type"], account_id=account_id, job_ids=job_ids
