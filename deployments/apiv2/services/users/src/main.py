@@ -296,8 +296,8 @@ async def register(
         else:
             # TODO add handling for multiple service scopes and exception handling if none found
             _, customer_tier = split_scope_account_data(customer_scope[0])  # 'free' or 'paid'
-            # TODO customer will choose which scopes to assign to new user being created, will auto assign those here
-            user_scope = details.scope
+            # for now, assuming that each user registration will only be called with one service
+            user_scope = [f"{details.service}:{customer_tier}"]
             # suspended and verified get set to False by default
             insert_query = (
                 "INSERT INTO users (name, email, password, account_type, data, customer_id) "
