@@ -11,7 +11,6 @@ import UploadsSubTable from "@/components/table/UploadsSubTable";
 import Checkbox from "@mui/material/Checkbox";
 import ResizableColumn from "@/components/table/ResizableColumn";
 import ColumnHead from "@/components/table/ColumnHead";
-import { display } from "@mui/system";
 
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
