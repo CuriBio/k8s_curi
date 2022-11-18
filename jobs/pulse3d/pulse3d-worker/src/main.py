@@ -200,12 +200,12 @@ async def main():
     try:
         logger.info(f"Worker v{PULSE3D_VERSION} started")
 
-        # DB_PASS = os.getenv("POSTGRES_PASSWORD")
-        # DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
-        # DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
-        # DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
-        # dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
-        dsn = "postgresql://root:HjnlH9RaeTt7uRuF7Uwco6BX4l0jgp39@localhost:5432/curibio"
+        DB_PASS = os.getenv("POSTGRES_PASSWORD")
+        DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
+        DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
+        DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
+        dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
+
         async with asyncpg.create_pool(dsn=dsn) as pool:
             async with pool.acquire() as con:
                 while True:
