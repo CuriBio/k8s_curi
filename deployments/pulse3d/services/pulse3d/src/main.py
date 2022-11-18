@@ -593,7 +593,7 @@ async def get_interactive_waveform_data(
                     recursive=True,
                 )
                 df = pd.read_parquet(parquet_path)
-                # some files have version but parquet data is not stored under it
+                # some files have version in the metadata but the parquet file is not stored under it, it's under time_force_data
                 if df.empty:
                     parquet_path = glob(os.path.join(tmpdir, "time_force_data", "*.parquet"), recursive=True)
                     df = pd.read_parquet(parquet_path)
@@ -607,7 +607,7 @@ async def get_interactive_waveform_data(
             # this is to handle analyses run before PR.to_dataframe() where time is in seconds
             needs_unit_conversion = not [c for c in df.columns if "__raw" in c]
 
-            time = df["Time (s)"].tolist()
+            time = df[columns[0]].tolist()
             if needs_unit_conversion:
                 logger.info("Old parquet file found so converting time column to microseconds")
                 # needs to be us for peak_detector
