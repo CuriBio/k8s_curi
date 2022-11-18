@@ -345,7 +345,7 @@ export default function AnalysisParamForm({
           </DropDownContainer>
         </ParamContainer>
 
-        {pulse3dVersionGte("0.27.6") && (
+        {pulse3dVersionGte("0.28.1") && (
           //Disabling y-axis normalization added in version 0.25.4
           <ParamContainer style={{ width: "6%", marginTop: "2%" }}>
             <Label htmlFor="showStimMeta">

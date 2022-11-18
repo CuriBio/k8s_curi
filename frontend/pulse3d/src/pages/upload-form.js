@@ -256,7 +256,7 @@ export default function UploadForm() {
         requestBody.inverted_post_magnet_wells =
           wellsWithFlippedWaveforms === "" ? null : wellsWithFlippedWaveforms;
       }
-      if (semverGte(version, "0.27.6")) {
+      if (semverGte(version, "0.28.1")) {
         requestBody.show_stim_meta = showStimMeta === "" ? null : showStimMeta;
       }
 
