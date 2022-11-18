@@ -13,7 +13,7 @@ from src import main
 
 from labware_domain_models import LabwareDefinition
 from pulse3D.constants import DEFAULT_BASELINE_WIDTHS, DEFAULT_PROMINENCE_FACTORS, DEFAULT_WIDTH_FACTORS
-from src.models.models import UsageErrorResponse
+from src.models.models import UsageErrorResponse, UnauthorizedUserResponse
 
 TWENTY_FOUR_WELL_PLATE = LabwareDefinition(row_count=4, column_count=6)
 
@@ -521,6 +521,31 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
         meta={"analysis_params": expected_analysis_params, "version": test_version},
         customer_id=str(test_customer_id),
         job_type="pulse3d",
+    )
+
+
+@pytest.mark.parametrize(
+    "test_token_scope",
+    [[s] for s in ["pulse3d:free", "pulse3d:paid"]],
+)
+def test_jobs__post__returns_unauthorized_error_if_user_ids_dont_match(mocked_asyncpg_con, test_token_scope):
+    test_upload_id = uuid.uuid4()
+    test_user_id = uuid.uuid4()
+    diff_user_id = uuid.uuid4()
+    test_customer_id = uuid.uuid4()
+    test_version = random_semver(max_version="0.24.0")
+
+    access_token = get_token(scope=test_token_scope, userid=test_user_id, customer_id=test_customer_id)
+    mocked_asyncpg_con.fetchrow.return_value = {"user_id": diff_user_id}
+
+    kwargs = {
+        "json": {"upload_id": str(test_upload_id), "version": test_version},
+        "headers": {"Authorization": f"Bearer {access_token}"},
+    }
+    response = test_client.post("/jobs", **kwargs)
+    assert response.status_code == 200
+    assert response.json() == UnauthorizedUserResponse(
+        unauthorized_error="User does not have authorization to start this job."
     )
 
 
