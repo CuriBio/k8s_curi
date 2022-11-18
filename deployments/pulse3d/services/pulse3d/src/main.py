@@ -566,11 +566,21 @@ async def get_interactive_waveform_data(
             logger.info(f"Getting metadata for job {job_id}")
             jobs = await _get_jobs(con, token, [job_id])
 
-        parsed_meta = json.loads(jobs[0]["job_meta"])
+        selected_job = jobs[0]
+        parsed_meta = json.loads(selected_job["job_meta"])
         analysis_params = parsed_meta["analysis_params"]
+        recording_owner_id = str(selected_job["user_id"])
+
+        if "pulse3d:rw_all_data" not in token["scope"]:
+            # only allow user to perform interactive analysis on another user's recording if special scope
+            # customer id will be checked when attempting to locate file in s3 with customer id found in token
+            if recording_owner_id != account_id:
+                return UnauthorizedUserResponse(
+                    unauthorized_error="User does not have authorization to start interactive analysis on this recording."
+                )
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            key = f"uploads/{customer_id}/{account_id}/{upload_id}"
+            key = f"uploads/{customer_id}/{recording_owner_id}/{upload_id}"
             logger.info(f"Downloading recording data from {key}")
 
             download_directory_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file_path=tmpdir)
@@ -582,10 +592,15 @@ async def get_interactive_waveform_data(
                     os.path.join(tmpdir, "time_force_data", pulse3d_version, "*.parquet"),
                     recursive=True,
                 )
+                df = pd.read_parquet(parquet_path)
+                # some files have version but parquet data is not stored under it
+                if df.empty:
+                    parquet_path = glob(os.path.join(tmpdir, "time_force_data", "*.parquet"), recursive=True)
+                    df = pd.read_parquet(parquet_path)
+
             else:
                 parquet_path = glob(os.path.join(tmpdir, "time_force_data", "*.parquet"), recursive=True)
-
-            df = pd.read_parquet(parquet_path)
+                df = pd.read_parquet(parquet_path)
 
             # remove raw data columns
             columns = [c for c in df.columns if "__raw" not in c]
@@ -641,8 +656,8 @@ async def get_interactive_waveform_data(
 
             return WaveformDataResponse(coordinates=coordinates, peaks_valleys=peaks_and_valleys)
 
-    except KeyError:
-        logger.error("Job metadata was not returned from database.")
+    except KeyError as e:
+        logger.error(f"Job metadata was not returned from database or parquet file was empty: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     except S3Error as e:
         logger.error(f"Error from s3: {e}")

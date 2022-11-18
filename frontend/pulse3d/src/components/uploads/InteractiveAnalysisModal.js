@@ -200,17 +200,22 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
       );
 
       if (response.status === 200) {
-        const waveformData = await response.json();
-        // original data is set and never changed to hold original state in case of reset
-        setOriginalData(waveformData);
-        setEditablePeaksValleys(waveformData.peaks_valleys);
+        const res = await response.json();
+        if (!res.unauthorized_error) {
+          // original data is set and never changed to hold original state in case of reset
+          setOriginalData(res);
+          setEditablePeaksValleys(res.peaks_valleys);
+        } else {
+          throw Error();
+        }
       } else {
-        // open error modal and kick users back to /uploads page if random  error
-        setModalLabels(constantModalLabels.error);
-        setModalOpen("status");
+        throw Error();
       }
     } catch (e) {
       console.log("ERROR getting waveform data: ", e);
+      // open error modal and kick users back to /uploads page if random  error
+      setModalLabels(constantModalLabels.error);
+      setModalOpen("status");
     }
   };
 

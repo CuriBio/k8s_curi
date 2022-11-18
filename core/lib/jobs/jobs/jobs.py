@@ -145,14 +145,14 @@ async def get_jobs(*, con, account_type, account_id, job_ids=None):
             "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id JOIN users ON u.user_id=users.id "
             "WHERE users.customer_id=$1 AND j.status!='deleted'"
         )
+
     if job_ids:
         places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
         query += f" AND j.job_id IN ({places})"
         query_params.extend(job_ids)
 
     async with con.transaction():
-        jobs = [dict(row) async for row in con.cursor(query, *query_params)]
-    return jobs
+        return [dict(row) async for row in con.cursor(query, *query_params)]
 
 
 async def create_job(*, con, upload_id, queue, priority, meta, customer_id, job_type):

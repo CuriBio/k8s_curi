@@ -278,7 +278,7 @@ export default function Uploads() {
       setCreatedWidth("13%");
       setAnalyzedWidth("13%");
     }
-  }, [displayRowstest_jobs__get__jobs_found, checkedUploads]);
+  }, [displayRows, checkedUploads]);
 
   const filterColumns = () => {
     return rows.filter((row) => {

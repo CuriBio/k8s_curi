@@ -1140,6 +1140,7 @@ def test_waveform_data__get__getting_job_metadata_from_db_errors(mocker):
 def test_waveform_data__get__handles_time_unit_if_old_parquet_file(
     mocker, include_raw_data, expected_conversion
 ):
+    test_user_id = uuid.uuid4()
     expected_analysis_params = {
         param: None
         for param in (
@@ -1155,7 +1156,9 @@ def test_waveform_data__get__handles_time_unit_if_old_parquet_file(
     }
     # empty for this test
     expected_analysis_params["peaks_valleys"] = {}
-    test_jobs = [{"job_meta": json.dumps({"analysis_params": expected_analysis_params})}]
+    test_jobs = [
+        {"user_id": test_user_id, "job_meta": json.dumps({"analysis_params": expected_analysis_params})}
+    ]
 
     # set up mocked df returned from parquet file
     mocker.patch.object(main, "get_jobs", autospec=True, return_value=test_jobs)
@@ -1167,7 +1170,7 @@ def test_waveform_data__get__handles_time_unit_if_old_parquet_file(
     mocked_df = mocked_read.return_value
     expected_time = mocked_df["Time (s)"].tolist()
 
-    access_token = get_token(scope=["pulse3d:free"])
+    access_token = get_token(scope=["pulse3d:free"], userid=test_user_id)
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
 
     test_job_id = uuid.uuid4()
