@@ -286,6 +286,7 @@ async def register(
         # scope will not be sent in request body for both customer and user registration
         if is_customer_registration_attempt:
             scope = details.scope
+            # usage_restrictions column is not currently being inserted into, will need to be manually added
             insert_query = "INSERT INTO customers (email, password, data) VALUES ($1, $2, $3) RETURNING id"
             query_params = (
                 details.email,
