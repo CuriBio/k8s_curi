@@ -113,6 +113,13 @@ const modalObjs = {
       "Please make sure you are attempting to download finished analyses.",
     ],
   },
+  unauthorizedDelete: {
+    header: "Warning!",
+    messages: [
+      "You are not allowed to delete any files under a different user's account.",
+      "Would you like to proceed with only those listed under your own?",
+    ],
+  },
 };
 export default function Uploads() {
   const { accountType, usageQuota } = useContext(AuthContext);
@@ -137,121 +144,7 @@ export default function Uploads() {
   const [createdWidth, setCreatedWidth] = useState("19%");
   const [analyzedWidth, setAnalyzedWidth] = useState("19%");
   const [sortColumn, setSortColumn] = useState("");
-  const uploadTableColumns = [
-    {
-      width: "3%",
-      admin: false,
-      cell: (row) => (
-        <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
-      ),
-    },
-    {
-      name: (
-        <ColumnHead
-          title="Owner"
-          setFilterString={setFilterString}
-          columnName="username"
-          setFilterColumn={setFilterColumn}
-          width={ownerWidth.replace("%", "")}
-          filterColumn={filterColumn}
-          setSelfWidth={setOwnerWidth}
-          setRightNeighbor={setRecordingWidth}
-          rightWidth={recordingWidth.replace("%", "")}
-          setSortColumns={setSortColumn}
-          sortColumn={sortColumn}
-        />
-      ),
-      width: ownerWidth,
-      admin: true,
-      sortFunction: (rowA, rowB) => rowA.username.localeCompare(rowB.username),
-      cell: (row) => <ResizableColumn content={row.username} />,
-    },
-    {
-      name: (
-        <ColumnHead
-          title="Recording Name"
-          setFilterString={setFilterString}
-          columnName="name"
-          setFilterColumn={setFilterColumn}
-          width={recordingWidth.replace("%", "")}
-          filterColumn={filterColumn}
-          setSelfWidth={setRecordingWidth}
-          setRightNeighbor={setUploadWidth}
-          rightWidth={uploadWidth.replace("%", "")}
-          setSortColumns={setSortColumn}
-          sortColumn={sortColumn}
-        />
-      ),
-      width: recordingWidth,
-      admin: false,
-      sortFunction: (rowA, rowB) => rowA.name.localeCompare(rowB.name),
-      cell: (row) => <ResizableColumn content={row.name} />,
-    },
-    {
-      name: (
-        <ColumnHead
-          title="Upload ID"
-          setFilterString={setFilterString}
-          columnName="id"
-          setFilterColumn={setFilterColumn}
-          width={uploadWidth.replace("%", "")}
-          filterColumn={filterColumn}
-          setSelfWidth={setUploadWidth}
-          setRightNeighbor={setCreatedWidth}
-          rightWidth={createdWidth.replace("%", "")}
-          setSortColumns={setSortColumn}
-          sortColumn={sortColumn}
-        />
-      ),
-      width: uploadWidth,
-      admin: false,
-      sortFunction: (rowA, rowB) => rowA.id.localeCompare(rowB.id),
-      cell: (row) => <ResizableColumn content={row.id} />,
-    },
-    {
-      name: (
-        <ColumnHead
-          title="Date Created"
-          setFilterString={setFilterString}
-          columnName="createdAt"
-          setFilterColumn={setFilterColumn}
-          width={createdWidth.replace("%", "")}
-          filterColumn={filterColumn}
-          setSelfWidth={setCreatedWidth}
-          setRightNeighbor={setAnalyzedWidth}
-          rightWidth={analyzedWidth.replace("%", "")}
-          setSortColumns={setSortColumn}
-          sortColumn={sortColumn}
-        />
-      ),
-      width: createdWidth,
-      admin: false,
-      sortFunction: (rowA, rowB) => new Date(rowB.createdAt) - new Date(rowA.createdAt),
-      cell: (row) => <ResizableColumn content={row.createdAt} />,
-    },
-    {
-      name: (
-        <ColumnHead
-          title="Last Analyzed"
-          setFilterString={setFilterString}
-          columnName="lastAnalyzed"
-          setFilterColumn={setFilterColumn}
-          width={analyzedWidth.replace("%", "")}
-          filterColumn={filterColumn}
-          setSelfWidth={setAnalyzedWidth}
-          setRightNeighbor={() => {}}
-          setSortColumns={setSortColumn}
-          sortColumn={sortColumn}
-          last={true}
-        />
-      ),
-      width: analyzedWidth,
-      id: "lastAnalyzed",
-      admin: false,
-      sortFunction: (rowA, rowB) => new Date(rowB.lastAnalyzed) - new Date(rowA.lastAnalyzed),
-      cell: (row) => <ResizableColumn last={true} content={row.lastAnalyzed} />,
-    },
-  ];
+  const [uploadTableColumns, setUploadTableColumns] = useState([]);
 
   useEffect(() => {
     // removing loading spinner once jobs have been recieved or if 0 jobs were receieved because there were zero uploads for new users
@@ -259,6 +152,132 @@ export default function Uploads() {
       setPending(false);
     }
   }, [displayRows]);
+
+  useEffect(() => {
+    const displayOwner = displayRows.filter(({ username }) => username).length == displayRows.length;
+
+    setUploadTableColumns([
+      {
+        width: "3%",
+        display: true,
+        cell: (row) => (
+          <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
+        ),
+      },
+      {
+        name: (
+          <ColumnHead
+            title="Owner"
+            setFilterString={setFilterString}
+            columnName="username"
+            setFilterColumn={setFilterColumn}
+            width={ownerWidth.replace("%", "")}
+            filterColumn={filterColumn}
+            setSelfWidth={setOwnerWidth}
+            setRightNeighbor={setRecordingWidth}
+            rightWidth={recordingWidth.replace("%", "")}
+            setSortColumns={setSortColumn}
+            sortColumn={sortColumn}
+          />
+        ),
+        width: ownerWidth,
+        display: displayOwner,
+        sortFunction: (rowA, rowB) => rowA.username.localeCompare(rowB.username),
+        cell: (row) => <ResizableColumn content={row.username} />,
+      },
+      {
+        name: (
+          <ColumnHead
+            title="Recording Name"
+            setFilterString={setFilterString}
+            columnName="name"
+            setFilterColumn={setFilterColumn}
+            width={recordingWidth.replace("%", "")}
+            filterColumn={filterColumn}
+            setSelfWidth={setRecordingWidth}
+            setRightNeighbor={setUploadWidth}
+            rightWidth={uploadWidth.replace("%", "")}
+            setSortColumns={setSortColumn}
+            sortColumn={sortColumn}
+          />
+        ),
+        width: recordingWidth,
+        display: true,
+        sortFunction: (rowA, rowB) => rowA.name.localeCompare(rowB.name),
+        cell: (row) => <ResizableColumn content={row.name} />,
+      },
+      {
+        name: (
+          <ColumnHead
+            title="Upload ID"
+            setFilterString={setFilterString}
+            columnName="id"
+            setFilterColumn={setFilterColumn}
+            width={uploadWidth.replace("%", "")}
+            filterColumn={filterColumn}
+            setSelfWidth={setUploadWidth}
+            setRightNeighbor={setCreatedWidth}
+            rightWidth={createdWidth.replace("%", "")}
+            setSortColumns={setSortColumn}
+            sortColumn={sortColumn}
+          />
+        ),
+        width: uploadWidth,
+        display: true,
+        sortFunction: (rowA, rowB) => rowA.id.localeCompare(rowB.id),
+        cell: (row) => <ResizableColumn content={row.id} />,
+      },
+      {
+        name: (
+          <ColumnHead
+            title="Date Created"
+            setFilterString={setFilterString}
+            columnName="createdAt"
+            setFilterColumn={setFilterColumn}
+            width={createdWidth.replace("%", "")}
+            filterColumn={filterColumn}
+            setSelfWidth={setCreatedWidth}
+            setRightNeighbor={setAnalyzedWidth}
+            rightWidth={analyzedWidth.replace("%", "")}
+            setSortColumns={setSortColumn}
+            sortColumn={sortColumn}
+          />
+        ),
+        width: createdWidth,
+        display: true,
+        sortFunction: (rowA, rowB) => new Date(rowB.createdAt) - new Date(rowA.createdAt),
+        cell: (row) => <ResizableColumn content={row.createdAt} />,
+      },
+      {
+        name: (
+          <ColumnHead
+            title="Last Analyzed"
+            setFilterString={setFilterString}
+            columnName="lastAnalyzed"
+            setFilterColumn={setFilterColumn}
+            width={analyzedWidth.replace("%", "")}
+            filterColumn={filterColumn}
+            setSelfWidth={setAnalyzedWidth}
+            setRightNeighbor={() => {}}
+            setSortColumns={setSortColumn}
+            sortColumn={sortColumn}
+            last={true}
+          />
+        ),
+        width: analyzedWidth,
+        id: "lastAnalyzed",
+        display: true,
+        sortFunction: (rowA, rowB) => new Date(rowB.lastAnalyzed) - new Date(rowA.lastAnalyzed),
+        cell: (row) => <ResizableColumn last={true} content={row.lastAnalyzed} />,
+      },
+    ]);
+
+    if (displayOwner) {
+      // admin accounts have an extra Owners column so the widths should be different
+      setCreatedWidth("13%");
+      setAnalyzedWidth("13%");
+    }
+  }, [displayRows, checkedUploads]);
 
   const filterColumns = () => {
     return rows.filter((row) => {
@@ -282,14 +301,6 @@ export default function Uploads() {
     }
   }, [openInteractiveAnalysis]);
 
-  useEffect(() => {
-    if (accountType === "admin") {
-      // admin accounts have an extra Owners column so the widths should be different
-      setCreatedWidth("13%");
-      setAnalyzedWidth("13%");
-    }
-  }, [accountType]);
-
   const resetTable = () => {
     setResetDropdown(true);
     setCheckedUploads([]);
@@ -302,7 +313,8 @@ export default function Uploads() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?download=False`);
       if (response && response.status === 200) {
         const { jobs } = await response.json();
-        const newJobs = jobs.map(({ id, upload_id, created_at, object_key, status, meta }) => {
+
+        const newJobs = jobs.map(({ id, upload_id, created_at, object_key, status, meta, owner }) => {
           const analyzedFile = object_key ? object_key.split("/")[object_key.split("/").length - 1] : "";
           const formattedTime = formatDateTime(created_at);
           const parsedMeta = JSON.parse(meta);
@@ -317,6 +329,7 @@ export default function Uploads() {
             analysisParams,
             version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
             checked: isChecked,
+            owner,
           };
         });
         setJobs(newJobs);
@@ -371,7 +384,7 @@ export default function Uploads() {
 
   useEffect(() => {
     if (uploads) {
-      const formattedUploads = uploads.map(({ username, id, filename, created_at }) => {
+      const formattedUploads = uploads.map(({ username, id, filename, created_at, owner }) => {
         const formattedTime = formatDateTime(created_at);
         const recName = filename ? filename.split(".")[0] : null;
         const uploadJobs = jobs
@@ -385,6 +398,7 @@ export default function Uploads() {
           createdAt: formattedTime,
           lastAnalyzed,
           jobs: uploadJobs,
+          owner,
         };
       });
       formattedUploads.sort((a, b) => new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed));
@@ -461,29 +475,23 @@ export default function Uploads() {
   };
 
   const handleDeletions = async () => {
+    // NOTE the query that soft deletes the files will also fail even if non-owner files get sent since the user_ids will not match to what's in the database
     //remove all pending from list
-    const jobsToDelete = [];
+    const jobsToDelete = jobs.filter(
+      ({ jobId, status, owner }) => checkedJobs.includes(jobId) && status !== "pending" && owner
+    );
     // get upload meta data
-    const uploadsToDelete = displayRows.filter(({ id }) => checkedUploads.includes(id));
-    // push non-pending jobs
-    uploadsToDelete.map(({ jobs }) => {
-      jobs.map(({ status, jobId }) => {
-        if (status !== "pending") {
-          jobsToDelete.push(jobId);
-        }
-      });
-    });
+    const uploadsToDelete = displayRows.filter(
+      ({ id, jobs, owner }) =>
+        checkedUploads.includes(id) && jobs.filter((job) => job.status === "pending").length == 0 && owner
+    );
 
     try {
       let failedDeletion = false;
       //soft delete uploads
       if (uploadsToDelete) {
         // filter for uploads where there are no pending jobs to prevent deleting uploads for pending jobs
-        const finalUploadIds = uploadsToDelete
-          .filter(({ jobs }) => {
-            return jobs.filter((job) => job.status === "pending").length == 0;
-          })
-          .map(({ id }) => id);
+        const finalUploadIds = uploadsToDelete.map(({ id }) => id);
 
         if (finalUploadIds && finalUploadIds.length > 0) {
           const uploadsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads?`;
@@ -500,7 +508,7 @@ export default function Uploads() {
       // soft delete all jobs
       if (jobsToDelete.length > 0) {
         const jobsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;
-        jobsToDelete.map((id) => (jobsURL += `job_ids=${id}&`));
+        jobsToDelete.map(({ jobId }) => (jobsURL += `job_ids=${jobId}&`));
         const jobsResponse = await fetch(jobsURL.slice(0, -1), {
           method: "DELETE",
         });
@@ -517,8 +525,19 @@ export default function Uploads() {
       await setFetchUploads();
       return failedDeletion;
     } catch (e) {
-      console.log("ERROR attempting to soft delete selected jobs and uploads");
+      console.log("ERROR attempting to soft delete selected jobs and uploadfs");
     }
+  };
+
+  const checkOwnerOfFiles = async () => {
+    const ownerOfUploads =
+      displayRows.filter(({ id, owner }) => checkedUploads.includes(id) && owner).length ==
+      checkedUploads.length;
+
+    const ownerOfJobs =
+      jobs.filter(({ jobId, owner }) => checkedJobs.includes(jobId) && owner).length == checkedJobs.length;
+
+    return ownerOfJobs && ownerOfUploads;
   };
 
   const handleModalClose = async (idx) => {
@@ -526,23 +545,38 @@ export default function Uploads() {
       // this block gets hit when user chooses to continue without 'error' status analyses
       downloadAnalyses();
     } else if (modalButtons[idx] === "Confirm") {
-      // set in progress
-      setModalLabels(modalObjs.empty);
-      setModalState("deleting");
-      const failedDeletion = await handleDeletions();
-      // wait a second to remove deleted files
-      // really helps with flow of when in progress modal closes
-      await new Promise((r) => setTimeout(r, 1000));
-
-      // failed Deletions has it's own modal so prevent closure else reset
-      if (!failedDeletion) {
-        setModalState(false);
-        resetTable();
+      const ownerCheck = await checkOwnerOfFiles();
+      if (!ownerCheck) {
+        // set in progress
+        setModalLabels(modalObjs.unauthorizedDelete);
+        setModalButtons(["Close", "Proceed"]);
+        setModalState("generic");
+      } else {
+        await startDeleting();
       }
+    } else if (modalButtons[idx] === "Proceed") {
+      await startDeleting();
     } else {
       // close in progress modal
       // also resets for any 'Close' modal button events
       // index 0 in buttons
+      setModalState(false);
+      resetTable();
+    }
+  };
+
+  const startDeleting = async () => {
+    // set in progress
+    setModalLabels(modalObjs.empty);
+    setModalState("deleting");
+
+    const failedDeletion = await handleDeletions();
+    // wait a second to remove deleted files
+    // really helps with flow of when in progress modal closes
+    await new Promise((r) => setTimeout(r, 1000));
+
+    // failed Deletions has it's own modal so prevent closure else reset
+    if (!failedDeletion) {
       setModalState(false);
       resetTable();
     }
@@ -772,7 +806,7 @@ export default function Uploads() {
               columns={uploadTableColumns
                 .filter(
                   // if admin user then show all columns, else just show non-admin columns
-                  (e) => accountType === "admin" || !e.admin
+                  (e) => e.display
                 )
                 .map((e) => {
                   return {

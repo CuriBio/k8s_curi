@@ -45,6 +45,7 @@ from models.models import (
     WaveformDataResponse,
     UsageErrorResponse,
     UploadDownloadRequest,
+    UnauthorizedUserResponse,
 )
 from models.types import TupleParam
 
@@ -92,10 +93,25 @@ async def get_info_of_uploads(
 
     try:
         account_id = str(uuid.UUID(token["userid"]))
+        account_type = token["account_type"]
+
+        # give advanced privileges to access all uploads under customer_id
+        if "pulse3d:rw_all_data" in token["scope"]:
+            account_id = str(uuid.UUID(token["customer_id"]))
+            # catches in the else block like customers in get_uploads, just set here so it's not customer and become confusing
+            account_type = "dataUser"
+
         async with request.state.pgpool.acquire() as con:
-            return await get_uploads(
-                con=con, account_type=token["account_type"], account_id=account_id, upload_ids=upload_ids
+            uploads = await get_uploads(
+                con=con, account_type=account_type, account_id=account_id, upload_ids=upload_ids
             )
+            if account_type != "customer":
+                # customer accounts don't matter here because they don't have the ability to delete
+                for upload in uploads:
+                    # need way on FE to tell if user owns recordings besides username since current user's username is not stored on the FE. We want to prevent users from attempting to delete files that aren't theirs before calling /delete route
+                    upload["owner"] = str(upload["user_id"]) == str(uuid.UUID(token["userid"]))
+
+            return uploads
 
     except Exception as e:
         logger.exception(f"Failed to get uploads: {repr(e)}")
@@ -185,12 +201,18 @@ async def download_zip_files(
 
     # need to convert UUIDs to str to avoid issues with DB
     upload_ids = [str(id) for id in upload_ids]
-    user_id = str(uuid.UUID(token["userid"]))
+    account_id = str(uuid.UUID(token["userid"]))
+    account_type = token["account_type"]
+
+    # give advanced privileges to access all uploads under customer_id
+    if "pulse3d:rw_all_data" in token["scope"]:
+        account_id = str(uuid.UUID(token["customer_id"]))
+        account_type = "dataUser"
 
     try:
         async with request.state.pgpool.acquire() as con:
             uploads = await get_uploads(
-                con=con, account_type=token["account_type"], account_id=user_id, upload_ids=upload_ids
+                con=con, account_type=account_type, account_id=account_id, upload_ids=upload_ids
             )
 
         # get filenames and s3 keys to download
@@ -257,6 +279,9 @@ async def get_info_of_jobs(
         job_ids = [str(job_id) for job_id in job_ids]
 
     try:
+        user_id = str(uuid.UUID(token["userid"]))
+        account_type = token["account_type"]
+
         async with request.state.pgpool.acquire() as con:
             jobs = await _get_jobs(con, token, job_ids)
 
@@ -271,6 +296,11 @@ async def get_info_of_jobs(
                 "created_at": job["created_at"],
                 "meta": job["job_meta"],
             }
+
+            if account_type != "customer":
+                # customer accounts don't have the ability to delete so doesn't need this key:value
+                # need way on FE to tell if user owns recordings besides username since current user's username is not stored on the FE. We want to prevent users from attempting to delete files that aren't theirs before calling /delete route
+                job_info["owner"] = str(job["user_id"]) == user_id
 
             if job_info["status"] == "finished" and download:
                 # This is in case any current users uploaded files before object_key was dropped from uploads table and added to jobs_result
@@ -305,7 +335,14 @@ async def get_info_of_jobs(
 async def _get_jobs(con, token, job_ids):
     account_type = token["account_type"]
     account_id = str(uuid.UUID(token["userid"]))
+
     logger.info(f"Retrieving job info with IDs: {job_ids} for {account_type}: {account_id}")
+
+    # give advanced privileges to access all uploads under customer_id
+    if "pulse3d:rw_all_data" in token["scope"]:
+        account_id = str(uuid.UUID(token["customer_id"]))
+        # catches in the else block like customers in get_uploads, just set here so it's not customer and become confusing
+        account_type = "dataUser"
 
     return await get_jobs(con=con, account_type=account_type, account_id=account_id, job_ids=job_ids)
 
@@ -319,7 +356,8 @@ async def create_new_job(
     try:
         user_id = str(uuid.UUID(token["userid"]))
         customer_id = str(uuid.UUID(token["customer_id"]))
-        service, _ = split_scope_account_data(token["scope"][0])
+        user_scopes = token["scope"]
+        service, _ = split_scope_account_data(user_scopes[0])
         logger.info(f"Creating {service} job for upload {details.upload_id} with user ID: {user_id}")
 
         params = [
@@ -359,10 +397,22 @@ async def create_new_job(
 
         priority = 10
         async with request.state.pgpool.acquire() as con:
+            # first check user_id of upload matches user_id in token
+            # NOTE checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
+            # NOTE customer id is checked already because the customer_id in the token is being used to find upload details
+            if "pulse3d:rw_all_data" not in user_scopes:
+                row = await con.fetchrow("SELECT user_id FROM uploads where id=$1", details.upload_id)
+                # if users don't match and they don't have an all_data scope, then raise unauth error
+                if user_id != str(row["user_id"]):
+                    return UnauthorizedUserResponse(
+                        unauthorized_error="User does not have authorization to start this job."
+                    )
+
+            # second, check usage quota for customer account
             usage_quota = await check_customer_quota(con, customer_id, service)
             if usage_quota["jobs_reached"]:
                 return UsageErrorResponse(usage_error=usage_quota)
-
+            # finally create job
             job_id = await create_job(
                 con=con,
                 upload_id=details.upload_id,
@@ -516,11 +566,21 @@ async def get_interactive_waveform_data(
             logger.info(f"Getting metadata for job {job_id}")
             jobs = await _get_jobs(con, token, [job_id])
 
-        parsed_meta = json.loads(jobs[0]["job_meta"])
+        selected_job = jobs[0]
+        parsed_meta = json.loads(selected_job["job_meta"])
         analysis_params = parsed_meta["analysis_params"]
+        recording_owner_id = str(selected_job["user_id"])
+
+        if "pulse3d:rw_all_data" not in token["scope"]:
+            # only allow user to perform interactive analysis on another user's recording if special scope
+            # customer id will be checked when attempting to locate file in s3 with customer id found in token
+            if recording_owner_id != account_id:
+                return UnauthorizedUserResponse(
+                    unauthorized_error="User does not have authorization to start interactive analysis on this recording."
+                )
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            key = f"uploads/{customer_id}/{account_id}/{upload_id}"
+            key = f"uploads/{customer_id}/{recording_owner_id}/{upload_id}"
             logger.info(f"Downloading recording data from {key}")
 
             download_directory_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file_path=tmpdir)
@@ -532,17 +592,22 @@ async def get_interactive_waveform_data(
                     os.path.join(tmpdir, "time_force_data", pulse3d_version, "*.parquet"),
                     recursive=True,
                 )
+                df = pd.read_parquet(parquet_path)
+                # some files have version in the metadata but the parquet file is not stored under it, it's under time_force_data
+                if df.empty:
+                    parquet_path = glob(os.path.join(tmpdir, "time_force_data", "*.parquet"), recursive=True)
+                    df = pd.read_parquet(parquet_path)
+
             else:
                 parquet_path = glob(os.path.join(tmpdir, "time_force_data", "*.parquet"), recursive=True)
-
-            df = pd.read_parquet(parquet_path)
+                df = pd.read_parquet(parquet_path)
 
             # remove raw data columns
             columns = [c for c in df.columns if "__raw" not in c]
             # this is to handle analyses run before PR.to_dataframe() where time is in seconds
             needs_unit_conversion = not [c for c in df.columns if "__raw" in c]
 
-            time = df["Time (s)"].tolist()
+            time = df[columns[0]].tolist()
             if needs_unit_conversion:
                 logger.info("Old parquet file found so converting time column to microseconds")
                 # needs to be us for peak_detector
@@ -591,8 +656,8 @@ async def get_interactive_waveform_data(
 
             return WaveformDataResponse(coordinates=coordinates, peaks_valleys=peaks_and_valleys)
 
-    except KeyError:
-        logger.error("Job metadata was not returned from database.")
+    except KeyError as e:
+        logger.error(f"Job metadata was not returned from database or parquet file was empty: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     except S3Error as e:
         logger.error(f"Error from s3: {e}")
