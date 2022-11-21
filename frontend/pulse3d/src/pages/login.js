@@ -100,6 +100,7 @@ export default function Login() {
                 isSelected={isSelected}
                 backgroundColor={isSelected ? "var(--teal-green)" : "var(--dark-blue)"}
                 clickFn={() => {
+                  setErrorMsg("");
                   setUserData({ service: "pulse3d" });
                   setLoginType(type);
                 }}

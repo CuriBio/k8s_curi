@@ -216,10 +216,7 @@ export default function UserInfo() {
         />
       ),
       width: statusWidth,
-      sortFunction: (rowA, rowB) => {
-        if (rowB.verified) return rowB.verified - rowA.verified - rowA.suspended;
-        else if (!rowB.verified) return rowB.verified - rowA.verified - rowA.suspended;
-      },
+      sortFunction: (rowA, rowB) => rowB.verified - rowA.verified - rowA.suspended,
       cell: (row) => (
         <ResizableColumn
           content={
