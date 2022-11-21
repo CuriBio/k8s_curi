@@ -1,7 +1,7 @@
 from starlette.config import Config
 from starlette.datastructures import Secret
 
-config = Config(".env")
+config = Config("/Users/lucipak/Documents/gpg/.env_localhost")
 # version used to tag the docker image
 VERSION = "0.4.0"
 

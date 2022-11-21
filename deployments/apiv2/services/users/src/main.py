@@ -409,7 +409,7 @@ async def get_all_users(
     customer_id = uuid.UUID(hex=token["userid"])
 
     query = (
-        "SELECT id, name, email, created_at, last_login, suspended FROM users "
+        "SELECT id, name, email, created_at, last_login, verified, suspended FROM users "
         "WHERE customer_id=$1 AND deleted_at IS NULL "
         "ORDER BY suspended"
     )
@@ -427,7 +427,7 @@ async def get_all_users(
 @app.put("/verify", status_code=status.HTTP_204_NO_CONTENT)
 async def verify_user_email(
     request: Request,
-    token=Depends(ProtectedAny(scope=["users:verify"])),
+    token=Depends(ProtectedAny(scope=["users:verify"])),    
 ):
     """Confirm and verify new user."""
 

@@ -216,14 +216,19 @@ export default function UserInfo() {
         />
       ),
       width: statusWidth,
-      sortFunction: (rowA, rowB) => rowA.suspended.localeCompare(rowB.suspended),
+      sortFunction: (rowA, rowB) => {
+        if (rowB.verified) return rowB.verified - rowA.verified - rowA.suspended;
+        else if (!rowB.verified) return rowB.verified - rowA.verified - rowA.suspended;
+      },
       cell: (row) => (
         <ResizableColumn
           content={
-            row.suspended === "active" ? (
-              <div style={{ color: "var(--teal-green)" }}>{row.suspended}</div>
+            !row.suspended && row.verified ? (
+              <div style={{ color: "var(--teal-green)" }}>active</div>
+            ) : !row.verified && !row.suspended ? (
+              <div style={{ color: "var(--dark-gray)" }}>needs verification</div>
             ) : (
-              <div style={{ color: "red" }}>{row.suspended}</div>
+              <div style={{ color: "red" }}>suspended</div>
             )
           }
           width={statusWidth.replace("px", "")}
@@ -237,16 +242,17 @@ export default function UserInfo() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/`);
       if (response && response.status === 200) {
         const usersJson = await response.json();
-        const formatedUserJson = usersJson.map(({ created_at, email, id, last_login, name, suspended }) => {
-          return {
+        const formatedUserJson = usersJson.map(
+          ({ created_at, email, id, last_login, name, suspended, verified }) => ({
             created_at: formatDateTime(created_at),
             email: email,
             id: id,
             last_login: formatDateTime(last_login),
             name: name,
-            suspended: suspended ? "suspended" : "active",
-          };
-        });
+            suspended,
+            verified,
+          })
+        );
         setUsersData(formatedUserJson);
         setDisplayData(formatedUserJson);
         setLoading(false);
@@ -300,9 +306,7 @@ export default function UserInfo() {
       await sendUserActionPutRequest("delete");
     } else if (option === 1) {
       const checkUsersData = usersData.filter(({ id }) => checkedUsers.includes(id));
-      let deactiveUsers = checkUsersData
-        .filter(({ suspended }) => suspended === "suspended")
-        .map(({ name }) => name);
+      let deactiveUsers = checkUsersData.filter(({ suspended }) => suspended).map(({ name }) => name);
 
       setCheckedUsers(checkedUsers.filter(({ name }) => deactiveUsers.includes(name)));
       await sendUserActionPutRequest("deactivate");
@@ -343,7 +347,7 @@ export default function UserInfo() {
                     checkedUsers.length === 0 ||
                       usersData
                         .filter((user) => checkedUsers.includes(user.id))
-                        .filter((checkedUsers) => checkedUsers.suspended === "suspended").length !== 0,
+                        .filter((checkedUsers) => checkedUsers.suspended).length !== 0,
                   ]}
                   optionsTooltipText={[
                     "Must make a selection below before actions become available.",
