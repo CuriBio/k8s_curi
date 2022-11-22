@@ -38,7 +38,7 @@ def get_svc_version(svc_path: str) -> str:
     with open(config_file) as f:
         for line in f.readlines():
             if line.startswith("VERSION"):
-                return line.strip().split(" = ")[-1]
+                return line.strip().split(" = ")[-1].replace('"', '')
 
     raise Exception(f"Version not found in {config_file}")
 
