@@ -56,8 +56,6 @@ export default function NewUserForm() {
   const [userData, setUserData] = useState({
     email: "",
     username: "",
-    password1: "",
-    password2: "",
   });
 
   const [errorMsg, setErrorMsg] = useState("");
@@ -69,8 +67,8 @@ export default function NewUserForm() {
     setUserData({
       email: "",
       username: "",
-      password1: "",
-      password2: "",
+      // password1: "",
+      // password2: "",
       service: "pulse3d",
     });
   };
@@ -78,6 +76,7 @@ export default function NewUserForm() {
   useEffect(() => resetForm(), []);
 
   const submitForm = async () => {
+
     setErrorMsg(""); // reset to show user something happened
     setInProgress(true);
 
@@ -154,14 +153,14 @@ export default function NewUserForm() {
             });
           }}
         />
-        <PasswordForm
+        {/* <PasswordForm
           password1={userData.password1}
           password2={userData.password2}
           setErrorMsg={setErrorMsg}
           onChangePassword={({ target }) => {
             setUserData({ ...userData, [target.id]: target.value });
           }}
-        />
+        /> */}
         <ErrorText id="userError" role="errorMsg">
           {errorMsg}
         </ErrorText>

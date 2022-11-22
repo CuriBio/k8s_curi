@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import PasswordForm from "@/components/account/PasswordForm";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
-// TODO eventually need to find a better to way to handle some of these globally to use across app
+import ModalWidget from "@/components/basicWidgets/ModalWidget";
+
 const BackgroundContainer = styled.div`
   position: relative;
   display: flex;
@@ -43,49 +44,75 @@ const Header = styled.div`
   text-align: center;
   margin-bottom: 2%;
 `;
-
+const modalLabels = {
+  error: {
+    header: "Error Occurred!",
+    labels: ["Something went wrong while attempting to verify your account."],
+    buttons: ["Close"],
+  },
+};
 export default function Verify() {
   const router = useRouter();
-  const [errorMsg, setErrorMsg] = useState(null);
+  const [errorMsg, setErrorMsg] = useState();
   const [passwords, setPasswords] = useState({ password1: "", password2: "" });
-  // useEffect(() => {
-  //   if (router.pathname.includes("verify") && router.query.token) {
-  //     verifyEmail(router.query);
-  //     // this removes token param from url to make it not visible to users
-  //     router.replace("/verify", undefined, { shallow: true });
-  //   }
-  // }, [router]);
+  const [inProgress, setInProgress] = useState(false);
+  const [shortTermToken, setShortTermToken] = useState();
+  const [openModal, setOpenModal] = useState(false);
+  const [modalToDisplay, setModalToDisplay] = useState(modalLabels.error);
 
-  const verifyEmail = async ({ token }) => {
+  useEffect(() => {
+    if (router.pathname.includes("verify") && router.query.token) {
+      setShortTermToken(router.query);
+      // this removes token param from url to make it not visible to users
+      router.replace("/verify", undefined, { shallow: true });
+    }
+  }, [router]);
+
+  const verify = async () => {
     try {
       // attach jwt token to verify request
       const headers = new Headers({
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${shortTermToken}`,
       });
       const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/verify`, {
         method: "PUT",
+        body: JSON.stringify(passwords),
         headers,
       });
 
-      res.status === 204 ? setModalToDisplay(modalLabels.success) : setModalToDisplay(modalLabels.error);
+      if (res.status === 204) {
+        // redirect user to login page to exit verify page regardless of outcome
+        router.replace("/login", undefined, { shallow: true });
+      } else {
+        throw Error();
+      }
     } catch (e) {
       console.log(`ERROR verifying new user account: ${e}`);
       // if error, open error modal to let user know it didn't work
+      setOpenModal(true);
     }
+    // always set back to false regardless of response
+    setInProgress(false);
   };
 
   const submitForm = () => {
-    setOpenModal(false);
-    // redirect user to login page to exit verify page regardless of outcome
-    router.replace("/login", undefined, { shallow: true });
+    if (!errorMsg || errorMsg === "") {
+      // set spinner on button component to true
+      setInProgress(true);
+      verify();
+    }
   };
 
   const onChangePassword = ({ target }) => {
     setPasswords({ ...passwords, [target.id]: target.value });
-    console.log(passwords);
   };
 
+  const closeModal = () => {
+    setOpenModal(false);
+    // redirect user to login page to exit verify page regardless of outcome
+    router.replace("/login", undefined, { shallow: true });
+  };
   return (
     <BackgroundContainer>
       <ModalContainer>
@@ -102,8 +129,16 @@ export default function Verify() {
             </ErrorText>
           </PasswordForm>
         </InputContainer>
-        <ButtonWidget label={"Submit"} clickFn={submitForm} />
+        <ButtonWidget inProgress={inProgress} label={"Submit"} clickFn={submitForm} />
       </ModalContainer>
+      <ModalWidget
+        width={500}
+        open={openModal}
+        closeModal={closeModal}
+        header={modalToDisplay.header}
+        labels={modalToDisplay.labels}
+        buttons={modalToDisplay.buttons}
+      />
     </BackgroundContainer>
   );
 }

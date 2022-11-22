@@ -27,6 +27,7 @@ from models.users import (
     UserProfile,
     UserAction,
     LoginResponse,
+    PasswordModel,
 )
 from utils.db import AsyncpgPoolDep
 from fastapi.templating import Jinja2Templates
@@ -268,14 +269,10 @@ async def register(
 
     Otherwise, attempt to register a regular user under the customer ID in the auth token
     """
-    ph = PasswordHasher()
     customer_id = uuid.UUID(hex=token["userid"])
     # 'customer:paid' or 'customer:free'
     customer_scope = token["scope"]
     try:
-        # still hash even if user or customer exists to avoid timing analysis leaks
-        phash = ph.hash(details.password1.get_secret_value())
-
         is_customer_registration_attempt = (
             customer_id == CB_CUSTOMER_ID and type(details) is CustomerCreate  # noqa: F821
         )
@@ -285,6 +282,8 @@ async def register(
 
         # scope will not be sent in request body for both customer and user registration
         if is_customer_registration_attempt:
+            ph = PasswordHasher()
+            phash = ph.hash(details.password1.get_secret_value())
             scope = details.scope
             # usage_restrictions column is not currently being inserted into, will need to be manually added
             insert_query = "INSERT INTO customers (email, password, data) VALUES ($1, $2, $3) RETURNING id"
@@ -300,14 +299,13 @@ async def register(
             user_scope = details.scope if details.scope is not None else ["pulse3d:paid"]
             # suspended and verified get set to False by default
             insert_query = (
-                "INSERT INTO users (name, email, password, account_type, data, customer_id) "
-                "VALUES ($1, $2, $3, $4, $5, $6) RETURNING id"
+                "INSERT INTO users (name, email, account_type, data, customer_id) "
+                "VALUES ($1, $2, $3, $4, $5) RETURNING id"
             )
 
             query_params = (
                 details.username.lower(),
                 details.email,
-                phash,
                 customer_tier,
                 json.dumps({"scope": user_scope}),
                 customer_id,
@@ -427,17 +425,20 @@ async def get_all_users(
 @app.put("/verify", status_code=status.HTTP_204_NO_CONTENT)
 async def verify_user_email(
     request: Request,
+    details=PasswordModel,
     token=Depends(ProtectedAny(scope=["users:verify"])),
 ):
     """Confirm and verify new user."""
-
     user_id = uuid.UUID(hex=token["userid"])
     customer_id = uuid.UUID(hex=token["customer_id"])
+    
+    ph = PasswordHasher()
+    phash = ph.hash(details.password1.get_secret_value())
 
-    update_query = "UPDATE users SET verified='t' WHERE id=$1 AND customer_id=$2"
+    update_query = "UPDATE users SET verified='t', password=$1 WHERE id=$2 AND customer_id=$3"
     try:
         async with request.state.pgpool.acquire() as con:
-            await con.execute(update_query, user_id, customer_id)
+            await con.execute(update_query, phash, user_id, customer_id)
     except Exception as e:
         logger.exception(f"PUT /{user_id}: Unexpected error {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

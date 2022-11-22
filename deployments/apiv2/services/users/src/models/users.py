@@ -33,13 +33,9 @@ class UserLogin(BaseModel):
     service: str
 
 
-class CustomerCreate(BaseModel):
-    email: EmailStr
+class PasswordModel(BaseModel):
     password1: SecretStr
     password2: SecretStr
-    scope: List[str]
-    # adding this attr and its validator to force /register to use UserCreate if a username is given
-    username: Optional[str]
 
     @validator("password1")
     def password_requirements(cls, v):
@@ -57,13 +53,19 @@ class CustomerCreate(BaseModel):
 
         return v
 
-    @validator("username")
-    def username_alphanumeric(cls, v):
-        assert v is None
-        return v
+
+class CustomerCreate(PasswordModel):
+    email: EmailStr
+    scope: List[str]
+    
+    # @validator("username")
+    # def username_alphanumeric(cls, v):
+    #     assert v is None
+    #     return v
 
 
-class UserCreate(CustomerCreate):
+class UserCreate(BaseModel):
+    email: EmailStr
     username: str
     scope: Optional[List[str]]
 
