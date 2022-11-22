@@ -7,40 +7,14 @@ import { useContext, useState, useEffect } from "react";
 import InteractiveAnalysisModal from "@/components/uploads/InteractiveAnalysisModal";
 import { AuthContext } from "@/pages/_app";
 import DataTable from "react-data-table-component";
-import FilterHeader from "@/components/table/FilterHeader";
 import UploadsSubTable from "@/components/table/UploadsSubTable";
-
-const uploadTableColumns = [
-  {
-    name: "File Owner",
-    admin: true,
-    selector: (row) => row.username,
-  },
-  {
-    name: "Recording Name",
-    admin: false,
-    selector: (row) => row.name || "none",
-  },
-  {
-    name: "Upload ID",
-    admin: false,
-    selector: (row) => row.id,
-  },
-  {
-    name: "Created Date",
-    admin: false,
-    selector: (row) => row.createdAt,
-  },
-  {
-    name: "Last Analyzed",
-    admin: false,
-    selector: (row) => row.lastAnalyzed,
-  },
-];
+import Checkbox from "@mui/material/Checkbox";
+import ResizableColumn from "@/components/table/ResizableColumn";
+import ColumnHead from "@/components/table/ColumnHead";
 
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
-  center: true,
+  center: false,
   sortable: true,
 };
 
@@ -49,6 +23,7 @@ const customStyles = {
     style: {
       backgroundColor: "var(--dark-blue)",
       color: "white",
+      fontSize: "1.2rem",
     },
   },
   subHeader: {
@@ -56,21 +31,25 @@ const customStyles = {
       backgroundColor: "var(--dark-blue)",
     },
   },
+  expanderCell: {
+    style: { flex: "0" },
+  },
+  expanderButton: {},
   rows: {
     style: {
-      backgroundColor: "var(--light-gray)",
-      borderLeft: "2px solid var(--dark-gray)",
-      borderRight: "2px solid var(--dark-gray)",
+      height: "60px",
     },
+  },
+  cells: {
+    style: { padding: "0 2rem 0 0" },
   },
 };
 
-const Container = styled.div`
-  display: flex;
-  position: relative;
-  justify-content: start;
-  padding: 0% 3% 3% 3%;
-  flex-direction: column;
+const TableContainer = styled.div`
+  margin: 3% 3% 3% 3%;
+  overflow: auto;
+  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
+    0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
 const SpinnerContainer = styled.div`
   margin: 50px;
@@ -86,15 +65,14 @@ const InteractiveAnalysisContainer = styled.div`
 `;
 
 const PageContainer = styled.div`
-  width: 80%;
+  width: 85%;
 `;
 const DropDownContainer = styled.div`
-  width: 250px;
+  width: 200px;
   background-color: white;
   border-radius: 5px;
-  left: 70%;
-  position: relative;
-  margin: 3% 1% 1% 1%;
+  height: 40px;
+  margin: 10px 0px;
 `;
 const ModalSpinnerContainer = styled.div`
   position: relative;
@@ -136,10 +114,9 @@ const modalObjs = {
     ],
   },
 };
-
 export default function Uploads() {
-  const { accountType } = useContext(AuthContext);
-  const { uploads, setFetchUploads } = useContext(UploadsContext);
+  const { accountType, usageQuota } = useContext(AuthContext);
+  const { uploads, setFetchUploads, pulse3dVersions } = useContext(UploadsContext);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
@@ -153,55 +130,149 @@ export default function Uploads() {
   const [selectedAnalysis, setSelectedAnalysis] = useState();
   const [pending, setPending] = useState(true);
   const [filterString, setFilterString] = useState("");
-  const [filtercolumn, setFilterColumn] = useState("");
-  const [updateData, toggleUpdateData] = useState(false);
+  const [filterColumn, setFilterColumn] = useState("");
+  const [ownerWidth, setOwnerWidth] = useState("10%");
+  const [recordingWidth, setRecordingWidth] = useState("30%");
+  const [uploadWidth, setUploadWidth] = useState("25%");
+  const [createdWidth, setCreatedWidth] = useState("19%");
+  const [analyzedWidth, setAnalyzedWidth] = useState("19%");
+  const [sortColumn, setSortColumn] = useState("");
+  const uploadTableColumns = [
+    {
+      width: "3%",
+      admin: false,
+      cell: (row) => (
+        <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
+      ),
+    },
+    {
+      name: (
+        <ColumnHead
+          title="Owner"
+          setFilterString={setFilterString}
+          columnName="username"
+          setFilterColumn={setFilterColumn}
+          width={ownerWidth.replace("%", "")}
+          filterColumn={filterColumn}
+          setSelfWidth={setOwnerWidth}
+          setRightNeighbor={setRecordingWidth}
+          rightWidth={recordingWidth.replace("%", "")}
+          setSortColumns={setSortColumn}
+          sortColumn={sortColumn}
+        />
+      ),
+      width: ownerWidth,
+      admin: true,
+      sortFunction: (rowA, rowB) => rowA.username.localeCompare(rowB.username),
+      cell: (row) => <ResizableColumn content={row.username} />,
+    },
+    {
+      name: (
+        <ColumnHead
+          title="Recording Name"
+          setFilterString={setFilterString}
+          columnName="name"
+          setFilterColumn={setFilterColumn}
+          width={recordingWidth.replace("%", "")}
+          filterColumn={filterColumn}
+          setSelfWidth={setRecordingWidth}
+          setRightNeighbor={setUploadWidth}
+          rightWidth={uploadWidth.replace("%", "")}
+          setSortColumns={setSortColumn}
+          sortColumn={sortColumn}
+        />
+      ),
+      width: recordingWidth,
+      admin: false,
+      sortFunction: (rowA, rowB) => rowA.name.localeCompare(rowB.name),
+      cell: (row) => <ResizableColumn content={row.name} />,
+    },
+    {
+      name: (
+        <ColumnHead
+          title="Upload ID"
+          setFilterString={setFilterString}
+          columnName="id"
+          setFilterColumn={setFilterColumn}
+          width={uploadWidth.replace("%", "")}
+          filterColumn={filterColumn}
+          setSelfWidth={setUploadWidth}
+          setRightNeighbor={setCreatedWidth}
+          rightWidth={createdWidth.replace("%", "")}
+          setSortColumns={setSortColumn}
+          sortColumn={sortColumn}
+        />
+      ),
+      width: uploadWidth,
+      admin: false,
+      sortFunction: (rowA, rowB) => rowA.id.localeCompare(rowB.id),
+      cell: (row) => <ResizableColumn content={row.id} />,
+    },
+    {
+      name: (
+        <ColumnHead
+          title="Date Created"
+          setFilterString={setFilterString}
+          columnName="createdAt"
+          setFilterColumn={setFilterColumn}
+          width={createdWidth.replace("%", "")}
+          filterColumn={filterColumn}
+          setSelfWidth={setCreatedWidth}
+          setRightNeighbor={setAnalyzedWidth}
+          rightWidth={analyzedWidth.replace("%", "")}
+          setSortColumns={setSortColumn}
+          sortColumn={sortColumn}
+        />
+      ),
+      width: createdWidth,
+      admin: false,
+      sortFunction: (rowA, rowB) => new Date(rowB.createdAt) - new Date(rowA.createdAt),
+      cell: (row) => <ResizableColumn content={row.createdAt} />,
+    },
+    {
+      name: (
+        <ColumnHead
+          title="Last Analyzed"
+          setFilterString={setFilterString}
+          columnName="lastAnalyzed"
+          setFilterColumn={setFilterColumn}
+          width={analyzedWidth.replace("%", "")}
+          filterColumn={filterColumn}
+          setSelfWidth={setAnalyzedWidth}
+          setRightNeighbor={() => {}}
+          setSortColumns={setSortColumn}
+          sortColumn={sortColumn}
+          last={true}
+        />
+      ),
+      width: analyzedWidth,
+      id: "lastAnalyzed",
+      admin: false,
+      sortFunction: (rowA, rowB) => new Date(rowB.lastAnalyzed) - new Date(rowA.lastAnalyzed),
+      cell: (row) => <ResizableColumn last={true} content={row.lastAnalyzed} />,
+    },
+  ];
 
   useEffect(() => {
-    setTimeout(async () => {
-      // don't call get jobs if downloading or deleting in progress because it backs up server
-      if (!["downloading", "deleting"].includes(modalState) && updateData) {
-        await getAllJobs();
-        toggleUpdateData(!updateData);
-      }
-    }, [1e4]);
-  }, [updateData]);
-
-  useEffect(() => {
-    if (displayRows.length > 0) {
-      setTimeout(() => {
-        setPending(false);
-      }, 5000);
+    // removing loading spinner once jobs have been recieved or if 0 jobs were receieved because there were zero uploads for new users
+    if (jobs.length > 0 || (jobs.length === 0 && uploads)) {
+      setPending(false);
     }
   }, [displayRows]);
-  const toFilterField =
-    accountType === "admin"
-      ? {
-          Owner: "username",
-          Recording: "name",
-          ID: "id",
-          "Date Created": "createdAt",
-          "Last Analyzed": "lastAnalyzed",
-        }
-      : {
-          Recording: "name",
-          ID: "id",
-          "Date Created": "createdAt",
-          "Last Analyzed": "lastAnalyzed",
-        };
 
+  const filterColumns = () => {
+    return rows.filter((row) => {
+      return row[filterColumn].toLocaleLowerCase().includes(filterString.toLocaleLowerCase());
+    });
+  };
   //when filter string changes, refilter results
   useEffect(() => {
-    const newList = rows.filter((row) => {
-      //if the column being filtered is a date
-      if (toFilterField[filtercolumn] === "createdAt" || toFilterField[filtercolumn] === "lastAnalyzed") {
-        return row[toFilterField[filtercolumn]]
-          .toLocaleLowerCase()
-          .includes(filterString.toLocaleLowerCase());
-      } else if (row[toFilterField[filtercolumn]]) {
-        return row[toFilterField[filtercolumn]].includes(filterString);
+    if (filterColumn) {
+      const newList = filterColumns();
+      if (newList.length > 0) {
+        setDisplayRows(newList);
       }
-    });
-    setDisplayRows(newList);
+    }
   }, [filterString]);
 
   useEffect(() => {
@@ -210,6 +281,14 @@ export default function Uploads() {
       resetTable();
     }
   }, [openInteractiveAnalysis]);
+
+  useEffect(() => {
+    if (accountType === "admin") {
+      // admin accounts have an extra Owners column so the widths should be different
+      setCreatedWidth("13%");
+      setAnalyzedWidth("13%");
+    }
+  }, [accountType]);
 
   const resetTable = () => {
     setResetDropdown(true);
@@ -236,8 +315,7 @@ export default function Uploads() {
             datetime: formattedTime,
             status,
             analysisParams,
-            // version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
-            version: "0.25.2",
+            version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
             checked: isChecked,
           };
         });
@@ -271,27 +349,34 @@ export default function Uploads() {
   };
 
   useEffect(() => {
-    getAllJobs();
-    // start 10 second interval
-    const uploadsInterval = setInterval(() => getAllJobs(), [1e4]);
-    // don't call get jobs if downloading or deleting in progress because it backs up server
-    if (!["downloading", "deleting"].includes(modalState)) {
-      toggleUpdateData(!updateData);
-    }
+    if (uploads) {
+      getAllJobs();
 
-    //clear interval when switching pages
-    return () => clearInterval(uploadsInterval);
+      if (uploads.length > 0) {
+        const statusUpdateInterval = setInterval(async () => {
+          if (!["downloading", "deleting"].includes(modalState)) {
+            await getAllJobs();
+          }
+        }, [1e4]);
+
+        return () => clearInterval(statusUpdateInterval);
+      }
+    }
   }, [uploads]);
 
   useEffect(() => {
-    const formattedUploads = uploads
-      .map(({ username, id, filename, created_at }) => {
+    // reset to false everytime it gets triggered
+    if (resetDropdown) setResetDropdown(false);
+  }, [resetDropdown]);
+
+  useEffect(() => {
+    if (uploads) {
+      const formattedUploads = uploads.map(({ username, id, filename, created_at }) => {
         const formattedTime = formatDateTime(created_at);
         const recName = filename ? filename.split(".")[0] : null;
         const uploadJobs = jobs
           .filter(({ uploadId }) => uploadId === id)
           .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
-
         const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
         return {
           username,
@@ -301,11 +386,18 @@ export default function Uploads() {
           lastAnalyzed,
           jobs: uploadJobs,
         };
-      })
-      .sort((a, b) => new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed));
+      });
+      formattedUploads.sort((a, b) => new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed));
+      setRows([...formattedUploads]);
+      setDisplayRows([...formattedUploads]);
 
-    setRows([...formattedUploads]);
-    setDisplayRows([...formattedUploads]);
+      if (filterColumn) {
+        const newList = filterColumns();
+        if (newList.length > 0) {
+          setDisplayRows(newList);
+        }
+      }
+    }
   }, [jobs]);
 
   const handleDropdownSelection = (option) => {
@@ -331,34 +423,91 @@ export default function Uploads() {
       setSelectedAnalysis(jobDetails[0]);
       setOpenInteractiveAnalysis(true);
     }
+  };
 
-    setResetDropdown(false);
+  const handleDownloadSubSelection = async ({ Download }) => {
+    if (Download === 1) {
+      try {
+        if (checkedUploads.length === 1) {
+          await downloadSingleFile({ uploadId: checkedUploads[0] });
+          resetTable();
+        } else if (checkedUploads.length > 1) {
+          // show active downloading modal only for multifile downloads
+          setModalLabels(modalObjs.empty);
+          setModalState("downloading");
+
+          await downloadMultiFiles(checkedUploads, true);
+
+          // show successful download modal only for multifile downloads
+          setModalLabels({
+            header: "Success!",
+            messages: [
+              `The following number of recording files have been successfully downloaded: ${checkedUploads.length}`,
+              "They can be found in your local downloads folder.",
+            ],
+          });
+          setModalButtons(["Close"]);
+          setModalState("generic");
+        }
+      } catch (e) {
+        console.log(`ERROR fetching presigned url to download recording files: ${e}`);
+        setModalLabels(modalObjs.downloadError);
+        setModalButtons(["Close"]);
+        setModalState("generic");
+      }
+    } else {
+      handleDropdownSelection(Download);
+    }
   };
 
   const handleDeletions = async () => {
+    //remove all pending from list
+    const jobsToDelete = [];
+    // get upload meta data
+    const uploadsToDelete = displayRows.filter(({ id }) => checkedUploads.includes(id));
+    // push non-pending jobs
+    uploadsToDelete.map(({ jobs }) => {
+      jobs.map(({ status, jobId }) => {
+        if (status !== "pending") {
+          jobsToDelete.push(jobId);
+        }
+      });
+    });
+
     try {
       let failedDeletion = false;
-      // soft delete uploads
-      if (checkedUploads.length > 0) {
-        const uploadsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads?`;
-        checkedUploads.map((id) => (uploadsURL += `upload_ids=${id}&`));
-        const uploadsResponse = await fetch(uploadsURL.slice(0, -1), {
-          method: "DELETE",
-        });
+      //soft delete uploads
+      if (uploadsToDelete) {
+        // filter for uploads where there are no pending jobs to prevent deleting uploads for pending jobs
+        const finalUploadIds = uploadsToDelete
+          .filter(({ jobs }) => {
+            return jobs.filter((job) => job.status === "pending").length == 0;
+          })
+          .map(({ id }) => id);
 
-        failedDeletion ||= uploadsResponse.status !== 200;
+        if (finalUploadIds && finalUploadIds.length > 0) {
+          const uploadsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads?`;
+          finalUploadIds.map((id) => (uploadsURL += `upload_ids=${id}&`));
+
+          const uploadsResponse = await fetch(uploadsURL.slice(0, -1), {
+            method: "DELETE",
+          });
+
+          failedDeletion ||= uploadsResponse.status !== 200;
+        }
       }
 
       // soft delete all jobs
-      if (checkedJobs.length > 0) {
+      if (jobsToDelete.length > 0) {
         const jobsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;
-        checkedJobs.map((id) => (jobsURL += `job_ids=${id}&`));
+        jobsToDelete.map((id) => (jobsURL += `job_ids=${id}&`));
         const jobsResponse = await fetch(jobsURL.slice(0, -1), {
           method: "DELETE",
         });
 
         failedDeletion ||= jobsResponse.status !== 200;
       }
+
       if (failedDeletion) {
         setModalButtons(["Close"]);
         setModalLabels(modalObjs.failedDeletion);
@@ -400,97 +549,122 @@ export default function Uploads() {
   };
 
   const downloadAnalyses = async () => {
-    try {
-      // removes any jobs with error + pending statuses
-      const finishedJobs = jobs.filter(
-        ({ jobId, status }) => checkedJobs.includes(jobId) && status === "finished"
-      );
-      const numberOfJobs = finishedJobs.length;
+    // removes any jobs with error + pending statuses
+    const finishedJobs = jobs.filter(
+      ({ jobId, status }) => checkedJobs.includes(jobId) && status === "finished"
+    );
+    const numberOfJobs = finishedJobs.length;
 
-      if (numberOfJobs > 0) {
-        setModalButtons(["Close"]);
+    if (numberOfJobs > 0) {
+      setModalButtons(["Close"]);
 
-        /*
+      /*
           Download correct number of files,
           else throw error to prompt error modal
         */
-        try {
-          if (numberOfJobs === 1) {
-            await downloadSingleFile(finishedJobs[0]);
-            // table only resets on download success modal close, so this needs to be handled here
-            resetTable();
-          } else if (numberOfJobs > 1) {
-            // show active downloading modal only for multifile downloads
-            setModalLabels(modalObjs.empty);
-            setModalState("downloading");
+      try {
+        if (numberOfJobs === 1) {
+          await downloadSingleFile(finishedJobs[0]);
+          // table only resets on download success modal close, so this needs to be handled here
+          resetTable();
+        } else if (numberOfJobs > 1) {
+          // show active downloading modal only for multifile downloads
+          setModalLabels(modalObjs.empty);
+          setModalState("downloading");
 
-            await downloadMultiFiles(finishedJobs);
+          await downloadMultiFiles(finishedJobs);
 
-            // show successful download modal only for multifile downloads
-            setModalLabels({
-              header: "Success!",
-              messages: [
-                `The following number of analyses have been successfully downloaded: ${numberOfJobs}`,
-                "They can be found in your local downloads folder.",
-              ],
-            });
+          // show successful download modal only for multifile downloads
+          setModalLabels({
+            header: "Success!",
+            messages: [
+              `The following number of analyses have been successfully downloaded: ${numberOfJobs}`,
+              "They can be found in your local downloads folder.",
+            ],
+          });
 
-            setModalState("generic");
-          }
-        } catch (e) {
-          throw Error(e);
+          setModalState("generic");
         }
-      } else {
-        // let user know in the off chance that the only files they selected are not finished analyzing or failed
-        setModalLabels(modalObjs.nothingToDownload);
-        setModalButtons(["Close"]);
+      } catch (e) {
+        console.log(`ERROR fetching presigned url to download analysis: ${e}`);
+        setModalLabels(modalObjs.downloadError);
         setModalState("generic");
       }
-    } catch (e) {
-      console.log(`ERROR fetching presigned url to download analysis: ${e}`);
-      setModalLabels(modalObjs.downloadError);
+    } else {
+      // let user know in the off chance that the only files they selected are not finished analyzing or failed
+      setModalLabels(modalObjs.nothingToDownload);
+      setModalButtons(["Close"]);
       setModalState("generic");
     }
   };
 
-  const downloadSingleFile = async ({ jobId }) => {
-    // request only presigned urls for selected job
-    const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?job_ids=${jobId}`;
-    const response = await fetch(url);
+  const downloadSingleFile = async ({ jobId, uploadId }) => {
+    // request only presigned urls for selected job/upload
+    try {
+      let response = null,
+        presignedUrl = null,
+        name = null;
+      if (jobId) {
+        const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?job_ids=${jobId}`;
+        response = await fetch(url);
 
-    if (response.status === 200) {
-      const { jobs } = await response.json();
-      const presignedUrl = jobs[0].url;
+        if (response.status === 200) {
+          const { jobs } = await response.json();
+          presignedUrl = jobs[0].url;
+          name = jobs[0].id;
+        }
+      } else {
+        const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads/download`;
+        response = await fetch(url, { method: "POST", body: JSON.stringify({ upload_ids: [uploadId] }) });
+
+        if (response.status === 200) {
+          const { filename, url } = await response.json();
+          presignedUrl = url;
+          name = filename;
+        }
+      }
 
       if (presignedUrl) {
         const a = document.createElement("a");
         document.body.appendChild(a);
         a.setAttribute("href", presignedUrl);
-        a.setAttribute("download", jobs[0].id);
+        a.setAttribute("download", name);
         a.click();
         a.remove();
+      } else {
+        throw Error();
       }
-    } else {
+    } catch (e) {
       throw Error();
     }
   };
 
-  const downloadMultiFiles = async (jobs) => {
+  const downloadMultiFiles = async (data, uploads = false) => {
     try {
       //streamsaver has to be required here otherwise you get build errors with "document is not defined"
       const { createWriteStream } = require("streamsaver");
-      const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/download`;
-      const jobIds = jobs.map(({ jobId }) => jobId);
+      let url = null,
+        zipFilename = null,
+        body = null;
+      const now = formatDateTime();
+
+      if (uploads) {
+        url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads/download`;
+        zipFilename = `MA-recordings__${now}__${data.length}.zip`;
+        body = { upload_ids: data };
+      } else {
+        const jobIds = data.map(({ jobId }) => jobId);
+        url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/download`;
+        zipFilename = `MA-analyses__${now}__${data.length}.zip`;
+        body = { job_ids: jobIds };
+      }
 
       const response = await fetch(url, {
         method: "POST",
-        body: JSON.stringify({ job_ids: jobIds }),
+        body: JSON.stringify(body),
       });
 
       if (response.status === 200) {
-        const now = formatDateTime();
-        const zipFilename = `MA-analyses__${now}__${jobs.length}.zip`;
-
         // only stream to file if not firefox. Once the underlying issue with streaming on
         // firefox is fixed, should remove this
         if (navigator.userAgent.indexOf("Firefox") != -1) {
@@ -527,70 +701,74 @@ export default function Uploads() {
       throw Error();
     }
   };
+
   const ExpandedComponent = ({ data }) => {
-    const [jobToEdit, setJobToEdit] = useState();
-    //takes care of adding the state of checked jobs
-    useEffect(() => {
-      if (jobToEdit) {
-        if (jobToEdit.action === "add") {
-          for (let i = 0; i < jobs.length; i++) {
-            if (jobs[i].jobId === jobToEdit.id) {
-              jobs[i].checked = true;
-              setCheckedJobs([...checkedJobs, jobs[i].jobId]);
-              return;
-            }
-          }
-        } else if (jobToEdit.action === "remove") {
-          for (let i = 0; i < jobs.length; i++) {
-            if (jobs[i].jobId === jobToEdit.id) {
-              jobs[i].checked = false;
-              if (checkedJobs.length === 1) {
-                setCheckedJobs([]);
-                return;
-              }
-              let temp = checkedJobs;
-              const location = temp.indexOf(jobToEdit.id);
-              temp.splice(location, 1);
-              setCheckedJobs(temp);
-              return;
-            }
-          }
-        }
-      }
-    }, [jobToEdit]);
     return (
-      <UploadsSubTable
-        jobs={data.jobs}
-        setJobToEdit={(e) => {
-          setJobToEdit(e);
-        }}
-      />
+      <UploadsSubTable jobs={data.jobs} checkedJobs={checkedJobs} handleCheckedJobs={handleCheckedJobs} />
     );
   };
+
+  const handleCheckedUploads = (e) => {
+    // first check if change is adding or removing an upload
+    if (!checkedUploads.includes(e.target.id)) {
+      // if adding, push to state
+      checkedUploads.push(e.target.id);
+    } else {
+      // if removing, splice to state
+      const idxToSplice = checkedUploads.indexOf(e.target.id);
+      checkedUploads.splice(idxToSplice, 1);
+    }
+    // set state
+    setCheckedUploads([...checkedUploads]);
+
+    const newCheckedJobs = [];
+
+    // every checked upload should have all of it's jobs checked
+    // so it's resetting checkedJobs to empty array, then concat all relevant jobs
+    checkedUploads.map((upload) => {
+      const idx = rows.map((row) => row.id).indexOf(upload);
+      const jobIds = rows[idx].jobs.map(({ jobId, status }) => {
+        // only add jobs to checked array if not pending
+        if (status !== "pending") newCheckedJobs.push(jobId);
+      });
+      newCheckedJobs.concat(jobIds);
+    });
+
+    // set jobs in state
+    setCheckedJobs([...newCheckedJobs]);
+  };
+
+  const handleCheckedJobs = (e) => {
+    // check if action is unchecking a job
+    if (checkedJobs.includes(e.target.id)) {
+      // remove from job state
+      const idxToSplice = checkedJobs.indexOf(e.target.id);
+      checkedJobs.splice(idxToSplice, 1);
+
+      // remove corresponding upload as checked because a checked upload cannot have any unchecked jobs
+      checkedUploads.map((upload, uploadIdx) => {
+        const idx = rows.map((row) => row.id).indexOf(upload);
+        const jobIds = rows[idx].jobs.map(({ jobId }) => jobId);
+        const missingJobs = jobIds.filter((id) => !checkedJobs.includes(id));
+        if (missingJobs.length > 0) checkedUploads.splice(uploadIdx, 1);
+      });
+
+      // set checked uploads
+      setCheckedUploads([...checkedUploads]);
+    } else checkedJobs.push(e.target.id); // else if action is checking a job, then push job id to state
+
+    // set checked jobs either way
+    setCheckedJobs([...checkedJobs]);
+  };
+
   return (
     <>
       {!openInteractiveAnalysis ? (
         <PageContainer>
-          <DropDownContainer>
-            <DropDownWidget
-              label="Actions"
-              options={["Download", "Delete", "Interactive Analysis"]}
-              disableOptions={[
-                ...Array(2).fill(checkedJobs.length === 0 && checkedUploads.length === 0),
-                checkedJobs.length !== 1 ||
-                  jobs.filter((job) => job.jobId === checkedJobs[0])[0].status !== "finished",
-              ]}
-              optionsTooltipText={[
-                ...Array(2).fill("Must make a selection below before actions become available."),
-                "You must select one successful job to enable interactive analysis.",
-              ]}
-              handleSelection={handleDropdownSelection}
-              reset={resetDropdown}
-            />
-          </DropDownContainer>
-          <Container>
+          <TableContainer>
             <DataTable
               data={displayRows}
+              compact={true}
               columns={uploadTableColumns
                 .filter(
                   // if admin user then show all columns, else just show non-admin columns
@@ -607,36 +785,50 @@ export default function Uploads() {
               expandableRowsComponent={ExpandedComponent}
               customStyles={customStyles}
               progressPending={pending}
+              defaultSortFieldId="lastAnalyzed"
               progressComponent={
                 <SpinnerContainer>
                   <CircularSpinner size={200} color={"secondary"} />
                 </SpinnerContainer>
               }
-              selectableRows
-              selectableRowsNoSelectAll
-              subHeader
-              subHeaderAlign="left"
+              sortIcon={<></>}
+              subHeader={true}
               subHeaderComponent={
-                <FilterHeader
-                  columns={
-                    accountType === "admin"
-                      ? ["Owner", "Recording", "ID", "Date Created", "Last Analyzed"]
-                      : ["Recording", "ID", "Date Created", "Last Analyzed"]
-                  }
-                  setFilterString={setFilterString}
-                  setFilterColumn={setFilterColumn}
-                  loading={pending}
-                />
+                <DropDownContainer>
+                  <DropDownWidget
+                    label="Actions"
+                    options={
+                      accountType === "admin"
+                        ? ["Download", "Delete"]
+                        : ["Download", "Delete", "Interactive Analysis"]
+                    }
+                    subOptions={{ Download: ["Download Analyses", "Download Raw Data"] }}
+                    disableOptions={[
+                      ...Array(2).fill(checkedJobs.length === 0 && checkedUploads.length === 0),
+                      checkedJobs.length !== 1 ||
+                        jobs.filter((job) => job.jobId === checkedJobs[0])[0].status !== "finished" ||
+                        (usageQuota && usageQuota.jobs_reached),
+                    ]}
+                    optionsTooltipText={[
+                      ...Array(2).fill("Must make a selection below before actions become available."),
+                      usageQuota && usageQuota.jobs_reached
+                        ? "Interactive analysis is disabled because customer limit has been reached."
+                        : "You must select one successful job to enable interactive analysis.",
+                    ]}
+                    handleSelection={handleDropdownSelection}
+                    handleSubSelection={handleDownloadSubSelection}
+                    reset={resetDropdown}
+                    disableSubOptions={{ Download: [checkedJobs.length === 0, checkedUploads.length === 0] }}
+                    subOptionsTooltipText={[
+                      "Must make a job selection before becoming available.",
+                      "Must make an upload selection before becoming available.",
+                    ]}
+                    setReset={setResetDropdown}
+                  />
+                </DropDownContainer>
               }
-              onSelectedRowsChange={({ selectedRows, selectedCount }) => {
-                let arr = [];
-                for (let i = 0; i < selectedCount; i++) {
-                  arr.push(selectedRows[i].id);
-                }
-                setCheckedUploads(arr);
-              }}
             />
-          </Container>
+          </TableContainer>
         </PageContainer>
       ) : (
         <InteractiveAnalysisContainer>

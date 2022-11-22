@@ -92,6 +92,7 @@ export default function NewUserForm() {
       username: "",
       password1: "",
       password2: "",
+      service: "pulse3d",
     });
     setPassword2Border("none");
     setPassword1Border("none");

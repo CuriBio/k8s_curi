@@ -36,6 +36,8 @@ function Pulse({ Component, pageProps }) {
   const router = useRouter();
   const [accountType, setAccountType] = useState();
   const [showLoggedOutAlert, setLoggedOutAlert] = useState(false);
+  const [usageQuota, setUsageQuota] = useState();
+
   let swInterval = null;
   // register the SW once
   useEffect(() => {
@@ -51,25 +53,35 @@ function Pulse({ Component, pageProps }) {
         .catch((e) => console.log("SERVICE WORKER ERROR: ", e));
 
       navigator.serviceWorker.addEventListener("message", ({ data }) => {
-        // data returned is a boolean if auth tokens are present. Otherwise return user to login
+        /* --------------------
+        Current messages received:
+
+        auth check: {isLoggedIn: bool, accountType: str, routerPathname: str, usageQuota: obj}
+        logout: {logout: bool}
+        usage: {uploads_reached: bool, jobs_reached: bool}
+        ---------------------*/
+
         // might need auth check to include actual fetch request in SW to check token status if this becomes a problem
+        // will not use the correct pathname if directly accessing router.pathname
         const currentPage = data.routerPathname;
         // this prevents the inactivity from popping up when a user is already on the login page or verified page
+        // do this with multiple messages
+        if (data.usageQuota) setUsageQuota(data.usageQuota);
+
         if (data.logout && currentPage && currentPage !== "/verify" && currentPage !== "/login") {
           setLoggedOutAlert(true);
-          return;
-        }
-        setAccountType(data.accountType);
-        // the router pathname is sent to the SW and then sent back here since for some reason this message handler
-        // will not use the correct pathname if directly accessing router.pathname
-        if (data.isLoggedIn) {
+        } else if (data.isLoggedIn) {
+          // the router pathname is sent to the SW and then sent back here since for some reason this message handler
+          setAccountType(data.accountType);
           // if logged in and on a page that shouldn't be accessed, or on the login page, redirect to home page (currently /uploads)
           // TODO Tanner (8/23/22): this probably isn't the best solution for redirecting to other pages. Should look into a better way to do this
           if (currentPage === "/login" || !availablePages[data.accountType].includes(currentPage)) {
             router.replace("/uploads", undefined, { shallow: true });
           }
-        } else if (currentPage !== "/login") {
-          // always redirect to login page if not logged in and attempting to access a page requiring authentication
+        } else if (!data.isLoggedIn && currentPage !== "/login" && currentPage !== "/verify") {
+          setAccountType(data.accountType);
+          // always redirect to login page if not logged in and not an account verification
+          // protects unauthorized page access
           router.replace("/login", undefined, { shallow: true });
         }
       });
@@ -113,7 +125,7 @@ function Pulse({ Component, pageProps }) {
 
   return (
     <ThemeProvider theme={MUItheme}>
-      <AuthContext.Provider value={{ accountType }}>
+      <AuthContext.Provider value={{ accountType, usageQuota }}>
         <Layout>
           <ModalWidget
             open={showLoggedOutAlert}

@@ -6,9 +6,10 @@ WORKDIR /app
 COPY ./deployments/apiv2/services/users/src/requirements.txt ./
 COPY ./core/lib/auth ./lib/auth
 COPY ./core/lib/utils ./lib/utils
+COPY ./core/lib/jobs ./lib/jobs
 
 RUN python -m venv --copies /app/venv
-RUN . /app/venv/bin/activate && pip install -r ./requirements.txt && pip install ./lib/auth && pip install ./lib/utils
+RUN . /app/venv/bin/activate && pip install -r ./requirements.txt && pip install ./lib/auth && pip install ./lib/utils && pip install ./lib/jobs
 
 
 FROM python:3.9-slim as prod

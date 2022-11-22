@@ -3,6 +3,7 @@ import { useState } from "react";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import LoginForm from "@/components/account/LoginForm";
 import { useRouter } from "next/router";
+import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
   position: relative;
@@ -12,25 +13,22 @@ const BackgroundContainer = styled.div`
   height: 100%;
 `;
 
-const ModalContainer = styled.div(
-  ({ user }) => `
-  height: ${user ? "460px" : "380px"};
+const ModalContainer = styled.div`
   width: 450px;
   background-color: var(--light-gray);
   position: relative;
   border-radius: 3%;
   overflow: hidden;
-  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%),
-    0px 8px 10px 1px rgb(0 0 0 / 20%), 0px 3px 14px 2px rgb(0 0 0 / 12%);
-`
-);
+  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
+    0px 3px 14px 2px rgb(0 0 0 / 12%);
+`;
 
 const ErrorText = styled.span`
   color: red;
   font-style: italic;
   text-align: left;
   position: relative;
-  width: 80%;
+  width: 85%;
   padding-top: 2%;
 `;
 
@@ -38,14 +36,23 @@ const ButtonContainer = styled.div`
   display: flex;
   flex-direction: row;
 `;
-
+const LoadingDiv = styled.div`
+  display: flex;
+  justify-content: center;
+`;
 export default function Login() {
   const router = useRouter();
   const [errorMsg, setErrorMsg] = useState(null);
   const [loginType, setLoginType] = useState("User");
-  const [userData, setUserData] = useState({});
+  const [userData, setUserData] = useState({ service: "pulse3d" });
+  const [submitButtonLabel, setSubmitButtonLabel] = useState("Submit");
 
   const submitForm = async () => {
+    setSubmitButtonLabel(
+      <LoadingDiv>
+        <CircularSpinner size={40} color={"secondary"} />
+      </LoadingDiv>
+    );
     setErrorMsg(""); // reset to show user something happened
 
     if (Object.values(userData).includes("")) setErrorMsg("*All fields are required");
@@ -60,7 +67,7 @@ export default function Login() {
 
         if (res) {
           if (res.status === 200) {
-            router.push("/uploads"); // routes to next page
+            router.push("/uploads?checkUsage=true", "/uploads"); // routes to next page
           } else {
             res.status === 401 || res.status === 422
               ? setErrorMsg("*Invalid credentials. Try again.")
@@ -72,11 +79,17 @@ export default function Login() {
         setErrorMsg("*Internal error. Please try again later.");
       }
     }
+    setSubmitButtonLabel("Submit");
   };
 
   return (
     <BackgroundContainer>
-      <ModalContainer user={loginType === "User"}>
+      <ModalContainer
+        sx={{ height: loginType === "User" ? "460px" : "380px" }}
+        onKeyDown={(e) => {
+          e.key === "Enter" ? submitForm() : null;
+        }}
+      >
         <ButtonContainer>
           {["User", "Admin"].map((type, idx) => {
             const isSelected = type === loginType;
@@ -87,19 +100,24 @@ export default function Login() {
                 isSelected={isSelected}
                 backgroundColor={isSelected ? "var(--teal-green)" : "var(--dark-blue)"}
                 clickFn={() => {
-                  setUserData({});
+                  setUserData({ service: "pulse3d" });
                   setLoginType(type);
                 }}
               />
             );
           })}
         </ButtonContainer>
-        <LoginForm userData={userData} setUserData={setUserData} loginType={loginType}>
+        <LoginForm
+          userData={userData}
+          setUserData={setUserData}
+          loginType={loginType}
+          submitForm={submitForm}
+        >
           <ErrorText id="loginError" role="errorMsg">
             {errorMsg}
           </ErrorText>
         </LoginForm>
-        <ButtonWidget label={"Submit"} clickFn={submitForm} />
+        <ButtonWidget label={submitButtonLabel} clickFn={submitForm} />
       </ModalContainer>
     </BackgroundContainer>
   );

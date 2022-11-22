@@ -29,8 +29,8 @@ logger = logging.getLogger(__name__)
 PULSE3D_VERSION = pkg_resources.get_distribution("pulse3D").version
 
 
-def _load_from_dir(recording_dir, stiffness_factor):
-    recordings = list(PlateRecording.from_directory(recording_dir, stiffness_factor=stiffness_factor))
+def _load_from_dir(recording_dir, plate_recording_args):
+    recordings = list(PlateRecording.from_directory(recording_dir, **plate_recording_args))
     logger.info(f"{len(recordings)} recording(s) found")
     return recordings
 
@@ -74,8 +74,9 @@ async def process(con, item):
             try:
                 logger.info("Checking if time force data exists in s3")
 
+                # adding prefix here representing the version of pulse3D used
                 parquet_filename = f"{os.path.splitext(filename)[0]}.parquet"
-                parquet_key = f"{prefix}/time_force_data/{parquet_filename}"
+                parquet_key = f"{prefix}/time_force_data/{PULSE3D_VERSION}/{parquet_filename}"
                 parquet_path = os.path.join(tmpdir, parquet_filename)
 
                 # attempt to download parquet file if recording has already been analyzed
@@ -94,12 +95,15 @@ async def process(con, item):
                     if val is not None
                 }
 
-                # Tanner (10/7/22): popping here since write_xlsx doesn't take this as a kwarg
-                stiffness_factor = analysis_params.pop("stiffness_factor", None)
+                # Tanner (10/7/22): popping these args out of analysis_params here since write_xlsx doesn't take them as a kwarg
+                plate_recording_args = {
+                    arg_name: analysis_params.pop(arg_name, None)
+                    for arg_name in ("stiffness_factor", "inverted_post_magnet_wells")
+                }
 
                 logger.info("Starting pulse3d analysis")
-                if re_analysis and not stiffness_factor:
-                    # if a stiffness factor is provided, can't load from data frame since a re-analysis is required to get the correct force values
+                if re_analysis and not any(plate_recording_args.values()):
+                    # if any plate recording args are provided, can't load from data frame since a re-analysis is required to recalculate the waveforms
                     logger.info(f"Loading previous time force data from {parquet_filename}")
                     existing_df = pd.read_parquet(parquet_path)
                     try:
@@ -114,9 +118,9 @@ async def process(con, item):
                         logger.info(
                             f"Previous dataframe found is not compatible with v{PULSE3D_VERSION}, performing analysis again"
                         )
-                        recordings = _load_from_dir(tmpdir, stiffness_factor)
+                        recordings = _load_from_dir(tmpdir, plate_recording_args)
                 else:
-                    recordings = _load_from_dir(tmpdir, stiffness_factor)
+                    recordings = _load_from_dir(tmpdir, plate_recording_args)
 
                 # Tanner (6/8/22): only supports analyzing one recording at a time right now. Functionality can be added whenever analyzing multiple files becomes necessary
                 first_recording = recordings[0]
@@ -139,11 +143,10 @@ async def process(con, item):
                         md5 = hashlib.md5(contents).digest()
                         md5s = base64.b64encode(md5).decode()
 
-                        paraquet_key = f"{prefix}/time_force_data/{parquet_filename}"
-                        logger.info(f"Uploading time force data to {paraquet_key}")
+                        logger.info(f"Uploading time force data to {parquet_key}")
 
                         s3_client.put_object(
-                            Body=contents, Bucket=PULSE3D_UPLOADS_BUCKET, Key=paraquet_key, ContentMD5=md5s
+                            Body=contents, Bucket=PULSE3D_UPLOADS_BUCKET, Key=parquet_key, ContentMD5=md5s
                         )
                 except Exception as e:
                     logger.exception(f"Writing or uploading time force data failed: {e}")
@@ -210,10 +213,10 @@ async def main():
                         logger.info("Pulling job from queue")
                         await process(con=con)
                     except EmptyQueue as e:
-                        logger.info(f"No jobs in queue {e}")
+                        logger.info(f"No jobs in queue: {e}")
                         return
-                    except Exception:
-                        logger.exception("Processing queue item failed")
+                    except Exception as e:
+                        logger.exception(f"Processing queue item failed: {repr(e)}")
                         return
     finally:
         logger.info(f"Worker v{PULSE3D_VERSION} terminating")

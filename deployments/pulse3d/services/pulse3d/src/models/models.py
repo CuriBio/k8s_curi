@@ -23,6 +23,7 @@ class JobRequest(BaseModel):
     normalize_y_axis: Optional[bool]
 
     stiffness_factor: Optional[int]
+    inverted_post_magnet_wells: Optional[List[str]]
 
     baseline_widths_to_use: Optional[TupleParam]
     max_y: Optional[Number]
@@ -60,3 +61,11 @@ class WaveformDataResponse(BaseModel):
 
 class JobDownloadRequest(BaseModel):
     job_ids: List[uuid.UUID]
+
+
+class UploadDownloadRequest(BaseModel):
+    upload_ids: List[uuid.UUID]
+
+
+class UsageErrorResponse(BaseModel):
+    usage_error: Dict[str, bool]

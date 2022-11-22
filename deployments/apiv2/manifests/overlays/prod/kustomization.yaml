@@ -23,10 +23,10 @@ patchesJson6902:
   patch: |-
     - op: replace
       path: /spec/template/spec/containers/0/image
-      value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/users"
+      value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/users:0.2.0"
     - op: replace
       path: /spec/template/spec/containers/1/image
-      value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/mantarray"
+      value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.2.0"
     - op: replace
       path: /spec/template/spec/containers/1/env/0/value
       value: prod
