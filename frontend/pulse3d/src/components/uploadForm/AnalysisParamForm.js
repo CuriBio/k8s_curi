@@ -363,11 +363,11 @@ export default function AnalysisParamForm({
             <InputErrorContainer style={{ marginLeft: "12%" }}>
               <CheckboxWidget
                 checkedState={disableStimProtocols}
-                handleCheckbox={(disable) => {
+                handleCheckbox={() => {
+                  setDisableStimProtocols(!disableStimProtocols);
                   updateParams({
-                    showStimSheet: !disable,
+                    showStimSheet: !disableStimProtocols,
                   });
-                  setDisableStimProtocols(disable);
                 }}
               />
             </InputErrorContainer>
@@ -377,7 +377,7 @@ export default function AnalysisParamForm({
         {pulse3dVersionGte("0.25.4") && (
           //Disabling y-axis normalization added in version 0.25.4
           <ParamContainer style={{ width: "6%", marginTop: "2%" }}>
-            <Label htmlFor="yAxisNormalization">
+            <Label htmlFor="normalizeYAxis">
               Disable Y-Axis Normalization:
               <Tooltip
                 title={<TooltipText>{"When selected, disables normalization of the y-axis."}</TooltipText>}
