@@ -348,12 +348,12 @@ export default function AnalysisParamForm({
         {pulse3dVersionGte("0.28.1") && (
           //Disabling y-axis normalization added in version 0.25.4
           <ParamContainer style={{ width: "6%", marginTop: "2%" }}>
-            <Label htmlFor="showStimMeta">
+            <Label htmlFor="showStimSheet">
               Show Stimulation Protocols:
               <Tooltip
                 title={
                   <TooltipText>
-                    {"When selected, adds a tab to output file with stimulation protocols."}
+                    {"When selected, adds a sheet to output file with stimulation protocols."}
                   </TooltipText>
                 }
               >
@@ -365,7 +365,7 @@ export default function AnalysisParamForm({
                 checkedState={disableStimProtocols}
                 handleCheckbox={(disable) => {
                   updateParams({
-                    showStimMeta: !disable,
+                    showStimSheet: !disable,
                   });
                   setDisableStimProtocols(disable);
                 }}
