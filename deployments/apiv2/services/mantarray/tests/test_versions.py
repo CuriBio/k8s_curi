@@ -316,6 +316,6 @@ def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_o
 
     mocked_get_prev = mocker.patch.object(versions, "get_previous_software_version", autospec=True)
 
-    assert versions.get_required_sw_version_range("11.0.0")["max_sw"] is None
+    assert versions.get_required_sw_version_range("11.0.0")["max_sw"] == "999.999.999"
 
     mocked_get_prev.assert_not_called()

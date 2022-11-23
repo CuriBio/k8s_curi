@@ -198,18 +198,14 @@ def test_uploads__post_if_customer_quota_has_not_been_reached(mocked_asyncpg_con
     "usage_dict",
     [{"jobs_reached": False, "uploads_reached": True}, {"jobs_reached": True, "uploads_reached": True}],
 )
-def test_uploads__post_if_customer_quota_has_been_reached(mocked_asyncpg_con, mocker, usage_dict):
-    test_user_id = uuid.uuid4()
-
+def test_uploads__post_if_customer_quota_has_been_reached(mocker, usage_dict):
     mocked_usage_check = mocker.patch.object(
-        main,
-        "check_customer_quota",
-        return_value=usage_dict,
-        autospec=True,
+        main, "check_customer_quota", return_value=usage_dict, autospec=True
     )
 
     mocked_create_upload = mocker.spy(main, "create_upload")
 
+    test_user_id = uuid.uuid4()
     test_file_name = "recording_file"
     test_md5s = "testhash"
     test_upload_type = "pulse3d"
@@ -292,10 +288,7 @@ def test_uploads__delete__failure_to_delete_uploads(mocker):
 
 
 @pytest.mark.parametrize("download", [True, False, None])
-@pytest.mark.parametrize(
-    "test_token_scope",
-    [[s] for s in PULSE3D_SCOPES],
-)
+@pytest.mark.parametrize("test_token_scope", [[s] for s in PULSE3D_SCOPES])
 @pytest.mark.parametrize(
     "test_job_ids", [None, [], uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]]
 )
@@ -556,12 +549,14 @@ def test_jobs__post__basic_params_given(mocker, mocked_asyncpg_con):
     access_token = get_token(scope=["pulse3d:free"], userid=test_user_id, account_type="user")
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
     mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
+
     mocker.patch.object(
         main,
         "check_customer_quota",
         return_value={"jobs_reached": False, "uploads_reached": False},
         autospec=True,
     )
+
     kwargs = {
         "json": {
             "upload_id": str(uuid.uuid4()),
@@ -598,14 +593,11 @@ def test_jobs__post__basic_params_given(mocker, mocked_asyncpg_con):
     ],
 )
 def test_jobs__post__returns_error_dict_if_quota_has_been_reached(mocker, mocked_asyncpg_con, usage_dict):
-    test_user_id = uuid.uuid4()
-
     mocked_usage_check = mocker.patch.object(
-        main,
-        "check_customer_quota",
-        return_value=usage_dict,
-        autospec=True,
+        main, "check_customer_quota", return_value=usage_dict, autospec=True
     )
+
+    test_user_id = uuid.uuid4()
     mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
 
     test_analysis_params = {"twitch_widths": [10, 20], "start_time": 0, "end_time": 1}
@@ -632,6 +624,7 @@ def test_jobs__post__advanced_params_given(param_name, mocked_asyncpg_con, param
     test_analysis_params = {param_name: param_tuple}
     test_user_id = uuid.uuid4()
     access_token = get_token(scope=["pulse3d:free"], userid=test_user_id)
+
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
     mocker.patch.object(
         main,
@@ -639,6 +632,7 @@ def test_jobs__post__advanced_params_given(param_name, mocked_asyncpg_con, param
         return_value={"jobs_reached": False, "uploads_reached": False},
         autospec=True,
     )
+
     mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
 
     kwargs = {
@@ -687,12 +681,13 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocked_asyncpg_con
         return_value={"jobs_reached": False, "uploads_reached": False},
         autospec=True,
     )
+    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
+
     test_user_id = uuid.uuid4()
     mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
 
     test_analysis_params = {"baseline_widths_to_use": param_tuple}
     access_token = get_token(scope=["pulse3d:free"], userid=test_user_id)
-    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
 
     kwargs = {
         "json": {
@@ -851,6 +846,7 @@ def test_jobs_download__post__no_duplicate_analysis_file_names(
     test_account_id = uuid.uuid4()
     account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
     test_customer_id = uuid.uuid4() if account_type != "customer" else None
+
     access_token = get_token(
         scope=test_token_scope,
         account_type=account_type,
@@ -908,6 +904,7 @@ def test_jobs_download__post__duplicate_analysis_file_names(mocked_asyncpg_con, 
     test_account_id = uuid.uuid4()
     account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
     test_customer_id = uuid.uuid4() if account_type != "customer" else None
+
     access_token = get_token(
         scope=test_token_scope,
         account_type=account_type,
@@ -1014,6 +1011,7 @@ def test_uploads_download__post__correctly_handles_single_file_downloads(
         userid=test_account_id,
         customer_id=test_customer_id,
     )
+
     test_presigned_url = "https://s3.test-url.com/"
     test_upload_rows = [
         {
@@ -1203,9 +1201,8 @@ def test_waveform_data__get__handles_time_unit_if_old_parquet_file(
         None,
     ],
 )
-def test_versions__get(token, mocked_asyncpg_con, mocker):
+def test_versions__get(token, mocked_asyncpg_con):
     # arbitrary number of versions
-
     mocked_asyncpg_con.fetch.return_value = expected_version_dicts = [
         {"version": f"1.0.{i}", "state": f"state{i}"} for i in range(3)
     ]
