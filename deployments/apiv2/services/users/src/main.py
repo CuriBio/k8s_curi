@@ -286,6 +286,7 @@ async def register(
         # scope will not be sent in request body for both customer and user registration
         if is_customer_registration_attempt:
             scope = details.scope
+            # usage_restrictions column is not currently being inserted into, will need to be manually added
             insert_query = "INSERT INTO customers (email, password, data) VALUES ($1, $2, $3) RETURNING id"
             query_params = (
                 details.email,
@@ -295,8 +296,8 @@ async def register(
         else:
             # TODO add handling for multiple service scopes and exception handling if none found
             _, customer_tier = split_scope_account_data(customer_scope[0])  # 'free' or 'paid'
-            # for now, assuming that each user registration will only be called with one service
-            user_scope = [f"{details.service}:{customer_tier}"]
+            # eventually scopes will be passed from FE, but for now just auto set to paid user
+            user_scope = details.scope if details.scope is not None else ["pulse3d:paid"]
             # suspended and verified get set to False by default
             insert_query = (
                 "INSERT INTO users (name, email, password, account_type, data, customer_id) "

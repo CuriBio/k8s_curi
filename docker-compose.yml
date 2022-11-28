@@ -14,6 +14,7 @@ services:
       - AWS_REGION=us-east-2
       - CURIBIO_EMAIL=${CURIBIO_EMAIL}
       - CURIBIO_EMAIL_PASSWORD=${CURIBIO_EMAIL_PASSWORD}
+      - DASHBOARD_URL=http://localhost:3000
     volumes:
       - ~/.aws/:/root/.aws:ro
     ports:
@@ -54,6 +55,7 @@ services:
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - AWS_PROFILE=${AWS_PROFILE}
       - AWS_REGION=us-east-2
+      - DASHBOARD_URL=http://localhost:3000
     volumes:
       - ~/.aws/:/root/.aws:ro
     ports:
