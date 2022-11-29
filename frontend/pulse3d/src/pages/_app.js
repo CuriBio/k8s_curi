@@ -49,7 +49,12 @@ function Pulse({ Component, pageProps }) {
           { type: "module" }
         )
         .then(navigator.serviceWorker.ready)
-        .then(() => sendSWMessage())
+        .then(() =>
+          sendSWMessage({
+            msgType: "authCheck",
+            routerPathname: router.pathname,
+          })
+        )
         .catch((e) => console.log("SERVICE WORKER ERROR: ", e));
 
       navigator.serviceWorker.addEventListener("message", ({ data }) => {
@@ -89,21 +94,28 @@ function Pulse({ Component, pageProps }) {
 
   // whenever the page updates, sends message to SW (if active) to check if a user is logged in
   useEffect(() => {
-    sendSWMessage();
+    sendSWMessage({
+      msgType: "authCheck",
+      routerPathname: router.pathname,
+    });
 
     // start pinging SW if not on login page to keep alive
-    if (!router.pathname.includes("login")) keepSWALive();
+    if (!["/login", "/account/[type]"].includes(router.pathname)) keepSWALive();
+    if (router.pathname === "/account/[type]") {
+      // when a user gets redirected to page to reset password or verify account, it should redirect user to login and not consider them as logged in if they previously were.
+      // even though this scenario is unlikely, just ensures they'll be logged out and protects against if an admin performs some of these actions while logged into an admin account previously.
+      sendSWMessage({
+        msgType: "clearData",
+      });
+    }
     // clear on teardown/page redirections
     return () => clearInterval(swInterval);
   }, [router.pathname]);
 
-  const sendSWMessage = () => {
+  const sendSWMessage = (msg) => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.ready.then((registration) => {
-        registration.active.postMessage({
-          msgType: "authCheck",
-          routerPathname: router.pathname,
-        });
+        registration.active.postMessage(msg);
       });
     }
   };

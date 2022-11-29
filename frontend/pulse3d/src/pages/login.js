@@ -61,10 +61,7 @@ const ModalInputContainer = styled.div`
   flex-direction: column;
   align-items: center;
 `;
-const LoadingDiv = styled.div`
-  display: flex;
-  justify-content: center;
-`;
+
 export default function Login() {
   const router = useRouter();
   const [errorMsg, setErrorMsg] = useState();

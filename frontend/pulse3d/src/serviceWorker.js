@@ -36,13 +36,6 @@ const clearAccountType = () => {
   accountType = null;
 };
 
-// this only gets used if a response gets returned that the quota has been filled by another user during a users session
-const sendUsageQuota = (usage) => {
-  ClientSource.postMessage({ usageQuota: usage });
-  console.log("Sending just usage quota");
-  setUsageQuota(usage);
-};
-
 const setUsageQuota = (usage) => {
   usageQuota = usage;
 };
@@ -280,6 +273,10 @@ self.onmessage = ({ data, source }) => {
   } else if (data.msgType === "stayAlive") {
     // TODO should have this do something else so that there isn't a log msg produced every 20 seconds
     console.log("Staying alive");
+  } else if (data.msgType === "clearData") {
+    // a way for the FE components to force clear all stored data in the service worker
+    console.log("Recieved clear message type to clear account info");
+    clearAccountInfo();
   }
 };
 
