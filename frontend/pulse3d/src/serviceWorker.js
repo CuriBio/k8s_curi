@@ -95,7 +95,7 @@ const isLoginRequest = (url) => {
 };
 
 const isUpdateRequest = (url) => {
-  return url.pathname.includes("/update");
+  return url.pathname.includes("/account");
 };
 
 const modifyRequest = async (req, url) => {

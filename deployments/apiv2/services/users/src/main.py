@@ -1,6 +1,6 @@
 import logging
 import json
-from typing import Union
+from typing import Union, List
 import uuid
 from datetime import datetime
 import jwt
@@ -373,19 +373,26 @@ async def register(
 
 
 @app.get("/email", status_code=status.HTTP_204_NO_CONTENT)
-async def email_user(request: Request, email: str = Query(None), type: str = Query(None)):
+async def email_user(request: Request, email: EmailStr = Query(None), type: str = Query(None)):
+    """Send or resend user account emails.
+
+    No token required for request. Currently sending reset password and new registration emails based on query type.
+    """
+    # EmailRegistrationError will be raised if random type param is added that isn't verify or reset
     try:
         async with request.state.pgpool.acquire() as con:
             row = await con.fetchrow("SELECT id, customer_id, name FROM users WHERE email=$1", email)
-            await _create_user_email(
-                con=con,
-                type=type,
-                user_id=row["id"],
-                customer_id=row["customer_id"],
-                scope=[f"users:{type}"],
-                name=row["name"],
-                email=email,
-            )
+            # send email if found, otherwise return 204, doesn't need to raise an exception
+            if row is not None:
+                await _create_user_email(
+                    con=con,
+                    type=type,
+                    user_id=row["id"],
+                    customer_id=row["customer_id"],
+                    scope=[f"users:{type}"],
+                    name=row["name"],
+                    email=email,
+                )
     except EmailRegistrationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
@@ -393,26 +400,38 @@ async def email_user(request: Request, email: str = Query(None), type: str = Que
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-async def _create_user_email(*, con, type, user_id, customer_id, scope, name, email):
+async def _create_user_email(
+    *,
+    con,
+    type: str,
+    user_id: uuid.UUID,
+    customer_id: uuid.UUID,
+    scope: List[str],
+    name: str,
+    email: EmailStr,
+):
     try:
         # create email verification token, exp 24 hours
         jwt_token = create_token(userid=user_id, customer_id=customer_id, scope=scope, account_type="user")
-        # add token to users table
+        url = f"{DASHBOARD_URL}/account/{type}?token={jwt_token.token}"
+
+        # assign correct email template and redirect url based on request type
+        if type == "reset":
+            subject = "Reset your password"
+            template = "reset_password.html"
+        elif type == "verify":
+            subject = "Please verify your email address"
+            template = "registration.html"
+        else:
+            raise Exception()
+
+        # add token to users table after no exception is raised
         # The token  has to be created with id being returned from insert query so it's updated separately
         await con.execute(
             "UPDATE users SET pw_reset_verify_link=$1 WHERE id=$2",
             jwt_token.token,
             user_id,
         )
-        # assign correct email template and redirect url based on request type
-        if type == "reset":
-            url = f"{DASHBOARD_URL}/account/reset?token={jwt_token.token}"
-            subject = "Reset your password"
-            template = "reset_password.html"
-        else:
-            url = f"{DASHBOARD_URL}/account/verify?token={jwt_token.token}"
-            subject = "Please verify your email address"
-            template = "registration.html"
 
         # send email with reset token
         await _send_user_email(
@@ -453,16 +472,20 @@ async def _send_user_email(*, username: str, email: EmailStr, url: str, subject:
     await fm.send_message(message, template_name=template)
 
 
-@app.put("/update")
+@app.put("/account")
 async def verify_user_account(
     request: Request,
     details: PasswordModel,
-    token=Depends(ProtectedAny(scope=[*ACCOUNT_SCOPES, *CUSTOMER_SCOPES])),
+    token=Depends(ProtectedAny(scope=ACCOUNT_SCOPES)),
 ):
-    """Confirm and verify new user."""
-    user_id = uuid.UUID(hex=token["userid"])
-    customer_id = uuid.UUID(hex=token["customer_id"])
+    """Confirm and verify new user and password.
+
+    Used for both resetting new password or verifying new user accounts. Route will check if link has been used or if account has already been verified.
+    """
     try:
+        user_id = uuid.UUID(hex=token["userid"])
+        customer_id = uuid.UUID(hex=token["customer_id"])
+
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():
                 # ProtectedAny will return 401 already if link has expired
@@ -475,12 +498,13 @@ async def verify_user_account(
                 if details.verify and row["verified"]:
                     return UnableToUpdateAccountResponse(message="Account has already been verified")
                 # link in db gets replaced with NULL when it's been successfully used
-                if not row["pw_reset_verify_link"]:
+                if row["pw_reset_verify_link"] is None:
                     return UnableToUpdateAccountResponse(message="Link has already been used")
 
                 ph = PasswordHasher()
                 phash = ph.hash(details.password1.get_secret_value())
 
+                # will set verified to True even if it already is to remove extra, unnecessary conditional
                 await con.execute(
                     "UPDATE users SET verified='t', pw_reset_verify_link=NULL, password=$1 WHERE id=$2 AND customer_id=$3",
                     phash,

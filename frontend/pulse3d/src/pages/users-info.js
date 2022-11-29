@@ -406,7 +406,7 @@ export default function UserInfo() {
           Authorization: `Bearer ${verifyLink}`,
         });
 
-        const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/update`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/account`, {
           method: "PUT",
           body: JSON.stringify({ ...passwords, verify: true }),
           headers,

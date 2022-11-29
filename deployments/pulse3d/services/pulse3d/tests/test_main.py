@@ -857,6 +857,7 @@ def test_jobs_download__post__no_duplicate_analysis_file_names(
     test_account_id = uuid.uuid4()
     account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
     test_customer_id = uuid.uuid4() if account_type != "customer" else None
+
     access_token = get_token(
         scope=test_token_scope,
         account_type=account_type,
@@ -914,6 +915,7 @@ def test_jobs_download__post__duplicate_analysis_file_names(mocked_asyncpg_con, 
     test_account_id = uuid.uuid4()
     account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
     test_customer_id = uuid.uuid4() if account_type != "customer" else None
+
     access_token = get_token(
         scope=test_token_scope,
         account_type=account_type,
@@ -1020,6 +1022,7 @@ def test_uploads_download__post__correctly_handles_single_file_downloads(
         userid=test_account_id,
         customer_id=test_customer_id,
     )
+
     test_presigned_url = "https://s3.test-url.com/"
     test_upload_rows = [
         {
