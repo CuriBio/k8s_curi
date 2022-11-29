@@ -3,10 +3,9 @@ import { useEffect, useState } from "react";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import FormInput from "../basicWidgets/FormInput";
 import ModalWidget from "../basicWidgets/ModalWidget";
-import PasswordForm from "../account/PasswordForm";
 
 const InputContainer = styled.div`
-  min-height: 460px;
+  min-height: 260px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -16,7 +15,7 @@ const InputContainer = styled.div`
   width: inherit;
 `;
 const ModalContainer = styled.div`
-  height: 590px;
+  height: 390px;
   width: 800px;
   background-color: white;
   position: relative;
@@ -67,8 +66,6 @@ export default function NewUserForm() {
     setUserData({
       email: "",
       username: "",
-      // password1: "",
-      // password2: "",
       service: "pulse3d",
     });
   };
@@ -76,7 +73,6 @@ export default function NewUserForm() {
   useEffect(() => resetForm(), []);
 
   const submitForm = async () => {
-
     setErrorMsg(""); // reset to show user something happened
     setInProgress(true);
 
@@ -153,14 +149,6 @@ export default function NewUserForm() {
             });
           }}
         />
-        {/* <PasswordForm
-          password1={userData.password1}
-          password2={userData.password2}
-          setErrorMsg={setErrorMsg}
-          onChangePassword={({ target }) => {
-            setUserData({ ...userData, [target.id]: target.value });
-          }}
-        /> */}
         <ErrorText id="userError" role="errorMsg">
           {errorMsg}
         </ErrorText>

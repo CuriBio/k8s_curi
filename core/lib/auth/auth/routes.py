@@ -16,7 +16,7 @@ from .settings import (
     REFRESH_TOKEN_EXPIRE_MINUTES,
     EMAIL_VER_TOKEN_EXPIRE_MINUTES,
 )
-
+from .scopes import ACCOUNT_SCOPES
 
 security = HTTPBearer()
 
@@ -85,8 +85,8 @@ def create_token(
     # three different constant exp times based on token type
     if refresh:
         exp_dur = REFRESH_TOKEN_EXPIRE_MINUTES  # 30min
-    elif "users:verify" in scope:
-        exp_dur = EMAIL_VER_TOKEN_EXPIRE_MINUTES  # 30min
+    elif set(ACCOUNT_SCOPES) & set(scope):
+        exp_dur = EMAIL_VER_TOKEN_EXPIRE_MINUTES  # 24hr
     else:
         exp_dur = ACCESS_TOKEN_EXPIRE_MINUTES  # 5min
 

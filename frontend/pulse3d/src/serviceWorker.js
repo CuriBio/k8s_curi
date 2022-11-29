@@ -101,8 +101,8 @@ const isLoginRequest = (url) => {
   return url.pathname.includes("/login");
 };
 
-const isVerifyRequest = (url) => {
-  return url.pathname.includes("/verify");
+const isUpdateRequest = (url) => {
+  return url.pathname.includes("/update");
 };
 
 const modifyRequest = async (req, url) => {
@@ -259,7 +259,7 @@ self.addEventListener("fetch", async (e) => {
   // only intercept requests to pulse3d and user APIs
   if (
     (e.request.url.includes(USERS_URL) || e.request.url.includes(PULSE3D_URL)) &&
-    !isVerifyRequest(destURL) // we don't need to intercept verify request because it's handling own token
+    !isUpdateRequest(destURL) // we don't need to intercept verify request because it's handling own token
   ) {
     e.respondWith(interceptResponse(e.request, destURL));
   } else {

@@ -36,6 +36,7 @@ class UserLogin(BaseModel):
 class PasswordModel(BaseModel):
     password1: SecretStr
     password2: SecretStr
+    verify: bool
 
     @validator("password1")
     def password_requirements(cls, v):
@@ -57,11 +58,6 @@ class PasswordModel(BaseModel):
 class CustomerCreate(PasswordModel):
     email: EmailStr
     scope: List[str]
-    
-    # @validator("username")
-    # def username_alphanumeric(cls, v):
-    #     assert v is None
-    #     return v
 
 
 class UserCreate(BaseModel):
@@ -103,6 +99,10 @@ class CustomerProfile(BaseModel):
 
 class UserAction(BaseModel):
     action_type: str
+
+
+class UnableToUpdateAccountResponse(BaseModel):
+    message: str
 
 
 class LoginResponse(BaseModel):

@@ -1,19 +1,26 @@
-import datetime
 import logging
 import json
 from typing import Union
 import uuid
-
+from datetime import datetime
+import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
-from fastapi import FastAPI, Request, Depends, HTTPException, status, Response
+from fastapi import FastAPI, Request, Depends, HTTPException, status, Response, Query
 from fastapi.middleware.cors import CORSMiddleware
 from jwt.exceptions import InvalidTokenError
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from pydantic import EmailStr
 
-from auth import ProtectedAny, create_token, decode_token, CUSTOMER_SCOPES, split_scope_account_data
+from auth import (
+    ProtectedAny,
+    create_token,
+    decode_token,
+    CUSTOMER_SCOPES,
+    split_scope_account_data,
+    ACCOUNT_SCOPES,
+)
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
 from models.errors import LoginError, RegistrationError, EmailRegistrationError
@@ -28,6 +35,7 @@ from models.users import (
     UserAction,
     LoginResponse,
     PasswordModel,
+    UnableToUpdateAccountResponse,
 )
 from utils.db import AsyncpgPoolDep
 from fastapi.templating import Jinja2Templates
@@ -333,15 +341,17 @@ async def register(
                         failed_msg = "Account registration failed"
                     raise RegistrationError(failed_msg)
 
-                # only send verification emails to new users, not new customers
+                # only send verification emails to new users, not new customers and if successful
                 if not is_customer_registration_attempt:
-                    # create email verification token, exp 24 hours
-                    verification_token = create_token(
-                        userid=result, customer_id=customer_id, scope=["users:verify"], account_type="user"
+                    await _create_user_email(
+                        con=con,
+                        type="verify",
+                        user_id=result,
+                        customer_id=customer_id,
+                        scope=["users:verify"],
+                        name=details.username,
+                        email=details.email,
                     )
-                    # send email with token
-                    await _send_registration_email(details.username, details.email, verification_token.token)
-
                 if is_customer_registration_attempt:
                     return CustomerProfile(email=details.email, user_id=result.hex, scope=details.scope)
                 else:
@@ -362,37 +372,125 @@ async def register(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-async def _send_registration_email(username: str, email: EmailStr, verification_token: str) -> None:
-    # Tried to use request.client.host to dynamically change this domain based on cluster env, but it only sends nginx domain
-    verification_url = f"{DASHBOARD_URL}/verify?token={verification_token}"
-
+@app.get("/email", status_code=status.HTTP_204_NO_CONTENT)
+async def email_user(request: Request, email: str = Query(None), type: str = Query(None)):
     try:
-        conf = ConnectionConfig(
-            MAIL_USERNAME=CURIBIO_EMAIL,
-            MAIL_PASSWORD=CURIBIO_EMAIL_PASSWORD,
-            MAIL_FROM=CURIBIO_EMAIL,
-            MAIL_PORT=587,
-            MAIL_SERVER="smtp.gmail.com",
-            MAIL_FROM_NAME="Curi Bio Team",
-            MAIL_TLS=True,
-            MAIL_SSL=False,
-            USE_CREDENTIALS=True,
-            TEMPLATE_FOLDER="./templates",
-        )
-        message = MessageSchema(
-            subject="Please verify your email address",
-            recipients=[email],
-            template_body={
-                "username": username,
-                "verification_url": verification_url,
-            },  # pass any variables you want to use in the email template
-        )
+        async with request.state.pgpool.acquire() as con:
+            row = await con.fetchrow("SELECT id, customer_id, name FROM users WHERE email=$1", email)
+            await _create_user_email(
+                con=con,
+                type=type,
+                user_id=row["id"],
+                customer_id=row["customer_id"],
+                scope=[f"users:{type}"],
+                name=row["name"],
+                email=email,
+            )
+    except EmailRegistrationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.exception(f"GET /email: Unexpected error {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        fm = FastMail(conf)
-        await fm.send_message(message, template_name="registration.html")
 
+async def _create_user_email(*, con, type, user_id, customer_id, scope, name, email):
+    try:
+        # create email verification token, exp 24 hours
+        jwt_token = create_token(userid=user_id, customer_id=customer_id, scope=scope, account_type="user")
+        # add token to users table
+        # The token  has to be created with id being returned from insert query so it's updated separately
+        await con.execute(
+            "UPDATE users SET pw_reset_verify_link=$1 WHERE id=$2",
+            jwt_token.token,
+            user_id,
+        )
+        # assign correct email template and redirect url based on request type
+        if type == "reset":
+            url = f"{DASHBOARD_URL}/account/reset?token={jwt_token.token}"
+            subject = "Reset your password"
+            template = "reset_password.html"
+        else:
+            url = f"{DASHBOARD_URL}/account/verify?token={jwt_token.token}"
+            subject = "Please verify your email address"
+            template = "registration.html"
+
+        # send email with reset token
+        await _send_user_email(
+            username=name,
+            email=email,
+            url=url,
+            subject=subject,
+            template=template,
+        )
     except Exception as e:
         raise EmailRegistrationError(e)
+
+
+async def _send_user_email(*, username: str, email: EmailStr, url: str, subject: str, template: str) -> None:
+
+    conf = ConnectionConfig(
+        MAIL_USERNAME=CURIBIO_EMAIL,
+        MAIL_PASSWORD=CURIBIO_EMAIL_PASSWORD,
+        MAIL_FROM=CURIBIO_EMAIL,
+        MAIL_PORT=587,
+        MAIL_SERVER="smtp.gmail.com",
+        MAIL_FROM_NAME="Curi Bio Team",
+        MAIL_TLS=True,
+        MAIL_SSL=False,
+        USE_CREDENTIALS=True,
+        TEMPLATE_FOLDER="./templates",
+    )
+    message = MessageSchema(
+        subject=subject,
+        recipients=[email],
+        template_body={
+            "username": username,
+            "url": url,
+        },  # pass any variables you want to use in the email template
+    )
+
+    fm = FastMail(conf)
+    await fm.send_message(message, template_name=template)
+
+
+@app.put("/update")
+async def verify_user_account(
+    request: Request,
+    details: PasswordModel,
+    token=Depends(ProtectedAny(scope=[*ACCOUNT_SCOPES, *CUSTOMER_SCOPES])),
+):
+    """Confirm and verify new user."""
+    user_id = uuid.UUID(hex=token["userid"])
+    customer_id = uuid.UUID(hex=token["customer_id"])
+    try:
+        async with request.state.pgpool.acquire() as con:
+            async with con.transaction():
+                # ProtectedAny will return 401 already if link has expired
+                row = await con.fetchrow(
+                    "SELECT verified, pw_reset_verify_link FROM users WHERE id=$1 AND customer_id=$2",
+                    user_id,
+                    customer_id,
+                )
+                # if the link is being used to verify account and the account has already been verified, then return message to display to user
+                if details.verify and row["verified"]:
+                    return UnableToUpdateAccountResponse(message="Account has already been verified")
+                # link in db gets replaced with NULL when it's been successfully used
+                if not row["pw_reset_verify_link"]:
+                    return UnableToUpdateAccountResponse(message="Link has already been used")
+
+                ph = PasswordHasher()
+                phash = ph.hash(details.password1.get_secret_value())
+
+                await con.execute(
+                    "UPDATE users SET verified='t', pw_reset_verify_link=NULL, password=$1 WHERE id=$2 AND customer_id=$3",
+                    phash,
+                    user_id,
+                    customer_id,
+                )
+
+    except Exception as e:
+        logger.exception(f"PUT /{user_id}: Unexpected error {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @app.get("/")
@@ -407,7 +505,8 @@ async def get_all_users(
     customer_id = uuid.UUID(hex=token["userid"])
 
     query = (
-        "SELECT id, name, email, created_at, last_login, verified, suspended FROM users "
+        "SELECT id, name, email, created_at, last_login, verified, suspended, pw_reset_verify_link "
+        "FROM users "
         "WHERE customer_id=$1 AND deleted_at IS NULL "
         "ORDER BY suspended"
     )
@@ -415,32 +514,21 @@ async def get_all_users(
         async with request.state.pgpool.acquire() as con:
             result = await con.fetch(query, customer_id)
 
-        return [dict(row) for row in result]
+        formatted_results = [dict(row) for row in result]
+
+        for row in formatted_results:
+            # unverified account should have a jwt token, otherwise will be None.
+            # check expiration and if expired, return it as None, FE will handle telling user it's expired
+            if row["pw_reset_verify_link"] is not None:
+                try:
+                    decode_token(row["pw_reset_verify_link"])
+                except jwt.exceptions.ExpiredSignatureError:
+                    row["pw_reset_verify_link"] = None
+
+        return formatted_results
 
     except Exception as e:
         logger.exception(f"GET /: Unexpected error {repr(e)}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@app.put("/verify", status_code=status.HTTP_204_NO_CONTENT)
-async def verify_user_email(
-    request: Request,
-    details=PasswordModel,
-    token=Depends(ProtectedAny(scope=["users:verify"])),
-):
-    """Confirm and verify new user."""
-    user_id = uuid.UUID(hex=token["userid"])
-    customer_id = uuid.UUID(hex=token["customer_id"])
-    
-    ph = PasswordHasher()
-    phash = ph.hash(details.password1.get_secret_value())
-
-    update_query = "UPDATE users SET verified='t', password=$1 WHERE id=$2 AND customer_id=$3"
-    try:
-        async with request.state.pgpool.acquire() as con:
-            await con.execute(update_query, phash, user_id, customer_id)
-    except Exception as e:
-        logger.exception(f"PUT /{user_id}: Unexpected error {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -498,7 +586,7 @@ async def update_user(
         query_args = (user_id,)
     elif action == "delete":
         update_query = "UPDATE users SET deleted_at=$1 WHERE id=$2"
-        query_args = (datetime.datetime.now(), user_id)
+        query_args = (datetime.now(), user_id)
     else:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid action type")
 
