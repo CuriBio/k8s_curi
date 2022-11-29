@@ -68,7 +68,7 @@ export default function Layout({ children }) {
             unoptimized
           />
         </a>
-        {!["/login", "/verify"].includes(router.pathname) && (
+        {!["/login", "/account/[type]"].includes(router.pathname) && (
           <DropDownMenu items={["Logout"]} label={"Menu"} handleSelection={logoutUser} />
         )}
       </Header>
