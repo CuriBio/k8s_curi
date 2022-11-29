@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from freezegun import freeze_time
 import pytest
 
-from auth import create_token, ACCOUNT_SCOPES, CUSTOMER_SCOPES
+from auth import create_token, ACCOUNT_SCOPES
 from auth.settings import REFRESH_TOKEN_EXPIRE_MINUTES
 from src import main
 from src.models.tokens import AuthTokens
@@ -725,7 +725,7 @@ def test_account__put__correctly_handles_if_account_is_already_verified(
     }
 
     response = test_client.put(
-        f"/account",
+        "/account",
         json={"password1": "Test_password1", "password2": "Test_password1", "verify": True},
         headers={"Authorization": f"Bearer {access_token}"},
     )
@@ -752,7 +752,7 @@ def test_account__put__correctly_handles_if_link_has_already_been_used(
     mocked_asyncpg_con.fetchrow.return_value = {"verified": True, "pw_reset_verify_link": None}
 
     response = test_client.put(
-        f"/account",
+        "/account",
         json={"password1": "Test_password1", "password2": "Test_password1", "verify": False},
         headers={"Authorization": f"Bearer {access_token}"},
     )
@@ -783,7 +783,7 @@ def test_account__put__correctly_updates_users_table_with_account_info(
     }
 
     response = test_client.put(
-        f"/account",
+        "/account",
         json={"password1": "Test_password1", "password2": "Test_password1", "verify": False},
         headers={"Authorization": f"Bearer {access_token}"},
     )
