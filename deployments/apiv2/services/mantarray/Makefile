@@ -17,11 +17,7 @@ login:
 	aws ecr get-login-password --region us-east-2 | docker login --password-stdin --username AWS $(ecr_repo)
 
 push:
-<<<<<<< HEAD
-	docker push $(ecr_repo):0.2.0
-=======
 	docker push $(ecr_repo):0.2.1
->>>>>>> RC-12-08-22
 
 apply:
 	kubectl apply -f ./manifests/
