@@ -231,15 +231,13 @@ def test_register__user__allows_valid_usernames(
     special_char, mocked_asyncpg_con, spied_pw_hasher, cb_customer_id, mocker
 ):
 
-    mocker.patch.object(main, "_send_registration_email", autospec=True)
+    mocker.patch.object(main, "_send_user_email", autospec=True)
     use_cb_customer_id = choice([True, False])
     end_with_num = choice([True, False])
 
     registration_details = {
         "email": "user@example.com",
         "username": f"test{special_char}username",
-        "password1": TEST_PASSWORD,
-        "password2": TEST_PASSWORD,
         "service": "pulse3d",
     }
 
@@ -266,15 +264,13 @@ def test_register__user__allows_valid_usernames(
     }
 
     mocked_asyncpg_con.fetchval.assert_called_once_with(
-        "INSERT INTO users (name, email, password, account_type, data, customer_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+        "INSERT INTO users (name, email, account_type, data, customer_id) VALUES ($1, $2, $3, $4, $5) RETURNING id",
         registration_details["username"],
         registration_details["email"],
-        spied_pw_hasher.spy_return,
         "paid",
         json.dumps({"scope": expected_scope}),
         test_customer_id,
     )
-    spied_pw_hasher.assert_called_once_with(mocker.ANY, registration_details["password1"])
 
 
 def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, cb_customer_id, mocker):
@@ -428,8 +424,6 @@ def test_register__user__unique_constraint_violations(
     registration_details = {
         "email": "test@email.com",
         "username": "testusername",
-        "password1": TEST_PASSWORD,
-        "password2": TEST_PASSWORD,
         "service": "pulse3d",
     }
 
@@ -443,9 +437,6 @@ def test_register__user__unique_constraint_violations(
     )
     assert response.status_code == 400
     assert response.json() == {"detail": expected_error_message}
-
-    # make sure the pw was still hashed
-    spied_pw_hasher.assert_called_once_with(mocker.ANY, registration_details["password1"])
 
 
 @pytest.mark.parametrize(
@@ -568,7 +559,9 @@ def test_user_id__get__no_id_given(mocked_asyncpg_con):
             "email": f"user{i}@email.com",
             "created_at": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
             "last_login": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+            "verified": True,
             "suspended": choice([True, False]),
+            "pw_reset_verify_link": None,
         }
         for i in range(num_users_found)
     ]

@@ -36,7 +36,7 @@ class UserLogin(BaseModel):
 class PasswordModel(BaseModel):
     password1: SecretStr
     password2: SecretStr
-    verify: bool
+    verify: Optional[bool]
 
     @validator("password1")
     def password_requirements(cls, v):
