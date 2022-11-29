@@ -271,9 +271,9 @@ export default function UploadForm() {
         console.log("ERROR starting job because customer job limit has been reached");
         setUsageModalLabels(modalObj.jobsReachedDuringSession);
         setUsageModalState(true);
-      } else if (jobResponse.status !== 200) {
+      } else if (jobResponse.status !== 200 || jobData.unauthorized_error) {
         failedUploadsMsg.push(filename);
-        console.log("ERROR posting new job: ", await jobResponse.json());
+        console.log("ERROR posting new job");
       }
     } catch (e) {
       failedUploadsMsg.push(filename);

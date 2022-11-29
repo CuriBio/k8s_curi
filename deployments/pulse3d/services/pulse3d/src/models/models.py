@@ -70,3 +70,7 @@ class UploadDownloadRequest(BaseModel):
 
 class UsageErrorResponse(BaseModel):
     usage_error: Dict[str, bool]
+
+
+class UnauthorizedUserResponse(BaseModel):
+    unauthorized_error: str

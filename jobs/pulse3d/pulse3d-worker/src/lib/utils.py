@@ -3,6 +3,7 @@ import pandas as pd
 import uuid
 
 from pulse3D.constants import BACKEND_LOG_UUID
+from pulse3D.constants import STIM_BARCODE_UUID
 from pulse3D.constants import COMPUTER_NAME_HASH_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 from pulse3D.constants import MICRO_TO_BASE_CONVERSION
@@ -24,7 +25,7 @@ def format_metadata(meta_sheet, pr, recording_length: int):
     well_file = pr.wells[0]
 
     return {
-        "barcode": well_file.get(PLATE_BARCODE_UUID, None),
+        "plate_barcode": well_file.get(PLATE_BARCODE_UUID, None),
         "recording_started_at": well_file[UTC_BEGINNING_RECORDING_UUID],
         "file_format_version": well_file.version,
         "instrument_serial_number": well_file.get(MANTARRAY_SERIAL_NUMBER_UUID, None),
@@ -35,6 +36,7 @@ def format_metadata(meta_sheet, pr, recording_length: int):
         "acquisition_started_at": well_file[UTC_BEGINNING_DATA_ACQUISTION_UUID],
         "session_log_id": well_file.get(BACKEND_LOG_UUID, None),
         "software_version": well_file.get(SOFTWARE_RELEASE_VERSION_UUID, None),
+        "stim_barcode": well_file.get(STIM_BARCODE_UUID, None),
     }
 
 
