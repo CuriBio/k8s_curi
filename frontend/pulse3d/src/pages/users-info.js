@@ -7,9 +7,13 @@ import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 import ResizableColumn from "@/components/table/ResizableColumn";
 import ColumnHead from "@/components/table/ColumnHead";
 import Checkbox from "@mui/material/Checkbox";
+<<<<<<< HEAD
 import { Tooltip } from "@mui/material";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import PasswordForm from "@/components/account/PasswordForm";
+=======
+
+>>>>>>> RC-12-08-22
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
   center: false,
@@ -46,6 +50,7 @@ const DropDownContainer = styled.div`
   background-color: white;
   border-radius: 5px;
 `;
+<<<<<<< HEAD
 const ErrorText = styled.span`
   color: red;
   font-style: italic;
@@ -54,6 +59,8 @@ const ErrorText = styled.span`
   width: 85%;
   padding-top: 2%;
 `;
+=======
+>>>>>>> RC-12-08-22
 const PageContainer = styled.div`
   width: 85%;
 `;
@@ -132,12 +139,16 @@ export default function UserInfo() {
   const [statusWidth, setStatusWidth] = useState("15%");
   const [checkedUsers, setCheckedUsers] = useState([]);
   const [sortColumn, setSortColumn] = useState("");
+<<<<<<< HEAD
   const [openVerifyModal, setOpenVerifyModal] = useState(false);
   const [verifyLink, setVerifyLink] = useState();
   const [errorMsg, setErrorMsg] = useState();
   const [passwords, setPasswords] = useState({ password1: "", password2: "" });
   const [inProgress, setInProgress] = useState(false);
   const [openErrorModal, setOpenErrorModal] = useState(false);
+=======
+
+>>>>>>> RC-12-08-22
   const columns = [
     {
       width: "5%",
@@ -225,7 +236,11 @@ export default function UserInfo() {
         <ColumnHead
           title="Last Login"
           setFilterString={setFilterString}
+<<<<<<< HEAD
           columnName="lastLogin"
+=======
+          columnName="last_login"
+>>>>>>> RC-12-08-22
           setFilterColumn={setFilterColumn}
           width={loginWidth.replace("%", "")}
           setSelfWidth={setLoginWidth}
@@ -236,10 +251,17 @@ export default function UserInfo() {
           filterColumn={filterColumn}
         />
       ),
+<<<<<<< HEAD
       id: "lastLogin",
       width: loginWidth,
       sortFunction: (rowA, rowB) => new Date(rowB.lastLogin) - new Date(rowA.lastLogin),
       cell: (row) => <ResizableColumn content={formatDateTime(row.lastLogin)} />,
+=======
+      id: "last_login",
+      width: loginWidth,
+      sortFunction: (rowA, rowB) => new Date(rowB.last_login) - new Date(rowA.last_login),
+      cell: (row) => <ResizableColumn content={formatDateTime(row.last_login)} />,
+>>>>>>> RC-12-08-22
     },
     {
       name: (
@@ -258,6 +280,7 @@ export default function UserInfo() {
         />
       ),
       width: statusWidth,
+<<<<<<< HEAD
       sortFunction: (rowA, rowB) => rowB.verified - rowA.verified - rowA.suspended,
       cell: (row) => (
         <ResizableColumn
@@ -268,6 +291,16 @@ export default function UserInfo() {
               getVerificationDiv(row)
             ) : (
               <div style={{ color: "red" }}>suspended</div>
+=======
+      sortFunction: (rowA, rowB) => rowA.suspended.localeCompare(rowB.suspended),
+      cell: (row) => (
+        <ResizableColumn
+          content={
+            row.suspended === "active" ? (
+              <div style={{ color: "var(--teal-green)" }}>{row.suspended}</div>
+            ) : (
+              <div style={{ color: "red" }}>{row.suspended}</div>
+>>>>>>> RC-12-08-22
             )
           }
           width={statusWidth.replace("px", "")}
@@ -276,6 +309,7 @@ export default function UserInfo() {
     },
   ];
 
+<<<<<<< HEAD
   //gets users at load
   useEffect(() => {
     getAllUsers();
@@ -309,11 +343,14 @@ export default function UserInfo() {
     );
   };
 
+=======
+>>>>>>> RC-12-08-22
   const getAllUsers = async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/`);
       if (response && response.status === 200) {
         const usersJson = await response.json();
+<<<<<<< HEAD
         const formatedUserJson = usersJson.map(
           ({ created_at, email, id, last_login, name, suspended, verified, pw_reset_verify_link }) => ({
             created_at: formatDateTime(created_at),
@@ -327,6 +364,18 @@ export default function UserInfo() {
           })
         );
 
+=======
+        const formatedUserJson = usersJson.map(({ created_at, email, id, last_login, name, suspended }) => {
+          return {
+            created_at: formatDateTime(created_at),
+            email: email,
+            id: id,
+            last_login: formatDateTime(last_login),
+            name: name,
+            suspended: suspended ? "suspended" : "active",
+          };
+        });
+>>>>>>> RC-12-08-22
         setUsersData(formatedUserJson);
         setDisplayData(formatedUserJson);
         setLoading(false);
@@ -335,6 +384,7 @@ export default function UserInfo() {
       console.log("ERROR fetching all users info");
     }
   };
+<<<<<<< HEAD
 
   const handleVerifyModal = (link) => {
     setOpenVerifyModal(true);
@@ -440,6 +490,62 @@ export default function UserInfo() {
     setOpenErrorModal(false);
   };
 
+=======
+
+  //gets users at load
+  useEffect(() => {
+    getAllUsers();
+  }, []);
+
+  const filterColumns = () => {
+    return usersData.filter((row) => {
+      return row[filterColumn].toLocaleLowerCase().includes(filterString.toLocaleLowerCase());
+    });
+  };
+  //when filter string changes refilter results
+  useEffect(() => {
+    if (filterColumn) {
+      const newList = filterColumns();
+      if (newList.length > 0) {
+        setDisplayData(newList);
+      }
+    }
+  }, [filterString]);
+
+  const sendUserActionPutRequest = async (actionToPreform) => {
+    await checkedUsers.forEach(async (checkedUser) => {
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/${checkedUser}`, {
+          method: "PUT",
+          body: JSON.stringify({ action_type: actionToPreform }),
+        });
+      } catch {
+        console.log("Error on put request to get users");
+      }
+    });
+    setTimeout(resetTable, 300);
+  };
+  const resetTable = () => {
+    setCheckedUsers([]);
+    getAllUsers();
+    setResetDropdown(true);
+    setResetDropdown(false);
+  };
+  const handleDropdownSelection = async (option) => {
+    if (option === 0) {
+      await sendUserActionPutRequest("delete");
+    } else if (option === 1) {
+      const checkUsersData = usersData.filter(({ id }) => checkedUsers.includes(id));
+      let deactiveUsers = checkUsersData
+        .filter(({ suspended }) => suspended === "suspended")
+        .map(({ name }) => name);
+
+      setCheckedUsers(checkedUsers.filter(({ name }) => deactiveUsers.includes(name)));
+      await sendUserActionPutRequest("deactivate");
+    }
+  };
+
+>>>>>>> RC-12-08-22
   return (
     <>
       <PageContainer>
@@ -456,7 +562,11 @@ export default function UserInfo() {
             data={displayData}
             customStyles={customStyles}
             pagination
+<<<<<<< HEAD
             defaultSortFieldId="lastLogin"
+=======
+            defaultSortFieldId="last_login"
+>>>>>>> RC-12-08-22
             progressPending={loading}
             progressComponent={
               <SpinnerContainer>
@@ -468,12 +578,17 @@ export default function UserInfo() {
               <DropDownContainer>
                 <DropDownWidget
                   label="Actions"
+<<<<<<< HEAD
                   options={["Delete", "Deactivate", "Resend Verification Link"]}
+=======
+                  options={["Delete", "Deactivate"]}
+>>>>>>> RC-12-08-22
                   disableOptions={[
                     checkedUsers.length === 0,
                     checkedUsers.length === 0 ||
                       usersData
                         .filter((user) => checkedUsers.includes(user.id))
+<<<<<<< HEAD
                         .filter((checkedUsers) => checkedUsers.suspended).length !== 0,
                     checkedUsers.length !== 1 ||
                       (checkedUsers.length === 1 &&
@@ -481,11 +596,17 @@ export default function UserInfo() {
                       (checkedUsers.length === 1 &&
                         !usersData.filter(({ id }) => checkedUsers.includes(id))[0].verified &&
                         usersData.filter(({ id }) => checkedUsers.includes(id))[0].verifyLink),
+=======
+                        .filter((checkedUsers) => checkedUsers.suspended === "suspended").length !== 0,
+>>>>>>> RC-12-08-22
                   ]}
                   optionsTooltipText={[
                     "Must make a selection below before actions become available.",
                     "Must select a user who is active before actions become available.",
+<<<<<<< HEAD
                     "Must select an unverified user with an expired link.",
+=======
+>>>>>>> RC-12-08-22
                   ]}
                   handleSelection={handleDropdownSelection}
                   reset={resetDropdown}

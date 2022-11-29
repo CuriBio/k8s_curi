@@ -4,7 +4,11 @@ import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import LoginForm from "@/components/account/LoginForm";
 import FormInput from "@/components/basicWidgets/FormInput";
 import { useRouter } from "next/router";
+<<<<<<< HEAD
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
+=======
+import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
+>>>>>>> RC-12-08-22
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
   position: relative;
@@ -61,13 +65,17 @@ const ModalInputContainer = styled.div`
   flex-direction: column;
   align-items: center;
 `;
-
+const LoadingDiv = styled.div`
+  display: flex;
+  justify-content: center;
+`;
 export default function Login() {
   const router = useRouter();
   const [errorMsg, setErrorMsg] = useState();
   const [emailErrorMsg, setEmailErrorMsg] = useState();
   const [loginType, setLoginType] = useState("User");
   const [userData, setUserData] = useState({ service: "pulse3d" });
+<<<<<<< HEAD
   const [displayForgotPW, setDisplayForgotPW] = useState(false);
   const [userEmail, setUserEmail] = useState();
   const [inProgress, setInProgress] = useState(false);
@@ -81,6 +89,16 @@ export default function Login() {
 
   const submitForm = async () => {
     setInProgress(true);
+=======
+  const [submitButtonLabel, setSubmitButtonLabel] = useState("Submit");
+
+  const submitForm = async () => {
+    setSubmitButtonLabel(
+      <LoadingDiv>
+        <CircularSpinner size={40} color={"secondary"} />
+      </LoadingDiv>
+    );
+>>>>>>> RC-12-08-22
     setErrorMsg(""); // reset to show user something happened
 
     if (Object.values(userData).includes("")) setErrorMsg("*All fields are required");
@@ -107,6 +125,7 @@ export default function Login() {
         setErrorMsg("*Internal error. Please try again later.");
       }
     }
+<<<<<<< HEAD
     setInProgress(false);
   };
 
@@ -145,11 +164,18 @@ export default function Login() {
     }
     // set email back to null after request with email is sent
     setUserEmail();
+=======
+    setSubmitButtonLabel("Submit");
+>>>>>>> RC-12-08-22
   };
 
   return (
     <BackgroundContainer>
       <ModalContainer
+<<<<<<< HEAD
+=======
+        sx={{ height: loginType === "User" ? "460px" : "380px" }}
+>>>>>>> RC-12-08-22
         onKeyDown={(e) => {
           e.key === "Enter" ? submitForm() : null;
         }}
@@ -164,7 +190,10 @@ export default function Login() {
                 isSelected={isSelected}
                 backgroundColor={isSelected ? "var(--teal-green)" : "var(--dark-blue)"}
                 clickFn={() => {
+<<<<<<< HEAD
                   setErrorMsg("");
+=======
+>>>>>>> RC-12-08-22
                   setUserData({ service: "pulse3d" });
                   setLoginType(type);
                 }}
@@ -182,6 +211,7 @@ export default function Login() {
             {errorMsg}
           </ErrorText>
         </LoginForm>
+<<<<<<< HEAD
         <ForgotPWLabel onClick={onForgetPassword}>Forgot Password?</ForgotPWLabel>
         <ButtonWidget
           label={"Submit"}
@@ -189,6 +219,9 @@ export default function Login() {
           inProgress={inProgress}
           backgroundColor={inProgress ? "var(--teal-green)" : "var(--dark-blue)"}
         />
+=======
+        <ButtonWidget label={submitButtonLabel} clickFn={submitForm} />
+>>>>>>> RC-12-08-22
       </ModalContainer>
       <ModalWidget
         open={displayForgotPW}

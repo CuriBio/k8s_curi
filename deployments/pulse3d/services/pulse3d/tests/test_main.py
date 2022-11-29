@@ -694,6 +694,12 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocked_asyncpg_con
     access_token = get_token(scope=["pulse3d:free"], userid=test_user_id)
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
 
+    test_user_id = uuid.uuid4()
+    mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
+
+    test_analysis_params = {"baseline_widths_to_use": param_tuple}
+    access_token = get_token(scope=["pulse3d:free"], userid=test_user_id)
+
     kwargs = {
         "json": {
             "upload_id": str(uuid.uuid4()),
@@ -1203,9 +1209,8 @@ def test_waveform_data__get__handles_time_unit_if_old_parquet_file(
         None,
     ],
 )
-def test_versions__get(token, mocked_asyncpg_con, mocker):
+def test_versions__get(token, mocked_asyncpg_con):
     # arbitrary number of versions
-
     mocked_asyncpg_con.fetch.return_value = expected_version_dicts = [
         {"version": f"1.0.{i}", "state": f"state{i}"} for i in range(3)
     ]
