@@ -96,6 +96,11 @@ const modalLabels = {
     labels: [],
     buttons: ["Cancel", "Send"],
   },
+  successfulPWChange: {
+    header: "Success!",
+    labels: ["You're password has been changed and can now be used."],
+    buttons: ["Close"],
+  },
 };
 export default function UpdateAccount({ modalHeader, shortTermToken, type }) {
   const router = useRouter();
@@ -124,16 +129,13 @@ export default function UpdateAccount({ modalHeader, shortTermToken, type }) {
       const resBody = await res.json();
 
       if (res.status === 200) {
-        if (!resBody)
-          // redirect user to login page to exit verify page regardless of outcome
-          router.replace("/login", undefined, { shallow: true });
+        if (!resBody) setModalToDisplay(modalLabels.successfulPWChange);
         else {
           if (resBody.message.includes("already been verified"))
             setModalToDisplay(modalLabels.alreadyVerified);
           else setModalToDisplay(modalLabels.linksBeenUsed);
-
-          setOpenModal(true);
         }
+        setOpenModal(true);
       } else if (res.status === 401) {
         setModalToDisplay(modalLabels.expiredLink);
         setOpenModal(true);
