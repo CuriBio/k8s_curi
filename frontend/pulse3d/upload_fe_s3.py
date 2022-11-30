@@ -12,13 +12,18 @@ To use this independently, you'll still need to generate the static files for ex
 bucket = "dashboard.curibio-test.com"
 
 
-def upload_file_to_s3(bucket, key, file) -> None:
+def upload_file_to_s3(bucket, key, file, content_type) -> None:
     s3_client = boto3.client("s3")
     with open(f"{file}", "rb") as f:
         contents = f.read()
         md5 = hashlib.md5(contents).digest()
         md5s = base64.b64encode(md5).decode()
-        s3_client.put_object(Body=f, Bucket=bucket, Key=key, ContentMD5=md5s)
+        # you have to add 'text/html' content-type to put_object when you remove the file extension
+        # file extension for non-html files will get correct content-type without having to set it
+        if content_type is None:
+            s3_client.put_object(Body=f, Bucket=bucket, Key=key, ContentMD5=md5s)
+        else:
+            s3_client.put_object(Body=f, Bucket=bucket, Key=key, ContentMD5=md5s, ContentType=content_type)
 
 
 def get_fe_version():
@@ -35,11 +40,15 @@ def upload_directory_to_s3(fe_version):
             rel_path = os.path.relpath(file_path, os.path.join("src", "out"))
             rel_path_no_ext, file_ext = os.path.splitext(rel_path)
 
-            obj_key = (
-                f"v{fe_version}/{rel_path}" if "html" not in file_ext else f"v{fe_version}/{rel_path_no_ext}"
-            )
+            if "html" in file_ext:
+                obj_key = f"v{fe_version}/{rel_path_no_ext}"
+                content_type = "text/html"
+            else:
+                obj_key = f"v{fe_version}/{rel_path}"
+                content_type = None
+
             # print(f"Uploading {obj_key}")
-            upload_file_to_s3(bucket, obj_key, file_path)
+            upload_file_to_s3(bucket, obj_key, file_path, content_type)
 
 
 if __name__ == "__main__":
