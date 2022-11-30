@@ -53,7 +53,7 @@ class ProtectedAny:
         except Exception:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="No authenticated user.",
+                detail="No authenticated user",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 

@@ -2,9 +2,10 @@ import Image from "next/image";
 import styled from "styled-components";
 import DropDownMenu from "@/components/basicWidgets/ButtonDropDown";
 import { useRouter } from "next/router";
+
 // required for static export, default loader errors on build
 const imageLoader = ({ src }) => {
-  return `/public/${src}`;
+  return src;
 };
 
 const Header = styled.div`
@@ -59,7 +60,7 @@ export default function Layout({ children }) {
         <meta name="theme-color" content="#ffffff" />
         <a href="https://curibio.com">
           <Image
-            src={"CuriBio_logo_white.png"}
+            src={"/CuriBio_logo_white.png"}
             alt="CuriBio Logo"
             width={90}
             height={35}
@@ -68,7 +69,7 @@ export default function Layout({ children }) {
             unoptimized
           />
         </a>
-        {!["/login", "/account/[type]"].includes(router.pathname) && (
+        {!["/login", "/account/verify", "/account/reset"].includes(router.pathname) && (
           <DropDownMenu items={["Logout"]} label={"Menu"} handleSelection={logoutUser} />
         )}
       </Header>

@@ -98,6 +98,9 @@ const isUpdateRequest = (url) => {
   return url.pathname.includes("/account");
 };
 
+const isEmailRequest = (url) => {
+  return url.pathname.includes("/email");
+};
 const modifyRequest = async (req, url) => {
   // setup new headers
   const headers = new Headers({
@@ -252,6 +255,7 @@ self.addEventListener("fetch", async (e) => {
   // only intercept requests to pulse3d and user APIs
   if (
     (e.request.url.includes(USERS_URL) || e.request.url.includes(PULSE3D_URL)) &&
+    !isEmailRequest(destURL) && // this request doesn't depend on a token
     !isUpdateRequest(destURL) // we don't need to intercept verify request because it's handling own token
   ) {
     e.respondWith(interceptResponse(e.request, destURL));

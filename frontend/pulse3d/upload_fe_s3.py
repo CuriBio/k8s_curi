@@ -9,7 +9,6 @@ import mimetypes
 To use this independently, you'll still need to generate the static files for export manually before running this script.
 
 """
-
 # change bucket name for prod if uploading to prod
 bucket = "dashboard.curibio-test.com"
 
@@ -46,7 +45,7 @@ def upload_directory_to_s3(fe_version):
             else:
                 obj_key = f"v{fe_version}/{rel_path}"
 
-            # print(f"Uploading {obj_key}")
+            print(f"Uploading {obj_key}")
             upload_file_to_s3(bucket, obj_key, file_path)
 
 

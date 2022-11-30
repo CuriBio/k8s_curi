@@ -72,7 +72,11 @@ function Pulse({ Component, pageProps }) {
         // this prevents the inactivity from popping up when a user is already on the login page or verified page
         // do this with multiple messages
         if (data.usageQuota) setUsageQuota(data.usageQuota);
-        if (data.logout && currentPage && !["/login", "/account/[type]"].includes(currentPage)) {
+        if (
+          data.logout &&
+          currentPage &&
+          !["/login", "/account/verify", "/account/reset"].includes(currentPage)
+        ) {
           setLoggedOutAlert(true);
         } else if (data.isLoggedIn) {
           // the router pathname is sent to the SW and then sent back here since for some reason this message handler
@@ -82,7 +86,11 @@ function Pulse({ Component, pageProps }) {
           if (currentPage === "/login" || !availablePages[data.accountType].includes(currentPage)) {
             router.replace("/uploads", undefined, { shallow: true });
           }
-        } else if (!data.isLoggedIn && currentPage && !["/login", "/account/[type]"].includes(currentPage)) {
+        } else if (
+          !data.isLoggedIn &&
+          currentPage &&
+          !["/login", "/account/verify", "/account/reset"].includes(currentPage)
+        ) {
           setAccountType(data.accountType);
           // always redirect to login page if not logged in and not an account verification
           // protects unauthorized page access
@@ -100,8 +108,8 @@ function Pulse({ Component, pageProps }) {
     });
 
     // start pinging SW if not on login page to keep alive
-    if (!["/login", "/account/[type]"].includes(router.pathname)) keepSWALive();
-    if (router.pathname === "/account/[type]") {
+    if (!["/login", "/account/verify", "/account/reset"].includes(router.pathname)) keepSWALive();
+    if (["/account/verify", "/account/reset"].includes(router.pathname)) {
       // when a user gets redirected to page to reset password or verify account, it should redirect user to login and not consider them as logged in if they previously were.
       // even though this scenario is unlikely, just ensures they'll be logged out and protects against if an admin performs some of these actions while logged into an admin account previously.
       sendSWMessage({

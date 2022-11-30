@@ -126,16 +126,22 @@ export default function Login() {
       } else {
         // else if 'Send' then send request to BE to send new password email
         // emailSent to true will change modal labels to let user know it's been sent if email is found associated with an account
-        try {
-          const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${userEmail}&type=reset`);
+        if (!userEmail || userEmail.length === 0) setEmailErrorMsg("*Field required");
+        else {
+          try {
+            const res = await fetch(
+              `${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${userEmail}&type=reset`
+            );
 
-          if (res) {
-            if (res.status === 204) {
-              setEmailSent(true);
-            } else throw Error();
+            if (res) {
+              if (res.status === 204) {
+                setEmailSent(true);
+              } else throw Error();
+            }
+          } catch (e) {
+            console.log("ERROR resetting password");
+            setEmailErrorMsg("*Internal server error. Please try again later.");
           }
-        } catch (e) {
-          console.log("ERROR resetting password");
         }
       }
     } else {
