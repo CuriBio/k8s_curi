@@ -3,27 +3,28 @@ import base64
 import os
 import boto3
 import json
+import mimetypes
 
 """
 To use this independently, you'll still need to generate the static files for export manually before running this script.
+
 """
 
 # change bucket name for prod if uploading to prod
 bucket = "dashboard.curibio-test.com"
 
 
-def upload_file_to_s3(bucket, key, file, content_type) -> None:
+def upload_file_to_s3(bucket, key, file) -> None:
     s3_client = boto3.client("s3")
-    with open(f"{file}", "rb") as f:
+    content_type = mimetypes.guess_type(file)
+
+    with open(file, "rb") as f:
         contents = f.read()
         md5 = hashlib.md5(contents).digest()
         md5s = base64.b64encode(md5).decode()
         # you have to add 'text/html' content-type to put_object when you remove the file extension
         # file extension for non-html files will get correct content-type without having to set it
-        if content_type is None:
-            s3_client.put_object(Body=f, Bucket=bucket, Key=key, ContentMD5=md5s)
-        else:
-            s3_client.put_object(Body=f, Bucket=bucket, Key=key, ContentMD5=md5s, ContentType=content_type)
+        s3_client.put_object(Body=f, Bucket=bucket, Key=key, ContentMD5=md5s, ContentType=content_type[0])
 
 
 def get_fe_version():
@@ -42,13 +43,11 @@ def upload_directory_to_s3(fe_version):
 
             if "html" in file_ext:
                 obj_key = f"v{fe_version}/{rel_path_no_ext}"
-                content_type = "text/html"
             else:
                 obj_key = f"v{fe_version}/{rel_path}"
-                content_type = None
 
             # print(f"Uploading {obj_key}")
-            upload_file_to_s3(bucket, obj_key, file_path, content_type)
+            upload_file_to_s3(bucket, obj_key, file_path)
 
 
 if __name__ == "__main__":

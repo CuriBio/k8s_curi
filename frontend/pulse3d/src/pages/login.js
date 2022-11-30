@@ -182,7 +182,7 @@ export default function Login() {
             {errorMsg}
           </ErrorText>
         </LoginForm>
-        <ForgotPWLabel onClick={onForgetPassword}>Forgot Password?</ForgotPWLabel>
+        {loginType === "User" && <ForgotPWLabel onClick={onForgetPassword}>Forgot Password?</ForgotPWLabel>}
         <ButtonWidget
           label={"Submit"}
           clickFn={submitForm}
