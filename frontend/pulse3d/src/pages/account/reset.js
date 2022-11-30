@@ -105,26 +105,21 @@ export default function UpdatePassword() {
   const [shortTermToken, setShortTermToken] = useState();
   const [openModal, setOpenModal] = useState(false);
   const [modalToDisplay, setModalToDisplay] = useState(modalLabels.error);
-  const [modalHeader, setModalHeader] = useState("Verify Account");
+  const [modalHeader, setModalHeader] = useState("Change Password");
   const [userEmail, setUserEmail] = useState();
   const [emailErrorMsg, setEmailErrorMsg] = useState();
-  const { type, token } = router.query;
+  const { token } = router.query;
 
   useEffect(() => {
-    if (type && token) {
-      if (["reset", "verify"].includes(type)) {
-        setShortTermToken(token);
-        // this removes token param from url to make it not visible to users
-        router.replace(`/account/${type}`, undefined, { shallow: true });
+    const currentPage = router.pathname;
 
-        if (type === "verify") setModalHeader("Verify Account");
-        else if (type === "reset") setModalHeader("Change Password");
-      }
-    } else if (type && !token && !["reset", "verify"].includes(type)) {
-      // protect this page from being a catch all with any path param, redirect to login
-      router.replace("/login", undefined, { shallow: true });
+    if (token && currentPage === "/account/reset") {
+      setShortTermToken(token);
+      // this removes token param from url to make it not visible to users
+      router.replace(currentPage, undefined, { shallow: true });
+      setModalHeader("Change Password");
     }
-  }, [type]);
+  }, [router.pathname]);
 
   const verifyPassword = async () => {
     try {
@@ -136,7 +131,7 @@ export default function UpdatePassword() {
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/account`, {
         method: "PUT",
-        body: JSON.stringify({ ...passwords, verify: type === "verify" }),
+        body: JSON.stringify({ ...passwords, verify: false }),
         headers,
       });
 
@@ -160,7 +155,7 @@ export default function UpdatePassword() {
         throw Error();
       }
     } catch (e) {
-      console.log(`ERROR verifying new user account: ${e}`);
+      console.log(`ERROR updating the password for account: ${e}`);
       // if error, open error modal to let user know it didn't work
       setOpenModal(true);
     }
@@ -189,7 +184,7 @@ export default function UpdatePassword() {
 
   const resendLink = async () => {
     try {
-      return await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${userEmail}&type=${type}`);
+      return await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${userEmail}&type=reset`);
     } catch (e) {
       console.log("ERROR resending verification email", e);
       setModalToDisplay(modalLabels.error);
