@@ -71,5 +71,9 @@ class UsageErrorResponse(BaseModel):
     usage_error: Dict[str, bool]
 
 
+class NoJobDataFoundResponse(BaseModel):
+    message: str
+
+
 class UnauthorizedUserResponse(BaseModel):
     unauthorized_error: str

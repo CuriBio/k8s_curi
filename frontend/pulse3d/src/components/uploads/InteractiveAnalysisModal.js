@@ -117,6 +117,14 @@ const constantModalLabels = {
     messages: ["There was an issue while attempting to start this analysis.", "Please try again later."],
     buttons: ["Close"],
   },
+  oldPulse3dVersion: {
+    header: "Error Occurred!",
+    messages: [
+      "Interactive analysis will not work with the Pulse3D version this job was previously run with.",
+      "Please re-analyze this job using a Pulse3D version greater than 0.28.0 and try again.",
+    ],
+    buttons: ["Close"],
+  },
   dataFound: {
     header: "Important!",
     messages: ["Previous changes have been found for this analysis.", "Do you want to use it or start over?"],
@@ -158,7 +166,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
 
   useEffect(() => {
     // only available for versions greater than 0.25.2 when peaks_valley param was added
-    const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.25.2"));
+    const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.28.0"));
     setFilteredVersions([...compatibleVersions]);
 
     // check sessionStorage for saved data
@@ -201,10 +209,13 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
 
       if (response.status === 200) {
         const res = await response.json();
-        if (!res.unauthorized_error) {
+        if (!res.unauthorized_error && !res.message) {
           // original data is set and never changed to hold original state in case of reset
           setOriginalData(res);
           setEditablePeaksValleys(res.peaks_valleys);
+        } else if (!res.unauthorized_error && res.message) {
+          setModalLabels(constantModalLabels.oldPulse3dVersion);
+          setModalOpen("status");
         } else {
           throw Error();
         }
