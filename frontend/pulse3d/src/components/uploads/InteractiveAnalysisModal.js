@@ -165,7 +165,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
 
   useEffect(() => {
-    // only available for versions greater than 0.25.2 when peaks_valley param was added
+    // only available for versions greater than 0.28.0 when peaks and valleys get added to parquet files
     const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.28.0"));
     setFilteredVersions([...compatibleVersions]);
 
