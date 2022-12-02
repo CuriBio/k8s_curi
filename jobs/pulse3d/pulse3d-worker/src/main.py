@@ -216,7 +216,7 @@ async def process(con, item):
                 analysis_params["peaks_valleys"] = peaks_valleys_dict
 
             except Exception as e:
-                logger.exception(f"Failed to get peaks and valleys using peak_detector: {e}")
+                logger.exception(f"Failed to get peaks and valleys for write_xlsx: {e}")
                 raise
 
             if not interactive_analysis:
