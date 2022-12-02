@@ -201,14 +201,13 @@ async def download_zip_files(
 
     # need to convert UUIDs to str to avoid issues with DB
     upload_ids = [str(id) for id in upload_ids]
+    account_id = str(uuid.UUID(token["userid"]))
+    account_type = token["account_type"]
 
     # give advanced privileges to access all uploads under customer_id
     if "pulse3d:rw_all_data" in token["scope"]:
         account_id = str(uuid.UUID(token["customer_id"]))
         account_type = "dataUser"
-    else:
-        account_id = str(uuid.UUID(token["userid"]))
-        account_type = token["account_type"]
 
     try:
         async with request.state.pgpool.acquire() as con:
