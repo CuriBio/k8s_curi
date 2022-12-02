@@ -19,11 +19,16 @@ const Button = styled.button(
   `
 );
 
-const ProgressSpinner = styled.div`
+const ProgressSpinner = styled.div(
+  ({ props }) => `
   position: absolute;
-  bottom: 3px;
+  align-items: center;
+  display: flex;
   justify-self: center;
-`;
+  height: ${props.height || "60px"};
+  align-items: center;
+`
+);
 
 const Container = styled.div(
   ({ props }) => `
@@ -49,7 +54,7 @@ const ButtonWidget = (props) => {
         {props.label}
       </Button>{" "}
       {props.inProgress ? (
-        <ProgressSpinner>
+        <ProgressSpinner props={props}>
           <CircularSpinner />
         </ProgressSpinner>
       ) : null}

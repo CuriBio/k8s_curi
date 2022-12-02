@@ -549,7 +549,6 @@ def test_jobs__post__basic_params_given(mocker, mocked_asyncpg_con):
     access_token = get_token(scope=["pulse3d:free"], userid=test_user_id, account_type="user")
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
     mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
-
     mocker.patch.object(
         main,
         "check_customer_quota",
@@ -678,14 +677,11 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocked_asyncpg_con
         return_value={"jobs_reached": False, "uploads_reached": False},
         autospec=True,
     )
-    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
-
     test_user_id = uuid.uuid4()
     mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
-
     test_analysis_params = {"baseline_widths_to_use": param_tuple}
     access_token = get_token(scope=["pulse3d:free"], userid=test_user_id)
-
+    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
     kwargs = {
         "json": {
             "upload_id": str(uuid.uuid4()),
