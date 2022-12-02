@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: users
-        image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/users:0.2.0
+        image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/users:0.3.0
         env:
         - name: POSTGRES_USER
           value: curibio_users

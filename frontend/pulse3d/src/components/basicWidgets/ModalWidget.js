@@ -14,7 +14,6 @@ const Header = styled.h2`
   font-weight: bold;
 `;
 const Text = styled.p`
-  margin: 25px;
   word-break: break-word;
   font-size: 18px;
   text-align: center;

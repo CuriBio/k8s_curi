@@ -3,7 +3,7 @@ import FormInput from "../basicWidgets/FormInput";
 
 const InputContainer = styled.div(
   ({ user }) => `
-  height: ${user ? "74%" : "69%"};
+  min-height: ${user ? "74%" : "69%"};
   position: relative;
   display: flex;
   flex-direction: column;
