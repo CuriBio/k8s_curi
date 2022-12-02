@@ -99,10 +99,10 @@ async def process(con, item):
             try:
                 # attempt to download peaks and valleys from s3, will only be the case for interactive analysis jobs
                 logger.info("Checking if peaks and valleys exist in s3")
-                
+
                 s3_client.download_file(PULSE3D_UPLOADS_BUCKET, pv_parquet_key, pv_temp_path)
                 interactive_analysis = True
-                
+
                 logger.info(f"Successfully downloaded peaks and valleys to {pv_temp_path}")
             except Exception:  # continue with analysis even if original force data is not found
                 logger.error("No existing peaks and valleys found for recording")
