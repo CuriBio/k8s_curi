@@ -16,13 +16,6 @@ from fastapi import FastAPI, Request, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from pulse3D.constants import (
-    MICRO_TO_BASE_CONVERSION,
-    DEFAULT_BASELINE_WIDTHS,
-    DEFAULT_PROMINENCE_FACTORS,
-    DEFAULT_WIDTH_FACTORS,
-)
-
 from auth import ProtectedAny, PULSE3D_USER_SCOPES, PULSE3D_SCOPES, split_scope_account_data
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET, DASHBOARD_URL
 from jobs import (
@@ -57,6 +50,10 @@ from utils.s3 import (
     upload_file_to_s3,
 )
 
+DEFAULT_BASELINE_WIDTHS = (10, 90)
+DEFAULT_PROMINENCE_FACTORS = (6, 6)
+DEFAULT_WIDTH_FACTORS = (7, 7)
+MICRO_TO_BASE_CONVERSION = int(1e6)
 
 # logging is configured in log_config.yaml
 logger = logging.getLogger(__name__)
