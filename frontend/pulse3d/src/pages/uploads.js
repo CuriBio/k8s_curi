@@ -4,7 +4,7 @@ import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
 import { useContext, useState, useEffect } from "react";
-import InteractiveAnalysisModal from "@/components/uploads/InteractiveAnalysisModal";
+import InteractiveAnalysisModal from "@/components/interactiveAnalysis/InteractiveAnalysisModal";
 import { AuthContext } from "@/pages/_app";
 import DataTable from "react-data-table-component";
 import UploadsSubTable from "@/components/table/UploadsSubTable";
