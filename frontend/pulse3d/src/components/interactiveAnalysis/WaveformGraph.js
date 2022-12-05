@@ -173,7 +173,7 @@ export default function WaveformGraph({
     // TODO handle if zoom becomes smaller than smallest component width
     const dynamicWidth = width * xZoomFactor;
     const dynamicHeight = height * yZoomFactor;
-    
+
     // Add X axis and Y axis
     const x = d3.scaleLinear().range([0, dynamicWidth]).domain([xMin, xMax]);
 
