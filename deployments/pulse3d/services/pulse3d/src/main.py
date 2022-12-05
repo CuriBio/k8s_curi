@@ -424,7 +424,7 @@ async def create_new_job(
                 job_type=service,
             )
 
-            # NOTE this happens after the job is already created to have access to the job id, hopefully this doesn't cause any issues with the job starting before the file is uploaded to s3
+            # Luci (12/1/22): this happens after the job is already created to have access to the job id, hopefully this doesn't cause any issues with the job starting before the file is uploaded to s3
             # Versions less than 0.28.0 should not be in the dropdown as an option, this is just an extra check for versions greater than 0.28.0
             if details.peaks_valleys and pulse3d_semver >= "0.28.0":
                 key = f"uploads/{customer_id}/{user_id}/{details.upload_id}/{job_id}/peaks_valleys.parquet"
