@@ -15,6 +15,7 @@ const Container = styled.div`
   overflow-y: scroll;
   position: relative;
   left: 50px;
+  bottom: 0px;
   border-radius: 7px;
   display: flex;
   flex-direction: row;
@@ -167,12 +168,12 @@ export default function WaveformGraph({
     const xMax = xRange.max ? xRange.max : maxTime;
 
     const margin = { top: 20, right: 20, bottom: 30, left: 50 },
-      width = 1260 - margin.left - margin.right,
+      width = 1245 - margin.left - margin.right,
       height = 300 - margin.top - margin.bottom;
 
     // TODO handle if zoom becomes smaller than smallest component width
-    const dynamicWidth = width * xZoomFactor;
-    const dynamicHeight = height * yZoomFactor;
+    const dynamicWidth = width * xZoomFactor < width ? width : width * xZoomFactor;
+    const dynamicHeight = height * yZoomFactor < height ? height : height * yZoomFactor;
 
     // Add X axis and Y axis
     const x = d3.scaleLinear().range([0, dynamicWidth]).domain([xMin, xMax]);
@@ -180,18 +181,18 @@ export default function WaveformGraph({
     // add .1 extra to y max and y min to auto scale the graph a little outside of true max and mins
     const yRange =
       d3.max(dataToGraph, (d) => {
-        return d[1] * yZoomFactor;
+        return d[1];
       }) * 0.2;
 
     const y = d3
       .scaleLinear()
-      .range([height, 0])
+      .range([dynamicHeight, 0])
       .domain([
         d3.min(dataToGraph, (d) => {
-          return d[1] * yZoomFactor;
+          return d[1];
         }) - yRange,
         d3.max(dataToGraph, (d) => {
-          return d[1] * yZoomFactor;
+          return d[1];
         }) + yRange,
       ]);
 
@@ -276,7 +277,7 @@ export default function WaveformGraph({
     -------------------------------------- */
     svg
       .append("g")
-      .attr("transform", `translate(0, ${height})`)
+      .attr("transform", `translate(0, ${dynamicHeight})`)
       .call(d3.axisBottom(x).ticks(10 * xZoomFactor));
 
     svg.append("g").call(d3.axisLeft(y));
@@ -291,7 +292,7 @@ export default function WaveformGraph({
       .attr("opacity", 0.2)
       .attr("x", initialStartTime)
       .attr("y", 0)
-      .attr("height", height)
+      .attr("height", dynamicHeight)
       .attr("width", initialEndTime - initialStartTime)
       .call(
         d3
@@ -552,7 +553,7 @@ export default function WaveformGraph({
       .attr("x1", initialStartTime)
       .attr("y1", 0)
       .attr("x2", initialStartTime)
-      .attr("y2", height)
+      .attr("y2", dynamicHeight)
       .attr("stroke-width", 5)
       .attr("stroke", "black")
       .style("cursor", "pointer")
@@ -564,7 +565,7 @@ export default function WaveformGraph({
       .attr("x1", initialEndTime)
       .attr("y1", 0)
       .attr("x2", initialEndTime)
-      .attr("y2", height)
+      .attr("y2", dynamicHeight)
       .attr("stroke-width", 5)
       .attr("stroke", "black")
       .style("cursor", "pointer")
@@ -575,9 +576,9 @@ export default function WaveformGraph({
     -------------------------------------- */
     svg
       .append("rect")
-      .attr("x", 0)
+      .attr("x", -10)
       .attr("y", -margin.top)
-      .attr("width", dynamicWidth + 1)
+      .attr("width", dynamicWidth + 15)
       .attr("height", margin.top)
       .attr("fill", "white")
       .style("overflow", "hidden");
@@ -696,7 +697,7 @@ export default function WaveformGraph({
     <>
       <YAxisContainer>
         <YAxisLabel>Active Twitch Force (uN)</YAxisLabel>
-        <ZoomWidget size={"20px"} zoomIn={() => handleZoomOut("y")} zoomOut={() => handleZoomIn("y")} />
+        <ZoomWidget size={"20px"} zoomIn={() => handleZoomIn("y")} zoomOut={() => handleZoomOut("y")} />
       </YAxisContainer>
       <ColumnContainer>
         <ToolbarContainer>
