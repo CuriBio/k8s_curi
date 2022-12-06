@@ -226,7 +226,9 @@ def test_uploads__post_if_customer_quota_has_been_reached(mocked_asyncpg_con, mo
 
     response = test_client.post("/uploads", **kwargs)
     assert response.status_code == 200
-    assert response.json() == GenericErrorResponse(error=mocked_usage_check.return_value, type="UsageError")
+    assert response.json() == GenericErrorResponse(
+        message=mocked_usage_check.return_value, error="UsageError"
+    )
     mocked_create_upload.assert_not_called()
 
 
@@ -548,7 +550,7 @@ def test_jobs__post__returns_unauthorized_error_if_user_ids_dont_match(mocked_as
     response = test_client.post("/jobs", **kwargs)
     assert response.status_code == 200
     assert response.json() == GenericErrorResponse(
-        error="User does not have authorization to start this job.", type="AuthorizationError"
+        message="User does not have authorization to start this job.", error="AuthorizationError"
     )
 
 
@@ -680,7 +682,9 @@ def test_jobs__post__returns_error_dict_if_quota_has_been_reached(mocker, mocked
     }
     response = test_client.post("/jobs", **kwargs)
     assert response.status_code == 200
-    assert response.json() == GenericErrorResponse(error=mocked_usage_check.return_value, type="UsageError")
+    assert response.json() == GenericErrorResponse(
+        message=mocked_usage_check.return_value, error="UsageError"
+    )
     spied_create_job.assert_not_called()
 
 
@@ -1203,9 +1207,17 @@ def test_waveform_data__get__getting_job_metadata_from_db_errors(mocker):
     assert response.status_code == 500
 
 
-@pytest.mark.parametrize("pulse3d_version", [None, "0.25.2", "0.25.4", "0.27.1", "0.28.0", "0.28.1"])
-def test_waveform_data__get__handles_when_old_pulse3d_version_or_none_found_was_used(mocker, pulse3d_version):
+@pytest.mark.parametrize("pulse3d_version", ["0.28.0", "0.28.1"])
+def test_waveform_data__get__handles_when_current_pulse3d_version_was_used(mocker, pulse3d_version):
     test_user_id = uuid.uuid4()
+    test_inclusive_df = pd.DataFrame()
+
+    for column in ("Time", "A1", "A1__raw", "A1__peaks", "A1__valleys"):
+        test_inclusive_df[column] = pd.Series([1, 2, 3])
+
+    mocker.patch.object(main, "glob", return_value=["/tmp/directory/recording"], autospec=True)
+    mocker.patch.object(pd, "read_parquet", return_value=test_inclusive_df, autospec=True)
+
     expected_analysis_params = {
         param: None
         for param in (
@@ -1239,6 +1251,10 @@ def test_waveform_data__get__handles_when_old_pulse3d_version_or_none_found_was_
     )
 
     assert response.status_code == 200
+    assert response.json() == {
+        "coordinates": {"A1": [[1e-06, 1], [2e-06, 2], [3e-06, 3]]},
+        "peaks_valleys": {"A1": [[1, 2, 3], [1, 2, 3]]},
+    }
 
 
 def test_waveform_data__get__handles_when_no_time_force_parquet_is_found(mocker):
@@ -1281,7 +1297,7 @@ def test_waveform_data__get__handles_when_no_time_force_parquet_is_found(mocker)
 
     assert response.status_code == 200
     assert response.json() == GenericErrorResponse(
-        error="Time force parquet file was not found. Reanalysis required.", type="MissingDataError"
+        message="Time force parquet file was not found. Reanalysis required.", error="MissingDataError"
     )
 
 

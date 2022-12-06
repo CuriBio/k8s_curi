@@ -143,7 +143,7 @@ async def create_recording_upload(
         async with request.state.pgpool.acquire() as con:
             usage_quota = await check_customer_quota(con, customer_id, service)
             if usage_quota["uploads_reached"]:
-                return GenericErrorResponse(error=usage_quota, type="UsageError")
+                return GenericErrorResponse(message=usage_quota, error="UsageError")
 
             # Tanner (7/5/22): using a transaction here so that if _generate_presigned_post fails
             # then the new upload row won't be committed
@@ -408,14 +408,14 @@ async def create_new_job(
                 # if users don't match and they don't have an all_data scope, then raise unauth error
                 if user_id != str(row["user_id"]):
                     return GenericErrorResponse(
-                        error="User does not have authorization to start this job.",
-                        type="AuthorizationError",
+                        message="User does not have authorization to start this job.",
+                        error="AuthorizationError",
                     )
 
             # second, check usage quota for customer account
             usage_quota = await check_customer_quota(con, customer_id, service)
             if usage_quota["jobs_reached"]:
-                return GenericErrorResponse(error=usage_quota, type="UsageError")
+                return GenericErrorResponse(message=usage_quota, error="UsageError")
 
             # finally create job
             job_id = await create_job(
@@ -600,8 +600,8 @@ async def get_interactive_waveform_data(
             # customer id will be checked when attempting to locate file in s3 with customer id found in token
             if recording_owner_id != account_id:
                 return GenericErrorResponse(
-                    type="AuthorizationError",
-                    error="User does not have authorization to start interactive analysis on this recording.",
+                    error="AuthorizationError",
+                    message="User does not have authorization to start interactive analysis on this recording.",
                 )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -626,8 +626,8 @@ async def get_interactive_waveform_data(
             # this will occur for any files analyzed before this release. Ask user to perform reanalysis again on most recent pulse3d
             if not parquet_path:
                 return GenericErrorResponse(
-                    type="MissingDataError",
-                    error="Time force parquet file was not found. Reanalysis required.",
+                    error="MissingDataError",
+                    message="Time force parquet file was not found. Reanalysis required.",
                 )
 
             # if file found, read to dataframe for IA
@@ -644,7 +644,9 @@ async def get_interactive_waveform_data(
                 peak_valleys_df = pd.read_parquet(pv_parquet_path)
 
             # remove raw data columns
-            columns = [c for c in time_force_df.columns if "__raw" not in c]
+            columns = [
+                c for c in time_force_df.columns if not any(x in c for x in ("__raw", "__peaks", "__valleys"))
+            ]
             # this is to handle analyses run before PR.to_dataframe() where time is in seconds
             needs_unit_conversion = not [c for c in time_force_df.columns if "__raw" in c]
             time = time_force_df[columns[0]].tolist()

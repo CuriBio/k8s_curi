@@ -68,5 +68,5 @@ class UploadDownloadRequest(BaseModel):
 
 
 class GenericErrorResponse(BaseModel):
-    error: Union[str, Dict[str, bool]]
-    type: str
+    message: Union[str, Dict[str, bool]]
+    error: str

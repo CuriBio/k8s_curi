@@ -209,7 +209,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
 
       if (response.status === 200) {
         const res = await response.json();
-        if (!res.type) {
+        if (!res.error) {
           // original data is set and never changed to hold original state in case of reset
           setOriginalData(res);
           setEditablePeaksValleys(res.peaks_valleys);

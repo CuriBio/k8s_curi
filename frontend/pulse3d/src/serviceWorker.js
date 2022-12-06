@@ -222,7 +222,8 @@ const interceptResponse = async (req, url) => {
       const resBodyToCheck = await response.json();
 
       // set the usage error to SW state to send in auth check, will return a 200 status
-      if (resBodyToCheck.type && resBodyToCheck.type === "UsageError") setUsageQuota(resBodyToCheck.error);
+      if (resBodyToCheck.error && resBodyToCheck.error === "UsageError")
+        setUsageQuota(resBodyToCheck.message);
       // make sure to send the rest of the body for the uploads-form to handle response itself
       return new Response(JSON.stringify(resBodyToCheck));
     } else if (url.pathname.includes("logout")) {

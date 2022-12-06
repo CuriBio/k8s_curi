@@ -262,11 +262,11 @@ export default function UploadForm() {
 
       const jobData = await jobResponse.json();
       // 403 gets returned in quota limit reached responses modal gets handled in ControlPanel
-      if (jobData.type && jobData.type === "UsageError") {
+      if (jobData.error && jobData.error === "UsageError") {
         console.log("ERROR starting job because customer job limit has been reached");
         setUsageModalLabels(modalObj.jobsReachedDuringSession);
         setUsageModalState(true);
-      } else if (jobResponse.status !== 200 || (jobData.type && jobData.type == "AuthorizationError")) {
+      } else if (jobResponse.status !== 200 || (jobData.error && jobData.error == "AuthorizationError")) {
         failedUploadsMsg.push(filename);
         console.log("ERROR posting new job");
       }
@@ -400,7 +400,7 @@ export default function UploadForm() {
 
       const data = await uploadResponse.json();
 
-      if (data.type && data.type == "UsageError") {
+      if (data.error && data.error == "UsageError") {
         console.log("ERROR uploading file because customer upload limit has been reached");
         setUsageModalLabels(modalObj.uploadsReachedDuringSession);
         setUsageModalState(true);
