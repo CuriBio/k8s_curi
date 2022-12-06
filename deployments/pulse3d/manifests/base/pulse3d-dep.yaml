@@ -18,6 +18,7 @@ spec:
         version: latest
     spec:
       containers:
+      activeDeadlineSeconds: 900
       - name: pulse3d
         env:
         - name: POSTGRES_USER

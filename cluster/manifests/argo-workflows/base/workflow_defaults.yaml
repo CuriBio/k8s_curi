@@ -9,8 +9,8 @@ data:
       annotations:
         argo: workflows
     spec:
-      # must complete in 15 mins (900 seconds)
-      activeDeadlineSeconds: 900
+      # must complete in 8h (28,800 seconds)
+      activeDeadlineSeconds: 28800
       # keep workflows for 1d (86,400 seconds)
       ttlStrategy:
         secondsAfterCompletion: 86400
