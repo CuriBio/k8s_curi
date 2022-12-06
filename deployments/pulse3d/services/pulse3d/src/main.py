@@ -644,6 +644,7 @@ async def get_interactive_waveform_data(
                 peak_valleys_df = pd.read_parquet(pv_parquet_path)
 
             # remove raw data columns
+            # the any conditional is for testing, the __raw always needs to be excluded
             columns = [
                 c for c in time_force_df.columns if not any(x in c for x in ("__raw", "__peaks", "__valleys"))
             ]
