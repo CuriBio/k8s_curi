@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: pulse3d
-        image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d_api:0.5.0
+        image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d_api:0.5.1
         env:
         - name: POSTGRES_USER
           value: curibio_jobs
