@@ -152,7 +152,6 @@ export default function WaveformGraph({
   const [cursorLoc, setCursorLoc] = useState([0, 0]);
   const [xZoomFactor, setXZoomFactor] = useState(1);
   const [yZoomFactor, setYZoomFactor] = useState(1);
-
   /* NOTE!! The order of the variables and functions in createGraph() are important to functionality.
      could eventually try to break this up, but it's more sensitive in react than vue */
   const createGraph = () => {
@@ -174,7 +173,6 @@ export default function WaveformGraph({
     // TODO handle if zoom becomes smaller than smallest component width
     const dynamicWidth = width * xZoomFactor < width ? width : width * xZoomFactor;
     const dynamicHeight = height * yZoomFactor < height ? height : height * yZoomFactor;
-
     // Add X axis and Y axis
     const x = d3.scaleLinear().range([0, dynamicWidth]).domain([xMin, xMax]);
 
@@ -199,6 +197,7 @@ export default function WaveformGraph({
     // calculate start and end times in pixels. If windowed time found, use, else recording max and min
     const initialStartTime = x(startTime ? startTime : xMin);
     const initialEndTime = x(endTime ? endTime : maxTime);
+
     // waveform line
     const dataLine = d3
       .line()
@@ -606,6 +605,12 @@ export default function WaveformGraph({
   }, [initialPeaksValleys, selectedMarkerToMove, xZoomFactor, yZoomFactor]);
 
   useEffect(() => {
+    // manually scrolls graph div to bottom because the graph div expands down instead of up
+    const containerToScroll = document.getElementById("scrollableContainer");
+    containerToScroll.scrollTop = containerToScroll.scrollHeight;
+  }, [yZoomFactor]);
+
+  useEffect(() => {
     // sometimes this does get updated to null when moving windowed analysis fill
     // so need to update to max or min if so to prevent changelog message from erroring
     setEditableStartEndTimes({
@@ -684,10 +689,11 @@ export default function WaveformGraph({
   };
 
   const handleZoomOut = (axis) => {
-    if (axis === "x") {
+    // ensure max zoom out is initial render size because entire waveform will be in view, so there shouldn't be a need for it.
+    if (axis === "x" && xZoomFactor != 1) {
       const newFactor = xZoomFactor / 1.5;
       setXZoomFactor(newFactor);
-    } else {
+    } else if (yZoomFactor != 1) {
       const newFactor = yZoomFactor / 1.5;
       setYZoomFactor(newFactor);
     }
@@ -755,7 +761,7 @@ export default function WaveformGraph({
             clickFn={saveChanges}
           />
         </ToolbarContainer>
-        <Container>
+        <Container id="scrollableContainer">
           <div id="waveformGraph" />
         </Container>
         <XAxisContainer>

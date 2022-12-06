@@ -150,7 +150,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
 
   const [xRange, setXRange] = useState({
     min: null,
-    max: null, // random
+    max: null,
   });
   const [editableStartEndTimes, setEditableStartEndTimes] = useState({
     startTime: null,
