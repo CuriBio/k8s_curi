@@ -14,7 +14,7 @@ import numpy as np
 import tempfile
 
 from labware_domain_models import LabwareDefinition
-from src.models.models import UsageErrorResponse, UnauthorizedUserResponse, NoJobDataFoundResponse
+from src.models.models import GenericErrorResponse
 
 TWENTY_FOUR_WELL_PLATE = LabwareDefinition(row_count=4, column_count=6)
 DEFAULT_BASELINE_WIDTHS = (10, 90)
@@ -226,7 +226,7 @@ def test_uploads__post_if_customer_quota_has_been_reached(mocked_asyncpg_con, mo
 
     response = test_client.post("/uploads", **kwargs)
     assert response.status_code == 200
-    assert response.json() == UsageErrorResponse(usage_error=mocked_usage_check.return_value)
+    assert response.json() == GenericErrorResponse(error=mocked_usage_check.return_value, type="UsageError")
     mocked_create_upload.assert_not_called()
 
 
@@ -547,8 +547,8 @@ def test_jobs__post__returns_unauthorized_error_if_user_ids_dont_match(mocked_as
     }
     response = test_client.post("/jobs", **kwargs)
     assert response.status_code == 200
-    assert response.json() == UnauthorizedUserResponse(
-        unauthorized_error="User does not have authorization to start this job."
+    assert response.json() == GenericErrorResponse(
+        error="User does not have authorization to start this job.", type="AuthorizationError"
     )
 
 
@@ -680,7 +680,7 @@ def test_jobs__post__returns_error_dict_if_quota_has_been_reached(mocker, mocked
     }
     response = test_client.post("/jobs", **kwargs)
     assert response.status_code == 200
-    assert response.json() == UsageErrorResponse(usage_error=mocked_usage_check.return_value)
+    assert response.json() == GenericErrorResponse(error=mocked_usage_check.return_value, type="UsageError")
     spied_create_job.assert_not_called()
 
 
@@ -794,7 +794,7 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocked_asyncpg_con
     assert mocked_create_job.call_args[1]["meta"]["analysis_params"] == expected_analysis_params
 
 
-@pytest.mark.parametrize("version", ["0.24.6", "0.25.0", "0.25.2", "0.25.4", "0.26.0"])
+@pytest.mark.parametrize("version", ["0.24.6", "0.25.0", "0.25.2", "0.25.4", "0.26.0", "0.28.0"])
 def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d_version(
     version, mocked_asyncpg_con, mocker
 ):
@@ -833,6 +833,8 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
         expected_analysis_param_keys.append("stiffness_factor")
     if pulse3d_semver >= "0.27.4":
         expected_analysis_param_keys.append("inverted_post_magnet_wells")
+    if "0.25.2" <= pulse3d_semver < "0.28.0":
+        expected_analysis_param_keys.append("peaks_valleys")
 
     expected_analysis_params = {param: None for param in expected_analysis_param_keys}
 
@@ -1237,12 +1239,6 @@ def test_waveform_data__get__handles_when_old_pulse3d_version_or_none_found_was_
     )
 
     assert response.status_code == 200
-    assert (
-        response.json()
-        == NoJobDataFoundResponse(
-            message=f"Interactive analysis is not compatible with Pulse3D: {pulse3d_version}"
-        )
-    ) == (pulse3d_version is None or VersionInfo.parse(pulse3d_version) < "0.28.0")
 
 
 def test_waveform_data__get__handles_when_no_time_force_parquet_is_found(mocker):
@@ -1284,8 +1280,8 @@ def test_waveform_data__get__handles_when_no_time_force_parquet_is_found(mocker)
     )
 
     assert response.status_code == 200
-    assert response.json() == NoJobDataFoundResponse(
-        message="Time force parquet file was not found. Reanalysis required."
+    assert response.json() == GenericErrorResponse(
+        error="Time force parquet file was not found. Reanalysis required.", type="MissingDataError"
     )
 
 
