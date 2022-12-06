@@ -6,22 +6,21 @@ import uuid
 import tempfile
 import boto3
 import os
-import numpy as np
 import pandas as pd
 from glob import glob
 from semver import VersionInfo
+import numpy as np
 
 from stream_zip import ZIP_64, stream_zip
 from datetime import datetime
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-
 from pulse3D.peak_detection import peak_detector
 from pulse3D.constants import (
-    MICRO_TO_BASE_CONVERSION,
     DEFAULT_BASELINE_WIDTHS,
     DEFAULT_PROMINENCE_FACTORS,
+    MICRO_TO_BASE_CONVERSION,
     DEFAULT_WIDTH_FACTORS,
 )
 
@@ -43,15 +42,19 @@ from models.models import (
     JobResponse,
     JobDownloadRequest,
     WaveformDataResponse,
-    UsageErrorResponse,
     UploadDownloadRequest,
-    UnauthorizedUserResponse,
+    GenericErrorResponse,
 )
 from models.types import TupleParam
 
 from utils.db import AsyncpgPoolDep
-from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error, download_directory_from_s3
-
+from utils.s3 import (
+    generate_presigned_post,
+    generate_presigned_url,
+    S3Error,
+    download_directory_from_s3,
+    upload_file_to_s3,
+)
 
 # logging is configured in log_config.yaml
 logger = logging.getLogger(__name__)
@@ -118,7 +121,7 @@ async def get_info_of_uploads(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.post("/uploads", response_model=Union[UploadResponse, UsageErrorResponse])
+@app.post("/uploads", response_model=Union[UploadResponse, GenericErrorResponse])
 async def create_recording_upload(
     request: Request,
     details: UploadRequest,
@@ -140,7 +143,7 @@ async def create_recording_upload(
         async with request.state.pgpool.acquire() as con:
             usage_quota = await check_customer_quota(con, customer_id, service)
             if usage_quota["uploads_reached"]:
-                return UsageErrorResponse(usage_error=usage_quota)
+                return GenericErrorResponse(message=usage_quota, error="UsageError")
 
             # Tanner (7/5/22): using a transaction here so that if _generate_presigned_post fails
             # then the new upload row won't be committed
@@ -373,8 +376,6 @@ async def create_new_job(
         pulse3d_semver = VersionInfo.parse(details.version)
         if pulse3d_semver >= "0.25.0":
             params.append("max_y")
-        if pulse3d_semver >= "0.25.2":
-            params.append("peaks_valleys")
         if pulse3d_semver >= "0.25.4":
             params.append("normalize_y_axis")
         if pulse3d_semver >= "0.26.0":
@@ -383,6 +384,8 @@ async def create_new_job(
             params.append("inverted_post_magnet_wells")
         if pulse3d_semver >= "0.28.1":
             params.append("include_stim_protocols")
+        if "0.25.2" <= pulse3d_semver < "0.28.0":
+            params.append("peaks_valleys")
 
         details_dict = dict(details)
         analysis_params = {param: details_dict[param] for param in params}
@@ -406,14 +409,16 @@ async def create_new_job(
                 row = await con.fetchrow("SELECT user_id FROM uploads where id=$1", details.upload_id)
                 # if users don't match and they don't have an all_data scope, then raise unauth error
                 if user_id != str(row["user_id"]):
-                    return UnauthorizedUserResponse(
-                        unauthorized_error="User does not have authorization to start this job."
+                    return GenericErrorResponse(
+                        message="User does not have authorization to start this job.",
+                        error="AuthorizationError",
                     )
 
             # second, check usage quota for customer account
             usage_quota = await check_customer_quota(con, customer_id, service)
             if usage_quota["jobs_reached"]:
-                return UsageErrorResponse(usage_error=usage_quota)
+                return GenericErrorResponse(message=usage_quota, error="UsageError")
+
             # finally create job
             job_id = await create_job(
                 con=con,
@@ -424,6 +429,26 @@ async def create_new_job(
                 customer_id=customer_id,
                 job_type=service,
             )
+
+            # Luci (12/1/22): this happens after the job is already created to have access to the job id, hopefully this doesn't cause any issues with the job starting before the file is uploaded to s3
+            # Versions less than 0.28.0 should not be in the dropdown as an option, this is just an extra check for versions greater than 0.28.0
+            if details.peaks_valleys and pulse3d_semver >= "0.28.0":
+                key = f"uploads/{customer_id}/{user_id}/{details.upload_id}/{job_id}/peaks_valleys.parquet"
+
+                logger.info(f"Peaks and valleys found in job request, uploading to s3: {key}")
+                # only added during interactive analysis
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    pv_parquet_path = os.path.join(tmpdir, "peaks_valleys.parquet")
+                    peak_valleys_df = pd.DataFrame()
+                    # format peaks and valleys to simple df
+                    for well, peaks_valleys in details.peaks_valleys.items():
+                        peak_valleys_df[f"{well}__peaks"] = pd.Series(peaks_valleys[0])
+                        peak_valleys_df[f"{well}__valleys"] = pd.Series(peaks_valleys[1])
+
+                    # write peaks and valleys to parquet file in temporary directory
+                    peak_valleys_df.to_parquet(pv_parquet_path)
+                    # upload to s3 under upload id and job id for pulse3d-worker to use
+                    upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
 
         return JobResponse(
             id=job_id, user_id=user_id, upload_id=details.upload_id, status="pending", priority=priority
@@ -541,7 +566,7 @@ def _yield_s3_objects(bucket: str, keys: List[str], filenames: List[str]):
         raise S3Error(f"Failed to access {bucket}/{key}: {repr(e)}")
 
 
-@app.get("/jobs/waveform_data", response_model=WaveformDataResponse)
+@app.get("/jobs/waveform_data", response_model=Union[WaveformDataResponse, GenericErrorResponse])
 async def get_interactive_waveform_data(
     request: Request,
     upload_id: uuid.UUID = Query(None),
@@ -561,8 +586,6 @@ async def get_interactive_waveform_data(
     upload_id = str(upload_id)
     job_id = str(job_id)
 
-    # grab jobs meta data to use in peak_detector if necessary
-    # TODO remove this step when peaks and valleys get saved to parquet on initial analysis
     try:
         async with request.state.pgpool.acquire() as con:
             logger.info(f"Getting metadata for job {job_id}")
@@ -570,73 +593,84 @@ async def get_interactive_waveform_data(
 
         selected_job = jobs[0]
         parsed_meta = json.loads(selected_job["job_meta"])
-        analysis_params = parsed_meta["analysis_params"]
         recording_owner_id = str(selected_job["user_id"])
+        analysis_params = parsed_meta.get("analysis_params")
+        pulse3d_version = parsed_meta.get("version", None)
 
         if "pulse3d:rw_all_data" not in token["scope"]:
             # only allow user to perform interactive analysis on another user's recording if special scope
             # customer id will be checked when attempting to locate file in s3 with customer id found in token
             if recording_owner_id != account_id:
-                return UnauthorizedUserResponse(
-                    unauthorized_error="User does not have authorization to start interactive analysis on this recording."
+                return GenericErrorResponse(
+                    error="AuthorizationError",
+                    message="User does not have authorization to start interactive analysis on this recording.",
                 )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             key = f"uploads/{customer_id}/{recording_owner_id}/{upload_id}"
             logger.info(f"Downloading recording data from {key}")
-
             download_directory_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file_path=tmpdir)
 
-            # read the time force dataframe from the parquet file
-            # older versions of pulse3d do not inlcude the version data
-            if pulse3d_version := parsed_meta.get("version"):
+            # check if time force parquet file is found under pulse3d version prefix
+            if pulse3d_version is not None:
+                # read the time force dataframe from the parquet file
                 parquet_path = glob(
                     os.path.join(tmpdir, "time_force_data", pulse3d_version, "*.parquet"),
                     recursive=True,
                 )
-                df = pd.read_parquet(parquet_path)
-                # some files have version in the metadata but the parquet file is not stored under it, it's under time_force_data
-                if df.empty:
-                    parquet_path = glob(os.path.join(tmpdir, "time_force_data", "*.parquet"), recursive=True)
-                    df = pd.read_parquet(parquet_path)
+            # if no pulse3d version was found in the job metadata or no time force parquet file was found, check s3 without pulse3d prefix
+            if pulse3d_version is None or not parquet_path:
+                parquet_path = glob(
+                    os.path.join(tmpdir, "time_force_data", "*.parquet"),
+                    recursive=True,
+                )
 
-            else:
-                parquet_path = glob(os.path.join(tmpdir, "time_force_data", "*.parquet"), recursive=True)
-                df = pd.read_parquet(parquet_path)
+            # this will occur for any files analyzed before this release. Ask user to perform reanalysis again on most recent pulse3d
+            if not parquet_path:
+                return GenericErrorResponse(
+                    error="MissingDataError",
+                    message="Time force parquet file was not found. Reanalysis required.",
+                )
+
+            # if file found, read to dataframe for IA
+            time_force_df = pd.read_parquet(parquet_path)
+
+            logger.info("Checking for peaks and valleys in S3")
+            pv_parquet_path = glob(
+                os.path.join(tmpdir, job_id, "*.parquet"),
+                recursive=True,
+            )
+
+            peaks_valleys_needed = len(pv_parquet_path) == 0
+            if not peaks_valleys_needed:
+                peak_valleys_df = pd.read_parquet(pv_parquet_path)
 
             # remove raw data columns
-            columns = [c for c in df.columns if "__raw" not in c]
+            # the any conditional is for testing, the __raw always needs to be excluded
+            columns = [
+                c for c in time_force_df.columns if not any(x in c for x in ("__raw", "__peaks", "__valleys"))
+            ]
             # this is to handle analyses run before PR.to_dataframe() where time is in seconds
-            needs_unit_conversion = not [c for c in df.columns if "__raw" in c]
-
-            time = df[columns[0]].tolist()
-            if needs_unit_conversion:
-                logger.info("Old parquet file found so converting time column to microseconds")
-                # needs to be us for peak_detector
-                time = [i * MICRO_TO_BASE_CONVERSION for i in time]
+            needs_unit_conversion = not [c for c in time_force_df.columns if "__raw" in c]
+            time = time_force_df[columns[0]].tolist()
 
             # set up empty dictionaries to be passed in response
             coordinates = dict()
-            # old jobs won't have this param yet and it will default to None on first analysis
-            peaks_valleys_needed = (
-                "peaks_valleys" not in analysis_params or analysis_params["peaks_valleys"] is None
-            )
-            peaks_and_valleys = analysis_params["peaks_valleys"] if not peaks_valleys_needed else dict()
+            peaks_and_valleys = dict()
 
             for well in columns[1:]:
-                logger.info(f"Finding peaks and valleys for well at {well}")
-
-                well_force = df[well]
-                if needs_unit_conversion:
-                    # not exact, but this isn't used outside of graphing in FE, real raw data doesn't get changed
-                    min_value = min(well_force)
-                    well_force -= min_value
-                    well_force *= MICRO_TO_BASE_CONVERSION
-
-                interpolated_well_data = np.row_stack([time, well_force])
+                well_force = time_force_df[well]
 
                 if peaks_valleys_needed:
-                    # TODO remove once peaks and valleys get stored in parquet files
+                    if needs_unit_conversion:
+                        # not exact, but this isn't used outside of graphing in FE, real raw data doesn't get changed
+                        min_value = min(well_force)
+                        well_force -= min_value
+                        well_force *= MICRO_TO_BASE_CONVERSION
+                        time = [i * MICRO_TO_BASE_CONVERSION for i in time]
+
+                    interpolated_well_data = np.row_stack([time, well_force])
+
                     peak_detector_params = {
                         param: analysis_params[param]
                         for param in (
@@ -651,16 +685,26 @@ async def get_interactive_waveform_data(
                     # needs to be converted to lists to be sent as json in response
                     peaks_and_valleys[well] = [peaks.tolist(), valleys.tolist()]
 
-                well_coords = [
+                else:
+                    # need to remove nan values becuase peaks and valleys are different length lists
+                    peaks = peak_valleys_df[f"{well}__peaks"].dropna().tolist()
+                    valleys = peak_valleys_df[f"{well}__valleys"].dropna().tolist()
+                    # stored as floats in df so need to convert to int
+                    peaks_and_valleys[well] = [
+                        [int(x) for x in peaks],
+                        [int(x) for x in valleys],
+                    ]
+
+                coordinates[well] = [
                     [time[i] / MICRO_TO_BASE_CONVERSION, val] for (i, val) in enumerate(well_force)
                 ]
-                coordinates[well] = well_coords
 
-            return WaveformDataResponse(coordinates=coordinates, peaks_valleys=peaks_and_valleys)
+            return WaveformDataResponse(
+                coordinates=coordinates,
+                peaks_valleys=peaks_and_valleys,
+                orig_pulse3d_version=not peaks_valleys_needed,
+            )
 
-    except KeyError as e:
-        logger.error(f"Job metadata was not returned from database or parquet file was empty: {repr(e)}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     except S3Error as e:
         logger.error(f"Error from s3: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
