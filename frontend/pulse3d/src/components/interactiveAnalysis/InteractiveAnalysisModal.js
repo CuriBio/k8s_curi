@@ -120,6 +120,14 @@ const constantModalLabels = {
     messages: ["There was an issue while attempting to start this analysis.", "Please try again later."],
     buttons: ["Close"],
   },
+  oldPulse3dVersion: {
+    header: "Warning!",
+    messages: [
+      "Interactive analysis is using a newer version of Pulse3D than the version originally used on this recording. Peaks and valleys may be slightly different.",
+      "Please re-analyze this recording using a Pulse3D version greater than 0.28.0 or continue.",
+    ],
+    buttons: ["Close"],
+  },
   dataFound: {
     header: "Important!",
     messages: ["Previous changes have been found for this analysis.", "Do you want to use it or start over?"],
@@ -160,7 +168,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
 
   useEffect(() => {
-    // only available for versions greater than 0.25.2 when peaks_valley param was added
+    // only available for versions greater than 0.25.2
     const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.25.2"));
     setFilteredVersions([...compatibleVersions]);
 
@@ -204,10 +212,15 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
 
       if (response.status === 200) {
         const res = await response.json();
-        if (!res.unauthorized_error) {
+        if (!res.error) {
           // original data is set and never changed to hold original state in case of reset
           setOriginalData(res);
           setEditablePeaksValleys(res.peaks_valleys);
+
+          if (!res.orig_pulse3d_version) {
+            setModalLabels(constantModalLabels.oldPulse3dVersion);
+            setModalOpen("pulse3dWarning");
+          }
         } else {
           throw Error();
         }
@@ -312,12 +325,13 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   };
 
   const handleModalClose = (i) => {
-    if (modalOpen === "status") setOpenInteractiveAnalysis(false);
-    else if (i === 0) getNewData();
-    else loadExistingData();
-
+    if (modalOpen !== "pulse3dWarning") {
+      if (modalOpen === "status") setOpenInteractiveAnalysis(false);
+      else if (i === 0) getNewData();
+      else loadExistingData();
+      sessionStorage.removeItem(selectedJob.jobId);
+    }
     setModalOpen(false);
-    sessionStorage.removeItem(selectedJob.jobId);
   };
 
   const saveChanges = () => {
@@ -599,7 +613,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
         </>
       )}
       <ModalWidget
-        open={["status", "dataFound"].includes(modalOpen)}
+        open={["status", "dataFound", "pulse3dWarning"].includes(modalOpen)}
         buttons={modalLabels.buttons}
         closeModal={handleModalClose}
         header={modalLabels.header}
