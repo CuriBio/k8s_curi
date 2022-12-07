@@ -401,8 +401,6 @@ async def email_user(
                     email=email,
                 )
 
-    except EmailRegistrationError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.exception(f"GET /email: Unexpected error {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -419,13 +417,16 @@ async def _create_user_email(
     email: EmailStr,
 ):
     try:
-        if "user" in scope[0]:
+        scope = scope[0]
+        if "user" in scope:
             account_type = "user"
             query = "UPDATE users SET pw_reset_verify_link=$1 WHERE id=$2"
-        else:
+        elif "customer" in scope:
             account_type = "customer"
             query = "UPDATE customers SET pw_reset_link=$1 WHERE id=$2"
-
+        else:
+            logger.exception(f"Scope {scope} is not allowed to make this request")
+            raise Exception()
         # create email verification token, exp 24 hours
         jwt_token = create_token(
             userid=user_id, customer_id=customer_id, scope=scope, account_type=account_type
@@ -440,6 +441,7 @@ async def _create_user_email(
             subject = "Please verify your email address"
             template = "registration.html"
         else:
+            logger.exception(f"{type} is not a valid type allowed in this request")
             raise Exception()
 
         # add token to users table after no exception is raised
@@ -497,7 +499,8 @@ async def update_accounts(
     """
     try:
         user_id = uuid.UUID(hex=token["userid"])
-        is_customer = "customer" in token["scope"][0]
+        is_customer = "customer:reset" in token["scope"]
+        is_user = "users" in token["scope"][0]
         customer_id = None if is_customer else uuid.UUID(hex=token["customer_id"])
 
         ph = PasswordHasher()
@@ -521,7 +524,7 @@ async def update_accounts(
                         user_id,
                     )
 
-                else:
+                elif is_user:
                     row = await con.fetchrow(
                         "SELECT verified, pw_reset_verify_link FROM users WHERE id=$1 AND customer_id=$2",
                         user_id,

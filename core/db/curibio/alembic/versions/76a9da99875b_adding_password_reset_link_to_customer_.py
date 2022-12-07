@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '76a9da99875b'
-down_revision = 'e7b1c23cdb33'
+revision = "76a9da99875b"
+down_revision = "e7b1c23cdb33"
 branch_labels = None
 depends_on = None
 
@@ -22,4 +22,3 @@ def upgrade():
 
 def downgrade():
     op.drop_column("customers", "pw_reset_link")
-
