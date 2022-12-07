@@ -4,10 +4,10 @@ metadata:
   name: pulse3d-scaledobject-0.25.2
   namespace: pulse3d
 spec:
+  activeDeadlineSeconds: 900
   jobTargetRef:
     backoffLimit: 4
     ttlSecondsAfterFinished: 0
-    activeDeadlineSeconds: 900
     template:
       spec:
         containers:
