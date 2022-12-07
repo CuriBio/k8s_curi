@@ -1,6 +1,6 @@
 import logging
 import json
-from typing import Union, List
+from typing import Union, List, Optional
 import uuid
 from datetime import datetime
 import jwt
@@ -373,7 +373,9 @@ async def register(
 
 
 @app.get("/email", status_code=status.HTTP_204_NO_CONTENT)
-async def email_user(request: Request, email: EmailStr = Query(None), type: str = Query(None)):
+async def email_user(
+    request: Request, email: EmailStr = Query(None), type: str = Query(None), user: bool = Query(None)
+):
     """Send or resend user account emails.
 
     No token required for request. Currently sending reset password and new registration emails based on query type.
@@ -381,18 +383,24 @@ async def email_user(request: Request, email: EmailStr = Query(None), type: str 
     # EmailRegistrationError will be raised if random type param is added that isn't verify or reset
     try:
         async with request.state.pgpool.acquire() as con:
-            row = await con.fetchrow("SELECT id, customer_id, name FROM users WHERE email=$1", email)
+            query = (
+                "SELECT id, customer_id, name FROM users WHERE email=$1"
+                if user
+                else "SELECT id FROM customers WHERE email=$1"
+            )
+            row = await con.fetchrow(query, email)
             # send email if found, otherwise return 204, doesn't need to raise an exception
             if row is not None:
                 await _create_user_email(
                     con=con,
                     type=type,
                     user_id=row["id"],
-                    customer_id=row["customer_id"],
-                    scope=[f"users:{type}"],
-                    name=row["name"],
+                    customer_id=row.get("customer_id", None),
+                    scope=[f"{'users' if user else 'customer'}:{type}"],
+                    name=row.get("name", None),
                     email=email,
                 )
+
     except EmailRegistrationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
@@ -405,14 +413,23 @@ async def _create_user_email(
     con,
     type: str,
     user_id: uuid.UUID,
-    customer_id: uuid.UUID,
+    customer_id: Optional[uuid.UUID],
     scope: List[str],
-    name: str,
+    name: Optional[str],
     email: EmailStr,
 ):
     try:
+        if "user" in scope[0]:
+            account_type = "user"
+            query = "UPDATE users SET pw_reset_verify_link=$1 WHERE id=$2"
+        else:
+            account_type = "customer"
+            query = "UPDATE customers SET pw_reset_link=$1 WHERE id=$2"
+
         # create email verification token, exp 24 hours
-        jwt_token = create_token(userid=user_id, customer_id=customer_id, scope=scope, account_type="user")
+        jwt_token = create_token(
+            userid=user_id, customer_id=customer_id, scope=scope, account_type=account_type
+        )
         url = f"{DASHBOARD_URL}/account/{type}?token={jwt_token.token}"
 
         # assign correct email template and redirect url based on request type
@@ -427,11 +444,7 @@ async def _create_user_email(
 
         # add token to users table after no exception is raised
         # The token  has to be created with id being returned from insert query so it's updated separately
-        await con.execute(
-            "UPDATE users SET pw_reset_verify_link=$1 WHERE id=$2",
-            jwt_token.token,
-            user_id,
-        )
+        await con.execute(query, jwt_token.token, user_id)
 
         # send email with reset token
         await _send_user_email(
@@ -463,7 +476,7 @@ async def _send_user_email(*, username: str, email: EmailStr, url: str, subject:
         subject=subject,
         recipients=[email],
         template_body={
-            "username": username,
+            "username": username if username is not None else "Admin",
             "url": url,
         },  # pass any variables you want to use in the email template
     )
@@ -473,7 +486,7 @@ async def _send_user_email(*, username: str, email: EmailStr, url: str, subject:
 
 
 @app.put("/account")
-async def verify_user_account(
+async def update_accounts(
     request: Request,
     details: PasswordModel,
     token=Depends(ProtectedAny(scope=ACCOUNT_SCOPES)),
@@ -484,33 +497,51 @@ async def verify_user_account(
     """
     try:
         user_id = uuid.UUID(hex=token["userid"])
-        customer_id = uuid.UUID(hex=token["customer_id"])
+        is_customer = "customer" in token["scope"][0]
+        customer_id = None if is_customer else uuid.UUID(hex=token["customer_id"])
+
+        ph = PasswordHasher()
+        phash = ph.hash(details.password1.get_secret_value())
 
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():
                 # ProtectedAny will return 401 already if link has expired
-                row = await con.fetchrow(
-                    "SELECT verified, pw_reset_verify_link FROM users WHERE id=$1 AND customer_id=$2",
-                    user_id,
-                    customer_id,
-                )
-                # if the link is being used to verify account and the account has already been verified, then return message to display to user
-                if details.verify and row["verified"]:
-                    return UnableToUpdateAccountResponse(message="Account has already been verified")
-                # link in db gets replaced with NULL when it's been successfully used
-                if row["pw_reset_verify_link"] is None:
-                    return UnableToUpdateAccountResponse(message="Link has already been used")
+                if is_customer:
+                    row = await con.fetchrow(
+                        "SELECT pw_reset_link FROM customers WHERE id=$1",
+                        user_id,
+                    )
+                    # link in db gets replaced with NULL when it's been successfully used
+                    if row["pw_reset_link"] is None:
+                        return UnableToUpdateAccountResponse(message="Link has already been used")
 
-                ph = PasswordHasher()
-                phash = ph.hash(details.password1.get_secret_value())
+                    await con.execute(
+                        "UPDATE customers SET pw_reset_link=NULL, password=$1 WHERE id=$2",
+                        phash,
+                        user_id,
+                    )
 
-                # will set verified to True even if it already is to remove extra, unnecessary conditional
-                await con.execute(
-                    "UPDATE users SET verified='t', pw_reset_verify_link=NULL, password=$1 WHERE id=$2 AND customer_id=$3",
-                    phash,
-                    user_id,
-                    customer_id,
-                )
+                else:
+                    row = await con.fetchrow(
+                        "SELECT verified, pw_reset_verify_link FROM users WHERE id=$1 AND customer_id=$2",
+                        user_id,
+                        customer_id,
+                    )
+                    # if the link is being used to verify account and the account has already been verified, then return message to display to user
+                    if details.verify and row["verified"]:
+                        return UnableToUpdateAccountResponse(message="Account has already been verified")
+
+                    # link in db gets replaced with NULL when it's been successfully used
+                    if row["pw_reset_verify_link"] is None:
+                        return UnableToUpdateAccountResponse(message="Link has already been used")
+
+                    # will set verified to True even if it already is to remove extra, unnecessary conditional
+                    await con.execute(
+                        "UPDATE users SET verified='t', pw_reset_verify_link=NULL, password=$1 WHERE id=$2 AND customer_id=$3",
+                        phash,
+                        user_id,
+                        customer_id,
+                    )
 
     except Exception as e:
         logger.exception(f"PUT /{user_id}: Unexpected error {repr(e)}")
