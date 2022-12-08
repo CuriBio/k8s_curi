@@ -98,7 +98,7 @@ const modalLabels = {
   },
   successfulPWChange: {
     header: "Success!",
-    labels: ["You're password has been changed and can now be used."],
+    labels: ["Your password has been changed and can now be used."],
     buttons: ["Close"],
   },
 };
