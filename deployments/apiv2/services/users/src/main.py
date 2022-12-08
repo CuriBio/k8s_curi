@@ -523,7 +523,7 @@ async def update_accounts(
                         phash,
                         user_id,
                     )
-
+                # Luci (12/8/22) don't use catchall else statements with customer versus user conditionals
                 elif is_user:
                     row = await con.fetchrow(
                         "SELECT verified, pw_reset_verify_link FROM users WHERE id=$1 AND customer_id=$2",
