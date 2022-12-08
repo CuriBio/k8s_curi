@@ -162,7 +162,7 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
                     _, customer_tier = split_scope_account_data(scope[0])
                     scope[0] = f"customer:{customer_tier}"
 
-                # if login was successful, than update last_login column to now
+                # if login was successful, then update last_login column to now
                 await con.execute(update_last_login_query, *update_last_login_params)
 
                 tokens = await _create_new_tokens(con, row["id"], customer_id, scope, account_type)
