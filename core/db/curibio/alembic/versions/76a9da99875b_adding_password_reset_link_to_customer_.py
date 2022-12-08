@@ -1,7 +1,7 @@
 """adding password reset link to customer table
 
 Revision ID: 76a9da99875b
-Revises: e7b1c23cdb33
+Revises: 04c57d3482e3
 Create Date: 2022-12-07 10:44:53.989100
 
 """
