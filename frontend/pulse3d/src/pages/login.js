@@ -130,7 +130,9 @@ export default function Login() {
         else {
           try {
             const res = await fetch(
-              `${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${userEmail}&type=reset`
+              `${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${userEmail}&type=reset&user=${
+                loginType == "User"
+              }`
             );
 
             if (res) {
@@ -188,7 +190,7 @@ export default function Login() {
             {errorMsg}
           </ErrorText>
         </LoginForm>
-        {loginType === "User" && <ForgotPWLabel onClick={onForgetPassword}>Forgot Password?</ForgotPWLabel>}
+        <ForgotPWLabel onClick={onForgetPassword}>Forgot Password?</ForgotPWLabel>
         <ButtonWidget
           label={"Submit"}
           clickFn={submitForm}
