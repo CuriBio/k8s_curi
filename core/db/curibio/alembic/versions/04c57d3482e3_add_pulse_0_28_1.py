@@ -1,4 +1,4 @@
-"""add pulse 0.28.1 ||  goto :error
+"""add pulse 0.28.1
 
 Revision ID: 04c57d3482e3
 Revises: 323696292448
