@@ -103,6 +103,9 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
         )
         select_query_params = (details.email,)
         customer_id = None
+
+        update_last_login_query = "UPDATE users SET last_login = $1 WHERE deleted_at IS NULL AND email = $2"
+        update_last_login_params = (datetime.now(), details.email)
     else:
         account_type = "user"
         # suspended is for deactivated accounts and verified is for new users needing to verify through email
@@ -113,6 +116,9 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
             str(details.customer_id),
         )
         customer_id = details.customer_id
+
+        update_last_login_query = "UPDATE users SET last_login = $1 WHERE deleted_at IS NULL AND name = $2 AND customer_id=$3 AND suspended='f' AND verified='t'"
+        update_last_login_params = (datetime.now(), details.username.lower(), str(details.customer_id))
     try:
         async with request.state.pgpool.acquire() as con:
 
@@ -153,6 +159,9 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
                     # replace with customer scope
                     _, customer_tier = split_scope_account_data(scope[0])
                     scope[0] = f"customer:{customer_tier}"
+
+                # after login flow succes update the last-login filed of the user
+                await con.execute(update_last_login_query, *update_last_login_params)
 
                 tokens = await _create_new_tokens(con, row["id"], customer_id, scope, account_type)
                 return LoginResponse(tokens=tokens, usage_quota=usage_quota)
