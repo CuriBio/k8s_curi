@@ -21,6 +21,7 @@ class JobRequest(BaseModel):
     version: str
 
     normalize_y_axis: Optional[bool]
+    include_stim_protocols: Optional[bool]
 
     stiffness_factor: Optional[int]
     inverted_post_magnet_wells: Optional[List[str]]

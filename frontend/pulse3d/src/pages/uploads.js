@@ -649,7 +649,10 @@ export default function Uploads() {
         }
       } else {
         const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads/download`;
-        response = await fetch(url, { method: "POST", body: JSON.stringify({ upload_ids: [uploadId] }) });
+        response = await fetch(url, {
+          method: "POST",
+          body: JSON.stringify({ upload_ids: [uploadId] }),
+        });
 
         if (response.status === 200) {
           const { filename, url } = await response.json();
@@ -836,7 +839,9 @@ export default function Uploads() {
                         ? ["Download", "Delete"]
                         : ["Download", "Delete", "Interactive Analysis"]
                     }
-                    subOptions={{ Download: ["Download Analyses", "Download Raw Data"] }}
+                    subOptions={{
+                      Download: ["Download Analyses", "Download Raw Data"],
+                    }}
                     disableOptions={[
                       ...Array(2).fill(checkedJobs.length === 0 && checkedUploads.length === 0),
                       checkedJobs.length !== 1 ||
@@ -852,7 +857,9 @@ export default function Uploads() {
                     handleSelection={handleDropdownSelection}
                     handleSubSelection={handleDownloadSubSelection}
                     reset={resetDropdown}
-                    disableSubOptions={{ Download: [checkedJobs.length === 0, checkedUploads.length === 0] }}
+                    disableSubOptions={{
+                      Download: [checkedJobs.length === 0, checkedUploads.length === 0],
+                    }}
                     subOptionsTooltipText={[
                       "Must make a job selection before becoming available.",
                       "Must make an upload selection before becoming available.",

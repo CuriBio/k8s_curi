@@ -103,6 +103,7 @@ export default function UploadForm() {
       stiffnessFactor: null,
       selectedPulse3dVersion: pulse3dVersions[0] || "", // Tanner (9/15/22): The pulse3d version technically isn't a param, but it lives in the same part of the form as the params
       wellsWithFlippedWaveforms: "",
+      showStimSheet: "",
     };
   };
 
@@ -211,6 +212,7 @@ export default function UploadForm() {
     try {
       const {
         normalizeYAxis,
+        showStimSheet,
         baseToPeak,
         peakToBase,
         maxY,
@@ -253,6 +255,9 @@ export default function UploadForm() {
       if (semverGte(version, "0.27.4")) {
         requestBody.inverted_post_magnet_wells =
           wellsWithFlippedWaveforms === "" ? null : wellsWithFlippedWaveforms;
+      }
+      if (semverGte(version, "0.28.1")) {
+        requestBody.include_stim_protocols = showStimSheet === "" ? null : showStimSheet;
       }
 
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
