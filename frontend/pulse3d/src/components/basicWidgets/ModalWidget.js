@@ -2,6 +2,7 @@ import Box from "@mui/material/Box";
 import Modal from "@mui/material/Modal";
 import ButtonWidget from "./ButtonWidget";
 import styled from "styled-components";
+import { useState } from "react";
 
 const ButtonContainer = styled.div`
   display: flex;
@@ -48,6 +49,8 @@ export default function ModalWidget({
     overflowY: "hidden",
   };
 
+  const [disable, setDisable] = useState(false);
+
   return (
     <div>
       <Modal open={open}>
@@ -61,7 +64,17 @@ export default function ModalWidget({
           </ModalBody>
           <ButtonContainer>
             {buttons.map((label, idx) => {
-              return <ButtonWidget key={idx} label={label} clickFn={() => closeModal(idx, label)} />;
+              return (
+                <ButtonWidget
+                  disabled={disable}
+                  key={idx}
+                  label={label}
+                  clickFn={() => {
+                    closeModal(idx, label);
+                    setDisable(true);
+                  }}
+                />
+              );
             })}
           </ButtonContainer>
         </Box>
