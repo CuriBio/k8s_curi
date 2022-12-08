@@ -1,19 +1,26 @@
-import datetime
 import logging
 import json
-from typing import Union
+from typing import Union, List, Optional
 import uuid
-
+from datetime import datetime
+import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
-from fastapi import FastAPI, Request, Depends, HTTPException, status, Response
+from fastapi import FastAPI, Request, Depends, HTTPException, status, Response, Query
 from fastapi.middleware.cors import CORSMiddleware
 from jwt.exceptions import InvalidTokenError
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from pydantic import EmailStr
 
-from auth import ProtectedAny, create_token, decode_token, CUSTOMER_SCOPES, split_scope_account_data
+from auth import (
+    ProtectedAny,
+    create_token,
+    decode_token,
+    CUSTOMER_SCOPES,
+    split_scope_account_data,
+    ACCOUNT_SCOPES,
+)
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
 from models.errors import LoginError, RegistrationError, EmailRegistrationError
@@ -27,6 +34,8 @@ from models.users import (
     UserProfile,
     UserAction,
     LoginResponse,
+    PasswordModel,
+    UnableToUpdateAccountResponse,
 )
 from utils.db import AsyncpgPoolDep
 from fastapi.templating import Jinja2Templates
@@ -268,14 +277,10 @@ async def register(
 
     Otherwise, attempt to register a regular user under the customer ID in the auth token
     """
-    ph = PasswordHasher()
     customer_id = uuid.UUID(hex=token["userid"])
     # 'customer:paid' or 'customer:free'
     customer_scope = token["scope"]
     try:
-        # still hash even if user or customer exists to avoid timing analysis leaks
-        phash = ph.hash(details.password1.get_secret_value())
-
         is_customer_registration_attempt = (
             customer_id == CB_CUSTOMER_ID and type(details) is CustomerCreate  # noqa: F821
         )
@@ -285,7 +290,10 @@ async def register(
 
         # scope will not be sent in request body for both customer and user registration
         if is_customer_registration_attempt:
+            ph = PasswordHasher()
+            phash = ph.hash(details.password1.get_secret_value())
             scope = details.scope
+            # usage_restrictions column is not currently being inserted into, will need to be manually added
             insert_query = "INSERT INTO customers (email, password, data) VALUES ($1, $2, $3) RETURNING id"
             query_params = (
                 details.email,
@@ -295,18 +303,17 @@ async def register(
         else:
             # TODO add handling for multiple service scopes and exception handling if none found
             _, customer_tier = split_scope_account_data(customer_scope[0])  # 'free' or 'paid'
-            # for now, assuming that each user registration will only be called with one service
-            user_scope = [f"{details.service}:{customer_tier}"]
+            # eventually scopes will be passed from FE, but for now just auto set to paid user
+            user_scope = details.scope if details.scope is not None else ["pulse3d:paid"]
             # suspended and verified get set to False by default
             insert_query = (
-                "INSERT INTO users (name, email, password, account_type, data, customer_id) "
-                "VALUES ($1, $2, $3, $4, $5, $6) RETURNING id"
+                "INSERT INTO users (name, email, account_type, data, customer_id) "
+                "VALUES ($1, $2, $3, $4, $5) RETURNING id"
             )
 
             query_params = (
                 details.username.lower(),
                 details.email,
-                phash,
                 customer_tier,
                 json.dumps({"scope": user_scope}),
                 customer_id,
@@ -334,15 +341,17 @@ async def register(
                         failed_msg = "Account registration failed"
                     raise RegistrationError(failed_msg)
 
-                # only send verification emails to new users, not new customers
+                # only send verification emails to new users, not new customers and if successful
                 if not is_customer_registration_attempt:
-                    # create email verification token, exp 24 hours
-                    verification_token = create_token(
-                        userid=result, customer_id=customer_id, scope=["users:verify"], account_type="user"
+                    await _create_user_email(
+                        con=con,
+                        type="verify",
+                        user_id=result,
+                        customer_id=customer_id,
+                        scopes=["users:verify"],
+                        name=details.username,
+                        email=details.email,
                     )
-                    # send email with token
-                    await _send_registration_email(details.username, details.email, verification_token.token)
-
                 if is_customer_registration_attempt:
                     return CustomerProfile(email=details.email, user_id=result.hex, scope=details.scope)
                 else:
@@ -363,37 +372,183 @@ async def register(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-async def _send_registration_email(username: str, email: EmailStr, verification_token: str) -> None:
-    # Tried to use request.client.host to dynamically change this domain based on cluster env, but it only sends nginx domain
-    verification_url = f"{DASHBOARD_URL}/verify?token={verification_token}"
+@app.get("/email", status_code=status.HTTP_204_NO_CONTENT)
+async def email_user(
+    request: Request, email: EmailStr = Query(None), type: str = Query(None), user: bool = Query(None)
+):
+    """Send or resend user account emails.
 
+    No token required for request. Currently sending reset password and new registration emails based on query type.
+    """
+    # EmailRegistrationError will be raised if random type param is added that isn't verify or reset
     try:
-        conf = ConnectionConfig(
-            MAIL_USERNAME=CURIBIO_EMAIL,
-            MAIL_PASSWORD=CURIBIO_EMAIL_PASSWORD,
-            MAIL_FROM=CURIBIO_EMAIL,
-            MAIL_PORT=587,
-            MAIL_SERVER="smtp.gmail.com",
-            MAIL_FROM_NAME="Curi Bio Team",
-            MAIL_TLS=True,
-            MAIL_SSL=False,
-            USE_CREDENTIALS=True,
-            TEMPLATE_FOLDER="./templates",
-        )
-        message = MessageSchema(
-            subject="Please verify your email address",
-            recipients=[email],
-            template_body={
-                "username": username,
-                "verification_url": verification_url,
-            },  # pass any variables you want to use in the email template
-        )
-
-        fm = FastMail(conf)
-        await fm.send_message(message, template_name="registration.html")
+        async with request.state.pgpool.acquire() as con:
+            query = (
+                "SELECT id, customer_id, name FROM users WHERE email=$1"
+                if user
+                else "SELECT id FROM customers WHERE email=$1"
+            )
+            row = await con.fetchrow(query, email)
+            # send email if found, otherwise return 204, doesn't need to raise an exception
+            if row is not None:
+                await _create_user_email(
+                    con=con,
+                    type=type,
+                    user_id=row["id"],
+                    customer_id=row.get("customer_id", None),
+                    scopes=[f"{'users' if user else 'customer'}:{type}"],
+                    name=row.get("name", None),
+                    email=email,
+                )
 
     except Exception as e:
+        logger.exception(f"GET /email: Unexpected error {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+async def _create_user_email(
+    *,
+    con,
+    type: str,
+    user_id: uuid.UUID,
+    customer_id: Optional[uuid.UUID],
+    scopes: List[str],
+    name: Optional[str],
+    email: EmailStr,
+):
+    try:
+        scope = scopes[0]
+        if "user" in scope:
+            account_type = "user"
+            query = "UPDATE users SET pw_reset_verify_link=$1 WHERE id=$2"
+        elif "customer" in scope:
+            account_type = "customer"
+            query = "UPDATE customers SET pw_reset_link=$1 WHERE id=$2"
+        else:
+            logger.exception(f"Scope {scope} is not allowed to make this request")
+            raise Exception()
+        # create email verification token, exp 24 hours
+        jwt_token = create_token(
+            userid=user_id, customer_id=customer_id, scope=scopes, account_type=account_type
+        )
+        url = f"{DASHBOARD_URL}/account/{type}?token={jwt_token.token}"
+
+        # assign correct email template and redirect url based on request type
+        if type == "reset":
+            subject = "Reset your password"
+            template = "reset_password.html"
+        elif type == "verify":
+            subject = "Please verify your email address"
+            template = "registration.html"
+        else:
+            logger.exception(f"{type} is not a valid type allowed in this request")
+            raise Exception()
+
+        # add token to users table after no exception is raised
+        # The token  has to be created with id being returned from insert query so it's updated separately
+        await con.execute(query, jwt_token.token, user_id)
+
+        # send email with reset token
+        await _send_user_email(
+            username=name,
+            email=email,
+            url=url,
+            subject=subject,
+            template=template,
+        )
+    except Exception as e:
         raise EmailRegistrationError(e)
+
+
+async def _send_user_email(*, username: str, email: EmailStr, url: str, subject: str, template: str) -> None:
+
+    conf = ConnectionConfig(
+        MAIL_USERNAME=CURIBIO_EMAIL,
+        MAIL_PASSWORD=CURIBIO_EMAIL_PASSWORD,
+        MAIL_FROM=CURIBIO_EMAIL,
+        MAIL_PORT=587,
+        MAIL_SERVER="smtp.gmail.com",
+        MAIL_FROM_NAME="Curi Bio Team",
+        MAIL_TLS=True,
+        MAIL_SSL=False,
+        USE_CREDENTIALS=True,
+        TEMPLATE_FOLDER="./templates",
+    )
+    message = MessageSchema(
+        subject=subject,
+        recipients=[email],
+        template_body={
+            "username": username if username is not None else "Admin",
+            "url": url,
+        },  # pass any variables you want to use in the email template
+    )
+
+    fm = FastMail(conf)
+    await fm.send_message(message, template_name=template)
+
+
+@app.put("/account")
+async def update_accounts(
+    request: Request,
+    details: PasswordModel,
+    token=Depends(ProtectedAny(scope=ACCOUNT_SCOPES)),
+):
+    """Confirm and verify new user and password.
+
+    Used for both resetting new password or verifying new user accounts. Route will check if link has been used or if account has already been verified.
+    """
+    try:
+        user_id = uuid.UUID(hex=token["userid"])
+        is_customer = "customer:reset" in token["scope"]
+        is_user = "users" in token["scope"][0]
+        customer_id = None if is_customer else uuid.UUID(hex=token["customer_id"])
+
+        ph = PasswordHasher()
+        phash = ph.hash(details.password1.get_secret_value())
+
+        async with request.state.pgpool.acquire() as con:
+            async with con.transaction():
+                # ProtectedAny will return 401 already if link has expired
+                if is_customer:
+                    row = await con.fetchrow(
+                        "SELECT pw_reset_link FROM customers WHERE id=$1",
+                        user_id,
+                    )
+                    # link in db gets replaced with NULL when it's been successfully used
+                    if row["pw_reset_link"] is None:
+                        return UnableToUpdateAccountResponse(message="Link has already been used")
+
+                    await con.execute(
+                        "UPDATE customers SET pw_reset_link=NULL, password=$1 WHERE id=$2",
+                        phash,
+                        user_id,
+                    )
+                # Luci (12/8/22) don't use catchall else statements with customer versus user conditionals
+                elif is_user:
+                    row = await con.fetchrow(
+                        "SELECT verified, pw_reset_verify_link FROM users WHERE id=$1 AND customer_id=$2",
+                        user_id,
+                        customer_id,
+                    )
+                    # if the link is being used to verify account and the account has already been verified, then return message to display to user
+                    if details.verify and row["verified"]:
+                        return UnableToUpdateAccountResponse(message="Account has already been verified")
+
+                    # link in db gets replaced with NULL when it's been successfully used
+                    if row["pw_reset_verify_link"] is None:
+                        return UnableToUpdateAccountResponse(message="Link has already been used")
+
+                    # will set verified to True even if it already is to remove extra, unnecessary conditional
+                    await con.execute(
+                        "UPDATE users SET verified='t', pw_reset_verify_link=NULL, password=$1 WHERE id=$2 AND customer_id=$3",
+                        phash,
+                        user_id,
+                        customer_id,
+                    )
+
+    except Exception as e:
+        logger.exception(f"PUT /{user_id}: Unexpected error {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @app.get("/")
@@ -408,7 +563,8 @@ async def get_all_users(
     customer_id = uuid.UUID(hex=token["userid"])
 
     query = (
-        "SELECT id, name, email, created_at, last_login, suspended FROM users "
+        "SELECT id, name, email, created_at, last_login, verified, suspended, pw_reset_verify_link "
+        "FROM users "
         "WHERE customer_id=$1 AND deleted_at IS NULL "
         "ORDER BY suspended"
     )
@@ -416,29 +572,21 @@ async def get_all_users(
         async with request.state.pgpool.acquire() as con:
             result = await con.fetch(query, customer_id)
 
-        return [dict(row) for row in result]
+        formatted_results = [dict(row) for row in result]
+
+        for row in formatted_results:
+            # unverified account should have a jwt token, otherwise will be None.
+            # check expiration and if expired, return it as None, FE will handle telling user it's expired
+            if row["pw_reset_verify_link"] is not None:
+                try:
+                    decode_token(row["pw_reset_verify_link"])
+                except jwt.exceptions.ExpiredSignatureError:
+                    row["pw_reset_verify_link"] = None
+
+        return formatted_results
 
     except Exception as e:
         logger.exception(f"GET /: Unexpected error {repr(e)}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@app.put("/verify", status_code=status.HTTP_204_NO_CONTENT)
-async def verify_user_email(
-    request: Request,
-    token=Depends(ProtectedAny(scope=["users:verify"])),
-):
-    """Confirm and verify new user."""
-
-    user_id = uuid.UUID(hex=token["userid"])
-    customer_id = uuid.UUID(hex=token["customer_id"])
-
-    update_query = "UPDATE users SET verified='t' WHERE id=$1 AND customer_id=$2"
-    try:
-        async with request.state.pgpool.acquire() as con:
-            await con.execute(update_query, user_id, customer_id)
-    except Exception as e:
-        logger.exception(f"PUT /{user_id}: Unexpected error {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -496,7 +644,7 @@ async def update_user(
         query_args = (user_id,)
     elif action == "delete":
         update_query = "UPDATE users SET deleted_at=$1 WHERE id=$2"
-        query_args = (datetime.datetime.now(), user_id)
+        query_args = (datetime.now(), user_id)
     else:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid action type")
 

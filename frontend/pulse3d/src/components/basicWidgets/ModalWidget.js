@@ -2,6 +2,7 @@ import Box from "@mui/material/Box";
 import Modal from "@mui/material/Modal";
 import ButtonWidget from "./ButtonWidget";
 import styled from "styled-components";
+import { useEffect, useState } from "react";
 
 const ButtonContainer = styled.div`
   display: flex;
@@ -14,7 +15,6 @@ const Header = styled.h2`
   font-weight: bold;
 `;
 const Text = styled.p`
-  margin: 25px;
   word-break: break-word;
   font-size: 18px;
   text-align: center;
@@ -49,6 +49,14 @@ export default function ModalWidget({
     overflowY: "hidden",
   };
 
+  const [disabled, setDisabled] = useState(false);
+
+  useEffect(() => {
+    // whem modal labels change, make sure to reset disabled buttons
+    // important when a series of modals is used and just labels change
+    setDisabled(false);
+  }, [labels]);
+
   return (
     <div>
       <Modal open={open}>
@@ -62,7 +70,18 @@ export default function ModalWidget({
           </ModalBody>
           <ButtonContainer>
             {buttons.map((label, idx) => {
-              return <ButtonWidget key={idx} label={label} clickFn={() => closeModal(idx, label)} />;
+              return (
+                <ButtonWidget
+                  disabled={disabled}
+                  backgroundColor={disabled ? "var(--dark-gray)" : "var(--dark-blue)"}
+                  key={idx}
+                  label={label}
+                  clickFn={() => {
+                    setDisabled(true);
+                    closeModal(idx, label);
+                  }}
+                />
+              );
             })}
           </ButtonContainer>
         </Box>

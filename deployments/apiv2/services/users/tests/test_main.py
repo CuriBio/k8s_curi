@@ -9,11 +9,17 @@ from fastapi.testclient import TestClient
 from freezegun import freeze_time
 import pytest
 
-from auth import create_token
+from auth import create_token, ACCOUNT_SCOPES
 from auth.settings import REFRESH_TOKEN_EXPIRE_MINUTES
 from src import main
 from src.models.tokens import AuthTokens
-from src.models.users import USERNAME_MIN_LEN, USERNAME_MAX_LEN, USERNAME_VALID_SPECIAL_CHARS, LoginResponse
+from src.models.users import (
+    USERNAME_MIN_LEN,
+    USERNAME_MAX_LEN,
+    USERNAME_VALID_SPECIAL_CHARS,
+    LoginResponse,
+    UnableToUpdateAccountResponse,
+)
 
 test_client = TestClient(main.app)
 
@@ -231,15 +237,13 @@ def test_register__user__allows_valid_usernames(
     special_char, mocked_asyncpg_con, spied_pw_hasher, cb_customer_id, mocker
 ):
 
-    mocker.patch.object(main, "_send_registration_email", autospec=True)
+    mocker.patch.object(main, "_send_user_email", autospec=True)
     use_cb_customer_id = choice([True, False])
     end_with_num = choice([True, False])
 
     registration_details = {
         "email": "user@example.com",
         "username": f"test{special_char}username",
-        "password1": TEST_PASSWORD,
-        "password2": TEST_PASSWORD,
         "service": "pulse3d",
     }
 
@@ -266,15 +270,13 @@ def test_register__user__allows_valid_usernames(
     }
 
     mocked_asyncpg_con.fetchval.assert_called_once_with(
-        "INSERT INTO users (name, email, password, account_type, data, customer_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+        "INSERT INTO users (name, email, account_type, data, customer_id) VALUES ($1, $2, $3, $4, $5) RETURNING id",
         registration_details["username"],
         registration_details["email"],
-        spied_pw_hasher.spy_return,
         "paid",
         json.dumps({"scope": expected_scope}),
         test_customer_id,
     )
-    spied_pw_hasher.assert_called_once_with(mocker.ANY, registration_details["password1"])
 
 
 def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, cb_customer_id, mocker):
@@ -428,8 +430,6 @@ def test_register__user__unique_constraint_violations(
     registration_details = {
         "email": "test@email.com",
         "username": "testusername",
-        "password1": TEST_PASSWORD,
-        "password2": TEST_PASSWORD,
         "service": "pulse3d",
     }
 
@@ -443,9 +443,6 @@ def test_register__user__unique_constraint_violations(
     )
     assert response.status_code == 400
     assert response.json() == {"detail": expected_error_message}
-
-    # make sure the pw was still hashed
-    spied_pw_hasher.assert_called_once_with(mocker.ANY, registration_details["password1"])
 
 
 @pytest.mark.parametrize(
@@ -568,7 +565,9 @@ def test_user_id__get__no_id_given(mocked_asyncpg_con):
             "email": f"user{i}@email.com",
             "created_at": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
             "last_login": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+            "verified": True,
             "suspended": choice([True, False]),
+            "pw_reset_verify_link": None,
         }
         for i in range(num_users_found)
     ]
@@ -703,3 +702,171 @@ def test_user_id__bad_user_id_given(method):
         "/not_a_uuid", headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "test_token_scope",
+    [[s] for s in ACCOUNT_SCOPES],
+)
+def test_account__put__correctly_handles_if_account_is_already_verified(
+    test_token_scope, mocked_asyncpg_con, mocker
+):
+    test_account_id = uuid.uuid4()
+    account_type = "user"
+
+    access_token = get_token(
+        scope=test_token_scope,
+        account_type=account_type,
+        userid=test_account_id,
+    )
+
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "verified": True,
+    }
+
+    response = test_client.put(
+        "/account",
+        json={"password1": "Test_password1", "password2": "Test_password1", "verify": True},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.json() == UnableToUpdateAccountResponse(message="Account has already been verified")
+
+
+@pytest.mark.parametrize(
+    "test_token_scope",
+    [[s] for s in ACCOUNT_SCOPES],
+)
+def test_account__put__correctly_handles_if_link_has_already_been_used(
+    test_token_scope, mocked_asyncpg_con, mocker
+):
+    test_account_id = uuid.uuid4()
+    account_type = "user"
+
+    access_token = get_token(
+        scope=test_token_scope,
+        account_type=account_type,
+        userid=test_account_id,
+    )
+
+    mocked_asyncpg_con.fetchrow.return_value = {"verified": True, "pw_reset_verify_link": None}
+
+    response = test_client.put(
+        "/account",
+        json={"password1": "Test_password1", "password2": "Test_password1", "verify": False},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.json() == UnableToUpdateAccountResponse(message="Link has already been used")
+
+
+@pytest.mark.parametrize(
+    "test_token_scope",
+    [[s] for s in ACCOUNT_SCOPES],
+)
+def test_account__put__correctly_updates_users_table_with_account_info(
+    test_token_scope, mocked_asyncpg_con, spied_pw_hasher
+):
+    test_account_id = uuid.uuid4()
+    account_type = "user"
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(
+        scope=test_token_scope,
+        account_type=account_type,
+        userid=test_account_id,
+        customer_id=test_customer_id,
+    )
+
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "verified": True,
+        "pw_reset_verify_link": "test_jwt_token",
+    }
+
+    response = test_client.put(
+        "/account",
+        json={"password1": "Test_password1", "password2": "Test_password1", "verify": False},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+    mocked_asyncpg_con.execute.assert_called_once_with(
+        "UPDATE users SET verified='t', pw_reset_verify_link=NULL, password=$1 WHERE id=$2 AND customer_id=$3",
+        spied_pw_hasher.spy_return,
+        test_account_id,
+        test_customer_id,
+    )
+
+
+@pytest.mark.parametrize("type", ["verify", "reset"])
+def test_email__get__send_correct_email_based_on_request_query_type(mocked_asyncpg_con, mocker, type):
+    mocked_send_user_email = mocker.patch.object(main, "_send_user_email", autospec=True)
+    spied_create_token = mocker.spy(main, "create_token")
+    test_user_email = "test_user@curibio.com"
+    test_customer_id = uuid.uuid4()
+    test_user_id = uuid.uuid4()
+    test_username = "test_user"
+
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "id": test_user_id,
+        "customer_id": test_customer_id,
+        "name": test_username,
+    }
+
+    response = test_client.get(f"/email?email={test_user_email}&type={type}")
+
+    assert response.status_code == 204
+
+    mocked_asyncpg_con.execute.assert_called_once_with(
+        "UPDATE users SET pw_reset_verify_link=$1 WHERE id=$2",
+        spied_create_token.spy_return.token,
+        test_user_id,
+    )
+
+    if type == "reset":
+        subject = "Reset your password"
+        template = "reset_password.html"
+    elif type == "verify":
+        subject = "Please verify your email address"
+        template = "registration.html"
+
+    mocked_send_user_email.assert_called_once_with(
+        username=test_username,
+        email=test_user_email,
+        url=f"https://dashboard.curibio-test.com/account/{type}?token={spied_create_token.spy_return.token}",
+        subject=subject,
+        template=template,
+    )
+
+
+@pytest.mark.parametrize("type", ["verify", "reset"])
+def test_email__get__returns_204_when_email_is_not_found(mocked_asyncpg_con, mocker, type):
+    spied_create_email = mocker.spy(main, "_create_user_email")
+    test_user_email = "test_user@curibio.com"
+    mocked_asyncpg_con.fetchrow.return_value = None
+
+    response = test_client.get(f"/email?email={test_user_email}&type={type}")
+
+    assert response.status_code == 204
+    spied_create_email.assert_not_called()
+
+
+def test_email__get__returns_exception_if_unknown_type_is_used(mocked_asyncpg_con, mocker):
+    mocked_send_user_email = mocker.patch.object(main, "_send_user_email", autospec=True)
+    test_user_email = "test_user@curibio.com"
+    test_customer_id = uuid.uuid4()
+    test_user_id = uuid.uuid4()
+    test_username = "test_user"
+    unknown_type = "other"
+
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "id": test_user_id,
+        "customer_id": test_customer_id,
+        "name": test_username,
+    }
+
+    response = test_client.get(f"/email?email={test_user_email}&type={unknown_type}")
+
+    assert response.status_code == 400
+
+    mocked_asyncpg_con.execute.assert_not_called()
+    mocked_send_user_email.assert_not_called()

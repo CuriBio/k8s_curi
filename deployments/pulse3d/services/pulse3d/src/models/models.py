@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 import uuid
 
 from .types import Number, TupleParam
@@ -21,6 +21,7 @@ class JobRequest(BaseModel):
     version: str
 
     normalize_y_axis: Optional[bool]
+    include_stim_protocols: Optional[bool]
 
     stiffness_factor: Optional[int]
     inverted_post_magnet_wells: Optional[List[str]]
@@ -67,5 +68,6 @@ class UploadDownloadRequest(BaseModel):
     upload_ids: List[uuid.UUID]
 
 
-class UsageErrorResponse(BaseModel):
-    usage_error: Dict[str, bool]
+class GenericErrorResponse(BaseModel):
+    message: Union[str, Dict[str, bool]]
+    error: str
