@@ -382,6 +382,8 @@ async def create_new_job(
             params.append("stiffness_factor")
         if pulse3d_semver >= "0.27.4":
             params.append("inverted_post_magnet_wells")
+        if pulse3d_semver >= "0.28.1":
+            params.append("include_stim_protocols")
         if "0.25.2" <= pulse3d_semver < "0.28.0":
             params.append("peaks_valleys")
 

@@ -203,12 +203,8 @@ def test_uploads__post_if_customer_quota_has_not_been_reached(mocked_asyncpg_con
 )
 def test_uploads__post_if_customer_quota_has_been_reached(mocked_asyncpg_con, mocker, usage_dict):
     test_user_id = uuid.uuid4()
-
     mocked_usage_check = mocker.patch.object(
-        main,
-        "check_customer_quota",
-        return_value=usage_dict,
-        autospec=True,
+        main, "check_customer_quota", return_value=usage_dict, autospec=True
     )
 
     mocked_create_upload = mocker.spy(main, "create_upload")
@@ -297,10 +293,7 @@ def test_uploads__delete__failure_to_delete_uploads(mocker):
 
 
 @pytest.mark.parametrize("download", [True, False, None])
-@pytest.mark.parametrize(
-    "test_token_scope",
-    [[s] for s in PULSE3D_SCOPES],
-)
+@pytest.mark.parametrize("test_token_scope", [[s] for s in PULSE3D_SCOPES])
 @pytest.mark.parametrize(
     "test_job_ids", [None, [], uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]]
 )
@@ -567,6 +560,7 @@ def test_jobs__post__basic_params_given(mocker, mocked_asyncpg_con):
         return_value={"jobs_reached": False, "uploads_reached": False},
         autospec=True,
     )
+
     kwargs = {
         "json": {
             "upload_id": str(uuid.uuid4()),
@@ -659,12 +653,8 @@ def test_jobs__post__uploads_peaks_and_valleys_when_passed_into_request(mocker, 
 )
 def test_jobs__post__returns_error_dict_if_quota_has_been_reached(mocker, mocked_asyncpg_con, usage_dict):
     test_user_id = uuid.uuid4()
-
     mocked_usage_check = mocker.patch.object(
-        main,
-        "check_customer_quota",
-        return_value=usage_dict,
-        autospec=True,
+        main, "check_customer_quota", return_value=usage_dict, autospec=True
     )
     mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
 
@@ -751,17 +741,9 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocked_asyncpg_con
     )
     test_user_id = uuid.uuid4()
     mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
-
     test_analysis_params = {"baseline_widths_to_use": param_tuple}
     access_token = get_token(scope=["pulse3d:free"], userid=test_user_id)
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
-
-    test_user_id = uuid.uuid4()
-    mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
-
-    test_analysis_params = {"baseline_widths_to_use": param_tuple}
-    access_token = get_token(scope=["pulse3d:free"], userid=test_user_id)
-
     kwargs = {
         "json": {
             "upload_id": str(uuid.uuid4()),
@@ -798,7 +780,7 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocked_asyncpg_con
     assert mocked_create_job.call_args[1]["meta"]["analysis_params"] == expected_analysis_params
 
 
-@pytest.mark.parametrize("version", ["0.24.6", "0.25.0", "0.25.2", "0.25.4", "0.26.0", "0.28.0"])
+@pytest.mark.parametrize("version", ["0.24.6", "0.25.0", "0.25.2", "0.25.4", "0.26.0", "0.28.0","0.28.1"])
 def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d_version(
     version, mocked_asyncpg_con, mocker
 ):
@@ -837,8 +819,13 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
         expected_analysis_param_keys.append("stiffness_factor")
     if pulse3d_semver >= "0.27.4":
         expected_analysis_param_keys.append("inverted_post_magnet_wells")
+    if pulse3d_semver >= "0.28.1":
+        expected_analysis_param_keys.append(
+            "include_stim_protocols",
+        )
     if "0.25.2" <= pulse3d_semver < "0.28.0":
         expected_analysis_param_keys.append("peaks_valleys")
+
 
     expected_analysis_params = {param: None for param in expected_analysis_param_keys}
 
@@ -1265,6 +1252,7 @@ def test_waveform_data__get__handles_when_no_time_force_parquet_is_found(mocker)
             "normalize_y_axis",
             "baseline_widths_to_use",
             "max_y",
+            "include_stim_protocols",
             "prominence_factors",
             "width_factors",
             "twitch_widths",

@@ -151,6 +151,7 @@ export default function AnalysisParamForm({
   analysisParams,
 }) {
   const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
+  const [disableStimProtocols, setDisableStimProtocols] = useState(false);
   const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails } = useContext(UploadsContext);
 
   const pulse3dVersionGte = (version) => {
@@ -343,10 +344,40 @@ export default function AnalysisParamForm({
             />
           </DropDownContainer>
         </ParamContainer>
+
+        {pulse3dVersionGte("0.28.1") && (
+          //Disabling y-axis normalization added in version 0.25.4
+          <ParamContainer style={{ width: "6%", marginTop: "2%" }}>
+            <Label htmlFor="showStimSheet">
+              Show Stimulation Protocols:
+              <Tooltip
+                title={
+                  <TooltipText>
+                    {"When selected, adds a sheet to output file with stimulation protocols."}
+                  </TooltipText>
+                }
+              >
+                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+              </Tooltip>
+            </Label>
+            <InputErrorContainer style={{ marginLeft: "12%" }}>
+              <CheckboxWidget
+                checkedState={disableStimProtocols}
+                handleCheckbox={() => {
+                  setDisableStimProtocols(!disableStimProtocols);
+                  updateParams({
+                    showStimSheet: !disableStimProtocols,
+                  });
+                }}
+              />
+            </InputErrorContainer>
+          </ParamContainer>
+        )}
+
         {pulse3dVersionGte("0.25.4") && (
           //Disabling y-axis normalization added in version 0.25.4
           <ParamContainer style={{ width: "6%", marginTop: "2%" }}>
-            <Label htmlFor="yAxisNormalization">
+            <Label htmlFor="normalizeYAxis">
               Disable Y-Axis Normalization:
               <Tooltip
                 title={<TooltipText>{"When selected, disables normalization of the y-axis."}</TooltipText>}
