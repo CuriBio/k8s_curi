@@ -104,7 +104,9 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
         select_query_params = (details.email,)
         customer_id = None
 
-        update_last_login_query = "UPDATE users SET last_login = $1 WHERE deleted_at IS NULL AND email = $2"
+        update_last_login_query = (
+            "UPDATE customers SET last_login = $1 WHERE deleted_at IS NULL AND email = $2"
+        )
         update_last_login_params = (datetime.now(), details.email)
     else:
         account_type = "user"
@@ -160,7 +162,7 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
                     _, customer_tier = split_scope_account_data(scope[0])
                     scope[0] = f"customer:{customer_tier}"
 
-                # after login flow succes update the last-login filed of the user
+                # if login was successful, than update last_login column to now
                 await con.execute(update_last_login_query, *update_last_login_params)
 
                 tokens = await _create_new_tokens(con, row["id"], customer_id, scope, account_type)
