@@ -348,7 +348,7 @@ async def register(
                         type="verify",
                         user_id=result,
                         customer_id=customer_id,
-                        scope=["users:verify"],
+                        scopes=["users:verify"],
                         name=details.username,
                         email=details.email,
                     )
@@ -396,7 +396,7 @@ async def email_user(
                     type=type,
                     user_id=row["id"],
                     customer_id=row.get("customer_id", None),
-                    scope=[f"{'users' if user else 'customer'}:{type}"],
+                    scopes=[f"{'users' if user else 'customer'}:{type}"],
                     name=row.get("name", None),
                     email=email,
                 )
@@ -412,12 +412,12 @@ async def _create_user_email(
     type: str,
     user_id: uuid.UUID,
     customer_id: Optional[uuid.UUID],
-    scope: List[str],
+    scopes: List[str],
     name: Optional[str],
     email: EmailStr,
 ):
     try:
-        scope = scope[0]
+        scope = scopes[0]
         if "user" in scope:
             account_type = "user"
             query = "UPDATE users SET pw_reset_verify_link=$1 WHERE id=$2"
@@ -429,7 +429,7 @@ async def _create_user_email(
             raise Exception()
         # create email verification token, exp 24 hours
         jwt_token = create_token(
-            userid=user_id, customer_id=customer_id, scope=scope, account_type=account_type
+            userid=user_id, customer_id=customer_id, scope=scopes, account_type=account_type
         )
         url = f"{DASHBOARD_URL}/account/{type}?token={jwt_token.token}"
 
