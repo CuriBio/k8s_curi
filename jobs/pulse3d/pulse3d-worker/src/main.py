@@ -11,11 +11,15 @@ import tempfile
 import asyncpg
 import boto3
 import pandas as pd
+import numpy as np
 
 from pulse3D.plate_recording import PlateRecording
 from pulse3D.excel_writer import write_xlsx
+from pulse3D.peak_detection import peak_detector
+from pulse3D.constants import WELL_NAME_UUID
 
 from jobs import get_item, EmptyQueue
+from utils.s3 import upload_file_to_s3
 from lib.db import insert_metadata_into_pg, PULSE3D_UPLOADS_BUCKET
 
 logging.basicConfig(
@@ -41,8 +45,10 @@ async def process(con, item):
     s3_client = boto3.client("s3")
     job_metadata = {"processed_by": PULSE3D_VERSION}
     outfile_key = None
+
     try:
         try:
+            job_id = item["id"]
             upload_id = item["upload_id"]
             logger.info(f"Retrieving user ID and metadata for upload with ID: {upload_id}")
 
@@ -64,28 +70,43 @@ async def process(con, item):
 
         with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
             logger.info(f"Downloading {PULSE3D_UPLOADS_BUCKET}/{key} to {tmpdir}/{filename}")
+            # adding prefix here representing the version of pulse3D used
+            parquet_filename = f"{os.path.splitext(filename)[0]}.parquet"
+            parquet_key = f"{prefix}/time_force_data/{PULSE3D_VERSION}/{parquet_filename}"
+            parquet_path = os.path.join(tmpdir, parquet_filename)
+            # set variables for where peaks and valleys should be or where it will go in s3
+            pv_parquet_key = f"{prefix}/{job_id}/peaks_valleys.parquet"
+            pv_temp_path = os.path.join(tmpdir, "peaks_valleys.parquet")
 
             try:
                 s3_client.download_file(PULSE3D_UPLOADS_BUCKET, key, f"{tmpdir}/{filename}")
             except Exception as e:
-                logger.exception(f"Failed to download: {e}")
+                logger.exception(f"Failed to download recording zip file: {e}")
                 raise
 
             try:
+                # attempt to download parquet file if recording has already been analyzed
                 logger.info("Checking if time force data exists in s3")
 
-                # adding prefix here representing the version of pulse3D used
-                parquet_filename = f"{os.path.splitext(filename)[0]}.parquet"
-                parquet_key = f"{prefix}/time_force_data/{PULSE3D_VERSION}/{parquet_filename}"
-                parquet_path = os.path.join(tmpdir, parquet_filename)
-
-                # attempt to download parquet file if recording has already been analyzed
-                logger.info(f"Attempting to downloading {parquet_filename} to {parquet_path}")
                 s3_client.download_file(PULSE3D_UPLOADS_BUCKET, parquet_key, parquet_path)
                 re_analysis = True
+
+                logger.info(f"Successfully downloaded {parquet_filename} to {parquet_path}")
             except Exception:  # continue with analysis even if original force data is not found
                 logger.error(f"No existing data found for recording {parquet_filename}")
                 re_analysis = False
+
+            try:
+                # attempt to download peaks and valleys from s3, will only be the case for interactive analysis jobs
+                logger.info("Checking if peaks and valleys exist in s3")
+
+                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, pv_parquet_key, pv_temp_path)
+                interactive_analysis = True
+
+                logger.info(f"Successfully downloaded peaks and valleys to {pv_temp_path}")
+            except Exception:  # continue with analysis even if original force data is not found
+                logger.error("No existing peaks and valleys found for recording")
+                interactive_analysis = False
 
             try:
                 # remove params that were not given as these already have default values
@@ -105,30 +126,31 @@ async def process(con, item):
                 if re_analysis and not any(plate_recording_args.values()):
                     # if any plate recording args are provided, can't load from data frame since a re-analysis is required to recalculate the waveforms
                     logger.info(f"Loading previous time force data from {parquet_filename}")
-                    existing_df = pd.read_parquet(parquet_path)
+                    recording_df = pd.read_parquet(parquet_path)
+
+                    # check for old parquet files that do not have peaks and valleys yet
+
                     try:
                         recording = PlateRecording.from_dataframe(
-                            os.path.join(tmpdir, filename), df=existing_df
+                            os.path.join(tmpdir, filename), df=recording_df
                         )
                         recordings = list(recording)
                     except:
                         # If a user attempts to perform re-analysis on an analysis from < 0.25.2, it will fail
                         # because the parquet file won't have the raw data columns, so need to re-analyze
-                        # TODO should rewrite parquet file with updated columns
                         logger.info(
                             f"Previous dataframe found is not compatible with v{PULSE3D_VERSION}, performing analysis again"
                         )
                         recordings = _load_from_dir(tmpdir, plate_recording_args)
+                        re_analysis = False
                 else:
                     recordings = _load_from_dir(tmpdir, plate_recording_args)
 
                 # Tanner (6/8/22): only supports analyzing one recording at a time right now. Functionality can be added whenever analyzing multiple files becomes necessary
                 first_recording = recordings[0]
 
-                outfile = write_xlsx(first_recording, **analysis_params)
-                outfile_prefix = prefix.replace("uploads/", "analyzed/")
             except Exception as e:
-                logger.exception(f"Analysis failed: {e}")
+                logger.exception(f"PlateRecording failed: {e}")
                 raise
 
             if re_analysis:
@@ -136,26 +158,90 @@ async def process(con, item):
             else:
                 try:
                     logger.info("Writing time force data to parquet file for new upload")
-                    first_recording.to_dataframe().to_parquet(parquet_path)
+                    recording_df = first_recording.to_dataframe()
+                    recording_df.to_parquet(parquet_path)
 
-                    with open(parquet_path, "rb") as file:
-                        contents = file.read()
-                        md5 = hashlib.md5(contents).digest()
-                        md5s = base64.b64encode(md5).decode()
-
-                        logger.info(f"Uploading time force data to {parquet_key}")
-
-                        s3_client.put_object(
-                            Body=contents, Bucket=PULSE3D_UPLOADS_BUCKET, Key=parquet_key, ContentMD5=md5s
-                        )
+                    upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=parquet_key, file=parquet_path)
+                    logger.info(f"Uploaded time force data to {parquet_key}")
                 except Exception as e:
                     logger.exception(f"Writing or uploading time force data failed: {e}")
                     raise
+            try:
+                peaks_valleys_dict = dict()
+                if not interactive_analysis:
+                    logger.info("Running peak_detector for recording")
+                    # remove raw data columns
+                    columns = [c for c in recording_df.columns if "__raw" not in c]
+                    # this is to handle analyses run before PR.to_dataframe() where time is in seconds
+                    time = recording_df[columns[0]].tolist()
+                    peaks_valleys_df = pd.DataFrame()
+                    peak_detector_args = {
+                        param: analysis_params[param]
+                        for param in (
+                            "prominence_factors",
+                            "width_factors",
+                            "start_time",
+                            "end_time",
+                        )
+                        if analysis_params.get(param, None) is not None
+                    }
+
+                    for well in columns[1:]:
+                        logger.info(f"Finding peaks and valleys for well at {well}")
+                        well_force = recording_df[well]
+
+                        interpolated_well_data = np.row_stack([time, well_force])
+                        peaks, valleys = peak_detector(interpolated_well_data, **peak_detector_args)
+                        # this df will be written to parquet and stored in s3, two columns for each well prefixed with well name
+                        peaks_valleys_df[f"{well}__peaks"] = pd.Series(peaks)
+                        peaks_valleys_df[f"{well}__valleys"] = pd.Series(valleys)
+                        # write_xlsx takes in peaks_valleys: Dict[str, List[List[int]]]
+                        peaks_valleys_dict[well] = [peaks, valleys]
+                else:
+                    logger.info("Formatting peaks and valleys from parquet file for write_xlsx")
+                    peaks_valleys_df = pd.read_parquet(pv_temp_path)
+
+                    for well in first_recording:
+                        well_name = well[WELL_NAME_UUID]
+
+                        peaks = peaks_valleys_df[f"{well_name}__peaks"].dropna().tolist()
+                        valleys = peaks_valleys_df[f"{well_name}__valleys"].dropna().tolist()
+
+                        peaks_valleys_dict[well_name] = [
+                            [int(x) for x in peaks],
+                            [int(x) for x in valleys],
+                        ]
+
+                # set in analysis params to be passed to write_xlsx
+                analysis_params["peaks_valleys"] = peaks_valleys_dict
+
+            except Exception as e:
+                logger.exception(f"Failed to get peaks and valleys for write_xlsx: {e}")
+                raise
+
+            if not interactive_analysis:
+                try:
+                    logger.info(f"Writing peaks and valleys to parquet file for job: {job_id}")
+                    peaks_valleys_df.to_parquet(pv_temp_path)
+
+                    upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=pv_parquet_key, file=pv_temp_path)
+                    logger.info(f"Uploaded peaks and valleys to {pv_parquet_key}")
+                except Exception as e:
+                    logger.exception(f"Writing or uploading peaks and valleys failed: {e}")
+                    raise
+            else:
+                logger.info("Skipping the writing of peaks and valleys to parquet in S3")
+
+            try:
+                outfile = write_xlsx(first_recording, **analysis_params)
+                outfile_prefix = prefix.replace("uploads/", "analyzed/")
+                outfile_key = f"{outfile_prefix}/{job_id}/{outfile}"
+            except Exception as e:
+                logger.exception(f"Writing xlsx output failed: {e}")
+                raise
 
             with open(outfile, "rb") as file:
                 try:
-                    job_id = item["id"]
-                    outfile_key = f"{outfile_prefix}/{job_id}/{outfile}"
                     logger.info(f"Uploading {outfile} to {PULSE3D_UPLOADS_BUCKET}/{outfile_key}")
 
                     contents = file.read()
@@ -171,7 +257,7 @@ async def process(con, item):
 
                 try:
                     logger.info(f"Inserting {outfile} metadata into db for upload {upload_id}")
-                    await insert_metadata_into_pg(
+                    plate_barcode, stim_barcode = await insert_metadata_into_pg(
                         con,
                         first_recording,
                         upload_details["customer_id"],
@@ -182,6 +268,8 @@ async def process(con, item):
                         md5s,
                         re_analysis,
                     )
+
+                    job_metadata |= {"plate_barcode": plate_barcode, "stim_barcode": stim_barcode}
                 except Exception as e:
                     logger.exception(f"Failed to insert metadata to db for upload {upload_id}: {e}")
                     raise

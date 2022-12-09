@@ -97,6 +97,7 @@ def upload_file_to_s3(bucket, key, file) -> None:
             md5 = hashlib.md5(contents).digest()
             md5s = base64.b64encode(md5).decode()
             s3_client.put_object(Body=f, Bucket=bucket, Key=key, ContentMD5=md5s)
+
     except ClientError as e:
         raise S3Error(f"Failed to upload file {bucket}/{key}: {repr(e)}")
 

@@ -59,6 +59,7 @@ export default function ColumnHead({
   return (
     <Container>
       <FilterInput
+        autocomplete="off"
         value={input}
         type="text"
         placeholder={title}

@@ -103,6 +103,7 @@ export default function UploadForm() {
       stiffnessFactor: null,
       selectedPulse3dVersion: pulse3dVersions[0] || "", // Tanner (9/15/22): The pulse3d version technically isn't a param, but it lives in the same part of the form as the params
       wellsWithFlippedWaveforms: "",
+      showStimSheet: "",
     };
   };
 
@@ -122,6 +123,7 @@ export default function UploadForm() {
   const [usageModalLabels, setUsageModalLabels] = useState(modalObj.uploadsReachedDuringSession);
   const [analysisParams, setAnalysisParams] = useState(getDefaultAnalysisParams());
   const [badZipFiles, setBadZipFiles] = useState([]);
+  const [resetDragDrop, setResetDragDrop] = useState(false);
 
   useEffect(() => {
     if (badZipFiles.length > 0) {
@@ -182,6 +184,7 @@ export default function UploadForm() {
   }, [uploads]);
 
   const resetState = () => {
+    setResetDragDrop(true);
     setFiles([]);
     updateCheckParams(false); // this will also reset the analysis params and their error message
     setFailedUploadsMsg(failedUploadsMsg);
@@ -209,6 +212,7 @@ export default function UploadForm() {
     try {
       const {
         normalizeYAxis,
+        showStimSheet,
         baseToPeak,
         peakToBase,
         maxY,
@@ -252,6 +256,9 @@ export default function UploadForm() {
         requestBody.inverted_post_magnet_wells =
           wellsWithFlippedWaveforms === "" ? null : wellsWithFlippedWaveforms;
       }
+      if (semverGte(version, "0.28.1")) {
+        requestBody.include_stim_protocols = showStimSheet === "" ? null : showStimSheet;
+      }
 
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
         method: "POST",
@@ -260,13 +267,13 @@ export default function UploadForm() {
 
       const jobData = await jobResponse.json();
       // 403 gets returned in quota limit reached responses modal gets handled in ControlPanel
-      if (jobData.usage_error) {
+      if (jobData.error && jobData.error === "UsageError") {
         console.log("ERROR starting job because customer job limit has been reached");
         setUsageModalLabels(modalObj.jobsReachedDuringSession);
         setUsageModalState(true);
-      } else if (jobResponse.status !== 200) {
+      } else if (jobResponse.status !== 200 || (jobData.error && jobData.error == "AuthorizationError")) {
         failedUploadsMsg.push(filename);
-        console.log("ERROR posting new job: ", await jobResponse.json());
+        console.log("ERROR posting new job");
       }
     } catch (e) {
       failedUploadsMsg.push(filename);
@@ -398,7 +405,7 @@ export default function UploadForm() {
 
       const data = await uploadResponse.json();
 
-      if (data.usage_error) {
+      if (data.error && data.error == "UsageError") {
         console.log("ERROR uploading file because customer upload limit has been reached");
         setUsageModalLabels(modalObj.uploadsReachedDuringSession);
         setUsageModalState(true);
@@ -455,6 +462,8 @@ export default function UploadForm() {
             handleFileChange={(files) => setFiles(Object.values(files))}
             dropZoneText={dropZoneText}
             fileSelection={files.length > 0 ? files.map(({ name }) => name).join(", ") : "No files selected"}
+            setResetDragDrop={setResetDragDrop}
+            resetDragDrop={resetDragDrop}
           />
         ) : (
           <DropDownContainer>

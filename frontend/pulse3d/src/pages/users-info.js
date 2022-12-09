@@ -7,7 +7,9 @@ import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 import ResizableColumn from "@/components/table/ResizableColumn";
 import ColumnHead from "@/components/table/ColumnHead";
 import Checkbox from "@mui/material/Checkbox";
-
+import { Tooltip } from "@mui/material";
+import ModalWidget from "@/components/basicWidgets/ModalWidget";
+import PasswordForm from "@/components/account/PasswordForm";
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
   center: false,
@@ -44,6 +46,14 @@ const DropDownContainer = styled.div`
   background-color: white;
   border-radius: 5px;
 `;
+const ErrorText = styled.span`
+  color: red;
+  font-style: italic;
+  text-align: left;
+  position: relative;
+  width: 85%;
+  padding-top: 2%;
+`;
 const PageContainer = styled.div`
   width: 85%;
 `;
@@ -60,6 +70,33 @@ const SpinnerContainer = styled.div`
   margin: 50px;
 `;
 
+const ActiveVerifyLink = styled.div`
+  font-style: italic;
+  color: var(--dark-gray);
+  &:hover {
+    cursor: pointer;
+    color: var(--teal-green);
+    text-decoration: underline;
+  }
+`;
+
+const DisabledLink = styled.div`
+  font-style: italic;
+  color: var(--dark-gray);
+  cursor: default;
+`;
+
+const TooltipText = styled.span`
+  font-size: 15px;
+`;
+
+const PasswordInputContainer = styled.div`
+  margin: 25px 0px;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  width: 100%;
+`;
 const formatDateTime = (datetime) => {
   if (datetime)
     return new Date(datetime).toLocaleDateString(undefined, {
@@ -95,7 +132,12 @@ export default function UserInfo() {
   const [statusWidth, setStatusWidth] = useState("15%");
   const [checkedUsers, setCheckedUsers] = useState([]);
   const [sortColumn, setSortColumn] = useState("");
-
+  const [openVerifyModal, setOpenVerifyModal] = useState(false);
+  const [verifyLink, setVerifyLink] = useState();
+  const [errorMsg, setErrorMsg] = useState();
+  const [passwords, setPasswords] = useState({ password1: "", password2: "" });
+  const [inProgress, setInProgress] = useState(false);
+  const [openErrorModal, setOpenErrorModal] = useState(false);
   const columns = [
     {
       width: "5%",
@@ -183,7 +225,7 @@ export default function UserInfo() {
         <ColumnHead
           title="Last Login"
           setFilterString={setFilterString}
-          columnName="last_login"
+          columnName="lastLogin"
           setFilterColumn={setFilterColumn}
           width={loginWidth.replace("%", "")}
           setSelfWidth={setLoginWidth}
@@ -194,10 +236,10 @@ export default function UserInfo() {
           filterColumn={filterColumn}
         />
       ),
-      id: "last_login",
+      id: "lastLogin",
       width: loginWidth,
-      sortFunction: (rowA, rowB) => new Date(rowB.last_login) - new Date(rowA.last_login),
-      cell: (row) => <ResizableColumn content={formatDateTime(row.last_login)} />,
+      sortFunction: (rowA, rowB) => new Date(rowB.lastLogin) - new Date(rowA.lastLogin),
+      cell: (row) => <ResizableColumn content={formatDateTime(row.lastLogin)} />,
     },
     {
       name: (
@@ -216,14 +258,16 @@ export default function UserInfo() {
         />
       ),
       width: statusWidth,
-      sortFunction: (rowA, rowB) => rowA.suspended.localeCompare(rowB.suspended),
+      sortFunction: (rowA, rowB) => rowB.verified - rowA.verified - rowA.suspended,
       cell: (row) => (
         <ResizableColumn
           content={
-            row.suspended === "active" ? (
-              <div style={{ color: "var(--teal-green)" }}>{row.suspended}</div>
+            !row.suspended && row.verified ? (
+              <div style={{ color: "var(--teal-green)" }}>active</div>
+            ) : !row.verified && !row.suspended ? (
+              getVerificationDiv(row)
             ) : (
-              <div style={{ color: "red" }}>{row.suspended}</div>
+              <div style={{ color: "red" }}>suspended</div>
             )
           }
           width={statusWidth.replace("px", "")}
@@ -232,21 +276,57 @@ export default function UserInfo() {
     },
   ];
 
+  //gets users at load
+  useEffect(() => {
+    getAllUsers();
+  }, []);
+
+  useEffect(() => {
+    if (resetDropdown) setResetDropdown(false);
+  }, [resetDropdown]);
+
+  //when filter string changes refilter results
+  useEffect(() => {
+    if (filterColumn && filterColumn !== "suspended") {
+      const newList = filterColumns();
+      if (newList.length > 0) {
+        setDisplayData(newList);
+      }
+    }
+  }, [filterString]);
+
+  const getVerificationDiv = (row) => {
+    return row.verifyLink ? (
+      <ActiveVerifyLink onClick={() => handleVerifyModal(row.verifyLink)}>
+        needs verification
+      </ActiveVerifyLink>
+    ) : (
+      <Tooltip title={<TooltipText>{"Verification link has expired, please send a new one."}</TooltipText>}>
+        <div>
+          <DisabledLink>needs verification</DisabledLink>
+        </div>
+      </Tooltip>
+    );
+  };
+
   const getAllUsers = async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/`);
       if (response && response.status === 200) {
         const usersJson = await response.json();
-        const formatedUserJson = usersJson.map(({ created_at, email, id, last_login, name, suspended }) => {
-          return {
+        const formatedUserJson = usersJson.map(
+          ({ created_at, email, id, last_login, name, suspended, verified, pw_reset_verify_link }) => ({
             created_at: formatDateTime(created_at),
             email: email,
             id: id,
-            last_login: formatDateTime(last_login),
+            lastLogin: formatDateTime(last_login),
             name: name,
-            suspended: suspended ? "suspended" : "active",
-          };
-        });
+            suspended,
+            verified,
+            verifyLink: pw_reset_verify_link,
+          })
+        );
+
         setUsersData(formatedUserJson);
         setDisplayData(formatedUserJson);
         setLoading(false);
@@ -256,28 +336,19 @@ export default function UserInfo() {
     }
   };
 
-  //gets users at load
-  useEffect(() => {
-    getAllUsers();
-  }, []);
+  const handleVerifyModal = (link) => {
+    setOpenVerifyModal(true);
+    setVerifyLink(link);
+  };
 
   const filterColumns = () => {
-    return usersData.filter((row) => {
-      return row[filterColumn].toLocaleLowerCase().includes(filterString.toLocaleLowerCase());
-    });
+    return usersData.filter((row) =>
+      row[filterColumn].toLocaleLowerCase().includes(filterString.toLocaleLowerCase())
+    );
   };
-  //when filter string changes refilter results
-  useEffect(() => {
-    if (filterColumn) {
-      const newList = filterColumns();
-      if (newList.length > 0) {
-        setDisplayData(newList);
-      }
-    }
-  }, [filterString]);
 
   const sendUserActionPutRequest = async (actionToPreform) => {
-    await checkedUsers.forEach(async (checkedUser) => {
+    checkedUsers.forEach(async (checkedUser) => {
       try {
         await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/${checkedUser}`, {
           method: "PUT",
@@ -289,24 +360,84 @@ export default function UserInfo() {
     });
     setTimeout(resetTable, 300);
   };
-  const resetTable = () => {
-    setCheckedUsers([]);
-    getAllUsers();
-    setResetDropdown(true);
-    setResetDropdown(false);
-  };
+
   const handleDropdownSelection = async (option) => {
     if (option === 0) {
       await sendUserActionPutRequest("delete");
     } else if (option === 1) {
       const checkUsersData = usersData.filter(({ id }) => checkedUsers.includes(id));
-      let deactiveUsers = checkUsersData
-        .filter(({ suspended }) => suspended === "suspended")
-        .map(({ name }) => name);
+      let deactiveUsers = checkUsersData.filter(({ suspended }) => suspended).map(({ name }) => name);
 
       setCheckedUsers(checkedUsers.filter(({ name }) => deactiveUsers.includes(name)));
       await sendUserActionPutRequest("deactivate");
+    } else {
+      await resendVerificationLink();
     }
+  };
+
+  const resendVerificationLink = async () => {
+    try {
+      const selectedUser = usersData.find(({ id }) => id === checkedUsers[0]);
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${selectedUser.email}&type=verify`
+      );
+
+      if (res && res.status === 204) {
+        resetTable();
+      } else throw Error();
+    } catch (e) {
+      setOpenErrorModal(true);
+      console.log("ERROR resending verification email", e);
+    }
+  };
+
+  const onChangePassword = ({ target }) => {
+    setPasswords({ ...passwords, [target.id]: target.value });
+  };
+
+  const closeVerificationModal = async (idx) => {
+    setInProgress(true);
+    if (idx === 1) {
+      try {
+        // attach jwt token to verify request
+        const headers = new Headers({
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${verifyLink}`,
+        });
+
+        const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/account`, {
+          method: "PUT",
+          body: JSON.stringify({ ...passwords, verify: true }),
+          headers,
+        });
+
+        const resBody = await res.json();
+        if (res.status === 200) {
+          // if successful, reset table to let user know it was successful, or open new error modal telling them to try again later. Catch all error handling
+          !resBody ? resetTable() : setOpenErrorModal(true);
+        } else {
+          throw Error();
+        }
+      } catch (e) {
+        console.log(`ERROR verifying new user account: ${e}`);
+        // if error, open error modal to let user know it didn't work
+        setOpenErrorModal(true);
+      }
+    }
+    // always close verification modal and set progress spinner back to false
+    setOpenVerifyModal(false);
+    setInProgress(false);
+  };
+
+  const resetTable = () => {
+    setCheckedUsers([]);
+    getAllUsers();
+    setResetDropdown(true);
+    setOpenVerifyModal(false);
+    setVerifyLink();
+    setInProgress(false);
+    setOpenErrorModal(false);
   };
 
   return (
@@ -325,7 +456,7 @@ export default function UserInfo() {
             data={displayData}
             customStyles={customStyles}
             pagination
-            defaultSortFieldId="last_login"
+            defaultSortFieldId="lastLogin"
             progressPending={loading}
             progressComponent={
               <SpinnerContainer>
@@ -337,17 +468,24 @@ export default function UserInfo() {
               <DropDownContainer>
                 <DropDownWidget
                   label="Actions"
-                  options={["Delete", "Deactivate"]}
+                  options={["Delete", "Deactivate", "Resend Verification Link"]}
                   disableOptions={[
                     checkedUsers.length === 0,
                     checkedUsers.length === 0 ||
                       usersData
                         .filter((user) => checkedUsers.includes(user.id))
-                        .filter((checkedUsers) => checkedUsers.suspended === "suspended").length !== 0,
+                        .filter((checkedUsers) => checkedUsers.suspended).length !== 0,
+                    checkedUsers.length !== 1 ||
+                      (checkedUsers.length === 1 &&
+                        usersData.filter(({ id }) => checkedUsers.includes(id))[0].verified) ||
+                      (checkedUsers.length === 1 &&
+                        !usersData.filter(({ id }) => checkedUsers.includes(id))[0].verified &&
+                        usersData.filter(({ id }) => checkedUsers.includes(id))[0].verifyLink),
                   ]}
                   optionsTooltipText={[
                     "Must make a selection below before actions become available.",
                     "Must select a user who is active before actions become available.",
+                    "Must select an unverified user with an expired link.",
                   ]}
                   handleSelection={handleDropdownSelection}
                   reset={resetDropdown}
@@ -356,6 +494,39 @@ export default function UserInfo() {
             }
           />
         </Container>
+        <ModalWidget
+          open={openVerifyModal}
+          width={500}
+          closeModal={closeVerificationModal}
+          header={"Verify User"}
+          labels={["Please enter a new password."]}
+          buttons={["Cancel", "Verify"]}
+        >
+          <PasswordInputContainer>
+            {!inProgress ? (
+              <PasswordForm
+                password1={passwords.password1}
+                password2={passwords.password2}
+                onChangePassword={onChangePassword}
+                setErrorMsg={setErrorMsg}
+              >
+                <ErrorText id="passwordError" role="errorMsg">
+                  {errorMsg}
+                </ErrorText>
+              </PasswordForm>
+            ) : (
+              <CircularSpinner size={150} color={"secondary"} />
+            )}
+          </PasswordInputContainer>
+        </ModalWidget>
+        <ModalWidget
+          open={openErrorModal}
+          width={500}
+          closeModal={resetTable}
+          header={"Error Occurred!"}
+          labels={["Something went wrong while performing this action.", "Please try again later."]}
+          buttons={["Close"]}
+        />
       </PageContainer>
     </>
   );
