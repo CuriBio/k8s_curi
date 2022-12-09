@@ -103,6 +103,11 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
         )
         select_query_params = (details.email,)
         customer_id = None
+
+        update_last_login_query = (
+            "UPDATE customers SET last_login = $1 WHERE deleted_at IS NULL AND email = $2"
+        )
+        update_last_login_params = (datetime.now(), details.email)
     else:
         account_type = "user"
         # suspended is for deactivated accounts and verified is for new users needing to verify through email
@@ -113,6 +118,9 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
             str(details.customer_id),
         )
         customer_id = details.customer_id
+
+        update_last_login_query = "UPDATE users SET last_login = $1 WHERE deleted_at IS NULL AND name = $2 AND customer_id=$3 AND suspended='f' AND verified='t'"
+        update_last_login_params = (datetime.now(), details.username.lower(), str(details.customer_id))
     try:
         async with request.state.pgpool.acquire() as con:
 
@@ -153,6 +161,9 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
                     # replace with customer scope
                     _, customer_tier = split_scope_account_data(scope[0])
                     scope[0] = f"customer:{customer_tier}"
+
+                # if login was successful, then update last_login column to now
+                await con.execute(update_last_login_query, *update_last_login_params)
 
                 tokens = await _create_new_tokens(con, row["id"], customer_id, scope, account_type)
                 return LoginResponse(tokens=tokens, usage_quota=usage_quota)
@@ -348,7 +359,7 @@ async def register(
                         type="verify",
                         user_id=result,
                         customer_id=customer_id,
-                        scope=["users:verify"],
+                        scopes=["users:verify"],
                         name=details.username,
                         email=details.email,
                     )
@@ -396,7 +407,7 @@ async def email_user(
                     type=type,
                     user_id=row["id"],
                     customer_id=row.get("customer_id", None),
-                    scope=[f"{'users' if user else 'customer'}:{type}"],
+                    scopes=[f"{'users' if user else 'customer'}:{type}"],
                     name=row.get("name", None),
                     email=email,
                 )
@@ -412,12 +423,12 @@ async def _create_user_email(
     type: str,
     user_id: uuid.UUID,
     customer_id: Optional[uuid.UUID],
-    scope: List[str],
+    scopes: List[str],
     name: Optional[str],
     email: EmailStr,
 ):
     try:
-        scope = scope[0]
+        scope = scopes[0]
         if "user" in scope:
             account_type = "user"
             query = "UPDATE users SET pw_reset_verify_link=$1 WHERE id=$2"
@@ -429,7 +440,7 @@ async def _create_user_email(
             raise Exception()
         # create email verification token, exp 24 hours
         jwt_token = create_token(
-            userid=user_id, customer_id=customer_id, scope=scope, account_type=account_type
+            userid=user_id, customer_id=customer_id, scope=scopes, account_type=account_type
         )
         url = f"{DASHBOARD_URL}/account/{type}?token={jwt_token.token}"
 
