@@ -1,4 +1,4 @@
-"""add pulse 0.28.1
+"""pulse3d 0.28.1
 
 Revision ID: 04c57d3482e3
 Revises: e7b1c23cdb33
