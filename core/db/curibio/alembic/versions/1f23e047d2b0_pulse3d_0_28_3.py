@@ -11,13 +11,13 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "1f23e047d2b0"
-down_revision = "76a9da99875b"
+down_revision = "12203e564c58"
 branch_labels = None
 depends_on = None
 
 
 def upgrade():
-    op.execute("INSERT INTO pulse3d_versions (version, state) VALUES ('0.28.3', 'testing')")
+    op.execute("INSERT INTO pulse3d_versions (version, state) VALUES ('0.28.3', 'external')")
 
 
 def downgrade():

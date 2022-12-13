@@ -384,12 +384,14 @@ async def create_new_job(
             params.append("inverted_post_magnet_wells")
         if pulse3d_semver >= "0.28.1":
             params.append("include_stim_protocols")
-        if "0.25.2" <= pulse3d_semver < "0.28.0":
+        if "0.28.0" > pulse3d_semver >= "0.25.2":
             params.append("peaks_valleys")
 
         details_dict = dict(details)
         analysis_params = {param: details_dict[param] for param in params}
-
+        if pulse3d_semver >= "0.28.0" and details.peaks_valleys:
+            # Luci (12/10/22): this param set to True is used to signify to the FE that peaks and valleys have been edited to display under the analysis params column in the uploads table, but don't append actual peaks and valleys to prevent cluttering the database with large lists
+            analysis_params["peaks_valleys"] = True
         # convert these params into a format compatible with pulse3D
         for param, default_values in (
             ("prominence_factors", DEFAULT_PROMINENCE_FACTORS),
@@ -439,14 +441,14 @@ async def create_new_job(
                 # only added during interactive analysis
                 with tempfile.TemporaryDirectory() as tmpdir:
                     pv_parquet_path = os.path.join(tmpdir, "peaks_valleys.parquet")
-                    peak_valleys_df = pd.DataFrame()
+                    peak_valleys_dict = dict()
                     # format peaks and valleys to simple df
                     for well, peaks_valleys in details.peaks_valleys.items():
-                        peak_valleys_df[f"{well}__peaks"] = pd.Series(peaks_valleys[0])
-                        peak_valleys_df[f"{well}__valleys"] = pd.Series(peaks_valleys[1])
+                        peak_valleys_dict[f"{well}__peaks"] = pd.Series(peaks_valleys[0])
+                        peak_valleys_dict[f"{well}__valleys"] = pd.Series(peaks_valleys[1])
 
                     # write peaks and valleys to parquet file in temporary directory
-                    peak_valleys_df.to_parquet(pv_parquet_path)
+                    pd.DataFrame(peak_valleys_dict).to_parquet(pv_parquet_path)
                     # upload to s3 under upload id and job id for pulse3d-worker to use
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
 
@@ -657,10 +659,8 @@ async def get_interactive_waveform_data(
             # set up empty dictionaries to be passed in response
             coordinates = dict()
             peaks_and_valleys = dict()
-
             for well in columns[1:]:
                 well_force = time_force_df[well]
-
                 if peaks_valleys_needed:
                     if needs_unit_conversion:
                         # not exact, but this isn't used outside of graphing in FE, real raw data doesn't get changed
@@ -681,6 +681,7 @@ async def get_interactive_waveform_data(
                         )
                         if analysis_params[param] is not None
                     }
+
                     peaks, valleys = peak_detector(interpolated_well_data, **peak_detector_params)
                     # needs to be converted to lists to be sent as json in response
                     peaks_and_valleys[well] = [peaks.tolist(), valleys.tolist()]
@@ -698,6 +699,9 @@ async def get_interactive_waveform_data(
                 coordinates[well] = [
                     [time[i] / MICRO_TO_BASE_CONVERSION, val] for (i, val) in enumerate(well_force)
                 ]
+
+                print(coordinates["A1"][:20])
+                print(len(coordinates["A1"]))
 
             return WaveformDataResponse(
                 coordinates=coordinates,

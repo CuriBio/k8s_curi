@@ -319,6 +319,8 @@ export default function Uploads() {
           const formattedTime = formatDateTime(created_at);
           const parsedMeta = JSON.parse(meta);
           const analysisParams = parsedMeta.analysis_params;
+          // add pulse3d version used on job to be displayed with other analysis params
+          analysisParams.pulse3d_version = parsedMeta.version;
           const isChecked = checkedJobs.includes(id);
           return {
             jobId: id,
@@ -365,15 +367,15 @@ export default function Uploads() {
     if (uploads) {
       getAllJobs();
 
-      if (uploads.length > 0) {
-        const statusUpdateInterval = setInterval(async () => {
-          if (!["downloading", "deleting"].includes(modalState)) {
-            await getAllJobs();
-          }
-        }, [1e4]);
+      // if (uploads.length > 0) {
+      //   const statusUpdateInterval = setInterval(async () => {
+      //     if (!["downloading", "deleting"].includes(modalState)) {
+      //       await getAllJobs();
+      //     }
+      //   }, [1e4]);
 
-        return () => clearInterval(statusUpdateInterval);
-      }
+      //   return () => clearInterval(statusUpdateInterval);
+      // }
     }
   }, [uploads]);
 

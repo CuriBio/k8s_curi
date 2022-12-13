@@ -155,11 +155,12 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   const [changelog, setChangelog] = useState({});
   const [openChangelog, setOpenChangelog] = useState(false);
   const [undoing, setUndoing] = useState(false);
-
+  const [peakValleyWindows, setPeakValleyWindows] = useState({});
   const [xRange, setXRange] = useState({
     min: null,
     max: null,
   });
+
   const [editableStartEndTimes, setEditableStartEndTimes] = useState({
     startTime: null,
     endTime: null,
@@ -180,7 +181,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     // updates changelog when peaks/valleys and start/end times change
     if (!undoing) updateChangelog();
     else setUndoing(false);
-  }, [markers, editableStartEndTimes]);
+  }, [markers, editableStartEndTimes, peakValleyWindows]);
 
   useEffect(() => {
     // will error on init because there won't be an index 0
@@ -203,6 +204,12 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
       setIsLoading(false);
     }
   }, [dataToGraph, editablePeaksValleys]);
+
+  useEffect(() => {
+    // this will get triggered whether loading existing data from sessionStorage or getting new data and we want to only get initial windows if loading new data
+    if (Object.keys(originalData).length > 0 && Object.keys(peakValleyWindows).length === 0)
+      setInitialPeakValleyWindows();
+  }, [originalData]);
 
   const getWaveformData = async () => {
     try {
@@ -254,6 +261,44 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     }
   };
 
+  const setInitialPeakValleyWindows = () => {
+    const pvCopy = peakValleyWindows;
+
+    for (const well of Object.keys(originalData.peaks_valleys)) {
+      pvCopy[well] = { minPeaks: findLowestPeak(well), maxValleys: findHighestValley(well) };
+    }
+    setPeakValleyWindows({
+      ...pvCopy,
+    });
+  };
+
+  const findLowestPeak = (well) => {
+    // arbitrarily set to first peak
+    const wellSpecificPeaks = originalData.peaks_valleys[well][0];
+    let lowest = wellSpecificPeaks[0];
+
+    wellSpecificPeaks.map((peak) => {
+      const yCoord = originalData.coordinates[well][peak][1];
+      const peakToCompare = originalData.coordinates[well][lowest][1];
+      if (yCoord < peakToCompare) lowest = peak;
+    });
+    // return  y coordinate of lowest peak
+    return originalData.coordinates[well][lowest][1];
+  };
+
+  const findHighestValley = (well) => {
+    // arbitrarily set to first valley
+    const wellSpecificValleys = originalData.peaks_valleys[well][1];
+    let highest = wellSpecificValleys[0];
+    wellSpecificValleys.map((valley) => {
+      const yCoord = originalData.coordinates[well][valley][1];
+      const valleyToCompare = originalData.coordinates[well][highest][1];
+      if (yCoord > valleyToCompare) highest = valley;
+    });
+    // return  y coordinate of highest valley
+    return originalData.coordinates[well][highest][1];
+  };
+
   const loadExistingData = () => {
     // this happens very fast so not storing to react state the first call, see line 162
     const jsonData = sessionStorage.getItem(selectedJob.jobId);
@@ -267,6 +312,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
       startTime: existingData.editableStartEndTimes.startTime,
       endTime: existingData.editableStartEndTimes.endTime,
     });
+    setPeakValleyWindows(existingData.peakValleyWindows);
   };
 
   const handleWellSelection = (idx) => {
@@ -277,25 +323,32 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     // reset peaks and valleys for current well
     const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
     const changelogCopy = JSON.parse(JSON.stringify(changelog));
+    const pvWindowCopy = JSON.parse(JSON.stringify(peakValleyWindows));
 
     peaksValleysCopy[selectedWell] = originalData.peaks_valleys[selectedWell];
     changelogCopy[selectedWell] = [];
+    pvWindowCopy[selectedWell] = {
+      minPeaks: findLowestPeak(selectedWell),
+      maxValleys: findHighestValley(selectedWell),
+    };
     // reset state
     setEditablePeaksValleys(peaksValleysCopy);
     setChangelog(changelogCopy);
+    setPeakValleyWindows(pvWindowCopy);
   };
 
   const postNewJob = async () => {
     try {
       setUploadInProgress(true);
 
+      const filteredPeaksValleys = await filterPeaksValleys();
       // reassign new peaks and valleys if different
       const requestBody = {
         ...selectedJob.analysisParams,
         upload_id: selectedJob.uploadId,
-        peaks_valleys: editablePeaksValleys,
-        start_time: editableStartEndTimes.startTime,
-        end_time: editableStartEndTimes.endTime,
+        peaks_valleys: filteredPeaksValleys,
+        start_time: editableStartEndTimes.startTime === xRange.min ? null : editableStartEndTimes.startTime,
+        end_time: editableStartEndTimes.endTime === xRange.max ? null : editableStartEndTimes.endTime,
         version: filteredVersions[pulse3dVersionIdx],
       };
 
@@ -303,6 +356,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
         method: "POST",
         body: JSON.stringify(requestBody),
       });
+
       if (jobResponse.status !== 200) {
         // TODO make modal
         console.log("ERROR posting new job: ", await jobResponse.json());
@@ -317,7 +371,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
       // currently clearing for successful uploads
       sessionStorage.removeItem(selectedJob.jobId);
     } catch (e) {
-      console.log("ERROR posting new job");
+      console.log("ERROR posting new job", e);
       setModalLabels(constantModalLabels.error);
       setUploadInProgress(false);
       setModalOpen("status");
@@ -331,7 +385,27 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
       else loadExistingData();
       sessionStorage.removeItem(selectedJob.jobId);
     }
+
     setModalOpen(false);
+  };
+
+  const filterPeaksValleys = async () => {
+    const filtered = {};
+    for (const well of Object.keys(editablePeaksValleys)) {
+      const wellCoords = originalData.coordinates[well];
+      const wellPeaks = editablePeaksValleys[well][0];
+      const wellValleys = editablePeaksValleys[well][1];
+      const filteredPeaks = wellPeaks.filter(
+        (peak) => wellCoords[peak][1] >= peakValleyWindows[well].minPeaks
+      );
+      const filteredValleys = wellValleys.filter(
+        (valley) => wellCoords[valley][1] <= peakValleyWindows[well].maxValleys
+      );
+
+      filtered[well] = [filteredPeaks, filteredValleys];
+    }
+
+    return filtered;
   };
 
   const saveChanges = () => {
@@ -343,6 +417,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
         editablePeaksValleys,
         originalData,
         changelog,
+        peakValleyWindows,
       })
     );
   };
@@ -353,12 +428,15 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     // changelog will have length of 0 if a user Undo's until initial state
     if (changelog[selectedWell] && changelog[selectedWell].length > 0 && markers.length === 2) {
       const wellChanges = changelog[selectedWell];
-      const { peaks, valleys, startTime, endTime } = wellChanges[wellChanges.length - 1];
+      const { peaks, valleys, startTime, endTime, pvWindow } = wellChanges[wellChanges.length - 1];
 
-      changelogMessage = getChangelogMessage(peaks, valleys, startTime, endTime);
+      changelogMessage = getChangelogMessage(peaks, valleys, startTime, endTime, pvWindow);
     } else if (markers.length === 2 && originalData.peaks_valleys[selectedWell]) {
       const ogWellData = originalData.peaks_valleys[selectedWell];
-      changelogMessage = getChangelogMessage(ogWellData[0], ogWellData[1], xRange.min, xRange.max);
+      changelogMessage = getChangelogMessage(ogWellData[0], ogWellData[1], xRange.min, xRange.max, {
+        minPeaks: findLowestPeak(selectedWell),
+        maxValleys: findHighestValley(selectedWell),
+      });
     }
 
     if (changelogMessage !== undefined) {
@@ -366,7 +444,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     }
   };
 
-  const getChangelogMessage = (peaksToCompare, valleysToCompare, startToCompare, endToCompare) => {
+  const getChangelogMessage = (peaksToCompare, valleysToCompare, startToCompare, endToCompare, pvWindow) => {
     let changelogMessage;
 
     const peaksMoved =
@@ -383,7 +461,9 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
         endToCompare !== editableStartEndTimes.endTime &&
         editableStartEndTimes.endTime !== null &&
         endToCompare !== null,
-      windowedTimeDiff = startTimeDiff && endTimeDiff;
+      windowedTimeDiff = startTimeDiff && endTimeDiff,
+      minPeaksDiff = pvWindow.minPeaks !== peakValleyWindows[selectedWell].minPeaks,
+      maxValleysDiff = pvWindow.maxValleys !== peakValleyWindows[selectedWell].maxValleys;
 
     if (peaksMoved) {
       const diffIdx = peaksToCompare.findIndex((peakIdx, i) => peakIdx !== markers[0][i]),
@@ -421,8 +501,15 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
       changelogMessage = `End time was changed from ${endToCompare.toFixed(
         2
       )} to ${editableStartEndTimes.endTime.toFixed(2)}.`;
+    } else if (minPeaksDiff) {
+      changelogMessage = `Minimum peaks window changed from ${pvWindow.minPeaks.toFixed(
+        2
+      )} to ${peakValleyWindows[selectedWell].minPeaks.toFixed(2)}`;
+    } else if (maxValleysDiff) {
+      changelogMessage = `Maximum valleys window changed from ${pvWindow.maxValleys.toFixed(
+        2
+      )} to ${peakValleyWindows[selectedWell].maxValleys.toFixed(2)}`;
     }
-
     return changelogMessage;
   };
 
@@ -470,6 +557,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     // if you don't deep copy state, later changes will affect change log entries here
     const { startTime, endTime } = JSON.parse(JSON.stringify(editableStartEndTimes));
     const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
+    const pvWindowCopy = JSON.parse(JSON.stringify(peakValleyWindows));
 
     changelog[selectedWell].push({
       peaks: peaksValleysCopy[selectedWell][0],
@@ -477,6 +565,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
       startTime,
       endTime,
       message,
+      pvWindow: pvWindowCopy[selectedWell],
     });
 
     setChangelog({ ...changelog });
@@ -493,6 +582,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
       // make copies so you control when state is updated
       const changesCopy = JSON.parse(JSON.stringify(changelog[selectedWell]));
       const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
+      const pvWindowCopy = JSON.parse(JSON.stringify(peakValleyWindows));
       const newWindowTimes = {};
 
       // remove step with latest changes
@@ -500,10 +590,10 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
 
       if (changesCopy.length > 0) {
         // grab state from the step before the undo step to set as current state
-        const { peaks, valleys, startTime, endTime } = changesCopy[changesCopy.length - 1];
+        const { peaks, valleys, startTime, endTime, pvWindow } = changesCopy[changesCopy.length - 1];
         // set old peaks and valleys to well
         peaksValleysCopy[selectedWell] = [[...peaks], [...valleys]];
-
+        pvWindowCopy[selectedWell] = pvWindow;
         newWindowTimes.startTime = startTime;
         newWindowTimes.endTime = endTime;
       } else {
@@ -512,6 +602,10 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
         newWindowTimes.endTime = xRange.max;
 
         peaksValleysCopy[selectedWell] = originalData.peaks_valleys[selectedWell];
+        pvWindowCopy[selectedWell] = {
+          minPeaks: findLowestPeak(selectedWell),
+          maxValleys: findHighestValley(selectedWell),
+        };
       }
 
       // needs to be reassigned to hold state
@@ -519,6 +613,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
       // update values to state to rerender graph
       setEditableStartEndTimes(newWindowTimes);
       setEditablePeaksValleys(peaksValleysCopy);
+      setPeakValleyWindows(pvWindowCopy);
       setChangelog(changelog);
     }
   };
@@ -558,6 +653,8 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
               addPeakValley={addPeakValley}
               openChangelog={() => setOpenChangelog(true)}
               undoLastChange={undoLastChange}
+              setPeakValleyWindows={setPeakValleyWindows}
+              peakValleyWindows={peakValleyWindows}
             />
           </GraphContainer>
           <ErrorLabel>{errorMessage}</ErrorLabel>

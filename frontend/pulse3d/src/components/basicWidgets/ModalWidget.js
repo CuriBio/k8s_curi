@@ -55,7 +55,7 @@ export default function ModalWidget({
     // whem modal labels change, make sure to reset disabled buttons
     // important when a series of modals is used and just labels change
     setDisabled(false);
-  }, [labels]);
+  }, [labels, open]);
 
   return (
     <div>

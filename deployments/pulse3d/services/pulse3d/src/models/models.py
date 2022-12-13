@@ -58,6 +58,7 @@ class DownloadItem(BaseModel):
 class WaveformDataResponse(BaseModel):
     coordinates: Dict[str, List[Any]]
     peaks_valleys: Dict[str, List[Any]]
+    orig_pulse3d_version: bool
 
 
 class JobDownloadRequest(BaseModel):
