@@ -372,13 +372,13 @@ async def create_new_job(
             "end_time",
         ]
 
-        # don't add params unless the selected pulse3d version supports it
         previous_semver_version = (
             VersionInfo.parse(details.previous_version) if details.previous_version else None
         )
 
         pulse3d_semver = VersionInfo.parse(details.version)
 
+        # Luci (12-14-2022) PlateRecording.to_dataframe() was updated in 0.28.3 to include 0.0 timepoint so this accounts for the index difference between versions
         peak_valley_diff = 0
         if previous_semver_version is not None and previous_semver_version != pulse3d_semver:
             if previous_semver_version < "0.28.3" and pulse3d_semver >= "0.28.3":
@@ -386,6 +386,7 @@ async def create_new_job(
             elif previous_semver_version >= "0.28.3" and pulse3d_semver < "0.28.3":
                 peak_valley_diff -= 1
 
+        # don't add params unless the selected pulse3d version supports it
         if pulse3d_semver >= "0.25.0":
             params.append("max_y")
         if pulse3d_semver >= "0.25.4":
@@ -400,6 +401,8 @@ async def create_new_job(
             params.append("peaks_valleys")
 
         details_dict = dict(details)
+        
+        # Luci (12-14-2022) the index difference needs to be added here because analyses run with versions < 0.28.2 need to be changed before getting added to the job queue. These jobs have the peaks and valleys added to the analysis params, later versions will be added to parquet file in s3
         if details.peaks_valleys:
             for well, peaks_valleys in details.peaks_valleys.items():
                 details_dict["peaks_valleys"][well] = [
@@ -425,8 +428,8 @@ async def create_new_job(
         priority = 10
         async with request.state.pgpool.acquire() as con:
             # first check user_id of upload matches user_id in token
-            # NOTE checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
-            # NOTE customer id is checked already because the customer_id in the token is being used to find upload details
+            # Luci (12-14-2022) checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
+            # Luci (12-14-2022) customer id is checked already because the customer_id in the token is being used to find upload details
             if "pulse3d:rw_all_data" not in user_scopes:
                 row = await con.fetchrow("SELECT user_id FROM uploads where id=$1", details.upload_id)
                 # if users don't match and they don't have an all_data scope, then raise unauth error
@@ -453,7 +456,7 @@ async def create_new_job(
             )
 
             # Luci (12/1/22): this happens after the job is already created to have access to the job id, hopefully this doesn't cause any issues with the job starting before the file is uploaded to s3
-            # Versions less than 0.28.0 should not be in the dropdown as an option, this is just an extra check for versions greater than 0.28.0
+            # Versions less than 0.28.2 should not be in the dropdown as an option, this is just an extra check for versions greater than 0.28.2
             if details.peaks_valleys and pulse3d_semver >= "0.28.2":
                 key = f"uploads/{customer_id}/{user_id}/{details.upload_id}/{job_id}/peaks_valleys.parquet"
                 logger.info(f"Peaks and valleys found in job request, uploading to s3: {key}")
@@ -466,8 +469,6 @@ async def create_new_job(
                     for well, peaks_valleys in details_dict["peaks_valleys"].items():
                         peak_valleys_dict[f"{well}__peaks"] = pd.Series(peaks_valleys[0])
                         peak_valleys_dict[f"{well}__valleys"] = pd.Series(peaks_valleys[1])
-                    # peak_valleys_dict[f"{well}__peaks"] = pd.Series(peaks_valleys[0]) + peak_valley_diff
-                    # peak_valleys_dict[f"{well}__valleys"] = pd.Series(peaks_valleys[1]) + peak_valley_diff
 
                     # write peaks and valleys to parquet file in temporary directory
                     pd.DataFrame(peak_valleys_dict).to_parquet(pv_parquet_path)
@@ -665,6 +666,8 @@ async def get_interactive_waveform_data(
                 recursive=True,
             )
 
+            
+            # Luci (12-14-2022) peaks_valleys will be none when interactive analysis is being run for the first time on the original analysis. There won't be any peaks or valleys found because nothing has been altered yet
             peaks_valleys_needed = (
                 len(pv_parquet_path) == 0 and analysis_params.get("peaks_valleys", None) is None
             )
@@ -710,7 +713,7 @@ async def get_interactive_waveform_data(
                     peaks, valleys = peak_detector(interpolated_well_data, **peak_detector_params)
                     # needs to be converted to lists to be sent as json in response
                     peaks_and_valleys[well] = [peaks.tolist(), valleys.tolist()]
-
+                
                 elif len(pv_parquet_path) == 1:
                     # need to remove nan values becuase peaks and valleys are different length lists
                     peaks = peak_valleys_df[f"{well}__peaks"].dropna().tolist()
@@ -725,6 +728,8 @@ async def get_interactive_waveform_data(
                     [time[i] / MICRO_TO_BASE_CONVERSION, val] for (i, val) in enumerate(well_force)
                 ]
 
+                
+            # Luci (12-14-2022) analysis_params["peaks_valleys"] will be a dictionary in version < 0.28.2 when peaks and valleys are only stored in this db column and not in s3
             if analysis_params.get("peaks_valleys", None) is not None and isinstance(
                 analysis_params["peaks_valleys"], dict
             ):
