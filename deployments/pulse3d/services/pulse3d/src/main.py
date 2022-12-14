@@ -435,17 +435,26 @@ async def create_new_job(
             # Luci (12/1/22): this happens after the job is already created to have access to the job id, hopefully this doesn't cause any issues with the job starting before the file is uploaded to s3
             # Versions less than 0.28.0 should not be in the dropdown as an option, this is just an extra check for versions greater than 0.28.0
             if details.peaks_valleys and pulse3d_semver >= "0.28.0":
-                key = f"uploads/{customer_id}/{user_id}/{details.upload_id}/{job_id}/peaks_valleys.parquet"
+                previous_semver_version = VersionInfo.parse(details.previous_version)
 
+                key = f"uploads/{customer_id}/{user_id}/{details.upload_id}/{job_id}/peaks_valleys.parquet"
                 logger.info(f"Peaks and valleys found in job request, uploading to s3: {key}")
+
+                peak_valley_diff = 0
+                if previous_semver_version != pulse3d_semver:
+                    if previous_semver_version < "0.28.3" and pulse3d_semver >= "0.28.3":
+                        peak_valley_diff += 1
+                    elif previous_semver_version >= "0.28.3" and pulse3d_semver < "0.28.3":
+                        peak_valley_diff -= 1
+
                 # only added during interactive analysis
                 with tempfile.TemporaryDirectory() as tmpdir:
                     pv_parquet_path = os.path.join(tmpdir, "peaks_valleys.parquet")
                     peak_valleys_dict = dict()
                     # format peaks and valleys to simple df
                     for well, peaks_valleys in details.peaks_valleys.items():
-                        peak_valleys_dict[f"{well}__peaks"] = pd.Series(peaks_valleys[0])
-                        peak_valleys_dict[f"{well}__valleys"] = pd.Series(peaks_valleys[1])
+                        peak_valleys_dict[f"{well}__peaks"] = pd.Series(peaks_valleys[0]) + peak_valley_diff
+                        peak_valleys_dict[f"{well}__valleys"] = pd.Series(peaks_valleys[1]) + peak_valley_diff
 
                     # write peaks and valleys to parquet file in temporary directory
                     pd.DataFrame(peak_valleys_dict).to_parquet(pv_parquet_path)
@@ -700,13 +709,9 @@ async def get_interactive_waveform_data(
                     [time[i] / MICRO_TO_BASE_CONVERSION, val] for (i, val) in enumerate(well_force)
                 ]
 
-                print(coordinates["A1"][:20])
-                print(len(coordinates["A1"]))
-
             return WaveformDataResponse(
                 coordinates=coordinates,
                 peaks_valleys=peaks_and_valleys,
-                orig_pulse3d_version=not peaks_valleys_needed,
             )
 
     except S3Error as e:

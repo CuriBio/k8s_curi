@@ -224,7 +224,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
           setOriginalData(res);
           setEditablePeaksValleys(res.peaks_valleys);
 
-          if (!res.orig_pulse3d_version) {
+          if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.0")) {
             setModalLabels(constantModalLabels.oldPulse3dVersion);
             setModalOpen("pulse3dWarning");
           }
@@ -350,6 +350,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
         start_time: editableStartEndTimes.startTime === xRange.min ? null : editableStartEndTimes.startTime,
         end_time: editableStartEndTimes.endTime === xRange.max ? null : editableStartEndTimes.endTime,
         version: filteredVersions[pulse3dVersionIdx],
+        previous_version: selectedJob.analysisParams.pulse3d_version,
       };
 
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
