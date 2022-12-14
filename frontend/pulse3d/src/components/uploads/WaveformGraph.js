@@ -151,8 +151,7 @@ export default function WaveformGraph({
   const [xZoomFactor, setXZoomFactor] = useState(1);
   const [yZoomFactor, setYZoomFactor] = useState(1);
   const [isduplicatesMap, setIsDuplicatesMap] = useState({});
-
-  useEffect(() => {
+  const checkDuplicates = () => {
     const peaksList = initialPeaksValleys[0];
     const valleysList = initialPeaksValleys[1];
     let peakIndex = 0;
@@ -199,6 +198,9 @@ export default function WaveformGraph({
     }
     setDuplicatesPresent(toggle);
     setIsDuplicatesMap(duplicatesMap);
+  };
+  useEffect(() => {
+    checkDuplicates();
   }, [initialPeaksValleys]);
 
   /* NOTE!! The order of the variables and functions in createGraph() are important to functionality.
@@ -443,15 +445,26 @@ export default function WaveformGraph({
 
       // assigns circle node new x and y coordinates based off drag event
       if (peakOrValley === "peak") {
-        d3.select(this).attr(
-          "transform",
-          "translate(" + x(d[0]) + "," + (y(dataToGraph[draggedIdx][1]) - 7) + ") rotate(180)"
-        );
+        d3.select(this)
+          .attr(
+            "transform",
+            "translate(" + x(d[0]) + "," + (y(dataToGraph[draggedIdx][1]) - 7) + ") rotate(180)"
+          )
+          .style("fill", (d) => {
+            return isduplicatesMap[d] ? "red" : "orange";
+          })
+          .attr("stroke", (d) => {
+            return isduplicatesMap[d] ? "red" : "orange";
+          });
       } else {
-        d3.select(this).attr(
-          "transform",
-          "translate(" + x(d[0]) + "," + (y(dataToGraph[draggedIdx][1]) + 7) + ")"
-        );
+        d3.select(this)
+          .attr("transform", "translate(" + x(d[0]) + "," + (y(dataToGraph[draggedIdx][1]) + 7) + ")")
+          .style("fill", (d) => {
+            return isduplicatesMap[d] ? "red" : "green";
+          })
+          .attr("stroke", (d) => {
+            return isduplicatesMap[d] ? "red" : "green";
+          });
       }
 
       // update the focus text with current x and y data points as user drags marker
@@ -462,7 +475,8 @@ export default function WaveformGraph({
         .style("opacity", 1);
     }
 
-    function dragEnded(d) {
+    async function dragEnded(d) {
+      await checkDuplicates();
       // Reduce marker radius and visual x/y markers once a user stops dragging.
       d3.select(this).attr("r", 6);
       focusText.style("opacity", 0);

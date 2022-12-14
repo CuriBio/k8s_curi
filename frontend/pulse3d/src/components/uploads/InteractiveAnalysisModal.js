@@ -119,7 +119,7 @@ const constantModalLabels = {
   },
   duplicate: {
     header: "Before Running Analysis!",
-    messages: ["Check no double peaks or valleys exist", "(Red Triangles)"],
+    messages: ["Check no double peaks or valleys exist.", "They are shown as red triangles above."],
     buttons: ["Close"],
   },
   oldPulse3dVersion: {
