@@ -369,7 +369,7 @@ export default function Uploads() {
 
       if (uploads.length > 0) {
         const statusUpdateInterval = setInterval(async () => {
-          if (!["downloading", "deleting"].includes(modalState)) {
+          if (!["downloading", "deleting"].includes(modalState) && !openInteractiveAnalysis) {
             await getAllJobs();
           }
         }, [1e4]);

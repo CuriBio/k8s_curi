@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext, useMemo } from "react";
 import DropDownWidget from "../basicWidgets/DropDownWidget";
 import WaveformGraph from "./WaveformGraph";
 import { WellTitle as LabwareDefinition } from "@/utils/labwareCalculations";
@@ -169,14 +169,10 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
 
   useEffect(() => {
-    console.log("LUCI");
     // only available for versions greater than 0.25.2
     const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.25.2"));
     setFilteredVersions([...compatibleVersions]);
-
-    // check sessionStorage for saved data
-    checkForExistingData();
-  }, [selectedJob]);
+  }, []);
 
   useEffect(() => {
     // updates changelog when peaks/valleys and start/end times change
@@ -226,6 +222,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
           setEditablePeaksValleys(res.peaks_valleys);
 
           if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.2")) {
+            console.log(modalLabels);
             setModalLabels(constantModalLabels.oldPulse3dVersion);
             setModalOpen("pulse3dWarning");
           }
@@ -261,6 +258,9 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
       getNewData();
     }
   };
+
+  // Luci (12-14-2022) this component gets mounted twice and we don't want this expensive function to request waveform data to be called twice. This ensures it is only called once per job selection
+  useMemo(checkForExistingData, [selectedJob]);
 
   const setInitialPeakValleyWindows = () => {
     const pvCopy = peakValleyWindows;
