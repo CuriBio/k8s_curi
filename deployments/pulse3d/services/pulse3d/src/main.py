@@ -401,7 +401,7 @@ async def create_new_job(
             params.append("peaks_valleys")
 
         details_dict = dict(details)
-        
+
         # Luci (12-14-2022) the index difference needs to be added here because analyses run with versions < 0.28.2 need to be changed before getting added to the job queue. These jobs have the peaks and valleys added to the analysis params, later versions will be added to parquet file in s3
         if details.peaks_valleys:
             for well, peaks_valleys in details.peaks_valleys.items():
@@ -666,7 +666,6 @@ async def get_interactive_waveform_data(
                 recursive=True,
             )
 
-            
             # Luci (12-14-2022) peaks_valleys will be none when interactive analysis is being run for the first time on the original analysis. There won't be any peaks or valleys found because nothing has been altered yet
             peaks_valleys_needed = (
                 len(pv_parquet_path) == 0 and analysis_params.get("peaks_valleys", None) is None
@@ -713,7 +712,7 @@ async def get_interactive_waveform_data(
                     peaks, valleys = peak_detector(interpolated_well_data, **peak_detector_params)
                     # needs to be converted to lists to be sent as json in response
                     peaks_and_valleys[well] = [peaks.tolist(), valleys.tolist()]
-                
+
                 elif len(pv_parquet_path) == 1:
                     # need to remove nan values becuase peaks and valleys are different length lists
                     peaks = peak_valleys_df[f"{well}__peaks"].dropna().tolist()
@@ -728,7 +727,6 @@ async def get_interactive_waveform_data(
                     [time[i] / MICRO_TO_BASE_CONVERSION, val] for (i, val) in enumerate(well_force)
                 ]
 
-                
             # Luci (12-14-2022) analysis_params["peaks_valleys"] will be a dictionary in version < 0.28.2 when peaks and valleys are only stored in this db column and not in s3
             if analysis_params.get("peaks_valleys", None) is not None and isinstance(
                 analysis_params["peaks_valleys"], dict
