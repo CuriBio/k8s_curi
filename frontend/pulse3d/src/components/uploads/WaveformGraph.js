@@ -139,6 +139,7 @@ export default function WaveformGraph({
   addPeakValley,
   openChangelog,
   undoLastChange,
+  setDuplicatesPresent,
 }) {
   const [valleys, setValleys] = useState([]);
   const [peaks, setPeaks] = useState([]);
@@ -150,6 +151,62 @@ export default function WaveformGraph({
   const [xZoomFactor, setXZoomFactor] = useState(1);
   const [yZoomFactor, setYZoomFactor] = useState(1);
 
+  const checkDuplicates = () => {
+    const peaksList = initialPeaksValleys[0].sort((a, b) => a - b);
+    const valleysList = initialPeaksValleys[1].sort((a, b) => a - b);
+    let peakIndex = 0;
+    let valleyIndex = 0;
+    const time = [];
+    const type = [];
+
+    // create two arrays one for type of data and one for the time of data
+    while (peakIndex < peaksList.length && valleyIndex < valleysList.length) {
+      if (peaksList[peakIndex] < valleysList[valleyIndex]) {
+        time.push(peaksList[peakIndex]);
+        type.push("peak");
+        peakIndex++;
+      } else if (valleysList[valleyIndex] < peaksList[peakIndex]) {
+        time.push(valleysList[valleyIndex]);
+        type.push("valley");
+        valleyIndex++;
+      } else {
+        //if equal
+        time.push(peaksList[peakIndex]);
+        type.push("peak");
+        peakIndex++;
+        time.push(valleysList[valleyIndex]);
+        type.push("valley");
+        valleyIndex++;
+      }
+    }
+    while (peakIndex !== peaksList.length) {
+      time.push(peaksList[peakIndex]);
+      type.push("peak");
+      peakIndex++;
+    }
+    while (valleyIndex !== valleysList.length) {
+      time.push(valleysList[valleyIndex]);
+      type.push("valley");
+      valleyIndex++;
+    }
+    //create a final map containing data point time as key
+    //and bool representing if marker is a duplicate as value
+    const duplicatesMap = {};
+    let toggle = false;
+    for (let i = 1; i < time.length; i++) {
+      if (type[i] === type[i + 1] || type[i] === type[i - 1]) {
+        duplicatesMap[time[i]] = true;
+        toggle = true;
+      } else {
+        duplicatesMap[time[i]] = false;
+      }
+    }
+    setDuplicatesPresent(toggle);
+    return duplicatesMap;
+  };
+  useEffect(() => {
+    checkDuplicates();
+  }, [initialPeaksValleys]);
   /* NOTE!! The order of the variables and functions in createGraph() are important to functionality.
      could eventually try to break this up, but it's more sensitive in react than vue */
   const createGraph = () => {
@@ -392,17 +449,28 @@ export default function WaveformGraph({
 
       // assigns circle node new x and y coordinates based off drag event
       if (peakOrValley === "peak") {
-        d3.select(this).attr(
-          "transform",
-          "translate(" + x(d[0]) + "," + (y(dataToGraph[draggedIdx][1]) - 7) + ") rotate(180)"
-        );
+        d3.select(this)
+          .attr(
+            "transform",
+            "translate(" + x(d[0]) + "," + (y(dataToGraph[draggedIdx][1]) - 7) + ") rotate(180)"
+          )
+          .style("fill", (d) => {
+            return checkDuplicates()[d] ? "red" : "orange";
+          })
+          .attr("stroke", (d) => {
+            return checkDuplicates()[d] ? "red" : "orange";
+          });
       } else {
-        d3.select(this).attr(
-          "transform",
-          "translate(" + x(d[0]) + "," + (y(dataToGraph[draggedIdx][1]) + 7) + ")"
-        );
+        d3.select(this)
+          .attr("transform", "translate(" + x(d[0]) + "," + (y(dataToGraph[draggedIdx][1]) + 7) + ")")
+          .style("fill", (d) => {
+            return checkDuplicates()[d] ? "red" : "green";
+          })
+          .attr("stroke", (d) => {
+            return checkDuplicates()[d] ? "red" : "green";
+          });
       }
-
+      checkDuplicates();
       // update the focus text with current x and y data points as user drags marker
       focusText
         .html("[ " + d[0].toFixed(2) + ", " + dataToGraph[draggedIdx][1].toFixed(2) + " ]")
@@ -431,6 +499,7 @@ export default function WaveformGraph({
         valleys.splice(indexToChange, 1, newSelectedIndex);
         setValleys([...valleys]); // required to change dependencies
       }
+      checkDuplicates();
     }
     // graph all the peak markers
     svg
@@ -444,8 +513,12 @@ export default function WaveformGraph({
       .attr("transform", (d) => {
         return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) - 7) + ") rotate(180)";
       })
-      .style("fill", "orange")
-      .attr("stroke", "orange")
+      .style("fill", (d) => {
+        return checkDuplicates()[d] ? "red" : "orange";
+      })
+      .attr("stroke", (d) => {
+        return checkDuplicates()[d] ? "red" : "orange";
+      })
       .style("cursor", "pointer")
       .style("display", (d) => {
         // only display them inside windowed analysis times
@@ -464,6 +537,7 @@ export default function WaveformGraph({
           .style("display", "block");
       })
       .call(d3.drag().on("start", dragStarted).on("drag", dragging).on("end", dragEnded));
+
     // graph all the valley markers
 
     svg
@@ -477,15 +551,18 @@ export default function WaveformGraph({
       .attr("transform", (d) => {
         return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) + 7) + ")";
       })
-      .style("fill", "green")
-      .attr("stroke", "green")
+      .style("fill", (d) => {
+        return checkDuplicates()[d] ? "red" : "green";
+      })
+      .attr("stroke", (d) => {
+        return checkDuplicates()[d] ? "red" : "green";
+      })
       .style("cursor", "pointer")
       .style("display", (d) => {
         // only display them inside windowed analysis times
         const xTime = dataToGraph[d][0];
         return xTime > xMax || xTime < xMin ? "none" : null;
       })
-      .call(d3.drag().on("start", dragStarted).on("drag", dragging).on("end", dragEnded))
       .on("contextmenu", (e, i) => {
         e.preventDefault();
         setMenuItems(contextMenuItems.moveDelete);
@@ -496,7 +573,8 @@ export default function WaveformGraph({
           .style("left", e.layerX + 80 + "px") // layer does not take in scroll component so x and y stay within visible window
           .style("top", e.layerY + 50 + "px")
           .style("display", "block");
-      });
+      })
+      .call(d3.drag().on("start", dragStarted).on("drag", dragging).on("end", dragEnded));
 
     /* --------------------------------------
       START AND END TIME LINES
@@ -621,7 +699,6 @@ export default function WaveformGraph({
     const contextMenu = d3.select("#contextmenu");
     const stringNode = contextMenu.attr("target");
     const targetIdx = parseFloat(stringNode);
-
     if (target.id === "Delete") {
       const peakValley = contextMenu.attr("type");
       deletePeakValley(peakValley, targetIdx);
