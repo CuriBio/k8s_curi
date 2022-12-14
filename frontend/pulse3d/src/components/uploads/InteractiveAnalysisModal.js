@@ -615,7 +615,6 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
               inProgress={uploadInProgress}
               clickFn={() => {
                 if (duplicatesPresent) {
-                  console.log(duplicatesPresent);
                   setModalLabels(constantModalLabels.duplicate);
                   setModalOpen("duplicate");
                 } else {
