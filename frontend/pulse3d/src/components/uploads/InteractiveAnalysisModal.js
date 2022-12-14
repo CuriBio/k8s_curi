@@ -157,6 +157,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   const [changelog, setChangelog] = useState({});
   const [openChangelog, setOpenChangelog] = useState(false);
   const [undoing, setUndoing] = useState(false);
+  const [duplicatesPresent, setDuplicatesPresent] = useState(false);
 
   const [xRange, setXRange] = useState({
     min: null,
@@ -285,9 +286,6 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     // reset state
     setEditablePeaksValleys(peaksValleysCopy);
     setChangelog(changelogCopy);
-  };
-  const checkDuplicateFeatures = () => {
-    return false;
   };
 
   const postNewJob = async () => {
@@ -563,6 +561,9 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
               addPeakValley={addPeakValley}
               openChangelog={() => setOpenChangelog(true)}
               undoLastChange={undoLastChange}
+              setDuplicatesPresent={(newValue) => {
+                setDuplicatesPresent(newValue);
+              }}
             />
           </GraphContainer>
           <ErrorLabel>{errorMessage}</ErrorLabel>
@@ -613,11 +614,12 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
               disabled={uploadInProgress}
               inProgress={uploadInProgress}
               clickFn={() => {
-                if (checkDuplicateFeatures()) {
-                  postNewJob();
-                } else {
+                if (duplicatesPresent) {
+                  console.log(duplicatesPresent);
                   setModalLabels(constantModalLabels.duplicate);
                   setModalOpen("duplicate");
+                } else {
+                  postNewJob();
                 }
               }}
             />

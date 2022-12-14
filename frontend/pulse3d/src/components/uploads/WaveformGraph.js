@@ -139,6 +139,7 @@ export default function WaveformGraph({
   addPeakValley,
   openChangelog,
   undoLastChange,
+  setDuplicatesPresent,
 }) {
   const [valleys, setValleys] = useState([]);
   const [peaks, setPeaks] = useState([]);
@@ -184,16 +185,19 @@ export default function WaveformGraph({
     //create a final map containing data point time as key
     //and bool representing if marker is a duplicate as value
     const duplicatesMap = {};
+    let toggle = false;
     for (let i = 0; i < time.length - 1; i++) {
       //true if duplicate false if not
       if (type[i] === type[i + 1]) {
         duplicatesMap[time[i]] = true;
         duplicatesMap[time[i + 1]] = true;
+        toggle = true;
         i++;
       } else {
         duplicatesMap[time[i]] = false;
       }
     }
+    setDuplicatesPresent(toggle);
     setIsDuplicatesMap(duplicatesMap);
   }, [initialPeaksValleys]);
 
