@@ -149,6 +149,53 @@ export default function WaveformGraph({
   const [cursorLoc, setCursorLoc] = useState([0, 0]);
   const [xZoomFactor, setXZoomFactor] = useState(1);
   const [yZoomFactor, setYZoomFactor] = useState(1);
+  const [isduplicatesMap, setIsDuplicatesMap] = useState({});
+
+  useEffect(() => {
+    const peaksList = initialPeaksValleys[0];
+    const valleysList = initialPeaksValleys[1];
+    let peakIndex = 0;
+    let valleyIndex = 0;
+    const time = [];
+    const type = [];
+
+    // create two arrays one for type of data and one for the time of data
+    while (peakIndex < peaksList.length && valleyIndex < valleysList.length) {
+      if (peaksList[peakIndex] < valleysList[valleyIndex]) {
+        time.push(peaksList[peakIndex]);
+        type.push("peak");
+        peakIndex++;
+      } else if (valleysList[valleyIndex] < peaksList[peakIndex]) {
+        time.push(valleysList[valleyIndex]);
+        type.push("valley");
+        valleyIndex++;
+      }
+    }
+    while (peakIndex !== peaksList.length) {
+      time.push(peaksList[peakIndex]);
+      type.push("peak");
+      peakIndex++;
+    }
+    while (valleyIndex !== valleysList.length) {
+      time.push(valleysList[valleyIndex]);
+      type.push("valley");
+      valleyIndex++;
+    }
+    //create a final map containing data point time as key
+    //and bool representing if marker is a duplicate as value
+    const duplicatesMap = {};
+    for (let i = 0; i < time.length - 1; i++) {
+      //true if duplicate false if not
+      if (type[i] === type[i + 1]) {
+        duplicatesMap[time[i]] = true;
+        duplicatesMap[time[i + 1]] = true;
+        i++;
+      } else {
+        duplicatesMap[time[i]] = false;
+      }
+    }
+    setIsDuplicatesMap(duplicatesMap);
+  }, [initialPeaksValleys]);
 
   /* NOTE!! The order of the variables and functions in createGraph() are important to functionality.
      could eventually try to break this up, but it's more sensitive in react than vue */
@@ -444,8 +491,12 @@ export default function WaveformGraph({
       .attr("transform", (d) => {
         return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) - 7) + ") rotate(180)";
       })
-      .style("fill", "orange")
-      .attr("stroke", "orange")
+      .style("fill", (d) => {
+        return isduplicatesMap[d] ? "red" : "orange";
+      })
+      .attr("stroke", (d) => {
+        return isduplicatesMap[d] ? "red" : "orange";
+      })
       .style("cursor", "pointer")
       .style("display", (d) => {
         // only display them inside windowed analysis times
@@ -477,8 +528,12 @@ export default function WaveformGraph({
       .attr("transform", (d) => {
         return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) + 7) + ")";
       })
-      .style("fill", "green")
-      .attr("stroke", "green")
+      .style("fill", (d) => {
+        return isduplicatesMap[d] ? "red" : "green";
+      })
+      .attr("stroke", (d) => {
+        return isduplicatesMap[d] ? "red" : "green";
+      })
       .style("cursor", "pointer")
       .style("display", (d) => {
         // only display them inside windowed analysis times

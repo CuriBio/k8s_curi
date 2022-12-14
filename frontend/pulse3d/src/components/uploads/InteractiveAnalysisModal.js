@@ -119,7 +119,7 @@ const constantModalLabels = {
   },
   duplicate: {
     header: "Before Running Analysis!",
-    messages: ["Check no double peaks or valleys exist"],
+    messages: ["Check no double peaks or valleys exist", "(Red Triangles)"],
     buttons: ["Close"],
   },
   oldPulse3dVersion: {
@@ -157,7 +157,6 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   const [changelog, setChangelog] = useState({});
   const [openChangelog, setOpenChangelog] = useState(false);
   const [undoing, setUndoing] = useState(false);
-  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
 
   const [xRange, setXRange] = useState({
     min: null,

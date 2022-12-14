@@ -52,7 +52,7 @@ export default function ModalWidget({
   const [disabled, setDisabled] = useState(false);
 
   useEffect(() => {
-    // whem modal toggles open change, make sure to reset disabled buttons
+    // when modal toggles open change, make sure to reset disabled buttons
     // important when a series of modals is used and just labels change
     setDisabled(false);
   }, [open, labels]);
