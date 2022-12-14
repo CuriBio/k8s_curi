@@ -169,7 +169,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
 
   useEffect(() => {
-    console.log("LUCI")
+    console.log("LUCI");
     // only available for versions greater than 0.25.2
     const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.25.2"));
     setFilteredVersions([...compatibleVersions]);
