@@ -124,7 +124,7 @@ const constantModalLabels = {
     header: "Warning!",
     messages: [
       "Interactive analysis is using a newer version of Pulse3D than the version originally used on this recording. Peaks and valleys may be slightly different.",
-      "Please re-analyze this recording using a Pulse3D version greater than 0.28.0 or continue.",
+      "Please re-analyze this recording using a Pulse3D version greater than 0.28.2 or continue.",
     ],
     buttons: ["Close"],
   },
@@ -169,6 +169,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
 
   useEffect(() => {
+    console.log("LUCI")
     // only available for versions greater than 0.25.2
     const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.25.2"));
     setFilteredVersions([...compatibleVersions]);
@@ -224,7 +225,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
           setOriginalData(res);
           setEditablePeaksValleys(res.peaks_valleys);
 
-          if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.0")) {
+          if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.2")) {
             setModalLabels(constantModalLabels.oldPulse3dVersion);
             setModalOpen("pulse3dWarning");
           }

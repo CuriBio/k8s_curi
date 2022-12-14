@@ -373,7 +373,19 @@ async def create_new_job(
         ]
 
         # don't add params unless the selected pulse3d version supports it
+        previous_semver_version = (
+            VersionInfo.parse(details.previous_version) if details.previous_version else None
+        )
+
         pulse3d_semver = VersionInfo.parse(details.version)
+
+        peak_valley_diff = 0
+        if previous_semver_version is not None and previous_semver_version != pulse3d_semver:
+            if previous_semver_version < "0.28.3" and pulse3d_semver >= "0.28.3":
+                peak_valley_diff += 1
+            elif previous_semver_version >= "0.28.3" and pulse3d_semver < "0.28.3":
+                peak_valley_diff -= 1
+
         if pulse3d_semver >= "0.25.0":
             params.append("max_y")
         if pulse3d_semver >= "0.25.4":
@@ -384,12 +396,20 @@ async def create_new_job(
             params.append("inverted_post_magnet_wells")
         if pulse3d_semver >= "0.28.1":
             params.append("include_stim_protocols")
-        if "0.28.0" > pulse3d_semver >= "0.25.2":
+        if "0.28.2" > pulse3d_semver >= "0.25.2":
             params.append("peaks_valleys")
 
         details_dict = dict(details)
+        if details.peaks_valleys:
+            for well, peaks_valleys in details.peaks_valleys.items():
+                details_dict["peaks_valleys"][well] = [
+                    [p + peak_valley_diff for p in peaks_valleys[0]],
+                    [v + peak_valley_diff for v in peaks_valleys[1]],
+                ]
+
         analysis_params = {param: details_dict[param] for param in params}
-        if pulse3d_semver >= "0.28.0" and details.peaks_valleys:
+
+        if pulse3d_semver >= "0.28.2" and details.peaks_valleys:
             # Luci (12/10/22): this param set to True is used to signify to the FE that peaks and valleys have been edited to display under the analysis params column in the uploads table, but don't append actual peaks and valleys to prevent cluttering the database with large lists
             analysis_params["peaks_valleys"] = True
         # convert these params into a format compatible with pulse3D
@@ -434,27 +454,20 @@ async def create_new_job(
 
             # Luci (12/1/22): this happens after the job is already created to have access to the job id, hopefully this doesn't cause any issues with the job starting before the file is uploaded to s3
             # Versions less than 0.28.0 should not be in the dropdown as an option, this is just an extra check for versions greater than 0.28.0
-            if details.peaks_valleys and pulse3d_semver >= "0.28.0":
-                previous_semver_version = VersionInfo.parse(details.previous_version)
-
+            if details.peaks_valleys and pulse3d_semver >= "0.28.2":
                 key = f"uploads/{customer_id}/{user_id}/{details.upload_id}/{job_id}/peaks_valleys.parquet"
                 logger.info(f"Peaks and valleys found in job request, uploading to s3: {key}")
-
-                peak_valley_diff = 0
-                if previous_semver_version != pulse3d_semver:
-                    if previous_semver_version < "0.28.3" and pulse3d_semver >= "0.28.3":
-                        peak_valley_diff += 1
-                    elif previous_semver_version >= "0.28.3" and pulse3d_semver < "0.28.3":
-                        peak_valley_diff -= 1
 
                 # only added during interactive analysis
                 with tempfile.TemporaryDirectory() as tmpdir:
                     pv_parquet_path = os.path.join(tmpdir, "peaks_valleys.parquet")
                     peak_valleys_dict = dict()
                     # format peaks and valleys to simple df
-                    for well, peaks_valleys in details.peaks_valleys.items():
-                        peak_valleys_dict[f"{well}__peaks"] = pd.Series(peaks_valleys[0]) + peak_valley_diff
-                        peak_valleys_dict[f"{well}__valleys"] = pd.Series(peaks_valleys[1]) + peak_valley_diff
+                    for well, peaks_valleys in details_dict["peaks_valleys"].items():
+                        peak_valleys_dict[f"{well}__peaks"] = pd.Series(peaks_valleys[0])
+                        peak_valleys_dict[f"{well}__valleys"] = pd.Series(peaks_valleys[1])
+                    # peak_valleys_dict[f"{well}__peaks"] = pd.Series(peaks_valleys[0]) + peak_valley_diff
+                    # peak_valleys_dict[f"{well}__valleys"] = pd.Series(peaks_valleys[1]) + peak_valley_diff
 
                     # write peaks and valleys to parquet file in temporary directory
                     pd.DataFrame(peak_valleys_dict).to_parquet(pv_parquet_path)
@@ -652,7 +665,10 @@ async def get_interactive_waveform_data(
                 recursive=True,
             )
 
-            peaks_valleys_needed = len(pv_parquet_path) == 0
+            peaks_valleys_needed = (
+                len(pv_parquet_path) == 0 and analysis_params.get("peaks_valleys", None) is None
+            )
+
             if not peaks_valleys_needed:
                 peak_valleys_df = pd.read_parquet(pv_parquet_path)
 
@@ -695,7 +711,7 @@ async def get_interactive_waveform_data(
                     # needs to be converted to lists to be sent as json in response
                     peaks_and_valleys[well] = [peaks.tolist(), valleys.tolist()]
 
-                else:
+                elif len(pv_parquet_path) == 1:
                     # need to remove nan values becuase peaks and valleys are different length lists
                     peaks = peak_valleys_df[f"{well}__peaks"].dropna().tolist()
                     valleys = peak_valleys_df[f"{well}__valleys"].dropna().tolist()
@@ -708,6 +724,11 @@ async def get_interactive_waveform_data(
                 coordinates[well] = [
                     [time[i] / MICRO_TO_BASE_CONVERSION, val] for (i, val) in enumerate(well_force)
                 ]
+
+            if analysis_params.get("peaks_valleys", None) is not None and isinstance(
+                analysis_params["peaks_valleys"], dict
+            ):
+                peaks_and_valleys = analysis_params["peaks_valleys"]
 
             return WaveformDataResponse(
                 coordinates=coordinates,

@@ -802,7 +802,7 @@ export default function Uploads() {
 
   return (
     <>
-      {!openInteractiveAnalysis ? (
+      {!openInteractiveAnalysis && (
         <PageContainer>
           <TableContainer>
             <DataTable
@@ -873,7 +873,8 @@ export default function Uploads() {
             />
           </TableContainer>
         </PageContainer>
-      ) : (
+      )}
+      {openInteractiveAnalysis && (
         <InteractiveAnalysisContainer>
           <InteractiveAnalysisModal
             selectedJob={selectedAnalysis}
