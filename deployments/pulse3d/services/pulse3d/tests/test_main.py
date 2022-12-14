@@ -589,6 +589,140 @@ def test_jobs__post__basic_params_given(mocker, mocked_asyncpg_con):
     assert mocked_create_job.call_args[1]["meta"]["analysis_params"] == expected_analysis_params
 
 
+@pytest.mark.parametrize(
+    "previous_version,version,expected_diff",
+    [("0.28.3", "0.28.2", -1), ("0.28.2", "0.28.3", 1), ("0.28.3", "0.28.3", 0), ("0.28.2", "0.28.2", 0)],
+)
+def test_jobs__post__correctly_updates_peak_valley_indices_based_on_differing_pulse3d_versions_greater_than_0_28_2(
+    mocker, mocked_asyncpg_con, previous_version, version, expected_diff
+):
+
+    initial_peaks_valleys = {"A1": [[1, 3, 5], [2, 4]], "B1": [[6, 8], [7]]}
+    test_analysis_params = {
+        "previous_version": previous_version,
+        "version": version,
+        "peaks_valleys": initial_peaks_valleys,
+    }
+    test_user_id = uuid.uuid4()
+
+    access_token = get_token(scope=["pulse3d:free"], userid=test_user_id, account_type="user")
+    mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
+    mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
+    mocker.patch.object(main, "upload_file_to_s3", autospec=True)
+    spied_dataframe = mocker.spy(pd, "DataFrame")
+
+    mocker.patch.object(
+        main,
+        "check_customer_quota",
+        return_value={"jobs_reached": False, "uploads_reached": False},
+        autospec=True,
+    )
+
+    kwargs = {
+        "json": {
+            "upload_id": str(uuid.uuid4()),
+            "version": random_semver(max_version="0.24.0"),
+            **test_analysis_params,
+        },
+        "headers": {"Authorization": f"Bearer {access_token}"},
+    }
+    response = test_client.post("/jobs", **kwargs)
+    assert response.status_code == 200
+
+    for well, peaks_valleys in initial_peaks_valleys.items():
+        assert spied_dataframe.spy_return[f"{well}__peaks"].dropna().tolist() == [
+            p + expected_diff for p in peaks_valleys[0]
+        ]
+        assert spied_dataframe.spy_return[f"{well}__valleys"].dropna().tolist() == [
+            v + expected_diff for v in peaks_valleys[1]
+        ]
+
+
+@pytest.mark.parametrize(
+    "previous_version,version,expected_peaks_valleys",
+    [
+        ("0.28.3", "0.28.0", {"A1": [[0, 2, 4], [1, 3]], "B1": [[5, 7], [6]]}),
+        ("0.27.1", "0.28.0", {"A1": [[1, 3, 5], [2, 4]], "B1": [[6, 8], [7]]}),
+        ("0.25.4", "0.25.4", {"A1": [[1, 3, 5], [2, 4]], "B1": [[6, 8], [7]]}),
+        ("0.28.0", "0.28.2", True),
+        ("0.28.0", "0.28.3", True),
+    ],
+)
+def test_jobs__post__correctly_updates_peak_valley_indices_based_on_differing_pulse3d_versions_less_than_0_28_2(
+    mocker, mocked_asyncpg_con, previous_version, version, expected_peaks_valleys
+):
+
+    initial_peaks_valleys = {"A1": [[1, 3, 5], [2, 4]], "B1": [[6, 8], [7]]}
+    test_analysis_params = {
+        "previous_version": previous_version,
+        "version": version,
+        "peaks_valleys": initial_peaks_valleys,
+    }
+    test_user_id = uuid.uuid4()
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(
+        scope=["pulse3d:free"], userid=test_user_id, account_type="user", customer_id=test_customer_id
+    )
+    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
+    mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
+
+    mocker.patch.object(
+        main,
+        "check_customer_quota",
+        return_value={"jobs_reached": False, "uploads_reached": False},
+        autospec=True,
+    )
+
+    test_upload_id = uuid.uuid4()
+    kwargs = {
+        "json": {
+            "upload_id": str(test_upload_id),
+            "version": random_semver(max_version="0.24.0"),
+            **test_analysis_params,
+        },
+        "headers": {"Authorization": f"Bearer {access_token}"},
+    }
+    response = test_client.post("/jobs", **kwargs)
+    assert response.status_code == 200
+
+    expected_analysis_param_keys = [
+        "baseline_widths_to_use",
+        "prominence_factors",
+        "width_factors",
+        "twitch_widths",
+        "start_time",
+        "end_time",
+    ]
+
+    pulse3d_semver = VersionInfo.parse(version)
+    if pulse3d_semver >= "0.25.0":
+        expected_analysis_param_keys.append("max_y")
+    if pulse3d_semver >= "0.25.4":
+        expected_analysis_param_keys.append("normalize_y_axis")
+    if pulse3d_semver >= "0.26.0":
+        expected_analysis_param_keys.append("stiffness_factor")
+    if pulse3d_semver >= "0.27.4":
+        expected_analysis_param_keys.append("inverted_post_magnet_wells")
+    if pulse3d_semver >= "0.28.1":
+        expected_analysis_param_keys.append(
+            "include_stim_protocols",
+        )
+
+    expected_analysis_params = {param: None for param in expected_analysis_param_keys}
+
+    expected_analysis_params["peaks_valleys"] = expected_peaks_valleys
+
+    mocked_create_job.assert_called_with(
+        con=mocked_asyncpg_con,
+        upload_id=test_upload_id,
+        queue=f"pulse3d-v{version}",
+        priority=10,
+        meta={"analysis_params": expected_analysis_params, "version": version},
+        customer_id=str(test_customer_id),
+        job_type="pulse3d",
+    )
+
+
 def test_jobs__post__uploads_peaks_and_valleys_when_passed_into_request(mocker, mocked_asyncpg_con):
     test_peaks_valleys = dict()
     random_list = [int(x) for x in np.random.randint(low=0, high=100, size=5)]

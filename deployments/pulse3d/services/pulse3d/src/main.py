@@ -378,7 +378,7 @@ async def create_new_job(
 
         pulse3d_semver = VersionInfo.parse(details.version)
 
-        # Luci (12-14-2022) PlateRecording.to_dataframe() was updated in 0.28.3 to include 0.0 timepoint so this accounts for the index difference between versions
+        # Luci (12/14/2022) PlateRecording.to_dataframe() was updated in 0.28.3 to include 0.0 timepoint so this accounts for the index difference between versions
         peak_valley_diff = 0
         if previous_semver_version is not None and previous_semver_version != pulse3d_semver:
             if previous_semver_version < "0.28.3" and pulse3d_semver >= "0.28.3":
@@ -402,7 +402,7 @@ async def create_new_job(
 
         details_dict = dict(details)
 
-        # Luci (12-14-2022) the index difference needs to be added here because analyses run with versions < 0.28.2 need to be changed before getting added to the job queue. These jobs have the peaks and valleys added to the analysis params, later versions will be added to parquet file in s3
+        # Luci (12/14/2022) the index difference needs to be added here because analyses run with versions < 0.28.2 need to be changed before getting added to the job queue. These jobs have the peaks and valleys added to the analysis params, later versions will be added to parquet file in s3
         if details.peaks_valleys:
             for well, peaks_valleys in details.peaks_valleys.items():
                 details_dict["peaks_valleys"][well] = [
@@ -412,6 +412,7 @@ async def create_new_job(
 
         analysis_params = {param: details_dict[param] for param in params}
 
+        # Luci (12/14/2022) you don't want to replace the peaks and valleys in details_dict or details because the peaks and valleys will be used later so adding to analysis params here
         if pulse3d_semver >= "0.28.2" and details.peaks_valleys:
             # Luci (12/10/22): this param set to True is used to signify to the FE that peaks and valleys have been edited to display under the analysis params column in the uploads table, but don't append actual peaks and valleys to prevent cluttering the database with large lists
             analysis_params["peaks_valleys"] = True
@@ -428,8 +429,8 @@ async def create_new_job(
         priority = 10
         async with request.state.pgpool.acquire() as con:
             # first check user_id of upload matches user_id in token
-            # Luci (12-14-2022) checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
-            # Luci (12-14-2022) customer id is checked already because the customer_id in the token is being used to find upload details
+            # Luci (12/14/2022) checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
+            # Luci (12/14/2022) customer id is checked already because the customer_id in the token is being used to find upload details
             if "pulse3d:rw_all_data" not in user_scopes:
                 row = await con.fetchrow("SELECT user_id FROM uploads where id=$1", details.upload_id)
                 # if users don't match and they don't have an all_data scope, then raise unauth error
@@ -666,7 +667,7 @@ async def get_interactive_waveform_data(
                 recursive=True,
             )
 
-            # Luci (12-14-2022) peaks_valleys will be none when interactive analysis is being run for the first time on the original analysis. There won't be any peaks or valleys found because nothing has been altered yet
+            # Luci (12/14/2022) peaks_valleys will be none when interactive analysis is being run for the first time on the original analysis. There won't be any peaks or valleys found because nothing has been altered yet
             peaks_valleys_needed = (
                 len(pv_parquet_path) == 0 and analysis_params.get("peaks_valleys", None) is None
             )
@@ -727,7 +728,7 @@ async def get_interactive_waveform_data(
                     [time[i] / MICRO_TO_BASE_CONVERSION, val] for (i, val) in enumerate(well_force)
                 ]
 
-            # Luci (12-14-2022) analysis_params["peaks_valleys"] will be a dictionary in version < 0.28.2 when peaks and valleys are only stored in this db column and not in s3
+            # Luci (12/14/2022) analysis_params["peaks_valleys"] will be a dictionary in version < 0.28.2 when peaks and valleys are only stored in this db column and not in s3
             if analysis_params.get("peaks_valleys", None) is not None and isinstance(
                 analysis_params["peaks_valleys"], dict
             ):
