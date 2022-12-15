@@ -651,6 +651,7 @@ export default function WaveformGraph({
         const time = d3.select(this).attr("id");
         const xPosition = d3.select(this).attr("x1");
         const newTimeSec = parseFloat(x.invert(xPosition).toFixed(2));
+
         if (time === "startTime") {
           setNewStartTime(newTimeSec);
           // update peaks and valley windows to only be within the windowed analysis window
