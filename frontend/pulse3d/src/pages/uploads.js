@@ -548,7 +548,7 @@ export default function Uploads() {
       downloadAnalyses();
     } else if (modalButtons[idx] === "Confirm") {
       const ownerCheck = await checkOwnerOfFiles();
-      if (!ownerCheck) {
+      if (!ownerCheck && accountType !== "admin") {
         // set in progress
         setModalLabels(modalObjs.unauthorizedDelete);
         setModalButtons(["Close", "Proceed"]);
