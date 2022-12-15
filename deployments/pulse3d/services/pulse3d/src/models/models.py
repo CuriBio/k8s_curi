@@ -19,6 +19,7 @@ class UploadResponse(BaseModel):
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
     version: str
+    previous_version: Optional[str]
 
     normalize_y_axis: Optional[bool]
     include_stim_protocols: Optional[bool]

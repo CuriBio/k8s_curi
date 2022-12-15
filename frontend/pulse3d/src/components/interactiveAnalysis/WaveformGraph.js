@@ -8,13 +8,14 @@ import MenuItem from "@mui/material/MenuItem";
 import ButtonWidget from "../basicWidgets/ButtonWidget";
 
 const Container = styled.div`
-  width: 1270px;
+  width: 1260px;
   height: 320px;
   background-color: white;
   overflow-x: scroll;
-  overflow-y: hidden;
+  overflow-y: scroll;
   position: relative;
   left: 50px;
+  bottom: 0px;
   border-radius: 7px;
   display: flex;
   flex-direction: row;
@@ -35,6 +36,7 @@ const CursorLocLabel = styled.div`
   font-size: 15px;
   position: absolute;
   left: 1100px;
+  cursor: default;
 `;
 
 const TooltipText = styled.span`
@@ -97,6 +99,7 @@ const HowTo = styled.div`
   line-height: 1.5;
   justify-content: space-between;
   padding-right: 10px;
+  cursor: default;
 `;
 
 const ContextMenuContainer = styled.div`
@@ -139,6 +142,8 @@ export default function WaveformGraph({
   addPeakValley,
   openChangelog,
   undoLastChange,
+  peakValleyWindows,
+  setPeakValleyWindows,
   setDuplicatesPresent,
 }) {
   const [valleys, setValleys] = useState([]);
@@ -151,62 +156,6 @@ export default function WaveformGraph({
   const [xZoomFactor, setXZoomFactor] = useState(1);
   const [yZoomFactor, setYZoomFactor] = useState(1);
 
-  const checkDuplicates = () => {
-    const peaksList = initialPeaksValleys[0].sort((a, b) => a - b);
-    const valleysList = initialPeaksValleys[1].sort((a, b) => a - b);
-    let peakIndex = 0;
-    let valleyIndex = 0;
-    const time = [];
-    const type = [];
-
-    // create two arrays one for type of data and one for the time of data
-    while (peakIndex < peaksList.length && valleyIndex < valleysList.length) {
-      if (peaksList[peakIndex] < valleysList[valleyIndex]) {
-        time.push(peaksList[peakIndex]);
-        type.push("peak");
-        peakIndex++;
-      } else if (valleysList[valleyIndex] < peaksList[peakIndex]) {
-        time.push(valleysList[valleyIndex]);
-        type.push("valley");
-        valleyIndex++;
-      } else {
-        //if equal
-        time.push(peaksList[peakIndex]);
-        type.push("peak");
-        peakIndex++;
-        time.push(valleysList[valleyIndex]);
-        type.push("valley");
-        valleyIndex++;
-      }
-    }
-    while (peakIndex !== peaksList.length) {
-      time.push(peaksList[peakIndex]);
-      type.push("peak");
-      peakIndex++;
-    }
-    while (valleyIndex !== valleysList.length) {
-      time.push(valleysList[valleyIndex]);
-      type.push("valley");
-      valleyIndex++;
-    }
-    //create a final map containing data point time as key
-    //and bool representing if marker is a duplicate as value
-    const duplicatesMap = {};
-    let toggle = false;
-    for (let i = 1; i < time.length; i++) {
-      if (type[i] === type[i + 1] || type[i] === type[i - 1]) {
-        duplicatesMap[time[i]] = true;
-        toggle = true;
-      } else {
-        duplicatesMap[time[i]] = false;
-      }
-    }
-    setDuplicatesPresent(toggle);
-    return duplicatesMap;
-  };
-  useEffect(() => {
-    checkDuplicates();
-  }, [initialPeaksValleys]);
   /* NOTE!! The order of the variables and functions in createGraph() are important to functionality.
      could eventually try to break this up, but it's more sensitive in react than vue */
   const createGraph = () => {
@@ -222,36 +171,28 @@ export default function WaveformGraph({
     const xMax = xRange.max ? xRange.max : maxTime;
 
     const margin = { top: 20, right: 20, bottom: 30, left: 50 },
-      width = 1270 - margin.left - margin.right,
+      width = 1245 - margin.left - margin.right,
       height = 300 - margin.top - margin.bottom;
 
     // TODO handle if zoom becomes smaller than smallest component width
-    const dynamicWidth = width * xZoomFactor;
-
+    const dynamicWidth = width * xZoomFactor < width ? width : width * xZoomFactor;
+    const dynamicHeight = height * yZoomFactor < height ? height : height * yZoomFactor;
     // Add X axis and Y axis
     const x = d3.scaleLinear().range([0, dynamicWidth]).domain([xMin, xMax]);
 
-    // add .1 extra to y max and y min to auto scale the graph a little outside of true max and mins
-    const yRange =
-      d3.max(dataToGraph, (d) => {
-        return d[1] * yZoomFactor;
-      }) * 0.2;
+    // add .15 extra to y max and y min to auto scale the graph a little outside of true max and mins
+    const yMax = d3.max(dataToGraph, (d) => d[1]);
+    const yMin = d3.min(dataToGraph, (d) => d[1]);
+    const yRange = yMax * 0.15;
 
     const y = d3
       .scaleLinear()
-      .range([height, 0])
-      .domain([
-        d3.min(dataToGraph, (d) => {
-          return d[1] * yZoomFactor;
-        }) - yRange,
-        d3.max(dataToGraph, (d) => {
-          return d[1] * yZoomFactor;
-        }) + yRange,
-      ]);
-
+      .range([dynamicHeight, 0])
+      .domain([yMin - yRange, yMax + yRange]);
     // calculate start and end times in pixels. If windowed time found, use, else recording max and min
     const initialStartTime = x(startTime ? startTime : xMin);
     const initialEndTime = x(endTime ? endTime : maxTime);
+
     // waveform line
     const dataLine = d3
       .line()
@@ -270,12 +211,12 @@ export default function WaveformGraph({
       .select("#waveformGraph")
       .append("svg")
       .attr("width", dynamicWidth + margin.left + margin.right)
-      .attr("height", height + margin.top + margin.bottom)
+      .attr("height", dynamicHeight + margin.top + margin.bottom)
       .on("mousemove", (e) => {
         // creates static cursor coordinates in lower right hand corner
         setCursorLoc([
           x.invert(e.offsetX - 50).toFixed(2), // counteract the margins
-          y.invert(e.layerY - 20).toFixed(2), // counteract the margins
+          y.invert(e.offsetY - 20).toFixed(2), // counteract the margins
         ]);
       })
       .on("mousedown", () => {
@@ -330,7 +271,7 @@ export default function WaveformGraph({
     -------------------------------------- */
     svg
       .append("g")
-      .attr("transform", `translate(0, ${height})`)
+      .attr("transform", `translate(0, ${dynamicHeight})`)
       .call(d3.axisBottom(x).ticks(10 * xZoomFactor));
 
     svg.append("g").call(d3.axisLeft(y));
@@ -345,7 +286,7 @@ export default function WaveformGraph({
       .attr("opacity", 0.2)
       .attr("x", initialStartTime)
       .attr("y", 0)
-      .attr("height", height)
+      .attr("height", dynamicHeight)
       .attr("width", initialEndTime - initialStartTime)
       .call(
         d3
@@ -377,12 +318,16 @@ export default function WaveformGraph({
 
             d3.select(this).attr("x", position);
 
-            // reposition start time line and set value to state
+            // reposition start time, peaks, valleys lines and set value to state
             startTimeLine.attr("x1", position).attr("x2", position);
+            valleysWindowLine.attr("x1", position);
+            peaksWindowLine.attr("x1", position);
 
-            // reposition end time line and set value to state
+            // reposition end time, peaks, valleys lines and set value to state
             const endPosition = parseFloat(position) + parseFloat(timeWidth);
             endTimeLine.attr("x1", endPosition).attr("x2", endPosition);
+            valleysWindowLine.attr("x2", endPosition);
+            peaksWindowLine.attr("x2", endPosition);
           })
           .on("end", function () {
             const timeWidth = d3.select(this).attr("width");
@@ -504,7 +449,15 @@ export default function WaveformGraph({
     // graph all the peak markers
     svg
       .selectAll("#waveformGraph")
-      .data(initialPeaksValleys[0])
+      .data(
+        initialPeaksValleys[0].filter((peak) => {
+          return (
+            dataToGraph[peak][0] >= startTime &&
+            dataToGraph[peak][0] <= endTime &&
+            dataToGraph[peak][1] >= peakValleyWindows[currentWell].minPeaks
+          );
+        })
+      )
       .enter()
       .append("path")
       .attr("id", "peak")
@@ -542,7 +495,15 @@ export default function WaveformGraph({
 
     svg
       .selectAll("#waveformGraph")
-      .data(initialPeaksValleys[1])
+      .data(
+        initialPeaksValleys[1].filter((valley) => {
+          return (
+            dataToGraph[valley][0] >= startTime &&
+            dataToGraph[valley][0] <= endTime &&
+            dataToGraph[valley][1] <= peakValleyWindows[currentWell].maxValleys
+          );
+        })
+      )
       .enter()
       .append("path")
       .attr("id", "valley")
@@ -577,9 +538,79 @@ export default function WaveformGraph({
       .call(d3.drag().on("start", dragStarted).on("drag", dragging).on("end", dragEnded));
 
     /* --------------------------------------
+      WINDOWED PEAKS/VALLEYS LINES
+    -------------------------------------- */
+    const peaksValleysLineDrag = d3
+      .drag()
+      .on("start", function () {
+        // close context menu if it's open
+        contextMenu.style("display", "none");
+        // increase stroke width when selected and dragging
+        d3.select(this).attr("stroke-width", 5);
+      })
+      .on("drag", function (d) {
+        const id = d3.select(this).attr("id");
+        const peakLinePos = peaksWindowLine.attr("y1");
+        const valleyLinePos = valleysWindowLine.attr("y1");
+
+        let yPosition;
+        if (id == "peakLine") {
+          // ensure you can't move a line outside of window bounds
+          yPosition = d.y >= valleyLinePos ? valleyLinePos : d.y < y(yMax + yRange) ? y(yMax + yRange) : d.y;
+        } else {
+          yPosition = d.y <= peakLinePos ? peakLinePos : d.y > y(yMin - yRange) ? y(yMin - yRange) : d.y;
+        }
+
+        // assign new x values
+        d3.select(this).attr("y1", yPosition).attr("y2", yPosition);
+      })
+      .on("end", function () {
+        const id = d3.select(this).attr("id");
+        const yPosition = d3.select(this).attr("y1");
+
+        d3.select(this).attr("y1", yPosition).attr("y2", yPosition);
+
+        const pvCopy = peakValleyWindows;
+        if (id === "peakLine") {
+          pvCopy[currentWell].minPeaks = y.invert(yPosition);
+          setPeakValleyWindows({ ...pvCopy });
+        } else {
+          pvCopy[currentWell].maxValleys = y.invert(yPosition);
+          setPeakValleyWindows({ ...pvCopy });
+        }
+        // descrease stroke width when unselected and dropped
+        d3.select(this).attr("stroke-width", 2);
+      });
+
+    // draggable windowed peaks line
+    const peaksWindowLine = svg
+      .append("line")
+      .attr("id", "peakLine")
+      .attr("x1", x(startTime))
+      .attr("y1", y(peakValleyWindows[currentWell].minPeaks))
+      .attr("x2", x(endTime))
+      .attr("y2", y(peakValleyWindows[currentWell].minPeaks))
+      .attr("stroke-width", 2)
+      .attr("stroke", "orange")
+      .style("cursor", "pointer")
+      .call(peaksValleysLineDrag);
+    // dragable windowed valleys line
+    const valleysWindowLine = svg
+      .append("line")
+      .attr("id", "valleyLine")
+      .attr("x1", x(startTime))
+      .attr("y1", y(peakValleyWindows[currentWell].maxValleys))
+      .attr("x2", x(endTime))
+      .attr("y2", y(peakValleyWindows[currentWell].maxValleys))
+      .attr("stroke-width", 2)
+      .attr("stroke", "green")
+      .style("cursor", "pointer")
+      .call(peaksValleysLineDrag);
+
+    /* --------------------------------------
       START AND END TIME LINES
     -------------------------------------- */
-    const lineDrag = d3
+    const timeLineDrag = d3
       .drag()
       .on("start", function () {
         // close context menu if it's open
@@ -596,10 +627,16 @@ export default function WaveformGraph({
         let xPosition = d.x < 0 ? 0 : d.x > dynamicWidth ? dynamicWidth : d.x;
 
         // ensure start time cannot go above end time and vice versa
-        if (time === "startTime" && d.x >= endPos) {
-          xPosition = endPos;
-        } else if (time === "endTime" && d.x <= startingPos) {
-          xPosition = startingPos;
+        if (time === "startTime") {
+          if (d.x >= endPos) xPosition = endPos;
+          // update peaks and valley windows to only be within the windowed analysis window
+          peaksWindowLine.attr("x1", xPosition);
+          valleysWindowLine.attr("x1", xPosition);
+        } else if (time === "endTime") {
+          if (d.x <= startingPos) xPosition = startingPos;
+          // update peaks and valley windows to only be within the windowed analysis window
+          peaksWindowLine.attr("x2", xPosition);
+          valleysWindowLine.attr("x2", xPosition);
         }
 
         // assign new x values
@@ -614,7 +651,18 @@ export default function WaveformGraph({
         const time = d3.select(this).attr("id");
         const xPosition = d3.select(this).attr("x1");
         const newTimeSec = parseFloat(x.invert(xPosition).toFixed(2));
-        time === "startTime" ? setNewStartTime(newTimeSec) : setNewEndTime(newTimeSec);
+
+        if (time === "startTime") {
+          setNewStartTime(newTimeSec);
+          // update peaks and valley windows to only be within the windowed analysis window
+          peaksWindowLine.attr("x1", xPosition);
+          valleysWindowLine.attr("x1", xPosition);
+        } else {
+          setNewEndTime(newTimeSec);
+          // update peaks and valley windows to only be within the windowed analysis window
+          peaksWindowLine.attr("x2", xPosition);
+          valleysWindowLine.attr("x2", xPosition);
+        }
 
         // descrease stroke width when unselected and dropped
         d3.select(this).attr("stroke-width", 5);
@@ -627,11 +675,11 @@ export default function WaveformGraph({
       .attr("x1", initialStartTime)
       .attr("y1", 0)
       .attr("x2", initialStartTime)
-      .attr("y2", height)
+      .attr("y2", dynamicHeight)
       .attr("stroke-width", 5)
       .attr("stroke", "black")
       .style("cursor", "pointer")
-      .call(lineDrag);
+      .call(timeLineDrag);
     // end of window analysis line
     const endTimeLine = svg
       .append("line")
@@ -639,20 +687,20 @@ export default function WaveformGraph({
       .attr("x1", initialEndTime)
       .attr("y1", 0)
       .attr("x2", initialEndTime)
-      .attr("y2", height)
+      .attr("y2", dynamicHeight)
       .attr("stroke-width", 5)
       .attr("stroke", "black")
       .style("cursor", "pointer")
-      .call(lineDrag);
+      .call(timeLineDrag);
 
     /* --------------------------------------
       BLOCKERS (just top blocker for now)
     -------------------------------------- */
     svg
       .append("rect")
-      .attr("x", 0)
+      .attr("x", -10)
       .attr("y", -margin.top)
-      .attr("width", dynamicWidth + 1)
+      .attr("width", dynamicWidth + 15)
       .attr("height", margin.top)
       .attr("fill", "white")
       .style("overflow", "hidden");
@@ -677,7 +725,21 @@ export default function WaveformGraph({
       setNewEndTime(endTime);
       createGraph();
     }
-  }, [initialPeaksValleys, selectedMarkerToMove, xZoomFactor, yZoomFactor]);
+  }, [
+    initialPeaksValleys,
+    selectedMarkerToMove,
+    xZoomFactor,
+    yZoomFactor,
+    startTime,
+    endTime,
+    peakValleyWindows,
+  ]);
+
+  useEffect(() => {
+    // manually scrolls graph div to bottom because the graph div expands down instead of up
+    const containerToScroll = document.getElementById("scrollableContainer");
+    containerToScroll.scrollTop = containerToScroll.scrollHeight;
+  }, [yZoomFactor]);
 
   useEffect(() => {
     // sometimes this does get updated to null when moving windowed analysis fill
@@ -694,6 +756,64 @@ export default function WaveformGraph({
     newEntries[currentWell] = [[...peaks], [...valleys]];
     setEditablePeaksValleys(newEntries);
   }, [peaks, valleys]);
+
+  const checkDuplicates = () => {
+    const peaksList = initialPeaksValleys[0].sort((a, b) => a - b);
+    const valleysList = initialPeaksValleys[1].sort((a, b) => a - b);
+    let peakIndex = 0;
+    let valleyIndex = 0;
+    const time = [];
+    const type = [];
+
+    // create two arrays one for type of data and one for the time of data
+    while (peakIndex < peaksList.length && valleyIndex < valleysList.length) {
+      if (peaksList[peakIndex] < valleysList[valleyIndex]) {
+        time.push(peaksList[peakIndex]);
+        type.push("peak");
+        peakIndex++;
+      } else if (valleysList[valleyIndex] < peaksList[peakIndex]) {
+        time.push(valleysList[valleyIndex]);
+        type.push("valley");
+        valleyIndex++;
+      } else {
+        //if equal
+        time.push(peaksList[peakIndex]);
+        type.push("peak");
+        peakIndex++;
+        time.push(valleysList[valleyIndex]);
+        type.push("valley");
+        valleyIndex++;
+      }
+    }
+    while (peakIndex !== peaksList.length) {
+      time.push(peaksList[peakIndex]);
+      type.push("peak");
+      peakIndex++;
+    }
+    while (valleyIndex !== valleysList.length) {
+      time.push(valleysList[valleyIndex]);
+      type.push("valley");
+      valleyIndex++;
+    }
+    //create a final map containing data point time as key
+    //and bool representing if marker is a duplicate as value
+    const duplicatesMap = {};
+    let toggle = false;
+    for (let i = 1; i < time.length; i++) {
+      if (type[i] === type[i + 1] || type[i] === type[i - 1]) {
+        duplicatesMap[time[i]] = true;
+        toggle = true;
+      } else {
+        duplicatesMap[time[i]] = false;
+      }
+    }
+    setDuplicatesPresent(toggle);
+    return duplicatesMap;
+  };
+
+  useEffect(() => {
+    checkDuplicates();
+  }, [initialPeaksValleys]);
 
   const contextMenuClick = ({ target }) => {
     const contextMenu = d3.select("#contextmenu");
@@ -757,10 +877,11 @@ export default function WaveformGraph({
   };
 
   const handleZoomOut = (axis) => {
-    if (axis === "x") {
+    // ensure max zoom out is initial render size because entire waveform will be in view, so there shouldn't be a need for it.
+    if (axis === "x" && xZoomFactor != 1) {
       const newFactor = xZoomFactor / 1.5;
       setXZoomFactor(newFactor);
-    } else {
+    } else if (yZoomFactor != 1) {
       const newFactor = yZoomFactor / 1.5;
       setYZoomFactor(newFactor);
     }
@@ -770,7 +891,7 @@ export default function WaveformGraph({
     <>
       <YAxisContainer>
         <YAxisLabel>Active Twitch Force (uN)</YAxisLabel>
-        <ZoomWidget size={"20px"} zoomIn={() => handleZoomOut("y")} zoomOut={() => handleZoomIn("y")} />
+        <ZoomWidget size={"20px"} zoomIn={() => handleZoomIn("y")} zoomOut={() => handleZoomOut("y")} />
       </YAxisContainer>
       <ColumnContainer>
         <ToolbarContainer>
@@ -795,10 +916,15 @@ export default function WaveformGraph({
                     <br />
                     Right-click directly on marker.
                   </li>
+                  <li>
+                    Window:
+                    <br />
+                    Drag orange and green horizontal lines to filter minimum peaks and maximum valleys.
+                  </li>
                 </TooltipText>
               }
             >
-              <InfoOutlinedIcon />
+              <InfoOutlinedIcon sx={{ "&:hover": { color: "var(--teal-green)", cursor: "pointer" } }} />
             </Tooltip>
           </HowTo>
           <ButtonWidget
@@ -828,7 +954,7 @@ export default function WaveformGraph({
             clickFn={saveChanges}
           />
         </ToolbarContainer>
-        <Container>
+        <Container id="scrollableContainer">
           <div id="waveformGraph" />
         </Container>
         <XAxisContainer>

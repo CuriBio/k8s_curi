@@ -4,7 +4,7 @@ import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
 import { useContext, useState, useEffect } from "react";
-import InteractiveAnalysisModal from "@/components/uploads/InteractiveAnalysisModal";
+import InteractiveAnalysisModal from "@/components/interactiveAnalysis/InteractiveAnalysisModal";
 import { AuthContext } from "@/pages/_app";
 import DataTable from "react-data-table-component";
 import UploadsSubTable from "@/components/table/UploadsSubTable";
@@ -319,6 +319,8 @@ export default function Uploads() {
           const formattedTime = formatDateTime(created_at);
           const parsedMeta = JSON.parse(meta);
           const analysisParams = parsedMeta.analysis_params;
+          // add pulse3d version used on job to be displayed with other analysis params
+          analysisParams.pulse3d_version = parsedMeta.version;
           const isChecked = checkedJobs.includes(id);
           return {
             jobId: id,
@@ -367,7 +369,7 @@ export default function Uploads() {
 
       if (uploads.length > 0) {
         const statusUpdateInterval = setInterval(async () => {
-          if (!["downloading", "deleting"].includes(modalState)) {
+          if (!["downloading", "deleting"].includes(modalState) && !openInteractiveAnalysis) {
             await getAllJobs();
           }
         }, [1e4]);
@@ -546,7 +548,7 @@ export default function Uploads() {
       downloadAnalyses();
     } else if (modalButtons[idx] === "Confirm") {
       const ownerCheck = await checkOwnerOfFiles();
-      if (!ownerCheck) {
+      if (!ownerCheck && accountType !== "admin") {
         // set in progress
         setModalLabels(modalObjs.unauthorizedDelete);
         setModalButtons(["Close", "Proceed"]);
@@ -800,7 +802,7 @@ export default function Uploads() {
 
   return (
     <>
-      {!openInteractiveAnalysis ? (
+      {!openInteractiveAnalysis && (
         <PageContainer>
           <TableContainer>
             <DataTable
@@ -871,7 +873,8 @@ export default function Uploads() {
             />
           </TableContainer>
         </PageContainer>
-      ) : (
+      )}
+      {openInteractiveAnalysis && (
         <InteractiveAnalysisContainer>
           <InteractiveAnalysisModal
             selectedJob={selectedAnalysis}
