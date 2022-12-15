@@ -810,7 +810,7 @@ export default function WaveformGraph({
     setDuplicatesPresent(toggle);
     return duplicatesMap;
   };
-  
+
   useEffect(() => {
     checkDuplicates();
   }, [initialPeaksValleys]);
