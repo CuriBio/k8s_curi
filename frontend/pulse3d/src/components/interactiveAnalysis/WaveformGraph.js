@@ -334,8 +334,8 @@ export default function WaveformGraph({
             const startPosition = d3.select(this).attr("x");
             const endPosition = parseFloat(startPosition) + parseFloat(timeWidth);
             // save new window analysis times to state on end so that it only updates changelog on drop
-            setNewStartTime(x.invert(startPosition));
-            setNewEndTime(x.invert(endPosition));
+            setNewStartTime(parseFloat(x.invert(startPosition).toFixed()));
+            setNewEndTime(parseFloat(x.invert(endPosition).toFixed()));
 
             d3.select(this).attr("opacity", 0.2).attr("cursor", "default");
           })
@@ -651,7 +651,6 @@ export default function WaveformGraph({
         const time = d3.select(this).attr("id");
         const xPosition = d3.select(this).attr("x1");
         const newTimeSec = parseFloat(x.invert(xPosition).toFixed(2));
-
         if (time === "startTime") {
           setNewStartTime(newTimeSec);
           // update peaks and valley windows to only be within the windowed analysis window
@@ -758,8 +757,12 @@ export default function WaveformGraph({
   }, [peaks, valleys]);
 
   const checkDuplicates = () => {
-    const peaksList = initialPeaksValleys[0].sort((a, b) => a - b);
-    const valleysList = initialPeaksValleys[1].sort((a, b) => a - b);
+    const peaksList = initialPeaksValleys[0]
+      .sort((a, b) => a - b)
+      .filter((peak) => dataToGraph[peak][1] >= peakValleyWindows[currentWell].minPeaks);
+    const valleysList = initialPeaksValleys[1]
+      .sort((a, b) => a - b)
+      .filter((valley) => dataToGraph[valley][1] <= peakValleyWindows[currentWell].maxValleys);
     let peakIndex = 0;
     let valleyIndex = 0;
     const time = [];
@@ -813,7 +816,7 @@ export default function WaveformGraph({
 
   useEffect(() => {
     checkDuplicates();
-  }, [initialPeaksValleys]);
+  }, [initialPeaksValleys, peakValleyWindows]);
 
   const contextMenuClick = ({ target }) => {
     const contextMenu = d3.select("#contextmenu");
