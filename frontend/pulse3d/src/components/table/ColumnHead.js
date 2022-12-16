@@ -12,6 +12,8 @@ const Container = styled.div`
 `;
 const FilterInput = styled.input`
   width: 80%;
+  padding: 0 10px;
+  margin-right: 5px;
 `;
 export default function ColumnHead({
   title,
