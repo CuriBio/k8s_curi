@@ -2,7 +2,6 @@ import styled from "styled-components";
 import { useEffect, useState, useContext } from "react";
 import AnalysisParamForm from "@/components/uploadForm/AnalysisParamForm";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
-import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import FileDragDrop from "@/components/uploadForm/FileDragDrop";
 import SparkMD5 from "spark-md5";
 import { hexToBase64 } from "../utils/generic";

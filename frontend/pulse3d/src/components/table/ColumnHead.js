@@ -2,6 +2,7 @@ import DragHandleIcon from "@mui/icons-material/DragHandle";
 import EjectIcon from "@mui/icons-material/Eject";
 import { useState, useEffect } from "react";
 import styled from "styled-components";
+
 const ResizeDiv = styled.div`
   transform: rotate(90deg);
 `;
