@@ -229,7 +229,6 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
           setEditablePeaksValleys(res.peaks_valleys);
 
           if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.2")) {
-            console.log(modalLabels);
             setModalLabels(constantModalLabels.oldPulse3dVersion);
             setModalOpen("pulse3dWarning");
           }
@@ -350,15 +349,22 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
       setUploadInProgress(true);
 
       const filteredPeaksValleys = await filterPeaksValleys();
+      const prevPulse3dVersion = selectedJob.analysisParams.pulse3d_version;
+      // jobs run on pulse3d versions < 0.28.3 will not have a 0 timepoint so account for that here that 0.01 is still the first time point, not windowed
+      const startTime =
+        !semverGte(prevPulse3dVersion, "0.28.3") && editableStartEndTimes.startTime == 0.01
+          ? null
+          : editableStartEndTimes.startTime;
+
       // reassign new peaks and valleys if different
       const requestBody = {
         ...selectedJob.analysisParams,
         upload_id: selectedJob.uploadId,
         peaks_valleys: filteredPeaksValleys,
-        start_time: editableStartEndTimes.startTime === xRange.min ? null : editableStartEndTimes.startTime,
-        end_time: editableStartEndTimes.endTime === xRange.max ? null : editableStartEndTimes.endTime,
+        start_time: startTime,
+        end_time: editableStartEndTimes.endTime,
         version: filteredVersions[pulse3dVersionIdx],
-        previous_version: selectedJob.analysisParams.pulse3d_version,
+        previous_version: prevPulse3dVersion,
       };
 
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
@@ -495,21 +501,11 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
         2
       )} ] was moved to [ ${newValleyX.toFixed(2)}, ${newValleyY.toFixed(2)} ].`;
     } else if (windowedTimeDiff) {
-      changelogMessage = `Start time was changed from ${startToCompare.toFixed(
-        2
-      )} to ${editableStartEndTimes.startTime.toFixed(
-        2
-      )} and end time was changed from ${endToCompare.toFixed(2)} to ${editableStartEndTimes.endTime.toFixed(
-        2
-      )}.`;
+      changelogMessage = `Start time was changed from ${startToCompare} to ${editableStartEndTimes.startTime} and end time was changed from ${endToCompare} to ${editableStartEndTimes.endTime}.`;
     } else if (startTimeDiff) {
-      changelogMessage = `Start time was changed from ${startToCompare.toFixed(
-        2
-      )} to ${editableStartEndTimes.startTime.toFixed(2)}.`;
+      changelogMessage = `Start time was changed from ${startToCompare} to ${editableStartEndTimes.startTime}.`;
     } else if (endTimeDiff) {
-      changelogMessage = `End time was changed from ${endToCompare.toFixed(
-        2
-      )} to ${editableStartEndTimes.endTime.toFixed(2)}.`;
+      changelogMessage = `End time was changed from ${endToCompare} to ${editableStartEndTimes.endTime}.`;
     } else if (minPeaksDiff) {
       changelogMessage = `Minimum peaks window changed from ${pvWindow.minPeaks.toFixed(
         2

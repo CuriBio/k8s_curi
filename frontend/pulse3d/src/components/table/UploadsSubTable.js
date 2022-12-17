@@ -11,6 +11,7 @@ const SubContainer = styled.div`
   display: flex;
   align-items: center;
   background-color: #ececed8f;
+  border-bottom: 2px solid white;
 `;
 const SubHeader = styled.div`
   background-color: var(--dark-blue);
