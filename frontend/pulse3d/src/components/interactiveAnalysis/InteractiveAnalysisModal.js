@@ -121,8 +121,8 @@ const constantModalLabels = {
     buttons: ["Close"],
   },
   duplicate: {
-    header: "Before Running Analysis!",
-    messages: ["Check no double peaks or valleys exist.", "They are shown as red triangles above."],
+    header: "Warning!",
+    messages: ["Duplicate peaks and valleys detected."],
     buttons: ["Close"],
   },
   oldPulse3dVersion: {
@@ -720,9 +720,8 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
                 if (duplicatesPresent) {
                   setModalLabels(constantModalLabels.duplicate);
                   setModalOpen("duplicate");
-                } else {
-                  postNewJob();
                 }
+                postNewJob();
               }}
             />
           </ButtonContainer>
