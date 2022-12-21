@@ -20,6 +20,7 @@ from auth import (
     CUSTOMER_SCOPES,
     split_scope_account_data,
     ACCOUNT_SCOPES,
+    PULSE3D_PAID_USAGE,
 )
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
@@ -305,11 +306,12 @@ async def register(
             phash = ph.hash(details.password1.get_secret_value())
             scope = details.scope
             # usage_restrictions column is not currently being inserted into, will need to be manually added
-            insert_query = "INSERT INTO customers (email, password, data) VALUES ($1, $2, $3) RETURNING id"
+            insert_query = "INSERT INTO customers (email, password, data, usage_restrictions) VALUES ($1, $2, $3, $4) RETURNING id"
             query_params = (
                 details.email,
                 phash,
                 json.dumps({"scope": scope}),
+                json.dumps(PULSE3D_PAID_USAGE),
             )
         else:
             # TODO add handling for multiple service scopes and exception handling if none found
