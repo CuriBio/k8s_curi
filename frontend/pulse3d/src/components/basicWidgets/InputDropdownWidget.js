@@ -22,7 +22,7 @@ export default function InputDropdownWidget({ options = [], width, label, reset,
         handleSelection(options.indexOf(newValue));
       }}
       renderOption={(props, option) => (
-        <Box component="li" {...props}>
+        <Box component="li" {...props} key={props.id}>
           {option}
         </Box>
       )}
