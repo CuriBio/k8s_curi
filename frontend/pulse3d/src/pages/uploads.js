@@ -847,7 +847,8 @@ export default function Uploads() {
                     disableOptions={[
                       ...Array(2).fill(checkedJobs.length === 0 && checkedUploads.length === 0),
                       checkedJobs.length !== 1 ||
-                        jobs.filter((job) => job.jobId === checkedJobs[0])[0].status !== "finished" ||
+                        (jobs.filter((job) => job.jobId === checkedJobs[0]).length > 0 &&
+                          jobs.filter((job) => job.jobId === checkedJobs[0])[0].status !== "finished") ||
                         (usageQuota && usageQuota.jobs_reached),
                     ]}
                     optionsTooltipText={[
