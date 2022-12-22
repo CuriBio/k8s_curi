@@ -308,7 +308,7 @@ def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, cb_cus
         registration_details["email"],
         spied_pw_hasher.spy_return,
         json.dumps({"scope": expected_scope}),
-        json.dumps(PULSE3D_PAID_USAGE),
+        json.dumps(dict(PULSE3D_PAID_USAGE)),
     )
     spied_pw_hasher.assert_called_once_with(mocker.ANY, registration_details["password1"])
 
