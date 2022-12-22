@@ -123,7 +123,7 @@ const constantModalLabels = {
   duplicate: {
     header: "Warning!",
     messages: ["Consecutive peaks and/or valleys detected."],
-    buttons: ["Back to Edit", "Run Analysis"],
+    buttons: ["Back to Editing", "Run Analysis"],
   },
   oldPulse3dVersion: {
     header: "Warning!",
@@ -164,9 +164,11 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   const [duplicatesPresent, setDuplicatesPresent] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
 
-  const handleDuplicatesModalClose = (choice) => {
+  const handleDuplicatesModalClose = (isRunAnalysisOption) => {
     setDuplicateModalOpen(false);
-    choice === 1 ? postNewJob() : null;
+    if (isRunAnalysisOption) {
+      postNewJob();
+    }
   };
   const [xRange, setXRange] = useState({
     min: null,
