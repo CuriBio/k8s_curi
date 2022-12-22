@@ -799,7 +799,15 @@ export default function Uploads() {
     // set checked jobs either way
     setCheckedJobs([...checkedJobs]);
   };
-
+  const disableOptions = () => {
+    const multiTargetOptions = Array(2).fill(checkedJobs.length === 0 && checkedUploads.length === 0);
+    const selectedJobsList = jobs.filter((job) => job.jobId === checkedJobs[0]);
+    const singleTargetOptions =
+      checkedJobs.length !== 1 ||
+      (selectedJobsList.length > 0 && selectedJobsList[0].status !== "finished") ||
+      (usageQuota && usageQuota.jobs_reached);
+    return [...multiTargetOptions, singleTargetOptions];
+  };
   return (
     <>
       {!openInteractiveAnalysis && (
@@ -844,13 +852,7 @@ export default function Uploads() {
                     subOptions={{
                       Download: ["Download Analyses", "Download Raw Data"],
                     }}
-                    disableOptions={[
-                      ...Array(2).fill(checkedJobs.length === 0 && checkedUploads.length === 0),
-                      checkedJobs.length !== 1 ||
-                        (jobs.filter((job) => job.jobId === checkedJobs[0]).length > 0 &&
-                          jobs.filter((job) => job.jobId === checkedJobs[0])[0].status !== "finished") ||
-                        (usageQuota && usageQuota.jobs_reached),
-                    ]}
+                    disableOptions={disableOptions()}
                     optionsTooltipText={[
                       ...Array(2).fill("Must make a selection below before actions become available."),
                       usageQuota && usageQuota.jobs_reached
