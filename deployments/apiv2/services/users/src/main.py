@@ -311,7 +311,7 @@ async def register(
                 details.email,
                 phash,
                 json.dumps({"scope": scope}),
-                json.dumps(PULSE3D_PAID_USAGE),
+                json.dumps(dict(PULSE3D_PAID_USAGE)),
             )
         else:
             # TODO add handling for multiple service scopes and exception handling if none found
