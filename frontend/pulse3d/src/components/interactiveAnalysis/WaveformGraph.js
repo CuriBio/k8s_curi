@@ -550,16 +550,10 @@ export default function WaveformGraph({
       })
       .on("drag", function (d) {
         const id = d3.select(this).attr("id");
-        const peakLinePos = peaksWindowLine.attr("y1");
-        const valleyLinePos = valleysWindowLine.attr("y1");
 
-        let yPosition;
-        if (id == "peakLine") {
-          // ensure you can't move a line outside of window bounds
-          yPosition = d.y >= valleyLinePos ? valleyLinePos : d.y < y(yMax + yRange) ? y(yMax + yRange) : d.y;
-        } else {
-          yPosition = d.y <= peakLinePos ? peakLinePos : d.y > y(yMin - yRange) ? y(yMin - yRange) : d.y;
-        }
+        // ensure you can't move a line outside of window bounds
+        const yPosition =
+          id == "peakLine" ? Math.max(d.y, y(yMax + yRange)) : Math.min(d.y, y(yMin - yRange));
 
         // assign new x values
         d3.select(this).attr("y1", yPosition).attr("y2", yPosition);

@@ -277,7 +277,6 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
 
   const setInitialPeakValleyWindows = () => {
     const pvCopy = peakValleyWindows;
-
     for (const well of Object.keys(originalData.peaks_valleys)) {
       pvCopy[well] = { minPeaks: findLowestPeak(well), maxValleys: findHighestValley(well) };
     }
@@ -289,28 +288,35 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   const findLowestPeak = (well) => {
     // arbitrarily set to first peak
     const wellSpecificPeaks = originalData.peaks_valleys[well][0];
-    let lowest = wellSpecificPeaks[0];
+    // consider when no peaks or valleys were found in a well
+    if (wellSpecificPeaks.length > 0) {
+      let lowest = wellSpecificPeaks[0];
 
-    wellSpecificPeaks.map((peak) => {
-      const yCoord = originalData.coordinates[well][peak][1];
-      const peakToCompare = originalData.coordinates[well][lowest][1];
-      if (yCoord < peakToCompare) lowest = peak;
-    });
-    // return  y coordinate of lowest peak
-    return originalData.coordinates[well][lowest][1];
+      wellSpecificPeaks.map((peak) => {
+        const yCoord = originalData.coordinates[well][peak][1];
+        const peakToCompare = originalData.coordinates[well][lowest][1];
+        if (yCoord < peakToCompare) lowest = peak;
+      });
+
+      // return  y coordinate of lowest peak
+      return originalData.coordinates[well][lowest][1];
+    }
   };
 
   const findHighestValley = (well) => {
     // arbitrarily set to first valley
     const wellSpecificValleys = originalData.peaks_valleys[well][1];
-    let highest = wellSpecificValleys[0];
-    wellSpecificValleys.map((valley) => {
-      const yCoord = originalData.coordinates[well][valley][1];
-      const valleyToCompare = originalData.coordinates[well][highest][1];
-      if (yCoord > valleyToCompare) highest = valley;
-    });
-    // return  y coordinate of highest valley
-    return originalData.coordinates[well][highest][1];
+    // consider when no peaks or valleys were found in a well
+    if (wellSpecificValleys.length > 0) {
+      let highest = wellSpecificValleys[0];
+      wellSpecificValleys.map((valley) => {
+        const yCoord = originalData.coordinates[well][valley][1];
+        const valleyToCompare = originalData.coordinates[well][highest][1];
+        if (yCoord > valleyToCompare) highest = valley;
+      });
+      // return  y coordinate of highest valley
+      return originalData.coordinates[well][highest][1];
+    }
   };
 
   const loadExistingData = () => {
