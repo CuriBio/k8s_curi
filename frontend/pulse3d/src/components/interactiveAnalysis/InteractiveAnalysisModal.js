@@ -121,9 +121,9 @@ const constantModalLabels = {
     buttons: ["Close"],
   },
   duplicate: {
-    header: "Before Running Analysis!",
-    messages: ["Check no double peaks or valleys exist.", "They are shown as red triangles above."],
-    buttons: ["Close"],
+    header: "Warning!",
+    messages: ["Consecutive peaks and/or valleys detected."],
+    buttons: ["Back to Editing", "Run Analysis"],
   },
   oldPulse3dVersion: {
     header: "Warning!",
@@ -162,7 +162,14 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   const [undoing, setUndoing] = useState(false);
   const [peakValleyWindows, setPeakValleyWindows] = useState({});
   const [duplicatesPresent, setDuplicatesPresent] = useState(false);
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
 
+  const handleDuplicatesModalClose = (isRunAnalysisOption) => {
+    setDuplicateModalOpen(false);
+    if (isRunAnalysisOption) {
+      postNewJob();
+    }
+  };
   const [xRange, setXRange] = useState({
     min: null,
     max: null,
@@ -400,7 +407,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   };
 
   const handleModalClose = (i) => {
-    if (modalOpen !== "pulse3dWarning" && modalOpen !== "duplicate") {
+    if (modalOpen !== "pulse3dWarning") {
       if (modalOpen === "status") setOpenInteractiveAnalysis(false);
       else if (i === 0) getNewData();
       else loadExistingData();
@@ -720,8 +727,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
               inProgress={uploadInProgress}
               clickFn={() => {
                 if (duplicatesPresent) {
-                  setModalLabels(constantModalLabels.duplicate);
-                  setModalOpen("duplicate");
+                  setDuplicateModalOpen(true);
                 } else {
                   postNewJob();
                 }
@@ -731,11 +737,18 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
         </>
       )}
       <ModalWidget
-        open={["status", "dataFound", "pulse3dWarning", "duplicate"].includes(modalOpen)}
+        open={["status", "dataFound", "pulse3dWarning"].includes(modalOpen)}
         buttons={modalLabels.buttons}
         closeModal={handleModalClose}
         header={modalLabels.header}
         labels={modalLabels.messages}
+      />
+      <ModalWidget
+        open={duplicateModalOpen}
+        buttons={constantModalLabels.duplicate.buttons}
+        closeModal={handleDuplicatesModalClose}
+        header={constantModalLabels.duplicate.header}
+        labels={constantModalLabels.duplicate.messages}
       />
       <ModalWidget
         open={openChangelog}
