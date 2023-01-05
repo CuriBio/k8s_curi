@@ -78,7 +78,7 @@ resource "aws_iam_role_policy" "pulse3d_pod_iam_role_policy" {
   name        = "pulse3d-pods-iam-role01"
   role        = aws_iam_role.pulse3d_pods.id
 
-  policy = file("${path.module}/json/pulse3d_namespace_iam_policy.json")
+  policy = file("${path.module}/json/pulse3d_${var.cluster_name}_iam_policy.json")
 }
 
 data "aws_iam_policy_document" "pulse3d_pods" {
@@ -109,7 +109,7 @@ resource "aws_iam_role_policy" "apiv2_pod_iam_role_policy" {
   name        = "apiv2-pods-iam-role01"
   role        = aws_iam_role.apiv2_pods.id
 
-  policy = file("${path.module}/json/apiv2_namespace_iam_policy.json")
+  policy = file("${path.module}/json/apiv2_${var.cluster_name}_iam_policy.json")
 }
 
 data "aws_iam_policy_document" "apiv2_pods" {
@@ -212,3 +212,4 @@ provider "kubernetes" {
   token                  = data.aws_eks_cluster_auth.cluster.token
   cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority.0.data)
 }
+
