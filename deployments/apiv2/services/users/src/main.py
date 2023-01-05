@@ -305,7 +305,6 @@ async def register(
             ph = PasswordHasher()
             phash = ph.hash(details.password1.get_secret_value())
             scope = details.scope
-            # usage_restrictions column is not currently being inserted into, will need to be manually added
             insert_query = "INSERT INTO customers (email, password, data, usage_restrictions) VALUES ($1, $2, $3, $4) RETURNING id"
             query_params = (
                 details.email,
