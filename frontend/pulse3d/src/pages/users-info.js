@@ -315,20 +315,16 @@ export default function UserInfo() {
       if (response && response.status === 200) {
         const usersJson = await response.json();
         const formatedUserJson = usersJson.map(
-          ({ created_at, email, id, last_login, name, suspended, verified, pw_reset_verify_link }) => {
-            if (name === "lucipak") console.log(last_login, formatDateTime(last_login));
-
-            return {
-              createdAt: created_at,
-              email: email,
-              id: id,
-              lastLogin: last_login,
-              name: name,
-              suspended,
-              verified,
-              verifyLink: pw_reset_verify_link,
-            };
-          }
+          ({ created_at, email, id, last_login, name, suspended, verified, pw_reset_verify_link }) => ({
+            createdAt: created_at,
+            email: email,
+            id: id,
+            lastLogin: last_login,
+            name: name,
+            suspended,
+            verified,
+            verifyLink: pw_reset_verify_link,
+          })
         );
         setUsersData(formatedUserJson);
         setDisplayData(formatedUserJson);
