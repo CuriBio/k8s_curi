@@ -99,7 +99,7 @@ const PasswordInputContainer = styled.div`
 `;
 const formatDateTime = (datetime) => {
   if (datetime)
-    return new Date(datetime).toLocaleDateString(undefined, {
+    return new Date(datetime + "Z").toLocaleDateString(undefined, {
       hour: "numeric",
       minute: "numeric",
     });
@@ -205,7 +205,7 @@ export default function UserInfo() {
         <ColumnHead
           title="Date Created"
           setFilterString={setFilterString}
-          columnName="created_at"
+          columnName="createdAt"
           setFilterColumn={setFilterColumn}
           width={dateWidth.replace("%", "")}
           setSelfWidth={setDateWidth}
@@ -217,8 +217,8 @@ export default function UserInfo() {
         />
       ),
       width: dateWidth,
-      sortFunction: (rowA, rowB) => new Date(rowB.created_at) - new Date(rowA.created_at),
-      cell: (row) => <ResizableColumn content={formatDateTime(row.created_at)} />,
+      sortFunction: (rowA, rowB) => new Date(rowB.createdAt) - new Date(rowA.createdAt),
+      cell: (row) => <ResizableColumn content={formatDateTime(row.createdAt)} />,
     },
     {
       name: (
@@ -315,18 +315,21 @@ export default function UserInfo() {
       if (response && response.status === 200) {
         const usersJson = await response.json();
         const formatedUserJson = usersJson.map(
-          ({ created_at, email, id, last_login, name, suspended, verified, pw_reset_verify_link }) => ({
-            created_at: formatDateTime(created_at),
-            email: email,
-            id: id,
-            lastLogin: formatDateTime(last_login),
-            name: name,
-            suspended,
-            verified,
-            verifyLink: pw_reset_verify_link,
-          })
-        );
+          ({ created_at, email, id, last_login, name, suspended, verified, pw_reset_verify_link }) => {
+            if (name === "lucipak") console.log(last_login, formatDateTime(last_login));
 
+            return {
+              createdAt: created_at,
+              email: email,
+              id: id,
+              lastLogin: last_login,
+              name: name,
+              suspended,
+              verified,
+              verifyLink: pw_reset_verify_link,
+            };
+          }
+        );
         setUsersData(formatedUserJson);
         setDisplayData(formatedUserJson);
         setLoading(false);
