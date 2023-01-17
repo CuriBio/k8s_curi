@@ -45,7 +45,8 @@ def upload_directory_to_s3(fe_version):
             else:
                 obj_key = f"v{fe_version}/{rel_path}"
 
-            print(f"Uploading {obj_key}")
+            print(f"Uploading {obj_key}")  # allow-print
+
             upload_file_to_s3(bucket, obj_key, file_path)
 
 
