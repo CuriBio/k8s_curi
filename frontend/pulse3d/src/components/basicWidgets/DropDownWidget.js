@@ -118,6 +118,7 @@ export default function DropDownWidget({
     if (window !== undefined) {
       if (open) window.addEventListener("click", handleDropdownState);
     }
+
     return () => window.removeEventListener("click", handleDropdownState);
   }, [open]);
 
@@ -126,7 +127,6 @@ export default function DropDownWidget({
       setSelected(initialSelected != null ? initialSelected : "");
     }
   }, [reset]);
-
   // TODO 10/11/2022  Should find a better way to handle the opening and closing of the dropdowns instead of handling all click events
   const handleDropdownState = (e) => {
     const option = e.target.innerText;
@@ -204,6 +204,7 @@ export default function DropDownWidget({
         <MenuItem disabled>
           <Placeholder>{label}</Placeholder>
         </MenuItem>
+
         {options.map((item, idx) => {
           // if parent option item is disabled, just return disabled list item with tooltip
           if (disableOptions[idx]) return getDisabledListItem(optionsTooltipText, idx, item);

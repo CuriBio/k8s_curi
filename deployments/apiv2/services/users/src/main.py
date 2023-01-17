@@ -20,6 +20,7 @@ from auth import (
     CUSTOMER_SCOPES,
     split_scope_account_data,
     ACCOUNT_SCOPES,
+    PULSE3D_PAID_USAGE,
 )
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
@@ -103,6 +104,11 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
         )
         select_query_params = (details.email,)
         customer_id = None
+
+        update_last_login_query = (
+            "UPDATE customers SET last_login = $1 WHERE deleted_at IS NULL AND email = $2"
+        )
+        update_last_login_params = (datetime.now(), details.email)
     else:
         account_type = "user"
         # suspended is for deactivated accounts and verified is for new users needing to verify through email
@@ -113,6 +119,9 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
             str(details.customer_id),
         )
         customer_id = details.customer_id
+
+        update_last_login_query = "UPDATE users SET last_login = $1 WHERE deleted_at IS NULL AND name = $2 AND customer_id=$3 AND suspended='f' AND verified='t'"
+        update_last_login_params = (datetime.now(), details.username.lower(), str(details.customer_id))
     try:
         async with request.state.pgpool.acquire() as con:
 
@@ -153,6 +162,9 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
                     # replace with customer scope
                     _, customer_tier = split_scope_account_data(scope[0])
                     scope[0] = f"customer:{customer_tier}"
+
+                # if login was successful, then update last_login column to now
+                await con.execute(update_last_login_query, *update_last_login_params)
 
                 tokens = await _create_new_tokens(con, row["id"], customer_id, scope, account_type)
                 return LoginResponse(tokens=tokens, usage_quota=usage_quota)
@@ -294,11 +306,12 @@ async def register(
             phash = ph.hash(details.password1.get_secret_value())
             scope = details.scope
             # usage_restrictions column is not currently being inserted into, will need to be manually added
-            insert_query = "INSERT INTO customers (email, password, data) VALUES ($1, $2, $3) RETURNING id"
+            insert_query = "INSERT INTO customers (email, password, data, usage_restrictions) VALUES ($1, $2, $3, $4) RETURNING id"
             query_params = (
                 details.email,
                 phash,
                 json.dumps({"scope": scope}),
+                json.dumps(dict(PULSE3D_PAID_USAGE)),
             )
         else:
             # TODO add handling for multiple service scopes and exception handling if none found

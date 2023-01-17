@@ -4,7 +4,7 @@ import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
 import { useContext, useState, useEffect } from "react";
-import InteractiveAnalysisModal from "@/components/uploads/InteractiveAnalysisModal";
+import InteractiveAnalysisModal from "@/components/interactiveAnalysis/InteractiveAnalysisModal";
 import { AuthContext } from "@/pages/_app";
 import DataTable from "react-data-table-component";
 import UploadsSubTable from "@/components/table/UploadsSubTable";
@@ -268,7 +268,11 @@ export default function Uploads() {
         id: "lastAnalyzed",
         display: true,
         sortFunction: (rowA, rowB) => new Date(rowB.lastAnalyzed) - new Date(rowA.lastAnalyzed),
-        cell: (row) => <ResizableColumn last={true} content={row.lastAnalyzed} />,
+        cell: (row) => {
+          //make sure to use the correct last analyzed date
+          const latestDate = row.jobs.map((job) => job.datetime).sort((a, b) => new Date(b) - new Date(a))[0];
+          return <ResizableColumn last={true} content={latestDate} />;
+        },
       },
     ]);
 
@@ -319,6 +323,8 @@ export default function Uploads() {
           const formattedTime = formatDateTime(created_at);
           const parsedMeta = JSON.parse(meta);
           const analysisParams = parsedMeta.analysis_params;
+          // add pulse3d version used on job to be displayed with other analysis params
+          analysisParams.pulse3d_version = parsedMeta.version;
           const isChecked = checkedJobs.includes(id);
           return {
             jobId: id,
@@ -367,7 +373,7 @@ export default function Uploads() {
 
       if (uploads.length > 0) {
         const statusUpdateInterval = setInterval(async () => {
-          if (!["downloading", "deleting"].includes(modalState)) {
+          if (!["downloading", "deleting"].includes(modalState) && !openInteractiveAnalysis) {
             await getAllJobs();
           }
         }, [1e4]);
@@ -546,7 +552,7 @@ export default function Uploads() {
       downloadAnalyses();
     } else if (modalButtons[idx] === "Confirm") {
       const ownerCheck = await checkOwnerOfFiles();
-      if (!ownerCheck) {
+      if (!ownerCheck && accountType !== "admin") {
         // set in progress
         setModalLabels(modalObjs.unauthorizedDelete);
         setModalButtons(["Close", "Proceed"]);
@@ -797,10 +803,18 @@ export default function Uploads() {
     // set checked jobs either way
     setCheckedJobs([...checkedJobs]);
   };
-
+  const disableOptions = () => {
+    const multiTargetOptions = Array(2).fill(checkedJobs.length === 0 && checkedUploads.length === 0);
+    const selectedJobsList = jobs.filter((job) => job.jobId === checkedJobs[0]);
+    const singleTargetOptions =
+      checkedJobs.length !== 1 ||
+      (selectedJobsList.length > 0 && selectedJobsList[0].status !== "finished") ||
+      (usageQuota && usageQuota.jobs_reached);
+    return [...multiTargetOptions, singleTargetOptions];
+  };
   return (
     <>
-      {!openInteractiveAnalysis ? (
+      {!openInteractiveAnalysis && (
         <PageContainer>
           <TableContainer>
             <DataTable
@@ -842,12 +856,7 @@ export default function Uploads() {
                     subOptions={{
                       Download: ["Download Analyses", "Download Raw Data"],
                     }}
-                    disableOptions={[
-                      ...Array(2).fill(checkedJobs.length === 0 && checkedUploads.length === 0),
-                      checkedJobs.length !== 1 ||
-                        jobs.filter((job) => job.jobId === checkedJobs[0])[0].status !== "finished" ||
-                        (usageQuota && usageQuota.jobs_reached),
-                    ]}
+                    disableOptions={disableOptions()}
                     optionsTooltipText={[
                       ...Array(2).fill("Must make a selection below before actions become available."),
                       usageQuota && usageQuota.jobs_reached
@@ -871,7 +880,8 @@ export default function Uploads() {
             />
           </TableContainer>
         </PageContainer>
-      ) : (
+      )}
+      {openInteractiveAnalysis && (
         <InteractiveAnalysisContainer>
           <InteractiveAnalysisModal
             selectedJob={selectedAnalysis}

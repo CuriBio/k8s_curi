@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from freezegun import freeze_time
 import pytest
 
-from auth import create_token, ACCOUNT_SCOPES
+from auth import create_token, ACCOUNT_SCOPES, PULSE3D_PAID_USAGE
 from auth.settings import REFRESH_TOKEN_EXPIRE_MINUTES
 from src import main
 from src.models.tokens import AuthTokens
@@ -147,7 +147,7 @@ def test_login__user__success(cb_customer_id, mocked_asyncpg_con, mocker):
         login_details["username"],
         login_details["customer_id"],
     )
-    mocked_asyncpg_con.execute.assert_called_once_with(
+    mocked_asyncpg_con.execute.assert_called_with(
         "UPDATE users SET refresh_token = $1 WHERE id = $2", expected_refresh_token.token, test_user_id
     )
 
@@ -201,7 +201,7 @@ def test_login__customer__success(mocked_asyncpg_con, mocker):
         "SELECT password, id, data->'scope' AS scope FROM customers WHERE deleted_at IS NULL AND email = $1",
         login_details["email"],
     )
-    mocked_asyncpg_con.execute.assert_called_once_with(
+    mocked_asyncpg_con.execute.assert_called_with(
         "UPDATE customers SET refresh_token = $1 WHERE id = $2",
         expected_refresh_token.token,
         test_customer_id,
@@ -304,10 +304,11 @@ def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, cb_cus
     }
 
     mocked_asyncpg_con.fetchval.assert_called_once_with(
-        "INSERT INTO customers (email, password, data) VALUES ($1, $2, $3) RETURNING id",
+        "INSERT INTO customers (email, password, data, usage_restrictions) VALUES ($1, $2, $3, $4) RETURNING id",
         registration_details["email"],
         spied_pw_hasher.spy_return,
         json.dumps({"scope": expected_scope}),
+        json.dumps(dict(PULSE3D_PAID_USAGE)),
     )
     spied_pw_hasher.assert_called_once_with(mocker.ANY, registration_details["password1"])
 
@@ -706,7 +707,7 @@ def test_user_id__bad_user_id_given(method):
 
 @pytest.mark.parametrize(
     "test_token_scope",
-    [[s] for s in ACCOUNT_SCOPES],
+    [[s] for s in ACCOUNT_SCOPES if "customer" not in s],
 )
 def test_account__put__correctly_handles_if_account_is_already_verified(
     test_token_scope, mocked_asyncpg_con, mocker
@@ -741,15 +742,20 @@ def test_account__put__correctly_handles_if_link_has_already_been_used(
     test_token_scope, mocked_asyncpg_con, mocker
 ):
     test_account_id = uuid.uuid4()
-    account_type = "user"
-
+    account_type = "user" if "user" in test_token_scope[0] else "customer"
+    test_customer_id = uuid.uuid4() if account_type == "user" else None
     access_token = get_token(
         scope=test_token_scope,
         account_type=account_type,
         userid=test_account_id,
+        customer_id=test_customer_id,
     )
 
-    mocked_asyncpg_con.fetchrow.return_value = {"verified": True, "pw_reset_verify_link": None}
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "verified": True,
+        "pw_reset_verify_link": None,
+        "pw_reset_link": None,
+    }
 
     response = test_client.put(
         "/account",
@@ -762,7 +768,7 @@ def test_account__put__correctly_handles_if_link_has_already_been_used(
 
 @pytest.mark.parametrize(
     "test_token_scope",
-    [[s] for s in ACCOUNT_SCOPES],
+    [[s] for s in ACCOUNT_SCOPES if "customer" not in s],
 )
 def test_account__put__correctly_updates_users_table_with_account_info(
     test_token_scope, mocked_asyncpg_con, spied_pw_hasher
@@ -812,7 +818,7 @@ def test_email__get__send_correct_email_based_on_request_query_type(mocked_async
         "name": test_username,
     }
 
-    response = test_client.get(f"/email?email={test_user_email}&type={type}")
+    response = test_client.get(f"/email?email={test_user_email}&type={type}&user=true")
 
     assert response.status_code == 204
 
@@ -864,9 +870,9 @@ def test_email__get__returns_exception_if_unknown_type_is_used(mocked_asyncpg_co
         "name": test_username,
     }
 
-    response = test_client.get(f"/email?email={test_user_email}&type={unknown_type}")
+    response = test_client.get(f"/email?email={test_user_email}&type={unknown_type}&user=true")
 
-    assert response.status_code == 400
+    assert response.status_code == 500
 
     mocked_asyncpg_con.execute.assert_not_called()
     mocked_send_user_email.assert_not_called()

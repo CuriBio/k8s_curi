@@ -2,6 +2,7 @@ import DragHandleIcon from "@mui/icons-material/DragHandle";
 import EjectIcon from "@mui/icons-material/Eject";
 import { useState, useEffect } from "react";
 import styled from "styled-components";
+
 const ResizeDiv = styled.div`
   transform: rotate(90deg);
 `;
@@ -12,6 +13,8 @@ const Container = styled.div`
 `;
 const FilterInput = styled.input`
   width: 80%;
+  padding: 0 10px;
+  margin-right: 5px;
 `;
 export default function ColumnHead({
   title,
