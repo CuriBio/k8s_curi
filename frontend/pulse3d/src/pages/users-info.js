@@ -379,7 +379,7 @@ export default function UserInfo() {
       const selectedUser = usersData.find(({ id }) => id === checkedUsers[0]);
 
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${selectedUser.email}&type=verify`
+        `${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${selectedUser.email}&type=verify&user=true`
       );
 
       if (res && res.status === 204) {
