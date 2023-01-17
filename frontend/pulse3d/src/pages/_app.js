@@ -69,8 +69,7 @@ function Pulse({ Component, pageProps }) {
         // might need auth check to include actual fetch request in SW to check token status if this becomes a problem
         // will not use the correct pathname if directly accessing router.pathname
         const currentPage = data.routerPathname;
-        const isAccountPage =
-          currentPage && ["/login", "/account/verify", "/account/reset"].includes(currentPage);
+        const isAccountPage = currentPage && ["/account/verify", "/account/reset"].includes(currentPage);
         // this prevents the inactivity from popping up when a user is already on the login page or verified page
         // do this with multiple messages
         if (data.usageQuota) setUsageQuota(data.usageQuota);
@@ -84,7 +83,7 @@ function Pulse({ Component, pageProps }) {
           if (currentPage === "/login" || !availablePages[data.accountType].includes(currentPage)) {
             router.replace("/uploads", undefined, { shallow: true });
           }
-        } else if (!data.isLoggedIn && !isAccountPage) {
+        } else if (!data.isLoggedIn && !isAccountPage && currentPage !== "/login") {
           setAccountType(data.accountType);
           // always redirect to login page if not logged in and not an account verification
           // protects unauthorized page access
