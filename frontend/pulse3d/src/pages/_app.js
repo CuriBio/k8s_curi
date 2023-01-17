@@ -73,7 +73,7 @@ function Pulse({ Component, pageProps }) {
         // this prevents the inactivity from popping up when a user is already on the login page or verified page
         // do this with multiple messages
         if (data.usageQuota) setUsageQuota(data.usageQuota);
-        if (data.logout && !isAccountPage) {
+        if (data.logout && !isAccountPage && currentPage !== "/login") {
           setLoggedOutAlert(true);
         } else if (data.isLoggedIn && !isAccountPage) {
           // the router pathname is sent to the SW and then sent back here since for some reason this message handler
