@@ -268,7 +268,11 @@ export default function Uploads() {
         id: "lastAnalyzed",
         display: true,
         sortFunction: (rowA, rowB) => new Date(rowB.lastAnalyzed) - new Date(rowA.lastAnalyzed),
-        cell: (row) => <ResizableColumn last={true} content={row.lastAnalyzed} />,
+        cell: (row) => {
+          //make sure to use the correct last analyzed date
+          const latestDate = row.jobs.map((job) => job.datetime).sort((a, b) => new Date(b) - new Date(a))[0];
+          return <ResizableColumn last={true} content={latestDate} />;
+        },
       },
     ]);
 

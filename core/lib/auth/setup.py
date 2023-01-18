@@ -10,5 +10,6 @@ setup(
         "starlette==0.16.0",
         "fastapi==0.70.1",
         "pyjwt==2.3.0",
+        "immutabledict==2.2.3",
     ],
 )
