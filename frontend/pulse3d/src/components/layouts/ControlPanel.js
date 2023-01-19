@@ -193,7 +193,7 @@ export default function ControlPanel() {
             e.preventDefault();
             //if metric definitions button then open window with metric definitions
             if (label === userButtons[3].label) {
-              window.open("https://pulse3d.readthedocs.io/en/latest/gettingstarted.html#jupyter-notebooks");
+              window.open("https://pulse3d.readthedocs.io/en/latest/_images/twitch_metrics_diagram.png");
               return;
             }
             setSelected(label);

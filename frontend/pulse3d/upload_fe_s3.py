@@ -37,13 +37,11 @@ def upload_directory_to_s3(fe_version):
         for file_name in files:
             # Create relative filepath to add to key prefix
             file_path = os.path.join(root, file_name)
-            rel_path = os.path.relpath(file_path, os.path.join("src", "out"))
-            rel_path_no_ext, file_ext = os.path.splitext(rel_path)
+            rel_path_with_ext = os.path.relpath(file_path, os.path.join("src", "out"))
+            rel_path_no_ext, file_ext = os.path.splitext(rel_path_with_ext)
 
-            if "html" in file_ext:
-                obj_key = f"v{fe_version}/{rel_path_no_ext}"
-            else:
-                obj_key = f"v{fe_version}/{rel_path}"
+            rel_path = rel_path_no_ext if "html" in file_ext else rel_path_with_ext
+            obj_key = f"v{fe_version}/{rel_path}"
 
             print(f"Uploading {obj_key}")  # allow-print
             upload_file_to_s3(bucket, obj_key, file_path)
