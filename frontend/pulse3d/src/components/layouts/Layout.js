@@ -2,6 +2,7 @@ import Image from "next/image";
 import styled from "styled-components";
 import DropDownMenu from "@/components/basicWidgets/ButtonDropDown";
 import { useRouter } from "next/router";
+import UsageProgress from "../basicWidgets/UsageProgress";
 
 // required for static export, default loader errors on build
 const imageLoader = ({ src }) => {
@@ -70,7 +71,10 @@ export default function Layout({ children }) {
           />
         </a>
         {!["/login", "/account/verify", "/account/reset"].includes(router.pathname) && (
-          <DropDownMenu items={["Logout"]} label={"Menu"} handleSelection={logoutUser} />
+          <>
+            <UsageProgress />
+            <DropDownMenu items={["Logout"]} label={"Menu"} handleSelection={logoutUser} />
+          </>
         )}
       </Header>
       <Main>{children}</Main>

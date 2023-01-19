@@ -219,6 +219,25 @@ def _get_placeholders_str(num_placeholders, start=1):
     return ", ".join(f"${i}" for i in range(start, start + num_placeholders))
 
 
+async def get_customer_quota(con, customer_id, service) -> Dict[str, int]:
+    # get service specific usage restrictions for the customer account
+    usage_limit_query = "SELECT usage_restrictions->$1 AS usage FROM customers WHERE id=$2"
+    # grab total uploads and jobs of customer for specific service
+    current_usage_query = "SELECT COUNT(*) as total_uploads, SUM(jobs_count) as total_jobs FROM (SELECT COUNT(*) AS jobs_count FROM jobs_result WHERE customer_id=$1 AND type=$2 GROUP BY upload_id) dt"
+
+    async with con.transaction():
+        usage_limit_json = await con.fetchrow(usage_limit_query, service, customer_id)
+        customer_usage_data = await con.fetchrow(current_usage_query, customer_id, service)
+
+    usage_limit_dict = json.loads(usage_limit_json["usage"])
+
+    customer_usage_data["total_jobs"] = (
+        customer_usage_data["total_jobs"] if customer_usage_data["total_jobs"] is not None else 0
+    )
+
+    return {"limits": usage_limit_dict, "current": customer_usage_data}
+
+
 async def check_customer_quota(con, customer_id, service) -> Dict[str, bool]:
     """Query DB for service-specific customer account usage.
 
@@ -226,21 +245,10 @@ async def check_customer_quota(con, customer_id, service) -> Dict[str, bool]:
     Returns:
         - Dictionary containing boolean values for if uploads or job quotas have been reached
     """
-
-    async with con.transaction():
-        # get service specific usage restrictions for the customer account
-        usage_query = "SELECT usage_restrictions->$1 AS usage FROM customers WHERE id=$2"
-        usage_json = await con.fetchrow(usage_query, service, customer_id)
-        usage_dict = json.loads(usage_json["usage"])
-
-        # grab total uploads and jobs of customer for specific service
-        query = "SELECT COUNT(*) as total_uploads, SUM(jobs_count) as total_jobs FROM (SELECT COUNT(*) AS jobs_count FROM jobs_result WHERE customer_id=$1 AND type=$2 GROUP BY upload_id) dt"
-        customer_data = await con.fetchrow(query, customer_id, service)
-        total_uploads = customer_data["total_uploads"]
-        total_jobs = customer_data["total_jobs"] if customer_data["total_jobs"] is not None else 0
-
-        # return boolean values if reached, -1 means infinite uploads/jobs allowed for paid account
-        return {
-            "uploads_reached": total_uploads >= usage_dict["uploads"] and usage_dict["uploads"] != -1,
-            "jobs_reached": total_jobs >= usage_dict["jobs"] and usage_dict["jobs"] != -1,
-        }
+    usage_info = await get_customer_quota(con, customer_id, service)
+    # return boolean values if reached, -1 means infinite uploads/jobs allowed for paid account
+    return {
+        f"{key}_reached": usage_info["current"][key] >= usage_info["limit"][key]
+        and usage_info["limit"][key] != -1
+        for key in ("uploads", "jobs")
+    }

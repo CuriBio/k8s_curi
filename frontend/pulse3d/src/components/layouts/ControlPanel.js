@@ -141,8 +141,8 @@ export default function ControlPanel() {
     },
     {
       label: "Account Settings",
-      disabled: true,
-      page: "/account",
+      disabled: false,
+      page: "/account-settings",
       options: [],
     },
     { label: "Metric Definitions", options: [] },
