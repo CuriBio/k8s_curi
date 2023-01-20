@@ -278,7 +278,7 @@ spec:
 apiVersion: keda.sh/v1alpha1
 kind: ScaledJob
 metadata:
-  name: pulse3d-scaledobject-0.29.0
+  name: pulse3d-scaledobject-0.29.1
   namespace: pulse3d
 spec:
   jobTargetRef:
@@ -288,7 +288,7 @@ spec:
       spec:
         containers:
           - name: pulse3d-worker
-            image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.29.0
+            image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.29.1
             imagePullPolicy: Always
             env:
               - name: POSTGRES_PASSWORD
@@ -311,5 +311,5 @@ spec:
         dbName: curibio
         sslmode: disable
         passwordFromEnv: POSTGRES_PASSWORD
-        query: "SELECT ceil(COUNT(*)::decimal / 4) FROM (SELECT id FROM jobs_queue WHERE meta->>'version'='0.29.0' FOR UPDATE SKIP LOCKED) q"
+        query: "SELECT ceil(COUNT(*)::decimal / 4) FROM (SELECT id FROM jobs_queue WHERE meta->>'version'='0.29.1' FOR UPDATE SKIP LOCKED) q"
         targetQueryValue: "1"
