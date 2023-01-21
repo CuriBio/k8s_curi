@@ -1,7 +1,7 @@
 import re
 from typing import Optional, List, Dict
 from uuid import UUID
-
+from typing import Union
 from pydantic import BaseModel, EmailStr, SecretStr
 from pydantic import constr, validator
 from models.tokens import AuthTokens
@@ -107,4 +107,4 @@ class UnableToUpdateAccountResponse(BaseModel):
 
 class LoginResponse(BaseModel):
     tokens: AuthTokens
-    usage_quota: Optional[Dict[str, bool]]
+    usage_quota: Optional[Dict[str, Union[Dict[str, str], bool]]]

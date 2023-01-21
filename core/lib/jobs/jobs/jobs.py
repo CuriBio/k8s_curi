@@ -220,6 +220,11 @@ def _get_placeholders_str(num_placeholders, start=1):
 
 
 async def get_customer_quota(con, customer_id, service) -> Dict[str, int]:
+    """Query DB and return usage limit and current usage.
+    Returns:
+        - Dictionary with account limits and account usage
+    """
+
     # get service specific usage restrictions for the customer account
     usage_limit_query = "SELECT usage_restrictions->$1 AS usage FROM customers WHERE id=$2"
     # grab total uploads and jobs of customer for specific service
@@ -230,12 +235,12 @@ async def get_customer_quota(con, customer_id, service) -> Dict[str, int]:
         customer_usage_data = await con.fetchrow(current_usage_query, customer_id, service)
 
     usage_limit_dict = json.loads(usage_limit_json["usage"])
+    customer_usage_dict = {
+        "uploads": str(customer_usage_data["total_uploads"]),
+        "jobs": str(customer_usage_data["total_jobs"]),
+    }
 
-    customer_usage_data["total_jobs"] = (
-        customer_usage_data["total_jobs"] if customer_usage_data["total_jobs"] is not None else 0
-    )
-
-    return {"limits": usage_limit_dict, "current": customer_usage_data}
+    return {"limits": usage_limit_dict, "current": customer_usage_dict}
 
 
 async def check_customer_quota(con, customer_id, service) -> Dict[str, bool]:
@@ -247,8 +252,10 @@ async def check_customer_quota(con, customer_id, service) -> Dict[str, bool]:
     """
     usage_info = await get_customer_quota(con, customer_id, service)
     # return boolean values if reached, -1 means infinite uploads/jobs allowed for paid account
-    return {
-        f"{key}_reached": usage_info["current"][key] >= usage_info["limit"][key]
-        and usage_info["limit"][key] != -1
+    uploads_reached = {
+        f"{key}_reached": int(usage_info["current"][key]) >= int(usage_info["limits"][key])
+        and usage_info["limits"][key] != -1
         for key in ("uploads", "jobs")
     }
+    uploads_reached.update(usage_info)
+    return uploads_reached

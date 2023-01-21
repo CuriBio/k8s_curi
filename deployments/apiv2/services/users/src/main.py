@@ -3,6 +3,7 @@ import json
 from typing import Union, List, Optional
 import uuid
 from datetime import datetime
+from jobs import check_customer_quota
 import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHash
@@ -22,7 +23,6 @@ from auth import (
     ACCOUNT_SCOPES,
     PULSE3D_PAID_USAGE,
 )
-from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
 from models.errors import LoginError, RegistrationError, EmailRegistrationError
 from models.tokens import AuthTokens
@@ -54,7 +54,7 @@ TEMPLATES = Jinja2Templates(directory="templates")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[DASHBOARD_URL],
+    allow_origins=[DASHBOARD_URL, "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
