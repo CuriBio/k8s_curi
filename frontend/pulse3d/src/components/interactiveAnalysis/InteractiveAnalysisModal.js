@@ -122,8 +122,8 @@ const constantModalLabels = {
   },
   duplicate: {
     header: "Warning!",
-    messages: ["Consecutive peaks and/or valleys detected."],
-    buttons: ["Back to Editing", "Run Analysis"],
+    messages: ["Consecutive peaks and/or valleys detected.", "The wells detected:"],
+    buttons: ["Back", "Run Analysis"],
   },
   oldPulse3dVersion: {
     header: "Warning!",
