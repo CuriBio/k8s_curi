@@ -98,30 +98,32 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
 
     if is_customer_login_attempt:
         account_type = "customer"
+        email = details.email.lower()
         select_query = (
             "SELECT password, id, data->'scope' AS scope "
             "FROM customers WHERE deleted_at IS NULL AND email = $1"
         )
-        select_query_params = (details.email,)
+        select_query_params = (email,)
         customer_id = None
 
         update_last_login_query = (
             "UPDATE customers SET last_login = $1 WHERE deleted_at IS NULL AND email = $2"
         )
-        update_last_login_params = (datetime.now(), details.email)
+        update_last_login_params = (datetime.now(), email)
     else:
         account_type = "user"
+        username = details.username.lower()
         # suspended is for deactivated accounts and verified is for new users needing to verify through email
         # select for service specific usage restrictions listed under the customer account
         select_query = "SELECT password, id, data->'scope' AS scope FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND suspended='f' AND verified='t'"
         select_query_params = (
-            details.username,
+            username,
             str(details.customer_id),
         )
         customer_id = details.customer_id
 
         update_last_login_query = "UPDATE users SET last_login = $1 WHERE deleted_at IS NULL AND name = $2 AND customer_id=$3 AND suspended='f' AND verified='t'"
-        update_last_login_params = (datetime.now(), details.username, str(details.customer_id))
+        update_last_login_params = (datetime.now(), username, str(details.customer_id))
     try:
         async with request.state.pgpool.acquire() as con:
 
@@ -299,7 +301,7 @@ async def register(
 
         register_type = "customer" if is_customer_registration_attempt else "user"
         logger.info(f"Attempting {register_type} registration")
-
+        email = details.email.lower()
         # scope will not be sent in request body for both customer and user registration
         if is_customer_registration_attempt:
             ph = PasswordHasher()
@@ -307,7 +309,7 @@ async def register(
             scope = details.scope
             insert_query = "INSERT INTO customers (email, password, data, usage_restrictions) VALUES ($1, $2, $3, $4) RETURNING id"
             query_params = (
-                details.email,
+                email,
                 phash,
                 json.dumps({"scope": scope}),
                 json.dumps(dict(PULSE3D_PAID_USAGE)),
@@ -317,6 +319,7 @@ async def register(
             _, customer_tier = split_scope_account_data(customer_scope[0])  # 'free' or 'paid'
             # eventually scopes will be passed from FE, but for now just auto set to paid user
             user_scope = details.scope if details.scope is not None else ["pulse3d:paid"]
+            username = details.username.lower()
             # suspended and verified get set to False by default
             insert_query = (
                 "INSERT INTO users (name, email, account_type, data, customer_id) "
@@ -324,8 +327,8 @@ async def register(
             )
 
             query_params = (
-                details.username,
-                details.email,
+                username,
+                email,
                 customer_tier,
                 json.dumps({"scope": user_scope}),
                 customer_id,
@@ -361,15 +364,15 @@ async def register(
                         user_id=result,
                         customer_id=customer_id,
                         scopes=["users:verify"],
-                        name=details.username,
-                        email=details.email,
+                        name=username,
+                        email=email,
                     )
                 if is_customer_registration_attempt:
-                    return CustomerProfile(email=details.email, user_id=result.hex, scope=details.scope)
+                    return CustomerProfile(email=email, user_id=result.hex, scope=details.scope)
                 else:
                     return UserProfile(
-                        username=details.username,
-                        email=details.email,
+                        username=username,
+                        email=email,
                         user_id=result.hex,
                         account_type=customer_tier,
                         scope=user_scope,
