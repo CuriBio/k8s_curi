@@ -1,4 +1,4 @@
-"""add pulse3d version 0.29.1
+"""pulse3d 0.29.1
 
 Revision ID: d7a72568d90b
 Revises: 1f23e047d2b0
