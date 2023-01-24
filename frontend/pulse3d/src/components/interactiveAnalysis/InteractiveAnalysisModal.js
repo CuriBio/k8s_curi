@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext, useMemo } from "react";
 import DropDownWidget from "../basicWidgets/DropDownWidget";
 import WaveformGraph from "./WaveformGraph";
 import { WellTitle as LabwareDefinition } from "@/utils/labwareCalculations";
@@ -25,6 +25,7 @@ const Container = styled.div`
 const HeaderContainer = styled.div`
   font-size: 24px;
   margin: 20px;
+  cursor: default;
 `;
 
 const WellDropdownContainer = styled.div`
@@ -40,6 +41,7 @@ const WellDropdownLabel = styled.span`
   font-size: 20px;
   white-space: nowrap;
   padding-right: 15px;
+  cursor: default;
 `;
 
 const VersionDropdownContainer = styled.div`
@@ -57,6 +59,7 @@ const VersionDropdownLabel = styled.span`
   padding-right: 15px;
   display: flex;
   align-items: center;
+  cursor: default;
 `;
 
 const GraphContainer = styled.div`
@@ -117,11 +120,16 @@ const constantModalLabels = {
     messages: ["There was an issue while attempting to start this analysis.", "Please try again later."],
     buttons: ["Close"],
   },
+  duplicate: {
+    header: "Warning!",
+    messages: ["Consecutive peaks and/or valleys detected."],
+    buttons: ["Back to Editing", "Run Analysis"],
+  },
   oldPulse3dVersion: {
     header: "Warning!",
     messages: [
       "Interactive analysis is using a newer version of Pulse3D than the version originally used on this recording. Peaks and valleys may be slightly different.",
-      "Please re-analyze this recording using a Pulse3D version greater than 0.28.0 or continue.",
+      "Please re-analyze this recording using a Pulse3D version greater than 0.28.2 or continue.",
     ],
     buttons: ["Close"],
   },
@@ -152,11 +160,21 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   const [changelog, setChangelog] = useState({});
   const [openChangelog, setOpenChangelog] = useState(false);
   const [undoing, setUndoing] = useState(false);
+  const [peakValleyWindows, setPeakValleyWindows] = useState({});
+  const [duplicatesPresent, setDuplicatesPresent] = useState(false);
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
 
+  const handleDuplicatesModalClose = (isRunAnalysisOption) => {
+    setDuplicateModalOpen(false);
+    if (isRunAnalysisOption) {
+      postNewJob();
+    }
+  };
   const [xRange, setXRange] = useState({
     min: null,
-    max: null, // random
+    max: null,
   });
+
   const [editableStartEndTimes, setEditableStartEndTimes] = useState({
     startTime: null,
     endTime: null,
@@ -168,16 +186,13 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     // only available for versions greater than 0.25.2
     const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.25.2"));
     setFilteredVersions([...compatibleVersions]);
-
-    // check sessionStorage for saved data
-    checkForExistingData();
-  }, [selectedJob]);
+  }, []);
 
   useEffect(() => {
     // updates changelog when peaks/valleys and start/end times change
     if (!undoing) updateChangelog();
     else setUndoing(false);
-  }, [markers, editableStartEndTimes]);
+  }, [markers, editableStartEndTimes, peakValleyWindows]);
 
   useEffect(() => {
     // will error on init because there won't be an index 0
@@ -201,6 +216,12 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     }
   }, [dataToGraph, editablePeaksValleys]);
 
+  useEffect(() => {
+    // this will get triggered whether loading existing data from sessionStorage or getting new data and we want to only get initial windows if loading new data
+    if (Object.keys(originalData).length > 0 && Object.keys(peakValleyWindows).length === 0)
+      setInitialPeakValleyWindows();
+  }, [originalData]);
+
   const getWaveformData = async () => {
     try {
       const response = await fetch(
@@ -214,7 +235,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
           setOriginalData(res);
           setEditablePeaksValleys(res.peaks_valleys);
 
-          if (!res.orig_pulse3d_version) {
+          if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.2")) {
             setModalLabels(constantModalLabels.oldPulse3dVersion);
             setModalOpen("pulse3dWarning");
           }
@@ -251,6 +272,53 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     }
   };
 
+  // Luci (12-14-2022) this component gets mounted twice and we don't want this expensive function to request waveform data to be called twice. This ensures it is only called once per job selection
+  useMemo(checkForExistingData, [selectedJob]);
+
+  const setInitialPeakValleyWindows = () => {
+    const pvCopy = peakValleyWindows;
+    for (const well of Object.keys(originalData.peaks_valleys)) {
+      pvCopy[well] = { minPeaks: findLowestPeak(well), maxValleys: findHighestValley(well) };
+    }
+    setPeakValleyWindows({
+      ...pvCopy,
+    });
+  };
+
+  const findLowestPeak = (well) => {
+    // arbitrarily set to first peak
+    const wellSpecificPeaks = originalData.peaks_valleys[well][0];
+    // consider when no peaks or valleys were found in a well
+    if (wellSpecificPeaks.length > 0) {
+      let lowest = wellSpecificPeaks[0];
+
+      wellSpecificPeaks.map((peak) => {
+        const yCoord = originalData.coordinates[well][peak][1];
+        const peakToCompare = originalData.coordinates[well][lowest][1];
+        if (yCoord < peakToCompare) lowest = peak;
+      });
+
+      // return  y coordinate of lowest peak
+      return originalData.coordinates[well][lowest][1];
+    }
+  };
+
+  const findHighestValley = (well) => {
+    // arbitrarily set to first valley
+    const wellSpecificValleys = originalData.peaks_valleys[well][1];
+    // consider when no peaks or valleys were found in a well
+    if (wellSpecificValleys.length > 0) {
+      let highest = wellSpecificValleys[0];
+      wellSpecificValleys.map((valley) => {
+        const yCoord = originalData.coordinates[well][valley][1];
+        const valleyToCompare = originalData.coordinates[well][highest][1];
+        if (yCoord > valleyToCompare) highest = valley;
+      });
+      // return  y coordinate of highest valley
+      return originalData.coordinates[well][highest][1];
+    }
+  };
+
   const loadExistingData = () => {
     // this happens very fast so not storing to react state the first call, see line 162
     const jsonData = sessionStorage.getItem(selectedJob.jobId);
@@ -264,6 +332,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
       startTime: existingData.editableStartEndTimes.startTime,
       endTime: existingData.editableStartEndTimes.endTime,
     });
+    setPeakValleyWindows(existingData.peakValleyWindows);
   };
 
   const handleWellSelection = (idx) => {
@@ -274,32 +343,48 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     // reset peaks and valleys for current well
     const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
     const changelogCopy = JSON.parse(JSON.stringify(changelog));
+    const pvWindowCopy = JSON.parse(JSON.stringify(peakValleyWindows));
 
     peaksValleysCopy[selectedWell] = originalData.peaks_valleys[selectedWell];
     changelogCopy[selectedWell] = [];
+    pvWindowCopy[selectedWell] = {
+      minPeaks: findLowestPeak(selectedWell),
+      maxValleys: findHighestValley(selectedWell),
+    };
     // reset state
     setEditablePeaksValleys(peaksValleysCopy);
     setChangelog(changelogCopy);
+    setPeakValleyWindows(pvWindowCopy);
   };
 
   const postNewJob = async () => {
     try {
       setUploadInProgress(true);
 
+      const filteredPeaksValleys = await filterPeaksValleys();
+      const prevPulse3dVersion = selectedJob.analysisParams.pulse3d_version;
+      // jobs run on pulse3d versions < 0.28.3 will not have a 0 timepoint so account for that here that 0.01 is still the first time point, not windowed
+      const startTime =
+        !semverGte(prevPulse3dVersion, "0.28.3") && editableStartEndTimes.startTime == 0.01
+          ? null
+          : editableStartEndTimes.startTime;
+
       // reassign new peaks and valleys if different
       const requestBody = {
         ...selectedJob.analysisParams,
         upload_id: selectedJob.uploadId,
-        peaks_valleys: editablePeaksValleys,
-        start_time: editableStartEndTimes.startTime,
+        peaks_valleys: filteredPeaksValleys,
+        start_time: startTime,
         end_time: editableStartEndTimes.endTime,
         version: filteredVersions[pulse3dVersionIdx],
+        previous_version: prevPulse3dVersion,
       };
 
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
         method: "POST",
         body: JSON.stringify(requestBody),
       });
+
       if (jobResponse.status !== 200) {
         // TODO make modal
         console.log("ERROR posting new job: ", await jobResponse.json());
@@ -314,7 +399,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
       // currently clearing for successful uploads
       sessionStorage.removeItem(selectedJob.jobId);
     } catch (e) {
-      console.log("ERROR posting new job");
+      console.log("ERROR posting new job", e);
       setModalLabels(constantModalLabels.error);
       setUploadInProgress(false);
       setModalOpen("status");
@@ -328,7 +413,27 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
       else loadExistingData();
       sessionStorage.removeItem(selectedJob.jobId);
     }
+
     setModalOpen(false);
+  };
+
+  const filterPeaksValleys = async () => {
+    const filtered = {};
+    for (const well of Object.keys(editablePeaksValleys)) {
+      const wellCoords = originalData.coordinates[well];
+      const wellPeaks = editablePeaksValleys[well][0];
+      const wellValleys = editablePeaksValleys[well][1];
+      const filteredPeaks = wellPeaks.filter(
+        (peak) => wellCoords[peak][1] >= peakValleyWindows[well].minPeaks
+      );
+      const filteredValleys = wellValleys.filter(
+        (valley) => wellCoords[valley][1] <= peakValleyWindows[well].maxValleys
+      );
+
+      filtered[well] = [filteredPeaks, filteredValleys];
+    }
+
+    return filtered;
   };
 
   const saveChanges = () => {
@@ -340,6 +445,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
         editablePeaksValleys,
         originalData,
         changelog,
+        peakValleyWindows,
       })
     );
   };
@@ -350,12 +456,15 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     // changelog will have length of 0 if a user Undo's until initial state
     if (changelog[selectedWell] && changelog[selectedWell].length > 0 && markers.length === 2) {
       const wellChanges = changelog[selectedWell];
-      const { peaks, valleys, startTime, endTime } = wellChanges[wellChanges.length - 1];
+      const { peaks, valleys, startTime, endTime, pvWindow } = wellChanges[wellChanges.length - 1];
 
-      changelogMessage = getChangelogMessage(peaks, valleys, startTime, endTime);
+      changelogMessage = getChangelogMessage(peaks, valleys, startTime, endTime, pvWindow);
     } else if (markers.length === 2 && originalData.peaks_valleys[selectedWell]) {
       const ogWellData = originalData.peaks_valleys[selectedWell];
-      changelogMessage = getChangelogMessage(ogWellData[0], ogWellData[1], xRange.min, xRange.max);
+      changelogMessage = getChangelogMessage(ogWellData[0], ogWellData[1], xRange.min, xRange.max, {
+        minPeaks: findLowestPeak(selectedWell),
+        maxValleys: findHighestValley(selectedWell),
+      });
     }
 
     if (changelogMessage !== undefined) {
@@ -363,7 +472,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     }
   };
 
-  const getChangelogMessage = (peaksToCompare, valleysToCompare, startToCompare, endToCompare) => {
+  const getChangelogMessage = (peaksToCompare, valleysToCompare, startToCompare, endToCompare, pvWindow) => {
     let changelogMessage;
 
     const peaksMoved =
@@ -380,7 +489,9 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
         endToCompare !== editableStartEndTimes.endTime &&
         editableStartEndTimes.endTime !== null &&
         endToCompare !== null,
-      windowedTimeDiff = startTimeDiff && endTimeDiff;
+      windowedTimeDiff = startTimeDiff && endTimeDiff,
+      minPeaksDiff = pvWindow.minPeaks !== peakValleyWindows[selectedWell].minPeaks,
+      maxValleysDiff = pvWindow.maxValleys !== peakValleyWindows[selectedWell].maxValleys;
 
     if (peaksMoved) {
       const diffIdx = peaksToCompare.findIndex((peakIdx, i) => peakIdx !== markers[0][i]),
@@ -403,23 +514,20 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
         2
       )} ] was moved to [ ${newValleyX.toFixed(2)}, ${newValleyY.toFixed(2)} ].`;
     } else if (windowedTimeDiff) {
-      changelogMessage = `Start time was changed from ${startToCompare.toFixed(
-        2
-      )} to ${editableStartEndTimes.startTime.toFixed(
-        2
-      )} and end time was changed from ${endToCompare.toFixed(2)} to ${editableStartEndTimes.endTime.toFixed(
-        2
-      )}.`;
+      changelogMessage = `Start time was changed from ${startToCompare} to ${editableStartEndTimes.startTime} and end time was changed from ${endToCompare} to ${editableStartEndTimes.endTime}.`;
     } else if (startTimeDiff) {
-      changelogMessage = `Start time was changed from ${startToCompare.toFixed(
-        2
-      )} to ${editableStartEndTimes.startTime.toFixed(2)}.`;
+      changelogMessage = `Start time was changed from ${startToCompare} to ${editableStartEndTimes.startTime}.`;
     } else if (endTimeDiff) {
-      changelogMessage = `End time was changed from ${endToCompare.toFixed(
+      changelogMessage = `End time was changed from ${endToCompare} to ${editableStartEndTimes.endTime}.`;
+    } else if (minPeaksDiff) {
+      changelogMessage = `Minimum peaks window changed from ${pvWindow.minPeaks.toFixed(
         2
-      )} to ${editableStartEndTimes.endTime.toFixed(2)}.`;
+      )} to ${peakValleyWindows[selectedWell].minPeaks.toFixed(2)}`;
+    } else if (maxValleysDiff) {
+      changelogMessage = `Maximum valleys window changed from ${pvWindow.maxValleys.toFixed(
+        2
+      )} to ${peakValleyWindows[selectedWell].maxValleys.toFixed(2)}`;
     }
-
     return changelogMessage;
   };
 
@@ -467,6 +575,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     // if you don't deep copy state, later changes will affect change log entries here
     const { startTime, endTime } = JSON.parse(JSON.stringify(editableStartEndTimes));
     const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
+    const pvWindowCopy = JSON.parse(JSON.stringify(peakValleyWindows));
 
     changelog[selectedWell].push({
       peaks: peaksValleysCopy[selectedWell][0],
@@ -474,6 +583,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
       startTime,
       endTime,
       message,
+      pvWindow: pvWindowCopy[selectedWell],
     });
 
     setChangelog({ ...changelog });
@@ -490,6 +600,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
       // make copies so you control when state is updated
       const changesCopy = JSON.parse(JSON.stringify(changelog[selectedWell]));
       const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
+      const pvWindowCopy = JSON.parse(JSON.stringify(peakValleyWindows));
       const newWindowTimes = {};
 
       // remove step with latest changes
@@ -497,10 +608,10 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
 
       if (changesCopy.length > 0) {
         // grab state from the step before the undo step to set as current state
-        const { peaks, valleys, startTime, endTime } = changesCopy[changesCopy.length - 1];
+        const { peaks, valleys, startTime, endTime, pvWindow } = changesCopy[changesCopy.length - 1];
         // set old peaks and valleys to well
         peaksValleysCopy[selectedWell] = [[...peaks], [...valleys]];
-
+        pvWindowCopy[selectedWell] = pvWindow;
         newWindowTimes.startTime = startTime;
         newWindowTimes.endTime = endTime;
       } else {
@@ -509,6 +620,10 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
         newWindowTimes.endTime = xRange.max;
 
         peaksValleysCopy[selectedWell] = originalData.peaks_valleys[selectedWell];
+        pvWindowCopy[selectedWell] = {
+          minPeaks: findLowestPeak(selectedWell),
+          maxValleys: findHighestValley(selectedWell),
+        };
       }
 
       // needs to be reassigned to hold state
@@ -516,6 +631,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
       // update values to state to rerender graph
       setEditableStartEndTimes(newWindowTimes);
       setEditablePeaksValleys(peaksValleysCopy);
+      setPeakValleyWindows(pvWindowCopy);
       setChangelog(changelog);
     }
   };
@@ -555,6 +671,11 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
               addPeakValley={addPeakValley}
               openChangelog={() => setOpenChangelog(true)}
               undoLastChange={undoLastChange}
+              setPeakValleyWindows={setPeakValleyWindows}
+              peakValleyWindows={peakValleyWindows}
+              setDuplicatesPresent={(newValue) => {
+                setDuplicatesPresent(newValue);
+              }}
             />
           </GraphContainer>
           <ErrorLabel>{errorMessage}</ErrorLabel>
@@ -568,7 +689,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
                   </TooltipText>
                 }
               >
-                <InfoOutlinedIcon />
+                <InfoOutlinedIcon sx={{ "&:hover": { color: "var(--teal-green)", cursor: "pointer" } }} />
               </Tooltip>
             </VersionDropdownLabel>
             <DropDownWidget
@@ -604,7 +725,13 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
               backgroundColor={uploadInProgress ? "var(--dark-gray)" : "var(--dark-blue)"}
               disabled={uploadInProgress}
               inProgress={uploadInProgress}
-              clickFn={postNewJob}
+              clickFn={() => {
+                if (duplicatesPresent) {
+                  setDuplicateModalOpen(true);
+                } else {
+                  postNewJob();
+                }
+              }}
             />
           </ButtonContainer>
         </>
@@ -615,6 +742,13 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
         closeModal={handleModalClose}
         header={modalLabels.header}
         labels={modalLabels.messages}
+      />
+      <ModalWidget
+        open={duplicateModalOpen}
+        buttons={constantModalLabels.duplicate.buttons}
+        closeModal={handleDuplicatesModalClose}
+        header={constantModalLabels.duplicate.header}
+        labels={constantModalLabels.duplicate.messages}
       />
       <ModalWidget
         open={openChangelog}

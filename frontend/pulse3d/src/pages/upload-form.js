@@ -2,7 +2,6 @@ import styled from "styled-components";
 import { useEffect, useState, useContext } from "react";
 import AnalysisParamForm from "@/components/uploadForm/AnalysisParamForm";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
-import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import FileDragDrop from "@/components/uploadForm/FileDragDrop";
 import SparkMD5 from "spark-md5";
 import { hexToBase64 } from "../utils/generic";
@@ -10,7 +9,7 @@ import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
 import semverGte from "semver/functions/gte";
-
+import InputDropdownWidget from "@/components/basicWidgets/InputDropdownWidget";
 const Container = styled.div`
   width: 85%;
   justify-content: center;
@@ -467,12 +466,12 @@ export default function UploadForm() {
           />
         ) : (
           <DropDownContainer>
-            <DropDownWidget
+            <InputDropdownWidget
               options={formattedUploads}
+              width={500}
               label="Select Recording"
               reset={files.length === 0}
               handleSelection={handleDropDownSelect}
-              height={50}
             />
           </DropDownContainer>
         )}

@@ -145,6 +145,7 @@ export default function ControlPanel() {
       page: "/account",
       options: [],
     },
+    { label: "Metric Definitions", options: [] },
   ];
 
   const buttons = accountType === "admin" ? adminButtons : userButtons;
@@ -190,6 +191,11 @@ export default function ControlPanel() {
 
           const handleSelected = (e) => {
             e.preventDefault();
+            //if metric definitions button then open window with metric definitions
+            if (label === userButtons[3].label) {
+              window.open("https://pulse3d.readthedocs.io/en/latest/_images/twitch_metrics_diagram.png");
+              return;
+            }
             setSelected(label);
 
             if (options.length === 0) {
