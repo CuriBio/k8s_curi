@@ -115,13 +115,13 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
         # select for service specific usage restrictions listed under the customer account
         select_query = "SELECT password, id, data->'scope' AS scope FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND suspended='f' AND verified='t'"
         select_query_params = (
-            details.username.lower(),
+            details.username,
             str(details.customer_id),
         )
         customer_id = details.customer_id
 
         update_last_login_query = "UPDATE users SET last_login = $1 WHERE deleted_at IS NULL AND name = $2 AND customer_id=$3 AND suspended='f' AND verified='t'"
-        update_last_login_params = (datetime.now(), details.username.lower(), str(details.customer_id))
+        update_last_login_params = (datetime.now(), details.username, str(details.customer_id))
     try:
         async with request.state.pgpool.acquire() as con:
 
@@ -324,7 +324,7 @@ async def register(
             )
 
             query_params = (
-                details.username.lower(),
+                details.username,
                 details.email,
                 customer_tier,
                 json.dumps({"scope": user_scope}),
