@@ -1,7 +1,7 @@
 """case_insensitive_emails
 
 Revision ID: 89e819e0ecc2
-Revises: d7a72568d90b
+Revises: e04dfb9b43a8
 Create Date: 2023-01-24 06:55:02.841578
 
 """
