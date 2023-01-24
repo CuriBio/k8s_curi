@@ -122,7 +122,7 @@ const constantModalLabels = {
   },
   duplicate: {
     header: "Warning!",
-    messages: ["Consecutive peaks and/or valleys detected.", "The wells detected:"],
+    messages: ["Consecutive peaks and/or valleys were detected in the following wells:"],
     buttons: ["Back", "Run Analysis"],
   },
   oldPulse3dVersion: {
@@ -161,7 +161,6 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   const [openChangelog, setOpenChangelog] = useState(false);
   const [undoing, setUndoing] = useState(false);
   const [peakValleyWindows, setPeakValleyWindows] = useState({});
-  const [duplicatesPresent, setDuplicatesPresent] = useState({});
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
 
   const handleDuplicatesModalClose = (isRunAnalysisOption) => {
@@ -255,12 +254,15 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
 
   const checkDuplicates = (well) => {
     const wellToUse = well ? well : selectedWell;
+    const dataToCompare = originalData.coordinates[wellToUse];
+
     const peaksList = editablePeaksValleys[wellToUse][0]
       .sort((a, b) => a - b)
-      .filter((peak) => dataToGraph[peak][1] >= peakValleyWindows[wellToUse].minPeaks);
+      .filter((peak) => dataToCompare[peak][1] >= peakValleyWindows[wellToUse].minPeaks);
+
     const valleysList = editablePeaksValleys[wellToUse][1]
       .sort((a, b) => a - b)
-      .filter((valley) => dataToGraph[valley][1] <= peakValleyWindows[wellToUse].maxValleys);
+      .filter((valley) => dataToCompare[valley][1] <= peakValleyWindows[wellToUse].maxValleys);
 
     let peakIndex = 0;
     let valleyIndex = 0;
@@ -301,12 +303,9 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     //and bool representing if marker is a duplicate as value
     const duplicatesMap = {};
     for (let i = 1; i < time.length; i++) {
-      if (type[i] === type[i + 1] || type[i] === type[i - 1]) {
-        duplicatesMap[time[i]] = true;
-      } else {
-        duplicatesMap[time[i]] = false;
-      }
+      duplicatesMap[time[i]] = type[i] === type[i + 1] || type[i] === type[i - 1];
     }
+
     return duplicatesMap;
   };
 
@@ -662,7 +661,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
 
     if (wellsWithDups.length > 0) {
       const wellsWithDupsString = wellsWithDups.join(", ");
-      modalLabels.duplicatesPresent.splice(2, 1, wellsWithDupsString);
+      constantModalLabels.duplicate.messages.splice(1, 1, wellsWithDupsString);
       setDuplicateModalOpen(true);
     } else {
       postNewJob();
