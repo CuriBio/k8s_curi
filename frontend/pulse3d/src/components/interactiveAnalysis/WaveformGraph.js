@@ -443,6 +443,7 @@ export default function WaveformGraph({
         valleys.splice(indexToChange, 1, newSelectedIndex);
         setValleys([...valleys]); // required to change dependencies
       }
+      checkDuplicates();
     }
     // graph all the peak markers
     svg
