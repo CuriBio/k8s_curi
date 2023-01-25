@@ -10,14 +10,17 @@ export default function UsageWidget({
   return (
     <>
       <div id="container">
-        <h1>{metricName} Usage</h1>
-        <p>{subscriptionName} Plan</p>
-        <p>Plan Expires on {subscriptionEndDate}</p>
+        <h1>{subscriptionName} Plan</h1>
+        <p>Plan Expires on {subscriptionEndDate} _ days left.</p>
         <p>{`${actualUsage} out of ${limitUsage} ${metricName} used`}</p>
         <CircularProgressWithLabel
           value={(actualUsage / limitUsage) * 100 > 100 ? 100 : parseInt((actualUsage / limitUsage) * 100)}
           labelColor={labelColor}
         />
+        <p id="smallDescription">
+          Each upload comes with one free initial analysis and one free re-analysis. All subsequent analyses
+          will use a credit.
+        </p>
       </div>
       <style jsx>{`
         div#container {
@@ -30,6 +33,10 @@ export default function UsageWidget({
           align-items: center;
           color: black;
           flex-flow: column;
+        }
+        p#smallDescription {
+          font-size: 0.75rem;
+          text-align: center;
         }
       `}</style>
     </>

@@ -142,7 +142,8 @@ export default function ControlPanel() {
     {
       label: "Account Settings",
       page: "/account-settings",
-      options: [],
+      options: ["Plan Details"],
+      //TODO add notifications page
     },
     { label: "Metric Definitions", options: [] },
   ];
