@@ -144,7 +144,7 @@ export default function WaveformGraph({
   undoLastChange,
   peakValleyWindows,
   setPeakValleyWindows,
-  setDuplicatesPresent,
+  checkDuplicates,
 }) {
   const [valleys, setValleys] = useState([]);
   const [peaks, setPeaks] = useState([]);
@@ -415,7 +415,6 @@ export default function WaveformGraph({
             return checkDuplicates()[d] ? "red" : "green";
           });
       }
-      checkDuplicates();
       // update the focus text with current x and y data points as user drags marker
       focusText
         .html("[ " + d[0].toFixed(2) + ", " + dataToGraph[draggedIdx][1].toFixed(2) + " ]")
@@ -745,69 +744,12 @@ export default function WaveformGraph({
   }, [newStartTime, newEndTime]);
 
   useEffect(() => {
+    checkDuplicates();
     // ensures you don't edit the original array by creating deep copy
     const newEntries = JSON.parse(JSON.stringify(editablePeaksValleys));
     newEntries[currentWell] = [[...peaks], [...valleys]];
     setEditablePeaksValleys(newEntries);
   }, [peaks, valleys]);
-
-  const checkDuplicates = () => {
-    const peaksList = initialPeaksValleys[0]
-      .sort((a, b) => a - b)
-      .filter((peak) => dataToGraph[peak][1] >= peakValleyWindows[currentWell].minPeaks);
-    const valleysList = initialPeaksValleys[1]
-      .sort((a, b) => a - b)
-      .filter((valley) => dataToGraph[valley][1] <= peakValleyWindows[currentWell].maxValleys);
-    let peakIndex = 0;
-    let valleyIndex = 0;
-    const time = [];
-    const type = [];
-
-    // create two arrays one for type of data and one for the time of data
-    while (peakIndex < peaksList.length && valleyIndex < valleysList.length) {
-      if (peaksList[peakIndex] < valleysList[valleyIndex]) {
-        time.push(peaksList[peakIndex]);
-        type.push("peak");
-        peakIndex++;
-      } else if (valleysList[valleyIndex] < peaksList[peakIndex]) {
-        time.push(valleysList[valleyIndex]);
-        type.push("valley");
-        valleyIndex++;
-      } else {
-        //if equal
-        time.push(peaksList[peakIndex]);
-        type.push("peak");
-        peakIndex++;
-        time.push(valleysList[valleyIndex]);
-        type.push("valley");
-        valleyIndex++;
-      }
-    }
-    while (peakIndex !== peaksList.length) {
-      time.push(peaksList[peakIndex]);
-      type.push("peak");
-      peakIndex++;
-    }
-    while (valleyIndex !== valleysList.length) {
-      time.push(valleysList[valleyIndex]);
-      type.push("valley");
-      valleyIndex++;
-    }
-    //create a final map containing data point time as key
-    //and bool representing if marker is a duplicate as value
-    const duplicatesMap = {};
-    let toggle = false;
-    for (let i = 1; i < time.length; i++) {
-      if (type[i] === type[i + 1] || type[i] === type[i - 1]) {
-        duplicatesMap[time[i]] = true;
-        toggle = true;
-      } else {
-        duplicatesMap[time[i]] = false;
-      }
-    }
-    setDuplicatesPresent(toggle);
-    return duplicatesMap;
-  };
 
   useEffect(() => {
     checkDuplicates();
