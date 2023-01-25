@@ -141,7 +141,6 @@ export default function ControlPanel() {
     },
     {
       label: "Account Settings",
-      disabled: false,
       page: "/account-settings",
       options: [],
     },

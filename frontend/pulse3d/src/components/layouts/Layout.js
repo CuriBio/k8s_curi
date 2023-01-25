@@ -72,7 +72,7 @@ export default function Layout({ children }) {
         </a>
         {!["/login", "/account/verify", "/account/reset"].includes(router.pathname) && (
           <>
-            <UsageProgressWidget />
+            <UsageProgressWidget labelColor="white" />
             <DropDownMenu items={["Logout"]} label={"Menu"} handleSelection={logoutUser} />
           </>
         )}

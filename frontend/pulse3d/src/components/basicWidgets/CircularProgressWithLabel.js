@@ -15,27 +15,13 @@ export default function CircularProgressWithLabel(props) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          textAlign: "center",
         }}
       >
-        <Typography variant="caption" component="div" color="white">
+        <Typography variant="caption" component="div" color={props.labelColor ? props.labelColor : "black"}>
           {`${Math.round(props.value)}%`}
         </Typography>
       </Box>
     </Box>
   );
-}
-
-function CircularStatic() {
-  const [progress, setProgress] = React.useState(10);
-
-  React.useEffect(() => {
-    const timer = setInterval(() => {
-      setProgress((prevProgress) => (prevProgress >= 100 ? 0 : prevProgress + 10));
-    }, 800);
-    return () => {
-      clearInterval(timer);
-    };
-  }, []);
-
-  return <CircularProgressWithLabel value={progress} />;
 }

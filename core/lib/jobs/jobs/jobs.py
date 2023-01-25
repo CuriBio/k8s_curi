@@ -229,17 +229,29 @@ async def get_customer_quota(con, customer_id, service) -> Dict[str, int]:
     usage_limit_query = "SELECT usage_restrictions->$1 AS usage FROM customers WHERE id=$2"
     # grab total uploads and jobs of customer for specific service
     current_usage_query = "SELECT COUNT(*) as total_uploads, SUM(jobs_count) as total_jobs FROM (SELECT COUNT(*) AS jobs_count FROM jobs_result WHERE customer_id=$1 AND type=$2 GROUP BY upload_id) dt"
-
+    # get all uploads with up to 2 jobs
+    less_than_3_jobs_query = "SELECT upload_id, COUNT(upload_id) FROM jobs_result WHERE customer_id=$1 GROUP BY upload_id HAVING COUNT(upload_id)<=2"
+    # get all uploads with more than 2 jobs
+    greater_than_two_jobs_query = "SELECT upload_id, COUNT(upload_id) FROM jobs_result WHERE customer_id=$1 GROUP BY upload_id HAVING COUNT(upload_id)>2"
     async with con.transaction():
         usage_limit_json = await con.fetchrow(usage_limit_query, service, customer_id)
-        customer_usage_data = await con.fetchrow(current_usage_query, customer_id, service)
+        customer_uploads_usage_data = await con.fetchrow(current_usage_query, customer_id, service)
+        list_of_uploads_less_than_three_jobs = await con.fetch(less_than_3_jobs_query, customer_id)
+        list_of_uploads_more_than_two_jobs = await con.fetch(greater_than_two_jobs_query, customer_id)
+
+    # for each upload that has more than 2 jobs add 1 credit used for each job over 2
+    total_job_credits_used = 0
+    for upload_with_over_two_jobs in list_of_uploads_more_than_two_jobs:
+        total_job_credits_used += upload_with_over_two_jobs["count"] - 1
+
+    # combine number of uploads with 1-2 jobs and additional credit usage from uploads with 3+ jobs.
+    jobs_usage = len(list_of_uploads_less_than_three_jobs) + total_job_credits_used
 
     usage_limit_dict = json.loads(usage_limit_json["usage"])
     customer_usage_dict = {
-        "uploads": str(customer_usage_data["total_uploads"]),
-        "jobs": str(customer_usage_data["total_jobs"]),
+        "uploads": str(customer_uploads_usage_data["total_uploads"]) if customer_uploads_usage_data else "0",
+        "jobs": str(jobs_usage),
     }
-
     return {"limits": usage_limit_dict, "current": customer_usage_dict}
 
 

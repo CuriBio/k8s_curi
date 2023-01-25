@@ -27,6 +27,16 @@ const Header = styled.h2`
   line-height: 3;
 `;
 
+const UploadCreditUsageInfo = styled.div`
+  color: red;
+  width: 30%;
+  margin: auto;
+  text-align: center;
+  border: 3px solid red;
+  padding: 1rem;
+  margin-top: 1rem;
+`;
+
 const Uploads = styled.div`
   width: 100%;
   min-width: 1200px;
@@ -84,6 +94,10 @@ const modalObj = {
       "You will not be able to upload new recording files or perform re-analysis on existing files.",
     ],
   },
+  typeOfReanalysisUsedAlert: {
+    header: "Attention!",
+    messages: ["You are using a "],
+  },
 };
 export default function UploadForm() {
   const { uploads, pulse3dVersions } = useContext(UploadsContext);
@@ -123,6 +137,7 @@ export default function UploadForm() {
   const [analysisParams, setAnalysisParams] = useState(getDefaultAnalysisParams());
   const [badZipFiles, setBadZipFiles] = useState([]);
   const [resetDragDrop, setResetDragDrop] = useState(false);
+  const [analysisCreditsUsed, setAnalysisCreditsUsed] = useState(0);
 
   useEffect(() => {
     if (badZipFiles.length > 0) {
@@ -154,7 +169,6 @@ export default function UploadForm() {
       !Object.values(paramErrors).every((val) => val.length === 0) ||
       !((files.length > 0 && files[0] instanceof File) || (uploads && uploads.includes(files[0]))) ||
       inProgress;
-
     setIsButtonDisabled(checkConditions);
   }, [paramErrors, files, inProgress]);
 
@@ -188,6 +202,7 @@ export default function UploadForm() {
     updateCheckParams(false); // this will also reset the analysis params and their error message
     setFailedUploadsMsg(failedUploadsMsg);
     setModalButtons(["Close"]);
+    setAnalysisCreditsUsed(0);
   };
 
   const formatTupleParams = (firstParam, secondParam) => {
@@ -439,6 +454,7 @@ export default function UploadForm() {
 
   const handleDropDownSelect = (idx) => {
     setFiles([uploads[idx]]); // must be an array
+    setAnalysisCreditsUsed(1);
   };
 
   const handleClose = async (idx) => {
@@ -465,15 +481,18 @@ export default function UploadForm() {
             resetDragDrop={resetDragDrop}
           />
         ) : (
-          <DropDownContainer>
-            <InputDropdownWidget
-              options={formattedUploads}
-              width={500}
-              label="Select Recording"
-              reset={files.length === 0}
-              handleSelection={handleDropDownSelect}
-            />
-          </DropDownContainer>
+          <>
+            <DropDownContainer>
+              <InputDropdownWidget
+                options={formattedUploads}
+                width={500}
+                label="Select Recording"
+                reset={files.length === 0}
+                handleSelection={handleDropDownSelect}
+              />
+            </DropDownContainer>
+            <UploadCreditUsageInfo>{`Selected file will use ${analysisCreditsUsed} Analysis Credits`}</UploadCreditUsageInfo>
+          </>
         )}
         <AnalysisParamForm
           errorMessages={paramErrors}
