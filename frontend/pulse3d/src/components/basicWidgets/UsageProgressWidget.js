@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import CircularProgressWithLabel from "./CircularProgressWithLabel";
 import { useContext } from "react";
 import { AuthContext } from "@/pages/_app";
-export default function UsageProgressWidget({ labelColor }) {
+export default function UsageProgressWidget({ labeltextcolor }) {
   const { usageQuota } = useContext(AuthContext);
   const [maxUploads, setMaxUploads] = useState(-1);
   const [actualUploads, setActualUploads] = useState(0);
@@ -24,32 +24,64 @@ export default function UsageProgressWidget({ labelColor }) {
       }
     }
   }, [usageQuota]);
-
-  return (
-    <>
-      {maxUploads === -1 ? (
-        <div id="progress">Unlimited Access</div>
-      ) : (
+  const component = () => {
+    let usageState;
+    if (maxUploads === -1) {
+      // Unlimited mode
+      usageState = (
+        <>
+          <div id="progress">Unlimited Access</div>
+          <style jsx>{`
+            div#progress {
+              color: white;
+              display: flex;
+              align-items: center;
+              column-count: 1;
+              column-gap: 10px;
+            }
+          `}</style>
+        </>
+      );
+    } else if (!usageQuota.jobs_reached) {
+      // max usage has not been reached
+      usageState = (
         <>
           <div id="progress">
             <p>Usage</p>
-            <CircularProgressWithLabel value={UsagePercentage} labelColor={labelColor} />
+            <CircularProgressWithLabel value={UsagePercentage} labeltextcolor={labeltextcolor} />
             <p id="display">{`${actualUploads}/${maxUploads} Analysis used`}</p>
           </div>
+          <style jsx>{`
+            div#progress {
+              color: white;
+              display: flex;
+              align-items: center;
+              column-count: 1;
+              column-gap: 10px;
+            }
+            p#display {
+              font-size: 0.85rem;
+            }
+          `}</style>
         </>
-      )}
-      <style jsx>{`
-        div#progress {
-          color: white;
-          display: flex;
-          align-items: center;
-          column-count: 1;
-          column-gap: 10px;
-        }
-        p#display {
-          font-size: 0.85rem;
-        }
-      `}</style>
-    </>
-  );
+      );
+    } else {
+      //No unlimited
+      //Usage max is reached
+      //Plan has expired
+      usageState = (
+        <>
+          <p id="expired">Plan Has Expired</p>
+          <style jsx>{`
+            p#expired {
+              color: white;
+            }
+          `}</style>
+        </>
+      );
+    }
+    return usageState;
+  };
+
+  return <>{component()}</>;
 }

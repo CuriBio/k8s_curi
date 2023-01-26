@@ -16,64 +16,65 @@ const BackgroundContainer = styled.div`
   width: 85%;
   padding: 1rem;
 `;
+const numberToMonthName = {
+  1: "January",
+  2: "February",
+  3: "March",
+  4: "April",
+  5: "May",
+  6: "June",
+  7: "July",
+  8: "August",
+  9: "September",
+  10: "October",
+  11: "November",
+  12: "December",
+};
 
 export default function AccountSettings() {
-  const router = useRouter();
   const { usageQuota } = useContext(AuthContext);
   const [jobsLimit, setJobsLimit] = useState(-1);
   const [currentJobUsage, setCurrentJobUsage] = useState(0);
-  const [tabSelection, setTabSelection] = useState(router.query.id);
+  const [endMonth, setEndMonth] = useState(null);
+  const [endDay, setEndDay] = useState(null);
+  const [endYear, setEndYear] = useState(null);
+  const [daysLeft, setDaysLeft] = useState(0);
+
   useEffect(() => {
     console.log(usageQuota);
     if (usageQuota) {
       setJobsLimit(usageQuota.limits.jobs);
       setCurrentJobUsage(usageQuota.current.jobs);
+      const endDate = new Date(usageQuota.limits.end);
+      const currentDate = new Date(Date.now());
+      const daysOfPlanLeft = parseInt((endDate - currentDate) / (1000 * 60 * 60 * 24));
+      setEndMonth(numberToMonthName[endDate.getMonth()]);
+      setEndDay(endDate.getDay());
+      setEndYear(endDate.getFullYear());
+      setDaysLeft(daysOfPlanLeft);
     }
   }, [usageQuota]);
-  useEffect(() => {
-    // reset all params if the user switches between the "re-analyze" and "new upload" versions of this page
-    setTabSelection(router.query.id);
-  }, [router.query]);
   return (
     <BackgroundContainer>
-      {tabSelection === "Plan Details" ? (
-        <>
-          <UsageWidgetFull
-            metricName="Analysis"
-            limitUsage={jobsLimit}
-            actualUsage={currentJobUsage}
-            subscriptionName={"Basic"}
-            subscriptionEndDate={"mm/dd/yyyy"}
-            labelColor="black"
-          />
-          <UsageWidgetFull
-            metricName="Analysis"
-            limitUsage={jobsLimit}
-            actualUsage={currentJobUsage}
-            subscriptionName={"Basic"}
-            subscriptionEndDate={"mm/dd/yyyy"}
-            labelColor="black"
-          />
-          <UsageWidgetFull
-            metricName="Analysis"
-            limitUsage={jobsLimit}
-            actualUsage={currentJobUsage}
-            subscriptionName={"Basic"}
-            subscriptionEndDate={"mm/dd/yyyy"}
-            labelColor="black"
-          />
-          <UsageWidgetFull
-            metricName="Analysis"
-            limitUsage={jobsLimit}
-            actualUsage={currentJobUsage}
-            subscriptionName={"Basic"}
-            subscriptionEndDate={"mm/dd/yyyy"}
-            labelColor="black"
-          />
-        </>
-      ) : (
-        <div>d</div>
-      )}
+      <UsageWidgetFull
+        metricName="Analysis"
+        limitUsage={jobsLimit}
+        actualUsage={currentJobUsage}
+        subscriptionName={"Basic"}
+        daysLeft={daysLeft}
+        subscriptionEndDate={`${endMonth} ${endDay} ${endYear}`}
+        labeltextcolor="black"
+        daysOfPlanLeft={daysLeft}
+      />
+      <UsageWidgetFull
+        metricName="Analysis"
+        limitUsage={jobsLimit}
+        actualUsage={currentJobUsage}
+        subscriptionName={"Basic"}
+        subscriptionEndDate={`${endMonth} ${endDay} ${endYear}`}
+        labeltextcolor="black"
+        daysOfPlanLeft={daysLeft}
+      />
     </BackgroundContainer>
   );
 }

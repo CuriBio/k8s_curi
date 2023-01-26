@@ -145,6 +145,7 @@ export default function Uploads() {
   const [analyzedWidth, setAnalyzedWidth] = useState("19%");
   const [sortColumn, setSortColumn] = useState("");
   const [uploadTableColumns, setUploadTableColumns] = useState([]);
+  const [jobsInSelectedUpload, setJobsInSelectedUpload] = useState(0);
 
   useEffect(() => {
     // removing loading spinner once jobs have been recieved or if 0 jobs were receieved because there were zero uploads for new users
@@ -441,6 +442,12 @@ export default function Uploads() {
     } else if (option === 2) {
       const jobDetails = jobs.filter(({ jobId }) => jobId == checkedJobs[0]);
       setSelectedAnalysis(jobDetails[0]);
+      const uploadId = jobDetails[0].uploadId;
+      for (let uploadIdx in displayRows) {
+        if (displayRows[uploadIdx].id === uploadId) {
+          setJobsInSelectedUpload(displayRows[uploadIdx].jobs.length);
+        }
+      }
       setOpenInteractiveAnalysis(true);
     }
   };
@@ -886,6 +893,7 @@ export default function Uploads() {
           <InteractiveAnalysisModal
             selectedJob={selectedAnalysis}
             setOpenInteractiveAnalysis={setOpenInteractiveAnalysis}
+            numberOfJobsInUpload={jobsInSelectedUpload}
           />
         </InteractiveAnalysisContainer>
       )}

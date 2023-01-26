@@ -34,7 +34,8 @@ const UploadCreditUsageInfo = styled.div`
   text-align: center;
   border: 3px solid red;
   padding: 1rem;
-  margin-top: 1rem;
+  margin-top: 2rem;
+  margin-bottom: 0;
 `;
 
 const Uploads = styled.div`
@@ -137,7 +138,7 @@ export default function UploadForm() {
   const [analysisParams, setAnalysisParams] = useState(getDefaultAnalysisParams());
   const [badZipFiles, setBadZipFiles] = useState([]);
   const [resetDragDrop, setResetDragDrop] = useState(false);
-  const [analysisCreditsUsed, setAnalysisCreditsUsed] = useState(0);
+  const [creditUsageAlert, setCreditUsageAlert] = useState(false);
 
   useEffect(() => {
     if (badZipFiles.length > 0) {
@@ -170,6 +171,7 @@ export default function UploadForm() {
       !((files.length > 0 && files[0] instanceof File) || (uploads && uploads.includes(files[0]))) ||
       inProgress;
     setIsButtonDisabled(checkConditions);
+    setCreditUsageAlert(!checkConditions && tabSelection === "Re-analyze Existing Upload");
   }, [paramErrors, files, inProgress]);
 
   useEffect(() => {
@@ -202,7 +204,6 @@ export default function UploadForm() {
     updateCheckParams(false); // this will also reset the analysis params and their error message
     setFailedUploadsMsg(failedUploadsMsg);
     setModalButtons(["Close"]);
-    setAnalysisCreditsUsed(0);
   };
 
   const formatTupleParams = (firstParam, secondParam) => {
@@ -454,7 +455,6 @@ export default function UploadForm() {
 
   const handleDropDownSelect = (idx) => {
     setFiles([uploads[idx]]); // must be an array
-    setAnalysisCreditsUsed(1);
   };
 
   const handleClose = async (idx) => {
@@ -473,26 +473,28 @@ export default function UploadForm() {
       <Uploads>
         <Header>Run Analysis</Header>
         {tabSelection === "Analyze New Files" ? (
-          <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
-            handleFileChange={(files) => setFiles(Object.values(files))}
-            dropZoneText={dropZoneText}
-            fileSelection={files.length > 0 ? files.map(({ name }) => name).join(", ") : "No files selected"}
-            setResetDragDrop={setResetDragDrop}
-            resetDragDrop={resetDragDrop}
-          />
-        ) : (
           <>
-            <DropDownContainer>
-              <InputDropdownWidget
-                options={formattedUploads}
-                width={500}
-                label="Select Recording"
-                reset={files.length === 0}
-                handleSelection={handleDropDownSelect}
-              />
-            </DropDownContainer>
-            <UploadCreditUsageInfo>{`Selected file will use ${analysisCreditsUsed} Analysis Credits`}</UploadCreditUsageInfo>
+            <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
+              handleFileChange={(files) => setFiles(Object.values(files))}
+              dropZoneText={dropZoneText}
+              fileSelection={
+                files.length > 0 ? files.map(({ name }) => name).join(", ") : "No files selected"
+              }
+              setResetDragDrop={setResetDragDrop}
+              resetDragDrop={resetDragDrop}
+            />
+            <UploadCreditUsageInfo> Each valid file uploaded will use 1 credit.</UploadCreditUsageInfo>
           </>
+        ) : (
+          <DropDownContainer>
+            <InputDropdownWidget
+              options={formattedUploads}
+              width={500}
+              label="Select Recording"
+              reset={files.length === 0}
+              handleSelection={handleDropDownSelect}
+            />
+          </DropDownContainer>
         )}
         <AnalysisParamForm
           errorMessages={paramErrors}
@@ -543,6 +545,14 @@ export default function UploadForm() {
           router.replace("/uploads", undefined, { shallow: true });
         }}
         header={usageModalLabels.header}
+      />
+      <ModalWidget
+        open={creditUsageAlert}
+        labels={["This Re-analysis will use 1 credit."]}
+        closeModal={() => {
+          setCreditUsageAlert(false);
+        }}
+        header={"Attention!"}
       />
     </Container>
   );

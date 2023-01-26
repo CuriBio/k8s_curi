@@ -226,6 +226,7 @@ async def get_customer_quota(con, customer_id, service) -> Dict[str, int]:
     """
 
     # get service specific usage restrictions for the customer account
+    # uploads limit, jobs limit, end date of plan
     usage_limit_query = "SELECT usage_restrictions->$1 AS usage FROM customers WHERE id=$2"
     # grab total uploads and jobs of customer for specific service
     current_usage_query = "SELECT COUNT(*) as total_uploads, SUM(jobs_count) as total_jobs FROM (SELECT COUNT(*) AS jobs_count FROM jobs_result WHERE customer_id=$1 AND type=$2 GROUP BY upload_id) dt"
@@ -263,10 +264,18 @@ async def check_customer_quota(con, customer_id, service) -> Dict[str, bool]:
         - Dictionary containing boolean values for if uploads or job quotas have been reached
     """
     usage_info = await get_customer_quota(con, customer_id, service)
+    is_expired = (
+        datetime.strptime(usage_info["limits"]["end"], "%Y-%m-%d") < datetime.utcnow()
+        if usage_info["limits"]["end"]
+        else False
+    )
     # return boolean values if reached, -1 means infinite uploads/jobs allowed for paid account
     uploads_reached = {
-        f"{key}_reached": int(usage_info["current"][key]) >= int(usage_info["limits"][key])
-        and usage_info["limits"][key] != -1
+        f"{key}_reached": (
+            int(usage_info["current"][key]) >= int(usage_info["limits"][key])
+            and (usage_info["limits"][key] != -1)
+        )
+        or is_expired
         for key in ("uploads", "jobs")
     }
     uploads_reached.update(usage_info)

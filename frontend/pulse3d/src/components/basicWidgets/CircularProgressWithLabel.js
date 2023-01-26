@@ -18,7 +18,11 @@ export default function CircularProgressWithLabel(props) {
           textAlign: "center",
         }}
       >
-        <Typography variant="caption" component="div" color={props.labelColor ? props.labelColor : "black"}>
+        <Typography
+          variant="caption"
+          component="div"
+          color={props.labeltextcolor ? props.labeltextcolor : "black"}
+        >
           {`${Math.round(props.value)}%`}
         </Typography>
       </Box>

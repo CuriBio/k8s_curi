@@ -144,7 +144,11 @@ const wellNames = Array(24)
   .fill()
   .map((_, idx) => twentyFourPlateDefinition.getWellNameFromIndex(idx));
 
-export default function InteractiveWaveformModal({ selectedJob, setOpenInteractiveAnalysis }) {
+export default function InteractiveWaveformModal({
+  selectedJob,
+  setOpenInteractiveAnalysis,
+  numberOfJobsInUpload,
+}) {
   const [selectedWell, setSelectedWell] = useState("A1");
   const [uploadInProgress, setUploadInProgress] = useState(false); // determines state of interactive analysis upload
   const [originalData, setOriginalData] = useState({}); // original waveform data from GET request, unedited
@@ -163,7 +167,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   const [peakValleyWindows, setPeakValleyWindows] = useState({});
   const [duplicatesPresent, setDuplicatesPresent] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
-
+  const [creditUsageAlert, setCreditUsageAlert] = useState(false);
   const handleDuplicatesModalClose = (isRunAnalysisOption) => {
     setDuplicateModalOpen(false);
     if (isRunAnalysisOption) {
@@ -186,6 +190,9 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     // only available for versions greater than 0.25.2
     const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.25.2"));
     setFilteredVersions([...compatibleVersions]);
+    if (numberOfJobsInUpload > 2) {
+      setCreditUsageAlert(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -761,6 +768,14 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
             ? changelog[selectedWell].map(({ message }) => message)
             : ["No changes found."]
         }
+      />
+      <ModalWidget
+        open={creditUsageAlert}
+        labels={["This Re-analysis will use 1 credit."]}
+        closeModal={() => {
+          setCreditUsageAlert(false);
+        }}
+        header={"Attention!"}
       />
     </Container>
   );
