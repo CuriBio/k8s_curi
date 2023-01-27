@@ -230,6 +230,8 @@ const interceptResponse = async (req, url) => {
       } else {
         // most resent upload does not get read in time
         resBodyToCheck.usage_quota.current.jobs++;
+        resBodyToCheck.usage_quota.jobs_reached =
+          resBodyToCheck.usage_quota.current.jobs >= resBodyToCheck.usage_quota.limits.jobs;
         setUsageQuota(resBodyToCheck.usage_quota);
       }
       // make sure to send the rest of the body for the uploads-form to handle response itself
