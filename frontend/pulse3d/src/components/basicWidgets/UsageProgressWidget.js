@@ -8,9 +8,7 @@ export default function UsageProgressWidget({ labeltextcolor }) {
   const [actualUploads, setActualUploads] = useState(0);
   const [UsagePercentage, setUsagePercentage] = useState(0);
 
-  //update usage data
   useEffect(() => {
-    //console.log(usageQuota);
     if (usageQuota) {
       const limit = parseInt(usageQuota.limits.jobs);
       const actual = parseInt(usageQuota.current.jobs);
@@ -24,6 +22,7 @@ export default function UsageProgressWidget({ labeltextcolor }) {
       }
     }
   }, [usageQuota]);
+
   const component = () => {
     let usageState;
     if (maxUploads === -1) {
@@ -66,9 +65,9 @@ export default function UsageProgressWidget({ labeltextcolor }) {
         </>
       );
     } else {
-      //No unlimited
-      //Usage max is reached
-      //Plan has expired
+      // not unlimited account and
+      // usage max is reached and
+      // plan has expired
       usageState = (
         <>
           <p id="expired">Plan Has Expired</p>

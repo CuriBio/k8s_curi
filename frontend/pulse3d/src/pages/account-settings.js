@@ -35,23 +35,19 @@ export default function AccountSettings() {
   const { usageQuota } = useContext(AuthContext);
   const [jobsLimit, setJobsLimit] = useState(-1);
   const [currentJobUsage, setCurrentJobUsage] = useState(0);
-  const [endMonth, setEndMonth] = useState(null);
-  const [endDay, setEndDay] = useState(null);
-  const [endYear, setEndYear] = useState(null);
+  const [endDate, setEndDate] = useState(null);
   const [daysLeft, setDaysLeft] = useState(0);
 
   useEffect(() => {
-    console.log(usageQuota);
     if (usageQuota) {
       setJobsLimit(usageQuota.limits.jobs);
       setCurrentJobUsage(usageQuota.current.jobs);
-      const endDate = new Date(usageQuota.limits.end);
-      const currentDate = new Date(Date.now());
-      const daysOfPlanLeft = parseInt((endDate - currentDate) / (1000 * 60 * 60 * 24));
-      setEndMonth(numberToMonthName[endDate.getMonth()]);
-      console.log(endDate.getDay());
-      setEndDay(endDate.getDay());
-      setEndYear(endDate.getFullYear());
+
+      const endDate = new Date(usageQuota.limits.end).toUTCString();
+      setEndDate(endDate.slice(0, 16));
+
+      const currentDate = new Date(new Date(Date.now()).toUTCString());
+      const daysOfPlanLeft = parseInt((new Date(endDate) - currentDate) / (1000 * 60 * 60 * 24));
       setDaysLeft(daysOfPlanLeft);
     }
   }, [usageQuota]);
@@ -63,7 +59,7 @@ export default function AccountSettings() {
         actualUsage={currentJobUsage}
         subscriptionName={"Basic"}
         daysLeft={daysLeft}
-        subscriptionEndDate={`${endMonth} ${endDay} ${endYear}`}
+        subscriptionEndDate={endDate}
         labeltextcolor="black"
         daysOfPlanLeft={daysLeft}
       />
@@ -72,7 +68,7 @@ export default function AccountSettings() {
         limitUsage={jobsLimit}
         actualUsage={currentJobUsage}
         subscriptionName={"Basic"}
-        subscriptionEndDate={`${endMonth} ${endDay} ${endYear}`}
+        subscriptionEndDate={endDate}
         labeltextcolor="black"
         daysOfPlanLeft={daysLeft}
       />
