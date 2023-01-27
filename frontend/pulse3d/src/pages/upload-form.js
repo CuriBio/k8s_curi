@@ -95,10 +95,6 @@ const modalObj = {
       "You will not be able to upload new recording files or perform re-analysis on existing files.",
     ],
   },
-  typeOfReanalysisUsedAlert: {
-    header: "Attention!",
-    messages: ["You are using a "],
-  },
 };
 export default function UploadForm() {
   const { uploads, pulse3dVersions } = useContext(UploadsContext);
