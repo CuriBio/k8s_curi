@@ -49,6 +49,7 @@ export default function AccountSettings() {
       const currentDate = new Date(Date.now());
       const daysOfPlanLeft = parseInt((endDate - currentDate) / (1000 * 60 * 60 * 24));
       setEndMonth(numberToMonthName[endDate.getMonth()]);
+      console.log(endDate.getDay());
       setEndDay(endDate.getDay());
       setEndYear(endDate.getFullYear());
       setDaysLeft(daysOfPlanLeft);

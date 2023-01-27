@@ -483,7 +483,7 @@ export default function UploadForm() {
               setResetDragDrop={setResetDragDrop}
               resetDragDrop={resetDragDrop}
             />
-            <UploadCreditUsageInfo> Each valid file uploaded will use 1 credit.</UploadCreditUsageInfo>
+            <UploadCreditUsageInfo> Each file succesfully uploaded will use 1 credit.</UploadCreditUsageInfo>
           </>
         ) : (
           <DropDownContainer>

@@ -224,7 +224,6 @@ async def get_customer_quota(con, customer_id, service) -> Dict[str, int]:
     Returns:
         - Dictionary with account limits and account usage
     """
-
     # get service specific usage restrictions for the customer account
     # uploads limit, jobs limit, end date of plan
     usage_limit_query = "SELECT usage_restrictions->$1 AS usage FROM customers WHERE id=$2"
@@ -249,6 +248,7 @@ async def get_customer_quota(con, customer_id, service) -> Dict[str, int]:
     jobs_usage = len(list_of_uploads_less_than_three_jobs) + total_job_credits_used
 
     usage_limit_dict = json.loads(usage_limit_json["usage"])
+    usage_limit_dict["end"] = usage_limit_dict["end"] if usage_limit_dict["end"] != None else ""
     customer_usage_dict = {
         "uploads": str(customer_uploads_usage_data["total_uploads"]) if customer_uploads_usage_data else "0",
         "jobs": str(jobs_usage),
@@ -262,8 +262,10 @@ async def check_customer_quota(con, customer_id, service) -> Dict[str, bool]:
     Will be called for all account tiers, unlimited has a value of -1.
     Returns:
         - Dictionary containing boolean values for if uploads or job quotas have been reached
+        - Dictionary also contains data about max usage and end date.
     """
     usage_info = await get_customer_quota(con, customer_id, service)
+    # check current date is not passed end date of plan
     is_expired = (
         datetime.strptime(usage_info["limits"]["end"], "%Y-%m-%d") < datetime.utcnow()
         if usage_info["limits"]["end"]

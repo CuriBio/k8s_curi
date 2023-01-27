@@ -10,7 +10,7 @@ export default function UsageProgressWidget({ labeltextcolor }) {
 
   //update usage data
   useEffect(() => {
-    console.log(usageQuota);
+    //console.log(usageQuota);
     if (usageQuota) {
       const limit = parseInt(usageQuota.limits.jobs);
       const actual = parseInt(usageQuota.current.jobs);

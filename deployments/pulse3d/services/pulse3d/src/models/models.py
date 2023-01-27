@@ -14,6 +14,7 @@ class UploadRequest(BaseModel):
 class UploadResponse(BaseModel):
     id: Optional[uuid.UUID]
     params: Dict[str, Any]
+    usage_quota: Optional[Dict[str, Union[Dict[str, str], bool]]]
 
 
 class JobRequest(BaseModel):
@@ -45,6 +46,7 @@ class JobResponse(BaseModel):
     upload_id: uuid.UUID
     status: str
     priority: int
+    usage_quota: Optional[Dict[str, Union[Dict[str, str], bool]]]
 
 
 class DownloadItem(BaseModel):
