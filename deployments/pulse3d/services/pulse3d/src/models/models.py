@@ -40,13 +40,20 @@ class JobRequest(BaseModel):
     width_factors: Optional[TupleParam]
 
 
+class Usage_Quota(BaseModel):
+    current: Dict[str, str]
+    limits: Dict[str, str]
+    jobs_reached: bool
+    uploads_reached: bool
+
+
 class JobResponse(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
     upload_id: uuid.UUID
     status: str
     priority: int
-    usage_quota: Optional[Dict[str, Union[Dict[str, str], bool]]]
+    usage_quota: Usage_Quota
 
 
 class DownloadItem(BaseModel):

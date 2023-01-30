@@ -248,7 +248,7 @@ async def get_customer_quota(con, customer_id, service) -> Dict[str, int]:
     jobs_usage = len(list_of_uploads_less_than_three_jobs) + total_job_credits_used
 
     usage_limit_dict = json.loads(usage_limit_json["usage"])
-    usage_limit_dict["end"] = usage_limit_dict["end"] if usage_limit_dict["end"] != None else ""
+    usage_limit_dict["end"] = "" if usage_limit_dict["end"] is None else usage_limit_dict["end"]
     customer_usage_dict = {
         "uploads": str(customer_uploads_usage_data["total_uploads"]) if customer_uploads_usage_data else "0",
         "jobs": str(jobs_usage),
