@@ -122,8 +122,8 @@ const constantModalLabels = {
   },
   duplicate: {
     header: "Warning!",
-    messages: ["Consecutive peaks and/or valleys detected."],
-    buttons: ["Back to Editing", "Run Analysis"],
+    messages: ["Consecutive peaks and/or valleys were detected in the following wells:"],
+    buttons: ["Back", "Run Analysis"],
   },
   oldPulse3dVersion: {
     header: "Warning!",
@@ -168,6 +168,7 @@ export default function InteractiveWaveformModal({
   const [duplicatesPresent, setDuplicatesPresent] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [creditUsageAlert, setCreditUsageAlert] = useState(false);
+  
   const handleDuplicatesModalClose = (isRunAnalysisOption) => {
     setDuplicateModalOpen(false);
     if (isRunAnalysisOption) {
@@ -259,6 +260,64 @@ export default function InteractiveWaveformModal({
       setModalOpen("status");
     }
   };
+
+  const checkDuplicates = (well) => {
+    const wellToUse = well ? well : selectedWell;
+    const dataToCompare = originalData.coordinates[wellToUse];
+
+    const peaksList = editablePeaksValleys[wellToUse][0]
+      .sort((a, b) => a - b)
+      .filter((peak) => dataToCompare[peak][1] >= peakValleyWindows[wellToUse].minPeaks);
+
+    const valleysList = editablePeaksValleys[wellToUse][1]
+      .sort((a, b) => a - b)
+      .filter((valley) => dataToCompare[valley][1] <= peakValleyWindows[wellToUse].maxValleys);
+
+    let peakIndex = 0;
+    let valleyIndex = 0;
+    const time = [];
+    const type = [];
+
+    // create two arrays one for type of data and one for the time of data
+    while (peakIndex < peaksList.length && valleyIndex < valleysList.length) {
+      if (peaksList[peakIndex] < valleysList[valleyIndex]) {
+        time.push(peaksList[peakIndex]);
+        type.push("peak");
+        peakIndex++;
+      } else if (valleysList[valleyIndex] < peaksList[peakIndex]) {
+        time.push(valleysList[valleyIndex]);
+        type.push("valley");
+        valleyIndex++;
+      } else {
+        //if equal
+        time.push(peaksList[peakIndex]);
+        type.push("peak");
+        peakIndex++;
+        time.push(valleysList[valleyIndex]);
+        type.push("valley");
+        valleyIndex++;
+      }
+    }
+    while (peakIndex !== peaksList.length) {
+      time.push(peaksList[peakIndex]);
+      type.push("peak");
+      peakIndex++;
+    }
+    while (valleyIndex !== valleysList.length) {
+      time.push(valleysList[valleyIndex]);
+      type.push("valley");
+      valleyIndex++;
+    }
+    //create a final map containing data point time as key
+    //and bool representing if marker is a duplicate as value
+    const duplicatesMap = {};
+    for (let i = 1; i < time.length; i++) {
+      duplicatesMap[time[i]] = type[i] === type[i + 1] || type[i] === type[i - 1];
+    }
+
+    return duplicatesMap;
+  };
+
 
   const getNewData = async () => {
     await getWaveformData();
@@ -600,6 +659,25 @@ export default function InteractiveWaveformModal({
     setPulse3dVersionIdx(idx);
   };
 
+  const handleRunAnalysis = () => {
+    const wellsWithDups = [];
+    Object.keys(editablePeaksValleys).map((well) => {
+      const duplicatesMap = checkDuplicates(well);
+      // find any index marked as true, quantity doesn't matter
+      const duplicatePresent = Object.keys(duplicatesMap).findIndex((idx) => duplicatesMap[idx]);
+      // if present, push into storage array to add to modal letting user know which wells are affected
+      if (duplicatePresent !== -1) wellsWithDups.push(well);
+    });
+
+    if (wellsWithDups.length > 0) {
+      const wellsWithDupsString = wellsWithDups.join(", ");
+      constantModalLabels.duplicate.messages.splice(1, 1, wellsWithDupsString);
+      setDuplicateModalOpen(true);
+    } else {
+      postNewJob();
+    }
+  };
+
   const undoLastChange = () => {
     if (changelog[selectedWell] && changelog[selectedWell].length > 0) {
       // undoing state tells the updateChangelog useEffect to not ignore the change and not as a new change
@@ -680,9 +758,7 @@ export default function InteractiveWaveformModal({
               undoLastChange={undoLastChange}
               setPeakValleyWindows={setPeakValleyWindows}
               peakValleyWindows={peakValleyWindows}
-              setDuplicatesPresent={(newValue) => {
-                setDuplicatesPresent(newValue);
-              }}
+              checkDuplicates={checkDuplicates}
             />
           </GraphContainer>
           <ErrorLabel>{errorMessage}</ErrorLabel>
@@ -732,13 +808,8 @@ export default function InteractiveWaveformModal({
               backgroundColor={uploadInProgress ? "var(--dark-gray)" : "var(--dark-blue)"}
               disabled={uploadInProgress}
               inProgress={uploadInProgress}
-              clickFn={() => {
-                if (duplicatesPresent) {
-                  setDuplicateModalOpen(true);
-                } else {
-                  postNewJob();
-                }
-              }}
+              clickFn={handleRunAnalysis}
+
             />
           </ButtonContainer>
         </>

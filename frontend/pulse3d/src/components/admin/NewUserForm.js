@@ -132,7 +132,7 @@ export default function NewUserForm() {
             setErrorMsg("");
             setUserData({
               ...userData,
-              email: e.target.value,
+              email: e.target.value.toLowerCase(),
             });
           }}
         />
@@ -145,7 +145,7 @@ export default function NewUserForm() {
             setErrorMsg("");
             setUserData({
               ...userData,
-              username: e.target.value,
+              username: e.target.value.toLowerCase(),
             });
           }}
         />
