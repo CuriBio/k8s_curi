@@ -107,7 +107,15 @@ def test_login__user__success(cb_customer_id, mocked_asyncpg_con, mocker):
     mocked_usage_check = mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"uploads_reached": True, "jobs_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"end": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
     login_details = {
@@ -159,7 +167,15 @@ def test_login__customer__success(mocked_asyncpg_con, mocker):
     mocked_usage_check = mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"uploads_reached": True, "jobs_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"end": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         asutospec=True,
     )
 
