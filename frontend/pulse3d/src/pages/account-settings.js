@@ -49,15 +49,6 @@ export default function AccountSettings() {
         labeltextcolor="black"
         daysOfPlanLeft={daysLeft}
       />
-      <UsageWidgetFull
-        metricName="Analysis"
-        limitUsage={jobsLimit}
-        actualUsage={currentJobUsage}
-        subscriptionName={"Basic"}
-        subscriptionEndDate={endDate}
-        labeltextcolor="black"
-        daysOfPlanLeft={daysLeft}
-      />
     </BackgroundContainer>
   );
 }

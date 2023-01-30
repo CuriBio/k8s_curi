@@ -227,7 +227,7 @@ async def get_customer_quota(con, customer_id, service) -> Dict[str, int]:
     # get service specific usage restrictions for the customer account
     # uploads limit, jobs limit, end date of plan
     usage_limit_query = "SELECT usage_restrictions->$1 AS usage FROM customers WHERE id=$2"
-    # grab total uploads and jobs of customer for specific service
+    # get total uploads of customer for specific service
     current_usage_query = "SELECT COUNT(*) as total_uploads, SUM(jobs_count) as total_jobs FROM (SELECT COUNT(*) AS jobs_count FROM jobs_result WHERE customer_id=$1 AND type=$2 GROUP BY upload_id) dt"
     # get all uploads with up to 2 jobs
     less_than_3_jobs_query = "SELECT upload_id, COUNT(upload_id) FROM jobs_result WHERE customer_id=$1 GROUP BY upload_id HAVING COUNT(upload_id)<=2"

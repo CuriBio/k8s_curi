@@ -11,10 +11,17 @@ class UploadRequest(BaseModel):
     upload_type: str
 
 
+class Usage_Quota(BaseModel):
+    current: Dict[str, str]
+    limits: Dict[str, str]
+    jobs_reached: bool
+    uploads_reached: bool
+
+
 class UploadResponse(BaseModel):
     id: Optional[uuid.UUID]
     params: Dict[str, Any]
-    usage_quota: Optional[Dict[str, Union[Dict[str, str], bool]]]
+    usage_quota: Usage_Quota
 
 
 class JobRequest(BaseModel):
@@ -38,13 +45,6 @@ class JobRequest(BaseModel):
 
     prominence_factors: Optional[TupleParam]
     width_factors: Optional[TupleParam]
-
-
-class Usage_Quota(BaseModel):
-    current: Dict[str, str]
-    limits: Dict[str, str]
-    jobs_reached: bool
-    uploads_reached: bool
 
 
 class JobResponse(BaseModel):
