@@ -1,12 +1,14 @@
 FROM python:3.9-slim as venv
 
+RUN useradd main_user && groupadd main_group
+USER main_user:main_group
+
 WORKDIR /app
 COPY ./deployments/apiv2/services/mantarray/src/requirements.txt ./
 COPY ./core/lib/ ./lib/
 
 RUN python -m venv --copies /app/venv
 RUN . /app/venv/bin/activate && pip install -r ./requirements.txt && pip install ./lib/auth && pip install ./lib/utils
-
 
 FROM python:3.9-slim as prod
 

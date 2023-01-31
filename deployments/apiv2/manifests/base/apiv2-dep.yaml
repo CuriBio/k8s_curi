@@ -17,62 +17,62 @@ spec:
         version: latest
     spec:
       containers:
-      - name: users
-        image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/users:0.3.2
-        env:
-        - name: POSTGRES_USER
-          value: curibio_users
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: curibio-users-creds
-              key: curibio_users
-        - name: POSTGRES_SERVER
-          value: psql-rds.default
-        - name: POSTGRES_DB
-          value: curibio
-        - name: JWT_SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              name: curibio-jwt-secret
-              key: jwt-secret
-        - name: CURIBIO_EMAIL
-          valueFrom:
-            secretKeyRef:
-              name: curibio-email-creds
-              key: curibio-email
-        - name: CURIBIO_EMAIL_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: curibio-email-creds
-              key: curibio-email-password
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 9001
-      - name: mantarray
-        image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.2.1
-        env:
-        - name: CLUSTER_NAME
-          value: test
-        - name: POSTGRES_USER
-          value: curibio_mantarray_ro
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: curibio-mantarray-creds
-              key: curibio_mantarray_ro
-        - name: POSTGRES_SERVER
-          value: psql-rds.default
-        - name: POSTGRES_DB
-          value: curibio
-        - name: JWT_SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              name: curibio-jwt-secret
-              key: jwt-secret
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 9000
+        - name: users
+          image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/users:0.4.0
+          env:
+            - name: POSTGRES_USER
+              value: curibio_users
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: curibio-users-creds
+                  key: curibio_users
+            - name: POSTGRES_SERVER
+              value: psql-rds.default
+            - name: POSTGRES_DB
+              value: curibio
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: curibio-jwt-secret
+                  key: jwt-secret
+            - name: CURIBIO_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: curibio-email-creds
+                  key: curibio-email
+            - name: CURIBIO_EMAIL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: curibio-email-creds
+                  key: curibio-email-password
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 9001
+        - name: mantarray
+          image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.3.0
+          env:
+            - name: CLUSTER_NAME
+              value: test
+            - name: POSTGRES_USER
+              value: curibio_mantarray_ro
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: curibio-mantarray-creds
+                  key: curibio_mantarray_ro
+            - name: POSTGRES_SERVER
+              value: psql-rds.default
+            - name: POSTGRES_DB
+              value: curibio
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: curibio-jwt-secret
+                  key: jwt-secret
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 9000
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -85,20 +85,20 @@ status:
   loadBalancer: {}
 spec:
   rules:
-  - host: apiv2.curibio-test.com
-    http:
-      paths:
-      - path: /users/
-        pathType: Prefix
-        backend:
-          service:
-            name: users
-            port:
-              number: 80
-      - path: /mantarray/
-        pathType: Prefix
-        backend:
-          service:
-            name: mantarray
-            port:
-              number: 80
+    - host: apiv2.curibio-test.com
+      http:
+        paths:
+          - path: /users/
+            pathType: Prefix
+            backend:
+              service:
+                name: users
+                port:
+                  number: 80
+          - path: /mantarray/
+            pathType: Prefix
+            backend:
+              service:
+                name: mantarray
+                port:
+                  number: 80

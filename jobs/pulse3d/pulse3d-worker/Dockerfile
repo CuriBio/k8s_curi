@@ -1,5 +1,8 @@
 FROM python:3.9-slim as venv
 
+RUN useradd main_user && groupadd main_group
+USER main_user:main_group
+
 WORKDIR /app
 COPY ./jobs/pulse3d/pulse3d-worker/src/requirements.txt ./
 COPY ./core/lib/jobs ./lib/jobs

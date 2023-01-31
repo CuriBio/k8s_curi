@@ -2,6 +2,9 @@ FROM python:3.9-slim as venv
 RUN apt-get update; \
     apt-get install -y build-essential
 
+RUN useradd main_user && groupadd main_group
+USER main_user:main_group
+
 WORKDIR /app
 COPY ./deployments/apiv2/services/users/src/requirements.txt ./
 COPY ./core/lib/auth ./lib/auth

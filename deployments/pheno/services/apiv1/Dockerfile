@@ -2,6 +2,9 @@ FROM python:3.9-slim as venv
 RUN apt-get update; \
     apt-get install -y build-essential
 
+RUN useradd main_user && groupadd main_group
+USER main_user:main_group
+
 WORKDIR /app
 COPY ./deployments/pheno/services/apiv1/src/requirements.txt ./
 COPY ./core/lib/utils ./lib/utils
@@ -21,8 +24,6 @@ COPY ./deployments/pheno/services/apiv1/src/main.py ./
 COPY ./deployments/pheno/services/apiv1/src/lib/ ./lib/
 COPY ./deployments/pheno/services/apiv1/src/endpoints/ ./endpoints/
 
-
 ENV PYTHONUNBUFFERED 1
-
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 

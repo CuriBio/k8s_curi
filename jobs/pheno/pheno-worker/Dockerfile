@@ -1,5 +1,8 @@
 FROM python:3.9-slim as venv
 
+RUN useradd main_user && groupadd main_group
+USER main_user:main_group
+
 WORKDIR /app
 COPY ./jobs/pheno/pheno-worker/src/requirements.txt ./
 

@@ -1,6 +1,9 @@
 FROM alpine:latest
 RUN apk add --no-cache --update curl
 
+RUN useradd main_user && groupadd main_group
+USER main_user:main_group
+
 RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"; \
     mv kubectl /usr/local/bin/kubectl; \
     chmod +x /usr/local/bin/kubectl; \
