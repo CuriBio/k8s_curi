@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jobs-operator
+spec:
+  selector:
+    matchLabels:
+      app: jobs-operator
+  template:
+    metadata:
+      labels:
+        app: jobs-operator
+    spec:
+      serviceAccountName: jobs-operator
+      containers:
+      - image: jrperson/jobs-operator:latest
+        name: jobs-operator
