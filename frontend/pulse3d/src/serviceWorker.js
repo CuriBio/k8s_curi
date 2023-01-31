@@ -93,9 +93,6 @@ const clearAccountInfo = () => {
 const isLoginRequest = (url) => {
   return url.pathname.includes("/login");
 };
-const isNewUploadOrJob = (url, method) => {
-  return url.pathname.includes("uploads") && method === "POST";
-};
 
 const isUpdateRequest = (url) => {
   return url.pathname.includes("/account");
