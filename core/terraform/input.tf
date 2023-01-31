@@ -20,3 +20,8 @@ variable "aurora_instance_class" {
   type        = string
 }
 
+variable "password_change_id" {
+  type        = string
+  description = "Id to trigger changing the master password"
+}
+
