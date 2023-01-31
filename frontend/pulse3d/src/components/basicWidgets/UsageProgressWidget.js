@@ -2,6 +2,22 @@ import { useEffect, useState } from "react";
 import CircularProgressWithLabel from "./CircularProgressWithLabel";
 import { useContext } from "react";
 import { AuthContext } from "@/pages/_app";
+import styled from "styled-components";
+
+const ProgressDiv = styled.div`
+  color: white;
+  display: flex;
+  align-items: center;
+  column-count: 1;
+  column-gap: 10px;
+`;
+const ProgressP = styled.p`
+  font-size: 0.85rem;
+`;
+const ExpiredP = styled.p`
+  color: white;
+`;
+
 export default function UsageProgressWidget({ colorOfTextLabel }) {
   const { usageQuota } = useContext(AuthContext);
   const [maxUploads, setMaxUploads] = useState(-1);
@@ -29,55 +45,23 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
       // Unlimited mode
       usageState = (
         <>
-          <div id="progress">Unlimited Access</div>
-          <style jsx>{`
-            div#progress {
-              color: white;
-              display: flex;
-              align-items: center;
-              column-count: 1;
-              column-gap: 10px;
-            }
-          `}</style>
+          <ProgressDiv>Unlimited Access</ProgressDiv>
         </>
       );
     } else if (!usageQuota.jobs_reached) {
       // max usage has not been reached
       usageState = (
-        <>
-          <div id="progress">
-            <p>Usage</p>
-            <CircularProgressWithLabel value={usagePercentage} colorOfTextLabel={colorOfTextLabel} />
-            <p id="display">{`${actualUploads}/${maxUploads} Analysis used`}</p>
-          </div>
-          <style jsx>{`
-            div#progress {
-              color: white;
-              display: flex;
-              align-items: center;
-              column-count: 1;
-              column-gap: 10px;
-            }
-            p#display {
-              font-size: 0.85rem;
-            }
-          `}</style>
-        </>
+        <ProgressDiv>
+          <p>Usage</p>
+          <CircularProgressWithLabel value={usagePercentage} colorOfTextLabel={colorOfTextLabel} />
+          <ProgressP>{`${actualUploads}/${maxUploads} Analysis used`}</ProgressP>
+        </ProgressDiv>
       );
     } else {
       // not unlimited account and
       // usage max is reached and
       // plan has expired
-      usageState = (
-        <>
-          <p id="expired">Plan Has Expired</p>
-          <style jsx>{`
-            p#expired {
-              color: white;
-            }
-          `}</style>
-        </>
-      );
+      usageState = <ExpiredP>Plan Has Expired</ExpiredP>;
     }
     return usageState;
   };

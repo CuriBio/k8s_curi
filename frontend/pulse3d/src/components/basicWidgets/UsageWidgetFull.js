@@ -1,4 +1,22 @@
 import CircularProgressWithLabel from "./CircularProgressWithLabel";
+import styled from "styled-components";
+
+const Container = styled.div`
+  background: linear-gradient(0, var(--med-gray) 30%, var(--light-gray) 90%);
+  box-shadow: 0 3px 5px 2px var(--dark-gray);
+  border: 3px solid black;
+  padding: 0.75rem;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  color: black;
+  flex-flow: column;
+  text-align: center;
+`;
+const SmallDescription = styled.div`
+  font-size: 0.75rem;
+  text-align: center;
+`;
 export default function UsageWidget({
   metricName,
   limitUsage,
@@ -10,7 +28,7 @@ export default function UsageWidget({
 }) {
   return (
     <>
-      <div id="container">
+      <Container>
         <h1>{subscriptionName} Plan</h1>
         <p>{`Plan Expires on ${subscriptionEndDate}`}</p>
         <p>
@@ -23,29 +41,11 @@ export default function UsageWidget({
           value={(actualUsage / limitUsage) * 100 > 100 ? 100 : parseInt((actualUsage / limitUsage) * 100)}
           colorOfTextLabel={colorOfTextLabel}
         />
-        <p id="smallDescription">
+        <SmallDescription>
           Each upload comes with one free re-analysis. Initial analysis and all re-analysis after first one
           will consume an analysis credit.
-        </p>
-      </div>
-      <style jsx>{`
-        div#container {
-          background: linear-gradient(0, var(--med-gray) 30%, var(--light-gray) 90%);
-          box-shadow: 0 3px 5px 2px var(--dark-gray);
-          border: 3px solid black;
-          padding: 0.75rem;
-          border-radius: 3px;
-          display: flex;
-          align-items: center;
-          color: black;
-          flex-flow: column;
-          text-align: center;
-        }
-        p#smallDescription {
-          font-size: 0.75rem;
-          text-align: center;
-        }
-      `}</style>
+        </SmallDescription>
+      </Container>
     </>
   );
 }
