@@ -104,7 +104,7 @@ class UnableToUpdateAccountResponse(BaseModel):
     message: str
 
 
-class Usage_Quota(BaseModel):
+class UsageQuota(BaseModel):
     current: Dict[str, str]
     limits: Dict[str, str]
     jobs_reached: bool
@@ -113,4 +113,4 @@ class Usage_Quota(BaseModel):
 
 class LoginResponse(BaseModel):
     tokens: AuthTokens
-    usage_quota: Usage_Quota
+    usage_quota: UsageQuota

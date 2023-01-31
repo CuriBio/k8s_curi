@@ -1,7 +1,7 @@
 """Adding plan end date to usage_restrictions json object structure
 
 Revision ID: 2ccc9fe21ec1
-Revises: 1f23e047d2b0
+Revises: 89e819e0ecc2
 Create Date: 2023-01-25 14:40:08.612570
 
 """
