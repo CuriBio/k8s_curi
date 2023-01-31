@@ -165,10 +165,9 @@ export default function InteractiveWaveformModal({
   const [openChangelog, setOpenChangelog] = useState(false);
   const [undoing, setUndoing] = useState(false);
   const [peakValleyWindows, setPeakValleyWindows] = useState({});
-  const [duplicatesPresent, setDuplicatesPresent] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [creditUsageAlert, setCreditUsageAlert] = useState(false);
-  
+
   const handleDuplicatesModalClose = (isRunAnalysisOption) => {
     setDuplicateModalOpen(false);
     if (isRunAnalysisOption) {
@@ -317,7 +316,6 @@ export default function InteractiveWaveformModal({
 
     return duplicatesMap;
   };
-
 
   const getNewData = async () => {
     await getWaveformData();
@@ -809,7 +807,6 @@ export default function InteractiveWaveformModal({
               disabled={uploadInProgress}
               inProgress={uploadInProgress}
               clickFn={handleRunAnalysis}
-
             />
           </ButtonContainer>
         </>
@@ -842,7 +839,7 @@ export default function InteractiveWaveformModal({
       />
       <ModalWidget
         open={creditUsageAlert}
-        labels={["This Re-analysis will use 1 credit."]}
+        labels={["This re-analysis will consume 1 analysis credit."]}
         closeModal={() => {
           setCreditUsageAlert(false);
         }}

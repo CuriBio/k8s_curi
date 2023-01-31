@@ -157,7 +157,7 @@ async def create_recording_upload(
                     PULSE3D_UPLOADS_BUCKET,
                     upload_id=upload_id,
                 )
-                return UploadResponse(id=upload_id, params=params, usage_quota=usage_quota)
+                return UploadResponse(id=upload_id, params=params)
     except S3Error as e:
         logger.exception(str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)

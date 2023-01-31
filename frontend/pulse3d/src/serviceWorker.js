@@ -228,7 +228,7 @@ const interceptResponse = async (req, url) => {
       if (resBodyToCheck.error && resBodyToCheck.error === "UsageError") {
         setUsageQuota(resBodyToCheck.message);
       } else {
-        // most resent upload does not get read in time
+        // most recent upload does not get read in time
         resBodyToCheck.usage_quota.current.jobs++;
         resBodyToCheck.usage_quota.jobs_reached =
           resBodyToCheck.usage_quota.current.jobs >= resBodyToCheck.usage_quota.limits.jobs;

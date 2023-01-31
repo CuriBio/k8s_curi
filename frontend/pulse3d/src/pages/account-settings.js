@@ -29,7 +29,7 @@ export default function AccountSettings() {
       setJobsLimit(usageQuota.limits.jobs);
       setCurrentJobUsage(usageQuota.current.jobs);
 
-      const endDate = new Date(usageQuota.limits.end).toUTCString();
+      const endDate = new Date(usageQuota.limits.expiration_date).toUTCString();
       setEndDate(endDate.slice(0, 16));
 
       const currentDate = new Date(new Date(Date.now()).toUTCString());
@@ -46,7 +46,7 @@ export default function AccountSettings() {
         subscriptionName={"Basic"}
         daysLeft={daysLeft}
         subscriptionEndDate={endDate}
-        labeltextcolor="black"
+        colorOfTextLabel="black"
         daysOfPlanLeft={daysLeft}
       />
     </BackgroundContainer>

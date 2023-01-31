@@ -3,7 +3,6 @@ import json
 from typing import Union, List, Optional
 import uuid
 from datetime import datetime
-from jobs import check_customer_quota
 import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHash
@@ -23,6 +22,7 @@ from auth import (
     ACCOUNT_SCOPES,
     PULSE3D_PAID_USAGE,
 )
+from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
 from models.errors import LoginError, RegistrationError, EmailRegistrationError
 from models.tokens import AuthTokens

@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import CircularProgressWithLabel from "./CircularProgressWithLabel";
 import { useContext } from "react";
 import { AuthContext } from "@/pages/_app";
-export default function UsageProgressWidget({ labeltextcolor }) {
+export default function UsageProgressWidget({ colorOfTextLabel }) {
   const { usageQuota } = useContext(AuthContext);
   const [maxUploads, setMaxUploads] = useState(-1);
   const [actualUploads, setActualUploads] = useState(0);
-  const [UsagePercentage, setUsagePercentage] = useState(0);
+  const [usagePercentage, setUsagePercentage] = useState(0);
 
   useEffect(() => {
     if (usageQuota) {
@@ -14,16 +14,16 @@ export default function UsageProgressWidget({ labeltextcolor }) {
       const actual = parseInt(usageQuota.current.jobs);
       setMaxUploads(limit);
       setActualUploads(actual);
-      const UsagePercentage = parseInt((actual / limit) * 100);
-      if (UsagePercentage > 100) {
+      const usagePercentage = parseInt((actual / limit) * 100);
+      if (usagePercentage > 100) {
         setUsagePercentage(100);
       } else {
-        setUsagePercentage(UsagePercentage);
+        setUsagePercentage(usagePercentage);
       }
     }
   }, [usageQuota]);
 
-  const component = () => {
+  const CorrectCardComponent = () => {
     let usageState;
     if (maxUploads === -1) {
       // Unlimited mode
@@ -47,7 +47,7 @@ export default function UsageProgressWidget({ labeltextcolor }) {
         <>
           <div id="progress">
             <p>Usage</p>
-            <CircularProgressWithLabel value={UsagePercentage} labeltextcolor={labeltextcolor} />
+            <CircularProgressWithLabel value={usagePercentage} colorOfTextLabel={colorOfTextLabel} />
             <p id="display">{`${actualUploads}/${maxUploads} Analysis used`}</p>
           </div>
           <style jsx>{`
@@ -82,5 +82,5 @@ export default function UsageProgressWidget({ labeltextcolor }) {
     return usageState;
   };
 
-  return <>{component()}</>;
+  return <>{CorrectCardComponent()}</>;
 }

@@ -5,7 +5,7 @@ export default function UsageWidget({
   actualUsage,
   subscriptionName,
   subscriptionEndDate,
-  labeltextcolor,
+  colorOfTextLabel,
   daysOfPlanLeft,
 }) {
   return (
@@ -21,11 +21,11 @@ export default function UsageWidget({
         <p>{`${actualUsage} out of ${limitUsage} ${metricName} used`}</p>
         <CircularProgressWithLabel
           value={(actualUsage / limitUsage) * 100 > 100 ? 100 : parseInt((actualUsage / limitUsage) * 100)}
-          labeltextcolor={labeltextcolor}
+          colorOfTextLabel={colorOfTextLabel}
         />
         <p id="smallDescription">
-          Each upload comes with one free initial analysis and one free re-analysis. All subsequent analyses
-          of an uploaded file will use a credit.
+          Each upload comes with one free re-analysis. Initial analysis and all re-analysis after first one
+          will consume an analysis credit.
         </p>
       </div>
       <style jsx>{`

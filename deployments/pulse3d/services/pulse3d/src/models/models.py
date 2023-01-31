@@ -21,7 +21,6 @@ class Usage_Quota(BaseModel):
 class UploadResponse(BaseModel):
     id: Optional[uuid.UUID]
     params: Dict[str, Any]
-    usage_quota: Usage_Quota
 
 
 class JobRequest(BaseModel):

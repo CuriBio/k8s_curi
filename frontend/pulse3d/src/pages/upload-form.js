@@ -479,7 +479,9 @@ export default function UploadForm() {
               setResetDragDrop={setResetDragDrop}
               resetDragDrop={resetDragDrop}
             />
-            <UploadCreditUsageInfo> Each file succesfully uploaded will use 1 credit.</UploadCreditUsageInfo>
+            <UploadCreditUsageInfo>
+              Analysis will run on each successfully uploaded file, consuming 1 analysis credit each.
+            </UploadCreditUsageInfo>
           </>
         ) : (
           <DropDownContainer>
@@ -544,7 +546,7 @@ export default function UploadForm() {
       />
       <ModalWidget
         open={creditUsageAlert}
-        labels={["This Re-analysis will use 1 credit."]}
+        labels={["This re-analysis will consume 1 analysis credit."]}
         closeModal={() => {
           setCreditUsageAlert(false);
         }}
