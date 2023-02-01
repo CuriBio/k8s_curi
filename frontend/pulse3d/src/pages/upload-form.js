@@ -10,6 +10,7 @@ import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
 import semverGte from "semver/functions/gte";
 import InputDropdownWidget from "@/components/basicWidgets/InputDropdownWidget";
+import { AuthContext } from "./_app";
 const Container = styled.div`
   width: 85%;
   justify-content: center;
@@ -135,6 +136,7 @@ export default function UploadForm() {
   const [badZipFiles, setBadZipFiles] = useState([]);
   const [resetDragDrop, setResetDragDrop] = useState(false);
   const [creditUsageAlert, setCreditUsageAlert] = useState(false);
+  const { usageQuota } = useContext(AuthContext);
 
   useEffect(() => {
     if (badZipFiles.length > 0) {
@@ -167,7 +169,13 @@ export default function UploadForm() {
       !((files.length > 0 && files[0] instanceof File) || (uploads && uploads.includes(files[0]))) ||
       inProgress;
     setIsButtonDisabled(checkConditions);
-    setCreditUsageAlert(!checkConditions && tabSelection === "Re-analyze Existing Upload");
+    setCreditUsageAlert(
+      !checkConditions &&
+        tabSelection === "Re-analyze Existing Upload" &&
+        usageQuota &&
+        usageQuota.limits &&
+        parseInt(usageQuota.limits.jobs) !== -1
+    );
   }, [paramErrors, files, inProgress]);
 
   useEffect(() => {
@@ -479,9 +487,11 @@ export default function UploadForm() {
               setResetDragDrop={setResetDragDrop}
               resetDragDrop={resetDragDrop}
             />
-            <UploadCreditUsageInfo>
-              Analysis will run on each successfully uploaded file, consuming 1 analysis credit each.
-            </UploadCreditUsageInfo>
+            {usageQuota && usageQuota.limits && parseInt(usageQuota.limits.jobs) !== -1 ? (
+              <UploadCreditUsageInfo>
+                Analysis will run on each successfully uploaded file, consuming 1 analysis credit each.
+              </UploadCreditUsageInfo>
+            ) : null}
           </>
         ) : (
           <DropDownContainer>

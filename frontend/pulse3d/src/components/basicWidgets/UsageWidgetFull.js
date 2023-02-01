@@ -28,24 +28,35 @@ export default function UsageWidget({
 }) {
   return (
     <>
-      <Container>
-        <h1>{subscriptionName} Plan</h1>
-        <p>{`Plan Expires on ${subscriptionEndDate}`}</p>
-        <p>
-          {daysOfPlanLeft >= 0
-            ? `${daysOfPlanLeft} days of plan left`
-            : `${daysOfPlanLeft * -1} days expired`}
-        </p>
-        <p>{`${actualUsage} out of ${limitUsage} ${metricName} used`}</p>
-        <CircularProgressWithLabel
-          value={(actualUsage / limitUsage) * 100 > 100 ? 100 : parseInt((actualUsage / limitUsage) * 100)}
-          colorOfTextLabel={colorOfTextLabel}
-        />
-        <SmallDescription>
-          Each upload comes with one free re-analysis. Initial analysis and all re-analysis after first one
-          will consume an analysis credit.
-        </SmallDescription>
-      </Container>
+      {parseInt(limitUsage) !== -1 ? (
+        <Container>
+          <h1>{subscriptionName} Plan</h1>
+          <p>{`Plan Expires on ${subscriptionEndDate}`}</p>
+          <p>
+            {daysOfPlanLeft >= 0
+              ? `${daysOfPlanLeft} days of plan left`
+              : `${daysOfPlanLeft * -1} days expired`}
+          </p>
+          <p>{`${actualUsage} out of ${limitUsage} ${metricName} used`}</p>
+          <CircularProgressWithLabel
+            value={(actualUsage / limitUsage) * 100 > 100 ? 100 : parseInt((actualUsage / limitUsage) * 100)}
+            colorOfTextLabel={colorOfTextLabel}
+          />
+          <SmallDescription>
+            Each upload comes with one free re-analysis. Initial analysis and all re-analysis after first one
+            will consume an analysis credit.
+          </SmallDescription>
+        </Container>
+      ) : (
+        <Container>
+          <h1>Unlimited Plan</h1>
+          <p>No expiration date</p>
+          <p>Unlimited days left</p>
+          <p>{`${actualUsage} ${metricName} used`}</p>
+          <CircularProgressWithLabel value={0} colorOfTextLabel={colorOfTextLabel} />
+          <SmallDescription>You have unlimited access to Pulse3d analysis.</SmallDescription>
+        </Container>
+      )}
     </>
   );
 }
