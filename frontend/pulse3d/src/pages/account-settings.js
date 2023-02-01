@@ -25,7 +25,7 @@ export default function AccountSettings() {
   const [daysLeft, setDaysLeft] = useState(0);
 
   useEffect(() => {
-    if (usageQuota) {
+    if (usageQuota && usageQuota.limits && usageQuota.current) {
       setJobsLimit(usageQuota.limits.jobs);
       setCurrentJobUsage(usageQuota.current.jobs);
 

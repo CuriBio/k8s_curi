@@ -25,7 +25,7 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
   const [usagePercentage, setUsagePercentage] = useState(0);
 
   useEffect(() => {
-    if (usageQuota) {
+    if (usageQuota && usageQuota.limits && usageQuota.current) {
       const limit = parseInt(usageQuota.limits.jobs);
       const actual = parseInt(usageQuota.current.jobs);
       setMaxUploads(limit);
