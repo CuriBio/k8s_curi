@@ -14,6 +14,7 @@ import numpy as np
 import tempfile
 
 from labware_domain_models import LabwareDefinition
+from pulse3D.constants import MICRO_TO_BASE_CONVERSION
 from src.models.models import GenericErrorResponse
 
 TWENTY_FOUR_WELL_PLATE = LabwareDefinition(row_count=4, column_count=6)
@@ -98,10 +99,7 @@ def test_logs__post(mocker):
     )
 
 
-@pytest.mark.parametrize(
-    "test_token_scope",
-    [[s] for s in PULSE3D_SCOPES],
-)
+@pytest.mark.parametrize("test_token_scope", [[s] for s in PULSE3D_SCOPES])
 @pytest.mark.parametrize(
     "test_upload_ids", [None, [], uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]]
 )
@@ -228,10 +226,7 @@ def test_uploads__post_if_customer_quota_has_been_reached(mocked_asyncpg_con, mo
     mocked_create_upload.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "test_token_scope",
-    [[s] for s in PULSE3D_SCOPES],
-)
+@pytest.mark.parametrize("test_token_scope", [[s] for s in PULSE3D_SCOPES])
 @pytest.mark.parametrize("test_upload_ids", [uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]])
 def test_uploads__delete(test_token_scope, test_upload_ids, mocked_asyncpg_con, mocker):
     mocked_delete_uploads = mocker.patch.object(main, "delete_uploads", autospec=True)
@@ -968,10 +963,7 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
     assert mocked_create_job.call_args[1]["meta"]["analysis_params"] == expected_analysis_params
 
 
-@pytest.mark.parametrize(
-    "test_token_scope",
-    [[s] for s in PULSE3D_SCOPES],
-)
+@pytest.mark.parametrize("test_token_scope", [[s] for s in PULSE3D_SCOPES])
 @pytest.mark.parametrize("test_job_ids", [uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]])
 def test_jobs__delete(test_token_scope, test_job_ids, mocked_asyncpg_con, mocker):
     mocked_delete_jobs = mocker.patch.object(main, "delete_jobs", autospec=True)
@@ -1030,10 +1022,7 @@ def test_jobs__delete__failure_to_delete_jobs(mocker):
     assert response.status_code == 500
 
 
-@pytest.mark.parametrize(
-    "test_token_scope",
-    [[s] for s in PULSE3D_SCOPES],
-)
+@pytest.mark.parametrize("test_token_scope", [[s] for s in PULSE3D_SCOPES])
 @pytest.mark.parametrize("test_job_ids", [[uuid.uuid4() for _ in range(r)] for r in range(1, 4)])
 def test_jobs_download__post__no_duplicate_analysis_file_names(
     test_token_scope, test_job_ids, mocked_asyncpg_con, mocker
@@ -1091,10 +1080,7 @@ def test_jobs_download__post__no_duplicate_analysis_file_names(
     )
 
 
-@pytest.mark.parametrize(
-    "test_token_scope",
-    [[s] for s in PULSE3D_SCOPES],
-)
+@pytest.mark.parametrize("test_token_scope", [[s] for s in PULSE3D_SCOPES])
 def test_jobs_download__post__duplicate_analysis_file_names(mocked_asyncpg_con, test_token_scope, mocker):
     test_account_id = uuid.uuid4()
     account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
@@ -1188,10 +1174,7 @@ def test_uploads_download__post__no_job_ids_given(test_upload_ids, test_error_co
     mocked_yield_objs.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "test_token_scope",
-    [[s] for s in PULSE3D_SCOPES],
-)
+@pytest.mark.parametrize("test_token_scope", [[s] for s in PULSE3D_SCOPES])
 def test_uploads_download__post__correctly_handles_single_file_downloads(
     test_token_scope, mocked_asyncpg_con, mocker
 ):
@@ -1209,11 +1192,7 @@ def test_uploads_download__post__correctly_handles_single_file_downloads(
 
     test_presigned_url = "https://s3.test-url.com/"
     test_upload_rows = [
-        {
-            "filename": f"file_{upload}zip",
-            "prefix": "/obj/prefix/",
-        }
-        for upload in test_upload_ids
+        {"filename": f"file_{upload}zip", "prefix": "/obj/prefix/"} for upload in test_upload_ids
     ]
 
     mocked_get_uploads = mocker.patch.object(
@@ -1252,10 +1231,7 @@ def test_uploads_download__post__correctly_handles_single_file_downloads(
     mocked_yield_objs.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "test_token_scope",
-    [[s] for s in PULSE3D_SCOPES],
-)
+@pytest.mark.parametrize("test_token_scope", [[s] for s in PULSE3D_SCOPES])
 @pytest.mark.parametrize("test_upload_ids", [[uuid.uuid4() for _ in range(r)] for r in range(2, 4)])
 def test_uploads_download__post__correctly_handles_multiple_file_downloads(
     test_token_scope, test_upload_ids, mocked_asyncpg_con, mocker
@@ -1329,13 +1305,21 @@ def test_waveform_data__get__getting_job_metadata_from_db_errors(mocker):
     assert response.status_code == 500
 
 
-@pytest.mark.parametrize("pulse3d_version", ["0.28.0", "0.28.1"])
-def test_waveform_data__get__handles_when_current_pulse3d_version_was_used(mocker, pulse3d_version):
+@pytest.mark.parametrize("pulse3d_version", [None, "1.2.3"])
+def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version):
     test_user_id = uuid.uuid4()
     test_inclusive_df = pd.DataFrame()
 
-    for column in ("Time", "A1", "A1__raw", "A1__peaks", "A1__valleys"):
-        test_inclusive_df[column] = pd.Series([1, 2, 3])
+    test_data = list(range(5))
+    expected_data = test_data[:-1]
+
+    for column in ("Time", "Stim Time (µs)", "A1", "A1__raw", "A1__peaks", "A1__valleys"):
+        series = pd.Series(test_data)
+        if column == "Time":
+            series *= MICRO_TO_BASE_CONVERSION
+        elif column != "A1__raw":
+            series[test_data[-1]] = np.nan
+        test_inclusive_df[column] = series
 
     mocker.patch.object(main, "glob", return_value=["/tmp/directory/recording"], autospec=True)
     mocker.patch.object(pd, "read_parquet", return_value=test_inclusive_df, autospec=True)
@@ -1374,12 +1358,13 @@ def test_waveform_data__get__handles_when_current_pulse3d_version_was_used(mocke
 
     assert response.status_code == 200
     assert response.json() == {
-        "coordinates": {"A1": [[1e-06, 1], [2e-06, 2], [3e-06, 3]]},
-        "peaks_valleys": {"A1": [[1, 2, 3], [1, 2, 3]]},
+        "coordinates": {"A1": [[float(i), i] for i in expected_data]},
+        "peaks_valleys": {"A1": [expected_data, expected_data]},
     }
 
 
-def test_waveform_data__get__handles_when_no_time_force_parquet_is_found(mocker):
+@pytest.mark.parametrize("pulse3d_version", [None, "1.2.3"])
+def test_waveform_data__get__no_time_force_parquet_found(mocker, pulse3d_version):
     test_user_id = uuid.uuid4()
     expected_analysis_params = {
         param: None
@@ -1399,7 +1384,7 @@ def test_waveform_data__get__handles_when_no_time_force_parquet_is_found(mocker)
     test_jobs = [
         {
             "user_id": test_user_id,
-            "job_meta": json.dumps({"version": "0.28.0", "analysis_params": expected_analysis_params}),
+            "job_meta": json.dumps({"version": pulse3d_version, "analysis_params": expected_analysis_params}),
         }
     ]
 
