@@ -39,6 +39,15 @@ def _load_from_dir(recording_dir, plate_recording_args):
     return recordings
 
 
+def _is_valid_well_name(well_name):
+    return (
+        isinstance(well_name, str)
+        and len(well_name) == 2
+        and well_name[0] in ("A", "B", "C", "D")
+        and well_name[1] in [str(n) for n in range(1, 7)]
+    )
+
+
 @get_item(queue=f"pulse3d-v{PULSE3D_VERSION}")
 async def process(con, item):
     logger.info(f"Processing item: {item}")
@@ -166,10 +175,11 @@ async def process(con, item):
                 except Exception as e:
                     logger.exception(f"Writing or uploading time force data failed: {e}")
                     raise
+
             try:
                 peaks_valleys_dict = dict()
                 if not interactive_analysis:
-                    logger.info("Running peak_detector for recording")
+                    logger.info("Running peak_detector on recording for export to parquet")
                     # remove raw data columns
                     columns = [c for c in recording_df.columns if "__raw" not in c]
                     # this is to handle analyses run before PR.to_dataframe() where time is in seconds
@@ -177,20 +187,18 @@ async def process(con, item):
                     peaks_valleys_df = pd.DataFrame()
                     peak_detector_args = {
                         param: analysis_params[param]
-                        for param in (
-                            "prominence_factors",
-                            "width_factors",
-                            "start_time",
-                            "end_time",
-                        )
-                        if analysis_params.get(param, None) is not None
+                        for param in ("prominence_factors", "width_factors", "start_time", "end_time")
+                        if analysis_params.get(param) is not None
                     }
 
-                    for well in columns[1:]:
-                        logger.info(f"Finding peaks and valleys for well at {well}")
-                        well_force = recording_df[well]
+                    for well in columns:
+                        if not _is_valid_well_name(well):
+                            continue
+                        logger.info(f"Finding peaks and valleys for well {well}")
 
-                        interpolated_well_data = np.row_stack([time, well_force])
+                        well_force = recording_df[well].dropna().tolist()
+
+                        interpolated_well_data = np.row_stack([time[: len(well_force)], well_force])
                         peaks, valleys = peak_detector(interpolated_well_data, **peak_detector_args)
                         # this df will be written to parquet and stored in s3, two columns for each well prefixed with well name
                         peaks_valleys_df[f"{well}__peaks"] = pd.Series(peaks)
@@ -207,10 +215,7 @@ async def process(con, item):
                         peaks = peaks_valleys_df[f"{well_name}__peaks"].dropna().tolist()
                         valleys = peaks_valleys_df[f"{well_name}__valleys"].dropna().tolist()
 
-                        peaks_valleys_dict[well_name] = [
-                            [int(x) for x in peaks],
-                            [int(x) for x in valleys],
-                        ]
+                        peaks_valleys_dict[well_name] = [[int(x) for x in peaks], [int(x) for x in valleys]]
 
                 # set in analysis params to be passed to write_xlsx
                 analysis_params["peaks_valleys"] = peaks_valleys_dict
