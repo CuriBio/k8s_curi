@@ -39,6 +39,7 @@ def _load_from_dir(recording_dir, plate_recording_args):
     return recordings
 
 
+# TODO move this to core lib
 def _is_valid_well_name(well_name):
     return (
         isinstance(well_name, str)
@@ -184,13 +185,13 @@ async def process(con, item):
                     columns = [c for c in recording_df.columns if "__raw" not in c]
                     # this is to handle analyses run before PR.to_dataframe() where time is in seconds
                     time = recording_df[columns[0]].tolist()
-                    peaks_valleys_df = pd.DataFrame()
                     peak_detector_args = {
                         param: analysis_params[param]
                         for param in ("prominence_factors", "width_factors", "start_time", "end_time")
                         if analysis_params.get(param) is not None
                     }
 
+                    peaks_valleys_for_df = dict()
                     for well in columns:
                         if not _is_valid_well_name(well):
                             continue
@@ -200,11 +201,15 @@ async def process(con, item):
 
                         interpolated_well_data = np.row_stack([time[: len(well_force)], well_force])
                         peaks, valleys = peak_detector(interpolated_well_data, **peak_detector_args)
-                        # this df will be written to parquet and stored in s3, two columns for each well prefixed with well name
-                        peaks_valleys_df[f"{well}__peaks"] = pd.Series(peaks)
-                        peaks_valleys_df[f"{well}__valleys"] = pd.Series(valleys)
+
+                        # need to initialize a dict with these values and then create the DF otherwise values will be truncated
+                        peaks_valleys_for_df[f"{well}__peaks"] = pd.Series(peaks)
+                        peaks_valleys_for_df[f"{well}__valleys"] = pd.Series(valleys)
+
                         # write_xlsx takes in peaks_valleys: Dict[str, List[List[int]]]
                         peaks_valleys_dict[well] = [peaks, valleys]
+                    # this df will be written to parquet and stored in s3, two columns for each well prefixed with well name
+                    peaks_valleys_df = pd.DataFrame(peaks_valleys_for_df)
                 else:
                     logger.info("Formatting peaks and valleys from parquet file for write_xlsx")
                     peaks_valleys_df = pd.read_parquet(pv_temp_path)
