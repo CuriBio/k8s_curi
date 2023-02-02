@@ -1,17 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: jobs-operator
+  name: operators
 spec:
+  replicas: 1
   selector:
     matchLabels:
-      app: jobs-operator
+      app: operators
   template:
     metadata:
       labels:
-        app: jobs-operator
+        app: operators
     spec:
       serviceAccountName: jobs-operator
       containers:
-      - image: jrperson/jobs-operator:latest
+      - image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/jobs-operator:0.0.1
         name: jobs-operator
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: curibio-jobs-creds
+              key: curibio_jobs_ro
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9001
