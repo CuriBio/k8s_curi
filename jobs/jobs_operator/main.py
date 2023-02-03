@@ -1,53 +1,104 @@
 import kopf
 from kubernetes import config, client as kclient
-
-
-# PRODUCT_QUEUES = ["pulse3d"]  # eventually pulse2d, nautilus, etc
-# ECR_REPO = "077346344852.dkr.ecr.us-east-2.amazonaws.com/queue_processor"
+import os
 
 
 # def create_queue_processors(queue: str = "test-pulse3d"):
-def create_queue_processors(body, spec):
-    print(body, spec)
-    # # Configureate Pod template container
-    # config.load_kube_config()
-    # # config.load_incluster_config()
-    # v1 = kclient.CoreV1Api()
+# async def create_queue_processors(body, spec):
+#     print("2: ", body, spec)
+#     # Configureate Pod template container
+#     v1 = kclient.CoreV1Api()
+#     QUEUE = kclient.V1EnvVar(name="QUEUE")
+#     POSTRES_PASSWORD = kclient.V1EnvVar(name="POSTGRES_PASSWORD", value=os.getenv("POSTGRES_PASSWORD"))
 
-    # QUEUE = kclient.V1EnvVar(name="QUEUE", value=queue)
-    # POSTRES_PASSWORD = kclient.V1EnvVar(name="POSTGRES_PASSWORD", value="WrzVFnNDY9fkfNHt7JU5Wy9N")
+# container = kclient.V1Container(
+#     name="queue-processor",
+#     image=ECR_REPO,
+#     command=["python", "main.py"],
+#     env=[QUEUE, POSTRES_PASSWORD],
+# )
 
-    # container = kclient.V1Container(
-    #     name="queue-processor",
-    #     image=ECR_REPO,
-    #     command=["python", "main.py"],
-    #     env=[QUEUE, POSTRES_PASSWORD],
-    # )
+# # Create and configure a spec section
+# body = kclient.V1PodTemplateSpec(
+#     metadata=kclient.V1ObjectMeta(name=f"{queue}-queue-processor", labels={"app": "queue_processor"}),
+#     spec=kclient.V1PodSpec(
+#         restart_policy="Never", containers=[container], service_account_name="queue-processor"
+#     ),
+# )
+# kopf.adopt(pod, owner=body)
 
-    # # Create and configure a spec section
-    # body = kclient.V1PodTemplateSpec(
-    #     metadata=kclient.V1ObjectMeta(name=f"{queue}-queue-processor", labels={"app": "queue_processor"}),
-    #     spec=kclient.V1PodSpec(
-    #         restart_policy="Never", containers=[container], service_account_name="queue-processor"
-    #     ),
-    # )
-    # kopf.adopt(pod, owner=body)
-
-    # v1.create_namespaced_pod(namespace="pulse3d", body=body)  # TODO change back to queue
+# v1.create_namespaced_pod(namespace="pulse3d", body=body)  # TODO change back to queue
 
 
-@kopf.on.login(retries=1)
-def login_fn(**kwargs):
+# @kopf.on.create("test.net", "v1", "jobrunners")
+# async def create_fn(body, spec, **kwargs):
+#     await create_queue_processors(body, spec)
 
-    return config.load_incluster_config()
+
+# @kopf.on.delete("test.net", "v1", "jobrunners")
+# def delete(body, **kwargs):
+#     msg = f"Database {body['metadata']['name']} and its Pod / Service children deleted"
+#     return {"message": msg}
+
+
+# import kopf
+# import kubernetes
 
 
 @kopf.on.create("test.net", "v1", "jobrunners")
-async def create_fn(body, spec, **kwargs):
-    await create_queue_processors(body, spec)
+def create_fn(body, spec, **kwargs):
+
+    # Get info from grafana object
+    name = body["metadata"]["name"]
+    namespace = body["metadata"]["namespace"]
+    job_queue = spec["job_queue"]
+    qp_name = f"{job_queue}-queue-processor"
+
+    POSTGRES_PASSWORD = kclient.V1EnvVar(name="POSTGRES_PASSWORD", value=os.getenv("POSTGRES_PASSWORD"))
+    QUEUE_VAR = kclient.V1EnvVar(name="QUEUE", value=job_queue)
+    ECR_REPO = kclient.V1EnvVar(name="ECR_REPO", value=spec["ecr_repo"])
+
+    # Create container
+    container = kclient.V1Container(
+        name=qp_name,
+        image="077346344852.dkr.ecr.us-east-2.amazonaws.com/queue-processor:0.0.1",
+        env=[POSTGRES_PASSWORD, QUEUE_VAR, ECR_REPO],
+    )
+
+    # Pod template
+    pod = {
+        "apiVersion": "test.net/v1",
+        "kind": "jobRunner",
+        "metadata": {"name": f"{qp_name}", "labels": {"app": job_queue}},
+        "spec": {"containers": [container]},
+    }
+
+    # # Service template
+    svc = {
+        "apiVersion": "v1",
+        "metadata": {"name": f"{qp_name}-svc"},
+        "spec": {"selector": {"app": job_queue}, "ports": [{"port": 3000, "targetPort": 3000}]},
+    }
+
+    # Make the Pod and Service the children of the grafana object
+    kopf.adopt(pod, owner=body)
+    kopf.adopt(svc, owner=body)
+
+    # Object used to communicate with the API Server
+    api = kclient.CoreV1Api()
+
+    # Create Pod
+    obj = api.create_namespaced_pod(namespace, pod)
+    print(f"Pod {obj.metadata.name} created")
+
+    # Create Service
+    obj = api.create_namespaced_service(namespace, svc)
+    # Update status
+    msg = f"Pod and Service created for jobRunner object {name}"
+    return {"message": msg}
 
 
 @kopf.on.delete("test.net", "v1", "jobrunners")
 def delete(body, **kwargs):
-    msg = f"Database {body['metadata']['name']} and its Pod / Service children deleted"
+    msg = f"{body['metadata']['name']} and its Pod / Service children deleted"
     return {"message": msg}

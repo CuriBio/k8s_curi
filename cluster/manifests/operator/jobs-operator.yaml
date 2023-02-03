@@ -20,8 +20,8 @@ spec:
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: curibio-jobs-creds
-              key: curibio_jobs_ro
+              name: curibio-operators-creds
+              key: curibio_operators_ro
         imagePullPolicy: Always
         ports:
         - containerPort: 9001

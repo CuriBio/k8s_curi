@@ -5,7 +5,7 @@ import json
 import os
 
 
-async def create_job(version: str, queue: str, db_pass: str):
+async def create_job(version: str, db_pass: str):
     # load kube config
     config.load_incluster_config()
     version = json.loads(version)
@@ -20,7 +20,6 @@ async def create_job(version: str, queue: str, db_pass: str):
     container = kclient.V1Container(
         name=formatted_name,
         image=ECR_REPO,
-        # command=["python", "main.py"],
         env=[POSTGRES_PASSWORD],
     )
 
@@ -48,23 +47,23 @@ async def create_job(version: str, queue: str, db_pass: str):
 async def get_next_queue_item():
 
     DB_PASS = os.getenv("POSTGRES_PASSWORD")
-    QUEUE = os.environ.get("QUEUE")
+    QUEUE = os.getenv("QUEUE")
 
-    dsn = f"postgresql://curibio_jobs_ro:{DB_PASS}@psql-rds.default:5432/curibio"
+    dsn = f"postgresql://curibio_operators_ro:{DB_PASS}@psql-rds.default:5432/curibio"
 
     async with asyncpg.create_pool(dsn=dsn) as pool:
         async with pool.acquire() as con:
             records = await con.fetchrow(
                 "SELECT meta->'version' AS version FROM jobs_queue WHERE queue LIKE $1 ORDER BY priority DESC, created_at ASC",
-                f"{QUEUE}%",
+                f"%{QUEUE}%",  # todo change this to {queue}%
             )
 
             for version in set(records):
-                await create_job(version, QUEUE, DB_PASS)
+                await create_job(version, DB_PASS)
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(get_next_queue_item())
-    except Exception as e:
-        print(f"EXCEPTION OCCURRED: {e}")
+    # try:
+    asyncio.run(get_next_queue_item())
+    # except Exception as e:
+    #     print(f"EXCEPTION OCCURRED: {e}")
