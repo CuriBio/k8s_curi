@@ -64,36 +64,24 @@ def create_fn(body, spec, **kwargs):
         image="077346344852.dkr.ecr.us-east-2.amazonaws.com/queue-processor:0.0.1",
         env=[POSTGRES_PASSWORD, QUEUE_VAR, ECR_REPO],
     )
-
-    # Pod template
-    pod = {
-        "apiVersion": "test.net/v1",
-        "kind": "jobRunner",
+    
+    # Deployment template
+    deployment = {
+        "apiVersion": "v1",
+        "kind": "Deployment",
         "metadata": {"name": f"{qp_name}", "labels": {"app": job_queue}},
         "spec": {"containers": [container]},
     }
 
-    # # Service template
-    svc = {
-        "apiVersion": "v1",
-        "metadata": {"name": f"{qp_name}-svc"},
-        "spec": {"selector": {"app": job_queue}, "ports": [{"port": 3000, "targetPort": 3000}]},
-    }
-
     # Make the Pod and Service the children of the grafana object
-    kopf.adopt(pod, owner=body)
-    kopf.adopt(svc, owner=body)
-
+    kopf.adopt(deployment, owner=body)
     # Object used to communicate with the API Server
     api = kclient.CoreV1Api()
 
-    # Create Pod
-    obj = api.create_namespaced_pod(namespace, pod)
-    print(f"Pod {obj.metadata.name} created")
+    # Create deployment    
+    obj = api.create_namespaced_deployment(namespace, deployment)
+    print(f"Deployment {obj.metadata.name} created")
 
-    # Create Service
-    obj = api.create_namespaced_service(namespace, svc)
-    # Update status
     msg = f"Pod and Service created for jobRunner object {name}"
     return {"message": msg}
 
