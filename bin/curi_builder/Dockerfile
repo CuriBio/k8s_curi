@@ -1,9 +1,6 @@
 FROM alpine:latest as venv
 RUN apk add --no-cache --update python3 python3-dev py3-pip git build-base
 
-RUN useradd main_user && groupadd main_group
-USER main_user:main_group
-
 WORKDIR /builder
 COPY ./setup.py /builder
 COPY ./builder /builder/builder
@@ -15,6 +12,8 @@ RUN wget https://releases.hashicorp.com/terraform/1.1.6/terraform_1.1.6_linux_am
   && unzip terraform_1.1.6_linux_amd64.zip \
   && mv terraform /venv/bin \
   && rm terraform_1.1.6_linux_amd64.zip
+
+# currently not switching to non-root user for this image
 
 ENV PATH /venv/bin:$PATH
 ENV PYTHONUNBUFFERED 1
