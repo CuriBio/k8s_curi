@@ -1,5 +1,5 @@
 import re
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from uuid import UUID
 from pydantic import BaseModel, EmailStr, SecretStr
 from pydantic import constr, validator
@@ -105,8 +105,8 @@ class UnableToUpdateAccountResponse(BaseModel):
 
 
 class UsageQuota(BaseModel):
-    current: Dict[str, str]
-    limits: Dict[str, str]
+    current: Dict[str, Any]
+    limits: Dict[str, Any]
     jobs_reached: bool
     uploads_reached: bool
 

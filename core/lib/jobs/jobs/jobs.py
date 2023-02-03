@@ -3,7 +3,7 @@ from functools import wraps
 import json
 import time
 import uuid
-from typing import Dict
+from typing import Dict, Any
 
 
 class EmptyQueue(Exception):
@@ -219,7 +219,7 @@ def _get_placeholders_str(num_placeholders, start=1):
     return ", ".join(f"${i}" for i in range(start, start + num_placeholders))
 
 
-async def get_customer_quota(con, customer_id, service) -> Dict[str, int]:
+async def get_customer_quota(con, customer_id, service) -> Dict[str, Any]:
     """Query DB and return usage limit and current usage.
     Returns:
         - Dictionary with account limits and account usage
@@ -236,9 +236,6 @@ async def get_customer_quota(con, customer_id, service) -> Dict[str, int]:
         current_usage_data = await con.fetchrow(current_usage_query, customer_id, service)
 
     usage_limit_dict = json.loads(usage_limit_json["usage"])
-    usage_limit_dict["expiration_date"] = (
-        "" if usage_limit_dict["expiration_date"] is None else usage_limit_dict["expiration_date"]
-    )
 
     current_usage_dict = {
         "uploads": current_usage_data["total_uploads"],
@@ -248,7 +245,7 @@ async def get_customer_quota(con, customer_id, service) -> Dict[str, int]:
     return {"limits": usage_limit_dict, "current": current_usage_dict}
 
 
-async def check_customer_quota(con, customer_id, service) -> Dict[str, bool]:
+async def check_customer_quota(con, customer_id, service) -> Dict[str, Any]:
     """Query DB for service-specific customer account usage.
 
     Will be called for all account tiers, unlimited has a value of -1.

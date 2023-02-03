@@ -12,8 +12,8 @@ class UploadRequest(BaseModel):
 
 
 class UsageQuota(BaseModel):
-    current: Dict[str, str]
-    limits: Dict[str, str]
+    current: Dict[str, Any]
+    limits: Dict[str, Any]
     jobs_reached: bool
     uploads_reached: bool
 
