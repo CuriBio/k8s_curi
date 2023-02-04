@@ -64,25 +64,25 @@ def create_fn(body, spec, **kwargs):
         image="077346344852.dkr.ecr.us-east-2.amazonaws.com/queue-processor:0.0.1",
         env=[POSTGRES_PASSWORD, QUEUE_VAR, ECR_REPO],
     )
-    
+    kclient.V1Deployment()
     # Deployment template
     deployment = {
-        "apiVersion": "v1",
-        "kind": "Deployment",
+        "apiVersion": "apps/v1",
         "metadata": {"name": f"{qp_name}", "labels": {"app": job_queue}},
-        "spec": {"containers": [container]},
+        "spec": {
+            "selector": {"matchLabels": {"app": job_queue}},
+            "template": {"metadata": {"labels": {"app": job_queue}}, "spec": {"containers": [container]}},
+        },
     }
 
     # Make the Pod and Service the children of the grafana object
     kopf.adopt(deployment, owner=body)
     # Object used to communicate with the API Server
-    api = kclient.CoreV1Api()
+    api = kclient.AppsV1Api()
 
-    # Create deployment    
+    # Create deployment
     obj = api.create_namespaced_deployment(namespace, deployment)
-    print(f"Deployment {obj.metadata.name} created")
-
-    msg = f"Pod and Service created for jobRunner object {name}"
+    msg = f"Deployment {obj.metadata.name} created"
     return {"message": msg}
 
 
