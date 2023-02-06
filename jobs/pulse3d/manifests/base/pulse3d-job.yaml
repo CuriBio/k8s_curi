@@ -1,0 +1,355 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: pulse3d-scaledobject-0.25.2
+  namespace: pulse3d
+spec:
+  jobTargetRef:
+    backoffLimit: 4
+    ttlSecondsAfterFinished: 0
+    template:
+      spec:
+        activeDeadlineSeconds: 900
+        containers:
+          - name: pulse3d-worker
+            image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.25.2
+            imagePullPolicy: Always
+            env:
+              - name: POSTGRES_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: curibio-jobs-creds
+                    key: curibio_jobs
+              - name: UPLOADS_BUCKET_ENV
+                value: test-pulse3d-uploads
+              - name: MANTARRAY_LOGS_BUCKET_ENV
+                value: test-mantarray-logs
+        restartPolicy: Never
+  pollingInterval: 30
+  triggers:
+    - type: postgresql
+      metadata:
+        userName: "curibio_jobs"
+        host: psql-rds.default
+        port: "5432"
+        dbName: curibio
+        sslmode: disable
+        passwordFromEnv: POSTGRES_PASSWORD
+        query: "SELECT ceil(COUNT(*)::decimal / 4) FROM (SELECT id FROM jobs_queue WHERE meta->>'version'='0.25.2' FOR UPDATE SKIP LOCKED) q"
+        targetQueryValue: "1"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: pulse3d-scaledobject-0.25.4
+  namespace: pulse3d
+spec:
+  jobTargetRef:
+    backoffLimit: 4
+    ttlSecondsAfterFinished: 0
+    template:
+      spec:
+        activeDeadlineSeconds: 900
+        containers:
+          - name: pulse3d-worker
+            image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.25.4
+            imagePullPolicy: Always
+            env:
+              - name: POSTGRES_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: curibio-jobs-creds
+                    key: curibio_jobs
+              - name: UPLOADS_BUCKET_ENV
+                value: test-pulse3d-uploads
+              - name: MANTARRAY_LOGS_BUCKET_ENV
+                value: test-mantarray-logs
+        restartPolicy: Never
+  pollingInterval: 30
+  triggers:
+    - type: postgresql
+      metadata:
+        userName: "curibio_jobs"
+        host: psql-rds.default
+        port: "5432"
+        dbName: curibio
+        sslmode: disable
+        passwordFromEnv: POSTGRES_PASSWORD
+        query: "SELECT ceil(COUNT(*)::decimal / 4) FROM (SELECT id FROM jobs_queue WHERE meta->>'version'='0.25.4' FOR UPDATE SKIP LOCKED) q"
+        targetQueryValue: "1"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: pulse3d-scaledobject-0.27.1
+  namespace: pulse3d
+spec:
+  jobTargetRef:
+    backoffLimit: 4
+    ttlSecondsAfterFinished: 0
+    template:
+      spec:
+        activeDeadlineSeconds: 900
+        containers:
+          - name: pulse3d-worker
+            image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.27.1
+            imagePullPolicy: Always
+            env:
+              - name: POSTGRES_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: curibio-jobs-creds
+                    key: curibio_jobs
+              - name: UPLOADS_BUCKET_ENV
+                value: test-pulse3d-uploads
+              - name: MANTARRAY_LOGS_BUCKET_ENV
+                value: test-mantarray-logs
+        restartPolicy: Never
+  pollingInterval: 30
+  triggers:
+    - type: postgresql
+      metadata:
+        userName: "curibio_jobs"
+        host: psql-rds.default
+        port: "5432"
+        dbName: curibio
+        sslmode: disable
+        passwordFromEnv: POSTGRES_PASSWORD
+        query: "SELECT ceil(COUNT(*)::decimal / 4) FROM (SELECT id FROM jobs_queue WHERE meta->>'version'='0.27.1' FOR UPDATE SKIP LOCKED) q"
+        targetQueryValue: "1"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: pulse3d-scaledobject-0.28.0
+  namespace: pulse3d
+spec:
+  jobTargetRef:
+    backoffLimit: 4
+    ttlSecondsAfterFinished: 0
+    template:
+      spec:
+        activeDeadlineSeconds: 900
+        containers:
+          - name: pulse3d-worker
+            image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.28.0
+            imagePullPolicy: Always
+            env:
+              - name: POSTGRES_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: curibio-jobs-creds
+                    key: curibio_jobs
+              - name: UPLOADS_BUCKET_ENV
+                value: test-pulse3d-uploads
+              - name: MANTARRAY_LOGS_BUCKET_ENV
+                value: test-mantarray-logs
+        restartPolicy: Never
+  pollingInterval: 30
+  triggers:
+    - type: postgresql
+      metadata:
+        userName: "curibio_jobs"
+        host: psql-rds.default
+        port: "5432"
+        dbName: curibio
+        sslmode: disable
+        passwordFromEnv: POSTGRES_PASSWORD
+        query: "SELECT ceil(COUNT(*)::decimal / 4) FROM (SELECT id FROM jobs_queue WHERE meta->>'version'='0.28.0' FOR UPDATE SKIP LOCKED) q"
+        targetQueryValue: "1"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: pulse3d-scaledobject-0.28.1
+  namespace: pulse3d
+spec:
+  jobTargetRef:
+    backoffLimit: 4
+    ttlSecondsAfterFinished: 0
+    template:
+      spec:
+        containers:
+          - name: pulse3d-worker
+            image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.28.1
+            imagePullPolicy: Always
+            env:
+              - name: POSTGRES_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: curibio-jobs-creds
+                    key: curibio_jobs
+              - name: UPLOADS_BUCKET_ENV
+                value: test-pulse3d-uploads
+              - name: MANTARRAY_LOGS_BUCKET_ENV
+                value: test-mantarray-logs
+        restartPolicy: Never
+  pollingInterval: 30
+  triggers:
+    - type: postgresql
+      metadata:
+        userName: "curibio_jobs"
+        host: psql-rds.default
+        port: "5432"
+        dbName: curibio
+        sslmode: disable
+        passwordFromEnv: POSTGRES_PASSWORD
+        query: "SELECT ceil(COUNT(*)::decimal / 4) FROM (SELECT id FROM jobs_queue WHERE meta->>'version'='0.28.1' FOR UPDATE SKIP LOCKED) q"
+        targetQueryValue: "1"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: pulse3d-scaledobject-0.28.2
+  namespace: pulse3d
+spec:
+  jobTargetRef:
+    backoffLimit: 4
+    ttlSecondsAfterFinished: 0
+    template:
+      spec:
+        containers:
+          - name: pulse3d-worker
+            image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.28.2
+            imagePullPolicy: Always
+            env:
+              - name: POSTGRES_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: curibio-jobs-creds
+                    key: curibio_jobs
+              - name: UPLOADS_BUCKET_ENV
+                value: test-pulse3d-uploads
+              - name: MANTARRAY_LOGS_BUCKET_ENV
+                value: test-mantarray-logs
+        restartPolicy: Never
+  pollingInterval: 30
+  triggers:
+    - type: postgresql
+      metadata:
+        userName: "curibio_jobs"
+        host: psql-rds.default
+        port: "5432"
+        dbName: curibio
+        sslmode: disable
+        passwordFromEnv: POSTGRES_PASSWORD
+        query: "SELECT ceil(COUNT(*)::decimal / 4) FROM (SELECT id FROM jobs_queue WHERE meta->>'version'='0.28.2' FOR UPDATE SKIP LOCKED) q"
+        targetQueryValue: "1"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: pulse3d-scaledobject-0.28.3
+  namespace: pulse3d
+spec:
+  jobTargetRef:
+    backoffLimit: 4
+    ttlSecondsAfterFinished: 0
+    template:
+      spec:
+        containers:
+          - name: pulse3d-worker
+            image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.28.3
+            imagePullPolicy: Always
+            env:
+              - name: POSTGRES_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: curibio-jobs-creds
+                    key: curibio_jobs
+              - name: UPLOADS_BUCKET_ENV
+                value: test-pulse3d-uploads
+              - name: MANTARRAY_LOGS_BUCKET_ENV
+                value: test-mantarray-logs
+        restartPolicy: Never
+  pollingInterval: 30
+  triggers:
+    - type: postgresql
+      metadata:
+        userName: "curibio_jobs"
+        host: psql-rds.default
+        port: "5432"
+        dbName: curibio
+        sslmode: disable
+        passwordFromEnv: POSTGRES_PASSWORD
+        query: "SELECT ceil(COUNT(*)::decimal / 4) FROM (SELECT id FROM jobs_queue WHERE meta->>'version'='0.28.3' FOR UPDATE SKIP LOCKED) q"
+        targetQueryValue: "1"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: pulse3d-scaledobject-0.29.2
+  namespace: pulse3d
+spec:
+  jobTargetRef:
+    backoffLimit: 4
+    ttlSecondsAfterFinished: 0
+    template:
+      spec:
+        containers:
+          - name: pulse3d-worker
+            image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.29.2
+            imagePullPolicy: Always
+            env:
+              - name: POSTGRES_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: curibio-jobs-creds
+                    key: curibio_jobs
+              - name: UPLOADS_BUCKET_ENV
+                value: test-pulse3d-uploads
+              - name: MANTARRAY_LOGS_BUCKET_ENV
+                value: test-mantarray-logs
+        restartPolicy: Never
+  pollingInterval: 30
+  triggers:
+    - type: postgresql
+      metadata:
+        userName: "curibio_jobs"
+        host: psql-rds.default
+        port: "5432"
+        dbName: curibio
+        sslmode: disable
+        passwordFromEnv: POSTGRES_PASSWORD
+        query: "SELECT ceil(COUNT(*)::decimal / 4) FROM (SELECT id FROM jobs_queue WHERE meta->>'version'='0.29.2' FOR UPDATE SKIP LOCKED) q"
+        targetQueryValue: "1"
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: pulse3d-scaledobject-0.30.0
+  namespace: pulse3d
+spec:
+  jobTargetRef:
+    backoffLimit: 4
+    ttlSecondsAfterFinished: 0
+    template:
+      spec:
+        containers:
+          - name: pulse3d-worker
+            image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.30.0
+            imagePullPolicy: Always
+            env:
+              - name: POSTGRES_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: curibio-jobs-creds
+                    key: curibio_jobs
+              - name: UPLOADS_BUCKET_ENV
+                value: test-pulse3d-uploads
+              - name: MANTARRAY_LOGS_BUCKET_ENV
+                value: test-mantarray-logs
+        restartPolicy: Never
+  pollingInterval: 30
+  triggers:
+    - type: postgresql
+      metadata:
+        userName: "curibio_jobs"
+        host: psql-rds.default
+        port: "5432"
+        dbName: curibio
+        sslmode: disable
+        passwordFromEnv: POSTGRES_PASSWORD
+        query: "SELECT ceil(COUNT(*)::decimal / 4) FROM (SELECT id FROM jobs_queue WHERE meta->>'version'='0.30.0' FOR UPDATE SKIP LOCKED) q"
+        targetQueryValue: "1"
