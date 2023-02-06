@@ -377,7 +377,6 @@ export default function UserInfo() {
   const resendVerificationLink = async () => {
     try {
       const selectedUser = usersData.find(({ id }) => id === checkedUsers[0]);
-      console.log(selectedUser.email, selectedUser.email.toString());
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${encodeURIComponent(
           selectedUser.email
