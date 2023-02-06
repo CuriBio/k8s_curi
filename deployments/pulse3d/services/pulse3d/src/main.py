@@ -71,6 +71,16 @@ app.add_middleware(
 )
 
 
+# TODO move this to core lib
+def _is_valid_well_name(well_name):
+    return (
+        isinstance(well_name, str)
+        and len(well_name) == 2
+        and well_name[0] in ("A", "B", "C", "D")
+        and well_name[1] in [str(n) for n in range(1, 7)]
+    )
+
+
 @app.middleware("http")
 async def db_session_middleware(request: Request, call_next):
     request.state.pgpool = await asyncpg_pool()
@@ -609,8 +619,7 @@ async def get_interactive_waveform_data(
 
     if job_id is None or upload_id is None:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing required ids to get job metadata.",
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Missing required ids to get job metadata."
         )
 
     upload_id = str(upload_id)
@@ -625,7 +634,7 @@ async def get_interactive_waveform_data(
         parsed_meta = json.loads(selected_job["job_meta"])
         recording_owner_id = str(selected_job["user_id"])
         analysis_params = parsed_meta.get("analysis_params")
-        pulse3d_version = parsed_meta.get("version", None)
+        pulse3d_version = parsed_meta.get("version")
 
         if "pulse3d:rw_all_data" not in token["scope"]:
             # only allow user to perform interactive analysis on another user's recording if special scope
@@ -636,26 +645,26 @@ async def get_interactive_waveform_data(
                     message="User does not have authorization to start interactive analysis on this recording.",
                 )
 
+        # TODO should make a function in core that handles running peak_detector or loading peaks/valleys from parquet and import it here and in the pulse3d-worker
+
         with tempfile.TemporaryDirectory() as tmpdir:
             key = f"uploads/{customer_id}/{recording_owner_id}/{upload_id}"
             logger.info(f"Downloading recording data from {key}")
             download_directory_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file_path=tmpdir)
 
-            # check if time force parquet file is found under pulse3d version prefix
+            parquet_path = None
+            # check if time force parquet file is found under pulse3d version prefix first
             if pulse3d_version is not None:
                 # read the time force dataframe from the parquet file
                 parquet_path = glob(
-                    os.path.join(tmpdir, "time_force_data", pulse3d_version, "*.parquet"),
-                    recursive=True,
+                    os.path.join(tmpdir, "time_force_data", pulse3d_version, "*.parquet"), recursive=True
                 )
-            # if no pulse3d version was found in the job metadata or no time force parquet file was found, check s3 without pulse3d prefix
-            if pulse3d_version is None or not parquet_path:
-                parquet_path = glob(
-                    os.path.join(tmpdir, "time_force_data", "*.parquet"),
-                    recursive=True,
-                )
-
-            # this will occur for any files analyzed before this release. Ask user to perform reanalysis again on most recent pulse3d
+            # if no pulse3d version specified in the job metadata or no time force parquet file was found
+            # by previous glob, check s3 without pulse3d prefix
+            if not parquet_path:
+                parquet_path = glob(os.path.join(tmpdir, "time_force_data", "*.parquet"), recursive=True)
+            # if parquet file is still not found, return error msg. this will occur for any files analyzed
+            # before this release. Ask user to perform reanalysis again on most recent pulse3d
             if not parquet_path:
                 return GenericErrorResponse(
                     error="MissingDataError",
@@ -666,15 +675,10 @@ async def get_interactive_waveform_data(
             time_force_df = pd.read_parquet(parquet_path)
 
             logger.info("Checking for peaks and valleys in S3")
-            pv_parquet_path = glob(
-                os.path.join(tmpdir, job_id, "*.parquet"),
-                recursive=True,
-            )
+            pv_parquet_path = glob(os.path.join(tmpdir, job_id, "*.parquet"), recursive=True)
 
             # Luci (12/14/2022) peaks_valleys will be none when interactive analysis is being run for the first time on the original analysis. There won't be any peaks or valleys found because nothing has been altered yet
-            peaks_valleys_needed = (
-                len(pv_parquet_path) == 0 and analysis_params.get("peaks_valleys", None) is None
-            )
+            peaks_valleys_needed = len(pv_parquet_path) == 0 and analysis_params.get("peaks_valleys") is None
 
             if not peaks_valleys_needed:
                 peak_valleys_df = pd.read_parquet(pv_parquet_path)
@@ -691,8 +695,11 @@ async def get_interactive_waveform_data(
             # set up empty dictionaries to be passed in response
             coordinates = dict()
             peaks_and_valleys = dict()
-            for well in columns[1:]:
-                well_force = time_force_df[well]
+            for well in columns:
+                if not _is_valid_well_name(well):
+                    continue
+
+                well_force = time_force_df[well].dropna().tolist()
                 if peaks_valleys_needed:
                     if needs_unit_conversion:
                         # not exact, but this isn't used outside of graphing in FE, real raw data doesn't get changed
@@ -701,16 +708,11 @@ async def get_interactive_waveform_data(
                         well_force *= MICRO_TO_BASE_CONVERSION
                         time = [i * MICRO_TO_BASE_CONVERSION for i in time]
 
-                    interpolated_well_data = np.row_stack([time, well_force])
+                    interpolated_well_data = np.row_stack([time[: len(well_force)], well_force])
 
                     peak_detector_params = {
                         param: analysis_params[param]
-                        for param in (
-                            "prominence_factors",
-                            "width_factors",
-                            "start_time",
-                            "end_time",
-                        )
+                        for param in ("prominence_factors", "width_factors", "start_time", "end_time")
                         if analysis_params[param] is not None
                     }
 
@@ -723,31 +725,26 @@ async def get_interactive_waveform_data(
                     peaks = peak_valleys_df[f"{well}__peaks"].dropna().tolist()
                     valleys = peak_valleys_df[f"{well}__valleys"].dropna().tolist()
                     # stored as floats in df so need to convert to int
-                    peaks_and_valleys[well] = [
-                        [int(x) for x in peaks],
-                        [int(x) for x in valleys],
-                    ]
+                    peaks_and_valleys[well] = [[int(x) for x in peaks], [int(x) for x in valleys]]
+                    logger.info(f"{len(peaks)} peaks and {len(valleys)} valleys for well {well}")
 
                 coordinates[well] = [
-                    [time[i] / MICRO_TO_BASE_CONVERSION, val] for (i, val) in enumerate(well_force)
+                    [time[i] / MICRO_TO_BASE_CONVERSION, val] for i, val in enumerate(well_force)
                 ]
 
             # Luci (12/14/2022) analysis_params["peaks_valleys"] will be a dictionary in version < 0.28.2 when peaks and valleys are only stored in this db column and not in s3
-            if analysis_params.get("peaks_valleys", None) is not None and isinstance(
+            if analysis_params.get("peaks_valleys") is not None and isinstance(
                 analysis_params["peaks_valleys"], dict
             ):
                 peaks_and_valleys = analysis_params["peaks_valleys"]
 
-            return WaveformDataResponse(
-                coordinates=coordinates,
-                peaks_valleys=peaks_and_valleys,
-            )
+            return WaveformDataResponse(coordinates=coordinates, peaks_valleys=peaks_and_valleys)
 
     except S3Error as e:
-        logger.error(f"Error from s3: {e}")
+        logger.error(f"Error from s3: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
     except Exception as e:
-        logger.error(f"Failed to get interactive waveform data: {e}")
+        logger.error(f"Failed to get interactive waveform data: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
