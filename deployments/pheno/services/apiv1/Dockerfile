@@ -21,8 +21,10 @@ COPY ./deployments/pheno/services/apiv1/src/main.py ./
 COPY ./deployments/pheno/services/apiv1/src/lib/ ./lib/
 COPY ./deployments/pheno/services/apiv1/src/endpoints/ ./endpoints/
 
+# TODO
+# RUN useradd main_user && groupadd main_group
+# USER main_user:main_group
 
 ENV PYTHONUNBUFFERED 1
-
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
