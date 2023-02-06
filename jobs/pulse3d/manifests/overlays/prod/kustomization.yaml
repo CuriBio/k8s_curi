@@ -130,4 +130,3 @@ patchesJson6902:
     - op: add
       path: /spec/ecr_repo
       value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker"
-   
