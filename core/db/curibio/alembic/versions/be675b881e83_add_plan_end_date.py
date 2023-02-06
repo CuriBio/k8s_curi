@@ -1,8 +1,8 @@
-"""Adding plan end date to usage_restrictions json object structure
+"""add plan end date
 
-Revision ID: 2ccc9fe21ec1
-Revises: 89e819e0ecc2
-Create Date: 2023-01-25 14:40:08.612570
+Revision ID: be675b881e83
+Revises: f1d027786249
+Create Date: 2023-02-06 12:54:34.261103
 
 """
 from alembic import op
@@ -10,8 +10,8 @@ import json
 
 
 # revision identifiers, used by Alembic.
-revision = "2ccc9fe21ec1"
-down_revision = "89e819e0ecc2"
+revision = "be675b881e83"
+down_revision = "f1d027786249"
 branch_labels = None
 depends_on = None
 
