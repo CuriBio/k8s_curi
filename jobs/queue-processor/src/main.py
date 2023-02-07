@@ -16,9 +16,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-SECONDS_TO_PULL_DB = os.getenv("SECONDS_TO_PULL_DB")
+SECONDS_TO_POLL_DB = int(os.getenv("SECONDS_TO_POLL_DB"))
 ECR_REPO = os.getenv("ECR_REPO")
-MAX_JOBS_PER_WORKER = os.getenv("MAX_JOBS_PER_WORKER", default=5)
+MAX_JOBS_PER_WORKER = int(os.getenv("MAX_JOBS_PER_WORKER", default=5))
 QUEUE = os.getenv("QUEUE")
 DB_PASS = os.getenv("POSTGRES_PASSWORD")
 DB_USER = os.getenv("POSTGRES_USER", default="curibio_operators_ro")
@@ -30,7 +30,7 @@ async def create_job(version: str, num_of_workers: int):
     # load kube config
     config.load_incluster_config()
 
-    for count in num_of_workers:
+    for count in range(1, num_of_workers + 1):
         # names can only be alphanumeric and '-' so replacing '.' with '-'
         # Adding count may potentially not work as expected if workers keep getting kicked off in another loop
         formatted_name = f"{QUEUE}-worker-v{'-'.join(version.split('.'))}--{count}"
@@ -83,7 +83,7 @@ async def get_next_queue_item():
                 num_of_workers = math.ceil(record["count"] / MAX_JOBS_PER_WORKER)
                 logger.info(f"Starting {num_of_workers} worker(s) for {QUEUE}:{version}")
 
-                await create_job(QUEUE, version, num_of_workers)
+                await create_job(version, num_of_workers)
 
 
 if __name__ == "__main__":
@@ -91,6 +91,6 @@ if __name__ == "__main__":
         while True:
             logger.info(f"Checking {QUEUE} queue for new items")
             asyncio.run(get_next_queue_item())
-            sleep(SECONDS_TO_PULL_DB)
+            sleep(SECONDS_TO_POLL_DB)
     except Exception as e:
         logger.exception(f"EXCEPTION OCCURRED IN QUEUE PROCESSOR: {e}")

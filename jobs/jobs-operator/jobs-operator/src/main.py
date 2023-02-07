@@ -12,7 +12,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-@kopf.on.create("test.net", "v1", "jobrunners") # TODO look at how to change the on create to prod.net
+
+@kopf.on.create("test.net", "v1", "jobrunners")  # TODO look at how to change the on create to prod.net
 def create_fn(body, spec, **kwargs):
     # Get info from grafana object
     namespace = body["metadata"]["namespace"]
@@ -23,12 +24,14 @@ def create_fn(body, spec, **kwargs):
     POSTGRES_PASSWORD = kclient.V1EnvVar(name="POSTGRES_PASSWORD", value=os.getenv("POSTGRES_PASSWORD"))
     QUEUE_VAR = kclient.V1EnvVar(name="QUEUE", value=job_queue)
     ECR_REPO = kclient.V1EnvVar(name="ECR_REPO", value=spec["ecr_repo"])
+    SECONDS_TO_POLL_DB = kclient.V1EnvVar(name="SECONDS_TO_POLL_DB", value=f"{spec['seconds_to_poll_db']}")
+    MAX_JOBS_PER_WORKER = kclient.V1EnvVar(name="MAX_JOBS_PER_WORKER", value=f"{spec['max_jobs_per_worker']}")
 
     # Create container
     container = kclient.V1Container(
         name=qp_name,
         image="077346344852.dkr.ecr.us-east-2.amazonaws.com/queue-processor:0.0.1",
-        env=[POSTGRES_PASSWORD, QUEUE_VAR, ECR_REPO],
+        env=[POSTGRES_PASSWORD, QUEUE_VAR, ECR_REPO, SECONDS_TO_POLL_DB, MAX_JOBS_PER_WORKER],
         image_pull_policy="Always",
     )
 
@@ -41,7 +44,6 @@ def create_fn(body, spec, **kwargs):
             "selector": {"matchLabels": {"app": job_queue}},
             "template": {
                 "metadata": {"labels": {"app": job_queue}},
-                # "spec": {"containers": [container], "serviceAccountName": "jobs-operator"},
                 "spec": {"containers": [container]},
             },
         },
