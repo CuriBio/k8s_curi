@@ -39,7 +39,7 @@ async def create_job(version: str, num_of_workers: int):
         # names can only be alphanumeric and '-' so replacing '.' with '-'
         # Cannot start jobs with the same name so count starting at 1+existing number of jobs running in namespace with version
         formatted_name = f"{QUEUE}-worker-v{'-'.join(version.split('.'))}--{count}"
-        logger.info(f"Starting {formatted_name}")
+        logger.info(f"Starting {formatted_name}.")
         complete_ecr_repo = f"{ECR_REPO}:{version}-test"
         POSTGRES_PASSWORD = kclient.V1EnvVar(
             name="POSTGRES_PASSWORD",
@@ -79,22 +79,26 @@ async def get_next_queue_item():
                 "SELECT meta->'version' AS version, COUNT(*) FROM jobs_queue WHERE queue LIKE $1 GROUP BY version",
                 f"%{QUEUE}%",  # TODO change this to {queue}%
             )
+            
+            # TODO make sure this logs
+            if not records:
+                logger.info(f"{QUEUE} queue is empty, nothing to process.")
 
             for record in records:
                 version = json.loads(record["version"])
                 # currently set one worker per 5 queue items
                 # TODO make count value an env variable to make it easier to change
                 num_of_workers = math.ceil(record["count"] / MAX_JOBS_PER_WORKER)
-                logger.info(f"Starting {num_of_workers} worker(s) for {QUEUE}:{version}")
+                logger.info(f"Starting {num_of_workers} worker(s) for {QUEUE}:{version}.")
 
                 await create_job(version, num_of_workers)
 
 
 if __name__ == "__main__":
-    try:
-        while True:
+    while True:
+        try:
             logger.info(f"Checking {QUEUE} queue for new items")
             asyncio.run(get_next_queue_item())
             sleep(SECONDS_TO_POLL_DB)
-    except Exception as e:
-        logger.exception(f"EXCEPTION OCCURRED IN QUEUE PROCESSOR: {e}")
+        except Exception as e:
+            logger.exception(f"EXCEPTION OCCURRED IN QUEUE PROCESSOR: {e}")
