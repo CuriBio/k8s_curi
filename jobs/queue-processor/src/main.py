@@ -29,10 +29,15 @@ DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
 async def create_job(version: str, num_of_workers: int):
     # load kube config
     config.load_incluster_config()
-
-    for count in range(1, num_of_workers + 1):
+    api = kclient.BatchV1Api()
+    # get existing jobs to prevent starting a job with the same count suffix
+    # make sure to only get jobs of specific version
+    running_jobs_list = api.list_namespaced_job(QUEUE, label_selector=f"job_version={version}")
+    num_of_jobs = len(running_jobs_list.items)
+    logger.info(f"Checking for running jobs, {num_of_jobs} found.")
+    for count in range(num_of_jobs + 1, num_of_workers + num_of_jobs + 1):
         # names can only be alphanumeric and '-' so replacing '.' with '-'
-        # Adding count may potentially not work as expected if workers keep getting kicked off in another loop
+        # Cannot start jobs with the same name so count starting at 1+existing number of jobs running in namespace with version
         formatted_name = f"{QUEUE}-worker-v{'-'.join(version.split('.'))}--{count}"
         logger.info(f"Starting {formatted_name}")
         complete_ecr_repo = f"{ECR_REPO}:{version}-test"
@@ -42,7 +47,6 @@ async def create_job(version: str, num_of_workers: int):
                 secret_key_ref=kclient.V1SecretKeySelector(name="curibio-jobs-creds", key="curibio_jobs")
             ),
         )
-
         # Create container
         container = kclient.V1Container(
             name=formatted_name,
@@ -59,10 +63,10 @@ async def create_job(version: str, num_of_workers: int):
         job = kclient.V1Job(
             api_version="batch/v1",
             kind="Job",
-            metadata=kclient.V1ObjectMeta(name=formatted_name),
+            metadata=kclient.V1ObjectMeta(name=formatted_name, labels={"job_version": version}),
             spec=spec,
         )
-        api = kclient.BatchV1Api()
+
         api.create_namespaced_job(namespace="pulse3d", body=job)
 
 
