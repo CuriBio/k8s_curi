@@ -49,6 +49,7 @@ def _is_valid_well_name(well_name):
     )
 
 
+# TODO remove test- prefix
 @get_item(queue=f"test-pulse3d-v{PULSE3D_VERSION}")
 async def process(con, item):
     logger.info(f"Processing item: {item}")

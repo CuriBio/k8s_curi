@@ -12,8 +12,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# TODO look at how to change the on create to prod.net
-@kopf.on.create("test.net", "v1", "jobrunners")
+@kopf.on.create("test.net", "v1", "jobrunners") # TODO look at how to change the on create to prod.net
 def create_fn(body, spec, **kwargs):
     # Get info from grafana object
     namespace = body["metadata"]["namespace"]
