@@ -7,7 +7,7 @@ resources:
 
 patchesJson6902:
 - target:
-    kind: jobRunner
+    kind: JobRunner
     name: pulse3d-queue-processor
   patch: |-
     - op: add

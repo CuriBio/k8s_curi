@@ -211,6 +211,11 @@ spec:
             secretKeyRef:
               name: db-migrations
               key: table_user_pass_ro
+        - name: OPERATORS_RO_PASS
+          valueFrom:
+            secretKeyRef:
+              name: db-migrations
+              key: curibio_operators_ro
       volumeMounts:
         - name: workdir
           mountPath: /tmp/git

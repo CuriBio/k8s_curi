@@ -1,57 +1,25 @@
 import kopf
-from kubernetes import config, client as kclient
+from kubernetes import client as kclient
 import os
+import logging
+import sys
 
+logging.basicConfig(
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+    stream=sys.stdout,
+)
+logger = logging.getLogger(__name__)
 
-# def create_queue_processors(queue: str = "test-pulse3d"):
-# async def create_queue_processors(body, spec):
-#     print("2: ", body, spec)
-#     # Configureate Pod template container
-#     v1 = kclient.CoreV1Api()
-#     QUEUE = kclient.V1EnvVar(name="QUEUE")
-#     POSTRES_PASSWORD = kclient.V1EnvVar(name="POSTGRES_PASSWORD", value=os.getenv("POSTGRES_PASSWORD"))
-
-# container = kclient.V1Container(
-#     name="queue-processor",
-#     image=ECR_REPO,
-#     command=["python", "main.py"],
-#     env=[QUEUE, POSTRES_PASSWORD],
-# )
-
-# # Create and configure a spec section
-# body = kclient.V1PodTemplateSpec(
-#     metadata=kclient.V1ObjectMeta(name=f"{queue}-queue-processor", labels={"app": "queue_processor"}),
-#     spec=kclient.V1PodSpec(
-#         restart_policy="Never", containers=[container], service_account_name="queue-processor"
-#     ),
-# )
-# kopf.adopt(pod, owner=body)
-
-# v1.create_namespaced_pod(namespace="pulse3d", body=body)  # TODO change back to queue
-
-
-# @kopf.on.create("test.net", "v1", "jobrunners")
-# async def create_fn(body, spec, **kwargs):
-#     await create_queue_processors(body, spec)
-
-
-# @kopf.on.delete("test.net", "v1", "jobrunners")
-# def delete(body, **kwargs):
-#     msg = f"Database {body['metadata']['name']} and its Pod / Service children deleted"
-#     return {"message": msg}
-
-
-# import kopf
-# import kubernetes
-
-
+# TODO look at how to change the on create to prod.net
 @kopf.on.create("test.net", "v1", "jobrunners")
 def create_fn(body, spec, **kwargs):
-
     # Get info from grafana object
     namespace = body["metadata"]["namespace"]
     job_queue = spec["job_queue"]
     qp_name = f"{job_queue}-queue-processor"
+    logger.info(f"Starting {qp_name} in namespace {namespace}")
 
     POSTGRES_PASSWORD = kclient.V1EnvVar(name="POSTGRES_PASSWORD", value=os.getenv("POSTGRES_PASSWORD"))
     QUEUE_VAR = kclient.V1EnvVar(name="QUEUE", value=job_queue)

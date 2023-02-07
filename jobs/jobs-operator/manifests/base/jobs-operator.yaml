@@ -14,14 +14,14 @@ spec:
     spec:
       serviceAccountName: jobs-operator
       containers:
-      - image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/jobs-operator:0.0.1
-        name: jobs-operator
+      - name: jobs-operator
         env:
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
               name: curibio-operators-creds
               key: curibio_operators_ro
+        - name: QUEUE_PROCESSOR_IMAGE
         imagePullPolicy: Always
         ports:
         - containerPort: 9001

@@ -21,6 +21,11 @@ spec:
                   type: string
                 ecr_repo:
                   type: string
+                max_jobs_per_worker:
+                  type: integer
+                seconds_to_poll_db:
+                  type: integer
+
   names:
     kind: JobRunner
     plural: jobrunners
