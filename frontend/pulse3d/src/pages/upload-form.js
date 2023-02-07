@@ -10,6 +10,7 @@ import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
 import semverGte from "semver/functions/gte";
 import InputDropdownWidget from "@/components/basicWidgets/InputDropdownWidget";
+import { AuthContext } from "./_app";
 const Container = styled.div`
   width: 85%;
   justify-content: center;
@@ -25,6 +26,17 @@ const Header = styled.h2`
   margin: auto;
   height: 75px;
   line-height: 3;
+`;
+
+const UploadCreditUsageInfo = styled.div`
+  color: red;
+  width: 30%;
+  margin: auto;
+  text-align: center;
+  border: 3px solid red;
+  padding: 1rem;
+  margin-top: 2rem;
+  margin-bottom: 0;
 `;
 
 const Uploads = styled.div`
@@ -123,6 +135,8 @@ export default function UploadForm() {
   const [analysisParams, setAnalysisParams] = useState(getDefaultAnalysisParams());
   const [badZipFiles, setBadZipFiles] = useState([]);
   const [resetDragDrop, setResetDragDrop] = useState(false);
+  const [creditUsageAlert, setCreditUsageAlert] = useState(false);
+  const { usageQuota } = useContext(AuthContext);
 
   useEffect(() => {
     if (badZipFiles.length > 0) {
@@ -154,8 +168,14 @@ export default function UploadForm() {
       !Object.values(paramErrors).every((val) => val.length === 0) ||
       !((files.length > 0 && files[0] instanceof File) || (uploads && uploads.includes(files[0]))) ||
       inProgress;
-
     setIsButtonDisabled(checkConditions);
+    setCreditUsageAlert(
+      !checkConditions &&
+        tabSelection === "Re-analyze Existing Upload" &&
+        usageQuota &&
+        usageQuota.limits &&
+        parseInt(usageQuota.limits.jobs) !== -1
+    );
   }, [paramErrors, files, inProgress]);
 
   useEffect(() => {
@@ -457,13 +477,22 @@ export default function UploadForm() {
       <Uploads>
         <Header>Run Analysis</Header>
         {tabSelection === "Analyze New Files" ? (
-          <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
-            handleFileChange={(files) => setFiles(Object.values(files))}
-            dropZoneText={dropZoneText}
-            fileSelection={files.length > 0 ? files.map(({ name }) => name).join(", ") : "No files selected"}
-            setResetDragDrop={setResetDragDrop}
-            resetDragDrop={resetDragDrop}
-          />
+          <>
+            <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
+              handleFileChange={(files) => setFiles(Object.values(files))}
+              dropZoneText={dropZoneText}
+              fileSelection={
+                files.length > 0 ? files.map(({ name }) => name).join(", ") : "No files selected"
+              }
+              setResetDragDrop={setResetDragDrop}
+              resetDragDrop={resetDragDrop}
+            />
+            {usageQuota && usageQuota.limits && parseInt(usageQuota.limits.jobs) !== -1 ? (
+              <UploadCreditUsageInfo>
+                Analysis will run on each successfully uploaded file, consuming 1 analysis credit each.
+              </UploadCreditUsageInfo>
+            ) : null}
+          </>
         ) : (
           <DropDownContainer>
             <InputDropdownWidget
@@ -524,6 +553,14 @@ export default function UploadForm() {
           router.replace("/uploads", undefined, { shallow: true });
         }}
         header={usageModalLabels.header}
+      />
+      <ModalWidget
+        open={creditUsageAlert}
+        labels={["This re-analysis will consume 1 analysis credit."]}
+        closeModal={() => {
+          setCreditUsageAlert(false);
+        }}
+        header={"Attention!"}
       />
     </Container>
   );
