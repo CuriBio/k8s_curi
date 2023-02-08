@@ -1,7 +1,7 @@
 """add operator user
 
 Revision ID: b1c798d03073
-Revises: 2ccc9fe21ec1
+Revises: be675b881e83
 Create Date: 2023-02-03 07:37:51.357347
 
 """
@@ -10,7 +10,7 @@ import os
 
 # revision identifiers, used by Alembic.
 revision = "b1c798d03073"
-down_revision = "2ccc9fe21ec1"
+down_revision = "be675b881e83"
 branch_labels = None
 depends_on = None
 
