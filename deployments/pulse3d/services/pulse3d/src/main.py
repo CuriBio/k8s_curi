@@ -401,14 +401,14 @@ async def create_new_job(
             params.append("max_y")
         if pulse3d_semver >= "0.25.4":
             params.append("normalize_y_axis")
-        if pulse3d_semver >= "0.26.0":
-            params.append("stiffness_factor")
-        if pulse3d_semver >= "0.27.4":
-            params.append("inverted_post_magnet_wells")
         if pulse3d_semver >= "0.28.1":
             params.append("include_stim_protocols")
         if "0.28.2" > pulse3d_semver >= "0.25.2":
             params.append("peaks_valleys")
+        if pulse3d_semver >= "0.30.1":
+            # Tanner (2/7/23): these params added in earlier versions but there are bugs with using this param in re-analysis prior to 0.30.1
+            params.append("stiffness_factor")
+            params.append("inverted_post_magnet_wells")
 
         details_dict = dict(details)
 
