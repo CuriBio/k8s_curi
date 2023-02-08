@@ -459,7 +459,9 @@ async def create_new_job(
             job_id = await create_job(
                 con=con,
                 upload_id=details.upload_id,
-                queue="test-pulse3d",
+                queue=f"test-pulse3d-v{details.version}"
+                if "admin:software" in user_scopes and details.version in ("0.30.0", "0.29.2")
+                else f"pulse3d-v{details.version}",
                 priority=priority,
                 meta={"analysis_params": analysis_params, "version": details.version},
                 customer_id=customer_id,

@@ -32,15 +32,19 @@ async def create_job(version: str, num_of_workers: int):
     api = kclient.BatchV1Api()
     # get existing jobs to prevent starting a job with the same count suffix
     # make sure to only get jobs of specific version
-    running_jobs_list = api.list_namespaced_job(QUEUE, label_selector=f"job_version={version}")
-    num_of_jobs = len(running_jobs_list.items)
-    logger.info(f"Checking for running jobs, {num_of_jobs} found.")
-    for count in range(num_of_jobs + 1, num_of_workers + num_of_jobs + 1):
+    running_workers_list = api.list_namespaced_job(QUEUE, label_selector=f"job_version={version}")
+    num_of_active_workers = len(running_workers_list.items)
+
+    logger.info(f"Checking for running {version} jobs, {num_of_active_workers} found.")
+    logger.info(f"Starting {num_of_workers - num_of_active_workers} worker(s) for {QUEUE}:{version}.")
+
+    for count in range(num_of_active_workers + 1, num_of_workers + 1):
         # names can only be alphanumeric and '-' so replacing '.' with '-'
         # Cannot start jobs with the same name so count starting at 1+existing number of jobs running in namespace with version
-        formatted_name = f"{QUEUE}-worker-v{'-'.join(version.split('.'))}--{count}"
+        formatted_name = f"test-{QUEUE}-worker-v{'-'.join(version.split('.'))}--{count}"
         logger.info(f"Starting {formatted_name}.")
-        complete_ecr_repo = f"{ECR_REPO}:{version}-test"
+        complete_ecr_repo = f"{ECR_REPO}:{version}__test"
+
         POSTGRES_PASSWORD = kclient.V1EnvVar(
             name="POSTGRES_PASSWORD",
             value_from=kclient.V1EnvVarSource(
@@ -79,18 +83,18 @@ async def get_next_queue_item():
                 "SELECT meta->'version' AS version, COUNT(*) FROM jobs_queue WHERE queue LIKE $1 GROUP BY version",
                 f"%{QUEUE}%",  # TODO change this to {queue}%
             )
-            
+
             # TODO make sure this logs
             if not records:
                 logger.info(f"{QUEUE} queue is empty, nothing to process.")
+            else:
+                logger.info(f"Found {len(records)} items in {QUEUE} queue.")
 
             for record in records:
                 version = json.loads(record["version"])
                 # currently set one worker per 5 queue items
                 # TODO make count value an env variable to make it easier to change
                 num_of_workers = math.ceil(record["count"] / MAX_JOBS_PER_WORKER)
-                logger.info(f"Starting {num_of_workers} worker(s) for {QUEUE}:{version}.")
-
                 await create_job(version, num_of_workers)
 
 
