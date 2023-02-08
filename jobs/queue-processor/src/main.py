@@ -87,10 +87,9 @@ async def get_next_queue_item():
             # TODO make sure this logs
             if not records:
                 logger.info(f"{QUEUE} queue is empty, nothing to process.")
-            else:
-                logger.info(f"Found {len(records)} items in {QUEUE} queue.")
 
             for record in records:
+                logger.info(f"Found {record['count']} item(s) for {record['version']}.")
                 version = json.loads(record["version"])
                 # currently set one worker per 5 queue items
                 # TODO make count value an env variable to make it easier to change
