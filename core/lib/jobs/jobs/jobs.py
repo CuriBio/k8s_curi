@@ -3,7 +3,7 @@ from functools import wraps
 import json
 import time
 import uuid
-from typing import Dict
+from typing import Dict, Any
 
 
 class EmptyQueue(Exception):
@@ -219,28 +219,55 @@ def _get_placeholders_str(num_placeholders, start=1):
     return ", ".join(f"${i}" for i in range(start, start + num_placeholders))
 
 
-async def check_customer_quota(con, customer_id, service) -> Dict[str, bool]:
+async def get_customer_quota(con, customer_id, service) -> Dict[str, Any]:
+    """Query DB and return usage limit and current usage.
+    Returns:
+        - Dictionary with account limits and account usage
+    """
+    # get service specific usage restrictions for the customer account
+    # uploads limit, jobs limit, end date of plan
+    usage_limit_query = "SELECT usage_restrictions->$1 AS usage FROM customers WHERE id=$2"
+    # collects number of all jobs in customer account and return number of credits consumed
+    # upload with 1 - 2 jobs  = 1 credit , upload with 3+ jobs = 1 credit for each upload with over 2 jobs
+    current_usage_query = "SELECT COUNT(*) AS total_uploads, SUM(jobs_count) AS total_jobs FROM ( SELECT ( CASE WHEN (COUNT(*) <= 2 AND COUNT(*) > 0) THEN 1 ELSE COUNT(*) END ) AS jobs_count FROM jobs_result WHERE customer_id=$1 AND type=$2 GROUP BY upload_id) dt"
+
+    async with con.transaction():
+        usage_limit_json = await con.fetchrow(usage_limit_query, service, customer_id)
+        current_usage_data = await con.fetchrow(current_usage_query, customer_id, service)
+
+    usage_limit_dict = json.loads(usage_limit_json["usage"])
+
+    current_usage_dict = {
+        "uploads": current_usage_data["total_uploads"],
+        "jobs": current_usage_data["total_jobs"],
+    }
+
+    return {"limits": usage_limit_dict, "current": current_usage_dict}
+
+
+async def check_customer_quota(con, customer_id, service) -> Dict[str, Any]:
     """Query DB for service-specific customer account usage.
 
     Will be called for all account tiers, unlimited has a value of -1.
     Returns:
         - Dictionary containing boolean values for if uploads or job quotas have been reached
+        - Dictionary also contains data about max usage and end date.
     """
-
-    async with con.transaction():
-        # get service specific usage restrictions for the customer account
-        usage_query = "SELECT usage_restrictions->$1 AS usage FROM customers WHERE id=$2"
-        usage_json = await con.fetchrow(usage_query, service, customer_id)
-        usage_dict = json.loads(usage_json["usage"])
-
-        # grab total uploads and jobs of customer for specific service
-        query = "SELECT COUNT(*) as total_uploads, SUM(jobs_count) as total_jobs FROM (SELECT COUNT(*) AS jobs_count FROM jobs_result WHERE customer_id=$1 AND type=$2 GROUP BY upload_id) dt"
-        customer_data = await con.fetchrow(query, customer_id, service)
-        total_uploads = customer_data["total_uploads"]
-        total_jobs = customer_data["total_jobs"] if customer_data["total_jobs"] is not None else 0
-
-        # return boolean values if reached, -1 means infinite uploads/jobs allowed for paid account
-        return {
-            "uploads_reached": total_uploads >= usage_dict["uploads"] and usage_dict["uploads"] != -1,
-            "jobs_reached": total_jobs >= usage_dict["jobs"] and usage_dict["jobs"] != -1,
-        }
+    usage_info = await get_customer_quota(con, customer_id, service)
+    # check current date has not passed end date
+    is_expired = (
+        datetime.strptime(usage_info["limits"]["expiration_date"], "%Y-%m-%d") < datetime.utcnow()
+        if usage_info["limits"]["expiration_date"]
+        else False
+    )
+    # return boolean values if reached, -1 means infinite uploads/jobs allowed for paid account
+    uploads_reached = {
+        f"{key}_reached": (
+            int(usage_info["current"][key]) >= int(usage_info["limits"][key])
+            and (usage_info["limits"][key] != -1)
+        )
+        or is_expired
+        for key in ("uploads", "jobs")
+    }
+    uploads_reached.update(usage_info)
+    return uploads_reached

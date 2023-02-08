@@ -167,7 +167,6 @@ async def create_recording_upload(
                     PULSE3D_UPLOADS_BUCKET,
                     upload_id=upload_id,
                 )
-
                 return UploadResponse(id=upload_id, params=params)
     except S3Error as e:
         logger.exception(str(e))
@@ -460,7 +459,7 @@ async def create_new_job(
                 con=con,
                 upload_id=details.upload_id,
                 queue=f"test-pulse3d-v{details.version}"
-                if "admin:software" in user_scopes and details.version in ("0.30.0", "0.29.2")
+                if "admin:software" in user_scopes and pulse3d_semver >= "0.29.2"
                 else f"pulse3d-v{details.version}",
                 priority=priority,
                 meta={"analysis_params": analysis_params, "version": details.version},
@@ -489,7 +488,12 @@ async def create_new_job(
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
 
         return JobResponse(
-            id=job_id, user_id=user_id, upload_id=details.upload_id, status="pending", priority=priority
+            id=job_id,
+            user_id=user_id,
+            upload_id=details.upload_id,
+            status="pending",
+            priority=priority,
+            usage_quota=usage_quota,
         )
     except Exception as e:
         logger.exception(f"Failed to create job: {repr(e)}")

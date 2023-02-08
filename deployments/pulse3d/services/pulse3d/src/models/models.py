@@ -11,6 +11,13 @@ class UploadRequest(BaseModel):
     upload_type: str
 
 
+class UsageQuota(BaseModel):
+    current: Dict[str, Any]
+    limits: Dict[str, Any]
+    jobs_reached: bool
+    uploads_reached: bool
+
+
 class UploadResponse(BaseModel):
     id: Optional[uuid.UUID]
     params: Dict[str, Any]
@@ -45,6 +52,7 @@ class JobResponse(BaseModel):
     upload_id: uuid.UUID
     status: str
     priority: int
+    usage_quota: UsageQuota
 
 
 class DownloadItem(BaseModel):
