@@ -1,5 +1,5 @@
 --- # PULSE3D
-apiVersion: test.net/v1
+apiVersion: curibio.dev/v1
 kind: JobRunner
 metadata:
   name: pulse3d-queue-processor
