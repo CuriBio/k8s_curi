@@ -15,7 +15,7 @@ HOST="oidc.eks.$1.amazonaws.com"
 
 echo | openssl s_client -servername "$HOST" -connect "$HOST:443" 2>&- \
     | sed -n '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' \
-    | openssl x509 -fingerprint -noout \
+    | openssl x509 -fingerprint -sha1 -noout \
     | tr '[:upper:]' '[:lower:]' \
     | sed 's/://g; s/.*=\(.*\)/{"thumbprint": "\1"}/'
     #| sed 's/://g' | awk -F= '{print $2}'
