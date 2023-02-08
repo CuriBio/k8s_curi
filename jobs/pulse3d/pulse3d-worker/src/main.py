@@ -132,8 +132,10 @@ async def process(con, item):
                     for arg_name in ("stiffness_factor", "inverted_post_magnet_wells")
                 }
 
+                use_existing_time_v_force = re_analysis and not any(plate_recording_args.values())
+
                 logger.info("Starting pulse3d analysis")
-                if re_analysis and not any(plate_recording_args.values()):
+                if use_existing_time_v_force:
                     # if any plate recording args are provided, can't load from data frame since a re-analysis is required to recalculate the waveforms
                     logger.info(f"Loading previous time force data from {parquet_filename}")
                     recording_df = pd.read_parquet(parquet_path)
@@ -163,7 +165,7 @@ async def process(con, item):
                 logger.exception(f"PlateRecording failed: {e}")
                 raise
 
-            if re_analysis:
+            if use_existing_time_v_force:
                 logger.info("Skipping step to write time force data for upload")
             else:
                 try:
