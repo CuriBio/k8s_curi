@@ -4,4 +4,4 @@ environment = "test"
 # database
 aurora_database_name  = "test-curibio"
 aurora_instance_class = "db.t3.medium"
-#db_secret_id = "test_aurora_postgresql"
+password_change_id = "2023-01-31"
