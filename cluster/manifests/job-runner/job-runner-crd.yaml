@@ -31,5 +31,5 @@ spec:
     plural: jobrunners
     singular: jobrunner
     shortNames:
-      - sk
-      - sks
+      - jr
+      - jrs
