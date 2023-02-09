@@ -1,3 +1,34 @@
+resource "aws_iam_role_policy" "loki_pod_iam_role_policy" {
+  name        = "pulse3d-pods-iam-role01"
+  role        = aws_iam_role.loki_pods.id
+
+  policy = file("${path.module}/json/loki_${var.cluster_name}_iam_policy.json")
+}
+
+data "aws_iam_policy_document" "loki_pods" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    effect  = "Allow"
+
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_iam_openid_connect_provider.default.url, "https://", "")}:sub"
+      values   = ["system:serviceaccount:loki:default"]
+    }
+
+    principals {
+      identifiers = [aws_iam_openid_connect_provider.default.arn]
+      type        = "Federated"
+    }
+  }
+}
+
+resource "aws_iam_role" "loki_pods" {
+  name = "loki-pods-iam-role01"
+
+  assume_role_policy = data.aws_iam_policy_document.loki.json
+}
+
 resource "aws_iam_role_policy" "aws-loadbalancer-controller" {
   name        = "AWSLoadBalancerControllerIAMPolicy"
   role        = aws_iam_role.eks_pods.id
