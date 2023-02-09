@@ -13,14 +13,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-@kopf.on.create("curibio.dev", "v1", "jobrunners")  # TODO look at how to change the on create to prod.net
+@kopf.on.create("curibio.dev", "v1", "jobrunners")
 def create_fn(body, spec, **kwargs):
-    # Get info from grafana object
     namespace = body["metadata"]["namespace"]
     job_queue = spec["job_queue"]
     qp_name = f"{job_queue}-queue-processor"
     logger.info(f"Starting {qp_name} in namespace {namespace}")
 
+    QUEUE_PROCESSOR_IMAGE = os.getenv("QUEUE_PROCESSOR_IMAGE")
     POSTGRES_PASSWORD = kclient.V1EnvVar(name="POSTGRES_PASSWORD", value=os.getenv("POSTGRES_PASSWORD"))
     QUEUE_VAR = kclient.V1EnvVar(name="QUEUE", value=job_queue)
     ECR_REPO = kclient.V1EnvVar(name="ECR_REPO", value=spec["ecr_repo"])
@@ -30,7 +30,7 @@ def create_fn(body, spec, **kwargs):
     # Create container
     container = kclient.V1Container(
         name=qp_name,
-        image="077346344852.dkr.ecr.us-east-2.amazonaws.com/queue-processor:0.0.1",
+        image=QUEUE_PROCESSOR_IMAGE,
         env=[POSTGRES_PASSWORD, QUEUE_VAR, ECR_REPO, SECONDS_TO_POLL_DB, MAX_JOBS_PER_WORKER],
         image_pull_policy="Always",
     )
@@ -49,11 +49,9 @@ def create_fn(body, spec, **kwargs):
         },
     }
 
-    # Make the Pod and Service the children of the grafana object
     kopf.adopt(deployment, owner=body)
     # Object used to communicate with the API Server
     api = kclient.AppsV1Api()
-
     # Create deployment
     obj = api.create_namespaced_deployment(namespace, deployment)
     msg = f"Deployment {obj.metadata.name} created"

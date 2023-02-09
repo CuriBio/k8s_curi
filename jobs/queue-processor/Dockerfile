@@ -1,5 +1,14 @@
-FROM python:3.11.0
-RUN pip install asyncpg asyncio kubernetes
+FROM python:3.9-slim as venv
+
+WORKDIR /app
+
+RUN python -m venv --copies /app/venv
+RUN . /app/venv/bin/activate && pip install asyncpg asyncio kubernetes
+
+FROM python:3.9-slim as prod
+
+COPY --from=venv /app/venv /app/venv/
+ENV PATH /app/venv/bin:$PATH
 
 WORKDIR /app
 COPY src/main.py /app/main.py

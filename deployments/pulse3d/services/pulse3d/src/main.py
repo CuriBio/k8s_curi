@@ -454,13 +454,17 @@ async def create_new_job(
             if usage_quota["jobs_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
+            pulse3d_queue_to_use = (
+                f"test-pulse3d-v{details.version}"
+                if "admin:software" in user_scopes and pulse3d_semver >= "0.29.2"
+                else f"pulse3d-v{details.version}"
+            )
+
             # finally create job
             job_id = await create_job(
                 con=con,
                 upload_id=details.upload_id,
-                queue=f"test-pulse3d-v{details.version}"
-                if "admin:software" in user_scopes and pulse3d_semver >= "0.29.2"
-                else f"pulse3d-v{details.version}",
+                queue=pulse3d_queue_to_use,
                 priority=priority,
                 meta={"analysis_params": analysis_params, "version": details.version},
                 customer_id=customer_id,

@@ -81,10 +81,9 @@ async def get_next_queue_item():
         async with pool.acquire() as con:
             records = await con.fetch(
                 "SELECT meta->'version' AS version, COUNT(*) FROM jobs_queue WHERE queue LIKE $1 GROUP BY version",
-                f"%{QUEUE}%",  # TODO change this to {queue}%
+                f"%{QUEUE}%",  # TODO change this to {queue}% once 'test-' is removed from queue prefix after testing is complete
             )
 
-            # TODO make sure this logs
             if not records:
                 logger.info(f"{QUEUE} queue is empty, nothing to process.")
 
@@ -92,7 +91,6 @@ async def get_next_queue_item():
                 logger.info(f"Found {record['count']} item(s) for {record['version']}.")
                 version = json.loads(record["version"])
                 # currently set one worker per 5 queue items
-                # TODO make count value an env variable to make it easier to change
                 num_of_workers = math.ceil(record["count"] / MAX_JOBS_PER_WORKER)
                 await create_job(version, num_of_workers)
 
