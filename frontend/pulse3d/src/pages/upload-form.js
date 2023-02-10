@@ -125,7 +125,7 @@ export default function UploadForm() {
   const [paramErrors, setParamErrors] = useState({});
   const [inProgress, setInProgress] = useState(false);
   const [modalButtons, setModalButtons] = useState(["Close"]);
-  const [failedUploadsMsg, setFailedUploadsMsg] = useState([defaultZipErrorLabel]);
+  const [failedUploadsMsg, setFailedUploadsMsg] = useState([defaultUploadErrorLabel]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [checkedParams, setCheckedParams] = useState(false);
   const [tabSelection, setTabSelection] = useState(router.query.id);
