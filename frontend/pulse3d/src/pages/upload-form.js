@@ -125,7 +125,7 @@ export default function UploadForm() {
   const [paramErrors, setParamErrors] = useState({});
   const [inProgress, setInProgress] = useState(false);
   const [modalButtons, setModalButtons] = useState(["Close"]);
-  const [failedUploadsMsg, setFailedUploadsMsg] = useState([defaultZipErrorLabel]);
+  const [failedUploadsMsg, setFailedUploadsMsg] = useState([defaultUploadErrorLabel]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [checkedParams, setCheckedParams] = useState(false);
   const [tabSelection, setTabSelection] = useState(router.query.id);
@@ -268,15 +268,15 @@ export default function UploadForm() {
       if (semverGte(version, "0.25.0")) {
         requestBody.max_y = maxY === "" ? null : maxY;
       }
-      if (semverGte(version, "0.26.0")) {
-        requestBody.stiffness_factor = stiffnessFactor === "" ? null : stiffnessFactor;
-      }
-      if (semverGte(version, "0.27.4")) {
-        requestBody.inverted_post_magnet_wells =
-          wellsWithFlippedWaveforms === "" ? null : wellsWithFlippedWaveforms;
-      }
       if (semverGte(version, "0.28.1")) {
         requestBody.include_stim_protocols = showStimSheet === "" ? null : showStimSheet;
+      }
+      if (semverGte(version, "0.30.1")) {
+        requestBody.stiffness_factor = stiffnessFactor === "" ? null : stiffnessFactor;
+      }
+      if (semverGte(version, "0.30.1")) {
+        requestBody.inverted_post_magnet_wells =
+          wellsWithFlippedWaveforms === "" ? null : wellsWithFlippedWaveforms;
       }
 
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
