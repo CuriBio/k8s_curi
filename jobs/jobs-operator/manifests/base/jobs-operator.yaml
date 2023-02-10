@@ -12,7 +12,7 @@ spec:
       labels:
         app: operators
     spec:
-      serviceAccountName: jobs-operator
+      serviceAccountName: operator
       containers:
       - name: jobs-operator
         env:
