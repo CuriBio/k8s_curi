@@ -743,14 +743,11 @@ def test_jobs__post__correctly_updates_peak_valley_indices_based_on_differing_pu
         expected_analysis_param_keys.append("max_y")
     if pulse3d_semver >= "0.25.4":
         expected_analysis_param_keys.append("normalize_y_axis")
-    if pulse3d_semver >= "0.26.0":
-        expected_analysis_param_keys.append("stiffness_factor")
-    if pulse3d_semver >= "0.27.4":
-        expected_analysis_param_keys.append("inverted_post_magnet_wells")
     if pulse3d_semver >= "0.28.1":
-        expected_analysis_param_keys.append(
-            "include_stim_protocols",
-        )
+        expected_analysis_param_keys.append("include_stim_protocols")
+    if pulse3d_semver >= "0.30.1":
+        expected_analysis_param_keys.append("stiffness_factor")
+        expected_analysis_param_keys.append("inverted_post_magnet_wells")
 
     expected_analysis_params = {param: None for param in expected_analysis_param_keys}
 
@@ -1027,14 +1024,13 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
         expected_analysis_param_keys.append("max_y")
     if pulse3d_semver >= "0.25.4":
         expected_analysis_param_keys.append("normalize_y_axis")
-    if pulse3d_semver >= "0.26.0":
-        expected_analysis_param_keys.append("stiffness_factor")
-    if pulse3d_semver >= "0.27.4":
-        expected_analysis_param_keys.append("inverted_post_magnet_wells")
     if pulse3d_semver >= "0.28.1":
         expected_analysis_param_keys.append(
             "include_stim_protocols",
         )
+    if pulse3d_semver >= "0.30.1":
+        expected_analysis_param_keys.append("stiffness_factor")
+        expected_analysis_param_keys.append("inverted_post_magnet_wells")
     if "0.25.2" <= pulse3d_semver <= "0.28.0":
         expected_analysis_param_keys.append("peaks_valleys")
 
