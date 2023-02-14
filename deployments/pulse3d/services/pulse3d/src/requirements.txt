@@ -7,7 +7,7 @@ idna==3.3
 pulse3d==0.29.2
 pydantic==1.9.0
 sniffio==1.2.0
-starlette==0.16.0
+starlette==0.25.0
 typing-extensions==4.0.1
 uvicorn[standard]==0.16.0
 stream-zip==0.0.48
