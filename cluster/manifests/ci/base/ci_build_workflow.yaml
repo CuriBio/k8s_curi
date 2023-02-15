@@ -18,10 +18,10 @@ spec:
   - metadata:
       name: workdir
     spec:
-      accessModes: [ "ReadWriteOnce" ]
+      accessModes: [ "ReadWriteMany" ]
       resources:
         requests:
-          storage: 10Mi
+          storage: 100Mi
   templates:
   - name: ci-build
     dag:
@@ -112,10 +112,10 @@ spec:
   - metadata:
       name: workdir
     spec:
-      accessModes: [ "ReadWriteOnce" ]
+      accessModes: [ "ReadWriteMany" ]
       resources:
         requests:
-          storage: 10Mi
+          storage: 100Mi
   templates:
   - name: ci-build-push
     dag:
