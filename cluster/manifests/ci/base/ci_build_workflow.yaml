@@ -18,7 +18,7 @@ spec:
   - metadata:
       name: workdir
     spec:
-      accessModes: [ "ReadWriteOnce" ]
+      accessModes: [ "ReadWriteMany" ]
       resources:
         requests:
           storage: 100Mi
@@ -112,7 +112,7 @@ spec:
   - metadata:
       name: workdir
     spec:
-      accessModes: [ "ReadWriteOnce" ]
+      accessModes: [ "ReadWriteMany" ]
       resources:
         requests:
           storage: 100Mi
