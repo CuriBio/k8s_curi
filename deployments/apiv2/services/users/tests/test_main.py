@@ -670,7 +670,8 @@ def test_user_id__put__successful_deletion(mocked_asyncpg_con):
     )
 
 
-def test_user_id__put__successful_deactivation(mocked_asyncpg_con):
+@pytest.mark.parametrize("action", ["deactivate", "reactivate"])
+def test_user_id__put__successful_deactivation_reactivation(mocked_asyncpg_con, action):
     test_customer_id = uuid.uuid4()
     access_token = get_token(userid=test_customer_id, account_type="customer")
 
@@ -678,13 +679,13 @@ def test_user_id__put__successful_deactivation(mocked_asyncpg_con):
 
     response = test_client.put(
         f"/{test_user_id}",
-        json={"action_type": "deactivate"},
+        json={"action_type": action},
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 200
 
     mocked_asyncpg_con.execute.assert_called_once_with(
-        "UPDATE users SET suspended='t' WHERE id=$1", test_user_id
+        "UPDATE users SET suspended=$1 WHERE id=$2", action == "deactivate", test_user_id
     )
 
 
