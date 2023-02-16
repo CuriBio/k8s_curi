@@ -1,14 +1,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: pulse3d-jobs
-  namespace: pulse3d
+  name: jobs-operator
+  namespace: kopf
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: deployments
   source:
-    path: jobs/pulse3d/manifests/overlays/test
+    path: jobs/jobs-operator/manifests/overlays/test
     repoURL: https://github.com/CuriBio/k8s_curi.git
     targetRevision: HEAD
   destination:
