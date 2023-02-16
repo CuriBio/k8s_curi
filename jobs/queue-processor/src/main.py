@@ -41,9 +41,9 @@ async def create_job(version: str, num_of_workers: int):
     for count in range(num_of_active_workers + 1, num_of_workers + 1):
         # names can only be alphanumeric and '-' so replacing '.' with '-'
         # Cannot start jobs with the same name so count starting at 1+existing number of jobs running in namespace with version
-        formatted_name = f"test-{QUEUE}-worker-v{'-'.join(version.split('.'))}--{count}"
+        formatted_name = f"{QUEUE}-worker-v{'-'.join(version.split('.'))}--{count}"
         logger.info(f"Starting {formatted_name}.")
-        complete_ecr_repo = f"{ECR_REPO}:{version}__test"
+        complete_ecr_repo = f"{ECR_REPO}:{version}"
 
         POSTGRES_PASSWORD = kclient.V1EnvVar(
             name="POSTGRES_PASSWORD",
@@ -81,7 +81,7 @@ async def get_next_queue_item():
         async with pool.acquire() as con:
             records = await con.fetch(
                 "SELECT meta->'version' AS version, COUNT(*) FROM jobs_queue WHERE queue LIKE $1 GROUP BY version",
-                f"%{QUEUE}%",  # TODO change this to {queue}% once 'test-' is removed from queue prefix after testing is complete
+                f"{QUEUE}%",
             )
 
             if not records:

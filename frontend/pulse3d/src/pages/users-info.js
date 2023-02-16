@@ -479,7 +479,7 @@ export default function UserInfo() {
                     checkedUsers.length === 0 ||
                       usersData
                         .filter((user) => checkedUsers.includes(user.id))
-                        .filter((checkedUsers) => checkedUsers.suspended).length === 0,
+                        .filter((checkedUsers) => !checkedUsers.suspended).length !== 0,
                     checkedUsers.length !== 1 ||
                       (checkedUsers.length === 1 &&
                         usersData.filter(({ id }) => checkedUsers.includes(id))[0].verified) ||
