@@ -340,46 +340,62 @@ export default function InteractiveWaveformModal({
   useMemo(checkForExistingData, [selectedJob]);
 
   const setInitialPeakValleyWindows = () => {
-    const pvCopy = peakValleyWindows;
+    const pvCopy = JSON.parse(JSON.stringify(peakValleyWindows));
+
     for (const well of Object.keys(originalData.peaks_valleys)) {
       pvCopy[well] = { minPeaks: findLowestPeak(well), maxValleys: findHighestValley(well) };
     }
+
     setPeakValleyWindows({
       ...pvCopy,
     });
   };
 
   const findLowestPeak = (well) => {
-    // arbitrarily set to first peak
-    const wellSpecificPeaks = originalData.peaks_valleys[well][0];
+    const { coordinates, peaks_valleys } = originalData;
+    const { startTime, endTime } = editableStartEndTimes;
+    // arbitrarily set to first peak and filter for peaks inside windowed time
+    const wellSpecificPeaks = peaks_valleys[well][0];
+    const wellSpecificCoords = coordinates[well];
+
     // consider when no peaks or valleys were found in a well
     if (wellSpecificPeaks.length > 0) {
       let lowest = wellSpecificPeaks[0];
 
       wellSpecificPeaks.map((peak) => {
-        const yCoord = originalData.coordinates[well][peak][1];
-        const peakToCompare = originalData.coordinates[well][lowest][1];
-        if (yCoord < peakToCompare) lowest = peak;
+        const yCoord = wellSpecificCoords[peak][1];
+        const peakToCompare = wellSpecificCoords[lowest][1];
+        const timeOfPeak = wellSpecificCoords[lowest][0];
+
+        if (yCoord < peakToCompare && timeOfPeak >= startTime && timeOfPeak <= endTime) lowest = peak;
       });
 
       // return  y coordinate of lowest peak
-      return originalData.coordinates[well][lowest][1];
+      return wellSpecificCoords[lowest][1];
     }
   };
 
   const findHighestValley = (well) => {
+    const { coordinates, peaks_valleys } = originalData;
+    const { startTime, endTime } = editableStartEndTimes;
     // arbitrarily set to first valley
-    const wellSpecificValleys = originalData.peaks_valleys[well][1];
+    const wellSpecificValleys = peaks_valleys[well][1];
+    const wellSpecificCoords = coordinates[well];
+
     // consider when no peaks or valleys were found in a well
     if (wellSpecificValleys.length > 0) {
       let highest = wellSpecificValleys[0];
+
       wellSpecificValleys.map((valley) => {
-        const yCoord = originalData.coordinates[well][valley][1];
-        const valleyToCompare = originalData.coordinates[well][highest][1];
-        if (yCoord > valleyToCompare) highest = valley;
+        const yCoord = wellSpecificCoords[valley][1];
+        const valleyToCompare = wellSpecificCoords[highest][1];
+        const timeOfValley = wellSpecificCoords[highest][0];
+
+        if (yCoord > valleyToCompare && timeOfValley >= startTime && timeOfValley <= endTime)
+          highest = valley;
       });
       // return  y coordinate of highest valley
-      return originalData.coordinates[well][highest][1];
+      return wellSpecificCoords[highest][1];
     }
   };
 
@@ -584,13 +600,13 @@ export default function InteractiveWaveformModal({
     } else if (endTimeDiff) {
       changelogMessage = `End time was changed from ${endToCompare} to ${editableStartEndTimes.endTime}.`;
     } else if (minPeaksDiff) {
-      changelogMessage = `Minimum peaks window changed from ${pvWindow.minPeaks.toFixed(
-        2
-      )} to ${peakValleyWindows[selectedWell].minPeaks.toFixed(2)}`;
+      changelogMessage = `Minimum peaks window changed from ${
+        pvWindow.minPeaks ? pvWindow.minPeaks.toFixed(2) : "null"
+      } to ${peakValleyWindows[selectedWell].minPeaks.toFixed(2)}`;
     } else if (maxValleysDiff) {
-      changelogMessage = `Maximum valleys window changed from ${pvWindow.maxValleys.toFixed(
-        2
-      )} to ${peakValleyWindows[selectedWell].maxValleys.toFixed(2)}`;
+      changelogMessage = `Maximum valleys window changed from ${
+        pvWindow.maxValleys ? spvWindow.maxValleys.toFixed(2) : "null"
+      } to ${peakValleyWindows[selectedWell].maxValleys.toFixed(2)}`;
     }
     return changelogMessage;
   };
