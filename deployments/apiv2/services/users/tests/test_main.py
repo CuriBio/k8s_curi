@@ -669,6 +669,7 @@ def test_user_id__put__successful_deletion(mocked_asyncpg_con):
         "UPDATE users SET deleted_at=$1 WHERE id=$2", datetime.now(), test_user_id
     )
 
+
 @pytest.mark.parametrize("action", ["deactivate", "reactivate"])
 def test_user_id__put__successful_deactivation_reactivation(mocked_asyncpg_con, action):
     test_customer_id = uuid.uuid4()

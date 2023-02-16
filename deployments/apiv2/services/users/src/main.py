@@ -657,7 +657,10 @@ async def update_user(
     if action in ("deactivate", "reactivate"):
         suspended = action == "deactivate"
         update_query = "UPDATE users SET suspended=$1 WHERE id=$2"
-        query_args = (suspended, user_id,)
+        query_args = (
+            suspended,
+            user_id,
+        )
     elif action == "delete":
         update_query = "UPDATE users SET deleted_at=$1 WHERE id=$2"
         query_args = (datetime.now(), user_id)
