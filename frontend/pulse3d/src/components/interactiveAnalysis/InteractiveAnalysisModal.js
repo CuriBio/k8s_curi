@@ -11,6 +11,7 @@ import { UploadsContext } from "@/components/layouts/DashboardLayout";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
 import semverGte from "semver/functions/gte";
+import { AuthContext } from "@/pages/_app";
 
 const Container = styled.div`
   height: 100%;
@@ -167,6 +168,7 @@ export default function InteractiveWaveformModal({
   const [peakValleyWindows, setPeakValleyWindows] = useState({});
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [creditUsageAlert, setCreditUsageAlert] = useState(false);
+  const { usageQuota } = useContext(AuthContext);
 
   const handleDuplicatesModalClose = (isRunAnalysisOption) => {
     setDuplicateModalOpen(false);
@@ -190,7 +192,7 @@ export default function InteractiveWaveformModal({
     // only available for versions greater than 0.25.2
     const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.25.2"));
     setFilteredVersions([...compatibleVersions]);
-    if (numberOfJobsInUpload > 2) {
+    if (usageQuota && usageQuota.limits && numberOfJobsInUpload > 2 && usageQuota.limits.jobs !== -1) {
       setCreditUsageAlert(true);
     }
   }, []);
