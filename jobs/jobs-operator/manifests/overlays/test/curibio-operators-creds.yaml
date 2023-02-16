@@ -1,0 +1,15 @@
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  creationTimestamp: null
+  name: curibio-operators-creds
+  namespace: kopf
+spec:
+  encryptedData:
+    curibio_operators_ro: AgAVH/2L4p1LjAiZAcb1s/WlIckU1nfg2+8VoCfK+ZnVjfQsG+0pfc2Vwra+sOdey7kphXR0pbMvLHaTn3oNGDKlJqJ2Ep/3+Qwg9Ff4V3UrsF8LQIkOlXlOZI5BChKZbPHnH7pRu8zgSNn6kEkFbnUTfWdOYiRnuHFrBxUgvwYfmlZRrgvYNSU8s3ZAaQ4sWTK33ko7tktuwP89nctEzX3NDb/YA2eqBNs1sEMFiiMtItqfLTvNnqo2sKv27ya8dCMDHlrW85GGH7pfPate1Dm51BR4dt/OVcDS3BT0gLx/wh7amMGCbri7phBV2x95z+dqVEOyEZxrqzwg81aDw7/fMH8iZNIe4d66vhvTyj/obqwFF+KBUtB09IW0a5bRdxL25KRQlctv7/n2jWGDNr6tsOUthmgkm05q1CW6Uck5QrXWGgBF7uSNA3cPNRAXCsmgqQicmLMSi++GbbXQoG7KC6seOKWbRfChvmmIuie5aG9PfzcReOuKVngslqnHpkp+YKLwx3V1pTPCvzWxSTLNG74OszEP1dBFYaC8dX53vhLTYkNL8KDIrw1LmcQ6WXS2QStNx1KZsHt82pUvHS8h7dlt0LVl3ZRdbdCdTMa58bGjdrHSJqHUgKHXuVk70h5hf4Mj1Nq1LSi3Nt+fjRKEIzAEDtKjTSDmDc+UrDLbALpCsDoJSLo1gSGmiwpV9jdoR6LKOsoJ4h8uQ7UMPVV2bRDpveQJjYsz
+  template:
+    metadata:
+      creationTimestamp: null
+      name: curibio-operators-creds
+      namespace: kopf
+

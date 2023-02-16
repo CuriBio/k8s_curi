@@ -10,6 +10,7 @@ const ProgressDiv = styled.div`
   align-items: center;
   column-count: 1;
   column-gap: 10px;
+  cursor: default;
 `;
 const ProgressP = styled.p`
   font-size: 0.85rem;

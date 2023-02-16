@@ -363,12 +363,13 @@ export default function UserInfo() {
   const handleDropdownSelection = async (option) => {
     if (option === 0) {
       await sendUserActionPutRequest("delete");
-    } else if (option === 1) {
+    } else if (option === 1 || option === 2) {
       const checkUsersData = usersData.filter(({ id }) => checkedUsers.includes(id));
       let deactiveUsers = checkUsersData.filter(({ suspended }) => suspended).map(({ name }) => name);
+      setCheckedUsers(checkedUsers.filter(({ name }) => deactiveUsers.includes(name) === (option === 1)));
 
-      setCheckedUsers(checkedUsers.filter(({ name }) => deactiveUsers.includes(name)));
-      await sendUserActionPutRequest("deactivate");
+      const action = option === 1 ? "deactivate" : "reactivate";
+      await sendUserActionPutRequest(action);
     } else {
       await resendVerificationLink();
     }
@@ -468,13 +469,17 @@ export default function UserInfo() {
               <DropDownContainer>
                 <DropDownWidget
                   label="Actions"
-                  options={["Delete", "Deactivate", "Resend Verification Link"]}
+                  options={["Delete", "Deactivate", "Reactivate", "Resend Verification Link"]}
                   disableOptions={[
                     checkedUsers.length === 0,
                     checkedUsers.length === 0 ||
                       usersData
                         .filter((user) => checkedUsers.includes(user.id))
                         .filter((checkedUsers) => checkedUsers.suspended).length !== 0,
+                    checkedUsers.length === 0 ||
+                      usersData
+                        .filter((user) => checkedUsers.includes(user.id))
+                        .filter((checkedUsers) => !checkedUsers.suspended).length !== 0,
                     checkedUsers.length !== 1 ||
                       (checkedUsers.length === 1 &&
                         usersData.filter(({ id }) => checkedUsers.includes(id))[0].verified) ||
@@ -483,8 +488,9 @@ export default function UserInfo() {
                         usersData.filter(({ id }) => checkedUsers.includes(id))[0].verifyLink),
                   ]}
                   optionsTooltipText={[
-                    "Must make a selection below before actions become available.",
-                    "Must select a user who is active before actions become available.",
+                    "Must make a selection below before action become available.",
+                    "Must select a user who is active before action become available.",
+                    "Must select a user who is suspended before action become available.",
                     "Must select an unverified user with an expired link.",
                   ]}
                   handleSelection={handleDropdownSelection}
