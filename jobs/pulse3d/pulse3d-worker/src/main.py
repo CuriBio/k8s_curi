@@ -49,7 +49,7 @@ def _is_valid_well_name(well_name):
     )
 
 
-@get_item(queue=f"test-pulse3d-v{PULSE3D_VERSION}")
+@get_item(queue=f"pulse3d-v{PULSE3D_VERSION}")
 async def process(con, item):
     logger.info(f"Processing item: {item}")
     s3_client = boto3.client("s3")
