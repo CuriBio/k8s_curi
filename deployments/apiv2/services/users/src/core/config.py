@@ -1,7 +1,7 @@
 from starlette.config import Config
 from starlette.datastructures import Secret
 
-config = Config("/Users/lucipak/Documents/gpg/.env_localhost")
+config = Config(".env")
 
 APP_NAME = config("APP_NAME", cast=str, default="CuriBio/Auth")
 # version used to tag the docker image
