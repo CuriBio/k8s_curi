@@ -109,7 +109,6 @@ module "eks_cluster" {
   cluster_tags      = var.cluster_tags
   cluster_users     = var.cluster_users
   cluster_accounts  = var.cluster_accounts
-  node_groups       = var.node_groups
   private_subnets   = module.vpc.private_subnets
   vpc_id            = module.vpc.vpc_id
 }
