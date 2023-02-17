@@ -355,15 +355,21 @@ export default function WaveformGraph({
       .attr("stroke", "steelblue")
       .attr("stroke-width", 2)
       .attr("d", dataLine)
+      .style("cursor", "pointer")
       .on("contextmenu", (e) => {
         e.preventDefault();
-        setMenuItems(contextMenuItems.add);
-        contextMenu
-          .attr("target", x.invert(e.offsetX - 50)) // gives context menu easy access to target peak/valley
-          .style("position", "absolute")
-          .style("left", e.layerX + 80 + "px") // layer does not take in scroll component so x and y stay within visible window
-          .style("top", e.layerY + 50 + "px")
-          .style("display", "block");
+        const timepoint = x.invert(e.offsetX - 50);
+        const isWithinTimeWindow = timepoint > startTime && timepoint < endTime;
+        // prevents context menu from appearing if its outside the windowed analysis lines to prevent confusion if no peak or valley gets visibly added
+        if (isWithinTimeWindow) {
+          setMenuItems(contextMenuItems.add);
+          contextMenu
+            .attr("target", timepoint) // gives context menu easy access to target peak/valley
+            .style("position", "absolute")
+            .style("left", e.layerX + 80 + "px") // layer does not take in scroll component so x and y stay within visible window
+            .style("top", e.layerY + 50 + "px")
+            .style("display", "block");
+        }
       });
 
     /* --------------------------------------
@@ -450,11 +456,10 @@ export default function WaveformGraph({
       .selectAll("#waveformGraph")
       .data(
         initialPeaksValleys[0].filter((peak) => {
-          return (
-            dataToGraph[peak][0] >= startTime &&
-            dataToGraph[peak][0] <= endTime &&
-            dataToGraph[peak][1] >= peakValleyWindows[currentWell].minPeaks
-          );
+          const isPeakWithinWindow = dataToGraph[peak][0] >= startTime && dataToGraph[peak][0] <= endTime;
+          return peakValleyWindows[currentWell].minPeaks
+            ? isPeakWithinWindow && dataToGraph[peak][1] >= peakValleyWindows[currentWell].minPeaks
+            : isPeakWithinWindow;
         })
       )
       .enter()
@@ -496,11 +501,12 @@ export default function WaveformGraph({
       .selectAll("#waveformGraph")
       .data(
         initialPeaksValleys[1].filter((valley) => {
-          return (
-            dataToGraph[valley][0] >= startTime &&
-            dataToGraph[valley][0] <= endTime &&
-            dataToGraph[valley][1] <= peakValleyWindows[currentWell].maxValleys
-          );
+          const isValleyWithinWindow =
+            dataToGraph[valley][0] >= startTime && dataToGraph[valley][0] <= endTime;
+
+          return peakValleyWindows[currentWell].maxValleys
+            ? isValleyWithinWindow && dataToGraph[valley][1] <= peakValleyWindows[currentWell].maxValleys
+            : isValleyWithinWindow;
         })
       )
       .enter()
@@ -575,30 +581,36 @@ export default function WaveformGraph({
         d3.select(this).attr("stroke-width", 2);
       });
 
+    // only display lines if peaks and valleys were found
+    const { minPeaks, maxValleys } = peakValleyWindows[currentWell];
     // draggable windowed peaks line
     const peaksWindowLine = svg
       .append("line")
       .attr("id", "peakLine")
       .attr("x1", x(startTime))
-      .attr("y1", y(peakValleyWindows[currentWell].minPeaks))
+      .attr("y1", y(minPeaks))
       .attr("x2", x(endTime))
-      .attr("y2", y(peakValleyWindows[currentWell].minPeaks))
+      .attr("y2", y(minPeaks))
       .attr("stroke-width", 2)
       .attr("stroke", "orange")
       .style("cursor", "pointer")
       .call(peaksValleysLineDrag);
+    // remove peaks line if no peaks are found
+    if (!minPeaks) peaksWindowLine.attr("display", "none");
     // dragable windowed valleys line
     const valleysWindowLine = svg
       .append("line")
       .attr("id", "valleyLine")
       .attr("x1", x(startTime))
-      .attr("y1", y(peakValleyWindows[currentWell].maxValleys))
+      .attr("y1", y(maxValleys))
       .attr("x2", x(endTime))
-      .attr("y2", y(peakValleyWindows[currentWell].maxValleys))
+      .attr("y2", y(maxValleys))
       .attr("stroke-width", 2)
       .attr("stroke", "green")
       .style("cursor", "pointer")
       .call(peaksValleysLineDrag);
+    // remove valleys line if no valleys are found
+    if (!maxValleys) valleysWindowLine.attr("display", "none");
 
     /* --------------------------------------
       START AND END TIME LINES

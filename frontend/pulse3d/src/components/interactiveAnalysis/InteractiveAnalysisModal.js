@@ -354,7 +354,7 @@ export default function InteractiveWaveformModal({
   const findLowestPeak = (well) => {
     const { coordinates, peaks_valleys } = originalData;
     const { startTime, endTime } = editableStartEndTimes;
-    // arbitrarily set to first peak and filter for peaks inside windowed time
+    // arbitrarily set to first peak
     const wellSpecificPeaks = peaks_valleys[well][0];
     const wellSpecificCoords = coordinates[well];
 
@@ -365,9 +365,13 @@ export default function InteractiveWaveformModal({
       wellSpecificPeaks.map((peak) => {
         const yCoord = wellSpecificCoords[peak][1];
         const peakToCompare = wellSpecificCoords[lowest][1];
-        const timeOfPeak = wellSpecificCoords[lowest][0];
-
-        if (yCoord < peakToCompare && timeOfPeak >= startTime && timeOfPeak <= endTime) lowest = peak;
+        // only use peaks inside windowed analysis times
+        const timeOfPeak = wellSpecificCoords[peak][0];
+        const isLessThanEndTime = endTime && timeOfPeak <= endTime;
+        const isGreaterThanStartTime = startTime && timeOfPeak >= startTime;
+        // filter for peaks inside windowed time
+        if (yCoord < peakToCompare && isGreaterThanStartTime && isLessThanEndTime) lowest = peak;
+        if (yCoord < peakToCompare) lowest = peak;
       });
 
       // return  y coordinate of lowest peak
@@ -389,10 +393,12 @@ export default function InteractiveWaveformModal({
       wellSpecificValleys.map((valley) => {
         const yCoord = wellSpecificCoords[valley][1];
         const valleyToCompare = wellSpecificCoords[highest][1];
-        const timeOfValley = wellSpecificCoords[highest][0];
+        // only use valleys inside windowed analysis times
+        const timeOfValley = wellSpecificCoords[valley][0];
+        const isLessThanEndTime = endTime && timeOfValley <= endTime;
+        const isGreaterThanStartTime = startTime && timeOfValley >= startTime;
 
-        if (yCoord > valleyToCompare && timeOfValley >= startTime && timeOfValley <= endTime)
-          highest = valley;
+        if (yCoord > valleyToCompare && isLessThanEndTime && isGreaterThanStartTime) highest = valley;
       });
       // return  y coordinate of highest valley
       return wellSpecificCoords[highest][1];
@@ -600,13 +606,13 @@ export default function InteractiveWaveformModal({
     } else if (endTimeDiff) {
       changelogMessage = `End time was changed from ${endToCompare} to ${editableStartEndTimes.endTime}.`;
     } else if (minPeaksDiff) {
-      changelogMessage = `Minimum peaks window changed from ${
-        pvWindow.minPeaks ? pvWindow.minPeaks.toFixed(2) : "null"
-      } to ${peakValleyWindows[selectedWell].minPeaks.toFixed(2)}`;
+      changelogMessage = `Minimum peaks window changed from ${pvWindow.minPeaks.toFixed(
+        2
+      )} to ${peakValleyWindows[selectedWell].minPeaks.toFixed(2)}`;
     } else if (maxValleysDiff) {
-      changelogMessage = `Maximum valleys window changed from ${
-        pvWindow.maxValleys ? spvWindow.maxValleys.toFixed(2) : "null"
-      } to ${peakValleyWindows[selectedWell].maxValleys.toFixed(2)}`;
+      changelogMessage = `Maximum valleys window changed from ${pvWindow.maxValleys.toFixed(
+        2
+      )} to ${peakValleyWindows[selectedWell].maxValleys.toFixed(2)}`;
     }
     return changelogMessage;
   };

@@ -43,7 +43,7 @@ async def create_job(version: str, num_of_workers: int):
         # Cannot start jobs with the same name so count starting at 1+existing number of jobs running in namespace with version
         formatted_name = f"test-{QUEUE}-worker-v{'-'.join(version.split('.'))}--{count}"  # TODO remove test- prefix after testing
         logger.info(f"Starting {formatted_name}.")
-        complete_ecr_repo = f"{ECR_REPO}:{version}__test" # TODO remove __test suffix after testing
+        complete_ecr_repo = f"{ECR_REPO}:{version}__test"  # TODO remove __test suffix after testing
 
         POSTGRES_PASSWORD = kclient.V1EnvVar(
             name="POSTGRES_PASSWORD",
@@ -53,7 +53,10 @@ async def create_job(version: str, num_of_workers: int):
         )
         # Create container
         container = kclient.V1Container(
-            name=formatted_name, image=complete_ecr_repo, env=[POSTGRES_PASSWORD], image_pull_policy="Always", 
+            name=formatted_name,
+            image=complete_ecr_repo,
+            env=[POSTGRES_PASSWORD],
+            image_pull_policy="Always",
         )
         # Create job spec with container
         spec = kclient.V1JobSpec(
@@ -79,7 +82,7 @@ async def get_next_queue_item():
         async with pool.acquire() as con:
             records = await con.fetch(
                 "SELECT meta->'version' AS version, COUNT(*) FROM jobs_queue WHERE queue LIKE $1 GROUP BY version",
-                f"%{QUEUE}%", # TODO change to {QUEUE}% after testing is complete
+                f"%{QUEUE}%",  # TODO change to {QUEUE}% after testing is complete
             )
 
             if not records:
