@@ -31,6 +31,49 @@ cluster_users = [
     }
 ]
 
+node_groups = {
+  medium = {
+    desired_capacity = 8
+    max_capacity     = 10
+    min_capacity     = 1
+
+    instance_types = ["t3a.medium"]
+    subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+
+    k8s_labels = {
+      # Environment = "prod"
+      environment = "test"
+      group = "workers"
+    }
+    # additional_tags = {
+    #   ExtraTag = "example"
+    # }
+    update_config = {
+      max_unavailable_percentage = 50 # or set `max_unavailable`
+    }
+  },
+  argo = {
+    desired_capacity = 3
+    max_capacity     = 3
+    min_capacity     = 1
+
+    instance_types = ["t3a.medium"]
+    subnets = ["10.0.3.0/24"]
+
+    k8s_labels = {
+      # Environment = "prod"
+      environment = "test"
+      group = "argo"
+    }
+    # additional_tags = {
+    #   ExtraTag = "example"
+    # }
+    update_config = {
+      max_unavailable_percentage = 50 # or set `max_unavailable`
+    }
+  }
+}
+
 # worker_groups = [
 #   {
 #     name                          = "worker-group-1"

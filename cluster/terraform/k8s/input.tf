@@ -44,3 +44,8 @@ variable "cluster_users" {
 variable "private_subnets" {
   type = list(string)
 }
+
+variable "node_groups" {
+  type = any
+  default = {}
+}

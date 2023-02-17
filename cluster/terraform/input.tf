@@ -39,6 +39,11 @@ variable "cluster_users" {
   }))
 }
 
+variable "node_groups" {
+  type = any
+  default = {}
+}
+
 # variable "worker_groups" {
 #   type = list(object({
 #     name                  = string

@@ -165,25 +165,27 @@ module "eks" {
   map_accounts  = var.cluster_accounts
   map_users     = var.cluster_users
 
-  node_groups = {
-    example = {
-      desired_capacity = 5
-      max_capacity     = 10
-      min_capacity     = 1
+  node_groups = var.node_groups
+  # node_groups = {
+  #   prod-medium = {
+  #     desired_capacity = 8
+  #     max_capacity     = 10
+  #     min_capacity     = 1
 
-      instance_types = ["t3a.medium"]
+  #     instance_types = ["t3a.medium"]
 
-      k8s_labels = {
-        Environment = "prod"
-      }
-      additional_tags = {
-        ExtraTag = "example"
-      }
-      update_config = {
-        max_unavailable_percentage = 50 # or set `max_unavailable`
-      }
-    }
-  }
+  #     k8s_labels = {
+  #       # Environment = "prod"
+  #       environment = "prod"
+  #     }
+  #     # additional_tags = {
+  #     #   ExtraTag = "example"
+  #     # }
+  #     update_config = {
+  #       max_unavailable_percentage = 50 # or set `max_unavailable`
+  #     }
+  #   }
+  # }
 }
 
 
