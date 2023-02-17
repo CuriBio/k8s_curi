@@ -342,46 +342,68 @@ export default function InteractiveWaveformModal({
   useMemo(checkForExistingData, [selectedJob]);
 
   const setInitialPeakValleyWindows = () => {
-    const pvCopy = peakValleyWindows;
+    const pvCopy = JSON.parse(JSON.stringify(peakValleyWindows));
+
     for (const well of Object.keys(originalData.peaks_valleys)) {
       pvCopy[well] = { minPeaks: findLowestPeak(well), maxValleys: findHighestValley(well) };
     }
+
     setPeakValleyWindows({
       ...pvCopy,
     });
   };
 
   const findLowestPeak = (well) => {
+    const { coordinates, peaks_valleys } = originalData;
+    const { startTime, endTime } = editableStartEndTimes;
     // arbitrarily set to first peak
-    const wellSpecificPeaks = originalData.peaks_valleys[well][0];
+    const wellSpecificPeaks = peaks_valleys[well][0];
+    const wellSpecificCoords = coordinates[well];
+
     // consider when no peaks or valleys were found in a well
     if (wellSpecificPeaks.length > 0) {
       let lowest = wellSpecificPeaks[0];
 
       wellSpecificPeaks.map((peak) => {
-        const yCoord = originalData.coordinates[well][peak][1];
-        const peakToCompare = originalData.coordinates[well][lowest][1];
+        const yCoord = wellSpecificCoords[peak][1];
+        const peakToCompare = wellSpecificCoords[lowest][1];
+        // only use peaks inside windowed analysis times
+        const timeOfPeak = wellSpecificCoords[peak][0];
+        const isLessThanEndTime = endTime && timeOfPeak <= endTime;
+        const isGreaterThanStartTime = startTime && timeOfPeak >= startTime;
+        // filter for peaks inside windowed time
+        if (yCoord < peakToCompare && isGreaterThanStartTime && isLessThanEndTime) lowest = peak;
         if (yCoord < peakToCompare) lowest = peak;
       });
 
       // return  y coordinate of lowest peak
-      return originalData.coordinates[well][lowest][1];
+      return wellSpecificCoords[lowest][1];
     }
   };
 
   const findHighestValley = (well) => {
+    const { coordinates, peaks_valleys } = originalData;
+    const { startTime, endTime } = editableStartEndTimes;
     // arbitrarily set to first valley
-    const wellSpecificValleys = originalData.peaks_valleys[well][1];
+    const wellSpecificValleys = peaks_valleys[well][1];
+    const wellSpecificCoords = coordinates[well];
+
     // consider when no peaks or valleys were found in a well
     if (wellSpecificValleys.length > 0) {
       let highest = wellSpecificValleys[0];
+
       wellSpecificValleys.map((valley) => {
-        const yCoord = originalData.coordinates[well][valley][1];
-        const valleyToCompare = originalData.coordinates[well][highest][1];
-        if (yCoord > valleyToCompare) highest = valley;
+        const yCoord = wellSpecificCoords[valley][1];
+        const valleyToCompare = wellSpecificCoords[highest][1];
+        // only use valleys inside windowed analysis times
+        const timeOfValley = wellSpecificCoords[valley][0];
+        const isLessThanEndTime = endTime && timeOfValley <= endTime;
+        const isGreaterThanStartTime = startTime && timeOfValley >= startTime;
+
+        if (yCoord > valleyToCompare && isLessThanEndTime && isGreaterThanStartTime) highest = valley;
       });
       // return  y coordinate of highest valley
-      return originalData.coordinates[well][highest][1];
+      return wellSpecificCoords[highest][1];
     }
   };
 
