@@ -54,7 +54,7 @@ export default function LoginForm({ children, setUserData, userData, loginType, 
             onChangeFn={(e) => {
               setUserData({
                 ...userData,
-                email: e.target.value,
+                email: e.target.value.toLowerCase(),
               });
             }}
           />

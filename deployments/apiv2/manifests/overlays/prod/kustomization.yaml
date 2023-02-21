@@ -21,12 +21,12 @@ patchesJson6902:
     kind: Deployment
     name: apiv2
   patch: |-
-    - op: replace
+    - op: add
       path: /spec/template/spec/containers/0/image
-      value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/users:0.3.2"
-    - op: replace
+      value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/users:0.4.1"
+    - op: add
       path: /spec/template/spec/containers/1/image
-      value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.2.1"
+      value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.3.0"
     - op: replace
       path: /spec/template/spec/containers/1/env/0/value
       value: prod

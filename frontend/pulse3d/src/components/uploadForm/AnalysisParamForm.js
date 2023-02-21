@@ -464,8 +464,8 @@ export default function AnalysisParamForm({
             </FormInput>
           </InputErrorContainer>
         </ParamContainer>
-        {pulse3dVersionGte("0.26.0") && (
-          // Tanner (9/15/21): stiffnessFactor added in 0.26.0
+        {pulse3dVersionGte("0.30.1") && (
+          // Tanner (2/7/23): stiffnessFactor added in 0.26.0 but there are bugs with using this param in re-analysis prior to 0.30.1
           <ParamContainer>
             <Label htmlFor="stiffnessFactor" style={{ width: "62%", lineHeight: 2.5 }}>
               Post Stiffness Factor:
@@ -495,7 +495,8 @@ export default function AnalysisParamForm({
             </DropDownContainer>
           </ParamContainer>
         )}
-        {pulse3dVersionGte("0.27.4") && (
+        {pulse3dVersionGte("0.30.1") && (
+          // Tanner (2/7/23): wellsWithFlippedWaveforms added in 0.27.4 but there are bugs with using this param in re-analysis prior to 0.30.1
           <ParamContainer style={{ padding: "20px 0px 10px 0px", width: "500px" }}>
             <Label htmlFor="wellsWithFlippedWaveforms">
               Wells With Flipped Waveforms:

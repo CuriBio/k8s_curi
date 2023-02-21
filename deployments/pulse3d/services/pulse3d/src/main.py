@@ -167,7 +167,6 @@ async def create_recording_upload(
                     PULSE3D_UPLOADS_BUCKET,
                     upload_id=upload_id,
                 )
-
                 return UploadResponse(id=upload_id, params=params)
     except S3Error as e:
         logger.exception(str(e))
@@ -401,14 +400,14 @@ async def create_new_job(
             params.append("max_y")
         if pulse3d_semver >= "0.25.4":
             params.append("normalize_y_axis")
-        if pulse3d_semver >= "0.26.0":
-            params.append("stiffness_factor")
-        if pulse3d_semver >= "0.27.4":
-            params.append("inverted_post_magnet_wells")
         if pulse3d_semver >= "0.28.1":
             params.append("include_stim_protocols")
         if "0.28.2" > pulse3d_semver >= "0.25.2":
             params.append("peaks_valleys")
+        if pulse3d_semver >= "0.30.1":
+            # Tanner (2/7/23): these params added in earlier versions but there are bugs with using this param in re-analysis prior to 0.30.1
+            params.append("stiffness_factor")
+            params.append("inverted_post_magnet_wells")
 
         details_dict = dict(details)
 
@@ -455,11 +454,17 @@ async def create_new_job(
             if usage_quota["jobs_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
+            pulse3d_queue_to_use = (
+                f"test-pulse3d-v{details.version}"
+                if "admin:software" in user_scopes and pulse3d_semver >= "0.29.2"
+                else f"pulse3d-v{details.version}"
+            )
+
             # finally create job
             job_id = await create_job(
                 con=con,
                 upload_id=details.upload_id,
-                queue=f"pulse3d-v{details.version}",
+                queue=pulse3d_queue_to_use,
                 priority=priority,
                 meta={"analysis_params": analysis_params, "version": details.version},
                 customer_id=customer_id,
@@ -487,7 +492,12 @@ async def create_new_job(
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
 
         return JobResponse(
-            id=job_id, user_id=user_id, upload_id=details.upload_id, status="pending", priority=priority
+            id=job_id,
+            user_id=user_id,
+            upload_id=details.upload_id,
+            status="pending",
+            priority=priority,
+            usage_quota=usage_quota,
         )
     except Exception as e:
         logger.exception(f"Failed to create job: {repr(e)}")

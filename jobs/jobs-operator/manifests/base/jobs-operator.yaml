@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: operators
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: operators
+  template:
+    metadata:
+      labels:
+        app: operators
+    spec:
+      serviceAccountName: operator
+      containers:
+      - name: jobs-operator
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: curibio-operators-creds
+              key: curibio_operators_ro
+        - name: QUEUE_PROCESSOR_IMAGE
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9001
