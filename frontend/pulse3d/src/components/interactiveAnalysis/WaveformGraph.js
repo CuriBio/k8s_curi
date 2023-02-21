@@ -181,8 +181,9 @@ export default function WaveformGraph({
     const x = d3.scaleLinear().range([0, dynamicWidth]).domain([xMin, xMax]);
 
     // add .15 extra to y max and y min to auto scale the graph a little outside of true max and mins
-    const yMax = d3.max(dataToGraph, (d) => d[1]);
-    const yMin = d3.min(dataToGraph, (d) => d[1]);
+    const dataWithinWindow = dataToGraph.filter((coords) => coords[0] >= startTime && coords[0] <= endTime);
+    const yMax = d3.max(dataWithinWindow, (d) => d[1]);
+    const yMin = d3.min(dataWithinWindow, (d) => d[1]);
     const yRange = yMax * 0.15;
 
     const y = d3
@@ -346,11 +347,7 @@ export default function WaveformGraph({
     -------------------------------------- */
     svg
       .append("path")
-      .data([
-        dataToGraph
-          .filter((coord) => coord[0] <= xMax && coord[0] >= xMin)
-          .map((x) => [x[0] * xZoomFactor, x[1] * yZoomFactor]),
-      ])
+      .data([dataWithinWindow.map((x) => [x[0] * xZoomFactor, x[1] * yZoomFactor])])
       .attr("fill", "none")
       .attr("stroke", "steelblue")
       .attr("stroke-width", 2)
