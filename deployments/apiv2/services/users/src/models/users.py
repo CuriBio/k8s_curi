@@ -13,7 +13,7 @@ USERNAME_REGEX_STR = f"^[a-zA-Z]+[a-zA-Z0-9{USERNAME_VALID_SPECIAL_CHARS}]+$"
 PASSWORD_REGEX = r"""(
     ^(?=.*[A-Z])
     (?=.*[a-z])
-    (?=.*[!@#$%^&*><?_=+~-])
+    (?=.*[!@#$%^&*()~`|<>,.+=_"':;?/\\\[\]\{\}-])
     (?=.*[0-9])
     .{10,}
     $)"""
