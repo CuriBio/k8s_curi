@@ -2,7 +2,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "4.0.0"
+      version = "4.30.0"
     }
 
     kubernetes = {
@@ -28,4 +28,6 @@ module "aurora_database" {
   name            = var.aurora_database_name
   environment     = var.environment
   instance_class  = var.aurora_instance_class
+
+  password_change_id = var.password_change_id
 }
