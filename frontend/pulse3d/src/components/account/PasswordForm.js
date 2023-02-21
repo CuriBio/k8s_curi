@@ -98,7 +98,9 @@ export default function PasswordForm({ onChangePassword, setErrorMsg, password1,
               <TooltipText>
                 <li>Must be at least 10 characters.</li>
                 <li>
-                  Must contain at least one uppercase, one lowercase, one number, and one special character.
+                  {
+                    "Must contain at least one uppercase, one lowercase, one number, and one special character (!@#$%^&*()~`|<>,.+=_\"':;?/\\[]{}-)."
+                  }
                 </li>
               </TooltipText>
             }
