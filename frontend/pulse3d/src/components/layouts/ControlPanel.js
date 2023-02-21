@@ -15,7 +15,7 @@ const Container = styled.div`
   background-color: var(--dark-blue);
   min-width: 200px;
   width: 15vw;
-  zposition: relative;
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 100vh;

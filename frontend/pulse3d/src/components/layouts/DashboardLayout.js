@@ -9,6 +9,9 @@ const Container = styled.div`
   background-color: var(--light-gray);
   width: 100%;
   display: flex;
+  top: 65px;
+  position: absolute;
+  overflow-x: hidden;
 `;
 
 export const UploadsContext = createContext();

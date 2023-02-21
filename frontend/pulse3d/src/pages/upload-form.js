@@ -115,6 +115,7 @@ export default function UploadForm() {
       selectedPulse3dVersion: pulse3dVersions[0] || "", // Tanner (9/15/22): The pulse3d version technically isn't a param, but it lives in the same part of the form as the params
       wellsWithFlippedWaveforms: "",
       showStimSheet: "",
+      wellGroups: [],
     };
   };
 
@@ -142,7 +143,6 @@ export default function UploadForm() {
     if (badZipFiles.length > 0) {
       // give users the option to proceed with clean files if any, otherwise just close
       setModalButtons(badZipFiles.length !== files.length ? ["Cancel", "Proceed"] : ["Close"]);
-
       // add files to modal to notify user which files are bad
       setFailedUploadsMsg([defaultZipErrorLabel, ...badZipFiles.map((f) => f.name)]);
       setModalState(true);
@@ -278,7 +278,9 @@ export default function UploadForm() {
         requestBody.inverted_post_magnet_wells =
           wellsWithFlippedWaveforms === "" ? null : wellsWithFlippedWaveforms;
       }
-
+      if (semverGte(version, "0.29.2")) {
+        requestBody.well_groups = well_groups.keys().length === 0 ? null : well_groups;
+      }
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
         method: "POST",
         body: JSON.stringify(requestBody),
@@ -506,7 +508,6 @@ export default function UploadForm() {
         )}
         <AnalysisParamForm
           errorMessages={paramErrors}
-          inputVals={analysisParams}
           checkedParams={checkedParams}
           setCheckedParams={updateCheckParams}
           paramErrors={paramErrors}
