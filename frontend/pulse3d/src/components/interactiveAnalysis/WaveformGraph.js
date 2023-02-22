@@ -181,7 +181,7 @@ export default function WaveformGraph({
     const x = d3.scaleLinear().range([0, dynamicWidth]).domain([xMin, xMax]);
 
     // add .15 extra to y max and y min to auto scale the graph a little outside of true max and mins
-    const dataWithinWindow = dataToGraph.filter((coords) => coords[0] >= startTime && coords[0] <= endTime);
+    const dataWithinWindow = dataToGraph.filter((coords) => coords[0] >= xMin && coords[0] <= xMax);
     const yMax = d3.max(dataWithinWindow, (d) => d[1]);
     const yMin = d3.min(dataWithinWindow, (d) => d[1]);
     const yRange = yMax * 0.15;
