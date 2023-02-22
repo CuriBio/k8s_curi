@@ -50,13 +50,24 @@ export default function AnalysisParamForm({ setAnalysisParams, analysisParams })
   const [numOfInputs, setNumOfInputs] = useState(1);
   const [localGroups, setLocalGroups] = useState([]);
 
+  useEffect(() => {}, [localGroups]);
+  useEffect(() => {
+    console.log("ERR MESSAGES: ", JSON.stringify(errorMsgs));
+  }, [errorMsgs]);
+
+  useEffect(() => {
+    // while loop ensures if won't error if a user has selected the plus to add a grouping before any inputs were made and then attempts to input into the second group first
+    if (numOfInputs === localGroups.length + 1) {
+      localGroups.push({ name: "", wells: [] });
+    }
+  }, [numOfInputs]);
+
   const updateGroupName = (newName, groupIdxToEdit) => {
     const existingGroups = JSON.parse(JSON.stringify(localGroups));
 
     // const valid_regex = new RegExp("^[0-9A-Za-z _-]+$");
     // if (!text || text.length === 0) feedback = "Required";
     // else if (!valid_regex.test(text))
-    console.log(groupIdxToEdit, existingGroups.length);
     if (groupIdxToEdit < existingGroups.length) {
       // assign new name with wells then delete old name from state
       const newGroup = {
@@ -65,30 +76,17 @@ export default function AnalysisParamForm({ setAnalysisParams, analysisParams })
       };
       existingGroups.splice(groupIdxToEdit, 1, newGroup);
     } else {
-      while (groupIdxToEdit > existingGroups.length) {
-        existingGroups.push({ name: "", wells: [] });
-        groupIdxToEdit++;
-      }
       existingGroups.push({ name: newName, wells: [] });
-
       //   errorMsgs.push({ name: "", wells: "Required" });
     }
 
     setLocalGroups(existingGroups);
   };
 
-  useEffect(() => {
-    console.log("ANALYSIS PARAMS: ", JSON.stringify(localGroups));
-  }, [localGroups]);
-  useEffect(() => {
-    console.log("ERR MESSAGES: ", JSON.stringify(errorMsgs));
-  }, [errorMsgs]);
-
   const updateWellGroups = (wells, groupIdxToEdit) => {
     const existingGroups = JSON.parse(JSON.stringify(localGroups));
     // validate names are accepted well names and return as array instead of string
     // const { errorMsg, formattedWellNames } = validateWellNames(wells);
-    console.log(groupIdxToEdit, existingGroups.length);
     if (groupIdxToEdit < existingGroups.length) existingGroups[groupIdxToEdit].wells = wells;
     else {
       existingGroups.push({ name: "", wells });
@@ -123,7 +121,7 @@ export default function AnalysisParamForm({ setAnalysisParams, analysisParams })
         const groupNames = localGroups.map(({ name }) => name);
         const noGroupsAssigned = localGroups.length === 0;
         const groupName = !noGroupsAssigned ? groupNames[i] : null;
-
+        console.log(localGroups[i]);
         return (
           <WellGroupingContainer key={i}>
             <InputErrorContainer>
@@ -154,7 +152,7 @@ export default function AnalysisParamForm({ setAnalysisParams, analysisParams })
                 </ErrorText>
               </FormInput>
             </InputErrorContainer>
-            {i === groupNames.length && (
+            {i === numOfInputs - 1 && (
               <Tooltip title={<TooltipText>{"Add Label"}</TooltipText>} placement={"top"}>
                 <AddCircleOutlineIcon
                   sx={{ cursor: "pointer", marginTop: "10px" }}
