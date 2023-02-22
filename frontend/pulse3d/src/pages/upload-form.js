@@ -115,7 +115,7 @@ export default function UploadForm() {
       selectedPulse3dVersion: pulse3dVersions[0] || "", // Tanner (9/15/22): The pulse3d version technically isn't a param, but it lives in the same part of the form as the params
       wellsWithFlippedWaveforms: "",
       showStimSheet: "",
-      wellGroups: [],
+      wellGroups: {},
     };
   };
 
@@ -137,6 +137,7 @@ export default function UploadForm() {
   const [badZipFiles, setBadZipFiles] = useState([]);
   const [resetDragDrop, setResetDragDrop] = useState(false);
   const [creditUsageAlert, setCreditUsageAlert] = useState(false);
+  const [wellGroupErr, setWellGroupErr] = useState(false);
   const { usageQuota } = useContext(AuthContext);
 
   useEffect(() => {
@@ -167,7 +168,9 @@ export default function UploadForm() {
     const checkConditions =
       !Object.values(paramErrors).every((val) => val.length === 0) ||
       !((files.length > 0 && files[0] instanceof File) || (uploads && uploads.includes(files[0]))) ||
-      inProgress;
+      inProgress ||
+      wellGroupErr;
+
     setIsButtonDisabled(checkConditions);
     setCreditUsageAlert(
       !checkConditions &&
@@ -176,7 +179,7 @@ export default function UploadForm() {
         usageQuota.limits &&
         parseInt(usageQuota.limits.jobs) !== -1
     );
-  }, [paramErrors, files, inProgress]);
+  }, [paramErrors, files, inProgress, wellGroupErr]);
 
   useEffect(() => {
     // resets upload status when user makes changes
@@ -245,6 +248,7 @@ export default function UploadForm() {
         selectedPulse3dVersion,
         stiffnessFactor,
         wellsWithFlippedWaveforms,
+        wellGroups,
       } = analysisParams;
 
       const version =
@@ -273,6 +277,9 @@ export default function UploadForm() {
       }
       if (semverGte(version, "0.30.1")) {
         requestBody.stiffness_factor = stiffnessFactor === "" ? null : stiffnessFactor;
+      }
+      if (semverGte(version, "0.30.2")) {
+        requestBody.well_groups = stiffnessFactor === "" ? null : stiffnessFactor;
       }
       if (semverGte(version, "0.30.1")) {
         requestBody.inverted_post_magnet_wells =
@@ -514,6 +521,7 @@ export default function UploadForm() {
           setParamErrors={setParamErrors}
           setAnalysisParams={setAnalysisParams}
           analysisParams={analysisParams}
+          setWellGroupErr={setWellGroupErr}
         />
         <ButtonContainer>
           {uploadSuccess ? <SuccessText>Upload Successful!</SuccessText> : null}

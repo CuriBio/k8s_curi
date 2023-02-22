@@ -144,7 +144,8 @@ async def process(con, item):
 
                     try:
                         recording = PlateRecording.from_dataframe(
-                            os.path.join(tmpdir, filename), df=recording_df
+                            os.path.join(tmpdir, filename),
+                            df=recording_df,
                         )
                         recordings = list(recording)
                     except:

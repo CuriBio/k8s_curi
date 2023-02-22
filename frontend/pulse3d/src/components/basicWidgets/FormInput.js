@@ -4,7 +4,8 @@ const formStyle = [
   `
   position: relative;
   width: 80%;
-  height: 40px;
+  height: 35px;
+  min-height: 35px;
   padding: 5px;
   line-height: 2;
 `,

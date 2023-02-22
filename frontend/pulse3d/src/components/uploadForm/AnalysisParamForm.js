@@ -87,7 +87,6 @@ const ErrorText = styled.span`
   position: relative;
   width: 150%;
   font-size: 13px;
-  white-space: nowrap;
 `;
 
 const InputErrorContainer = styled.div`
@@ -161,6 +160,7 @@ export default function AnalysisParamForm({
   paramErrors,
   setParamErrors,
   analysisParams,
+  setWellGroupErr,
 }) {
   const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
   const [disableStimProtocols, setDisableStimProtocols] = useState(false);
@@ -319,7 +319,9 @@ export default function AnalysisParamForm({
 
   return (
     <Container>
-      <AdditionalParamLabel>
+      <AdditionalParamLabel
+        style={checkedParams ? { background: "white" } : { background: "var(--light-gray)" }}
+      >
         <CheckboxWidget
           color={"secondary"}
           size={"small"}
@@ -540,7 +542,7 @@ export default function AnalysisParamForm({
                   });
                 }}
               >
-                <ErrorText id="twitchWidthError" role="errorMsg">
+                <ErrorText id="twitchWidthError" role="errorMsg" style={{ width: "110%" }}>
                   {errorMessages.wellsWithFlippedWaveforms}
                 </ErrorText>
               </FormInput>
@@ -785,7 +787,11 @@ export default function AnalysisParamForm({
           </TwoParamContainer>
         </AdvAnalysisContainer>
         {pulse3dVersionGte("0.29.2") && (
-          <WellGroups setAnalysisParams={setAnalysisParams} analysisParams={analysisParams} />
+          <WellGroups
+            setAnalysisParams={setAnalysisParams}
+            analysisParams={analysisParams}
+            setWellGroupErr={setWellGroupErr}
+          />
         )}
       </InputContainerTwo>
     </Container>
