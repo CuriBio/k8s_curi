@@ -30,7 +30,7 @@ const Header = styled.h2`
 
 const UploadCreditUsageInfo = styled.div`
   color: red;
-  width: 30%;
+  width: 51%;
   margin: auto;
   text-align: center;
   border: 3px solid red;

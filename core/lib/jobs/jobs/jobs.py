@@ -239,7 +239,7 @@ async def get_customer_quota(con, customer_id, service) -> Dict[str, Any]:
 
     current_usage_dict = {
         "uploads": current_usage_data["total_uploads"],
-        "jobs": current_usage_data["total_jobs"],
+        "jobs": current_usage_data["total_jobs"] if current_usage_data["total_jobs"] is not None else 0,
     }
 
     return {"limits": usage_limit_dict, "current": current_usage_dict}
