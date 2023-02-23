@@ -1,9 +1,3 @@
-variable "password_change_id" {
-  type        = string
-  default     = "1970-01-03"
-  description = "Id to trigger changing the master password"
-}
-
 resource "random_password" "adminpassword" {
   for_each = toset([var.password_change_id])
   length   = 32

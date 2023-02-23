@@ -23,6 +23,7 @@ const Container = styled.div`
 
 const ListItem = styled.li`
   font-size: 15px;
+  text-align: center;
   &:hover {
     color: var(--light-blue);
     text-decoration: underline;

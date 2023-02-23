@@ -13,10 +13,11 @@ import boto3
 import pandas as pd
 import numpy as np
 
-from pulse3D.plate_recording import PlateRecording
+from pulse3D.constants import MICRO_TO_BASE_CONVERSION
+from pulse3D.constants import WELL_NAME_UUID
 from pulse3D.excel_writer import write_xlsx
 from pulse3D.peak_detection import peak_detector
-from pulse3D.constants import WELL_NAME_UUID
+from pulse3D.plate_recording import PlateRecording
 
 from jobs import get_item, EmptyQueue
 from utils.s3 import upload_file_to_s3
@@ -190,7 +191,7 @@ async def process(con, item):
                     time = recording_df[columns[0]].tolist()
                     peak_detector_args = {
                         param: analysis_params[param]
-                        for param in ("prominence_factors", "width_factors", "start_time", "end_time")
+                        for param in ("prominence_factors", "width_factors")
                         if analysis_params.get(param) is not None
                     }
 
@@ -203,7 +204,24 @@ async def process(con, item):
                         well_force = recording_df[well].dropna().tolist()
 
                         interpolated_well_data = np.row_stack([time[: len(well_force)], well_force])
-                        peaks, valleys = peak_detector(interpolated_well_data, **peak_detector_args)
+
+                        try:
+                            # Tanner (2/17/23): just need to get a quick fix out and not sure of all edge cases for this, so wrapping in try/except to be safe
+                            # apply window before running peak detection
+                            start_time_us = analysis_params.get("start_time", 0) * MICRO_TO_BASE_CONVERSION
+                            end_time_us = analysis_params.get("end_time", np.inf) * MICRO_TO_BASE_CONVERSION
+                            indices_after_start = interpolated_well_data[0] >= start_time_us
+                            indices_before_end = interpolated_well_data[0] <= end_time_us
+
+                            indices_to_keep = indices_after_start & indices_before_end
+                            windowed_well_data = interpolated_well_data[:, indices_to_keep]
+
+                            peaks, valleys = peak_detector(windowed_well_data, **peak_detector_args)
+                            idx_shift = np.argmax(indices_after_start)
+                            peaks += idx_shift
+                            valleys += idx_shift
+                        except:
+                            peaks, valleys = peak_detector(interpolated_well_data, **peak_detector_args)
 
                         # need to initialize a dict with these values and then create the DF otherwise values will be truncated
                         peaks_valleys_for_df[f"{well}__peaks"] = pd.Series(peaks)
