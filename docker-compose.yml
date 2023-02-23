@@ -57,7 +57,7 @@ services:
       - AWS_REGION=us-east-2
       - DASHBOARD_URL=http://localhost:3000
     volumes:
-      - ~/.aws/:/root/.aws:ro
+      - ~/.aws/:/home/main_user/.aws:ro
     ports:
       - "8000:8000"
     platform: "linux/amd64"
