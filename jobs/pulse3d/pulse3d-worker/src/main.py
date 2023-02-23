@@ -189,10 +189,14 @@ async def process(con, item):
                     # this is to handle analyses run before PR.to_dataframe() where time is in seconds
                     time = recording_df[columns[0]].tolist()
                     peak_detector_args = {
-                        param: analysis_params[param]
-                        for param in ("prominence_factors", "width_factors")
-                        if analysis_params.get(param) is not None
+                        param: val
+                        for param in ("prominence_factors", "width_factors", "start_time", "end_time")
+                        if (val := analysis_params.get(param)) is not None
                     }
+                    for param in ("start_time", "end_time"):
+                        if param in peak_detector_args:
+                            # these values are in seconds but need to be converted to µs for peak_detector
+                            peak_detector_args[param] *= MICRO_TO_BASE_CONVERSION
 
                     peaks_valleys_for_df = dict()
                     for well in columns:
@@ -204,23 +208,7 @@ async def process(con, item):
 
                         interpolated_well_data = np.row_stack([time[: len(well_force)], well_force])
 
-                        try:
-                            # Tanner (2/17/23): just need to get a quick fix out and not sure of all edge cases for this, so wrapping in try/except to be safe
-                            # apply window before running peak detection
-                            start_time_us = analysis_params.get("start_time", 0) * MICRO_TO_BASE_CONVERSION
-                            end_time_us = analysis_params.get("end_time", np.inf) * MICRO_TO_BASE_CONVERSION
-                            indices_after_start = interpolated_well_data[0] >= start_time_us
-                            indices_before_end = interpolated_well_data[0] <= end_time_us
-
-                            indices_to_keep = indices_after_start & indices_before_end
-                            windowed_well_data = interpolated_well_data[:, indices_to_keep]
-
-                            peaks, valleys = peak_detector(windowed_well_data, **peak_detector_args)
-                            idx_shift = np.argmax(indices_after_start)
-                            peaks += idx_shift
-                            valleys += idx_shift
-                        except:
-                            peaks, valleys = peak_detector(interpolated_well_data, **peak_detector_args)
+                        peaks, valleys = peak_detector(interpolated_well_data, **peak_detector_args)
 
                         # need to initialize a dict with these values and then create the DF otherwise values will be truncated
                         peaks_valleys_for_df[f"{well}__peaks"] = pd.Series(peaks)
