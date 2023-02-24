@@ -9,14 +9,15 @@ RUN . /app/venv/bin/activate && pip install -r ./requirements.txt && pip install
 
 FROM python:3.9-slim as prod
 
-COPY --from=venv /app/venv /app/venv/
+
+COPY --chown=main_user:main_group --from=venv /app/venv /app/venv/
 ENV PATH /app/venv/bin:$PATH
 
 WORKDIR /app
-COPY ./deployments/apiv2/services/mantarray/src/main.py ./
-COPY ./deployments/apiv2/services/mantarray/src/core ./core
-COPY ./deployments/apiv2/services/mantarray/src/templates/ ./templates
-COPY ./deployments/apiv2/services/mantarray/log_config.yaml ./
+COPY --chown=main_user:main_group ./deployments/apiv2/services/mantarray/src/main.py ./
+COPY --chown=main_user:main_group ./deployments/apiv2/services/mantarray/src/core ./core
+COPY --chown=main_user:main_group ./deployments/apiv2/services/mantarray/src/templates/ ./templates
+COPY --chown=main_user:main_group ./deployments/apiv2/services/mantarray/log_config.yaml ./
 
 RUN useradd main_user && groupadd main_group
 USER main_user:main_group
