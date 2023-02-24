@@ -15,19 +15,21 @@ RUN . /app/venv/bin/activate && pip install -r ./requirements.txt && pip install
 
 FROM python:3.9-slim as prod
 
-COPY --from=venv /app/venv /app/venv/
+RUN useradd -ms /bin/bash main_user && groupadd main_group
+USER main_user:main_group
+
+COPY --chown=main_user:main_group --from=venv /app/venv /app/venv/
 ENV PATH /app/venv/bin:$PATH
 
 RUN useradd main_user && groupadd main_group
 USER main_user:main_group
 
 WORKDIR /app
-COPY ./deployments/apiv2/services/users/src/core/ ./core
-COPY ./deployments/apiv2/services/users/src/templates/ ./templates
-COPY ./deployments/apiv2/services/users/src/models/ ./models
-COPY ./deployments/apiv2/services/users/src/main.py ./
-COPY ./deployments/apiv2/services/users/log_config.yaml ./
-
+COPY --chown=main_user:main_group ./deployments/apiv2/services/users/src/core/ ./core
+COPY --chown=main_user:main_group ./deployments/apiv2/services/users/src/templates/ ./templates
+COPY --chown=main_user:main_group ./deployments/apiv2/services/users/src/models/ ./models
+COPY --chown=main_user:main_group ./deployments/apiv2/services/users/src/main.py ./
+COPY --chown=main_user:main_group ./deployments/apiv2/services/users/log_config.yaml ./
 
 
 ENV PYTHONUNBUFFERED 1
