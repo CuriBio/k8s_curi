@@ -786,7 +786,7 @@ export default function AnalysisParamForm({
             </InputErrorContainer>
           </TwoParamContainer>
         </AdvAnalysisContainer>
-        {pulse3dVersionGte("0.29.2") && (
+        {pulse3dVersionGte("0.30.3") && (
           <WellGroups
             setAnalysisParams={setAnalysisParams}
             analysisParams={analysisParams}
