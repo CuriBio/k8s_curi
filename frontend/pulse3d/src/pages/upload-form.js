@@ -286,7 +286,7 @@ export default function UploadForm() {
           wellsWithFlippedWaveforms === "" ? null : wellsWithFlippedWaveforms;
       }
       if (semverGte(version, "0.29.2")) {
-        requestBody.well_groups = well_groups.keys().length === 0 ? null : well_groups;
+        requestBody.well_groups = wellGroups.keys().length === 0 ? null : wellGroups;
       }
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
         method: "POST",

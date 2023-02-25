@@ -190,10 +190,14 @@ async def process(con, item):
                     # this is to handle analyses run before PR.to_dataframe() where time is in seconds
                     time = recording_df[columns[0]].tolist()
                     peak_detector_args = {
-                        param: analysis_params[param]
-                        for param in ("prominence_factors", "width_factors")
-                        if analysis_params.get(param) is not None
+                        param: val
+                        for param in ("prominence_factors", "width_factors", "start_time", "end_time")
+                        if (val := analysis_params.get(param)) is not None
                     }
+                    for param in ("start_time", "end_time"):
+                        if param in peak_detector_args:
+                            # these values are in seconds but need to be converted to µs for peak_detector
+                            peak_detector_args[param] *= MICRO_TO_BASE_CONVERSION
 
                     peaks_valleys_for_df = dict()
                     for well in columns:

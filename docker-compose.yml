@@ -16,7 +16,7 @@ services:
       - CURIBIO_EMAIL_PASSWORD=${CURIBIO_EMAIL_PASSWORD}
       - DASHBOARD_URL=http://localhost:3000
     volumes:
-      - ~/.aws/:/root/.aws:ro
+      - ~/.aws/:/home/main_user/.aws:ro
     ports:
       - "9001:9001"
     platform: "linux/amd64"
@@ -36,7 +36,7 @@ services:
       - AWS_PROFILE=${AWS_PROFILE}
       - AWS_REGION=us-east-2
     volumes:
-      - ~/.aws/:/root/.aws:ro
+      - ~/.aws/:/home/main_user/.aws:ro
     ports:
       - "9000:9000"
     platform: "linux/amd64"
@@ -57,8 +57,7 @@ services:
       - AWS_REGION=us-east-2
       - DASHBOARD_URL=http://localhost:3000
     volumes:
-      # - ~/.aws/:/root/.aws:ro
-      - ~/.aws/:/app/.aws:ro
+      - ~/.aws/:/home/main_user/.aws:ro
     ports:
       - "8000:8000"
     platform: "linux/amd64"
