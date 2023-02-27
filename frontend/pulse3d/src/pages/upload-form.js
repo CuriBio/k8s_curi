@@ -278,9 +278,6 @@ export default function UploadForm() {
       if (semverGte(version, "0.30.1")) {
         requestBody.stiffness_factor = stiffnessFactor === "" ? null : stiffnessFactor;
       }
-      if (semverGte(version, "0.30.2")) {
-        requestBody.well_groups = stiffnessFactor === "" ? null : stiffnessFactor;
-      }
       if (semverGte(version, "0.30.1")) {
         requestBody.inverted_post_magnet_wells =
           wellsWithFlippedWaveforms === "" ? null : wellsWithFlippedWaveforms;
