@@ -4,7 +4,7 @@ import Typography from "@mui/material/Typography";
 export default function CircularProgressWithLabel(props) {
   return (
     <Box sx={{ position: "relative", display: "inline-flex" }}>
-      <CircularProgress variant="determinate" {...props} style={{ color: "var(--teal-green)" }} />
+      <CircularProgress variant="determinate" value={props.value} style={{ color: "var(--teal-green)" }} />
       <Box
         sx={{
           top: 0,

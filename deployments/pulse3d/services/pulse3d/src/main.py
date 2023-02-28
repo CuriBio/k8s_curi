@@ -491,6 +491,8 @@ async def create_new_job(
                     # upload to s3 under upload id and job id for pulse3d-worker to use
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
 
+            # add 1 to jobs used
+            usage_quota["current"]["jobs"] += 1
         return JobResponse(
             id=job_id,
             user_id=user_id,
