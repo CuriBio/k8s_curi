@@ -192,7 +192,7 @@ export default function InteractiveWaveformModal({
     // only available for versions greater than 0.25.2
     const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.25.2"));
     setFilteredVersions([...compatibleVersions]);
-    if (usageQuota && usageQuota.limits && numberOfJobsInUpload > 2 && usageQuota.limits.jobs !== -1) {
+    if (usageQuota && usageQuota.limits && numberOfJobsInUpload >= 2 && usageQuota.limits.jobs !== -1) {
       setCreditUsageAlert(true);
     }
   }, []);
@@ -345,7 +345,10 @@ export default function InteractiveWaveformModal({
     const pvCopy = JSON.parse(JSON.stringify(peakValleyWindows));
 
     for (const well of Object.keys(originalData.peaks_valleys)) {
-      pvCopy[well] = { minPeaks: findLowestPeak(well), maxValleys: findHighestValley(well) };
+      pvCopy[well] = {
+        minPeaks: findLowestPeak(well),
+        maxValleys: findHighestValley(well),
+      };
     }
 
     setPeakValleyWindows({
@@ -794,7 +797,14 @@ export default function InteractiveWaveformModal({
                   </TooltipText>
                 }
               >
-                <InfoOutlinedIcon sx={{ "&:hover": { color: "var(--teal-green)", cursor: "pointer" } }} />
+                <InfoOutlinedIcon
+                  sx={{
+                    "&:hover": {
+                      color: "var(--teal-green)",
+                      cursor: "pointer",
+                    },
+                  }}
+                />
               </Tooltip>
             </VersionDropdownLabel>
             <DropDownWidget
