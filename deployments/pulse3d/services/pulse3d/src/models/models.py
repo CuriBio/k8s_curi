@@ -45,6 +45,8 @@ class JobRequest(BaseModel):
     prominence_factors: Optional[TupleParam]
     width_factors: Optional[TupleParam]
 
+    well_groups: Optional[Dict[str, List[str]]]
+
 
 class JobResponse(BaseModel):
     id: uuid.UUID

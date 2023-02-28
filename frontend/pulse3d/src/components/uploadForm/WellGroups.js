@@ -74,6 +74,14 @@ export default function AnalysisParamForm({ setAnalysisParams, analysisParams, s
     setErrorMsgs([...errorMsgs]);
   }, [localGroups]);
 
+  useEffect(() => {
+    // reset well groups after reset or submit buttons are selected
+    const { wellGroups } = analysisParams;
+    if (Object.keys(wellGroups).length === 0) {
+      setLocalGroups([]);
+    }
+  }, [analysisParams]);
+
   const addWellGroup = () => {
     localGroups.push({ name: "", wells: "" });
     errorMsgs.push({ name: "*Required", wells: "*Required" });

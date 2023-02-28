@@ -12,7 +12,6 @@ import semverGte from "semver/functions/gte";
 import InputDropdownWidget from "@/components/basicWidgets/InputDropdownWidget";
 import { AuthContext } from "./_app";
 const Container = styled.div`
-  width: 85%;
   justify-content: center;
   position: relative;
   padding: 3rem;
@@ -283,7 +282,7 @@ export default function UploadForm() {
           wellsWithFlippedWaveforms === "" ? null : wellsWithFlippedWaveforms;
       }
       if (semverGte(version, "0.30.3")) {
-        requestBody.well_groups = wellGroups.keys().length === 0 ? null : wellGroups;
+        requestBody.well_groups = Object.keys(wellGroups).length === 0 ? null : wellGroups;
       }
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
         method: "POST",

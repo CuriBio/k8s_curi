@@ -14,6 +14,12 @@ const Container = styled.div`
   overflow-x: hidden;
 `;
 
+const PageContainer = styled.div`
+  margin-left: 15%;
+  width: 85%;
+  min-height: 95vh;
+`;
+
 export const UploadsContext = createContext();
 
 export default function DashboardLayout({ children }) {
@@ -92,7 +98,7 @@ export default function DashboardLayout({ children }) {
     >
       <Container>
         <ControlPanel />
-        {children}
+        <PageContainer>{children}</PageContainer>
       </Container>
     </UploadsContext.Provider>
   );
