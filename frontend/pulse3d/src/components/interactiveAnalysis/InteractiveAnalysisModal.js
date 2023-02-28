@@ -345,7 +345,10 @@ export default function InteractiveWaveformModal({
     const pvCopy = JSON.parse(JSON.stringify(peakValleyWindows));
 
     for (const well of Object.keys(originalData.peaks_valleys)) {
-      pvCopy[well] = { minPeaks: findLowestPeak(well), maxValleys: findHighestValley(well) };
+      pvCopy[well] = {
+        minPeaks: findLowestPeak(well),
+        maxValleys: findHighestValley(well),
+      };
     }
 
     setPeakValleyWindows({
@@ -794,7 +797,14 @@ export default function InteractiveWaveformModal({
                   </TooltipText>
                 }
               >
-                <InfoOutlinedIcon sx={{ "&:hover": { color: "var(--teal-green)", cursor: "pointer" } }} />
+                <InfoOutlinedIcon
+                  sx={{
+                    "&:hover": {
+                      color: "var(--teal-green)",
+                      cursor: "pointer",
+                    },
+                  }}
+                />
               </Tooltip>
             </VersionDropdownLabel>
             <DropDownWidget
