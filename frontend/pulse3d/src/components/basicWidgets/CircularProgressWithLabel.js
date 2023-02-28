@@ -19,7 +19,7 @@ export default function CircularProgressWithLabel({ value, colorOfTextLabel = "b
         }}
       >
         <Typography variant="caption" component="div" color={colorOfTextLabel}>
-          {`${Math.round(props.value)}%`}
+          {`${Math.round(value)}%`}
         </Typography>
       </Box>
     </Box>
