@@ -1,10 +1,10 @@
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-export default function CircularProgressWithLabel(props) {
+export default function CircularProgressWithLabel({ value, colorOfTextLabel = "black" }) {
   return (
     <Box sx={{ position: "relative", display: "inline-flex" }}>
-      <CircularProgress variant="determinate" {...props} style={{ color: "var(--teal-green)" }} />
+      <CircularProgress variant="determinate" {...value} style={{ color: "var(--teal-green)" }} />
       <Box
         sx={{
           top: 0,
@@ -18,11 +18,7 @@ export default function CircularProgressWithLabel(props) {
           textAlign: "center",
         }}
       >
-        <Typography
-          variant="caption"
-          component="div"
-          color={props.colorOfTextLabel ? props.colorOfTextLabel : "black"}
-        >
+        <Typography variant="caption" component="div" color={colorOfTextLabel}>
           {`${Math.round(props.value)}%`}
         </Typography>
       </Box>

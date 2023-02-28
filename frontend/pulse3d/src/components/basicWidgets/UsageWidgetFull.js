@@ -31,7 +31,7 @@ export default function UsageWidget({
       {parseInt(limitUsage) !== -1 ? (
         <Container>
           <h1>{subscriptionName} Plan</h1>
-          <p>{`Plan Expires on ${subscriptionEndDate}`}</p>
+          <p>{subscriptionEndDate ? `Plan Expires on ${subscriptionEndDate}` : "No Expiration Date"}</p>
           <p>
             {daysOfPlanLeft >= 0
               ? `${daysOfPlanLeft} days of plan left`
