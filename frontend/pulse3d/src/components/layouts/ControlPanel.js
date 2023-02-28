@@ -143,7 +143,7 @@ export default function ControlPanel() {
     {
       label: "Account Settings",
       page: "/account-settings",
-      options: ["Plan Usage Details"],
+      options: ["Usage Details"],
       //TODO add notifications page
     },
     { label: "Metric Definitions", options: [] },
