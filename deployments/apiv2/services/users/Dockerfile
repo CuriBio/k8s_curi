@@ -29,6 +29,9 @@ COPY --chown=main_user:main_group ./deployments/apiv2/services/users/src/main.py
 COPY --chown=main_user:main_group ./deployments/apiv2/services/users/log_config.yaml ./
 
 
+RUN useradd main_user && groupadd main_group
+USER main_user:main_group
+
 ENV PYTHONUNBUFFERED 1
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9001", "--reload", "--log-config", "log_config.yaml"]
 

@@ -22,5 +22,8 @@ COPY --chown=main_user:main_group ./deployments/apiv2/services/mantarray/log_con
 RUN useradd main_user && groupadd main_group
 USER main_user:main_group
 
+RUN useradd main_user && groupadd main_group
+USER main_user:main_group
+
 ENV PYTHONUNBUFFERED 1
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9000", "--reload", "--log-config", "log_config.yaml"]
