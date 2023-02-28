@@ -192,7 +192,7 @@ export default function InteractiveWaveformModal({
     // only available for versions greater than 0.25.2
     const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.25.2"));
     setFilteredVersions([...compatibleVersions]);
-    if (usageQuota && usageQuota.limits && numberOfJobsInUpload > 2 && usageQuota.limits.jobs !== -1) {
+    if (usageQuota && usageQuota.limits && numberOfJobsInUpload >= 2 && usageQuota.limits.jobs !== -1) {
       setCreditUsageAlert(true);
     }
   }, []);
