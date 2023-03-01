@@ -16,8 +16,9 @@ const Header = styled.div`
   display: flex;
   align-items: center;
   padding: 0 2%;
-  position: relative;
+  position: fixed;
   justify-content: space-between;
+  z-index: 5;
 `;
 
 const Container = styled.div`

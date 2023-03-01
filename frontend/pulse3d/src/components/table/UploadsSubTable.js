@@ -43,7 +43,7 @@ export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, j
     let paramsString = [];
 
     Object.keys(job.analysisParams).forEach((param) => {
-      if (job.analysisParams[param] !== null) {
+      if (job.analysisParams[param] !== null && param !== "well_groups") {
         let paramVal;
         if (param === "peaks_valleys") {
           paramVal = "user set";

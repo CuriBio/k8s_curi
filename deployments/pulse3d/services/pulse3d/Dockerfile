@@ -24,7 +24,5 @@ COPY --chown=main_user:main_group ./deployments/pulse3d/services/pulse3d/src/cor
 COPY --chown=main_user:main_group ./deployments/pulse3d/services/pulse3d/src/models/ ./models
 COPY --chown=main_user:main_group ./deployments/pulse3d/services/pulse3d/log_config.yaml ./
 
-
-
 ENV PYTHONUNBUFFERED 1
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-config", "log_config.yaml"]

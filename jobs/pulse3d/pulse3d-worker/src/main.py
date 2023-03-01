@@ -130,7 +130,7 @@ async def process(con, item):
                 # Tanner (10/7/22): popping these args out of analysis_params here since write_xlsx doesn't take them as a kwarg
                 plate_recording_args = {
                     arg_name: analysis_params.pop(arg_name, None)
-                    for arg_name in ("stiffness_factor", "inverted_post_magnet_wells")
+                    for arg_name in ("stiffness_factor", "inverted_post_magnet_wells", "well_groups")
                 }
 
                 use_existing_time_v_force = re_analysis and not any(plate_recording_args.values())
@@ -140,12 +140,12 @@ async def process(con, item):
                     # if any plate recording args are provided, can't load from data frame since a re-analysis is required to recalculate the waveforms
                     logger.info(f"Loading previous time force data from {parquet_filename}")
                     recording_df = pd.read_parquet(parquet_path)
-
-                    # check for old parquet files that do not have peaks and valleys yet
+                    # well groups should always be added regardless of reanalysis
+                    well_groups = plate_recording_args.get("well_groups", None)
 
                     try:
                         recording = PlateRecording.from_dataframe(
-                            os.path.join(tmpdir, filename), df=recording_df
+                            os.path.join(tmpdir, filename), df=recording_df, well_groups=well_groups
                         )
                         recordings = list(recording)
                     except:
@@ -202,12 +202,10 @@ async def process(con, item):
                     for well in columns:
                         if not _is_valid_well_name(well):
                             continue
+
                         logger.info(f"Finding peaks and valleys for well {well}")
-
                         well_force = recording_df[well].dropna().tolist()
-
                         interpolated_well_data = np.row_stack([time[: len(well_force)], well_force])
-
                         peaks, valleys = peak_detector(interpolated_well_data, **peak_detector_args)
 
                         # need to initialize a dict with these values and then create the DF otherwise values will be truncated

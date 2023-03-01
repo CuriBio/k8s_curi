@@ -409,6 +409,8 @@ async def create_new_job(
             # Tanner (2/7/23): these params added in earlier versions but there are bugs with using this param in re-analysis prior to 0.30.1
             params.append("stiffness_factor")
             params.append("inverted_post_magnet_wells")
+        if pulse3d_semver >= "0.30.3":
+            params.append("well_groups")
 
         details_dict = dict(details)
 
