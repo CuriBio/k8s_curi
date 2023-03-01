@@ -952,7 +952,7 @@ spec:
         - server
         - --namespaced
         env: []
-        image: quay.io/argoproj/argocli:latest
+        image: quay.io/argoproj/argocli:v3.2.9
         name: argo-server
         ports:
         - containerPort: 2746
