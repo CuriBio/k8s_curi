@@ -53,6 +53,8 @@ spec:
           - name: path
           - name: number
       script:
+        nodeSelector:
+          group: argo
         image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
         workingDir: /tmp/git/k8s_curi
         env:
@@ -129,6 +131,8 @@ spec:
         parameters:
           - name: path
       script:
+        nodeSelector:
+          group: argo
         image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
         workingDir: /tmp/git/k8s_curi
         volumeMounts:
