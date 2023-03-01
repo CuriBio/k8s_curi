@@ -14,7 +14,7 @@ data:
       # keep workflows for 1d (86,400 seconds)
       ttlStrategy:
         secondsAfterSuccess: 600
-      parallelism: 4
+      parallelism: 8
       # delete all pods as soon as they succeed
       podGC:
         strategy: OnWorkflowSuccess
