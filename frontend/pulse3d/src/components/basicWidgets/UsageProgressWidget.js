@@ -60,6 +60,7 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
       }
       setIsExpired(usageQuota.jobs_reached);
     }
+    pollUsageQuota();
   }, [usageQuota]);
 
   useEffect(() => {

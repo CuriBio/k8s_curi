@@ -776,7 +776,7 @@ async def get_versions(request: Request):
 async def get_usage_quota(request: Request, token=Depends(ProtectedAny(scope=PULSE3D_SCOPES))):
     """Get the usage quota for the specific user"""
     try:
-        customer_id = str(uuid.UUID(token["userid"]))
+        customer_id = str(uuid.UUID(token["customer_id"]))
         service, _ = split_scope_account_data(token["scope"][0])
         async with request.state.pgpool.acquire() as con:
             usage_quota = await check_customer_quota(con, customer_id, service)
