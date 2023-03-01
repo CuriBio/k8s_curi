@@ -14,6 +14,8 @@ spec:
       - name: sha
       - name: base-sha
     script:
+      nodeSelector:
+        group: argo
       image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
       workingDir: /tmp/git
       env:
@@ -41,6 +43,8 @@ spec:
       - name: sha
       - name: base-sha
     script:
+      nodeSelector:
+        group: argo
       image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
       workingDir: /tmp/git/k8s_curi
       volumeMounts:
@@ -133,6 +137,8 @@ spec:
       - name: service
       - name: deployment
     container:
+      nodeSelector:
+        group: argo
       image: gcr.io/kaniko-project/executor:v1.8.0-debug
       command: [/kaniko/executor]
       workingDir: /tmp/git/k8s_curi
@@ -148,6 +154,8 @@ spec:
       parameters:
       - name: number
     script:
+      nodeSelector:
+        group: argo
       image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
       workingDir: /tmp/git/k8s_curi/core/db/curibio
       env:
@@ -301,6 +309,8 @@ spec:
       - name: deployment
       - name: version
     container:
+      nodeSelector:
+        group: argo
       image: gcr.io/kaniko-project/executor:v1.8.0-debug
       command: [/kaniko/executor]
       env:
@@ -324,6 +334,8 @@ spec:
           namespace: argo
   - name: db-migrations
     script:
+      nodeSelector:
+        group: argo
       image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
       workingDir: /tmp/git/k8s_curi/core/db/curibio
       env:
