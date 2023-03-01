@@ -973,6 +973,7 @@ spec:
           name: tmp
       nodeSelector:
         kubernetes.io/os: linux
+        group: argo
       securityContext:
         runAsNonRoot: true
       serviceAccountName: argo-server
@@ -1031,6 +1032,7 @@ spec:
           runAsNonRoot: true
       nodeSelector:
         kubernetes.io/os: linux
+        group: argo
       priorityClassName: workflow-controller
       securityContext:
         runAsNonRoot: true

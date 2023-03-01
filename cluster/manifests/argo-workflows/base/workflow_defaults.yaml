@@ -9,9 +9,6 @@ data:
       annotations:
         argo: workflows
     spec:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 8737 #; any non-root user
       # must complete in 1h
       activeDeadlineSeconds: 3600
       # keep workflows for 1d (86,400 seconds)
