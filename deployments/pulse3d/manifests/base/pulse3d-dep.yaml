@@ -17,8 +17,6 @@ spec:
         app: pulse3d
         version: latest
     spec:
-      nodeSelector:
-        group: workers
       containers:
       - name: pulse3d
         env:

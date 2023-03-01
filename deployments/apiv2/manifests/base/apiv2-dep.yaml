@@ -16,8 +16,6 @@ spec:
         app: apiv2
         version: latest
     spec:
-      nodeSelector:
-        group: workers
       containers:
       - name: users
         image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/users:0.3.2
