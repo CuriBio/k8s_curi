@@ -44,6 +44,7 @@ from models.models import (
     WaveformDataResponse,
     UploadDownloadRequest,
     GenericErrorResponse,
+    UsageQuota,
 )
 from models.types import TupleParam
 
@@ -490,8 +491,6 @@ async def create_new_job(
                     pd.DataFrame(peak_valleys_dict).to_parquet(pv_parquet_path)
                     # upload to s3 under upload id and job id for pulse3d-worker to use
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
-            # add 1 to jobs used
-            usage_quota["current"]["jobs"] += 1
         return JobResponse(
             id=job_id,
             user_id=user_id,
@@ -768,4 +767,18 @@ async def get_versions(request: Request):
 
     except Exception as e:
         logger.error(f"Failed to retrieve info of pulse3d versions: {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.get("/usage-quota", response_model=Union[UsageQuota, GenericErrorResponse])
+async def get_usage_quota(request: Request, token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES))):
+    """Get the usage quota for the spesific user"""
+    try:
+        customer_id = str(uuid.UUID(token["customer_id"]))
+        service, _ = split_scope_account_data(token["scope"][0])
+        async with request.state.pgpool.acquire() as con:
+            usage_quota = await check_customer_quota(con, customer_id, service)
+            return usage_quota
+    except Exception as e:
+        logger.exception(f"Failed to fetch quota usage :{repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

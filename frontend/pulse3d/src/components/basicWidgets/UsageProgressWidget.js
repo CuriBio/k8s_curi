@@ -20,52 +20,69 @@ const ExpiredP = styled.p`
 `;
 
 export default function UsageProgressWidget({ colorOfTextLabel }) {
-  const { usageQuota } = useContext(AuthContext);
-  const [maxUploads, setMaxUploads] = useState(-1);
-  const [actualUploads, setActualUploads] = useState(0);
+  const { usageQuota, setUsageQuota } = useContext(AuthContext);
+  const [maxJobs, setMaxUploads] = useState();
+  const [actualJobs, setActualUploads] = useState(0);
   const [usagePercentage, setUsagePercentage] = useState(0);
-
+  const [isExpired, setIsExpired] = useState();
+  const pollUsageQuota = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/usage-quota`);
+      if (response && response.status === 200) {
+        const newUsageQuota = await response.json();
+        const limit = parseInt(newUsageQuota.limits.jobs);
+        const actual = parseInt(newUsageQuota.current.jobs);
+        const usagePercentage = Math.round((actual / limit) * 100);
+        if (usagePercentage > 100) {
+          setUsagePercentage(100);
+        } else {
+          setUsagePercentage(usagePercentage);
+        }
+        setActualUploads(newUsageQuota["current"]["jobs"]);
+        setIsExpired(newUsageQuota.jobs_reached);
+        setUsageQuota(newUsageQuota);
+      }
+    } catch (e) {
+      console.log("ERROR fetching usage quota in /usage-quota");
+    }
+  };
   useEffect(() => {
     if (usageQuota && usageQuota.limits && usageQuota.current) {
       const limit = parseInt(usageQuota.limits.jobs);
       const actual = parseInt(usageQuota.current.jobs);
       setMaxUploads(limit);
       setActualUploads(actual);
-      const usagePercentage = parseInt((actual / limit) * 100);
+      const usagePercentage = Math.round((actual / limit) * 100);
       if (usagePercentage > 100) {
         setUsagePercentage(100);
       } else {
         setUsagePercentage(usagePercentage);
       }
+      setIsExpired(usageQuota.jobs_reached);
     }
   }, [usageQuota]);
 
-  const CorrectCardComponent = () => {
-    let usageState;
-    if (maxUploads === -1) {
-      // Unlimited mode
-      usageState = (
-        <>
-          <ProgressDiv>Unlimited Access</ProgressDiv>
-        </>
-      );
-    } else if (!usageQuota.jobs_reached) {
-      // max usage has not been reached
-      usageState = (
+  useEffect(() => {
+    if (actualJobs) {
+      const pollingUsageQuota = setInterval(async () => {
+        await pollUsageQuota();
+      }, [1e4]);
+
+      return () => clearInterval(pollingUsageQuota);
+    }
+  }, [actualJobs]);
+
+  return (
+    <>
+      {maxJobs === -1 && <ProgressDiv>Unlimited Access</ProgressDiv>}
+      {!isExpired && maxJobs !== -1 && (
         <ProgressDiv>
           <p>Usage</p>
           <CircularProgressWithLabel value={usagePercentage} colorOfTextLabel={colorOfTextLabel} />
-          <ProgressP>{`${actualUploads}/${maxUploads} Analysis used`}</ProgressP>
+          <ProgressP>{`${actualJobs}/${maxJobs} Analysis used`}</ProgressP>
         </ProgressDiv>
-      );
-    } else {
-      // not unlimited account and
-      // usage max is reached and
-      // plan has expired
-      usageState = <ExpiredP>Plan Has Expired</ExpiredP>;
-    }
-    return usageState;
-  };
-
-  return <>{CorrectCardComponent()}</>;
+      )}
+      {isExpired && <ExpiredP>Plan Has Expired</ExpiredP>}
+    </>
+  );
 }

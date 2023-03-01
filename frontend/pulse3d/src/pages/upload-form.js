@@ -135,7 +135,6 @@ export default function UploadForm() {
   const [analysisParams, setAnalysisParams] = useState(getDefaultAnalysisParams());
   const [badZipFiles, setBadZipFiles] = useState([]);
   const [resetDragDrop, setResetDragDrop] = useState(false);
-  const [creditUsageAlert, setCreditUsageAlert] = useState(false);
   const { usageQuota } = useContext(AuthContext);
 
   useEffect(() => {
@@ -169,13 +168,6 @@ export default function UploadForm() {
       !((files.length > 0 && files[0] instanceof File) || (uploads && uploads.includes(files[0]))) ||
       inProgress;
     setIsButtonDisabled(checkConditions);
-    setCreditUsageAlert(
-      !checkConditions &&
-        tabSelection === "Re-analyze Existing Upload" &&
-        usageQuota &&
-        usageQuota.limits &&
-        parseInt(usageQuota.limits.jobs) !== -1
-    );
   }, [paramErrors, files, inProgress]);
 
   useEffect(() => {
@@ -553,14 +545,6 @@ export default function UploadForm() {
           router.replace("/uploads", undefined, { shallow: true });
         }}
         header={usageModalLabels.header}
-      />
-      <ModalWidget
-        open={creditUsageAlert}
-        labels={["This re-analysis will consume 1 analysis credit."]}
-        closeModal={() => {
-          setCreditUsageAlert(false);
-        }}
-        header={"Attention!"}
       />
     </Container>
   );
