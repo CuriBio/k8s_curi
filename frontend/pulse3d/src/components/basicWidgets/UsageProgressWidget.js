@@ -21,37 +21,37 @@ const ExpiredP = styled.p`
 
 export default function UsageProgressWidget({ colorOfTextLabel }) {
   const { usageQuota, setUsageQuota } = useContext(AuthContext);
-  const [maxJobs, setMaxUploads] = useState();
-  const [actualJobs, setActualUploads] = useState(0);
+  const [maxAnalyses, setMaxAnalyses] = useState();
+  const [actualAnalyses, setActualAnalyses] = useState(0);
   const [usagePercentage, setUsagePercentage] = useState(0);
   const [isExpired, setIsExpired] = useState();
   const pollUsageQuota = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/usage-quota`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/usage`);
       if (response && response.status === 200) {
         const newUsageQuota = await response.json();
         const limit = parseInt(newUsageQuota.limits.jobs);
         const actual = parseInt(newUsageQuota.current.jobs);
-        const usagePercentage = Math.round((actual / limit) * 100);
-        if (usagePercentage > 100) {
+        const newUsagePercentage = Math.round((actual / limit) * 100);
+        if (newUsagePercentage > 100) {
           setUsagePercentage(100);
         } else {
-          setUsagePercentage(usagePercentage);
+          setUsagePercentage(newUsagePercentage);
         }
-        setActualUploads(newUsageQuota["current"]["jobs"]);
+        setActualAnalyses(newUsageQuota["current"]["jobs"]);
         setIsExpired(newUsageQuota.jobs_reached);
         setUsageQuota(newUsageQuota);
       }
     } catch (e) {
-      console.log("ERROR fetching usage quota in /usage-quota");
+      console.log("ERROR fetching usage quota in /usage");
     }
   };
   useEffect(() => {
     if (usageQuota && usageQuota.limits && usageQuota.current) {
       const limit = parseInt(usageQuota.limits.jobs);
       const actual = parseInt(usageQuota.current.jobs);
-      setMaxUploads(limit);
-      setActualUploads(actual);
+      setMaxAnalyses(limit);
+      setActualAnalyses(actual);
       const usagePercentage = Math.round((actual / limit) * 100);
       if (usagePercentage > 100) {
         setUsagePercentage(100);
@@ -63,23 +63,23 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
   }, [usageQuota]);
 
   useEffect(() => {
-    if (actualJobs) {
+    if (actualAnalyses) {
       const pollingUsageQuota = setInterval(async () => {
         await pollUsageQuota();
       }, [1e4]);
 
       return () => clearInterval(pollingUsageQuota);
     }
-  }, [actualJobs]);
+  }, [actualAnalyses]);
 
   return (
     <>
-      {maxJobs === -1 && <ProgressDiv>Unlimited Access</ProgressDiv>}
-      {!isExpired && maxJobs !== -1 && (
+      {maxAnalyses === -1 && <ProgressDiv>Unlimited Access</ProgressDiv>}
+      {!isExpired && maxAnalyses !== -1 && (
         <ProgressDiv>
           <p>Usage</p>
           <CircularProgressWithLabel value={usagePercentage} colorOfTextLabel={colorOfTextLabel} />
-          <ProgressP>{`${actualJobs}/${maxJobs} Analysis used`}</ProgressP>
+          <ProgressP>{`${actualAnalyses}/${maxAnalyses} Analysis used`}</ProgressP>
         </ProgressDiv>
       )}
       {isExpired && <ExpiredP>Plan Has Expired</ExpiredP>}
