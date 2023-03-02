@@ -136,7 +136,7 @@ function Pulse({ Component, pageProps }) {
 
   return (
     <ThemeProvider theme={MUItheme}>
-      <AuthContext.Provider value={{ accountType, usageQuota }}>
+      <AuthContext.Provider value={{ accountType, usageQuota, setUsageQuota }}>
         <Layout>
           <ModalWidget
             open={showLoggedOutAlert}

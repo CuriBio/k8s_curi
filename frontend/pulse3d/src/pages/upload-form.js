@@ -135,9 +135,9 @@ export default function UploadForm() {
   const [analysisParams, setAnalysisParams] = useState(getDefaultAnalysisParams());
   const [badZipFiles, setBadZipFiles] = useState([]);
   const [resetDragDrop, setResetDragDrop] = useState(false);
-  const [creditUsageAlert, setCreditUsageAlert] = useState(false);
   const [wellGroupErr, setWellGroupErr] = useState(false);
   const { usageQuota } = useContext(AuthContext);
+  const [creditUsageAlert, setCreditUsageAlert] = useState(false);
 
   useEffect(() => {
     if (badZipFiles.length > 0) {
@@ -173,10 +173,13 @@ export default function UploadForm() {
     setIsButtonDisabled(checkConditions);
     setCreditUsageAlert(
       !checkConditions &&
-        tabSelection === "Re-analyze Existing Upload" &&
-        usageQuota &&
-        usageQuota.limits &&
-        parseInt(usageQuota.limits.jobs) !== -1
+        tabSelection === "Re-analyze Existing Upload" && // modal only shows up in re-analyze tab
+        usageQuota && // undefined check
+        usageQuota.limits && // undefined check
+        parseInt(usageQuota.limits.jobs) !== -1 && //check that usage is not unlimited
+        files.length > 0 && // undefined check
+        files[0].created_at !== files[0].updated_at
+      // if time updated and time created are different then free analysis has already been used and a re-analyze will use a credit
     );
   }, [paramErrors, files, inProgress, wellGroupErr]);
 
