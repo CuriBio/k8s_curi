@@ -6,6 +6,8 @@ metadata:
 spec:
   serviceAccountName: argo-workflows-sa
   template:
+    nodeSelector:
+      group: argo
   dependencies:
     - name: github-dep
       eventSourceName: github
