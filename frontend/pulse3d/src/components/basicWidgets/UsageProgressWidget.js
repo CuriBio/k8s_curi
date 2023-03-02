@@ -41,6 +41,7 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
         setActualAnalyses(newUsageQuota["current"]["jobs"]);
         setIsExpired(newUsageQuota.jobs_reached);
         setUsageQuota(newUsageQuota);
+        setMaxAnalyses(limit);
       }
     } catch (e) {
       console.log("ERROR fetching usage quota in /usage");
@@ -61,13 +62,13 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
       setIsExpired(usageQuota.jobs_reached);
     }
     pollUsageQuota();
-  }, [usageQuota]);
+  }, []);
 
   useEffect(() => {
-    if (actualAnalyses) {
+    if (actualAnalyses && maxAnalyses !== -1) {
       const pollingUsageQuota = setInterval(async () => {
         await pollUsageQuota();
-      }, [1e4]);
+      }, 1e4);
 
       return () => clearInterval(pollingUsageQuota);
     }
