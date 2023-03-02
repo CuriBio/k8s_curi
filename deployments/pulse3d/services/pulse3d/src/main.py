@@ -774,7 +774,7 @@ async def get_versions(request: Request):
 
 @app.get("/usage", response_model=UsageQuota)
 async def get_usage_quota(
-    request: Request, token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)), service: str = "pulse3d"
+    request: Request, service: str = Query(None), token=Depends(ProtectedAny(scope=PULSE3D_SCOPES))
 ):
     """Get the usage quota for the specific user"""
     try:
