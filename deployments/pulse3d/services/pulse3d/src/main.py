@@ -24,7 +24,7 @@ from pulse3D.constants import (
     DEFAULT_WIDTH_FACTORS,
 )
 
-from auth import ProtectedAny, PULSE3D_USER_SCOPES, PULSE3D_SCOPES, split_scope_account_data
+from auth import ProtectedAny, PULSE3D_USER_SCOPES, PULSE3D_SCOPES, CUSTOMER_SCOPES, split_scope_account_data
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET, DASHBOARD_URL
 from jobs import (
     create_upload,
@@ -772,12 +772,18 @@ async def get_versions(request: Request):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.get("/usage", response_model=Union[UsageQuota, GenericErrorResponse])
-async def get_usage_quota(request: Request, token=Depends(ProtectedAny(scope=PULSE3D_SCOPES))):
+@app.get("/usage", response_model=UsageQuota)
+async def get_usage_quota(
+    request: Request, token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)), service: str = "pulse3d"
+):
     """Get the usage quota for the specific user"""
     try:
-        customer_id = str(uuid.UUID(token["customer_id"]))
-        service, _ = split_scope_account_data(token["scope"][0])
+
+        customer_id = (
+            str(uuid.UUID(token["userid"]))
+            if token["scope"][0] in CUSTOMER_SCOPES
+            else str(uuid.UUID(token["customer_id"]))
+        )
         async with request.state.pgpool.acquire() as con:
             usage_quota = await check_customer_quota(con, customer_id, service)
             return usage_quota

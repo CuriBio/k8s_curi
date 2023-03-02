@@ -180,7 +180,7 @@ export default function UploadForm() {
         files.length > 0 &&
         files[0].created_at !== files[0].updated_at
     );
-  }, [paramErrors, files, inProgress]);
+  }, [paramErrors, files, inProgress, wellGroupErr]);
 
   useEffect(() => {
     // resets upload status when user makes changes
