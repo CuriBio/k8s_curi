@@ -22,7 +22,7 @@ const ExpiredP = styled.p`
 export default function UsageProgressWidget({ colorOfTextLabel }) {
   const { usageQuota, setUsageQuota } = useContext(AuthContext);
   const [maxAnalyses, setMaxAnalyses] = useState(0);
-  const [actualAnalyses, setActualAnalyses] = useState(0);
+  const [actualAnalyses, setActualAnalyses] = useState();
   const [usagePercentage, setUsagePercentage] = useState(0);
   const [isExpired, setIsExpired] = useState();
   const pollUsageQuota = async () => {
@@ -90,7 +90,7 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
         <ProgressDiv>
           <p>Usage</p>
           <CircularProgressWithLabel value={usagePercentage} colorOfTextLabel={colorOfTextLabel} />
-          <ProgressP>{`${actualAnalyses}/${maxAnalyses} Analysis used`}</ProgressP>
+          <ProgressP>{`${actualAnalyses ? actualAnalyses : 0}/${maxAnalyses} Analysis used`}</ProgressP>
         </ProgressDiv>
       )}
       {isExpired && <ExpiredP>Plan Has Expired</ExpiredP>}
