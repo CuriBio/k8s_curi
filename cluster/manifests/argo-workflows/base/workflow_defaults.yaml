@@ -9,15 +9,15 @@ data:
       annotations:
         argo: workflows
     spec:
-      # must complete in 8h (28,800 seconds)
-      activeDeadlineSeconds: 28800
+      # must complete in 1h
+      activeDeadlineSeconds: 3600
       # keep workflows for 1d (86,400 seconds)
       ttlStrategy:
-        secondsAfterCompletion: 86400
-      parallelism: 4
-      # delete all pods as soon as they complete
+        secondsAfterSuccess: 600
+      parallelism: 8
+      # delete all pods as soon as they succeed
       podGC:
-        strategy: OnPodCompletion
+        strategy: OnWorkflowSuccess
 
   artifactRepository: |
     # archiveLogs will archive the main container logs as an artifact

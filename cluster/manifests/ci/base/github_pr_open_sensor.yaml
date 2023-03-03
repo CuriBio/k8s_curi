@@ -5,6 +5,8 @@ metadata:
   namespace: argo
 spec:
   template:
+    nodeSelector:
+      group: argo
   serviceAccountName: argo-workflows-sa
   dependencies:
     - name: github-dep

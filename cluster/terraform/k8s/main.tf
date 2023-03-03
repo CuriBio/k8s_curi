@@ -197,18 +197,31 @@ module "eks" {
   map_users     = var.cluster_users
 
   node_groups = {
-    example = {
-      desired_capacity = 5
+    medium = {
+      desired_capacity = 8
       max_capacity     = 10
       min_capacity     = 1
 
       instance_types = ["t3a.medium"]
+      subnets = [var.private_subnets[0], var.private_subnets[1]]
 
       k8s_labels = {
-        Environment = "prod"
+        group = "workers"
       }
-      additional_tags = {
-        ExtraTag = "example"
+      update_config = {
+        max_unavailable_percentage = 50 # or set `max_unavailable`
+      }
+    },
+    argo = {
+      desired_capacity = 3
+      max_capacity     = 3
+      min_capacity     = 1
+
+      instance_types = ["t3a.medium"]
+      subnets = [var.private_subnets[2]]
+
+      k8s_labels = {
+        group = "argo"
       }
       update_config = {
         max_unavailable_percentage = 50 # or set `max_unavailable`
