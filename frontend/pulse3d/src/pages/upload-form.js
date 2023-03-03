@@ -138,6 +138,7 @@ export default function UploadForm() {
   const [wellGroupErr, setWellGroupErr] = useState(false);
   const { usageQuota } = useContext(AuthContext);
   const [creditUsageAlert, setCreditUsageAlert] = useState(false);
+  const [alertShowed, setAlertShowed] = useState(false);
 
   useEffect(() => {
     if (badZipFiles.length > 0) {
@@ -171,8 +172,10 @@ export default function UploadForm() {
       wellGroupErr;
 
     setIsButtonDisabled(checkConditions);
+
     setCreditUsageAlert(
-      !checkConditions &&
+      !alertShowed && //makesure modal shows up only once
+        !checkConditions &&
         tabSelection === "Re-analyze Existing Upload" && // modal only shows up in re-analyze tab
         usageQuota && // undefined check
         usageQuota.limits && // undefined check
@@ -466,6 +469,7 @@ export default function UploadForm() {
   };
 
   const handleDropDownSelect = (idx) => {
+    setAlertShowed(false);
     setFiles([uploads[idx]]); // must be an array
   };
 
@@ -567,6 +571,7 @@ export default function UploadForm() {
         labels={["This re-analysis will consume 1 analysis credit."]}
         closeModal={() => {
           setCreditUsageAlert(false);
+          setAlertShowed(true);
         }}
         header={"Attention!"}
       />

@@ -21,8 +21,8 @@ const ExpiredP = styled.p`
 
 export default function UsageProgressWidget({ colorOfTextLabel }) {
   const { usageQuota, setUsageQuota } = useContext(AuthContext);
-  const [maxAnalyses, setMaxAnalyses] = useState();
-  const [actualAnalyses, setActualAnalyses] = useState(0);
+  const [maxAnalyses, setMaxAnalyses] = useState(0);
+  const [actualAnalyses, setActualAnalyses] = useState();
   const [usagePercentage, setUsagePercentage] = useState(0);
   const [isExpired, setIsExpired] = useState();
   const pollUsageQuota = async () => {
@@ -40,7 +40,17 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
         }
         setActualAnalyses(newUsageQuota["current"]["jobs"]);
         setIsExpired(newUsageQuota.jobs_reached);
-        setUsageQuota(newUsageQuota);
+        setUsageQuota({
+          current: { jobs: newUsageQuota.current.jobs, uploads: newUsageQuota.current.uploads },
+          jobs_reached: newUsageQuota.jobs_reached,
+          limits: {
+            jobs: newUsageQuota.limits.jobs,
+            uploads: newUsageQuota.limits.uploads,
+            expiration_date: newUsageQuota.limits.expiration_date,
+          },
+          uploads_reached: newUsageQuota.uploads_reached,
+        });
+        setMaxAnalyses(limit);
       }
     } catch (e) {
       console.log("ERROR fetching usage quota in /usage");
@@ -61,17 +71,17 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
       setIsExpired(usageQuota.jobs_reached);
     }
     pollUsageQuota();
-  }, [usageQuota]);
+  }, []);
 
   useEffect(() => {
-    if (actualAnalyses) {
+    if (maxAnalyses !== -1) {
       const pollingUsageQuota = setInterval(async () => {
         await pollUsageQuota();
-      }, [1e4]);
+      }, 1e4);
 
       return () => clearInterval(pollingUsageQuota);
     }
-  }, [actualAnalyses]);
+  }, []);
 
   return (
     <>
@@ -80,7 +90,7 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
         <ProgressDiv>
           <p>Usage</p>
           <CircularProgressWithLabel value={usagePercentage} colorOfTextLabel={colorOfTextLabel} />
-          <ProgressP>{`${actualAnalyses}/${maxAnalyses} Analysis used`}</ProgressP>
+          <ProgressP>{`${actualAnalyses ? actualAnalyses : 0}/${maxAnalyses} Analysis used`}</ProgressP>
         </ProgressDiv>
       )}
       {isExpired && <ExpiredP>Plan Has Expired</ExpiredP>}
