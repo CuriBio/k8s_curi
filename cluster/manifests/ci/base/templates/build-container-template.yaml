@@ -13,6 +13,8 @@ spec:
       - name: branch
       - name: sha
       - name: base-sha
+    nodeSelector:
+      group: argo
     script:
       image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
       workingDir: /tmp/git
@@ -40,6 +42,8 @@ spec:
       parameters:
       - name: sha
       - name: base-sha
+    nodeSelector:
+      group: argo
     script:
       image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
       workingDir: /tmp/git/k8s_curi
@@ -62,6 +66,8 @@ spec:
       - name: status
       - name: context
       - name: sha
+    nodeSelector:
+      group: argo
     script:
       image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
       command: ["sh"]
@@ -89,6 +95,8 @@ spec:
       - name: service
       - name: deployment
       - name: sha
+    nodeSelector:
+      group: argo
     steps:
     - - name: build-service
         template: build
@@ -132,6 +140,8 @@ spec:
       - name: path
       - name: service
       - name: deployment
+    nodeSelector:
+      group: argo
     container:
       image: gcr.io/kaniko-project/executor:v1.8.0-debug
       command: [/kaniko/executor]
@@ -147,6 +157,8 @@ spec:
     inputs:
       parameters:
       - name: number
+    nodeSelector:
+      group: argo
     script:
       image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
       workingDir: /tmp/git/k8s_curi/core/db/curibio
@@ -242,6 +254,8 @@ spec:
       - name: deployment
       - name: version
       - name: sha
+    nodeSelector:
+      group: argo
     steps:
     - - name: set-status-pending
         templateRef:
@@ -300,6 +314,8 @@ spec:
       - name: service
       - name: deployment
       - name: version
+    nodeSelector:
+      group: argo
     container:
       image: gcr.io/kaniko-project/executor:v1.8.0-debug
       command: [/kaniko/executor]
@@ -323,6 +339,8 @@ spec:
           name: docker-config
           namespace: argo
   - name: db-migrations
+    nodeSelector:
+      group: argo
     script:
       image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
       workingDir: /tmp/git/k8s_curi/core/db/curibio

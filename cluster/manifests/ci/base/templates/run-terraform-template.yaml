@@ -12,6 +12,8 @@ spec:
           - name: path
           - name: number
           - name: sha
+      nodeSelector:
+        group: argo
       steps:
         - - name: terraform-plan
             template: run-terraform-plan
@@ -52,6 +54,8 @@ spec:
         parameters:
           - name: path
           - name: number
+      nodeSelector:
+        group: argo
       script:
         image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
         workingDir: /tmp/git/k8s_curi
@@ -89,6 +93,8 @@ spec:
           - name: path
           - name: number
           - name: sha
+      nodeSelector:
+        group: argo
       steps:
         - - name: terraform-apply
             template: run-terraform-apply
@@ -128,6 +134,8 @@ spec:
       inputs:
         parameters:
           - name: path
+      nodeSelector:
+        group: argo
       script:
         image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
         workingDir: /tmp/git/k8s_curi
