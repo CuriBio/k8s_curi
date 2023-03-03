@@ -21,7 +21,7 @@ const ExpiredP = styled.p`
 
 export default function UsageProgressWidget({ colorOfTextLabel }) {
   const { usageQuota, setUsageQuota } = useContext(AuthContext);
-  const [maxAnalyses, setMaxAnalyses] = useState();
+  const [maxAnalyses, setMaxAnalyses] = useState(0);
   const [actualAnalyses, setActualAnalyses] = useState(0);
   const [usagePercentage, setUsagePercentage] = useState(0);
   const [isExpired, setIsExpired] = useState();
@@ -40,7 +40,16 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
         }
         setActualAnalyses(newUsageQuota["current"]["jobs"]);
         setIsExpired(newUsageQuota.jobs_reached);
-        setUsageQuota(newUsageQuota);
+        setUsageQuota({
+          current: { jobs: newUsageQuota.current.jobs, uploads: newUsageQuota.current.uploads },
+          jobs_reached: newUsageQuota.jobs_reached,
+          limits: {
+            jobs: newUsageQuota.limits.jobs,
+            uploads: newUsageQuota.limits.uploads,
+            expiration_date: newUsageQuota.limits.expiration_date,
+          },
+          uploads_reached: newUsageQuota.uploads_reached,
+        });
         setMaxAnalyses(limit);
       }
     } catch (e) {
@@ -65,14 +74,14 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
   }, []);
 
   useEffect(() => {
-    if (actualAnalyses && maxAnalyses !== -1) {
+    if (maxAnalyses !== -1) {
       const pollingUsageQuota = setInterval(async () => {
         await pollUsageQuota();
       }, 1e4);
 
       return () => clearInterval(pollingUsageQuota);
     }
-  }, [actualAnalyses]);
+  }, []);
 
   return (
     <>

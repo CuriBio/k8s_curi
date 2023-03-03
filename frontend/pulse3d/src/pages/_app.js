@@ -36,7 +36,7 @@ function Pulse({ Component, pageProps }) {
   const router = useRouter();
   const [accountType, setAccountType] = useState();
   const [showLoggedOutAlert, setLoggedOutAlert] = useState(false);
-  const [usageQuota, setUsageQuota] = useState();
+  const [usageQuota, setUsageQuota] = useState(null);
   let swInterval = null;
   // register the SW once
   useEffect(() => {
@@ -71,7 +71,6 @@ function Pulse({ Component, pageProps }) {
         const isAccountPage = currentPage && ["/account/verify", "/account/reset"].includes(currentPage);
         // this prevents the inactivity from popping up when a user is already on the login page or verified page
         // do this with multiple messages
-        if (data.usageQuota) setUsageQuota(data.usageQuota);
         if (data.logout && !isAccountPage && currentPage !== "/login") {
           setLoggedOutAlert(true);
         } else if (data.isLoggedIn && !isAccountPage) {
