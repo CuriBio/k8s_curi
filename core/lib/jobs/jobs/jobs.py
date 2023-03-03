@@ -229,18 +229,20 @@ async def get_customer_quota(con, customer_id, service) -> Dict[str, Any]:
     usage_limit_query = "SELECT usage_restrictions->$1 AS usage FROM customers WHERE id=$2"
     # collects number of all jobs in customer account and return number of credits consumed
     # upload with 1 - 2 jobs  = 1 credit , upload with 3+ jobs = 1 credit for each upload with over 2 jobs
-    current_usage_query = "SELECT SUM(CASE WHEN job_count <= 2 AND job_count > 0 THEN 1 ELSE GREATEST(job_count - 1, 0) END) AS total_jobs_count FROM (SELECT COUNT(*) AS job_count FROM jobs_result WHERE customer_id=$1 AND type=$2 GROUP BY upload_id) dt;"
+    current_usage_query = "SELECT COUNT(*) AS total_uploads, SUM(jobs_count) AS total_jobs FROM ( SELECT ( CASE WHEN (COUNT(*) <= 2 AND COUNT(*) > 0) THEN 1 ELSE GREATEST(COUNT(*) - 1, 0) END ) AS jobs_count FROM jobs_result WHERE customer_id=$1 and type=$2 GROUP BY upload_id) dt"
+
     async with con.transaction():
         usage_limit_json = await con.fetchrow(usage_limit_query, service, customer_id)
         current_usage_data = await con.fetchrow(current_usage_query, customer_id, service)
 
     usage_limit_dict = json.loads(usage_limit_json["usage"])
 
+    # usage query returns none if no jobs are found but 0 if no uploads are found.
     current_usage_dict = {
-        "uploads": current_usage_data.get("uploads_count", 0),
-        "jobs": current_usage_data.get("total_jobs_count", 0)
-        if current_usage_data["total_jobs_count"] is not None
+        "jobs": current_usage_data.get("total_jobs", 0)
+        if current_usage_data.get("total_jobs", 0) is not None
         else 0,
+        "uploads": current_usage_data.get("total_uploads ", 0),
     }
 
     return {"limits": usage_limit_dict, "current": current_usage_dict}
