@@ -372,11 +372,10 @@ export default function InteractiveWaveformModal({
         const peakToCompare = wellSpecificCoords[lowest][1];
         // only use peaks inside windowed analysis times
         const timeOfPeak = wellSpecificCoords[peak][0];
-        const isLessThanEndTime = endTime && timeOfPeak <= endTime;
-        const isGreaterThanStartTime = startTime && timeOfPeak >= startTime;
+        const isLessThanEndTime = !endTime || timeOfPeak <= endTime;
+        const isGreaterThanStartTime = !startTime || timeOfPeak >= startTime;
         // filter for peaks inside windowed time
         if (yCoord < peakToCompare && isGreaterThanStartTime && isLessThanEndTime) lowest = peak;
-        if (yCoord < peakToCompare) lowest = peak;
       });
 
       // return  y coordinate of lowest peak
@@ -398,13 +397,15 @@ export default function InteractiveWaveformModal({
       wellSpecificValleys.map((valley) => {
         const yCoord = wellSpecificCoords[valley][1];
         const valleyToCompare = wellSpecificCoords[highest][1];
+
         // only use valleys inside windowed analysis times
         const timeOfValley = wellSpecificCoords[valley][0];
-        const isLessThanEndTime = endTime && timeOfValley <= endTime;
-        const isGreaterThanStartTime = startTime && timeOfValley >= startTime;
+        const isLessThanEndTime = !endTime || timeOfValley <= endTime;
+        const isGreaterThanStartTime = !startTime || timeOfValley >= startTime;
 
         if (yCoord > valleyToCompare && isLessThanEndTime && isGreaterThanStartTime) highest = valley;
       });
+
       // return  y coordinate of highest valley
       return wellSpecificCoords[highest][1];
     }
