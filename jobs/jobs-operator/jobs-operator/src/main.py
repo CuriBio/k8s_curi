@@ -38,12 +38,12 @@ def create_fn(body, spec, **kwargs):
     # Deployment template
     deployment = {
         "apiVersion": "apps/v1",
-        "metadata": {"name": f"{qp_name}", "labels": {"app": job_queue}},
+        "metadata": {"name": f"{qp_name}", "labels": {"app": f"{job_queue}_qp"}},
         "spec": {
             "replicas": 1,
-            "selector": {"matchLabels": {"app": job_queue}},
+            "selector": {"matchLabels": {"app": f"{job_queue}_qp"}},
             "template": {
-                "metadata": {"labels": {"app": job_queue}},
+                "metadata": {"labels": {"app": f"{job_queue}_qp"}},
                 "spec": {"containers": [container]},
             },
         },
