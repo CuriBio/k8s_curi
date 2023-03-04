@@ -4,6 +4,7 @@ kind: Kustomization
 namespace: pulse3d
 resources:
   - ../../base
+  - pulse3d-queue-processor-creds.yaml
 
 patchesJson6902:
 - target:

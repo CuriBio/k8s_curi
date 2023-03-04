@@ -21,7 +21,7 @@ ECR_REPO = os.getenv("ECR_REPO")
 MAX_JOBS_PER_WORKER = int(os.getenv("MAX_JOBS_PER_WORKER", default=5))
 QUEUE = os.getenv("QUEUE")
 DB_PASS = os.getenv("POSTGRES_PASSWORD")
-DB_USER = os.getenv("POSTGRES_USER", default="curibio_operators_ro")
+DB_USER = os.getenv("POSTGRES_USER")
 DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
 DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
 
