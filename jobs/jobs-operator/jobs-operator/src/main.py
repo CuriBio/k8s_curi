@@ -21,29 +21,37 @@ def create_fn(body, spec, **kwargs):
     logger.info(f"Starting {qp_name} in namespace {namespace}")
 
     QUEUE_PROCESSOR_IMAGE = os.getenv("QUEUE_PROCESSOR_IMAGE")
-    POSTGRES_PASSWORD = kclient.V1EnvVar(name="POSTGRES_PASSWORD", value=os.getenv("POSTGRES_PASSWORD"))
     QUEUE_VAR = kclient.V1EnvVar(name="QUEUE", value=job_queue)
     ECR_REPO = kclient.V1EnvVar(name="ECR_REPO", value=spec["ecr_repo"])
     SECONDS_TO_POLL_DB = kclient.V1EnvVar(name="SECONDS_TO_POLL_DB", value=f"{spec['seconds_to_poll_db']}")
     MAX_JOBS_PER_WORKER = kclient.V1EnvVar(name="MAX_JOBS_PER_WORKER", value=f"{spec['max_jobs_per_worker']}")
+    POSTGRES_USER = kclient.V1EnvVar(name="POSTGRES_USER", value=f"{job_queue}_queue_processor_ro")
 
+    POSTGRES_PASSWORD = kclient.V1EnvVar(
+        name="POSTGRES_PASSWORD",
+        value_from=kclient.V1EnvVarSource(
+            secret_key_ref=kclient.V1SecretKeySelector(
+                name=f"{job_queue}-queue-processor-creds", key=f"{job_queue}_queue_processor_ro"
+            )
+        ),
+    )
     # Create container
     container = kclient.V1Container(
         name=qp_name,
         image=QUEUE_PROCESSOR_IMAGE,
-        env=[POSTGRES_PASSWORD, QUEUE_VAR, ECR_REPO, SECONDS_TO_POLL_DB, MAX_JOBS_PER_WORKER],
+        env=[POSTGRES_PASSWORD, QUEUE_VAR, ECR_REPO, SECONDS_TO_POLL_DB, MAX_JOBS_PER_WORKER, POSTGRES_USER],
         image_pull_policy="Always",
     )
 
     # Deployment template
     deployment = {
         "apiVersion": "apps/v1",
-        "metadata": {"name": f"{qp_name}", "labels": {"app": job_queue}},
+        "metadata": {"name": f"{qp_name}", "labels": {"app": f"{job_queue}_qp"}},
         "spec": {
             "replicas": 1,
-            "selector": {"matchLabels": {"app": job_queue}},
+            "selector": {"matchLabels": {"app": f"{job_queue}_qp"}},
             "template": {
-                "metadata": {"labels": {"app": job_queue}},
+                "metadata": {"labels": {"app": f"{job_queue}_qp"}},
                 "spec": {"containers": [container]},
             },
         },

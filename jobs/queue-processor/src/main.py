@@ -21,7 +21,7 @@ ECR_REPO = os.getenv("ECR_REPO")
 MAX_JOBS_PER_WORKER = int(os.getenv("MAX_JOBS_PER_WORKER", default=5))
 QUEUE = os.getenv("QUEUE")
 DB_PASS = os.getenv("POSTGRES_PASSWORD")
-DB_USER = os.getenv("POSTGRES_USER", default="curibio_operators_ro")
+DB_USER = os.getenv("POSTGRES_USER")
 DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
 DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
 
@@ -29,10 +29,15 @@ DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
 async def create_job(version: str, num_of_workers: int):
     # load kube config
     config.load_incluster_config()
-    api = kclient.BatchV1Api()
+    job_api = kclient.BatchV1Api()
+    pod_api = kclient.CoreV1Api()
+
+    # get pod list to get uid to use in owner_reference when spinning up new jobs
+    # the pod needed is the pod this code is being executed in
+    qp_pods_list = pod_api.list_namespaced_pod(namespace="pulse3d", label_selector=f"app={QUEUE}_qp")
     # get existing jobs to prevent starting a job with the same count suffix
     # make sure to only get jobs of specific version
-    running_workers_list = api.list_namespaced_job(QUEUE, label_selector=f"job_version={version}")
+    running_workers_list = job_api.list_namespaced_job(QUEUE, label_selector=f"job_version={version}")
     num_of_active_workers = len(running_workers_list.items)
 
     logger.info(f"Checking for running {version} jobs, {num_of_active_workers} found.")
@@ -68,11 +73,23 @@ async def create_job(version: str, num_of_workers: int):
         job = kclient.V1Job(
             api_version="batch/v1",
             kind="Job",
-            metadata=kclient.V1ObjectMeta(name=formatted_name, labels={"job_version": version}),
+            metadata=kclient.V1ObjectMeta(
+                name=formatted_name,
+                labels={"job_version": version},
+                owner_references=[
+                    kclient.V1OwnerReference(
+                        api_version="v1",
+                        controller=True,
+                        kind="Pod",
+                        uid=qp_pods_list.items[0].metadata.uid,
+                        name=qp_pods_list.items[0].metadata.name,
+                    )
+                ],
+            ),
             spec=spec,
         )
 
-        api.create_namespaced_job(namespace="pulse3d", body=job)
+        job_api.create_namespaced_job(namespace="pulse3d", body=job)
 
 
 async def get_next_queue_item():
