@@ -5,3 +5,4 @@ namespace: pulse3d
 resources:
 - pulse3d-job.yaml
 - job-runner.yaml
+- rbac.yaml
