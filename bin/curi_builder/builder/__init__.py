@@ -15,7 +15,7 @@ K8S_REPO_BASE_URL = "https://api.github.com/repos/CuriBio/k8s_curi"
 
 SVC_PATH_PATTERN = "deployments/**/services/*"
 WORKER_PATH_PATTERN = "jobs/**/*-worker"
-JOBS_OPERATOR_PATH = "jobs/jobs-operator/jobs-operators"
+JOBS_OPERATOR_PATH = "jobs/jobs-operator/jobs-operator"
 QUEUE_PROCESSOR_PATH = "jobs/queue-processor"
 ALL_SVC_PATHS = frozenset(
     [
