@@ -85,10 +85,11 @@ def find_changed_svcs(sha: str):
 
     list_to_return = []
     for ch_path in changed_svc_paths:
-        if "queue-processor" not in ch_path:
-            dep_type, dep_name, *_, svc = ch_path.split("/")
-        else:
+        if "queue-processor" in ch_path:
             dep_name, svc = ch_path.split("/")
+            dep_type = None
+        else:
+            dep_type, dep_name, *_, svc = ch_path.split("/")
 
         if svc == "pulse3d" and dep_type == "deployments":
             # if it's the pulse3d svc under ./deployments/, then change the svc name from pulse3d to pulse3d_api
@@ -97,7 +98,7 @@ def find_changed_svcs(sha: str):
         # need to output the pulse3d package version so it can be included in the name of the pulse3d-worker docker image
         if svc == "pulse3d-worker":
             version = parse_py_dep_version(ch_path, "pulse3d")
-        elif dep_type == "deployments" or svc in ("queue-processor", "jobs-operator"):
+        elif svc in ("queue-processor", "jobs-operator") or dep_type == "deployments":
             # get version from service config to tag docker images
             version = get_svc_version(ch_path)
         else:
