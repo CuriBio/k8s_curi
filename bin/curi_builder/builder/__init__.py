@@ -21,6 +21,8 @@ ALL_SVC_PATHS = frozenset(
     [
         *glob.glob(SVC_PATH_PATTERN, recursive=True),
         *glob.glob(WORKER_PATH_PATTERN, recursive=True),
+        JOBS_OPERATOR_PATH,
+        QUEUE_PROCESSOR_PATH
     ]
 )
 
