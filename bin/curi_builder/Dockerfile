@@ -13,6 +13,8 @@ RUN wget https://releases.hashicorp.com/terraform/1.1.6/terraform_1.1.6_linux_am
   && mv terraform /venv/bin \
   && rm terraform_1.1.6_linux_amd64.zip
 
+# currently not switching to non-root user for this image
+
 ENV PATH /venv/bin:$PATH
 ENV PYTHONUNBUFFERED 1
 

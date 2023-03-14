@@ -150,7 +150,15 @@ def test_uploads__post_if_customer_quota_has_not_been_reached(mocked_asyncpg_con
     mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"jobs_reached": False, "uploads_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
     mocked_asyncpg_con.transaction = mocker.MagicMock()
@@ -477,7 +485,15 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
     mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"jobs_reached": False, "uploads_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
     kwargs = {
@@ -492,6 +508,15 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
         "upload_id": str(test_upload_id),
         "status": "pending",
         "priority": expected_job_priority,
+        "usage_quota": {
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
     }
 
     expected_analysis_params = {
@@ -552,7 +577,15 @@ def test_jobs__post__basic_params_given(mocker, mocked_asyncpg_con):
     mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"jobs_reached": False, "uploads_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
 
@@ -609,7 +642,15 @@ def test_jobs__post__correctly_updates_peak_valley_indices_based_on_differing_pu
     mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"jobs_reached": False, "uploads_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
 
@@ -664,7 +705,15 @@ def test_jobs__post__correctly_updates_peak_valley_indices_based_on_differing_pu
     mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"jobs_reached": False, "uploads_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
 
@@ -694,14 +743,11 @@ def test_jobs__post__correctly_updates_peak_valley_indices_based_on_differing_pu
         expected_analysis_param_keys.append("max_y")
     if pulse3d_semver >= "0.25.4":
         expected_analysis_param_keys.append("normalize_y_axis")
-    if pulse3d_semver >= "0.26.0":
-        expected_analysis_param_keys.append("stiffness_factor")
-    if pulse3d_semver >= "0.27.4":
-        expected_analysis_param_keys.append("inverted_post_magnet_wells")
     if pulse3d_semver >= "0.28.1":
-        expected_analysis_param_keys.append(
-            "include_stim_protocols",
-        )
+        expected_analysis_param_keys.append("include_stim_protocols")
+    if pulse3d_semver >= "0.30.1":
+        expected_analysis_param_keys.append("stiffness_factor")
+        expected_analysis_param_keys.append("inverted_post_magnet_wells")
 
     expected_analysis_params = {param: None for param in expected_analysis_param_keys}
 
@@ -747,7 +793,15 @@ def test_jobs__post__uploads_peaks_and_valleys_when_passed_into_request(mocker, 
     mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"jobs_reached": False, "uploads_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
 
@@ -817,7 +871,15 @@ def test_jobs__post__advanced_params_given(param_name, mocked_asyncpg_con, param
     mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"jobs_reached": False, "uploads_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
     mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
@@ -865,7 +927,15 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocked_asyncpg_con
     mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"jobs_reached": False, "uploads_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
     test_user_id = uuid.uuid4()
@@ -922,7 +992,15 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
     mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"jobs_reached": False, "uploads_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
     kwargs = {
@@ -946,14 +1024,13 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
         expected_analysis_param_keys.append("max_y")
     if pulse3d_semver >= "0.25.4":
         expected_analysis_param_keys.append("normalize_y_axis")
-    if pulse3d_semver >= "0.26.0":
-        expected_analysis_param_keys.append("stiffness_factor")
-    if pulse3d_semver >= "0.27.4":
-        expected_analysis_param_keys.append("inverted_post_magnet_wells")
     if pulse3d_semver >= "0.28.1":
         expected_analysis_param_keys.append(
             "include_stim_protocols",
         )
+    if pulse3d_semver >= "0.30.1":
+        expected_analysis_param_keys.append("stiffness_factor")
+        expected_analysis_param_keys.append("inverted_post_magnet_wells")
     if "0.25.2" <= pulse3d_semver <= "0.28.0":
         expected_analysis_param_keys.append("peaks_valleys")
 

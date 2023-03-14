@@ -29,4 +29,12 @@ patchesJson6902:
   patch: |-
     - op: replace
       path: /spec/source/path
-      value: "jobs/manifests/overlays/prod"
+      value: "jobs/pulse3d/manifests/overlays/prod"
+- target:
+    kind: Application
+    name: jobs-operator
+    namespace: kopf
+  patch: |-
+    - op: replace
+      path: /spec/source/path
+      value: "jobs/jobs-operator/manifests/overlays/prod"

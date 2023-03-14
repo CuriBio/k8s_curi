@@ -22,6 +22,10 @@ COPY ./jobs/pheno/pheno-worker/src/lib ./lib
 COPY ./jobs/pheno/pheno-worker/src/pytorch ./pytorch
 COPY ./core/lib/utils/s3.py ./lib/
 
+# TODO
+# RUN useradd main_user && groupadd main_group
+# USER main_user:main_group
+
 ENV PYTHONUNBUFFERED 1
 CMD ["python", "main.py"]
 

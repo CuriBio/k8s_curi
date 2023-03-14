@@ -2,6 +2,7 @@ import Image from "next/image";
 import styled from "styled-components";
 import DropDownMenu from "@/components/basicWidgets/ButtonDropDown";
 import { useRouter } from "next/router";
+import UsageProgressWidget from "../basicWidgets/UsageProgressWidget";
 
 // required for static export, default loader errors on build
 const imageLoader = ({ src }) => {
@@ -15,8 +16,9 @@ const Header = styled.div`
   display: flex;
   align-items: center;
   padding: 0 2%;
-  position: relative;
+  position: fixed;
   justify-content: space-between;
+  z-index: 5;
 `;
 
 const Container = styled.div`
@@ -70,7 +72,10 @@ export default function Layout({ children }) {
           />
         </a>
         {!["/login", "/account/verify", "/account/reset"].includes(router.pathname) && (
-          <DropDownMenu items={["Logout"]} label={"Menu"} handleSelection={logoutUser} />
+          <>
+            <UsageProgressWidget colorOfTextLabel="white" />
+            <DropDownMenu items={["Logout"]} label={"Menu"} handleSelection={logoutUser} />
+          </>
         )}
       </Header>
       <Main>{children}</Main>

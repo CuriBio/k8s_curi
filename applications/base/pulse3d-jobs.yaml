@@ -8,7 +8,7 @@ metadata:
 spec:
   project: deployments
   source:
-    path: jobs/manifests/overlays/test
+    path: jobs/pulse3d/manifests/overlays/test
     repoURL: https://github.com/CuriBio/k8s_curi.git
     targetRevision: HEAD
   destination:

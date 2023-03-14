@@ -3,4 +3,6 @@ kind: Kustomization
 
 namespace: pulse3d
 resources:
-- ../../base
+- pulse3d-job.yaml
+- job-runner.yaml
+- rbac.yaml

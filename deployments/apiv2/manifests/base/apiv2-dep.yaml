@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: users
-        image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/users:0.3.2
+        image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/users:0.3.3
         env:
         - name: POSTGRES_USER
           value: curibio_users
@@ -50,7 +50,6 @@ spec:
         ports:
         - containerPort: 9001
       - name: mantarray
-        image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.2.1
         env:
         - name: CLUSTER_NAME
           value: test
