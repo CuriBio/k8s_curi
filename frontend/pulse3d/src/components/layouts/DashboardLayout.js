@@ -67,18 +67,18 @@ export default function DashboardLayout({ children }) {
       setMetaPulse3dVersions(versions); // keep track of states
 
       const testingVersions = versions.filter(({ state }) => state === "testing");
-      const externalVersions = versions.filter(({ state }) => state === "external");
-
+      const externalVersions = versions.filter(({ state }) => state === "external" || state === "deprecated");
       // sort versions in testing state and add [testing] tag to UI
       // testing versions only to be used in test cluster
       const sortedTestingVersions = semverRsort(testingVersions.map(({ version }) => version));
       // sort versions in external state, no tag required
       const sortedExternalVersions = semverRsort(externalVersions.map(({ version }) => version));
+      // sort version in deprecated state
 
       if (process.env.NEXT_PUBLIC_CLUSTER === "test") {
         setPulse3dVersions([...sortedExternalVersions, ...sortedTestingVersions]);
       } else {
-        setPulse3dVersions(sortedExternalVersions);
+        setPulse3dVersions([...sortedExternalVersions]);
       }
     } catch (e) {
       console.log(`ERROR getting pulse3d versions: ${e}`);

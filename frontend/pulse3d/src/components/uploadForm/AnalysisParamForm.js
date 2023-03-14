@@ -169,10 +169,6 @@ export default function AnalysisParamForm({
   const [depricationNotice, setDepricationNotice] = useState(false);
   const [pulse3dVersionDeletionDate, setPulse3dVersionDeletionDate] = useState("");
 
-  useEffect(() => {
-    console.log(pulse3dVersions);
-    console.log(metaPulse3dVersions);
-  }, [pulse3dVersions]);
   const pulse3dVersionGte = (version) => {
     const { selectedPulse3dVersion } = analysisParams;
     return selectedPulse3dVersion && semverGte(selectedPulse3dVersion, version);
@@ -359,7 +355,6 @@ export default function AnalysisParamForm({
                 if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
                   return version + " " + "[ testing ]";
                 } else if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "deprecated") {
-                  setDepricationNotice(true);
                   return version + " " + "[ deprecated ]";
                 } else {
                   return version;
@@ -367,6 +362,16 @@ export default function AnalysisParamForm({
               })}
               reset={!checkedParams}
               handleSelection={(idx) => {
+                const selectedVersionMetaData = metaPulse3dVersions.filter(
+                  (version) => version.version === pulse3dVersions[idx]
+                )[0];
+                setPulse3dVersionDeletionDate(
+                  selectedVersionMetaData.end_of_life_date
+                    ? ` Version ${selectedVersionMetaData.version} will be removed after ${electedVersionMetaData.end_of_life_date}.`
+                    : `Version ${selectedVersionMetaData.version} will be removed soon.`
+                );
+                setDepricationNotice(selectedVersionMetaData.state === "deprecated");
+
                 updateParams({
                   selectedPulse3dVersion: pulse3dVersions[idx],
                 });
@@ -808,7 +813,7 @@ export default function AnalysisParamForm({
       </InputContainerTwo>
       <ModalWidget
         open={depricationNotice}
-        labels={[`This version will not be avaliable after ${pulse3dVersionDeletionDate}`]}
+        labels={[pulse3dVersionDeletionDate]}
         closeModal={() => {
           setDepricationNotice(false);
         }}

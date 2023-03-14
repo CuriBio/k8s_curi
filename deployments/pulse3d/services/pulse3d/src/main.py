@@ -765,7 +765,7 @@ async def get_versions(request: Request):
     try:
         async with request.state.pgpool.acquire() as con:
             rows = await con.fetch(  # TODO should eventually sort these using a more robust method
-                "SELECT version, state,end_of_life_date FROM pulse3d_versions WHERE state != 'removed' or end_of_life_date > NOW() ORDER BY created_at"
+                "SELECT version, state, end_of_life_date FROM pulse3d_versions WHERE state != 'removed' or end_of_life_date > NOW() ORDER BY created_at"
             )
 
         return [dict(row) for row in rows]

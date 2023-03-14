@@ -12,7 +12,6 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
 import semverGte from "semver/functions/gte";
 import { AuthContext } from "@/pages/_app";
-import ModalWidget from "@/components/basicWidgets/ModalWidget";
 
 const Container = styled.div`
   height: 100%;
@@ -690,6 +689,15 @@ export default function InteractiveWaveformModal({
   };
 
   const handleVersionSelect = (idx) => {
+    const selectedVersionMetaData = metaPulse3dVersions.filter(
+      (version) => version.version === pulse3dVersions[idx]
+    )[0];
+    setPulse3dVersionDeletionDate(
+      selectedVersionMetaData.end_of_life_date
+        ? ` Version ${selectedVersionMetaData.version} will be removed after ${electedVersionMetaData.end_of_life_date}.`
+        : `Version ${selectedVersionMetaData.version} will be removed soon.`
+    );
+    setDepricationNotice(selectedVersionMetaData.state === "deprecated");
     setPulse3dVersionIdx(idx);
   };
 
@@ -894,7 +902,7 @@ export default function InteractiveWaveformModal({
       />
       <ModalWidget
         open={depricationNotice}
-        labels={[`This version will not be avaliable after ${pulse3dVersionDeletionDate}`]}
+        labels={[pulse3dVersionDeletionDate]}
         closeModal={() => {
           setDepricationNotice(false);
         }}
