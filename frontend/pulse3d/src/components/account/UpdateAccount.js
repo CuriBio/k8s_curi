@@ -173,7 +173,11 @@ export default function UpdateAccount({ modalHeader, shortTermToken, type }) {
 
   const resendLink = async () => {
     try {
-      return await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${userEmail}&type=${type}`);
+      return await fetch(
+        `${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${encodeURIComponent(
+          userEmail
+        )}&type=${type}&user=true`
+      );
     } catch (e) {
       console.log("ERROR resending verification email", e);
       setModalToDisplay(modalLabels.error);

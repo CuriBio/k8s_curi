@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: operators
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: operators
+  template:
+    metadata:
+      labels:
+        app: operators
+    spec:
+      serviceAccountName: operator
+      containers:
+      - name: jobs-operator
+        env:
+        - name: QUEUE_PROCESSOR_IMAGE
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9001

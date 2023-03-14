@@ -15,7 +15,7 @@ const Container = styled.div`
   background-color: var(--dark-blue);
   min-width: 200px;
   width: 15vw;
-  zposition: relative;
+  position: fixed;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -23,6 +23,7 @@ const Container = styled.div`
 
 const ListItem = styled.li`
   font-size: 15px;
+  text-align: center;
   &:hover {
     color: var(--light-blue);
     text-decoration: underline;
@@ -141,9 +142,9 @@ export default function ControlPanel() {
     },
     {
       label: "Account Settings",
-      disabled: true,
-      page: "/account",
-      options: [],
+      page: "/account-settings",
+      options: ["Usage Details"],
+      //TODO add notifications page
     },
     { label: "Metric Definitions", options: [] },
   ];

@@ -107,12 +107,20 @@ def test_login__user__success(cb_customer_id, mocked_asyncpg_con, mocker):
     mocked_usage_check = mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"uploads_reached": True, "jobs_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
     login_details = {
         "customer_id": str(cb_customer_id),
-        "username": "test_username",
+        "username": "test_USERNAME",
         "password": "test_password",
         "service": "pulse3d",
     }
@@ -144,7 +152,7 @@ def test_login__user__success(cb_customer_id, mocked_asyncpg_con, mocker):
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
         "SELECT password, id, data->'scope' AS scope FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND suspended='f' AND verified='t'",
-        login_details["username"],
+        login_details["username"].lower(),
         login_details["customer_id"],
     )
     mocked_asyncpg_con.execute.assert_called_with(
@@ -159,11 +167,19 @@ def test_login__customer__success(mocked_asyncpg_con, mocker):
     mocked_usage_check = mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"uploads_reached": True, "jobs_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         asutospec=True,
     )
 
-    login_details = {"email": "test@email.com", "password": "test_password", "service": "pulse3d"}
+    login_details = {"email": "TEST@email.com", "password": "test_password", "service": "pulse3d"}
     pw_hash = PasswordHasher().hash(login_details["password"])
     test_customer_id = uuid.uuid4()
     customer_scope = ["pulse3d:free"]
@@ -199,7 +215,7 @@ def test_login__customer__success(mocked_asyncpg_con, mocker):
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
         "SELECT password, id, data->'scope' AS scope FROM customers WHERE deleted_at IS NULL AND email = $1",
-        login_details["email"],
+        login_details["email"].lower(),
     )
     mocked_asyncpg_con.execute.assert_called_with(
         "UPDATE customers SET refresh_token = $1 WHERE id = $2",
@@ -242,8 +258,8 @@ def test_register__user__allows_valid_usernames(
     end_with_num = choice([True, False])
 
     registration_details = {
-        "email": "user@example.com",
-        "username": f"test{special_char}username",
+        "email": "USEr@example.com",
+        "username": f"Test{special_char}UseRName",
         "service": "pulse3d",
     }
 
@@ -262,8 +278,8 @@ def test_register__user__allows_valid_usernames(
     )
     assert response.status_code == 201
     assert response.json() == {
-        "username": registration_details["username"],
-        "email": registration_details["email"],
+        "username": registration_details["username"].lower(),
+        "email": registration_details["email"].lower(),
         "user_id": test_user_id.hex,
         "account_type": "paid",
         "scope": expected_scope,
@@ -271,8 +287,8 @@ def test_register__user__allows_valid_usernames(
 
     mocked_asyncpg_con.fetchval.assert_called_once_with(
         "INSERT INTO users (name, email, account_type, data, customer_id) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-        registration_details["username"],
-        registration_details["email"],
+        registration_details["username"].lower(),
+        registration_details["email"].lower(),
         "paid",
         json.dumps({"scope": expected_scope}),
         test_customer_id,
@@ -281,7 +297,7 @@ def test_register__user__allows_valid_usernames(
 
 def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, cb_customer_id, mocker):
     registration_details = {
-        "email": "test@email.com",
+        "email": "tEsT@email.com",
         "password1": TEST_PASSWORD,
         "password2": TEST_PASSWORD,
         "scope": ["customer:paid"],
@@ -298,14 +314,14 @@ def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, cb_cus
     )
     assert response.status_code == 201
     assert response.json() == {
-        "email": registration_details["email"],
+        "email": registration_details["email"].lower(),
         "user_id": test_user_id.hex,
         "scope": expected_scope,
     }
 
     mocked_asyncpg_con.fetchval.assert_called_once_with(
         "INSERT INTO customers (email, password, data, usage_restrictions) VALUES ($1, $2, $3, $4) RETURNING id",
-        registration_details["email"],
+        registration_details["email"].lower(),
         spied_pw_hasher.spy_return,
         json.dumps({"scope": expected_scope}),
         json.dumps(dict(PULSE3D_PAID_USAGE)),
@@ -654,7 +670,8 @@ def test_user_id__put__successful_deletion(mocked_asyncpg_con):
     )
 
 
-def test_user_id__put__successful_deactivation(mocked_asyncpg_con):
+@pytest.mark.parametrize("action", ["deactivate", "reactivate"])
+def test_user_id__put__successful_deactivation_reactivation(mocked_asyncpg_con, action):
     test_customer_id = uuid.uuid4()
     access_token = get_token(userid=test_customer_id, account_type="customer")
 
@@ -662,13 +679,13 @@ def test_user_id__put__successful_deactivation(mocked_asyncpg_con):
 
     response = test_client.put(
         f"/{test_user_id}",
-        json={"action_type": "deactivate"},
+        json={"action_type": action},
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 200
 
     mocked_asyncpg_con.execute.assert_called_once_with(
-        "UPDATE users SET suspended='t' WHERE id=$1", test_user_id
+        "UPDATE users SET suspended=$1 WHERE id=$2", action == "deactivate", test_user_id
     )
 
 

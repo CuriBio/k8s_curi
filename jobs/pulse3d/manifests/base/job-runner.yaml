@@ -1,0 +1,11 @@
+--- # PULSE3D
+apiVersion: curibio.dev/v1
+kind: JobRunner
+metadata:
+  name: pulse3d-queue-processor
+spec:
+  job_queue: pulse3d
+  seconds_to_poll_db: 60
+  max_jobs_per_worker: 5
+---
+# Future other products i.e. Nautilus, Pulse2D

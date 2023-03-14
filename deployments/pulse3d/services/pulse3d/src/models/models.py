@@ -11,6 +11,13 @@ class UploadRequest(BaseModel):
     upload_type: str
 
 
+class UsageQuota(BaseModel):
+    current: Dict[str, Any]
+    limits: Dict[str, Any]
+    jobs_reached: bool
+    uploads_reached: bool
+
+
 class UploadResponse(BaseModel):
     id: Optional[uuid.UUID]
     params: Dict[str, Any]
@@ -38,6 +45,8 @@ class JobRequest(BaseModel):
     prominence_factors: Optional[TupleParam]
     width_factors: Optional[TupleParam]
 
+    well_groups: Optional[Dict[str, List[str]]]
+
 
 class JobResponse(BaseModel):
     id: uuid.UUID
@@ -45,6 +54,7 @@ class JobResponse(BaseModel):
     upload_id: uuid.UUID
     status: str
     priority: int
+    usage_quota: UsageQuota
 
 
 class DownloadItem(BaseModel):
@@ -70,5 +80,5 @@ class UploadDownloadRequest(BaseModel):
 
 
 class GenericErrorResponse(BaseModel):
-    message: Union[str, Dict[str, bool]]
+    message: Union[str, UsageQuota, Dict[str, bool]]
     error: str

@@ -1,7 +1,6 @@
 import re
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from uuid import UUID
-
 from pydantic import BaseModel, EmailStr, SecretStr
 from pydantic import constr, validator
 from models.tokens import AuthTokens
@@ -14,7 +13,7 @@ USERNAME_REGEX_STR = f"^[a-zA-Z]+[a-zA-Z0-9{USERNAME_VALID_SPECIAL_CHARS}]+$"
 PASSWORD_REGEX = r"""(
     ^(?=.*[A-Z])
     (?=.*[a-z])
-    (?=.*[!@#$%^&*><?_=+~-])
+    (?=.*[!@#$%^&*()~`|<>,.+=_"':;?/\\\[\]\{\}-])
     (?=.*[0-9])
     .{10,}
     $)"""
@@ -105,6 +104,13 @@ class UnableToUpdateAccountResponse(BaseModel):
     message: str
 
 
+class UsageQuota(BaseModel):
+    current: Dict[str, Any]
+    limits: Dict[str, Any]
+    jobs_reached: bool
+    uploads_reached: bool
+
+
 class LoginResponse(BaseModel):
     tokens: AuthTokens
-    usage_quota: Optional[Dict[str, bool]]
+    usage_quota: UsageQuota

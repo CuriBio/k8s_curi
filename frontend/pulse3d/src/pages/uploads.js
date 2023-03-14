@@ -56,7 +56,7 @@ const SpinnerContainer = styled.div`
 `;
 
 const InteractiveAnalysisContainer = styled.div`
-  width: 78%;
+  width: 98%;
   margin: 1%;
   background-color: white;
   height: 800px;
@@ -64,9 +64,6 @@ const InteractiveAnalysisContainer = styled.div`
   overflow: none;
 `;
 
-const PageContainer = styled.div`
-  width: 85%;
-`;
 const DropDownContainer = styled.div`
   width: 200px;
   background-color: white;
@@ -145,6 +142,7 @@ export default function Uploads() {
   const [analyzedWidth, setAnalyzedWidth] = useState("19%");
   const [sortColumn, setSortColumn] = useState("");
   const [uploadTableColumns, setUploadTableColumns] = useState([]);
+  const [jobsInSelectedUpload, setJobsInSelectedUpload] = useState(0);
 
   useEffect(() => {
     // removing loading spinner once jobs have been recieved or if 0 jobs were receieved because there were zero uploads for new users
@@ -441,6 +439,12 @@ export default function Uploads() {
     } else if (option === 2) {
       const jobDetails = jobs.filter(({ jobId }) => jobId == checkedJobs[0]);
       setSelectedAnalysis(jobDetails[0]);
+      const uploadId = jobDetails[0].uploadId;
+      for (let uploadIdx in displayRows) {
+        if (displayRows[uploadIdx].id === uploadId) {
+          setJobsInSelectedUpload(displayRows[uploadIdx].jobs.length);
+        }
+      }
       setOpenInteractiveAnalysis(true);
     }
   };
@@ -815,77 +819,76 @@ export default function Uploads() {
   return (
     <>
       {!openInteractiveAnalysis && (
-        <PageContainer>
-          <TableContainer>
-            <DataTable
-              data={displayRows}
-              compact={true}
-              columns={uploadTableColumns
-                .filter(
-                  // if admin user then show all columns, else just show non-admin columns
-                  (e) => e.display
-                )
-                .map((e) => {
-                  return {
-                    ...columnProperties,
-                    ...e,
-                  };
-                })}
-              pagination
-              expandableRows
-              expandableRowsComponent={ExpandedComponent}
-              customStyles={customStyles}
-              progressPending={pending}
-              defaultSortFieldId="lastAnalyzed"
-              progressComponent={
-                <SpinnerContainer>
-                  <CircularSpinner size={200} color={"secondary"} />
-                </SpinnerContainer>
-              }
-              sortIcon={<></>}
-              subHeader={true}
-              subHeaderComponent={
-                <DropDownContainer>
-                  <DropDownWidget
-                    label="Actions"
-                    options={
-                      accountType === "admin"
-                        ? ["Download", "Delete"]
-                        : ["Download", "Delete", "Interactive Analysis"]
-                    }
-                    subOptions={{
-                      Download: ["Download Analyses", "Download Raw Data"],
-                    }}
-                    disableOptions={disableOptions()}
-                    optionsTooltipText={[
-                      ...Array(2).fill("Must make a selection below before actions become available."),
-                      usageQuota && usageQuota.jobs_reached
-                        ? "Interactive analysis is disabled because customer limit has been reached."
-                        : "You must select one successful job to enable interactive analysis.",
-                    ]}
-                    handleSelection={handleDropdownSelection}
-                    handleSubSelection={handleDownloadSubSelection}
-                    reset={resetDropdown}
-                    disableSubOptions={{
-                      Download: [checkedJobs.length === 0, checkedUploads.length === 0],
-                    }}
-                    subOptionsTooltipText={[
-                      "Must make a job selection before becoming available.",
-                      "Must make an upload selection before becoming available.",
-                    ]}
-                    setReset={setResetDropdown}
-                  />
-                </DropDownContainer>
-              }
-            />
-          </TableContainer>
-        </PageContainer>
+        <TableContainer>
+          <DataTable
+            data={displayRows}
+            compact={true}
+            columns={uploadTableColumns
+              .filter(
+                // if admin user then show all columns, else just show non-admin columns
+                (e) => e.display
+              )
+              .map((e) => {
+                return {
+                  ...columnProperties,
+                  ...e,
+                };
+              })}
+            pagination
+            expandableRows
+            expandableRowsComponent={ExpandedComponent}
+            customStyles={customStyles}
+            progressPending={pending}
+            defaultSortFieldId="lastAnalyzed"
+            progressComponent={
+              <SpinnerContainer>
+                <CircularSpinner size={200} color={"secondary"} />
+              </SpinnerContainer>
+            }
+            sortIcon={<></>}
+            subHeader={true}
+            subHeaderComponent={
+              <DropDownContainer>
+                <DropDownWidget
+                  label="Actions"
+                  options={
+                    accountType === "admin"
+                      ? ["Download", "Delete"]
+                      : ["Download", "Delete", "Interactive Analysis"]
+                  }
+                  subOptions={{
+                    Download: ["Download Analyses", "Download Raw Data"],
+                  }}
+                  disableOptions={disableOptions()}
+                  optionsTooltipText={[
+                    ...Array(2).fill("Must make a selection below before actions become available."),
+                    usageQuota && usageQuota.jobs_reached
+                      ? "Interactive analysis is disabled because customer limit has been reached."
+                      : "You must select one successful job to enable interactive analysis.",
+                  ]}
+                  handleSelection={handleDropdownSelection}
+                  handleSubSelection={handleDownloadSubSelection}
+                  reset={resetDropdown}
+                  disableSubOptions={{
+                    Download: [checkedJobs.length === 0, checkedUploads.length === 0],
+                  }}
+                  subOptionsTooltipText={[
+                    "Must make a job selection before becoming available.",
+                    "Must make an upload selection before becoming available.",
+                  ]}
+                  setReset={setResetDropdown}
+                />
+              </DropDownContainer>
+            }
+          />
+        </TableContainer>
       )}
       {openInteractiveAnalysis && (
         <InteractiveAnalysisContainer>
           <InteractiveAnalysisModal
             selectedJob={selectedAnalysis}
             setOpenInteractiveAnalysis={setOpenInteractiveAnalysis}
+            numberOfJobsInUpload={jobsInSelectedUpload}
           />
         </InteractiveAnalysisContainer>
       )}
