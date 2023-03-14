@@ -12,7 +12,7 @@ COPY --from=venv /app/venv /app/venv/
 ENV PATH /app/venv/bin:$PATH
 
 WORKDIR /app
-COPY src/main.py /main.py
+COPY ./jobs/jobs-operator/jobs-operator/src/main.py ./
 
 RUN useradd main_user && groupadd main_group
 RUN chown -R main_user:main_group /app

@@ -4,3 +4,5 @@ namespace: kopf
 resources:
   - jobs-operator.yaml
   - namespace.yaml
+  - rbac.yaml
+

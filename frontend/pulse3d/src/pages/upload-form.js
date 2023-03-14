@@ -115,6 +115,7 @@ export default function UploadForm() {
       wellsWithFlippedWaveforms: "",
       showStimSheet: "",
       wellGroups: {},
+      stimWaveformFormat: "",
     };
   };
 
@@ -254,6 +255,7 @@ export default function UploadForm() {
         stiffnessFactor,
         wellsWithFlippedWaveforms,
         wellGroups,
+        stimWaveformFormat,
       } = analysisParams;
 
       const version =
@@ -282,13 +284,14 @@ export default function UploadForm() {
       }
       if (semverGte(version, "0.30.1")) {
         requestBody.stiffness_factor = stiffnessFactor === "" ? null : stiffnessFactor;
-      }
-      if (semverGte(version, "0.30.1")) {
         requestBody.inverted_post_magnet_wells =
           wellsWithFlippedWaveforms === "" ? null : wellsWithFlippedWaveforms;
       }
       if (semverGte(version, "0.30.3")) {
         requestBody.well_groups = Object.keys(wellGroups).length === 0 ? null : wellGroups;
+      }
+      if (semverGte(version, "0.30.5")) {
+        requestBody.stim_waveform_format = stimWaveformFormat === "" ? null : stimWaveformFormat;
       }
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
         method: "POST",
