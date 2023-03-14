@@ -166,8 +166,25 @@ export default function AnalysisParamForm({
   const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
   const [disableStimProtocols, setDisableStimProtocols] = useState(false);
   const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails } = useContext(UploadsContext);
-  const [depricationNotice, setDepricationNotice] = useState(false);
-  const [pulse3dVersionDeletionDate, setPulse3dVersionDeletionDate] = useState("");
+  const [deprecationNotice, setDeprecationNotice] = useState(false);
+  const [pulse3dVersionEOLDate, setPulse3dVersionEOLDate] = useState("");
+
+  const handlePulse3dVersionSelect = (idx) => {
+    const selectedVersionMetadata = metaPulse3dVersions.filter(
+      (version) => version.version === pulse3dVersions[idx]
+    )[0];
+    if (selectedVersionMetadata) {
+      setPulse3dVersionEOLDate(
+        selectedVersionMetadata.end_of_life_date
+          ? ` Version ${selectedVersionMetadata.version} will be removed after ${electedVersionMetaData.end_of_life_date}.`
+          : `Version ${selectedVersionMetadata.version} will be removed soon.`
+      );
+      setDeprecationNotice(selectedVersionMetadata.state === "deprecated");
+    }
+    updateParams({
+      selectedPulse3dVersion: pulse3dVersions[idx],
+    });
+  };
 
   const pulse3dVersionGte = (version) => {
     const { selectedPulse3dVersion } = analysisParams;
@@ -361,21 +378,7 @@ export default function AnalysisParamForm({
                 }
               })}
               reset={!checkedParams}
-              handleSelection={(idx) => {
-                const selectedVersionMetaData = metaPulse3dVersions.filter(
-                  (version) => version.version === pulse3dVersions[idx]
-                )[0];
-                setPulse3dVersionDeletionDate(
-                  selectedVersionMetaData.end_of_life_date
-                    ? ` Version ${selectedVersionMetaData.version} will be removed after ${electedVersionMetaData.end_of_life_date}.`
-                    : `Version ${selectedVersionMetaData.version} will be removed soon.`
-                );
-                setDepricationNotice(selectedVersionMetaData.state === "deprecated");
-
-                updateParams({
-                  selectedPulse3dVersion: pulse3dVersions[idx],
-                });
-              }}
+              handleSelection={handlePulse3dVersionSelect}
               initialSelected={0}
             />
           </DropDownContainer>
@@ -812,10 +815,10 @@ export default function AnalysisParamForm({
         )}
       </InputContainerTwo>
       <ModalWidget
-        open={depricationNotice}
-        labels={[pulse3dVersionDeletionDate]}
+        open={deprecationNotice}
+        labels={[pulse3dVersionEOLDate]}
         closeModal={() => {
-          setDepricationNotice(false);
+          setDeprecationNotice(false);
         }}
         header={"Attention!"}
       />

@@ -437,6 +437,17 @@ async def create_new_job(
             analysis_params[param] = _format_tuple_param(analysis_params[param], default_values)
 
         logger.info(f"Using v{details.version} with params: {analysis_params}")
+        # check if pulse3d version is available
+        pulse3d_version_status = await con.fetchrow(
+            "SELECT state, end_of_life_date FROM pulse3d_versions WHERE version = $1", details.version
+        )
+        if (
+            pulse3d_version_status.state == "deprecated"
+            and datetime.strptime(pulse3d_version_status.end_of_life_date, "%Y-%m-%d") > datetime.now()
+        ):
+            return GenericErrorResponse(
+                message="Attempted to use pulse3d version that is removed", error="pulse3dVersionError"
+            )
 
         priority = 10
         async with request.state.pgpool.acquire() as con:
@@ -452,12 +463,9 @@ async def create_new_job(
                         error="AuthorizationError",
                     )
 
-            # second, check usage quota for customer account and if pulse3d version is valid
+            # second, check usage quota for customer account
             usage_quota = await check_customer_quota(con, customer_id, service)
-            pulse3d_version_status = await con.fetchrow(
-                "SELECT state from pulse3d_versions WHERE version = $1", details.version
-            )
-            if usage_quota["jobs_reached"] or pulse3d_version_status == "removed":
+            if usage_quota["jobs_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
             pulse3d_queue_to_use = (
@@ -765,9 +773,8 @@ async def get_versions(request: Request):
     try:
         async with request.state.pgpool.acquire() as con:
             rows = await con.fetch(  # TODO should eventually sort these using a more robust method
-                "SELECT version, state, end_of_life_date FROM pulse3d_versions WHERE state != 'removed' or end_of_life_date > NOW() ORDER BY created_at"
+                "SELECT version, state, end_of_life_date FROM pulse3d_versions WHERE end_of_life_date  > NOW() OR end_of_life_date IS null   ORDER BY created_at"
             )
-
         return [dict(row) for row in rows]
 
     except Exception as e:

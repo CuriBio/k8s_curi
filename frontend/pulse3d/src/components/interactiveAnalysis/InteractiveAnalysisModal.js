@@ -169,13 +169,8 @@ export default function InteractiveWaveformModal({
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [creditUsageAlert, setCreditUsageAlert] = useState(false);
   const { usageQuota } = useContext(AuthContext);
-  const [depricationNotice, setDepricationNotice] = useState(false);
-  const [pulse3dVersionDeletionDate, setPulse3dVersionDeletionDate] = useState("");
-
-  useEffect(() => {
-    console.log(pulse3dVersions);
-    console.log(metaPulse3dVersions);
-  }, [pulse3dVersions]);
+  const [deprecationNotice, setDeprecationNotice] = useState(false);
+  const [pulse3dVersionEOLDate, setPulse3dVersionEOLDate] = useState("");
 
   const handleDuplicatesModalClose = (isRunAnalysisOption) => {
     setDuplicateModalOpen(false);
@@ -689,15 +684,15 @@ export default function InteractiveWaveformModal({
   };
 
   const handleVersionSelect = (idx) => {
-    const selectedVersionMetaData = metaPulse3dVersions.filter(
+    const selectedVersionMetadata = metaPulse3dVersions.filter(
       (version) => version.version === pulse3dVersions[idx]
     )[0];
-    setPulse3dVersionDeletionDate(
-      selectedVersionMetaData.end_of_life_date
-        ? ` Version ${selectedVersionMetaData.version} will be removed after ${electedVersionMetaData.end_of_life_date}.`
-        : `Version ${selectedVersionMetaData.version} will be removed soon.`
+    setPulse3dVersionEOLDate(
+      selectedVersionMetadata.end_of_life_date
+        ? ` Version ${selectedVersionMetadata.version} will be removed after ${electedVersionMetaData.end_of_life_date}.`
+        : `Version ${selectedVersionMetadata.version} will be removed soon.`
     );
-    setDepricationNotice(selectedVersionMetaData.state === "deprecated");
+    setDeprecationNotice(selectedVersionMetadata.state === "deprecated");
     setPulse3dVersionIdx(idx);
   };
 
@@ -901,10 +896,10 @@ export default function InteractiveWaveformModal({
         header={"Attention!"}
       />
       <ModalWidget
-        open={depricationNotice}
-        labels={[pulse3dVersionDeletionDate]}
+        open={deprecationNotice}
+        labels={[pulse3dVersionEOLDate]}
         closeModal={() => {
-          setDepricationNotice(false);
+          setDeprecationNotice(false);
         }}
         header={"Attention!"}
       />
