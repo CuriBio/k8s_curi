@@ -29,6 +29,8 @@ class JobRequest(BaseModel):
     previous_version: Optional[str]
 
     normalize_y_axis: Optional[bool]
+
+    stim_waveform_format: Optional[str]
     include_stim_protocols: Optional[bool]
 
     stiffness_factor: Optional[int]

@@ -171,6 +171,12 @@ export default function AnalysisParamForm({
     return selectedPulse3dVersion && semverGte(selectedPulse3dVersion, version);
   };
 
+  const stimWaveformFormatDetails = {
+    Stacked: "stacked",
+    Overlayed: "overlayed",
+    None: null,
+  };
+
   const updateParams = (newParams) => {
     const updatedParams = { ...analysisParams, ...newParams };
 
@@ -364,8 +370,44 @@ export default function AnalysisParamForm({
           </DropDownContainer>
         </ParamContainer>
 
+        {pulse3dVersionGte("0.30.5") && (
+          <ParamContainer>
+            <Label
+              htmlFor="stimWaveformFormat"
+              style={{
+                width: "102%",
+                lineHeight: 1.5,
+                "white-space": "normal",
+                "text-align": "center",
+              }}
+            >
+              Stim Waveform Display Format:
+              <Tooltip
+                title={
+                  <TooltipText>
+                    {"Specifies the display format for the stim waveforms (if any). Defaults to 'Stacked'"}
+                  </TooltipText>
+                }
+              >
+                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "10px 10px" }} />
+              </Tooltip>
+            </Label>
+            <DropDownContainer>
+              <DropDownWidget
+                options={Object.keys(stimWaveformFormatDetails)}
+                reset={!checkedParams}
+                handleSelection={(idx) => {
+                  updateParams({
+                    stimWaveformFormat: Object.values(stimWaveformFormatDetails)[idx],
+                  });
+                }}
+                initialSelected={0}
+              />
+            </DropDownContainer>
+          </ParamContainer>
+        )}
+
         {pulse3dVersionGte("0.28.1") && (
-          //Disabling y-axis normalization added in version 0.25.4
           <ParamContainer>
             <Label htmlFor="showStimSheet">
               Show Stimulation Protocols:

@@ -411,6 +411,8 @@ async def create_new_job(
             params.append("inverted_post_magnet_wells")
         if pulse3d_semver >= "0.30.3":
             params.append("well_groups")
+        if pulse3d_semver >= "0.30.5":
+            params.append("stim_waveform_format")
 
         details_dict = dict(details)
 
@@ -457,11 +459,9 @@ async def create_new_job(
             if usage_quota["jobs_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
-            pulse3d_queue_to_use = (
-                f"test-pulse3d-v{details.version}"
-                if "admin:software" in user_scopes and pulse3d_semver >= "0.29.2"
-                else f"pulse3d-v{details.version}"
-            )
+            pulse3d_queue_to_use = f"pulse3d-v{details.version}"
+            if "admin:software" in user_scopes and pulse3d_semver >= "0.29.2":
+                pulse3d_queue_to_use = "test-" + pulse3d_queue_to_use
 
             # finally create job
             job_id = await create_job(
@@ -493,6 +493,7 @@ async def create_new_job(
                     pd.DataFrame(peak_valleys_dict).to_parquet(pv_parquet_path)
                     # upload to s3 under upload id and job id for pulse3d-worker to use
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
+
         return JobResponse(
             id=job_id,
             user_id=user_id,
@@ -501,6 +502,7 @@ async def create_new_job(
             priority=priority,
             usage_quota=usage_quota,
         )
+
     except Exception as e:
         logger.exception(f"Failed to create job: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
