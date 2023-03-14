@@ -452,9 +452,12 @@ async def create_new_job(
                         error="AuthorizationError",
                     )
 
-            # second, check usage quota for customer account
+            # second, check usage quota for customer account and if pulse3d version is valid
             usage_quota = await check_customer_quota(con, customer_id, service)
-            if usage_quota["jobs_reached"]:
+            pulse3d_version_status = await con.fetchrow(
+                "SELECT state from pulse3d_versions WHERE version = $1", details.version
+            )
+            if usage_quota["jobs_reached"] or pulse3d_version_status == "removed":
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
             pulse3d_queue_to_use = (
@@ -762,7 +765,7 @@ async def get_versions(request: Request):
     try:
         async with request.state.pgpool.acquire() as con:
             rows = await con.fetch(  # TODO should eventually sort these using a more robust method
-                "SELECT version, state FROM pulse3d_versions WHERE state != 'deprecated' ORDER BY created_at"
+                "SELECT version, state,end_of_life_date FROM pulse3d_versions WHERE state != 'removed' or end_of_life_date > NOW() ORDER BY created_at"
             )
 
         return [dict(row) for row in rows]

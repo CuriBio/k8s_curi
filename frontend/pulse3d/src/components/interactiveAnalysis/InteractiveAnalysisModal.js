@@ -12,6 +12,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
 import semverGte from "semver/functions/gte";
 import { AuthContext } from "@/pages/_app";
+import ModalWidget from "@/components/basicWidgets/ModalWidget";
 
 const Container = styled.div`
   height: 100%;
@@ -169,6 +170,13 @@ export default function InteractiveWaveformModal({
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [creditUsageAlert, setCreditUsageAlert] = useState(false);
   const { usageQuota } = useContext(AuthContext);
+  const [depricationNotice, setDepricationNotice] = useState(false);
+  const [pulse3dVersionDeletionDate, setPulse3dVersionDeletionDate] = useState("");
+
+  useEffect(() => {
+    console.log(pulse3dVersions);
+    console.log(metaPulse3dVersions);
+  }, [pulse3dVersions]);
 
   const handleDuplicatesModalClose = (isRunAnalysisOption) => {
     setDuplicateModalOpen(false);
@@ -809,11 +817,15 @@ export default function InteractiveWaveformModal({
               </Tooltip>
             </VersionDropdownLabel>
             <DropDownWidget
-              options={filteredVersions.map((version) => {
+              options={pulse3dVersions.map((version) => {
                 const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
-                return selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing"
-                  ? version + " " + "[ testing ]"
-                  : version;
+                if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
+                  return version + " " + "[ testing ]";
+                } else if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "deprecated") {
+                  return version + " " + "[ deprecated ]";
+                } else {
+                  return version;
+                }
               })}
               label="Select"
               reset={pulse3dVersionIdx === 0}
@@ -877,6 +889,14 @@ export default function InteractiveWaveformModal({
         labels={["This re-analysis will consume 1 analysis credit."]}
         closeModal={() => {
           setCreditUsageAlert(false);
+        }}
+        header={"Attention!"}
+      />
+      <ModalWidget
+        open={depricationNotice}
+        labels={[`This version will not be avaliable after ${pulse3dVersionDeletionDate}`]}
+        closeModal={() => {
+          setDepricationNotice(false);
         }}
         header={"Attention!"}
       />

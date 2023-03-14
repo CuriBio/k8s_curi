@@ -5,10 +5,11 @@ import FormInput from "../basicWidgets/FormInput";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import semverGte from "semver/functions/gte";
 import { UploadsContext } from "@/components/layouts/DashboardLayout";
 import WellGroups from "@/components/uploadForm/WellGroups";
+import ModalWidget from "@/components/basicWidgets/ModalWidget";
 
 const Container = styled.div`
   padding: 1rem;
@@ -165,7 +166,13 @@ export default function AnalysisParamForm({
   const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
   const [disableStimProtocols, setDisableStimProtocols] = useState(false);
   const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails } = useContext(UploadsContext);
+  const [depricationNotice, setDepricationNotice] = useState(false);
+  const [pulse3dVersionDeletionDate, setPulse3dVersionDeletionDate] = useState("");
 
+  useEffect(() => {
+    console.log(pulse3dVersions);
+    console.log(metaPulse3dVersions);
+  }, [pulse3dVersions]);
   const pulse3dVersionGte = (version) => {
     const { selectedPulse3dVersion } = analysisParams;
     return selectedPulse3dVersion && semverGte(selectedPulse3dVersion, version);
@@ -349,9 +356,14 @@ export default function AnalysisParamForm({
             <DropDownWidget
               options={pulse3dVersions.map((version) => {
                 const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
-                return selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing"
-                  ? version + " " + "[ testing ]"
-                  : version;
+                if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
+                  return version + " " + "[ testing ]";
+                } else if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "deprecated") {
+                  setDepricationNotice(true);
+                  return version + " " + "[ deprecated ]";
+                } else {
+                  return version;
+                }
               })}
               reset={!checkedParams}
               handleSelection={(idx) => {
@@ -794,6 +806,14 @@ export default function AnalysisParamForm({
           />
         )}
       </InputContainerTwo>
+      <ModalWidget
+        open={depricationNotice}
+        labels={[`This version will not be avaliable after ${pulse3dVersionDeletionDate}`]}
+        closeModal={() => {
+          setDepricationNotice(false);
+        }}
+        header={"Attention!"}
+      />
     </Container>
   );
 }
