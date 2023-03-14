@@ -60,7 +60,7 @@ export default function PasswordForm({ onChangePassword, setErrorMsg, password1,
     // this removes all borders/error messages once a user has backspaced to an empty input field
     if (password1.length > 0) {
       // min 10 chars, one number, one uppercase, one lowercase, one special character
-      const reqRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[@$!%*?&]).{10,}/;
+      const reqRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*()~`|<>,.+=_"':;?/\\\[\]\{\}-]).{10,}/;
       const isValid = reqRegex.test(password1);
 
       if (isValid) {
@@ -97,7 +97,9 @@ export default function PasswordForm({ onChangePassword, setErrorMsg, password1,
               <TooltipText>
                 <li>Must be at least 10 characters.</li>
                 <li>
-                  Must contain at least one uppercase, one lowercase, one number, and one special character.
+                  {
+                    "Must contain at least one uppercase, one lowercase, one number, and one special character (!@#$%^&*()~`|<>,.+=_\"':;?/\\[]{}-)."
+                  }
                 </li>
               </TooltipText>
             }

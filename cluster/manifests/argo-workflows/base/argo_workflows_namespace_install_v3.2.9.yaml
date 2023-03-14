@@ -952,7 +952,7 @@ spec:
         - server
         - --namespaced
         env: []
-        image: quay.io/argoproj/argocli:latest
+        image: quay.io/argoproj/argocli:v3.2.9
         name: argo-server
         ports:
         - containerPort: 2746
@@ -973,6 +973,7 @@ spec:
           name: tmp
       nodeSelector:
         kubernetes.io/os: linux
+        group: argo
       securityContext:
         runAsNonRoot: true
       serviceAccountName: argo-server
@@ -998,7 +999,7 @@ spec:
         - --configmap
         - workflow-controller-configmap
         - --executor-image
-        - quay.io/argoproj/argoexec:latest
+        - quay.io/argoproj/argoexec:v3.2.9
         - --namespaced
         command:
         - workflow-controller
@@ -1008,7 +1009,7 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.name
-        image: quay.io/argoproj/workflow-controller:latest
+        image: quay.io/argoproj/workflow-controller:v3.2.9
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -1031,6 +1032,7 @@ spec:
           runAsNonRoot: true
       nodeSelector:
         kubernetes.io/os: linux
+        group: argo
       priorityClassName: workflow-controller
       securityContext:
         runAsNonRoot: true

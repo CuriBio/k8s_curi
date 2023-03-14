@@ -16,7 +16,7 @@ services:
       - CURIBIO_EMAIL_PASSWORD=${CURIBIO_EMAIL_PASSWORD}
       - DASHBOARD_URL=http://localhost:3000
     volumes:
-      - ~/.aws/:/root/.aws:ro
+      - ~/.aws/:/home/main_user/.aws:ro
     ports:
       - "9001:9001"
     platform: "linux/amd64"
@@ -36,7 +36,7 @@ services:
       - AWS_PROFILE=${AWS_PROFILE}
       - AWS_REGION=us-east-2
     volumes:
-      - ~/.aws/:/root/.aws:ro
+      - ~/.aws/:/home/main_user/.aws:ro
     ports:
       - "9000:9000"
     platform: "linux/amd64"
@@ -57,7 +57,7 @@ services:
       - AWS_REGION=us-east-2
       - DASHBOARD_URL=http://localhost:3000
     volumes:
-      - ~/.aws/:/root/.aws:ro
+      - ~/.aws/:/home/main_user/.aws:ro
     ports:
       - "8000:8000"
     platform: "linux/amd64"
@@ -68,13 +68,12 @@ services:
       context: .
       dockerfile: ./bin/psql_proxy/Dockerfile
     command: sh -c "
-      kubectl --kubeconfig ~/.kube/curi_test_config run $${PROXY} -it --image=alpine/socat --tty --rm --expose=true --port=5432 tcp-listen:5432,fork,reuseaddr tcp-connect:psql-rds.default:5432 &
-      kubectl --kubeconfig /root/.kube/$${KUBECONFIG} port-forward --address 0.0.0.0 svc/$${PROXY} 5432:5432
+      kubectl --kubeconfig ~/.kube/$${AWS_PROFILE}_config run $${PROXY} -it --image=alpine/socat --tty --rm --expose=true --port=5432 tcp-listen:5432,fork,reuseaddr tcp-connect:psql-rds.default:5432 &
+      kubectl --kubeconfig /root/.kube/$${AWS_PROFILE}_config port-forward --address 0.0.0.0 svc/$${PROXY} 5432:5432
       "
     environment:
       - AWS_PROFILE=${AWS_PROFILE}
       - AWS_REGION=us-east-2
-      - KUBECONFIG=curi_test_config
       - PROXY=psql-proxy
     volumes:
       - ~/.aws/:/root/.aws:ro

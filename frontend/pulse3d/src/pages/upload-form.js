@@ -10,8 +10,8 @@ import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
 import semverGte from "semver/functions/gte";
 import InputDropdownWidget from "@/components/basicWidgets/InputDropdownWidget";
+import { AuthContext } from "./_app";
 const Container = styled.div`
-  width: 85%;
   justify-content: center;
   position: relative;
   padding: 3rem;
@@ -25,6 +25,17 @@ const Header = styled.h2`
   margin: auto;
   height: 75px;
   line-height: 3;
+`;
+
+const UploadCreditUsageInfo = styled.div`
+  color: red;
+  width: 51%;
+  margin: auto;
+  text-align: center;
+  border: 3px solid red;
+  padding: 1rem;
+  margin-top: 2rem;
+  margin-bottom: 0;
 `;
 
 const Uploads = styled.div`
@@ -103,6 +114,8 @@ export default function UploadForm() {
       selectedPulse3dVersion: pulse3dVersions[0] || "", // Tanner (9/15/22): The pulse3d version technically isn't a param, but it lives in the same part of the form as the params
       wellsWithFlippedWaveforms: "",
       showStimSheet: "",
+      wellGroups: {},
+      stimWaveformFormat: "",
     };
   };
 
@@ -113,7 +126,7 @@ export default function UploadForm() {
   const [paramErrors, setParamErrors] = useState({});
   const [inProgress, setInProgress] = useState(false);
   const [modalButtons, setModalButtons] = useState(["Close"]);
-  const [failedUploadsMsg, setFailedUploadsMsg] = useState([defaultZipErrorLabel]);
+  const [failedUploadsMsg, setFailedUploadsMsg] = useState([defaultUploadErrorLabel]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [checkedParams, setCheckedParams] = useState(false);
   const [tabSelection, setTabSelection] = useState(router.query.id);
@@ -123,12 +136,15 @@ export default function UploadForm() {
   const [analysisParams, setAnalysisParams] = useState(getDefaultAnalysisParams());
   const [badZipFiles, setBadZipFiles] = useState([]);
   const [resetDragDrop, setResetDragDrop] = useState(false);
+  const [wellGroupErr, setWellGroupErr] = useState(false);
+  const { usageQuota } = useContext(AuthContext);
+  const [creditUsageAlert, setCreditUsageAlert] = useState(false);
+  const [alertShowed, setAlertShowed] = useState(false);
 
   useEffect(() => {
     if (badZipFiles.length > 0) {
       // give users the option to proceed with clean files if any, otherwise just close
       setModalButtons(badZipFiles.length !== files.length ? ["Cancel", "Proceed"] : ["Close"]);
-
       // add files to modal to notify user which files are bad
       setFailedUploadsMsg([defaultZipErrorLabel, ...badZipFiles.map((f) => f.name)]);
       setModalState(true);
@@ -153,10 +169,23 @@ export default function UploadForm() {
     const checkConditions =
       !Object.values(paramErrors).every((val) => val.length === 0) ||
       !((files.length > 0 && files[0] instanceof File) || (uploads && uploads.includes(files[0]))) ||
-      inProgress;
+      inProgress ||
+      wellGroupErr;
 
     setIsButtonDisabled(checkConditions);
-  }, [paramErrors, files, inProgress]);
+
+    setCreditUsageAlert(
+      !alertShowed && //makesure modal shows up only once
+        !checkConditions &&
+        tabSelection === "Re-analyze Existing Upload" && // modal only shows up in re-analyze tab
+        usageQuota && // undefined check
+        usageQuota.limits && // undefined check
+        parseInt(usageQuota.limits.jobs) !== -1 && //check that usage is not unlimited
+        files.length > 0 && // undefined check
+        files[0].created_at !== files[0].updated_at
+      // if time updated and time created are different then free analysis has already been used and a re-analyze will use a credit
+    );
+  }, [paramErrors, files, inProgress, wellGroupErr]);
 
   useEffect(() => {
     // resets upload status when user makes changes
@@ -225,6 +254,8 @@ export default function UploadForm() {
         selectedPulse3dVersion,
         stiffnessFactor,
         wellsWithFlippedWaveforms,
+        wellGroups,
+        stimWaveformFormat,
       } = analysisParams;
 
       const version =
@@ -248,15 +279,19 @@ export default function UploadForm() {
       if (semverGte(version, "0.25.0")) {
         requestBody.max_y = maxY === "" ? null : maxY;
       }
-      if (semverGte(version, "0.26.0")) {
-        requestBody.stiffness_factor = stiffnessFactor === "" ? null : stiffnessFactor;
+      if (semverGte(version, "0.28.1")) {
+        requestBody.include_stim_protocols = showStimSheet === "" ? null : showStimSheet;
       }
-      if (semverGte(version, "0.27.4")) {
+      if (semverGte(version, "0.30.1")) {
+        requestBody.stiffness_factor = stiffnessFactor === "" ? null : stiffnessFactor;
         requestBody.inverted_post_magnet_wells =
           wellsWithFlippedWaveforms === "" ? null : wellsWithFlippedWaveforms;
       }
-      if (semverGte(version, "0.28.1")) {
-        requestBody.include_stim_protocols = showStimSheet === "" ? null : showStimSheet;
+      if (semverGte(version, "0.30.3")) {
+        requestBody.well_groups = Object.keys(wellGroups).length === 0 ? null : wellGroups;
+      }
+      if (semverGte(version, "0.30.5")) {
+        requestBody.stim_waveform_format = stimWaveformFormat === "" ? null : stimWaveformFormat;
       }
 
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
@@ -438,6 +473,7 @@ export default function UploadForm() {
   };
 
   const handleDropDownSelect = (idx) => {
+    setAlertShowed(false);
     setFiles([uploads[idx]]); // must be an array
   };
 
@@ -457,13 +493,22 @@ export default function UploadForm() {
       <Uploads>
         <Header>Run Analysis</Header>
         {tabSelection === "Analyze New Files" ? (
-          <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
-            handleFileChange={(files) => setFiles(Object.values(files))}
-            dropZoneText={dropZoneText}
-            fileSelection={files.length > 0 ? files.map(({ name }) => name).join(", ") : "No files selected"}
-            setResetDragDrop={setResetDragDrop}
-            resetDragDrop={resetDragDrop}
-          />
+          <>
+            <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
+              handleFileChange={(files) => setFiles(Object.values(files))}
+              dropZoneText={dropZoneText}
+              fileSelection={
+                files.length > 0 ? files.map(({ name }) => name).join(", ") : "No files selected"
+              }
+              setResetDragDrop={setResetDragDrop}
+              resetDragDrop={resetDragDrop}
+            />
+            {usageQuota && usageQuota.limits && parseInt(usageQuota.limits.jobs) !== -1 ? (
+              <UploadCreditUsageInfo>
+                Analysis will run on each successfully uploaded file, consuming 1 analysis credit each.
+              </UploadCreditUsageInfo>
+            ) : null}
+          </>
         ) : (
           <DropDownContainer>
             <InputDropdownWidget
@@ -477,13 +522,13 @@ export default function UploadForm() {
         )}
         <AnalysisParamForm
           errorMessages={paramErrors}
-          inputVals={analysisParams}
           checkedParams={checkedParams}
           setCheckedParams={updateCheckParams}
           paramErrors={paramErrors}
           setParamErrors={setParamErrors}
           setAnalysisParams={setAnalysisParams}
           analysisParams={analysisParams}
+          setWellGroupErr={setWellGroupErr}
         />
         <ButtonContainer>
           {uploadSuccess ? <SuccessText>Upload Successful!</SuccessText> : null}
@@ -524,6 +569,15 @@ export default function UploadForm() {
           router.replace("/uploads", undefined, { shallow: true });
         }}
         header={usageModalLabels.header}
+      />
+      <ModalWidget
+        open={creditUsageAlert}
+        labels={["This re-analysis will consume 1 analysis credit."]}
+        closeModal={() => {
+          setCreditUsageAlert(false);
+          setAlertShowed(true);
+        }}
+        header={"Attention!"}
       />
     </Container>
   );

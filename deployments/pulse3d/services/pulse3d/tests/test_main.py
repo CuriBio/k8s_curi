@@ -150,7 +150,15 @@ def test_uploads__post_if_customer_quota_has_not_been_reached(mocked_asyncpg_con
     mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"jobs_reached": False, "uploads_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
     mocked_asyncpg_con.transaction = mocker.MagicMock()
@@ -477,7 +485,15 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
     mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"jobs_reached": False, "uploads_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
     kwargs = {
@@ -492,6 +508,15 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
         "upload_id": str(test_upload_id),
         "status": "pending",
         "priority": expected_job_priority,
+        "usage_quota": {
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
     }
 
     expected_analysis_params = {
@@ -552,7 +577,15 @@ def test_jobs__post__basic_params_given(mocker, mocked_asyncpg_con):
     mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"jobs_reached": False, "uploads_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
 
@@ -591,6 +624,9 @@ def test_jobs__post__basic_params_given(mocker, mocked_asyncpg_con):
 def test_jobs__post__correctly_updates_peak_valley_indices_based_on_differing_pulse3d_versions_greater_than_0_28_2(
     mocker, mocked_asyncpg_con, previous_version, version, expected_diff
 ):
+    mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
+    mocker.patch.object(main, "upload_file_to_s3", autospec=True)
+    spied_dataframe = mocker.spy(pd, "DataFrame")
 
     initial_peaks_valleys = {"A1": [[1, 3, 5], [2, 4]], "B1": [[6, 8], [7]]}
     test_analysis_params = {
@@ -598,18 +634,23 @@ def test_jobs__post__correctly_updates_peak_valley_indices_based_on_differing_pu
         "version": version,
         "peaks_valleys": initial_peaks_valleys,
     }
-    test_user_id = uuid.uuid4()
 
+    test_user_id = uuid.uuid4()
     access_token = get_token(scope=["pulse3d:free"], userid=test_user_id, account_type="user")
-    mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
     mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
-    mocker.patch.object(main, "upload_file_to_s3", autospec=True)
-    spied_dataframe = mocker.spy(pd, "DataFrame")
 
     mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"jobs_reached": False, "uploads_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
 
@@ -646,6 +687,8 @@ def test_jobs__post__correctly_updates_peak_valley_indices_based_on_differing_pu
 def test_jobs__post__correctly_updates_peak_valley_indices_based_on_differing_pulse3d_versions_less_than_0_28_2(
     mocker, mocked_asyncpg_con, previous_version, version, expected_peaks_valleys
 ):
+    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
+    mocker.patch.object(main, "upload_file_to_s3", autospec=True)
 
     initial_peaks_valleys = {"A1": [[1, 3, 5], [2, 4]], "B1": [[6, 8], [7]]}
     test_analysis_params = {
@@ -653,18 +696,23 @@ def test_jobs__post__correctly_updates_peak_valley_indices_based_on_differing_pu
         "version": version,
         "peaks_valleys": initial_peaks_valleys,
     }
+
     test_user_id = uuid.uuid4()
     test_customer_id = uuid.uuid4()
     access_token = get_token(
         scope=["pulse3d:free"], userid=test_user_id, account_type="user", customer_id=test_customer_id
     )
-    mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
     mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
 
     mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"jobs_reached": False, "uploads_reached": False},
+        return_value={
+            "current": {"uploads": "0", "jobs": "0"},
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
 
@@ -694,14 +742,11 @@ def test_jobs__post__correctly_updates_peak_valley_indices_based_on_differing_pu
         expected_analysis_param_keys.append("max_y")
     if pulse3d_semver >= "0.25.4":
         expected_analysis_param_keys.append("normalize_y_axis")
-    if pulse3d_semver >= "0.26.0":
-        expected_analysis_param_keys.append("stiffness_factor")
-    if pulse3d_semver >= "0.27.4":
-        expected_analysis_param_keys.append("inverted_post_magnet_wells")
     if pulse3d_semver >= "0.28.1":
-        expected_analysis_param_keys.append(
-            "include_stim_protocols",
-        )
+        expected_analysis_param_keys.append("include_stim_protocols")
+    if pulse3d_semver >= "0.30.1":
+        expected_analysis_param_keys.append("stiffness_factor")
+        expected_analysis_param_keys.append("inverted_post_magnet_wells")
 
     expected_analysis_params = {param: None for param in expected_analysis_param_keys}
 
@@ -747,7 +792,15 @@ def test_jobs__post__uploads_peaks_and_valleys_when_passed_into_request(mocker, 
     mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"jobs_reached": False, "uploads_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
 
@@ -817,7 +870,15 @@ def test_jobs__post__advanced_params_given(param_name, mocked_asyncpg_con, param
     mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"jobs_reached": False, "uploads_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
     mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
@@ -865,7 +926,15 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocked_asyncpg_con
     mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"jobs_reached": False, "uploads_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
     test_user_id = uuid.uuid4()
@@ -909,9 +978,8 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocked_asyncpg_con
     assert mocked_create_job.call_args[1]["meta"]["analysis_params"] == expected_analysis_params
 
 
-@pytest.mark.parametrize(
-    "version", ["0.24.6", "0.25.0", "0.25.2", "0.25.4", "0.26.0", "0.28.0", "0.28.2", "0.28.3"]
-)
+# Tanner (3/13/23): only really need to test versions that are live in prod are being tested in test cluster
+@pytest.mark.parametrize("version", ["0.25.2", "0.25.4", "0.28.0", "0.28.2", "0.28.3", "0.30.4", "0.30.4"])
 def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d_version(
     version, mocked_asyncpg_con, mocker
 ):
@@ -922,7 +990,15 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
     mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"jobs_reached": False, "uploads_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
     kwargs = {
@@ -946,14 +1022,16 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
         expected_analysis_param_keys.append("max_y")
     if pulse3d_semver >= "0.25.4":
         expected_analysis_param_keys.append("normalize_y_axis")
-    if pulse3d_semver >= "0.26.0":
-        expected_analysis_param_keys.append("stiffness_factor")
-    if pulse3d_semver >= "0.27.4":
-        expected_analysis_param_keys.append("inverted_post_magnet_wells")
     if pulse3d_semver >= "0.28.1":
-        expected_analysis_param_keys.append(
-            "include_stim_protocols",
-        )
+        expected_analysis_param_keys.append("include_stim_protocols")
+    if pulse3d_semver >= "0.30.1":
+        expected_analysis_param_keys.append("stiffness_factor")
+        expected_analysis_param_keys.append("inverted_post_magnet_wells")
+    if pulse3d_semver >= "0.30.3":
+        expected_analysis_param_keys.append("well_groups")
+    if pulse3d_semver >= "0.30.5":
+        expected_analysis_param_keys.append("stim_waveform_format")
+
     if "0.25.2" <= pulse3d_semver <= "0.28.0":
         expected_analysis_param_keys.append("peaks_valleys")
 
@@ -1307,8 +1385,13 @@ def test_waveform_data__get__getting_job_metadata_from_db_errors(mocker):
 
 @pytest.mark.parametrize("pulse3d_version", [None, "1.2.3"])
 def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version):
+    mocker.patch.object(main, "glob", return_value=["/tmp/directory/recording"], autospec=True)
+    mocker.patch.object(main, "download_directory_from_s3", autospec=True)
+
     test_user_id = uuid.uuid4()
+
     test_inclusive_df = pd.DataFrame()
+    mocker.patch.object(pd, "read_parquet", return_value=test_inclusive_df, autospec=True)
 
     test_data = list(range(5))
     expected_data = test_data[:-1]
@@ -1320,9 +1403,6 @@ def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version):
         elif column != "A1__raw":
             series[test_data[-1]] = np.nan
         test_inclusive_df[column] = series
-
-    mocker.patch.object(main, "glob", return_value=["/tmp/directory/recording"], autospec=True)
-    mocker.patch.object(pd, "read_parquet", return_value=test_inclusive_df, autospec=True)
 
     expected_analysis_params = {
         param: None

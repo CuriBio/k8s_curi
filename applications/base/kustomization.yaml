@@ -6,3 +6,4 @@ resources:
 - apiv2-deployment.yaml
 - pulse3d-deployment.yaml
 - pulse3d-jobs.yaml
+- jobs-operator.yaml

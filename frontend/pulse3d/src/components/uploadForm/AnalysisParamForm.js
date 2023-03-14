@@ -8,6 +8,7 @@ import Tooltip from "@mui/material/Tooltip";
 import { useState, useContext } from "react";
 import semverGte from "semver/functions/gte";
 import { UploadsContext } from "@/components/layouts/DashboardLayout";
+import WellGroups from "@/components/uploadForm/WellGroups";
 
 const Container = styled.div`
   padding: 1rem;
@@ -15,8 +16,7 @@ const Container = styled.div`
   top: 12%;
   width: 90%;
   position: relative;
-  display: flex;
-  flex-direction: row;
+  display: grid;
   border: solid;
   justify-content: center;
   border-color: var(--dark-gray);
@@ -25,6 +25,7 @@ const Container = styled.div`
   background-color: var(--light-gray);
   margin-top: 8%;
   margin-bottom: 4;
+  grid-template-columns: 45% 55%;
 `;
 
 const TwoParamContainer = styled.div`
@@ -36,20 +37,26 @@ const TwoParamContainer = styled.div`
   align-items: center;
 `;
 const ParamContainer = styled.div`
-  display: flex;
-  flex-direction: row;
-  overflow: visible;
+  display: grid;
+  grid-template-columns: 60% 50%;
   height: 70px;
   padding: 15px 0 10px 0;
   height: 70px;
-  width: 420px;
+  width: 380px;
 `;
 
-const InputContainer = styled.div`
+const InputContainerOne = styled.div`
   display: flex;
   flex-direction: column;
-  align-items: center;
-  width: 90%;
+  align-items: start;
+  border-right: 1px solid var(--dark-gray);
+`;
+
+const InputContainerTwo = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  padding-left: 20px;
 `;
 
 const WAOverlay = styled.div`
@@ -63,14 +70,13 @@ const WAOverlay = styled.div`
   bottom: 0px;
 `;
 const Label = styled.label`
-  width: 110%;
   position: relative;
   height: 25px;
   padding: 10px;
   border-radius: 5px;
   display: flex;
-  justify-content: right;
-  padding-right: 5%;
+  justify-content: left;
+  padding-right: 3%;
   white-space: nowrap;
 `;
 
@@ -87,12 +93,12 @@ const InputErrorContainer = styled.div`
   display: flex;
   flex-direction: column;
   width: 70%;
-  overflow: visible;
+  height: 60px;
 `;
 
 const FormModify = styled.div`
   display: flex;
-  width: 162px;
+  width: 90px;
   flex-direction: column;
 `;
 
@@ -129,7 +135,7 @@ const TooltipText = styled.span`
 `;
 
 const DropDownContainer = styled.div`
-  width: 35%;
+  width: 57%;
   height: 99%;
   background: white;
   border-radius: 5px;
@@ -140,8 +146,13 @@ const SmallLabel = styled.label`
   padding-right: 15px;
 `;
 
+const AdvAnalysisContainer = styled.div`
+display: flex;
+flex-direction row;
+height: 157px;
+`;
+
 export default function AnalysisParamForm({
-  inputVals,
   errorMessages,
   checkedParams,
   setCheckedParams,
@@ -149,28 +160,39 @@ export default function AnalysisParamForm({
   paramErrors,
   setParamErrors,
   analysisParams,
+  setWellGroupErr,
 }) {
   const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
   const [disableStimProtocols, setDisableStimProtocols] = useState(false);
   const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails } = useContext(UploadsContext);
 
   const pulse3dVersionGte = (version) => {
-    const { selectedPulse3dVersion } = inputVals;
+    const { selectedPulse3dVersion } = analysisParams;
     return selectedPulse3dVersion && semverGte(selectedPulse3dVersion, version);
+  };
+
+  const stimWaveformFormatDetails = {
+    Stacked: "stacked",
+    Overlayed: "overlayed",
+    None: null,
   };
 
   const updateParams = (newParams) => {
     const updatedParams = { ...analysisParams, ...newParams };
+
     if ("twitchWidths" in newParams) {
       validateTwitchWidths(updatedParams);
     }
+
     if ("wellsWithFlippedWaveforms" in newParams) {
       validateWellNames(updatedParams);
     }
+
     if ("startTime" in newParams || "endTime" in newParams) {
       // need to validate start and end time together
       validateWindowBounds(updatedParams);
     }
+
     for (const paramName of [
       "prominenceFactorPeaks",
       "prominenceFactorValleys",
@@ -181,15 +203,15 @@ export default function AnalysisParamForm({
       "peakToBase",
       "stiffnessFactor",
     ]) {
-      if (paramName in newParams) {
-        validatePositiveNumber(updatedParams, paramName, false);
-      }
+      if (paramName in newParams) validatePositiveNumber(updatedParams, paramName, false);
     }
+
     if (newParams.normalizeYAxis === false) {
       // if not normalizing y-axis, then clear the entered value.
       // A value can only be entered for max Y if y-axis normalization is enabled
       updatedParams.maxY = "";
     }
+
     setAnalysisParams(updatedParams);
   };
 
@@ -211,6 +233,7 @@ export default function AnalysisParamForm({
   const validateTwitchWidths = (updatedParams) => {
     const newValue = updatedParams.twitchWidths;
     let formattedTwitchWidths;
+
     if (newValue === null || newValue === "") {
       formattedTwitchWidths = "";
     } else {
@@ -302,7 +325,9 @@ export default function AnalysisParamForm({
 
   return (
     <Container>
-      <AdditionalParamLabel>
+      <AdditionalParamLabel
+        style={checkedParams ? { background: "white" } : { background: "var(--light-gray)" }}
+      >
         <CheckboxWidget
           color={"secondary"}
           size={"small"}
@@ -312,7 +337,7 @@ export default function AnalysisParamForm({
         Use Additional Analysis Parameters
       </AdditionalParamLabel>
       {!checkedParams ? <WAOverlay /> : null}
-      <InputContainer>
+      <InputContainerOne>
         <ParamContainer style={{ marginTop: "2%" }}>
           <Label htmlFor="selectedPulse3dVersion" style={{ width: "62%", lineHeight: 2.5 }}>
             Pulse3D Version:
@@ -345,9 +370,45 @@ export default function AnalysisParamForm({
           </DropDownContainer>
         </ParamContainer>
 
+        {pulse3dVersionGte("0.30.5") && (
+          <ParamContainer>
+            <Label
+              htmlFor="stimWaveformFormat"
+              style={{
+                width: "102%",
+                lineHeight: 1.5,
+                "white-space": "normal",
+                "text-align": "center",
+              }}
+            >
+              Stim Waveform Display Format:
+              <Tooltip
+                title={
+                  <TooltipText>
+                    {"Specifies the display format for the stim waveforms (if any). Defaults to 'Stacked'"}
+                  </TooltipText>
+                }
+              >
+                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "10px 10px" }} />
+              </Tooltip>
+            </Label>
+            <DropDownContainer>
+              <DropDownWidget
+                options={Object.keys(stimWaveformFormatDetails)}
+                reset={!checkedParams}
+                handleSelection={(idx) => {
+                  updateParams({
+                    stimWaveformFormat: Object.values(stimWaveformFormatDetails)[idx],
+                  });
+                }}
+                initialSelected={0}
+              />
+            </DropDownContainer>
+          </ParamContainer>
+        )}
+
         {pulse3dVersionGte("0.28.1") && (
-          //Disabling y-axis normalization added in version 0.25.4
-          <ParamContainer style={{ width: "6%", marginTop: "2%" }}>
+          <ParamContainer>
             <Label htmlFor="showStimSheet">
               Show Stimulation Protocols:
               <Tooltip
@@ -360,7 +421,7 @@ export default function AnalysisParamForm({
                 <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
               </Tooltip>
             </Label>
-            <InputErrorContainer style={{ marginLeft: "12%" }}>
+            <InputErrorContainer style={{ marginLeft: "20%" }}>
               <CheckboxWidget
                 checkedState={disableStimProtocols}
                 handleCheckbox={() => {
@@ -376,7 +437,7 @@ export default function AnalysisParamForm({
 
         {pulse3dVersionGte("0.25.4") && (
           //Disabling y-axis normalization added in version 0.25.4
-          <ParamContainer style={{ width: "6%", marginTop: "2%" }}>
+          <ParamContainer>
             <Label htmlFor="normalizeYAxis">
               Disable Y-Axis Normalization:
               <Tooltip
@@ -385,7 +446,7 @@ export default function AnalysisParamForm({
                 <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
               </Tooltip>
             </Label>
-            <InputErrorContainer style={{ marginLeft: "12%" }}>
+            <InputErrorContainer style={{ marginLeft: "20%" }}>
               <CheckboxWidget
                 checkedState={disableYAxisNormalization}
                 handleCheckbox={(disable) => {
@@ -417,7 +478,7 @@ export default function AnalysisParamForm({
               <FormInput
                 name="maxY"
                 placeholder={checkedParams ? "Auto find max y" : ""}
-                value={inputVals.maxY}
+                value={analysisParams.maxY}
                 onChangeFn={(e) => {
                   updateParams({
                     maxY: e.target.value,
@@ -451,7 +512,7 @@ export default function AnalysisParamForm({
             <FormInput
               name="twitchWidths"
               placeholder={checkedParams ? "50, 90" : ""}
-              value={inputVals.twitchWidths}
+              value={analysisParams.twitchWidths}
               onChangeFn={(e) => {
                 updateParams({
                   twitchWidths: e.target.value,
@@ -464,8 +525,8 @@ export default function AnalysisParamForm({
             </FormInput>
           </InputErrorContainer>
         </ParamContainer>
-        {pulse3dVersionGte("0.26.0") && (
-          // Tanner (9/15/21): stiffnessFactor added in 0.26.0
+        {pulse3dVersionGte("0.30.1") && (
+          // Tanner (2/7/23): stiffnessFactor added in 0.26.0 but there are bugs with using this param in re-analysis prior to 0.30.1
           <ParamContainer>
             <Label htmlFor="stiffnessFactor" style={{ width: "62%", lineHeight: 2.5 }}>
               Post Stiffness Factor:
@@ -495,7 +556,8 @@ export default function AnalysisParamForm({
             </DropDownContainer>
           </ParamContainer>
         )}
-        {pulse3dVersionGte("0.27.4") && (
+        {pulse3dVersionGte("0.30.1") && (
+          // Tanner (2/7/23): wellsWithFlippedWaveforms added in 0.27.4 but there are bugs with using this param in re-analysis prior to 0.30.1
           <ParamContainer style={{ padding: "20px 0px 10px 0px", width: "500px" }}>
             <Label htmlFor="wellsWithFlippedWaveforms">
               Wells With Flipped Waveforms:
@@ -515,21 +577,22 @@ export default function AnalysisParamForm({
               <FormInput
                 name="wellsWithFlippedWaveforms"
                 placeholder={checkedParams ? "None" : ""}
-                value={inputVals.wellsWithFlippedWaveforms}
+                value={analysisParams.wellsWithFlippedWaveforms}
                 onChangeFn={(e) => {
                   updateParams({
                     wellsWithFlippedWaveforms: e.target.value,
                   });
                 }}
               >
-                <ErrorText id="twitchWidthError" role="errorMsg">
+                <ErrorText id="twitchWidthError" role="errorMsg" style={{ width: "110%" }}>
                   {errorMessages.wellsWithFlippedWaveforms}
                 </ErrorText>
               </FormInput>
             </InputErrorContainer>
           </ParamContainer>
         )}
-
+      </InputContainerOne>
+      <InputContainerTwo>
         <SectionLabel>Baseline Width</SectionLabel>
 
         <ParamContainer>
@@ -552,7 +615,7 @@ export default function AnalysisParamForm({
             <FormInput
               name="baseToPeak"
               placeholder={checkedParams ? "10" : ""}
-              value={inputVals.baseToPeak}
+              value={analysisParams.baseToPeak}
               onChangeFn={(e) => {
                 updateParams({
                   baseToPeak: e.target.value,
@@ -585,7 +648,7 @@ export default function AnalysisParamForm({
             <FormInput
               name="peakToBase"
               placeholder={checkedParams ? "90" : ""}
-              value={inputVals.peakToBase}
+              value={analysisParams.peakToBase}
               onChangeFn={(e) => {
                 updateParams({
                   peakToBase: e.target.value,
@@ -598,7 +661,6 @@ export default function AnalysisParamForm({
             </FormInput>
           </InputErrorContainer>
         </ParamContainer>
-
         <SectionLabel>Window Analysis</SectionLabel>
         <ParamContainer>
           <Label htmlFor="startTime">
@@ -617,7 +679,7 @@ export default function AnalysisParamForm({
             <FormInput
               name="startTime"
               placeholder={checkedParams ? "0" : ""}
-              value={inputVals.startTime}
+              value={analysisParams.startTime}
               onChangeFn={(e) => {
                 updateParams({
                   startTime: e.target.value,
@@ -645,7 +707,7 @@ export default function AnalysisParamForm({
             <FormInput
               name="endTime"
               placeholder={checkedParams ? "(End of recording)" : ""}
-              value={inputVals.endTime}
+              value={analysisParams.endTime}
               onChangeFn={(e) => {
                 updateParams({
                   endTime: e.target.value,
@@ -660,111 +722,120 @@ export default function AnalysisParamForm({
         </ParamContainer>
 
         <SectionLabel>Advanced Analysis</SectionLabel>
-        <TwoParamContainer>
-          <Label htmlFor="prominenceFactorPeaks">
-            Prominence (µN):
-            <Tooltip
-              title={
-                <TooltipText>
-                  {
-                    "Specifies the minimum required vertical distance between a local max and its lowest contour line to be classified as a peak."
-                  }
-                </TooltipText>
-              }
-            >
-              <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
-            </Tooltip>
-          </Label>
-          <InputErrorContainer>
-            <SmallLabel htmlFor="prominenceFactorPeaks">Peaks</SmallLabel>
-            <FormModify>
-              <FormInput
-                name="prominenceFactorPeaks"
-                placeholder={checkedParams ? "6" : ""}
-                value={inputVals.prominenceFactorPeaks}
-                onChangeFn={(e) => {
-                  updateParams({
-                    prominenceFactorPeaks: e.target.value,
-                  });
-                }}
+        <AdvAnalysisContainer>
+          <TwoParamContainer style={{ width: "300px", alignItems: "start" }}>
+            <Label htmlFor="prominenceFactorPeaks" style={{ padding: "25px" }}>
+              Prominence (µN):
+              <Tooltip
+                title={
+                  <TooltipText>
+                    {
+                      "Specifies the minimum required vertical distance between a local max and its lowest contour line to be classified as a peak."
+                    }
+                  </TooltipText>
+                }
               >
-                <ErrorText id="prominenceFactorPeaksError" role="errorMsg">
-                  {errorMessages.prominenceFactorPeaks}
-                </ErrorText>
-              </FormInput>
-            </FormModify>
-            <SmallLabel htmlFor="prominenceFactorValleys">Valleys</SmallLabel>
-            <FormModify>
-              <FormInput
-                name="prominenceFactorValleys"
-                placeholder={checkedParams ? "6" : ""}
-                value={inputVals.prominenceFactorValleys}
-                onChangeFn={(e) => {
-                  updateParams({
-                    prominenceFactorValleys: e.target.value,
-                  });
-                }}
+                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+              </Tooltip>
+            </Label>
+            <InputErrorContainer style={{ height: "100px" }}>
+              <SmallLabel htmlFor="prominenceFactorPeaks">Peaks</SmallLabel>
+              <FormModify>
+                <FormInput
+                  name="prominenceFactorPeaks"
+                  placeholder={checkedParams ? "6" : ""}
+                  value={analysisParams.prominenceFactorPeaks}
+                  onChangeFn={(e) => {
+                    updateParams({
+                      prominenceFactorPeaks: e.target.value,
+                    });
+                  }}
+                >
+                  <ErrorText id="prominenceFactorPeaksError" role="errorMsg">
+                    {errorMessages.prominenceFactorPeaks}
+                  </ErrorText>
+                </FormInput>
+              </FormModify>
+              <SmallLabel htmlFor="prominenceFactorValleys">Valleys</SmallLabel>
+              <FormModify>
+                <FormInput
+                  name="prominenceFactorValleys"
+                  placeholder={checkedParams ? "6" : ""}
+                  value={analysisParams.prominenceFactorValleys}
+                  onChangeFn={(e) => {
+                    updateParams({
+                      prominenceFactorValleys: e.target.value,
+                    });
+                  }}
+                >
+                  <ErrorText id="prominenceFactorValleysError" role="errorMsg">
+                    {errorMessages.prominenceFactorValleys}
+                  </ErrorText>
+                </FormInput>
+              </FormModify>
+            </InputErrorContainer>
+          </TwoParamContainer>
+          <TwoParamContainer style={{ alignItems: "start" }}>
+            <Label htmlFor="widthFactorPeaks" style={{ padding: "25px" }}>
+              Width (ms):
+              <Tooltip
+                title={
+                  <TooltipText>
+                    {
+                      "Specifies the minimum required width of the base of a local max to be classified as a peak."
+                    }
+                  </TooltipText>
+                }
               >
-                <ErrorText id="prominenceFactorValleysError" role="errorMsg">
-                  {errorMessages.prominenceFactorValleys}
-                </ErrorText>
-              </FormInput>
-            </FormModify>
-          </InputErrorContainer>
-        </TwoParamContainer>
-        <TwoParamContainer>
-          <Label htmlFor="widthFactorPeaks">
-            Width (ms):
-            <Tooltip
-              title={
-                <TooltipText>
-                  {
-                    "Specifies the minimum required width of the base of a local max to be classified as a peak."
-                  }
-                </TooltipText>
-              }
-            >
-              <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
-            </Tooltip>
-          </Label>
-          <InputErrorContainer>
-            <SmallLabel htmlFor="widthFactorPeaks">Peaks</SmallLabel>
-            <FormModify>
-              <FormInput
-                name="widthFactorPeaks"
-                placeholder={checkedParams ? "7" : ""}
-                value={inputVals.widthFactorPeaks}
-                onChangeFn={(e) => {
-                  updateParams({
-                    widthFactorPeaks: e.target.value,
-                  });
-                }}
-              >
-                <ErrorText id="widthFactorPeaksError" role="errorMsg">
-                  {errorMessages.widthFactorPeaks}
-                </ErrorText>
-              </FormInput>
-            </FormModify>
-            <SmallLabel htmlFor="widthFactorValleys">Valleys</SmallLabel>
-            <FormModify>
-              <FormInput
-                name="widthFactorValleys"
-                placeholder={checkedParams ? "7" : ""}
-                value={inputVals.widthFactorValleys}
-                onChangeFn={(e) => {
-                  updateParams({
-                    widthFactorValleys: e.target.value,
-                  });
-                }}
-              >
-                <ErrorText id="widthFactorValleysError" role="errorMsg">
-                  {errorMessages.widthFactorValleys}
-                </ErrorText>
-              </FormInput>
-            </FormModify>
-          </InputErrorContainer>
-        </TwoParamContainer>
-      </InputContainer>
+                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+              </Tooltip>
+            </Label>
+            <InputErrorContainer style={{ height: "100px" }}>
+              <SmallLabel htmlFor="widthFactorPeaks">Peaks</SmallLabel>
+              <FormModify>
+                <FormInput
+                  name="widthFactorPeaks"
+                  placeholder={checkedParams ? "7" : ""}
+                  value={analysisParams.widthFactorPeaks}
+                  onChangeFn={(e) => {
+                    updateParams({
+                      widthFactorPeaks: e.target.value,
+                    });
+                  }}
+                >
+                  <ErrorText id="widthFactorPeaksError" role="errorMsg">
+                    {errorMessages.widthFactorPeaks}
+                  </ErrorText>
+                </FormInput>
+              </FormModify>
+              <SmallLabel htmlFor="widthFactorValleys">Valleys</SmallLabel>
+              <FormModify>
+                <FormInput
+                  name="widthFactorValleys"
+                  placeholder={checkedParams ? "7" : ""}
+                  value={analysisParams.widthFactorValleys}
+                  onChangeFn={(e) => {
+                    updateParams({
+                      widthFactorValleys: e.target.value,
+                    });
+                  }}
+                >
+                  <ErrorText id="widthFactorValleysError" role="errorMsg">
+                    {errorMessages.widthFactorValleys}
+                  </ErrorText>
+                </FormInput>
+              </FormModify>
+            </InputErrorContainer>
+          </TwoParamContainer>
+        </AdvAnalysisContainer>
+        {pulse3dVersionGte("0.30.3") && (
+          <WellGroups
+            setAnalysisParams={setAnalysisParams}
+            analysisParams={analysisParams}
+            setWellGroupErr={setWellGroupErr}
+          />
+        )}
+      </InputContainerTwo>
     </Container>
   );
 }

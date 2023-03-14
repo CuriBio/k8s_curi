@@ -167,6 +167,37 @@ resource "aws_iam_role" "apiv2_pods" {
   assume_role_policy = data.aws_iam_policy_document.apiv2_pods.json
 }
 
+# resource "aws_iam_role_policy" "operators_iam_role_policy" {
+#   name        = "operators-iam-role01"
+#   role        = aws_iam_role.operators_pods.id
+
+#   policy = file("${path.module}/json/operators_${var.cluster_name}_iam_policy.json")
+# }
+
+data "aws_iam_policy_document" "operators_pods" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    effect  = "Allow"
+
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_iam_openid_connect_provider.default.url, "https://", "")}:sub"
+      values   = ["system:serviceaccount:kopf:operator"]
+    }
+
+    principals {
+      identifiers = [aws_iam_openid_connect_provider.default.arn]
+      type        = "Federated"
+    }
+  }
+}
+
+resource "aws_iam_role" "operators_pods" {
+  name = "operators-iam-role01"
+
+  assume_role_policy = data.aws_iam_policy_document.operators_pods.json
+}
+
 data "aws_region" "current" {}
 data "external" "thumbprint" {
   program = ["/bin/sh", "${path.module}/external/thumbprint.sh", data.aws_region.current.name]
@@ -197,18 +228,31 @@ module "eks" {
   map_users     = var.cluster_users
 
   node_groups = {
-    example = {
-      desired_capacity = 5
+    medium = {
+      desired_capacity = 8
       max_capacity     = 10
       min_capacity     = 1
 
       instance_types = ["t3a.medium"]
+      subnets = [var.private_subnets[0], var.private_subnets[1]]
 
       k8s_labels = {
-        Environment = "prod"
+        group = "workers"
       }
-      additional_tags = {
-        ExtraTag = "example"
+      update_config = {
+        max_unavailable_percentage = 50 # or set `max_unavailable`
+      }
+    },
+    argo = {
+      desired_capacity = 3
+      max_capacity     = 3
+      min_capacity     = 1
+
+      instance_types = ["t3a.medium"]
+      subnets = [var.private_subnets[2]]
+
+      k8s_labels = {
+        group = "argo"
       }
       update_config = {
         max_unavailable_percentage = 50 # or set `max_unavailable`

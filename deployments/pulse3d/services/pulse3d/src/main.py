@@ -24,7 +24,7 @@ from pulse3D.constants import (
     DEFAULT_WIDTH_FACTORS,
 )
 
-from auth import ProtectedAny, PULSE3D_USER_SCOPES, PULSE3D_SCOPES, split_scope_account_data
+from auth import ProtectedAny, PULSE3D_USER_SCOPES, PULSE3D_SCOPES, CUSTOMER_SCOPES, split_scope_account_data
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET, DASHBOARD_URL
 from jobs import (
     create_upload,
@@ -44,6 +44,7 @@ from models.models import (
     WaveformDataResponse,
     UploadDownloadRequest,
     GenericErrorResponse,
+    UsageQuota,
 )
 from models.types import TupleParam
 
@@ -167,7 +168,6 @@ async def create_recording_upload(
                     PULSE3D_UPLOADS_BUCKET,
                     upload_id=upload_id,
                 )
-
                 return UploadResponse(id=upload_id, params=params)
     except S3Error as e:
         logger.exception(str(e))
@@ -401,14 +401,18 @@ async def create_new_job(
             params.append("max_y")
         if pulse3d_semver >= "0.25.4":
             params.append("normalize_y_axis")
-        if pulse3d_semver >= "0.26.0":
-            params.append("stiffness_factor")
-        if pulse3d_semver >= "0.27.4":
-            params.append("inverted_post_magnet_wells")
         if pulse3d_semver >= "0.28.1":
             params.append("include_stim_protocols")
         if "0.28.2" > pulse3d_semver >= "0.25.2":
             params.append("peaks_valleys")
+        if pulse3d_semver >= "0.30.1":
+            # Tanner (2/7/23): these params added in earlier versions but there are bugs with using this param in re-analysis prior to 0.30.1
+            params.append("stiffness_factor")
+            params.append("inverted_post_magnet_wells")
+        if pulse3d_semver >= "0.30.3":
+            params.append("well_groups")
+        if pulse3d_semver >= "0.30.5":
+            params.append("stim_waveform_format")
 
         details_dict = dict(details)
 
@@ -455,11 +459,15 @@ async def create_new_job(
             if usage_quota["jobs_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
+            pulse3d_queue_to_use = f"pulse3d-v{details.version}"
+            if "admin:software" in user_scopes and pulse3d_semver >= "0.29.2":
+                pulse3d_queue_to_use = "test-" + pulse3d_queue_to_use
+
             # finally create job
             job_id = await create_job(
                 con=con,
                 upload_id=details.upload_id,
-                queue=f"pulse3d-v{details.version}",
+                queue=pulse3d_queue_to_use,
                 priority=priority,
                 meta={"analysis_params": analysis_params, "version": details.version},
                 customer_id=customer_id,
@@ -487,8 +495,14 @@ async def create_new_job(
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
 
         return JobResponse(
-            id=job_id, user_id=user_id, upload_id=details.upload_id, status="pending", priority=priority
+            id=job_id,
+            user_id=user_id,
+            upload_id=details.upload_id,
+            status="pending",
+            priority=priority,
+            usage_quota=usage_quota,
         )
+
     except Exception as e:
         logger.exception(f"Failed to create job: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -757,4 +771,24 @@ async def get_versions(request: Request):
 
     except Exception as e:
         logger.error(f"Failed to retrieve info of pulse3d versions: {repr(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.get("/usage", response_model=UsageQuota)
+async def get_usage_quota(
+    request: Request, service: str = Query(None), token=Depends(ProtectedAny(scope=PULSE3D_SCOPES))
+):
+    """Get the usage quota for the specific user"""
+    try:
+
+        customer_id = (
+            str(uuid.UUID(token["userid"]))
+            if token["scope"][0] in CUSTOMER_SCOPES
+            else str(uuid.UUID(token["customer_id"]))
+        )
+        async with request.state.pgpool.acquire() as con:
+            usage_quota = await check_customer_quota(con, customer_id, service)
+            return usage_quota
+    except Exception as e:
+        logger.exception(f"Failed to fetch quota usage :{repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

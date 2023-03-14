@@ -8,7 +8,6 @@ const BackgroundContainer = styled.div`
   display: flex;
   align-items: center;
   height: 100%;
-  width: 85%;
   flex-direction: column;
 `;
 

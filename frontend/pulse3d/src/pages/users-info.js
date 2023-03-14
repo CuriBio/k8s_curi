@@ -54,9 +54,6 @@ const ErrorText = styled.span`
   width: 85%;
   padding-top: 2%;
 `;
-const PageContainer = styled.div`
-  width: 85%;
-`;
 
 const Container = styled.div`
   position: relative;
@@ -363,12 +360,13 @@ export default function UserInfo() {
   const handleDropdownSelection = async (option) => {
     if (option === 0) {
       await sendUserActionPutRequest("delete");
-    } else if (option === 1) {
+    } else if (option === 1 || option === 2) {
       const checkUsersData = usersData.filter(({ id }) => checkedUsers.includes(id));
       let deactiveUsers = checkUsersData.filter(({ suspended }) => suspended).map(({ name }) => name);
+      setCheckedUsers(checkedUsers.filter(({ name }) => deactiveUsers.includes(name) === (option === 1)));
 
-      setCheckedUsers(checkedUsers.filter(({ name }) => deactiveUsers.includes(name)));
-      await sendUserActionPutRequest("deactivate");
+      const action = option === 1 ? "deactivate" : "reactivate";
+      await sendUserActionPutRequest(action);
     } else {
       await resendVerificationLink();
     }
@@ -377,9 +375,10 @@ export default function UserInfo() {
   const resendVerificationLink = async () => {
     try {
       const selectedUser = usersData.find(({ id }) => id === checkedUsers[0]);
-
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${selectedUser.email}&type=verify&user=true`
+        `${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${encodeURIComponent(
+          selectedUser.email
+        )}&type=verify&user=true`
       );
 
       if (res && res.status === 204) {
@@ -441,92 +440,95 @@ export default function UserInfo() {
 
   return (
     <>
-      <PageContainer>
-        <Container>
-          <DataTable
-            sortIcon={<></>}
-            responsive={true}
-            columns={columns.map((e) => {
-              return {
-                ...columnProperties,
-                ...e,
-              };
-            })}
-            data={displayData}
-            customStyles={customStyles}
-            pagination
-            defaultSortFieldId="lastLogin"
-            progressPending={loading}
-            progressComponent={
-              <SpinnerContainer>
-                <CircularSpinner size={200} color={"secondary"} />
-              </SpinnerContainer>
-            }
-            subHeader={true}
-            subHeaderComponent={
-              <DropDownContainer>
-                <DropDownWidget
-                  label="Actions"
-                  options={["Delete", "Deactivate", "Resend Verification Link"]}
-                  disableOptions={[
-                    checkedUsers.length === 0,
-                    checkedUsers.length === 0 ||
-                      usersData
-                        .filter((user) => checkedUsers.includes(user.id))
-                        .filter((checkedUsers) => checkedUsers.suspended).length !== 0,
-                    checkedUsers.length !== 1 ||
-                      (checkedUsers.length === 1 &&
-                        usersData.filter(({ id }) => checkedUsers.includes(id))[0].verified) ||
-                      (checkedUsers.length === 1 &&
-                        !usersData.filter(({ id }) => checkedUsers.includes(id))[0].verified &&
-                        usersData.filter(({ id }) => checkedUsers.includes(id))[0].verifyLink),
-                  ]}
-                  optionsTooltipText={[
-                    "Must make a selection below before actions become available.",
-                    "Must select a user who is active before actions become available.",
-                    "Must select an unverified user with an expired link.",
-                  ]}
-                  handleSelection={handleDropdownSelection}
-                  reset={resetDropdown}
-                />
-              </DropDownContainer>
-            }
-          />
-        </Container>
-        <ModalWidget
-          open={openVerifyModal}
-          width={500}
-          closeModal={closeVerificationModal}
-          header={"Verify User"}
-          labels={["Please enter a new password."]}
-          buttons={["Cancel", "Verify"]}
-        >
-          <PasswordInputContainer>
-            {!inProgress ? (
-              <PasswordForm
-                password1={passwords.password1}
-                password2={passwords.password2}
-                onChangePassword={onChangePassword}
-                setErrorMsg={setErrorMsg}
-              >
-                <ErrorText id="passwordError" role="errorMsg">
-                  {errorMsg}
-                </ErrorText>
-              </PasswordForm>
-            ) : (
-              <CircularSpinner size={150} color={"secondary"} />
-            )}
-          </PasswordInputContainer>
-        </ModalWidget>
-        <ModalWidget
-          open={openErrorModal}
-          width={500}
-          closeModal={resetTable}
-          header={"Error Occurred!"}
-          labels={["Something went wrong while performing this action.", "Please try again later."]}
-          buttons={["Close"]}
+      <Container>
+        <DataTable
+          sortIcon={<></>}
+          responsive={true}
+          columns={columns.map((e) => {
+            return {
+              ...columnProperties,
+              ...e,
+            };
+          })}
+          data={displayData}
+          customStyles={customStyles}
+          pagination
+          defaultSortFieldId="lastLogin"
+          progressPending={loading}
+          progressComponent={
+            <SpinnerContainer>
+              <CircularSpinner size={200} color={"secondary"} />
+            </SpinnerContainer>
+          }
+          subHeader={true}
+          subHeaderComponent={
+            <DropDownContainer>
+              <DropDownWidget
+                label="Actions"
+                options={["Delete", "Deactivate", "Reactivate", "Resend Verification Link"]}
+                disableOptions={[
+                  checkedUsers.length === 0,
+                  checkedUsers.length === 0 ||
+                    usersData
+                      .filter((user) => checkedUsers.includes(user.id))
+                      .filter((checkedUsers) => checkedUsers.suspended).length !== 0,
+                  checkedUsers.length === 0 ||
+                    usersData
+                      .filter((user) => checkedUsers.includes(user.id))
+                      .filter((checkedUsers) => !checkedUsers.suspended).length !== 0,
+                  checkedUsers.length !== 1 ||
+                    (checkedUsers.length === 1 &&
+                      usersData.filter(({ id }) => checkedUsers.includes(id))[0].verified) ||
+                    (checkedUsers.length === 1 &&
+                      !usersData.filter(({ id }) => checkedUsers.includes(id))[0].verified &&
+                      usersData.filter(({ id }) => checkedUsers.includes(id))[0].verifyLink),
+                ]}
+                optionsTooltipText={[
+                  "Must make a selection below before action become available.",
+                  "Must select a user who is active before action become available.",
+                  "Must select a user who is suspended before action become available.",
+                  "Must select an unverified user with an expired link.",
+                ]}
+                handleSelection={handleDropdownSelection}
+                reset={resetDropdown}
+              />
+            </DropDownContainer>
+          }
         />
-      </PageContainer>
+      </Container>
+      <ModalWidget
+        open={openVerifyModal}
+        width={500}
+        closeModal={closeVerificationModal}
+        header={"Verify User"}
+        labels={["Please enter a new password."]}
+        buttons={["Cancel", "Verify"]}
+      >
+        <PasswordInputContainer>
+          {!inProgress ? (
+            <PasswordForm
+              password1={passwords.password1}
+              password2={passwords.password2}
+              onChangePassword={onChangePassword}
+              setErrorMsg={setErrorMsg}
+            >
+              <ErrorText id="passwordError" role="errorMsg">
+                {errorMsg}
+              </ErrorText>
+            </PasswordForm>
+          ) : (
+            <CircularSpinner size={150} color={"secondary"} />
+          )}
+        </PasswordInputContainer>
+      </ModalWidget>
+      <ModalWidget
+        open={openErrorModal}
+        width={500}
+        closeModal={resetTable}
+        header={"Error Occurred!"}
+        labels={["Something went wrong while performing this action.", "Please try again later."]}
+        buttons={["Close"]}
+      />
     </>
   );
 }

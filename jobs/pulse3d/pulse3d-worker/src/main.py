@@ -13,10 +13,11 @@ import boto3
 import pandas as pd
 import numpy as np
 
-from pulse3D.plate_recording import PlateRecording
+from pulse3D.constants import MICRO_TO_BASE_CONVERSION
+from pulse3D.constants import WELL_NAME_UUID
 from pulse3D.excel_writer import write_xlsx
 from pulse3D.peak_detection import peak_detector
-from pulse3D.constants import WELL_NAME_UUID
+from pulse3D.plate_recording import PlateRecording
 
 from jobs import get_item, EmptyQueue
 from utils.s3 import upload_file_to_s3
@@ -129,20 +130,22 @@ async def process(con, item):
                 # Tanner (10/7/22): popping these args out of analysis_params here since write_xlsx doesn't take them as a kwarg
                 plate_recording_args = {
                     arg_name: analysis_params.pop(arg_name, None)
-                    for arg_name in ("stiffness_factor", "inverted_post_magnet_wells")
+                    for arg_name in ("stiffness_factor", "inverted_post_magnet_wells", "well_groups")
                 }
 
+                use_existing_time_v_force = re_analysis and not any(plate_recording_args.values())
+
                 logger.info("Starting pulse3d analysis")
-                if re_analysis and not any(plate_recording_args.values()):
+                if use_existing_time_v_force:
                     # if any plate recording args are provided, can't load from data frame since a re-analysis is required to recalculate the waveforms
                     logger.info(f"Loading previous time force data from {parquet_filename}")
                     recording_df = pd.read_parquet(parquet_path)
-
-                    # check for old parquet files that do not have peaks and valleys yet
+                    # well groups should always be added regardless of reanalysis
+                    well_groups = plate_recording_args.get("well_groups", None)
 
                     try:
                         recording = PlateRecording.from_dataframe(
-                            os.path.join(tmpdir, filename), df=recording_df
+                            os.path.join(tmpdir, filename), df=recording_df, well_groups=well_groups
                         )
                         recordings = list(recording)
                     except:
@@ -163,7 +166,7 @@ async def process(con, item):
                 logger.exception(f"PlateRecording failed: {e}")
                 raise
 
-            if re_analysis:
+            if use_existing_time_v_force:
                 logger.info("Skipping step to write time force data for upload")
             else:
                 try:
@@ -186,19 +189,22 @@ async def process(con, item):
                     # this is to handle analyses run before PR.to_dataframe() where time is in seconds
                     time = recording_df[columns[0]].tolist()
                     peak_detector_args = {
-                        param: analysis_params[param]
+                        param: val
                         for param in ("prominence_factors", "width_factors", "start_time", "end_time")
-                        if analysis_params.get(param) is not None
+                        if (val := analysis_params.get(param)) is not None
                     }
+                    for param in ("start_time", "end_time"):
+                        if param in peak_detector_args:
+                            # these values are in seconds but need to be converted to µs for peak_detector
+                            peak_detector_args[param] *= MICRO_TO_BASE_CONVERSION
 
                     peaks_valleys_for_df = dict()
                     for well in columns:
                         if not _is_valid_well_name(well):
                             continue
+
                         logger.info(f"Finding peaks and valleys for well {well}")
-
                         well_force = recording_df[well].dropna().tolist()
-
                         interpolated_well_data = np.row_stack([time[: len(well_force)], well_force])
                         peaks, valleys = peak_detector(interpolated_well_data, **peak_detector_args)
 

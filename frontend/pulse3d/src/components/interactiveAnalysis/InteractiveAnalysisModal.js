@@ -11,6 +11,7 @@ import { UploadsContext } from "@/components/layouts/DashboardLayout";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
 import semverGte from "semver/functions/gte";
+import { AuthContext } from "@/pages/_app";
 
 const Container = styled.div`
   height: 100%;
@@ -144,7 +145,11 @@ const wellNames = Array(24)
   .fill()
   .map((_, idx) => twentyFourPlateDefinition.getWellNameFromIndex(idx));
 
-export default function InteractiveWaveformModal({ selectedJob, setOpenInteractiveAnalysis }) {
+export default function InteractiveWaveformModal({
+  selectedJob,
+  setOpenInteractiveAnalysis,
+  numberOfJobsInUpload,
+}) {
   const [selectedWell, setSelectedWell] = useState("A1");
   const [uploadInProgress, setUploadInProgress] = useState(false); // determines state of interactive analysis upload
   const [originalData, setOriginalData] = useState({}); // original waveform data from GET request, unedited
@@ -162,6 +167,8 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   const [undoing, setUndoing] = useState(false);
   const [peakValleyWindows, setPeakValleyWindows] = useState({});
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+  const [creditUsageAlert, setCreditUsageAlert] = useState(false);
+  const { usageQuota } = useContext(AuthContext);
 
   const handleDuplicatesModalClose = (isRunAnalysisOption) => {
     setDuplicateModalOpen(false);
@@ -185,6 +192,9 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     // only available for versions greater than 0.25.2
     const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.25.2"));
     setFilteredVersions([...compatibleVersions]);
+    if (usageQuota && usageQuota.limits && numberOfJobsInUpload >= 2 && usageQuota.limits.jobs !== -1) {
+      setCreditUsageAlert(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -332,46 +342,72 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   useMemo(checkForExistingData, [selectedJob]);
 
   const setInitialPeakValleyWindows = () => {
-    const pvCopy = peakValleyWindows;
+    const pvCopy = JSON.parse(JSON.stringify(peakValleyWindows));
+
     for (const well of Object.keys(originalData.peaks_valleys)) {
-      pvCopy[well] = { minPeaks: findLowestPeak(well), maxValleys: findHighestValley(well) };
+      pvCopy[well] = {
+        minPeaks: findLowestPeak(well),
+        maxValleys: findHighestValley(well),
+      };
     }
+
     setPeakValleyWindows({
       ...pvCopy,
     });
   };
 
   const findLowestPeak = (well) => {
+    const { coordinates, peaks_valleys } = originalData;
+    const { startTime, endTime } = editableStartEndTimes;
     // arbitrarily set to first peak
-    const wellSpecificPeaks = originalData.peaks_valleys[well][0];
+    const wellSpecificPeaks = peaks_valleys[well][0];
+    const wellSpecificCoords = coordinates[well];
+
     // consider when no peaks or valleys were found in a well
     if (wellSpecificPeaks.length > 0) {
       let lowest = wellSpecificPeaks[0];
 
       wellSpecificPeaks.map((peak) => {
-        const yCoord = originalData.coordinates[well][peak][1];
-        const peakToCompare = originalData.coordinates[well][lowest][1];
-        if (yCoord < peakToCompare) lowest = peak;
+        const yCoord = wellSpecificCoords[peak][1];
+        const peakToCompare = wellSpecificCoords[lowest][1];
+        // only use peaks inside windowed analysis times
+        const timeOfPeak = wellSpecificCoords[peak][0];
+        const isLessThanEndTime = !endTime || timeOfPeak <= endTime;
+        const isGreaterThanStartTime = !startTime || timeOfPeak >= startTime;
+        // filter for peaks inside windowed time
+        if (yCoord < peakToCompare && isGreaterThanStartTime && isLessThanEndTime) lowest = peak;
       });
 
       // return  y coordinate of lowest peak
-      return originalData.coordinates[well][lowest][1];
+      return wellSpecificCoords[lowest][1];
     }
   };
 
   const findHighestValley = (well) => {
+    const { coordinates, peaks_valleys } = originalData;
+    const { startTime, endTime } = editableStartEndTimes;
     // arbitrarily set to first valley
-    const wellSpecificValleys = originalData.peaks_valleys[well][1];
+    const wellSpecificValleys = peaks_valleys[well][1];
+    const wellSpecificCoords = coordinates[well];
+
     // consider when no peaks or valleys were found in a well
     if (wellSpecificValleys.length > 0) {
       let highest = wellSpecificValleys[0];
+
       wellSpecificValleys.map((valley) => {
-        const yCoord = originalData.coordinates[well][valley][1];
-        const valleyToCompare = originalData.coordinates[well][highest][1];
-        if (yCoord > valleyToCompare) highest = valley;
+        const yCoord = wellSpecificCoords[valley][1];
+        const valleyToCompare = wellSpecificCoords[highest][1];
+
+        // only use valleys inside windowed analysis times
+        const timeOfValley = wellSpecificCoords[valley][0];
+        const isLessThanEndTime = !endTime || timeOfValley <= endTime;
+        const isGreaterThanStartTime = !startTime || timeOfValley >= startTime;
+
+        if (yCoord > valleyToCompare && isLessThanEndTime && isGreaterThanStartTime) highest = valley;
       });
+
       // return  y coordinate of highest valley
-      return originalData.coordinates[well][highest][1];
+      return wellSpecificCoords[highest][1];
     }
   };
 
@@ -762,7 +798,14 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
                   </TooltipText>
                 }
               >
-                <InfoOutlinedIcon sx={{ "&:hover": { color: "var(--teal-green)", cursor: "pointer" } }} />
+                <InfoOutlinedIcon
+                  sx={{
+                    "&:hover": {
+                      color: "var(--teal-green)",
+                      cursor: "pointer",
+                    },
+                  }}
+                />
               </Tooltip>
             </VersionDropdownLabel>
             <DropDownWidget
@@ -828,6 +871,14 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
             ? changelog[selectedWell].map(({ message }) => message)
             : ["No changes found."]
         }
+      />
+      <ModalWidget
+        open={creditUsageAlert}
+        labels={["This re-analysis will consume 1 analysis credit."]}
+        closeModal={() => {
+          setCreditUsageAlert(false);
+        }}
+        header={"Attention!"}
       />
     </Container>
   );

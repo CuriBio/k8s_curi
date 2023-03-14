@@ -21,9 +21,11 @@ spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
-          storage: 10Mi
+          storage: 100Mi
   templates:
   - name: ci-build
+    nodeSelector:
+      group: argo
     dag:
       tasks:
       - name: checkout
@@ -115,9 +117,11 @@ spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
-          storage: 10Mi
+          storage: 100Mi
   templates:
   - name: ci-build-push
+    nodeSelector:
+      group: argo
     dag:
       tasks:
       - name: checkout

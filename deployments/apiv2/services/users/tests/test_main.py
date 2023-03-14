@@ -107,7 +107,15 @@ def test_login__user__success(cb_customer_id, mocked_asyncpg_con, mocker):
     mocked_usage_check = mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"uploads_reached": True, "jobs_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         autospec=True,
     )
     login_details = {
@@ -159,7 +167,15 @@ def test_login__customer__success(mocked_asyncpg_con, mocker):
     mocked_usage_check = mocker.patch.object(
         main,
         "check_customer_quota",
-        return_value={"uploads_reached": True, "jobs_reached": False},
+        return_value={
+            "current": {
+                "uploads": "0",
+                "jobs": "0",
+            },
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
         asutospec=True,
     )
 
@@ -654,7 +670,8 @@ def test_user_id__put__successful_deletion(mocked_asyncpg_con):
     )
 
 
-def test_user_id__put__successful_deactivation(mocked_asyncpg_con):
+@pytest.mark.parametrize("action", ["deactivate", "reactivate"])
+def test_user_id__put__successful_deactivation_reactivation(mocked_asyncpg_con, action):
     test_customer_id = uuid.uuid4()
     access_token = get_token(userid=test_customer_id, account_type="customer")
 
@@ -662,13 +679,13 @@ def test_user_id__put__successful_deactivation(mocked_asyncpg_con):
 
     response = test_client.put(
         f"/{test_user_id}",
-        json={"action_type": "deactivate"},
+        json={"action_type": action},
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 200
 
     mocked_asyncpg_con.execute.assert_called_once_with(
-        "UPDATE users SET suspended='t' WHERE id=$1", test_user_id
+        "UPDATE users SET suspended=$1 WHERE id=$2", action == "deactivate", test_user_id
     )
 
 

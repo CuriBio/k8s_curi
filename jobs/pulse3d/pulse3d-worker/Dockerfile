@@ -19,5 +19,9 @@ WORKDIR /app
 COPY ./jobs/pulse3d/pulse3d-worker/src/main.py ./
 COPY ./jobs/pulse3d/pulse3d-worker/src/lib ./lib
 
+RUN useradd main_user && groupadd main_group
+RUN chown -R main_user:main_group /app
+USER main_user:main_group
+
 ENV PYTHONUNBUFFERED 1
 CMD ["python", "main.py"]

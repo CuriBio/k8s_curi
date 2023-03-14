@@ -38,14 +38,3 @@ variable "cluster_users" {
     groups    = list(string)
   }))
 }
-
-# variable "worker_groups" {
-#   type = list(object({
-#     name                  = string
-#     instance_type         = string
-#     additional_userdata   = string
-#     asg_desired_capacity  = number
-
-#     additional_security_group_ids = list(any)
-#   }))
-# }
