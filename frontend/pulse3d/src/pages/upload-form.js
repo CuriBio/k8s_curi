@@ -293,7 +293,6 @@ export default function UploadForm() {
       if (semverGte(version, "0.30.5")) {
         requestBody.stim_waveform_format = stimWaveformFormat === "" ? null : stimWaveformFormat;
       }
-
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
         method: "POST",
         body: JSON.stringify(requestBody),

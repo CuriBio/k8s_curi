@@ -410,6 +410,11 @@ spec:
             secretKeyRef:
               name: db-migrations
               key: table_user_pass_ro
+        - name: PULSE3D_QUEUE_PROCESSOR_RO_PASS
+          valueFrom:
+            secretKeyRef:
+              name: db-migrations
+              key: pulse3d_queue_processor_ro
       volumeMounts:
         - name: workdir
           mountPath: /tmp/git
