@@ -18,4 +18,4 @@ RUN useradd main_user && groupadd main_group
 RUN chown -R main_user:main_group /app
 USER main_user:main_group
 
-CMD kopf run -A --standalone /main.py --verbose
+CMD kopf run -A --standalone main.py --verbose
