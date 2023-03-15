@@ -13,7 +13,8 @@
         "ecr:UploadLayerPart",
         "ecr:GetAuthorizationToken",
         "ecr:DescribeRepositories",
-        "ecr:ListTagsForResource"
+        "ecr:ListTagsForResource",
+        "ecr:CreateRepository"
       ],
       "Resource": ["*"]
     },
