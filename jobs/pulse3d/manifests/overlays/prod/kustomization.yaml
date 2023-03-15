@@ -8,11 +8,11 @@ resources:
 
 patchesJson6902:
 - target:
-    kind: jobRunner
+    kind: JobRunner
     name: pulse3d-queue-processor
   patch: |-
     - op: add
-      path: /spec/3/ecr_repo
+      path: /spec/ecr_repo
       value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker"
 - target:
     kind: ScaledJob
