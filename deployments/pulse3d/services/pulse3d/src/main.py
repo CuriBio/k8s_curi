@@ -439,20 +439,25 @@ async def create_new_job(
             analysis_params[param] = _format_tuple_param(analysis_params[param], default_values)
 
         logger.info(f"Using v{details.version} with params: {analysis_params}")
-        # check if pulse3d version is available
-        pulse3d_version_status = await con.fetchrow(
-            "SELECT state, end_of_life_date FROM pulse3d_versions WHERE version = $1", details.version
-        )
-        if (
-            pulse3d_version_status.state == "deprecated"
-            and datetime.strptime(pulse3d_version_status.end_of_life_date, "%Y-%m-%d") > datetime.now()
-        ):
-            return GenericErrorResponse(
-                message="Attempted to use pulse3d version that is removed", error="pulse3dVersionError"
-            )
 
         priority = 10
         async with request.state.pgpool.acquire() as con:
+            # check if pulse3d version is available
+            # if deprecated and enf of life date passed then cancel the uplaod
+            # if end of life date is none then pulse3d version is usable
+            pulse3d_version_status = await con.fetchrow(
+                "SELECT state, end_of_life_date FROM pulse3d_versions WHERE version = $1", details.version
+            )
+            status_name = pulse3d_version_status["state"]
+            end_of_life_date = pulse3d_version_status["end_of_life_date"]
+
+            if status_name == "deprecated" and (
+                end_of_life_date is not None
+                and datetime.strptime(end_of_life_date, "%Y-%m-%d") > datetime.now()
+            ):
+                return GenericErrorResponse(
+                    message="Attempted to use pulse3d version that is removed", error="pulse3dVersionError"
+                )
             # first check user_id of upload matches user_id in token
             # Luci (12/14/2022) checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
             # Luci (12/14/2022) customer id is checked already because the customer_id in the token is being used to find upload details
