@@ -158,9 +158,9 @@ async def get_jobs(*, con, account_type, account_id, job_ids=None):
 async def create_job(*, con, upload_id, queue, priority, meta, customer_id, job_type):
     # the WITH clause in this query is necessary to make sure the given upload_id actually exists
     enqueue_job_query = (
-        "WITH row AS (SELECT id FROM uploads WHERE id=$1) "
+        "WITH row AS (SELECT id, user_id FROM uploads WHERE id=$1) "
         "INSERT INTO jobs_queue (upload_id, queue, priority, meta) SELECT id, $2, $3, $4 FROM row "
-        "RETURNING id"
+        "RETURNING id, row.user_id"
     )
     async with con.transaction():
         # add job to queue
