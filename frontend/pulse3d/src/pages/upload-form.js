@@ -327,24 +327,27 @@ export default function UploadForm() {
         Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
       badZipfiles = await asyncFilter(files, async (file) => {
-        try {
-          const zip = new JSZip();
-          const { files: loadedFiles } = await zip.loadAsync(file);
+        //only run these checks if is zip file
+        if (file && file.type == "application/x-zip-compressed") {
+          try {
+            const zip = new JSZip();
+            const { files: loadedFiles } = await zip.loadAsync(file);
 
-          const dirs = Object.values(loadedFiles).filter(({ dir }) => dir);
-          const onlyOneRec = dirs.length === 0 || dirs.length === 1;
+            const dirs = Object.values(loadedFiles).filter(({ dir }) => dir);
+            const onlyOneRec = dirs.length === 0 || dirs.length === 1;
 
-          const numFilesInRecording = Object.keys(loadedFiles).filter(
-            (filename) => filename.includes(".h5") && !filename.includes("__MACOSX")
-          ).length;
+            const numFilesInRecording = Object.keys(loadedFiles).filter(
+              (filename) => filename.includes(".h5") && !filename.includes("__MACOSX")
+            ).length;
 
-          // Beta 1 recordings will contain 24 files, Beta 2 and V1 recordings will contain 48
-          const recordingContainsValidNumFiles = numFilesInRecording === 24 || numFilesInRecording === 48;
-          return !onlyOneRec || !recordingContainsValidNumFiles;
-        } catch (e) {
-          console.log(`ERROR unable to read zip file: ${file.filename} ${e}`);
-          failedUploadsMsg.push(file.filename);
-          return true;
+            // Beta 1 recordings will contain 24 files, Beta 2 and V1 recordings will contain 48
+            const recordingContainsValidNumFiles = numFilesInRecording === 24 || numFilesInRecording === 48;
+            return !onlyOneRec || !recordingContainsValidNumFiles;
+          } catch (e) {
+            console.log(`ERROR unable to read zip file: ${file.filename} ${e}`);
+            failedUploadsMsg.push(file.filename);
+            return true;
+          }
         }
       });
       setBadZipFiles(badZipfiles);
