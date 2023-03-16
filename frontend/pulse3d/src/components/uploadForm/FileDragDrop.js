@@ -2,7 +2,7 @@ import styled from "styled-components";
 import { FileUploader } from "react-drag-drop-files";
 import { useEffect } from "react";
 
-const fileTypes = ["zip"];
+const fileTypes = ["zip", "xlsx"];
 
 const Container = styled.div`
   left: 5%;
