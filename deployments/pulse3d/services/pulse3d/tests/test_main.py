@@ -978,7 +978,7 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocked_asyncpg_con
     assert mocked_create_job.call_args[1]["meta"]["analysis_params"] == expected_analysis_params
 
 
-# Tanner (3/13/23): only really need to test versions that are live in prod are being tested in test cluster
+# Tanner (3/13/23): only really need to test versions that are live in prod or are being tested in test cluster
 @pytest.mark.parametrize("version", ["0.25.2", "0.25.4", "0.28.0", "0.28.2", "0.28.3", "0.30.4", "0.30.4"])
 def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d_version(
     version, mocked_asyncpg_con, mocker
@@ -1514,5 +1514,5 @@ def test_versions__get(token, mocked_asyncpg_con):
     assert response.json() == expected_version_dicts
 
     mocked_asyncpg_con.fetch.assert_called_once_with(
-        "SELECT version, state FROM pulse3d_versions WHERE state != 'deprecated' ORDER BY created_at"
+        "SELECT version, state, end_of_life_date FROM pulse3d_versions WHERE end_of_life_date  > NOW() OR end_of_life_date IS null   ORDER BY created_at"
     )

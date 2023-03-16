@@ -16,6 +16,9 @@ depends_on = None
 
 
 def upgrade():
+    op.execute(
+        "ALTER TABLE pulse3d_versions ADD CONSTRAINT deprecated_version_must_have_end_of_life_date CHECK(status <> 'deprecated' OR end_of_life_date IS NOT NULL)"
+    )
     op.execute("ALTER TABLE pulse3d_versions ADD COLUMN end_of_life_date DATE DEFAULT null")
 
 

@@ -778,8 +778,10 @@ async def get_versions(request: Request):
     """Retrieve info of all the active pulse3d releases listed in the DB."""
     try:
         async with request.state.pgpool.acquire() as con:
+            # check if the pulse3d version has reached its end of life
+            # only deprected versions should have an end of life date, othere wise it is null
             rows = await con.fetch(  # TODO should eventually sort these using a more robust method
-                "SELECT version, state, end_of_life_date FROM pulse3d_versions WHERE end_of_life_date  > NOW() OR end_of_life_date IS null   ORDER BY created_at"
+                "SELECT version, state, end_of_life_date FROM pulse3d_versions WHERE state != 'deprecated' OR NOW() < end_of_life_date ORDER BY created_at"
             )
         return [dict(row) for row in rows]
 
