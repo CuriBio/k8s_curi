@@ -443,7 +443,7 @@ async def create_new_job(
         priority = 10
         async with request.state.pgpool.acquire() as con:
             # check if pulse3d version is available
-            # if deprecated and enf of life date passed then cancel the uplaod
+            # if deprecated and end of life date passed then cancel the upload
             # if end of life date is none then pulse3d version is usable
             pulse3d_version_status = await con.fetchrow(
                 "SELECT state, end_of_life_date FROM pulse3d_versions WHERE version = $1", details.version
