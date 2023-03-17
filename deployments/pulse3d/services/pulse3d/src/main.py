@@ -445,10 +445,11 @@ async def create_new_job(
             # first check user_id of upload matches user_id in token
             # Luci (12/14/2022) checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
             # Luci (12/14/2022) customer id is checked already because the customer_id in the token is being used to find upload details
+            row = await con.fetchrow("SELECT user_id FROM uploads where id=$1", details.upload_id)
+            original_upload_user = str(row["user_id"])
             if "pulse3d:rw_all_data" not in user_scopes:
-                row = await con.fetchrow("SELECT user_id FROM uploads where id=$1", details.upload_id)
                 # if users don't match and they don't have an all_data scope, then raise unauth error
-                if user_id != str(row["user_id"]):
+                if user_id != original_upload_user:
                     return GenericErrorResponse(
                         message="User does not have authorization to start this job.",
                         error="AuthorizationError",
@@ -459,9 +460,11 @@ async def create_new_job(
             if usage_quota["jobs_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
-            pulse3d_queue_to_use = f"pulse3d-v{details.version}"
-            if "admin:software" in user_scopes and pulse3d_semver >= "0.29.2":
-                pulse3d_queue_to_use = "test-" + pulse3d_queue_to_use
+            pulse3d_queue_to_use = (
+                f"test-pulse3d-v{details.version}"
+                if "admin:software" in user_scopes and pulse3d_semver >= "0.30.4"
+                else f"pulse3d-v{details.version}"
+            )
 
             # finally create job
             job_id = await create_job(
@@ -477,7 +480,7 @@ async def create_new_job(
             # Luci (12/1/22): this happens after the job is already created to have access to the job id, hopefully this doesn't cause any issues with the job starting before the file is uploaded to s3
             # Versions less than 0.28.2 should not be in the dropdown as an option, this is just an extra check for versions greater than 0.28.2
             if details.peaks_valleys and pulse3d_semver >= "0.28.2":
-                key = f"uploads/{customer_id}/{user_id}/{details.upload_id}/{job_id}/peaks_valleys.parquet"
+                key = f"uploads/{customer_id}/{original_upload_user}/{details.upload_id}/{job_id}/peaks_valleys.parquet"
                 logger.info(f"Peaks and valleys found in job request, uploading to s3: {key}")
 
                 # only added during interactive analysis
