@@ -19,7 +19,7 @@ loki:
 
   storage_config:
     aws:
-      s3: "TODO Should be test cluster s3 bucket for logs"
+      s3: test-loki-logs
       insecure: false
       s3forcepathstyle: true
     boltdb_shipper:
@@ -32,8 +32,8 @@ loki:
         directory: /var/loki/rules
 serviceAccount:
   create: true
-  annotations:
-    eks.amazonaws.com/role-arn: "TODO"
+  # annotations:
+  #   eks.amazonaws.com/role-arn: "TODO"
 write:
   replicas: 2
 
