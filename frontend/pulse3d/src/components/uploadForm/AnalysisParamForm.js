@@ -176,7 +176,7 @@ export default function AnalysisParamForm({
     if (selectedVersionMetadata) {
       setPulse3dVersionEOLDate(
         selectedVersionMetadata.end_of_life_date
-          ? ` Version ${selectedVersionMetadata.version} will be removed after ${electedVersionMetaData.end_of_life_date}.`
+          ? ` Version ${selectedVersionMetadata.version} will be removed after ${selectedVersionMetadata.end_of_life_date}.`
           : `Version ${selectedVersionMetadata.version} will be removed soon.`
       );
       setDeprecationNotice(selectedVersionMetadata.state === "deprecated");

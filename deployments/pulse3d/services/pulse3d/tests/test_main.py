@@ -479,7 +479,11 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
     test_version = random_semver(max_version="0.24.0")
 
     access_token = get_token(scope=["pulse3d:free"], userid=test_user_id, customer_id=test_customer_id)
-    mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "user_id": test_user_id,
+        "state": "external",
+        "end_of_life_date": None,
+    }
 
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=expected_job_id)
     mocker.patch.object(
@@ -554,7 +558,11 @@ def test_jobs__post__returns_unauthorized_error_if_user_ids_dont_match(mocked_as
     test_version = random_semver(max_version="0.24.0")
 
     access_token = get_token(scope=test_token_scope, userid=test_user_id, customer_id=test_customer_id)
-    mocked_asyncpg_con.fetchrow.return_value = {"user_id": diff_user_id}
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "user_id": diff_user_id,
+        "state": "external",
+        "end_of_life_date": None,
+    }
 
     kwargs = {
         "json": {"upload_id": str(test_upload_id), "version": test_version},
@@ -573,7 +581,11 @@ def test_jobs__post__basic_params_given(mocker, mocked_asyncpg_con):
 
     access_token = get_token(scope=["pulse3d:free"], userid=test_user_id, account_type="user")
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
-    mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "user_id": test_user_id,
+        "state": "external",
+        "end_of_life_date": None,
+    }
     mocker.patch.object(
         main,
         "check_customer_quota",
@@ -637,7 +649,11 @@ def test_jobs__post__correctly_updates_peak_valley_indices_based_on_differing_pu
 
     test_user_id = uuid.uuid4()
     access_token = get_token(scope=["pulse3d:free"], userid=test_user_id, account_type="user")
-    mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "user_id": test_user_id,
+        "state": "external",
+        "end_of_life_date": None,
+    }
 
     mocker.patch.object(
         main,
@@ -702,7 +718,11 @@ def test_jobs__post__correctly_updates_peak_valley_indices_based_on_differing_pu
     access_token = get_token(
         scope=["pulse3d:free"], userid=test_user_id, account_type="user", customer_id=test_customer_id
     )
-    mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "user_id": test_user_id,
+        "state": "external",
+        "end_of_life_date": None,
+    }
 
     mocker.patch.object(
         main,
@@ -787,7 +807,11 @@ def test_jobs__post__uploads_peaks_and_valleys_when_passed_into_request(mocker, 
     )
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
     mocked_upload_to_s3 = mocker.patch.object(main, "upload_file_to_s3", autospec=True)
-    mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "user_id": test_user_id,
+        "state": "external",
+        "end_of_life_date": None,
+    }
     spied_tempdir = mocker.spy(tempfile, "TemporaryDirectory")
     mocker.patch.object(
         main,
@@ -838,7 +862,11 @@ def test_jobs__post__returns_error_dict_if_quota_has_been_reached(mocker, mocked
     mocked_usage_check = mocker.patch.object(
         main, "check_customer_quota", return_value=usage_dict, autospec=True
     )
-    mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "user_id": test_user_id,
+        "state": "external",
+        "end_of_life_date": None,
+    }
 
     test_analysis_params = {"twitch_widths": [10, 20], "start_time": 0, "end_time": 1}
     access_token = get_token(scope=["pulse3d:free"], userid=test_user_id, account_type="user")
@@ -881,7 +909,11 @@ def test_jobs__post__advanced_params_given(param_name, mocked_asyncpg_con, param
         },
         autospec=True,
     )
-    mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "user_id": test_user_id,
+        "state": "external",
+        "end_of_life_date": None,
+    }
 
     kwargs = {
         "json": {
@@ -938,7 +970,11 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocked_asyncpg_con
         autospec=True,
     )
     test_user_id = uuid.uuid4()
-    mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "user_id": test_user_id,
+        "state": "external",
+        "end_of_life_date": None,
+    }
     test_analysis_params = {"baseline_widths_to_use": param_tuple}
     access_token = get_token(scope=["pulse3d:free"], userid=test_user_id)
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
@@ -979,14 +1015,18 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocked_asyncpg_con
 
 
 # Tanner (3/13/23): only really need to test versions that are live in prod or are being tested in test cluster
-@pytest.mark.parametrize("version", ["0.25.2", "0.25.4", "0.28.0", "0.28.2", "0.28.3", "0.30.4", "0.30.4"])
+@pytest.mark.parametrize("version", ["0.25.2", "0.25.4", "0.28.0", "0.28.2", "0.28.3", "0.30.4", "0.30.5"])
 def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d_version(
     version, mocked_asyncpg_con, mocker
 ):
     test_user_id = uuid.uuid4()
     access_token = get_token(scope=["pulse3d:free"], userid=test_user_id)
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
-    mocked_asyncpg_con.fetchrow.return_value = {"user_id": test_user_id}
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "user_id": test_user_id,
+        "state": "external",
+        "end_of_life_date": None,
+    }
     mocker.patch.object(
         main,
         "check_customer_quota",
@@ -1514,5 +1554,5 @@ def test_versions__get(token, mocked_asyncpg_con):
     assert response.json() == expected_version_dicts
 
     mocked_asyncpg_con.fetch.assert_called_once_with(
-        "SELECT version, state, end_of_life_date FROM pulse3d_versions WHERE end_of_life_date  > NOW() OR end_of_life_date IS null   ORDER BY created_at"
+        "SELECT version, state, end_of_life_date FROM pulse3d_versions WHERE state != 'deprecated' OR NOW() < end_of_life_date ORDER BY created_at"
     )
