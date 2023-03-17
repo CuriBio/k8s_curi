@@ -1,0 +1,6 @@
+helmCharts:
+  - name: grafana
+    releaseName: grafana-loki
+    repo: https://grafana.github.io/helm-charts
+    # version: 4.6.0
+    namespace: loki
