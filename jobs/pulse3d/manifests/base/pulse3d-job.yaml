@@ -234,19 +234,11 @@ spec:
         passwordFromEnv: POSTGRES_PASSWORD
         query: "SELECT ceil(COUNT(*)::decimal / 4) FROM (SELECT id FROM jobs_queue WHERE meta->>'version'='0.29.2' FOR UPDATE SKIP LOCKED) q"
         targetQueryValue: "1"
-<<<<<<< HEAD:jobs/manifests/base/pulse3d-job.yaml
-
-=======
->>>>>>> RC-03-16-23:jobs/pulse3d/manifests/base/pulse3d-job.yaml
 ---
 apiVersion: keda.sh/v1alpha1
 kind: ScaledJob
 metadata:
-<<<<<<< HEAD:jobs/manifests/base/pulse3d-job.yaml
-  name: pulse3d-scaledobject-0.30.0
-=======
   name: pulse3d-scaledobject-0.30.4
->>>>>>> RC-03-16-23:jobs/pulse3d/manifests/base/pulse3d-job.yaml
   namespace: pulse3d
 spec:
   jobTargetRef:
@@ -256,11 +248,7 @@ spec:
       spec:
         containers:
           - name: pulse3d-worker
-<<<<<<< HEAD:jobs/manifests/base/pulse3d-job.yaml
-            image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.30.0
-=======
             image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.30.4
->>>>>>> RC-03-16-23:jobs/pulse3d/manifests/base/pulse3d-job.yaml
             imagePullPolicy: Always
             env:
               - name: POSTGRES_PASSWORD
