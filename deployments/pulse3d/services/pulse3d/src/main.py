@@ -442,13 +442,30 @@ async def create_new_job(
 
         priority = 10
         async with request.state.pgpool.acquire() as con:
+            # check if pulse3d version is available
+            # if deprecated and end of life date passed then cancel the upload
+            # if end of life date is none then pulse3d version is usable
+            pulse3d_version_status = await con.fetchrow(
+                "SELECT state, end_of_life_date FROM pulse3d_versions WHERE version = $1", details.version
+            )
+            status_name = pulse3d_version_status["state"]
+            end_of_life_date = pulse3d_version_status["end_of_life_date"]
+
+            if status_name == "deprecated" and (
+                end_of_life_date is not None
+                and datetime.strptime(end_of_life_date, "%Y-%m-%d") > datetime.now()
+            ):
+                return GenericErrorResponse(
+                    message="Attempted to use pulse3d version that is removed", error="pulse3dVersionError"
+                )
             # first check user_id of upload matches user_id in token
             # Luci (12/14/2022) checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
             # Luci (12/14/2022) customer id is checked already because the customer_id in the token is being used to find upload details
+            row = await con.fetchrow("SELECT user_id FROM uploads where id=$1", details.upload_id)
+            original_upload_user = str(row["user_id"])
             if "pulse3d:rw_all_data" not in user_scopes:
-                row = await con.fetchrow("SELECT user_id FROM uploads where id=$1", details.upload_id)
                 # if users don't match and they don't have an all_data scope, then raise unauth error
-                if user_id != str(row["user_id"]):
+                if user_id != original_upload_user:
                     return GenericErrorResponse(
                         message="User does not have authorization to start this job.",
                         error="AuthorizationError",
@@ -459,9 +476,11 @@ async def create_new_job(
             if usage_quota["jobs_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
-            pulse3d_queue_to_use = f"pulse3d-v{details.version}"
-            if "admin:software" in user_scopes and pulse3d_semver >= "0.29.2":
-                pulse3d_queue_to_use = "test-" + pulse3d_queue_to_use
+            pulse3d_queue_to_use = (
+                f"test-pulse3d-v{details.version}"
+                if "admin:software" in user_scopes and pulse3d_semver >= "0.30.4"
+                else f"pulse3d-v{details.version}"
+            )
 
             # finally create job
             job_id = await create_job(
@@ -477,7 +496,7 @@ async def create_new_job(
             # Luci (12/1/22): this happens after the job is already created to have access to the job id, hopefully this doesn't cause any issues with the job starting before the file is uploaded to s3
             # Versions less than 0.28.2 should not be in the dropdown as an option, this is just an extra check for versions greater than 0.28.2
             if details.peaks_valleys and pulse3d_semver >= "0.28.2":
-                key = f"uploads/{customer_id}/{user_id}/{details.upload_id}/{job_id}/peaks_valleys.parquet"
+                key = f"uploads/{customer_id}/{original_upload_user}/{details.upload_id}/{job_id}/peaks_valleys.parquet"
                 logger.info(f"Peaks and valleys found in job request, uploading to s3: {key}")
 
                 # only added during interactive analysis
@@ -762,10 +781,11 @@ async def get_versions(request: Request):
     """Retrieve info of all the active pulse3d releases listed in the DB."""
     try:
         async with request.state.pgpool.acquire() as con:
+            # check if the pulse3d version has reached its end of life
+            # only deprected versions should have an end of life date, othere wise it is null
             rows = await con.fetch(  # TODO should eventually sort these using a more robust method
-                "SELECT version, state FROM pulse3d_versions WHERE state != 'deprecated' ORDER BY created_at"
+                "SELECT version, state, end_of_life_date FROM pulse3d_versions WHERE state != 'deprecated' OR NOW() < end_of_life_date ORDER BY created_at"
             )
-
         return [dict(row) for row in rows]
 
     except Exception as e:
