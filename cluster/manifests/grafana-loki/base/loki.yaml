@@ -1,17 +1,21 @@
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-- ../../base
-
-patchesJson6902:
-- target:
-    kind: Application
-    name: grafana
-    namespace: argocd
-  patch: |-
-    - op: replace
-      path: /spec/source/helm/values
-      value: |
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana-loki-stack
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: cluster
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: loki
+  source:
+    chart: grafana-loki
+    repoURL: https://charts.bitnami.com/bitnami
+    targetRevision: 2.5.9
+    helm:
+      values: |
         loki:
           auth_enabled: false
           schema_config:
@@ -34,3 +38,12 @@ patchesJson6902:
         serviceAccount:
           create: false
           name: default
+        promtail:
+          serviceAccount:
+            create: false
+            name: default
+
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true

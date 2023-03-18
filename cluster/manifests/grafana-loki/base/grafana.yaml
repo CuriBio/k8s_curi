@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  namespace: argocd # only way to get card to appear in argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: cluster
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: loki
+  source:
+    chart: grafana
+    repoURL: https://grafana.github.io/helm-charts
+    targetRevision: 6.52.4
+    helm:
+      values: null
+
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true

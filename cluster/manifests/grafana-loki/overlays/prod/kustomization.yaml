@@ -24,13 +24,13 @@ patchesJson6902:
                 prefix: loki_
           storage:
             s3:
-              endpoint: http://test-loki-logs.s3-website-us-east-2.amazonaws.com,
+              endpoint: http://prod-loki-logs.s3-website-us-east-2.amazonaws.com,
               region: us-east-2
-              s3: s3://us-east-2/test-loki-logs
+              s3: s3://us-east-2/prod-loki-logs
             type: s3
           storage_config:
             aws:
-              s3: s3://us-east-2/test-loki-logs
+              s3: s3://us-east-2/prod-loki-logs
         serviceAccount:
           create: false
           name: default

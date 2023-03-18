@@ -3,4 +3,7 @@ kind: Kustomization
 namespace: loki
 resources:
 - namespace.yaml
+- grafana.yaml
+- loki.yaml
+- enable-helm.yaml
 
