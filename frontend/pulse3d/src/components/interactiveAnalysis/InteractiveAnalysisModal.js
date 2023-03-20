@@ -690,7 +690,7 @@ export default function InteractiveWaveformModal({
     )[0];
     setPulse3dVersionEOLDate(
       selectedVersionMetadata.end_of_life_date
-        ? ` Version ${selectedVersionMetadata.version} will be removed after ${electedVersionMetaData.end_of_life_date}.`
+        ? ` Version ${selectedVersionMetadata.version} will be removed after ${selectedVersionMetaData.end_of_life_date}.`
         : `Version ${selectedVersionMetadata.version} will be removed soon.`
     );
     setDeprecationNotice(selectedVersionMetadata.state === "deprecated");
