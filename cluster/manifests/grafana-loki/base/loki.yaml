@@ -11,30 +11,33 @@ spec:
     server: https://kubernetes.default.svc
     namespace: loki
   source:
-    chart: grafana-loki
-    repoURL: https://charts.bitnami.com/bitnami
+    chart:
     targetRevision: 2.5.9
     helm:
       values: |
         loki:
           auth_enabled: false
+
           schema_config:
             configs:
             - from: 2020-05-15
-              store: aws
+              store: boltdb-shipper
               object_store: s3
               schema: v11
               index:
-                prefix: loki_
-          storage:
-            s3:
-              endpoint: http://test-loki-logs.s3-website-us-east-2.amazonaws.com,
-              region: us-east-2
-              s3: s3://us-east-2/test-loki-logs
-            type: s3
+                prefix: index_
+                period: 24h
+
           storage_config:
+            boltdb_shipper:
+              active_index_directory: /loki/index
+              cache_location: /loki/index_cache
+              shared_store: s3
+
             aws:
               s3: s3://us-east-2/test-loki-logs
+              s3forcepathstyle: true
+
         serviceAccount:
           create: false
           name: default

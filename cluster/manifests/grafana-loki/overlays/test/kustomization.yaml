@@ -14,6 +14,7 @@ patchesJson6902:
       value: |
         loki:
           auth_enabled: false
+
           schema_config:
             configs:
             - from: 2020-05-15
