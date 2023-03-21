@@ -172,7 +172,6 @@ export default function InteractiveWaveformModal({
   const [deprecationNotice, setDeprecationNotice] = useState(false);
   const [pulse3dVersionEOLDate, setPulse3dVersionEOLDate] = useState("");
 
-
   const handleDuplicatesModalClose = (isRunAnalysisOption) => {
     setDuplicateModalOpen(false);
     if (isRunAnalysisOption) {
