@@ -634,24 +634,27 @@ def _yield_s3_objects(bucket: str, keys: List[str], filenames: List[str]):
         raise S3Error(f"Failed to access {bucket}/{key}: {repr(e)}")
 
 
-@app.get("/jobs/waveform_data", response_model=Union[WaveformDataResponse, GenericErrorResponse])
+@app.get("/jobs/waveform-data", response_model=Union[WaveformDataResponse, GenericErrorResponse])
 async def get_interactive_waveform_data(
     request: Request,
     upload_id: uuid.UUID = Query(None),
     job_id: uuid.UUID = Query(None),
+    well_name: str = Query(None),
+    peaks_valleys: bool = Query(None),
     token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES)),
 ):
 
     account_id = str(uuid.UUID(token["userid"]))
     customer_id = str(uuid.UUID(token["customer_id"]))
 
-    if job_id is None or upload_id is None:
+    if job_id is None or upload_id is None or not _is_valid_well_name(well_name):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Missing required ids to get job metadata."
         )
 
     upload_id = str(upload_id)
     job_id = str(job_id)
+    peaks_valleys_requested = peaks_valleys
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -701,70 +704,29 @@ async def get_interactive_waveform_data(
 
             # if file found, read to dataframe for IA
             time_force_df = pd.read_parquet(parquet_path)
-
-            logger.info("Checking for peaks and valleys in S3")
-            pv_parquet_path = glob(os.path.join(tmpdir, job_id, "*.parquet"), recursive=True)
-
-            # Luci (12/14/2022) peaks_valleys will be none when interactive analysis is being run for the first time on the original analysis. There won't be any peaks or valleys found because nothing has been altered yet
-            peaks_valleys_needed = len(pv_parquet_path) == 0 and analysis_params.get("peaks_valleys") is None
-
-            if not peaks_valleys_needed:
-                peak_valleys_df = pd.read_parquet(pv_parquet_path)
-
-            # remove raw data columns
-            # the any conditional is for testing, the __raw always needs to be excluded
-            columns = [
-                c for c in time_force_df.columns if not any(x in c for x in ("__raw", "__peaks", "__valleys"))
+            # get relevant well-specific time force coordinates
+            well_specific_force = time_force_df[well_name].dropna().tolist()
+            time = time_force_df[time_force_df.columns[0]].tolist()
+            coordinates = [
+                [time[i] / MICRO_TO_BASE_CONVERSION, val] for i, val in enumerate(well_specific_force)
             ]
-            # this is to handle analyses run before PR.to_dataframe() where time is in seconds
-            needs_unit_conversion = not [c for c in time_force_df.columns if "__raw" in c]
-            time = time_force_df[columns[0]].tolist()
 
-            # set up empty dictionaries to be passed in response
-            coordinates = dict()
-            peaks_and_valleys = dict()
-            for well in columns:
-                if not _is_valid_well_name(well):
-                    continue
-
-                well_force = time_force_df[well].dropna().tolist()
-                if peaks_valleys_needed:
-                    if needs_unit_conversion:
-                        # not exact, but this isn't used outside of graphing in FE, real raw data doesn't get changed
-                        min_value = min(well_force)
-                        well_force -= min_value
-                        well_force *= MICRO_TO_BASE_CONVERSION
-                        time = [i * MICRO_TO_BASE_CONVERSION for i in time]
-
-                    interpolated_well_data = np.row_stack([time[: len(well_force)], well_force])
-
-                    peak_detector_params = {
-                        param: analysis_params[param]
-                        for param in ("prominence_factors", "width_factors", "start_time", "end_time")
-                        if analysis_params[param] is not None
-                    }
-
-                    peaks, valleys = peak_detector(interpolated_well_data, **peak_detector_params)
-                    # needs to be converted to lists to be sent as json in response
-                    peaks_and_valleys[well] = [peaks.tolist(), valleys.tolist()]
-
-                elif len(pv_parquet_path) == 1:
-                    # need to remove nan values becuase peaks and valleys are different length lists
-                    peaks = peak_valleys_df[f"{well}__peaks"].dropna().tolist()
-                    valleys = peak_valleys_df[f"{well}__valleys"].dropna().tolist()
-                    # stored as floats in df so need to convert to int
-                    peaks_and_valleys[well] = [[int(x) for x in peaks], [int(x) for x in valleys]]
-                    logger.info(f"{len(peaks)} peaks and {len(valleys)} valleys for well {well}")
-
-                coordinates[well] = [
-                    [time[i] / MICRO_TO_BASE_CONVERSION, val] for i, val in enumerate(well_force)
-                ]
-
-            # Luci (12/14/2022) analysis_params["peaks_valleys"] will be a dictionary in version < 0.28.2 when peaks and valleys are only stored in this db column and not in s3
-            if analysis_params.get("peaks_valleys") is not None and isinstance(
-                analysis_params["peaks_valleys"], dict
-            ):
-                peaks_and_valleys = analysis_params["peaks_valleys"]
+            # Luci (03/21/2023) only get peaks and valleys on initial waveform request when interactive analysis is first opened
+            # this request will be called each time user switches between wells, we don't want to get peaks and valleys each time
+            peaks_and_valleys = None
+            if peaks_valleys_requested:
+                # Luci (12/14/2022) analysis_params["peaks_valleys"] will be a dictionary in version < 0.28.2 when peaks and valleys are only stored in this db column and not in s3
+                if analysis_params.get("peaks_valleys") is not None and isinstance(
+                    analysis_params["peaks_valleys"], dict
+                ):
+                    peaks_and_valleys = analysis_params["peaks_valleys"]
+                else:
+                    pv_parquet_path = glob(os.path.join(tmpdir, job_id, "*.parquet"), recursive=True)
+                    peaks_and_valleys = _get_peaks_valleys(
+                        parquet_path=pv_parquet_path,
+                        time_force_df=time_force_df,
+                        analysis_params=analysis_params,
+                    )
 
             return WaveformDataResponse(coordinates=coordinates, peaks_valleys=peaks_and_valleys)
 
@@ -774,6 +736,59 @@ async def get_interactive_waveform_data(
     except Exception as e:
         logger.error(f"Failed to get interactive waveform data: {repr(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _get_peaks_valleys(parquet_path: str, time_force_df: pd.DataFrame, analysis_params: dict):
+    # Luci (12/14/2022) peaks_valleys will be none when interactive analysis is being run for the first time on the original analysis. There won't be any peaks or valleys found because nothing has been altered yet
+    logger.info("Checking for peaks and valleys in S3")
+    peaks_valleys_needed = len(parquet_path) == 0 and analysis_params.get("peaks_valleys") is None
+
+    if not peaks_valleys_needed:
+        peak_valleys_df = pd.read_parquet(parquet_path)
+
+    # remove raw data columns
+    # the any conditional is for testing, the __raw always needs to be excluded
+    columns = [c for c in time_force_df.columns if not any(x in c for x in ("__raw", "__peaks", "__valleys"))]
+    # this is to handle analyses run before PR.to_dataframe() where time is in seconds
+    needs_unit_conversion = not [c for c in time_force_df.columns if "__raw" in c]
+    time = time_force_df[columns[0]].tolist()
+
+    # set up empty dictionaries to be passed in response
+    peaks_and_valleys = dict()
+    for well in columns:
+        if not _is_valid_well_name(well):
+            continue
+
+        well_force = time_force_df[well].dropna().tolist()
+        if peaks_valleys_needed:
+            if needs_unit_conversion:
+                # not exact, but this isn't used outside of graphing in FE, real raw data doesn't get changed
+                min_value = min(well_force)
+                well_force -= min_value
+                well_force *= MICRO_TO_BASE_CONVERSION
+                time = [i * MICRO_TO_BASE_CONVERSION for i in time]
+
+            interpolated_well_data = np.row_stack([time[: len(well_force)], well_force])
+
+            peak_detector_params = {
+                param: analysis_params[param]
+                for param in ("prominence_factors", "width_factors", "start_time", "end_time")
+                if analysis_params[param] is not None
+            }
+
+            peaks, valleys = peak_detector(interpolated_well_data, **peak_detector_params)
+            # needs to be converted to lists to be sent as json in response
+            peaks_and_valleys[well] = [peaks.tolist(), valleys.tolist()]
+
+        elif len(parquet_path) == 1:
+            # need to remove nan values becuase peaks and valleys are different length lists
+            peaks = peak_valleys_df[f"{well}__peaks"].dropna().tolist()
+            valleys = peak_valleys_df[f"{well}__valleys"].dropna().tolist()
+            # stored as floats in df so need to convert to int
+            peaks_and_valleys[well] = [[int(x) for x in peaks], [int(x) for x in valleys]]
+            logger.info(f"{len(peaks)} peaks and {len(valleys)} valleys for well {well}")
+
+    return peaks_and_valleys
 
 
 @app.get("/versions")

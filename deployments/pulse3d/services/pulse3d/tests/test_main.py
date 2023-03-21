@@ -1398,11 +1398,11 @@ def test_uploads_download__post__correctly_handles_multiple_file_downloads(
 
 
 @pytest.mark.parametrize("test_query_params", [f"upload_id={uuid.uuid4()}", f"job_id={uuid.uuid4()}"])
-def test_waveform_data__get__no_job_or_upload_id_is_found(mocker, test_query_params):
+def test_waveform-data__get__no_job_or_upload_id_is_found(mocker, test_query_params):
     access_token = get_token(scope=["pulse3d:free"])
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
 
-    response = test_client.get(f"/jobs/waveform_data?{test_query_params}", **kwargs)
+    response = test_client.get(f"/jobs/waveform-data?{test_query_params}", **kwargs)
 
     assert response.status_code == 400
 
@@ -1417,7 +1417,7 @@ def test_waveform_data__get__getting_job_metadata_from_db_errors(mocker):
     test_upload_id = uuid.uuid4()
 
     response = test_client.get(
-        f"/jobs/waveform_data?upload_id={test_upload_id}&job_id={test_job_id}", **kwargs
+        f"/jobs/waveform-data?upload_id={test_upload_id}&job_id={test_job_id}", **kwargs
     )
 
     assert response.status_code == 500
@@ -1473,7 +1473,7 @@ def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version):
     test_upload_id = uuid.uuid4()
 
     response = test_client.get(
-        f"/jobs/waveform_data?upload_id={test_upload_id}&job_id={test_job_id}", **kwargs
+        f"/jobs/waveform-data?upload_id={test_upload_id}&job_id={test_job_id}", **kwargs
     )
 
     assert response.status_code == 200
@@ -1520,7 +1520,7 @@ def test_waveform_data__get__no_time_force_parquet_found(mocker, pulse3d_version
     test_upload_id = uuid.uuid4()
 
     response = test_client.get(
-        f"/jobs/waveform_data?upload_id={test_upload_id}&job_id={test_job_id}", **kwargs
+        f"/jobs/waveform-data?upload_id={test_upload_id}&job_id={test_job_id}", **kwargs
     )
 
     assert response.status_code == 200

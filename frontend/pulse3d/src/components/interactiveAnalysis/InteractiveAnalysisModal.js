@@ -151,6 +151,7 @@ export default function InteractiveWaveformModal({
   numberOfJobsInUpload,
 }) {
   const [selectedWell, setSelectedWell] = useState("A1");
+  const [useStoredData, setUseStoredData] = useState(false);
   const [uploadInProgress, setUploadInProgress] = useState(false); // determines state of interactive analysis upload
   const [originalData, setOriginalData] = useState({}); // original waveform data from GET request, unedited
   const [dataToGraph, setDataToGraph] = useState([]); // well-specfic coordinates to graph
@@ -171,14 +172,6 @@ export default function InteractiveWaveformModal({
   const { usageQuota } = useContext(AuthContext);
   const [deprecationNotice, setDeprecationNotice] = useState(false);
   const [pulse3dVersionEOLDate, setPulse3dVersionEOLDate] = useState("");
-
-
-  const handleDuplicatesModalClose = (isRunAnalysisOption) => {
-    setDuplicateModalOpen(false);
-    if (isRunAnalysisOption) {
-      postNewJob();
-    }
-  };
   const [xRange, setXRange] = useState({
     min: null,
     max: null,
@@ -234,18 +227,23 @@ export default function InteractiveWaveformModal({
       setInitialPeakValleyWindows();
   }, [originalData]);
 
-  const getWaveformData = async () => {
+  const getWaveformData = async (peaks_valleys_needed, well) => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform_data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}`
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}&peaks_valleys=${peaks_valleys_needed}&well_name=${well}`
       );
 
       if (response.status === 200) {
         const res = await response.json();
         if (!res.error) {
+          if (!("coordinates" in originalData)) {
+            originalData = { peaks_valleys: res.peaks_valleys, coordinates: {} };
+          }
+
           // original data is set and never changed to hold original state in case of reset
-          setOriginalData(res);
-          setEditablePeaksValleys(res.peaks_valleys);
+          originalData.coordinates[well] = res.coordinates;
+          setOriginalData(originalData);
+          if (peaks_valleys_needed) setEditablePeaksValleys(res.peaks_valleys);
 
           if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.2")) {
             setModalLabels(constantModalLabels.oldPulse3dVersion);
@@ -323,7 +321,7 @@ export default function InteractiveWaveformModal({
   };
 
   const getNewData = async () => {
-    await getWaveformData();
+    await getWaveformData(true, "A1");
     setEditableStartEndTimes({
       startTime: selectedJob.analysisParams.start_time,
       endTime: selectedJob.analysisParams.end_time,
@@ -430,8 +428,11 @@ export default function InteractiveWaveformModal({
     setPeakValleyWindows(existingData.peakValleyWindows);
   };
 
-  const handleWellSelection = (idx) => {
+  const handleWellSelection = async (idx) => {
     setSelectedWell(wellNames[idx]);
+    if (!(wellNames[idx] in originalData.coordinates)) {
+      await getWaveformData(false, wellNames[idx]);
+    }
   };
 
   const resetWellChanges = () => {
@@ -505,7 +506,10 @@ export default function InteractiveWaveformModal({
     if (modalOpen !== "pulse3dWarning") {
       if (modalOpen === "status") setOpenInteractiveAnalysis(false);
       else if (i === 0) getNewData();
-      else loadExistingData();
+      else {
+        setUseStoredData(true);
+        loadExistingData();
+      }
       sessionStorage.removeItem(selectedJob.jobId);
     }
 
@@ -756,6 +760,13 @@ export default function InteractiveWaveformModal({
       setEditablePeaksValleys(peaksValleysCopy);
       setPeakValleyWindows(pvWindowCopy);
       setChangelog(changelog);
+    }
+  };
+
+  const handleDuplicatesModalClose = (isRunAnalysisOption) => {
+    setDuplicateModalOpen(false);
+    if (isRunAnalysisOption) {
+      postNewJob();
     }
   };
 
