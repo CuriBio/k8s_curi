@@ -676,8 +676,6 @@ async def get_interactive_waveform_data(
                     message="User does not have authorization to start interactive analysis on this recording.",
                 )
 
-        # TODO should make a function in core that handles running peak_detector or loading peaks/valleys from parquet and import it here and in the pulse3d-worker
-
         with tempfile.TemporaryDirectory() as tmpdir:
             key = f"uploads/{customer_id}/{recording_owner_id}/{upload_id}"
             logger.info(f"Downloading recording data from {key}")
@@ -738,6 +736,7 @@ async def get_interactive_waveform_data(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+# TODO should make a function in core that handles running peak_detector or loading peaks/valleys from parquet and import it here and in the pulse3d-worker
 def _get_peaks_valleys(parquet_path: str, time_force_df: pd.DataFrame, analysis_params: dict):
     # Luci (12/14/2022) peaks_valleys will be none when interactive analysis is being run for the first time on the original analysis. There won't be any peaks or valleys found because nothing has been altered yet
     logger.info("Checking for peaks and valleys in S3")

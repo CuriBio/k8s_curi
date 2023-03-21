@@ -221,12 +221,6 @@ export default function InteractiveWaveformModal({
     }
   }, [dataToGraph, editablePeaksValleys]);
 
-  useEffect(() => {
-    // this will get triggered whether loading existing data from sessionStorage or getting new data and we want to only get initial windows if loading new data
-    if (Object.keys(originalData).length > 0 && Object.keys(peakValleyWindows).length === 0)
-      setInitialPeakValleyWindows();
-  }, [originalData]);
-
   const getWaveformData = async (peaks_valleys_needed, well) => {
     try {
       const response = await fetch(
@@ -244,6 +238,8 @@ export default function InteractiveWaveformModal({
           originalData.coordinates[well] = res.coordinates;
           setOriginalData(originalData);
           if (peaks_valleys_needed) setEditablePeaksValleys(res.peaks_valleys);
+
+          setInitialPeakValleyWindows(well);
 
           if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.2")) {
             setModalLabels(constantModalLabels.oldPulse3dVersion);
@@ -342,15 +338,13 @@ export default function InteractiveWaveformModal({
   // Luci (12-14-2022) this component gets mounted twice and we don't want this expensive function to request waveform data to be called twice. This ensures it is only called once per job selection
   useMemo(checkForExistingData, [selectedJob]);
 
-  const setInitialPeakValleyWindows = () => {
+  const setInitialPeakValleyWindows = (well) => {
     const pvCopy = JSON.parse(JSON.stringify(peakValleyWindows));
 
-    for (const well of Object.keys(originalData.peaks_valleys)) {
-      pvCopy[well] = {
-        minPeaks: findLowestPeak(well),
-        maxValleys: findHighestValley(well),
-      };
-    }
+    pvCopy[well] = {
+      minPeaks: findLowestPeak(well),
+      maxValleys: findHighestValley(well),
+    };
 
     setPeakValleyWindows({
       ...pvCopy,
