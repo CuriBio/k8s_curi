@@ -66,12 +66,14 @@ export default function DashboardLayout({ children }) {
       const versions = await response.json();
       setMetaPulse3dVersions(versions); // keep track of states
 
-      const supportedVersions = versions.filter(({ state }) => state === "testing" || state === "external");
+      const externalVersions = versions.filter(({ state }) => state === "external");
+      const testingVersions = versions.filter(({ state }) => state === "testing");
 
-      // sort versions
-      const sortedsupportedVersions = semverRsort(supportedVersions.map(({ version }) => version));
+      // sort versions with different state independently so they can still be grouped by state
+      const sortedExternalVersions = semverRsort(externalVersions.map(({ version }) => version));
+      const sortedTestingVersions = semverRsort(testingVersions.map(({ version }) => version));
 
-      setPulse3dVersions(sortedsupportedVersions);
+      setPulse3dVersions([...sortedExternalVersions, ...sortedTestingVersions]);
     } catch (e) {
       console.log(`ERROR getting pulse3d versions: ${e}`);
     }
