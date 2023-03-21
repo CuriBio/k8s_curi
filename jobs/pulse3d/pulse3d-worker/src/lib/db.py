@@ -8,8 +8,8 @@ from .queries import INSERT_INTO_MANTARRAY_SESSION_LOG_FILES
 from .utils import get_s3_object_contents
 from .utils import load_data_to_df
 
-MANTARRAY_LOGS_BUCKET = os.environ.get("MANTARRAY_LOGS_BUCKET_ENV", "test-mantarray-logs")
-PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-pulse3d-uploads")
+MANTARRAY_LOGS_BUCKET = "prod-mantarray-logs"
+PULSE3D_UPLOADS_BUCKET = "prod-pulse3d-uploads"
 logger = logging.getLogger(__name__)
 
 
