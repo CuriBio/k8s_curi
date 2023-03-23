@@ -251,15 +251,19 @@ export default function InteractiveWaveformModal({
 
   const checkDuplicates = (well) => {
     const wellToUse = well ? well : selectedWell;
-    const dataToCompare = originalData.coordinates[wellToUse];
 
-    const peaksList = editablePeaksValleys[wellToUse][0]
-      .sort((a, b) => a - b)
-      .filter((peak) => dataToCompare[peak][1] >= peakValleyWindows[wellToUse].minPeaks);
+    let peaksList = editablePeaksValleys[wellToUse][0].sort((a, b) => a - b);
+    let valleysList = editablePeaksValleys[wellToUse][1].sort((a, b) => a - b);
 
-    const valleysList = editablePeaksValleys[wellToUse][1]
-      .sort((a, b) => a - b)
-      .filter((valley) => dataToCompare[valley][1] <= peakValleyWindows[wellToUse].maxValleys);
+    // if data for a well was never fetched, assume no filtering required because the user would not have moved the peaks and valley lines. Just checked duplicates against original peaks and valleys
+    if (wellToUse in originalData.coordinates) {
+      const dataToCompare = originalData.coordinates[wellToUse];
+
+      peaksList = peaksList.filter((peak) => dataToCompare[peak][1] >= peakValleyWindows[wellToUse].minPeaks);
+      valleysList = valleysList.filter(
+        (valley) => dataToCompare[valley][1] <= peakValleyWindows[wellToUse].maxValleys
+      );
+    }
 
     let peakIndex = 0;
     let valleyIndex = 0;
@@ -349,7 +353,7 @@ export default function InteractiveWaveformModal({
     const wellSpecificCoords = coordinates[well];
 
     // consider when no peaks or valleys were found in a well
-    if (wellSpecificPeaks.length > 0) {
+    if (wellSpecificCoords && wellSpecificPeaks.length > 0) {
       let lowest = wellSpecificPeaks[0];
 
       wellSpecificPeaks.map((peak) => {
@@ -521,17 +525,19 @@ export default function InteractiveWaveformModal({
   const filterPeaksValleys = async () => {
     const filtered = {};
     for (const well of Object.keys(editablePeaksValleys)) {
-      const wellCoords = originalData.coordinates[well];
-      const wellPeaks = editablePeaksValleys[well][0];
-      const wellValleys = editablePeaksValleys[well][1];
-      const filteredPeaks = wellPeaks.filter(
-        (peak) => wellCoords[peak][1] >= peakValleyWindows[well].minPeaks
-      );
-      const filteredValleys = wellValleys.filter(
-        (valley) => wellCoords[valley][1] <= peakValleyWindows[well].maxValleys
-      );
+      let wellPeaks = editablePeaksValleys[well][0];
+      let wellValleys = editablePeaksValleys[well][1];
 
-      filtered[well] = [filteredPeaks, filteredValleys];
+      // only filter if well data has been fetched, otherwise assume no filtering required because user would not have been able to have moved min peak and max valley lines
+      if (well in originalData.coordinates) {
+        const wellCoords = originalData.coordinates[well];
+        wellPeaks = wellPeaks.filter((peak) => wellCoords[peak][1] >= peakValleyWindows[well].minPeaks);
+        wellValleys = wellValleys.filter(
+          (valley) => wellCoords[valley][1] <= peakValleyWindows[well].maxValleys
+        );
+      }
+
+      filtered[well] = [wellPeaks, wellValleys];
     }
 
     return filtered;
