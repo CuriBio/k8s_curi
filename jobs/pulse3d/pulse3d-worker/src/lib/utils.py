@@ -1,5 +1,4 @@
 import boto3
-import datetime
 import pandas as pd
 import uuid
 
