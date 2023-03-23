@@ -73,15 +73,15 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
     pollUsageQuota();
   }, []);
 
-  // useEffect(() => {
-  //   if (maxAnalyses !== -1) {
-  //     const pollingUsageQuota = setInterval(async () => {
-  //       await pollUsageQuota();
-  //     }, 1e4);
+  useEffect(() => {
+    if (maxAnalyses !== -1) {
+      const pollingUsageQuota = setInterval(async () => {
+        await pollUsageQuota();
+      }, 1e4);
 
-  //     return () => clearInterval(pollingUsageQuota);
-  //   }
-  // }, []);
+      return () => clearInterval(pollingUsageQuota);
+    }
+  }, []);
 
   return (
     <>
