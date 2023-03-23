@@ -709,6 +709,7 @@ export default function WaveformGraph({
   };
 
   useEffect(() => {
+    console.log("1");
     if (initialPeaksValleys.length > 0) {
       // always remove existing graph before plotting new graph
       d3.select("#waveformGraph").select("svg").remove();
@@ -727,15 +728,7 @@ export default function WaveformGraph({
       setNewEndTime(endTime);
       createGraph();
     }
-  }, [
-    initialPeaksValleys,
-    selectedMarkerToMove,
-    xZoomFactor,
-    yZoomFactor,
-    startTime,
-    endTime,
-    peakValleyWindows,
-  ]);
+  }, [initialPeaksValleys, selectedMarkerToMove, xZoomFactor, yZoomFactor, peakValleyWindows]);
 
   useEffect(() => {
     // manually scrolls graph div to bottom because the graph div expands down instead of up

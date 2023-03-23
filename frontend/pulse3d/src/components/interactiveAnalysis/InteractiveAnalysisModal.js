@@ -225,11 +225,19 @@ export default function InteractiveWaveformModal({
           // original data is set and never changed to hold original state in case of reset
           originalData.coordinates[well] = coordinates;
           setOriginalData(originalData);
-          if (peaks_valleys_needed) setEditablePeaksValleys(peaks_valleys);
-          setInitialPeakValleyWindows(well);
+          if (peaks_valleys_needed) {
+            setEditablePeaksValleys(peaks_valleys);
 
+            const { start_time, end_time } = selectedJob.analysisParams;
+            setXRange({
+              min: start_time ? start_time : Math.min(...coordinates.map((coords) => coords[0])),
+              max: end_time ? end_time : Math.max(...coordinates.map((coords) => coords[0])),
+            });
+          }
+
+          setInitialPeakValleyWindows(well);
           // this function actually renders new graph data to the page
-          setWellDataToGraph(coordinates);
+          setDataToGraph([...coordinates]);
 
           if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.2")) {
             setModalLabels(constantModalLabels.oldPulse3dVersion);
@@ -311,10 +319,12 @@ export default function InteractiveWaveformModal({
   };
 
   const getNewData = async () => {
+    const { start_time, end_time } = selectedJob.analysisParams;
+
     await getWaveformData(true, "A1");
     setEditableStartEndTimes({
-      startTime: selectedJob.analysisParams.start_time,
-      endTime: selectedJob.analysisParams.end_time,
+      startTime: start_time,
+      endTime: end_time,
     });
   };
 
@@ -424,21 +434,9 @@ export default function InteractiveWaveformModal({
         getWaveformData(false, wellNames[idx]);
       } else {
         const coordinates = originalData.coordinates[wellNames[idx]];
-        setWellDataToGraph(coordinates);
+        setDataToGraph([...coordinates]);
       }
     }
-  };
-
-  const setWellDataToGraph = (coords) => {
-    const { start_time, end_time } = selectedJob.analysisParams;
-    // update x min and max if no start or end time was ever defined so it isn't null in changelog messages
-    setXRange({
-      min: start_time ? start_time : Math.min(...coords.map((coords) => coords[0])),
-      max: end_time ? end_time : Math.max(...coords.map((coords) => coords[0])),
-    });
-
-    // last step to rerender the graph
-    setDataToGraph([...coords]);
   };
 
   const resetWellChanges = () => {
