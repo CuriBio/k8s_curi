@@ -68,12 +68,14 @@ export default function DashboardLayout({ children }) {
 
       const externalVersions = versions.filter(({ state }) => state === "external");
       const testingVersions = versions.filter(({ state }) => state === "testing");
+      const deprecatedVersions = versions.filter(({ state }) => state === "deprecated");
 
       // sort versions with different state independently so they can still be grouped by state
       const sortedExternalVersions = semverRsort(externalVersions.map(({ version }) => version));
       const sortedTestingVersions = semverRsort(testingVersions.map(({ version }) => version));
+      const sortedDeprecatedVersions = semverRsort(deprecatedVersions.map(({ version }) => version));
 
-      setPulse3dVersions([...sortedExternalVersions, ...sortedTestingVersions]);
+      setPulse3dVersions([...sortedExternalVersions, ...sortedTestingVersions, ...sortedDeprecatedVersions]);
     } catch (e) {
       console.log(`ERROR getting pulse3d versions: ${e}`);
     }

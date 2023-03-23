@@ -25,18 +25,20 @@ def format_metadata(meta_sheet, pr, recording_length: int):
     well_file = pr.wells[0]
 
     return {
-        "plate_barcode": well_file.get(PLATE_BARCODE_UUID, None),
+        "plate_barcode": well_file.get(PLATE_BARCODE_UUID),
         "recording_started_at": well_file[UTC_BEGINNING_RECORDING_UUID],
         "file_format_version": well_file.version,
-        "instrument_serial_number": well_file.get(MANTARRAY_SERIAL_NUMBER_UUID, None),
+        "instrument_serial_number": well_file.get(MANTARRAY_SERIAL_NUMBER_UUID),
         "length_microseconds": recording_length,
         "file_creation_timestamp": meta_sheet.iloc[11, 2],
         "mantarray_recording_session_id": uuid.uuid4(),
-        "uploading_computer_name": well_file.get(COMPUTER_NAME_HASH_UUID, None),
-        "acquisition_started_at": well_file[UTC_BEGINNING_DATA_ACQUISTION_UUID],
-        "session_log_id": well_file.get(BACKEND_LOG_UUID, None),
-        "software_version": well_file.get(SOFTWARE_RELEASE_VERSION_UUID, None),
-        "stim_barcode": well_file.get(STIM_BARCODE_UUID, None),
+        "uploading_computer_name": well_file.get(COMPUTER_NAME_HASH_UUID),
+        "acquisition_started_at": well_file.get(UTC_BEGINNING_DATA_ACQUISTION_UUID),
+        "session_log_id": well_file.get(
+            BACKEND_LOG_UUID, ""
+        ),  # this value is non-nullable in at least one table so need to return an empty string if not found
+        "software_version": well_file.get(SOFTWARE_RELEASE_VERSION_UUID),
+        "stim_barcode": well_file.get(STIM_BARCODE_UUID),
     }
 
 

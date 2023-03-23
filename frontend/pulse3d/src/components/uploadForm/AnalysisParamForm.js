@@ -5,10 +5,11 @@ import FormInput from "../basicWidgets/FormInput";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import semverGte from "semver/functions/gte";
 import { UploadsContext } from "@/components/layouts/DashboardLayout";
 import WellGroups from "@/components/uploadForm/WellGroups";
+import ModalWidget from "@/components/basicWidgets/ModalWidget";
 
 const Container = styled.div`
   padding: 1rem;
@@ -165,10 +166,35 @@ export default function AnalysisParamForm({
   const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
   const [disableStimProtocols, setDisableStimProtocols] = useState(false);
   const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails } = useContext(UploadsContext);
+  const [deprecationNotice, setDeprecationNotice] = useState(false);
+  const [pulse3dVersionEOLDate, setPulse3dVersionEOLDate] = useState("");
+
+  const handlePulse3dVersionSelect = (idx) => {
+    const selectedVersionMetadata = metaPulse3dVersions.filter(
+      (version) => version.version === pulse3dVersions[idx]
+    )[0];
+    if (selectedVersionMetadata) {
+      setPulse3dVersionEOLDate(
+        selectedVersionMetadata.end_of_life_date
+          ? ` Version ${selectedVersionMetadata.version} will be removed after ${selectedVersionMetadata.end_of_life_date}.`
+          : `Version ${selectedVersionMetadata.version} will be removed soon.`
+      );
+      setDeprecationNotice(selectedVersionMetadata.state === "deprecated");
+    }
+    updateParams({
+      selectedPulse3dVersion: pulse3dVersions[idx],
+    });
+  };
 
   const pulse3dVersionGte = (version) => {
     const { selectedPulse3dVersion } = analysisParams;
     return selectedPulse3dVersion && semverGte(selectedPulse3dVersion, version);
+  };
+
+  const stimWaveformFormatDetails = {
+    Stacked: "stacked",
+    Overlayed: "overlayed",
+    None: null,
   };
 
   const updateParams = (newParams) => {
@@ -349,23 +375,59 @@ export default function AnalysisParamForm({
             <DropDownWidget
               options={pulse3dVersions.map((version) => {
                 const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
-                return selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing"
-                  ? version + " " + "[ testing ]"
-                  : version;
+                if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
+                  return version + " " + "[ testing ]";
+                } else if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "deprecated") {
+                  return version + " " + "[ deprecated ]";
+                } else {
+                  return version;
+                }
               })}
               reset={!checkedParams}
-              handleSelection={(idx) => {
-                updateParams({
-                  selectedPulse3dVersion: pulse3dVersions[idx],
-                });
-              }}
+              handleSelection={handlePulse3dVersionSelect}
               initialSelected={0}
             />
           </DropDownContainer>
         </ParamContainer>
 
+        {pulse3dVersionGte("0.30.5") && (
+          <ParamContainer>
+            <Label
+              htmlFor="stimWaveformFormat"
+              style={{
+                width: "102%",
+                lineHeight: 1.5,
+                "white-space": "normal",
+                "text-align": "center",
+              }}
+            >
+              Stim Waveform Display Format:
+              <Tooltip
+                title={
+                  <TooltipText>
+                    {"Specifies the display format for the stim waveforms (if any). Defaults to 'Stacked'"}
+                  </TooltipText>
+                }
+              >
+                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "10px 10px" }} />
+              </Tooltip>
+            </Label>
+            <DropDownContainer>
+              <DropDownWidget
+                options={Object.keys(stimWaveformFormatDetails)}
+                reset={!checkedParams}
+                handleSelection={(idx) => {
+                  updateParams({
+                    stimWaveformFormat: Object.values(stimWaveformFormatDetails)[idx],
+                  });
+                }}
+                initialSelected={0}
+              />
+            </DropDownContainer>
+          </ParamContainer>
+        )}
+
         {pulse3dVersionGte("0.28.1") && (
-          //Disabling y-axis normalization added in version 0.25.4
           <ParamContainer>
             <Label htmlFor="showStimSheet">
               Show Stimulation Protocols:
@@ -794,6 +856,14 @@ export default function AnalysisParamForm({
           />
         )}
       </InputContainerTwo>
+      <ModalWidget
+        open={deprecationNotice}
+        labels={[pulse3dVersionEOLDate]}
+        closeModal={() => {
+          setDeprecationNotice(false);
+        }}
+        header={"Attention!"}
+      />
     </Container>
   );
 }
