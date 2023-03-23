@@ -709,7 +709,6 @@ export default function WaveformGraph({
   };
 
   useEffect(() => {
-    console.log("1");
     if (initialPeaksValleys.length > 0) {
       // always remove existing graph before plotting new graph
       d3.select("#waveformGraph").select("svg").remove();
