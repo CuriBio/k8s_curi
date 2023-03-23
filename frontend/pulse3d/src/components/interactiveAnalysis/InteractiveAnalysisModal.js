@@ -4,7 +4,6 @@ import DropDownWidget from "../basicWidgets/DropDownWidget";
 import WaveformGraph from "./WaveformGraph";
 import { WellTitle as LabwareDefinition } from "@/utils/labwareCalculations";
 import CircularSpinner from "../basicWidgets/CircularSpinner";
-const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
 import ButtonWidget from "../basicWidgets/ButtonWidget";
 import ModalWidget from "../basicWidgets/ModalWidget";
 import { UploadsContext } from "@/components/layouts/DashboardLayout";
@@ -12,6 +11,8 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
 import semverGte from "semver/functions/gte";
 import { AuthContext } from "@/pages/_app";
+
+const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
 
 const Container = styled.div`
   height: 100%;

@@ -1,4 +1,5 @@
 import boto3
+import datetime
 import pandas as pd
 import uuid
 
@@ -33,13 +34,13 @@ def format_metadata(meta_sheet, pr, recording_length: int):
         "file_creation_timestamp": meta_sheet.iloc[11, 2],
         "mantarray_recording_session_id": uuid.uuid4(),
         "uploading_computer_name": well_file.get(COMPUTER_NAME_HASH_UUID, None),
-        "acquisition_started_at": well_file[UTC_BEGINNING_DATA_ACQUISTION_UUID],
-        "session_log_id": well_file.get(BACKEND_LOG_UUID, None),
+        "acquisition_started_at": well_file.get(UTC_BEGINNING_DATA_ACQUISTION_UUID,datetime.datetime.now()),
+        "session_log_id": well_file.get(BACKEND_LOG_UUID, ""),
         "software_version": well_file.get(SOFTWARE_RELEASE_VERSION_UUID, None),
         "stim_barcode": well_file.get(STIM_BARCODE_UUID, None),
     }
 
-
+        
 def get_s3_object_contents(bucket: str, key: str):
     # Grab s3 object metadata from aws
     s3_client = boto3.client("s3")

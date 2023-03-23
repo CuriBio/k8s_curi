@@ -1,7 +1,7 @@
 """pulse3d deprecation date column
 
 Revision ID: 0b1999fb5ce5
-Revises: eed0e6e02449
+Revises: ac1e440896f9
 Create Date: 2023-03-10 12:11:27.147725
 
 """
@@ -10,7 +10,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "0b1999fb5ce5"
-down_revision = "eed0e6e02449"
+down_revision = "ac1e440896f9"
 branch_labels = None
 depends_on = None
 

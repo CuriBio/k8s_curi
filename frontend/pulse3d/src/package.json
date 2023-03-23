@@ -1,6 +1,6 @@
 {
   "name": "pulse",
-  "version": "0.4.6",
+  "version": "0.5.2",
   "private": true,
   "scripts": {
     "_ce": "node ./check-engines.js",
