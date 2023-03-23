@@ -430,7 +430,6 @@ spec:
         query: "SELECT ceil(COUNT(*)::decimal / 4) FROM (SELECT id FROM jobs_queue WHERE meta->>'version'='0.32.1' FOR UPDATE SKIP LOCKED) q"
         targetQueryValue: "1"
 ---
----
 apiVersion: keda.sh/v1alpha1
 kind: ScaledJob
 metadata:
