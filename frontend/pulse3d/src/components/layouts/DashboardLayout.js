@@ -66,22 +66,16 @@ export default function DashboardLayout({ children }) {
       const versions = await response.json();
       setMetaPulse3dVersions(versions); // keep track of states
 
+      const externalVersions = versions.filter(({ state }) => state === "external");
       const testingVersions = versions.filter(({ state }) => state === "testing");
-      const supportedVersions = versions.filter(
-        ({ state }) => state === "external" || state === "deprecated"
-      );
-      // sort versions in testing state and add [testing] tag to UI
-      // testing versions only to be used in test cluster
-      const sortedTestingVersions = semverRsort(testingVersions.map(({ version }) => version));
-      // sort versions in external state, no tag required
-      const sortedSupportedVersions = semverRsort(supportedVersions.map(({ version }) => version));
-      // sort version in deprecated state
+      const deprecatedVersions = versions.filter(({ state }) => state === "deprecated");
 
-      if (process.env.NEXT_PUBLIC_CLUSTER === "test") {
-        setPulse3dVersions([...sortedSupportedVersions, ...sortedTestingVersions]);
-      } else {
-        setPulse3dVersions([...sortedSupportedVersions]);
-      }
+      // sort versions with different state independently so they can still be grouped by state
+      const sortedExternalVersions = semverRsort(externalVersions.map(({ version }) => version));
+      const sortedTestingVersions = semverRsort(testingVersions.map(({ version }) => version));
+      const sortedDeprecatedVersions = semverRsort(deprecatedVersions.map(({ version }) => version));
+
+      setPulse3dVersions([...sortedExternalVersions, ...sortedTestingVersions, ...sortedDeprecatedVersions]);
     } catch (e) {
       console.log(`ERROR getting pulse3d versions: ${e}`);
     }

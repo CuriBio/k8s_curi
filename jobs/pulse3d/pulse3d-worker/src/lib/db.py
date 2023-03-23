@@ -46,6 +46,12 @@ async def insert_metadata_into_pg(
 
         try:
             logger.info("Inserting recording session metadata")
+
+            # timezone required otherwise postgres errors
+            for datetime_key in ("acquisition_started_at", "recording_started_at"):
+                if metadata[datetime_key] is not None:
+                    metadata[datetime_key] = metadata[datetime_key].replace(tzinfo=None)
+
             await con.execute(
                 INSERT_INTO_MANTARRAY_RECORDING_SESSIONS,
                 metadata["mantarray_recording_session_id"],
@@ -54,10 +60,9 @@ async def insert_metadata_into_pg(
                 user_id,
                 metadata["instrument_serial_number"],
                 metadata["session_log_id"],
-                # timezone required otherwise postgres errors
-                metadata["acquisition_started_at"].replace(tzinfo=None),
+                metadata["acquisition_started_at"],
                 metadata["length_microseconds"],
-                metadata["recording_started_at"].replace(tzinfo=None),
+                metadata["recording_started_at"],
             )
         except Exception as e:
             raise Exception(f"in mantarray_recording_sessions: {repr(e)}")

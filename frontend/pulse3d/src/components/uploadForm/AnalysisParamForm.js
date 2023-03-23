@@ -397,8 +397,8 @@ export default function AnalysisParamForm({
               style={{
                 width: "102%",
                 lineHeight: 1.5,
-                "white-space": "normal",
-                "text-align": "center",
+                whiteSpace: "normal",
+                textAlign: "center",
               }}
             >
               Stim Waveform Display Format:

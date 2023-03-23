@@ -69,8 +69,8 @@ class DownloadItem(BaseModel):
 
 
 class WaveformDataResponse(BaseModel):
-    coordinates: Dict[str, List[Any]]
-    peaks_valleys: Dict[str, List[Any]]
+    coordinates: List[Any]
+    peaks_valleys: Optional[Dict[str, List[Any]]]
 
 
 class JobDownloadRequest(BaseModel):
