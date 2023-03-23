@@ -1398,7 +1398,7 @@ def test_uploads_download__post__correctly_handles_multiple_file_downloads(
 
 
 @pytest.mark.parametrize("test_query_params", [f"upload_id={uuid.uuid4()}", f"job_id={uuid.uuid4()}"])
-def test_waveform-data__get__no_job_or_upload_id_is_found(mocker, test_query_params):
+def test_waveform_data__get__no_job_or_upload_id_is_found(mocker, test_query_params):
     access_token = get_token(scope=["pulse3d:free"])
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
 

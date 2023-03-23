@@ -81,8 +81,9 @@ const GraphContainer = styled.div`
 const SpinnerContainer = styled.div`
   height: 100%;
   display: flex;
+  width: 100%;
   align-items: center;
-  margin-bottom: 45px;
+  justify-content: center;
 `;
 const ButtonContainer = styled.div`
   position: relative;
@@ -200,21 +201,6 @@ export default function InteractiveWaveformModal({
   }, [markers, editableStartEndTimes, peakValleyWindows]);
 
   useEffect(() => {
-    // will error on init because there won't be an index 0
-    if (Object.keys(originalData).length > 0) {
-      const wellData = originalData.coordinates[selectedWell];
-      const { start_time, end_time } = selectedJob.analysisParams;
-      // update x min and max if no start or end time was ever defined so it isn't null in changelog messages
-      setXRange({
-        min: start_time ? start_time : Math.min(...wellData.map((coords) => coords[0])),
-        max: end_time ? end_time : Math.max(...wellData.map((coords) => coords[0])),
-      });
-
-      setDataToGraph([...wellData]);
-    }
-  }, [selectedWell, originalData]);
-
-  useEffect(() => {
     if (dataToGraph.length > 0) {
       setMarkers([...editablePeaksValleys[selectedWell]]);
       setIsLoading(false);
@@ -234,12 +220,15 @@ export default function InteractiveWaveformModal({
             originalData = { peaks_valleys: res.peaks_valleys, coordinates: {} };
           }
 
+          const { coordinates, peaks_valleys } = res;
           // original data is set and never changed to hold original state in case of reset
-          originalData.coordinates[well] = res.coordinates;
+          originalData.coordinates[well] = coordinates;
           setOriginalData(originalData);
-          if (peaks_valleys_needed) setEditablePeaksValleys(res.peaks_valleys);
-
+          if (peaks_valleys_needed) setEditablePeaksValleys(peaks_valleys);
           setInitialPeakValleyWindows(well);
+
+          // this function actually renders new graph data to the page
+          setWellDataToGraph(coordinates);
 
           if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.2")) {
             setModalLabels(constantModalLabels.oldPulse3dVersion);
@@ -386,7 +375,7 @@ export default function InteractiveWaveformModal({
     const wellSpecificCoords = coordinates[well];
 
     // consider when no peaks or valleys were found in a well
-    if (wellSpecificValleys.length > 0) {
+    if (wellSpecificCoords && wellSpecificValleys.length > 0) {
       let highest = wellSpecificValleys[0];
 
       wellSpecificValleys.map((valley) => {
@@ -423,10 +412,28 @@ export default function InteractiveWaveformModal({
   };
 
   const handleWellSelection = async (idx) => {
-    setSelectedWell(wellNames[idx]);
-    if (!(wellNames[idx] in originalData.coordinates)) {
-      await getWaveformData(false, wellNames[idx]);
+    if (wellNames[idx] !== selectedWell) {
+      setSelectedWell(wellNames[idx]);
+      if (!(wellNames[idx] in originalData.coordinates)) {
+        setIsLoading(true);
+        getWaveformData(false, wellNames[idx]);
+      } else {
+        const coordinates = originalData.coordinates[wellNames[idx]];
+        setWellDataToGraph(coordinates);
+      }
     }
+  };
+
+  const setWellDataToGraph = (coords) => {
+    const { start_time, end_time } = selectedJob.analysisParams;
+    // update x min and max if no start or end time was ever defined so it isn't null in changelog messages
+    setXRange({
+      min: start_time ? start_time : Math.min(...coords.map((coords) => coords[0])),
+      max: end_time ? end_time : Math.max(...coords.map((coords) => coords[0])),
+    });
+
+    // last step to rerender the graph
+    setDataToGraph([...coords]);
   };
 
   const resetWellChanges = () => {
@@ -688,7 +695,7 @@ export default function InteractiveWaveformModal({
     )[0];
     setPulse3dVersionEOLDate(
       selectedVersionMetadata.end_of_life_date
-        ? ` Version ${selectedVersionMetadata.version} will be removed after ${electedVersionMetaData.end_of_life_date}.`
+        ? ` Version ${selectedVersionMetadata.version} will be removed after ${selectedVersionMetadata.end_of_life_date}.`
         : `Version ${selectedVersionMetadata.version} will be removed soon.`
     );
     setDeprecationNotice(selectedVersionMetadata.state === "deprecated");
@@ -767,106 +774,103 @@ export default function InteractiveWaveformModal({
   return (
     <Container>
       <HeaderContainer>Interactive Waveform Analysis</HeaderContainer>
-      {isLoading ? (
-        <SpinnerContainer>
-          <CircularSpinner size={300} />
-        </SpinnerContainer>
-      ) : (
-        <>
-          <WellDropdownContainer>
-            <WellDropdownLabel>Select Well:</WellDropdownLabel>
-            <DropDownWidget
-              options={wellNames}
-              handleSelection={handleWellSelection}
-              reset={selectedWell == "A1"}
-              initialSelected={0}
+      <WellDropdownContainer>
+        <WellDropdownLabel>Select Well:</WellDropdownLabel>
+        <DropDownWidget
+          options={wellNames}
+          handleSelection={handleWellSelection}
+          reset={selectedWell == "A1"}
+          initialSelected={0}
+        />
+      </WellDropdownContainer>
+
+      <GraphContainer>
+        {isLoading ? (
+          <SpinnerContainer>
+            <CircularSpinner size={200} />
+          </SpinnerContainer>
+        ) : (
+          <WaveformGraph
+            dataToGraph={dataToGraph}
+            initialPeaksValleys={markers}
+            startTime={editableStartEndTimes.startTime}
+            endTime={editableStartEndTimes.endTime}
+            currentWell={selectedWell}
+            setEditableStartEndTimes={setEditableStartEndTimes}
+            setEditablePeaksValleys={setEditablePeaksValleys}
+            editablePeaksValleys={editablePeaksValleys}
+            xRange={xRange}
+            resetWellChanges={resetWellChanges}
+            saveChanges={saveChanges}
+            deletePeakValley={deletePeakValley}
+            addPeakValley={addPeakValley}
+            openChangelog={() => setOpenChangelog(true)}
+            undoLastChange={undoLastChange}
+            setPeakValleyWindows={setPeakValleyWindows}
+            peakValleyWindows={peakValleyWindows}
+            checkDuplicates={checkDuplicates}
+          />
+        )}
+      </GraphContainer>
+      <ErrorLabel>{errorMessage}</ErrorLabel>
+      <VersionDropdownContainer>
+        <VersionDropdownLabel htmlFor="selectedPulse3dVersion">
+          Pulse3d Version:
+          <Tooltip
+            title={
+              <TooltipText>{"Specifies which version of the pulse3d analysis software to use."}</TooltipText>
+            }
+          >
+            <InfoOutlinedIcon
+              sx={{
+                "&:hover": {
+                  color: "var(--teal-green)",
+                  cursor: "pointer",
+                },
+              }}
             />
-          </WellDropdownContainer>
-          <GraphContainer>
-            <WaveformGraph
-              dataToGraph={dataToGraph}
-              initialPeaksValleys={markers}
-              startTime={editableStartEndTimes.startTime}
-              endTime={editableStartEndTimes.endTime}
-              currentWell={selectedWell}
-              setEditableStartEndTimes={setEditableStartEndTimes}
-              setEditablePeaksValleys={setEditablePeaksValleys}
-              editablePeaksValleys={editablePeaksValleys}
-              xRange={xRange}
-              resetWellChanges={resetWellChanges}
-              saveChanges={saveChanges}
-              deletePeakValley={deletePeakValley}
-              addPeakValley={addPeakValley}
-              openChangelog={() => setOpenChangelog(true)}
-              undoLastChange={undoLastChange}
-              setPeakValleyWindows={setPeakValleyWindows}
-              peakValleyWindows={peakValleyWindows}
-              checkDuplicates={checkDuplicates}
-            />
-          </GraphContainer>
-          <ErrorLabel>{errorMessage}</ErrorLabel>
-          <VersionDropdownContainer>
-            <VersionDropdownLabel htmlFor="selectedPulse3dVersion">
-              Pulse3d Version:
-              <Tooltip
-                title={
-                  <TooltipText>
-                    {"Specifies which version of the pulse3d analysis software to use."}
-                  </TooltipText>
-                }
-              >
-                <InfoOutlinedIcon
-                  sx={{
-                    "&:hover": {
-                      color: "var(--teal-green)",
-                      cursor: "pointer",
-                    },
-                  }}
-                />
-              </Tooltip>
-            </VersionDropdownLabel>
-            <DropDownWidget
-              options={pulse3dVersions.map((version) => {
-                const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
-                if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
-                  return version + " " + "[ testing ]";
-                } else if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "deprecated") {
-                  return version + " " + "[ deprecated ]";
-                } else {
-                  return version;
-                }
-              })}
-              label="Select"
-              reset={pulse3dVersionIdx === 0}
-              handleSelection={handleVersionSelect}
-              initialSelected={0}
-            />
-          </VersionDropdownContainer>
-          <ButtonContainer>
-            <ButtonWidget
-              width="150px"
-              height="50px"
-              position="relative"
-              borderRadius="3px"
-              left="-70px"
-              label="Cancel"
-              clickFn={() => setOpenInteractiveAnalysis(false)}
-            />
-            <ButtonWidget
-              width="150px"
-              height="50px"
-              position="relative"
-              borderRadius="3px"
-              left="-50px"
-              label="Run Analysis"
-              backgroundColor={uploadInProgress ? "var(--dark-gray)" : "var(--dark-blue)"}
-              disabled={uploadInProgress}
-              inProgress={uploadInProgress}
-              clickFn={handleRunAnalysis}
-            />
-          </ButtonContainer>
-        </>
-      )}
+          </Tooltip>
+        </VersionDropdownLabel>
+        <DropDownWidget
+          options={pulse3dVersions.map((version) => {
+            const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
+            if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
+              return version + " " + "[ testing ]";
+            } else if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "deprecated") {
+              return version + " " + "[ deprecated ]";
+            } else {
+              return version;
+            }
+          })}
+          label="Select"
+          reset={pulse3dVersionIdx === 0}
+          handleSelection={handleVersionSelect}
+          initialSelected={0}
+        />
+      </VersionDropdownContainer>
+      <ButtonContainer>
+        <ButtonWidget
+          width="150px"
+          height="50px"
+          position="relative"
+          borderRadius="3px"
+          left="-70px"
+          label="Cancel"
+          clickFn={() => setOpenInteractiveAnalysis(false)}
+        />
+        <ButtonWidget
+          width="150px"
+          height="50px"
+          position="relative"
+          borderRadius="3px"
+          left="-50px"
+          label="Run Analysis"
+          backgroundColor={uploadInProgress || isLoading ? "var(--dark-gray)" : "var(--dark-blue)"}
+          disabled={uploadInProgress || isLoading}
+          inProgress={uploadInProgress}
+          clickFn={handleRunAnalysis}
+        />
+      </ButtonContainer>
       <ModalWidget
         open={["status", "dataFound", "pulse3dWarning"].includes(modalOpen)}
         buttons={modalLabels.buttons}

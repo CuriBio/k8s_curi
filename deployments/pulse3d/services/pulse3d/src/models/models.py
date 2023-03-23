@@ -69,7 +69,7 @@ class DownloadItem(BaseModel):
 
 
 class WaveformDataResponse(BaseModel):
-    coordinates: List[List[int]]
+    coordinates: List[Any]
     peaks_valleys: Optional[Dict[str, List[Any]]]
 
 
