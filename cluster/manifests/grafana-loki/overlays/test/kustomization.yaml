@@ -3,35 +3,35 @@ kind: Kustomization
 resources:
 - ../../base
 
-patchesJson6902:
-- target:
-    kind: Application
-    name: grafana
-    namespace: argocd
-  patch: |-
-    - op: replace
-      path: /spec/source/helm/values
-      value: |
-        loki:
-          auth_enabled: false
+# patchesJson6902:
+# - target:
+#     kind: Application
+#     name: grafana
+#     namespace: argocd
+#   patch: |-
+#     - op: replace
+#       path: /spec/source/helm/values
+#       value: |
+        # loki:
+        #   auth_enabled: false
 
-          schema_config:
-            configs:
-            - from: 2020-05-15
-              store: aws
-              object_store: s3
-              schema: v11
-              index:
-                prefix: loki_
-          storage:
-            s3:
-              endpoint: http://test-loki-logs.s3-website-us-east-2.amazonaws.com,
-              region: us-east-2
-              s3: s3://us-east-2/test-loki-logs
-            type: s3
-          storage_config:
-            aws:
-              s3: s3://us-east-2/test-loki-logs
-        serviceAccount:
-          create: false
-          name: default
+        #   schema_config:
+        #     configs:
+        #     - from: 2020-05-15
+        #       store: aws
+        #       object_store: s3
+        #       schema: v11
+        #       index:
+        #         prefix: loki_
+        #   storage:
+        #     s3:
+        #       endpoint: http://test-loki-logs.s3-website-us-east-2.amazonaws.com,
+        #       region: us-east-2
+        #       s3: s3://us-east-2/test-loki-logs
+        #     type: s3
+        #   storage_config:
+        #     aws:
+        #       s3: s3://us-east-2/test-loki-logs
+        # serviceAccount:
+        #   create: false
+        #   name: default
