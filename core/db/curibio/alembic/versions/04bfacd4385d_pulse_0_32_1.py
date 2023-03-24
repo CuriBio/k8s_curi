@@ -1,17 +1,16 @@
 """pulse 0.32.1
 
 Revision ID: 04bfacd4385d
-Revises: ac1e440896f9
+Revises: 0b1999fb5ce5
 Create Date: 2023-03-21 14:53:49.083859
 
 """
 from alembic import op
-import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '04bfacd4385d'
-down_revision = '0b1999fb5ce5'
+revision = "04bfacd4385d"
+down_revision = "0b1999fb5ce5"
 branch_labels = None
 depends_on = None
 
