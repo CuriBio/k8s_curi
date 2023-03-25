@@ -1,4 +1,5 @@
 import boto3
+import datetime
 import pandas as pd
 import uuid
 
@@ -22,21 +23,22 @@ def load_data_to_df(file_name, pr):
 
 
 def format_metadata(meta_sheet, pr, recording_length: int):
-    well_file = pr.wells[0]
-
+    first_avaliable_well = next(iter(pr))
     return {
-        "plate_barcode": well_file.get(PLATE_BARCODE_UUID, None),
-        "recording_started_at": well_file[UTC_BEGINNING_RECORDING_UUID],
-        "file_format_version": well_file.version,
-        "instrument_serial_number": well_file.get(MANTARRAY_SERIAL_NUMBER_UUID, None),
+        "plate_barcode": first_avaliable_well.get(PLATE_BARCODE_UUID, "NA"),
+        "recording_started_at": first_avaliable_well[UTC_BEGINNING_RECORDING_UUID],
+        "file_format_version": first_avaliable_well.version,
+        "instrument_serial_number": first_avaliable_well.get(MANTARRAY_SERIAL_NUMBER_UUID, None),
         "length_microseconds": recording_length,
         "file_creation_timestamp": meta_sheet.iloc[11, 2],
         "mantarray_recording_session_id": uuid.uuid4(),
-        "uploading_computer_name": well_file.get(COMPUTER_NAME_HASH_UUID, None),
-        "acquisition_started_at": well_file[UTC_BEGINNING_DATA_ACQUISTION_UUID],
-        "session_log_id": well_file.get(BACKEND_LOG_UUID, None),
-        "software_version": well_file.get(SOFTWARE_RELEASE_VERSION_UUID, None),
-        "stim_barcode": well_file.get(STIM_BARCODE_UUID, None),
+        "uploading_computer_name": first_avaliable_well.get(COMPUTER_NAME_HASH_UUID, None),
+        "acquisition_started_at": first_avaliable_well.get(
+            UTC_BEGINNING_DATA_ACQUISTION_UUID, datetime.datetime.now()
+        ),
+        "session_log_id": first_avaliable_well.get(BACKEND_LOG_UUID, "NAN"),
+        "software_version": first_avaliable_well.get(SOFTWARE_RELEASE_VERSION_UUID, None),
+        "stim_barcode": first_avaliable_well.get(STIM_BARCODE_UUID, None),
     }
 
 
