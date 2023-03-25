@@ -23,22 +23,24 @@ def load_data_to_df(file_name, pr):
 
 
 def format_metadata(meta_sheet, pr, recording_length: int):
-    first_avaliable_well = next(iter(pr))
+    first_available_well = next(iter(pr))
     return {
-        "plate_barcode": first_avaliable_well.get(PLATE_BARCODE_UUID, "NA"),
-        "recording_started_at": first_avaliable_well[UTC_BEGINNING_RECORDING_UUID],
-        "file_format_version": first_avaliable_well.version,
-        "instrument_serial_number": first_avaliable_well.get(MANTARRAY_SERIAL_NUMBER_UUID, None),
+        "plate_barcode": first_available_well.get(PLATE_BARCODE_UUID, "NA"),
+        "recording_started_at": first_available_well[UTC_BEGINNING_RECORDING_UUID],
+        "file_format_version": first_available_well.version,
+        "instrument_serial_number": first_available_well.get(MANTARRAY_SERIAL_NUMBER_UUID),
         "length_microseconds": recording_length,
         "file_creation_timestamp": meta_sheet.iloc[11, 2],
         "mantarray_recording_session_id": uuid.uuid4(),
-        "uploading_computer_name": first_avaliable_well.get(COMPUTER_NAME_HASH_UUID, None),
-        "acquisition_started_at": first_avaliable_well.get(
+        "uploading_computer_name": first_available_well.get(COMPUTER_NAME_HASH_UUID),
+        # fails if not a datetime
+        "acquisition_started_at": first_available_well.get(
             UTC_BEGINNING_DATA_ACQUISTION_UUID, datetime.datetime.now()
         ),
-        "session_log_id": first_avaliable_well.get(BACKEND_LOG_UUID, "NAN"),
-        "software_version": first_avaliable_well.get(SOFTWARE_RELEASE_VERSION_UUID, None),
-        "stim_barcode": first_avaliable_well.get(STIM_BARCODE_UUID, None),
+        "session_log_id": first_available_well.get(BACKEND_LOG_UUID, ""),
+        # this value is non-nullable in at least one table so need to return an empty string if not found
+        "software_version": first_available_well.get(SOFTWARE_RELEASE_VERSION_UUID),
+        "stim_barcode": first_available_well.get(STIM_BARCODE_UUID),
     }
 
 
