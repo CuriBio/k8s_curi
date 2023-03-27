@@ -33,10 +33,9 @@ def format_metadata(meta_sheet, pr, recording_length: int):
         "file_creation_timestamp": meta_sheet.iloc[11, 2],
         "mantarray_recording_session_id": uuid.uuid4(),
         "uploading_computer_name": first_available_well.get(COMPUTER_NAME_HASH_UUID),
-        # fails if not a datetime
         "acquisition_started_at": first_available_well.get(UTC_BEGINNING_DATA_ACQUISTION_UUID),
-        "session_log_id": first_available_well.get(BACKEND_LOG_UUID, ""),
         # this value is non-nullable in at least one table so need to return an empty string if not found
+        "session_log_id": first_available_well.get(BACKEND_LOG_UUID, ""),
         "software_version": first_available_well.get(SOFTWARE_RELEASE_VERSION_UUID),
         "stim_barcode": first_available_well.get(STIM_BARCODE_UUID),
     }
