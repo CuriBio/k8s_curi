@@ -11,7 +11,7 @@ spec:
     targetRevision: 6.52.4
     helm:
       valueFiles:
-      - $values/cluster/manifests/grafana
+      - $values/cluster/manifests/grafana/overlays/test/values.yaml
   - repoURL: https://github.com/CuriBio/k8s_curi.git
     targetRevision: grafana-loki
     ref: values
