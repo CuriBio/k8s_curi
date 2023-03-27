@@ -136,13 +136,35 @@ resource "aws_iam_role" "apiv2_pods" {
   assume_role_policy = data.aws_iam_policy_document.apiv2_pods.json
 }
 
-# resource "aws_iam_role_policy" "operators_iam_role_policy" {
-#   name        = "operators-iam-role01"
-#   role        = aws_iam_role.operators_pods.id
+data "aws_iam_policy_document" "loki_pods" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    effect  = "Allow"
 
-#   policy = file("${path.module}/json/operators_${var.cluster_name}_iam_policy.json")
-# }
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_iam_openid_connect_provider.default.url, "https://", "")}:sub"
+      values   = ["system:serviceaccount:argocd:default"]
+    }
 
+    principals {
+      identifiers = [aws_iam_openid_connect_provider.default.arn]
+      type        = "Federated"
+    }
+  }
+}
+
+resource "aws_iam_role" "loki_pods" {
+  name = "loki-pods-iam-role01"
+
+  assume_role_policy = data.aws_iam_policy_document.loki_pods.json
+}
+resource "aws_iam_role_policy" "loki_pod_iam_role_policy" {
+  name        = "loki-pods-iam-role01"
+  role        = aws_iam_role.loki_pods.id
+
+  policy = file("${path.module}/json/loki_${var.cluster_name}_iam_policy.json")
+}
 data "aws_iam_policy_document" "operators_pods" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -180,6 +202,11 @@ resource "aws_iam_openid_connect_provider" "default" {
 
 module "argo_workflows" {
   source = "./modules/argo_workflows"
+  cluster_name = var.cluster_name
+}
+
+module "loki_logs_bucket" {
+  source = "./modules/grafana-loki"
   cluster_name = var.cluster_name
 }
 

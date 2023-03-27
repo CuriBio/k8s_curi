@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  namespace: argocd
+spec:
+  project: cluster
+  sources:
+  - repoURL: https://grafana.github.io/helm-charts
+    chart: grafana
+    targetRevision: 6.52.4
+    helm:
+      valueFiles:
+      - $values/cluster/manifests/grafana
+  - repoURL: https://github.com/CuriBio/k8s_curi.git
+    targetRevision: grafana-loki
+    ref: values
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: argocd
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
