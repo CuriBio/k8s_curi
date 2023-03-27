@@ -7,8 +7,8 @@ resources:
 patchesJson6902:
   - target:
       kind: Application
-      name: grafana-loki
+      name: grafana
     patch: |-
       - op: replace
         path: /spec/sources/0/helm/valueFiles/0
-        value: $values/cluster/manifests/grafana-loki/overlays/test/values.yaml
+        value: $values/cluster/manifests/grafana/overlays/prod/values.yaml

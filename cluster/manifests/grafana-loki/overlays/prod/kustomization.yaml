@@ -11,4 +11,4 @@ patchesJson6902:
     patch: |-
       - op: replace
         path: /spec/sources/0/helm/valueFiles/0
-        value: $values/cluster/manifests/grafana-loki/overlays/test/values.yaml
+        value: $values/cluster/manifests/grafana-loki/overlays/prod/values.yaml
