@@ -30,7 +30,7 @@ spec:
   project: cluster
   source:
     repoURL: https://github.com/CuriBio/k8s_curi.git
-    targetRevision: grafana-loki
+    targetRevision: HEAD
     path: cluster/manifests/applications/overlays/test
   destination:
     server: https://kubernetes.default.svc

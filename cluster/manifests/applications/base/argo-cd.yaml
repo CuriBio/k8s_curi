@@ -10,7 +10,7 @@ spec:
   source:
     path: cluster/manifests/argo-cd/base
     repoURL: https://github.com/CuriBio/k8s_curi.git
-    targetRevision: grafana-loki
+    targetRevision: HEAD
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:
