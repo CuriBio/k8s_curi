@@ -667,6 +667,12 @@ async def get_interactive_waveform_data(
         analysis_params = parsed_meta.get("analysis_params")
         pulse3d_version = parsed_meta.get("version")
 
+        # normalize_y_axis is not always in analysis_params and if normalize_y_axis is present, will either be None, True, or False.
+        # Only prevent normalization if explicitly False.
+        normalize_y_axis = not (
+            "normalize_y_axis" in analysis_params and analysis_params["normalize_y_axis"] is False
+        )
+
         if "pulse3d:rw_all_data" not in token["scope"]:
             # only allow user to perform interactive analysis on another user's recording if special scope
             # customer id will be checked when attempting to locate file in s3 with customer id found in token
@@ -703,10 +709,17 @@ async def get_interactive_waveform_data(
             # if file found, read to dataframe for IA
             time_force_df = pd.read_parquet(parquet_path)
             # get relevant well-specific time force coordinates
-            well_specific_force = time_force_df[well_name].dropna().tolist()
+            well_specific_force = time_force_df[well_name].dropna()
+
+            # normalize to match pulse3d output
+            if normalize_y_axis:
+                min_value = min(well_specific_force)
+                well_specific_force -= min_value
+
             time = time_force_df[time_force_df.columns[0]].tolist()
             coordinates = [
-                [time[i] / MICRO_TO_BASE_CONVERSION, val] for i, val in enumerate(well_specific_force)
+                [time[i] / MICRO_TO_BASE_CONVERSION, val]
+                for i, val in enumerate(well_specific_force.tolist())
             ]
 
             # Luci (03/21/2023) only get peaks and valleys on initial waveform request when interactive analysis is first opened
