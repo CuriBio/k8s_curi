@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  - values.yaml
+
+patchesJson6902:
+  - target:
+      kind: Application
+      name: grafana
+    patch: |-
+      - op: replace
+        path: /spec/sources/0/helm/valueFiles/0
+        value: $values/cluster/manifests/grafana/overlays/test/values.yaml
