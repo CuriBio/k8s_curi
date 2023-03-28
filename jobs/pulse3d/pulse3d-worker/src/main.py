@@ -15,6 +15,8 @@ import numpy as np
 
 from pulse3D.constants import MICRO_TO_BASE_CONVERSION
 from pulse3D.constants import WELL_NAME_UUID
+from pulse3D.constants import PLATEMAP_LABEL_UUID
+from pulse3D.constants import NOT_APPLICABLE_LABEL
 from pulse3D.excel_writer import write_xlsx
 from pulse3D.peak_detection import peak_detector
 from pulse3D.plate_recording import PlateRecording
@@ -50,7 +52,7 @@ def _is_valid_well_name(well_name):
     )
 
 
-@get_item(queue=f"pulse3d-v{PULSE3D_VERSION}")
+@get_item(queue=f"test-pulse3d-v{PULSE3D_VERSION}")
 async def process(con, item):
     logger.info(f"Processing item: {item}")
     s3_client = boto3.client("s3")
@@ -254,6 +256,32 @@ async def process(con, item):
                 outfile_key = f"{outfile_prefix}/{job_id}/{outfile}"
             except Exception as e:
                 logger.exception(f"Writing xlsx output failed: {e}")
+                raise
+
+            try:
+                logger.info("Checking if well groups need to be updated in job's metadata")
+                well_groups = analysis_params["well_groups"]
+
+                # well_groups may have been sent in a dashboard reanalysis or upload, don't override here
+                if well_groups is None:
+                    platemap_labels = dict()
+
+                    for well_file in first_recording:
+                        label = well_file[PLATEMAP_LABEL_UUID]
+                        # only add to platemap_labels if label has been assigned
+                        if label != NOT_APPLICABLE_LABEL:
+                            # add label to dictionary if not already present
+                            if label not in platemap_labels:
+                                platemap_labels[label] = list()
+
+                            platemap_labels[label].append(well_file[WELL_NAME_UUID])
+
+                    # only change assignment if any groups were found, else it will be an empty dictionary
+                    if platemap_labels:
+                        job_metadata |= {"well_groups": platemap_labels}
+
+            except Exception as e:
+                logger.exception(f"Error updating well groups: {e}")
                 raise
 
             with open(outfile, "rb") as file:
