@@ -1462,7 +1462,6 @@ def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version, w
         if column != "B1__raw":
             series[test_B1_data[-1]] = np.nan
         test_inclusive_df[column] = series
-
     expected_analysis_params = {
         param: None
         for param in (
@@ -1472,8 +1471,6 @@ def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version, w
             "prominence_factors",
             "width_factors",
             "twitch_widths",
-            "start_time",
-            "end_time",
         )
     }
 
