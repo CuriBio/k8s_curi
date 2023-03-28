@@ -169,6 +169,8 @@ export default function InteractiveWaveformModal({
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [creditUsageAlert, setCreditUsageAlert] = useState(false);
   const { usageQuota } = useContext(AuthContext);
+  const [deprecationNotice, setDeprecationNotice] = useState(false);
+  const [pulse3dVersionEOLDate, setPulse3dVersionEOLDate] = useState("");
 
   const handleDuplicatesModalClose = (isRunAnalysisOption) => {
     setDuplicateModalOpen(false);
@@ -682,6 +684,15 @@ export default function InteractiveWaveformModal({
   };
 
   const handleVersionSelect = (idx) => {
+    const selectedVersionMetadata = metaPulse3dVersions.filter(
+      (version) => version.version === pulse3dVersions[idx]
+    )[0];
+    setPulse3dVersionEOLDate(
+      selectedVersionMetadata.end_of_life_date
+        ? ` Version ${selectedVersionMetadata.version} will be removed after ${selectedVersionMetadata.end_of_life_date}.`
+        : `Version ${selectedVersionMetadata.version} will be removed soon.`
+    );
+    setDeprecationNotice(selectedVersionMetadata.state === "deprecated");
     setPulse3dVersionIdx(idx);
   };
 
@@ -809,11 +820,15 @@ export default function InteractiveWaveformModal({
               </Tooltip>
             </VersionDropdownLabel>
             <DropDownWidget
-              options={filteredVersions.map((version) => {
+              options={pulse3dVersions.map((version) => {
                 const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
-                return selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing"
-                  ? version + " " + "[ testing ]"
-                  : version;
+                if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
+                  return version + " " + "[ testing ]";
+                } else if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "deprecated") {
+                  return version + " " + "[ deprecated ]";
+                } else {
+                  return version;
+                }
               })}
               label="Select"
               reset={pulse3dVersionIdx === 0}
@@ -877,6 +892,14 @@ export default function InteractiveWaveformModal({
         labels={["This re-analysis will consume 1 analysis credit."]}
         closeModal={() => {
           setCreditUsageAlert(false);
+        }}
+        header={"Attention!"}
+      />
+      <ModalWidget
+        open={deprecationNotice}
+        labels={[pulse3dVersionEOLDate]}
+        closeModal={() => {
+          setDeprecationNotice(false);
         }}
         header={"Attention!"}
       />
