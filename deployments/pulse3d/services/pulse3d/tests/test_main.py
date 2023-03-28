@@ -193,6 +193,7 @@ def test_uploads__post_if_customer_quota_has_not_been_reached(mocked_asyncpg_con
         "user_id": str(test_user_id),
         "type": test_upload_type,
         "customer_id": str(test_customer_id),
+        "auto_upload": True,
     }
 
     mocked_create_upload.assert_called_once_with(con=mocked_asyncpg_con, upload_params=expected_upload_params)

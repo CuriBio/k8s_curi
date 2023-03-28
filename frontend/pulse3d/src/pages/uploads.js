@@ -138,8 +138,8 @@ export default function Uploads() {
   const [ownerWidth, setOwnerWidth] = useState("10%");
   const [recordingWidth, setRecordingWidth] = useState("30%");
   const [uploadWidth, setUploadWidth] = useState("25%");
-  const [createdWidth, setCreatedWidth] = useState("19%");
-  const [analyzedWidth, setAnalyzedWidth] = useState("19%");
+  const [createdWidth, setCreatedWidth] = useState("23%");
+  const [analyzedWidth, setAnalyzedWidth] = useState("23%");
   const [sortColumn, setSortColumn] = useState("");
   const [uploadTableColumns, setUploadTableColumns] = useState([]);
   const [jobsInSelectedUpload, setJobsInSelectedUpload] = useState(0);
@@ -272,6 +272,11 @@ export default function Uploads() {
           return <ResizableColumn last={true} content={latestDate} />;
         },
       },
+      {
+        width: "9%",
+        display: true,
+        cell: (row) => row.autoUpload !== null && <div>Auto-upload: {`${row.autoUpload}`}</div>,
+      },
     ]);
 
     if (displayOwner) {
@@ -388,7 +393,7 @@ export default function Uploads() {
 
   useEffect(() => {
     if (uploads) {
-      const formattedUploads = uploads.map(({ username, id, filename, created_at, owner }) => {
+      const formattedUploads = uploads.map(({ username, id, filename, created_at, owner, auto_upload }) => {
         const formattedTime = formatDateTime(created_at);
         const recName = filename ? filename.split(".")[0] : null;
         const uploadJobs = jobs
@@ -403,6 +408,7 @@ export default function Uploads() {
           lastAnalyzed,
           jobs: uploadJobs,
           owner,
+          autoUpload: auto_upload,
         };
       });
       formattedUploads.sort((a, b) => new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed));

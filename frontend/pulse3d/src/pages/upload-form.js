@@ -429,6 +429,7 @@ export default function UploadForm() {
           filename,
           md5s: hexToBase64(fileHash),
           upload_type: "pulse3d",
+          auto_upload: false,
         }),
       });
 

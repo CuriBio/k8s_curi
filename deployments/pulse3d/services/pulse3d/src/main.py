@@ -150,6 +150,7 @@ async def create_recording_upload(
             "user_id": user_id,
             "type": details.upload_type,
             "customer_id": customer_id,
+            "auto_upload": details.auto_upload,
         }
         async with request.state.pgpool.acquire() as con:
             usage_quota = await check_customer_quota(con, customer_id, service)
