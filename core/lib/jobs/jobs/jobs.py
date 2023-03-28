@@ -86,8 +86,8 @@ async def create_upload(*, con, upload_params):
     # the WITH clause in this query is necessary to make sure the given user_id actually exists
     query = (
         "WITH row AS (SELECT id AS user_id FROM users WHERE id=$1) "
-        "INSERT INTO uploads (user_id, id, md5, prefix, filename, type, customer_id) "
-        "SELECT user_id, $2, $3, $4, $5, $6, $7 FROM row "
+        "INSERT INTO uploads (user_id, id, md5, prefix, filename, type, customer_id, auto_upload) "
+        "SELECT user_id, $2, $3, $4, $5, $6, $7, $8 FROM row "
         "RETURNING id"
     )
 
@@ -100,6 +100,7 @@ async def create_upload(*, con, upload_params):
         upload_params["filename"],
         upload_params["type"],
         upload_params["customer_id"],
+        upload_params["auto_upload"],
     )
 
 
