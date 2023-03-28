@@ -273,7 +273,7 @@ async def process(con, item):
 
                 try:
                     logger.info(f"Inserting {outfile} metadata into db for upload {upload_id}")
-                    plate_barcode, stim_barcode = await insert_metadata_into_pg(
+                    plate_barcode, stim_barcode, recording_length_ms = await insert_metadata_into_pg(
                         con,
                         first_recording,
                         upload_details["customer_id"],
@@ -285,7 +285,11 @@ async def process(con, item):
                         re_analysis,
                     )
 
-                    job_metadata |= {"plate_barcode": plate_barcode, "stim_barcode": stim_barcode}
+                    job_metadata |= {
+                        "plate_barcode": plate_barcode,
+                        "stim_barcode": stim_barcode,
+                        "recording_length_ms": recording_length_ms,
+                    }
                 except Exception as e:
                     logger.exception(f"Failed to insert metadata to db for upload {upload_id}: {e}")
                     raise

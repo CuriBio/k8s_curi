@@ -87,4 +87,4 @@ async def insert_metadata_into_pg(
             raise Exception(f"in mantarray_session_log_files: {repr(e)}")
 
     logger.info("DB complete")
-    return metadata["plate_barcode"], metadata["stim_barcode"]
+    return metadata["plate_barcode"], metadata["stim_barcode"], metadata["length_microseconds"]
