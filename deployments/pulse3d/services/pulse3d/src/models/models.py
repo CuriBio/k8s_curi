@@ -9,6 +9,7 @@ class UploadRequest(BaseModel):
     filename: str
     md5s: Optional[str]
     upload_type: str
+    auto_upload: Optional[bool] = True  # default to True to prevent changes to MA controller
 
 
 class UsageQuota(BaseModel):
