@@ -394,11 +394,7 @@ spec:
 apiVersion: keda.sh/v1alpha1
 kind: ScaledJob
 metadata:
-<<<<<<< HEAD
-  name: pulse3d-scaledobject-0.32.1
-=======
   name: pulse3d-scaledobject-0.32.2
->>>>>>> RC-03-16-23
   namespace: pulse3d
 spec:
   jobTargetRef:
