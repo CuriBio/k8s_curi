@@ -192,9 +192,9 @@ export default function AnalysisParamForm({
   };
 
   const stimWaveformFormatDetails = {
+    None: null,
     Stacked: "stacked",
     Overlayed: "overlayed",
-    None: null,
   };
 
   const updateParams = (newParams) => {
