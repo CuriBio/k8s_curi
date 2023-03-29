@@ -135,6 +135,8 @@ async def process(con, item):
                     for arg_name in ("stiffness_factor", "inverted_post_magnet_wells", "well_groups")
                 }
 
+                # well groups should always be added regardless of reanalysis
+                well_groups = plate_recording_args.get("well_groups")
                 use_existing_time_v_force = re_analysis and not any(plate_recording_args.values())
 
                 logger.info("Starting pulse3d analysis")
@@ -142,9 +144,7 @@ async def process(con, item):
                     # if any plate recording args are provided, can't load from data frame since a re-analysis is required to recalculate the waveforms
                     logger.info(f"Loading previous time force data from {parquet_filename}")
                     recording_df = pd.read_parquet(parquet_path)
-                    # well groups should always be added regardless of reanalysis
-                    well_groups = plate_recording_args.get("well_groups")
-
+                
                     try:
                         recording = PlateRecording.from_dataframe(
                             os.path.join(tmpdir, filename), df=recording_df, well_groups=well_groups
@@ -260,8 +260,6 @@ async def process(con, item):
 
             try:
                 logger.info("Checking if well groups need to be updated in job's metadata")
-                well_groups = plate_recording_args.get("well_groups")
-
                 # well_groups may have been sent in a dashboard reanalysis or upload, don't override here
                 if well_groups is None:
                     platemap_labels = dict()
