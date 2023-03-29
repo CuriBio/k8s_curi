@@ -29,7 +29,6 @@ const FilenameHeader = styled.div`
 const Header = styled.div`
   width: 20%;
 `;
-
 const SubRowFileName = styled.div`
   font-size: 0.75rem;
   width: 40%;
@@ -37,15 +36,29 @@ const SubRowFileName = styled.div`
 const SubRow = styled.div`
   font-size: 0.75rem;
   width: 20%;
+  padding: 7px;
 `;
+
 export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, jobs }) {
   const rows = jobs.map((job) => {
     let paramsString = [];
 
     Object.keys(job.analysisParams).forEach((param) => {
+      let paramDiv, paramVal;
       if (job.analysisParams[param] !== null) {
-        let div, paramVal;
-        if (param !== "well_groups") {
+        if (param === "well_groups") {
+          const wellGroups = job.analysisParams[param];
+          paramDiv = (
+            <div key={job.jobId + param}>
+              well groups:
+              {Object.keys(wellGroups).map((label) => (
+                <ul key={label} style={{ margin: "3px" }}>
+                  {label}: {wellGroups[label]}
+                </ul>
+              ))}
+            </div>
+          );
+        } else {
           if (param === "peaks_valleys") {
             paramVal = "user set";
           } else {
@@ -56,22 +69,10 @@ export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, j
             param = "wells with flipped waveforms";
           }
 
-          div = <div key={job.jobId + param}> {`${param.replaceAll("_", " ")}: ${paramVal}`}</div>;
-        } else {
-          const wellGroups = job.analysisParams[param];
-          div = (
-            <div key={job.jobId + param}>
-              well groups:
-              {Object.keys(wellGroups).map((label) => (
-                <ul key={label} style={{ margin: "3px" }}>
-                  {label}: {wellGroups[label]}
-                </ul>
-              ))}
-            </div>
-          );
+          paramDiv = <div key={job.jobId + param}> {`${param.replaceAll("_", " ")}: ${paramVal}`}</div>;
         }
 
-        paramsString.push(div);
+        paramsString.push(paramDiv);
       }
     });
 

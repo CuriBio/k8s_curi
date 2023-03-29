@@ -144,7 +144,7 @@ async def process(con, item):
                     # if any plate recording args are provided, can't load from data frame since a re-analysis is required to recalculate the waveforms
                     logger.info(f"Loading previous time force data from {parquet_filename}")
                     recording_df = pd.read_parquet(parquet_path)
-                
+
                     try:
                         recording = PlateRecording.from_dataframe(
                             os.path.join(tmpdir, filename), df=recording_df, well_groups=well_groups
