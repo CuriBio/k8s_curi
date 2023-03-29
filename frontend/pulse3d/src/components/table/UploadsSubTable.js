@@ -44,7 +44,7 @@ export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, j
 
     Object.keys(job.analysisParams).forEach((param) => {
       if (job.analysisParams[param] !== null) {
-        let paramVal;
+        let div, paramVal;
         if (param !== "well_groups") {
           if (param === "peaks_valleys") {
             paramVal = "user set";
@@ -55,11 +55,23 @@ export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, j
           if (param == "inverted_post_magnet_wells") {
             param = "wells with flipped waveforms";
           }
-          paramsString.push(
-            <div key={job.jobId + param}> {`${param.replaceAll("_", " ")}: ${paramVal}`}</div>
-          );
+
+          div = <div key={job.jobId + param}> {`${param.replaceAll("_", " ")}: ${paramVal}`}</div>;
         } else {
+          const wellGroups = job.analysisParams[param];
+          div = (
+            <div key={job.jobId + param}>
+              well groups:
+              {Object.keys(wellGroups).map((label) => (
+                <ul key={label} style={{ margin: "3px" }}>
+                  {label}: {wellGroups[label]}
+                </ul>
+              ))}
+            </div>
+          );
         }
+
+        paramsString.push(div);
       }
     });
 

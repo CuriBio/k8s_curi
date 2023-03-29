@@ -143,7 +143,7 @@ async def process(con, item):
                     logger.info(f"Loading previous time force data from {parquet_filename}")
                     recording_df = pd.read_parquet(parquet_path)
                     # well groups should always be added regardless of reanalysis
-                    well_groups = plate_recording_args.get("well_groups", None)
+                    well_groups = plate_recording_args.get("well_groups")
 
                     try:
                         recording = PlateRecording.from_dataframe(
@@ -260,7 +260,7 @@ async def process(con, item):
 
             try:
                 logger.info("Checking if well groups need to be updated in job's metadata")
-                well_groups = analysis_params["well_groups"]
+                well_groups = plate_recording_args.get("well_groups")
 
                 # well_groups may have been sent in a dashboard reanalysis or upload, don't override here
                 if well_groups is None:
@@ -278,7 +278,12 @@ async def process(con, item):
 
                     # only change assignment if any groups were found, else it will be an empty dictionary
                     if platemap_labels:
-                        job_metadata |= {"well_groups": platemap_labels}
+                        # get the original params that aren't missing any plate_recordings_args
+                        updated_analysis_params = json.loads(item["meta"])["analysis_params"]
+                        # update new well groups
+                        updated_analysis_params.update({"well_groups": platemap_labels})
+                        # add to job_metadata to get updated in jobs_result table
+                        job_metadata |= {"analysis_params": updated_analysis_params}
 
             except Exception as e:
                 logger.exception(f"Error updating well groups: {e}")
