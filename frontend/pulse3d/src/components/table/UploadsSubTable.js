@@ -37,6 +37,7 @@ const SubRow = styled.div`
   font-size: 0.75rem;
   width: 20%;
   padding: 7px;
+  overflow: hidden;
 `;
 
 export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, jobs }) {
@@ -53,7 +54,7 @@ export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, j
               well groups:
               {Object.keys(wellGroups).map((label) => (
                 <ul key={label} style={{ margin: "3px" }}>
-                  {label}: {wellGroups[label]}
+                  {label}: {wellGroups[label].join(", ")}
                 </ul>
               ))}
             </div>
