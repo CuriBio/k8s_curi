@@ -274,6 +274,7 @@ export default function UploadForm() {
         end_time: endTime === "" ? null : endTime,
         // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
         version,
+        name_override: "new-test-name",
       };
 
       if (semverGte(version, "0.25.0")) {

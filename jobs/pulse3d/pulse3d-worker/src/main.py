@@ -72,17 +72,22 @@ async def process(con, item):
             upload_details = await con.fetchrow(query, upload_id)
 
             prefix = upload_details["prefix"]
-            filename = upload_details["filename"]
-            key = f"{prefix}/{filename}"
+            metadata = json.loads(item["meta"])
+            upload_filename = upload_details["filename"]
+            # if a new name has been given in the upload form, then replace here, else use original name
+            analysis_filename = (
+                metadata["name_override"] if "name_override" in metadata else upload_details["filename"]
+            )
+            key = f"{prefix}/{upload_filename}"
 
         except Exception as e:
             logger.exception(f"Fetching upload details failed: {e}")
             raise
 
         with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
-            logger.info(f"Downloading {PULSE3D_UPLOADS_BUCKET}/{key} to {tmpdir}/{filename}")
+            logger.info(f"Downloading {PULSE3D_UPLOADS_BUCKET}/{key} to {tmpdir}/{analysis_filename}")
             # adding prefix here representing the version of pulse3D used
-            parquet_filename = f"{os.path.splitext(filename)[0]}.parquet"
+            parquet_filename = f"{os.path.splitext(upload_filename)[0]}.parquet"
             parquet_key = f"{prefix}/time_force_data/{PULSE3D_VERSION}/{parquet_filename}"
             parquet_path = os.path.join(tmpdir, parquet_filename)
             # set variables for where peaks and valleys should be or where it will go in s3
@@ -90,7 +95,7 @@ async def process(con, item):
             pv_temp_path = os.path.join(tmpdir, "peaks_valleys.parquet")
 
             try:
-                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, key, f"{tmpdir}/{filename}")
+                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, key, f"{tmpdir}/{analysis_filename}")
             except Exception as e:
                 logger.exception(f"Failed to download recording zip file: {e}")
                 raise
@@ -122,9 +127,7 @@ async def process(con, item):
             try:
                 # remove params that were not given as these already have default values
                 analysis_params = {
-                    key: val
-                    for key, val in json.loads(item["meta"])["analysis_params"].items()
-                    if val is not None
+                    key: val for key, val in metadata["analysis_params"].items() if val is not None
                 }
 
                 # Tanner (10/7/22): popping these args out of analysis_params here since write_xlsx doesn't take them as a kwarg
@@ -145,7 +148,7 @@ async def process(con, item):
 
                     try:
                         recording = PlateRecording.from_dataframe(
-                            os.path.join(tmpdir, filename), df=recording_df, well_groups=well_groups
+                            os.path.join(tmpdir, analysis_filename), df=recording_df, well_groups=well_groups
                         )
                         recordings = list(recording)
                     except:
