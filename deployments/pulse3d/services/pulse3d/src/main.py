@@ -485,7 +485,7 @@ async def create_new_job(
 
             # if a name is present, then add to metadata of job
             job_meta = {"analysis_params": analysis_params, "version": details.version}
-            if details.name_override:
+            if details.name_override and pulse3d_semver >= "0.32.2":
                 job_meta.update({"name_override": details.name_override})
 
             # finally create job

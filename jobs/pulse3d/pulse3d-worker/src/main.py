@@ -50,7 +50,7 @@ def _is_valid_well_name(well_name):
     )
 
 
-@get_item(queue=f"pulse3d-v{PULSE3D_VERSION}")
+@get_item(queue=f"test-pulse3d-v{PULSE3D_VERSION}")
 async def process(con, item):
     logger.info(f"Processing item: {item}")
     s3_client = boto3.client("s3")
@@ -74,9 +74,10 @@ async def process(con, item):
             prefix = upload_details["prefix"]
             metadata = json.loads(item["meta"])
             upload_filename = upload_details["filename"]
+            name_override = metadata.get("name_override")
             # if a new name has been given in the upload form, then replace here, else use original name
             analysis_filename = (
-                metadata["name_override"] if "name_override" in metadata else upload_details["filename"]
+                f"{metadata['name_override']}.zip" if name_override is not None else upload_filename
             )
             key = f"{prefix}/{upload_filename}"
 
@@ -144,17 +145,19 @@ async def process(con, item):
                     logger.info(f"Loading previous time force data from {parquet_filename}")
                     recording_df = pd.read_parquet(parquet_path)
                     # well groups should always be added regardless of reanalysis
-                    well_groups = plate_recording_args.get("well_groups", None)
+                    well_groups = plate_recording_args.get("well_groups")
 
                     try:
                         recording = PlateRecording.from_dataframe(
-                            os.path.join(tmpdir, analysis_filename), df=recording_df, well_groups=well_groups
+                            os.path.join(tmpdir, analysis_filename),
+                            recording_df=recording_df,
+                            well_groups=well_groups,
                         )
                         recordings = list(recording)
                     except:
                         # If a user attempts to perform re-analysis on an analysis from < 0.25.2, it will fail
                         # because the parquet file won't have the raw data columns, so need to re-analyze
-                        logger.info(
+                        logger.exception(
                             f"Previous dataframe found is not compatible with v{PULSE3D_VERSION}, performing analysis again"
                         )
                         recordings = _load_from_dir(tmpdir, plate_recording_args)
