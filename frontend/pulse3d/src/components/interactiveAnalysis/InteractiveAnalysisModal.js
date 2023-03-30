@@ -48,11 +48,12 @@ const WellDropdownLabel = styled.span`
 `;
 
 const ParamContainer = styled.div`
-  height: 30px;
+  height: 60px;
   display: flex;
   flex-direction: row;
   align-items: center;
-  width: 300px;
+  width: 360px;
+  justify-content: space-between;
 `;
 
 const ParamLabel = styled.span`
@@ -91,7 +92,6 @@ const ButtonContainer = styled.div`
   position: relative;
   height: 50px;
   width: 100%;
-  top: 6vh;
   display: flex;
   justify-content: flex-end;
 `;
@@ -776,8 +776,7 @@ export default function InteractiveWaveformModal({
   };
 
   const pulse3dVersionGte = (version) => {
-    console.log(filteredVersions, pulse3dVersionIdx);
-    return filteredVersions && semverGte(filteredVersions[pulse3dVersionIdx], version);
+    return filteredVersions.length > 0 && semverGte(filteredVersions[pulse3dVersionIdx], version);
   };
 
   const handleDuplicatesModalClose = (isRunAnalysisOption) => {
@@ -848,27 +847,29 @@ export default function InteractiveWaveformModal({
             />
           </Tooltip>
         </ParamLabel>
-        <DropDownWidget
-          options={pulse3dVersions.map((version) => {
-            const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
-            if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
-              return version + " " + "[ testing ]";
-            } else if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "deprecated") {
-              return version + " " + "[ deprecated ]";
-            } else {
-              return version;
-            }
-          })}
-          label="Select"
-          reset={pulse3dVersionIdx === 0}
-          handleSelection={handleVersionSelect}
-          initialSelected={0}
-        />
+        <div style={{ width: "140px" }}>
+          <DropDownWidget
+            options={pulse3dVersions.map((version) => {
+              const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
+              if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
+                return version + " " + "[ testing ]";
+              } else if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "deprecated") {
+                return version + " " + "[ deprecated ]";
+              } else {
+                return version;
+              }
+            })}
+            label="Select"
+            reset={pulse3dVersionIdx === 0}
+            handleSelection={handleVersionSelect}
+            initialSelected={0}
+          />
+        </div>
       </ParamContainer>
       {pulse3dVersionGte("0.32.2") && (
         <ParamContainer>
           <ParamLabel htmlFor="nameOverride">
-            Override original name:
+            Override Original Name:
             <Tooltip
               title={
                 <TooltipText>
