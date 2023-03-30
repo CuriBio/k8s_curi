@@ -101,10 +101,11 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
   const DropDownElement = (
     <DropDownMenu
       items={["Upgrade Plan", "Add New Plan"]}
-      label="Upgrade"
+      label="click here to upgrade"
       handleSelection={() => {
         setNewPlanModalIsOpen(true);
       }}
+      smallerLabel={true}
     />
   );
 
