@@ -264,6 +264,7 @@ export default function UploadForm() {
         selectedPulse3dVersion === "" || !selectedPulse3dVersion
           ? pulse3dVersions[0]
           : selectedPulse3dVersion;
+
       const requestBody = {
         upload_id: uploadId,
         normalize_y_axis: normalizeYAxis === "" ? null : normalizeYAxis,
@@ -295,7 +296,12 @@ export default function UploadForm() {
         requestBody.stim_waveform_format = stimWaveformFormat === "" ? null : stimWaveformFormat;
       }
       if (semverGte(version, "0.32.2")) {
-        requestBody.name_override = analysisParams.nameOverride === "" ? null : analysisParams.nameOverride;
+        // don't add name if it's the original filename or if it's empty
+        requestBody.name_override =
+          analysisParams.nameOverride === "" ||
+          analysisParams.nameOverride === removeFileExt(files[0].filename)
+            ? null
+            : analysisParams.nameOverride;
       }
 
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
@@ -483,6 +489,16 @@ export default function UploadForm() {
   const handleDropDownSelect = (idx) => {
     setAlertShowed(false);
     setFiles([uploads[idx]]); // must be an array
+
+    const filenameNoExt = removeFileExt(uploads[idx].filename);
+    setAnalysisParams({ ...analysisParams, nameOverride: filenameNoExt.join(".") });
+  };
+
+  const removeFileExt = (filename) => {
+    const filenameNoExt = filename.split(".");
+    filenameNoExt.pop();
+
+    return filenameNoExt;
   };
 
   const handleClose = async (idx) => {

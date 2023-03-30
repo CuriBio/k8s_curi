@@ -275,7 +275,8 @@ export default function Uploads() {
       {
         width: "9%",
         display: true,
-        cell: (row) => row.autoUpload !== null && <div>Auto-upload: {`${row.autoUpload}`}</div>,
+        cell: (row) =>
+          row.autoUpload !== null && <div>{row.autoUpload ? `Auto Upload` : "Manual Upload"}</div>,
       },
     ]);
 
