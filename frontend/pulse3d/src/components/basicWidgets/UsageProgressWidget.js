@@ -138,7 +138,7 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
       <ModalWidgetWidgetstyles>
         <ModalWidget
           open={newPlanModalIsOpen}
-          labels={["Please contact Curibio at email@curibio.com to sign up for a new plan."]}
+          labels={["Please email Curibio at contact@curibio.com to sign up for a new plan."]}
           closeModal={() => {
             setNewPlanModalIsOpen(false);
           }}
