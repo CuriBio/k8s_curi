@@ -76,11 +76,13 @@ async def process(con, item):
             prefix = upload_details["prefix"]
             metadata = json.loads(item["meta"])
             upload_filename = upload_details["filename"]
-            name_override = metadata.get("name_override")
             # if a new name has been given in the upload form, then replace here, else use original name
             analysis_filename = (
-                f"{metadata['name_override']}.zip" if name_override is not None else upload_filename
+                f"{name_override}.zip"
+                if (name_override := metadata.get("name_override"))
+                else upload_filename
             )
+            
             key = f"{prefix}/{upload_filename}"
 
         except Exception as e:
