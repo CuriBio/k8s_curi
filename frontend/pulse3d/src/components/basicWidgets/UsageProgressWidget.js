@@ -3,7 +3,6 @@ import CircularProgressWithLabel from "./CircularProgressWithLabel";
 import { useContext } from "react";
 import { AuthContext } from "@/pages/_app";
 import styled from "styled-components";
-import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import DropDownMenu from "./ButtonDropDown";
 import ModalWidget from "./ModalWidget";
 
@@ -30,7 +29,7 @@ const DropDownStyleContainer = styled.div`
   justify-content: space-around;
   padding-top: 15px;
 `;
-const ModalWidgetWidgetstyles = styled.div`
+const ModalWidgetStyle = styled.div`
   position: absolute;
 `;
 
@@ -102,7 +101,7 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
   const DropDownElement = (
     <DropDownMenu
       items={["Upgrade Plan", "Add New Plan"]}
-      label={<ArrowDropDownIcon />}
+      label="Upgrade"
       handleSelection={() => {
         setNewPlanModalIsOpen(true);
       }}
@@ -135,7 +134,7 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
           </DropDownStyleContainer>
         </ExpiredP>
       )}
-      <ModalWidgetWidgetstyles>
+      <ModalWidgetStyle>
         <ModalWidget
           open={newPlanModalIsOpen}
           labels={["Please email Curibio at contact@curibio.com to sign up for a new plan."]}
@@ -144,7 +143,7 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
           }}
           header={"Contact"}
         />
-      </ModalWidgetWidgetstyles>
+      </ModalWidgetStyle>
     </>
   );
 }
