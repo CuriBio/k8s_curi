@@ -86,7 +86,6 @@ export default function DropDownWidget({
   subOptionsTooltipText = [],
   height = 40,
   setReset,
-  width = 400,
 }) {
   const [selected, setSelected] = useState("");
   const [errorMsg, setErrorMsg] = useState(error);
