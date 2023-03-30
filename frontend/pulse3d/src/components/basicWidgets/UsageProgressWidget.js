@@ -3,6 +3,9 @@ import CircularProgressWithLabel from "./CircularProgressWithLabel";
 import { useContext } from "react";
 import { AuthContext } from "@/pages/_app";
 import styled from "styled-components";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import DropDownMenu from "./ButtonDropDown";
+import ModalWidget from "./ModalWidget";
 
 const ProgressDiv = styled.div`
   color: white;
@@ -19,12 +22,25 @@ const ExpiredP = styled.p`
   color: white;
 `;
 
+const DropDownStyleContainer = styled.div`
+  display: flex;
+  flex-flow: column;
+  align-items: center;
+  height: 100%;
+  justify-content: space-around;
+  padding-top: 15px;
+`;
+const ModalWidgetWidgetstyles = styled.div`
+  position: absolute;
+`;
+
 export default function UsageProgressWidget({ colorOfTextLabel }) {
   const { usageQuota, setUsageQuota } = useContext(AuthContext);
   const [maxAnalyses, setMaxAnalyses] = useState(0);
   const [actualAnalyses, setActualAnalyses] = useState();
   const [usagePercentage, setUsagePercentage] = useState(0);
   const [isExpired, setIsExpired] = useState();
+  const [newPlanModalIsOpen, setNewPlanModalIsOpen] = useState(false);
   const pollUsageQuota = async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/usage?service=pulse3d`);
@@ -83,17 +99,52 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
     }
   }, []);
 
+  const DropDownElement = (
+    <DropDownMenu
+      items={["Upgrade Plan", "Add New Plan"]}
+      label={<ArrowDropDownIcon />}
+      handleSelection={() => {
+        setNewPlanModalIsOpen(true);
+      }}
+    />
+  );
+
   return (
     <>
-      {maxAnalyses === -1 && <ProgressDiv>Unlimited Access</ProgressDiv>}
+      {maxAnalyses === -1 && (
+        <ProgressDiv>
+          <DropDownStyleContainer>
+            Unlimited Access
+            {DropDownElement}
+          </DropDownStyleContainer>
+        </ProgressDiv>
+      )}
       {!isExpired && maxAnalyses !== -1 && (
         <ProgressDiv>
           <p>Usage</p>
           <CircularProgressWithLabel value={usagePercentage} colorOfTextLabel={colorOfTextLabel} />
           <ProgressP>{`${actualAnalyses ? actualAnalyses : 0}/${maxAnalyses} Analysis used`}</ProgressP>
+          {DropDownElement}
         </ProgressDiv>
       )}
-      {isExpired && <ExpiredP>Plan Has Expired</ExpiredP>}
+      {isExpired && (
+        <ExpiredP>
+          <DropDownStyleContainer>
+            Plan Has Expired
+            {DropDownElement}
+          </DropDownStyleContainer>
+        </ExpiredP>
+      )}
+      <ModalWidgetWidgetstyles>
+        <ModalWidget
+          open={newPlanModalIsOpen}
+          labels={["Please contact Curibio at email@curibio.com to sign up for a new plan."]}
+          closeModal={() => {
+            setNewPlanModalIsOpen(false);
+          }}
+          header={"Contact"}
+        />
+      </ModalWidgetWidgetstyles>
     </>
   );
 }
