@@ -15,6 +15,8 @@ import numpy as np
 
 from pulse3D.constants import MICRO_TO_BASE_CONVERSION
 from pulse3D.constants import WELL_NAME_UUID
+from pulse3D.constants import PLATEMAP_LABEL_UUID
+from pulse3D.constants import NOT_APPLICABLE_LABEL
 from pulse3D.excel_writer import write_xlsx
 from pulse3D.peak_detection import peak_detector
 from pulse3D.plate_recording import PlateRecording
@@ -72,17 +74,25 @@ async def process(con, item):
             upload_details = await con.fetchrow(query, upload_id)
 
             prefix = upload_details["prefix"]
-            filename = upload_details["filename"]
-            key = f"{prefix}/{filename}"
+            metadata = json.loads(item["meta"])
+            upload_filename = upload_details["filename"]
+            # if a new name has been given in the upload form, then replace here, else use original name
+            analysis_filename = (
+                f"{name_override}.zip"
+                if (name_override := metadata.get("name_override"))
+                else upload_filename
+            )
+            
+            key = f"{prefix}/{upload_filename}"
 
         except Exception as e:
             logger.exception(f"Fetching upload details failed: {e}")
             raise
 
         with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
-            logger.info(f"Downloading {PULSE3D_UPLOADS_BUCKET}/{key} to {tmpdir}/{filename}")
+            logger.info(f"Downloading {PULSE3D_UPLOADS_BUCKET}/{key} to {tmpdir}/{analysis_filename}")
             # adding prefix here representing the version of pulse3D used
-            parquet_filename = f"{os.path.splitext(filename)[0]}.parquet"
+            parquet_filename = f"{os.path.splitext(upload_filename)[0]}.parquet"
             parquet_key = f"{prefix}/time_force_data/{PULSE3D_VERSION}/{parquet_filename}"
             parquet_path = os.path.join(tmpdir, parquet_filename)
             # set variables for where peaks and valleys should be or where it will go in s3
@@ -90,7 +100,7 @@ async def process(con, item):
             pv_temp_path = os.path.join(tmpdir, "peaks_valleys.parquet")
 
             try:
-                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, key, f"{tmpdir}/{filename}")
+                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, key, f"{tmpdir}/{analysis_filename}")
             except Exception as e:
                 logger.exception(f"Failed to download recording zip file: {e}")
                 raise
@@ -122,9 +132,7 @@ async def process(con, item):
             try:
                 # remove params that were not given as these already have default values
                 analysis_params = {
-                    key: val
-                    for key, val in json.loads(item["meta"])["analysis_params"].items()
-                    if val is not None
+                    key: val for key, val in metadata["analysis_params"].items() if val is not None
                 }
 
                 # Tanner (10/7/22): popping these args out of analysis_params here since write_xlsx doesn't take them as a kwarg
@@ -133,6 +141,8 @@ async def process(con, item):
                     for arg_name in ("stiffness_factor", "inverted_post_magnet_wells", "well_groups")
                 }
 
+                # well groups should always be added regardless of reanalysis
+                well_groups = plate_recording_args.get("well_groups")
                 use_existing_time_v_force = re_analysis and not any(plate_recording_args.values())
 
                 logger.info("Starting pulse3d analysis")
@@ -140,18 +150,18 @@ async def process(con, item):
                     # if any plate recording args are provided, can't load from data frame since a re-analysis is required to recalculate the waveforms
                     logger.info(f"Loading previous time force data from {parquet_filename}")
                     recording_df = pd.read_parquet(parquet_path)
-                    # well groups should always be added regardless of reanalysis
-                    well_groups = plate_recording_args.get("well_groups", None)
 
                     try:
                         recording = PlateRecording.from_dataframe(
-                            os.path.join(tmpdir, filename), df=recording_df, well_groups=well_groups
+                            os.path.join(tmpdir, analysis_filename),
+                            recording_df=recording_df,
+                            well_groups=well_groups,
                         )
                         recordings = list(recording)
                     except:
                         # If a user attempts to perform re-analysis on an analysis from < 0.25.2, it will fail
                         # because the parquet file won't have the raw data columns, so need to re-analyze
-                        logger.info(
+                        logger.exception(
                             f"Previous dataframe found is not compatible with v{PULSE3D_VERSION}, performing analysis again"
                         )
                         recordings = _load_from_dir(tmpdir, plate_recording_args)
@@ -254,6 +264,35 @@ async def process(con, item):
                 outfile_key = f"{outfile_prefix}/{job_id}/{outfile}"
             except Exception as e:
                 logger.exception(f"Writing xlsx output failed: {e}")
+                raise
+
+            try:
+                logger.info("Checking if well groups need to be updated in job's metadata")
+                # well_groups may have been sent in a dashboard reanalysis or upload, don't override here
+                if well_groups is None:
+                    platemap_labels = dict()
+
+                    for well_file in first_recording:
+                        label = well_file[PLATEMAP_LABEL_UUID]
+                        # only add to platemap_labels if label has been assigned
+                        if label != NOT_APPLICABLE_LABEL:
+                            # add label to dictionary if not already present
+                            if label not in platemap_labels:
+                                platemap_labels[label] = list()
+
+                            platemap_labels[label].append(well_file[WELL_NAME_UUID])
+
+                    # only change assignment if any groups were found, else it will be an empty dictionary
+                    if platemap_labels:
+                        # get the original params that aren't missing any plate_recordings_args
+                        updated_analysis_params = json.loads(item["meta"])["analysis_params"]
+                        # update new well groups
+                        updated_analysis_params.update({"well_groups": platemap_labels})
+                        # add to job_metadata to get updated in jobs_result table
+                        job_metadata |= {"analysis_params": updated_analysis_params}
+
+            except Exception as e:
+                logger.exception(f"Error updating well groups: {e}")
                 raise
 
             with open(outfile, "rb") as file:
