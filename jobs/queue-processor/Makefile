@@ -1,20 +1,23 @@
 ecr_repo = 077346344852.dkr.ecr.us-east-2.amazonaws.com/queue-processor
 
+repo_root=$(shell git rev-parse --show-toplevel)
+
 .PHONY: build buildx push tag apply
 build:
-	docker build -t queue-processor .
+	cd ${repo_root} && \
+	docker build -t queue-processor . -f ${repo_root}/jobs/queue-processor/Dockerfile
 
 buildx:
-	docker buildx build -t queue-processor . --platform linux/amd64 --load
+	docker buildx build -t queue-processor . --platform linux/amd64 --load -f ${repo_root}/jobs/queue-processor/Dockerfile
 
 tag:
-	docker tag queue-processor:latest $(ecr_repo):0.0.1
+	docker tag queue-processor:latest $(ecr_repo):0.0.2
 
 login:
 	aws ecr get-login-password --region us-east-2 | docker login --password-stdin --username AWS $(ecr_repo)
 
 push:
-	docker push $(ecr_repo):0.0.1
+	docker push $(ecr_repo):0.0.2
 
 apply:
 	kubectl apply -f ./manifests/

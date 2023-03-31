@@ -82,7 +82,7 @@ async def process(con, item):
                 if (name_override := metadata.get("name_override"))
                 else upload_filename
             )
-            
+
             key = f"{prefix}/{upload_filename}"
 
         except Exception as e:
