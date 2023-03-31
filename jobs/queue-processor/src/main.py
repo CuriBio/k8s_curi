@@ -5,7 +5,6 @@ import json
 import os
 import logging
 import sys
-import math
 from time import sleep
 
 logging.basicConfig(
@@ -18,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 SECONDS_TO_POLL_DB = int(os.getenv("SECONDS_TO_POLL_DB"))
 ECR_REPO = os.getenv("ECR_REPO")
-MAX_JOBS_PER_WORKER = int(os.getenv("MAX_JOBS_PER_WORKER", default=5))
+MAX_NUM_OF_WORKERS = int(os.getenv("MAX_NUM_OF_WORKERS", default=5))
 QUEUE = os.getenv("QUEUE")
 DB_PASS = os.getenv("POSTGRES_PASSWORD")
 DB_USER = os.getenv("POSTGRES_USER")
@@ -108,8 +107,11 @@ async def get_next_queue_item():
             for record in records:
                 logger.info(f"Found {record['count']} item(s) for {record['version']}.")
                 version = json.loads(record["version"])
-                # currently set one worker per 5 queue items
-                num_of_workers = math.ceil(record["count"] / MAX_JOBS_PER_WORKER)
+                # spin up max 5 workers, one per first five jobs in queue
+                num_of_workers = (
+                    MAX_NUM_OF_WORKERS if record["count"] >= MAX_NUM_OF_WORKERS else record["count"]
+                )
+
                 await create_job(version, num_of_workers)
 
 
