@@ -34,10 +34,11 @@ const ModalWidgetStyle = styled.div`
 const UpgradeButton = styled.div`
   color: var(--light-gray);
   font-size: 10px;
+  text-decoration: underline;
   &:hover {
     color: var(--teal-green);
+    cursor: pointer;
   }
-  text-decoration: underline;
 `;
 
 export default function UsageProgressWidget({ colorOfTextLabel }) {
@@ -105,39 +106,32 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
     }
   }, []);
 
-  const DropDownElement = (
+  const UpgradeButtonElement = (
     <UpgradeButton
       onClick={() => {
         setNewPlanModalIsOpen(true);
       }}
     >
-      CLICK HERE TO UPGRADE
+      UPGRADE
     </UpgradeButton>
   );
 
   return (
     <>
-      {maxAnalyses === -1 && (
-        <ProgressDiv>
-          <DropDownStyleContainer>
-            Unlimited Access
-            {DropDownElement}
-          </DropDownStyleContainer>
-        </ProgressDiv>
-      )}
+      {maxAnalyses === -1 && <ProgressDiv>Unlimited Access</ProgressDiv>}
       {!isExpired && maxAnalyses !== -1 && (
         <ProgressDiv>
           <p>Usage</p>
           <CircularProgressWithLabel value={usagePercentage} colorOfTextLabel={colorOfTextLabel} />
           <ProgressP>{`${actualAnalyses ? actualAnalyses : 0}/${maxAnalyses} Analysis used`}</ProgressP>
-          {DropDownElement}
+          {UpgradeButtonElement}
         </ProgressDiv>
       )}
       {isExpired && (
         <ExpiredP>
           <DropDownStyleContainer>
             Plan Has Expired
-            {DropDownElement}
+            {UpgradeButtonElement}
           </DropDownStyleContainer>
         </ExpiredP>
       )}
