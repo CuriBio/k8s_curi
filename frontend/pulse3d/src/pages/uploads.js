@@ -275,7 +275,8 @@ export default function Uploads() {
       {
         width: "9%",
         display: true,
-        cell: (row) => row.autoUpload !== null && <div>Auto-upload: {`${row.autoUpload}`}</div>,
+        cell: (row) =>
+          row.autoUpload !== null && <div>{row.autoUpload ? `Auto Upload` : "Manual Upload"}</div>,
       },
     ]);
 
@@ -324,21 +325,24 @@ export default function Uploads() {
         const newJobs = jobs.map(({ id, upload_id, created_at, object_key, status, meta, owner }) => {
           const analyzedFile = object_key ? object_key.split("/")[object_key.split("/").length - 1] : "";
           const formattedTime = formatDateTime(created_at);
+          const isChecked = checkedJobs.includes(id);
           const parsedMeta = JSON.parse(meta);
           const analysisParams = parsedMeta.analysis_params;
           // add pulse3d version used on job to be displayed with other analysis params
           analysisParams.pulse3d_version = parsedMeta.version;
-          const isChecked = checkedJobs.includes(id);
+          const metaParams = { analysisParams };
+          if ("name_override" in parsedMeta) metaParams.nameOverride = parsedMeta.name_override;
+
           return {
             jobId: id,
             uploadId: upload_id,
             analyzedFile,
             datetime: formattedTime,
             status,
-            analysisParams,
             version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
             checked: isChecked,
             owner,
+            ...metaParams,
           };
         });
         setJobs(newJobs);

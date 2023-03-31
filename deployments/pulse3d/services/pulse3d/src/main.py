@@ -483,13 +483,18 @@ async def create_new_job(
                 else f"pulse3d-v{details.version}"
             )
 
+            # if a name is present, then add to metadata of job
+            job_meta = {"analysis_params": analysis_params, "version": details.version}
+            if details.name_override and pulse3d_semver >= "0.32.2":
+                job_meta.update({"name_override": details.name_override})
+
             # finally create job
             job_id = await create_job(
                 con=con,
                 upload_id=details.upload_id,
                 queue=pulse3d_queue_to_use,
                 priority=priority,
-                meta={"analysis_params": analysis_params, "version": details.version},
+                meta=job_meta,
                 customer_id=customer_id,
                 job_type=service,
             )
@@ -513,6 +518,7 @@ async def create_new_job(
                     pd.DataFrame(peak_valleys_dict).to_parquet(pv_parquet_path)
                     # upload to s3 under upload id and job id for pulse3d-worker to use
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
+
         return JobResponse(
             id=job_id,
             user_id=user_id,

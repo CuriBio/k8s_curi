@@ -27,6 +27,7 @@ class UploadResponse(BaseModel):
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
     version: str
+    name_override: Optional[str]
     previous_version: Optional[str]
 
     normalize_y_axis: Optional[bool]

@@ -116,10 +116,13 @@ export default function UploadForm() {
       showStimSheet: "",
       wellGroups: {},
       stimWaveformFormat: "",
+      nameOverride: "",
     };
   };
 
   const router = useRouter();
+  const { usageQuota } = useContext(AuthContext);
+
   const [files, setFiles] = useState([]);
   const [formattedUploads, setFormattedUploads] = useState([]);
   const [isButtonDisabled, setIsButtonDisabled] = useState(true);
@@ -129,7 +132,6 @@ export default function UploadForm() {
   const [failedUploadsMsg, setFailedUploadsMsg] = useState([defaultUploadErrorLabel]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [checkedParams, setCheckedParams] = useState(false);
-  const [tabSelection, setTabSelection] = useState(router.query.id);
   const [modalState, setModalState] = useState(false);
   const [usageModalState, setUsageModalState] = useState(false);
   const [usageModalLabels, setUsageModalLabels] = useState(modalObj.uploadsReachedDuringSession);
@@ -137,9 +139,9 @@ export default function UploadForm() {
   const [badZipFiles, setBadZipFiles] = useState([]);
   const [resetDragDrop, setResetDragDrop] = useState(false);
   const [wellGroupErr, setWellGroupErr] = useState(false);
-  const { usageQuota } = useContext(AuthContext);
   const [creditUsageAlert, setCreditUsageAlert] = useState(false);
   const [alertShowed, setAlertShowed] = useState(false);
+  const [reanalysis, setReanalysis] = useState(false);
 
   useEffect(() => {
     if (badZipFiles.length > 0) {
@@ -150,19 +152,6 @@ export default function UploadForm() {
       setModalState(true);
     }
   }, [badZipFiles]);
-
-  const resetAnalysisParams = () => {
-    setAnalysisParams(getDefaultAnalysisParams());
-  };
-
-  const updateCheckParams = (newCheckedParams) => {
-    if (checkedParams && !newCheckedParams) {
-      // if unchecking, reset all params
-      resetAnalysisParams();
-      setParamErrors({});
-    }
-    setCheckedParams(newCheckedParams);
-  };
 
   useEffect(() => {
     // checks if error value exists, no file is selected, or upload is in progress
@@ -177,7 +166,7 @@ export default function UploadForm() {
     setCreditUsageAlert(
       !alertShowed && //makesure modal shows up only once
         !checkConditions &&
-        tabSelection === "Re-analyze Existing Upload" && // modal only shows up in re-analyze tab
+        reanalysis && // modal only shows up in re-analyze tab
         usageQuota && // undefined check
         usageQuota.limits && // undefined check
         parseInt(usageQuota.limits.jobs) !== -1 && //check that usage is not unlimited
@@ -198,8 +187,9 @@ export default function UploadForm() {
   }, [files, analysisParams]);
 
   useEffect(() => {
+    setReanalysis(router.query.id === "Re-analyze Existing Upload");
+
     // reset all params if the user switches between the "re-analyze" and "new upload" versions of this page
-    setTabSelection(router.query.id);
     resetState();
   }, [router.query]);
 
@@ -219,6 +209,18 @@ export default function UploadForm() {
     setModalButtons(["Close"]);
   };
 
+  const resetAnalysisParams = () => {
+    setAnalysisParams(getDefaultAnalysisParams());
+  };
+
+  const updateCheckParams = (newCheckedParams) => {
+    if (checkedParams && !newCheckedParams) {
+      // if unchecking, reset all params
+      resetAnalysisParams();
+      setParamErrors({});
+    }
+    setCheckedParams(newCheckedParams);
+  };
   const formatTupleParams = (firstParam, secondParam) => {
     // convert factors that aren't specified to null
     if (firstParam === "") {
@@ -293,6 +295,15 @@ export default function UploadForm() {
       if (semverGte(version, "0.30.5")) {
         requestBody.stim_waveform_format = stimWaveformFormat === "" ? null : stimWaveformFormat;
       }
+      if (semverGte(version, "0.32.2")) {
+        // don't add name if it's the original filename or if it's empty
+        requestBody.name_override =
+          analysisParams.nameOverride === "" ||
+          analysisParams.nameOverride === removeFileExt(files[0].filename)
+            ? null
+            : analysisParams.nameOverride;
+      }
+
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
         method: "POST",
         body: JSON.stringify(requestBody),
@@ -322,7 +333,7 @@ export default function UploadForm() {
   const checkForMultiRecZips = async () => {
     var JSZip = require("jszip");
     let badZipfiles;
-    if (tabSelection === "Analyze New Files") {
+    if (!reanalysis) {
       const asyncFilter = async (arr, predicate) =>
         Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
@@ -478,6 +489,16 @@ export default function UploadForm() {
   const handleDropDownSelect = (idx) => {
     setAlertShowed(false);
     setFiles([uploads[idx]]); // must be an array
+
+    const filenameNoExt = removeFileExt(uploads[idx].filename);
+    setAnalysisParams({ ...analysisParams, nameOverride: filenameNoExt.join(".") });
+  };
+
+  const removeFileExt = (filename) => {
+    const filenameNoExt = filename.split(".");
+    filenameNoExt.pop();
+
+    return filenameNoExt;
   };
 
   const handleClose = async (idx) => {
@@ -495,7 +516,7 @@ export default function UploadForm() {
     <Container>
       <Uploads>
         <Header>Run Analysis</Header>
-        {tabSelection === "Analyze New Files" ? (
+        {!reanalysis ? (
           <>
             <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
               handleFileChange={(files) => setFiles(Object.values(files))}
@@ -532,6 +553,7 @@ export default function UploadForm() {
           setAnalysisParams={setAnalysisParams}
           analysisParams={analysisParams}
           setWellGroupErr={setWellGroupErr}
+          reanalysis={reanalysis}
         />
         <ButtonContainer>
           {uploadSuccess ? <SuccessText>Upload Successful!</SuccessText> : null}
