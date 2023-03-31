@@ -177,6 +177,14 @@ export default function InteractiveWaveformModal({
   const [deprecationNotice, setDeprecationNotice] = useState(false);
   const [pulse3dVersionEOLDate, setPulse3dVersionEOLDate] = useState("");
   const [nameOverride, setNameOverride] = useState();
+
+  const handleDuplicatesModalClose = (isRunAnalysisOption) => {
+    setDuplicateModalOpen(false);
+    if (isRunAnalysisOption) {
+      postNewJob();
+    }
+  };
+
   const [xRange, setXRange] = useState({
     min: null,
     max: null,
@@ -218,7 +226,10 @@ export default function InteractiveWaveformModal({
         const res = await response.json();
         if (!res.error) {
           if (!("coordinates" in originalData)) {
-            originalData = { peaks_valleys: res.peaks_valleys, coordinates: {} };
+            originalData = {
+              peaks_valleys: res.peaks_valleys,
+              coordinates: {},
+            };
           }
 
           const { coordinates, peaks_valleys } = res;
