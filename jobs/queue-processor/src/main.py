@@ -108,9 +108,7 @@ async def get_next_queue_item():
                 logger.info(f"Found {record['count']} item(s) for {record['version']}.")
                 version = json.loads(record["version"])
                 # spin up max 5 workers, one per first five jobs in queue
-                num_of_workers = (
-                    MAX_NUM_OF_WORKERS if record["count"] >= MAX_NUM_OF_WORKERS else record["count"]
-                )
+                num_of_workers = min(record["count"], MAX_NUM_OF_WORKERS)
 
                 await create_job(version, num_of_workers)
 
