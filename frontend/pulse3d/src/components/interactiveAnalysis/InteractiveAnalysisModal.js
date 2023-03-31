@@ -10,6 +10,7 @@ import { UploadsContext } from "@/components/layouts/DashboardLayout";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
 import semverGte from "semver/functions/gte";
+import FormInput from "@/components/basicWidgets/FormInput";
 import { AuthContext } from "@/pages/_app";
 
 const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
@@ -46,15 +47,16 @@ const WellDropdownLabel = styled.span`
   cursor: default;
 `;
 
-const VersionDropdownContainer = styled.div`
-  height: 30px;
+const ParamContainer = styled.div`
+  height: 60px;
   display: flex;
   flex-direction: row;
   align-items: center;
-  width: 300px;
+  width: 360px;
+  justify-content: space-between;
 `;
 
-const VersionDropdownLabel = styled.span`
+const ParamLabel = styled.span`
   line-height: 2;
   font-size: 16px;
   white-space: nowrap;
@@ -90,7 +92,6 @@ const ButtonContainer = styled.div`
   position: relative;
   height: 50px;
   width: 100%;
-  top: 6vh;
   display: flex;
   justify-content: flex-end;
 `;
@@ -152,8 +153,10 @@ export default function InteractiveWaveformModal({
   setOpenInteractiveAnalysis,
   numberOfJobsInUpload,
 }) {
+  const { usageQuota } = useContext(AuthContext);
+  const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
+
   const [selectedWell, setSelectedWell] = useState("A1");
-  const [useStoredData, setUseStoredData] = useState(false);
   const [uploadInProgress, setUploadInProgress] = useState(false); // determines state of interactive analysis upload
   const [originalData, setOriginalData] = useState({}); // original waveform data from GET request, unedited
   const [dataToGraph, setDataToGraph] = useState([]); // well-specfic coordinates to graph
@@ -171,20 +174,17 @@ export default function InteractiveWaveformModal({
   const [peakValleyWindows, setPeakValleyWindows] = useState({});
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [creditUsageAlert, setCreditUsageAlert] = useState(false);
-  const { usageQuota } = useContext(AuthContext);
   const [deprecationNotice, setDeprecationNotice] = useState(false);
   const [pulse3dVersionEOLDate, setPulse3dVersionEOLDate] = useState("");
+  const [nameOverride, setNameOverride] = useState();
   const [xRange, setXRange] = useState({
     min: null,
     max: null,
   });
-
   const [editableStartEndTimes, setEditableStartEndTimes] = useState({
     startTime: null,
     endTime: null,
   });
-
-  const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
 
   useEffect(() => {
     // only available for versions greater than 0.25.2
@@ -226,13 +226,16 @@ export default function InteractiveWaveformModal({
           originalData.coordinates[well] = coordinates;
           setOriginalData(originalData);
           if (peaks_valleys_needed) {
-            setEditablePeaksValleys(peaks_valleys);
-
             const { start_time, end_time } = selectedJob.analysisParams;
+
+            setEditablePeaksValleys(peaks_valleys);
             setXRange({
               min: start_time ? start_time : Math.min(...coordinates.map((coords) => coords[0])),
               max: end_time ? end_time : Math.max(...coordinates.map((coords) => coords[0])),
             });
+
+            // won't be present for older recordings or if no replacement was ever given
+            if ("nameOverride" in selectedJob) setNameOverride(selectedJob.nameOverride);
           }
 
           setInitialPeakValleyWindows(well);
@@ -480,6 +483,10 @@ export default function InteractiveWaveformModal({
         previous_version: prevPulse3dVersion,
       };
 
+      // only add for versions greater than 0.32.2
+      if (semverGte(prevPulse3dVersion, "0.32.2"))
+        requestBody.name_override = nameOverride === "" ? null : nameOverride;
+
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
         method: "POST",
         body: JSON.stringify(requestBody),
@@ -511,7 +518,6 @@ export default function InteractiveWaveformModal({
       if (modalOpen === "status") setOpenInteractiveAnalysis(false);
       else if (i === 0) getNewData();
       else {
-        setUseStoredData(true);
         loadExistingData();
       }
       sessionStorage.removeItem(selectedJob.jobId);
@@ -769,6 +775,10 @@ export default function InteractiveWaveformModal({
     }
   };
 
+  const pulse3dVersionGte = (version) => {
+    return filteredVersions.length > 0 && semverGte(filteredVersions[pulse3dVersionIdx], version);
+  };
+
   const handleDuplicatesModalClose = (isRunAnalysisOption) => {
     setDuplicateModalOpen(false);
     if (isRunAnalysisOption) {
@@ -818,8 +828,8 @@ export default function InteractiveWaveformModal({
         )}
       </GraphContainer>
       <ErrorLabel>{errorMessage}</ErrorLabel>
-      <VersionDropdownContainer>
-        <VersionDropdownLabel htmlFor="selectedPulse3dVersion">
+      <ParamContainer>
+        <ParamLabel htmlFor="selectedPulse3dVersion">
           Pulse3d Version:
           <Tooltip
             title={
@@ -828,6 +838,7 @@ export default function InteractiveWaveformModal({
           >
             <InfoOutlinedIcon
               sx={{
+                marginLeft: "5px",
                 "&:hover": {
                   color: "var(--teal-green)",
                   cursor: "pointer",
@@ -835,24 +846,58 @@ export default function InteractiveWaveformModal({
               }}
             />
           </Tooltip>
-        </VersionDropdownLabel>
-        <DropDownWidget
-          options={pulse3dVersions.map((version) => {
-            const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
-            if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
-              return version + " " + "[ testing ]";
-            } else if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "deprecated") {
-              return version + " " + "[ deprecated ]";
-            } else {
-              return version;
-            }
-          })}
-          label="Select"
-          reset={pulse3dVersionIdx === 0}
-          handleSelection={handleVersionSelect}
-          initialSelected={0}
-        />
-      </VersionDropdownContainer>
+        </ParamLabel>
+        <div style={{ width: "140px" }}>
+          <DropDownWidget
+            options={pulse3dVersions.map((version) => {
+              const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
+              if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
+                return version + " " + "[ testing ]";
+              } else if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "deprecated") {
+                return version + " " + "[ deprecated ]";
+              } else {
+                return version;
+              }
+            })}
+            label="Select"
+            reset={pulse3dVersionIdx === 0}
+            handleSelection={handleVersionSelect}
+            initialSelected={0}
+          />
+        </div>
+      </ParamContainer>
+      {pulse3dVersionGte("0.32.2") && (
+        <ParamContainer>
+          <ParamLabel htmlFor="nameOverride">
+            Override Original Name:
+            <Tooltip
+              title={
+                <TooltipText>
+                  {"This name will replace the original recording name for the ouput filename."}
+                </TooltipText>
+              }
+            >
+              <InfoOutlinedIcon
+                sx={{
+                  marginLeft: "5px",
+                  "&:hover": {
+                    color: "var(--teal-green)",
+                    cursor: "pointer",
+                  },
+                }}
+              />
+            </Tooltip>
+          </ParamLabel>
+          <FormInput
+            name="nameOverride"
+            placeholder={""}
+            value={nameOverride}
+            onChangeFn={(e) => {
+              setNameOverride(e.target.value);
+            }}
+          />
+        </ParamContainer>
+      )}
       <ButtonContainer>
         <ButtonWidget
           width="150px"
