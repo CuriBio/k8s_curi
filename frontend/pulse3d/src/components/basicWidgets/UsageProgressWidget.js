@@ -3,7 +3,6 @@ import CircularProgressWithLabel from "./CircularProgressWithLabel";
 import { useContext } from "react";
 import { AuthContext } from "@/pages/_app";
 import styled from "styled-components";
-import DropDownMenu from "./ButtonDropDown";
 import ModalWidget from "./ModalWidget";
 
 const ProgressDiv = styled.div`
@@ -31,6 +30,14 @@ const DropDownStyleContainer = styled.div`
 `;
 const ModalWidgetStyle = styled.div`
   position: absolute;
+`;
+const UpgradeButton = styled.div`
+  color: var(--light-gray);
+  font-size: 10px;
+  &:hover {
+    color: var(--teal-green);
+  }
+  text-decoration: underline;
 `;
 
 export default function UsageProgressWidget({ colorOfTextLabel }) {
@@ -99,14 +106,13 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
   }, []);
 
   const DropDownElement = (
-    <DropDownMenu
-      items={["Upgrade Plan", "Add New Plan"]}
-      label="click here to upgrade"
-      handleSelection={() => {
+    <UpgradeButton
+      onClick={() => {
         setNewPlanModalIsOpen(true);
       }}
-      smallerLabel={true}
-    />
+    >
+      CLICK HERE TO UPGRADE
+    </UpgradeButton>
   );
 
   return (

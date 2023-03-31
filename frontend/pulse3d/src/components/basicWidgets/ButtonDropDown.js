@@ -11,16 +11,8 @@ const MenuLabel = styled.span`
     color: var(--teal-green);
   }
 `;
-const SmallerMenuLabel = styled.span`
-  color: var(--light-gray);
-  font-size: 10px;
-  &:hover {
-    color: var(--teal-green);
-  }
-  text-decoration: underline;
-`;
 
-export default function DropDownMenu({ items, label, handleSelection, smallerLabel }) {
+export default function DropDownMenu({ items, label, handleSelection }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
 
@@ -46,7 +38,7 @@ export default function DropDownMenu({ items, label, handleSelection, smallerLab
         aria-expanded={open || "true"}
         onClick={handleOpen}
       >
-        {smallerLabel ? <SmallerMenuLabel>{label}</SmallerMenuLabel> : <MenuLabel>{label}</MenuLabel>}
+        <MenuLabel>{label}</MenuLabel>
       </Button>
       <Menu
         id="basic-menu"
