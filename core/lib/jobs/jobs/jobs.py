@@ -19,11 +19,14 @@ def get_item(*, queue):
 
     def _outer(fn):
         @wraps(fn)
-        async def _inner(*, con):
+        async def _inner(*, con, con_to_set_job_running=None):
             async with con.transaction():
                 item = await con.fetchrow(query, queue)
                 if not item:
                     raise EmptyQueue(queue)
+
+                if con_to_set_job_running:
+                    con_to_set_job_running.execute("TODO")
 
                 ts = time.time()
                 status, new_meta, object_key = await fn(con, item)
