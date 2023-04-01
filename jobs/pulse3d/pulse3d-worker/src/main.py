@@ -69,7 +69,7 @@ async def process(con, item):
             query = (
                 "SELECT users.customer_id, up.user_id, up.prefix, up.filename "
                 "FROM uploads AS up JOIN users ON up.user_id = users.id "
-                "WHERE up.id=$1"
+                "WHERE up.id=$1"                                 
             )
 
             upload_details = await con.fetchrow(query, upload_id)
@@ -355,11 +355,11 @@ async def main():
         dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
 
         async with asyncpg.create_pool(dsn=dsn) as pool:
-            async with pool.acquire() as con:
+            async with pool.acquire() as con, pool.acquire() as con_to_set_job_running:
                 while True:
                     try:
                         logger.info("Pulling job from queue")
-                        await process(con=con)
+                        await process(con=con, con_to_set_job_running=con_to_set_job_running)
                     except EmptyQueue as e:
                         logger.info(f"No jobs in queue: {e}")
                         return

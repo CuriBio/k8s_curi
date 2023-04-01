@@ -5,7 +5,7 @@ import FormInput from "@/components/basicWidgets/FormInput";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import semverGte from "semver/functions/gte";
 import { UploadsContext } from "@/components/layouts/DashboardLayout";
 import WellGroups from "@/components/uploadForm/WellGroups";

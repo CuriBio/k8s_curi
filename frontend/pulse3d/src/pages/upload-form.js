@@ -491,7 +491,10 @@ export default function UploadForm() {
     setFiles([uploads[idx]]); // must be an array
 
     const filenameNoExt = removeFileExt(uploads[idx].filename);
-    setAnalysisParams({ ...analysisParams, nameOverride: filenameNoExt.join(".") });
+    setAnalysisParams({
+      ...analysisParams,
+      nameOverride: filenameNoExt.join("."),
+    });
   };
 
   const removeFileExt = (filename) => {
