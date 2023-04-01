@@ -138,8 +138,8 @@ export default function Uploads() {
   const [ownerWidth, setOwnerWidth] = useState("10%");
   const [recordingWidth, setRecordingWidth] = useState("30%");
   const [uploadWidth, setUploadWidth] = useState("25%");
-  const [createdWidth, setCreatedWidth] = useState("19%");
-  const [analyzedWidth, setAnalyzedWidth] = useState("19%");
+  const [createdWidth, setCreatedWidth] = useState("23%");
+  const [analyzedWidth, setAnalyzedWidth] = useState("23%");
   const [sortColumn, setSortColumn] = useState("");
   const [uploadTableColumns, setUploadTableColumns] = useState([]);
   const [jobsInSelectedUpload, setJobsInSelectedUpload] = useState(0);
@@ -272,6 +272,12 @@ export default function Uploads() {
           return <ResizableColumn last={true} content={latestDate} />;
         },
       },
+      {
+        width: "9%",
+        display: true,
+        cell: (row) =>
+          row.autoUpload !== null && <div>{row.autoUpload ? `Auto Upload` : "Manual Upload"}</div>,
+      },
     ]);
 
     if (displayOwner) {
@@ -319,21 +325,24 @@ export default function Uploads() {
         const newJobs = jobs.map(({ id, upload_id, created_at, object_key, status, meta, owner }) => {
           const analyzedFile = object_key ? object_key.split("/")[object_key.split("/").length - 1] : "";
           const formattedTime = formatDateTime(created_at);
+          const isChecked = checkedJobs.includes(id);
           const parsedMeta = JSON.parse(meta);
           const analysisParams = parsedMeta.analysis_params;
           // add pulse3d version used on job to be displayed with other analysis params
           analysisParams.pulse3d_version = parsedMeta.version;
-          const isChecked = checkedJobs.includes(id);
+          const metaParams = { analysisParams };
+          if ("name_override" in parsedMeta) metaParams.nameOverride = parsedMeta.name_override;
+
           return {
             jobId: id,
             uploadId: upload_id,
             analyzedFile,
             datetime: formattedTime,
             status,
-            analysisParams,
             version: pulse3dVersions[0], // tag with latest version for now, can't be before v0.25.1
             checked: isChecked,
             owner,
+            ...metaParams,
           };
         });
         setJobs(newJobs);
@@ -388,7 +397,7 @@ export default function Uploads() {
 
   useEffect(() => {
     if (uploads) {
-      const formattedUploads = uploads.map(({ username, id, filename, created_at, owner }) => {
+      const formattedUploads = uploads.map(({ username, id, filename, created_at, owner, auto_upload }) => {
         const formattedTime = formatDateTime(created_at);
         const recName = filename ? filename.split(".")[0] : null;
         const uploadJobs = jobs
@@ -403,6 +412,7 @@ export default function Uploads() {
           lastAnalyzed,
           jobs: uploadJobs,
           owner,
+          autoUpload: auto_upload,
         };
       });
       formattedUploads.sort((a, b) => new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed));

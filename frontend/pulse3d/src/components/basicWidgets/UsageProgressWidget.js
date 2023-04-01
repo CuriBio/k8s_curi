@@ -3,6 +3,7 @@ import CircularProgressWithLabel from "./CircularProgressWithLabel";
 import { useContext } from "react";
 import { AuthContext } from "@/pages/_app";
 import styled from "styled-components";
+import ModalWidget from "./ModalWidget";
 
 const ProgressDiv = styled.div`
   color: white;
@@ -19,12 +20,34 @@ const ExpiredP = styled.p`
   color: white;
 `;
 
+const DropDownStyleContainer = styled.div`
+  display: flex;
+  flex-flow: column;
+  align-items: center;
+  height: 100%;
+  justify-content: space-around;
+  padding-top: 15px;
+`;
+const ModalWidgetStyle = styled.div`
+  position: absolute;
+`;
+const UpgradeButton = styled.div`
+  color: var(--light-gray);
+  font-size: 10px;
+  text-decoration: underline;
+  &:hover {
+    color: var(--teal-green);
+    cursor: pointer;
+  }
+`;
+
 export default function UsageProgressWidget({ colorOfTextLabel }) {
   const { usageQuota, setUsageQuota } = useContext(AuthContext);
   const [maxAnalyses, setMaxAnalyses] = useState(0);
   const [actualAnalyses, setActualAnalyses] = useState();
   const [usagePercentage, setUsagePercentage] = useState(0);
   const [isExpired, setIsExpired] = useState();
+  const [newPlanModalIsOpen, setNewPlanModalIsOpen] = useState(false);
   const pollUsageQuota = async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/usage?service=pulse3d`);
@@ -83,6 +106,16 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
     }
   }, []);
 
+  const UpgradeButtonElement = (
+    <UpgradeButton
+      onClick={() => {
+        setNewPlanModalIsOpen(true);
+      }}
+    >
+      UPGRADE
+    </UpgradeButton>
+  );
+
   return (
     <>
       {maxAnalyses === -1 && <ProgressDiv>Unlimited Access</ProgressDiv>}
@@ -91,9 +124,27 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
           <p>Usage</p>
           <CircularProgressWithLabel value={usagePercentage} colorOfTextLabel={colorOfTextLabel} />
           <ProgressP>{`${actualAnalyses ? actualAnalyses : 0}/${maxAnalyses} Analysis used`}</ProgressP>
+          {UpgradeButtonElement}
         </ProgressDiv>
       )}
-      {isExpired && <ExpiredP>Plan Has Expired</ExpiredP>}
+      {isExpired && (
+        <ExpiredP>
+          <DropDownStyleContainer>
+            Plan Has Expired
+            {UpgradeButtonElement}
+          </DropDownStyleContainer>
+        </ExpiredP>
+      )}
+      <ModalWidgetStyle>
+        <ModalWidget
+          open={newPlanModalIsOpen}
+          labels={["Please email Curibio at contact@curibio.com to sign up for a new plan."]}
+          closeModal={() => {
+            setNewPlanModalIsOpen(false);
+          }}
+          header={"Contact"}
+        />
+      </ModalWidgetStyle>
     </>
   );
 }
