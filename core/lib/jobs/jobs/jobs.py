@@ -26,7 +26,9 @@ def get_item(*, queue):
                     raise EmptyQueue(queue)
 
                 if con_to_set_job_running:
-                    con_to_set_job_running.execute("TODO")
+                    await con_to_set_job_running.execute(
+                        "UPDATE jobs_result SET status='running' WHERE job_id=$1", item["id"]
+                    )
 
                 ts = time.time()
                 status, new_meta, object_key = await fn(con, item)

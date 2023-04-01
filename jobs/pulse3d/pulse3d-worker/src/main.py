@@ -69,7 +69,7 @@ async def process(con, item):
             query = (
                 "SELECT users.customer_id, up.user_id, up.prefix, up.filename "
                 "FROM uploads AS up JOIN users ON up.user_id = users.id "
-                "WHERE up.id=$1"                                 
+                "WHERE up.id=$1"
             )
 
             upload_details = await con.fetchrow(query, upload_id)
