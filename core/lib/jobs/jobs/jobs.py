@@ -25,6 +25,16 @@ def get_item(*, queue):
                 if not item:
                     raise EmptyQueue(queue)
 
+                await con.execute(
+                    "UPDATE jobs_result SET status='running' WHERE job_id=$1",
+                    item["id"],
+                )
+            
+            async with con.transaction():
+                item = await con.fetchrow(query, queue)
+                if not item:
+                    raise EmptyQueue(queue)
+
                 ts = time.time()
                 status, new_meta, object_key = await fn(con, item)
                 runtime = time.time() - ts

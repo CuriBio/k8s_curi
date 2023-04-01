@@ -52,7 +52,7 @@ def _is_valid_well_name(well_name):
     )
 
 
-@get_item(queue=f"pulse3d-v{PULSE3D_VERSION}")
+@get_item(queue=f"test-pulse3d-v{PULSE3D_VERSION}")
 async def process(con, item):
     logger.info(f"Processing item: {item}")
     s3_client = boto3.client("s3")
@@ -63,6 +63,7 @@ async def process(con, item):
         try:
             job_id = item["id"]
             upload_id = item["upload_id"]
+
             logger.info(f"Retrieving user ID and metadata for upload with ID: {upload_id}")
 
             query = (
