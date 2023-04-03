@@ -20,6 +20,8 @@ def upgrade():
 
 
 def downgrade():
+    # update all 'running' statuses back to 'pending'
+    op.execute("UPDATE jobs_result UPDATE status='pending' WHERE status='running")
     # rename type name to random name so existing name can be used again
     op.execute("""ALTER TYPE "JobStatus" RENAME TO oldJobStatus""")
     # create type with original enum values
