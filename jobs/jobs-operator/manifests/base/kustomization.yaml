@@ -4,5 +4,6 @@ namespace: kopf
 resources:
   - jobs-operator.yaml
   - namespace.yaml
+  - job-runner-crd.yaml
   - rbac.yaml
 
