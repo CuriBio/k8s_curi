@@ -327,6 +327,7 @@ self.addEventListener("fetch", async (e) => {
         // Otherwise, hit the network
         const response = await interceptResponse(e.request, destURL);
         // before returning response, check if you need to preload other wells
+        // this needs to go after interceptResponse so that the initial A1 data gets returned first and not blocked by other requests
         if (isWaveformDataRequest(urlParams)) {
           const jobId = urlParams.get("job_id");
           const uploadId = urlParams.get("upload_id");
