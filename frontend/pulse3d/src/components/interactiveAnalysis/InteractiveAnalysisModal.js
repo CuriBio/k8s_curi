@@ -177,14 +177,6 @@ export default function InteractiveWaveformModal({
   const [deprecationNotice, setDeprecationNotice] = useState(false);
   const [pulse3dVersionEOLDate, setPulse3dVersionEOLDate] = useState("");
   const [nameOverride, setNameOverride] = useState();
-
-  const handleDuplicatesModalClose = (isRunAnalysisOption) => {
-    setDuplicateModalOpen(false);
-    if (isRunAnalysisOption) {
-      postNewJob();
-    }
-  };
-
   const [xRange, setXRange] = useState({
     min: null,
     max: null,
@@ -336,6 +328,7 @@ export default function InteractiveWaveformModal({
     const { start_time, end_time } = selectedJob.analysisParams;
 
     await getWaveformData(true, "A1");
+
     setEditableStartEndTimes({
       startTime: start_time,
       endTime: end_time,
