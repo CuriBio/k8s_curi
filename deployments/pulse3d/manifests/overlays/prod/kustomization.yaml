@@ -25,6 +25,9 @@ patchesJson6902:
       - op: replace
         path: /spec/template/spec/containers/0/env/5/value
         value: prod-pulse3d-uploads
+      - op: replace
+        path: /spec/template/spec/containers/0/env/6/value
+        value: prod-mantarray-logs
       - op: add
         path: /spec/template/spec/containers/0/env/0
         value:
