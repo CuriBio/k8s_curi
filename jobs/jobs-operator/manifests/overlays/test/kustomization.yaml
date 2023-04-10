@@ -11,7 +11,7 @@ patchesJson6902:
   patch: |-
     - op: replace
       path: /spec/template/spec/containers/0/image
-      value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/jobs-operator:0.0.1"
+      value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/jobs-operator:0.0.2"
     - op: add
       path: /spec/template/spec/containers/0/env/0/value
-      value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/queue-processor:0.0.1"
+      value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/queue-processor:0.0.2"

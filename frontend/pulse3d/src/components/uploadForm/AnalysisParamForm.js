@@ -1,7 +1,7 @@
 import styled from "styled-components";
-import CheckboxWidget from "../basicWidgets/CheckboxWidget";
+import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
 import { isArrayOfNumbers, loadCsvInputToArray, isArrayOfWellNames } from "../../utils/generic";
-import FormInput from "../basicWidgets/FormInput";
+import FormInput from "@/components/basicWidgets/FormInput";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
@@ -162,6 +162,7 @@ export default function AnalysisParamForm({
   setParamErrors,
   analysisParams,
   setWellGroupErr,
+  reanalysis,
 }) {
   const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
   const [disableStimProtocols, setDisableStimProtocols] = useState(false);
@@ -357,8 +358,40 @@ export default function AnalysisParamForm({
         Use Additional Analysis Parameters
       </AdditionalParamLabel>
       {!checkedParams ? <WAOverlay /> : null}
-      <InputContainerOne>
-        <ParamContainer style={{ marginTop: "2%" }}>
+      <InputContainerOne style={{ paddingTop: "2%" }}>
+        {pulse3dVersionGte("0.32.2") && reanalysis && (
+          <ParamContainer>
+            <Label htmlFor="nameOverride">
+              Override original name:
+              <Tooltip
+                title={
+                  <TooltipText>
+                    {"This name will replace the original recording name for the ouput filename."}
+                  </TooltipText>
+                }
+              >
+                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+              </Tooltip>
+            </Label>
+            <InputErrorContainer style={{ width: 400 }}>
+              <FormInput
+                name="nameOverride"
+                placeholder={""}
+                value={analysisParams.nameOverride}
+                onChangeFn={(e) => {
+                  updateParams({
+                    nameOverride: e.target.value,
+                  });
+                }}
+              >
+                <ErrorText id="nameOverrideError" role="errorMsg">
+                  {errorMessages.nameOverride}
+                </ErrorText>
+              </FormInput>
+            </InputErrorContainer>
+          </ParamContainer>
+        )}
+        <ParamContainer>
           <Label htmlFor="selectedPulse3dVersion" style={{ width: "62%", lineHeight: 2.5 }}>
             Pulse3D Version:
             <Tooltip
@@ -397,8 +430,8 @@ export default function AnalysisParamForm({
               style={{
                 width: "102%",
                 lineHeight: 1.5,
-                "white-space": "normal",
-                "text-align": "center",
+                whiteSpace: "normal",
+                textAlign: "center",
               }}
             >
               Stim Waveform Display Format:
@@ -497,7 +530,7 @@ export default function AnalysisParamForm({
             <InputErrorContainer>
               <FormInput
                 name="maxY"
-                placeholder={checkedParams ? "Auto find max y" : ""}
+                placeholder={checkedParams ? "Auto" : ""}
                 value={analysisParams.maxY}
                 onChangeFn={(e) => {
                   updateParams({
@@ -726,7 +759,7 @@ export default function AnalysisParamForm({
           <InputErrorContainer>
             <FormInput
               name="endTime"
-              placeholder={checkedParams ? "(End of recording)" : ""}
+              placeholder={checkedParams ? "End" : ""}
               value={analysisParams.endTime}
               onChangeFn={(e) => {
                 updateParams({

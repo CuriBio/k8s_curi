@@ -1,5 +1,6 @@
 import kopf
 from kubernetes import client as kclient
+from kubernetes.client.exceptions import ApiException
 import os
 import logging
 import sys
@@ -13,6 +14,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+@kopf.on.resume("curibio.dev", "v1", "jobrunners")
 @kopf.on.create("curibio.dev", "v1", "jobrunners")
 def create_fn(body, spec, **kwargs):
     namespace = body["metadata"]["namespace"]
@@ -24,7 +26,7 @@ def create_fn(body, spec, **kwargs):
     QUEUE_VAR = kclient.V1EnvVar(name="QUEUE", value=job_queue)
     ECR_REPO = kclient.V1EnvVar(name="ECR_REPO", value=spec["ecr_repo"])
     SECONDS_TO_POLL_DB = kclient.V1EnvVar(name="SECONDS_TO_POLL_DB", value=f"{spec['seconds_to_poll_db']}")
-    MAX_JOBS_PER_WORKER = kclient.V1EnvVar(name="MAX_JOBS_PER_WORKER", value=f"{spec['max_jobs_per_worker']}")
+    MAX_NUM_OF_WORKERS = kclient.V1EnvVar(name="MAX_NUM_OF_WORKERS", value=f"{spec['max_num_of_workers']}")
     POSTGRES_USER = kclient.V1EnvVar(name="POSTGRES_USER", value=f"{job_queue}_queue_processor_ro")
 
     POSTGRES_PASSWORD = kclient.V1EnvVar(
@@ -39,7 +41,7 @@ def create_fn(body, spec, **kwargs):
     container = kclient.V1Container(
         name=qp_name,
         image=QUEUE_PROCESSOR_IMAGE,
-        env=[POSTGRES_PASSWORD, QUEUE_VAR, ECR_REPO, SECONDS_TO_POLL_DB, MAX_JOBS_PER_WORKER, POSTGRES_USER],
+        env=[POSTGRES_PASSWORD, QUEUE_VAR, ECR_REPO, SECONDS_TO_POLL_DB, MAX_NUM_OF_WORKERS, POSTGRES_USER],
         image_pull_policy="Always",
     )
 
@@ -61,8 +63,17 @@ def create_fn(body, spec, **kwargs):
     # Object used to communicate with the API Server
     api = kclient.AppsV1Api()
     # Create deployment
-    obj = api.create_namespaced_deployment(namespace, deployment)
-    msg = f"Deployment {obj.metadata.name} created"
+    try:
+        obj = api.create_namespaced_deployment(namespace, deployment)
+        msg = f"Deployment {obj.metadata.name} created"
+    except ApiException:
+        #  replace deployment with new image
+        obj = api.replace_namespaced_deployment(
+            name=qp_name,
+            namespace=job_queue,
+            body=deployment,
+        )
+        msg = f"Deployment {obj.metadata.name} restarted"
     return {"message": msg}
 
 

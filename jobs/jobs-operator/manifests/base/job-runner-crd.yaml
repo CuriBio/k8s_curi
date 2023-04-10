@@ -21,7 +21,7 @@ spec:
                   type: string
                 ecr_repo:
                   type: string
-                max_jobs_per_worker:
+                max_num_of_workers:
                   type: integer
                 seconds_to_poll_db:
                   type: integer

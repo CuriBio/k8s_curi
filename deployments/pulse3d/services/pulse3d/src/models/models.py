@@ -9,6 +9,7 @@ class UploadRequest(BaseModel):
     filename: str
     md5s: Optional[str]
     upload_type: str
+    auto_upload: Optional[bool] = True  # default to True to prevent changes from MA controller
 
 
 class UsageQuota(BaseModel):
@@ -26,6 +27,7 @@ class UploadResponse(BaseModel):
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
     version: str
+    name_override: Optional[str]
     previous_version: Optional[str]
 
     normalize_y_axis: Optional[bool]
@@ -69,8 +71,8 @@ class DownloadItem(BaseModel):
 
 
 class WaveformDataResponse(BaseModel):
-    coordinates: Dict[str, List[Any]]
-    peaks_valleys: Dict[str, List[Any]]
+    coordinates: List[Any]
+    peaks_valleys: Optional[Dict[str, List[Any]]]
 
 
 class JobDownloadRequest(BaseModel):
