@@ -22,7 +22,14 @@ class NoPreviousSoftwareVersionError(Exception):
     pass
 
 
-def filter_and_sort_semvers(version_container, filter_fn, return_keys=False):
+def filter_and_sort_semvers(version_container, filter_fn=None, return_keys=False):
+    if filter_fn is None:
+
+        def no_filter(*_):
+            return True
+
+        filter_fn = no_filter
+
     def filter_fn_adj(*args):
         return filter_fn(*[VersionInfo.parse(arg) for arg in args])
 
@@ -100,7 +107,7 @@ def get_download_url(version, firmware_type):
     return url
 
 
-def get_previous_software_version(sw_version):
+def get_all_sw_versions():
     s3_client = boto3.client("s3")
 
     all_sw_installer_objs = s3_client.list_objects(
@@ -108,24 +115,31 @@ def get_previous_software_version(sw_version):
     )
     all_sw_installer_names = [item["Key"] for item in all_sw_installer_objs["Contents"]]
 
-    prod_sw_versions = [
+    all_sw_versions = [
         regex_res[0]
         for name in all_sw_installer_names
         if (regex_res := SOFTWARE_INSTALLER_VERSION_REGEX.findall(name))
     ]
+    return all_sw_versions
 
+
+def get_previous_software_version(all_sw_versions, current_sw_version):
     try:
-        previous_sw_version = filter_and_sort_semvers(prod_sw_versions, lambda sw: sw < sw_version)[-1]
+        return filter_and_sort_semvers(all_sw_versions, lambda sw: sw < current_sw_version)[-1]
     except IndexError:
         raise NoPreviousSoftwareVersionError()
 
-    return previous_sw_version
+
+def get_latest_software_version(all_sw_versions):
+    return filter_and_sort_semvers(all_sw_versions)[-1]
 
 
 def get_required_sw_version_range(main_fw_version):
     *_, mfw_to_sw = create_dependency_mapping()
 
     min_sw_version = mfw_to_sw[main_fw_version]
+
+    all_sw_versions = get_all_sw_versions()
 
     try:
         next_min_sw_version = filter_and_sort_semvers(
@@ -135,8 +149,8 @@ def get_required_sw_version_range(main_fw_version):
         # if this point is reached, then the given main FW version is the latest version,
         # and thus currently does not have a defined upper bound of compatiblity,
         # so set to a very high number that will never be reached
-        max_sw_version = "999.999.999"
+        max_sw_version = get_latest_software_version(all_sw_versions)
     else:
-        max_sw_version = get_previous_software_version(next_min_sw_version)
+        max_sw_version = get_previous_software_version(all_sw_versions, next_min_sw_version)
 
     return {"min_sw": min_sw_version, "max_sw": max_sw_version}
