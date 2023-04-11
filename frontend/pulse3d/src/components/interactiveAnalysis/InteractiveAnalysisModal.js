@@ -783,6 +783,13 @@ export default function InteractiveWaveformModal({
     return filteredVersions.length > 0 && semverGte(filteredVersions[pulse3dVersionIdx], version);
   };
 
+  const handleDuplicatesModalClose = (isRunAnalysisOption) => {
+    setDuplicateModalOpen(false);
+    if (isRunAnalysisOption) {
+      postNewJob();
+    }
+  };
+
   return (
     <Container>
       <HeaderContainer>Interactive Waveform Analysis</HeaderContainer>
