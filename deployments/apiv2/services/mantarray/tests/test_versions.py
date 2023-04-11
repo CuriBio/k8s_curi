@@ -22,6 +22,7 @@ def fixture_mocked_boto3(mocker):
         (lambda v: v <= "3.0.0", ["1.0.0", "1.0.1"]),
         (lambda v: v < "3.0.0", ["1.0.0", "1.0.1", "3.0.0"]),
         (lambda v: v > "10.0.0", ["11.0.0"]),
+        (None, ["1.0.1", "11.0.0", "3.0.0", "1.0.0"]),
     ],
 )
 def test_filter_and_sort_semvers__returns_correct_values(test_filter, expected_result):
@@ -199,13 +200,13 @@ def test_get_download_url__generates_and_returns_presigned_using_the_params_give
     mocked_generate.assert_called_once_with(bucket=expected_bucket, key=expected_key)
 
 
-def test_get_previous_sw_version__lists_software_installer_objects_from_s3_correctly(mocked_boto3):
+def test_get_all_sw_versions__lists_and_returns_software_installer_objects_from_s3_correctly(mocked_boto3):
     mocked_s3_client = mocked_boto3.client("s3")
 
+    expected_software_versions = {"1.0.11", "1.1.0", "1.1.1"}
+
     test_files_in_bucket = [
-        f"{SOFTWARE_INSTALLER_PREFIX}-1.1.1.exe",
-        f"{SOFTWARE_INSTALLER_PREFIX}-1.0.11.exe",
-        f"{SOFTWARE_INSTALLER_PREFIX}-1.1.0.exe",
+        *[f"{SOFTWARE_INSTALLER_PREFIX}-{version}.exe" for version in expected_software_versions],
         "Not an installer",
         f"{SOFTWARE_INSTALLER_PREFIX}-8.8.8.exe.blockmap",
         "software/MantarrayController-Setup-unstable-9.9.9.exe",
@@ -216,57 +217,25 @@ def test_get_previous_sw_version__lists_software_installer_objects_from_s3_corre
         "Contents": [{"Key": file_name} for file_name in test_files_in_bucket if file_name.startswith(Prefix)]
     }
 
-    versions.get_previous_software_version("1.1.1")
+    actual_versions = versions.get_all_sw_versions()
 
+    assert set(actual_versions) == expected_software_versions
     mocked_s3_client.list_objects.assert_called_once_with(
         Bucket=DOWNLOADS_BUCKET_NAME, Prefix=SOFTWARE_INSTALLER_PREFIX
     )
 
 
-def test_get_previous_sw_version__returns_correct_version_when_a_previous_version_exists(
-    mocked_boto3,
-):
-    mocked_s3_client = mocked_boto3.client("s3")
-
-    test_files_in_bucket = [
-        f"{SOFTWARE_INSTALLER_PREFIX}-1.1.1.exe",
-        f"{SOFTWARE_INSTALLER_PREFIX}-1.0.11.exe",
-        f"{SOFTWARE_INSTALLER_PREFIX}-1.1.0.exe",
-        f"{SOFTWARE_INSTALLER_PREFIX}-11.0.0.exe",
-        "Not an installer",
-        f"{SOFTWARE_INSTALLER_PREFIX}-8.8.8.exe.blockmap",
-        "software/MantarrayController-Setup-unstable-9.9.9.exe",
-        "software/MantarrayController-Setup-unstable-1.1.0-pre.123.exe",
-    ]
-
-    mocked_s3_client.list_objects.side_effect = lambda Bucket, Prefix: {
-        "Contents": [{"Key": file_name} for file_name in test_files_in_bucket if file_name.startswith(Prefix)]
-    }
-
-    assert versions.get_previous_software_version("2.0.0") == "1.1.1"
+def test_get_previous_sw_version__returns_correct_version_when_a_previous_version_exists():
+    assert versions.get_previous_software_version(["1.0.11", "1.1.0", "1.1.1", "11.0.0"], "2.0.0") == "1.1.1"
 
 
-def test_get_previous_sw_version__returns_error_when_a_previous_version_does_not_exist(
-    mocked_boto3,
-):
-    mocked_s3_client = mocked_boto3.client("s3")
-
-    test_files_in_bucket = [
-        f"{SOFTWARE_INSTALLER_PREFIX}-1.1.1.exe",
-        f"{SOFTWARE_INSTALLER_PREFIX}-1.0.11.exe",
-        f"{SOFTWARE_INSTALLER_PREFIX}-1.1.0.exe",
-        "Not an installer",
-        f"{SOFTWARE_INSTALLER_PREFIX}-8.8.8.exe.blockmap",
-        "software/MantarrayController-Setup-unstable-9.9.9.exe",
-        "software/MantarrayController-Setup-unstable-1.1.0-pre.123.exe",
-    ]
-
-    mocked_s3_client.list_objects.side_effect = lambda Bucket, Prefix: {
-        "Contents": [{"Key": file_name} for file_name in test_files_in_bucket if file_name.startswith(Prefix)]
-    }
-
+def test_get_previous_sw_version__returns_error_when_a_previous_version_does_not_exist():
     with pytest.raises(versions.NoPreviousSoftwareVersionError):
-        versions.get_previous_software_version("1.0.11")
+        versions.get_previous_software_version(["1.0.11", "1.1.0", "1.1.1", "11.0.0"], "1.0.11")
+
+
+def test_get_latest_software_version__returns_latest_version():
+    assert versions.get_latest_software_version(["1.0.11", "1.1.0", "1.1.1", "11.0.0"]) == "11.0.0"
 
 
 def test_get_required_sw_version_range__returns_min_software_version_correctly(mocker):
@@ -275,6 +244,7 @@ def test_get_required_sw_version_range__returns_min_software_version_correctly(m
     mocked_cdm.return_value = ({}, {}, mfw_to_sw)
 
     # only patching in this test to avoid errors
+    mocker.patch.object(versions, "get_all_sw_versions", autospec=True, return_value=[])
     mocker.patch.object(versions, "get_previous_software_version", autospec=True)
 
     test_mfw_version = "3.0.0"
@@ -288,11 +258,12 @@ def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_o
     mfw_to_sw = {"1.0.0": "1.0.1", "2.0.0": "2.0.1", "3.0.0": "3.0.1", "22.0.0": "22.0.1"}
     mocked_cdm.return_value = ({}, {}, mfw_to_sw)
 
+    mocked_get_all = mocker.patch.object(versions, "get_all_sw_versions", autospec=True)
     mocked_get_prev = mocker.patch.object(versions, "get_previous_software_version", autospec=True)
 
     assert versions.get_required_sw_version_range("2.0.0")["max_sw"] == mocked_get_prev.return_value
 
-    mocked_get_prev.assert_called_once_with("3.0.1")
+    mocked_get_prev.assert_called_once_with(mocked_get_all.return_value, "3.0.1")
 
 
 def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_next_main_fw_has_same_sw_version(
@@ -302,11 +273,12 @@ def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_n
     mfw_to_sw = {"1.0.0": "1.0.1", "2.0.0": "1.0.1", "3.0.0": "3.0.1", "11.0.0": "11.0.1"}
     mocked_cdm.return_value = ({}, {}, mfw_to_sw)
 
+    mocked_get_all = mocker.patch.object(versions, "get_all_sw_versions", autospec=True)
     mocked_get_prev = mocker.patch.object(versions, "get_previous_software_version", autospec=True)
 
     assert versions.get_required_sw_version_range("1.0.0")["max_sw"] == mocked_get_prev.return_value
 
-    mocked_get_prev.assert_called_once_with("3.0.1")
+    mocked_get_prev.assert_called_once_with(mocked_get_all.return_value, "3.0.1")
 
 
 def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_one_does_not_exist(mocker):
@@ -316,6 +288,9 @@ def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_o
 
     mocked_get_prev = mocker.patch.object(versions, "get_previous_software_version", autospec=True)
 
-    assert versions.get_required_sw_version_range("11.0.0")["max_sw"] == "999.999.999"
+    expected_version = "2.3.4"
+    mocker.patch.object(versions, "get_all_sw_versions", autospec=True, return_value=[expected_version])
+
+    assert versions.get_required_sw_version_range("11.0.0")["max_sw"] == expected_version
 
     mocked_get_prev.assert_not_called()
