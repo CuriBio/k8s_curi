@@ -977,7 +977,17 @@ export default function WaveformGraph({
             left="5px"
             fontSize={15}
             borderRadius="5px"
-            clickFn={resetWellChanges}
+            clickFn={() => {
+              setPeakY1(peakValleyWindows[currentWell].minPeaks);
+              setPeakY2(peakValleyWindows[currentWell].minPeaks);
+              setValleyY1(peakValleyWindows[currentWell].maxValleys);
+              setValleyY2(peakValleyWindows[currentWell].maxValleys);
+              setValleySlope(0);
+              setValleySlope(0);
+              setPeakYIntercept(0);
+              setValleyYIntercept(0);
+              resetWellChanges();
+            }}
           />
           <ButtonWidget
             label="Save"
