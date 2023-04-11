@@ -147,8 +147,7 @@ def get_required_sw_version_range(main_fw_version):
         )[0]
     except IndexError:
         # if this point is reached, then the given main FW version is the latest version,
-        # and thus currently does not have a defined upper bound of compatiblity,
-        # so set to a very high number that will never be reached
+        # and thus the max version should be whatever the current max SW version is
         max_sw_version = get_latest_software_version(all_sw_versions)
     else:
         max_sw_version = get_previous_software_version(all_sw_versions, next_min_sw_version)
