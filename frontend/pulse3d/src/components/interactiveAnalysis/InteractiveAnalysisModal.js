@@ -177,6 +177,7 @@ export default function InteractiveWaveformModal({
   const [deprecationNotice, setDeprecationNotice] = useState(false);
   const [pulse3dVersionEOLDate, setPulse3dVersionEOLDate] = useState("");
   const [nameOverride, setNameOverride] = useState();
+
   const [xRange, setXRange] = useState({
     min: null,
     max: null,
