@@ -15,6 +15,33 @@ import { AuthContext } from "@/pages/_app";
 
 const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
 
+const wellNameToIndex = {
+  A1: 0,
+  A2: 1,
+  A3: 2,
+  A4: 3,
+  A5: 4,
+  A6: 5,
+  B1: 6,
+  B2: 7,
+  B3: 8,
+  B4: 9,
+  B5: 10,
+  B6: 11,
+  C1: 12,
+  C2: 13,
+  C3: 14,
+  C4: 15,
+  C5: 16,
+  C6: 17,
+  D1: 18,
+  D2: 19,
+  D3: 20,
+  D4: 21,
+  D5: 22,
+  D6: 23,
+};
+
 const Container = styled.div`
   height: 100%;
   display: flex;
@@ -185,6 +212,16 @@ export default function InteractiveWaveformModal({
     startTime: null,
     endTime: null,
   });
+  //state for peaks
+  const [peakSlope, setPeakSlope] = useState(Array(24).fill(0));
+  const [peakYIntercept, setPeakYIntercept] = useState([]);
+  const [peakY1, setPeakY1] = useState([]);
+  const [peakY2, setPeakY2] = useState([]);
+  //state for valleys
+  const [valleySlope, setValleySlope] = useState(Array(24).fill(0));
+  const [valleyYIntercept, setValleyYIntercept] = useState([]);
+  const [valleyY1, setValleyY1] = useState([]);
+  const [valleyY2, setValleyY2] = useState([]);
 
   useEffect(() => {
     // only available for versions greater than 0.25.2
@@ -539,15 +576,22 @@ export default function InteractiveWaveformModal({
       // only filter if well data has been fetched, otherwise assume no filtering required because user would not have been able to have moved min peak and max valley lines
       if (well in originalData.coordinates) {
         const wellCoords = originalData.coordinates[well];
-        wellPeaks = wellPeaks.filter((peak) => wellCoords[peak][1] >= peakValleyWindows[well].minPeaks);
-        wellValleys = wellValleys.filter(
-          (valley) => wellCoords[valley][1] <= peakValleyWindows[well].maxValleys
-        );
+        wellPeaks = wellPeaks.filter((peak) => {
+          const actualY = wellCoords[peak][1];
+          const computedY =
+            wellCoords[peak][0] * peakSlope[wellNameToIndex[well]] + peakYIntercept[wellNameToIndex[well]];
+          return actualY >= computedY;
+        });
+        wellValleys = wellValleys.filter((valley) => {
+          const actualY = wellCoords[valley][1];
+          const computedY =
+            wellCoords[valley][0] * valleySlope[wellNameToIndex[well]] +
+            valleyYIntercept[wellNameToIndex[well]];
+          return actualY <= computedY;
+        });
       }
-
       filtered[well] = [wellPeaks, wellValleys];
     }
-
     return filtered;
   };
 
@@ -827,6 +871,23 @@ export default function InteractiveWaveformModal({
             undoLastChange={undoLastChange}
             peakValleyWindows={peakValleyWindows}
             checkDuplicates={checkDuplicates}
+            peakSlope={peakSlope}
+            setPeakSlope={setPeakSlope}
+            peakYIntercept={peakYIntercept}
+            setPeakYIntercept={setPeakYIntercept}
+            peakY1={peakY1}
+            setPeakY1={setPeakY1}
+            peakY2={peakY2}
+            setPeakY2={setPeakY2}
+            valleySlope={valleySlope}
+            setValleySlope={setValleySlope}
+            valleyYIntercept={valleyYIntercept}
+            setValleyYIntercept={setValleyYIntercept}
+            valleyY1={valleyY1}
+            setValleyY1={setValleyY1}
+            valleyY2={valleyY2}
+            setValleyY2={setValleyY2}
+            wellNameToIndex={wellNameToIndex}
           />
         )}
       </GraphContainer>

@@ -144,6 +144,23 @@ export default function WaveformGraph({
   undoLastChange,
   peakValleyWindows,
   checkDuplicates,
+  wellNameToIndex,
+  peakSlope,
+  setPeakSlope,
+  peakYIntercept,
+  setPeakYIntercept,
+  peakY1,
+  setPeakY1,
+  peakY2,
+  setPeakY2,
+  valleySlope,
+  setValleySlope,
+  valleyYIntercept,
+  setValleyYIntercept,
+  valleyY1,
+  setValleyY1,
+  valleyY2,
+  setValleyY2,
 }) {
   const [valleys, setValleys] = useState([]);
   const [peaks, setPeaks] = useState([]);
@@ -154,16 +171,6 @@ export default function WaveformGraph({
   const [cursorLoc, setCursorLoc] = useState([0, 0]);
   const [xZoomFactor, setXZoomFactor] = useState(1);
   const [yZoomFactor, setYZoomFactor] = useState(1);
-  //state for peaks
-  const [peakSlope, setPeakSlope] = useState(0);
-  const [peakYIntercept, setPeakYIntercept] = useState(peakValleyWindows[currentWell].minPeaks);
-  const [peakY1, setPeakY1] = useState(peakValleyWindows[currentWell].minPeaks);
-  const [peakY2, setPeakY2] = useState(peakValleyWindows[currentWell].minPeaks);
-  //state for valleys
-  const [valleySlope, setValleySlope] = useState(0);
-  const [valleyYIntercept, setValleyYIntercept] = useState(peakValleyWindows[currentWell].maxValleys);
-  const [valleyY1, setValleyY1] = useState(peakValleyWindows[currentWell].maxValleys);
-  const [valleyY2, setValleyY2] = useState(peakValleyWindows[currentWell].maxValleys);
 
   /* NOTE!! The order of the variables and functions in createGraph() are important to functionality.
      could eventually try to break this up, but it's more sensitive in react than vue */
@@ -464,10 +471,10 @@ export default function WaveformGraph({
         initialPeaksValleys[0].filter((peak) => {
           const isPeakWithinWindow = dataToGraph[peak][0] >= startTime && dataToGraph[peak][0] <= endTime;
           const actualY = dataToGraph[peak][1];
-          const computedY = dataToGraph[peak][0] * peakSlope + peakYIntercept;
-          return dataToGraph && typeof peakYIntercept === "number"
-            ? isPeakWithinWindow && actualY >= computedY
-            : isPeakWithinWindow;
+          const computedY =
+            dataToGraph[peak][0] * peakSlope[wellNameToIndex[currentWell]] +
+            peakYIntercept[wellNameToIndex[currentWell]];
+          return isPeakWithinWindow && actualY >= computedY;
         })
       )
       .enter()
@@ -512,10 +519,10 @@ export default function WaveformGraph({
           const isValleyWithinWindow =
             dataToGraph[valley][0] >= startTime && dataToGraph[valley][0] <= endTime;
           const actualY = dataToGraph[valley][1];
-          const computedY = dataToGraph[valley][0] * valleySlope + valleyYIntercept;
-          return dataToGraph && typeof valleyYIntercept === "number"
-            ? isValleyWithinWindow && actualY <= computedY
-            : isValleyWithinWindow;
+          const computedY =
+            dataToGraph[valley][0] * valleySlope[wellNameToIndex[currentWell]] +
+            valleyYIntercept[wellNameToIndex[currentWell]];
+          return isValleyWithinWindow && actualY <= computedY;
         })
       )
       .enter()
@@ -600,15 +607,32 @@ export default function WaveformGraph({
         const yintersept = y2 - slope * x2;
         // set variables used in marker deletion calculation
         if (id.includes("peak")) {
-          setPeakY1(y1);
-          setPeakY2(y2);
-          setPeakYIntercept(yintersept);
-          setPeakSlope(slope);
+          let newArr = [...peakY1];
+          newArr[wellNameToIndex[currentWell]] = y1;
+          setPeakY1(newArr);
+          newArr = [...peakY2];
+          newArr[wellNameToIndex[currentWell]] = y2;
+          setPeakY2(newArr);
+          newArr = [...peakYIntercept];
+          newArr[wellNameToIndex[currentWell]] = yintersept;
+          setPeakYIntercept(newArr);
+          //assign array
+          newArr = [...peakSlope];
+          newArr[wellNameToIndex[currentWell]] = slope;
+          setPeakSlope(newArr);
         } else {
-          setValleyY1(y1);
-          setValleyY2(y2);
-          setValleyYIntercept(yintersept);
-          setValleySlope(slope);
+          let newArr = [...valleyY1];
+          newArr[wellNameToIndex[currentWell]] = y1;
+          setValleyY1(newArr);
+          newArr = [...valleyY2];
+          newArr[wellNameToIndex[currentWell]] = y2;
+          setValleyY2(newArr);
+          newArr = [...valleyYIntercept];
+          newArr[wellNameToIndex[currentWell]] = yintersept;
+          setValleyYIntercept(newArr);
+          newArr = [...valleySlope];
+          newArr[wellNameToIndex[currentWell]] = slope;
+          setValleySlope(newArr);
         }
         // descrease stroke width when unselected and dropped
         d3.select(this).attr("stroke-width", 2);
@@ -662,17 +686,31 @@ export default function WaveformGraph({
             ? d3.select("#peakLineY2Marker").attr("cx")
             : d3.select("#valleyLineY2Marker").attr("cx")
         );
-        const slope = id.includes("peak") ? peakSlope : valleySlope;
+        const slope = id.includes("peak")
+          ? peakSlope[wellNameToIndex[currentWell]]
+          : valleySlope[wellNameToIndex[currentWell]];
         const yintersept = y2 - slope * x2;
 
         if (id.includes("peak")) {
-          setPeakY1(y1);
-          setPeakY2(y2);
-          setPeakYIntercept(yintersept);
+          let newArr = [...peakY1];
+          newArr[wellNameToIndex[currentWell]] = y1;
+          setPeakY1(newArr);
+          newArr = [...peakY1];
+          newArr[wellNameToIndex[currentWell]] = y2;
+          setPeakY2(newArr);
+          newArr = [...peakYIntercept];
+          newArr[wellNameToIndex[currentWell]] = yintersept;
+          setPeakYIntercept(newArr);
         } else {
-          setValleyY1(y1);
-          setValleyY2(y2);
-          setValleyYIntercept(yintersept);
+          let newArr = [...valleyY1];
+          newArr[wellNameToIndex[currentWell]] = y1;
+          setValleyY1(newArr);
+          newArr = [...valleyY2];
+          newArr[wellNameToIndex[currentWell]] = y2;
+          setValleyY2(newArr);
+          newArr = [...valleyYIntercept];
+          newArr[wellNameToIndex[currentWell]] = yintersept;
+          setValleyYIntercept(newArr);
         }
       });
 
@@ -683,9 +721,9 @@ export default function WaveformGraph({
       .append("line")
       .attr("id", "peakLine")
       .attr("x1", x(startTime))
-      .attr("y1", y(peakY1))
+      .attr("y1", y(peakY1[wellNameToIndex[currentWell]]))
       .attr("x2", x(endTime))
-      .attr("y2", y(peakY2))
+      .attr("y2", y(peakY2[wellNameToIndex[currentWell]]))
       .attr("stroke-width", 2)
       .attr("stroke", "orange")
       .style("cursor", "pointer")
@@ -696,7 +734,7 @@ export default function WaveformGraph({
       .attr("lineId", "peakLine")
       .attr("r", 6)
       .attr("cx", x((endTime - startTime) / 100))
-      .attr("cy", y(peakY1))
+      .attr("cy", y(peakY1[wellNameToIndex[currentWell]]))
       .attr("fill", "orange")
       .attr("stroke", "orange")
       .style("cursor", "pointer")
@@ -707,7 +745,7 @@ export default function WaveformGraph({
       .attr("lineId", "peakLine")
       .attr("r", 6)
       .attr("cx", x(endTime - (endTime - startTime) / 100))
-      .attr("cy", y(peakY2))
+      .attr("cy", y(peakY2[wellNameToIndex[currentWell]]))
       .attr("fill", "orange")
       .attr("stroke", "orange")
       .style("cursor", "pointer")
@@ -723,9 +761,9 @@ export default function WaveformGraph({
       .append("line")
       .attr("id", "valleyLine")
       .attr("x1", x(startTime))
-      .attr("y1", y(valleyY1))
+      .attr("y1", y(valleyY1[wellNameToIndex[currentWell]]))
       .attr("x2", x(endTime))
-      .attr("y2", y(valleyY2))
+      .attr("y2", y(valleyY2[wellNameToIndex[currentWell]]))
       .attr("stroke-width", 2)
       .attr("stroke", "green")
       .style("cursor", "pointer")
@@ -736,7 +774,7 @@ export default function WaveformGraph({
       .attr("lineId", "peakLine")
       .attr("r", 6)
       .attr("cx", x((endTime - startTime) / 100))
-      .attr("cy", y(valleyY1))
+      .attr("cy", y(valleyY1[wellNameToIndex[currentWell]]))
       .attr("fill", "green")
       .attr("stroke", "green")
       .style("cursor", "pointer")
@@ -747,7 +785,7 @@ export default function WaveformGraph({
       .attr("lineId", "peakLine")
       .attr("r", 6)
       .attr("cx", x(endTime - (endTime - startTime) / 100))
-      .attr("cy", y(valleyY2))
+      .attr("cy", y(valleyY2[wellNameToIndex[currentWell]]))
       .attr("fill", "green")
       .attr("stroke", "green")
       .style("cursor", "pointer")
@@ -890,6 +928,29 @@ export default function WaveformGraph({
     startTime,
     endTime,
   ]);
+
+  //run once when component is created to set starter values for calculations
+  useEffect(() => {
+    let newArr = [...peakYIntercept];
+    newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].minPeaks;
+    setPeakYIntercept(newArr);
+    newArr = [...peakY1];
+    newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].minPeaks;
+    setPeakY1(newArr);
+    newArr = [...peakY2];
+    newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].minPeaks;
+    setPeakY2(newArr);
+
+    newArr = [...valleyYIntercept];
+    newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].maxValleys;
+    setValleyYIntercept(newArr);
+    newArr = [...valleyY1];
+    newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].maxValleys;
+    setValleyY1(newArr);
+    newArr = [...valleyY2];
+    newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].maxValleys;
+    setValleyY2(newArr);
+  }, [currentWell]);
 
   useEffect(() => {
     // manually scrolls graph div to bottom because the graph div expands down instead of up
@@ -1046,15 +1107,27 @@ export default function WaveformGraph({
             fontSize={15}
             borderRadius="5px"
             clickFn={() => {
-              setPeakY1(peakValleyWindows[currentWell].minPeaks);
-              setPeakY2(peakValleyWindows[currentWell].minPeaks);
-              setPeakYIntercept(peakValleyWindows[currentWell].minPeaks);
-              setPeakSlope(0);
+              //set array here
+              let newArr = [...peakY1];
+              newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].minPeaks;
+              setPeakY1(newArr);
+              newArr = [...peakY2];
+              newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].minPeaks;
+              setPeakY2(newArr);
+              newArr = [...peakYIntercept];
+              newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].minPeaks;
+              setPeakYIntercept(newArr);
+              setPeakSlope(Array(24).fill(0));
 
               setValleyY1(peakValleyWindows[currentWell].maxValleys);
               setValleyY2(peakValleyWindows[currentWell].maxValleys);
-              setValleyYIntercept(peakValleyWindows[currentWell].maxValleys);
-              setValleySlope(0);
+              newArr = [...valleyYIntercept];
+              newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].maxValleys;
+              setValleyYIntercept(newArr);
+              newArr = [...valleyYIntercept];
+              newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].maxValleys;
+              setValleySlope(Array(24).fill(0));
+
               resetWellChanges();
             }}
           />
