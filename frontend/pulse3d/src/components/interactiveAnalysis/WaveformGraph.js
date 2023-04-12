@@ -155,13 +155,13 @@ export default function WaveformGraph({
   const [xZoomFactor, setXZoomFactor] = useState(1);
   const [yZoomFactor, setYZoomFactor] = useState(1);
   //state for peaks
-  const [peakslope, setPeakSlope] = useState();
-  const [peakYIntercept, setPeakYIntercept] = useState();
+  const [peakSlope, setPeakSlope] = useState(0);
+  const [peakYIntercept, setPeakYIntercept] = useState(peakValleyWindows[currentWell].minPeaks);
   const [peakY1, setPeakY1] = useState(peakValleyWindows[currentWell].minPeaks);
   const [peakY2, setPeakY2] = useState(peakValleyWindows[currentWell].minPeaks);
   //state for valleys
-  const [valleySlope, setValleySlope] = useState();
-  const [valleyYIntercept, setValleyYIntercept] = useState();
+  const [valleySlope, setValleySlope] = useState(0);
+  const [valleyYIntercept, setValleyYIntercept] = useState(peakValleyWindows[currentWell].maxValleys);
   const [valleyY1, setValleyY1] = useState(peakValleyWindows[currentWell].maxValleys);
   const [valleyY2, setValleyY2] = useState(peakValleyWindows[currentWell].maxValleys);
 
@@ -464,8 +464,8 @@ export default function WaveformGraph({
         initialPeaksValleys[0].filter((peak) => {
           const isPeakWithinWindow = dataToGraph[peak][0] >= startTime && dataToGraph[peak][0] <= endTime;
           const actualY = dataToGraph[peak][1];
-          const computedY = dataToGraph[peak][0] * peakslope + peakYIntercept;
-          return peakslope && dataToGraph && peakYIntercept
+          const computedY = dataToGraph[peak][0] * peakSlope + peakYIntercept;
+          return dataToGraph && typeof peakYIntercept === "number"
             ? isPeakWithinWindow && actualY >= computedY
             : isPeakWithinWindow;
         })
@@ -513,7 +513,7 @@ export default function WaveformGraph({
             dataToGraph[valley][0] >= startTime && dataToGraph[valley][0] <= endTime;
           const actualY = dataToGraph[valley][1];
           const computedY = dataToGraph[valley][0] * valleySlope + valleyYIntercept;
-          return valleySlope && dataToGraph && valleyYIntercept
+          return dataToGraph && typeof valleyYIntercept === "number"
             ? isValleyWithinWindow && actualY <= computedY
             : isValleyWithinWindow;
         })
@@ -613,6 +613,68 @@ export default function WaveformGraph({
         // descrease stroke width when unselected and dropped
         d3.select(this).attr("stroke-width", 2);
       });
+    const moveLineUpDown = d3
+      .drag()
+      .on("start", function (d) {
+        const id = d3.select(this).attr("id");
+        // close context menu if it's open
+        contextMenu.style("display", "none");
+        // increase stroke width when selected and dragging
+        d3.select(this).attr("stroke-width", 5);
+        //set starting y position
+        const yPosition = id.includes("valley")
+          ? Math.max(d.y, y(yMax + yRange))
+          : Math.min(d.y, y(yMin - yRange));
+        d3.select(this).attr("startingY", yPosition);
+      })
+      .on("drag", function (d) {
+        const id = d3.select(this).attr("id");
+
+        const yPosition = id.includes("valley")
+          ? Math.max(d.y, y(yMax + yRange))
+          : Math.min(d.y, y(yMin - yRange));
+        const initialY = d3.select(this).attr("startingY");
+        const changeInY = yPosition - initialY;
+        const newY1 = parseFloat(d3.select(this).attr("y1")) + changeInY;
+        const newY2 = parseFloat(d3.select(this).attr("y2")) + changeInY;
+
+        if (id.includes("peak")) {
+          d3.select("#peakLineY1Marker").attr("cy", newY1);
+          d3.select("#peakLineY2Marker").attr("cy", newY2);
+          d3.select(this).attr("y1", newY1);
+          d3.select(this).attr("y2", newY2);
+          d3.select(this).attr("startingY", newY1);
+        } else {
+          d3.select("#valleyLineY1Marker").attr("cy", newY1);
+          d3.select("#valleyLineY2Marker").attr("cy", newY2);
+          d3.select(this).attr("y1", newY1);
+          d3.select(this).attr("y2", newY2);
+          d3.select(this).attr("startingY", newY1);
+        }
+      })
+      .on("end", function () {
+        const id = d3.select(this).attr("id");
+        d3.select(this).attr("stroke-width", 2);
+        const y1 = y.invert(d3.select(this).attr("y1"));
+        const y2 = y.invert(d3.select(this).attr("y2"));
+        const x2 = x.invert(
+          id.includes("peak")
+            ? d3.select("#peakLineY2Marker").attr("cx")
+            : d3.select("#valleyLineY2Marker").attr("cx")
+        );
+        const slope = id.includes("peak") ? peakSlope : valleySlope;
+        const yintersept = y2 - slope * x2;
+
+        if (id.includes("peak")) {
+          setPeakY1(y1);
+          setPeakY2(y2);
+          setPeakYIntercept(yintersept);
+        } else {
+          setValleyY1(y1);
+          setValleyY2(y2);
+          setValleyYIntercept(yintersept);
+        }
+      });
 
     // only display lines if peaks and valleys were found
     const { minPeaks, maxValleys } = peakValleyWindows[currentWell];
@@ -626,7 +688,8 @@ export default function WaveformGraph({
       .attr("y2", y(peakY2))
       .attr("stroke-width", 2)
       .attr("stroke", "orange")
-      .style("cursor", "pointer");
+      .style("cursor", "pointer")
+      .call(moveLineUpDown);
     const peaksY1 = svg
       .append("circle")
       .attr("id", "peakLineY1Marker")
@@ -665,7 +728,8 @@ export default function WaveformGraph({
       .attr("y2", y(valleyY2))
       .attr("stroke-width", 2)
       .attr("stroke", "green")
-      .style("cursor", "pointer");
+      .style("cursor", "pointer")
+      .call(moveLineUpDown);
     const valleysY1 = svg
       .append("circle")
       .attr("id", "valleyLineY1Marker")
@@ -819,8 +883,12 @@ export default function WaveformGraph({
     xZoomFactor,
     yZoomFactor,
     peakValleyWindows,
-    peakslope,
+    peakSlope,
     valleySlope,
+    peakYIntercept,
+    valleyYIntercept,
+    startTime,
+    endTime,
   ]);
 
   useEffect(() => {
@@ -980,12 +1048,13 @@ export default function WaveformGraph({
             clickFn={() => {
               setPeakY1(peakValleyWindows[currentWell].minPeaks);
               setPeakY2(peakValleyWindows[currentWell].minPeaks);
+              setPeakYIntercept(peakValleyWindows[currentWell].minPeaks);
+              setPeakSlope(0);
+
               setValleyY1(peakValleyWindows[currentWell].maxValleys);
               setValleyY2(peakValleyWindows[currentWell].maxValleys);
+              setValleyYIntercept(peakValleyWindows[currentWell].maxValleys);
               setValleySlope(0);
-              setValleySlope(0);
-              setPeakYIntercept(0);
-              setValleyYIntercept(0);
               resetWellChanges();
             }}
           />
