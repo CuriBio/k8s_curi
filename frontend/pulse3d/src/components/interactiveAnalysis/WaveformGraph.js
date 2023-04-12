@@ -931,25 +931,36 @@ export default function WaveformGraph({
 
   //run once when component is created to set starter values for calculations
   useEffect(() => {
-    let newArr = [...peakYIntercept];
-    newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].minPeaks;
-    setPeakYIntercept(newArr);
-    newArr = [...peakY1];
-    newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].minPeaks;
-    setPeakY1(newArr);
-    newArr = [...peakY2];
-    newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].minPeaks;
-    setPeakY2(newArr);
-
-    newArr = [...valleyYIntercept];
-    newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].maxValleys;
-    setValleyYIntercept(newArr);
-    newArr = [...valleyY1];
-    newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].maxValleys;
-    setValleyY1(newArr);
-    newArr = [...valleyY2];
-    newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].maxValleys;
-    setValleyY2(newArr);
+    if (
+      !peakYIntercept[wellNameToIndex[currentWell]] ||
+      !peakY1[wellNameToIndex[currentWell]] ||
+      !peakY2[wellNameToIndex[currentWell]]
+    ) {
+      let newArr = [...peakYIntercept];
+      newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].minPeaks;
+      setPeakYIntercept(newArr);
+      newArr = [...peakY1];
+      newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].minPeaks;
+      setPeakY1(newArr);
+      newArr = [...peakY2];
+      newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].minPeaks;
+      setPeakY2(newArr);
+    }
+    if (
+      !valleyYIntercept[wellNameToIndex[currentWell]] ||
+      !valleyY1[wellNameToIndex[currentWell]] ||
+      !valleyY2[wellNameToIndex[currentWell]]
+    ) {
+      let newArr = [...valleyYIntercept];
+      newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].maxValleys;
+      setValleyYIntercept(newArr);
+      newArr = [...valleyY1];
+      newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].maxValleys;
+      setValleyY1(newArr);
+      newArr = [...valleyY2];
+      newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].maxValleys;
+      setValleyY2(newArr);
+    }
   }, [currentWell]);
 
   useEffect(() => {
