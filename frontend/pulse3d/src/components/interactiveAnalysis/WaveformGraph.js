@@ -1129,9 +1129,12 @@ export default function WaveformGraph({
               newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].minPeaks;
               setPeakYIntercept(newArr);
               setPeakSlope(Array(24).fill(0));
-
-              setValleyY1(peakValleyWindows[currentWell].maxValleys);
-              setValleyY2(peakValleyWindows[currentWell].maxValleys);
+              newArr = [...valleyY1];
+              newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].maxValleys;
+              setValleyY1(newArr);
+              newArr = [...valleyY2];
+              newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].maxValleys;
+              setValleyY2(newArr);
               newArr = [...valleyYIntercept];
               newArr[wellNameToIndex[currentWell]] = peakValleyWindows[currentWell].maxValleys;
               setValleyYIntercept(newArr);

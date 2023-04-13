@@ -468,6 +468,14 @@ export default function InteractiveWaveformModal({
       endTime: existingData.editableStartEndTimes.endTime,
     });
     setPeakValleyWindows(existingData.peakValleyWindows);
+    setPeakSlope(existingData.peakSlope);
+    setPeakYIntercept(existingData.peakYIntercept);
+    setPeakY1(existingData.peakY1);
+    setPeakY2(existingData.peakY2);
+    setValleySlope(existingData.valleySlope);
+    setValleyYIntercept(existingData.valleyYIntercept);
+    setValleyY1(existingData.valleyY1);
+    setValleyY2(existingData.valleyY2);
   };
 
   const handleWellSelection = async (idx) => {
@@ -605,6 +613,14 @@ export default function InteractiveWaveformModal({
         originalData,
         changelog,
         peakValleyWindows,
+        peakSlope,
+        peakYIntercept,
+        peakY1,
+        peakY2,
+        valleySlope,
+        valleyYIntercept,
+        valleyY1,
+        valleyY2,
       })
     );
   };
