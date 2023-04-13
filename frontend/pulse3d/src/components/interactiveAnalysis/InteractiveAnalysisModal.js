@@ -243,7 +243,7 @@ export default function InteractiveWaveformModal({
       setMarkers([...editablePeaksValleys[selectedWell]]);
       setIsLoading(false);
     }
-  }, [dataToGraph, editablePeaksValleys, modalOpen, valleySlope, peakSlope]);
+  }, [dataToGraph, editablePeaksValleys]);
 
   const getWaveformData = async (peaks_valleys_needed, well) => {
     try {
