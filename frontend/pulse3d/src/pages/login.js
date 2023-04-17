@@ -83,13 +83,14 @@ export default function Login() {
     setInProgress(true);
     setErrorMsg(""); // reset to show user something happened
 
-    if (Object.values(userData).includes("")) setErrorMsg("*All fields are required");
-    // this state gets passed to web worker to attempt login request
-    else {
+    if (Object.values(userData).includes("")) {
+      setErrorMsg("*All fields are required");
+      // this state gets passed to web worker to attempt login request
+    } else {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/login`, {
           method: "POST",
-          body: JSON.stringify(userData),
+          body: JSON.stringify({ ...userData, client_type: "dashboard" }),
           mode: "no-cors",
         });
 
