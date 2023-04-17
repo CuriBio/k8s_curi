@@ -23,6 +23,7 @@ class CustomerLogin(BaseModel):
     email: EmailStr
     password: SecretStr
     service: str
+    client_type: Optional[str]
 
 
 class UserLogin(BaseModel):
@@ -30,6 +31,7 @@ class UserLogin(BaseModel):
     username: str
     password: SecretStr
     service: str
+    client_type: Optional[str]
 
 
 class PasswordModel(BaseModel):
