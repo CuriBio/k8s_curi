@@ -37,7 +37,7 @@ def test_create_dependency_mapping__lists_firmware_file_objects_from_s3_correctl
 
     versions.create_dependency_mapping()
 
-    assert mocked_s3_client.list_objects.call_count == 3
+    assert mocked_s3_client.list_objects.call_count == 4
     mocked_s3_client.list_objects.assert_any_call(Bucket=f"{CLUSTER_NAME}-channel-firmware")
     mocked_s3_client.list_objects.assert_any_call(Bucket=f"{CLUSTER_NAME}-main-firmware")
 
@@ -73,7 +73,7 @@ def test_create_dependency_mapping__retrieves_metadata_of_each_appropriately_nam
 
     mocked_s3_client.head_object.side_effect = lambda Bucket, Key: {
         "Metadata": (
-            {"sw-version": "0.0.0"}
+            {"sw-version": "0.0.0", "sting-sw-version": "0.0.0"}
             if Bucket == expected_main_bucket_name
             else {"main-fw-version": "0.0.0", "hw-version": "0.0.0"}
         )
@@ -95,8 +95,8 @@ def test_create_dependency_mapping__returns_correct_mappings(mocked_boto3):
     expected_main_bucket_name = f"{CLUSTER_NAME}-main-firmware"
 
     expected_main_objs_and_metadata = {
-        "1.0.1.bin": {"sw-version": "1.0.0"},
-        "2.0.2.bin": {"sw-version": "2.0.0"},
+        "1.0.1.bin": {"sw-version": "1.0.0", "sting-sw-version": "11.0.0"},
+        "2.0.2.bin": {"sw-version": "2.0.0", "sting-sw-version": "22.0.0"},
     }
     expected_channel_objs_and_metadata = {
         "1.1.0.bin": {"main-fw-version": "1.0.1", "hw-version": "1.1.1"},
@@ -115,10 +115,11 @@ def test_create_dependency_mapping__returns_correct_mappings(mocked_boto3):
     }
     mocked_s3_client.head_object.side_effect = lambda Bucket, Key: {"Metadata": get_s3_objs(Bucket)[Key]}
 
-    cfw_to_hw, cfw_to_mfw, mfw_to_sw = versions.create_dependency_mapping()
+    cfw_to_hw, cfw_to_mfw, mfw_to_sw, mfw_to_sting_sw = versions.create_dependency_mapping()
     assert cfw_to_hw == {"1.1.0": "1.1.1", "2.2.0": "2.2.2"}
     assert cfw_to_mfw == {"1.1.0": "1.0.1", "2.2.0": "2.0.2"}
     assert mfw_to_sw == {"1.0.1": "1.0.0", "2.0.2": "2.0.0"}
+    assert mfw_to_sting_sw == {"1.0.1": "11.0.0", "2.0.2": "22.0.0"}
 
 
 @pytest.mark.parametrize(
@@ -138,15 +139,15 @@ def test_get_cfw_from_hw__returns_correct_values(channel_fw_version, hw_version)
 
 
 @pytest.mark.parametrize(
-    "hw_version,channel_fw_version,main_fw_version,sw_version",
+    "hw_version,channel_fw_version,main_fw_version,sw_version,sting_sw_version",
     [
-        ("1.0.0", "3.0.0", "3.0.0", "2.0.0"),
-        ("2.0.0", "4.0.0", "4.0.0", "2.0.0"),
-        ("3.0.0", "5.0.0", "6.0.0", "5.0.0"),
+        ("1.0.0", "3.0.0", "3.0.0", "2.0.0", "12.0.0"),
+        ("2.0.0", "4.0.0", "4.0.0", "2.0.0", "12.0.0"),
+        ("3.0.0", "5.0.0", "6.0.0", "5.0.0", "15.0.0"),
     ],
 )
 def test_resolve_versions__return_correct_dict(
-    hw_version, channel_fw_version, main_fw_version, sw_version, mocker
+    hw_version, channel_fw_version, main_fw_version, sw_version, sting_sw_version, mocker
 ):
     def get_cfw_from_hw_se(cfw_to_hw, hardware_version):
         test_hw_to_cfw = {"1.0.0": "3.0.0", "2.0.0": "4.0.0", "3.0.0": "5.0.0"}
@@ -172,17 +173,19 @@ def test_resolve_versions__return_correct_dict(
         "5.0.0": "3.0.0",
         "6.0.0": "5.0.0",
     }
+    test_mfw_to_sting_sw = {mfw: "1" + sw for mfw, sw in test_main_fw_to_sw.items()}
     mocker.patch.object(
         versions,
         "create_dependency_mapping",
         autospec=True,
-        return_value=(dummy_cfw_to_hw, test_cfw_to_mfw, test_main_fw_to_sw),
+        return_value=(dummy_cfw_to_hw, test_cfw_to_mfw, test_main_fw_to_sw, test_mfw_to_sting_sw),
     )
 
     assert versions.resolve_versions(hw_version) == {
         "sw": sw_version,
         "main-fw": main_fw_version,
         "channel-fw": channel_fw_version,
+        "sting-sw": sting_sw_version,
     }
     mocked_get_cfw_from_hw.assert_called_once_with(dummy_cfw_to_hw, hw_version)
 
@@ -241,14 +244,17 @@ def test_get_latest_software_version__returns_latest_version():
 def test_get_required_sw_version_range__returns_min_software_version_correctly(mocker):
     mocked_cdm = mocker.patch.object(versions, "create_dependency_mapping", autospec=True)
     mfw_to_sw = {"1.0.0": "1.0.1", "2.0.0": "2.0.1", "3.0.0": "3.0.1", "11.0.0": "11.0.1"}
-    mocked_cdm.return_value = ({}, {}, mfw_to_sw)
+    mfw_to_sting_sw = {mfw: "1" + sw for mfw, sw in mfw_to_sw.items()}
+    mocked_cdm.return_value = ({}, {}, mfw_to_sw, mfw_to_sting_sw)
 
     # only patching in this test to avoid errors
     mocker.patch.object(versions, "get_all_sw_versions", autospec=True, return_value=[])
     mocker.patch.object(versions, "get_previous_software_version", autospec=True)
 
     test_mfw_version = "3.0.0"
-    assert versions.get_required_sw_version_range(test_mfw_version)["min_sw"] == mfw_to_sw[test_mfw_version]
+    version_bounds = versions.get_required_sw_version_range(test_mfw_version)
+    assert version_bounds["min_sw"] == mfw_to_sw[test_mfw_version]
+    assert version_bounds["min_sting_sw"] == mfw_to_sting_sw[test_mfw_version]
 
     mocked_cdm.assert_called_once_with()
 
@@ -256,14 +262,24 @@ def test_get_required_sw_version_range__returns_min_software_version_correctly(m
 def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_one_exists(mocker):
     mocked_cdm = mocker.patch.object(versions, "create_dependency_mapping", autospec=True)
     mfw_to_sw = {"1.0.0": "1.0.1", "2.0.0": "2.0.1", "3.0.0": "3.0.1", "22.0.0": "22.0.1"}
-    mocked_cdm.return_value = ({}, {}, mfw_to_sw)
+    mfw_to_sting_sw = {mfw: "1" + sw for mfw, sw in mfw_to_sw.items()}
+    mocked_cdm.return_value = ({}, {}, mfw_to_sw, mfw_to_sting_sw)
+
+    mocked_prev_versions = [mocker.Mock()] * 2
 
     mocked_get_all = mocker.patch.object(versions, "get_all_sw_versions", autospec=True)
-    mocked_get_prev = mocker.patch.object(versions, "get_previous_software_version", autospec=True)
+    mocked_get_prev = mocker.patch.object(
+        versions, "get_previous_software_version", autospec=True, side_effect=mocked_prev_versions
+    )
 
-    assert versions.get_required_sw_version_range("2.0.0")["max_sw"] == mocked_get_prev.return_value
+    version_bounds = versions.get_required_sw_version_range("2.0.0")
+    assert version_bounds["max_sw"] == mocked_prev_versions[0]
+    assert version_bounds["max_sting_sw"] == mocked_prev_versions[1]
 
-    mocked_get_prev.assert_called_once_with(mocked_get_all.return_value, "3.0.1")
+    assert mocked_get_prev.call_args_list == [
+        mocker.call(mocked_get_all.return_value, "3.0.1"),
+        mocker.call(mocked_get_all.return_value, "13.0.1"),
+    ]
 
 
 def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_next_main_fw_has_same_sw_version(
@@ -271,26 +287,44 @@ def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_n
 ):
     mocked_cdm = mocker.patch.object(versions, "create_dependency_mapping", autospec=True)
     mfw_to_sw = {"1.0.0": "1.0.1", "2.0.0": "1.0.1", "3.0.0": "3.0.1", "11.0.0": "11.0.1"}
-    mocked_cdm.return_value = ({}, {}, mfw_to_sw)
+    mfw_to_sting_sw = {mfw: "1" + sw for mfw, sw in mfw_to_sw.items()}
+    mocked_cdm.return_value = ({}, {}, mfw_to_sw, mfw_to_sting_sw)
+
+    mocked_prev_versions = [mocker.Mock()] * 2
 
     mocked_get_all = mocker.patch.object(versions, "get_all_sw_versions", autospec=True)
-    mocked_get_prev = mocker.patch.object(versions, "get_previous_software_version", autospec=True)
+    mocked_get_prev = mocker.patch.object(
+        versions, "get_previous_software_version", autospec=True, side_effect=mocked_prev_versions
+    )
 
-    assert versions.get_required_sw_version_range("1.0.0")["max_sw"] == mocked_get_prev.return_value
+    version_bounds = versions.get_required_sw_version_range("1.0.0")
+    assert version_bounds["max_sw"] == mocked_prev_versions[0]
+    assert version_bounds["max_sting_sw"] == mocked_prev_versions[1]
 
-    mocked_get_prev.assert_called_once_with(mocked_get_all.return_value, "3.0.1")
+    assert mocked_get_prev.call_args_list == [
+        mocker.call(mocked_get_all.return_value, "3.0.1"),
+        mocker.call(mocked_get_all.return_value, "13.0.1"),
+    ]
 
 
 def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_one_does_not_exist(mocker):
     mocked_cdm = mocker.patch.object(versions, "create_dependency_mapping", autospec=True)
     mfw_to_sw = {"1.0.0": "1.0.1", "2.0.0": "2.0.1", "3.0.0": "3.0.1", "11.0.0": "11.0.1"}
-    mocked_cdm.return_value = ({}, {}, mfw_to_sw)
+    mfw_to_sting_sw = {mfw: "1" + sw for mfw, sw in mfw_to_sw.items()}
+    mocked_cdm.return_value = ({}, {}, mfw_to_sw, mfw_to_sting_sw)
 
-    mocked_get_prev = mocker.patch.object(versions, "get_previous_software_version", autospec=True)
+    mocked_prev_versions = [mocker.Mock()] * 2
+    mocked_get_prev = mocker.patch.object(
+        versions, "get_previous_software_version", autospec=True, side_effect=mocked_prev_versions
+    )
 
     expected_version = "2.3.4"
-    mocker.patch.object(versions, "get_all_sw_versions", autospec=True, return_value=[expected_version])
+    mocker.patch.object(
+        versions, "get_all_sw_versions", autospec=True, return_value=["0.0.0", expected_version, "0.0.1"]
+    )
 
-    assert versions.get_required_sw_version_range("11.0.0")["max_sw"] == expected_version
+    version_bounds = versions.get_required_sw_version_range("11.0.0")
+    assert version_bounds["max_sw"] == expected_version
+    assert version_bounds["max_sting_sw"] == expected_version
 
     mocked_get_prev.assert_not_called()
