@@ -205,7 +205,7 @@ export default function InteractiveWaveformModal({
     // updates changelog when peaks/valleys and start/end times change
     if (!undoing) updateChangelog();
     else setUndoing(false);
-  }, [markers, editableStartEndTimes, peakValleyWindows]);
+  }, [markers, editableStartEndTimes, peakValleyWindows, peakY1, peakY2, valleyY1, valleyY2]);
 
   useEffect(() => {
     if (dataToGraph.length > 0) {
@@ -463,6 +463,8 @@ export default function InteractiveWaveformModal({
     const changelogCopy = JSON.parse(JSON.stringify(changelog));
     const pvWindowCopy = JSON.parse(JSON.stringify(peakValleyWindows));
 
+    const wellIndex = twentyFourPlateDefinition.wellNameToIndex(selectedWell);
+
     peaksValleysCopy[selectedWell] = originalData.peaks_valleys[selectedWell];
     changelogCopy[selectedWell] = [];
     pvWindowCopy[selectedWell] = {
@@ -473,6 +475,18 @@ export default function InteractiveWaveformModal({
     setEditablePeaksValleys(peaksValleysCopy);
     setChangelog(changelogCopy);
     setPeakValleyWindows(pvWindowCopy);
+    let newArr = [...peakY1];
+    newArr[wellIndex] = peakValleyWindows[selectedWell].minPeaks;
+    setPeakY1(newArr);
+    newArr = [...peakY2];
+    newArr[wellIndex] = peakValleyWindows[selectedWell].minPeaks;
+    setPeakY2(newArr);
+    newArr = [...valleyY1];
+    newArr[wellIndex] = peakValleyWindows[selectedWell].maxValleys;
+    setValleyY1(newArr);
+    newArr = [...valleyY2];
+    newArr[wellIndex] = peakValleyWindows[selectedWell].maxValleys;
+    setValleyY2(newArr);
   };
 
   const postNewJob = async () => {
@@ -592,6 +606,7 @@ export default function InteractiveWaveformModal({
 
   const updateChangelog = () => {
     let changelogMessage;
+    console.log("updating change log");
 
     // changelog will have length of 0 if a user Undo's until initial state
     if (changelog[selectedWell] && changelog[selectedWell].length > 0 && markers.length === 2) {
@@ -612,7 +627,17 @@ export default function InteractiveWaveformModal({
     }
   };
 
-  const getChangelogMessage = (peaksToCompare, valleysToCompare, startToCompare, endToCompare, pvWindow) => {
+  const getChangelogMessage = (
+    peaksToCompare,
+    valleysToCompare,
+    startToCompare,
+    endToCompare,
+    pvWindow,
+    peakY1,
+    peakY2,
+    valleyY1,
+    ValleyY2
+  ) => {
     let changelogMessage;
 
     const peaksMoved =

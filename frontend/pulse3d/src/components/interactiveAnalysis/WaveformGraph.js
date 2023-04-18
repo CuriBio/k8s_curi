@@ -1052,23 +1052,7 @@ export default function WaveformGraph({
             left="5px"
             fontSize={15}
             borderRadius="5px"
-            clickFn={() => {
-              //set array here
-              const wellIndex = twentyFourPlateDefinition.wellNameToIndex(currentWell);
-              let newArr = [...peakY1];
-              newArr[wellIndex] = peakValleyWindows[currentWell].minPeaks;
-              setPeakY1(newArr);
-              newArr = [...peakY2];
-              newArr[wellIndex] = peakValleyWindows[currentWell].minPeaks;
-              setPeakY2(newArr);
-              newArr = [...valleyY1];
-              newArr[wellIndex] = peakValleyWindows[currentWell].maxValleys;
-              setValleyY1(newArr);
-              newArr = [...valleyY2];
-              newArr[wellIndex] = peakValleyWindows[currentWell].maxValleys;
-              setValleyY2(newArr);
-              resetWellChanges();
-            }}
+            clickFn={resetWellChanges}
           />
           <ButtonWidget
             label="Save"
