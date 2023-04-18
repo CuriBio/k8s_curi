@@ -24,19 +24,8 @@ from pulse3D.constants import (
     DEFAULT_WIDTH_FACTORS,
 )
 
-from auth import (
-    ProtectedAny,
-    PULSE3D_USER_SCOPES,
-    PULSE3D_SCOPES,
-    CUSTOMER_SCOPES,
-    split_scope_account_data,
-)
-from core.config import (
-    DATABASE_URL,
-    PULSE3D_UPLOADS_BUCKET,
-    MANTARRAY_LOGS_BUCKET,
-    DASHBOARD_URL,
-)
+from auth import ProtectedAny, PULSE3D_USER_SCOPES, PULSE3D_SCOPES, CUSTOMER_SCOPES, split_scope_account_data
+from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET, DASHBOARD_URL
 from jobs import (
     create_upload,
     create_job,
@@ -128,10 +117,7 @@ async def get_info_of_uploads(
 
         async with request.state.pgpool.acquire() as con:
             uploads = await get_uploads(
-                con=con,
-                account_type=account_type,
-                account_id=account_id,
-                upload_ids=upload_ids,
+                con=con, account_type=account_type, account_id=account_id, upload_ids=upload_ids
             )
             if account_type != "customer":
                 # customer accounts don't matter here because they don't have the ability to delete
@@ -181,11 +167,7 @@ async def create_recording_upload(
             async with con.transaction():
                 upload_id = await create_upload(con=con, upload_params=upload_params)
 
-                params = _generate_presigned_post(
-                    details,
-                    PULSE3D_UPLOADS_BUCKET,
-                    s3_key,
-                )
+                params = _generate_presigned_post(details, PULSE3D_UPLOADS_BUCKET, s3_key)
                 return UploadResponse(id=upload_id, params=params)
     except S3Error as e:
         logger.exception(str(e))
@@ -211,10 +193,7 @@ async def soft_delete_uploads(
         account_id = str(uuid.UUID(token["userid"]))
         async with request.state.pgpool.acquire() as con:
             await delete_uploads(
-                con=con,
-                account_type=token["account_type"],
-                account_id=account_id,
-                upload_ids=upload_ids,
+                con=con, account_type=token["account_type"], account_id=account_id, upload_ids=upload_ids
             )
     except Exception as e:
         logger.error(repr(e))
@@ -246,10 +225,7 @@ async def download_zip_files(
     try:
         async with request.state.pgpool.acquire() as con:
             uploads = await get_uploads(
-                con=con,
-                account_type=account_type,
-                account_id=account_id,
-                upload_ids=upload_ids,
+                con=con, account_type=account_type, account_id=account_id, upload_ids=upload_ids
             )
 
         # get filenames and s3 keys to download
@@ -258,10 +234,7 @@ async def download_zip_files(
 
         if len(upload_ids) == 1:
             # if only one file requested, return single presigned URL
-            return {
-                "filename": filenames[0],
-                "url": generate_presigned_url(PULSE3D_UPLOADS_BUCKET, keys[0]),
-            }
+            return {"filename": filenames[0], "url": generate_presigned_url(PULSE3D_UPLOADS_BUCKET, keys[0])}
         else:
             # Grab ZIP file from in-memory, make response with correct MIME-type
             return StreamingResponse(
@@ -472,8 +445,7 @@ async def create_new_job(
             # if deprecated and end of life date passed then cancel the upload
             # if end of life date is none then pulse3d version is usable
             pulse3d_version_status = await con.fetchrow(
-                "SELECT state, end_of_life_date FROM pulse3d_versions WHERE version = $1",
-                details.version,
+                "SELECT state, end_of_life_date FROM pulse3d_versions WHERE version = $1", details.version
             )
             status_name = pulse3d_version_status["state"]
             end_of_life_date = pulse3d_version_status["end_of_life_date"]
@@ -595,10 +567,7 @@ async def soft_delete_jobs(
         account_id = str(uuid.UUID(token["userid"]))
         async with request.state.pgpool.acquire() as con:
             await delete_jobs(
-                con=con,
-                account_type=token["account_type"],
-                account_id=account_id,
-                job_ids=job_ids,
+                con=con, account_type=token["account_type"], account_id=account_id, job_ids=job_ids
             )
     except Exception as e:
         logger.error(f"Failed to soft delete jobs: {repr(e)}")
@@ -671,10 +640,7 @@ def _yield_s3_objects(bucket: str, keys: List[str], filenames: List[str]):
         raise S3Error(f"Failed to access {bucket}/{key}: {repr(e)}")
 
 
-@app.get(
-    "/jobs/waveform-data",
-    response_model=Union[WaveformDataResponse, GenericErrorResponse],
-)
+@app.get("/jobs/waveform-data", response_model=Union[WaveformDataResponse, GenericErrorResponse])
 async def get_interactive_waveform_data(
     request: Request,
     upload_id: uuid.UUID = Query(None),
@@ -688,8 +654,7 @@ async def get_interactive_waveform_data(
 
     if job_id is None or upload_id is None or not _is_valid_well_name(well_name):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing required ids to get job metadata.",
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Missing required ids to get job metadata."
         )
 
     upload_id = str(upload_id)
@@ -732,8 +697,7 @@ async def get_interactive_waveform_data(
             if pulse3d_version is not None:
                 # read the time force dataframe from the parquet file
                 parquet_path = glob(
-                    os.path.join(tmpdir, "time_force_data", pulse3d_version, "*.parquet"),
-                    recursive=True,
+                    os.path.join(tmpdir, "time_force_data", pulse3d_version, "*.parquet"), recursive=True
                 )
             # if no pulse3d version specified in the job metadata or no time force parquet file was found
             # by previous glob, check s3 without pulse3d prefix
@@ -825,12 +789,7 @@ def _get_peaks_valleys(parquet_path: str, time_force_df: pd.DataFrame, analysis_
 
             peak_detector_params = {
                 param: analysis_params[param]
-                for param in (
-                    "prominence_factors",
-                    "width_factors",
-                    "start_time",
-                    "end_time",
-                )
+                for param in ("prominence_factors", "width_factors", "start_time", "end_time")
                 if analysis_params[param] is not None
             }
 
@@ -843,10 +802,7 @@ def _get_peaks_valleys(parquet_path: str, time_force_df: pd.DataFrame, analysis_
             peaks = peak_valleys_df[f"{well}__peaks"].dropna().tolist()
             valleys = peak_valleys_df[f"{well}__valleys"].dropna().tolist()
             # stored as floats in df so need to convert to int
-            peaks_and_valleys[well] = [
-                [int(x) for x in peaks],
-                [int(x) for x in valleys],
-            ]
+            peaks_and_valleys[well] = [[int(x) for x in peaks], [int(x) for x in valleys]]
             logger.info(f"{len(peaks)} peaks and {len(valleys)} valleys for well {well}")
 
     return peaks_and_valleys
@@ -871,9 +827,7 @@ async def get_versions(request: Request):
 
 @app.get("/usage", response_model=UsageQuota)
 async def get_usage_quota(
-    request: Request,
-    service: str = Query(None),
-    token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)),
+    request: Request, service: str = Query(None), token=Depends(ProtectedAny(scope=PULSE3D_SCOPES))
 ):
     """Get the usage quota for the specific user"""
     try:

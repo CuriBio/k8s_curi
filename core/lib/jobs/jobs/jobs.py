@@ -26,8 +26,7 @@ def get_item(*, queue):
 
                 if con_to_set_job_running:
                     await con_to_set_job_running.execute(
-                        "UPDATE jobs_result SET status='running' WHERE job_id=$1",
-                        item["id"],
+                        "UPDATE jobs_result SET status='running' WHERE job_id=$1", item["id"]
                     )
 
                 ts = time.time()
