@@ -627,17 +627,7 @@ export default function InteractiveWaveformModal({
     }
   };
 
-  const getChangelogMessage = (
-    peaksToCompare,
-    valleysToCompare,
-    startToCompare,
-    endToCompare,
-    pvWindow,
-    peakY1,
-    peakY2,
-    valleyY1,
-    ValleyY2
-  ) => {
+  const getChangelogMessage = (peaksToCompare, valleysToCompare, startToCompare, endToCompare, pvWindow) => {
     let changelogMessage;
 
     const peaksMoved =
