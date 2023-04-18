@@ -27,7 +27,8 @@ def get_item(*, queue):
 
                 if con_to_set_job_running:
                     await con_to_set_job_running.execute(
-                        "UPDATE jobs_result SET status='running' WHERE job_id=$1", item["id"]
+                        "UPDATE jobs_result SET status='running' WHERE job_id=$1",
+                        item["id"],
                     )
 
                 ts = time.time()
@@ -85,9 +86,6 @@ async def get_uploads(*, con, account_type, account_id, upload_ids=None):
 
 
 async def create_upload(*, con, upload_params):
-    # generating uuid here instead of letting PG handle it so that it can be inserted into the prefix more easily
-    upload_id = uuid.uuid4()
-
     # the WITH clause in this query is necessary to make sure the given user_id actually exists
     query = (
         "WITH row AS (SELECT id AS user_id FROM users WHERE id=$1) "
@@ -99,9 +97,9 @@ async def create_upload(*, con, upload_params):
     return await con.fetchval(
         query,
         upload_params["user_id"],
-        upload_id,
+        upload_params["upload_id"],
         upload_params["md5"],
-        upload_params["prefix"].format(upload_id=upload_id),
+        upload_params["prefix"],
         upload_params["filename"],
         upload_params["type"],
         upload_params["customer_id"],
@@ -170,7 +168,9 @@ async def create_job(*, con, upload_id, queue, priority, meta, customer_id, job_
     )
     async with con.transaction():
         # add job to queue
-        row = await con.fetchrow(enqueue_job_query, upload_id, queue, priority, json.dumps(meta))
+        row = await con.fetchrow(
+            enqueue_job_query, upload_id, queue, priority, json.dumps(meta)
+        )
         job_id = row["id"]
 
         data = {
@@ -188,7 +188,9 @@ async def create_job(*, con, upload_id, queue, priority, meta, customer_id, job_
         places = _get_placeholders_str(len(data))
 
         # insert job info result table with 'pending' status
-        await con.execute(f"INSERT INTO jobs_result ({cols}) VALUES ({places})", *data.values())
+        await con.execute(
+            f"INSERT INTO jobs_result ({cols}) VALUES ({places})", *data.values()
+        )
 
     return job_id
 
@@ -232,14 +234,18 @@ async def get_customer_quota(con, customer_id, service) -> Dict[str, Any]:
     """
     # get service specific usage restrictions for the customer account
     # uploads limit, jobs limit, end date of plan
-    usage_limit_query = "SELECT usage_restrictions->$1 AS usage FROM customers WHERE id=$2"
+    usage_limit_query = (
+        "SELECT usage_restrictions->$1 AS usage FROM customers WHERE id=$2"
+    )
     # collects number of all jobs in customer account and return number of credits consumed
     # upload with 1 - 2 jobs  = 1 credit , upload with 3+ jobs = 1 credit for each upload with over 2 jobs
     current_usage_query = "SELECT COUNT(*) AS total_uploads, SUM(jobs_count) AS total_jobs FROM ( SELECT ( CASE WHEN (COUNT(*) <= 2 AND COUNT(*) > 0) THEN 1 ELSE GREATEST(COUNT(*) - 1, 0) END ) AS jobs_count FROM jobs_result WHERE customer_id=$1 and type=$2 GROUP BY upload_id) dt"
 
     async with con.transaction():
         usage_limit_json = await con.fetchrow(usage_limit_query, service, customer_id)
-        current_usage_data = await con.fetchrow(current_usage_query, customer_id, service)
+        current_usage_data = await con.fetchrow(
+            current_usage_query, customer_id, service
+        )
 
     usage_limit_dict = json.loads(usage_limit_json["usage"])
 
@@ -265,7 +271,8 @@ async def check_customer_quota(con, customer_id, service) -> Dict[str, Any]:
     usage_info = await get_customer_quota(con, customer_id, service)
     # check current date has not passed end date
     is_expired = (
-        datetime.strptime(usage_info["limits"]["expiration_date"], "%Y-%m-%d") < datetime.utcnow()
+        datetime.strptime(usage_info["limits"]["expiration_date"], "%Y-%m-%d")
+        < datetime.utcnow()
         if usage_info["limits"]["expiration_date"]
         else False
     )
