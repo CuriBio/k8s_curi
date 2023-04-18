@@ -15,33 +15,6 @@ import { AuthContext } from "@/pages/_app";
 
 const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
 
-const wellNameToIndex = {
-  A1: 0,
-  A2: 1,
-  A3: 2,
-  A4: 3,
-  A5: 4,
-  A6: 5,
-  B1: 6,
-  B2: 7,
-  B3: 8,
-  B4: 9,
-  B5: 10,
-  B6: 11,
-  C1: 12,
-  C2: 13,
-  C3: 14,
-  C4: 15,
-  C5: 16,
-  C6: 17,
-  D1: 18,
-  D2: 19,
-  D3: 20,
-  D4: 21,
-  D5: 22,
-  D6: 23,
-};
-
 const Container = styled.div`
   height: 100%;
   display: flex;
@@ -586,17 +559,18 @@ export default function InteractiveWaveformModal({
       if (well in originalData.coordinates) {
         const wellCoords = originalData.coordinates[well];
         wellPeaks = wellPeaks.filter((peak) => {
-          const actualY = wellCoords[peak][1];
-          const computedY =
-            wellCoords[peak][0] * peakSlope[wellNameToIndex[well]] + peakYIntercept[wellNameToIndex[well]];
-          return actualY >= computedY;
+          const peakY = wellCoords[peak][1];
+          const peaksLimitY =
+            wellCoords[peak][0] * peakSlope[twentyFourPlateDefinition.wellNameToIndex(well)] +
+            peakYIntercept[twentyFourPlateDefinition.wellNameToIndex(well)];
+          return peakY >= peaksLimitY;
         });
         wellValleys = wellValleys.filter((valley) => {
-          const actualY = wellCoords[valley][1];
-          const computedY =
-            wellCoords[valley][0] * valleySlope[wellNameToIndex[well]] +
-            valleyYIntercept[wellNameToIndex[well]];
-          return actualY <= computedY;
+          const valleyY = wellCoords[valley][1];
+          const valleyLimitY =
+            wellCoords[valley][0] * valleySlope[twentyFourPlateDefinition.wellNameToIndex(well)] +
+            valleyYIntercept[twentyFourPlateDefinition.wellNameToIndex(well)];
+          return valleyY <= valleyLimitY;
         });
       }
       filtered[well] = [wellPeaks, wellValleys];
@@ -904,7 +878,7 @@ export default function InteractiveWaveformModal({
             setValleyY1={setValleyY1}
             valleyY2={valleyY2}
             setValleyY2={setValleyY2}
-            wellNameToIndex={wellNameToIndex}
+            twentyFourPlateDefinition={twentyFourPlateDefinition}
           />
         )}
       </GraphContainer>
