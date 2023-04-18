@@ -49,7 +49,8 @@ def create_dependency_mapping():
     Mappings include:
         - Channel FW -> HW
         - Channel FW -> Main FW
-        - Main FW -> SW
+        - Main FW -> MA Controller SW
+        - Main FW -> Stingray Controller SW
     """
     s3_client = boto3.client("s3")
 
@@ -57,10 +58,12 @@ def create_dependency_mapping():
     cfw_to_hw = {}
     cfw_to_mfw = {}
     mfw_to_sw = {}
+    mfw_to_sting_sw = {}
     for bucket, metadata_prefix, dependency_mapping in (
         ("channel-firmware", "hw", cfw_to_hw),
         ("channel-firmware", "main-fw", cfw_to_mfw),
         ("main-firmware", "sw", mfw_to_sw),
+        ("main-firmware", "sting-sw", mfw_to_sting_sw),
     ):
         bucket = f"{CLUSTER_NAME}-{bucket}"
         firmware_file_objs = s3_client.list_objects(Bucket=bucket)
@@ -76,7 +79,7 @@ def create_dependency_mapping():
             # get version of object and add entry to mapping
             obj_version = file_name.split(".bin")[0]
             dependency_mapping[obj_version] = metadata_version
-    return cfw_to_hw, cfw_to_mfw, mfw_to_sw
+    return cfw_to_hw, cfw_to_mfw, mfw_to_sw, mfw_to_sting_sw
 
 
 def get_cfw_from_hw(cfw_to_hw, device_hw_version):
@@ -93,11 +96,12 @@ def get_cfw_from_hw(cfw_to_hw, device_hw_version):
 
 
 def resolve_versions(hardware_version):
-    cfw_to_hw, cfw_to_mfw, mfw_to_sw = create_dependency_mapping()
+    cfw_to_hw, cfw_to_mfw, mfw_to_sw, mfw_to_sting_sw = create_dependency_mapping()
     cfw = get_cfw_from_hw(cfw_to_hw, hardware_version)
     mfw = cfw_to_mfw[cfw]
     sw = mfw_to_sw[mfw]
-    return {"sw": sw, "main-fw": mfw, "channel-fw": cfw}
+    sting_sw = mfw_to_sting_sw[mfw]
+    return {"sw": sw, "main-fw": mfw, "channel-fw": cfw, "sting-sw": sting_sw}
 
 
 def get_download_url(version, firmware_type):
@@ -135,21 +139,26 @@ def get_latest_software_version(all_sw_versions):
 
 
 def get_required_sw_version_range(main_fw_version):
-    *_, mfw_to_sw = create_dependency_mapping()
-
-    min_sw_version = mfw_to_sw[main_fw_version]
+    *_, mfw_to_sw, mfw_to_sting_sw = create_dependency_mapping()
 
     all_sw_versions = get_all_sw_versions()
 
-    try:
-        next_min_sw_version = filter_and_sort_semvers(
-            set(mfw_to_sw.values()), lambda sw: sw > min_sw_version
-        )[0]
-    except IndexError:
-        # if this point is reached, then the given main FW version is the latest version,
-        # and thus the max version should be whatever the current max SW version is
-        max_sw_version = get_latest_software_version(all_sw_versions)
-    else:
-        max_sw_version = get_previous_software_version(all_sw_versions, next_min_sw_version)
+    version_bounds = {}
 
-    return {"min_sw": min_sw_version, "max_sw": max_sw_version}
+    for sw_type, mapping in {"sw": mfw_to_sw, "sting_sw": mfw_to_sting_sw}.items():
+        min_sw_version = mapping[main_fw_version]
+
+        try:
+            next_min_sw_version = filter_and_sort_semvers(
+                set(mapping.values()), lambda sw: sw > min_sw_version
+            )[0]
+        except IndexError:
+            # if this point is reached, then the given main FW version is the latest version,
+            # and thus the max version should be whatever the current max SW version is
+            max_sw_version = get_latest_software_version(all_sw_versions)
+        else:
+            max_sw_version = get_previous_software_version(all_sw_versions, next_min_sw_version)
+
+        version_bounds.update({f"min_{sw_type}": min_sw_version, f"max_{sw_type}": max_sw_version})
+
+    return version_bounds
