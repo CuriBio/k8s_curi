@@ -462,9 +462,6 @@ export default function InteractiveWaveformModal({
     const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
     const changelogCopy = JSON.parse(JSON.stringify(changelog));
     const pvWindowCopy = JSON.parse(JSON.stringify(peakValleyWindows));
-
-    const wellIndex = twentyFourPlateDefinition.wellNameToIndex(selectedWell);
-
     peaksValleysCopy[selectedWell] = originalData.peaks_valleys[selectedWell];
     changelogCopy[selectedWell] = [];
     pvWindowCopy[selectedWell] = {
@@ -475,20 +472,8 @@ export default function InteractiveWaveformModal({
     setEditablePeaksValleys(peaksValleysCopy);
     setChangelog(changelogCopy);
     setPeakValleyWindows(pvWindowCopy);
-    let newArr = [...peakY1];
-    newArr[wellIndex] = peakValleyWindows[selectedWell].minPeaks;
-    setPeakY1(newArr);
-    newArr = [...peakY2];
-    newArr[wellIndex] = peakValleyWindows[selectedWell].minPeaks;
-    setPeakY2(newArr);
-    newArr = [...valleyY1];
-    newArr[wellIndex] = peakValleyWindows[selectedWell].maxValleys;
-    setValleyY1(newArr);
-    newArr = [...valleyY2];
-    newArr[wellIndex] = peakValleyWindows[selectedWell].maxValleys;
-    setValleyY2(newArr);
+    setBothLinesToDefault();
   };
-
   const postNewJob = async () => {
     try {
       setUploadInProgress(true);
@@ -829,6 +814,7 @@ export default function InteractiveWaveformModal({
       postNewJob();
     }
   };
+
   const calculateYLimit = (y1, y2, markerX) => {
     const x1 = (editableStartEndTimes.endTime - editableStartEndTimes.startTime) / 100;
     const x2 =
@@ -836,6 +822,29 @@ export default function InteractiveWaveformModal({
     const slope = (y2 - y1) / (x2 - x1);
     const yIntercept = y2 - slope * x2;
     return markerX * slope + yIntercept;
+  };
+
+  const setBothLinesToDefault = () => {
+    const wellIndex = twentyFourPlateDefinition.wellNameToIndex(selectedWell);
+    setValleyLineDataToDefault(wellIndex);
+    setPeakLineDataToDefault(wellIndex);
+  };
+  const setPeakLineDataToDefault = (wellIndex) => {
+    let newArr = [...peakY1];
+    newArr[wellIndex] = peakValleyWindows[selectedWell].minPeaks;
+    setPeakY1(newArr);
+    newArr = [...peakY2];
+    newArr[wellIndex] = peakValleyWindows[selectedWell].minPeaks;
+    setPeakY2(newArr);
+  };
+
+  const setValleyLineDataToDefault = (wellIndex) => {
+    let newArr = [...valleyY1];
+    newArr[wellIndex] = peakValleyWindows[selectedWell].maxValleys;
+    setValleyY1(newArr);
+    newArr = [...valleyY2];
+    newArr[wellIndex] = peakValleyWindows[selectedWell].maxValleys;
+    setValleyY2(newArr);
   };
 
   return (
@@ -885,6 +894,8 @@ export default function InteractiveWaveformModal({
             setValleyY2={setValleyY2}
             calculateYLimit={calculateYLimit}
             twentyFourPlateDefinition={twentyFourPlateDefinition}
+            setValleyLineDataToDefault={setValleyLineDataToDefault}
+            setPeakLineDataToDefault={setPeakLineDataToDefault}
           />
         )}
       </GraphContainer>
