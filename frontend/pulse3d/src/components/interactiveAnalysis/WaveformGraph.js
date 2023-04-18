@@ -649,19 +649,19 @@ export default function WaveformGraph({
         // increase stroke width when selected and dragging
         d3.select(this).attr("stroke-width", 5);
         //set starting y position
-        const yPosition = id.includes("valley")
+        const initialY = id.includes("valley")
           ? Math.max(d.y, y(yMax + yRange))
           : Math.min(d.y, y(yMin - yRange));
-        d3.select(this).attr("startingY", yPosition);
+        d3.select(this).attr("startingY", initialY);
       })
       .on("drag", function (d) {
         const id = d3.select(this).attr("id");
 
-        const yPosition = id.includes("valley")
+        const currentYPosition = id.includes("valley")
           ? Math.max(d.y, y(yMax + yRange))
           : Math.min(d.y, y(yMin - yRange));
         const initialY = d3.select(this).attr("startingY");
-        const changeInY = yPosition - initialY;
+        const changeInY = currentYPosition - initialY;
         const newY1 = parseFloat(d3.select(this).attr("y1")) + changeInY;
         const newY2 = parseFloat(d3.select(this).attr("y2")) + changeInY;
 
