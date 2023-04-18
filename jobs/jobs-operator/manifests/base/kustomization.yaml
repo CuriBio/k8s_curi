@@ -5,4 +5,5 @@ resources:
   - jobs-operator.yaml
   - namespace.yaml
   - rbac.yaml
+  - job-runner-crd.yaml
 

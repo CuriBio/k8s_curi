@@ -38,6 +38,8 @@ spec:
               key: jwt-secret
         - name: UPLOADS_BUCKET_ENV
           value: test-pulse3d-uploads
+        - name: MANTARRAY_LOGS_BUCKET_ENV
+          value: test-mantarray-logs
         imagePullPolicy: Always
         ports:
         - containerPort: 8000

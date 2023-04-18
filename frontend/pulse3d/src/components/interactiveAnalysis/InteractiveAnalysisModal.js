@@ -11,6 +11,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
 import semverGte from "semver/functions/gte";
 import FormInput from "@/components/basicWidgets/FormInput";
+import FormInput from "@/components/basicWidgets/FormInput";
 import { AuthContext } from "@/pages/_app";
 
 const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
@@ -215,8 +216,10 @@ export default function InteractiveWaveformModal({
   }, [dataToGraph, editablePeaksValleys]);
 
   const getWaveformData = async (peaks_valleys_needed, well) => {
+  const getWaveformData = async (peaks_valleys_needed, well) => {
     try {
       const response = await fetch(
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}&peaks_valleys=${peaks_valleys_needed}&well_name=${well}`
         `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}&peaks_valleys=${peaks_valleys_needed}&well_name=${well}`
       );
 

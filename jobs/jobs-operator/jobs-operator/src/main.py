@@ -1,5 +1,6 @@
 import kopf
 from kubernetes import client as kclient
+from kubernetes.client.exceptions import ApiException
 import os
 import logging
 import sys
@@ -13,6 +14,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+@kopf.on.resume("curibio.dev", "v1", "jobrunners")
 @kopf.on.create("curibio.dev", "v1", "jobrunners")
 def create_fn(body, spec, **kwargs):
     namespace = body["metadata"]["namespace"]
@@ -61,8 +63,17 @@ def create_fn(body, spec, **kwargs):
     # Object used to communicate with the API Server
     api = kclient.AppsV1Api()
     # Create deployment
-    obj = api.create_namespaced_deployment(namespace, deployment)
-    msg = f"Deployment {obj.metadata.name} created"
+    try:
+        obj = api.create_namespaced_deployment(namespace, deployment)
+        msg = f"Deployment {obj.metadata.name} created"
+    except ApiException:
+        #  replace deployment with new image
+        obj = api.replace_namespaced_deployment(
+            name=qp_name,
+            namespace=job_queue,
+            body=deployment,
+        )
+        msg = f"Deployment {obj.metadata.name} restarted"
     return {"message": msg}
 
 

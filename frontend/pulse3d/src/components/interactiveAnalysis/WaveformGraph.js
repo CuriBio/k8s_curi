@@ -768,6 +768,7 @@ export default function WaveformGraph({
       .on("end", function () {
         // save adjusted time to pass up to parent component to use across all wells
         // fix to two decimal places, otherwise GET /jobs/waveform-data will error
+        // fix to two decimal places, otherwise GET /jobs/waveform-data will error
         const time = d3.select(this).attr("id");
         const xPosition = d3.select(this).attr("x1");
         const newTimeSec = parseFloat(x.invert(xPosition).toFixed(2));
