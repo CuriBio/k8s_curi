@@ -137,9 +137,7 @@ async def get_info_of_uploads(
                 # customer accounts don't matter here because they don't have the ability to delete
                 for upload in uploads:
                     # need way on FE to tell if user owns recordings besides username since current user's username is not stored on the FE. We want to prevent users from attempting to delete files that aren't theirs before calling /delete route
-                    upload["owner"] = str(upload["user_id"]) == str(
-                        uuid.UUID(token["userid"])
-                    )
+                    upload["owner"] = str(upload["user_id"]) == str(uuid.UUID(token["userid"]))
 
             return uploads
 
@@ -205,9 +203,7 @@ async def soft_delete_uploads(
 ):
     # make sure at least one upload ID was given
     if not upload_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No upload IDs given"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No upload IDs given")
     # need to convert UUIDs to str to avoid issues with DB
     upload_ids = [str(upload_id) for upload_id in upload_ids]
 
@@ -235,9 +231,7 @@ async def download_zip_files(
 
     # make sure at least one job ID was given
     if not upload_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No upload IDs given"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No upload IDs given")
 
     # need to convert UUIDs to str to avoid issues with DB
     upload_ids = [str(id) for id in upload_ids]
@@ -272,9 +266,7 @@ async def download_zip_files(
             # Grab ZIP file from in-memory, make response with correct MIME-type
             return StreamingResponse(
                 content=stream_zip(
-                    _yield_s3_objects(
-                        bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=filenames
-                    )
+                    _yield_s3_objects(bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=filenames)
                 ),
                 media_type="application/zip",
             )
@@ -354,13 +346,9 @@ async def get_info_of_jobs(
                 if obj_key:
                     logger.info(f"Generating presigned download url for {obj_key}")
                     try:
-                        job_info["url"] = generate_presigned_url(
-                            PULSE3D_UPLOADS_BUCKET, obj_key
-                        )
+                        job_info["url"] = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, obj_key)
                     except Exception as e:
-                        logger.error(
-                            f"Error generating presigned url for {obj_key}: {str(e)}"
-                        )
+                        logger.error(f"Error generating presigned url for {obj_key}: {str(e)}")
                         job_info["url"] = "Error creating download link"
                 else:
                     job_info["url"] = None
@@ -368,9 +356,7 @@ async def get_info_of_jobs(
             elif job_info["status"] == "error":
                 try:
                     job_info["error_info"] = json.loads(job["job_meta"])["error"]
-                except (
-                    KeyError
-                ):  # protects against downgrading and updating deleted statuses to errors
+                except KeyError:  # protects against downgrading and updating deleted statuses to errors
                     job_info["error_info"] = "Was previously deleted"
 
             response["jobs"].append(job_info)
@@ -389,9 +375,7 @@ async def _get_jobs(con, token, job_ids):
     account_type = token["account_type"]
     account_id = str(uuid.UUID(token["userid"]))
 
-    logger.info(
-        f"Retrieving job info with IDs: {job_ids} for {account_type}: {account_id}"
-    )
+    logger.info(f"Retrieving job info with IDs: {job_ids} for {account_type}: {account_id}")
 
     # give advanced privileges to access all uploads under customer_id
     if "pulse3d:rw_all_data" in token["scope"]:
@@ -399,9 +383,7 @@ async def _get_jobs(con, token, job_ids):
         # catches in the else block like customers in get_uploads, just set here so it's not customer and become confusing
         account_type = "dataUser"
 
-    return await get_jobs(
-        con=con, account_type=account_type, account_id=account_id, job_ids=job_ids
-    )
+    return await get_jobs(con=con, account_type=account_type, account_id=account_id, job_ids=job_ids)
 
 
 @app.post("/jobs")
@@ -415,9 +397,7 @@ async def create_new_job(
         customer_id = str(uuid.UUID(token["customer_id"]))
         user_scopes = token["scope"]
         service, _ = split_scope_account_data(user_scopes[0])
-        logger.info(
-            f"Creating {service} job for upload {details.upload_id} with user ID: {user_id}"
-        )
+        logger.info(f"Creating {service} job for upload {details.upload_id} with user ID: {user_id}")
 
         params = [
             "baseline_widths_to_use",
@@ -429,19 +409,14 @@ async def create_new_job(
         ]
 
         previous_semver_version = (
-            VersionInfo.parse(details.previous_version)
-            if details.previous_version
-            else None
+            VersionInfo.parse(details.previous_version) if details.previous_version else None
         )
 
         pulse3d_semver = VersionInfo.parse(details.version)
 
         # Luci (12/14/2022) PlateRecording.to_dataframe() was updated in 0.28.3 to include 0.0 timepoint so this accounts for the index difference between versions
         peak_valley_diff = 0
-        if (
-            previous_semver_version is not None
-            and previous_semver_version != pulse3d_semver
-        ):
+        if previous_semver_version is not None and previous_semver_version != pulse3d_semver:
             if previous_semver_version < "0.28.3" and pulse3d_semver >= "0.28.3":
                 peak_valley_diff += 1
             elif previous_semver_version >= "0.28.3" and pulse3d_semver < "0.28.3":
@@ -487,9 +462,7 @@ async def create_new_job(
             ("width_factors", DEFAULT_WIDTH_FACTORS),
             ("baseline_widths_to_use", DEFAULT_BASELINE_WIDTHS),
         ):
-            analysis_params[param] = _format_tuple_param(
-                analysis_params[param], default_values
-            )
+            analysis_params[param] = _format_tuple_param(analysis_params[param], default_values)
 
         logger.info(f"Using v{details.version} with params: {analysis_params}")
 
@@ -516,9 +489,7 @@ async def create_new_job(
             # first check user_id of upload matches user_id in token
             # Luci (12/14/2022) checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
             # Luci (12/14/2022) customer id is checked already because the customer_id in the token is being used to find upload details
-            row = await con.fetchrow(
-                "SELECT user_id FROM uploads where id=$1", details.upload_id
-            )
+            row = await con.fetchrow("SELECT user_id FROM uploads where id=$1", details.upload_id)
             original_upload_user = str(row["user_id"])
             if "pulse3d:rw_all_data" not in user_scopes:
                 # if users don't match and they don't have an all_data scope, then raise unauth error
@@ -559,9 +530,7 @@ async def create_new_job(
             # Versions less than 0.28.2 should not be in the dropdown as an option, this is just an extra check for versions greater than 0.28.2
             if details.peaks_valleys and pulse3d_semver >= "0.28.2":
                 key = f"uploads/{customer_id}/{original_upload_user}/{details.upload_id}/{job_id}/peaks_valleys.parquet"
-                logger.info(
-                    f"Peaks and valleys found in job request, uploading to s3: {key}"
-                )
+                logger.info(f"Peaks and valleys found in job request, uploading to s3: {key}")
 
                 # only added during interactive analysis
                 with tempfile.TemporaryDirectory() as tmpdir:
@@ -569,19 +538,13 @@ async def create_new_job(
                     peak_valleys_dict = dict()
                     # format peaks and valleys to simple df
                     for well, peaks_valleys in details_dict["peaks_valleys"].items():
-                        peak_valleys_dict[f"{well}__peaks"] = pd.Series(
-                            peaks_valleys[0]
-                        )
-                        peak_valleys_dict[f"{well}__valleys"] = pd.Series(
-                            peaks_valleys[1]
-                        )
+                        peak_valleys_dict[f"{well}__peaks"] = pd.Series(peaks_valleys[0])
+                        peak_valleys_dict[f"{well}__valleys"] = pd.Series(peaks_valleys[1])
 
                     # write peaks and valleys to parquet file in temporary directory
                     pd.DataFrame(peak_valleys_dict).to_parquet(pv_parquet_path)
                     # upload to s3 under upload id and job id for pulse3d-worker to use
-                    upload_file_to_s3(
-                        bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path
-                    )
+                    upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
 
         return JobResponse(
             id=job_id,
@@ -623,9 +586,7 @@ async def soft_delete_jobs(
 ):
     # make sure at least one job ID was given
     if not job_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No job IDs given"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No job IDs given")
 
     # need to convert UUIDs to str to avoid issues with DB
     job_ids = [str(job_id) for job_id in job_ids]
@@ -654,9 +615,7 @@ async def download_analyses(
 
     # make sure at least one job ID was given
     if not job_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No job IDs given"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No job IDs given")
 
     # need to convert UUIDs to str to avoid issues with DB
     job_ids = [str(job_id) for job_id in job_ids]
@@ -690,9 +649,7 @@ async def download_analyses(
         # Grab ZIP file from in-memory, make response with correct MIME-type
         return StreamingResponse(
             content=stream_zip(
-                _yield_s3_objects(
-                    bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=unique_filenames
-                )
+                _yield_s3_objects(bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=unique_filenames)
             ),
             media_type="application/zip",
         )
@@ -753,8 +710,7 @@ async def get_interactive_waveform_data(
         # normalize_y_axis is not always in analysis_params and if normalize_y_axis is present, will either be None, True, or False.
         # Only prevent normalization if explicitly False.
         normalize_y_axis = not (
-            "normalize_y_axis" in analysis_params
-            and analysis_params["normalize_y_axis"] is False
+            "normalize_y_axis" in analysis_params and analysis_params["normalize_y_axis"] is False
         )
 
         if "pulse3d:rw_all_data" not in token["scope"]:
@@ -769,26 +725,20 @@ async def get_interactive_waveform_data(
         with tempfile.TemporaryDirectory() as tmpdir:
             key = f"uploads/{customer_id}/{recording_owner_id}/{upload_id}"
             logger.info(f"Downloading recording data from {key}")
-            download_directory_from_s3(
-                bucket=PULSE3D_UPLOADS_BUCKET, key=key, file_path=tmpdir
-            )
+            download_directory_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file_path=tmpdir)
 
             parquet_path = None
             # check if time force parquet file is found under pulse3d version prefix first
             if pulse3d_version is not None:
                 # read the time force dataframe from the parquet file
                 parquet_path = glob(
-                    os.path.join(
-                        tmpdir, "time_force_data", pulse3d_version, "*.parquet"
-                    ),
+                    os.path.join(tmpdir, "time_force_data", pulse3d_version, "*.parquet"),
                     recursive=True,
                 )
             # if no pulse3d version specified in the job metadata or no time force parquet file was found
             # by previous glob, check s3 without pulse3d prefix
             if not parquet_path:
-                parquet_path = glob(
-                    os.path.join(tmpdir, "time_force_data", "*.parquet"), recursive=True
-                )
+                parquet_path = glob(os.path.join(tmpdir, "time_force_data", "*.parquet"), recursive=True)
             # if parquet file is still not found, return error msg. this will occur for any files analyzed
             # before this release. Ask user to perform reanalysis again on most recent pulse3d
             if not parquet_path:
@@ -823,18 +773,14 @@ async def get_interactive_waveform_data(
                 ):
                     peaks_and_valleys = analysis_params["peaks_valleys"]
                 else:
-                    pv_parquet_path = glob(
-                        os.path.join(tmpdir, job_id, "*.parquet"), recursive=True
-                    )
+                    pv_parquet_path = glob(os.path.join(tmpdir, job_id, "*.parquet"), recursive=True)
                     peaks_and_valleys = _get_peaks_valleys(
                         parquet_path=pv_parquet_path,
                         time_force_df=time_force_df,
                         analysis_params=analysis_params,
                     )
 
-            return WaveformDataResponse(
-                coordinates=coordinates, peaks_valleys=peaks_and_valleys
-            )
+            return WaveformDataResponse(coordinates=coordinates, peaks_valleys=peaks_and_valleys)
 
     except S3Error as e:
         logger.error(f"Error from s3: {repr(e)}")
@@ -845,25 +791,17 @@ async def get_interactive_waveform_data(
 
 
 # TODO should make a function in core that handles running peak_detector or loading peaks/valleys from parquet and import it here and in the pulse3d-worker
-def _get_peaks_valleys(
-    parquet_path: str, time_force_df: pd.DataFrame, analysis_params: dict
-):
+def _get_peaks_valleys(parquet_path: str, time_force_df: pd.DataFrame, analysis_params: dict):
     # Luci (12/14/2022) peaks_valleys will be none when interactive analysis is being run for the first time on the original analysis. There won't be any peaks or valleys found because nothing has been altered yet
     logger.info("Checking for peaks and valleys in S3")
-    peaks_valleys_needed = (
-        len(parquet_path) == 0 and analysis_params.get("peaks_valleys") is None
-    )
+    peaks_valleys_needed = len(parquet_path) == 0 and analysis_params.get("peaks_valleys") is None
 
     if not peaks_valleys_needed:
         peak_valleys_df = pd.read_parquet(parquet_path)
 
     # remove raw data columns
     # the any conditional is for testing, the __raw always needs to be excluded
-    columns = [
-        c
-        for c in time_force_df.columns
-        if not any(x in c for x in ("__raw", "__peaks", "__valleys"))
-    ]
+    columns = [c for c in time_force_df.columns if not any(x in c for x in ("__raw", "__peaks", "__valleys"))]
     # this is to handle analyses run before PR.to_dataframe() where time is in seconds
     needs_unit_conversion = not [c for c in time_force_df.columns if "__raw" in c]
     time = time_force_df[columns[0]].tolist()
@@ -896,9 +834,7 @@ def _get_peaks_valleys(
                 if analysis_params[param] is not None
             }
 
-            peaks, valleys = peak_detector(
-                interpolated_well_data, **peak_detector_params
-            )
+            peaks, valleys = peak_detector(interpolated_well_data, **peak_detector_params)
             # needs to be converted to lists to be sent as json in response
             peaks_and_valleys[well] = [peaks.tolist(), valleys.tolist()]
 
@@ -911,9 +847,7 @@ def _get_peaks_valleys(
                 [int(x) for x in peaks],
                 [int(x) for x in valleys],
             ]
-            logger.info(
-                f"{len(peaks)} peaks and {len(valleys)} valleys for well {well}"
-            )
+            logger.info(f"{len(peaks)} peaks and {len(valleys)} valleys for well {well}")
 
     return peaks_and_valleys
 

@@ -34,9 +34,7 @@ def generate_presigned_url(bucket: str, key: str, exp: int = 3600) -> Any:
     return url
 
 
-def generate_presigned_urls_for_dir(
-    bucket: str, key_prefix: str, objs_only: bool = False
-) -> List[str]:
+def generate_presigned_urls_for_dir(bucket: str, key_prefix: str, objs_only: bool = False) -> List[str]:
     try:
         s3 = boto3.resource("s3")
         bucket = s3.Bucket(bucket)
@@ -48,9 +46,7 @@ def generate_presigned_urls_for_dir(
         return [generate_presigned_url(bucket, obj.key) for obj in objs]
 
     except (ClientError, S3Error) as e:
-        raise S3Error(
-            f"Failed to generate presigned urls for {bucket}/{key_prefix}: {repr(e)}"
-        )
+        raise S3Error(f"Failed to generate presigned urls for {bucket}/{key_prefix}: {repr(e)}")
 
 
 def generate_presigned_post(bucket: str, key: str, md5s: str) -> Dict[Any, Any]:
@@ -64,9 +60,7 @@ def generate_presigned_post(bucket: str, key: str, md5s: str) -> Dict[Any, Any]:
             bucket, key, Fields=fields, Conditions=conditions, ExpiresIn=3600
         )
     except ClientError as e:
-        raise S3Error(
-            f"Failed to generate presigned post for {bucket}/{key} with error: {repr(e)}"
-        )
+        raise S3Error(f"Failed to generate presigned post for {bucket}/{key} with error: {repr(e)}")
 
 
 def copy_s3_file(bucket: str, source_key: str, target_key: str) -> None:
@@ -76,9 +70,7 @@ def copy_s3_file(bucket: str, source_key: str, target_key: str) -> None:
         s3.meta.client.copy(copy_source, bucket, target_key)
 
     except ClientError as e:
-        raise S3Error(
-            f"Failed to copy {source_key} to {target_key} with error: {repr(e)}"
-        )
+        raise S3Error(f"Failed to copy {source_key} to {target_key} with error: {repr(e)}")
 
 
 def copy_s3_directory(bucket: str, key_prefix: str, target_prefix: str) -> None:
@@ -94,9 +86,7 @@ def copy_s3_directory(bucket: str, key_prefix: str, target_prefix: str) -> None:
             copy_s3_file(source_key, target_key)
 
     except ClientError as e:
-        raise S3Error(
-            f"Failed to copy files from {source_key} to {target_key} with error: {repr(e)}"
-        )
+        raise S3Error(f"Failed to copy files from {source_key} to {target_key} with error: {repr(e)}")
 
 
 def upload_file_to_s3(bucket, key, file) -> None:
