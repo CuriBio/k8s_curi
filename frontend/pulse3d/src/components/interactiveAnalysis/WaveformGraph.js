@@ -145,22 +145,15 @@ export default function WaveformGraph({
   peakValleyWindows,
   checkDuplicates,
   twentyFourPlateDefinition,
-  peakSlope,
-  setPeakSlope,
-  peakYIntercept,
-  setPeakYIntercept,
   peakY1,
   setPeakY1,
   peakY2,
   setPeakY2,
-  valleySlope,
-  setValleySlope,
-  valleyYIntercept,
-  setValleyYIntercept,
   valleyY1,
   setValleyY1,
   valleyY2,
   setValleyY2,
+  calculateYLimit,
 }) {
   const [valleys, setValleys] = useState([]);
   const [peaks, setPeaks] = useState([]);
@@ -171,37 +164,6 @@ export default function WaveformGraph({
   const [cursorLoc, setCursorLoc] = useState([0, 0]);
   const [xZoomFactor, setXZoomFactor] = useState(1);
   const [yZoomFactor, setYZoomFactor] = useState(1);
-  const setLineCalculationVariables = (id, yIntercept, y1, y2, slope) => {
-    const wellIndex = twentyFourPlateDefinition.wellNameToIndex(currentWell);
-    if (id.includes("peak")) {
-      let newArr = [...peakY1];
-      newArr[wellIndex] = y1;
-      setPeakY1(newArr);
-      newArr = [...peakY2];
-      newArr[wellIndex] = y2;
-      setPeakY2(newArr);
-      newArr = [...peakYIntercept];
-      newArr[wellIndex] = yIntercept;
-      setPeakYIntercept(newArr);
-      //assign array
-      newArr = [...peakSlope];
-      newArr[wellIndex] = slope;
-      setPeakSlope(newArr);
-    } else {
-      let newArr = [...valleyY1];
-      newArr[wellIndex] = y1;
-      setValleyY1(newArr);
-      newArr = [...valleyY2];
-      newArr[wellIndex] = y2;
-      setValleyY2(newArr);
-      newArr = [...valleyYIntercept];
-      newArr[wellIndex] = yIntercept;
-      setValleyYIntercept(newArr);
-      newArr = [...valleySlope];
-      newArr[wellIndex] = slope;
-      setValleySlope(newArr);
-    }
-  };
   /* NOTE!! The order of the variables and functions in createGraph() are important to functionality.
      could eventually try to break this up, but it's more sensitive in react than vue */
   const createGraph = () => {
@@ -249,7 +211,19 @@ export default function WaveformGraph({
       .y((d) => {
         return y(d[1] / yZoomFactor);
       });
-
+    function appendPeakValleyMarkers(id, lineId, xRaw, yRaw, color) {
+      return svg
+        .append("circle")
+        .attr("id", id)
+        .attr("lineId", lineId)
+        .attr("r", 6)
+        .attr("cx", x(xRaw))
+        .attr("cy", y(yRaw))
+        .attr("fill", color)
+        .attr("stroke", color)
+        .style("cursor", "pointer")
+        .call(pivotLineDrag);
+    }
     // setup custom  context menu
     const contextMenu = d3.select("#contextmenu");
 
@@ -499,12 +473,16 @@ export default function WaveformGraph({
       .selectAll("#waveformGraph")
       .data(
         initialPeaksValleys[0].filter((peak) => {
+          const wellIndex = twentyFourPlateDefinition.wellNameToIndex(currentWell);
+          //check peak is withing start and end time
           const isPeakWithinWindow = dataToGraph[peak][0] >= startTime && dataToGraph[peak][0] <= endTime;
-          const peakY = dataToGraph[peak][1];
-          const peakYLimit =
-            dataToGraph[peak][0] * peakSlope[twentyFourPlateDefinition.wellNameToIndex(currentWell)] +
-            peakYIntercept[twentyFourPlateDefinition.wellNameToIndex(currentWell)];
-          return isPeakWithinWindow && peakY >= peakYLimit;
+          // Y value of the peak marker
+          const actualY = dataToGraph[peak][1];
+
+          const y1 = peakY1[wellIndex];
+          const y2 = peakY2[wellIndex];
+          const peakLimitY = calculateYLimit(y1, y2, dataToGraph[peak][0]);
+          return isPeakWithinWindow && actualY >= peakLimitY;
         })
       )
       .enter()
@@ -546,13 +524,18 @@ export default function WaveformGraph({
       .selectAll("#waveformGraph")
       .data(
         initialPeaksValleys[1].filter((valley) => {
+          const wellIndex = twentyFourPlateDefinition.wellNameToIndex(currentWell);
+          //check valley is withing start and end time
           const isValleyWithinWindow =
             dataToGraph[valley][0] >= startTime && dataToGraph[valley][0] <= endTime;
-          const valleyY = dataToGraph[valley][1];
-          const valleyLimitY =
-            dataToGraph[valley][0] * valleySlope[twentyFourPlateDefinition.wellNameToIndex(currentWell)] +
-            valleyYIntercept[twentyFourPlateDefinition.wellNameToIndex(currentWell)];
-          return isValleyWithinWindow && valleyY <= valleyLimitY;
+
+          // Y value of the valley marker
+          const actualY = dataToGraph[valley][1];
+
+          const y1 = valleyY1[wellIndex];
+          const y2 = valleyY2[wellIndex];
+          const valleyLimitY = calculateYLimit(y1, y2, dataToGraph[valley][0]);
+          return isValleyWithinWindow && actualY <= valleyLimitY;
         })
       )
       .enter()
@@ -629,14 +612,7 @@ export default function WaveformGraph({
         const y2 = y.invert(
           id.includes("valley") ? d3.select("#valleyLine").attr("y2") : d3.select("#peakLine").attr("y2")
         );
-
-        const x1 = x.invert(d3.select("#peakLineY1Marker").attr("cx"));
-        const x2 = x.invert(d3.select("#peakLineY2Marker").attr("cx"));
-
-        const slope = (y2 - y1) / (x2 - x1);
-        const yIntercept = y2 - slope * x2;
-        // set variables used in marker deletion calculation
-        setLineCalculationVariables(id, yIntercept, y1, y2, slope);
+        setLineCalculationVariables(id, y1, y2);
         // descrease stroke width when unselected and dropped
         d3.select(this).attr("stroke-width", 2);
       });
@@ -656,15 +632,18 @@ export default function WaveformGraph({
       })
       .on("drag", function (d) {
         const id = d3.select(this).attr("id");
-
+        //Get the current position
         const currentYPosition = id.includes("valley")
           ? Math.max(d.y, y(yMax + yRange))
           : Math.min(d.y, y(yMin - yRange));
+        //Get y value of line before the dragging happened
         const initialY = d3.select(this).attr("startingY");
         const changeInY = currentYPosition - initialY;
+
         const newY1 = parseFloat(d3.select(this).attr("y1")) + changeInY;
         const newY2 = parseFloat(d3.select(this).attr("y2")) + changeInY;
 
+        //set the y variables to prevent the lines from "floating" away from pointer
         const prefix = id.includes("peak") ? "peak" : "valley";
         d3.select(`#${prefix}LineY1Marker`).attr("cy", newY1);
         d3.select(`#${prefix}LineY2Marker`).attr("cy", newY2);
@@ -677,17 +656,7 @@ export default function WaveformGraph({
         d3.select(this).attr("stroke-width", 2);
         const y1 = y.invert(d3.select(this).attr("y1"));
         const y2 = y.invert(d3.select(this).attr("y2"));
-        const x2 = x.invert(
-          id.includes("peak")
-            ? d3.select("#peakLineY2Marker").attr("cx")
-            : d3.select("#valleyLineY2Marker").attr("cx")
-        );
-        const slope = id.includes("peak")
-          ? peakSlope[twentyFourPlateDefinition.wellNameToIndex(currentWell)]
-          : valleySlope[twentyFourPlateDefinition.wellNameToIndex(currentWell)];
-        const yIntercept = y2 - slope * x2;
-
-        setLineCalculationVariables(id, yIntercept, y1, y2, slope);
+        setLineCalculationVariables(id, y1, y2);
       });
 
     // only display lines if peaks and valleys were found
@@ -704,28 +673,21 @@ export default function WaveformGraph({
       .attr("stroke", "orange")
       .style("cursor", "pointer")
       .call(moveLineUpDown);
-    const peaksY1 = svg
-      .append("circle")
-      .attr("id", "peakLineY1Marker")
-      .attr("lineId", "peakLine")
-      .attr("r", 6)
-      .attr("cx", x((endTime - startTime) / 100))
-      .attr("cy", y(peakY1[twentyFourPlateDefinition.wellNameToIndex(currentWell)]))
-      .attr("fill", "orange")
-      .attr("stroke", "orange")
-      .style("cursor", "pointer")
-      .call(pivotLineDrag);
-    const peaksY2 = svg
-      .append("circle")
-      .attr("id", "peakLineY2Marker")
-      .attr("lineId", "peakLine")
-      .attr("r", 6)
-      .attr("cx", x(endTime - (endTime - startTime) / 100))
-      .attr("cy", y(peakY2[twentyFourPlateDefinition.wellNameToIndex(currentWell)]))
-      .attr("fill", "orange")
-      .attr("stroke", "orange")
-      .style("cursor", "pointer")
-      .call(pivotLineDrag);
+
+    const peaksY1 = appendPeakValleyMarkers(
+      "peakLineY1Marker",
+      "peakLine",
+      (endTime - startTime) / 100,
+      peakY1[twentyFourPlateDefinition.wellNameToIndex(currentWell)],
+      "orange"
+    );
+    const peaksY2 = appendPeakValleyMarkers(
+      "peakLineY2Marker",
+      "peakLine",
+      endTime - (endTime - startTime) / 100,
+      peakY2[twentyFourPlateDefinition.wellNameToIndex(currentWell)],
+      "orange"
+    );
     // remove peaks line if no peaks are found
     if (!minPeaks) {
       peaksWindowLine.attr("display", "none");
@@ -744,28 +706,20 @@ export default function WaveformGraph({
       .attr("stroke", "green")
       .style("cursor", "pointer")
       .call(moveLineUpDown);
-    const valleysY1 = svg
-      .append("circle")
-      .attr("id", "valleyLineY1Marker")
-      .attr("lineId", "peakLine")
-      .attr("r", 6)
-      .attr("cx", x((endTime - startTime) / 100))
-      .attr("cy", y(valleyY1[twentyFourPlateDefinition.wellNameToIndex(currentWell)]))
-      .attr("fill", "green")
-      .attr("stroke", "green")
-      .style("cursor", "pointer")
-      .call(pivotLineDrag);
-    const valleysY2 = svg
-      .append("circle")
-      .attr("id", "valleyLineY2Marker")
-      .attr("lineId", "peakLine")
-      .attr("r", 6)
-      .attr("cx", x(endTime - (endTime - startTime) / 100))
-      .attr("cy", y(valleyY2[twentyFourPlateDefinition.wellNameToIndex(currentWell)]))
-      .attr("fill", "green")
-      .attr("stroke", "green")
-      .style("cursor", "pointer")
-      .call(pivotLineDrag);
+    const valleysY1 = appendPeakValleyMarkers(
+      "valleyLineY1Marker",
+      "peakLine",
+      (endTime - startTime) / 100,
+      valleyY1[twentyFourPlateDefinition.wellNameToIndex(currentWell)],
+      "green"
+    );
+    const valleysY2 = appendPeakValleyMarkers(
+      "valleyLineY2Marker",
+      "peakLine",
+      endTime - (endTime - startTime) / 100,
+      valleyY2[twentyFourPlateDefinition.wellNameToIndex(currentWell)],
+      "green"
+    );
     // remove valleys line if no valleys are found
     if (!maxValleys) {
       valleysWindowLine.attr("display", "none");
@@ -897,10 +851,10 @@ export default function WaveformGraph({
     xZoomFactor,
     yZoomFactor,
     peakValleyWindows,
-    peakSlope,
-    valleySlope,
-    peakYIntercept,
-    valleyYIntercept,
+    valleyY1,
+    valleyY2,
+    peakY1,
+    peakY2,
     startTime,
     endTime,
   ]);
@@ -908,22 +862,16 @@ export default function WaveformGraph({
   //run once when component is created to set starter values for calculations
   useEffect(() => {
     const well_index = twentyFourPlateDefinition.wellNameToIndex(currentWell);
-    if (!peakYIntercept[well_index] || !peakY1[well_index] || !peakY2[well_index]) {
-      let newArr = [...peakYIntercept];
-      newArr[well_index] = peakValleyWindows[currentWell].minPeaks;
-      setPeakYIntercept(newArr);
-      newArr = [...peakY1];
+    if (!peakY1[well_index] || !peakY2[well_index]) {
+      let newArr = [...peakY1];
       newArr[well_index] = peakValleyWindows[currentWell].minPeaks;
       setPeakY1(newArr);
       newArr = [...peakY2];
       newArr[well_index] = peakValleyWindows[currentWell].minPeaks;
       setPeakY2(newArr);
     }
-    if (!valleyYIntercept[well_index] || !valleyY1[well_index] || !valleyY2[well_index]) {
-      let newArr = [...valleyYIntercept];
-      newArr[well_index] = peakValleyWindows[currentWell].maxValleys;
-      setValleyYIntercept(newArr);
-      newArr = [...valleyY1];
+    if (!valleyY1[well_index] || !valleyY2[well_index]) {
+      let newArr = [...valleyY1];
       newArr[well_index] = peakValleyWindows[currentWell].maxValleys;
       setValleyY1(newArr);
       newArr = [...valleyY2];
@@ -1030,6 +978,24 @@ export default function WaveformGraph({
       setYZoomFactor(newFactor);
     }
   };
+  const setLineCalculationVariables = (id, y1, y2) => {
+    const wellIndex = twentyFourPlateDefinition.wellNameToIndex(currentWell);
+    if (id.includes("peak")) {
+      let newArr = [...peakY1];
+      newArr[wellIndex] = y1;
+      setPeakY1(newArr);
+      newArr = [...peakY2];
+      newArr[wellIndex] = y2;
+      setPeakY2(newArr);
+    } else {
+      let newArr = [...valleyY1];
+      newArr[wellIndex] = y1;
+      setValleyY1(newArr);
+      newArr = [...valleyY2];
+      newArr[wellIndex] = y2;
+      setValleyY2(newArr);
+    }
+  };
 
   return (
     <>
@@ -1095,23 +1061,12 @@ export default function WaveformGraph({
               newArr = [...peakY2];
               newArr[wellIndex] = peakValleyWindows[currentWell].minPeaks;
               setPeakY2(newArr);
-              newArr = [...peakYIntercept];
-              newArr[wellIndex] = peakValleyWindows[currentWell].minPeaks;
-              setPeakYIntercept(newArr);
-              setPeakSlope(Array(24).fill(0));
               newArr = [...valleyY1];
               newArr[wellIndex] = peakValleyWindows[currentWell].maxValleys;
               setValleyY1(newArr);
               newArr = [...valleyY2];
               newArr[wellIndex] = peakValleyWindows[currentWell].maxValleys;
               setValleyY2(newArr);
-              newArr = [...valleyYIntercept];
-              newArr[wellIndex] = peakValleyWindows[currentWell].maxValleys;
-              setValleyYIntercept(newArr);
-              newArr = [...valleyYIntercept];
-              newArr[wellIndex] = peakValleyWindows[currentWell].maxValleys;
-              setValleySlope(Array(24).fill(0));
-
               resetWellChanges();
             }}
           />

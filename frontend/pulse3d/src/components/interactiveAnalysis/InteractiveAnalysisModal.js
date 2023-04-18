@@ -186,13 +186,9 @@ export default function InteractiveWaveformModal({
     endTime: null,
   });
   //state for peaks
-  const [peakSlope, setPeakSlope] = useState(Array(24).fill(0));
-  const [peakYIntercept, setPeakYIntercept] = useState([]);
   const [peakY1, setPeakY1] = useState([]);
   const [peakY2, setPeakY2] = useState([]);
   //state for valleys
-  const [valleySlope, setValleySlope] = useState(Array(24).fill(0));
-  const [valleyYIntercept, setValleyYIntercept] = useState([]);
   const [valleyY1, setValleyY1] = useState([]);
   const [valleyY2, setValleyY2] = useState([]);
 
@@ -441,12 +437,8 @@ export default function InteractiveWaveformModal({
       endTime: existingData.editableStartEndTimes.endTime,
     });
     setPeakValleyWindows(existingData.peakValleyWindows);
-    setPeakSlope(existingData.peakSlope);
-    setPeakYIntercept(existingData.peakYIntercept);
     setPeakY1(existingData.peakY1);
     setPeakY2(existingData.peakY2);
-    setValleySlope(existingData.valleySlope);
-    setValleyYIntercept(existingData.valleyYIntercept);
     setValleyY1(existingData.valleyY1);
     setValleyY2(existingData.valleyY2);
     getWaveformData(true, selectedWell);
@@ -559,18 +551,20 @@ export default function InteractiveWaveformModal({
       if (well in originalData.coordinates) {
         const wellCoords = originalData.coordinates[well];
         wellPeaks = wellPeaks.filter((peak) => {
-          const peakY = wellCoords[peak][1];
-          const peaksLimitY =
-            wellCoords[peak][0] * peakSlope[twentyFourPlateDefinition.wellNameToIndex(well)] +
-            peakYIntercept[twentyFourPlateDefinition.wellNameToIndex(well)];
-          return peakY >= peaksLimitY;
+          const peakMarkerY = wellCoords[peak][1];
+          const wellIndex = twentyFourPlateDefinition.wellNameToIndex(well);
+          const peaksLimitY = calculateYLimit(peakY1[wellIndex], peakY2[wellIndex], wellCoords[peak][0]);
+          return peakMarkerY >= peaksLimitY;
         });
         wellValleys = wellValleys.filter((valley) => {
-          const valleyY = wellCoords[valley][1];
-          const valleyLimitY =
-            wellCoords[valley][0] * valleySlope[twentyFourPlateDefinition.wellNameToIndex(well)] +
-            valleyYIntercept[twentyFourPlateDefinition.wellNameToIndex(well)];
-          return valleyY <= valleyLimitY;
+          const valleyMarkerY = wellCoords[valley][1];
+          const wellIndex = twentyFourPlateDefinition.wellNameToIndex(well);
+          const valleyLimitY = calculateYLimit(
+            valleyY1[wellIndex],
+            valleyY2[wellIndex],
+            wellCoords[valley][0]
+          );
+          return valleyMarkerY <= valleyLimitY;
         });
       }
       filtered[well] = [wellPeaks, wellValleys];
@@ -588,12 +582,8 @@ export default function InteractiveWaveformModal({
         originalData,
         changelog,
         peakValleyWindows,
-        peakSlope,
-        peakYIntercept,
         peakY1,
         peakY2,
-        valleySlope,
-        valleyYIntercept,
         valleyY1,
         valleyY2,
       })
@@ -824,6 +814,14 @@ export default function InteractiveWaveformModal({
       postNewJob();
     }
   };
+  const calculateYLimit = (y1, y2, markerX) => {
+    const x1 = (editableStartEndTimes.endTime - editableStartEndTimes.startTime) / 100;
+    const x2 =
+      editableStartEndTimes.endTime - (editableStartEndTimes.endTime - editableStartEndTimes.startTime) / 100;
+    const slope = (y2 - y1) / (x2 - x1);
+    const yIntercept = y2 - slope * x2;
+    return markerX * slope + yIntercept;
+  };
 
   return (
     <Container>
@@ -862,22 +860,15 @@ export default function InteractiveWaveformModal({
             undoLastChange={undoLastChange}
             peakValleyWindows={peakValleyWindows}
             checkDuplicates={checkDuplicates}
-            peakSlope={peakSlope}
-            setPeakSlope={setPeakSlope}
-            peakYIntercept={peakYIntercept}
-            setPeakYIntercept={setPeakYIntercept}
             peakY1={peakY1}
             setPeakY1={setPeakY1}
             peakY2={peakY2}
             setPeakY2={setPeakY2}
-            valleySlope={valleySlope}
-            setValleySlope={setValleySlope}
-            valleyYIntercept={valleyYIntercept}
-            setValleyYIntercept={setValleyYIntercept}
             valleyY1={valleyY1}
             setValleyY1={setValleyY1}
             valleyY2={valleyY2}
             setValleyY2={setValleyY2}
+            calculateYLimit={calculateYLimit}
             twentyFourPlateDefinition={twentyFourPlateDefinition}
           />
         )}
