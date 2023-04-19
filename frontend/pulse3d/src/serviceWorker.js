@@ -310,6 +310,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", async (e) => {
   let destURL = new URL(e.request.url);
   const urlParams = new URLSearchParams(destURL.search);
+
   if (
     (e.request.url.includes(USERS_URL) || e.request.url.includes(PULSE3D_URL)) &&
     !isEmailRequest(destURL) && // this request doesn't depend on a token
