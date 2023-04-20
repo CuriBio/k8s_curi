@@ -550,12 +550,15 @@ export default function InteractiveWaveformModal({
       if (well in originalData.coordinates) {
         const wellCoords = originalData.coordinates[well];
         wellPeaks = wellPeaks.filter((peak) => {
+          const isPeakWithinWindow = dataToGraph[peak][0] >= startTime && dataToGraph[peak][0] <= endTime;
           const peakMarkerY = wellCoords[peak][1];
           const wellIndex = twentyFourPlateDefinition.getIndexFromWellName(well);
           const peaksLimitY = calculateYLimit(peakY1[wellIndex], peakY2[wellIndex], wellCoords[peak][0]);
-          return peakMarkerY >= peaksLimitY;
+          return peakMarkerY >= peaksLimitY && isPeakWithinWindow;
         });
         wellValleys = wellValleys.filter((valley) => {
+          const isValleyWithinWindow =
+            dataToGraph[valley][0] >= startTime && dataToGraph[valley][0] <= endTime;
           const valleyMarkerY = wellCoords[valley][1];
           const wellIndex = twentyFourPlateDefinition.getIndexFromWellName(well);
           const valleyLimitY = calculateYLimit(
@@ -563,7 +566,7 @@ export default function InteractiveWaveformModal({
             valleyY2[wellIndex],
             wellCoords[valley][0]
           );
-          return valleyMarkerY <= valleyLimitY;
+          return valleyMarkerY <= valleyLimitY && isValleyWithinWindow;
         });
       }
       filtered[well] = [wellPeaks, wellValleys];
@@ -833,18 +836,19 @@ export default function InteractiveWaveformModal({
       const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
       const pvWindowCopy = JSON.parse(JSON.stringify(peakValleyWindows));
       const newWindowTimes = {};
-
       // remove step with latest changes
       changesCopy.pop();
 
       if (changesCopy.length > 0) {
         // grab state from the step before the undo step to set as current state
-        const { peaks, valleys, startTime, endTime, pvWindow } = changesCopy[changesCopy.length - 1];
+        const { peaks, valleys, startTime, endTime, pvWindow, valleyYOne, valleyYTwo, peakYOne, peakYTwo } =
+          changesCopy[changesCopy.length - 1];
         // set old peaks and valleys to well
         peaksValleysCopy[selectedWell] = [[...peaks], [...valleys]];
         pvWindowCopy[selectedWell] = pvWindow;
         newWindowTimes.startTime = startTime;
         newWindowTimes.endTime = endTime;
+        setBothLinesToNew(peakYOne, peakYTwo, valleyYOne, valleyYTwo);
       } else {
         // if only one change was made, then you revert back to original state
         newWindowTimes.startTime = xRange.min;
@@ -855,6 +859,7 @@ export default function InteractiveWaveformModal({
           minPeaks: findLowestPeak(selectedWell),
           maxValleys: findHighestValley(selectedWell),
         };
+        setBothLinesToDefault();
       }
 
       // needs to be reassigned to hold state
@@ -910,6 +915,21 @@ export default function InteractiveWaveformModal({
     setValleyY2(newArr);
   };
 
+  const setBothLinesToNew = (newPeakY1, newPeakY2, newValleyY1, newValleyY2) => {
+    const wellIndex = twentyFourPlateDefinition.getIndexFromWellName(selectedWell);
+    let arr = [...peakY1];
+    arr[wellIndex] = newPeakY1;
+    setPeakY1(arr);
+    arr = [...peakY2];
+    arr[wellIndex] = newPeakY2;
+    setPeakY2(arr);
+    arr = [...valleyY1];
+    arr[wellIndex] = newValleyY1;
+    setValleyY1(arr);
+    arr = [...valleyY2];
+    arr[wellIndex] = newValleyY2;
+    setValleyY2(arr);
+  };
   const isNewY = (yToCompare, originalYArr) => {
     return (
       yToCompare !== originalYArr[twentyFourPlateDefinition.getIndexFromWellName(selectedWell)] &&

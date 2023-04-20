@@ -680,7 +680,7 @@ export default function WaveformGraph({
     const peaksY1 = appendPeakValleyMarkers(
       "peakLineY1Marker",
       "peakLine",
-      (endTime - startTime) / 100,
+      startTime + (endTime - startTime) / 100,
       peakY1[twentyFourPlateDefinition.getIndexFromWellName(currentWell)],
       "orange"
     );
@@ -712,7 +712,7 @@ export default function WaveformGraph({
     const valleysY1 = appendPeakValleyMarkers(
       "valleyLineY1Marker",
       "peakLine",
-      (endTime - startTime) / 100,
+      startTime + (endTime - startTime) / 100,
       valleyY1[twentyFourPlateDefinition.getIndexFromWellName(currentWell)],
       "green"
     );
