@@ -702,6 +702,14 @@ export default function InteractiveWaveformModal({
       changelogMessage = `Maximum valleys window changed from ${pvWindow.maxValleys.toFixed(
         2
       )} to ${peakValleyWindows[selectedWell].maxValleys.toFixed(2)}`;
+    } else if (isNewValleyY1 && isNewValleyY2) {
+      changelogMessage = `Valley Line moved ${
+        valleyY1[twentyFourPlateDefinition.getIndexFromWellName(selectedWell)] - valleyY1ToCompare
+      }`;
+    } else if (isNewPeakY1 && isNewPeakY2) {
+      changelogMessage = `Peak Line moved ${
+        peakY1[twentyFourPlateDefinition.getIndexFromWellName(selectedWell)] - peakY1ToCompare
+      }`;
     } else if (isNewValleyY1) {
       changelogMessage = `Valley Line Y1 switched to ${
         valleyY1[twentyFourPlateDefinition.getIndexFromWellName(selectedWell)]
