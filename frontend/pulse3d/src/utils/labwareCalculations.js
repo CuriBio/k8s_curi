@@ -106,7 +106,7 @@ export class WellTitle {
    * @param {string} wellName
    * @returns {int}
    */
-  wellNameToIndex(wellName) {
+  getIndexFromWellName(wellName) {
     const row = wellName.charCodeAt(0) - "A".charCodeAt(0);
     const col = parseInt(wellName.slice(1)) - 1;
     const index = row * this.NumCols + col;

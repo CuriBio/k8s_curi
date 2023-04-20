@@ -482,7 +482,7 @@ export default function WaveformGraph({
       .selectAll("#waveformGraph")
       .data(
         initialPeaksValleys[0].filter((peak) => {
-          const wellIndex = twentyFourPlateDefinition.wellNameToIndex(currentWell);
+          const wellIndex = twentyFourPlateDefinition.getIndexFromWellName(currentWell);
           //check peak is withing start and end time
           const isPeakWithinWindow = dataToGraph[peak][0] >= startTime && dataToGraph[peak][0] <= endTime;
           // Y value of the peak marker
@@ -533,7 +533,7 @@ export default function WaveformGraph({
       .selectAll("#waveformGraph")
       .data(
         initialPeaksValleys[1].filter((valley) => {
-          const wellIndex = twentyFourPlateDefinition.wellNameToIndex(currentWell);
+          const wellIndex = twentyFourPlateDefinition.getIndexFromWellName(currentWell);
           //check valley is withing start and end time
           const isValleyWithinWindow =
             dataToGraph[valley][0] >= startTime && dataToGraph[valley][0] <= endTime;
@@ -669,9 +669,9 @@ export default function WaveformGraph({
       .append("line")
       .attr("id", "peakLine")
       .attr("x1", x(startTime))
-      .attr("y1", y(peakY1[twentyFourPlateDefinition.wellNameToIndex(currentWell)]))
+      .attr("y1", y(peakY1[twentyFourPlateDefinition.getIndexFromWellName(currentWell)]))
       .attr("x2", x(endTime))
-      .attr("y2", y(peakY2[twentyFourPlateDefinition.wellNameToIndex(currentWell)]))
+      .attr("y2", y(peakY2[twentyFourPlateDefinition.getIndexFromWellName(currentWell)]))
       .attr("stroke-width", 2)
       .attr("stroke", "orange")
       .style("cursor", "pointer")
@@ -681,14 +681,14 @@ export default function WaveformGraph({
       "peakLineY1Marker",
       "peakLine",
       (endTime - startTime) / 100,
-      peakY1[twentyFourPlateDefinition.wellNameToIndex(currentWell)],
+      peakY1[twentyFourPlateDefinition.getIndexFromWellName(currentWell)],
       "orange"
     );
     const peaksY2 = appendPeakValleyMarkers(
       "peakLineY2Marker",
       "peakLine",
       endTime - (endTime - startTime) / 100,
-      peakY2[twentyFourPlateDefinition.wellNameToIndex(currentWell)],
+      peakY2[twentyFourPlateDefinition.getIndexFromWellName(currentWell)],
       "orange"
     );
     // remove peaks line if no peaks are found
@@ -702,9 +702,9 @@ export default function WaveformGraph({
       .append("line")
       .attr("id", "valleyLine")
       .attr("x1", x(startTime))
-      .attr("y1", y(valleyY1[twentyFourPlateDefinition.wellNameToIndex(currentWell)]))
+      .attr("y1", y(valleyY1[twentyFourPlateDefinition.getIndexFromWellName(currentWell)]))
       .attr("x2", x(endTime))
-      .attr("y2", y(valleyY2[twentyFourPlateDefinition.wellNameToIndex(currentWell)]))
+      .attr("y2", y(valleyY2[twentyFourPlateDefinition.getIndexFromWellName(currentWell)]))
       .attr("stroke-width", 2)
       .attr("stroke", "green")
       .style("cursor", "pointer")
@@ -713,14 +713,14 @@ export default function WaveformGraph({
       "valleyLineY1Marker",
       "peakLine",
       (endTime - startTime) / 100,
-      valleyY1[twentyFourPlateDefinition.wellNameToIndex(currentWell)],
+      valleyY1[twentyFourPlateDefinition.getIndexFromWellName(currentWell)],
       "green"
     );
     const valleysY2 = appendPeakValleyMarkers(
       "valleyLineY2Marker",
       "peakLine",
       endTime - (endTime - startTime) / 100,
-      valleyY2[twentyFourPlateDefinition.wellNameToIndex(currentWell)],
+      valleyY2[twentyFourPlateDefinition.getIndexFromWellName(currentWell)],
       "green"
     );
     // remove valleys line if no valleys are found
@@ -864,7 +864,7 @@ export default function WaveformGraph({
 
   //run once when component is created or when well changes to set starter values for calculations
   useEffect(() => {
-    const well_index = twentyFourPlateDefinition.wellNameToIndex(currentWell);
+    const well_index = twentyFourPlateDefinition.getIndexFromWellName(currentWell);
     if (!peakY1[well_index] || !peakY2[well_index]) {
       setPeakLineDataToDefault(well_index);
     }
@@ -973,7 +973,7 @@ export default function WaveformGraph({
   };
 
   const setLineCalculationVariables = (id, y1, y2) => {
-    const wellIndex = twentyFourPlateDefinition.wellNameToIndex(currentWell);
+    const wellIndex = twentyFourPlateDefinition.getIndexFromWellName(currentWell);
     if (id.includes("peak")) {
       let newArr = [...peakY1];
       newArr[wellIndex] = y1;
