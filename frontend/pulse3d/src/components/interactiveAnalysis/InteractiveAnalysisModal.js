@@ -185,6 +185,7 @@ export default function InteractiveWaveformModal({
     startTime: null,
     endTime: null,
   });
+  const [wellIdx, setWellIdx] = useState();
   //state for peaks
   const [peakY1, setPeakY1] = useState([]);
   const [peakY2, setPeakY2] = useState([]);
@@ -447,6 +448,7 @@ export default function InteractiveWaveformModal({
   const handleWellSelection = async (idx) => {
     if (wellNames[idx] !== selectedWell) {
       setSelectedWell(wellNames[idx]);
+      setWellIdx(twentyFourPlateDefinition.getIndexFromWellName(wellNames[idx]));
       if (!(wellNames[idx] in originalData.coordinates)) {
         setIsLoading(true);
         getWaveformData(false, wellNames[idx]);
@@ -552,20 +554,14 @@ export default function InteractiveWaveformModal({
         wellPeaks = wellPeaks.filter((peak) => {
           const isPeakWithinWindow = dataToGraph[peak][0] >= startTime && dataToGraph[peak][0] <= endTime;
           const peakMarkerY = wellCoords[peak][1];
-          const wellIndex = twentyFourPlateDefinition.getIndexFromWellName(well);
-          const peaksLimitY = calculateYLimit(peakY1[wellIndex], peakY2[wellIndex], wellCoords[peak][0]);
+          const peaksLimitY = calculateYLimit(peakY1[wellIdx], peakY2[wellIdx], wellCoords[peak][0]);
           return peakMarkerY >= peaksLimitY && isPeakWithinWindow;
         });
         wellValleys = wellValleys.filter((valley) => {
           const isValleyWithinWindow =
             dataToGraph[valley][0] >= startTime && dataToGraph[valley][0] <= endTime;
           const valleyMarkerY = wellCoords[valley][1];
-          const wellIndex = twentyFourPlateDefinition.getIndexFromWellName(well);
-          const valleyLimitY = calculateYLimit(
-            valleyY1[wellIndex],
-            valleyY2[wellIndex],
-            wellCoords[valley][0]
-          );
+          const valleyLimitY = calculateYLimit(valleyY1[wellIdx], valleyY2[wellIdx], wellCoords[valley][0]);
           return valleyMarkerY <= valleyLimitY && isValleyWithinWindow;
         });
       }
@@ -599,8 +595,17 @@ export default function InteractiveWaveformModal({
       //If Change log has changes
       const wellChanges = changelog[selectedWell];
       //Get snapshot of previus state
-      const { peaks, valleys, startTime, endTime, pvWindow, valleyYOne, valleyYTwo, peakYOne, peakYTwo } =
-        wellChanges[wellChanges.length - 1];
+      const {
+        peaks,
+        valleys,
+        startTime,
+        endTime,
+        pvWindow,
+        valleyYOne,
+        valleyYTwo,
+        peakYOne,
+        peakYTwo,
+      } = wellChanges[wellChanges.length - 1];
       changelogMessage = getChangelogMessage(
         peaks,
         valleys,
@@ -615,6 +620,8 @@ export default function InteractiveWaveformModal({
     } else if (markers.length === 2 && originalData.peaks_valleys[selectedWell]) {
       //If are no changes detected
       const ogWellData = originalData.peaks_valleys[selectedWell];
+      const maxValleyY = peakValleyWindows[selectedWell].minPeaks;
+      const minPeakY = findLowestPeak(selectedWell);
       changelogMessage = getChangelogMessage(
         ogWellData[0],
         ogWellData[1],
@@ -624,10 +631,10 @@ export default function InteractiveWaveformModal({
           minPeaks: findLowestPeak(selectedWell),
           maxValleys: findHighestValley(selectedWell),
         },
-        peakValleyWindows[selectedWell].maxValleys,
-        peakValleyWindows[selectedWell].maxValleys,
-        peakValleyWindows[selectedWell].minPeaks,
-        peakValleyWindows[selectedWell].minPeaks
+        maxValleyY,
+        maxValleyY,
+        minPeakY,
+        minPeakY
       );
     }
 
@@ -706,29 +713,17 @@ export default function InteractiveWaveformModal({
         2
       )} to ${peakValleyWindows[selectedWell].maxValleys.toFixed(2)}`;
     } else if (isNewValleyY1 && isNewValleyY2) {
-      changelogMessage = `Valley Line moved ${
-        valleyY1[twentyFourPlateDefinition.getIndexFromWellName(selectedWell)] - valleyY1ToCompare
-      }`;
+      changelogMessage = `Valley Line moved ${valleyY1[wellIdx] - valleyY1ToCompare}`;
     } else if (isNewPeakY1 && isNewPeakY2) {
-      changelogMessage = `Peak Line moved ${
-        peakY1[twentyFourPlateDefinition.getIndexFromWellName(selectedWell)] - peakY1ToCompare
-      }`;
+      changelogMessage = `Peak Line moved ${peakY1[wellIdx] - peakY1ToCompare}`;
     } else if (isNewValleyY1) {
-      changelogMessage = `Valley Line Y1 switched to ${
-        valleyY1[twentyFourPlateDefinition.getIndexFromWellName(selectedWell)]
-      }`;
+      changelogMessage = `Valley Line Y1 switched to ${valleyY1[wellIdx]}`;
     } else if (isNewValleyY2) {
-      changelogMessage = `Valley Line Y2 switched to ${
-        valleyY2[twentyFourPlateDefinition.getIndexFromWellName(selectedWell)]
-      }`;
+      changelogMessage = `Valley Line Y2 switched to ${valleyY2[wellIdx]}`;
     } else if (isNewPeakY1) {
-      changelogMessage = `Peak Line Y1 switched to ${
-        peakY1[twentyFourPlateDefinition.getIndexFromWellName(selectedWell)]
-      }`;
+      changelogMessage = `Peak Line Y1 switched to ${peakY1[wellIdx]}`;
     } else if (isNewPeakY2) {
-      changelogMessage = `Peak Line Y2 switched to ${
-        peakY2[twentyFourPlateDefinition.getIndexFromWellName(selectedWell)]
-      }`;
+      changelogMessage = `Peak Line Y2 switched to ${peakY2[wellIdx]}`;
     }
     return changelogMessage;
   };
@@ -786,10 +781,10 @@ export default function InteractiveWaveformModal({
       endTime,
       message,
       pvWindow: pvWindowCopy[selectedWell],
-      valleyYOne: valleyY1[twentyFourPlateDefinition.getIndexFromWellName(selectedWell)],
-      valleyYTwo: valleyY2[twentyFourPlateDefinition.getIndexFromWellName(selectedWell)],
-      peakYOne: peakY1[twentyFourPlateDefinition.getIndexFromWellName(selectedWell)],
-      peakYTwo: peakY2[twentyFourPlateDefinition.getIndexFromWellName(selectedWell)],
+      valleyYOne: valleyY1[wellIdx],
+      valleyYTwo: valleyY2[wellIdx],
+      peakYOne: peakY1[wellIdx],
+      peakYTwo: peakY2[wellIdx],
     });
 
     setChangelog({ ...changelog });
@@ -841,8 +836,17 @@ export default function InteractiveWaveformModal({
 
       if (changesCopy.length > 0) {
         // grab state from the step before the undo step to set as current state
-        const { peaks, valleys, startTime, endTime, pvWindow, valleyYOne, valleyYTwo, peakYOne, peakYTwo } =
-          changesCopy[changesCopy.length - 1];
+        const {
+          peaks,
+          valleys,
+          startTime,
+          endTime,
+          pvWindow,
+          valleyYOne,
+          valleyYTwo,
+          peakYOne,
+          peakYTwo,
+        } = changesCopy[changesCopy.length - 1];
         // set old peaks and valleys to well
         peaksValleysCopy[selectedWell] = [[...peaks], [...valleys]];
         pvWindowCopy[selectedWell] = pvWindow;
@@ -893,49 +897,43 @@ export default function InteractiveWaveformModal({
   };
 
   const setBothLinesToDefault = () => {
-    const wellIndex = twentyFourPlateDefinition.getIndexFromWellName(selectedWell);
-    setValleyLineDataToDefault(wellIndex);
-    setPeakLineDataToDefault(wellIndex);
+    setValleyLineDataToDefault();
+    setPeakLineDataToDefault();
   };
-  const setPeakLineDataToDefault = (wellIndex) => {
+  const setPeakLineDataToDefault = () => {
     let newArr = [...peakY1];
-    newArr[wellIndex] = peakValleyWindows[selectedWell].minPeaks;
+    newArr[wellIdx] = peakValleyWindows[selectedWell].minPeaks;
     setPeakY1(newArr);
     newArr = [...peakY2];
-    newArr[wellIndex] = peakValleyWindows[selectedWell].minPeaks;
+    newArr[wellIdx] = peakValleyWindows[selectedWell].minPeaks;
     setPeakY2(newArr);
   };
 
-  const setValleyLineDataToDefault = (wellIndex) => {
+  const setValleyLineDataToDefault = () => {
     let newArr = [...valleyY1];
-    newArr[wellIndex] = peakValleyWindows[selectedWell].maxValleys;
+    newArr[wellIdx] = peakValleyWindows[selectedWell].maxValleys;
     setValleyY1(newArr);
     newArr = [...valleyY2];
-    newArr[wellIndex] = peakValleyWindows[selectedWell].maxValleys;
+    newArr[wellIdx] = peakValleyWindows[selectedWell].maxValleys;
     setValleyY2(newArr);
   };
 
   const setBothLinesToNew = (newPeakY1, newPeakY2, newValleyY1, newValleyY2) => {
-    const wellIndex = twentyFourPlateDefinition.getIndexFromWellName(selectedWell);
     let arr = [...peakY1];
-    arr[wellIndex] = newPeakY1;
+    arr[wellIdx] = newPeakY1;
     setPeakY1(arr);
     arr = [...peakY2];
-    arr[wellIndex] = newPeakY2;
+    arr[wellIdx] = newPeakY2;
     setPeakY2(arr);
     arr = [...valleyY1];
-    arr[wellIndex] = newValleyY1;
+    arr[wellIdx] = newValleyY1;
     setValleyY1(arr);
     arr = [...valleyY2];
-    arr[wellIndex] = newValleyY2;
+    arr[wellIdx] = newValleyY2;
     setValleyY2(arr);
   };
   const isNewY = (yToCompare, originalYArr) => {
-    return (
-      yToCompare !== originalYArr[twentyFourPlateDefinition.getIndexFromWellName(selectedWell)] &&
-      originalYArr &&
-      originalYArr.length !== 0
-    );
+    return yToCompare !== originalYArr[wellIdx] && originalYArr && originalYArr.length !== 0;
   };
 
   return (
@@ -984,7 +982,7 @@ export default function InteractiveWaveformModal({
             valleyY2={valleyY2}
             setValleyY2={setValleyY2}
             calculateYLimit={calculateYLimit}
-            twentyFourPlateDefinition={twentyFourPlateDefinition}
+            wellIdx={wellIdx}
             setValleyLineDataToDefault={setValleyLineDataToDefault}
             setPeakLineDataToDefault={setPeakLineDataToDefault}
           />
