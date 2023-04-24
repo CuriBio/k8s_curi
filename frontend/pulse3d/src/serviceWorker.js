@@ -4,12 +4,25 @@
 
 import jwtDecode from "jwt-decode";
 import { Mutex } from "async-mutex";
+import { WellTitle as LabwareDefinition } from "./utils/labwareCalculations";
 
+/* Global state of SW */
 const refreshMutex = new Mutex();
+
+let accountType = null;
+let usageQuota = null;
+let ClientSource = null;
+
+const cacheName = "preloadedWellData";
+const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
+const wellNames = Array(24)
+  .fill()
+  .map((_, idx) => twentyFourPlateDefinition.getWellNameFromIndex(idx));
 
 const USERS_URL = new URLSearchParams(location.search).get("users_url");
 const PULSE3D_URL = new URLSearchParams(location.search).get("pulse3d_url");
 const USAGE_URLS = ["/login", "/uploads", "/jobs"];
+
 // add timestamps to logging
 const originalLog = console.log;
 
@@ -22,11 +35,6 @@ console.log = function () {
   });
   originalLog(...[`[SW @ ${time}]`, ...arguments]);
 };
-
-/* Global state of SW */
-
-let accountType = null;
-let usageQuota = null;
 
 const setAccountType = (type) => {
   accountType = type;
@@ -72,8 +80,6 @@ const clearTokens = () => {
   clearTimeout(logoutTimer);
 };
 
-let ClientSource = null;
-
 const sendLogoutMsg = () => {
   clearAccountInfo();
   ClientSource.postMessage({ logout: true });
@@ -101,6 +107,15 @@ const isUpdateRequest = (url) => {
 const isEmailRequest = (url) => {
   return url.pathname.includes("/email");
 };
+
+const isWaveformDataRequest = (url) => {
+  // if it's a string, just check that it's  a waveform data request
+  // else check if it's the initial request and will be passed url params instead
+  return url instanceof URL
+    ? url.pathname.includes("/waveform-data")
+    : url.get("well_name") == "A1" && url.get("peaks_valleys");
+};
+
 const modifyRequest = async (req, url) => {
   // setup new headers
   const headers = new Headers({
@@ -235,9 +250,38 @@ const interceptResponse = async (req, url) => {
     } else if (response.status === 401 || response.status === 403) {
       // if any other request receives an unauthorized or forbidden error code, send logout ping (this fn will also clear account info)
       sendLogoutMsg();
+    } else if (isWaveformDataRequest(url)) {
+      caches.open(cacheName).then(async (cache) => cache.put(req, response.clone()));
     }
 
-    return response;
+    return response.clone();
+  }
+};
+
+const startPreloadingWellData = (uploadId, jobId) => {
+  try {
+    // remove A1 as that's loaded first separately
+    const [, ...remainingWells] = wellNames;
+
+    for (const well of remainingWells) {
+      const destURL = new URL(
+        `${PULSE3D_URL}/jobs/waveform-data?upload_id=${uploadId}&job_id=${jobId}&peaks_valleys=false&well_name=${well}`
+      );
+
+      const newReq = new Request(destURL);
+      caches.open(cacheName).then(async (cache) => {
+        // Go to the cache first
+        return cache.match(newReq.url).then(async (cachedResponse) => {
+          // Return a cached response if we have one
+          if (!cachedResponse) {
+            // Otherwise, hit the network
+            interceptResponse(newReq, destURL);
+          }
+        });
+      });
+    }
+  } catch (e) {
+    console.log("Error grabbing preloaded data: " + e);
   }
 };
 
@@ -249,20 +293,50 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  // delete any previous cache from previous sessions
+  event.waitUntil(
+    caches.keys().then(function (cacheNames) {
+      return Promise.all(
+        cacheNames.map(function (cacheName) {
+          console.log("Deleting cache for: ", cacheName);
+          return caches.delete(cacheName);
+        })
+      );
+    })
+  );
   console.log("Service worker ready!");
 });
-
 // Intercept all fetch requests
 self.addEventListener("fetch", async (e) => {
   let destURL = new URL(e.request.url);
-  // only intercept requests to pulse3d and user APIs
+  const urlParams = new URLSearchParams(destURL.search);
+
   if (
     (e.request.url.includes(USERS_URL) || e.request.url.includes(PULSE3D_URL)) &&
     !isEmailRequest(destURL) && // this request doesn't depend on a token
     !isUpdateRequest(destURL) // we don't need to intercept verify request because it's handling own token
   ) {
-    e.respondWith(interceptResponse(e.request, destURL));
+    // only intercept requests to pulse3d and user APIs
+    e.respondWith(
+      caches.open(cacheName).then(async (cache) => {
+        // Go to the cache first
+        const cachedResponse = await cache.match(e.request.url);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        // Otherwise, hit the network
+        const response = await interceptResponse(e.request, destURL);
+        // before returning response, check if you need to preload other wells
+        // this needs to go after interceptResponse so that the initial A1 data gets returned first and not blocked by other requests
+        if (isWaveformDataRequest(urlParams)) {
+          const jobId = urlParams.get("job_id");
+          const uploadId = urlParams.get("upload_id");
+          startPreloadingWellData(uploadId, jobId);
+        }
+
+        return response;
+      })
+    );
   } else {
     e.respondWith(fetch(e.request));
   }

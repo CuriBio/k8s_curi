@@ -19,11 +19,16 @@ def get_item(*, queue):
 
     def _outer(fn):
         @wraps(fn)
-        async def _inner(*, con):
+        async def _inner(*, con, con_to_set_job_running=None):
             async with con.transaction():
                 item = await con.fetchrow(query, queue)
                 if not item:
                     raise EmptyQueue(queue)
+
+                if con_to_set_job_running:
+                    await con_to_set_job_running.execute(
+                        "UPDATE jobs_result SET status='running' WHERE job_id=$1", item["id"]
+                    )
 
                 ts = time.time()
                 status, new_meta, object_key = await fn(con, item)
