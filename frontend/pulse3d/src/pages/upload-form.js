@@ -182,8 +182,6 @@ export default function UploadForm() {
   }, [paramErrors, files, inProgress, wellGroupErr]);
 
   useEffect(() => {
-    // check for incorrect files and let user know
-    checkFileContents();
     // resets upload status when user makes changes
     if (
       (files.length > 0 && files[0] instanceof File) ||
@@ -192,6 +190,11 @@ export default function UploadForm() {
       setUploadSuccess(false);
     }
   }, [files, analysisParams]);
+
+  useEffect(() => {
+    // check for incorrect files and let user know
+    checkFileContents();
+  }, [files]);
 
   useEffect(() => {
     setReanalysis(router.query.id === "Re-analyze Existing Upload");
