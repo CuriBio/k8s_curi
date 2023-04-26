@@ -379,7 +379,7 @@ export default function WaveformGraph({
       .append("path")
       .data([dataWithinWindow.map((x) => [x[0] * xZoomFactor, x[1] * yZoomFactor])])
       .attr("fill", "none")
-      .attr("stroke", "steelblue")
+      .attr("stroke", "var(--curi-waveform-green)")
       .attr("stroke-width", 2)
       .attr("d", dataLine)
       .style("cursor", "pointer")
@@ -433,19 +433,19 @@ export default function WaveformGraph({
             "translate(" + x(d[0]) + "," + (y(dataToGraph[draggedIdx][1]) - 7) + ") rotate(180)"
           )
           .style("fill", (d) => {
-            return checkDuplicates()[d] ? "red" : "orange";
+            return checkDuplicates()[d] ? "red" : "var(--curi-peaks-blue)";
           })
           .attr("stroke", (d) => {
-            return checkDuplicates()[d] ? "red" : "orange";
+            return checkDuplicates()[d] ? "red" : "var(--curi-peaks-blue)";
           });
       } else {
         d3.select(this)
           .attr("transform", "translate(" + x(d[0]) + "," + (y(dataToGraph[draggedIdx][1]) + 7) + ")")
           .style("fill", (d) => {
-            return checkDuplicates()[d] ? "red" : "green";
+            return checkDuplicates()[d] ? "red" : "var(--curi-valleys-orange)";
           })
           .attr("stroke", (d) => {
-            return checkDuplicates()[d] ? "red" : "green";
+            return checkDuplicates()[d] ? "red" : "var(--curi-valleys-orange)";
           });
       }
       // update the focus text with current x and y data points as user drags marker
@@ -503,10 +503,10 @@ export default function WaveformGraph({
         return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) - 7) + ") rotate(180)";
       })
       .style("fill", (d) => {
-        return checkDuplicates()[d] ? "red" : "orange";
+        return checkDuplicates()[d] ? "red" : "var(--curi-peaks-blue)";
       })
       .attr("stroke", (d) => {
-        return checkDuplicates()[d] ? "red" : "orange";
+        return checkDuplicates()[d] ? "red" : "var(--curi-peaks-blue)";
       })
       .style("cursor", "pointer")
       .style("display", (d) => {
@@ -555,10 +555,10 @@ export default function WaveformGraph({
         return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) + 7) + ")";
       })
       .style("fill", (d) => {
-        return checkDuplicates()[d] ? "red" : "green";
+        return checkDuplicates()[d] ? "red" : "var(--curi-valleys-orange)";
       })
       .attr("stroke", (d) => {
-        return checkDuplicates()[d] ? "red" : "green";
+        return checkDuplicates()[d] ? "red" : "var(--curi-valleys-orange)";
       })
       .style("cursor", "pointer")
       .style("display", (d) => {
@@ -672,7 +672,7 @@ export default function WaveformGraph({
       .attr("x2", x(endTime))
       .attr("y2", y(peakY2[wellIdx]))
       .attr("stroke-width", 2)
-      .attr("stroke", "orange")
+      .attr("stroke", "var(--curi-peaks-blue)")
       .style("cursor", "pointer")
       .call(moveLineUpDown);
 
@@ -681,14 +681,14 @@ export default function WaveformGraph({
       "peakLine",
       startTime + (endTime - startTime) / 100,
       peakY1[wellIdx],
-      "orange"
+      "var(--curi-peaks-blue)"
     );
     const peaksY2 = appendPeakValleyMarkers(
       "peakLineY2Marker",
       "peakLine",
       endTime - (endTime - startTime) / 100,
       peakY2[wellIdx],
-      "orange"
+      "var(--curi-peaks-blue)"
     );
     // remove peaks line if no peaks are found
     if (!minPeaks) {
@@ -705,7 +705,7 @@ export default function WaveformGraph({
       .attr("x2", x(endTime))
       .attr("y2", y(valleyY2[wellIdx]))
       .attr("stroke-width", 2)
-      .attr("stroke", "green")
+      .attr("stroke", "var(--curi-valleys-orange)")
       .style("cursor", "pointer")
       .call(moveLineUpDown);
     const valleysY1 = appendPeakValleyMarkers(
@@ -713,14 +713,14 @@ export default function WaveformGraph({
       "peakLine",
       startTime + (endTime - startTime) / 100,
       valleyY1[wellIdx],
-      "green"
+      "var(--curi-valleys-orange)"
     );
     const valleysY2 = appendPeakValleyMarkers(
       "valleyLineY2Marker",
       "peakLine",
       endTime - (endTime - startTime) / 100,
       valleyY2[wellIdx],
-      "green"
+      "var(--curi-valleys-orange)"
     );
     // remove valleys line if no valleys are found
     if (!maxValleys) {
