@@ -133,7 +133,7 @@ const constantModalLabels = {
     header: "Warning!",
     messages: [
       "Interactive analysis is using a newer version of Pulse3D than the version originally used on this recording. Peaks and valleys may be slightly different.",
-      "Please re-analyze this recording using a Pulse3D version greater than 0.28.2 or continue.",
+      "Please re-analyze this recording using a Pulse3D version greater than 0.28.3 or continue.",
     ],
     buttons: ["Close"],
   },
@@ -188,8 +188,7 @@ export default function InteractiveWaveformModal({
   });
 
   useEffect(() => {
-    // only available for versions greater than 0.25.2
-    const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.25.2"));
+    const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.28.3"));
     setFilteredVersions([...compatibleVersions]);
     if (usageQuota && usageQuota.limits && numberOfJobsInUpload >= 2 && usageQuota.limits.jobs !== -1) {
       setCreditUsageAlert(true);
@@ -246,7 +245,7 @@ export default function InteractiveWaveformModal({
           // this function actually renders new graph data to the page
           setDataToGraph([...coordinates]);
 
-          if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.2")) {
+          if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.3")) {
             setModalLabels(constantModalLabels.oldPulse3dVersion);
             setModalOpen("pulse3dWarning");
           }

@@ -23,6 +23,7 @@ const Header = styled.h2`
   background-color: var(--dark-blue);
   color: var(--light-gray);
   margin: auto;
+  width: 100%;
   height: 75px;
   line-height: 3;
 `;
@@ -47,12 +48,16 @@ const Uploads = styled.div`
   border-radius: 15px;
   background-color: white;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 `;
 
 const ButtonContainer = styled.div`
   display: flex;
   justify-content: flex-end;
   padding: 3rem 6rem;
+  width: 100%;
 `;
 
 const SuccessText = styled.span`
@@ -74,7 +79,7 @@ const DropDownContainer = styled.div`
   margin-top: 2rem;
 `;
 
-const dropZoneText = "CLICK HERE or DROP single recording ZIP files";
+const dropZoneText = "CLICK HERE or DROP";
 const defaultUploadErrorLabel =
   "Something went wrong while attempting to start the analysis for the following file(s):";
 const defaultZipErrorLabel =
@@ -142,6 +147,7 @@ export default function UploadForm() {
   const [creditUsageAlert, setCreditUsageAlert] = useState(false);
   const [alertShowed, setAlertShowed] = useState(false);
   const [reanalysis, setReanalysis] = useState(false);
+  const [xlsxFilePresent, setXlsxFilePresent] = useState(false);
 
   useEffect(() => {
     if (badZipFiles.length > 0) {
@@ -169,7 +175,7 @@ export default function UploadForm() {
         reanalysis && // modal only shows up in re-analyze tab
         usageQuota && // undefined check
         usageQuota.limits && // undefined check
-        parseInt(usageQuota.limits.jobs) !== -1 && //check that usage is not unlimited
+        parseInt(usageQuota.limits.jobs) !== -1 && // check that usage is not unlimited
         files.length > 0 && // undefined check
         files[0].created_at !== files[0].updated_at
       // if time updated and time created are different then free analysis has already been used and a re-analyze will use a credit
@@ -201,12 +207,18 @@ export default function UploadForm() {
     }
   }, [uploads]);
 
+  const checkFileTypes = () => {
+    // check if a XLSX file tyoe is present amongst uploaded files
+    setXlsxFilePresent(files.some((file) => file && file.type !== "application/x-zip-compressed"));
+  };
+
   const resetState = () => {
     setResetDragDrop(true);
     setFiles([]);
     updateCheckParams(false); // this will also reset the analysis params and their error message
     setFailedUploadsMsg(failedUploadsMsg);
     setModalButtons(["Close"]);
+    setXlsxFilePresent(false);
   };
 
   const resetAnalysisParams = () => {
@@ -274,16 +286,12 @@ export default function UploadForm() {
         twitch_widths: twitchWidths === "" ? null : twitchWidths,
         start_time: startTime === "" ? null : startTime,
         end_time: endTime === "" ? null : endTime,
+        max_y: maxY === "" ? null : maxY,
+        include_stim_protocols: showStimSheet === "" ? null : showStimSheet,
         // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
         version,
       };
 
-      if (semverGte(version, "0.25.0")) {
-        requestBody.max_y = maxY === "" ? null : maxY;
-      }
-      if (semverGte(version, "0.28.1")) {
-        requestBody.include_stim_protocols = showStimSheet === "" ? null : showStimSheet;
-      }
       if (semverGte(version, "0.30.1")) {
         requestBody.stiffness_factor = stiffnessFactor === "" ? null : stiffnessFactor;
         requestBody.inverted_post_magnet_wells =
@@ -557,6 +565,7 @@ export default function UploadForm() {
           analysisParams={analysisParams}
           setWellGroupErr={setWellGroupErr}
           reanalysis={reanalysis}
+          xlsxFilePresent={xlsxFilePresent}
         />
         <ButtonContainer>
           {uploadSuccess ? <SuccessText>Upload Successful!</SuccessText> : null}
