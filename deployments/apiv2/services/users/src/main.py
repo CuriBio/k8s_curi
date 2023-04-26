@@ -309,12 +309,7 @@ async def register(
             phash = ph.hash(details.password1.get_secret_value())
             scope = details.scope
             insert_query = "INSERT INTO customers (email, password, data, usage_restrictions) VALUES ($1, $2, $3, $4) RETURNING id"
-            query_params = (
-                email,
-                phash,
-                json.dumps({"scope": scope}),
-                json.dumps(dict(PULSE3D_PAID_USAGE)),
-            )
+            query_params = (email, phash, json.dumps({"scope": scope}), json.dumps(dict(PULSE3D_PAID_USAGE)))
         else:
             # TODO add handling for multiple service scopes and exception handling if none found
             _, customer_tier = split_scope_account_data(customer_scope[0])  # 'free' or 'paid'
