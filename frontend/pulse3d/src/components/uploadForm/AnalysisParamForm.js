@@ -2,7 +2,7 @@ import styled from "styled-components";
 import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
 import { isArrayOfNumbers, loadCsvInputToArray, isArrayOfWellNames } from "../../utils/generic";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import semverGte from "semver/functions/gte";
 import { UploadsContext } from "@/components/layouts/DashboardLayout";
 import WellGroups from "@/components/uploadForm/WellGroups";
@@ -162,6 +162,7 @@ export default function AnalysisParamForm({
   const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails } = useContext(UploadsContext);
   const [deprecationNotice, setDeprecationNotice] = useState(false);
   const [pulse3dVersionEOLDate, setPulse3dVersionEOLDate] = useState("");
+  const [pulse3dVersionOptions, setPulse3dVersionOptions] = useState([]);
 
   const handlePulse3dVersionSelect = (idx) => {
     const selectedVersionMetadata = metaPulse3dVersions.filter(
@@ -179,6 +180,24 @@ export default function AnalysisParamForm({
       selectedPulse3dVersion: pulse3dVersions[idx],
     });
   };
+
+  useEffect(() => {
+    const filteredOptions = pulse3dVersions.filter(
+      (version) => (xlsxFilePresent && semverGte(version, "0.32.2")) || !xlsxFilePresent
+    );
+    const options = filteredOptions.map((version) => {
+      const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
+      if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
+        return version + " " + "[ testing ]";
+      } else if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "deprecated") {
+        return version + " " + "[ deprecated ]";
+      } else {
+        return version;
+      }
+    });
+
+    setPulse3dVersionOptions([...options]);
+  }, [pulse3dVersions, metaPulse3dVersions, xlsxFilePresent]);
 
   const pulse3dVersionGte = (version) => {
     const { selectedPulse3dVersion } = analysisParams;
@@ -377,16 +396,7 @@ export default function AnalysisParamForm({
         >
           <DropDownContainer>
             <DropDownWidget
-              options={pulse3dVersions.map((version) => {
-                const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
-                if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
-                  return version + " " + "[ testing ]";
-                } else if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "deprecated") {
-                  return version + " " + "[ deprecated ]";
-                } else {
-                  return version;
-                }
-              })}
+              options={pulse3dVersionOptions}
               reset={!checkedParams}
               handleSelection={handlePulse3dVersionSelect}
               initialSelected={0}

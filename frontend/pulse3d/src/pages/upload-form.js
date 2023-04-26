@@ -69,10 +69,9 @@ const SuccessText = styled.span`
 `;
 
 const DropDownContainer = styled.div`
-  width: 70%;
+  width: 100%;
   display: flex;
   justify-content: center;
-  left: 15%;
   position: relative;
   height: 17%;
   align-items: center;
@@ -82,8 +81,8 @@ const DropDownContainer = styled.div`
 const dropZoneText = "CLICK HERE or DROP";
 const defaultUploadErrorLabel =
   "Something went wrong while attempting to start the analysis for the following file(s):";
-const defaultZipErrorLabel =
-  "The following file(s) will not be uploaded because they either contain multiple recordings or do not have the correct number of H5 files.";
+const defaultBadFilesLabel =
+  "The following file(s) cannot be uploaded because they either contain multiple recordings or do not have the correct number of files.";
 
 const modalObj = {
   uploadsReachedDuringSession: {
@@ -141,7 +140,7 @@ export default function UploadForm() {
   const [usageModalState, setUsageModalState] = useState(false);
   const [usageModalLabels, setUsageModalLabels] = useState(modalObj.uploadsReachedDuringSession);
   const [analysisParams, setAnalysisParams] = useState(getDefaultAnalysisParams());
-  const [badZipFiles, setBadZipFiles] = useState([]);
+  const [badFiles, setBadFiles] = useState([]);
   const [resetDragDrop, setResetDragDrop] = useState(false);
   const [wellGroupErr, setWellGroupErr] = useState(false);
   const [creditUsageAlert, setCreditUsageAlert] = useState(false);
@@ -150,14 +149,14 @@ export default function UploadForm() {
   const [xlsxFilePresent, setXlsxFilePresent] = useState(false);
 
   useEffect(() => {
-    if (badZipFiles.length > 0) {
+    if (badFiles.length > 0) {
       // give users the option to proceed with clean files if any, otherwise just close
-      setModalButtons(badZipFiles.length !== files.length ? ["Cancel", "Proceed"] : ["Close"]);
+      setModalButtons(["Close"]);
       // add files to modal to notify user which files are bad
-      setFailedUploadsMsg([defaultZipErrorLabel, ...badZipFiles.map((f) => f.name)]);
+      setFailedUploadsMsg([defaultBadFilesLabel, ...badFiles.map((f) => f.name)]);
       setModalState(true);
     }
-  }, [badZipFiles]);
+  }, [badFiles]);
 
   useEffect(() => {
     // checks if error value exists, no file is selected, or upload is in progress
@@ -183,6 +182,8 @@ export default function UploadForm() {
   }, [paramErrors, files, inProgress, wellGroupErr]);
 
   useEffect(() => {
+    // check for incorrect files and let user know
+    checkFileContents();
     // resets upload status when user makes changes
     if (
       (files.length > 0 && files[0] instanceof File) ||
@@ -201,16 +202,9 @@ export default function UploadForm() {
 
   useEffect(() => {
     if (uploads) {
-      const uploadFilenames = uploads.map((upload) => upload.filename).filter((name) => name);
-
-      setFormattedUploads([...uploadFilenames]);
+      setFormattedUploads([...uploads.map((upload) => upload.filename).filter((name) => name)]);
     }
   }, [uploads]);
-
-  const checkFileTypes = () => {
-    // check if a XLSX file tyoe is present amongst uploaded files
-    setXlsxFilePresent(files.some((file) => file && file.type !== "application/x-zip-compressed"));
-  };
 
   const resetState = () => {
     setResetDragDrop(true);
@@ -334,54 +328,64 @@ export default function UploadForm() {
   };
 
   const submitNewAnalysis = async () => {
-    await checkForMultiRecZips();
+    if (files.length > 0) {
+      await handleNewAnalysis(files);
+    }
     resetState();
   };
 
-  const checkForMultiRecZips = async () => {
+  const checkFileContents = async () => {
     var JSZip = require("jszip");
-    let badZipfiles;
+    let filteredFiles;
     if (!reanalysis) {
       const asyncFilter = async (arr, predicate) =>
         Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
-      badZipfiles = await asyncFilter(files, async (file) => {
+      let xlsxInFile = false;
+      filteredFiles = await asyncFilter(files, async (file) => {
         //only run these checks if is zip file
-        if (file && file.type == "application/x-zip-compressed") {
-          try {
+        try {
+          if (file && file.type.includes("zip")) {
             const zip = new JSZip();
             const { files: loadedFiles } = await zip.loadAsync(file);
-
             const dirs = Object.values(loadedFiles).filter(({ dir }) => dir);
-            const onlyOneRec = dirs.length === 0 || dirs.length === 1;
+            const onlyOneDir = dirs.length === 0 || dirs.length === 1;
 
-            const numFilesInRecording = Object.keys(loadedFiles).filter(
+            const numXlxsInFile = Object.keys(loadedFiles).filter(
+              (filename) => filename.includes(".xlsx") && !filename.includes("__MACOSX")
+            ).length;
+
+            const numH5InFile = Object.keys(loadedFiles).filter(
               (filename) => filename.includes(".h5") && !filename.includes("__MACOSX")
             ).length;
 
-            // Beta 1 recordings will contain 24 files, Beta 2 and V1 recordings will contain 48
-            const recordingContainsValidNumFiles = numFilesInRecording === 24 || numFilesInRecording === 48;
-            return !onlyOneRec || !recordingContainsValidNumFiles;
-          } catch (e) {
-            console.log(`ERROR unable to read zip file: ${file.filename} ${e}`);
-            failedUploadsMsg.push(file.filename);
-            return true;
+            const fileContainsValidNumFiles =
+              numH5InFile > 0 ? numH5InFile === 24 || numH5InFile === 48 : numXlxsInFile <= 24;
+
+            // not setting xlsxInFile = (numXlxsInFile > 0) because it needs to remain true if ever made true
+            if (numXlxsInFile > 0) xlsxInFile = true;
+
+            return !onlyOneDir || !fileContainsValidNumFiles;
+          } else {
+            // this will occur when user uploads single well xlsx data
+            // not setting xlsxInFile = (numXlxsInFile > 0) because it needs to remain true if ever made true
+            xlsxInFile = true;
           }
+        } catch (e) {
+          console.log(`ERROR unable to read file: ${file.filename} ${e}`);
+          failedUploadsMsg.push(file.filename);
+          return true;
         }
       });
-      setBadZipFiles(badZipfiles);
-      let newFiles = files;
 
-      for (let i = 0; i < badZipfiles.length; i++) {
-        for (let j = 0; j < newFiles.length; j++) {
-          if (badZipfiles[i].name === newFiles[j].name) {
-            setFiles(newFiles.splice(j, 1));
-          }
-        }
+      setXlsxFilePresent(xlsxInFile);
+      setBadFiles([...filteredFiles]);
+
+      for (let i = 0; i < filteredFiles.length; i++) {
+        const matchingIdx = files.findIndex(({ name }) => name === filteredFiles[i].name);
+        files.splice(matchingIdx, 1);
+        setFiles([...files]);
       }
-    }
-    if (files.length > 0) {
-      await handleNewAnalysis(files);
     }
   };
 
