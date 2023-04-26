@@ -156,6 +156,7 @@ export default function WaveformGraph({
   calculateYLimit,
   setPeakLineDataToDefault,
   setValleyLineDataToDefault,
+  assignNewArr,
 }) {
   const [valleys, setValleys] = useState([]);
   const [peaks, setPeaks] = useState([]);
@@ -971,19 +972,11 @@ export default function WaveformGraph({
 
   const setLineCalculationVariables = (id, y1, y2) => {
     if (id.includes("peak")) {
-      let newArr = [...peakY1];
-      newArr[wellIdx] = y1;
-      setPeakY1(newArr);
-      newArr = [...peakY2];
-      newArr[wellIdx] = y2;
-      setPeakY2(newArr);
+      assignNewArr(peakY1, y1, setPeakY1);
+      assignNewArr(peakY2, y2, setPeakY2);
     } else {
-      let newArr = [...valleyY1];
-      newArr[wellIdx] = y1;
-      setValleyY1(newArr);
-      newArr = [...valleyY2];
-      newArr[wellIdx] = y2;
-      setValleyY2(newArr);
+      assignNewArr(valleyY1, y1, setValleyY1);
+      assignNewArr(valleyY2, y2, setValleyY2);
     }
   };
 
