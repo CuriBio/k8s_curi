@@ -432,7 +432,8 @@ async def create_new_job(
                 and datetime.strptime(end_of_life_date, "%Y-%m-%d") > datetime.now()
             ):
                 return GenericErrorResponse(
-                    message="Attempted to use pulse3d version that is removed", error="pulse3dVersionError"
+                    message="Attempted to use pulse3d version that is removed",
+                    error="pulse3dVersionError",
                 )
             # first check user_id of upload matches user_id in token
             # Luci (12/14/2022) checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
