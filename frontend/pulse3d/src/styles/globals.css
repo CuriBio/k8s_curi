@@ -6,9 +6,10 @@
   --med-gray: rgb(221, 221, 221);
   --light-gray: rgb(236, 236, 237);
   --light-blue: rgb(0, 84, 112);
-  --curi-waveform-green: rgb(27, 158, 119);
-  --curi-peaks-blue: rgb(117, 112, 179);
-  --curi-valleys-orange: rgb(217, 95, 2);
+  --curi-waveform: rgb(27, 158, 119);
+  --curi-peaks: rgb(117, 112, 179);
+  --curi-valleys: rgb(217, 95, 2);
+  --curi-error-markers: rgb(234, 200, 106);
 }
 
 html,

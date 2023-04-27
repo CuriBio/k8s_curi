@@ -34,9 +34,8 @@ const Container = styled.div`
 
 const CursorLocLabel = styled.div`
   font-size: 15px;
-  position: absolute;
-  left: 1100px;
   cursor: default;
+  width: 200px;
 `;
 
 const TooltipText = styled.span`
@@ -60,7 +59,7 @@ const XAxisContainer = styled.div`
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-around;
 `;
 
 const YAxisLabel = styled.div`
@@ -119,6 +118,55 @@ const ChangelogLabel = styled.div`
     color: var(--teal-green);
     cursor: pointer;
   }
+`;
+const Legend = styled.div`
+  background-color: white;
+  width: 800px;
+  padding: 5px;
+  border-radius: 10px;
+  border: 2px solid darkgray;
+  & table {
+    display: flex;
+    flex-flow: column;
+  }
+  & table tr {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-evenly;
+  }
+  & table tr td {
+    font-size: 0.75rem;
+    display: flex;
+    flex-flow: column;
+    align-items: center;
+  }
+`;
+
+const Triangle = styled.div`
+width: 0;
+height: 0;
+border-left: 8px solid transparent;
+border-right: 8px solid transparent;
+border-${(props) => (props.type === "peak" ? "top" : "bottom")}: 13px solid ${(props) => {
+  if (props.type === "peak") {
+    return "var(--curi-peaks)";
+  } else if (props.type === "valley") {
+    return "var(--curi-valleys)";
+  } else {
+    return "var(--curi-error-markers)";
+  }
+}};
+`;
+const LineColor = styled.div`
+  height: 3px;
+  width: 50px;
+  background-color: ${(props) => (props.type === "peak" ? "var(--curi-peaks)" : "var(--curi-valleys)")};
+`;
+const LineAdjuster = styled.div`
+  height: 14px;
+  width: 14px;
+  border-radius: 50%;
+  background-color: ${(props) => (props.type === "peak" ? "var(--curi-peaks)" : "var(--curi-valleys)")};
 `;
 
 const contextMenuItems = {
@@ -379,7 +427,7 @@ export default function WaveformGraph({
       .append("path")
       .data([dataWithinWindow.map((x) => [x[0] * xZoomFactor, x[1] * yZoomFactor])])
       .attr("fill", "none")
-      .attr("stroke", "var(--curi-waveform-green)")
+      .attr("stroke", "var(--curi-waveform)")
       .attr("stroke-width", 2)
       .attr("d", dataLine)
       .style("cursor", "pointer")
@@ -433,19 +481,19 @@ export default function WaveformGraph({
             "translate(" + x(d[0]) + "," + (y(dataToGraph[draggedIdx][1]) - 7) + ") rotate(180)"
           )
           .style("fill", (d) => {
-            return checkDuplicates()[d] ? "red" : "var(--curi-peaks-blue)";
+            return checkDuplicates()[d] ? "var(--curi-error-markers)" : "var(--curi-peaks)";
           })
           .attr("stroke", (d) => {
-            return checkDuplicates()[d] ? "red" : "var(--curi-peaks-blue)";
+            return checkDuplicates()[d] ? "var(--curi-error-markers)" : "var(--curi-peaks)";
           });
       } else {
         d3.select(this)
           .attr("transform", "translate(" + x(d[0]) + "," + (y(dataToGraph[draggedIdx][1]) + 7) + ")")
           .style("fill", (d) => {
-            return checkDuplicates()[d] ? "red" : "var(--curi-valleys-orange)";
+            return checkDuplicates()[d] ? "var(--curi-error-markers)" : "var(--curi-valleys)";
           })
           .attr("stroke", (d) => {
-            return checkDuplicates()[d] ? "red" : "var(--curi-valleys-orange)";
+            return checkDuplicates()[d] ? "var(--curi-error-markers)" : "var(--curi-valleys)";
           });
       }
       // update the focus text with current x and y data points as user drags marker
@@ -503,10 +551,10 @@ export default function WaveformGraph({
         return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) - 7) + ") rotate(180)";
       })
       .style("fill", (d) => {
-        return checkDuplicates()[d] ? "red" : "var(--curi-peaks-blue)";
+        return checkDuplicates()[d] ? "var(--curi-error-markers)" : "var(--curi-peaks)";
       })
       .attr("stroke", (d) => {
-        return checkDuplicates()[d] ? "red" : "var(--curi-peaks-blue)";
+        return checkDuplicates()[d] ? "var(--curi-error-markers)" : "var(--curi-peaks)";
       })
       .style("cursor", "pointer")
       .style("display", (d) => {
@@ -555,10 +603,10 @@ export default function WaveformGraph({
         return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) + 7) + ")";
       })
       .style("fill", (d) => {
-        return checkDuplicates()[d] ? "red" : "var(--curi-valleys-orange)";
+        return checkDuplicates()[d] ? "var(--curi-error-markers)" : "var(--curi-valleys)";
       })
       .attr("stroke", (d) => {
-        return checkDuplicates()[d] ? "red" : "var(--curi-valleys-orange)";
+        return checkDuplicates()[d] ? "var(--curi-error-markers)" : "var(--curi-valleys)";
       })
       .style("cursor", "pointer")
       .style("display", (d) => {
@@ -672,7 +720,7 @@ export default function WaveformGraph({
       .attr("x2", x(endTime))
       .attr("y2", y(peakY2[wellIdx]))
       .attr("stroke-width", 2)
-      .attr("stroke", "var(--curi-peaks-blue)")
+      .attr("stroke", "var(--curi-peaks)")
       .style("cursor", "pointer")
       .call(moveLineUpDown);
 
@@ -681,14 +729,14 @@ export default function WaveformGraph({
       "peakLine",
       startTime + (endTime - startTime) / 100,
       peakY1[wellIdx],
-      "var(--curi-peaks-blue)"
+      "var(--curi-peaks)"
     );
     const peaksY2 = appendPeakValleyMarkers(
       "peakLineY2Marker",
       "peakLine",
       endTime - (endTime - startTime) / 100,
       peakY2[wellIdx],
-      "var(--curi-peaks-blue)"
+      "var(--curi-peaks)"
     );
     // remove peaks line if no peaks are found
     if (!minPeaks) {
@@ -705,7 +753,7 @@ export default function WaveformGraph({
       .attr("x2", x(endTime))
       .attr("y2", y(valleyY2[wellIdx]))
       .attr("stroke-width", 2)
-      .attr("stroke", "var(--curi-valleys-orange)")
+      .attr("stroke", "var(--curi-valleys)")
       .style("cursor", "pointer")
       .call(moveLineUpDown);
     const valleysY1 = appendPeakValleyMarkers(
@@ -713,14 +761,14 @@ export default function WaveformGraph({
       "peakLine",
       startTime + (endTime - startTime) / 100,
       valleyY1[wellIdx],
-      "var(--curi-valleys-orange)"
+      "var(--curi-valleys)"
     );
     const valleysY2 = appendPeakValleyMarkers(
       "valleyLineY2Marker",
       "peakLine",
       endTime - (endTime - startTime) / 100,
       valleyY2[wellIdx],
-      "var(--curi-valleys-orange)"
+      "var(--curi-valleys)"
     );
     // remove valleys line if no valleys are found
     if (!maxValleys) {
@@ -1051,9 +1099,44 @@ export default function WaveformGraph({
           <div id="waveformGraph" />
         </Container>
         <XAxisContainer>
-          <XAxisLabel>Time (seconds)</XAxisLabel>
-          <ZoomWidget size={"20px"} zoomIn={() => handleZoomIn("x")} zoomOut={() => handleZoomOut("x")} />
-
+          <Legend>
+            <table>
+              <tr>
+                <td>
+                  <Triangle type="peak" />
+                  Detected Peaks
+                </td>
+                <td>
+                  <LineColor type="peak" />
+                  Peak Limiter
+                </td>
+                <td>
+                  <LineAdjuster type="peak" />
+                  Peak Limiter Adjust
+                </td>
+                <td>
+                  <Triangle type="valley" />
+                  Detected Valleys
+                </td>
+                <td>
+                  <LineColor type="valley" />
+                  Valley Limiter
+                </td>
+                <td>
+                  <LineAdjuster type="valley" />
+                  Valley Limiter Adjust
+                </td>
+                <td>
+                  <Triangle type="error" />
+                  Duplciate Valley or Peak
+                </td>
+              </tr>
+            </table>
+          </Legend>
+          <div>
+            <XAxisLabel>Time (seconds)</XAxisLabel>
+            <ZoomWidget size={"20px"} zoomIn={() => handleZoomIn("x")} zoomOut={() => handleZoomOut("x")} />
+          </div>
           <CursorLocLabel>
             Cursor: [ {cursorLoc[0]}, {cursorLoc[1]} ]
           </CursorLocLabel>
