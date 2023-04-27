@@ -1,6 +1,6 @@
 UPDATE_UPLOADS_TABLE = """
-    UPDATE uploads SET bucket=$1, uploading_computer_name=$2, kilobytes=$3, md5=$4
-    WHERE id=$5;
+    UPDATE uploads SET bucket=$1, uploading_computer_name=$2, kilobytes=$3
+    WHERE id=$4;
     """
 
 INSERT_INTO_MANTARRAY_RECORDING_SESSIONS = """

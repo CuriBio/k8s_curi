@@ -14,7 +14,7 @@ VERSION_REGEX_STR = r"\d+\.\d+\.\d+"
 
 FIRMWARE_FILE_REGEX = re.compile(rf"^{VERSION_REGEX_STR}\.bin$")
 
-SOFTWARE_INSTALLER_PREFIX = "software/MantarrayController-Setup-prod"
+SOFTWARE_INSTALLER_PREFIX = "software/mantarray/MantarrayController-Setup-prod"
 SOFTWARE_INSTALLER_VERSION_REGEX = re.compile(rf"{SOFTWARE_INSTALLER_PREFIX}-({VERSION_REGEX_STR})\.exe$")
 
 
