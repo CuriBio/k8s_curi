@@ -13,13 +13,11 @@ PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-pulse3d-uploads")
 logger = logging.getLogger(__name__)
 
 
-async def insert_metadata_into_pg(
-    con, pr, customer_id, user_id, upload_id, file, outfile_key, md5s, re_analysis
-):
+async def insert_metadata_into_pg(con, pr, customer_id, user_id, upload_id, file, outfile_key, re_analysis):
     """
     TODO fix this, use standard docstyle
     args:
-        contains pgpool connection, PlateRecording, <file>.xlsx, object key for outfile, and the md5 hash
+        contains pgpool connection, PlateRecording, <file>.xlsx, and object key for outfile
     """
     try:
         metadata = load_data_to_df(file, pr)
@@ -36,7 +34,6 @@ async def insert_metadata_into_pg(
                     PULSE3D_UPLOADS_BUCKET,
                     metadata["uploading_computer_name"],
                     s3_size,
-                    md5s,
                     upload_id,
                 )
             except Exception as e:

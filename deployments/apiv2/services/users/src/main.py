@@ -92,7 +92,6 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
     like Pulse, Phenolearn, etc.
     """
     ph = PasswordHasher()
-    failed_msg = "Invalid credentials"
 
     is_customer_login_attempt = type(details) is CustomerLogin
 
@@ -116,14 +115,16 @@ async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
         # suspended is for deactivated accounts and verified is for new users needing to verify through email
         # select for service specific usage restrictions listed under the customer account
         select_query = "SELECT password, id, data->'scope' AS scope FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND suspended='f' AND verified='t'"
-        select_query_params = (
-            username,
-            str(details.customer_id),
-        )
+        select_query_params = (username, str(details.customer_id))
         customer_id = details.customer_id
 
         update_last_login_query = "UPDATE users SET last_login = $1 WHERE deleted_at IS NULL AND name = $2 AND customer_id=$3 AND suspended='f' AND verified='t'"
         update_last_login_params = (datetime.now(), username, str(details.customer_id))
+
+    client_type = details.client_type if details.client_type else "unknown"
+    logger.info(f"{account_type.title()} login attempt from client '{client_type}'")
+
+    failed_msg = "Invalid credentials"
     try:
         async with request.state.pgpool.acquire() as con:
 
@@ -308,12 +309,7 @@ async def register(
             phash = ph.hash(details.password1.get_secret_value())
             scope = details.scope
             insert_query = "INSERT INTO customers (email, password, data, usage_restrictions) VALUES ($1, $2, $3, $4) RETURNING id"
-            query_params = (
-                email,
-                phash,
-                json.dumps({"scope": scope}),
-                json.dumps(dict(PULSE3D_PAID_USAGE)),
-            )
+            query_params = (email, phash, json.dumps({"scope": scope}), json.dumps(dict(PULSE3D_PAID_USAGE)))
         else:
             # TODO add handling for multiple service scopes and exception handling if none found
             _, customer_tier = split_scope_account_data(customer_scope[0])  # 'free' or 'paid'

@@ -2,7 +2,6 @@ from datetime import datetime
 from functools import wraps
 import json
 import time
-import uuid
 from typing import Dict, Any
 
 
@@ -85,9 +84,6 @@ async def get_uploads(*, con, account_type, account_id, upload_ids=None):
 
 
 async def create_upload(*, con, upload_params):
-    # generating uuid here instead of letting PG handle it so that it can be inserted into the prefix more easily
-    upload_id = uuid.uuid4()
-
     # the WITH clause in this query is necessary to make sure the given user_id actually exists
     query = (
         "WITH row AS (SELECT id AS user_id FROM users WHERE id=$1) "
@@ -99,9 +95,9 @@ async def create_upload(*, con, upload_params):
     return await con.fetchval(
         query,
         upload_params["user_id"],
-        upload_id,
+        upload_params["upload_id"],
         upload_params["md5"],
-        upload_params["prefix"].format(upload_id=upload_id),
+        upload_params["prefix"],
         upload_params["filename"],
         upload_params["type"],
         upload_params["customer_id"],

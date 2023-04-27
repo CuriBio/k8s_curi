@@ -142,16 +142,21 @@ async def create_recording_upload(
         user_id = str(uuid.UUID(token["userid"]))
         customer_id = str(uuid.UUID(token["customer_id"]))
         service, _ = split_scope_account_data(token["scope"][0])
+        # generating uuid here instead of letting PG handle it so that it can be inserted into the prefix more easily
+        upload_id = uuid.uuid4()
+        s3_key = f"uploads/{customer_id}/{user_id}/{upload_id}"
 
         upload_params = {
-            "prefix": f"uploads/{customer_id}/{user_id}/{{upload_id}}",
+            "prefix": s3_key,
             "filename": details.filename,
             "md5": details.md5s,
             "user_id": user_id,
             "type": details.upload_type,
             "customer_id": customer_id,
             "auto_upload": details.auto_upload,
+            "upload_id": upload_id,
         }
+
         async with request.state.pgpool.acquire() as con:
             usage_quota = await check_customer_quota(con, customer_id, service)
             if usage_quota["uploads_reached"]:
@@ -162,13 +167,7 @@ async def create_recording_upload(
             async with con.transaction():
                 upload_id = await create_upload(con=con, upload_params=upload_params)
 
-                params = _generate_presigned_post(
-                    user_id,
-                    customer_id,
-                    details,
-                    PULSE3D_UPLOADS_BUCKET,
-                    upload_id=upload_id,
-                )
+                params = _generate_presigned_post(details, PULSE3D_UPLOADS_BUCKET, s3_key)
                 return UploadResponse(id=upload_id, params=params)
     except S3Error as e:
         logger.exception(str(e))
@@ -260,7 +259,9 @@ async def create_log_upload(
     try:
         user_id = str(uuid.UUID(token["userid"]))
         customer_id = str(uuid.UUID(token["customer_id"]))
-        params = _generate_presigned_post(user_id, customer_id, details, MANTARRAY_LOGS_BUCKET)
+        s3_key = f"{customer_id}/{user_id}"
+
+        params = _generate_presigned_post(details, MANTARRAY_LOGS_BUCKET, s3_key)
         return UploadResponse(params=params)
     except S3Error as e:
         logger.exception(str(e))
@@ -270,13 +271,10 @@ async def create_log_upload(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def _generate_presigned_post(user_id, customer_id, details, bucket, upload_id=None):
-    key = f"uploads/{customer_id}/{user_id}/"
-    if upload_id:
-        key += f"{upload_id}/"
-    key += details.filename
-    logger.info(f"Generating presigned upload url for {bucket}/{key}")
-    params = generate_presigned_post(bucket=bucket, key=key, md5s=details.md5s)
+def _generate_presigned_post(details, bucket, s3_key):
+    s3_key += f"/{details.filename}"
+    logger.info(f"Generating presigned upload url for {bucket}/{s3_key}")
+    params = generate_presigned_post(bucket=bucket, key=s3_key, md5s=details.md5s)
     return params
 
 
@@ -457,7 +455,8 @@ async def create_new_job(
                 and datetime.strptime(end_of_life_date, "%Y-%m-%d") > datetime.now()
             ):
                 return GenericErrorResponse(
-                    message="Attempted to use pulse3d version that is removed", error="pulse3dVersionError"
+                    message="Attempted to use pulse3d version that is removed",
+                    error="pulse3dVersionError",
                 )
             # first check user_id of upload matches user_id in token
             # Luci (12/14/2022) checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
@@ -650,7 +649,6 @@ async def get_interactive_waveform_data(
     peaks_valleys: bool = Query(None),
     token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES)),
 ):
-
     account_id = str(uuid.UUID(token["userid"]))
     customer_id = str(uuid.UUID(token["customer_id"]))
 
@@ -833,7 +831,6 @@ async def get_usage_quota(
 ):
     """Get the usage quota for the specific user"""
     try:
-
         customer_id = (
             str(uuid.UUID(token["userid"]))
             if token["scope"][0] in CUSTOMER_SCOPES
