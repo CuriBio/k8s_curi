@@ -82,7 +82,7 @@ export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, j
         <SubRowFileName>
           <Checkbox
             id={job.jobId}
-            disabled={job.status === "pending"}
+            disabled={["pending", "running"].includes(job.status)}
             checked={checkedJobs.includes(job.jobId)}
             onChange={handleCheckedJobs}
           />

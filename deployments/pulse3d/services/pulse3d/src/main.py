@@ -134,9 +134,7 @@ async def get_info_of_uploads(
 
 @app.post("/uploads", response_model=Union[UploadResponse, GenericErrorResponse])
 async def create_recording_upload(
-    request: Request,
-    details: UploadRequest,
-    token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES)),
+    request: Request, details: UploadRequest, token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES))
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
@@ -202,9 +200,7 @@ async def soft_delete_uploads(
 
 @app.post("/uploads/download")
 async def download_zip_files(
-    request: Request,
-    details: UploadDownloadRequest,
-    token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)),
+    request: Request, details: UploadDownloadRequest, token=Depends(ProtectedAny(scope=PULSE3D_SCOPES))
 ):
     upload_ids = details.upload_ids
 
@@ -252,9 +248,7 @@ async def download_zip_files(
 # TODO Tanner (4/21/22): probably want to move this to a more general svc (maybe in apiv2-dep) dedicated to uploading misc files to s3
 @app.post("/logs")
 async def create_log_upload(
-    request: Request,
-    details: UploadRequest,
-    token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES)),
+    request: Request, details: UploadRequest, token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES))
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
@@ -361,9 +355,7 @@ async def _get_jobs(con, token, job_ids):
 
 @app.post("/jobs")
 async def create_new_job(
-    request: Request,
-    details: JobRequest,
-    token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES)),
+    request: Request, details: JobRequest, token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES))
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
@@ -372,6 +364,7 @@ async def create_new_job(
         service, _ = split_scope_account_data(user_scopes[0])
         logger.info(f"Creating {service} job for upload {details.upload_id} with user ID: {user_id}")
 
+        # params to use for all current versions of pulse3d
         params = [
             "baseline_widths_to_use",
             "prominence_factors",
@@ -379,6 +372,9 @@ async def create_new_job(
             "twitch_widths",
             "start_time",
             "end_time",
+            "max_y",
+            "normalize_y_axis",
+            "include_stim_protocols",
         ]
 
         previous_semver_version = (
@@ -395,15 +391,6 @@ async def create_new_job(
             elif previous_semver_version >= "0.28.3" and pulse3d_semver < "0.28.3":
                 peak_valley_diff -= 1
 
-        # don't add params unless the selected pulse3d version supports it
-        if pulse3d_semver >= "0.25.0":
-            params.append("max_y")
-        if pulse3d_semver >= "0.25.4":
-            params.append("normalize_y_axis")
-        if pulse3d_semver >= "0.28.1":
-            params.append("include_stim_protocols")
-        if "0.28.2" > pulse3d_semver >= "0.25.2":
-            params.append("peaks_valleys")
         if pulse3d_semver >= "0.30.1":
             # Tanner (2/7/23): these params added in earlier versions but there are bugs with using this param in re-analysis prior to 0.30.1
             params.append("stiffness_factor")
@@ -415,20 +402,10 @@ async def create_new_job(
 
         details_dict = dict(details)
 
-        # Luci (12/14/2022) the index difference needs to be added here because analyses run with versions < 0.28.2 need to be changed before getting added to the job queue. These jobs have the peaks and valleys added to the analysis params, later versions will be added to parquet file in s3
         if details.peaks_valleys:
-            for well, peaks_valleys in details.peaks_valleys.items():
-                details_dict["peaks_valleys"][well] = [
-                    [p + peak_valley_diff for p in peaks_valleys[0]],
-                    [v + peak_valley_diff for v in peaks_valleys[1]],
-                ]
+            details_dict["peaks_valleys"] = True
 
         analysis_params = {param: details_dict[param] for param in params}
-
-        # Luci (12/14/2022) you don't want to replace the peaks and valleys in details_dict or details because the peaks and valleys will be used later so adding to analysis params here
-        if pulse3d_semver >= "0.28.2" and details.peaks_valleys:
-            # Luci (12/10/22): this param set to True is used to signify to the FE that peaks and valleys have been edited to display under the analysis params column in the uploads table, but don't append actual peaks and valleys to prevent cluttering the database with large lists
-            analysis_params["peaks_valleys"] = True
         # convert these params into a format compatible with pulse3D
         for param, default_values in (
             ("prominence_factors", DEFAULT_PROMINENCE_FACTORS),
@@ -499,8 +476,7 @@ async def create_new_job(
             )
 
             # Luci (12/1/22): this happens after the job is already created to have access to the job id, hopefully this doesn't cause any issues with the job starting before the file is uploaded to s3
-            # Versions less than 0.28.2 should not be in the dropdown as an option, this is just an extra check for versions greater than 0.28.2
-            if details.peaks_valleys and pulse3d_semver >= "0.28.2":
+            if details.peaks_valleys:
                 key = f"uploads/{customer_id}/{original_upload_user}/{details.upload_id}/{job_id}/peaks_valleys.parquet"
                 logger.info(f"Peaks and valleys found in job request, uploading to s3: {key}")
 
@@ -508,10 +484,15 @@ async def create_new_job(
                 with tempfile.TemporaryDirectory() as tmpdir:
                     pv_parquet_path = os.path.join(tmpdir, "peaks_valleys.parquet")
                     peak_valleys_dict = dict()
+
                     # format peaks and valleys to simple df
-                    for well, peaks_valleys in details_dict["peaks_valleys"].items():
-                        peak_valleys_dict[f"{well}__peaks"] = pd.Series(peaks_valleys[0])
-                        peak_valleys_dict[f"{well}__valleys"] = pd.Series(peaks_valleys[1])
+                    for well, peaks_valleys in details.peaks_valleys.items():
+                        peak_valleys_dict[f"{well}__peaks"] = pd.Series(
+                            [p + peak_valley_diff for p in peaks_valleys[0]]
+                        )
+                        peak_valleys_dict[f"{well}__valleys"] = pd.Series(
+                            [[v + peak_valley_diff for v in peaks_valleys[1]]]
+                        )
 
                     # write peaks and valleys to parquet file in temporary directory
                     pd.DataFrame(peak_valleys_dict).to_parquet(pv_parquet_path)
@@ -576,9 +557,7 @@ async def soft_delete_jobs(
 
 @app.post("/jobs/download")
 async def download_analyses(
-    request: Request,
-    details: JobDownloadRequest,
-    token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)),
+    request: Request, details: JobDownloadRequest, token=Depends(ProtectedAny(scope=PULSE3D_SCOPES))
 ):
     job_ids = details.job_ids
 
@@ -731,18 +710,12 @@ async def get_interactive_waveform_data(
             # this request will be called each time user switches between wells, we don't want to get peaks and valleys each time
             peaks_and_valleys = None
             if peaks_valleys_requested:
-                # Luci (12/14/2022) analysis_params["peaks_valleys"] will be a dictionary in version < 0.28.2 when peaks and valleys are only stored in this db column and not in s3
-                if analysis_params.get("peaks_valleys") is not None and isinstance(
-                    analysis_params["peaks_valleys"], dict
-                ):
-                    peaks_and_valleys = analysis_params["peaks_valleys"]
-                else:
-                    pv_parquet_path = glob(os.path.join(tmpdir, job_id, "*.parquet"), recursive=True)
-                    peaks_and_valleys = _get_peaks_valleys(
-                        parquet_path=pv_parquet_path,
-                        time_force_df=time_force_df,
-                        analysis_params=analysis_params,
-                    )
+                pv_parquet_path = glob(os.path.join(tmpdir, job_id, "*.parquet"), recursive=True)
+                peaks_and_valleys = _get_peaks_valleys(
+                    parquet_path=pv_parquet_path,
+                    time_force_df=time_force_df,
+                    analysis_params=analysis_params,
+                )
 
             return WaveformDataResponse(coordinates=coordinates, peaks_valleys=peaks_and_valleys)
 

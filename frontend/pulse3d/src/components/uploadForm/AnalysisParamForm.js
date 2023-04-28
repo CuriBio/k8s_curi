@@ -1,19 +1,19 @@
 import styled from "styled-components";
 import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
 import { isArrayOfNumbers, loadCsvInputToArray, isArrayOfWellNames } from "../../utils/generic";
-import FormInput from "@/components/basicWidgets/FormInput";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import Tooltip from "@mui/material/Tooltip";
 import { useState, useContext, useEffect } from "react";
 import semverGte from "semver/functions/gte";
 import { UploadsContext } from "@/components/layouts/DashboardLayout";
 import WellGroups from "@/components/uploadForm/WellGroups";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
+import AnalysisParamContainer from "@/components/uploadForm/AnalysisParamContainer";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import Tooltip from "@mui/material/Tooltip";
+import FormInput from "@/components/basicWidgets/FormInput";
 
 const Container = styled.div`
   padding: 1rem;
-  left: 5%;
   top: 12%;
   width: 90%;
   position: relative;
@@ -36,14 +36,6 @@ const TwoParamContainer = styled.div`
   justify-content: center;
   width: 420px;
   align-items: center;
-`;
-const ParamContainer = styled.div`
-  display: grid;
-  grid-template-columns: 60% 50%;
-  height: 70px;
-  padding: 15px 0 10px 0;
-  height: 70px;
-  width: 380px;
 `;
 
 const InputContainerOne = styled.div`
@@ -163,12 +155,14 @@ export default function AnalysisParamForm({
   analysisParams,
   setWellGroupErr,
   reanalysis,
+  xlsxFilePresent,
 }) {
   const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
   const [disableStimProtocols, setDisableStimProtocols] = useState(false);
   const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails } = useContext(UploadsContext);
   const [deprecationNotice, setDeprecationNotice] = useState(false);
   const [pulse3dVersionEOLDate, setPulse3dVersionEOLDate] = useState("");
+  const [pulse3dVersionOptions, setPulse3dVersionOptions] = useState([]);
 
   const handlePulse3dVersionSelect = (idx) => {
     const selectedVersionMetadata = metaPulse3dVersions.filter(
@@ -186,6 +180,24 @@ export default function AnalysisParamForm({
       selectedPulse3dVersion: pulse3dVersions[idx],
     });
   };
+
+  useEffect(() => {
+    const filteredOptions = pulse3dVersions.filter(
+      (version) => (xlsxFilePresent && semverGte(version, "0.32.2")) || !xlsxFilePresent
+    );
+    const options = filteredOptions.map((version) => {
+      const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
+      if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
+        return version + " " + "[ testing ]";
+      } else if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "deprecated") {
+        return version + " " + "[ deprecated ]";
+      } else {
+        return version;
+      }
+    });
+
+    setPulse3dVersionOptions([...options]);
+  }, [pulse3dVersions, metaPulse3dVersions, xlsxFilePresent]);
 
   const pulse3dVersionGte = (version) => {
     const { selectedPulse3dVersion } = analysisParams;
@@ -360,91 +372,50 @@ export default function AnalysisParamForm({
       {!checkedParams ? <WAOverlay /> : null}
       <InputContainerOne style={{ paddingTop: "2%" }}>
         {pulse3dVersionGte("0.32.2") && reanalysis && (
-          <ParamContainer>
-            <Label htmlFor="nameOverride">
-              Override original name:
-              <Tooltip
-                title={
-                  <TooltipText>
-                    {"This name will replace the original recording name for the ouput filename."}
-                  </TooltipText>
-                }
-              >
-                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
-              </Tooltip>
-            </Label>
-            <InputErrorContainer style={{ width: "150%" }}>
-              <FormInput
-                name="nameOverride"
-                placeholder={""}
-                value={analysisParams.nameOverride}
-                onChangeFn={(e) => {
-                  updateParams({
-                    nameOverride: e.target.value,
-                  });
-                }}
-              >
-                <ErrorText id="nameOverrideError" role="errorMsg">
-                  {errorMessages.nameOverride}
-                </ErrorText>
-              </FormInput>
-            </InputErrorContainer>
-          </ParamContainer>
+          <AnalysisParamContainer
+            label="Override original name"
+            name="nameOverride"
+            tooltipText="This name will replace the original recording name for the ouput filename."
+            additionaErrorStyle={{ width: "150%" }}
+            placeholder=""
+            value={analysisParams.nameOverride}
+            changeFn={(e) => {
+              updateParams({
+                nameOverride: e.target.value,
+              });
+            }}
+            errorMsg={errorMessages.nameOverride}
+          />
         )}
-        <ParamContainer>
-          <Label htmlFor="selectedPulse3dVersion" style={{ width: "62%", lineHeight: 2.5 }}>
-            Pulse3D Version:
-            <Tooltip
-              title={
-                <TooltipText>
-                  {"Specifies which version of the Pulse3D analysis software to use."}
-                </TooltipText>
-              }
-            >
-              <InfoOutlinedIcon sx={{ fontSize: 20, margin: "10px 10px" }} />
-            </Tooltip>
-          </Label>
+        <AnalysisParamContainer
+          label="Pulse3D Version"
+          name="selectedPulse3dVersion"
+          tooltipText="Specifies which version of the Pulse3D analysis software to use."
+          additionalLabelStyle={{ width: "62%", lineHeight: 2.5 }}
+          iconStyle={{ fontSize: 20, margin: "10px 10px" }}
+        >
           <DropDownContainer>
             <DropDownWidget
-              options={pulse3dVersions.map((version) => {
-                const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
-                if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
-                  return version + " " + "[ testing ]";
-                } else if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "deprecated") {
-                  return version + " " + "[ deprecated ]";
-                } else {
-                  return version;
-                }
-              })}
+              options={pulse3dVersionOptions}
               reset={!checkedParams}
               handleSelection={handlePulse3dVersionSelect}
               initialSelected={0}
             />
           </DropDownContainer>
-        </ParamContainer>
-
+        </AnalysisParamContainer>
         {pulse3dVersionGte("0.30.5") && (
-          <ParamContainer>
-            <Label
-              htmlFor="stimWaveformFormat"
-              style={{
-                width: "102%",
-                lineHeight: 1.5,
-                whiteSpace: "normal",
-                textAlign: "center",
-              }}
-            >
-              Stim Waveform Display Format:
-              <Tooltip
-                title={
-                  <TooltipText>
-                    {"Specifies the display format for the stim waveforms (if any). Defaults to 'Stacked'"}
-                  </TooltipText>
-                }
-              >
-                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "10px 10px" }} />
-              </Tooltip>
-            </Label>
+          <AnalysisParamContainer
+            label="Stim Waveform Display Format"
+            name="stimWaveformFormat"
+            tooltipText="Specifies the display format for the stim waveforms (if any). Defaults to 'Stacked'"
+            additionalLabelStyle={{
+              width: "102%",
+              lineHeight: 1.5,
+              whiteSpace: "normal",
+              textAlign: "center",
+            }}
+            iconStyle={{ fontSize: 20, margin: "10px 10px" }}
+          >
             <DropDownContainer>
               <DropDownWidget
                 options={Object.keys(stimWaveformFormatDetails)}
@@ -457,144 +428,79 @@ export default function AnalysisParamForm({
                 initialSelected={0}
               />
             </DropDownContainer>
-          </ParamContainer>
+          </AnalysisParamContainer>
         )}
 
-        {pulse3dVersionGte("0.28.1") && (
-          <ParamContainer>
-            <Label htmlFor="showStimSheet">
-              Show Stimulation Protocols:
-              <Tooltip
-                title={
-                  <TooltipText>
-                    {"When selected, adds a sheet to output file with stimulation protocols."}
-                  </TooltipText>
-                }
-              >
-                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
-              </Tooltip>
-            </Label>
-            <InputErrorContainer style={{ marginLeft: "20%" }}>
-              <CheckboxWidget
-                checkedState={disableStimProtocols}
-                handleCheckbox={() => {
-                  setDisableStimProtocols(!disableStimProtocols);
-                  updateParams({
-                    showStimSheet: !disableStimProtocols,
-                  });
-                }}
-              />
-            </InputErrorContainer>
-          </ParamContainer>
-        )}
-
-        {pulse3dVersionGte("0.25.4") && (
-          //Disabling y-axis normalization added in version 0.25.4
-          <ParamContainer>
-            <Label htmlFor="normalizeYAxis">
-              Disable Y-Axis Normalization:
-              <Tooltip
-                title={<TooltipText>{"When selected, disables normalization of the y-axis."}</TooltipText>}
-              >
-                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
-              </Tooltip>
-            </Label>
-            <InputErrorContainer style={{ marginLeft: "20%" }}>
-              <CheckboxWidget
-                checkedState={disableYAxisNormalization}
-                handleCheckbox={(disable) => {
-                  updateParams({
-                    normalizeYAxis: !disable,
-                  });
-                  setDisableYAxisNormalization(disable);
-                }}
-              />
-            </InputErrorContainer>
-          </ParamContainer>
-        )}
-        {pulse3dVersionGte("0.25.0") && (
-          // Tanner (9/15/21): maxY added in 0.25.0
-          <ParamContainer>
-            <Label htmlFor="maxY">
-              Y-Axis Range (µN):
-              <Tooltip
-                title={
-                  <TooltipText>
-                    {"Specifies the maximum y-axis bound of graphs generated in the output xlsx file."}
-                  </TooltipText>
-                }
-              >
-                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
-              </Tooltip>
-            </Label>
-            <InputErrorContainer>
-              <FormInput
-                name="maxY"
-                placeholder={checkedParams ? "Auto" : ""}
-                value={analysisParams.maxY}
-                onChangeFn={(e) => {
-                  updateParams({
-                    maxY: e.target.value,
-                  });
-                }}
-                disabled={disableYAxisNormalization}
-              >
-                <ErrorText id="maxYError" role="errorMsg">
-                  {errorMessages.maxY}
-                </ErrorText>
-              </FormInput>
-            </InputErrorContainer>
-          </ParamContainer>
-        )}
-        <ParamContainer>
-          <Label htmlFor="twitchWidths">
-            Twitch Widths (%):
-            <Tooltip
-              title={
-                <TooltipText>
-                  {
-                    "Specifies which twitch width percentages to add to the Per Twitch metrics sheet and Aggregate Metrics sheet."
-                  }
-                </TooltipText>
-              }
-            >
-              <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
-            </Tooltip>
-          </Label>
-          <InputErrorContainer>
-            <FormInput
-              name="twitchWidths"
-              placeholder={checkedParams ? "50, 90" : ""}
-              value={analysisParams.twitchWidths}
-              onChangeFn={(e) => {
+        <AnalysisParamContainer
+          label="Show Stimulation Protocols"
+          name="showStimSheet"
+          tooltipText="When selected, adds a sheet to output file with stimulation protocols."
+        >
+          <InputErrorContainer style={{ marginLeft: "20%" }}>
+            <CheckboxWidget
+              checkedState={disableStimProtocols}
+              handleCheckbox={() => {
+                setDisableStimProtocols(!disableStimProtocols);
                 updateParams({
-                  twitchWidths: e.target.value,
+                  showStimSheet: !disableStimProtocols,
                 });
               }}
-            >
-              <ErrorText id="twitchWidthError" role="errorMsg">
-                {errorMessages.twitchWidths}
-              </ErrorText>
-            </FormInput>
+            />
           </InputErrorContainer>
-        </ParamContainer>
+        </AnalysisParamContainer>
+        <AnalysisParamContainer
+          label="Disable Y-Axis Normalization:"
+          name="normalizeYAxis"
+          tooltipText="When selected, disables normalization of the y-axis."
+        >
+          <InputErrorContainer style={{ marginLeft: "20%" }}>
+            <CheckboxWidget
+              checkedState={disableYAxisNormalization}
+              handleCheckbox={(disable) => {
+                updateParams({
+                  normalizeYAxis: !disable,
+                });
+                setDisableYAxisNormalization(disable);
+              }}
+            />
+          </InputErrorContainer>
+        </AnalysisParamContainer>
+        <AnalysisParamContainer
+          label="Y-Axis Range (µN)"
+          name="maxY"
+          tooltipText="Specifies the maximum y-axis bound of graphs generated in the output xlsx file."
+          placeholder={checkedParams ? "Auto" : ""}
+          value={analysisParams.maxY}
+          changeFn={(e) => {
+            updateParams({
+              maxY: e.target.value,
+            });
+          }}
+          disabled={disableYAxisNormalization}
+          errorMsg={errorMessages.maxY}
+        />
+        <AnalysisParamContainer
+          label="Twitch Widths (%)"
+          name="twitchWidths"
+          tooltipText="Specifies which twitch width percentages to add to the Per Twitch metrics sheet and Aggregate Metrics sheet."
+          placeholder={checkedParams ? "50, 90" : ""}
+          value={analysisParams.twitchWidths}
+          changeFn={(e) => {
+            updateParams({
+              twitchWidths: e.target.value,
+            });
+          }}
+          errorMsg={errorMessages.twitchWidths}
+        />
         {pulse3dVersionGte("0.30.1") && (
           // Tanner (2/7/23): stiffnessFactor added in 0.26.0 but there are bugs with using this param in re-analysis prior to 0.30.1
-          <ParamContainer>
-            <Label htmlFor="stiffnessFactor" style={{ width: "62%", lineHeight: 2.5 }}>
-              Post Stiffness Factor:
-              <Tooltip
-                title={
-                  <TooltipText>
-                    {
-                      "Specifies the post stiffness factor. If set to 'auto', will use the value encoded in the barcode."
-                    }
-                  </TooltipText>
-                }
-              >
-                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "10px 10px" }} />
-              </Tooltip>
-            </Label>
+          <AnalysisParamContainer
+            label="Post Stiffness Factor"
+            name="stiffnessFactor"
+            tooltipText="Specifies the post stiffness factor. If set to 'auto', will use the value encoded in the barcode."
+            additionaLabelStyle={{ width: "62%", lineHeight: 2.5 }}
+            iconStyle={{ fontSize: 20, margin: "10px 10px" }}
+          >
             <DropDownContainer>
               <DropDownWidget
                 options={Object.keys(stiffnessFactorDetails)}
@@ -607,173 +513,82 @@ export default function AnalysisParamForm({
                 initialSelected={0}
               />
             </DropDownContainer>
-          </ParamContainer>
+          </AnalysisParamContainer>
         )}
         {pulse3dVersionGte("0.30.1") && (
           // Tanner (2/7/23): wellsWithFlippedWaveforms added in 0.27.4 but there are bugs with using this param in re-analysis prior to 0.30.1
-          <ParamContainer style={{ padding: "20px 0px 10px 0px", width: "500px" }}>
-            <Label htmlFor="wellsWithFlippedWaveforms">
-              Wells With Flipped Waveforms:
-              <Tooltip
-                title={
-                  <TooltipText>
-                    {
-                      "[Beta 1.7 Instrument Recordings Only] Specifies the names of wells (i.e. A1, D6) which should have their waveforms flipped before analysis begins."
-                    }
-                  </TooltipText>
-                }
-              >
-                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
-              </Tooltip>
-            </Label>
-            <InputErrorContainer>
-              <FormInput
-                name="wellsWithFlippedWaveforms"
-                placeholder={checkedParams ? "None" : ""}
-                value={analysisParams.wellsWithFlippedWaveforms}
-                onChangeFn={(e) => {
-                  updateParams({
-                    wellsWithFlippedWaveforms: e.target.value,
-                  });
-                }}
-              >
-                <ErrorText id="twitchWidthError" role="errorMsg" style={{ width: "110%" }}>
-                  {errorMessages.wellsWithFlippedWaveforms}
-                </ErrorText>
-              </FormInput>
-            </InputErrorContainer>
-          </ParamContainer>
+          <AnalysisParamContainer
+            label="Wells With Flipped Waveforms"
+            name="wellsWithFlippedWaveforms"
+            tooltipText="[Beta 1.7 Instrument Recordings Only] Specifies the names of wells (i.e. A1, D6) which should have their waveforms flipped before analysis begins."
+            placeholder={checkedParams ? "None" : ""}
+            value={analysisParams.wellsWithFlippedWaveforms}
+            additionalErrorStyle={{ width: "50%" }}
+            changeFn={(e) => {
+              updateParams({
+                wellsWithFlippedWaveforms: e.target.value,
+              });
+            }}
+            additionalParamStyle={{ padding: "20px 0px 10px 0px", width: "500px" }}
+            errorMsg={errorMessages.wellsWithFlippedWaveforms}
+          />
         )}
       </InputContainerOne>
       <InputContainerTwo>
         <SectionLabel>Baseline Width</SectionLabel>
-
-        <ParamContainer>
-          <Label htmlFor="baseToPeak">
-            Base to Peak:
-            <Tooltip
-              title={
-                <TooltipText>
-                  {
-                    // TODO this needs to be more specific
-                    "Specifies the baseline metrics for twitch width percentages."
-                  }
-                </TooltipText>
-              }
-            >
-              <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
-            </Tooltip>
-          </Label>
-          <InputErrorContainer>
-            <FormInput
-              name="baseToPeak"
-              placeholder={checkedParams ? "10" : ""}
-              value={analysisParams.baseToPeak}
-              onChangeFn={(e) => {
-                updateParams({
-                  baseToPeak: e.target.value,
-                });
-              }}
-            >
-              <ErrorText id="baseToPeakError" role="errorMsg">
-                {errorMessages.baseToPeak}
-              </ErrorText>
-            </FormInput>
-          </InputErrorContainer>
-        </ParamContainer>
-        <ParamContainer>
-          <Label htmlFor="peakToBase">
-            Peak to Relaxation:
-            <Tooltip
-              title={
-                <TooltipText>
-                  {
-                    // TODO this needs to be more specific
-                    "Specifies the baseline metrics for twitch width percentages."
-                  }
-                </TooltipText>
-              }
-            >
-              <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
-            </Tooltip>
-          </Label>
-          <InputErrorContainer>
-            <FormInput
-              name="peakToBase"
-              placeholder={checkedParams ? "90" : ""}
-              value={analysisParams.peakToBase}
-              onChangeFn={(e) => {
-                updateParams({
-                  peakToBase: e.target.value,
-                });
-              }}
-            >
-              <ErrorText id="peakToBaseError" role="errorMsg">
-                {errorMessages.peakToBase}
-              </ErrorText>
-            </FormInput>
-          </InputErrorContainer>
-        </ParamContainer>
+        <AnalysisParamContainer
+          label="Base to Peak"
+          name="baseToPeak"
+          tooltipText="Specifies the baseline metrics for twitch width percentages."
+          placeholder={checkedParams ? "10" : ""}
+          value={analysisParams.baseToPeak}
+          changeFn={(e) => {
+            updateParams({
+              baseToPeak: e.target.value,
+            });
+          }}
+          errorMsg={errorMessages.baseToPeak}
+        />
+        <AnalysisParamContainer
+          label="Peak to Relaxation"
+          name="peakToBase"
+          tooltipText="Specifies the baseline metrics for twitch width percentages."
+          placeholder={checkedParams ? "90" : ""}
+          value={analysisParams.peakToBase}
+          changeFn={(e) => {
+            updateParams({
+              peakToBase: e.target.value,
+            });
+          }}
+          errorMsg={errorMessages.peakToBase}
+        />
         <SectionLabel>Window Analysis</SectionLabel>
-        <ParamContainer>
-          <Label htmlFor="startTime">
-            Start Time (s):
-            <Tooltip
-              title={
-                <TooltipText>
-                  {"Specifies the earliest timepoint (in seconds) to use in analysis."}
-                </TooltipText>
-              }
-            >
-              <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
-            </Tooltip>
-          </Label>
-          <InputErrorContainer>
-            <FormInput
-              name="startTime"
-              placeholder={checkedParams ? "0" : ""}
-              value={analysisParams.startTime}
-              onChangeFn={(e) => {
-                updateParams({
-                  startTime: e.target.value,
-                });
-              }}
-            >
-              <ErrorText id="startTimeError" role="errorMsg">
-                {errorMessages.startTime}
-              </ErrorText>
-            </FormInput>
-          </InputErrorContainer>
-        </ParamContainer>
-        <ParamContainer>
-          <Label htmlFor="endTime">
-            End Time (s):
-            <Tooltip
-              title={
-                <TooltipText>{"Specifies the latest timepoint (in seconds) to use in analysis."}</TooltipText>
-              }
-            >
-              <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
-            </Tooltip>
-          </Label>
-          <InputErrorContainer>
-            <FormInput
-              name="endTime"
-              placeholder={checkedParams ? "End" : ""}
-              value={analysisParams.endTime}
-              onChangeFn={(e) => {
-                updateParams({
-                  endTime: e.target.value,
-                });
-              }}
-            >
-              <ErrorText id="endTimeError" role="errorMsg">
-                {errorMessages.endTime}
-              </ErrorText>
-            </FormInput>
-          </InputErrorContainer>
-        </ParamContainer>
-
+        <AnalysisParamContainer
+          label="Start Time (s)"
+          name="startTime"
+          tooltipText="Specifies the earliest timepoint (in seconds) to use in analysis."
+          placeholder={checkedParams ? "0" : ""}
+          value={analysisParams.startTime}
+          changeFn={(e) => {
+            updateParams({
+              startTime: e.target.value,
+            });
+          }}
+          errorMsg={errorMessages.startTime}
+        />
+        <AnalysisParamContainer
+          label="End Time (s)"
+          name="endTime"
+          tooltipText="Specifies the latest timepoint (in seconds) to use in analysis."
+          placeholder={checkedParams ? "End" : ""}
+          value={analysisParams.endTime}
+          changeFn={(e) => {
+            updateParams({
+              endTime: e.target.value,
+            });
+          }}
+          errorMsg={errorMessages.endTime}
+        />
         <SectionLabel>Advanced Analysis</SectionLabel>
         <AdvAnalysisContainer>
           <TwoParamContainer style={{ width: "300px", alignItems: "start" }}>
