@@ -7,114 +7,127 @@ resources:
   - pulse3d-queue-processor-creds.yaml
 
 patchesJson6902:
-- target:
-    kind: JobRunner
-    name: pulse3d-queue-processor
-  patch: |-
-    - op: add
-      path: /spec/ecr_repo
-      value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker"
-- target:
-    kind: ScaledJob
-    name: pulse3d-scaledobject-0.28.3
-  patch: |-
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/image
-      value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.28.3"
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/env/1/value
-      value: prod-pulse3d-uploads
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/env/2/value
-      value: prod-mantarray-logs
-- target:
-    kind: ScaledJob
-    name: pulse3d-scaledobject-0.29.2
-  patch: |-
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/image
-      value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.29.2"
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/env/1/value
-      value: prod-pulse3d-uploads
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/env/2/value
-      value: prod-mantarray-logs
-- target:
-    kind: ScaledJob
-    name: pulse3d-scaledobject-0.30.4
-  patch: |-
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/image
-      value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.30.4"
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/env/1/value
-      value: prod-pulse3d-uploads
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/env/2/value
-      value: prod-mantarray-logs
-- target:
-    kind: ScaledJob
-    name: pulse3d-scaledobject-0.30.5
-  patch: |-
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/image
-      value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.30.5"
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/env/1/value
-      value: prod-pulse3d-uploads
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/env/2/value
-      value: prod-mantarray-logs
-- target:
-    kind: ScaledJob
-    name: pulse3d-scaledobject-0.31.0
-  patch: |-
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/image
-      value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.31.0"
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/env/1/value
-      value: prod-pulse3d-uploads
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/env/2/value
-      value: prod-mantarray-logs
-- target:
-    kind: ScaledJob
-    name: pulse3d-scaledobject-0.32.0
-  patch: |-
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/image
-      value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.32.0"
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/env/1/value
-      value: prod-pulse3d-uploads
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/env/2/value
-      value: prod-mantarray-logs
-- target:
-    kind: ScaledJob
-    name: pulse3d-scaledobject-0.32.2
-  patch: |-
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/image
-      value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.32.2"
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/env/1/value
-      value: prod-pulse3d-uploads
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/env/2/value
-      value: prod-mantarray-logs
-- target:
-    kind: ScaledJob
-    name: pulse3d-scaledobject-0.32.5
-  patch: |-
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/image
-      value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.32.5"
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/env/1/value
-      value: prod-pulse3d-uploads
-    - op: replace
-      path: /spec/jobTargetRef/template/spec/containers/0/env/2/value
-      value: prod-mantarray-logs
+  - target:
+      kind: JobRunner
+      name: pulse3d-queue-processor
+    patch: |-
+      - op: add
+        path: /spec/ecr_repo
+        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker"
+  - target:
+      kind: ScaledJob
+      name: pulse3d-scaledobject-0.28.3
+    patch: |-
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/image
+        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.28.3"
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/env/1/value
+        value: prod-pulse3d-uploads
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/env/2/value
+        value: prod-mantarray-logs
+  - target:
+      kind: ScaledJob
+      name: pulse3d-scaledobject-0.29.2
+    patch: |-
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/image
+        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.29.2"
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/env/1/value
+        value: prod-pulse3d-uploads
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/env/2/value
+        value: prod-mantarray-logs
+  - target:
+      kind: ScaledJob
+      name: pulse3d-scaledobject-0.30.4
+    patch: |-
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/image
+        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.30.4"
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/env/1/value
+        value: prod-pulse3d-uploads
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/env/2/value
+        value: prod-mantarray-logs
+  - target:
+      kind: ScaledJob
+      name: pulse3d-scaledobject-0.30.5
+    patch: |-
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/image
+        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.30.5"
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/env/1/value
+        value: prod-pulse3d-uploads
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/env/2/value
+        value: prod-mantarray-logs
+  - target:
+      kind: ScaledJob
+      name: pulse3d-scaledobject-0.31.0
+    patch: |-
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/image
+        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.31.0"
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/env/1/value
+        value: prod-pulse3d-uploads
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/env/2/value
+        value: prod-mantarray-logs
+  - target:
+      kind: ScaledJob
+      name: pulse3d-scaledobject-0.32.0
+    patch: |-
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/image
+        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.32.0"
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/env/1/value
+        value: prod-pulse3d-uploads
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/env/2/value
+        value: prod-mantarray-logs
+  - target:
+      kind: ScaledJob
+      name: pulse3d-scaledobject-0.32.2
+    patch: |-
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/image
+        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.32.2"
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/env/1/value
+        value: prod-pulse3d-uploads
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/env/2/value
+        value: prod-mantarray-logs
+  - target:
+      kind: ScaledJob
+      name: pulse3d-scaledobject-0.32.5
+    patch: |-
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/image
+        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.32.5"
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/env/1/value
+        value: prod-pulse3d-uploads
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/env/2/value
+        value: prod-mantarray-logs
+  - target:
+      kind: ScaledJob
+      name: pulse3d-scaledobject-0.32.6
+    patch: |-
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/image
+        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.32.6"
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/env/1/value
+        value: prod-pulse3d-uploads
+      - op: replace
+        path: /spec/jobTargetRef/template/spec/containers/0/env/2/value
+        value: prod-mantarray-logs
