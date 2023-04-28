@@ -11,6 +11,7 @@ import UploadsSubTable from "@/components/table/UploadsSubTable";
 import Checkbox from "@mui/material/Checkbox";
 import ResizableColumn from "@/components/table/ResizableColumn";
 import ColumnHead from "@/components/table/ColumnHead";
+import { parse } from "semver";
 
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
@@ -333,6 +334,12 @@ export default function Uploads() {
           const metaParams = { analysisParams };
           if ("name_override" in parsedMeta) metaParams.nameOverride = parsedMeta.name_override;
 
+          if ("error" in parsedMeta) {
+            if (parsedMeta.error.includes("Invalid file format")) {
+              status += ": Invalid file format";
+            }
+          }
+
           return {
             jobId: id,
             uploadId: upload_id,
@@ -345,6 +352,7 @@ export default function Uploads() {
             ...metaParams,
           };
         });
+
         setJobs(newJobs);
       }
     } catch (e) {

@@ -17,6 +17,8 @@ from pulse3D.constants import MICRO_TO_BASE_CONVERSION
 from pulse3D.constants import WELL_NAME_UUID
 from pulse3D.constants import PLATEMAP_LABEL_UUID
 from pulse3D.constants import NOT_APPLICABLE_LABEL
+from pulse3D.exceptions import DuplicateWellsFoundError
+from pulse3D.exceptions import IncorrectOpticalFileFormatError
 from pulse3D.excel_writer import write_xlsx
 from pulse3D.peak_detection import peak_detector
 from pulse3D.plate_recording import PlateRecording
@@ -172,7 +174,10 @@ async def process(con, item):
 
                 # Tanner (6/8/22): only supports analyzing one recording at a time right now. Functionality can be added whenever analyzing multiple files becomes necessary
                 first_recording = recordings[0]
-
+            except (DuplicateWellsFoundError, IncorrectOpticalFileFormatError):
+                # raise unique error to be shown in FE for this specific type of exception
+                logger.exception("Invalid file format")
+                raise
             except Exception as e:
                 logger.exception(f"PlateRecording failed: {e}")
                 raise

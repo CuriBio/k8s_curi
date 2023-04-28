@@ -77,6 +77,9 @@ export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, j
       }
     });
 
+    const status =
+      job.status === "finished" ? "Completed" : job.status[0].toUpperCase() + job.status.slice(1);
+
     return (
       <SubContainer key={Math.random()}>
         <SubRowFileName>
@@ -90,12 +93,11 @@ export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, j
         </SubRowFileName>
         <SubRow>{job.datetime}</SubRow>
         <SubRow>{paramsString.length === 0 ? "None" : paramsString}</SubRow>
-        <SubRow>
-          {job.status === "finished" ? "Completed" : job.status[0].toUpperCase() + job.status.slice(1)}
-        </SubRow>
+        <SubRow>{status}</SubRow>
       </SubContainer>
     );
   });
+
   return (
     <Container>
       <SubHeader>
