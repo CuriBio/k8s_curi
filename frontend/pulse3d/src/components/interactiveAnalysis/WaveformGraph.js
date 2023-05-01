@@ -1105,39 +1105,41 @@ export default function WaveformGraph({
         <XAxisContainer>
           <Legend>
             <table>
-              <tr>
-                <td>
-                  <Triangle type="peak" direction="top" />
-                  Peaks
-                </td>
-                <td>
-                  <LineColor type="peak" />
-                  Peak Detection Limit
-                </td>
-                <td>
-                  <LineAdjuster type="peak" />
-                  Peak Limit Adjuster
-                </td>
-                <td>
-                  <Triangle type="valley" direction="bottom" />
-                  Valleys
-                </td>
-                <td>
-                  <LineColor type="valley" />
-                  Valley Limiter
-                </td>
-                <td>
-                  <LineAdjuster type="valley" />
-                  Valley Limit Adjuster
-                </td>
-                <td>
-                  <ToRowComponent>
-                    <Triangle type="error" direction="top" />
-                    <Triangle type="error" direction="bottom" />
-                  </ToRowComponent>
-                  Duplicate Valley or Peak
-                </td>
-              </tr>
+              <tbody>
+                <tr>
+                  <td>
+                    <Triangle type="peak" direction="top" />
+                    Peaks
+                  </td>
+                  <td>
+                    <LineColor type="peak" />
+                    Peak Detection Limit
+                  </td>
+                  <td>
+                    <LineAdjuster type="peak" />
+                    Peak Limit Adjuster
+                  </td>
+                  <td>
+                    <Triangle type="valley" direction="bottom" />
+                    Valleys
+                  </td>
+                  <td>
+                    <LineColor type="valley" />
+                    Valley Limiter
+                  </td>
+                  <td>
+                    <LineAdjuster type="valley" />
+                    Valley Limit Adjuster
+                  </td>
+                  <td>
+                    <ToRowComponent>
+                      <Triangle type="error" direction="top" />
+                      <Triangle type="error" direction="bottom" />
+                    </ToRowComponent>
+                    Duplicate Valley or Peak
+                  </td>
+                </tr>
+              </tbody>
             </table>
           </Legend>
           <ToRowComponent>
