@@ -272,19 +272,17 @@ export default function InteractiveWaveformModal({
 
   const checkDuplicates = (well) => {
     const wellToUse = well ? well : selectedWell;
+    const { startTime, endTime } = editableStartEndTimes;
 
     let peaksList = editablePeaksValleys[wellToUse][0].sort((a, b) => a - b);
     let valleysList = editablePeaksValleys[wellToUse][1].sort((a, b) => a - b);
 
-    // if data for a well was never fetched, assume no filtering required because the user would not have moved the peaks and valley lines. Just checked duplicates against original peaks and valleys
-    if (wellToUse in originalData.coordinates) {
-      const dataToCompare = originalData.coordinates[wellToUse];
-
-      peaksList = peaksList.filter((peak) => dataToCompare[peak][1] >= peakValleyWindows[wellToUse].minPeaks);
-      valleysList = valleysList.filter(
-        (valley) => dataToCompare[valley][1] <= peakValleyWindows[wellToUse].maxValleys
-      );
-    }
+    // Filter before looking for duplicates
+    const wellCoords = originalData.coordinates[wellToUse]
+      ? originalData.coordinates[wellToUse]
+      : originalData.coordinates[selectedWell];
+    peaksList = filterPeaks(peaksList, startTime, endTime, wellCoords);
+    valleysList = filterValleys(valleysList, startTime, endTime, wellCoords);
 
     let peakIndex = 0;
     let valleyIndex = 0;
@@ -548,22 +546,10 @@ export default function InteractiveWaveformModal({
       let wellPeaks = editablePeaksValleys[well][0];
       let wellValleys = editablePeaksValleys[well][1];
 
-      // only filter if well data has been fetched, otherwise assume no filtering required because user would not have been able to have moved min peak and max valley lines
       if (well in originalData.coordinates) {
         const wellCoords = originalData.coordinates[well];
-        wellPeaks = wellPeaks.filter((peak) => {
-          const isPeakWithinWindow = dataToGraph[peak][0] >= startTime && dataToGraph[peak][0] <= endTime;
-          const peakMarkerY = wellCoords[peak][1];
-          const peaksLimitY = calculateYLimit(peakY1[wellIdx], peakY2[wellIdx], wellCoords[peak][0]);
-          return peakMarkerY >= peaksLimitY && isPeakWithinWindow;
-        });
-        wellValleys = wellValleys.filter((valley) => {
-          const isValleyWithinWindow =
-            dataToGraph[valley][0] >= startTime && dataToGraph[valley][0] <= endTime;
-          const valleyMarkerY = wellCoords[valley][1];
-          const valleyLimitY = calculateYLimit(valleyY1[wellIdx], valleyY2[wellIdx], wellCoords[valley][0]);
-          return valleyMarkerY <= valleyLimitY && isValleyWithinWindow;
-        });
+        wellPeaks = filterPeaks(wellPeaks, startTime, endTime, wellCoords);
+        wellValleys = filterValleys(wellValleys, startTime, endTime, wellCoords);
       }
       filtered[well] = [wellPeaks, wellValleys];
     }
@@ -889,6 +875,22 @@ export default function InteractiveWaveformModal({
   };
   const isNewY = (yToCompare, originalYArr) => {
     return originalYArr.length !== 0 && parseInt(yToCompare) !== parseInt(originalYArr[wellIdx]);
+  };
+  const filterPeaks = (peaksList, startTime, endTime, wellCoords) => {
+    return peaksList.filter((peak) => {
+      const isPeakWithinWindow = dataToGraph[peak][0] >= startTime && dataToGraph[peak][0] <= endTime;
+      const peakMarkerY = wellCoords[peak][1];
+      const peaksLimitY = calculateYLimit(peakY1[wellIdx], peakY2[wellIdx], wellCoords[peak][0]);
+      return peakMarkerY >= peaksLimitY && isPeakWithinWindow;
+    });
+  };
+  const filterValleys = (valleysList, startTime, endTime, wellCoords) => {
+    return valleysList.filter((valley) => {
+      const isValleyWithinWindow = dataToGraph[valley][0] >= startTime && dataToGraph[valley][0] <= endTime;
+      const valleyMarkerY = wellCoords[valley][1];
+      const valleyLimitY = calculateYLimit(valleyY1[wellIdx], valleyY2[wellIdx], wellCoords[valley][0]);
+      return valleyMarkerY <= valleyLimitY && isValleyWithinWindow;
+    });
   };
   function assignNewArr(data, newValue, setState) {
     let newArr = [...data];
