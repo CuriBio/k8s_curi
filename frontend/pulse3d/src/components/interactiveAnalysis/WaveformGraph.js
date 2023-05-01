@@ -147,7 +147,7 @@ width: 0;
 height: 0;
 border-left: 8px solid transparent;
 border-right: 8px solid transparent;
-border-${(props) => (props.type === "peak" ? "top" : "bottom")}: 13px solid ${(props) => {
+border-${(props) => props.direction}: 13px solid ${(props) => {
   if (props.type === "peak") {
     return "var(--curi-peaks)";
   } else if (props.type === "valley") {
@@ -167,6 +167,10 @@ const LineAdjuster = styled.div`
   width: 14px;
   border-radius: 50%;
   background-color: ${(props) => (props.type === "peak" ? "var(--curi-peaks)" : "var(--curi-valleys)")};
+`;
+const ToRowComponent = styled.div`
+  display: flex;
+  align-items: center;
 `;
 
 const contextMenuItems = {
@@ -1103,20 +1107,20 @@ export default function WaveformGraph({
             <table>
               <tr>
                 <td>
-                  <Triangle type="peak" />
-                  Detected Peaks
+                  <Triangle type="peak" direction="top" />
+                  Peaks
                 </td>
                 <td>
                   <LineColor type="peak" />
-                  Peak Limiter
+                  Peak Detection Limit
                 </td>
                 <td>
                   <LineAdjuster type="peak" />
-                  Peak Limiter Adjust
+                  Peak Limit Adjuster
                 </td>
                 <td>
-                  <Triangle type="valley" />
-                  Detected Valleys
+                  <Triangle type="valley" direction="bottom" />
+                  Valleys
                 </td>
                 <td>
                   <LineColor type="valley" />
@@ -1124,19 +1128,22 @@ export default function WaveformGraph({
                 </td>
                 <td>
                   <LineAdjuster type="valley" />
-                  Valley Limiter Adjust
+                  Valley Limit Adjuster
                 </td>
                 <td>
-                  <Triangle type="error" />
-                  Duplciate Valley or Peak
+                  <ToRowComponent>
+                    <Triangle type="error" direction="top" />
+                    <Triangle type="error" direction="bottom" />
+                  </ToRowComponent>
+                  Duplicate Valley or Peak
                 </td>
               </tr>
             </table>
           </Legend>
-          <div>
+          <ToRowComponent>
             <XAxisLabel>Time (seconds)</XAxisLabel>
             <ZoomWidget size={"20px"} zoomIn={() => handleZoomIn("x")} zoomOut={() => handleZoomOut("x")} />
-          </div>
+          </ToRowComponent>
           <CursorLocLabel>
             Cursor: [ {cursorLoc[0]}, {cursorLoc[1]} ]
           </CursorLocLabel>
