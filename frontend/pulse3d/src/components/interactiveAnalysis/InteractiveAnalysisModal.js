@@ -546,7 +546,6 @@ export default function InteractiveWaveformModal({
       let wellPeaks = editablePeaksValleys[well][0];
       let wellValleys = editablePeaksValleys[well][1];
 
-      // only filter if well data has been fetched, otherwise assume no filtering required because user would not have been able to have moved min peak and max valley lines
       if (well in originalData.coordinates) {
         const wellCoords = originalData.coordinates[well];
         wellPeaks = filterPeaks(wellPeaks, startTime, endTime, wellCoords);
@@ -803,17 +802,8 @@ export default function InteractiveWaveformModal({
 
       if (changesCopy.length > 0) {
         // grab state from the step before the undo step to set as current state
-        const {
-          peaks,
-          valleys,
-          startTime,
-          endTime,
-          pvWindow,
-          valleyYOne,
-          valleyYTwo,
-          peakYOne,
-          peakYTwo,
-        } = changesCopy[changesCopy.length - 1];
+        const { peaks, valleys, startTime, endTime, pvWindow, valleyYOne, valleyYTwo, peakYOne, peakYTwo } =
+          changesCopy[changesCopy.length - 1];
         // set old peaks and valleys to well
         peaksValleysCopy[selectedWell] = [[...peaks], [...valleys]];
         pvWindowCopy[selectedWell] = pvWindow;
