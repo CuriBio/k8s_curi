@@ -125,7 +125,7 @@ export default function UploadForm() {
   };
 
   const router = useRouter();
-  const { usageQuota } = useContext(AuthContext);
+  const { usageQuota, defaultReanalysisFile } = useContext(AuthContext);
 
   const [files, setFiles] = useState([]);
   const [formattedUploads, setFormattedUploads] = useState([]);
@@ -204,6 +204,7 @@ export default function UploadForm() {
   }, [router.query]);
 
   useEffect(() => {
+    console.log(uploads);
     if (uploads) {
       setFormattedUploads([...uploads.map((upload) => upload.filename).filter((name) => name)]);
     }
@@ -559,6 +560,7 @@ export default function UploadForm() {
               label="Select Recording"
               reset={files.length === 0}
               handleSelection={handleDropDownSelect}
+              defaultFile={defaultReanalysisFile}
             />
           </DropDownContainer>
         )}
