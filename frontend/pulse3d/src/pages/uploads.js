@@ -333,6 +333,12 @@ export default function Uploads() {
           const metaParams = { analysisParams };
           if ("name_override" in parsedMeta) metaParams.nameOverride = parsedMeta.name_override;
 
+          if ("error" in parsedMeta) {
+            if (parsedMeta.error.includes("Invalid file format")) {
+              status += ": Invalid file format";
+            }
+          }
+
           return {
             jobId: id,
             uploadId: upload_id,
@@ -345,6 +351,7 @@ export default function Uploads() {
             ...metaParams,
           };
         });
+
         setJobs(newJobs);
       }
     } catch (e) {
