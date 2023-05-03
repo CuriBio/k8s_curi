@@ -204,7 +204,6 @@ export default function UploadForm() {
   }, [router.query]);
 
   useEffect(() => {
-    console.log(uploads);
     if (uploads) {
       setFormattedUploads([...uploads.map((upload) => upload.filename).filter((name) => name)]);
     }
