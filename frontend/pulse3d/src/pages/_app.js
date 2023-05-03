@@ -37,6 +37,7 @@ function Pulse({ Component, pageProps }) {
   const [accountType, setAccountType] = useState();
   const [showLoggedOutAlert, setLoggedOutAlert] = useState(false);
   const [usageQuota, setUsageQuota] = useState(null);
+  const [defaultReanalysisFile, setDefaultReanalysisFile] = useState();
   let swInterval = null;
   // register the SW once
   useEffect(() => {
@@ -140,7 +141,9 @@ function Pulse({ Component, pageProps }) {
 
   return (
     <ThemeProvider theme={MUItheme}>
-      <AuthContext.Provider value={{ accountType, usageQuota, setUsageQuota }}>
+      <AuthContext.Provider
+        value={{ accountType, usageQuota, setUsageQuota, defaultReanalysisFile, setDefaultReanalysisFile }}
+      >
         <Layout>
           <ModalWidget
             open={showLoggedOutAlert}

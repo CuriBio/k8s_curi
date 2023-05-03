@@ -11,6 +11,7 @@ import UploadsSubTable from "@/components/table/UploadsSubTable";
 import Checkbox from "@mui/material/Checkbox";
 import ResizableColumn from "@/components/table/ResizableColumn";
 import ColumnHead from "@/components/table/ColumnHead";
+import { useRouter } from "next/router";
 
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
@@ -119,7 +120,8 @@ const modalObjs = {
   },
 };
 export default function Uploads() {
-  const { accountType, usageQuota } = useContext(AuthContext);
+  const router = useRouter();
+  const { accountType, usageQuota, setDefaultReanalysisFile } = useContext(AuthContext);
   const { uploads, setFetchUploads, pulse3dVersions } = useContext(UploadsContext);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
@@ -463,6 +465,13 @@ export default function Uploads() {
         }
       }
       setOpenInteractiveAnalysis(true);
+    } else if (option === 3) {
+      // Open Re-analyze tab with name of file pre-selected
+      const selectedUpload = uploads.filter((upload) =>
+        checkedUploads.some((checkUpload) => checkUpload === upload.id)
+      )[0];
+      setDefaultReanalysisFile(selectedUpload.filename);
+      router.push("/upload-form?id=Re-analyze+Existing+Upload");
     }
   };
 
@@ -826,12 +835,27 @@ export default function Uploads() {
   };
   const disableOptions = () => {
     const multiTargetOptions = Array(2).fill(checkedJobs.length === 0 && checkedUploads.length === 0);
-    const selectedJobsList = jobs.filter((job) => job.jobId === checkedJobs[0]);
-    const singleTargetOptions =
+    return [...multiTargetOptions, isSingleTargetSelected(), isSingleUploadSelected()];
+  };
+  const isSingleTargetSelected = () => {
+    const selectedJobsList = jobs.filter((job) => job.jobId === checkedJobs[0])[0];
+    return (
       checkedJobs.length !== 1 ||
       (selectedJobsList.length > 0 && selectedJobsList[0].status !== "finished") ||
-      (usageQuota && usageQuota.jobs_reached);
-    return [...multiTargetOptions, singleTargetOptions];
+      (usageQuota && usageQuota.jobs_reached)
+    );
+  };
+  const isSingleUploadSelected = () => {
+    if (uploads) {
+      const selectedUpoadsList = uploads.filter((upload) =>
+        checkedUploads.some((checkUpload) => checkUpload === upload.id)
+      );
+      return (
+        checkedUploads.length !== 1 ||
+        selectedUpoadsList.length !== 1 ||
+        (usageQuota && usageQuota.jobs_reached)
+      );
+    }
   };
   return (
     <>
@@ -871,7 +895,7 @@ export default function Uploads() {
                   options={
                     accountType === "admin"
                       ? ["Download", "Delete"]
-                      : ["Download", "Delete", "Interactive Analysis"]
+                      : ["Download", "Delete", "Interactive Analysis", "Re-Analyze"]
                   }
                   subOptions={{
                     Download: ["Download Analyses", "Download Raw Data"],
@@ -882,6 +906,9 @@ export default function Uploads() {
                     usageQuota && usageQuota.jobs_reached
                       ? "Interactive analysis is disabled because customer limit has been reached."
                       : "You must select one successful job to enable interactive analysis.",
+                    usageQuota && usageQuota.jobs_reached
+                      ? "Re-analysis is disabled because customer limit has been reached."
+                      : "You must select one upload to enable re-analysis.",
                   ]}
                   handleSelection={handleDropdownSelection}
                   handleSubSelection={handleDownloadSubSelection}
