@@ -460,10 +460,10 @@ export default function Uploads() {
       setOpenInteractiveAnalysis(true);
     } else if (option === 3) {
       // Open Re-analyze tab with name of file pre-selected
-      const selectedUpoad = uploads.filter((upload) =>
+      const selectedUpload = uploads.filter((upload) =>
         checkedUploads.some((checkUpload) => checkUpload === upload.id)
       )[0];
-      setDefaultReanalysisFile(selectedUpoad.filename);
+      setDefaultReanalysisFile(selectedUpload.filename);
       router.push("/upload-form?id=Re-analyze+Existing+Upload");
     }
   };
