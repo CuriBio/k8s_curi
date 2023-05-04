@@ -103,7 +103,8 @@ def test_routes_requiring_auth_without_tokens(method, route):
 
 
 @freeze_time()
-def test_login__user__success(cb_customer_id, mocked_asyncpg_con, mocker):
+@pytest.mark.parametrize("send_client_type", [True, False])
+def test_login__user__success(send_client_type, cb_customer_id, mocked_asyncpg_con, mocker):
     mocked_usage_check = mocker.patch.object(
         main,
         "check_customer_quota",
@@ -118,12 +119,16 @@ def test_login__user__success(cb_customer_id, mocked_asyncpg_con, mocker):
         },
         autospec=True,
     )
+
     login_details = {
         "customer_id": str(cb_customer_id),
         "username": "test_USERNAME",
         "password": "test_password",
         "service": "pulse3d",
     }
+    if send_client_type:
+        login_details["client_type"] = "dashboard"
+
     pw_hash = PasswordHasher().hash(login_details["password"])
     test_user_id = uuid.uuid4()
     test_scope = ["test:scope"]
@@ -163,7 +168,8 @@ def test_login__user__success(cb_customer_id, mocked_asyncpg_con, mocker):
 
 
 @freeze_time()
-def test_login__customer__success(mocked_asyncpg_con, mocker):
+@pytest.mark.parametrize("send_client_type", [True, False])
+def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
     mocked_usage_check = mocker.patch.object(
         main,
         "check_customer_quota",
@@ -180,6 +186,9 @@ def test_login__customer__success(mocked_asyncpg_con, mocker):
     )
 
     login_details = {"email": "TEST@email.com", "password": "test_password", "service": "pulse3d"}
+    if send_client_type:
+        login_details["client_type"] = "dashboard"
+
     pw_hash = PasswordHasher().hash(login_details["password"])
     test_customer_id = uuid.uuid4()
     customer_scope = ["pulse3d:free"]
