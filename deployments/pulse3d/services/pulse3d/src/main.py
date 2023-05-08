@@ -17,11 +17,13 @@ from fastapi import FastAPI, Request, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pulse3D.peak_detection import peak_detector
+from pulse3D.nb_peak_detection import noise_based_peak_finding
 from pulse3D.constants import (
     DEFAULT_BASELINE_WIDTHS,
     DEFAULT_PROMINENCE_FACTORS,
     MICRO_TO_BASE_CONVERSION,
     DEFAULT_WIDTH_FACTORS,
+    DEFAULT_NB_WIDTH_FACTORS,
 )
 
 from auth import ProtectedAny, PULSE3D_USER_SCOPES, PULSE3D_SCOPES, CUSTOMER_SCOPES, split_scope_account_data
@@ -367,7 +369,6 @@ async def create_new_job(
         # params to use for all current versions of pulse3d
         params = [
             "baseline_widths_to_use",
-            "prominence_factors",
             "width_factors",
             "twitch_widths",
             "start_time",
@@ -382,6 +383,7 @@ async def create_new_job(
         )
 
         pulse3d_semver = VersionInfo.parse(details.version)
+        use_noise_based_peak_finding = pulse3d_semver >= "0.33.2"
 
         # Luci (12/14/2022) PlateRecording.to_dataframe() was updated in 0.28.3 to include 0.0 timepoint so this accounts for the index difference between versions
         peak_valley_diff = 0
@@ -393,12 +395,24 @@ async def create_new_job(
 
         if pulse3d_semver >= "0.30.1":
             # Tanner (2/7/23): these params added in earlier versions but there are bugs with using this param in re-analysis prior to 0.30.1
-            params.append("stiffness_factor")
-            params.append("inverted_post_magnet_wells")
+            params += ["stiffness_factor", "inverted_post_magnet_wells"]
         if pulse3d_semver >= "0.30.3":
             params.append("well_groups")
         if pulse3d_semver >= "0.30.5":
             params.append("stim_waveform_format")
+
+        if use_noise_based_peak_finding:
+            params += [
+                "height_factor",
+                "relative_prominence_factor",
+                "noise_prominence_factor",
+                "max_frequency",
+                "valley_search_duration",
+                "upslope_duration",
+                "upslope_noise_allowance_duration",
+            ]
+        else:
+            params.append("prominence_factors")
 
         details_dict = dict(details)
 
@@ -409,10 +423,14 @@ async def create_new_job(
         # convert these params into a format compatible with pulse3D
         for param, default_values in (
             ("prominence_factors", DEFAULT_PROMINENCE_FACTORS),
-            ("width_factors", DEFAULT_WIDTH_FACTORS),
+            (
+                "width_factors",
+                DEFAULT_WIDTH_FACTORS if use_noise_based_peak_finding else DEFAULT_NB_WIDTH_FACTORS,
+            ),
             ("baseline_widths_to_use", DEFAULT_BASELINE_WIDTHS),
         ):
-            analysis_params[param] = _format_tuple_param(analysis_params[param], default_values)
+            if param in analysis_params:
+                analysis_params[param] = _format_tuple_param(analysis_params[param], default_values)
 
         logger.info(f"Using v{details.version} with params: {analysis_params}")
 
@@ -714,6 +732,7 @@ async def get_interactive_waveform_data(
                 peaks_and_valleys = _get_peaks_valleys(
                     parquet_path=pv_parquet_path,
                     time_force_df=time_force_df,
+                    pulse3d_version=pulse3d_version,
                     analysis_params=analysis_params,
                 )
 
@@ -728,7 +747,9 @@ async def get_interactive_waveform_data(
 
 
 # TODO should make a function in core that handles running peak_detector or loading peaks/valleys from parquet and import it here and in the pulse3d-worker
-def _get_peaks_valleys(parquet_path: str, time_force_df: pd.DataFrame, analysis_params: dict):
+def _get_peaks_valleys(
+    parquet_path: str, time_force_df: pd.DataFrame, pulse3d_version: str, analysis_params: dict
+):
     # Luci (12/14/2022) peaks_valleys will be none when interactive analysis is being run for the first time on the original analysis. There won't be any peaks or valleys found because nothing has been altered yet
     logger.info("Checking for peaks and valleys in S3")
     peaks_valleys_needed = len(parquet_path) == 0 and analysis_params.get("peaks_valleys") is None
@@ -760,13 +781,27 @@ def _get_peaks_valleys(parquet_path: str, time_force_df: pd.DataFrame, analysis_
 
             interpolated_well_data = np.row_stack([time[: len(well_force)], well_force])
 
+            param_names = ["width_factors", "start_time", "end_time"]
+            if pulse3d_version >= "0.33.2":
+                peak_detector_fn = noise_based_peak_finding
+                param_names += [
+                    "height_factor",
+                    "relative_prominence_factor",
+                    "noise_prominence_factor",
+                    "max_frequency",
+                    "valley_search_duration",
+                    "upslope_duration",
+                    "upslope_noise_allowance_duration",
+                ]
+            else:
+                peak_detector_fn = peak_detector
+                param_names.append("prominence_factors")
+
             peak_detector_params = {
-                param: analysis_params[param]
-                for param in ("prominence_factors", "width_factors", "start_time", "end_time")
-                if analysis_params[param] is not None
+                param: analysis_params[param] for param in param_names if analysis_params[param] is not None
             }
 
-            peaks, valleys = peak_detector(interpolated_well_data, **peak_detector_params)
+            peaks, valleys = peak_detector_fn(interpolated_well_data, **peak_detector_params)
             # needs to be converted to lists to be sent as json in response
             peaks_and_valleys[well] = [peaks.tolist(), valleys.tolist()]
 
