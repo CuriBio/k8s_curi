@@ -9,7 +9,8 @@ class UploadRequest(BaseModel):
     filename: str
     md5s: Optional[str]
     upload_type: str
-    auto_upload: Optional[bool] = True  # default to True to prevent changes from MA controller
+    # default to True to preserve backwards compatibility with older MA controller versions
+    auto_upload: Optional[bool] = True
 
 
 class UsageQuota(BaseModel):
@@ -24,7 +25,7 @@ class UploadResponse(BaseModel):
     params: Dict[str, Any]
 
 
-class JobRequest(BaseModel):
+class BaseJobRequest(BaseModel):
     upload_id: uuid.UUID
     version: str
     name_override: Optional[str]
@@ -46,10 +47,25 @@ class JobRequest(BaseModel):
     start_time: Optional[Number]
     end_time: Optional[Number]
 
-    prominence_factors: Optional[TupleParam]
     width_factors: Optional[TupleParam]
 
     well_groups: Optional[Dict[str, List[str]]]
+
+
+class OldJobRequest(BaseJobRequest):
+    prominence_factors: Optional[TupleParam]
+
+
+class JobRequest(BaseJobRequest):
+    height_factor: Optional[Number]
+    relative_prominence_factor: Optional[Number]
+    noise_prominence_factor: Optional[Number]
+
+    max_frequency: Optional[Number]
+
+    valley_search_duration: Optional[Number]
+    upslope_duration: Optional[Number]
+    upslope_noise_allowance_duration: Optional[Number]
 
 
 class JobResponse(BaseModel):

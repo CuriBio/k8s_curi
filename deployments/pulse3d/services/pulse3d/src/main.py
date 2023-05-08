@@ -38,7 +38,7 @@ from jobs import (
 from models.models import (
     UploadRequest,
     UploadResponse,
-    JobRequest,
+    BaseJobRequest,
     JobResponse,
     JobDownloadRequest,
     WaveformDataResponse,
@@ -355,7 +355,7 @@ async def _get_jobs(con, token, job_ids):
 
 @app.post("/jobs")
 async def create_new_job(
-    request: Request, details: JobRequest, token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES))
+    request: Request, details: BaseJobRequest, token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES))
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
