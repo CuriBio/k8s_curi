@@ -169,11 +169,11 @@ export default function AnalysisParamForm({
       (version) => version.version === pulse3dVersions[idx]
     )[0];
     if (selectedVersionMetadata) {
-      setPulse3dVersionEOLDate(
-        selectedVersionMetadata.end_of_life_date
-          ? ` Version ${selectedVersionMetadata.version} will be removed after ${selectedVersionMetadata.end_of_life_date}.`
-          : `Version ${selectedVersionMetadata.version} will be removed soon.`
-      );
+      let warning = `Version ${selectedVersionMetadata.version} will be removed `;
+      warning += selectedVersionMetadata.end_of_life_date
+        ? `after ${selectedVersionMetadata.end_of_life_date}.`
+        : "soon.";
+      setPulse3dVersionEOLDate(warning);
       setDeprecationNotice(selectedVersionMetadata.state === "deprecated");
     }
     updateParams({
@@ -183,14 +183,12 @@ export default function AnalysisParamForm({
 
   useEffect(() => {
     const filteredOptions = pulse3dVersions.filter(
-      (version) => (xlsxFilePresent && semverGte(version, "0.32.2")) || !xlsxFilePresent
+      (version) => !xlsxFilePresent || semverGte(version, "0.32.2")
     );
     const options = filteredOptions.map((version) => {
       const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
-      if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
-        return version + " " + "[ testing ]";
-      } else if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "deprecated") {
-        return version + " " + "[ deprecated ]";
+      if (selectedVersionMeta[0] && ["testing", "deprecated"].includes(selectedVersionMeta[0].state)) {
+        return version + `  [ ${selectedVersionMeta[0].state} ]`;
       } else {
         return version;
       }
@@ -529,7 +527,10 @@ export default function AnalysisParamForm({
                 wellsWithFlippedWaveforms: e.target.value,
               });
             }}
-            additionalParamStyle={{ padding: "20px 0px 10px 0px", width: "500px" }}
+            additionalParamStyle={{
+              padding: "20px 0px 10px 0px",
+              width: "500px",
+            }}
             errorMsg={errorMessages.wellsWithFlippedWaveforms}
           />
         )}
