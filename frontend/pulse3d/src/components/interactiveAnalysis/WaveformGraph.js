@@ -36,6 +36,7 @@ const CursorLocLabel = styled.div`
   font-size: 15px;
   cursor: default;
   width: 200px;
+  text-align: center;
 `;
 
 const TooltipText = styled.span`
@@ -52,6 +53,8 @@ const XAxisLabel = styled.div`
   left: 700px;
   font-size: 15px;
   overflow: hidden;
+  line-height: 2;
+  margin-right: 3px;
 `;
 const XAxisContainer = styled.div`
   position: relative;
@@ -1133,7 +1136,7 @@ export default function WaveformGraph({
               </tr>
             </table>
           </Legend>
-          <div>
+          <div style={{ display: "flex", alignItems: "center" }}>
             <XAxisLabel>Time (seconds)</XAxisLabel>
             <ZoomWidget size={"20px"} zoomIn={() => handleZoomIn("x")} zoomOut={() => handleZoomOut("x")} />
           </div>

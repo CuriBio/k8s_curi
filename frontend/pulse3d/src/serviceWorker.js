@@ -251,7 +251,9 @@ const interceptResponse = async (req, url) => {
       // if any other request receives an unauthorized or forbidden error code, send logout ping (this fn will also clear account info)
       sendLogoutMsg();
     } else if (isWaveformDataRequest(url)) {
-      caches.open(cacheName).then(async (cache) => cache.put(req, response.clone()));
+      caches.open(cacheName).then(async (cache) => {
+        if (response) cache.put(req, response.clone());
+      });
     }
 
     return response.clone();
