@@ -473,7 +473,6 @@ export default function InteractiveWaveformModal({
     setPeakValleyWindows(pvWindowCopy);
     setBothLinesToDefault();
   };
-  //here
   const postNewJob = async () => {
     try {
       setUploadInProgress(true);
@@ -804,8 +803,17 @@ export default function InteractiveWaveformModal({
 
       if (changesCopy.length > 0) {
         // grab state from the step before the undo step to set as current state
-        const { peaks, valleys, startTime, endTime, pvWindow, valleyYOne, valleyYTwo, peakYOne, peakYTwo } =
-          changesCopy[changesCopy.length - 1];
+        const {
+          peaks,
+          valleys,
+          startTime,
+          endTime,
+          pvWindow,
+          valleyYOne,
+          valleyYTwo,
+          peakYOne,
+          peakYTwo,
+        } = changesCopy[changesCopy.length - 1];
         // set old peaks and valleys to well
         peaksValleysCopy[selectedWell] = [[...peaks], [...valleys]];
         pvWindowCopy[selectedWell] = pvWindow;

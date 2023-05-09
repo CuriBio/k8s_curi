@@ -413,6 +413,12 @@ export default function WaveformGraph({
             peaksWindowLine.attr("x2", endPosition);
           })
           .on("end", function () {
+            const timeWidth = d3.select(this).attr("width");
+            const startPosition = d3.select(this).attr("x");
+            const endPosition = parseFloat(startPosition) + parseFloat(timeWidth);
+            // save new window analysis times to state on end so that it only updates changelog on drop
+            setNewStartTime(parseFloat(x.invert(startPosition).toFixed()));
+            setNewEndTime(parseFloat(x.invert(endPosition).toFixed()));
             d3.select(this).attr("opacity", 0.2).attr("cursor", "default");
           })
       );
