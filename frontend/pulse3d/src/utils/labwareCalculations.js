@@ -20,11 +20,11 @@ export class WellTitle {
    * Take pixel coordinates from a drawing and convert it back to the x/y numerical values that should have been used to generate those pixel coordinates.
    *
    * @param {int} numRows - The number of rows in the labware/plate
-   * @param {int} num_columns - The number of columns in the labware/plate
+   * @param {int} numCols - The number of columns in the labware/plate
    */
-  constructor(numRows, num_columns) {
+  constructor(numRows, numCols) {
     this.numRows = numRows;
-    this.num_columns = num_columns;
+    this.numCols = numCols;
   }
 
   /**
@@ -36,8 +36,8 @@ export class WellTitle {
     if (this.numRows < 1 || this.numRows > 18) {
       throw new Error(`Invalid number of rows: ${this.numRows}`);
     }
-    if (this.num_columns < 1 || this.num_columns > 36) {
-      throw new Error(`Invalid number of columns: ${this.num_columns}`);
+    if (this.numCols < 1 || this.numCols > 36) {
+      throw new Error(`Invalid number of columns: ${this.numCols}`);
     }
   }
 
@@ -99,5 +99,17 @@ export class WellTitle {
    */
   getWellIndexFromRowColumn(rowIndex, columnIndex) {
     return columnIndex * this.numRows + rowIndex;
+  }
+  /**
+   * Get the well index from well name
+   *
+   * @param {string} wellName
+   * @returns {int}
+   */
+  getIndexFromWellName(wellName) {
+    const row = wellName.charCodeAt(0) - "A".charCodeAt(0);
+    const col = parseInt(wellName.slice(1)) - 1;
+    const index = row * this.numCols + col;
+    return index;
   }
 }

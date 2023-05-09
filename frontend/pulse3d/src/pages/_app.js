@@ -48,12 +48,17 @@ function Pulse({ Component, pageProps }) {
           { type: "module" }
         )
         .then(navigator.serviceWorker.ready)
+        .then((registration) => {
+          registration.update();
+          console.log("Updating service worker");
+        }) // update the service worker
         .then(() =>
           sendSWMessage({
             msgType: "authCheck",
             routerPathname: router.pathname,
           })
         )
+
         .catch((e) => console.log("SERVICE WORKER ERROR: ", e));
 
       navigator.serviceWorker.addEventListener("message", ({ data }) => {

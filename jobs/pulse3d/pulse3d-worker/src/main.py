@@ -321,7 +321,6 @@ async def process(con, item):
                         upload_id,
                         file,
                         outfile_key,
-                        md5s,
                         re_analysis,
                     )
 

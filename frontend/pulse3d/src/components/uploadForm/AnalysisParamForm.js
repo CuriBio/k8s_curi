@@ -373,7 +373,7 @@ export default function AnalysisParamForm({
                 <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
               </Tooltip>
             </Label>
-            <InputErrorContainer style={{ width: 400 }}>
+            <InputErrorContainer style={{ width: "150%" }}>
               <FormInput
                 name="nameOverride"
                 placeholder={""}
