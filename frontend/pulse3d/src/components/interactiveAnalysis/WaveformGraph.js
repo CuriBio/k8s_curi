@@ -65,6 +65,11 @@ const XAxisContainer = styled.div`
   justify-content: space-around;
 `;
 
+const XAxisZoomContainer = styled.div`
+  display: flex;
+  align-items: center;
+`;
+
 const YAxisLabel = styled.div`
   position: relative;
   font-size: 15px;
@@ -1136,10 +1141,10 @@ export default function WaveformGraph({
               </tr>
             </table>
           </Legend>
-          <div style={{ display: "flex", alignItems: "center" }}>
+          <XAxisZoomContainer>
             <XAxisLabel>Time (seconds)</XAxisLabel>
             <ZoomWidget size={"20px"} zoomIn={() => handleZoomIn("x")} zoomOut={() => handleZoomOut("x")} />
-          </div>
+          </XAxisZoomContainer>
           <CursorLocLabel>
             Cursor: [ {cursorLoc[0]}, {cursorLoc[1]} ]
           </CursorLocLabel>
