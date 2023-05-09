@@ -876,7 +876,12 @@ export default function InteractiveWaveformModal({
     assignNewArr(valleyY2, newValleyY2, setValleyY2);
   };
   const isNewY = (yToCompare, originalYArr) => {
-    return originalYArr.length !== 0 && parseInt(yToCompare) !== parseInt(originalYArr[wellIdx]);
+    return (
+      yToCompare &&
+      originalYArr.length !== 0 &&
+      originalYArr[wellIdx] &&
+      parseInt(yToCompare) !== parseInt(originalYArr[wellIdx])
+    );
   };
   const filterPeaks = (peaksList, startTime, endTime, wellCoords) => {
     return peaksList.filter((peak) => {
