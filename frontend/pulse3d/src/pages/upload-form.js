@@ -109,8 +109,19 @@ export default function UploadForm() {
       baseToPeak: "",
       peakToBase: "",
       maxY: "",
-      prominenceFactor: "",
-      widthFactor: "",
+      prominenceFactorPeaks: "",
+      prominenceFactorValleys: "",
+      relativeProminenceFactor: "",
+      noiseProminenceFactor: "",
+      widthFactorPeaks: "",
+      widthFactorValleys: "",
+      minPeakWidth: "",
+      maxPeakWidth: "",
+      minPeakHeight: "",
+      maxFrequency: "",
+      valleySearchDuration: "",
+      upslopeDuration: "",
+      upslopeNoiseAllowance: "",
       twitchWidths: "",
       startTime: "",
       endTime: "",
@@ -247,6 +258,10 @@ export default function UploadForm() {
     return factors;
   };
 
+  const getNullIfEmpty = (val) => {
+    return val === "" ? null : val;
+  };
+
   const postNewJob = async (uploadId, filename) => {
     try {
       const {
@@ -257,8 +272,15 @@ export default function UploadForm() {
         maxY,
         prominenceFactorPeaks,
         prominenceFactorValleys,
+        relativeProminenceFactor,
+        noiseProminenceFactor,
         widthFactorPeaks,
         widthFactorValleys,
+        minPeakHeight,
+        maxFrequency,
+        valleySearchDuration,
+        upslopeDuration,
+        upslopeNoiseAllowance,
         twitchWidths,
         startTime,
         endTime,
@@ -276,37 +298,56 @@ export default function UploadForm() {
 
       const requestBody = {
         upload_id: uploadId,
-        normalize_y_axis: normalizeYAxis === "" ? null : normalizeYAxis,
         baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
-        prominence_factors: formatTupleParams(prominenceFactorPeaks, prominenceFactorValleys),
-        width_factors: formatTupleParams(widthFactorPeaks, widthFactorValleys),
-        twitch_widths: twitchWidths === "" ? null : twitchWidths,
-        start_time: startTime === "" ? null : startTime,
-        end_time: endTime === "" ? null : endTime,
-        max_y: maxY === "" ? null : maxY,
-        include_stim_protocols: showStimSheet === "" ? null : showStimSheet,
         // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
         version,
       };
 
+      // Tanner (5/8/23): not sure if there is a better way to write this loop
+      for (nameAndValue of [
+        ("normalize_y_axis", normalizeYAxis),
+        ("twitch_widths", twitchWidths),
+        ("start_time", startTime),
+        ("end_time", endTime),
+        ("max_y", maxY),
+        ("include_stim_protocols", showStimSheet),
+      ]) {
+        requestBody[nameAndValue[0]] = getNullIfEmpty(nameAndValue[1]);
+      }
+
       if (semverGte(version, "0.30.1")) {
-        requestBody.stiffness_factor = stiffnessFactor === "" ? null : stiffnessFactor;
-        requestBody.inverted_post_magnet_wells =
-          wellsWithFlippedWaveforms === "" ? null : wellsWithFlippedWaveforms;
+        requestBody.stiffness_factor = getNullIfEmpty(stiffnessFactor);
+        requestBody.inverted_post_magnet_wells = getNullIfEmpty(wellsWithFlippedWaveforms);
       }
       if (semverGte(version, "0.30.3")) {
         requestBody.well_groups = Object.keys(wellGroups).length === 0 ? null : wellGroups;
       }
       if (semverGte(version, "0.30.5")) {
-        requestBody.stim_waveform_format = stimWaveformFormat === "" ? null : stimWaveformFormat;
+        requestBody.stim_waveform_format = getNullIfEmpty(stimWaveformFormat);
       }
       if (semverGte(version, "0.32.2")) {
         // don't add name if it's the original filename or if it's empty
-        requestBody.name_override =
+        const useOriginalName =
           analysisParams.nameOverride === "" ||
-          analysisParams.nameOverride === removeFileExt(files[0].filename)
-            ? null
-            : analysisParams.nameOverride;
+          analysisParams.nameOverride === removeFileExt(files[0].filename);
+        requestBody.name_override = useOriginalName ? null : analysisParams.nameOverride;
+      }
+      if (semverGte(version, "0.33.2")) {
+        for (nameAndValue of [
+          ("relative_prominence_factor", relativeProminenceFactor),
+          ("noise_prominence_factor", noiseProminenceFactor),
+          ("height_factor", minPeakHeight),
+          ("max_frequency", maxFrequency),
+          ("valley_search_duration", valleySearchDuration),
+          ("upslope_duration", upslopeDuration),
+          ("upslope_noise_allowance_duration", upslopeNoiseAllowance),
+        ]) {
+          requestBody[nameAndValue[0]] = getNullIfEmpty(nameAndValue[1]);
+        }
+        analysisParams.width_factors = formatTupleParams(minPeakWidth, maxPeakWidth);
+      } else {
+        analysisParams.prominence_factors = formatTupleParams(prominenceFactorPeaks, prominenceFactorValleys);
+        analysisParams.width_factors = formatTupleParams(widthFactorPeaks, widthFactorValleys);
       }
 
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
