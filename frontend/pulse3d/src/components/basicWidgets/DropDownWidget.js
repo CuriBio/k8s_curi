@@ -150,7 +150,12 @@ export default function DropDownWidget({
 
   const getDisabledListItem = (tooltipOptions, idx, item) => {
     return (
-      <Tooltip key={idx} title={<TooltipText>{tooltipOptions[idx]}</TooltipText>} value={idx}>
+      <Tooltip
+        placement="left"
+        key={idx}
+        title={<TooltipText>{tooltipOptions[idx]}</TooltipText>}
+        value={idx}
+      >
         <div>
           <ListItem disabled={true}>{item}</ListItem>
         </div>

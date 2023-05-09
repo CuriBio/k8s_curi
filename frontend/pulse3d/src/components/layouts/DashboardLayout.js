@@ -37,10 +37,8 @@ export default function DashboardLayout({ children }) {
   };
 
   useEffect(() => {
-    if (router.pathname === "/uploads") {
+    if (router.pathname === "/uploads" || router.pathname === "/upload-form") {
       getUploads();
-      getPulse3dVersions();
-    } else if (router.pathname === "/upload-form") {
       getPulse3dVersions();
     }
   }, [router.pathname, fetchUploads]);
