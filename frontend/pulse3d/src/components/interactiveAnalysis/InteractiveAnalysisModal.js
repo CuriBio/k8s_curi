@@ -283,7 +283,6 @@ export default function InteractiveWaveformModal({
       : originalData.coordinates[selectedWell];
     peaksList = filterPeaks(peaksList, startTime, endTime, wellCoords);
     valleysList = filterValleys(valleysList, startTime, endTime, wellCoords);
-
     let peakIndex = 0;
     let valleyIndex = 0;
     const time = [];
@@ -474,6 +473,7 @@ export default function InteractiveWaveformModal({
     setPeakValleyWindows(pvWindowCopy);
     setBothLinesToDefault();
   };
+  //here
   const postNewJob = async () => {
     try {
       setUploadInProgress(true);
@@ -549,9 +549,10 @@ export default function InteractiveWaveformModal({
       let wellValleys = editablePeaksValleys[well][1];
 
       if (well in originalData.coordinates) {
+        const wellIndex = twentyFourPlateDefinition.getIndexFromWellName(well);
         const wellCoords = originalData.coordinates[well];
-        wellPeaks = filterPeaks(wellPeaks, startTime, endTime, wellCoords);
-        wellValleys = filterValleys(wellValleys, startTime, endTime, wellCoords);
+        wellPeaks = filterPeaks(wellPeaks, startTime, endTime, wellCoords, wellIndex);
+        wellValleys = filterValleys(wellValleys, startTime, endTime, wellCoords, wellIndex);
       }
       filtered[well] = [wellPeaks, wellValleys];
     }
@@ -623,7 +624,6 @@ export default function InteractiveWaveformModal({
     peakYTwo: peakY2ToCompare,
   }) => {
     let changelogMessage;
-
     const peaksMoved =
         JSON.stringify(peaksToCompare) !== JSON.stringify(markers[0]) &&
         peaksToCompare.length === markers[0].length, // added and deleted peaks is handled somewhere else
@@ -804,17 +804,8 @@ export default function InteractiveWaveformModal({
 
       if (changesCopy.length > 0) {
         // grab state from the step before the undo step to set as current state
-        const {
-          peaks,
-          valleys,
-          startTime,
-          endTime,
-          pvWindow,
-          valleyYOne,
-          valleyYTwo,
-          peakYOne,
-          peakYTwo,
-        } = changesCopy[changesCopy.length - 1];
+        const { peaks, valleys, startTime, endTime, pvWindow, valleyYOne, valleyYTwo, peakYOne, peakYTwo } =
+          changesCopy[changesCopy.length - 1];
         // set old peaks and valleys to well
         peaksValleysCopy[selectedWell] = [[...peaks], [...valleys]];
         pvWindowCopy[selectedWell] = pvWindow;
@@ -892,19 +883,21 @@ export default function InteractiveWaveformModal({
       parseInt(yToCompare) !== parseInt(originalYArr[wellIdx])
     );
   };
-  const filterPeaks = (peaksList, startTime, endTime, wellCoords) => {
+  const filterPeaks = (peaksList, startTime, endTime, wellCoords, wellIndex) => {
+    wellIndex = typeof wellIndex !== "undefined" ? wellIndex : wellIdx;
     return peaksList.filter((peak) => {
       const isPeakWithinWindow = dataToGraph[peak][0] >= startTime && dataToGraph[peak][0] <= endTime;
       const peakMarkerY = wellCoords[peak][1];
-      const peaksLimitY = calculateYLimit(peakY1[wellIdx], peakY2[wellIdx], wellCoords[peak][0]);
+      const peaksLimitY = calculateYLimit(peakY1[wellIndex], peakY2[wellIndex], wellCoords[peak][0]);
       return peakMarkerY >= peaksLimitY && isPeakWithinWindow;
     });
   };
-  const filterValleys = (valleysList, startTime, endTime, wellCoords) => {
+  const filterValleys = (valleysList, startTime, endTime, wellCoords, wellIndex) => {
+    wellIndex = typeof wellIndex !== "undefined" ? wellIndex : wellIdx;
     return valleysList.filter((valley) => {
       const isValleyWithinWindow = dataToGraph[valley][0] >= startTime && dataToGraph[valley][0] <= endTime;
       const valleyMarkerY = wellCoords[valley][1];
-      const valleyLimitY = calculateYLimit(valleyY1[wellIdx], valleyY2[wellIdx], wellCoords[valley][0]);
+      const valleyLimitY = calculateYLimit(valleyY1[wellIndex], valleyY2[wellIndex], wellCoords[valley][0]);
       return valleyMarkerY <= valleyLimitY && isValleyWithinWindow;
     });
   };
