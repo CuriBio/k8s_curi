@@ -7,3 +7,5 @@ resources:
 - pulse3d-deployment.yaml
 - pulse3d-jobs.yaml
 - jobs-operator.yaml
+- grafana.yaml
+- grafana-loki.yaml

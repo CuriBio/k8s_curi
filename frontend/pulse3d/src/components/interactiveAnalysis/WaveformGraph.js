@@ -36,6 +36,7 @@ const CursorLocLabel = styled.div`
   font-size: 15px;
   cursor: default;
   width: 200px;
+  text-align: center;
 `;
 
 const TooltipText = styled.span`
@@ -52,6 +53,8 @@ const XAxisLabel = styled.div`
   left: 700px;
   font-size: 15px;
   overflow: hidden;
+  line-height: 2;
+  margin-right: 3px;
 `;
 const XAxisContainer = styled.div`
   position: relative;
@@ -60,6 +63,11 @@ const XAxisContainer = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-around;
+`;
+
+const XAxisZoomContainer = styled.div`
+  display: flex;
+  align-items: center;
 `;
 
 const YAxisLabel = styled.div`
@@ -1133,10 +1141,10 @@ export default function WaveformGraph({
               </tr>
             </table>
           </Legend>
-          <div>
+          <XAxisZoomContainer>
             <XAxisLabel>Time (seconds)</XAxisLabel>
             <ZoomWidget size={"20px"} zoomIn={() => handleZoomIn("x")} zoomOut={() => handleZoomOut("x")} />
-          </div>
+          </XAxisZoomContainer>
           <CursorLocLabel>
             Cursor: [ {cursorLoc[0]}, {cursorLoc[1]} ]
           </CursorLocLabel>
