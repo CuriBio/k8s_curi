@@ -360,17 +360,17 @@ function NoiseBasedPeakFindingAdvAnalysisParams({
       />
       <AnalysisParamContainer
         label="Max Frequency of Peaks (Hz)"
-        name="maxFrequency"
+        name="maxPeakFreq"
         tooltipText="Specifies the maximum frequency at which peaks can occur."
         additionaErrorStyle={{ width: "150%" }}
         placeholder={checkedParams ? "100" : ""}
-        value={analysisParams.maxFrequency}
+        value={analysisParams.maxPeakFreq}
         changeFn={(e) => {
           updateParams({
-            maxFrequency: e.target.value,
+            maxPeakFreq: e.target.value,
           });
         }}
-        errorMsg={errorMessages.maxFrequency}
+        errorMsg={errorMessages.maxPeakFreq}
       />
       <AnalysisParamContainer
         label="Valley Window (ms)"
@@ -412,7 +412,7 @@ function NoiseBasedPeakFindingAdvAnalysisParams({
             upslopeNoiseAllowance: e.target.value,
           });
         }}
-        errorMsg={errorMessages.upslopeDuration}
+        errorMsg={errorMessages.upslopeNoiseAllowance}
         additionalLabelStyle={{
           width: "102%",
           lineHeight: 1.5,
@@ -505,9 +505,14 @@ export default function AnalysisParamForm({
       validateWellNames(updatedParams);
     }
 
-    if ("startTime" in newParams || "endTime" in newParams) {
-      // need to validate start and end time together
-      validateWindowBounds(updatedParams);
+    for (const [minName, maxName] of [
+      ["startTime", "endTime"],
+      ["minPeakWidth", "maxPeakWidth"],
+    ]) {
+      if (minName in newParams || maxName in newParams) {
+        // need to validate start and end time together
+        validateMinMax(updatedParams, minName, maxName);
+      }
     }
 
     for (const paramName of [
@@ -515,6 +520,13 @@ export default function AnalysisParamForm({
       "prominenceFactorValleys",
       "widthFactorPeaks",
       "widthFactorValleys",
+      "noiseProminenceFactor",
+      "relativeProminenceFactor",
+      "minPeakHeight",
+      "maxPeakFreq",
+      "valleySearchDuration",
+      "upslopeDuration",
+      "upslopeNoiseAllowance",
       "maxY",
       "baseToPeak",
       "peakToBase",
@@ -603,18 +615,20 @@ export default function AnalysisParamForm({
     updatedParams.wellsWithFlippedWaveforms = formattedWellNames;
   };
 
-  const validateWindowBounds = (updatedParams) => {
-    const { startTime, endTime } = updatedParams;
+  const validateMinMax = (updatedParams, minName, maxName) => {
+    const minValue = updatedParams[minName];
+    const maxValue = updatedParams[maxName];
+
     const updatedParamErrors = { ...paramErrors };
 
-    for (const [boundName, boundValue] of Object.entries({
-      startTime,
-      endTime,
-    })) {
+    for (const [boundName, boundValue] of [
+      [minName, minValue],
+      [maxName, maxValue],
+    ]) {
       let error = "";
       // only perform this check if something has actually been entered
       if (boundValue) {
-        const allowZero = boundName === "startTime";
+        const allowZero = boundName === minName;
         if (!checkPositiveNumberEntry(boundValue, allowZero)) {
           error = "*Must be a positive number";
         } else {
@@ -626,16 +640,16 @@ export default function AnalysisParamForm({
     }
 
     if (
-      // both window bounds have a value entered
-      updatedParams.startTime &&
-      updatedParams.endTime &&
-      // neither window bound is invalid individually
-      !updatedParamErrors.startTime &&
-      !updatedParamErrors.endTime &&
+      // both bounds have a value entered
+      updatedParams[minName] &&
+      updatedParams[maxName] &&
+      // neither bound is invalid individually
+      !updatedParamErrors[minName] &&
+      !updatedParamErrors[maxName] &&
       // bounds do not conflict with each other
-      Number(updatedParams.startTime) >= Number(updatedParams.endTime)
+      Number(updatedParams[minName]) >= Number(updatedParams[maxName])
     ) {
-      updatedParamErrors.endTime = "*Must be greater than Start Time";
+      updatedParamErrors[maxName] = "*Must be greater than Start Time";
     }
     setParamErrors(updatedParamErrors);
   };

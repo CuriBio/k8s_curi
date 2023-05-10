@@ -118,7 +118,7 @@ export default function UploadForm() {
       minPeakWidth: "",
       maxPeakWidth: "",
       minPeakHeight: "",
-      maxFrequency: "",
+      maxPeakFreq: "",
       valleySearchDuration: "",
       upslopeDuration: "",
       upslopeNoiseAllowance: "",
@@ -277,7 +277,7 @@ export default function UploadForm() {
         widthFactorPeaks,
         widthFactorValleys,
         minPeakHeight,
-        maxFrequency,
+        maxPeakFreq,
         valleySearchDuration,
         upslopeDuration,
         upslopeNoiseAllowance,
@@ -337,7 +337,7 @@ export default function UploadForm() {
           ("relative_prominence_factor", relativeProminenceFactor),
           ("noise_prominence_factor", noiseProminenceFactor),
           ("height_factor", minPeakHeight),
-          ("max_frequency", maxFrequency),
+          ("max_frequency", maxPeakFreq),
           ("valley_search_duration", valleySearchDuration),
           ("upslope_duration", upslopeDuration),
           ("upslope_noise_allowance_duration", upslopeNoiseAllowance),
@@ -575,7 +575,18 @@ export default function UploadForm() {
     <Container>
       <Uploads>
         <Header>Run Analysis</Header>
-        {!reanalysis ? (
+        {reanalysis ? (
+          <DropDownContainer>
+            <InputDropdownWidget
+              options={formattedUploads}
+              width={500}
+              label="Select Recording"
+              reset={files.length === 0}
+              handleSelection={handleDropDownSelect}
+              defaultFile={defaultReanalysisFile}
+            />
+          </DropDownContainer>
+        ) : (
           <>
             <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
               handleFileChange={(files) => setFiles(Object.values(files))}
@@ -592,17 +603,6 @@ export default function UploadForm() {
               </UploadCreditUsageInfo>
             ) : null}
           </>
-        ) : (
-          <DropDownContainer>
-            <InputDropdownWidget
-              options={formattedUploads}
-              width={500}
-              label="Select Recording"
-              reset={files.length === 0}
-              handleSelection={handleDropDownSelect}
-              defaultFile={defaultReanalysisFile}
-            />
-          </DropDownContainer>
         )}
         <AnalysisParamForm
           errorMessages={paramErrors}
