@@ -298,7 +298,7 @@ function NoiseBasedPeakFindingAdvAnalysisParams({
       />
       {/* TODO need to validate these together like with the start/end times of windowed analysis */}
       {/* TODO make sure to convert everything from ms to seconds before sending in the route */}
-      <TwoParamContainer style={{ alignItems: "start", height: "150px" }}>
+      <TwoParamContainer style={{ alignItems: "start", height: "150px", width: "100%" }}>
         <Label htmlFor="minPeakWidth" style={{ padding: "25px" }}>
           Width (ms):
           <Tooltip
@@ -413,6 +413,12 @@ function NoiseBasedPeakFindingAdvAnalysisParams({
           });
         }}
         errorMsg={errorMessages.upslopeDuration}
+        additionalLabelStyle={{
+          width: "102%",
+          lineHeight: 1.5,
+          whiteSpace: "normal",
+          textAlign: "center",
+        }}
       />
     </>
   );

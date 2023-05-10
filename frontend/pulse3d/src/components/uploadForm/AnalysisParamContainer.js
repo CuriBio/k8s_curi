@@ -9,7 +9,7 @@ const ParamContainer = styled.div`
   height: 70px;
   padding: 15px 0 10px 0;
   height: 70px;
-  width: 380px;
+  width: 450px;
 `;
 
 const Label = styled.label`
@@ -36,6 +36,7 @@ const InputErrorContainer = styled.div`
   display: flex;
   flex-direction: column;
   height: 60px;
+  width: 70%;
 `;
 
 const TooltipText = styled.span`
