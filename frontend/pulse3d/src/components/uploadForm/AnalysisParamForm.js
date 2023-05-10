@@ -139,10 +139,15 @@ const SmallLabel = styled.label`
   padding-right: 15px;
 `;
 
-const AdvAnalysisContainer = styled.div`
+const OriginalAdvAnalysisContainer = styled.div`
+  display: flex;
+  flex-direction: row;
+  height: 157px;
+`;
+
+const NoiseBasedAdvAnalysisContainer = styled.div`
   display: flex;
   flex-direction: column;
-  height: 157px;
 `;
 
 function OrginalPeakFindingAdvAnalysisParams({ analysisParams, checkedParams, updateParams, errorMessages }) {
@@ -294,7 +299,7 @@ function NoiseBasedPeakFindingAdvAnalysisParams({
       />
       {/* TODO need to validate these together like with the start/end times of windowed analysis */}
       {/* TODO make sure to convert everything from ms to seconds before sending in the route */}
-      <TwoParamContainer style={{ alignItems: "start" }}>
+      <TwoParamContainer style={{ alignItems: "start", height: "150px" }}>
         <Label htmlFor="minPeakWidth" style={{ padding: "25px" }}>
           Width (ms):
           <Tooltip
@@ -810,6 +815,13 @@ export default function AnalysisParamForm({
             errorMsg={errorMessages.wellsWithFlippedWaveforms}
           />
         )}
+        {pulse3dVersionGte("0.30.3") && (
+          <WellGroups
+            setAnalysisParams={setAnalysisParams}
+            analysisParams={analysisParams}
+            setWellGroupErr={setWellGroupErr}
+          />
+        )}
       </InputContainerOne>
       <InputContainerTwo>
         <SectionLabel>Baseline Width</SectionLabel>
@@ -867,29 +879,24 @@ export default function AnalysisParamForm({
           errorMsg={errorMessages.endTime}
         />
         <SectionLabel>Advanced Analysis</SectionLabel>
-        <AdvAnalysisContainer>
-          {useNoiseBasedPeakFinding() ? (
+        {useNoiseBasedPeakFinding() ? (
+          <NoiseBasedAdvAnalysisContainer>
             <NoiseBasedPeakFindingAdvAnalysisParams
               analysisParams={analysisParams}
               checkedParams={checkedParams}
               updateParams={updateParams}
               errorMessages={errorMessages}
             />
-          ) : (
+          </NoiseBasedAdvAnalysisContainer>
+        ) : (
+          <OriginalAdvAnalysisContainer>
             <OrginalPeakFindingAdvAnalysisParams
               analysisParams={analysisParams}
               checkedParams={checkedParams}
               updateParams={updateParams}
               errorMessages={errorMessages}
             />
-          )}
-        </AdvAnalysisContainer>
-        {pulse3dVersionGte("0.30.3") && (
-          <WellGroups
-            setAnalysisParams={setAnalysisParams}
-            analysisParams={analysisParams}
-            setWellGroupErr={setWellGroupErr}
-          />
+          </OriginalAdvAnalysisContainer>
         )}
       </InputContainerTwo>
       <ModalWidget
