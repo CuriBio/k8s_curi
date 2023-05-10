@@ -372,36 +372,20 @@ export default function AnalysisParamForm({
       {!checkedParams ? <WAOverlay /> : null}
       <InputContainerOne style={{ paddingTop: "2%" }}>
         {pulse3dVersionGte("0.32.2") && reanalysis && (
-          <ParamContainer>
-            <Label htmlFor="nameOverride">
-              Override original name:
-              <Tooltip
-                title={
-                  <TooltipText>
-                    {"This name will replace the original recording name for the ouput filename."}
-                  </TooltipText>
-                }
-              >
-                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
-              </Tooltip>
-            </Label>
-            <InputErrorContainer style={{ width: "150%" }}>
-              <FormInput
-                name="nameOverride"
-                placeholder={""}
-                value={analysisParams.nameOverride}
-                onChangeFn={(e) => {
-                  updateParams({
-                    nameOverride: e.target.value,
-                  });
-                }}
-              >
-                <ErrorText id="nameOverrideError" role="errorMsg">
-                  {errorMessages.nameOverride}
-                </ErrorText>
-              </FormInput>
-            </InputErrorContainer>
-          </ParamContainer>
+          <AnalysisParamContainer
+            label="Override original name"
+            name="nameOverride"
+            tooltipText="This name will replace the original recording name for the ouput filename."
+            additionaErrorStyle={{ width: "150%" }}
+            placeholder=""
+            value={analysisParams.nameOverride}
+            changeFn={(e) => {
+              updateParams({
+                nameOverride: e.target.value,
+              });
+            }}
+            errorMsg={errorMessages.nameOverride}
+          />
         )}
         <AnalysisParamContainer
           label="Pulse3D Version"
