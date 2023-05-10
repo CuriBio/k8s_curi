@@ -425,7 +425,7 @@ async def create_new_job(
             ("prominence_factors", DEFAULT_PROMINENCE_FACTORS),
             (
                 "width_factors",
-                DEFAULT_WIDTH_FACTORS if use_noise_based_peak_finding else DEFAULT_NB_WIDTH_FACTORS,
+                DEFAULT_NB_WIDTH_FACTORS if use_noise_based_peak_finding else DEFAULT_WIDTH_FACTORS,
             ),
             ("baseline_widths_to_use", DEFAULT_BASELINE_WIDTHS),
         ):

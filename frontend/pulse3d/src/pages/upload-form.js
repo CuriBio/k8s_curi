@@ -109,19 +109,6 @@ export default function UploadForm() {
       baseToPeak: "",
       peakToBase: "",
       maxY: "",
-      prominenceFactorPeaks: "",
-      prominenceFactorValleys: "",
-      relativeProminenceFactor: "",
-      noiseProminenceFactor: "",
-      widthFactorPeaks: "",
-      widthFactorValleys: "",
-      minPeakWidth: "",
-      maxPeakWidth: "",
-      minPeakHeight: "",
-      maxPeakFreq: "",
-      valleySearchDuration: "",
-      upslopeDuration: "",
-      upslopeNoiseAllowance: "",
       twitchWidths: "",
       startTime: "",
       endTime: "",
@@ -132,6 +119,21 @@ export default function UploadForm() {
       wellGroups: {},
       stimWaveformFormat: "",
       nameOverride: "",
+      // original advanced params
+      prominenceFactorPeaks: "",
+      prominenceFactorValleys: "",
+      widthFactorPeaks: "",
+      widthFactorValleys: "",
+      // noise based advanced params
+      relativeProminenceFactor: "",
+      noiseProminenceFactor: "",
+      minPeakWidth: "",
+      maxPeakWidth: "",
+      minPeakHeight: "",
+      maxPeakFreq: "",
+      valleySearchDuration: "",
+      upslopeDuration: "",
+      upslopeNoiseAllowance: "",
     };
   };
 
@@ -303,16 +305,15 @@ export default function UploadForm() {
         version,
       };
 
-      // Tanner (5/8/23): not sure if there is a better way to write this loop
-      for (nameAndValue of [
-        ("normalize_y_axis", normalizeYAxis),
-        ("twitch_widths", twitchWidths),
-        ("start_time", startTime),
-        ("end_time", endTime),
-        ("max_y", maxY),
-        ("include_stim_protocols", showStimSheet),
+      for (const [name, value] of [
+        ["normalize_y_axis", normalizeYAxis],
+        ["twitch_widths", twitchWidths],
+        ["start_time", startTime],
+        ["end_time", endTime],
+        ["max_y", maxY],
+        ["include_stim_protocols", showStimSheet],
       ]) {
-        requestBody[nameAndValue[0]] = getNullIfEmpty(nameAndValue[1]);
+        requestBody[name] = getNullIfEmpty(value);
       }
 
       if (semverGte(version, "0.30.1")) {
@@ -333,16 +334,16 @@ export default function UploadForm() {
         requestBody.name_override = useOriginalName ? null : analysisParams.nameOverride;
       }
       if (semverGte(version, "0.33.2")) {
-        for (nameAndValue of [
-          ("relative_prominence_factor", relativeProminenceFactor),
-          ("noise_prominence_factor", noiseProminenceFactor),
-          ("height_factor", minPeakHeight),
-          ("max_frequency", maxPeakFreq),
-          ("valley_search_duration", valleySearchDuration),
-          ("upslope_duration", upslopeDuration),
-          ("upslope_noise_allowance_duration", upslopeNoiseAllowance),
+        for (const [name, value] of [
+          ["relative_prominence_factor", relativeProminenceFactor],
+          ["noise_prominence_factor", noiseProminenceFactor],
+          ["height_factor", minPeakHeight],
+          ["max_frequency", maxPeakFreq],
+          ["valley_search_duration", valleySearchDuration],
+          ["upslope_duration", upslopeDuration],
+          ["upslope_noise_allowance_duration", upslopeNoiseAllowance],
         ]) {
-          requestBody[nameAndValue[0]] = getNullIfEmpty(nameAndValue[1]);
+          requestBody[name] = getNullIfEmpty(value);
         }
         analysisParams.width_factors = formatTupleParams(minPeakWidth, maxPeakWidth);
       } else {
