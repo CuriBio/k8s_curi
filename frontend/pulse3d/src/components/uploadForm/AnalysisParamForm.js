@@ -34,7 +34,7 @@ const TwoParamContainer = styled.div`
   flex-direction: row;
   height: 100%;
   justify-content: center;
-  width: 420px;
+  width: 380px;
   align-items: center;
 `;
 
@@ -85,7 +85,6 @@ const ErrorText = styled.span`
 const InputErrorContainer = styled.div`
   display: flex;
   flex-direction: column;
-  width: 70%;
   height: 60px;
 `;
 
