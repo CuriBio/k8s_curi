@@ -265,14 +265,6 @@ async def process(con, item):
                         peaks = peaks_valleys_df[f"{well_name}__peaks"].dropna().tolist()
                         valleys = peaks_valleys_df[f"{well_name}__valleys"].dropna().tolist()
 
-                        logger.info(f"@@@ {well_name=}")
-
-                        logger.info(f"!!! {peaks_valleys_df[f'{well_name}__peaks']}")
-                        logger.info(f"!!! {peaks_valleys_df[f'{well_name}__valleys']}")
-
-                        logger.info(f"$$$ {peaks=}")
-                        logger.info(f"$$$ {valleys=}")
-
                         peaks_valleys_dict[well_name] = [[int(x) for x in pv] for pv in (peaks, valleys)]
 
                 # set in analysis params to be passed to write_xlsx
