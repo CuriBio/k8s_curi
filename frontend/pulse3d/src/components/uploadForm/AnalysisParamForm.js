@@ -34,7 +34,7 @@ const TwoParamContainer = styled.div`
   flex-direction: row;
   height: 100%;
   justify-content: center;
-  width: 420px;
+  width: 380px;
   align-items: center;
 `;
 
@@ -85,7 +85,6 @@ const ErrorText = styled.span`
 const InputErrorContainer = styled.div`
   display: flex;
   flex-direction: column;
-  width: 70%;
   height: 60px;
 `;
 
@@ -139,11 +138,290 @@ const SmallLabel = styled.label`
   padding-right: 15px;
 `;
 
-const AdvAnalysisContainer = styled.div`
-display: flex;
-flex-direction row;
-height: 157px;
+const OriginalAdvAnalysisContainer = styled.div`
+  display: flex;
+  flex-direction: row;
+  width: 50%;
+  height: 157px;
 `;
+
+const NoiseBasedAdvAnalysisContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
+
+function OrginalPeakFindingAdvAnalysisParams({ analysisParams, checkedParams, updateParams, errorMessages }) {
+  return (
+    <>
+      <TwoParamContainer style={{ width: "300px", alignItems: "start" }}>
+        <Label htmlFor="prominenceFactors" style={{ padding: "25px" }}>
+          Prominence (µN):
+          <Tooltip
+            title={
+              <TooltipText>
+                {
+                  "Specifies the minimum required vertical distance between a local max and its lowest contour line to be classified as a peak."
+                }
+              </TooltipText>
+            }
+          >
+            <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+          </Tooltip>
+        </Label>
+        <InputErrorContainer style={{ height: "100px" }}>
+          <SmallLabel htmlFor="prominenceFactorPeaks">Peaks</SmallLabel>
+          <FormModify>
+            <FormInput
+              name="prominenceFactorPeaks"
+              placeholder={checkedParams ? "6" : ""}
+              value={analysisParams.prominenceFactorPeaks}
+              onChangeFn={(e) => {
+                updateParams({
+                  prominenceFactorPeaks: e.target.value,
+                });
+              }}
+            >
+              <ErrorText id="prominenceFactorPeaksError" role="errorMsg">
+                {errorMessages.prominenceFactorPeaks}
+              </ErrorText>
+            </FormInput>
+          </FormModify>
+          <SmallLabel htmlFor="prominenceFactorValleys">Valleys</SmallLabel>
+          <FormModify>
+            <FormInput
+              name="prominenceFactorValleys"
+              placeholder={checkedParams ? "6" : ""}
+              value={analysisParams.prominenceFactorValleys}
+              onChangeFn={(e) => {
+                updateParams({
+                  prominenceFactorValleys: e.target.value,
+                });
+              }}
+            >
+              <ErrorText id="prominenceFactorValleysError" role="errorMsg">
+                {errorMessages.prominenceFactorValleys}
+              </ErrorText>
+            </FormInput>
+          </FormModify>
+        </InputErrorContainer>
+      </TwoParamContainer>
+      <TwoParamContainer style={{ alignItems: "start" }}>
+        <Label htmlFor="widthFactorPeaks" style={{ padding: "25px" }}>
+          Width (ms):
+          <Tooltip
+            title={
+              <TooltipText>
+                {
+                  "Specifies the minimum required width of the base of a local max to be classified as a peak."
+                }
+              </TooltipText>
+            }
+          >
+            <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+          </Tooltip>
+        </Label>
+        <InputErrorContainer style={{ height: "100px" }}>
+          <SmallLabel htmlFor="widthFactorPeaks">Peaks</SmallLabel>
+          <FormModify>
+            <FormInput
+              name="widthFactorPeaks"
+              placeholder={checkedParams ? "7" : ""}
+              value={analysisParams.widthFactorPeaks}
+              onChangeFn={(e) => {
+                updateParams({
+                  widthFactorPeaks: e.target.value,
+                });
+              }}
+            >
+              <ErrorText id="widthFactorPeaksError" role="errorMsg">
+                {errorMessages.widthFactorPeaks}
+              </ErrorText>
+            </FormInput>
+          </FormModify>
+          <SmallLabel htmlFor="widthFactorValleys">Valleys</SmallLabel>
+          <FormModify>
+            <FormInput
+              name="widthFactorValleys"
+              placeholder={checkedParams ? "7" : ""}
+              value={analysisParams.widthFactorValleys}
+              onChangeFn={(e) => {
+                updateParams({
+                  widthFactorValleys: e.target.value,
+                });
+              }}
+            >
+              <ErrorText id="widthFactorValleysError" role="errorMsg">
+                {errorMessages.widthFactorValleys}
+              </ErrorText>
+            </FormInput>
+          </FormModify>
+        </InputErrorContainer>
+      </TwoParamContainer>
+    </>
+  );
+}
+
+function NoiseBasedPeakFindingAdvAnalysisParams({
+  analysisParams,
+  checkedParams,
+  updateParams,
+  errorMessages,
+}) {
+  return (
+    <>
+      <AnalysisParamContainer
+        label="Noise Prominence Factor"
+        name="noiseProminenceFactor"
+        tooltipText="Specifies the minimum required signal-to-noise ratio of peaks."
+        additionaErrorStyle={{ width: "150%" }}
+        placeholder={checkedParams ? "2.5" : ""}
+        value={analysisParams.noiseProminenceFactor}
+        changeFn={(e) => {
+          updateParams({
+            noiseProminenceFactor: e.target.value,
+          });
+        }}
+        errorMsg={errorMessages.noiseProminenceFactor}
+      />
+      <AnalysisParamContainer
+        label="Relative Prominence Factor"
+        name="relativeProminenceFactor"
+        tooltipText="Specifies the minimum required percentage of peak amplitude relative to the tallest peak."
+        additionaErrorStyle={{ width: "150%" }}
+        placeholder={checkedParams ? "0.2" : ""}
+        value={analysisParams.relativeProminenceFactor}
+        changeFn={(e) => {
+          updateParams({
+            relativeProminenceFactor: e.target.value,
+          });
+        }}
+        errorMsg={errorMessages.relativeProminenceFactor}
+      />
+      {/* TODO make sure to convert everything from ms to seconds before sending in the route */}
+      <TwoParamContainer style={{ alignItems: "start", height: "150px", width: "100%" }}>
+        <Label htmlFor="minPeakWidth" style={{ padding: "25px" }}>
+          Width (ms):
+          <Tooltip
+            title={<TooltipText>{"Specifies the min and max width requirements for peaks."}</TooltipText>}
+          >
+            <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
+          </Tooltip>
+        </Label>
+        <InputErrorContainer style={{ height: "100px" }}>
+          <SmallLabel htmlFor="minPeakWidth">Min</SmallLabel>
+          <FormModify>
+            <FormInput
+              name="minPeakWidth"
+              placeholder={checkedParams ? "0" : ""}
+              value={analysisParams.minPeakWidth}
+              onChangeFn={(e) => {
+                updateParams({
+                  minPeakWidth: e.target.value,
+                });
+              }}
+            >
+              <ErrorText id="minPeakWidthError" role="errorMsg">
+                {errorMessages.minPeakWidth}
+              </ErrorText>
+            </FormInput>
+          </FormModify>
+          <SmallLabel htmlFor="maxPeakWidth">Max</SmallLabel>
+          <FormModify>
+            <FormInput
+              name="maxPeakWidth"
+              placeholder={checkedParams ? "5000" : ""}
+              value={analysisParams.maxPeakWidth}
+              onChangeFn={(e) => {
+                updateParams({
+                  maxPeakWidth: e.target.value,
+                });
+              }}
+            >
+              <ErrorText id="maxPeakWidthError" role="errorMsg">
+                {errorMessages.maxPeakWidth}
+              </ErrorText>
+            </FormInput>
+          </FormModify>
+        </InputErrorContainer>
+      </TwoParamContainer>
+      <AnalysisParamContainer
+        label="Min Peak Height (µN)"
+        name="minPeakHeight"
+        tooltipText="Specifies the minimum required height of peaks."
+        additionaErrorStyle={{ width: "150%" }}
+        placeholder={checkedParams ? "0" : ""}
+        value={analysisParams.minPeakHeight}
+        changeFn={(e) => {
+          updateParams({
+            minPeakHeight: e.target.value,
+          });
+        }}
+        errorMsg={errorMessages.minPeakHeight}
+      />
+      <AnalysisParamContainer
+        label="Max Frequency of Peaks (Hz)"
+        name="maxPeakFreq"
+        tooltipText="Specifies the maximum frequency at which peaks can occur."
+        additionaErrorStyle={{ width: "150%" }}
+        placeholder={checkedParams ? "100" : ""}
+        value={analysisParams.maxPeakFreq}
+        changeFn={(e) => {
+          updateParams({
+            maxPeakFreq: e.target.value,
+          });
+        }}
+        errorMsg={errorMessages.maxPeakFreq}
+      />
+      <AnalysisParamContainer
+        label="Valley Window (ms)"
+        name="valleySearchDuration"
+        tooltipText="Specifies the duration of time prior to a peak in which a valley can be located."
+        additionaErrorStyle={{ width: "150%" }}
+        placeholder={checkedParams ? "1000" : ""}
+        value={analysisParams.valleySearchDuration}
+        changeFn={(e) => {
+          updateParams({
+            valleySearchDuration: e.target.value,
+          });
+        }}
+        errorMsg={errorMessages.valleySearchDuration}
+      />
+      <AnalysisParamContainer
+        label="Valley Upslope Duration (ms)"
+        name="upslopeDuration"
+        tooltipText="Specifies the min duration of time through which the waveform amplitude must continuously rise in order to be considered an upslope."
+        additionaErrorStyle={{ width: "150%" }}
+        placeholder={checkedParams ? "70" : ""}
+        value={analysisParams.upslopeDuration}
+        changeFn={(e) => {
+          updateParams({
+            upslopeDuration: e.target.value,
+          });
+        }}
+        errorMsg={errorMessages.upslopeDuration}
+      />
+      <AnalysisParamContainer
+        label="Valley Upslope Noise Allowance (ms)"
+        name="upslopeNoiseAllowance"
+        tooltipText="Specifies the max duration of time in which there is an amplitude decrease which can be tolerated within a single upslope."
+        additionaErrorStyle={{ width: "150%" }}
+        placeholder={checkedParams ? "10" : ""}
+        value={analysisParams.upslopeNoiseAllowance}
+        changeFn={(e) => {
+          updateParams({
+            upslopeNoiseAllowance: e.target.value,
+          });
+        }}
+        errorMsg={errorMessages.upslopeNoiseAllowance}
+        additionalLabelStyle={{
+          width: "102%",
+          lineHeight: 1.5,
+          whiteSpace: "normal",
+        }}
+      />
+    </>
+  );
+}
 
 export default function AnalysisParamForm({
   errorMessages,
@@ -162,7 +440,7 @@ export default function AnalysisParamForm({
   const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
   const [disableStimProtocols, setDisableStimProtocols] = useState(false);
   const [deprecationNotice, setDeprecationNotice] = useState(false);
-  const [pulse3dVersionEOLDate, setPulse3dVersionEOLDate] = useState("");
+  const [pulse3dVersionEOLDateWarning, setPulse3dVersionEOLDateWarning] = useState("");
   const [pulse3dVersionOptions, setPulse3dVersionOptions] = useState([]);
   const [pulse3dFilteredFileVersions, setPulse3dFilteredFileVersions] = useState([]);
 
@@ -172,11 +450,12 @@ export default function AnalysisParamForm({
     );
 
     if (selectedVersionMetadata) {
-      setPulse3dVersionEOLDate(
-        selectedVersionMetadata.end_of_life_date
-          ? ` Version ${selectedVersionMetadata.version} will be removed after ${selectedVersionMetadata.end_of_life_date}.`
-          : `Version ${selectedVersionMetadata.version} will be removed soon.`
-      );
+      let warning = `Version ${selectedVersionMetadata.version} will be removed `;
+      warning += selectedVersionMetadata.end_of_life_date
+        ? `after ${selectedVersionMetadata.end_of_life_date}.`
+        : "soon.";
+      // TODO try refactoring this so it just opens if a warning is set
+      setPulse3dVersionEOLDateWarning(warning);
       setDeprecationNotice(selectedVersionMetadata.state === "deprecated");
     }
     updateParams({
@@ -192,10 +471,8 @@ export default function AnalysisParamForm({
 
     const options = pulse3dFilteredFileVersions.map((version) => {
       const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
-      if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
-        return version + " " + "[ testing ]";
-      } else if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "deprecated") {
-        return version + " " + "[ deprecated ]";
+      if (selectedVersionMeta[0] && ["testing", "deprecated"].includes(selectedVersionMeta[0].state)) {
+        return version + `  [ ${selectedVersionMeta[0].state} ]`;
       } else {
         return version;
       }
@@ -206,7 +483,7 @@ export default function AnalysisParamForm({
 
   useEffect(() => {
     const filteredOptions = pulse3dVersions.filter(
-      (version) => (xlsxFilePresent && semverGte(version, "0.32.2")) || !xlsxFilePresent
+      (version) => !xlsxFilePresent || semverGte(version, "0.32.2")
     );
 
     setPulse3dFilteredFileVersions([...filteredOptions]);
@@ -215,6 +492,10 @@ export default function AnalysisParamForm({
   const pulse3dVersionGte = (version) => {
     const { selectedPulse3dVersion } = analysisParams;
     return selectedPulse3dVersion && semverGte(selectedPulse3dVersion, version);
+  };
+
+  const useNoiseBasedPeakFinding = () => {
+    return pulse3dVersionGte("0.33.2");
   };
 
   const stimWaveformFormatDetails = {
@@ -234,9 +515,14 @@ export default function AnalysisParamForm({
       validateWellNames(updatedParams);
     }
 
-    if ("startTime" in newParams || "endTime" in newParams) {
-      // need to validate start and end time together
-      validateWindowBounds(updatedParams);
+    for (const [minName, maxName] of [
+      ["startTime", "endTime"],
+      ["minPeakWidth", "maxPeakWidth"],
+    ]) {
+      if (minName in newParams || maxName in newParams) {
+        // need to validate start and end time together
+        validateMinMax(updatedParams, minName, maxName);
+      }
     }
 
     for (const paramName of [
@@ -244,6 +530,13 @@ export default function AnalysisParamForm({
       "prominenceFactorValleys",
       "widthFactorPeaks",
       "widthFactorValleys",
+      "noiseProminenceFactor",
+      "relativeProminenceFactor",
+      "minPeakHeight",
+      "maxPeakFreq",
+      "valleySearchDuration",
+      "upslopeDuration",
+      "upslopeNoiseAllowance",
       "maxY",
       "baseToPeak",
       "peakToBase",
@@ -332,18 +625,20 @@ export default function AnalysisParamForm({
     updatedParams.wellsWithFlippedWaveforms = formattedWellNames;
   };
 
-  const validateWindowBounds = (updatedParams) => {
-    const { startTime, endTime } = updatedParams;
+  const validateMinMax = (updatedParams, minName, maxName) => {
+    const minValue = updatedParams[minName];
+    const maxValue = updatedParams[maxName];
+
     const updatedParamErrors = { ...paramErrors };
 
-    for (const [boundName, boundValue] of Object.entries({
-      startTime,
-      endTime,
-    })) {
+    for (const [boundName, boundValue] of [
+      [minName, minValue],
+      [maxName, maxValue],
+    ]) {
       let error = "";
       // only perform this check if something has actually been entered
       if (boundValue) {
-        const allowZero = boundName === "startTime";
+        const allowZero = boundName === minName;
         if (!checkPositiveNumberEntry(boundValue, allowZero)) {
           error = "*Must be a positive number";
         } else {
@@ -355,16 +650,16 @@ export default function AnalysisParamForm({
     }
 
     if (
-      // both window bounds have a value entered
-      updatedParams.startTime &&
-      updatedParams.endTime &&
-      // neither window bound is invalid individually
-      !updatedParamErrors.startTime &&
-      !updatedParamErrors.endTime &&
+      // both bounds have a value entered
+      updatedParams[minName] &&
+      updatedParams[maxName] &&
+      // neither bound is invalid individually
+      !updatedParamErrors[minName] &&
+      !updatedParamErrors[maxName] &&
       // bounds do not conflict with each other
-      Number(updatedParams.startTime) >= Number(updatedParams.endTime)
+      Number(updatedParams[minName]) >= Number(updatedParams[maxName])
     ) {
-      updatedParamErrors.endTime = "*Must be greater than Start Time";
+      updatedParamErrors[maxName] = "*Must be greater than Start Time";
     }
     setParamErrors(updatedParamErrors);
   };
@@ -425,7 +720,6 @@ export default function AnalysisParamForm({
               width: "102%",
               lineHeight: 1.5,
               whiteSpace: "normal",
-              textAlign: "center",
             }}
             iconStyle={{ fontSize: 20, margin: "10px 10px" }}
           >
@@ -542,8 +836,18 @@ export default function AnalysisParamForm({
                 wellsWithFlippedWaveforms: e.target.value,
               });
             }}
-            additionalParamStyle={{ padding: "20px 0px 10px 0px", width: "500px" }}
+            additionalParamStyle={{
+              padding: "20px 0px 10px 0px",
+              width: "500px",
+            }}
             errorMsg={errorMessages.wellsWithFlippedWaveforms}
+          />
+        )}
+        {pulse3dVersionGte("0.30.3") && (
+          <WellGroups
+            setAnalysisParams={setAnalysisParams}
+            analysisParams={analysisParams}
+            setWellGroupErr={setWellGroupErr}
           />
         )}
       </InputContainerOne>
@@ -603,123 +907,29 @@ export default function AnalysisParamForm({
           errorMsg={errorMessages.endTime}
         />
         <SectionLabel>Advanced Analysis</SectionLabel>
-        <AdvAnalysisContainer>
-          <TwoParamContainer style={{ width: "300px", alignItems: "start" }}>
-            <Label htmlFor="prominenceFactorPeaks" style={{ padding: "25px" }}>
-              Prominence (µN):
-              <Tooltip
-                title={
-                  <TooltipText>
-                    {
-                      "Specifies the minimum required vertical distance between a local max and its lowest contour line to be classified as a peak."
-                    }
-                  </TooltipText>
-                }
-              >
-                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
-              </Tooltip>
-            </Label>
-            <InputErrorContainer style={{ height: "100px" }}>
-              <SmallLabel htmlFor="prominenceFactorPeaks">Peaks</SmallLabel>
-              <FormModify>
-                <FormInput
-                  name="prominenceFactorPeaks"
-                  placeholder={checkedParams ? "6" : ""}
-                  value={analysisParams.prominenceFactorPeaks}
-                  onChangeFn={(e) => {
-                    updateParams({
-                      prominenceFactorPeaks: e.target.value,
-                    });
-                  }}
-                >
-                  <ErrorText id="prominenceFactorPeaksError" role="errorMsg">
-                    {errorMessages.prominenceFactorPeaks}
-                  </ErrorText>
-                </FormInput>
-              </FormModify>
-              <SmallLabel htmlFor="prominenceFactorValleys">Valleys</SmallLabel>
-              <FormModify>
-                <FormInput
-                  name="prominenceFactorValleys"
-                  placeholder={checkedParams ? "6" : ""}
-                  value={analysisParams.prominenceFactorValleys}
-                  onChangeFn={(e) => {
-                    updateParams({
-                      prominenceFactorValleys: e.target.value,
-                    });
-                  }}
-                >
-                  <ErrorText id="prominenceFactorValleysError" role="errorMsg">
-                    {errorMessages.prominenceFactorValleys}
-                  </ErrorText>
-                </FormInput>
-              </FormModify>
-            </InputErrorContainer>
-          </TwoParamContainer>
-          <TwoParamContainer style={{ alignItems: "start" }}>
-            <Label htmlFor="widthFactorPeaks" style={{ padding: "25px" }}>
-              Width (ms):
-              <Tooltip
-                title={
-                  <TooltipText>
-                    {
-                      "Specifies the minimum required width of the base of a local max to be classified as a peak."
-                    }
-                  </TooltipText>
-                }
-              >
-                <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
-              </Tooltip>
-            </Label>
-            <InputErrorContainer style={{ height: "100px" }}>
-              <SmallLabel htmlFor="widthFactorPeaks">Peaks</SmallLabel>
-              <FormModify>
-                <FormInput
-                  name="widthFactorPeaks"
-                  placeholder={checkedParams ? "7" : ""}
-                  value={analysisParams.widthFactorPeaks}
-                  onChangeFn={(e) => {
-                    updateParams({
-                      widthFactorPeaks: e.target.value,
-                    });
-                  }}
-                >
-                  <ErrorText id="widthFactorPeaksError" role="errorMsg">
-                    {errorMessages.widthFactorPeaks}
-                  </ErrorText>
-                </FormInput>
-              </FormModify>
-              <SmallLabel htmlFor="widthFactorValleys">Valleys</SmallLabel>
-              <FormModify>
-                <FormInput
-                  name="widthFactorValleys"
-                  placeholder={checkedParams ? "7" : ""}
-                  value={analysisParams.widthFactorValleys}
-                  onChangeFn={(e) => {
-                    updateParams({
-                      widthFactorValleys: e.target.value,
-                    });
-                  }}
-                >
-                  <ErrorText id="widthFactorValleysError" role="errorMsg">
-                    {errorMessages.widthFactorValleys}
-                  </ErrorText>
-                </FormInput>
-              </FormModify>
-            </InputErrorContainer>
-          </TwoParamContainer>
-        </AdvAnalysisContainer>
-        {pulse3dVersionGte("0.30.3") && (
-          <WellGroups
-            setAnalysisParams={setAnalysisParams}
-            analysisParams={analysisParams}
-            setWellGroupErr={setWellGroupErr}
-          />
+        {useNoiseBasedPeakFinding() ? (
+          <NoiseBasedAdvAnalysisContainer>
+            <NoiseBasedPeakFindingAdvAnalysisParams
+              analysisParams={analysisParams}
+              checkedParams={checkedParams}
+              updateParams={updateParams}
+              errorMessages={errorMessages}
+            />
+          </NoiseBasedAdvAnalysisContainer>
+        ) : (
+          <OriginalAdvAnalysisContainer>
+            <OrginalPeakFindingAdvAnalysisParams
+              analysisParams={analysisParams}
+              checkedParams={checkedParams}
+              updateParams={updateParams}
+              errorMessages={errorMessages}
+            />
+          </OriginalAdvAnalysisContainer>
         )}
       </InputContainerTwo>
       <ModalWidget
         open={deprecationNotice}
-        labels={[pulse3dVersionEOLDate]}
+        labels={[pulse3dVersionEOLDateWarning]}
         closeModal={() => {
           setDeprecationNotice(false);
         }}

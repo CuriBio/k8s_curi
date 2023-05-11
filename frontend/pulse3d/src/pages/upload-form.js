@@ -109,8 +109,6 @@ export default function UploadForm() {
       baseToPeak: "",
       peakToBase: "",
       maxY: "",
-      prominenceFactor: "",
-      widthFactor: "",
       twitchWidths: "",
       startTime: "",
       endTime: "",
@@ -121,6 +119,21 @@ export default function UploadForm() {
       wellGroups: {},
       stimWaveformFormat: "",
       nameOverride: "",
+      // original advanced params
+      prominenceFactorPeaks: "",
+      prominenceFactorValleys: "",
+      widthFactorPeaks: "",
+      widthFactorValleys: "",
+      // noise based advanced params
+      relativeProminenceFactor: "",
+      noiseProminenceFactor: "",
+      minPeakWidth: "",
+      maxPeakWidth: "",
+      minPeakHeight: "",
+      maxPeakFreq: "",
+      valleySearchDuration: "",
+      upslopeDuration: "",
+      upslopeNoiseAllowance: "",
     };
   };
 
@@ -247,6 +260,10 @@ export default function UploadForm() {
     return factors;
   };
 
+  const getNullIfEmpty = (val) => {
+    return val === "" ? null : val;
+  };
+
   const postNewJob = async (uploadId, filename) => {
     try {
       const {
@@ -257,8 +274,15 @@ export default function UploadForm() {
         maxY,
         prominenceFactorPeaks,
         prominenceFactorValleys,
+        relativeProminenceFactor,
+        noiseProminenceFactor,
         widthFactorPeaks,
         widthFactorValleys,
+        minPeakHeight,
+        maxPeakFreq,
+        valleySearchDuration,
+        upslopeDuration,
+        upslopeNoiseAllowance,
         twitchWidths,
         startTime,
         endTime,
@@ -276,37 +300,70 @@ export default function UploadForm() {
 
       const requestBody = {
         upload_id: uploadId,
-        normalize_y_axis: normalizeYAxis === "" ? null : normalizeYAxis,
         baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
-        prominence_factors: formatTupleParams(prominenceFactorPeaks, prominenceFactorValleys),
-        width_factors: formatTupleParams(widthFactorPeaks, widthFactorValleys),
-        twitch_widths: twitchWidths === "" ? null : twitchWidths,
-        start_time: startTime === "" ? null : startTime,
-        end_time: endTime === "" ? null : endTime,
-        max_y: maxY === "" ? null : maxY,
-        include_stim_protocols: showStimSheet === "" ? null : showStimSheet,
         // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
         version,
       };
 
+      for (const [name, value] of [
+        ["normalize_y_axis", normalizeYAxis],
+        ["twitch_widths", twitchWidths],
+        ["start_time", startTime],
+        ["end_time", endTime],
+        ["max_y", maxY],
+        ["include_stim_protocols", showStimSheet],
+      ]) {
+        requestBody[name] = getNullIfEmpty(value);
+      }
+
       if (semverGte(version, "0.30.1")) {
-        requestBody.stiffness_factor = stiffnessFactor === "" ? null : stiffnessFactor;
-        requestBody.inverted_post_magnet_wells =
-          wellsWithFlippedWaveforms === "" ? null : wellsWithFlippedWaveforms;
+        requestBody.stiffness_factor = getNullIfEmpty(stiffnessFactor);
+        requestBody.inverted_post_magnet_wells = getNullIfEmpty(wellsWithFlippedWaveforms);
       }
       if (semverGte(version, "0.30.3")) {
         requestBody.well_groups = Object.keys(wellGroups).length === 0 ? null : wellGroups;
       }
       if (semverGte(version, "0.30.5")) {
-        requestBody.stim_waveform_format = stimWaveformFormat === "" ? null : stimWaveformFormat;
+        requestBody.stim_waveform_format = getNullIfEmpty(stimWaveformFormat);
       }
       if (semverGte(version, "0.32.2")) {
         // don't add name if it's the original filename or if it's empty
-        requestBody.name_override =
+        const useOriginalName =
           analysisParams.nameOverride === "" ||
-          analysisParams.nameOverride === removeFileExt(files[0].filename)
-            ? null
-            : analysisParams.nameOverride;
+          analysisParams.nameOverride === removeFileExt(files[0].filename);
+        requestBody.name_override = useOriginalName ? null : analysisParams.nameOverride;
+      }
+      if (semverGte(version, "0.33.2")) {
+        for (const [name, value] of [
+          ["relative_prominence_factor", relativeProminenceFactor],
+          ["noise_prominence_factor", noiseProminenceFactor],
+          ["height_factor", minPeakHeight],
+          ["max_frequency", maxPeakFreq],
+          ["valley_search_duration", valleySearchDuration],
+          ["upslope_duration", upslopeDuration],
+          ["upslope_noise_allowance_duration", upslopeNoiseAllowance],
+        ]) {
+          requestBody[name] = getNullIfEmpty(value);
+        }
+        requestBody.width_factors = formatTupleParams(minPeakWidth, maxPeakWidth);
+        // need to convert all these params from ms to s
+        for (const name of [
+          "valley_search_duration",
+          "upslope_duration",
+          "upslope_noise_allowance_duration",
+        ]) {
+          if (requestBody[name] !== null) {
+            requestBody[name] /= 1000;
+          }
+        }
+        if (requestBody.width_factors !== null) {
+          requestBody.width_factors = requestBody.width_factors.map((width) => {
+            width !== null ? width / 1000 : null;
+          });
+        }
+      } else {
+        requestBody.prominence_factors = formatTupleParams(prominenceFactorPeaks, prominenceFactorValleys);
+        requestBody.width_factors = formatTupleParams(widthFactorPeaks, widthFactorValleys);
       }
 
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
@@ -534,7 +591,18 @@ export default function UploadForm() {
     <Container>
       <Uploads>
         <Header>Run Analysis</Header>
-        {!reanalysis ? (
+        {reanalysis ? (
+          <DropDownContainer>
+            <InputDropdownWidget
+              options={formattedUploads}
+              width={500}
+              label="Select Recording"
+              reset={files.length === 0}
+              handleSelection={handleDropDownSelect}
+              defaultFile={defaultReanalysisFile}
+            />
+          </DropDownContainer>
+        ) : (
           <>
             <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
               handleFileChange={(files) => setFiles(Object.values(files))}
@@ -551,17 +619,6 @@ export default function UploadForm() {
               </UploadCreditUsageInfo>
             ) : null}
           </>
-        ) : (
-          <DropDownContainer>
-            <InputDropdownWidget
-              options={formattedUploads}
-              width={500}
-              label="Select Recording"
-              reset={files.length === 0}
-              handleSelection={handleDropDownSelect}
-              defaultFile={defaultReanalysisFile}
-            />
-          </DropDownContainer>
         )}
         <AnalysisParamForm
           errorMessages={paramErrors}
