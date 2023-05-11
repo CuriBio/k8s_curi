@@ -234,6 +234,7 @@ export default function InteractiveWaveformModal({
           // original data is set and never changed to hold original state in case of reset
           originalData.coordinates[well] = coordinates;
           setOriginalData(originalData);
+
           if (peaks_valleys_needed) {
             const { start_time, end_time } = selectedJob.analysisParams;
 
@@ -242,7 +243,6 @@ export default function InteractiveWaveformModal({
               min: start_time ? start_time : Math.min(...coordinates.map((coords) => coords[0])),
               max: end_time ? end_time : Math.max(...coordinates.map((coords) => coords[0])),
             });
-
             // won't be present for older recordings or if no replacement was ever given
             if ("nameOverride" in selectedJob) setNameOverride(selectedJob.nameOverride);
           }
@@ -922,6 +922,7 @@ export default function InteractiveWaveformModal({
         <DropDownWidget
           options={wellNames}
           handleSelection={handleWellSelection}
+          disabled={isLoading}
           reset={selectedWell == "A1"}
           initialSelected={0}
         />

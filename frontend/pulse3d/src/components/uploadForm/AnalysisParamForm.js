@@ -157,17 +157,20 @@ export default function AnalysisParamForm({
   reanalysis,
   xlsxFilePresent,
 }) {
+  const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails } = useContext(UploadsContext);
+
   const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
   const [disableStimProtocols, setDisableStimProtocols] = useState(false);
-  const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails } = useContext(UploadsContext);
   const [deprecationNotice, setDeprecationNotice] = useState(false);
   const [pulse3dVersionEOLDate, setPulse3dVersionEOLDate] = useState("");
   const [pulse3dVersionOptions, setPulse3dVersionOptions] = useState([]);
+  const [pulse3dFilteredFileVersions, setPulse3dFilteredFileVersions] = useState([]);
 
   const handlePulse3dVersionSelect = (idx) => {
-    const selectedVersionMetadata = metaPulse3dVersions.filter(
-      (version) => version.version === pulse3dVersions[idx]
-    )[0];
+    const selectedVersionMetadata = metaPulse3dVersions.find(
+      (version) => version.version === pulse3dFilteredFileVersions[idx]
+    );
+
     if (selectedVersionMetadata) {
       setPulse3dVersionEOLDate(
         selectedVersionMetadata.end_of_life_date
@@ -177,15 +180,17 @@ export default function AnalysisParamForm({
       setDeprecationNotice(selectedVersionMetadata.state === "deprecated");
     }
     updateParams({
-      selectedPulse3dVersion: pulse3dVersions[idx],
+      selectedPulse3dVersion: pulse3dFilteredFileVersions[idx],
     });
   };
 
   useEffect(() => {
-    const filteredOptions = pulse3dVersions.filter(
-      (version) => (xlsxFilePresent && semverGte(version, "0.32.2")) || !xlsxFilePresent
-    );
-    const options = filteredOptions.map((version) => {
+    // set back to index of zero, this gets handled after a file is uploaded and if an xlsx file is present, the pulse3d versions will be in a different order.
+    updateParams({
+      selectedPulse3dVersion: pulse3dFilteredFileVersions[0],
+    });
+
+    const options = pulse3dFilteredFileVersions.map((version) => {
       const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
       if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
         return version + " " + "[ testing ]";
@@ -197,7 +202,15 @@ export default function AnalysisParamForm({
     });
 
     setPulse3dVersionOptions([...options]);
-  }, [pulse3dVersions, metaPulse3dVersions, xlsxFilePresent]);
+  }, [pulse3dFilteredFileVersions, metaPulse3dVersions]);
+
+  useEffect(() => {
+    const filteredOptions = pulse3dVersions.filter(
+      (version) => (xlsxFilePresent && semverGte(version, "0.32.2")) || !xlsxFilePresent
+    );
+
+    setPulse3dFilteredFileVersions([...filteredOptions]);
+  }, [pulse3dVersions, xlsxFilePresent]);
 
   const pulse3dVersionGte = (version) => {
     const { selectedPulse3dVersion } = analysisParams;
