@@ -129,8 +129,8 @@ async def get_info_of_uploads(
 
             return uploads
 
-    except Exception as e:
-        logger.exception(f"Failed to get uploads: {repr(e)}")
+    except Exception:
+        logger.exception("Failed to get uploads")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -169,11 +169,11 @@ async def create_recording_upload(
 
                 params = _generate_presigned_post(details, PULSE3D_UPLOADS_BUCKET, s3_key)
                 return UploadResponse(id=upload_id, params=params)
-    except S3Error as e:
-        logger.exception(str(e))
+    except S3Error:
+        logger.exception("Error creating recording")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        logger.error(repr(e))
+    except Exception:
+        logger.exception("Error creating recording")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -195,8 +195,8 @@ async def soft_delete_uploads(
             await delete_uploads(
                 con=con, account_type=token["account_type"], account_id=account_id, upload_ids=upload_ids
             )
-    except Exception as e:
-        logger.error(repr(e))
+    except Exception:
+        logger.exception("Error deleting upload")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -242,8 +242,8 @@ async def download_zip_files(
                 media_type="application/zip",
             )
 
-    except Exception as e:
-        logger.error(f"Failed to download recording files: {repr(e)}")
+    except Exception:
+        logger.exception("Failed to download recording files")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -259,11 +259,11 @@ async def create_log_upload(
 
         params = _generate_presigned_post(details, MANTARRAY_LOGS_BUCKET, s3_key)
         return UploadResponse(params=params)
-    except S3Error as e:
-        logger.exception(str(e))
+    except S3Error:
+        logger.exception("Error creating log upload")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        logger.error(repr(e))
+    except Exception:
+        logger.exception("Error creating log upload")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -316,8 +316,8 @@ async def get_info_of_jobs(
                     logger.info(f"Generating presigned download url for {obj_key}")
                     try:
                         job_info["url"] = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, obj_key)
-                    except Exception as e:
-                        logger.error(f"Error generating presigned url for {obj_key}: {str(e)}")
+                    except Exception:
+                        logger.exception(f"Error generating presigned url for {obj_key}")
                         job_info["url"] = "Error creating download link"
                 else:
                     job_info["url"] = None
@@ -335,8 +335,8 @@ async def get_info_of_jobs(
 
         return response
 
-    except Exception as e:
-        logger.error(f"Failed to get jobs: {repr(e)}")
+    except Exception:
+        logger.exception("Failed to get jobs")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -505,12 +505,10 @@ async def create_new_job(
 
                     # format peaks and valleys to simple df
                     for well, peaks_valleys in details.peaks_valleys.items():
-                        peak_valleys_dict[f"{well}__peaks"] = pd.Series(
-                            [p + peak_valley_diff for p in peaks_valleys[0]]
-                        )
-                        peak_valleys_dict[f"{well}__valleys"] = pd.Series(
-                            [[v + peak_valley_diff for v in peaks_valleys[1]]]
-                        )
+                        for feature_idx, feature_name in enumerate(["peaks", "valleys"]):
+                            peak_valleys_dict[f"{well}__{feature_name}"] = (
+                                pd.Series(peaks_valleys[feature_idx]) + peak_valley_diff
+                            )
 
                     # write peaks and valleys to parquet file in temporary directory
                     pd.DataFrame(peak_valleys_dict).to_parquet(pv_parquet_path)
@@ -526,8 +524,8 @@ async def create_new_job(
             usage_quota=usage_quota,
         )
 
-    except Exception as e:
-        logger.exception(f"Failed to create job: {repr(e)}")
+    except Exception:
+        logger.exception("Failed to create job")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -568,8 +566,8 @@ async def soft_delete_jobs(
             await delete_jobs(
                 con=con, account_type=token["account_type"], account_id=account_id, job_ids=job_ids
             )
-    except Exception as e:
-        logger.error(f"Failed to soft delete jobs: {repr(e)}")
+    except Exception:
+        logger.exception("Failed to soft delete jobs")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -620,8 +618,8 @@ async def download_analyses(
             media_type="application/zip",
         )
 
-    except Exception as e:
-        logger.error(f"Failed to download analyses: {repr(e)}")
+    except Exception:
+        logger.exception("Failed to download analyses")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -634,7 +632,7 @@ def _yield_s3_objects(bucket: str, keys: List[str], filenames: List[str]):
             yield filenames[idx], datetime.now(), 0o600, ZIP_64, obj.get()["Body"]
 
     except Exception as e:
-        raise S3Error(f"Failed to access {bucket}/{key}: {repr(e)}")
+        raise S3Error(f"Failed to access {bucket}/{key}") from e
 
 
 @app.get("/jobs/waveform-data", response_model=Union[WaveformDataResponse, GenericErrorResponse])
@@ -738,11 +736,11 @@ async def get_interactive_waveform_data(
 
             return WaveformDataResponse(coordinates=coordinates, peaks_valleys=peaks_and_valleys)
 
-    except S3Error as e:
-        logger.error(f"Error from s3: {repr(e)}")
+    except S3Error:
+        logger.exception("Error from s3")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    except Exception as e:
-        logger.error(f"Failed to get interactive waveform data: {repr(e)}")
+    except Exception:
+        logger.exception("Failed to get interactive waveform data")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -829,8 +827,8 @@ async def get_versions(request: Request):
             )
         return [dict(row) for row in rows]
 
-    except Exception as e:
-        logger.error(f"Failed to retrieve info of pulse3d versions: {repr(e)}")
+    except Exception:
+        logger.exception("Failed to retrieve info of pulse3d versions")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -848,6 +846,6 @@ async def get_usage_quota(
         async with request.state.pgpool.acquire() as con:
             usage_quota = await check_customer_quota(con, customer_id, service)
             return usage_quota
-    except Exception as e:
-        logger.exception(f"Failed to fetch quota usage :{repr(e)}")
+    except Exception:
+        logger.exception("Failed to fetch quota usage")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

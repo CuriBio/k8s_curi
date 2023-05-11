@@ -92,8 +92,8 @@ async def process(con, item):
 
             key = f"{prefix}/{upload_filename}"
 
-        except Exception as e:
-            logger.exception(f"Fetching upload details failed: {e}")
+        except Exception:
+            logger.exception("Fetching upload details failed")
             raise
 
         with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
@@ -108,8 +108,8 @@ async def process(con, item):
 
             try:
                 s3_client.download_file(PULSE3D_UPLOADS_BUCKET, key, f"{tmpdir}/{analysis_filename}")
-            except Exception as e:
-                logger.exception(f"Failed to download recording zip file: {e}")
+            except Exception:
+                logger.exception("Failed to download recording zip file")
                 raise
 
             try:
@@ -120,8 +120,8 @@ async def process(con, item):
                 re_analysis = True
 
                 logger.info(f"Successfully downloaded {parquet_filename} to {parquet_path}")
-            except Exception:  # continue with analysis even if original force data is not found
-                logger.error(f"No existing data found for recording {parquet_filename}")
+            except Exception:  # TODO catch only boto3 errors here
+                logger.info(f"No existing data found for recording {parquet_filename}")
                 re_analysis = False
 
             try:
@@ -132,8 +132,8 @@ async def process(con, item):
                 interactive_analysis = True
 
                 logger.info(f"Successfully downloaded peaks and valleys to {pv_temp_path}")
-            except Exception:  # continue with analysis even if original force data is not found
-                logger.error("No existing peaks and valleys found for recording")
+            except Exception:  # TODO catch only boto3 errors here
+                logger.info("No existing peaks and valleys found for recording")
                 interactive_analysis = False
 
             try:
@@ -182,8 +182,8 @@ async def process(con, item):
                 # raise unique error to be shown in FE for this specific type of exception
                 logger.exception("Invalid file format")
                 raise
-            except Exception as e:
-                logger.exception(f"PlateRecording failed: {e}")
+            except Exception:
+                logger.exception("PlateRecording failed")
                 raise
 
             if use_existing_time_v_force:
@@ -196,8 +196,8 @@ async def process(con, item):
 
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=parquet_key, file=parquet_path)
                     logger.info(f"Uploaded time force data to {parquet_key}")
-                except Exception as e:
-                    logger.exception(f"Writing or uploading time force data failed: {e}")
+                except Exception:
+                    logger.exception("Writing or uploading time force data failed")
                     raise
 
             try:
@@ -265,13 +265,21 @@ async def process(con, item):
                         peaks = peaks_valleys_df[f"{well_name}__peaks"].dropna().tolist()
                         valleys = peaks_valleys_df[f"{well_name}__valleys"].dropna().tolist()
 
-                        peaks_valleys_dict[well_name] = [[int(x) for x in peaks], [int(x) for x in valleys]]
+                        logger.info(f"@@@ {well_name=}")
+
+                        logger.info(f"!!! {peaks_valleys_df[f'{well_name}__peaks']}")
+                        logger.info(f"!!! {peaks_valleys_df[f'{well_name}__valleys']}")
+
+                        logger.info(f"$$$ {peaks=}")
+                        logger.info(f"$$$ {valleys=}")
+
+                        peaks_valleys_dict[well_name] = [[int(x) for x in pv] for pv in (peaks, valleys)]
 
                 # set in analysis params to be passed to write_xlsx
                 analysis_params["peaks_valleys"] = peaks_valleys_dict
 
-            except Exception as e:
-                logger.exception(f"Failed to get peaks and valleys for write_xlsx: {e}")
+            except Exception:
+                logger.exception("Failed to get peaks and valleys for write_xlsx")
                 raise
 
             if not interactive_analysis:
@@ -281,8 +289,8 @@ async def process(con, item):
 
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=pv_parquet_key, file=pv_temp_path)
                     logger.info(f"Uploaded peaks and valleys to {pv_parquet_key}")
-                except Exception as e:
-                    logger.exception(f"Writing or uploading peaks and valleys failed: {e}")
+                except Exception:
+                    logger.exception("Writing or uploading peaks and valleys failed")
                     raise
             else:
                 logger.info("Skipping the writing of peaks and valleys to parquet in S3")
@@ -291,8 +299,8 @@ async def process(con, item):
                 outfile = write_xlsx(first_recording, **analysis_params)
                 outfile_prefix = prefix.replace("uploads/", "analyzed/")
                 outfile_key = f"{outfile_prefix}/{job_id}/{outfile}"
-            except Exception as e:
-                logger.exception(f"Writing xlsx output failed: {e}")
+            except Exception:
+                logger.exception("Writing xlsx output failed")
                 raise
 
             try:
@@ -320,8 +328,8 @@ async def process(con, item):
                         # add to job_metadata to get updated in jobs_result table
                         job_metadata |= {"analysis_params": updated_analysis_params}
 
-            except Exception as e:
-                logger.exception(f"Error updating well groups: {e}")
+            except Exception:
+                logger.exception("Error updating well groups")
                 raise
 
             with open(outfile, "rb") as file:
@@ -335,8 +343,8 @@ async def process(con, item):
                     s3_client.put_object(
                         Body=contents, Bucket=PULSE3D_UPLOADS_BUCKET, Key=outfile_key, ContentMD5=md5s
                     )
-                except Exception as e:
-                    logger.exception(f"Upload failed: {e}")
+                except Exception:
+                    logger.exception("Upload failed")
                     raise
 
                 try:
@@ -357,8 +365,8 @@ async def process(con, item):
                         "stim_barcode": stim_barcode,
                         "recording_length_ms": recording_length_ms,
                     }
-                except Exception as e:
-                    logger.exception(f"Failed to insert metadata to db for upload {upload_id}: {e}")
+                except Exception:
+                    logger.exception(f"Failed to insert metadata to db for upload {upload_id}")
                     raise
 
     except Exception as e:
@@ -390,8 +398,8 @@ async def main():
                     except EmptyQueue as e:
                         logger.info(f"No jobs in queue: {e}")
                         return
-                    except Exception as e:
-                        logger.exception(f"Processing queue item failed: {repr(e)}")
+                    except Exception:
+                        logger.exception("Processing queue item failed")
                         return
     finally:
         logger.info(f"Worker v{PULSE3D_VERSION} terminating")

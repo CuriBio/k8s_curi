@@ -52,9 +52,9 @@ async def get_software_for_main_fw(
     try:
         max_min_version_dict = get_required_sw_version_range(main_fw_version)
         return JSONResponse(max_min_version_dict)
-    except Exception as e:
+    except Exception:
         err_msg = f"Error getting the required SW version for main FW v{main_fw_version}"
-        logger.error(f"{err_msg}: {repr(e)}")
+        logger.exception(err_msg)
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"message": err_msg})
 
 
@@ -66,17 +66,17 @@ async def get_latest_versions(request: Request, serial_number: str):
         try:
             row = await con.fetchrow("SELECT hw_version FROM MAUnits WHERE serial_number = $1", serial_number)
             hardware_version = row["hw_version"]
-        except Exception as e:
+        except Exception:
             err_msg = f"Serial Number {serial_number} not found"
-            logger.error(f"{err_msg}: {repr(e)}")
+            logger.exception(err_msg)
             return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message": err_msg})
     # try to get latest FW versions from HW version
     try:
         latest_versions = resolve_versions(hardware_version)
         return JSONResponse({"latest_versions": latest_versions})
-    except Exception as e:
+    except Exception:
         err_msg = f"Error getting latest FW versions for {serial_number} with HW version {hardware_version}"
-        logger.error(f"{err_msg}: {repr(e)}")
+        logger.exception(err_msg)
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"message": err_msg})
 
 
@@ -89,9 +89,9 @@ async def get_firmware_download_url(
     try:
         url = get_download_url(version, fw_type)
         return JSONResponse({"presigned_url": url})
-    except Exception as e:
+    except Exception:
         err_msg = f"{fw_type.title()} Firmware v{version} not found"
-        logger.error(f"{err_msg}: {repr(e)}")
+        logger.exception(err_msg)
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message": err_msg})
 
 

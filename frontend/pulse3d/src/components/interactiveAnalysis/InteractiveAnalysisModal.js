@@ -542,6 +542,8 @@ export default function InteractiveWaveformModal({
   };
 
   const filterPeaksValleys = async () => {
+    const { startTime, endTime } = editableStartEndTimes;
+
     const filtered = {};
     for (const well of Object.keys(editablePeaksValleys)) {
       let wellPeaks = editablePeaksValleys[well][0];
