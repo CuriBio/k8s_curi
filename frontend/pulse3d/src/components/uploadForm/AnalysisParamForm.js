@@ -296,7 +296,6 @@ function NoiseBasedPeakFindingAdvAnalysisParams({
         }}
         errorMsg={errorMessages.relativeProminenceFactor}
       />
-      {/* TODO need to validate these together like with the start/end times of windowed analysis */}
       {/* TODO make sure to convert everything from ms to seconds before sending in the route */}
       <TwoParamContainer style={{ alignItems: "start", height: "150px", width: "100%" }}>
         <Label htmlFor="minPeakWidth" style={{ padding: "25px" }}>
@@ -507,8 +506,6 @@ export default function AnalysisParamForm({
 
   const updateParams = (newParams) => {
     const updatedParams = { ...analysisParams, ...newParams };
-
-    // TODO add all new params
 
     if ("twitchWidths" in newParams) {
       validateTwitchWidths(updatedParams);

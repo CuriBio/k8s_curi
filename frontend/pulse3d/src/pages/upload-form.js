@@ -345,10 +345,25 @@ export default function UploadForm() {
         ]) {
           requestBody[name] = getNullIfEmpty(value);
         }
-        analysisParams.width_factors = formatTupleParams(minPeakWidth, maxPeakWidth);
+        requestBody.width_factors = formatTupleParams(minPeakWidth, maxPeakWidth);
+        // need to convert all these params from ms to s
+        for (const name of [
+          "valley_search_duration",
+          "upslope_duration",
+          "upslope_noise_allowance_duration",
+        ]) {
+          if (requestBody[name] !== null) {
+            requestBody[name] *= 1000;
+          }
+        }
+        if (requestBody.width_factors !== null) {
+          requestBody.width_factors = requestBody.width_factors.map((width) => {
+            width !== null ? width * 1000 : null;
+          });
+        }
       } else {
-        analysisParams.prominence_factors = formatTupleParams(prominenceFactorPeaks, prominenceFactorValleys);
-        analysisParams.width_factors = formatTupleParams(widthFactorPeaks, widthFactorValleys);
+        requestBody.prominence_factors = formatTupleParams(prominenceFactorPeaks, prominenceFactorValleys);
+        requestBody.width_factors = formatTupleParams(widthFactorPeaks, widthFactorValleys);
       }
 
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
