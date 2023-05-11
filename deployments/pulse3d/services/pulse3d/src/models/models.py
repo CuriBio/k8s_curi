@@ -9,7 +9,8 @@ class UploadRequest(BaseModel):
     filename: str
     md5s: Optional[str]
     upload_type: str
-    auto_upload: Optional[bool] = True  # default to True to prevent changes from MA controller
+    # default to True to preserve backwards compatibility with older MA controller versions
+    auto_upload: Optional[bool] = True
 
 
 class UsageQuota(BaseModel):
@@ -26,11 +27,15 @@ class UploadResponse(BaseModel):
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
+
     version: str
-    name_override: Optional[str]
     previous_version: Optional[str]
 
+    name_override: Optional[str]
+    well_groups: Optional[Dict[str, List[str]]]
+
     normalize_y_axis: Optional[bool]
+    max_y: Optional[Number]
 
     stim_waveform_format: Optional[str]
     include_stim_protocols: Optional[bool]
@@ -39,17 +44,24 @@ class JobRequest(BaseModel):
     inverted_post_magnet_wells: Optional[List[str]]
 
     baseline_widths_to_use: Optional[TupleParam]
-    max_y: Optional[Number]
+    twitch_widths: Optional[List[int]]
     peaks_valleys: Optional[Dict[str, List[List[Number]]]]
 
-    twitch_widths: Optional[List[int]]
     start_time: Optional[Number]
     end_time: Optional[Number]
 
-    prominence_factors: Optional[TupleParam]
+    # shared peak finding params
     width_factors: Optional[TupleParam]
-
-    well_groups: Optional[Dict[str, List[str]]]
+    # old peak finding params
+    prominence_factors: Optional[TupleParam]
+    # noise based peak finding params
+    relative_prominence_factor: Optional[Number]
+    noise_prominence_factor: Optional[Number]
+    height_factor: Optional[Number]
+    max_frequency: Optional[Number]
+    valley_search_duration: Optional[Number]
+    upslope_duration: Optional[Number]
+    upslope_noise_allowance_duration: Optional[Number]
 
 
 class JobResponse(BaseModel):
