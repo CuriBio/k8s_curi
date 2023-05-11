@@ -17,10 +17,14 @@ from pulse3D.constants import MICRO_TO_BASE_CONVERSION
 from pulse3D.constants import WELL_NAME_UUID
 from pulse3D.constants import PLATEMAP_LABEL_UUID
 from pulse3D.constants import NOT_APPLICABLE_LABEL
-from pulse3D.exceptions import DuplicateWellsFoundError
+from pulse3D.exceptions import (
+    DuplicateWellsFoundError,
+    InvalidValleySearchDurationError,
+    TooFewPeaksDetectedError,
+)
 from pulse3D.exceptions import IncorrectOpticalFileFormatError
 from pulse3D.excel_writer import write_xlsx
-from pulse3D.peak_detection import noise_based_peak_finding
+from pulse3D.nb_peak_detection import noise_based_peak_finding
 from pulse3D.plate_recording import PlateRecording
 
 from jobs import get_item, EmptyQueue
@@ -223,10 +227,6 @@ async def process(con, item):
                         for param in peak_detector_params
                         if (val := analysis_params.get(param)) is not None
                     }
-                    for param in ("start_time", "end_time"):
-                        if param in peak_detector_args:
-                            # these values are in seconds but need to be converted to µs for peak_detector
-                            peak_detector_args[param] *= MICRO_TO_BASE_CONVERSION
 
                     peaks_valleys_for_df = dict()
                     for well in columns:
@@ -236,9 +236,16 @@ async def process(con, item):
                         logger.info(f"Finding peaks and valleys for well {well}")
                         well_force = recording_df[well].dropna().tolist()
                         interpolated_well_data = np.row_stack([time[: len(well_force)], well_force])
-                        peaks, valleys = noise_based_peak_finding(
-                            interpolated_well_data, **peak_detector_args
-                        )
+                        # noise based peak finding requires times to be in seconds
+                        interpolated_well_data[0] /= MICRO_TO_BASE_CONVERSION
+
+                        try:
+                            peaks, valleys = noise_based_peak_finding(
+                                interpolated_well_data, **peak_detector_args
+                            )
+                        except (InvalidValleySearchDurationError, TooFewPeaksDetectedError):
+                            peaks = []
+                            valleys = []
 
                         # need to initialize a dict with these values and then create the DF otherwise values will be truncated
                         peaks_valleys_for_df[f"{well}__peaks"] = pd.Series(peaks)

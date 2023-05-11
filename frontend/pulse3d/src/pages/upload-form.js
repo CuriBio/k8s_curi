@@ -353,12 +353,12 @@ export default function UploadForm() {
           "upslope_noise_allowance_duration",
         ]) {
           if (requestBody[name] !== null) {
-            requestBody[name] *= 1000;
+            requestBody[name] /= 1000;
           }
         }
         if (requestBody.width_factors !== null) {
           requestBody.width_factors = requestBody.width_factors.map((width) => {
-            width !== null ? width * 1000 : null;
+            width !== null ? width / 1000 : null;
           });
         }
       } else {

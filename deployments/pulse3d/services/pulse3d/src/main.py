@@ -40,7 +40,7 @@ from jobs import (
 from models.models import (
     UploadRequest,
     UploadResponse,
-    BaseJobRequest,
+    JobRequest,
     JobResponse,
     JobDownloadRequest,
     WaveformDataResponse,
@@ -357,7 +357,7 @@ async def _get_jobs(con, token, job_ids):
 
 @app.post("/jobs")
 async def create_new_job(
-    request: Request, details: BaseJobRequest, token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES))
+    request: Request, details: JobRequest, token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES))
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
@@ -783,6 +783,7 @@ def _get_peaks_valleys(
 
             param_names = ["width_factors", "start_time", "end_time"]
             if pulse3d_version >= "0.33.2":
+                interpolated_well_data[0] /= MICRO_TO_BASE_CONVERSION
                 peak_detector_fn = noise_based_peak_finding
                 param_names += [
                     "height_factor",

@@ -25,13 +25,17 @@ class UploadResponse(BaseModel):
     params: Dict[str, Any]
 
 
-class BaseJobRequest(BaseModel):
+class JobRequest(BaseModel):
     upload_id: uuid.UUID
+
     version: str
-    name_override: Optional[str]
     previous_version: Optional[str]
 
+    name_override: Optional[str]
+    well_groups: Optional[Dict[str, List[str]]]
+
     normalize_y_axis: Optional[bool]
+    max_y: Optional[Number]
 
     stim_waveform_format: Optional[str]
     include_stim_protocols: Optional[bool]
@@ -40,29 +44,21 @@ class BaseJobRequest(BaseModel):
     inverted_post_magnet_wells: Optional[List[str]]
 
     baseline_widths_to_use: Optional[TupleParam]
-    max_y: Optional[Number]
+    twitch_widths: Optional[List[int]]
     peaks_valleys: Optional[Dict[str, List[List[Number]]]]
 
-    twitch_widths: Optional[List[int]]
     start_time: Optional[Number]
     end_time: Optional[Number]
 
+    # shared peak finding params
     width_factors: Optional[TupleParam]
-
-    well_groups: Optional[Dict[str, List[str]]]
-
-
-class OldJobRequest(BaseJobRequest):
+    # old peak finding params
     prominence_factors: Optional[TupleParam]
-
-
-class JobRequest(BaseJobRequest):
-    height_factor: Optional[Number]
+    # noise based peak finding params
     relative_prominence_factor: Optional[Number]
     noise_prominence_factor: Optional[Number]
-
+    height_factor: Optional[Number]
     max_frequency: Optional[Number]
-
     valley_search_duration: Optional[Number]
     upslope_duration: Optional[Number]
     upslope_noise_allowance_duration: Optional[Number]
