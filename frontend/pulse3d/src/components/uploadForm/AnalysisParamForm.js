@@ -141,6 +141,7 @@ const SmallLabel = styled.label`
 const OriginalAdvAnalysisContainer = styled.div`
   display: flex;
   flex-direction: row;
+  width: 50%;
   height: 157px;
 `;
 
@@ -416,7 +417,6 @@ function NoiseBasedPeakFindingAdvAnalysisParams({
           width: "102%",
           lineHeight: 1.5,
           whiteSpace: "normal",
-          textAlign: "center",
         }}
       />
     </>
@@ -720,7 +720,6 @@ export default function AnalysisParamForm({
               width: "102%",
               lineHeight: 1.5,
               whiteSpace: "normal",
-              textAlign: "center",
             }}
             iconStyle={{ fontSize: 20, margin: "10px 10px" }}
           >
