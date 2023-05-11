@@ -335,12 +335,14 @@ export default function Uploads() {
           const metaParams = { analysisParams };
           if ("name_override" in parsedMeta) metaParams.nameOverride = parsedMeta.name_override;
 
+          // handle specific errors to let users know
           if ("error" in parsedMeta) {
             if (parsedMeta.error.includes("Invalid file format")) {
               status += ": Invalid file format";
+            } else if (parsedMeta.error.includes("Unable to converge")) {
+              status += ": Unable to converge due to bad data";
             }
           }
-
           return {
             jobId: id,
             uploadId: upload_id,

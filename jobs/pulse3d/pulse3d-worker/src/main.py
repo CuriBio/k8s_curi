@@ -22,6 +22,7 @@ from pulse3D.exceptions import IncorrectOpticalFileFormatError
 from pulse3D.excel_writer import write_xlsx
 from pulse3D.peak_detection import peak_detector
 from pulse3D.plate_recording import PlateRecording
+from mantarray_magnet_finding.exceptions import UnableToConverError
 
 from jobs import get_item, EmptyQueue
 from utils.s3 import upload_file_to_s3
@@ -177,6 +178,9 @@ async def process(con, item):
             except (DuplicateWellsFoundError, IncorrectOpticalFileFormatError):
                 # raise unique error to be shown in FE for this specific type of exception
                 logger.exception("Invalid file format")
+                raise
+            except UnableToConvergeError as e:
+                logger.exception("Unable to converge due to bad data")
                 raise
             except Exception as e:
                 logger.exception(f"PlateRecording failed: {e}")
