@@ -155,7 +155,7 @@ width: 0;
 height: 0;
 border-left: 8px solid transparent;
 border-right: 8px solid transparent;
-border-${(props) => (props.type === "peak" ? "top" : "bottom")}: 13px solid ${(props) => {
+border-${(props) => props.direction}: 13px solid ${(props) => {
   if (props.type === "peak") {
     return "var(--curi-peaks)";
   } else if (props.type === "valley") {
@@ -175,6 +175,10 @@ const LineAdjuster = styled.div`
   width: 14px;
   border-radius: 50%;
   background-color: ${(props) => (props.type === "peak" ? "var(--curi-peaks)" : "var(--curi-valleys)")};
+`;
+const ToRowComponent = styled.div`
+  display: flex;
+  align-items: center;
 `;
 
 const contextMenuItems = {
@@ -423,7 +427,6 @@ export default function WaveformGraph({
             // save new window analysis times to state on end so that it only updates changelog on drop
             setNewStartTime(parseFloat(x.invert(startPosition).toFixed()));
             setNewEndTime(parseFloat(x.invert(endPosition).toFixed()));
-
             d3.select(this).attr("opacity", 0.2).attr("cursor", "default");
           })
       );
@@ -899,8 +902,12 @@ export default function WaveformGraph({
       valleys.splice(0, valleys.length);
       initialPeaksValleys[1].map((x) => valleys.push(x));
 
-      setNewStartTime(startTime);
-      setNewEndTime(endTime);
+      if (startTime !== xRange.min) {
+        setNewStartTime(startTime);
+      }
+      if (endTime !== xRange.max) {
+        setNewEndTime(endTime);
+      }
       createGraph();
     }
   }, [
@@ -1109,42 +1116,47 @@ export default function WaveformGraph({
         <XAxisContainer>
           <Legend>
             <table>
-              <tr>
-                <td>
-                  <Triangle type="peak" />
-                  Detected Peaks
-                </td>
-                <td>
-                  <LineColor type="peak" />
-                  Peak Limiter
-                </td>
-                <td>
-                  <LineAdjuster type="peak" />
-                  Peak Limiter Adjust
-                </td>
-                <td>
-                  <Triangle type="valley" />
-                  Detected Valleys
-                </td>
-                <td>
-                  <LineColor type="valley" />
-                  Valley Limiter
-                </td>
-                <td>
-                  <LineAdjuster type="valley" />
-                  Valley Limiter Adjust
-                </td>
-                <td>
-                  <Triangle type="error" />
-                  Duplciate Valley or Peak
-                </td>
-              </tr>
+              <tbody>
+                <tr>
+                  <td>
+                    <Triangle type="peak" direction="top" />
+                    Peaks
+                  </td>
+                  <td>
+                    <LineColor type="peak" />
+                    Peak Detection Limit
+                  </td>
+                  <td>
+                    <LineAdjuster type="peak" />
+                    Peak Limit Adjuster
+                  </td>
+                  <td>
+                    <Triangle type="valley" direction="bottom" />
+                    Valleys
+                  </td>
+                  <td>
+                    <LineColor type="valley" />
+                    Valley Limiter
+                  </td>
+                  <td>
+                    <LineAdjuster type="valley" />
+                    Valley Limit Adjuster
+                  </td>
+                  <td>
+                    <ToRowComponent>
+                      <Triangle type="error" direction="top" />
+                      <Triangle type="error" direction="bottom" />
+                    </ToRowComponent>
+                    Duplicate Valley or Peak
+                  </td>
+                </tr>
+              </tbody>
             </table>
           </Legend>
-          <XAxisZoomContainer>
+          <ToRowComponent>
             <XAxisLabel>Time (seconds)</XAxisLabel>
             <ZoomWidget size={"20px"} zoomIn={() => handleZoomIn("x")} zoomOut={() => handleZoomOut("x")} />
-          </XAxisZoomContainer>
+          </ToRowComponent>
           <CursorLocLabel>
             Cursor: [ {cursorLoc[0]}, {cursorLoc[1]} ]
           </CursorLocLabel>
