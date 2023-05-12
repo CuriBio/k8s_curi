@@ -282,6 +282,7 @@ export default function InteractiveWaveformModal({
       : originalData.coordinates[selectedWell];
     peaksList = filterPeaks(peaksList, startTime, endTime, wellCoords);
     valleysList = filterValleys(valleysList, startTime, endTime, wellCoords);
+
     let peakIndex = 0;
     let valleyIndex = 0;
     const time = [];

@@ -65,11 +65,6 @@ const XAxisContainer = styled.div`
   justify-content: space-around;
 `;
 
-const XAxisZoomContainer = styled.div`
-  display: flex;
-  align-items: center;
-`;
-
 const YAxisLabel = styled.div`
   position: relative;
   font-size: 15px;

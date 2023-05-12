@@ -1,4 +1,4 @@
-"""pulse3d 0.32.5
+"""pulse3d 0.32.7
 
 Revision ID: 3ffac4d68585
 Revises: 39405902fa31
@@ -16,8 +16,8 @@ depends_on = None
 
 
 def upgrade():
-    op.execute("INSERT INTO pulse3d_versions (version, state) VALUES ('0.32.5', 'external')")
+    op.execute("INSERT INTO pulse3d_versions (version, state) VALUES ('0.32.7', 'external')")
 
 
 def downgrade():
-    op.execute("DELETE FROM pulse3d_versions WHERE version='0.32.5'")
+    op.execute("DELETE FROM pulse3d_versions WHERE version='0.32.7'")
