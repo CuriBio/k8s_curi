@@ -282,6 +282,7 @@ export default function InteractiveWaveformModal({
       : originalData.coordinates[selectedWell];
     peaksList = filterPeaks(peaksList, startTime, endTime, wellCoords);
     valleysList = filterValleys(valleysList, startTime, endTime, wellCoords);
+
     let peakIndex = 0;
     let valleyIndex = 0;
     const time = [];
@@ -545,13 +546,14 @@ export default function InteractiveWaveformModal({
     for (const well of Object.keys(editablePeaksValleys)) {
       let wellPeaks = editablePeaksValleys[well][0];
       let wellValleys = editablePeaksValleys[well][1];
+
       if (well in originalData.coordinates) {
         const wellIndex = twentyFourPlateDefinition.getIndexFromWellName(well);
         const wellCoords = originalData.coordinates[well];
         wellPeaks = filterPeaks(wellPeaks, startTime, endTime, wellCoords, wellIndex);
         wellValleys = filterValleys(wellValleys, startTime, endTime, wellCoords, wellIndex);
       }
-
+      
       filtered[well] = [wellPeaks, wellValleys];
     }
     return filtered;

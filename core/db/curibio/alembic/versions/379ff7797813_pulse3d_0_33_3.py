@@ -1,7 +1,7 @@
 """pulse3d 0.33.3
 
 Revision ID: 379ff7797813
-Revises: 6ae5abb40525
+Revises: 3ffac4d68585
 Create Date: 2023-05-05 14:22:13.366376
 
 """
@@ -10,7 +10,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "379ff7797813"
-down_revision = "6ae5abb40525"
+down_revision = "3ffac4d68585"
 branch_labels = None
 depends_on = None
 

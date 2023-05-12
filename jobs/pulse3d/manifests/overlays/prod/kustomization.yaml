@@ -107,6 +107,7 @@ patchesJson6902:
       value: prod-mantarray-logs
 - target:
     kind: ScaledJob
+<<<<<<< HEAD
     name: pulse3d-scaledobject-0.32.5
   patch: |-
     - op: replace
@@ -125,6 +126,13 @@ patchesJson6902:
     - op: replace
       path: /spec/jobTargetRef/template/spec/containers/0/image
       value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.32.6"
+=======
+    name: pulse3d-scaledobject-0.32.7
+  patch: |-
+    - op: replace
+      path: /spec/jobTargetRef/template/spec/containers/0/image
+      value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker:0.32.7"
+>>>>>>> RC-05-25-23
     - op: replace
       path: /spec/jobTargetRef/template/spec/containers/0/env/1/value
       value: prod-pulse3d-uploads
@@ -144,6 +152,7 @@ patchesJson6902:
     - op: replace
       path: /spec/jobTargetRef/template/spec/containers/0/env/2/value
       value: prod-mantarray-logs
+<<<<<<< HEAD
 - target:
     kind: ScaledJob
     name: pulse3d-scaledobject-0.33.4
@@ -157,3 +166,5 @@ patchesJson6902:
     - op: replace
       path: /spec/jobTargetRef/template/spec/containers/0/env/2/value
       value: prod-mantarray-logs
+=======
+>>>>>>> RC-05-25-23

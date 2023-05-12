@@ -855,6 +855,7 @@ export default function Uploads() {
       const selectedUpoadsList = uploads.filter((upload) =>
         checkedUploads.some((checkUpload) => checkUpload === upload.id)
       );
+      
       return (
         checkedUploads.length !== 1 ||
         selectedUpoadsList.length !== 1 ||
