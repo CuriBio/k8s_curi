@@ -23,6 +23,7 @@ const Header = styled.h2`
   background-color: var(--dark-blue);
   color: var(--light-gray);
   margin: auto;
+  width: 100%;
   height: 75px;
   line-height: 3;
 `;
@@ -47,12 +48,16 @@ const Uploads = styled.div`
   border-radius: 15px;
   background-color: white;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 `;
 
 const ButtonContainer = styled.div`
   display: flex;
   justify-content: flex-end;
   padding: 3rem 6rem;
+  width: 100%;
 `;
 
 const SuccessText = styled.span`
@@ -64,21 +69,20 @@ const SuccessText = styled.span`
 `;
 
 const DropDownContainer = styled.div`
-  width: 70%;
+  width: 100%;
   display: flex;
   justify-content: center;
-  left: 15%;
   position: relative;
   height: 17%;
   align-items: center;
   margin-top: 2rem;
 `;
 
-const dropZoneText = "CLICK HERE or DROP single recording ZIP files";
+const dropZoneText = "CLICK HERE or DROP";
 const defaultUploadErrorLabel =
   "Something went wrong while attempting to start the analysis for the following file(s):";
-const defaultZipErrorLabel =
-  "The following file(s) will not be uploaded because they either contain multiple recordings or do not have the correct number of H5 files.";
+const defaultBadFilesLabel =
+  "The following file(s) cannot be uploaded because they either contain multiple recordings or do not have the correct number of files.";
 
 const modalObj = {
   uploadsReachedDuringSession: {
@@ -105,8 +109,6 @@ export default function UploadForm() {
       baseToPeak: "",
       peakToBase: "",
       maxY: "",
-      prominenceFactor: "",
-      widthFactor: "",
       twitchWidths: "",
       startTime: "",
       endTime: "",
@@ -117,11 +119,26 @@ export default function UploadForm() {
       wellGroups: {},
       stimWaveformFormat: "",
       nameOverride: "",
+      // original advanced params
+      prominenceFactorPeaks: "",
+      prominenceFactorValleys: "",
+      widthFactorPeaks: "",
+      widthFactorValleys: "",
+      // noise based advanced params
+      relativeProminenceFactor: "",
+      noiseProminenceFactor: "",
+      minPeakWidth: "",
+      maxPeakWidth: "",
+      minPeakHeight: "",
+      maxPeakFreq: "",
+      valleySearchDuration: "",
+      upslopeDuration: "",
+      upslopeNoiseAllowance: "",
     };
   };
 
   const router = useRouter();
-  const { usageQuota } = useContext(AuthContext);
+  const { usageQuota, defaultReanalysisFile } = useContext(AuthContext);
 
   const [files, setFiles] = useState([]);
   const [formattedUploads, setFormattedUploads] = useState([]);
@@ -136,22 +153,23 @@ export default function UploadForm() {
   const [usageModalState, setUsageModalState] = useState(false);
   const [usageModalLabels, setUsageModalLabels] = useState(modalObj.uploadsReachedDuringSession);
   const [analysisParams, setAnalysisParams] = useState(getDefaultAnalysisParams());
-  const [badZipFiles, setBadZipFiles] = useState([]);
+  const [badFiles, setBadFiles] = useState([]);
   const [resetDragDrop, setResetDragDrop] = useState(false);
   const [wellGroupErr, setWellGroupErr] = useState(false);
   const [creditUsageAlert, setCreditUsageAlert] = useState(false);
   const [alertShowed, setAlertShowed] = useState(false);
   const [reanalysis, setReanalysis] = useState(false);
+  const [xlsxFilePresent, setXlsxFilePresent] = useState(false);
 
   useEffect(() => {
-    if (badZipFiles.length > 0) {
+    if (badFiles.length > 0) {
       // give users the option to proceed with clean files if any, otherwise just close
-      setModalButtons(badZipFiles.length !== files.length ? ["Cancel", "Proceed"] : ["Close"]);
+      setModalButtons(["Close"]);
       // add files to modal to notify user which files are bad
-      setFailedUploadsMsg([defaultZipErrorLabel, ...badZipFiles.map((f) => f.name)]);
+      setFailedUploadsMsg([defaultBadFilesLabel, ...badFiles.map((f) => f.name)]);
       setModalState(true);
     }
-  }, [badZipFiles]);
+  }, [badFiles]);
 
   useEffect(() => {
     // checks if error value exists, no file is selected, or upload is in progress
@@ -169,7 +187,7 @@ export default function UploadForm() {
         reanalysis && // modal only shows up in re-analyze tab
         usageQuota && // undefined check
         usageQuota.limits && // undefined check
-        parseInt(usageQuota.limits.jobs) !== -1 && //check that usage is not unlimited
+        parseInt(usageQuota.limits.jobs) !== -1 && // check that usage is not unlimited
         files.length > 0 && // undefined check
         files[0].created_at !== files[0].updated_at
       // if time updated and time created are different then free analysis has already been used and a re-analyze will use a credit
@@ -187,6 +205,11 @@ export default function UploadForm() {
   }, [files, analysisParams]);
 
   useEffect(() => {
+    // check for incorrect files and let user know
+    checkFileContents();
+  }, [files]);
+
+  useEffect(() => {
     setReanalysis(router.query.id === "Re-analyze Existing Upload");
 
     // reset all params if the user switches between the "re-analyze" and "new upload" versions of this page
@@ -195,9 +218,7 @@ export default function UploadForm() {
 
   useEffect(() => {
     if (uploads) {
-      const uploadFilenames = uploads.map((upload) => upload.filename).filter((name) => name);
-
-      setFormattedUploads([...uploadFilenames]);
+      setFormattedUploads([...uploads.map((upload) => upload.filename).filter((name) => name)]);
     }
   }, [uploads]);
 
@@ -207,6 +228,7 @@ export default function UploadForm() {
     updateCheckParams(false); // this will also reset the analysis params and their error message
     setFailedUploadsMsg(failedUploadsMsg);
     setModalButtons(["Close"]);
+    setXlsxFilePresent(false);
   };
 
   const resetAnalysisParams = () => {
@@ -238,6 +260,10 @@ export default function UploadForm() {
     return factors;
   };
 
+  const getNullIfEmpty = (val) => {
+    return val === "" ? null : val;
+  };
+
   const postNewJob = async (uploadId, filename) => {
     try {
       const {
@@ -248,8 +274,15 @@ export default function UploadForm() {
         maxY,
         prominenceFactorPeaks,
         prominenceFactorValleys,
+        relativeProminenceFactor,
+        noiseProminenceFactor,
         widthFactorPeaks,
         widthFactorValleys,
+        minPeakHeight,
+        maxPeakFreq,
+        valleySearchDuration,
+        upslopeDuration,
+        upslopeNoiseAllowance,
         twitchWidths,
         startTime,
         endTime,
@@ -267,41 +300,70 @@ export default function UploadForm() {
 
       const requestBody = {
         upload_id: uploadId,
-        normalize_y_axis: normalizeYAxis === "" ? null : normalizeYAxis,
         baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
-        prominence_factors: formatTupleParams(prominenceFactorPeaks, prominenceFactorValleys),
-        width_factors: formatTupleParams(widthFactorPeaks, widthFactorValleys),
-        twitch_widths: twitchWidths === "" ? null : twitchWidths,
-        start_time: startTime === "" ? null : startTime,
-        end_time: endTime === "" ? null : endTime,
         // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
         version,
       };
 
-      if (semverGte(version, "0.25.0")) {
-        requestBody.max_y = maxY === "" ? null : maxY;
+      for (const [name, value] of [
+        ["normalize_y_axis", normalizeYAxis],
+        ["twitch_widths", twitchWidths],
+        ["start_time", startTime],
+        ["end_time", endTime],
+        ["max_y", maxY],
+        ["include_stim_protocols", showStimSheet],
+      ]) {
+        requestBody[name] = getNullIfEmpty(value);
       }
-      if (semverGte(version, "0.28.1")) {
-        requestBody.include_stim_protocols = showStimSheet === "" ? null : showStimSheet;
-      }
+
       if (semverGte(version, "0.30.1")) {
-        requestBody.stiffness_factor = stiffnessFactor === "" ? null : stiffnessFactor;
-        requestBody.inverted_post_magnet_wells =
-          wellsWithFlippedWaveforms === "" ? null : wellsWithFlippedWaveforms;
+        requestBody.stiffness_factor = getNullIfEmpty(stiffnessFactor);
+        requestBody.inverted_post_magnet_wells = getNullIfEmpty(wellsWithFlippedWaveforms);
       }
       if (semverGte(version, "0.30.3")) {
         requestBody.well_groups = Object.keys(wellGroups).length === 0 ? null : wellGroups;
       }
       if (semverGte(version, "0.30.5")) {
-        requestBody.stim_waveform_format = stimWaveformFormat === "" ? null : stimWaveformFormat;
+        requestBody.stim_waveform_format = getNullIfEmpty(stimWaveformFormat);
       }
       if (semverGte(version, "0.32.2")) {
         // don't add name if it's the original filename or if it's empty
-        requestBody.name_override =
+        const useOriginalName =
           analysisParams.nameOverride === "" ||
-          analysisParams.nameOverride === removeFileExt(files[0].filename)
-            ? null
-            : analysisParams.nameOverride;
+          analysisParams.nameOverride === removeFileExt(files[0].filename);
+        requestBody.name_override = useOriginalName ? null : analysisParams.nameOverride;
+      }
+      if (semverGte(version, "0.33.2")) {
+        for (const [name, value] of [
+          ["relative_prominence_factor", relativeProminenceFactor],
+          ["noise_prominence_factor", noiseProminenceFactor],
+          ["height_factor", minPeakHeight],
+          ["max_frequency", maxPeakFreq],
+          ["valley_search_duration", valleySearchDuration],
+          ["upslope_duration", upslopeDuration],
+          ["upslope_noise_allowance_duration", upslopeNoiseAllowance],
+        ]) {
+          requestBody[name] = getNullIfEmpty(value);
+        }
+        requestBody.width_factors = formatTupleParams(minPeakWidth, maxPeakWidth);
+        // need to convert all these params from ms to s
+        for (const name of [
+          "valley_search_duration",
+          "upslope_duration",
+          "upslope_noise_allowance_duration",
+        ]) {
+          if (requestBody[name] !== null) {
+            requestBody[name] /= 1000;
+          }
+        }
+        if (requestBody.width_factors !== null) {
+          requestBody.width_factors = requestBody.width_factors.map((width) => {
+            width !== null ? width / 1000 : null;
+          });
+        }
+      } else {
+        requestBody.prominence_factors = formatTupleParams(prominenceFactorPeaks, prominenceFactorValleys);
+        requestBody.width_factors = formatTupleParams(widthFactorPeaks, widthFactorValleys);
       }
 
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
@@ -326,54 +388,64 @@ export default function UploadForm() {
   };
 
   const submitNewAnalysis = async () => {
-    await checkForMultiRecZips();
+    if (files.length > 0) {
+      await handleNewAnalysis(files);
+    }
     resetState();
   };
 
-  const checkForMultiRecZips = async () => {
+  const checkFileContents = async () => {
     var JSZip = require("jszip");
-    let badZipfiles;
+    let filteredFiles;
     if (!reanalysis) {
       const asyncFilter = async (arr, predicate) =>
         Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
-      badZipfiles = await asyncFilter(files, async (file) => {
+      let xlsxInFile = false;
+      filteredFiles = await asyncFilter(files, async (file) => {
         //only run these checks if is zip file
-        if (file && file.type == "application/x-zip-compressed") {
-          try {
+        try {
+          if (file && file.type.includes("zip")) {
             const zip = new JSZip();
             const { files: loadedFiles } = await zip.loadAsync(file);
-
             const dirs = Object.values(loadedFiles).filter(({ dir }) => dir);
-            const onlyOneRec = dirs.length === 0 || dirs.length === 1;
+            const onlyOneDir = dirs.length === 0 || dirs.length === 1;
 
-            const numFilesInRecording = Object.keys(loadedFiles).filter(
+            const numXlxsInFile = Object.keys(loadedFiles).filter(
+              (filename) => filename.includes(".xlsx") && !filename.includes("__MACOSX")
+            ).length;
+
+            const numH5InFile = Object.keys(loadedFiles).filter(
               (filename) => filename.includes(".h5") && !filename.includes("__MACOSX")
             ).length;
 
-            // Beta 1 recordings will contain 24 files, Beta 2 and V1 recordings will contain 48
-            const recordingContainsValidNumFiles = numFilesInRecording === 24 || numFilesInRecording === 48;
-            return !onlyOneRec || !recordingContainsValidNumFiles;
-          } catch (e) {
-            console.log(`ERROR unable to read zip file: ${file.filename} ${e}`);
-            failedUploadsMsg.push(file.filename);
-            return true;
+            const fileContainsValidNumFiles =
+              numH5InFile > 0 ? numH5InFile === 24 || numH5InFile === 48 : numXlxsInFile <= 24;
+
+            // not setting xlsxInFile = (numXlxsInFile > 0) because it needs to remain true if ever made true
+            if (numXlxsInFile > 0) xlsxInFile = true;
+
+            return !onlyOneDir || !fileContainsValidNumFiles;
+          } else {
+            // this will occur when user uploads single well xlsx data
+            // not setting xlsxInFile = (numXlxsInFile > 0) because it needs to remain true if ever made true
+            xlsxInFile = true;
           }
+        } catch (e) {
+          console.log(`ERROR unable to read file: ${file.filename} ${e}`);
+          failedUploadsMsg.push(file.filename);
+          return true;
         }
       });
-      setBadZipFiles(badZipfiles);
-      let newFiles = files;
 
-      for (let i = 0; i < badZipfiles.length; i++) {
-        for (let j = 0; j < newFiles.length; j++) {
-          if (badZipfiles[i].name === newFiles[j].name) {
-            setFiles(newFiles.splice(j, 1));
-          }
-        }
+      setXlsxFilePresent(xlsxInFile);
+      setBadFiles([...filteredFiles]);
+
+      for (let i = 0; i < filteredFiles.length; i++) {
+        const matchingIdx = files.findIndex(({ name }) => name === filteredFiles[i].name);
+        files.splice(matchingIdx, 1);
+        setFiles([...files]);
       }
-    }
-    if (files.length > 0) {
-      await handleNewAnalysis(files);
     }
   };
 
@@ -519,7 +591,18 @@ export default function UploadForm() {
     <Container>
       <Uploads>
         <Header>Run Analysis</Header>
-        {!reanalysis ? (
+        {reanalysis ? (
+          <DropDownContainer>
+            <InputDropdownWidget
+              options={formattedUploads}
+              width={500}
+              label="Select Recording"
+              reset={files.length === 0}
+              handleSelection={handleDropDownSelect}
+              defaultFile={defaultReanalysisFile}
+            />
+          </DropDownContainer>
+        ) : (
           <>
             <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
               handleFileChange={(files) => setFiles(Object.values(files))}
@@ -536,16 +619,6 @@ export default function UploadForm() {
               </UploadCreditUsageInfo>
             ) : null}
           </>
-        ) : (
-          <DropDownContainer>
-            <InputDropdownWidget
-              options={formattedUploads}
-              width={500}
-              label="Select Recording"
-              reset={files.length === 0}
-              handleSelection={handleDropDownSelect}
-            />
-          </DropDownContainer>
         )}
         <AnalysisParamForm
           errorMessages={paramErrors}
@@ -557,6 +630,7 @@ export default function UploadForm() {
           analysisParams={analysisParams}
           setWellGroupErr={setWellGroupErr}
           reanalysis={reanalysis}
+          xlsxFilePresent={xlsxFilePresent}
         />
         <ButtonContainer>
           {uploadSuccess ? <SuccessText>Upload Successful!</SuccessText> : null}

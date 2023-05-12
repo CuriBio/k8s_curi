@@ -251,7 +251,9 @@ const interceptResponse = async (req, url) => {
       // if any other request receives an unauthorized or forbidden error code, send logout ping (this fn will also clear account info)
       sendLogoutMsg();
     } else if (isWaveformDataRequest(url)) {
-      caches.open(cacheName).then(async (cache) => cache.put(req, response.clone()));
+      caches.open(cacheName).then(async (cache) => {
+        if (response) cache.put(req, response.clone());
+      });
     }
 
     return response.clone();
@@ -263,22 +265,24 @@ const startPreloadingWellData = (uploadId, jobId) => {
     // remove A1 as that's loaded first separately
     const [, ...remainingWells] = wellNames;
 
-    for (const well of remainingWells) {
-      const destURL = new URL(
-        `${PULSE3D_URL}/jobs/waveform-data?upload_id=${uploadId}&job_id=${jobId}&peaks_valleys=false&well_name=${well}`
-      );
+    for (const [idx, well] of Object.entries(remainingWells)) {
+      setTimeout(() => {
+        const destURL = new URL(
+          `${PULSE3D_URL}/jobs/waveform-data?upload_id=${uploadId}&job_id=${jobId}&peaks_valleys=false&well_name=${well}`
+        );
 
-      const newReq = new Request(destURL);
-      caches.open(cacheName).then(async (cache) => {
-        // Go to the cache first
-        return cache.match(newReq.url).then(async (cachedResponse) => {
-          // Return a cached response if we have one
-          if (!cachedResponse) {
-            // Otherwise, hit the network
-            interceptResponse(newReq, destURL);
-          }
+        const newReq = new Request(destURL);
+        caches.open(cacheName).then(async (cache) => {
+          // Go to the cache first
+          return cache.match(newReq.url).then(async (cachedResponse) => {
+            // Return a cached response if we have one
+            if (!cachedResponse) {
+              // Otherwise, hit the network
+              interceptResponse(newReq, destURL);
+            }
+          });
         });
-      });
+      }, 2000 * idx);
     }
   } catch (e) {
     console.log("Error grabbing preloaded data: " + e);

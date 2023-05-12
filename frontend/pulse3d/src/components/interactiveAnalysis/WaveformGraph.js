@@ -36,6 +36,7 @@ const CursorLocLabel = styled.div`
   font-size: 15px;
   cursor: default;
   width: 200px;
+  text-align: center;
 `;
 
 const TooltipText = styled.span`
@@ -52,6 +53,8 @@ const XAxisLabel = styled.div`
   left: 700px;
   font-size: 15px;
   overflow: hidden;
+  line-height: 2;
+  margin-right: 3px;
 `;
 const XAxisContainer = styled.div`
   position: relative;
@@ -419,7 +422,6 @@ export default function WaveformGraph({
             // save new window analysis times to state on end so that it only updates changelog on drop
             setNewStartTime(parseFloat(x.invert(startPosition).toFixed()));
             setNewEndTime(parseFloat(x.invert(endPosition).toFixed()));
-
             d3.select(this).attr("opacity", 0.2).attr("cursor", "default");
           })
       );
@@ -895,8 +897,12 @@ export default function WaveformGraph({
       valleys.splice(0, valleys.length);
       initialPeaksValleys[1].map((x) => valleys.push(x));
 
-      setNewStartTime(startTime);
-      setNewEndTime(endTime);
+      if (startTime !== xRange.min) {
+        setNewStartTime(startTime);
+      }
+      if (endTime !== xRange.max) {
+        setNewEndTime(endTime);
+      }
       createGraph();
     }
   }, [

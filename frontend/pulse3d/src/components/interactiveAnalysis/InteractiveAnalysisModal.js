@@ -133,7 +133,7 @@ const constantModalLabels = {
     header: "Warning!",
     messages: [
       "Interactive analysis is using a newer version of Pulse3D than the version originally used on this recording. Peaks and valleys may be slightly different.",
-      "Please re-analyze this recording using a Pulse3D version greater than 0.28.2 or continue.",
+      "Please re-analyze this recording using a Pulse3D version greater than 0.28.3 or continue.",
     ],
     buttons: ["Close"],
   },
@@ -194,8 +194,7 @@ export default function InteractiveWaveformModal({
   const [valleyY2, setValleyY2] = useState([]);
 
   useEffect(() => {
-    // only available for versions greater than 0.25.2
-    const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.25.2"));
+    const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.28.3"));
     setFilteredVersions([...compatibleVersions]);
     if (usageQuota && usageQuota.limits && numberOfJobsInUpload >= 2 && usageQuota.limits.jobs !== -1) {
       setCreditUsageAlert(true);
@@ -235,6 +234,7 @@ export default function InteractiveWaveformModal({
           // original data is set and never changed to hold original state in case of reset
           originalData.coordinates[well] = coordinates;
           setOriginalData(originalData);
+
           if (peaks_valleys_needed) {
             const { start_time, end_time } = selectedJob.analysisParams;
 
@@ -243,7 +243,6 @@ export default function InteractiveWaveformModal({
               min: start_time ? start_time : Math.min(...coordinates.map((coords) => coords[0])),
               max: end_time ? end_time : Math.max(...coordinates.map((coords) => coords[0])),
             });
-
             // won't be present for older recordings or if no replacement was ever given
             if ("nameOverride" in selectedJob) setNameOverride(selectedJob.nameOverride);
           }
@@ -252,7 +251,7 @@ export default function InteractiveWaveformModal({
           // this function actually renders new graph data to the page
           setDataToGraph([...coordinates]);
 
-          if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.2")) {
+          if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.3")) {
             setModalLabels(constantModalLabels.oldPulse3dVersion);
             setModalOpen("pulse3dWarning");
           }
@@ -549,9 +548,10 @@ export default function InteractiveWaveformModal({
       let wellValleys = editablePeaksValleys[well][1];
 
       if (well in originalData.coordinates) {
+        const wellIndex = twentyFourPlateDefinition.getIndexFromWellName(well);
         const wellCoords = originalData.coordinates[well];
-        wellPeaks = filterPeaks(wellPeaks, startTime, endTime, wellCoords);
-        wellValleys = filterValleys(wellValleys, startTime, endTime, wellCoords);
+        wellPeaks = filterPeaks(wellPeaks, startTime, endTime, wellCoords, wellIndex);
+        wellValleys = filterValleys(wellValleys, startTime, endTime, wellCoords, wellIndex);
       }
       filtered[well] = [wellPeaks, wellValleys];
     }
@@ -623,7 +623,6 @@ export default function InteractiveWaveformModal({
     peakYTwo: peakY2ToCompare,
   }) => {
     let changelogMessage;
-
     const peaksMoved =
         JSON.stringify(peaksToCompare) !== JSON.stringify(markers[0]) &&
         peaksToCompare.length === markers[0].length, // added and deleted peaks is handled somewhere else
@@ -804,8 +803,17 @@ export default function InteractiveWaveformModal({
 
       if (changesCopy.length > 0) {
         // grab state from the step before the undo step to set as current state
-        const { peaks, valleys, startTime, endTime, pvWindow, valleyYOne, valleyYTwo, peakYOne, peakYTwo } =
-          changesCopy[changesCopy.length - 1];
+        const {
+          peaks,
+          valleys,
+          startTime,
+          endTime,
+          pvWindow,
+          valleyYOne,
+          valleyYTwo,
+          peakYOne,
+          peakYTwo,
+        } = changesCopy[changesCopy.length - 1];
         // set old peaks and valleys to well
         peaksValleysCopy[selectedWell] = [[...peaks], [...valleys]];
         pvWindowCopy[selectedWell] = pvWindow;
@@ -876,21 +884,28 @@ export default function InteractiveWaveformModal({
     assignNewArr(valleyY2, newValleyY2, setValleyY2);
   };
   const isNewY = (yToCompare, originalYArr) => {
-    return originalYArr.length !== 0 && parseInt(yToCompare) !== parseInt(originalYArr[wellIdx]);
+    return (
+      yToCompare &&
+      originalYArr.length !== 0 &&
+      originalYArr[wellIdx] &&
+      parseInt(yToCompare) !== parseInt(originalYArr[wellIdx])
+    );
   };
-  const filterPeaks = (peaksList, startTime, endTime, wellCoords) => {
+  const filterPeaks = (peaksList, startTime, endTime, wellCoords, wellIndex) => {
+    wellIndex = typeof wellIndex !== "undefined" ? wellIndex : wellIdx;
     return peaksList.filter((peak) => {
       const isPeakWithinWindow = dataToGraph[peak][0] >= startTime && dataToGraph[peak][0] <= endTime;
       const peakMarkerY = wellCoords[peak][1];
-      const peaksLimitY = calculateYLimit(peakY1[wellIdx], peakY2[wellIdx], wellCoords[peak][0]);
+      const peaksLimitY = calculateYLimit(peakY1[wellIndex], peakY2[wellIndex], wellCoords[peak][0]);
       return peakMarkerY >= peaksLimitY && isPeakWithinWindow;
     });
   };
-  const filterValleys = (valleysList, startTime, endTime, wellCoords) => {
+  const filterValleys = (valleysList, startTime, endTime, wellCoords, wellIndex) => {
+    wellIndex = typeof wellIndex !== "undefined" ? wellIndex : wellIdx;
     return valleysList.filter((valley) => {
       const isValleyWithinWindow = dataToGraph[valley][0] >= startTime && dataToGraph[valley][0] <= endTime;
       const valleyMarkerY = wellCoords[valley][1];
-      const valleyLimitY = calculateYLimit(valleyY1[wellIdx], valleyY2[wellIdx], wellCoords[valley][0]);
+      const valleyLimitY = calculateYLimit(valleyY1[wellIndex], valleyY2[wellIndex], wellCoords[valley][0]);
       return valleyMarkerY <= valleyLimitY && isValleyWithinWindow;
     });
   };
@@ -908,6 +923,7 @@ export default function InteractiveWaveformModal({
         <DropDownWidget
           options={wellNames}
           handleSelection={handleWellSelection}
+          disabled={isLoading}
           reset={selectedWell == "A1"}
           initialSelected={0}
         />

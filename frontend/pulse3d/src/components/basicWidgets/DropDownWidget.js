@@ -150,7 +150,12 @@ export default function DropDownWidget({
 
   const getDisabledListItem = (tooltipOptions, idx, item) => {
     return (
-      <Tooltip key={idx} title={<TooltipText>{tooltipOptions[idx]}</TooltipText>} value={idx}>
+      <Tooltip
+        placement="left"
+        key={idx}
+        title={<TooltipText>{tooltipOptions[idx]}</TooltipText>}
+        value={idx}
+      >
         <div>
           <ListItem disabled={true}>{item}</ListItem>
         </div>
@@ -162,7 +167,9 @@ export default function DropDownWidget({
     <FormControl
       fullWidth
       disabled={disabled}
-      onClick={() => setOpen(true)}
+      onClick={() => {
+        if (!disabled) setOpen(true);
+      }}
       sx={{
         boxShadow:
           "0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%), 0px 3px 14px 2px rgb(0 0 0 / 12%)",
