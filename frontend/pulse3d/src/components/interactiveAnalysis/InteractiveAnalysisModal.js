@@ -277,9 +277,7 @@ export default function InteractiveWaveformModal({
     let valleysList = editablePeaksValleys[wellToUse][1].sort((a, b) => a - b);
 
     // Filter before looking for duplicates
-    const wellCoords = originalData.coordinates[wellToUse]
-      ? originalData.coordinates[wellToUse]
-      : originalData.coordinates[selectedWell];
+    const wellCoords = originalData.coordinates[wellToUse] || originalData.coordinates[selectedWell];
     peaksList = filterPeaks(peaksList, startTime, endTime, wellCoords);
     valleysList = filterValleys(valleysList, startTime, endTime, wellCoords);
     let peakIndex = 0;
@@ -802,17 +800,8 @@ export default function InteractiveWaveformModal({
 
       if (changesCopy.length > 0) {
         // grab state from the step before the undo step to set as current state
-        const {
-          peaks,
-          valleys,
-          startTime,
-          endTime,
-          pvWindow,
-          valleyYOne,
-          valleyYTwo,
-          peakYOne,
-          peakYTwo,
-        } = changesCopy[changesCopy.length - 1];
+        const { peaks, valleys, startTime, endTime, pvWindow, valleyYOne, valleyYTwo, peakYOne, peakYTwo } =
+          changesCopy[changesCopy.length - 1];
         // set old peaks and valleys to well
         peaksValleysCopy[selectedWell] = [[...peaks], [...valleys]];
         pvWindowCopy[selectedWell] = pvWindow;
