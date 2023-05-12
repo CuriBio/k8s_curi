@@ -334,7 +334,6 @@ export default function Uploads() {
           analysisParams.pulse3d_version = parsedMeta.version;
           const metaParams = { analysisParams };
           if ("name_override" in parsedMeta) metaParams.nameOverride = parsedMeta.name_override;
-
           // handle specific errors to let users know
           if ("error" in parsedMeta) {
             if (parsedMeta.error.includes("Invalid file format")) {
@@ -835,18 +834,22 @@ export default function Uploads() {
     // set checked jobs either way
     setCheckedJobs([...checkedJobs]);
   };
+
   const disableOptions = () => {
     const multiTargetOptions = Array(2).fill(checkedJobs.length === 0 && checkedUploads.length === 0);
     return [...multiTargetOptions, isSingleTargetSelected(), isSingleUploadSelected()];
   };
+
   const isSingleTargetSelected = () => {
-    const selectedJobsList = jobs.filter((job) => job.jobId === checkedJobs[0])[0];
+    const selectedJobsList = jobs.filter((job) => job.jobId === checkedJobs[0]);
+
     return (
       checkedJobs.length !== 1 ||
       (selectedJobsList.length > 0 && selectedJobsList[0].status !== "finished") ||
       (usageQuota && usageQuota.jobs_reached)
     );
   };
+
   const isSingleUploadSelected = () => {
     if (uploads) {
       const selectedUpoadsList = uploads.filter((upload) =>
@@ -859,6 +862,7 @@ export default function Uploads() {
       );
     }
   };
+
   return (
     <>
       {!openInteractiveAnalysis && (

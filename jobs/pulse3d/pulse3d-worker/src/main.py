@@ -184,8 +184,7 @@ async def process(con, item):
                 logger.exception("Invalid file format")
                 raise
             except UnableToConvergeError:
-                logger.exception("Unable to converge due to bad data")
-                raise
+                raise Exception("Unable to converge due to bad data")
             except Exception:
                 logger.exception("PlateRecording failed")
                 raise
@@ -366,7 +365,7 @@ async def process(con, item):
                     raise
 
     except Exception as e:
-        job_metadata["error"] = f"{str(e)}: {item}"
+        job_metadata["error"] = f"{str(e)}"
         result = "error"
     else:
         logger.info(f"Job complete for upload {upload_id}")
