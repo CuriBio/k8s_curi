@@ -339,7 +339,7 @@ export default function Uploads() {
             if (parsedMeta.error.includes("Invalid file format")) {
               status += ": Invalid file format";
             } else if (parsedMeta.error.includes("Unable to converge")) {
-              status += ": Unable to converge due to bad data";
+              status += parsedMeta.error;
             }
           }
           return {

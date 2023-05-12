@@ -184,7 +184,7 @@ async def process(con, item):
                 logger.exception("Invalid file format")
                 raise
             except UnableToConvergeError:
-                raise Exception("Unable to converge due to bad data")
+                raise Exception("Unable to converge due to low quality of data")
             except Exception:
                 logger.exception("PlateRecording failed")
                 raise
