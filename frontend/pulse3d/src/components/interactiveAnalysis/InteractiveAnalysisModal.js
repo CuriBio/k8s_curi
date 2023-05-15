@@ -214,6 +214,7 @@ export default function InteractiveWaveformModal({
     }
   }, [dataToGraph, editablePeaksValleys]);
 
+  //gets it per well
   const getWaveformData = async (peaks_valleys_needed, well) => {
     try {
       const response = await fetch(
@@ -269,17 +270,16 @@ export default function InteractiveWaveformModal({
     }
   };
 
-  const checkDuplicates = (well) => {
+  const checkDuplicates = (well, wellIndex) => {
     const wellToUse = well ? well : selectedWell;
     const { startTime, endTime } = editableStartEndTimes;
 
     let peaksList = editablePeaksValleys[wellToUse][0].sort((a, b) => a - b);
     let valleysList = editablePeaksValleys[wellToUse][1].sort((a, b) => a - b);
-
     // Filter before looking for duplicates
     const wellCoords = originalData.coordinates[wellToUse] || originalData.coordinates[selectedWell];
-    peaksList = filterPeaks(peaksList, startTime, endTime, wellCoords);
-    valleysList = filterValleys(valleysList, startTime, endTime, wellCoords);
+    peaksList = filterPeaks(peaksList, startTime, endTime, wellCoords, wellIndex);
+    valleysList = filterValleys(valleysList, startTime, endTime, wellCoords, wellIndex);
     let peakIndex = 0;
     let valleyIndex = 0;
     const time = [];
@@ -384,7 +384,6 @@ export default function InteractiveWaveformModal({
         // filter for peaks inside windowed time
         if (yCoord < peakToCompare && isGreaterThanStartTime && isLessThanEndTime) lowest = peak;
       });
-
       // return  y coordinate of lowest peak
       return wellSpecificCoords[lowest][1];
     }
@@ -497,18 +496,18 @@ export default function InteractiveWaveformModal({
       if (semverGte(prevPulse3dVersion, "0.32.2"))
         requestBody.name_override = nameOverride === "" ? null : nameOverride;
 
-      const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
-        method: "POST",
-        body: JSON.stringify(requestBody),
-      });
+      // const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
+      //   method: "POST",
+      //   body: JSON.stringify(requestBody),
+      // });
 
-      if (jobResponse.status !== 200) {
-        // TODO make modal
-        console.log("ERROR posting new job: ", await jobResponse.json());
-        setModalLabels(constantModalLabels.error);
-      } else {
-        setModalLabels(constantModalLabels.success);
-      }
+      // if (jobResponse.status !== 200) {
+      //   // TODO make modal
+      //   console.log("ERROR posting new job: ", await jobResponse.json());
+      //   setModalLabels(constantModalLabels.error);
+      // } else {
+      //   setModalLabels(constantModalLabels.success);
+      // }
 
       setUploadInProgress(false);
       setModalOpen("status");
@@ -543,7 +542,6 @@ export default function InteractiveWaveformModal({
     for (const well of Object.keys(editablePeaksValleys)) {
       let wellPeaks = editablePeaksValleys[well][0];
       let wellValleys = editablePeaksValleys[well][1];
-
       if (well in originalData.coordinates) {
         const wellIndex = twentyFourPlateDefinition.getIndexFromWellName(well);
         const wellCoords = originalData.coordinates[well];
@@ -767,16 +765,15 @@ export default function InteractiveWaveformModal({
     setPulse3dVersionIdx(idx);
   };
 
-  const handleRunAnalysis = () => {
+  const handleRunAnalysis = async () => {
     const wellsWithDups = [];
-    Object.keys(editablePeaksValleys).map((well) => {
-      const duplicatesMap = checkDuplicates(well);
-      // find any index marked as true, quantity doesn't matter
-      const duplicatePresent = Object.keys(duplicatesMap).findIndex((idx) => duplicatesMap[idx]);
-      // if present, push into storage array to add to modal letting user know which wells are affected
-      if (duplicatePresent !== -1) wellsWithDups.push(well);
-    });
 
+    for (const well of Object.keys(editablePeaksValleys)) {
+      const hasDuplicates = checkWellDuplicates(well);
+      if (hasDuplicates) {
+        wellsWithDups.push(well);
+      }
+    }
     if (wellsWithDups.length > 0) {
       const wellsWithDupsString = wellsWithDups.join(", ");
       constantModalLabels.duplicate.messages.splice(1, 1, wellsWithDupsString);
@@ -896,6 +893,13 @@ export default function InteractiveWaveformModal({
       const valleyLimitY = calculateYLimit(valleyY1[wellIndex], valleyY2[wellIndex], wellCoords[valley][0]);
       return valleyMarkerY <= valleyLimitY && isValleyWithinWindow;
     });
+  };
+  const checkWellDuplicates = (well) => {
+    const wellIndex = twentyFourPlateDefinition.getIndexFromWellName(well);
+    // console.log(editablePeaksValleys[well]);
+    // console.log(originalData);
+    const duplicatesList = checkDuplicates(well, wellIndex);
+    return Object.values(duplicatesList).some((value) => value);
   };
   function assignNewArr(data, newValue, setState) {
     let newArr = [...data];

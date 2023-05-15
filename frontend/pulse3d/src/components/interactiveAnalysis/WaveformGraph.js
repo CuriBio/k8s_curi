@@ -180,6 +180,9 @@ const ToRowComponent = styled.div`
   display: flex;
   align-items: center;
 `;
+const NoMarkersDetectedAlert = styled.div`
+  color: red;
+`;
 
 const contextMenuItems = {
   moveDelete: ["Move", "Delete"],
@@ -227,6 +230,22 @@ export default function WaveformGraph({
   const [cursorLoc, setCursorLoc] = useState([0, 0]);
   const [xZoomFactor, setXZoomFactor] = useState(1);
   const [yZoomFactor, setYZoomFactor] = useState(1);
+  const [noPeaks, setNoPeaks] = useState();
+  const [noValleys, setNoValleys] = useState();
+  useEffect(() => {
+    if (valleys.length === 0) {
+      setNoValleys(true);
+    } else {
+      setNoValleys(false);
+    }
+    if (peaks.length === 0) {
+      setNoPeaks(true);
+    } else {
+      setNoPeaks(false);
+    }
+    console.log(valleys);
+    console.log(peaks);
+  }, [currentWell]);
   /* NOTE!! The order of the variables and functions in createGraph() are important to functionality.
      could eventually try to break this up, but it's more sensitive in react than vue */
   const createGraph = () => {
@@ -1051,6 +1070,10 @@ export default function WaveformGraph({
       </YAxisContainer>
       <ColumnContainer>
         <ToolbarContainer>
+          {(noPeaks || noValleys) && (
+            <NoMarkersDetectedAlert> No peaks and or valleys detected.</NoMarkersDetectedAlert>
+          )}
+
           <ChangelogLabel onClick={openChangelog}>View Changelog</ChangelogLabel>
           <HowTo>
             Edit Peaks / Valleys{" "}
