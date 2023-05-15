@@ -277,11 +277,9 @@ export default function InteractiveWaveformModal({
     let valleysList = editablePeaksValleys[wellToUse][1].sort((a, b) => a - b);
 
     // Filter before looking for duplicates
-    const wellCoords = originalData.coordinates[wellToUse]
-      ? originalData.coordinates[wellToUse]
-      : originalData.coordinates[selectedWell];
-    peaksList = filterPeaks(peaksList, startTime, endTime, wellCoords);
-    valleysList = filterValleys(valleysList, startTime, endTime, wellCoords);
+    const wellCoords = originalData.coordinates[wellToUse] || originalData.coordinates[selectedWell];
+    peaksList = filterFeature("peak", peaksList, startTime, endTime, wellCoords);
+    valleysList = filterFeature("valley", valleysList, startTime, endTime, wellCoords);
 
     let peakIndex = 0;
     let valleyIndex = 0;
@@ -550,8 +548,9 @@ export default function InteractiveWaveformModal({
       if (well in originalData.coordinates) {
         const wellIndex = twentyFourPlateDefinition.getIndexFromWellName(well);
         const wellCoords = originalData.coordinates[well];
-        wellPeaks = filterPeaks(wellPeaks, startTime, endTime, wellCoords, wellIndex);
-        wellValleys = filterValleys(wellValleys, startTime, endTime, wellCoords, wellIndex);
+
+        wellPeaks = filterFeature("peak", peaksList, startTime, endTime, wellCoords, wellIndex);
+        wellValleys = filterFeature("valley", valleysList, startTime, endTime, wellCoords, wellIndex);
       }
       filtered[well] = [wellPeaks, wellValleys];
     }
@@ -891,24 +890,30 @@ export default function InteractiveWaveformModal({
       parseInt(yToCompare) !== parseInt(originalYArr[wellIdx])
     );
   };
-  const filterPeaks = (peaksList, startTime, endTime, wellCoords, wellIndex) => {
-    wellIndex = typeof wellIndex !== "undefined" ? wellIndex : wellIdx;
-    return peaksList.filter((peak) => {
-      const isPeakWithinWindow = dataToGraph[peak][0] >= startTime && dataToGraph[peak][0] <= endTime;
-      const peakMarkerY = wellCoords[peak][1];
-      const peaksLimitY = calculateYLimit(peakY1[wellIndex], peakY2[wellIndex], wellCoords[peak][0]);
-      return peakMarkerY >= peaksLimitY && isPeakWithinWindow;
+
+  const filterFeature = (
+    featureType,
+    featureIndices,
+    startTime,
+    endTime,
+    wellCoords,
+    wellIndex = wellIdx
+  ) => {
+    return featureIndices.filter((idx) => {
+      const featureMarkerY = wellCoords[idx][1];
+
+      const featureY1 = featureType === "peak" ? peakY1 : valleyY1;
+      const featureY2 = featureType === "peak" ? peakY2 : valleyY2;
+      const featureLimitY = calculateYLimit(featureY1[wellIndex], featureY2[wellIndex], wellCoords[idx][0]);
+
+      const isFeatureWithinWindow = dataToGraph[idx][0] >= startTime && dataToGraph[idx][0] <= endTime;
+      const isFeatureWithinThreshold =
+        featureType === "peak" ? featureMarkerY >= featureLimitY : featureMarkerY <= featureLimitY;
+
+      return isFeatureWithinThreshold && isFeatureWithinWindow;
     });
   };
-  const filterValleys = (valleysList, startTime, endTime, wellCoords, wellIndex) => {
-    wellIndex = typeof wellIndex !== "undefined" ? wellIndex : wellIdx;
-    return valleysList.filter((valley) => {
-      const isValleyWithinWindow = dataToGraph[valley][0] >= startTime && dataToGraph[valley][0] <= endTime;
-      const valleyMarkerY = wellCoords[valley][1];
-      const valleyLimitY = calculateYLimit(valleyY1[wellIndex], valleyY2[wellIndex], wellCoords[valley][0]);
-      return valleyMarkerY <= valleyLimitY && isValleyWithinWindow;
-    });
-  };
+
   function assignNewArr(data, newValue, setState) {
     let newArr = [...data];
     newArr[wellIdx] = newValue;
