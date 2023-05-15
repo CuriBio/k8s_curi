@@ -283,6 +283,8 @@ export default function InteractiveWaveformModal({
 
     let peakIndex = 0;
     let valleyIndex = 0;
+
+    // TODO store these values in a hook
     const time = [];
     const type = [];
 
@@ -306,6 +308,8 @@ export default function InteractiveWaveformModal({
         valleyIndex++;
       }
     }
+
+    // Make a function for the looped lines in these next two loops
     while (peakIndex !== peaksList.length) {
       time.push(peaksList[peakIndex]);
       type.push("peak");
@@ -316,8 +320,8 @@ export default function InteractiveWaveformModal({
       type.push("valley");
       valleyIndex++;
     }
-    //create a final map containing data point time as key
-    //and bool representing if marker is a duplicate as value
+    // create a final map containing data point time as key
+    // and bool representing if marker is a duplicate as value
     const duplicatesMap = {};
     for (let i = 1; i < time.length; i++) {
       duplicatesMap[time[i]] = type[i] === type[i + 1] || type[i] === type[i - 1];

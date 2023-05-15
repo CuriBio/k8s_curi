@@ -198,6 +198,8 @@ export default function WaveformGraph({
   openChangelog,
   undoLastChange,
   peakValleyWindows,
+  filteredPeaks,
+  filteredValleys,
   checkDuplicates,
   wellIdx,
   peakY1,
@@ -208,7 +210,6 @@ export default function WaveformGraph({
   setValleyY1,
   valleyY2,
   setValleyY2,
-  calculateYLimit,
   setPeakLineDataToDefault,
   setValleyLineDataToDefault,
   assignNewArr,
@@ -339,10 +340,8 @@ export default function WaveformGraph({
       .attr("alignment-baseline", "middle");
 
     if (selectedMarkerToMove) {
-      const coords =
-        selectedMarkerToMove.type === "peak"
-          ? dataToGraph[peaks[selectedMarkerToMove.idx]]
-          : dataToGraph[valleys[selectedMarkerToMove.idx]];
+      const features = selectedMarkerToMove.type === "peak" ? peaks : valleys;
+      const coords = dataToGraph[features[selectedMarkerToMove.idx]];
 
       focusText
         .html("[ " + coords[0].toFixed(2) + ", " + coords[1].toFixed(2) + " ]")
@@ -535,19 +534,7 @@ export default function WaveformGraph({
     // graph all the peak markers
     svg
       .selectAll("#waveformGraph")
-      .data(
-        initialPeaksValleys[0].filter((peak) => {
-          //check peak is withing start and end time
-          const isPeakWithinWindow = dataToGraph[peak][0] >= startTime && dataToGraph[peak][0] <= endTime;
-          // Y value of the peak marker
-          const actualY = dataToGraph[peak][1];
-
-          const y1 = peakY1[wellIdx];
-          const y2 = peakY2[wellIdx];
-          const peakLimitY = calculateYLimit(y1, y2, dataToGraph[peak][0]);
-          return isPeakWithinWindow && actualY >= peakLimitY;
-        })
-      )
+      .data(filteredPeaks)
       .enter()
       .append("path")
       .attr("id", "peak")
@@ -585,21 +572,7 @@ export default function WaveformGraph({
 
     svg
       .selectAll("#waveformGraph")
-      .data(
-        initialPeaksValleys[1].filter((valley) => {
-          //check valley is withing start and end time
-          const isValleyWithinWindow =
-            dataToGraph[valley][0] >= startTime && dataToGraph[valley][0] <= endTime;
-
-          // Y value of the valley marker
-          const actualY = dataToGraph[valley][1];
-
-          const y1 = valleyY1[wellIdx];
-          const y2 = valleyY2[wellIdx];
-          const valleyLimitY = calculateYLimit(y1, y2, dataToGraph[valley][0]);
-          return isValleyWithinWindow && actualY <= valleyLimitY;
-        })
-      )
+      .data(filteredValleys)
       .enter()
       .append("path")
       .attr("id", "valley")
@@ -966,7 +939,7 @@ export default function WaveformGraph({
     } else if (target.id === "Move") {
       const peakValley = contextMenu.attr("type");
 
-      const idxToChange = peakValley === "peak" ? peaks.indexOf(targetIdx) : valleys.indexOf(targetIdx);
+      const idxToChange = (peakValley === "peak" ? peaks : valleys).indexOf(targetIdx);
 
       setSelectedMarkerToMove({
         type: peakValley,
