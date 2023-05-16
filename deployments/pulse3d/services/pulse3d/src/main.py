@@ -450,8 +450,7 @@ async def create_new_job(
                 and datetime.strptime(end_of_life_date, "%Y-%m-%d") > datetime.now()
             ):
                 return GenericErrorResponse(
-                    message="Attempted to use pulse3d version that is removed",
-                    error="pulse3dVersionError",
+                    message="Attempted to use pulse3d version that is removed", error="pulse3dVersionError"
                 )
             # first check user_id of upload matches user_id in token
             # Luci (12/14/2022) checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
@@ -471,12 +470,6 @@ async def create_new_job(
             if usage_quota["jobs_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
-            pulse3d_queue_to_use = (
-                f"test-pulse3d-v{details.version}"
-                if "admin:software" in user_scopes and pulse3d_semver >= "0.30.4"
-                else f"pulse3d-v{details.version}"
-            )
-
             # if a name is present, then add to metadata of job
             job_meta = {"analysis_params": analysis_params, "version": details.version}
             if details.name_override and pulse3d_semver >= "0.32.2":
@@ -486,7 +479,7 @@ async def create_new_job(
             job_id = await create_job(
                 con=con,
                 upload_id=details.upload_id,
-                queue=pulse3d_queue_to_use,
+                queue=f"pulse3d-v{details.version}",
                 priority=priority,
                 meta=job_meta,
                 customer_id=customer_id,
