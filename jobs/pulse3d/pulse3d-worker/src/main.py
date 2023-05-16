@@ -26,6 +26,7 @@ from pulse3D.exceptions import IncorrectOpticalFileFormatError
 from pulse3D.excel_writer import write_xlsx
 from pulse3D.nb_peak_detection import noise_based_peak_finding
 from pulse3D.plate_recording import PlateRecording
+from mantarray_magnet_finding.exceptions import UnableToConvergeError
 
 from jobs import get_item, EmptyQueue
 from utils.s3 import upload_file_to_s3
@@ -182,6 +183,8 @@ async def process(con, item):
                 # raise unique error to be shown in FE for this specific type of exception
                 logger.exception("Invalid file format")
                 raise
+            except UnableToConvergeError:
+                raise Exception("Unable to converge due to low quality of data")
             except Exception:
                 logger.exception("PlateRecording failed")
                 raise
@@ -362,7 +365,7 @@ async def process(con, item):
                     raise
 
     except Exception as e:
-        job_metadata["error"] = f"{str(e)}: {item}"
+        job_metadata["error"] = f"{str(e)}"
         result = "error"
     else:
         logger.info(f"Job complete for upload {upload_id}")
