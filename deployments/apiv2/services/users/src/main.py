@@ -1,6 +1,5 @@
 import logging
 import json
-from typing import Union, List, Optional
 import uuid
 from datetime import datetime
 import jwt
@@ -78,7 +77,7 @@ async def startup():
 
 
 @app.post("/login", response_model=LoginResponse)
-async def login(request: Request, details: Union[UserLogin, CustomerLogin]):
+async def login(request: Request, details: UserLogin | CustomerLogin):
     """Login a user or customer account.
 
     Logging in consists of validating the given credentials and, if valid,
@@ -274,12 +273,10 @@ async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.post(
-    "/register", response_model=Union[UserProfile, CustomerProfile], status_code=status.HTTP_201_CREATED
-)
+@app.post("/register", response_model=UserProfile | CustomerProfile, status_code=status.HTTP_201_CREATED)
 async def register(
     request: Request,
-    details: Union[CustomerCreate, UserCreate],
+    details: CustomerCreate | UserCreate,
     token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES)),
 ):
     """Register a user or customer account.
@@ -422,9 +419,9 @@ async def _create_user_email(
     con,
     type: str,
     user_id: uuid.UUID,
-    customer_id: Optional[uuid.UUID],
-    scopes: List[str],
-    name: Optional[str],
+    customer_id: uuid.UUID | None,
+    scopes: list[str],
+    name: str | None,
     email: EmailStr,
 ):
     try:
