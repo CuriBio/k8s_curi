@@ -556,6 +556,7 @@ export default function InteractiveWaveformModal({
         wellPeaks = filterFeature("peak", peaksList, startTime, endTime, wellCoords, wellIndex);
         wellValleys = filterFeature("valley", valleysList, startTime, endTime, wellCoords, wellIndex);
       }
+
       filtered[well] = [wellPeaks, wellValleys];
     }
     return filtered;
