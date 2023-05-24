@@ -295,9 +295,7 @@ export default function InteractiveWaveformModal({
     const duplicates = [];
     for (let i = 1; i < features.length; i++) {
       const [prev, curr, next] = features.slice(i - 1, i + 2);
-      console.log("###", i, well, prev, curr, next);
       if ((curr && curr.type === prev.type) || (next && next.type === curr.type)) {
-        console.log("!!!", well, curr.type, wellCoords[curr.idx]);
         duplicates.push(curr.idx);
       }
     }
