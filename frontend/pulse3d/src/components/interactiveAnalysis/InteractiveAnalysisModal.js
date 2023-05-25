@@ -183,7 +183,7 @@ export default function InteractiveWaveformModal({
   const [dataToGraph, setDataToGraph] = useState([]); // well-specfic coordinates to graph
   const [editablePeaksValleys, setEditablePeaksValleys] = useState(); // user edited peaks/valleys as changes are made, should get stored in localStorage
   const [markers, setMarkers] = useState([]);
-  const [peakValleyWindows, setPeakValleyWindows] = useState({});
+  const [peakValleyWindows, setPeakValleyWindows] = useState({}); // TODO see if this can be removed in place of the endpoints, or at least changed to the default values
   const [editableStartEndTimes, setEditableStartEndTimes] = useState({
     startTime: null,
     endTime: null,
@@ -209,8 +209,11 @@ export default function InteractiveWaveformModal({
 
   useEffect(() => {
     // updates changelog when peaks/valleys and start/end times change
-    if (!undoing) updateChangelog();
-    else setUndoing(false);
+    if (undoing) {
+      setUndoing(false);
+    } else {
+      updateChangelog();
+    }
   }, [markers, editableStartEndTimes, peakValleyWindows, peakY1, peakY2, valleyY1, valleyY2]);
 
   useEffect(() => {
@@ -540,7 +543,7 @@ export default function InteractiveWaveformModal({
   };
 
   const saveChanges = () => {
-    // TODO handle is for some reason this is full and returns error
+    // TODO handle if for some reason this is full and returns error
     sessionStorage.setItem(
       selectedJob.jobId,
       JSON.stringify({
@@ -925,34 +928,28 @@ export default function InteractiveWaveformModal({
           </SpinnerContainer>
         ) : (
           <WaveformGraph
-            dataToGraph={dataToGraph}
-            initialPeaksValleys={markers}
-            startTime={editableStartEndTimes.startTime}
-            endTime={editableStartEndTimes.endTime}
-            currentWell={selectedWell}
-            setEditableStartEndTimes={setEditableStartEndTimes}
-            setEditablePeaksValleys={setEditablePeaksValleys}
-            editablePeaksValleys={editablePeaksValleys}
+            selectedWellInfo={{ selectedWell, wellIdx }}
             xRange={xRange}
-            resetWellChanges={resetWellChanges}
-            saveChanges={saveChanges}
+            dataToGraph={dataToGraph}
+            peaksAndValleys={markers}
+            editableStartEndTimesHookItems={[editableStartEndTimes, setEditableStartEndTimes]}
+            editablePeaksValleysHookItems={[editablePeaksValleys, setEditablePeaksValleys]}
+            peakValleyWindows={peakValleyWindows}
+            peakY1HookItems={[peakY1, setPeakY1]}
+            peakY2HookItems={[peakY2, setPeakY2]}
+            valleyY1HookItems={[valleyY1, setValleyY1]}
+            valleyY2HookItems={[valleyY2, setValleyY2]}
+            changelogActions={{
+              save: saveChanges,
+              undo: undoLastChange,
+              reset: resetWellChanges,
+              open: () => setOpenChangelog(true),
+            }}
             deletePeakValley={deletePeakValley}
             addPeakValley={addPeakValley}
-            openChangelog={() => setOpenChangelog(true)}
-            undoLastChange={undoLastChange}
-            peakValleyWindows={peakValleyWindows}
             filterFeature={filterFeature}
             checkDuplicates={checkDuplicates}
-            peakY1={peakY1}
-            setPeakY1={setPeakY1}
-            peakY2={peakY2}
-            setPeakY2={setPeakY2}
-            valleyY1={valleyY1}
-            setValleyY1={setValleyY1}
-            valleyY2={valleyY2}
-            setValleyY2={setValleyY2}
             calculateYLimit={calculateYLimit}
-            wellIdx={wellIdx}
             setValleyLineDataToDefault={setValleyLineDataToDefault}
             setPeakLineDataToDefault={setPeakLineDataToDefault}
             assignNewArr={assignNewArr}

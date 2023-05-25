@@ -182,47 +182,48 @@ const contextMenuItems = {
 };
 
 export default function WaveformGraph({
-  dataToGraph,
-  initialPeaksValleys,
-  startTime,
-  endTime,
-  setEditableStartEndTimes,
-  editablePeaksValleys,
-  currentWell,
-  setEditablePeaksValleys,
+  selectedWellInfo,
+  wellIdx,
   xRange,
-  resetWellChanges,
-  saveChanges,
+  dataToGraph,
+  peaksAndValleys,
+  editableStartEndTimesHookItems,
+  editablePeaksValleysHookItems,
+  peakValleyWindows,
+  peakY1HookItems,
+  peakY2HookItems,
+  valleyY1HookItems,
+  valleyY2HookItems,
+  changelogActions,
   deletePeakValley,
   addPeakValley,
-  openChangelog,
-  undoLastChange,
-  peakValleyWindows,
   filterFeature,
   checkDuplicates,
-  wellIdx,
-  peakY1,
-  setPeakY1,
-  peakY2,
-  setPeakY2,
-  valleyY1,
-  setValleyY1,
-  valleyY2,
-  setValleyY2,
   setPeakLineDataToDefault,
   setValleyLineDataToDefault,
   assignNewArr,
 }) {
+  const { selectedWell, wellIdx } = selectedWellInfo;
+  const [editableStartEndTimes, setEditableStartEndTimes] = editableStartEndTimesHookItems;
+  const { startTime, endTime } = editableStartEndTimes;
+  const [editablePeaksValleys, setEditablePeaksValleys] = editablePeaksValleysHookItems;
+  const [peakY1, setPeakY1] = peakY1HookItems;
+  const [peakY2, setPeakY2] = peakY2HookItems;
+  const [valleyY1, setValleyY1] = valleyY1HookItems;
+  const [valleyY2, setValleyY2] = valleyY2HookItems;
+
+  // TODO remove all these
   const [valleys, setValleys] = useState([]);
   const [peaks, setPeaks] = useState([]);
   const [newStartTime, setNewStartTime] = useState(xRange.min);
   const [newEndTime, setNewEndTime] = useState(xRange.max);
+
   const [menuItems, setMenuItems] = useState(contextMenuItems.moveDelete);
   const [selectedMarkerToMove, setSelectedMarkerToMove] = useState();
   const [cursorLoc, setCursorLoc] = useState([0, 0]);
   const [xZoomFactor, setXZoomFactor] = useState(1);
   const [yZoomFactor, setYZoomFactor] = useState(1);
-  /* NOTE!! The order of the variables and functions in createGraph() are important to functionality.
+  /* NOTE!! The order of the variables and function calls in this function are important to functionality.
      could eventually try to break this up, but it's more sensitive in react than vue */
   const createGraph = () => {
     /* --------------------------------------
@@ -257,8 +258,8 @@ export default function WaveformGraph({
       .range([dynamicHeight, 0])
       .domain([yMin - yRange, yMax + yRange]);
     // calculate start and end times in pixels. If windowed time found, use, else recording max and min
-    const initialStartTime = x(startTime ? startTime : xMin);
-    const initialEndTime = x(endTime ? endTime : maxTime);
+    const initialStartTime = x(startTime || xMin);
+    const initialEndTime = x(endTime || maxTime);
     //helper functions
     function appendPeakValleyMarkers(id, lineId, xRaw, yRaw, color) {
       return svg
@@ -537,11 +538,11 @@ export default function WaveformGraph({
     // graph all the peak markers
     svg
       .selectAll("#waveformGraph")
-      .data(filterFeature("peak", initialPeaksValleys[0], startTime, endTime, dataToGraph))
+      .data(filterFeature("peak", peaksAndValleys[0], startTime, endTime, dataToGraph))
       .enter()
       .append("path")
       .attr("id", "peak")
-      .attr("indexToReplace", (d) => initialPeaksValleys[0].indexOf(d)) // keep track of index in peaks array to splice later
+      .attr("indexToReplace", (d) => peaksAndValleys[0].indexOf(d)) // keep track of index in peaks array to splice later
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
         return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) - 7) + ") rotate(180)";
@@ -575,11 +576,11 @@ export default function WaveformGraph({
 
     svg
       .selectAll("#waveformGraph")
-      .data(filterFeature("valleys", initialPeaksValleys[1], startTime, endTime, dataToGraph))
+      .data(filterFeature("valleys", peaksAndValleys[1], startTime, endTime, dataToGraph))
       .enter()
       .append("path")
       .attr("id", "valley")
-      .attr("indexToReplace", (d) => initialPeaksValleys[1].indexOf(d)) // keep track of index in valleys array to splice later
+      .attr("indexToReplace", (d) => peaksAndValleys[1].indexOf(d)) // keep track of index in valleys array to splice later
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
         return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) + 7) + ")";
@@ -692,7 +693,7 @@ export default function WaveformGraph({
       });
 
     // only display lines if peaks and valleys were found
-    const { minPeaks, maxValleys } = peakValleyWindows[currentWell];
+    const { minPeaks, maxValleys } = peakValleyWindows[selectedWell];
     // draggable windowed peaks line
     const peaksWindowLine = svg
       .append("line")
@@ -706,17 +707,18 @@ export default function WaveformGraph({
       .style("cursor", "pointer")
       .call(moveLineUpDown);
 
+    const windowDur = (endTime - startTime) / 100;
     const peaksY1 = appendPeakValleyMarkers(
       "peakLineY1Marker",
       "peakLine",
-      startTime + (endTime - startTime) / 100,
+      startTime + windowDur,
       peakY1[wellIdx],
       "var(--curi-peaks)"
     );
     const peaksY2 = appendPeakValleyMarkers(
       "peakLineY2Marker",
       "peakLine",
-      endTime - (endTime - startTime) / 100,
+      endTime - windowDur,
       peakY2[wellIdx],
       "var(--curi-peaks)"
     );
@@ -859,7 +861,7 @@ export default function WaveformGraph({
   };
 
   useEffect(() => {
-    if (initialPeaksValleys.length > 0) {
+    if (peaksAndValleys.length > 0) {
       // always remove existing graph before plotting new graph
       d3.select("#waveformGraph").select("svg").remove();
       /*
@@ -868,21 +870,22 @@ export default function WaveformGraph({
         when selecting between wells in dropdown
       */
       peaks.splice(0, peaks.length);
-      initialPeaksValleys[0].map((x) => peaks.push(x));
+      peaksAndValleys[0].map((x) => peaks.push(x));
 
       valleys.splice(0, valleys.length);
-      initialPeaksValleys[1].map((x) => valleys.push(x));
+      peaksAndValleys[1].map((x) => valleys.push(x));
 
-      if (startTime !== xRange.min) {
-        setNewStartTime(startTime);
-      }
-      if (endTime !== xRange.max) {
-        setNewEndTime(endTime);
-      }
+      // TODO see if this is actually needed
+      // if (startTime !== xRange.min) {
+      //   setNewStartTime(startTime);
+      // }
+      // if (endTime !== xRange.max) {
+      //   setNewEndTime(endTime);
+      // }
       createGraph();
     }
   }, [
-    initialPeaksValleys,
+    peaksAndValleys,
     selectedMarkerToMove,
     xZoomFactor,
     yZoomFactor,
@@ -903,7 +906,7 @@ export default function WaveformGraph({
     if (!valleyY1[wellIdx] || !valleyY2[wellIdx]) {
       setValleyLineDataToDefault();
     }
-  }, [currentWell]);
+  }, [selectedWell]);
 
   useEffect(() => {
     // manually scrolls graph div to bottom because the graph div expands down instead of up
@@ -915,15 +918,15 @@ export default function WaveformGraph({
     // sometimes this does get updated to null when moving windowed analysis fill
     // so need to update to max or min if so to prevent changelog message from erroring
     setEditableStartEndTimes({
-      startTime: newStartTime ? newStartTime : xRange.min,
-      endTime: newEndTime ? newEndTime : xRange.max,
+      startTime: newStartTime || xRange.min,
+      endTime: newEndTime || xRange.max,
     });
   }, [newStartTime, newEndTime]);
 
   useEffect(() => {
     // ensures you don't edit the original array by creating deep copy
     const newEntries = JSON.parse(JSON.stringify(editablePeaksValleys));
-    newEntries[currentWell] = [[...peaks], [...valleys]];
+    newEntries[selectedWell] = [[...peaks], [...valleys]]; // HERE!!!
     setEditablePeaksValleys(newEntries);
   }, [peaks, valleys]);
 
@@ -1017,7 +1020,7 @@ export default function WaveformGraph({
       </YAxisContainer>
       <ColumnContainer>
         <ToolbarContainer>
-          <ChangelogLabel onClick={openChangelog}>View Changelog</ChangelogLabel>
+          <ChangelogLabel onClick={changelogActions.open}>View Changelog</ChangelogLabel>
           <HowTo>
             Edit Peaks / Valleys{" "}
             <Tooltip
@@ -1055,7 +1058,7 @@ export default function WaveformGraph({
             height="30px"
             fontSize={15}
             borderRadius="5px"
-            clickFn={undoLastChange}
+            clickFn={changelogActions.undo}
           />
           <ButtonWidget
             label="Reset"
@@ -1064,7 +1067,7 @@ export default function WaveformGraph({
             left="5px"
             fontSize={15}
             borderRadius="5px"
-            clickFn={resetWellChanges}
+            clickFn={changelogActions.reset}
           />
           <ButtonWidget
             label="Save"
@@ -1073,7 +1076,7 @@ export default function WaveformGraph({
             left="10px"
             fontSize={15}
             borderRadius="5px"
-            clickFn={saveChanges}
+            clickFn={changelogActions.save}
           />
         </ToolbarContainer>
         <Container id="scrollableContainer">
