@@ -265,7 +265,6 @@ export default function UploadForm() {
   };
 
   const postNewJob = async (uploadId, filename) => {
-    console.log("posting job");
     try {
       const {
         normalizeYAxis,
