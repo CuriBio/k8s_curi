@@ -265,6 +265,7 @@ export default function UploadForm() {
   };
 
   const postNewJob = async (uploadId, filename) => {
+    console.log("posting job");
     try {
       const {
         normalizeYAxis,
@@ -455,9 +456,12 @@ export default function UploadForm() {
       setInProgress(true);
 
       for (const file of files) {
+        //check file is in uploads list
+        const fileIsInList = uploads.some((upload) => upload.id === file.id);
         if (file instanceof File) {
           await uploadFile(file);
-        } else if (uploads.includes(file)) {
+        } else if (fileIsInList) {
+          console.log("posting job");
           await postNewJob(file.id, file.filename);
         }
       }
