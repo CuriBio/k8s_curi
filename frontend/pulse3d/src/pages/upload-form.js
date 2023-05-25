@@ -460,7 +460,6 @@ export default function UploadForm() {
         if (file instanceof File) {
           await uploadFile(file);
         } else if (fileIsInList) {
-          console.log("posting job");
           await postNewJob(file.id, file.filename);
         }
       }
