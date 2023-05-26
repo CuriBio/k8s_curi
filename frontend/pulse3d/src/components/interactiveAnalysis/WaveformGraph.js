@@ -476,7 +476,7 @@ export default function WaveformGraph({
       */
       const draggedIdx = dataToGraph.findIndex((x) => Number(x[0].toFixed(2)) === Number(d[0].toFixed(2)));
 
-      const duplicates = checkDuplicates();
+      const duplicates = checkDuplicatesInWell();
 
       // assigns circle node new x and y coordinates based off drag event
       if (featureType === "peak") {
