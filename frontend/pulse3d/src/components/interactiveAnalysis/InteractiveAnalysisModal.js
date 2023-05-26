@@ -270,63 +270,38 @@ export default function InteractiveWaveformModal({
     }
   };
 
-  const checkDuplicates = (well) => {
-    const wellToUse = well ? well : selectedWell;
+  const checkDuplicates = (well = selectedWell) => {
     const { startTime, endTime } = editableStartEndTimes;
 
-    let peaksList = editablePeaksValleys[wellToUse][0].sort((a, b) => a - b);
-    let valleysList = editablePeaksValleys[wellToUse][1].sort((a, b) => a - b);
+    const wellIndex = twentyFourPlateDefinition.getWellIndexFromName(well);
 
-    // Filter before looking for duplicates
-    const wellCoords = originalData.coordinates[wellToUse]
-      ? originalData.coordinates[wellToUse]
-      : originalData.coordinates[selectedWell];
-    peaksList = filterPeaks(peaksList, startTime, endTime, wellCoords);
-    valleysList = filterValleys(valleysList, startTime, endTime, wellCoords);
+    // filter
+    const wellCoords = originalData.coordinates[well];
 
-    let peakIndex = 0;
-    let valleyIndex = 0;
-    const time = [];
-    const type = [];
+    let peakIndices = editablePeaksValleys[well][0];
+    let valleyIndices = editablePeaksValleys[well][1];
+    peakIndices = filterFeature("peak", peakIndices, startTime, endTime, wellCoords, wellIndex);
+    valleyIndices = filterFeature("valley", valleyIndices, startTime, endTime, wellCoords, wellIndex);
 
-    // create two arrays one for type of data and one for the time of data
-    while (peakIndex < peaksList.length && valleyIndex < valleysList.length) {
-      if (peaksList[peakIndex] < valleysList[valleyIndex]) {
-        time.push(peaksList[peakIndex]);
-        type.push("peak");
-        peakIndex++;
-      } else if (valleysList[valleyIndex] < peaksList[peakIndex]) {
-        time.push(valleysList[valleyIndex]);
-        type.push("valley");
-        valleyIndex++;
-      } else {
-        //if equal
-        time.push(peaksList[peakIndex]);
-        type.push("peak");
-        peakIndex++;
-        time.push(valleysList[valleyIndex]);
-        type.push("valley");
-        valleyIndex++;
+    // create list with all features in order
+    const features = [];
+    for (const idx of peakIndices) {
+      features.push({ type: "peak", idx });
+    }
+    for (const idx of valleyIndices) {
+      features.push({ type: "valley", idx });
+    }
+    features.sort((a, b) => a.idx - b.idx);
+
+    const duplicates = [];
+    for (let i = 1; i < features.length; i++) {
+      const [prev, curr, next] = features.slice(i - 1, i + 2);
+      if ((curr && curr.type === prev.type) || (next && next.type === curr.type)) {
+        duplicates.push(curr.idx);
       }
     }
-    while (peakIndex !== peaksList.length) {
-      time.push(peaksList[peakIndex]);
-      type.push("peak");
-      peakIndex++;
-    }
-    while (valleyIndex !== valleysList.length) {
-      time.push(valleysList[valleyIndex]);
-      type.push("valley");
-      valleyIndex++;
-    }
-    //create a final map containing data point time as key
-    //and bool representing if marker is a duplicate as value
-    const duplicatesMap = {};
-    for (let i = 1; i < time.length; i++) {
-      duplicatesMap[time[i]] = type[i] === type[i + 1] || type[i] === type[i - 1];
-    }
 
-    return duplicatesMap;
+    return duplicates;
   };
 
   const getNewData = async () => {
@@ -446,7 +421,7 @@ export default function InteractiveWaveformModal({
   const handleWellSelection = async (idx) => {
     if (wellNames[idx] !== selectedWell) {
       setSelectedWell(wellNames[idx]);
-      setWellIdx(twentyFourPlateDefinition.getIndexFromWellName(wellNames[idx]));
+      setWellIdx(twentyFourPlateDefinition.getWellIndexFromName(wellNames[idx]));
       if (!(wellNames[idx] in originalData.coordinates)) {
         setIsLoading(true);
         getWaveformData(false, wellNames[idx]);
@@ -545,15 +520,15 @@ export default function InteractiveWaveformModal({
     const { startTime, endTime } = JSON.parse(JSON.stringify(editableStartEndTimes));
 
     for (const well of Object.keys(editablePeaksValleys)) {
-      let wellPeaks = editablePeaksValleys[well][0];
-      let wellValleys = editablePeaksValleys[well][1];
+      const wellIndex = twentyFourPlateDefinition.getWellIndexFromName(well);
+      const wellCoords = originalData.coordinates[well];
 
-      if (well in originalData.coordinates) {
-        const wellCoords = originalData.coordinates[well];
-        wellPeaks = filterPeaks(wellPeaks, startTime, endTime, wellCoords);
-        wellValleys = filterValleys(wellValleys, startTime, endTime, wellCoords);
-      }
-      filtered[well] = [wellPeaks, wellValleys];
+      let peakIndices = editablePeaksValleys[well][0];
+      let valleyIndices = editablePeaksValleys[well][1];
+      peakIndices = filterFeature("peak", peakIndices, startTime, endTime, wellCoords, wellIndex);
+      valleyIndices = filterFeature("valley", valleyIndices, startTime, endTime, wellCoords, wellIndex);
+
+      filtered[well] = [peakIndices, valleyIndices];
     }
     return filtered;
   };
@@ -774,11 +749,8 @@ export default function InteractiveWaveformModal({
   const handleRunAnalysis = () => {
     const wellsWithDups = [];
     Object.keys(editablePeaksValleys).map((well) => {
-      const duplicatesMap = checkDuplicates(well);
-      // find any index marked as true, quantity doesn't matter
-      const duplicatePresent = Object.keys(duplicatesMap).findIndex((idx) => duplicatesMap[idx]);
-      // if present, push into storage array to add to modal letting user know which wells are affected
-      if (duplicatePresent !== -1) wellsWithDups.push(well);
+      // if any duplicates are present, push well into storage array to add to modal letting user know which wells are affected
+      if (checkDuplicates(well).length > 0) wellsWithDups.push(well);
     });
 
     if (wellsWithDups.length > 0) {
@@ -804,8 +776,17 @@ export default function InteractiveWaveformModal({
 
       if (changesCopy.length > 0) {
         // grab state from the step before the undo step to set as current state
-        const { peaks, valleys, startTime, endTime, pvWindow, valleyYOne, valleyYTwo, peakYOne, peakYTwo } =
-          changesCopy[changesCopy.length - 1];
+        const {
+          peaks,
+          valleys,
+          startTime,
+          endTime,
+          pvWindow,
+          valleyYOne,
+          valleyYTwo,
+          peakYOne,
+          peakYTwo,
+        } = changesCopy[changesCopy.length - 1];
         // set old peaks and valleys to well
         peaksValleysCopy[selectedWell] = [[...peaks], [...valleys]];
         pvWindowCopy[selectedWell] = pvWindow;
@@ -878,22 +859,35 @@ export default function InteractiveWaveformModal({
   const isNewY = (yToCompare, originalYArr) => {
     return originalYArr.length !== 0 && parseInt(yToCompare) !== parseInt(originalYArr[wellIdx]);
   };
-  const filterPeaks = (peaksList, startTime, endTime, wellCoords) => {
-    return peaksList.filter((peak) => {
-      const isPeakWithinWindow = dataToGraph[peak][0] >= startTime && dataToGraph[peak][0] <= endTime;
-      const peakMarkerY = wellCoords[peak][1];
-      const peaksLimitY = calculateYLimit(peakY1[wellIdx], peakY2[wellIdx], wellCoords[peak][0]);
-      return peakMarkerY >= peaksLimitY && isPeakWithinWindow;
+
+  const filterFeature = (
+    featureType,
+    featureIndices,
+    startTime,
+    endTime,
+    wellCoords,
+    wellIndex = wellIdx
+  ) => {
+    return featureIndices.filter((idx) => {
+      const featureY1 = featureType === "peak" ? peakY1 : valleyY1;
+      const featureY2 = featureType === "peak" ? peakY2 : valleyY2;
+
+      const isFeatureWithinWindow = dataToGraph[idx][0] >= startTime && dataToGraph[idx][0] <= endTime;
+
+      let isFeatureWithinThreshold = true;
+      // Can only filter using the thresholds if the data for this well has actually been loaded,
+      // which is not guaranteed to be the case with the staggered loading of data for each well
+      if (wellCoords) {
+        const featureMarkerY = wellCoords[idx][1];
+        const featureLimitY = calculateYLimit(featureY1[wellIndex], featureY2[wellIndex], wellCoords[idx][0]);
+        isFeatureWithinThreshold =
+          featureType === "peak" ? featureMarkerY >= featureLimitY : featureMarkerY <= featureLimitY;
+      }
+
+      return isFeatureWithinThreshold && isFeatureWithinWindow;
     });
   };
-  const filterValleys = (valleysList, startTime, endTime, wellCoords) => {
-    return valleysList.filter((valley) => {
-      const isValleyWithinWindow = dataToGraph[valley][0] >= startTime && dataToGraph[valley][0] <= endTime;
-      const valleyMarkerY = wellCoords[valley][1];
-      const valleyLimitY = calculateYLimit(valleyY1[wellIdx], valleyY2[wellIdx], wellCoords[valley][0]);
-      return valleyMarkerY <= valleyLimitY && isValleyWithinWindow;
-    });
-  };
+
   function assignNewArr(data, newValue, setState) {
     let newArr = [...data];
     newArr[wellIdx] = newValue;
@@ -936,6 +930,7 @@ export default function InteractiveWaveformModal({
             openChangelog={() => setOpenChangelog(true)}
             undoLastChange={undoLastChange}
             peakValleyWindows={peakValleyWindows}
+            filterFeature={filterFeature}
             checkDuplicates={checkDuplicates}
             peakY1={peakY1}
             setPeakY1={setPeakY1}
@@ -945,7 +940,6 @@ export default function InteractiveWaveformModal({
             setValleyY1={setValleyY1}
             valleyY2={valleyY2}
             setValleyY2={setValleyY2}
-            calculateYLimit={calculateYLimit}
             wellIdx={wellIdx}
             setValleyLineDataToDefault={setValleyLineDataToDefault}
             setPeakLineDataToDefault={setPeakLineDataToDefault}
