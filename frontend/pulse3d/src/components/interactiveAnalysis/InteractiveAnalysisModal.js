@@ -169,7 +169,7 @@ export default function InteractiveWaveformModal({
   const [modalLabels, setModalLabels] = useState(constantModalLabels.success);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
 
-  const [wellIdx, setWellIdx] = useState(0);
+  const [wellIdx, setWellIdx] = useState(0); // TODO use well name everywhere instead
   const [selectedWell, setSelectedWell] = useState("A1");
   const [errorMessage, setErrorMessage] = useState(); // Tanner (5/25/23): seems unused at the moment, but leaving it here anyway
 
@@ -183,7 +183,7 @@ export default function InteractiveWaveformModal({
   const [dataToGraph, setDataToGraph] = useState([]); // well-specfic coordinates to graph
   const [editablePeaksValleys, setEditablePeaksValleys] = useState(); // user edited peaks/valleys as changes are made, should get stored in localStorage
   const [markers, setMarkers] = useState([]);
-  const [peakValleyWindows, setPeakValleyWindows] = useState({}); // TODO see if this can be removed in place of the endpoints, or at least changed to the default values
+  const [peakValleyWindows, setPeakValleyWindows] = useState({}); // TODO see if this can be removed in place of the endpoints, or at least changed to the default values. Will also need to figure out how to handle the changelog entries once this is removed
   const [editableStartEndTimes, setEditableStartEndTimes] = useState({
     startTime: null,
     endTime: null,
@@ -223,52 +223,68 @@ export default function InteractiveWaveformModal({
     }
   }, [dataToGraph, editablePeaksValleys]);
 
-  const getWaveformData = async (peaks_valleys_needed, well) => {
+  useEffect(() => {
+    if (
+      // check if these are empty
+      [peakY1, peakY2, valleyY1, valleyY2].filter((arr) => arr[wellIdx] == null).length > 0 &&
+      peakValleyWindows[selectedWell]
+    ) {
+      setBothLinesToDefault();
+    }
+  }, [peakValleyWindows]);
+
+  const getNewData = async () => {
+    const { start_time, end_time } = selectedJob.analysisParams;
+
+    await getWaveformData(true, "A1");
+
+    setEditableStartEndTimes({
+      startTime: start_time,
+      endTime: end_time,
+    });
+  };
+
+  const getWaveformData = async (peaksValleysNeeded, well) => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}&peaks_valleys=${peaks_valleys_needed}&well_name=${well}`
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}&peaks_valleys=${peaksValleysNeeded}&well_name=${well}`
       );
+      if (response.status !== 200) throw Error();
 
-      if (response.status === 200) {
-        const res = await response.json();
-        if (!res.error) {
-          if (!("coordinates" in originalData)) {
-            originalData = {
-              peaks_valleys: res.peaks_valleys,
-              coordinates: {},
-            };
-          }
+      const res = await response.json();
+      if (res.error) throw Error();
 
-          const { coordinates, peaks_valleys } = res;
-          // original data is set and never changed to hold original state in case of reset
-          originalData.coordinates[well] = coordinates;
-          setOriginalData(originalData);
+      if (!("coordinates" in originalData)) {
+        originalData = {
+          peaksValleys: res.peaks_valleys,
+          coordinates: {},
+        };
+      }
 
-          if (peaks_valleys_needed) {
-            const { start_time, end_time } = selectedJob.analysisParams;
+      const { coordinates, peaks_valleys: peaksValleys } = res;
+      // original data is set and never changed to hold original state in case of reset
+      originalData.coordinates[well] = coordinates;
+      setOriginalData(originalData);
 
-            setEditablePeaksValleys(peaks_valleys);
-            setXRange({
-              min: start_time || Math.min(...coordinates.map((coords) => coords[0])),
-              max: end_time || Math.max(...coordinates.map((coords) => coords[0])),
-            });
-            // won't be present for older recordings or if no replacement was ever given
-            if ("nameOverride" in selectedJob) setNameOverride(selectedJob.nameOverride);
-          }
+      if (peaksValleysNeeded) {
+        const { start_time, end_time } = selectedJob.analysisParams;
 
-          setInitialPeakValleyWindows(well);
-          // this function actually renders new graph data to the page
-          setDataToGraph([...coordinates]);
+        setEditablePeaksValleys(peaksValleys);
+        setXRange({
+          min: start_time || Math.min(...coordinates.map((coords) => coords[0])),
+          max: end_time || Math.max(...coordinates.map((coords) => coords[0])),
+        });
+        // won't be present for older recordings or if no replacement was ever given
+        if ("nameOverride" in selectedJob) setNameOverride(selectedJob.nameOverride);
+      }
 
-          if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.3")) {
-            setModalLabels(constantModalLabels.oldPulse3dVersion);
-            setModalOpen("pulse3dWarning");
-          }
-        } else {
-          throw Error();
-        }
-      } else {
-        throw Error();
+      setInitialPeakValleyWindows(well);
+      // this function actually renders new graph data to the page
+      setDataToGraph([...coordinates]);
+
+      if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.3")) {
+        setModalLabels(constantModalLabels.oldPulse3dVersion);
+        setModalOpen("pulse3dWarning");
       }
     } catch (e) {
       console.log("ERROR getting waveform data: ", e);
@@ -312,31 +328,6 @@ export default function InteractiveWaveformModal({
     return duplicates;
   };
 
-  const getNewData = async () => {
-    const { start_time, end_time } = selectedJob.analysisParams;
-
-    await getWaveformData(true, "A1");
-
-    setEditableStartEndTimes({
-      startTime: start_time,
-      endTime: end_time,
-    });
-  };
-
-  const checkForExistingData = () => {
-    const data = sessionStorage.getItem(selectedJob.jobId);
-    // returns null if key doesn't exist in storage
-    if (data) {
-      setModalLabels(constantModalLabels.dataFound);
-      setModalOpen("dataFound");
-    } else {
-      getNewData();
-    }
-  };
-
-  // Luci (12-14-2022) this component gets mounted twice and we don't want this expensive function to request waveform data to be called twice. This ensures it is only called once per job selection
-  useMemo(checkForExistingData, [selectedJob]);
-
   const setInitialPeakValleyWindows = (well) => {
     const pvCopy = JSON.parse(JSON.stringify(peakValleyWindows));
 
@@ -345,16 +336,14 @@ export default function InteractiveWaveformModal({
       maxValleys: findHighestValley(well),
     };
 
-    setPeakValleyWindows({
-      ...pvCopy,
-    });
+    setPeakValleyWindows(pvCopy);
   };
 
   const findLowestPeak = (well) => {
-    const { coordinates, peaks_valleys } = originalData;
+    const { coordinates, peaksValleys } = originalData;
     const { startTime, endTime } = editableStartEndTimes;
     // arbitrarily set to first peak
-    const wellSpecificPeaks = peaks_valleys[well][0];
+    const wellSpecificPeaks = peaksValleys[well][0];
     const wellSpecificCoords = coordinates[well];
 
     // consider when no peaks or valleys were found in a well
@@ -378,10 +367,10 @@ export default function InteractiveWaveformModal({
   };
 
   const findHighestValley = (well) => {
-    const { coordinates, peaks_valleys } = originalData;
+    const { coordinates, peaksValleys } = originalData;
     const { startTime, endTime } = editableStartEndTimes;
     // arbitrarily set to first valley
-    const wellSpecificValleys = peaks_valleys[well][1];
+    const wellSpecificValleys = peaksValleys[well][1];
     const wellSpecificCoords = coordinates[well];
 
     // consider when no peaks or valleys were found in a well
@@ -406,7 +395,7 @@ export default function InteractiveWaveformModal({
   };
 
   const loadExistingData = () => {
-    // this happens very fast so not storing to react state the first call, see line 162
+    // this happens very fast so not storing to react state the first call, see line 162 (? different line now)
     const jsonData = sessionStorage.getItem(selectedJob.jobId);
     const existingData = JSON.parse(jsonData);
 
@@ -423,7 +412,6 @@ export default function InteractiveWaveformModal({
     setPeakY2(existingData.peakY2);
     setValleyY1(existingData.valleyY1);
     setValleyY2(existingData.valleyY2);
-    getWaveformData(true, selectedWell);
   };
 
   const handleWellSelection = async (idx) => {
@@ -446,7 +434,7 @@ export default function InteractiveWaveformModal({
     const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
     const changelogCopy = JSON.parse(JSON.stringify(changelog));
     const pvWindowCopy = JSON.parse(JSON.stringify(peakValleyWindows));
-    peaksValleysCopy[selectedWell] = originalData.peaks_valleys[selectedWell];
+    peaksValleysCopy[selectedWell] = originalData.peaksValleys[selectedWell];
     changelogCopy[selectedWell] = [];
     pvWindowCopy[selectedWell] = {
       minPeaks: findLowestPeak(selectedWell),
@@ -514,8 +502,9 @@ export default function InteractiveWaveformModal({
   const handleModalClose = (i) => {
     if (modalOpen !== "pulse3dWarning") {
       if (modalOpen === "status") setOpenInteractiveAnalysis(false);
-      else if (i === 0) getNewData();
-      else {
+      else if (i === 0) {
+        getNewData();
+      } else {
         loadExistingData();
       }
       sessionStorage.removeItem(selectedJob.jobId);
@@ -568,9 +557,9 @@ export default function InteractiveWaveformModal({
       const wellChanges = changelog[selectedWell];
       // Use snapshot of previus state to get changelog
       changelogMessage = getChangelogMessage(wellChanges[wellChanges.length - 1]);
-    } else if (markers.length === 2 && originalData.peaks_valleys[selectedWell]) {
+    } else if (markers.length === 2 && originalData.peaksValleys[selectedWell]) {
       // If are no changes detected then add default values to first index of changelog
-      const ogWellData = originalData.peaks_valleys[selectedWell];
+      const ogWellData = originalData.peaksValleys[selectedWell];
       const maxValleyY = peakValleyWindows[selectedWell].maxValleys;
       const minPeakY = peakValleyWindows[selectedWell].minPeaks;
       const defaultChangelog = {
@@ -806,7 +795,7 @@ export default function InteractiveWaveformModal({
         newWindowTimes.startTime = xRange.min;
         newWindowTimes.endTime = xRange.max;
 
-        peaksValleysCopy[selectedWell] = originalData.peaks_valleys[selectedWell];
+        peaksValleysCopy[selectedWell] = originalData.peaksValleys[selectedWell];
         pvWindowCopy[selectedWell] = {
           minPeaks: findLowestPeak(selectedWell),
           maxValleys: findHighestValley(selectedWell),
@@ -844,16 +833,16 @@ export default function InteractiveWaveformModal({
     return markerX * slope + yIntercept;
   };
 
-  const setBothLinesToDefault = () => {
-    setValleyLineDataToDefault();
-    setPeakLineDataToDefault();
-  };
-  const setPeakLineDataToDefault = () => {
-    assignNewArr(peakY1, peakValleyWindows[selectedWell].minPeaks, setPeakY1);
-    assignNewArr(peakY2, peakValleyWindows[selectedWell].minPeaks, setPeakY2);
+  const assignNewArr = (data, newValue, setState) => {
+    let newArr = [...data];
+    newArr[wellIdx] = newValue;
+    setState([...newArr]);
   };
 
-  const setValleyLineDataToDefault = () => {
+  // TODO clean all this up
+  const setBothLinesToDefault = () => {
+    assignNewArr(peakY1, peakValleyWindows[selectedWell].minPeaks, setPeakY1);
+    assignNewArr(peakY2, peakValleyWindows[selectedWell].minPeaks, setPeakY2);
     assignNewArr(valleyY1, peakValleyWindows[selectedWell].maxValleys, setValleyY1);
     assignNewArr(valleyY2, peakValleyWindows[selectedWell].maxValleys, setValleyY2);
   };
@@ -864,6 +853,7 @@ export default function InteractiveWaveformModal({
     assignNewArr(valleyY1, newValleyY1, setValleyY1);
     assignNewArr(valleyY2, newValleyY2, setValleyY2);
   };
+
   const isNewY = (yToCompare, originalYArr) => {
     return (
       yToCompare &&
@@ -901,11 +891,20 @@ export default function InteractiveWaveformModal({
     });
   };
 
-  function assignNewArr(data, newValue, setState) {
-    let newArr = [...data];
-    newArr[wellIdx] = newValue;
-    setState([...newArr]);
-  }
+  // ENTRYPOINT
+  // defined last so that everything required for it already exists
+  // Luci (12-14-2022) this component gets mounted twice and we don't want this expensive function to request waveform data to be called twice. This ensures it is only called once per job selection
+  useMemo(() => {
+    const data = sessionStorage.getItem(selectedJob.jobId); // returns null if key doesn't exist in storage
+    if (data) {
+      // if data is found in sessionStorage then do ?
+      setModalLabels(constantModalLabels.dataFound);
+      setModalOpen("dataFound");
+    } else {
+      // if no data stored, then need to retrieve from server
+      getNewData();
+    }
+  }, [selectedJob]);
 
   return (
     <Container>
@@ -950,8 +949,6 @@ export default function InteractiveWaveformModal({
             filterFeature={filterFeature}
             checkDuplicates={checkDuplicates}
             calculateYLimit={calculateYLimit}
-            setValleyLineDataToDefault={setValleyLineDataToDefault}
-            setPeakLineDataToDefault={setPeakLineDataToDefault}
             assignNewArr={assignNewArr}
           />
         )}
