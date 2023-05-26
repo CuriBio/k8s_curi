@@ -198,7 +198,7 @@ export default function WaveformGraph({
   openChangelog,
   undoLastChange,
   peakValleyWindows,
-  checkDuplicates,
+  checkDuplicatesInWell,
   wellIdx,
   peakY1,
   setPeakY1,
@@ -487,19 +487,19 @@ export default function WaveformGraph({
             "translate(" + x(d[0]) + "," + (y(dataToGraph[draggedIdx][1]) - 7) + ") rotate(180)"
           )
           .style("fill", (d) => {
-            return checkDuplicates()[d] ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+            return checkDuplicatesInWell()[d] ? "var(--curi-error-markers)" : "var(--curi-peaks)";
           })
           .attr("stroke", (d) => {
-            return checkDuplicates()[d] ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+            return checkDuplicatesInWell()[d] ? "var(--curi-error-markers)" : "var(--curi-peaks)";
           });
       } else {
         d3.select(this)
           .attr("transform", "translate(" + x(d[0]) + "," + (y(dataToGraph[draggedIdx][1]) + 7) + ")")
           .style("fill", (d) => {
-            return checkDuplicates()[d] ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+            return checkDuplicatesInWell()[d] ? "var(--curi-error-markers)" : "var(--curi-valleys)";
           })
           .attr("stroke", (d) => {
-            return checkDuplicates()[d] ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+            return checkDuplicatesInWell()[d] ? "var(--curi-error-markers)" : "var(--curi-valleys)";
           });
       }
       // update the focus text with current x and y data points as user drags marker
@@ -530,7 +530,7 @@ export default function WaveformGraph({
         valleys.splice(indexToChange, 1, newSelectedIndex);
         setValleys([...valleys]); // required to change dependencies
       }
-      checkDuplicates();
+      checkDuplicatesInWell();
     }
     // graph all the peak markers
     svg
@@ -557,10 +557,10 @@ export default function WaveformGraph({
         return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) - 7) + ") rotate(180)";
       })
       .style("fill", (d) => {
-        return checkDuplicates()[d] ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+        return checkDuplicatesInWell()[d] ? "var(--curi-error-markers)" : "var(--curi-peaks)";
       })
       .attr("stroke", (d) => {
-        return checkDuplicates()[d] ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+        return checkDuplicatesInWell()[d] ? "var(--curi-error-markers)" : "var(--curi-peaks)";
       })
       .style("cursor", "pointer")
       .style("display", (d) => {
@@ -609,10 +609,10 @@ export default function WaveformGraph({
         return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) + 7) + ")";
       })
       .style("fill", (d) => {
-        return checkDuplicates()[d] ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+        return checkDuplicatesInWell()[d] ? "var(--curi-error-markers)" : "var(--curi-valleys)";
       })
       .attr("stroke", (d) => {
-        return checkDuplicates()[d] ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+        return checkDuplicatesInWell()[d] ? "var(--curi-error-markers)" : "var(--curi-valleys)";
       })
       .style("cursor", "pointer")
       .style("display", (d) => {
@@ -945,7 +945,7 @@ export default function WaveformGraph({
   }, [newStartTime, newEndTime]);
 
   useEffect(() => {
-    checkDuplicates();
+    checkDuplicatesInWell();
     // ensures you don't edit the original array by creating deep copy
     const newEntries = JSON.parse(JSON.stringify(editablePeaksValleys));
     newEntries[currentWell] = [[...peaks], [...valleys]];
@@ -953,7 +953,7 @@ export default function WaveformGraph({
   }, [peaks, valleys]);
 
   useEffect(() => {
-    checkDuplicates();
+    checkDuplicatesInWell();
   }, [initialPeaksValleys, peakValleyWindows]);
 
   const contextMenuClick = ({ target }) => {
