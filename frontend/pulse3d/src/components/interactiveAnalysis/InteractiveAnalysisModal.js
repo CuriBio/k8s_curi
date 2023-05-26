@@ -273,7 +273,7 @@ export default function InteractiveWaveformModal({
   const checkDuplicates = (well = selectedWell) => {
     const { startTime, endTime } = editableStartEndTimes;
 
-    const wellIndex = twentyFourPlateDefinition.getIndexFromWellName(well);
+    const wellIndex = twentyFourPlateDefinition.getWellIndexFromName(well);
 
     // filter
     const wellCoords = originalData.coordinates[well];
@@ -421,7 +421,7 @@ export default function InteractiveWaveformModal({
   const handleWellSelection = async (idx) => {
     if (wellNames[idx] !== selectedWell) {
       setSelectedWell(wellNames[idx]);
-      setWellIdx(twentyFourPlateDefinition.getIndexFromWellName(wellNames[idx]));
+      setWellIdx(twentyFourPlateDefinition.getWellIndexFromName(wellNames[idx]));
       if (!(wellNames[idx] in originalData.coordinates)) {
         setIsLoading(true);
         getWaveformData(false, wellNames[idx]);
@@ -520,7 +520,7 @@ export default function InteractiveWaveformModal({
     const { startTime, endTime } = JSON.parse(JSON.stringify(editableStartEndTimes));
 
     for (const well of Object.keys(editablePeaksValleys)) {
-      const wellIndex = twentyFourPlateDefinition.getIndexFromWellName(well);
+      const wellIndex = twentyFourPlateDefinition.getWellIndexFromName(well);
       const wellCoords = originalData.coordinates[well];
 
       let peakIndices = editablePeaksValleys[well][0];
