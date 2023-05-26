@@ -217,7 +217,6 @@ export default function WaveformGraph({
 
   // these functions are just wrappers around hook setters, so adding them before useEffects
   const updateFeatures = (featureType, newFeatureValues) => {
-    console.log(featureType, newFeatureValues);
     // ensures you don't edit the original array by creating deep copy
     const newEntries = JSON.parse(JSON.stringify(editablePeaksValleys));
     const featureIdx = featureType === "peak" ? 0 : 1;
@@ -739,6 +738,7 @@ export default function WaveformGraph({
       .style("cursor", "pointer")
       .call(moveLineUpDown);
 
+    // TODO try removing the 100
     const windowDur = (endTime - startTime) / 100;
     const peaksY1 = appendPeakValleyMarkers(
       "peakLineY1Marker",
