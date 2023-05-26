@@ -841,7 +841,7 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocked_asyncpg_con
 
 
 # Tanner (3/13/23): only really need to test versions that are live in prod or are being tested in test cluster
-@pytest.mark.parametrize("version", ["0.28.3", "0.30.4", "0.32.2"])
+@pytest.mark.parametrize("version", ["0.28.3", "0.30.4", "0.33.6"])
 def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d_version(
     version, mocked_asyncpg_con, mocker
 ):
