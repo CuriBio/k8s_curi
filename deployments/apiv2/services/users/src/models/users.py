@@ -1,5 +1,5 @@
 import re
-from typing import Optional, List, Dict, Any
+from typing import Any
 from uuid import UUID
 from pydantic import BaseModel, EmailStr, SecretStr
 from pydantic import constr, validator
@@ -23,7 +23,7 @@ class CustomerLogin(BaseModel):
     email: EmailStr
     password: SecretStr
     service: str
-    client_type: Optional[str]
+    client_type: str | None
 
 
 class UserLogin(BaseModel):
@@ -31,13 +31,13 @@ class UserLogin(BaseModel):
     username: str
     password: SecretStr
     service: str
-    client_type: Optional[str]
+    client_type: str | None
 
 
 class PasswordModel(BaseModel):
     password1: SecretStr
     password2: SecretStr
-    verify: Optional[bool]
+    verify: bool | None
 
     @validator("password1")
     def password_requirements(cls, v):
@@ -58,13 +58,13 @@ class PasswordModel(BaseModel):
 
 class CustomerCreate(PasswordModel):
     email: EmailStr
-    scope: List[str]
+    scope: list[str]
 
 
 class UserCreate(BaseModel):
     email: EmailStr
     username: str
-    scope: Optional[List[str]]
+    scope: list[str] | None
 
     @validator("username")
     def username_alphanumeric(cls, v):
@@ -89,13 +89,13 @@ class UserProfile(BaseModel):
     email: EmailStr
     user_id: str
     account_type: str
-    scope: List[str]
+    scope: list[str]
 
 
 class CustomerProfile(BaseModel):
     email: EmailStr
     user_id: str
-    scope: List[str]
+    scope: list[str]
 
 
 class UserAction(BaseModel):
@@ -107,8 +107,8 @@ class UnableToUpdateAccountResponse(BaseModel):
 
 
 class UsageQuota(BaseModel):
-    current: Dict[str, Any]
-    limits: Dict[str, Any]
+    current: dict[str, Any]
+    limits: dict[str, Any]
     jobs_reached: bool
     uploads_reached: bool
 

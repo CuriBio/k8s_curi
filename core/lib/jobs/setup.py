@@ -6,6 +6,6 @@ setup(
     description="CuriBio jobs queue",
     packages=find_packages(include=["jobs"]),
     install_requires=[
-        "asyncpg==0.25.0",
+        "asyncpg==0.27.0",
     ],
 )
