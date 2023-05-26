@@ -11,11 +11,7 @@
     "export:test": "echo 'NEXT_PUBLIC_PULSE3D_URL=https://pulse3d.curibio-test.com\nNEXT_PUBLIC_USERS_URL=https://apiv2.curibio-test.com/users\nNEXT_PUBLIC_CLUSTER=test' > .env.production && npm run build && next export",
     "start": "npm run _ce && next start",
     "lint": "next lint",
-    "test:unit": "npm run _ce && jest --watchAll --coverage",
-    "cy:open-only": "cypress open",
-    "cy:run-only": "cypress run",
-    "cy:open": "start-server-and-test dev 3000 cy:open-only",
-    "cy:run": "start-server-and-test dev 3000 cy:run-only"
+    "test:unit": "npm run _ce && jest --watchAll --coverage"
   },
   "engines": {
     "node": "^16.17.0"
@@ -44,11 +40,8 @@
     "styled-components": "^5.3.5"
   },
   "devDependencies": {
-    "@cypress/react": "^5.12.5",
-    "@cypress/webpack-dev-server": "^1.8.4",
     "@testing-library/jest-dom": "^5.16.4",
     "@testing-library/react": "^13.2.0",
-    "cypress": "^9.7.0",
     "eslint": "8.15.0",
     "eslint-config-next": "12.1.6",
     "jest": "^28.1.0",
