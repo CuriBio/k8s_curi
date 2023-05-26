@@ -297,7 +297,7 @@ export default function InteractiveWaveformModal({
   const checkDuplicates = (well = selectedWell) => {
     const { startTime, endTime } = editableStartEndTimes;
 
-    const wellIndex = twentyFourPlateDefinition.getIndexFromWellName(well);
+    const wellIndex = twentyFourPlateDefinition.getWellIndexFromName(well);
 
     // filter
     const wellCoords = originalData.coordinates[well];
@@ -518,11 +518,10 @@ export default function InteractiveWaveformModal({
     const { startTime, endTime } = JSON.parse(JSON.stringify(editableStartEndTimes));
 
     for (const well of Object.keys(editablePeaksValleys)) {
-      const wellIndex = twentyFourPlateDefinition.getIndexFromWellName(well);
+      const wellIndex = twentyFourPlateDefinition.getWellIndexFromName(well);
       const wellCoords = originalData.coordinates[well];
 
-      let peakIndices = editablePeaksValleys[well][0];
-      let valleyIndices = editablePeaksValleys[well][1];
+      let [peakIndices, valleyIndices] = editablePeaksValleys[well];
       peakIndices = filterFeature("peak", peakIndices, startTime, endTime, wellCoords, wellIndex);
       valleyIndices = filterFeature("valley", valleyIndices, startTime, endTime, wellCoords, wellIndex);
 
