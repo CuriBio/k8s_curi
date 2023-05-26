@@ -185,7 +185,6 @@ export default function WaveformGraph({
   selectedWellInfo,
   xRange,
   dataToGraph,
-  peaksAndValleys, // TODO try to remove this
   editableStartEndTimesHookItems,
   editablePeaksValleysHookItems,
   peakValleyWindows,
@@ -240,13 +239,14 @@ export default function WaveformGraph({
   }, [yZoomFactor]);
 
   useEffect(() => {
-    if (peaksAndValleys.length > 0) {
+    if (peaks && valleys) {
       // always remove existing graph before plotting new graph
       d3.select("#waveformGraph").select("svg").remove();
       createGraph();
     }
   }, [
-    peaksAndValleys,
+    peaks,
+    valleys,
     selectedMarkerToMove,
     xZoomFactor,
     yZoomFactor,
@@ -270,16 +270,16 @@ export default function WaveformGraph({
     });
 
     // if windowed analysis, use else use recording max and min times
-    const xMin = xRange.min ? xRange.min : dataToGraph[0][0];
-    const xMax = xRange.max ? xRange.max : maxTime;
+    const xMin = xRange.min || dataToGraph[0][0];
+    const xMax = xRange.max || maxTime;
 
     const margin = { top: 20, right: 20, bottom: 30, left: 50 },
       width = 1245 - margin.left - margin.right,
       height = 300 - margin.top - margin.bottom;
 
     // TODO handle if zoom becomes smaller than smallest component width
-    const dynamicWidth = width * xZoomFactor < width ? width : width * xZoomFactor;
-    const dynamicHeight = height * yZoomFactor < height ? height : height * yZoomFactor;
+    const dynamicWidth = Math.max(width, width * xZoomFactor);
+    const dynamicHeight = Math.max(height, height * yZoomFactor);
     // Add X axis and Y axis
     const x = d3.scaleLinear().range([0, dynamicWidth]).domain([xMin, xMax]);
 
@@ -572,11 +572,11 @@ export default function WaveformGraph({
     // graph all the peak markers
     svg
       .selectAll("#waveformGraph")
-      .data(filterFeature("peak", peaksAndValleys[0], startTime, endTime, dataToGraph))
+      .data(filterFeature("peak", peaks, startTime, endTime, dataToGraph))
       .enter()
       .append("path")
       .attr("id", "peak")
-      .attr("indexToReplace", (d) => peaksAndValleys[0].indexOf(d)) // keep track of index in peaks array to splice later
+      .attr("indexToReplace", (d) => peaks.indexOf(d)) // keep track of index in peaks array to splice later
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
         return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) - 7) + ") rotate(180)";
@@ -609,11 +609,11 @@ export default function WaveformGraph({
     // graph all the valley markers
     svg
       .selectAll("#waveformGraph")
-      .data(filterFeature("valleys", peaksAndValleys[1], startTime, endTime, dataToGraph))
+      .data(filterFeature("valleys", valleys, startTime, endTime, dataToGraph))
       .enter()
       .append("path")
       .attr("id", "valley")
-      .attr("indexToReplace", (d) => peaksAndValleys[1].indexOf(d)) // keep track of index in valleys array to splice later
+      .attr("indexToReplace", (d) => valleys.indexOf(d)) // keep track of index in valleys array to splice later
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
         return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) + 7) + ")";
