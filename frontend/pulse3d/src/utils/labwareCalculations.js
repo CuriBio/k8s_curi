@@ -42,6 +42,20 @@ export class WellTitle {
   }
 
   /**
+   * Get the row and column indices from the well index
+   *
+   * @param {int} wellIndex - The well index within the labware
+   * @return {Object} containing both the row index and well index (integers)
+   */
+  getRowColumnFromWellIndex(wellIndex) {
+    this.validateRowColumnCounts();
+    return {
+      row: wellIndex % this.numRows,
+      col: Math.floor(wellIndex / this.numRows),
+    };
+  }
+
+  /**
    * Get the well name from the row and column indices
    *
    * @param {int} rowIndex - The row index within the labware
@@ -56,20 +70,14 @@ export class WellTitle {
   }
 
   /**
-   * Get the row and column indices from the well index
+   * Get the well index from the row and column indices
    *
-   * @param {int} wellIndex - The well index within the labware
-   * @return {Object} containing both the row index and well index (integers)
+   * @param {int} rowIndex - The row index within the labware
+   * @param {int} columnIndex - The column index within the labware
+   * @return {int}
    */
-  getRowColumnFromWellIndex(wellIndex) {
-    const combo = {
-      rowNum: 0,
-      columnNum: 0,
-    };
-    this.validateRowColumnCounts();
-    combo.rowNum = wellIndex % this.numRows;
-    combo.columnNum = Math.floor(wellIndex / this.numRows);
-    return combo;
+  getWellIndexFromRowColumn(rowIndex, columnIndex) {
+    return columnIndex * this.numRows + rowIndex;
   }
 
   /**
@@ -80,36 +88,19 @@ export class WellTitle {
    * @return {string} containing both the row index and well index (integers)
    */
   getWellNameFromIndex(wellIndex, padding) {
-    let rowIndex = 0;
-    let columnIndex = 0;
-    const cellCombo = this.getRowColumnFromWellIndex(wellIndex);
-
-    rowIndex = cellCombo.rowNum;
-    columnIndex = cellCombo.columnNum;
-
-    return this.getWellNameFromRowColumn(rowIndex, columnIndex, padding);
+    const { row, col } = this.getRowColumnFromWellIndex(wellIndex);
+    return this.getWellNameFromRowColumn(row, col, padding);
   }
 
-  /**
-   * Get the well index from the row and column indices
-   *
-   * @param {int} rowIndex - The row index within the labware
-   * @param {int} columnIndex - The column index within the labware
-   * @return {int}
-   */
-  getWellIndexFromRowColumn(rowIndex, columnIndex) {
-    return columnIndex * this.numRows + rowIndex;
-  }
   /**
    * Get the well index from well name
    *
    * @param {string} wellName
    * @returns {int}
    */
-  getIndexFromWellName(wellName) {
+  getWellIndexFromName(wellName) {
     const row = wellName.charCodeAt(0) - "A".charCodeAt(0);
     const col = parseInt(wellName.slice(1)) - 1;
-    const index = row * this.numCols + col;
-    return index;
+    return this.getWellIndexFromRowColumn(row, col);
   }
 }
