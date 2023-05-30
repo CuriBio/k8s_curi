@@ -109,11 +109,11 @@ const isEmailRequest = (url) => {
 };
 
 const isWaveformDataRequest = (url) => {
-  // if it's a string, just check that it's  a waveform data request
+  // if it's a string, just check that it's a waveform data request
   // else check if it's the initial request and will be passed url params instead
   return url instanceof URL
     ? url.pathname.includes("/waveform-data")
-    : url.get("well_name") == "A1" && url.get("peaks_valleys");
+    : url.get("well_name") === "A1" && url.get("peaks_valleys");
 };
 
 const modifyRequest = async (req, url) => {
