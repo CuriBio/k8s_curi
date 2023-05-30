@@ -426,33 +426,28 @@ export default function WaveformGraph({
               .attr("startingPosFromLine", d3.pointer(d)[0] - parseFloat(startTimeLine.attr("x1")));
           })
           .on("drag", function (d) {
-            const startingPos = d3.select(this).attr("startingPosFromLine");
-            const timeWidth = d3.select(this).attr("width");
+            const startingPos = parseFloat(d3.select(this).attr("startingPosFromLine"));
+            const timeWidth = parseFloat(d3.select(this).attr("width"));
             // make sure you can't drag outside of window bounds
-            const position =
-              d.x - startingPos < 0
-                ? 0
-                : d.x - startingPos + parseFloat(timeWidth) > dynamicWidth
-                ? dynamicWidth - parseFloat(timeWidth)
-                : d.x - startingPos;
+            const newStartPosition = Math.min(Math.max(d.x - startingPos, 0), dynamicWidth - timeWidth);
 
-            d3.select(this).attr("x", position);
+            d3.select(this).attr("x", newStartPosition);
 
             // reposition start time, peaks, valleys lines and set value to state
-            startTimeLine.attr("x1", position).attr("x2", position);
-            valleysWindowLine.attr("x1", position);
-            peaksWindowLine.attr("x1", position);
+            startTimeLine.attr("x1", newStartPosition).attr("x2", newStartPosition);
+            valleyThresholdLine.attr("x1", newStartPosition);
+            peakThresholdLine.attr("x1", newStartPosition);
 
             // reposition end time, peaks, valleys lines and set value to state
-            const endPosition = parseFloat(position) + parseFloat(timeWidth);
+            const endPosition = newStartPosition + timeWidth;
             endTimeLine.attr("x1", endPosition).attr("x2", endPosition);
-            valleysWindowLine.attr("x2", endPosition);
-            peaksWindowLine.attr("x2", endPosition);
+            valleyThresholdLine.attr("x2", endPosition);
+            peakThresholdLine.attr("x2", endPosition);
           })
           .on("end", function () {
-            const timeWidth = d3.select(this).attr("width");
-            const startPosition = d3.select(this).attr("x");
-            const endPosition = parseFloat(startPosition) + parseFloat(timeWidth);
+            const timeWidth = parseFloat(d3.select(this).attr("width"));
+            const startPosition = parseFloat(d3.select(this).attr("x"));
+            const endPosition = startPosition + timeWidth;
             // save new window analysis times to state on end so that it only updates changelog on drop
             updateStartEndTimes({
               startTime: parseFloat(x.invert(startPosition).toFixed()),
@@ -643,7 +638,7 @@ export default function WaveformGraph({
       .call(d3.drag().on("start", dragStarted).on("drag", dragging).on("end", dragEnded));
 
     /* --------------------------------------
-        WINDOWED PEAKS/VALLEYS LINES
+        PEAKS/VALLEYS THRESHOLD LINES
       -------------------------------------- */
     const pivotLineDrag = d3
       .drag()
@@ -726,7 +721,7 @@ export default function WaveformGraph({
 
     const { minPeaks, maxValleys } = peakValleyWindows[selectedWell];
     // draggable windowed peaks line
-    const peaksWindowLine = svg
+    const peakThresholdLine = svg
       .append("line")
       .attr("id", "peakLine")
       .attr("x1", x(startTime))
@@ -756,12 +751,12 @@ export default function WaveformGraph({
     );
     // remove peaks line if no peaks are found
     if (!minPeaks) {
-      peaksWindowLine.attr("display", "none");
+      peakThresholdLine.attr("display", "none");
       peaksY1.attr("display", "none");
       peaksY2.attr("display", "none");
     }
     // dragable windowed valleys line
-    const valleysWindowLine = svg
+    const valleyThresholdLine = svg
       .append("line")
       .attr("id", "valleyLine")
       .attr("x1", x(startTime))
@@ -788,13 +783,13 @@ export default function WaveformGraph({
     );
     // remove valleys line if no valleys are found
     if (!maxValleys) {
-      valleysWindowLine.attr("display", "none");
+      valleyThresholdLine.attr("display", "none");
       valleysY1.attr("display", "none");
       valleysY2.attr("display", "none");
     }
 
     /* --------------------------------------
-        START AND END TIME LINES
+        WINDOW START AND END TIME LINES
       -------------------------------------- */
     const timeLineDrag = d3
       .drag()
@@ -812,12 +807,12 @@ export default function WaveformGraph({
         // ensure you can't move a line outside of window bounds
         let xPosition = Math.min(Math.max(d.x, 0), dynamicWidth);
         // ensure start time cannot go above end time and vice versa
-        xPosition = time === "startTime" ? Math.min(d.x, endPos) : Math.max(d.x, startingPos);
+        xPosition = time === "startTime" ? Math.min(xPosition, endPos) : Math.max(xPosition, startingPos);
 
         const attrName = time === "startTime" ? "x1" : "x2";
         // update peaks and valley windows to only be within the windowed analysis window
-        peaksWindowLine.attr(attrName, xPosition);
-        valleysWindowLine.attr(attrName, xPosition);
+        peakThresholdLine.attr(attrName, xPosition);
+        valleyThresholdLine.attr(attrName, xPosition);
 
         // assign new x values
         d3.select(this).attr("x1", xPosition).attr("x2", xPosition);
@@ -835,8 +830,8 @@ export default function WaveformGraph({
         updateStartEndTimes({ [time]: newTimeSec });
         // update peaks and valley windows to only be within the windowed analysis window
         const attrName = time === "startTime" ? "x1" : "x2";
-        peaksWindowLine.attr(attrName, xPosition);
-        valleysWindowLine.attr(attrName, xPosition);
+        peakThresholdLine.attr(attrName, xPosition);
+        valleyThresholdLine.attr(attrName, xPosition);
 
         // descrease stroke width when unselected and dropped
         d3.select(this).attr("stroke-width", 5);
