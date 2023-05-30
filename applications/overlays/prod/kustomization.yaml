@@ -38,3 +38,19 @@ patchesJson6902:
     - op: replace
       path: /spec/source/path
       value: "jobs/jobs-operator/manifests/overlays/prod"
+- target:
+    kind: Application
+    name: grafana
+    namespace: argocd
+  patch: |-
+    - op: replace
+      path: /spec/source/path
+      value: "cluster/manifests/grafana/overlays/prod"
+- target:
+    kind: Application
+    name: grafana-loki
+    namespace: argocd
+  patch: |-
+    - op: replace
+      path: /spec/source/path
+      value: "cluster/manifests/grafana-loki/overlays/prod"

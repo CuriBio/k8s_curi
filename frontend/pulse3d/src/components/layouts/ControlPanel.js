@@ -19,6 +19,7 @@ const Container = styled.div`
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  z-index: 2;
 `;
 
 const ListItem = styled.li`
