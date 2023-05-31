@@ -182,12 +182,11 @@ const contextMenuItems = {
 };
 
 export default function WaveformGraph({
-  selectedWellInfo,
+  selectedWellInfo, // TODO remove this since this doesn't need to know about which well is open
   xRange,
   dataToGraph,
   editableStartEndTimesHookItems,
   editablePeaksValleysHookItems,
-  peakValleyWindows,
   peakY1HookItems,
   peakY2HookItems,
   valleyY1HookItems,
@@ -249,7 +248,6 @@ export default function WaveformGraph({
     selectedMarkerToMove,
     xZoomFactor,
     yZoomFactor,
-    peakValleyWindows,
     valleyY1,
     valleyY2,
     peakY1,
@@ -560,7 +558,7 @@ export default function WaveformGraph({
     // graph all the peak markers
     svg
       .selectAll("#waveformGraph")
-      .data(filterFeature("peak", peaks, startTime, endTime, dataToGraph))
+      .data(filterFeature("peak", peaks, startTime, endTime, dataToGraph, wellIdx))
       .enter()
       .append("path")
       .attr("id", "peak")
@@ -597,7 +595,7 @@ export default function WaveformGraph({
     // graph all the valley markers
     svg
       .selectAll("#waveformGraph")
-      .data(filterFeature("valleys", valleys, startTime, endTime, dataToGraph))
+      .data(filterFeature("valleys", valleys, startTime, endTime, dataToGraph, wellIdx))
       .enter()
       .append("path")
       .attr("id", "valley")
@@ -713,7 +711,6 @@ export default function WaveformGraph({
         setLineCalculationVariables(id, y1, y2);
       });
 
-    const { minPeaks, maxValleys } = peakValleyWindows[selectedWell];
     // draggable windowed peaks line
     const peakThresholdLine = svg
       .append("line")
@@ -748,7 +745,7 @@ export default function WaveformGraph({
       "var(--curi-peaks)"
     );
     // remove peaks line if no peaks are found
-    if (!minPeaks) {
+    if (!peakY1 || !peakY2) {
       peakThresholdLine.attr("display", "none");
       peaksY1.attr("display", "none");
       peaksY2.attr("display", "none");
@@ -780,7 +777,7 @@ export default function WaveformGraph({
       "var(--curi-valleys)"
     );
     // remove valleys line if no valleys are found
-    if (!maxValleys) {
+    if (!valleyY1 || !valleyY2) {
       valleyThresholdLine.attr("display", "none");
       valleysY1.attr("display", "none");
       valleysY2.attr("display", "none");

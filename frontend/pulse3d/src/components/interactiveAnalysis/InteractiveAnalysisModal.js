@@ -153,6 +153,35 @@ const getDefaultFeatures = () => {
   for (const well of wellNames) {
     features[well] = [null, null];
   }
+  return features;
+};
+
+const getDefaultCustomAnalysisValues = () => {
+  const customVals = {
+    windowAnalysisBounds: {
+      start: null,
+      end: null,
+    },
+  };
+  for (const well of wellNames) {
+    customVals[well] = {
+      featureIndices: {
+        peaks: [],
+        valleys: [],
+      },
+      thresholdEndpoints: {
+        peaks: {
+          y1: null,
+          y2: null,
+        },
+        valleys: {
+          y1: null,
+          y2: null,
+        },
+      },
+    };
+  }
+  return customVals;
 };
 
 export default function InteractiveWaveformModal({
@@ -176,8 +205,9 @@ export default function InteractiveWaveformModal({
   const [modalLabels, setModalLabels] = useState(constantModalLabels.success);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
 
-  const [wellIdx, setWellIdx] = useState(0); // TODO use well name everywhere instead
   const [selectedWell, setSelectedWell] = useState("A1");
+  const wellIdx = twentyFourPlateDefinition.getWellIndexFromName(selectedWell);
+
   const [errorMessage, setErrorMessage] = useState(); // Tanner (5/25/23): seems unused at the moment, but leaving it here anyway
 
   const [originalData, setOriginalData] = useState({}); // original waveform data from GET request, unedited
@@ -187,7 +217,16 @@ export default function InteractiveWaveformModal({
     max: null,
   });
 
-  const [dataToGraph, setDataToGraph] = useState([]); // well-specfic coordinates to graph
+  const [customAnalysisValues, setCustomAnalysisValues] = useState(getDefaultCustomAnalysisValues());
+  const [changelog, setChangelog] = useState({});
+  const [openChangelog, setOpenChangelog] = useState(false);
+  const [undoing, setUndoing] = useState(false);
+
+  const updateCustomAnalysisValues = (updatedVals) => {
+    // TODO
+  };
+
+  const [dataToGraph, setDataToGraph] = useState([]); // TODO remove // well-specfic coordinates to graph
   const [editablePeaksValleys, setEditablePeaksValleys] = useState(getDefaultFeatures()); // user edited peaks/valleys as changes are made, should get stored in localStorage
   const [peakValleyWindows, setPeakValleyWindows] = useState({}); // TODO see if this can be removed in place of the endpoints, or at least changed to the default values. Will also need to figure out how to handle the changelog entries once this is removed
   const [editableStartEndTimes, setEditableStartEndTimes] = useState({
@@ -200,10 +239,6 @@ export default function InteractiveWaveformModal({
   // state for valleys
   const [valleyY1, setValleyY1] = useState([]);
   const [valleyY2, setValleyY2] = useState([]);
-
-  const [changelog, setChangelog] = useState({});
-  const [openChangelog, setOpenChangelog] = useState(false);
-  const [undoing, setUndoing] = useState(false);
 
   useEffect(() => {
     const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.28.3"));
@@ -297,18 +332,17 @@ export default function InteractiveWaveformModal({
     }
   };
 
+  // TODO remove default value here
   const checkDuplicates = (well = selectedWell) => {
     const { startTime, endTime } = editableStartEndTimes;
-
-    const wellIndex = twentyFourPlateDefinition.getWellIndexFromName(well);
 
     // filter
     const wellCoords = originalData.coordinates[well];
 
     let peakIndices = editablePeaksValleys[well][0];
     let valleyIndices = editablePeaksValleys[well][1];
-    peakIndices = filterFeature("peak", peakIndices, startTime, endTime, wellCoords, wellIndex);
-    valleyIndices = filterFeature("valley", valleyIndices, startTime, endTime, wellCoords, wellIndex);
+    peakIndices = filterFeature("peak", peakIndices, startTime, endTime, wellCoords, wellIdx);
+    valleyIndices = filterFeature("valley", valleyIndices, startTime, endTime, wellCoords, wellIdx);
 
     // create list with all features in order
     const features = [];
@@ -428,7 +462,6 @@ export default function InteractiveWaveformModal({
     const wellName = wellNames[idx];
     if (wellName !== selectedWell) {
       setSelectedWell(wellName);
-      setWellIdx(idx);
       if (!(wellName in originalData.coordinates)) {
         setIsLoading(true);
         getWaveformData(false, wellName);
@@ -529,12 +562,11 @@ export default function InteractiveWaveformModal({
     const { startTime, endTime } = JSON.parse(JSON.stringify(editableStartEndTimes));
 
     for (const well of Object.keys(editablePeaksValleys)) {
-      const wellIndex = twentyFourPlateDefinition.getWellIndexFromName(well);
       const wellCoords = originalData.coordinates[well];
 
       let [peakIndices, valleyIndices] = editablePeaksValleys[well];
-      peakIndices = filterFeature("peak", peakIndices, startTime, endTime, wellCoords, wellIndex);
-      valleyIndices = filterFeature("valley", valleyIndices, startTime, endTime, wellCoords, wellIndex);
+      peakIndices = filterFeature("peak", peakIndices, startTime, endTime, wellCoords, wellIdx);
+      valleyIndices = filterFeature("valley", valleyIndices, startTime, endTime, wellCoords, wellIdx);
 
       filtered[well] = [peakIndices, valleyIndices];
     }
@@ -869,14 +901,7 @@ export default function InteractiveWaveformModal({
     );
   };
 
-  const filterFeature = (
-    featureType,
-    featureIndices,
-    startTime,
-    endTime,
-    wellCoords,
-    wellIndex = wellIdx
-  ) => {
+  const filterFeature = (featureType, featureIndices, startTime, endTime, wellCoords, wellIndex) => {
     return featureIndices.filter((idx) => {
       // Can only filter if the data for this well has actually been loaded,
       // which is not guaranteed to be the case with the staggered loading of data for each well
@@ -936,12 +961,11 @@ export default function InteractiveWaveformModal({
           </SpinnerContainer>
         ) : (
           <WaveformGraph
-            selectedWellInfo={{ selectedWell, wellIdx }}
+            selectedWellInfo={{ selectedWell, wellIdx: wellIdx }}
             xRange={xRange}
             dataToGraph={dataToGraph}
             editableStartEndTimesHookItems={[editableStartEndTimes, setEditableStartEndTimes]}
             editablePeaksValleysHookItems={[editablePeaksValleys, setEditablePeaksValleys]}
-            peakValleyWindows={peakValleyWindows}
             peakY1HookItems={[peakY1, setPeakY1]}
             peakY2HookItems={[peakY2, setPeakY2]}
             valleyY1HookItems={[valleyY1, setValleyY1]}
