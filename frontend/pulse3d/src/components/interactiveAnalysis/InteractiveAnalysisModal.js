@@ -240,7 +240,6 @@ export default function InteractiveWaveformModal({
 
   const getNewData = async () => {
     await getWaveformData(true, "A1");
-    resetStartEndTimes();
   };
 
   const getWaveformData = async (peaksValleysNeeded, well) => {
@@ -266,12 +265,17 @@ export default function InteractiveWaveformModal({
       setOriginalData(originalData);
 
       if (peaksValleysNeeded) {
-        const { start_time, end_time } = selectedJob.analysisParams;
-
         setEditablePeaksValleys(peaksValleys);
-        setXRange({
+
+        const { start_time, end_time } = selectedJob.analysisParams;
+        const newXRange = {
           min: start_time || Math.min(...coordinates.map((coords) => coords[0])),
           max: end_time || Math.max(...coordinates.map((coords) => coords[0])),
+        };
+        setXRange(newXRange);
+        setEditableStartEndTimes({
+          startTime: newXRange.min,
+          endTime: newXRange.max,
         });
         // won't be present for older recordings or if no replacement was ever given
         if ("nameOverride" in selectedJob) setNameOverride(selectedJob.nameOverride);
@@ -394,10 +398,9 @@ export default function InteractiveWaveformModal({
   };
 
   const resetStartEndTimes = () => {
-    const { start_time, end_time } = selectedJob.analysisParams;
     setEditableStartEndTimes({
-      startTime: start_time,
-      endTime: end_time,
+      startTime: xRange.min,
+      endTime: xRange.max,
     });
   };
 
