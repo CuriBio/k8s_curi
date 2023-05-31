@@ -160,6 +160,7 @@ export default function UploadForm() {
   const [alertShowed, setAlertShowed] = useState(false);
   const [reanalysis, setReanalysis] = useState(false);
   const [xlsxFilePresent, setXlsxFilePresent] = useState(false);
+  const [resetFilesDropDown, setResetFilesDropDown] = useState(false);
 
   useEffect(() => {
     if (badFiles.length > 0) {
@@ -175,7 +176,11 @@ export default function UploadForm() {
     // checks if error value exists, no file is selected, or upload is in progress
     const checkConditions =
       !Object.values(paramErrors).every((val) => val.length === 0) ||
-      !((files.length > 0 && files[0] instanceof File) || (uploads && uploads.includes(files[0]))) ||
+      !(
+        (files.length > 0 && files[0] instanceof File) ||
+        (uploads && uploads.includes(files[0])) ||
+        defaultReanalysisFile
+      ) ||
       inProgress ||
       wellGroupErr;
 
@@ -223,12 +228,18 @@ export default function UploadForm() {
   }, [uploads]);
 
   const resetState = () => {
-    setResetDragDrop(true);
-    setFiles([]);
-    updateCheckParams(false); // this will also reset the analysis params and their error message
-    setFailedUploadsMsg(failedUploadsMsg);
-    setModalButtons(["Close"]);
-    setXlsxFilePresent(false);
+    if (formattedUploads.length > 0) {
+      setResetDragDrop(true);
+      setFiles([]);
+      updateCheckParams(false); // this will also reset the analysis params and their error message
+      setFailedUploadsMsg(failedUploadsMsg);
+      setModalButtons(["Close"]);
+      setXlsxFilePresent(false);
+      setResetFilesDropDown(true);
+      setDefaultReanalysisFile(null);
+    } else {
+      setResetFilesDropDown(false);
+    }
   };
 
   const resetAnalysisParams = () => {
@@ -590,7 +601,6 @@ export default function UploadForm() {
     setModalState(false);
     setFailedUploadsMsg([defaultUploadErrorLabel]);
   };
-
   return (
     <Container>
       <Uploads>
@@ -601,7 +611,7 @@ export default function UploadForm() {
               options={formattedUploads}
               width={500}
               label="Select Recording"
-              reset={files.length === 0}
+              reset={resetFilesDropDown}
               handleSelection={handleDropDownSelect}
               defaultIndex={formattedUploads.indexOf(defaultReanalysisFile)}
             />

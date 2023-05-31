@@ -117,12 +117,6 @@ function Pulse({ Component, pageProps }) {
     return () => clearInterval(swInterval);
   }, [router.pathname]);
 
-  useEffect(() => {
-    //clear default file when user leaves the re-analyze page
-    if (router.query.id !== "Re-analyze Existing Upload") {
-      setDefaultReanalysisFile(null);
-    }
-  }, [router.query]);
   const sendSWMessage = (msg) => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.ready.then((registration) => {
