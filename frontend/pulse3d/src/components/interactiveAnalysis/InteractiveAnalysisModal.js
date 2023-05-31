@@ -832,12 +832,8 @@ export default function InteractiveWaveformModal({
   };
 
   const calculateYLimit = (y1, y2, markerX) => {
-    const x1 = (editableStartEndTimes.endTime - editableStartEndTimes.startTime) / 100;
-    const x2 =
-      editableStartEndTimes.endTime - (editableStartEndTimes.endTime - editableStartEndTimes.startTime) / 100;
-    const slope = (y2 - y1) / (x2 - x1);
-    const yIntercept = y2 - slope * x2;
-    return markerX * slope + yIntercept;
+    const slope = (y2 - y1) / (editableStartEndTimes.endTime - editableStartEndTimes.startTime);
+    return y1 + slope * (markerX - editableStartEndTimes.startTime);
   };
 
   const assignNewArr = (data, newValue, setState) => {
@@ -879,20 +875,23 @@ export default function InteractiveWaveformModal({
     wellIndex = wellIdx
   ) => {
     return featureIndices.filter((idx) => {
-      const featureY1 = featureType === "peak" ? peakY1 : valleyY1;
-      const featureY2 = featureType === "peak" ? peakY2 : valleyY2;
-
-      const isFeatureWithinWindow = dataToGraph[idx][0] >= startTime && dataToGraph[idx][0] <= endTime;
-
-      let isFeatureWithinThreshold = true;
-      // Can only filter using the thresholds if the data for this well has actually been loaded,
+      // Can only filter if the data for this well has actually been loaded,
       // which is not guaranteed to be the case with the staggered loading of data for each well
-      if (wellCoords) {
-        const featureMarkerY = wellCoords[idx][1];
-        const featureLimitY = calculateYLimit(featureY1[wellIndex], featureY2[wellIndex], wellCoords[idx][0]);
-        isFeatureWithinThreshold =
-          featureType === "peak" ? featureMarkerY >= featureLimitY : featureMarkerY <= featureLimitY;
-      }
+      if (!wellCoords) return true;
+
+      const [featureMarkerX, featureMarkerY] = wellCoords[idx];
+
+      const featureThresholdY1 = featureType === "peak" ? peakY1 : valleyY1;
+      const featureThresholdY2 = featureType === "peak" ? peakY2 : valleyY2;
+      const featureThresholdY = calculateYLimit(
+        featureThresholdY1[wellIndex],
+        featureThresholdY2[wellIndex],
+        featureMarkerX
+      );
+
+      const isFeatureWithinWindow = featureMarkerX >= startTime && featureMarkerX <= endTime;
+      const isFeatureWithinThreshold =
+        featureType === "peak" ? featureMarkerY >= featureThresholdY : featureMarkerY <= featureThresholdY;
 
       return isFeatureWithinThreshold && isFeatureWithinWindow;
     });
