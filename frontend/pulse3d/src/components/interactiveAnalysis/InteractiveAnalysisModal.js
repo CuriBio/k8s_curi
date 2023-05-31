@@ -874,25 +874,23 @@ export default function InteractiveWaveformModal({
     wellCoords,
     wellIndex = wellIdx
   ) => {
-    if (!wellCoords) return;
-
     return featureIndices.filter((idx) => {
-      const [featureMarkerX, featureMarkerY] = wellCoords[idx];
+      // Can only filter if the data for this well has actually been loaded,
+      // which is not guaranteed to be the case with the staggered loading of data for each well
+      if (!wellCoords) return true;
 
-      const isFeatureWithinWindow = featureMarkerX >= startTime && featureMarkerX <= endTime;
+      const [featureMarkerX, featureMarkerY] = wellCoords[idx];
 
       const featureThresholdY1 = featureType === "peak" ? peakY1 : valleyY1;
       const featureThresholdY2 = featureType === "peak" ? peakY2 : valleyY2;
-
-      let isFeatureWithinThreshold = true;
-      // Can only filter using the thresholds if the data for this well has actually been loaded,
-      // which is not guaranteed to be the case with the staggered loading of data for each well
       const featureThresholdY = calculateYLimit(
         featureThresholdY1[wellIndex],
         featureThresholdY2[wellIndex],
         featureMarkerX
       );
-      isFeatureWithinThreshold =
+
+      const isFeatureWithinWindow = featureMarkerX >= startTime && featureMarkerX <= endTime;
+      const isFeatureWithinThreshold =
         featureType === "peak" ? featureMarkerY >= featureThresholdY : featureMarkerY <= featureThresholdY;
 
       return isFeatureWithinThreshold && isFeatureWithinWindow;
