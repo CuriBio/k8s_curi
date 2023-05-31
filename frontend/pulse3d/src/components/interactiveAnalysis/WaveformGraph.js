@@ -635,8 +635,8 @@ export default function WaveformGraph({
         PEAKS/VALLEYS THRESHOLD LINES
       -------------------------------------- */
     // ensure you can't move a line outside of window bounds
-    function getCorrectY(d) {
-      return Math.min(Math.max(d.y, y(yMax + yRange)), y(yMin - yRange));
+    function getCorrectY(newY) {
+      return Math.min(Math.max(newY, y(yMax + yRange)), y(yMin - yRange));
     }
     const pivotLineDrag = d3
       .drag()
@@ -647,7 +647,7 @@ export default function WaveformGraph({
         d3.select(this).attr("stroke-width", 5);
       })
       .on("drag", function (d) {
-        const yPosition = getCorrectY(d);
+        const yPosition = getCorrectY(d.y);
 
         // set new y for marker
         d3.select(this).attr("cy", yPosition);
@@ -680,28 +680,30 @@ export default function WaveformGraph({
         contextMenu.style("display", "none");
         // increase stroke width when selected and dragging
         d3.select(this).attr("stroke-width", 5);
-        //set starting y position
-        const initialY = getCorrectY(d);
-        d3.select(this).attr("startingY", initialY);
+        // set y pos where the line was grabbed at
+        d3.select(this).attr("prevGrabY", d.y);
       })
       .on("drag", function (d) {
         const id = d3.select(this).attr("id");
-        //Get the current position
-        const currentYPosition = getCorrectY(d);
-        //Get y value of line before the dragging happened
-        const initialY = d3.select(this).attr("startingY");
-        const changeInY = currentYPosition - initialY;
+        // Get y value of line before the dragging happened
+        const prevGrabY = d3.select(this).attr("prevGrabY");
+        const changeInY = d.y - prevGrabY;
 
-        const newY1 = parseFloat(d3.select(this).attr("y1")) + changeInY;
-        const newY2 = parseFloat(d3.select(this).attr("y2")) + changeInY;
+        const expectedNewY1 = parseFloat(d3.select(this).attr("y1")) + changeInY;
+        const expectedNewY2 = parseFloat(d3.select(this).attr("y2")) + changeInY;
+        const newY1 = getCorrectY(expectedNewY1);
+        const newY2 = getCorrectY(expectedNewY2);
 
-        //set the y variables to prevent the lines from "floating" away from pointer
-        const prefix = id.includes("peak") ? "peak" : "valley";
-        d3.select(`#${prefix}LineY1Marker`).attr("cy", newY1);
-        d3.select(`#${prefix}LineY2Marker`).attr("cy", newY2);
-        d3.select(this).attr("y1", newY1);
-        d3.select(this).attr("y2", newY2);
-        d3.select(this).attr("startingY", newY1);
+        // if these values don't match, then one of the endpoints of the lines went OOB and no updates should be performed
+        if (newY1 === expectedNewY1 && newY2 === expectedNewY2) {
+          const prefix = id.includes("peak") ? "peak" : "valley";
+          d3.select(this).attr("y1", newY1);
+          d3.select(this).attr("y2", newY2);
+          d3.select(this).attr("prevGrabY", d.y);
+          // set the y variables to prevent the lines from "floating" away from pointer
+          d3.select(`#${prefix}LineY1Marker`).attr("cy", newY1);
+          d3.select(`#${prefix}LineY2Marker`).attr("cy", newY2);
+        }
       })
       .on("end", function () {
         const id = d3.select(this).attr("id");
