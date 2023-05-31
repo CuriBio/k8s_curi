@@ -309,10 +309,6 @@ export default function WaveformGraph({
         .style("cursor", "pointer")
         .call(pivotLineDrag);
     }
-    // ensure you can't move a line outside of window bounds
-    function getCorrectY(id, d3Object) {
-      return Math.min(Math.max(d3Object.y, y(yMax + yRange)), y(yMin - yRange));
-    }
     // waveform line
     const dataLine = d3
       .line()
@@ -638,6 +634,10 @@ export default function WaveformGraph({
     /* --------------------------------------
         PEAKS/VALLEYS THRESHOLD LINES
       -------------------------------------- */
+    // ensure you can't move a line outside of window bounds
+    function getCorrectY(d) {
+      return Math.min(Math.max(d.y, y(yMax + yRange)), y(yMin - yRange));
+    }
     const pivotLineDrag = d3
       .drag()
       .on("start", function () {
@@ -647,15 +647,15 @@ export default function WaveformGraph({
         d3.select(this).attr("stroke-width", 5);
       })
       .on("drag", function (d) {
-        const id = d3.select(this).attr("id");
-        const yId = id.includes("1") ? "y1" : "y2";
+        const yPosition = getCorrectY(d);
 
-        const yPosition = getCorrectY(id, d);
         // set new y for marker
         d3.select(this).attr("cy", yPosition);
 
         // set new y for line
+        const id = d3.select(this).attr("id");
         const elementName = id.includes("peak") ? "#peakLine" : "#valleyLine";
+        const yId = id.includes("1") ? "y1" : "y2";
         d3.select(elementName).attr(yId, yPosition);
       })
       .on("end", function (d) {
@@ -676,19 +676,18 @@ export default function WaveformGraph({
     const moveLineUpDown = d3
       .drag()
       .on("start", function (d) {
-        const id = d3.select(this).attr("id");
         // close context menu if it's open
         contextMenu.style("display", "none");
         // increase stroke width when selected and dragging
         d3.select(this).attr("stroke-width", 5);
         //set starting y position
-        const initialY = getCorrectY(id, d);
+        const initialY = getCorrectY(d);
         d3.select(this).attr("startingY", initialY);
       })
       .on("drag", function (d) {
         const id = d3.select(this).attr("id");
         //Get the current position
-        const currentYPosition = getCorrectY(id, d);
+        const currentYPosition = getCorrectY(d);
         //Get y value of line before the dragging happened
         const initialY = d3.select(this).attr("startingY");
         const changeInY = currentYPosition - initialY;
