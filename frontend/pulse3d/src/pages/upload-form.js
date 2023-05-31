@@ -603,7 +603,7 @@ export default function UploadForm() {
               label="Select Recording"
               reset={files.length === 0}
               handleSelection={handleDropDownSelect}
-              defaultFileIndex={formattedUploads.indexOf(defaultReanalysisFile)}
+              defaultIndex={formattedUploads.indexOf(defaultReanalysisFile)}
             />
           </DropDownContainer>
         ) : (

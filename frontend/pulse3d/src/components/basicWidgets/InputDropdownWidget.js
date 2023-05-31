@@ -9,7 +9,7 @@ export default function InputDropdownWidget({
   label,
   reset,
   handleSelection,
-  defaultFileIndex,
+  defaultIndex,
 }) {
   const [selected, setSelected] = useState(null);
 
@@ -18,10 +18,9 @@ export default function InputDropdownWidget({
   }, [reset]);
 
   useEffect(() => {
-    if (defaultFileIndex && defaultFileIndex !== -1) {
-      console.log(defaultFileIndex);
-      setSelected(options[defaultFileIndex]);
-      handleSelection(defaultFileIndex);
+    if (defaultIndex && defaultIndex !== -1) {
+      setSelected(options[defaultIndex]);
+      handleSelection(defaultIndex);
     }
   }, [options]);
 
