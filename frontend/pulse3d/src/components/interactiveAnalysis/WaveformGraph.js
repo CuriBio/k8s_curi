@@ -295,7 +295,7 @@ export default function WaveformGraph({
     // calculate start and end times in pixels. If windowed time found, use, else recording max and min
     const initialStartTime = x(startTime || xMin);
     const initialEndTime = x(endTime || maxTime);
-    //helper functions
+    // helper functions
     function appendPeakValleyMarkers(id, lineId, xRaw, yRaw, color) {
       return svg
         .append("circle")
@@ -727,19 +727,23 @@ export default function WaveformGraph({
       .style("cursor", "pointer")
       .call(moveLineUpDown);
 
-    // TODO try removing the 100
-    const windowDur = (endTime - startTime) / 100;
+    // this offset is used to shift the peak/valley threshold endpoint markers slightly inward so they
+    // don't sit directly underneath window bound lines. The offset factor used here was chosen arbitrarily.
+    // Could probably do this a better way
+    const offsetFactor = 100;
+    const endpointMarkerOffset = (endTime - startTime) / offsetFactor;
+
     const peaksY1 = appendPeakValleyMarkers(
       "peakLineY1Marker",
       "peakLine",
-      startTime + windowDur,
+      startTime + endpointMarkerOffset,
       peakY1[wellIdx],
       "var(--curi-peaks)"
     );
     const peaksY2 = appendPeakValleyMarkers(
       "peakLineY2Marker",
       "peakLine",
-      endTime - windowDur,
+      endTime - endpointMarkerOffset,
       peakY2[wellIdx],
       "var(--curi-peaks)"
     );
@@ -764,14 +768,14 @@ export default function WaveformGraph({
     const valleysY1 = appendPeakValleyMarkers(
       "valleyLineY1Marker",
       "peakLine",
-      startTime + windowDur,
+      startTime + endpointMarkerOffset,
       valleyY1[wellIdx],
       "var(--curi-valleys)"
     );
     const valleysY2 = appendPeakValleyMarkers(
       "valleyLineY2Marker",
       "peakLine",
-      endTime - windowDur,
+      endTime - endpointMarkerOffset,
       valleyY2[wellIdx],
       "var(--curi-valleys)"
     );
