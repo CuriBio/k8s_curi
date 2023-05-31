@@ -22,7 +22,7 @@ export default function InputDropdownWidget({
       setSelected(options[defaultIndex]);
       handleSelection(defaultIndex);
     }
-  }, [options]);
+  }, [defaultIndex]);
 
   return (
     <Autocomplete
