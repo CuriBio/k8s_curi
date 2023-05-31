@@ -58,7 +58,7 @@ const XAxisLabel = styled.div`
 `;
 const XAxisContainer = styled.div`
   position: relative;
-  height: 50px;
+  height: 16%;
   width: 100%;
   display: flex;
   align-items: center;
@@ -126,6 +126,7 @@ const Legend = styled.div`
   background-color: white;
   width: 800px;
   padding: 5px;
+  margin-left: 21px;
   border-radius: 10px;
   border: 2px solid darkgray;
   & table {
@@ -146,11 +147,11 @@ const Legend = styled.div`
 `;
 
 const Triangle = styled.div`
-width: 0;
-height: 0;
-border-left: 8px solid transparent;
-border-right: 8px solid transparent;
-border-${(props) => props.direction}: 13px solid ${(props) => {
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-${(props) => props.direction}: 13px solid ${(props) => {
   if (props.type === "peak") {
     return "var(--curi-peaks)";
   } else if (props.type === "valley") {
