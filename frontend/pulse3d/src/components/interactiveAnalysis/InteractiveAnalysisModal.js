@@ -156,13 +156,15 @@ const getDefaultFeatures = () => {
   return features;
 };
 
-const getDefaultCustomAnalysisValues = () => {
+const getDefaultCustomAnalysisSettings = () => {
   const customVals = {
+    // add values that apply to all wells
     windowAnalysisBounds: {
       start: null,
       end: null,
     },
   };
+  // add per well values
   for (const well of wellNames) {
     customVals[well] = {
       featureIndices: {
@@ -210,6 +212,7 @@ export default function InteractiveWaveformModal({
 
   const [errorMessage, setErrorMessage] = useState(); // Tanner (5/25/23): seems unused at the moment, but leaving it here anyway
 
+  // TODO rename these, possibly combine too
   const [originalData, setOriginalData] = useState({}); // original waveform data from GET request, unedited
   const [xRange, setXRange] = useState({
     // This is a copy of the max/min timepoints of the data. Windowed analysis start/stop times are set in editableStartEndTimes
@@ -217,13 +220,95 @@ export default function InteractiveWaveformModal({
     max: null,
   });
 
-  const [customAnalysisValues, setCustomAnalysisValues] = useState(getDefaultCustomAnalysisValues());
+  const [customAnalysisSettings, setCustomAnalysisSettings] = useState(getDefaultCustomAnalysisSettings());
   const [changelog, setChangelog] = useState({});
   const [openChangelog, setOpenChangelog] = useState(false);
   const [undoing, setUndoing] = useState(false);
 
-  const updateCustomAnalysisValues = (updatedVals) => {
-    // TODO
+  const customAnalysisSettingsUpdaters = {
+    // These functions will never update the changelog
+    initializeWindowBounds: (initialBounds) => {
+      setCustomAnalysisSettings({
+        ...customAnalysisSettings,
+        windowAnalysisBounds: initialBounds,
+      });
+    },
+    initializeFeatureIndices: (featureName, initialIndices) => {
+      const wellSettings = customAnalysisSettings[selectedWell];
+      wellSettings.featureIndices[featureName] = initialIndices;
+      setCustomAnalysisSettings({
+        ...customAnalysisSettings,
+        [selectedWell]: wellSettings,
+      });
+    },
+    initializeThresholdEndpoints: (featureName, initialValue) => {
+      const wellSettings = customAnalysisSettings[selectedWell];
+      wellSettings.thresholdEndpoints[featureName] = {
+        y1: initialValue,
+        y2: initialValue,
+      };
+      setCustomAnalysisSettings({
+        ...customAnalysisSettings,
+        [selectedWell]: wellSettings,
+      });
+    },
+    // These functions will always update the changelog
+    setWindowBound: (boundName, boundValue) => {
+      setCustomAnalysisSettings({
+        ...customAnalysisSettings,
+        [boundName]: boundValue,
+      });
+      // TODO update changelog
+    },
+    addFeature: (featureName, newIdx) => {
+      const wellSettings = customAnalysisSettings[selectedWell];
+      const wellFeatureIndices = wellSettings.featureIndices[featureName];
+
+      wellFeatureIndices.push(newIdx);
+      setCustomAnalysisSettings({
+        ...customAnalysisSettings,
+        [selectedWell]: wellSettings,
+      });
+      // TODO update changelog
+    },
+    deleteFeature: (featureName, idxToDelete) => {
+      const wellSettings = customAnalysisSettings[selectedWell];
+      const wellFeatureIndices = wellSettings.featureIndices[featureName];
+
+      const targetIdx = wellFeatureIndices.indexOf(idxToDelete);
+      if (targetIdx === -1) return;
+
+      wellFeatureIndices.splice(targetIdx, 1);
+      setCustomAnalysisSettings({
+        ...customAnalysisSettings,
+        [selectedWell]: wellSettings,
+      });
+      // TODO update changelog
+    },
+    moveFeature: (featureName, originalIdx, newIdx) => {
+      const wellSettings = customAnalysisSettings[selectedWell];
+      const wellFeatureIndices = wellSettings.featureIndices[featureName];
+
+      const targetIdx = wellFeatureIndices.indexOf(originalIdx);
+      if (targetIdx === -1) return;
+
+      wellFeatureIndices.splice(targetIdx, 1, newIdx);
+      setCustomAnalysisSettings({
+        ...customAnalysisSettings,
+        [selectedWell]: wellSettings,
+      });
+      // TODO update changelog
+    },
+    setThresholdEndpoint: (featureName, endpointName, newValue) => {
+      const wellSettings = customAnalysisSettings[selectedWell];
+
+      wellSettings.thresholdEndpoints[featureName][endpointName] = newValue;
+      setCustomAnalysisSettings({
+        ...customAnalysisSettings,
+        [selectedWell]: wellSettings,
+      });
+      // TODO update changelog
+    },
   };
 
   const [dataToGraph, setDataToGraph] = useState([]); // TODO remove // well-specfic coordinates to graph

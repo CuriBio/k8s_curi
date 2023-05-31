@@ -182,7 +182,7 @@ const contextMenuItems = {
 };
 
 export default function WaveformGraph({
-  selectedWellInfo, // TODO remove this since this doesn't need to know about which well is open
+  selectedWellInfo, // TODO remove this since this component doesn't need to know about which well is open
   xRange,
   dataToGraph,
   editableStartEndTimesHookItems,
