@@ -311,9 +311,7 @@ export default function WaveformGraph({
     }
     // ensure you can't move a line outside of window bounds
     function getCorrectY(id, d3Object) {
-      return id.includes("valley")
-        ? Math.max(d3Object.y, y(yMax + yRange))
-        : Math.min(d3Object.y, y(yMin - yRange));
+      return Math.min(Math.max(d3Object.y, y(yMax + yRange)), y(yMin - yRange));
     }
     // waveform line
     const dataLine = d3
@@ -653,15 +651,12 @@ export default function WaveformGraph({
         const yId = id.includes("1") ? "y1" : "y2";
 
         const yPosition = getCorrectY(id, d);
-        //set new y for marker
+        // set new y for marker
         d3.select(this).attr("cy", yPosition);
 
-        //set new y for line
-        if (id.includes("valley")) {
-          d3.select("#valleyLine").attr(yId, yPosition);
-        } else {
-          d3.select("#peakLine").attr(yId, yPosition);
-        }
+        // set new y for line
+        const elementName = id.includes("peak") ? "#peakLine" : "#valleyLine";
+        d3.select(elementName).attr(yId, yPosition);
       })
       .on("end", function (d) {
         // decrease stroke width when unselected and dropped
@@ -669,15 +664,13 @@ export default function WaveformGraph({
 
         const id = d3.select(this).attr("id");
 
-        //need to invert to make calculation compatible with dataToGraph
-        const y1 = y.invert(
-          id.includes("valley") ? d3.select("#valleyLine").attr("y1") : d3.select("#peakLine").attr("y1")
-        );
-        const y2 = y.invert(
-          id.includes("valley") ? d3.select("#valleyLine").attr("y2") : d3.select("#peakLine").attr("y2")
-        );
+        const elementName = id.includes("peak") ? "#peakLine" : "#valleyLine";
+        // need to invert to make calculation compatible with dataToGraph
+        const y1 = y.invert(d3.select(elementName).attr("y1"));
+        const y2 = y.invert(d3.select(elementName).attr("y2"));
+
         setLineCalculationVariables(id, y1, y2);
-        // descrease stroke width when unselected and dropped
+        // decrease stroke width when unselected and dropped
         d3.select(this).attr("stroke-width", 2);
       });
     const moveLineUpDown = d3
