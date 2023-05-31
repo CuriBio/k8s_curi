@@ -183,7 +183,7 @@ const contextMenuItems = {
 
 export default function WaveformGraph({
   selectedWellInfo, // TODO remove this since this component doesn't need to know about which well is open
-  xRange,
+  timepointRange,
   dataToGraph,
   editableStartEndTimesHookItems,
   editablePeaksValleysHookItems,
@@ -267,8 +267,8 @@ export default function WaveformGraph({
     });
 
     // if windowed analysis, use else use recording max and min times
-    const xMin = xRange.min || dataToGraph[0][0];
-    const xMax = xRange.max || maxTime;
+    const xMin = timepointRange.min || dataToGraph[0][0];
+    const xMax = timepointRange.max || maxTime;
 
     const margin = { top: 20, right: 20, bottom: 30, left: 50 },
       width = 1245 - margin.left - margin.right,
