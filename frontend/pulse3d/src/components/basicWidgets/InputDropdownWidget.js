@@ -9,7 +9,7 @@ export default function InputDropdownWidget({
   label,
   reset,
   handleSelection,
-  defaultFile,
+  defaultFileIndex,
 }) {
   const [selected, setSelected] = useState(null);
 
@@ -18,12 +18,12 @@ export default function InputDropdownWidget({
   }, [reset]);
 
   useEffect(() => {
-    // Set default file name if one is present
-    if (defaultFile && defaultFile.length !== 0) {
-      setSelected(defaultFile);
-      handleSelection(options.indexOf(defaultFile));
+    if (defaultFileIndex && defaultFileIndex !== -1) {
+      console.log(defaultFileIndex);
+      setSelected(options[defaultFileIndex]);
+      handleSelection(defaultFileIndex);
     }
-  }, [defaultFile]);
+  }, [options]);
 
   return (
     <Autocomplete

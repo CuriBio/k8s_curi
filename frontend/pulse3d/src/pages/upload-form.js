@@ -175,11 +175,7 @@ export default function UploadForm() {
     // checks if error value exists, no file is selected, or upload is in progress
     const checkConditions =
       !Object.values(paramErrors).every((val) => val.length === 0) ||
-      !(
-        (files.length > 0 && files[0] instanceof File) ||
-        (uploads && uploads.includes(files[0])) ||
-        defaultReanalysisFile
-      ) ||
+      !((files.length > 0 && files[0] instanceof File) || (uploads && uploads.includes(files[0]))) ||
       inProgress ||
       wellGroupErr;
 
@@ -607,7 +603,7 @@ export default function UploadForm() {
               label="Select Recording"
               reset={files.length === 0}
               handleSelection={handleDropDownSelect}
-              defaultFile={defaultReanalysisFile}
+              defaultFileIndex={formattedUploads.indexOf(defaultReanalysisFile)}
             />
           </DropDownContainer>
         ) : (
