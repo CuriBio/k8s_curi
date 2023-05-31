@@ -493,13 +493,14 @@ export default function WaveformGraph({
       d[1] = y.invert(d.y);
 
       /*
-          To force circle to stay along data line, find index of x-coordinate in datapoints to then grab corresponding y-coordinate
-          If this is skipped, user will be able to drag circle anywhere on graph, unrelated to data line.
-        */
+        To force circle to stay along data line, find index of x-coordinate in datapoints to then grab corresponding y-coordinate
+        If this is skipped, user will be able to drag circle anywhere on graph, unrelated to data line.
+      */
       const draggedIdx = waveformData.findIndex((x) => Number(x[0].toFixed(2)) === Number(d[0].toFixed(2)));
 
       const duplicates = checkDuplicates();
 
+      // TODO figure out why dragging is having issues. Issue is probably in here
       // assigns circle node new x and y coordinates based off drag event
       if (featureType === "peak") {
         d3.select(this)
@@ -880,8 +881,8 @@ export default function WaveformGraph({
         idx: idxToChange,
       });
     } else {
-      const peakValley = target.id === "Add Peak" ? "peak" : "valley";
-      addPeakValley(peakValley, targetIdx);
+      const featureType = target.id === "Add Peak" ? "peaks" : "valleys";
+      customAnalysisSettingsUpdaters.addFeature(featureType, targetIdx);
     }
     contextMenu.style("display", "none");
   };

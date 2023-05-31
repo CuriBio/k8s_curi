@@ -281,11 +281,14 @@ export default function InteractiveWaveformModal({
       });
       // TODO update changelog
     },
-    addFeature: (featureName, newIdx) => {
+    addFeature: (featureName, timepoint) => {
       const wellSettings = customAnalysisSettings[selectedWell];
       const wellFeatureIndices = wellSettings.featureIndices[featureName];
+      const idxToAdd = wellWaveformData.findIndex(
+        (coord) => Number(coord[0].toFixed(2)) === Number(timepoint.toFixed(2))
+      );
 
-      wellFeatureIndices.push(newIdx);
+      wellFeatureIndices.push(idxToAdd);
       setCustomAnalysisSettings({
         ...customAnalysisSettings,
         [selectedWell]: wellSettings,
@@ -770,21 +773,6 @@ export default function InteractiveWaveformModal({
     return changelogMessage;
   };
 
-  const addPeakValley = (peakValley, targetTime) => {
-    // const typeIdx = ["peak", "valley"].indexOf(peakValley);
-    // const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
-    // const indexToAdd = wellWaveformData.findIndex(
-    //   (coord) => Number(coord[0].toFixed(2)) === Number(targetTime.toFixed(2))
-    // );
-    // peaksValleysCopy[selectedWell][typeIdx].push(indexToAdd);
-    // setEditablePeaksValleys({ ...peaksValleysCopy });
-    // const coordinates = wellWaveformData[indexToAdd];
-    // const changelogMessage = `${typeIdx === 0 ? "Peak" : "Valley"} was added at [ ${coordinates[0].toFixed(
-    //   2
-    // )}, ${coordinates[1].toFixed(2)} ]`;
-    // addToChangelog(changelogMessage);
-  };
-
   const addToChangelog = (message) => {
     // TODO update this
     if (!changelog[selectedWell]) changelog[selectedWell] = [];
@@ -1018,7 +1006,6 @@ export default function InteractiveWaveformModal({
               reset: resetWellChanges,
               open: () => setOpenChangelog(true),
             }}
-            addPeakValley={addPeakValley}
             filterFeature={filterFeature}
             checkDuplicates={checkDuplicates}
             calculateYLimit={calculateYLimit}
