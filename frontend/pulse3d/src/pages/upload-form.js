@@ -138,7 +138,7 @@ export default function UploadForm() {
   };
 
   const router = useRouter();
-  const { usageQuota, defaultReanalysisFile } = useContext(AuthContext);
+  const { usageQuota, defaultReanalysisFile, setDefaultReanalysisFile } = useContext(AuthContext);
 
   const [files, setFiles] = useState([]);
   const [formattedUploads, setFormattedUploads] = useState([]);
@@ -175,7 +175,11 @@ export default function UploadForm() {
     // checks if error value exists, no file is selected, or upload is in progress
     const checkConditions =
       !Object.values(paramErrors).every((val) => val.length === 0) ||
-      !((files.length > 0 && files[0] instanceof File) || (uploads && uploads.includes(files[0]))) ||
+      !(
+        (files.length > 0 && files[0] instanceof File) ||
+        (uploads && uploads.includes(files[0])) ||
+        defaultReanalysisFile
+      ) ||
       inProgress ||
       wellGroupErr;
 
@@ -380,6 +384,8 @@ export default function UploadForm() {
       } else if (jobResponse.status !== 200 || (jobData.error && jobData.error == "AuthorizationError")) {
         failedUploadsMsg.push(filename);
         console.log("ERROR posting new job");
+      } else {
+        setDefaultReanalysisFile(null);
       }
     } catch (e) {
       failedUploadsMsg.push(filename);
