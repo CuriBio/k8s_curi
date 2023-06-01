@@ -213,9 +213,10 @@ export default function InteractiveWaveformModal({
   const [errorMessage, setErrorMessage] = useState(); // Tanner (5/25/23): seems unused at the moment, but leaving it here anyway
 
   const [originalAnalysisData, setOriginalAnalysisData] = useState({}); // original waveforms and peaks/valleys for each well from GET request, unedited
-  const wellWaveformData = originalAnalysisData.coordinates
-    ? originalAnalysisData.coordinates[selectedWell]
-    : [];
+  const wellWaveformData =
+    originalAnalysisData.coordinates && originalAnalysisData.coordinates[selectedWell]
+      ? originalAnalysisData.coordinates[selectedWell]
+      : [];
   const [timepointRange, setTimepointRange] = useState({
     // This is a copy of the max/min timepoints of the data. Windowed analysis start/stop times are set in editableStartEndTimes.
     // Must be stored in its own state and not tied directly to the recording data because it will be set to the start/stop times of the job if
@@ -229,8 +230,7 @@ export default function InteractiveWaveformModal({
   const [customAnalysisSettingsForWell, setCustomAnalysisSettingsForWell] = useState({});
 
   // TODO remove these
-  const [editablePeaksValleys, setEditablePeaksValleys] = useState(getDefaultFeatures()); // user edited peaks/valleys as changes are made, should get stored in localStorage
-  const [peakValleyWindows, setPeakValleyWindows] = useState({}); // TODO see if this can be removed in place of the endpoints, or at least changed to the default values. Will also need to figure out how to handle the changelog entries once this is removed
+  // const [editablePeaksValleys, setEditablePeaksValleys] = useState(getDefaultFeatures()); // user edited peaks/valleys as changes are made, should get stored in localStorage
   const [editableStartEndTimes, setEditableStartEndTimes] = useState({
     startTime: null,
     endTime: null,
@@ -352,7 +352,7 @@ export default function InteractiveWaveformModal({
     } else {
       updateChangelog();
     }
-  }, [editableStartEndTimes, peakValleyWindows, peakY1, peakY2, valleyY1, valleyY2]);
+  }, [customAnalysisSettings]);
 
   useEffect(() => {
     if (wellWaveformData.length > 0) {
@@ -361,14 +361,26 @@ export default function InteractiveWaveformModal({
   }, [wellWaveformData]);
 
   useEffect(() => {
+    const { peaks, valleys } = customAnalysisSettings[selectedWell].thresholdEndpoints;
+    // set peak and valley markers if not already set and the data required to set them is present
     if (
-      // check if these are empty
-      [peakY1, peakY2, valleyY1, valleyY2].filter((arr) => arr[wellIdx] == null).length > 0 &&
-      peakValleyWindows[selectedWell]
+      [peaks.y1, peaks.y2, valleys.y1, valleys.y1].filter((val) => val == null).length > 0 &&
+      originalAnalysisData.peaksValleys &&
+      originalAnalysisData.peaksValleys[selectedWell]
     ) {
+      customAnalysisSettingsInitializers.featureIndices(
+        selectedWell,
+        "peaks",
+        originalAnalysisData.peaksValleys[selectedWell][0]
+      );
+      customAnalysisSettingsInitializers.featureIndices(
+        selectedWell,
+        "valleys",
+        originalAnalysisData.peaksValleys[selectedWell][1]
+      );
       setBothLinesToDefault();
     }
-  }, [peakValleyWindows]);
+  }, [selectedWell, wellWaveformData]);
 
   useEffect(() => {
     setCustomAnalysisSettingsForWell(
@@ -408,9 +420,6 @@ export default function InteractiveWaveformModal({
       setOriginalAnalysisData(originalAnalysisData);
 
       if (peaksValleysNeeded) {
-        customAnalysisSettingsInitializers.featureIndices(well, "peaks", peaksValleys[well][0]);
-        customAnalysisSettingsInitializers.featureIndices(well, "valleys", peaksValleys[well][1]);
-
         const { start_time, end_time } = selectedJob.analysisParams;
         const newTimepointRange = {
           min: start_time || Math.min(...coordinates.map((coords) => coords[0])),
@@ -424,8 +433,6 @@ export default function InteractiveWaveformModal({
         // won't be present for older recordings or if no replacement was ever given
         if ("nameOverride" in selectedJob) setNameOverride(selectedJob.nameOverride);
       }
-
-      setInitialPeakValleyWindows(well);
 
       if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.3")) {
         setModalLabels(constantModalLabels.oldPulse3dVersion);
@@ -467,17 +474,7 @@ export default function InteractiveWaveformModal({
     return duplicates;
   };
 
-  const setInitialPeakValleyWindows = (well) => {
-    const pvCopy = JSON.parse(JSON.stringify(peakValleyWindows));
-
-    pvCopy[well] = {
-      minPeaks: findLowestPeak(well),
-      maxValleys: findHighestValley(well),
-    };
-
-    setPeakValleyWindows(pvCopy);
-  };
-
+  // TODO clean these up, consider combining them
   const findLowestPeak = (well) => {
     const { coordinates, peaksValleys } = originalAnalysisData;
     const { startTime, endTime } = editableStartEndTimes;
@@ -562,19 +559,14 @@ export default function InteractiveWaveformModal({
   const resetWellChanges = () => {
     // reset peaks and valleys for current well
     const changelogCopy = JSON.parse(JSON.stringify(changelog));
-    const pvWindowCopy = JSON.parse(JSON.stringify(peakValleyWindows));
+    // TODO Reset feature threshold endpoints
     const originalFeaturesForWell = originalAnalysisData.peaksValleys[selectedWell];
     changelogCopy[selectedWell] = [];
-    pvWindowCopy[selectedWell] = {
-      minPeaks: findLowestPeak(selectedWell),
-      maxValleys: findHighestValley(selectedWell),
-    };
     // reset state
     resetStartEndTimes();
     customAnalysisSettingsInitializers.featureIndices(selectedWell, "peaks", originalFeaturesForWell[0]);
     customAnalysisSettingsInitializers.featureIndices(selectedWell, "valleys", originalFeaturesForWell[1]);
     setChangelog(changelogCopy);
-    setPeakValleyWindows(pvWindowCopy);
     setBothLinesToDefault();
   };
   const postNewJob = async () => {
@@ -654,7 +646,6 @@ export default function InteractiveWaveformModal({
         editableStartEndTimes,
         originalAnalysisData,
         changelog,
-        peakValleyWindows,
         peakY1,
         peakY2,
         valleyY1,
@@ -674,21 +665,15 @@ export default function InteractiveWaveformModal({
     } else if (originalAnalysisData.peaksValleys && originalAnalysisData.peaksValleys[selectedWell]) {
       // If are no changes detected then add default values to first index of changelog
       const ogWellData = originalAnalysisData.peaksValleys[selectedWell];
-      const maxValleyY = peakValleyWindows[selectedWell].maxValleys;
-      const minPeakY = peakValleyWindows[selectedWell].minPeaks;
       const defaultChangelog = {
         peaks: ogWellData[0],
         valleys: ogWellData[1],
         startTime: timepointRange.min,
         endTime: timepointRange.max,
-        pvWindow: {
-          minPeaks: findLowestPeak(selectedWell),
-          maxValleys: findHighestValley(selectedWell),
-        },
-        valleyYOne: maxValleyY,
-        valleyYTwo: maxValleyY,
-        peakYOne: minPeakY,
-        peakYTwo: minPeakY,
+        valleyYOne: "TODO",
+        valleyYTwo: "TODO",
+        peakYOne: "TODO",
+        peakYTwo: "TODO",
       };
       changelogMessage = getChangelogMessage(defaultChangelog);
     }
@@ -729,8 +714,6 @@ export default function InteractiveWaveformModal({
         editableStartEndTimes.endTime !== null &&
         endToCompare !== null,
       windowedTimeDiff = startTimeDiff && endTimeDiff,
-      minPeaksDiff = pvWindow.minPeaks !== peakValleyWindows[selectedWell].minPeaks,
-      maxValleysDiff = pvWindow.maxValleys !== peakValleyWindows[selectedWell].maxValleys,
       isNewValleyY1 = isNewY(valleyY1ToCompare, valleyY1),
       isNewValleyY2 = isNewY(valleyY2ToCompare, valleyY2),
       isNewPeakY1 = isNewY(peakY1ToCompare, peakY1),
@@ -762,14 +745,6 @@ export default function InteractiveWaveformModal({
       changelogMessage = `Start time was changed from ${startToCompare} to ${editableStartEndTimes.startTime}.`;
     } else if (endTimeDiff) {
       changelogMessage = `End time was changed from ${endToCompare} to ${editableStartEndTimes.endTime}.`;
-    } else if (minPeaksDiff) {
-      changelogMessage = `Minimum peaks window changed from ${pvWindow.minPeaks.toFixed(
-        2
-      )} to ${peakValleyWindows[selectedWell].minPeaks.toFixed(2)}`;
-    } else if (maxValleysDiff) {
-      changelogMessage = `Maximum valleys window changed from ${pvWindow.maxValleys.toFixed(
-        2
-      )} to ${peakValleyWindows[selectedWell].maxValleys.toFixed(2)}`;
     } else if (isNewValleyY1 && isNewValleyY2) {
       changelogMessage = `Valley Line moved ${valleyY1[wellIdx] - valleyY1ToCompare}`;
     } else if (isNewPeakY1 && isNewPeakY2) {
@@ -792,7 +767,6 @@ export default function InteractiveWaveformModal({
     // if you don't deep copy state, later changes will affect change log entries here
     const { startTime, endTime } = JSON.parse(JSON.stringify(editableStartEndTimes));
     // const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
-    const pvWindowCopy = JSON.parse(JSON.stringify(peakValleyWindows));
 
     changelog[selectedWell].push({
       peaks: peaksValleysCopy[selectedWell][0],
@@ -800,7 +774,6 @@ export default function InteractiveWaveformModal({
       startTime,
       endTime,
       message,
-      pvWindow: pvWindowCopy[selectedWell],
       valleyYOne: valleyY1[wellIdx],
       valleyYTwo: valleyY2[wellIdx],
       peakYOne: peakY1[wellIdx],
@@ -847,7 +820,6 @@ export default function InteractiveWaveformModal({
       // make copies so you control when state is updated
       const changesCopy = JSON.parse(JSON.stringify(changelog[selectedWell]));
       // const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
-      const pvWindowCopy = JSON.parse(JSON.stringify(peakValleyWindows));
       const newWindowTimes = {};
       // remove step with latest changes
       changesCopy.pop();
@@ -859,7 +831,6 @@ export default function InteractiveWaveformModal({
           valleys,
           startTime,
           endTime,
-          pvWindow,
           valleyYOne,
           valleyYTwo,
           peakYOne,
@@ -867,20 +838,18 @@ export default function InteractiveWaveformModal({
         } = changesCopy[changesCopy.length - 1];
         // set old peaks and valleys to well
         peaksValleysCopy[selectedWell] = [[...peaks], [...valleys]];
-        pvWindowCopy[selectedWell] = pvWindow;
         newWindowTimes.startTime = startTime;
         newWindowTimes.endTime = endTime;
-        setBothLinesToNew(peakYOne, peakYTwo, valleyYOne, valleyYTwo);
+        // TODO use new updater for this
+        // setBothLinesToNew(peakYOne, peakYTwo, valleyYOne, valleyYTwo);
       } else {
         // if undoing the very first change, revert back to original state
         newWindowTimes.startTime = timepointRange.min;
         newWindowTimes.endTime = timepointRange.max;
 
+        // TODO handle features threshold endpoints
         peaksValleysCopy[selectedWell] = originalAnalysisData.peaksValleys[selectedWell];
-        pvWindowCopy[selectedWell] = {
-          minPeaks: findLowestPeak(selectedWell),
-          maxValleys: findHighestValley(selectedWell),
-        };
+
         setBothLinesToDefault();
       }
 
@@ -889,7 +858,6 @@ export default function InteractiveWaveformModal({
       // update values to state to rerender graph
       setEditableStartEndTimes(newWindowTimes);
       // setEditablePeaksValleys(peaksValleysCopy);
-      setPeakValleyWindows(pvWindowCopy);
       setChangelog(changelog);
     }
   };
@@ -910,25 +878,17 @@ export default function InteractiveWaveformModal({
     return y1 + slope * (markerX - editableStartEndTimes.startTime);
   };
 
-  const assignNewArr = (data, newValue, setState) => {
-    let newArr = [...data];
-    newArr[wellIdx] = newValue;
-    setState([...newArr]);
-  };
-
-  // TODO clean all this up
   const setBothLinesToDefault = () => {
-    assignNewArr(peakY1, peakValleyWindows[selectedWell].minPeaks, setPeakY1);
-    assignNewArr(peakY2, peakValleyWindows[selectedWell].minPeaks, setPeakY2);
-    assignNewArr(valleyY1, peakValleyWindows[selectedWell].maxValleys, setValleyY1);
-    assignNewArr(valleyY2, peakValleyWindows[selectedWell].maxValleys, setValleyY2);
-  };
-
-  const setBothLinesToNew = (newPeakY1, newPeakY2, newValleyY1, newValleyY2) => {
-    assignNewArr(peakY1, newPeakY1, setPeakY1);
-    assignNewArr(peakY2, newPeakY2, setPeakY2);
-    assignNewArr(valleyY1, newValleyY1, setValleyY1);
-    assignNewArr(valleyY2, newValleyY2, setValleyY2);
+    customAnalysisSettingsInitializers.thresholdEndpoints(
+      selectedWell,
+      "peaks",
+      findLowestPeak(selectedWell)
+    );
+    customAnalysisSettingsInitializers.thresholdEndpoints(
+      selectedWell,
+      "valleys",
+      findHighestValley(selectedWell)
+    );
   };
 
   const isNewY = (yToCompare, originalYArr) => {
@@ -1000,16 +960,11 @@ export default function InteractiveWaveformModal({
           </SpinnerContainer>
         ) : (
           <WaveformGraph
-            selectedWellInfo={{ selectedWell, wellIdx: wellIdx }}
             timepointRange={timepointRange}
             waveformData={wellWaveformData}
             customAnalysisSettings={customAnalysisSettingsForWell}
             customAnalysisSettingsUpdaters={customAnalysisSettingsUpdaters}
             editableStartEndTimesHookItems={[editableStartEndTimes, setEditableStartEndTimes]}
-            peakY1HookItems={[peakY1, setPeakY1]}
-            peakY2HookItems={[peakY2, setPeakY2]}
-            valleyY1HookItems={[valleyY1, setValleyY1]}
-            valleyY2HookItems={[valleyY2, setValleyY2]}
             changelogActions={{
               save: saveChanges,
               undo: undoLastChange,
@@ -1019,7 +974,6 @@ export default function InteractiveWaveformModal({
             filterFeature={filterFeature}
             checkDuplicates={checkDuplicates}
             calculateYLimit={calculateYLimit}
-            assignNewArr={assignNewArr}
           />
         )}
       </GraphContainer>

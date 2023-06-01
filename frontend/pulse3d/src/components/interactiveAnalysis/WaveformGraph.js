@@ -182,29 +182,20 @@ const contextMenuItems = {
 };
 
 export default function WaveformGraph({
-  selectedWellInfo, // TODO remove this since this component doesn't need to know about which well is open
   timepointRange,
   waveformData,
   customAnalysisSettings,
   customAnalysisSettingsUpdaters,
   editableStartEndTimesHookItems,
-  peakY1HookItems,
-  peakY2HookItems,
-  valleyY1HookItems,
-  valleyY2HookItems,
   changelogActions,
   checkDuplicates, // TODO send in the duplicates? Or maybe keeping this function is fine
-  assignNewArr,
 }) {
-  const { wellIdx } = selectedWellInfo;
+  // TODO remove these and use customAnalysisSettings instead
   const [editableStartEndTimes, setEditableStartEndTimes] = editableStartEndTimesHookItems;
   const { startTime, endTime } = editableStartEndTimes;
-  // TODO
+
   const { peaks, valleys } = customAnalysisSettings.featureIndices;
-  const [peakY1, setPeakY1] = peakY1HookItems;
-  const [peakY2, setPeakY2] = peakY2HookItems;
-  const [valleyY1, setValleyY1] = valleyY1HookItems;
-  const [valleyY2, setValleyY2] = valleyY2HookItems;
+  const { thresholdEndpoints } = customAnalysisSettings;
 
   const [menuItems, setMenuItems] = useState(contextMenuItems.moveDelete);
   const [selectedMarkerToMove, setSelectedMarkerToMove] = useState();
@@ -231,18 +222,7 @@ export default function WaveformGraph({
       d3.select("#waveformGraph").select("svg").remove();
       createGraph();
     }
-  }, [
-    customAnalysisSettings,
-    selectedMarkerToMove,
-    xZoomFactor,
-    yZoomFactor,
-    valleyY1,
-    valleyY2,
-    peakY1,
-    peakY2,
-    startTime,
-    endTime,
-  ]);
+  }, [customAnalysisSettings, selectedMarkerToMove, xZoomFactor, yZoomFactor, startTime, endTime]);
 
   /* NOTE!! The order of the variables and function calls in this function are important to functionality.
      could eventually try to break this up, but it's more sensitive in react than vue */
@@ -499,7 +479,6 @@ export default function WaveformGraph({
 
       const duplicates = checkDuplicates();
 
-      // TODO figure out why dragging is having issues. Issue is probably in here
       // assigns circle node new x and y coordinates based off drag event
       if (featureType === "peak") {
         d3.select(this)
@@ -660,7 +639,8 @@ export default function WaveformGraph({
         const y1 = y.invert(d3.select(elementName).attr("y1"));
         const y2 = y.invert(d3.select(elementName).attr("y2"));
 
-        setLineCalculationVariables(id, y1, y2);
+        // TODO update threshold lines correctly
+
         // decrease stroke width when unselected and dropped
         d3.select(this).attr("stroke-width", 2);
       });
@@ -701,7 +681,7 @@ export default function WaveformGraph({
         d3.select(this).attr("stroke-width", 2);
         const y1 = y.invert(d3.select(this).attr("y1"));
         const y2 = y.invert(d3.select(this).attr("y2"));
-        setLineCalculationVariables(id, y1, y2);
+        // TODO update threshold lines correctly
       });
 
     // draggable windowed peaks line
@@ -709,9 +689,9 @@ export default function WaveformGraph({
       .append("line")
       .attr("id", "peakLine")
       .attr("x1", x(startTime))
-      .attr("y1", y(peakY1[wellIdx]))
+      .attr("y1", y(thresholdEndpoints.peaks.y1))
       .attr("x2", x(endTime))
-      .attr("y2", y(peakY2[wellIdx]))
+      .attr("y2", y(thresholdEndpoints.peaks.y2))
       .attr("stroke-width", 2)
       .attr("stroke", "var(--curi-peaks)")
       .style("cursor", "pointer")
@@ -727,18 +707,18 @@ export default function WaveformGraph({
       "peakLineY1Marker",
       "peakLine",
       startTime + endpointMarkerOffset,
-      peakY1[wellIdx],
+      thresholdEndpoints.peaks.y1,
       "var(--curi-peaks)"
     );
     const peaksY2 = appendPeakValleyMarkers(
       "peakLineY2Marker",
       "peakLine",
       endTime - endpointMarkerOffset,
-      peakY2[wellIdx],
+      thresholdEndpoints.peaks.y2,
       "var(--curi-peaks)"
     );
     // remove peaks line if no peaks are found
-    if (!peakY1 || !peakY2) {
+    if (!thresholdEndpoints.peaks.y1 || !thresholdEndpoints.peaks.y2) {
       peakThresholdLine.attr("display", "none");
       peaksY1.attr("display", "none");
       peaksY2.attr("display", "none");
@@ -748,9 +728,9 @@ export default function WaveformGraph({
       .append("line")
       .attr("id", "valleyLine")
       .attr("x1", x(startTime))
-      .attr("y1", y(valleyY1[wellIdx]))
+      .attr("y1", y(thresholdEndpoints.valleys.y1))
       .attr("x2", x(endTime))
-      .attr("y2", y(valleyY2[wellIdx]))
+      .attr("y2", y(thresholdEndpoints.valleys.y2))
       .attr("stroke-width", 2)
       .attr("stroke", "var(--curi-valleys)")
       .style("cursor", "pointer")
@@ -759,18 +739,18 @@ export default function WaveformGraph({
       "valleyLineY1Marker",
       "peakLine",
       startTime + endpointMarkerOffset,
-      valleyY1[wellIdx],
+      thresholdEndpoints.valleys.y1,
       "var(--curi-valleys)"
     );
     const valleysY2 = appendPeakValleyMarkers(
       "valleyLineY2Marker",
       "peakLine",
       endTime - endpointMarkerOffset,
-      valleyY2[wellIdx],
+      thresholdEndpoints.valleys.y2,
       "var(--curi-valleys)"
     );
     // remove valleys line if no valleys are found
-    if (!valleyY1 || !valleyY2) {
+    if (!thresholdEndpoints.valleys.y1 || !thresholdEndpoints.valleys.y2) {
       valleyThresholdLine.attr("display", "none");
       valleysY1.attr("display", "none");
       valleysY2.attr("display", "none");
@@ -904,16 +884,6 @@ export default function WaveformGraph({
     } else if (yZoomFactor != 1) {
       const newFactor = yZoomFactor / 1.5;
       setYZoomFactor(newFactor);
-    }
-  };
-
-  const setLineCalculationVariables = (id, y1, y2) => {
-    if (id.includes("peak")) {
-      assignNewArr(peakY1, y1, setPeakY1);
-      assignNewArr(peakY2, y2, setPeakY2);
-    } else {
-      assignNewArr(valleyY1, y1, setValleyY1);
-      assignNewArr(valleyY2, y2, setValleyY2);
     }
   };
 
