@@ -611,7 +611,7 @@ export default function UploadForm() {
               options={formattedUploads}
               width={500}
               label="Select Recording"
-              reset={resetFilesDropDown}
+              reset={resetFilesDropDown && files.length === 0}
               handleSelection={handleDropDownSelect}
               defaultIndex={formattedUploads.indexOf(defaultReanalysisFile)}
             />
