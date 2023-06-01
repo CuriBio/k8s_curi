@@ -16,7 +16,6 @@ export default function InputDropdownWidget({
   useEffect(() => {
     if (reset) {
       setSelected(null);
-      console.log("here");
     }
   }, [reset]);
 
