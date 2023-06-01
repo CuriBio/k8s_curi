@@ -167,7 +167,15 @@ const getDefaultCustomAnalysisSettings = () => {
   // add per well values
   for (const well of wellNames) {
     customVals[well] = {
-      featureIndices: {
+      allFeatureIndices: {
+        peaks: [],
+        valleys: [],
+      },
+      filteredFeatureIndices: {
+        peaks: [],
+        valleys: [],
+      },
+      duplicateFeatureIndices: {
         peaks: [],
         valleys: [],
       },
@@ -255,7 +263,7 @@ export default function InteractiveWaveformModal({
     },
     featureIndices: (well, featureName, initialIndices) => {
       const wellSettings = customAnalysisSettings[well];
-      wellSettings.featureIndices[featureName] = JSON.parse(JSON.stringify(initialIndices));
+      wellSettings.allFeatureIndices[featureName] = JSON.parse(JSON.stringify(initialIndices));
       setCustomAnalysisSettings({
         ...customAnalysisSettings,
         [well]: wellSettings,
@@ -274,7 +282,7 @@ export default function InteractiveWaveformModal({
     },
   };
 
-  // TODO make sure filtering is triggered after all these changes
+  // TODO make sure filtering is triggered after all these changes. Easiest to do in a useEffect?
   const customAnalysisSettingsUpdaters = {
     // These functions will always update the changelog
     setWindowBound: (boundName, boundValue) => {
@@ -286,7 +294,7 @@ export default function InteractiveWaveformModal({
     },
     addFeature: (featureName, timepoint) => {
       const wellSettings = customAnalysisSettings[selectedWell];
-      const wellFeatureIndices = wellSettings.featureIndices[featureName];
+      const wellFeatureIndices = wellSettings.allFeatureIndices[featureName];
       const idxToAdd = wellWaveformData.findIndex(
         (coord) => Number(coord[0].toFixed(2)) === Number(timepoint.toFixed(2))
       );
@@ -300,7 +308,7 @@ export default function InteractiveWaveformModal({
     },
     deleteFeature: (featureName, idxToDelete) => {
       const wellSettings = customAnalysisSettings[selectedWell];
-      const wellFeatureIndices = wellSettings.featureIndices[featureName];
+      const wellFeatureIndices = wellSettings.allFeatureIndices[featureName];
 
       const targetIdx = wellFeatureIndices.indexOf(idxToDelete);
       if (targetIdx === -1) return;
@@ -314,7 +322,7 @@ export default function InteractiveWaveformModal({
     },
     moveFeature: (featureName, originalIdx, newIdx) => {
       const wellSettings = customAnalysisSettings[selectedWell];
-      const wellFeatureIndices = wellSettings.featureIndices[featureName];
+      const wellFeatureIndices = wellSettings.allFeatureIndices[featureName];
 
       const targetIdx = wellFeatureIndices.indexOf(originalIdx);
       if (targetIdx === -1) return;
@@ -385,10 +393,12 @@ export default function InteractiveWaveformModal({
 
   useEffect(() => {
     setCustomAnalysisSettingsForWell(
+      // Tanner (6/1/23): Copying just to be safe
       JSON.parse(
         JSON.stringify({
           windowAnalysisBounds: customAnalysisSettings.windowAnalysisBounds,
-          ...customAnalysisSettings[selectedWell],
+          featureIndices: customAnalysisSettings[selectedWell].filteredFeatureIndices,
+          duplicateIndices: customAnalysisSettings[selectedWell].duplicateFeatureIndices,
         })
       )
     );
@@ -447,10 +457,9 @@ export default function InteractiveWaveformModal({
     }
   };
 
-  // TODO remove default value here
+  // TODO remove default value here if this function gets removed from being passed to WaveformGraph
   const checkDuplicates = (well = selectedWell) => {
-    // These should already be filtered
-    const { peaks, valleys } = customAnalysisSettings[well].featureIndices;
+    const { peaks, valleys } = customAnalysisSettings[well].filteredFeatureIndices;
 
     // TODO clean this up
 
@@ -575,7 +584,7 @@ export default function InteractiveWaveformModal({
       setUploadInProgress(true);
 
       // TODO check that this is formatted correctly, AND MAKE SURE TO SEND ALL WELLS
-      const filteredPeaksValleys = customAnalysisSettings["A1"].featureIndices;
+      const filteredPeaksValleys = customAnalysisSettings["A1"].filteredFeatureIndices;
       const prevPulse3dVersion = selectedJob.analysisParams.pulse3d_version;
       // jobs run on pulse3d versions < 0.28.3 will not have a 0 timepoint so account for that here that 0.01 is still the first time point, not windowed
       const startTime =
@@ -901,8 +910,8 @@ export default function InteractiveWaveformModal({
     );
   };
 
-  const filterFeature = (featureType, featureIndices, startTime, endTime, wellCoords, wellIndex) => {
-    return featureIndices.filter((idx) => {
+  const filterFeature = (featureType, allFeatureIndices, startTime, endTime, wellCoords, wellIndex) => {
+    return allFeatureIndices.filter((idx) => {
       // Can only filter if the data for this well has actually been loaded,
       // which is not guaranteed to be the case with the staggered loading of data for each well
       if (!wellCoords) return true;
