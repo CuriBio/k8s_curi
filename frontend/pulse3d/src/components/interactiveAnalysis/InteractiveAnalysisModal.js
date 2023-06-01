@@ -52,27 +52,29 @@ const ParamContainer = styled.div`
   display: flex;
   flex-direction: row;
   align-items: center;
-  width: 360px;
-  justify-content: space-between;
+  width: 650px;
+  justify-content: left;
 `;
 
 const ParamLabel = styled.span`
   line-height: 2;
   font-size: 16px;
+  width: 30%;
+  margin-right: 19px;
+  position: relative;
   white-space: nowrap;
-  padding-right: 15px;
   display: flex;
   align-items: center;
   cursor: default;
+  justify-content: right;
 `;
 
 const GraphContainer = styled.div`
-  height: 415px;
   border-radius: 7px;
   background-color: var(--med-gray);
   position: relative;
   width: 1350px;
-  margin-top: 4%;
+  margin-top: 2%;
   overflow: hidden;
   padding: 0px 15px;
   display: flex;
@@ -92,6 +94,7 @@ const ButtonContainer = styled.div`
   position: relative;
   height: 50px;
   width: 100%;
+  margin-bottom: 25px;
   display: flex;
   justify-content: flex-end;
 `;
@@ -783,17 +786,8 @@ export default function InteractiveWaveformModal({
 
       if (changesCopy.length > 0) {
         // grab state from the step before the undo step to set as current state
-        const {
-          peaks,
-          valleys,
-          startTime,
-          endTime,
-          pvWindow,
-          valleyYOne,
-          valleyYTwo,
-          peakYOne,
-          peakYTwo,
-        } = changesCopy[changesCopy.length - 1];
+        const { peaks, valleys, startTime, endTime, pvWindow, valleyYOne, valleyYTwo, peakYOne, peakYTwo } =
+          changesCopy[changesCopy.length - 1];
         // set old peaks and valleys to well
         peaksValleysCopy[selectedWell] = [[...peaks], [...valleys]];
         pvWindowCopy[selectedWell] = pvWindow;
@@ -1034,7 +1028,7 @@ export default function InteractiveWaveformModal({
       )}
       <ButtonContainer>
         <ButtonWidget
-          width="150px"
+          width="200px"
           height="50px"
           position="relative"
           borderRadius="3px"
@@ -1043,7 +1037,7 @@ export default function InteractiveWaveformModal({
           clickFn={() => setOpenInteractiveAnalysis(false)}
         />
         <ButtonWidget
-          width="150px"
+          width="200px"
           height="50px"
           position="relative"
           borderRadius="3px"
