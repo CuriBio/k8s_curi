@@ -636,10 +636,11 @@ export default function WaveformGraph({
 
         const elementName = id.includes("peak") ? "#peakLine" : "#valleyLine";
         // need to invert to make calculation compatible with waveformData
-        const y1 = y.invert(d3.select(elementName).attr("y1"));
-        const y2 = y.invert(d3.select(elementName).attr("y2"));
+        const yId = id.includes("1") ? "y1" : "y2";
+        const newY = y.invert(d3.select(elementName).attr(yId));
 
-        // TODO update threshold lines correctly
+        const featureName = id.includes("peak") ? "peaks" : "valleys";
+        customAnalysisSettingsUpdaters.setThresholdEndpoint(featureName, yId, newY);
 
         // decrease stroke width when unselected and dropped
         d3.select(this).attr("stroke-width", 2);
@@ -681,7 +682,10 @@ export default function WaveformGraph({
         d3.select(this).attr("stroke-width", 2);
         const y1 = y.invert(d3.select(this).attr("y1"));
         const y2 = y.invert(d3.select(this).attr("y2"));
-        // TODO update threshold lines correctly
+
+        const featureName = id.includes("peak") ? "peaks" : "valleys";
+        customAnalysisSettingsUpdaters.setThresholdEndpoint(featureName, "y1", y1);
+        customAnalysisSettingsUpdaters.setThresholdEndpoint(featureName, "y2", y2);
       });
 
     // draggable windowed peaks line

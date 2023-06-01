@@ -274,6 +274,7 @@ export default function InteractiveWaveformModal({
     },
   };
 
+  // TODO make sure filtering is triggered after all these changes
   const customAnalysisSettingsUpdaters = {
     // These functions will always update the changelog
     setWindowBound: (boundName, boundValue) => {
@@ -331,7 +332,7 @@ export default function InteractiveWaveformModal({
       wellSettings.thresholdEndpoints[featureName][endpointName] = newValue;
       setCustomAnalysisSettings({
         ...customAnalysisSettings,
-        [well]: wellSettings,
+        [selectedWell]: wellSettings,
       });
       // TODO update changelog
     },
