@@ -949,7 +949,7 @@ export default function WaveformGraph({
   };
   const getFeatureAlertMessage = () => {
     const [peaks, valleys] = editablePeaksValleys[selectedWellInfo.selectedWell];
-    if (peaks.length === 0 && valleys.length === 0) return "No peaks and valleys detected";
+    if (peaks.length === 0 && valleys.length === 0) return "No peaks or valleys detected";
     if (peaks.length === 0) return "No peaks detected";
     if (valleys.length === 0) return "No valleys detected";
     return null;
