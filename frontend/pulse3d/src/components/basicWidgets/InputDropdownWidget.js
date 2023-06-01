@@ -11,12 +11,10 @@ export default function InputDropdownWidget({
   handleSelection,
   defaultIndex,
 }) {
-  const [selected, setSelected] = useState(options[defaultIndex] ? options[defaultIndex] : null);
+  const [selected, setSelected] = useState(options[defaultIndex] || null);
 
   useEffect(() => {
-    if (reset) {
-      setSelected(null);
-    }
+    if (reset) setSelected(null);
   }, [reset]);
 
   useEffect(() => {
