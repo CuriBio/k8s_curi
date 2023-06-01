@@ -193,7 +193,6 @@ export default function WaveformGraph({
   valleyY1HookItems,
   valleyY2HookItems,
   changelogActions,
-  addPeakValley,
   checkDuplicates, // TODO send in the duplicates? Or maybe keeping this function is fine
   assignNewArr,
 }) {

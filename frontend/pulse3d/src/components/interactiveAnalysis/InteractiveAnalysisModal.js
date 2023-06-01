@@ -225,6 +225,8 @@ export default function InteractiveWaveformModal({
   });
 
   const [customAnalysisSettings, setCustomAnalysisSettings] = useState(getDefaultCustomAnalysisSettings());
+  // This only exists as a convenience for passing data down to WaveformGraph. It's a copy of customAnalysisSettings with only the data relevant for the selected well
+  const [customAnalysisSettingsForWell, setCustomAnalysisSettingsForWell] = useState({});
 
   // TODO remove these
   const [editablePeaksValleys, setEditablePeaksValleys] = useState(getDefaultFeatures()); // user edited peaks/valleys as changes are made, should get stored in localStorage
@@ -367,6 +369,17 @@ export default function InteractiveWaveformModal({
       setBothLinesToDefault();
     }
   }, [peakValleyWindows]);
+
+  useEffect(() => {
+    setCustomAnalysisSettingsForWell(
+      JSON.parse(
+        JSON.stringify({
+          windowAnalysisBounds: customAnalysisSettings.windowAnalysisBounds,
+          ...customAnalysisSettings[selectedWell],
+        })
+      )
+    );
+  }, [customAnalysisSettings, selectedWell]);
 
   const getNewData = async () => {
     await getWaveformData(true, "A1");
@@ -990,10 +1003,7 @@ export default function InteractiveWaveformModal({
             selectedWellInfo={{ selectedWell, wellIdx: wellIdx }}
             timepointRange={timepointRange}
             waveformData={wellWaveformData}
-            customAnalysisSettings={{
-              windowAnalysisBounds: customAnalysisSettings.windowAnalysisBounds,
-              ...customAnalysisSettings[selectedWell],
-            }}
+            customAnalysisSettings={customAnalysisSettingsForWell}
             customAnalysisSettingsUpdaters={customAnalysisSettingsUpdaters}
             editableStartEndTimesHookItems={[editableStartEndTimes, setEditableStartEndTimes]}
             peakY1HookItems={[peakY1, setPeakY1]}
