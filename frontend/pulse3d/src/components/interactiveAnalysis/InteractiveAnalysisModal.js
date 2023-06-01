@@ -220,7 +220,7 @@ export default function InteractiveWaveformModal({
     } else {
       updateChangelog();
     }
-  }, [editableStartEndTimes, peakValleyWindows, peakY1, peakY2, valleyY1, valleyY2]);
+  }, [editableStartEndTimes, editablePeaksValleys, peakValleyWindows, peakY1, peakY2, valleyY1, valleyY2]);
 
   useEffect(() => {
     if (dataToGraph.length > 0) {
@@ -594,6 +594,15 @@ export default function InteractiveWaveformModal({
     }
   };
 
+  const compareFeatures = (oldFeatures, newFeatures) => {
+    for (const idx of newFeatures) {
+      if (!oldFeatures.includes(idx)) {
+        return idx;
+      }
+    }
+    return -1;
+  };
+
   const getChangelogMessage = ({
     peaks: peaksToCompare,
     valleys: valleysToCompare,
@@ -610,10 +619,14 @@ export default function InteractiveWaveformModal({
     let changelogMessage;
     const peaksMoved =
         JSON.stringify(peaksToCompare) !== JSON.stringify(featuresForWell[0]) &&
-        peaksToCompare.length === featuresForWell[0].length, // added and deleted peaks is handled somewhere else
+        peaksToCompare.length === featuresForWell[0].length,
+      peakAdded = peaksToCompare.length < featuresForWell[0].length,
+      peakDeleted = peaksToCompare.length > featuresForWell[0].length,
       valleysMoved =
         JSON.stringify(valleysToCompare) !== JSON.stringify(featuresForWell[1]) &&
-        valleysToCompare.length === featuresForWell[1].length, // added and deleted peaks is handled somewhere else,
+        valleysToCompare.length === featuresForWell[1].length,
+      valleyAdded = valleysToCompare.length < featuresForWell[1].length,
+      valleyDeleted = valleysToCompare.length > featuresForWell[1].length,
       startTimeDiff =
         startToCompare !== editableStartEndTimes.startTime &&
         editableStartEndTimes.startTime !== null &&
@@ -640,8 +653,22 @@ export default function InteractiveWaveformModal({
       changelogMessage = `Peak at [ ${oldPeakX.toFixed(2)}, ${oldPeakY.toFixed(
         2
       )} ] was moved to [ ${newPeakX.toFixed(2)}, ${newPeakY.toFixed(2)} ].`;
+    } else if (peakAdded) {
+      const newIdx = compareFeatures(peaksToCompare, featuresForWell[0]);
+      if (newIdx >= 0) {
+        const coordinates = dataToGraph[newIdx];
+        changelogMessage = `Peak was added at [ ${coordinates[0].toFixed(2)}, ${coordinates[1].toFixed(2)} ]`;
+      }
+    } else if (peakDeleted) {
+      const newIdx = compareFeatures(featuresForWell[0], peaksToCompare);
+      if (newIdx >= 0) {
+        const coordinates = dataToGraph[newIdx];
+        changelogMessage = `Peak at [ ${coordinates[0].toFixed(2)}, ${coordinates[1].toFixed(
+          2
+        )} ] was removed.`;
+      }
     } else if (valleysMoved) {
-      const diffIdx = valleysToCompare.findIndex((valleyIdx, i) => valleyIdx !== featuresForWell[0][i]),
+      const diffIdx = valleysToCompare.findIndex((valleyIdx, i) => valleyIdx !== featuresForWell[1][i]),
         oldValleyX = dataToGraph[valleysToCompare[diffIdx]][0],
         oldValleyY = dataToGraph[valleysToCompare[diffIdx]][1],
         newValleyX = dataToGraph[featuresForWell[1][diffIdx]][0],
@@ -650,6 +677,22 @@ export default function InteractiveWaveformModal({
       changelogMessage = `Valley at [ ${oldValleyX.toFixed(2)}, ${oldValleyY.toFixed(
         2
       )} ] was moved to [ ${newValleyX.toFixed(2)}, ${newValleyY.toFixed(2)} ].`;
+    } else if (valleyAdded) {
+      const newIdx = compareFeatures(valleysToCompare, featuresForWell[1]);
+      if (newIdx >= 0) {
+        const coordinates = dataToGraph[newIdx];
+        changelogMessage = `Valley was added at [ ${coordinates[0].toFixed(2)}, ${coordinates[1].toFixed(
+          2
+        )} ]`;
+      }
+    } else if (valleyDeleted) {
+      const newIdx = compareFeatures(featuresForWell[1], valleysToCompare);
+      if (newIdx >= 0) {
+        const coordinates = dataToGraph[newIdx];
+        changelogMessage = `Valley at [ ${coordinates[0].toFixed(2)}, ${coordinates[1].toFixed(
+          2
+        )} ] was removed.`;
+      }
     } else if (windowedTimeDiff) {
       changelogMessage = `Start time was changed from ${startToCompare} to ${editableStartEndTimes.startTime} and end time was changed from ${endToCompare} to ${editableStartEndTimes.endTime}.`;
     } else if (startTimeDiff) {
@@ -688,13 +731,6 @@ export default function InteractiveWaveformModal({
       // remove desired marker
       peaksValleysCopy[selectedWell][typeIdx].splice(targetIdx, 1);
       setEditablePeaksValleys({ ...peaksValleysCopy });
-
-      const coordinates = dataToGraph[idx];
-      const changelogMessage = `${typeIdx === 0 ? "Peak" : "Valley"} at [ ${coordinates[0].toFixed(
-        2
-      )}, ${coordinates[1].toFixed(2)} ] was removed.`;
-
-      addToChangelog(changelogMessage);
     }
   };
 
@@ -708,13 +744,6 @@ export default function InteractiveWaveformModal({
     peaksValleysCopy[selectedWell][typeIdx].push(indexToAdd);
 
     setEditablePeaksValleys({ ...peaksValleysCopy });
-
-    const coordinates = dataToGraph[indexToAdd];
-    const changelogMessage = `${typeIdx === 0 ? "Peak" : "Valley"} was added at [ ${coordinates[0].toFixed(
-      2
-    )}, ${coordinates[1].toFixed(2)} ]`;
-
-    addToChangelog(changelogMessage);
   };
 
   const addToChangelog = (message) => {

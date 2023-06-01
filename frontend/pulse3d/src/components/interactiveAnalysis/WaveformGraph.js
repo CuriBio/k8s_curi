@@ -221,7 +221,7 @@ export default function WaveformGraph({
     const newEntries = JSON.parse(JSON.stringify(editablePeaksValleys));
     const featureIdx = featureType === "peak" ? 0 : 1;
     newEntries[selectedWell][featureIdx] = newFeatureValues;
-    setEditablePeaksValleys(newEntries);
+    setEditablePeaksValleys({ ...newEntries });
   };
 
   const updateStartEndTimes = (newStartEndTimes) => {
@@ -550,7 +550,7 @@ export default function WaveformGraph({
       );
 
       // Changing the x/y coordinates on the graph does not auto update the original array used to plot peaks and valleys so you need to update them separately
-      const featureValues = featureType === "peak" ? peaks : valleys;
+      const featureValues = JSON.parse(JSON.stringify(featureType === "peak" ? peaks : valleys));
       featureValues.splice(indexToChange, 1, newSelectedIndex);
       updateFeatures(featureType, featureValues);
     }
@@ -901,7 +901,7 @@ export default function WaveformGraph({
 
     // Tanner (5/25/23): Currently assuming that only 37 and 39 will be passed in
     const shiftAmount = keyCode === 37 ? -1 : 1;
-    const featureValues = type === "peak" ? peaks : valleys;
+    const featureValues = JSON.parse(JSON.stringify(featureType === "peak" ? peaks : valleys));
     const idxVal = featureValues[idx];
     featureValues.splice(idx, 1, (idxVal += shiftAmount));
     updateFeatures(type, featureValues);
