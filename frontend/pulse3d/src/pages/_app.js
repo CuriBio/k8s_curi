@@ -37,7 +37,6 @@ function Pulse({ Component, pageProps }) {
   const [accountType, setAccountType] = useState();
   const [showLoggedOutAlert, setLoggedOutAlert] = useState(false);
   const [usageQuota, setUsageQuota] = useState(null);
-  const [defaultUploadForReanalysis, setDefaultUploadForReanalysis] = useState();
   let swInterval = null;
   // register the SW once
   useEffect(() => {
@@ -117,13 +116,6 @@ function Pulse({ Component, pageProps }) {
     return () => clearInterval(swInterval);
   }, [router.pathname]);
 
-  useEffect(() => {
-    //clear default file when user leaves the re-analyze page
-    if (router.query.id !== "Re-analyze Existing Upload") {
-      setDefaultUploadForReanalysis(null);
-    }
-  }, [router.query]);
-
   const sendSWMessage = (msg) => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.ready.then((registration) => {
@@ -153,8 +145,6 @@ function Pulse({ Component, pageProps }) {
           accountType,
           usageQuota,
           setUsageQuota,
-          defaultUploadForReanalysis,
-          setDefaultUploadForReanalysis,
         }}
       >
         <Layout>

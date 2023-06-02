@@ -106,7 +106,7 @@ const isReanalysisPage = (router) => {
 };
 
 export default function UploadForm() {
-  const { uploads, pulse3dVersions } = useContext(UploadsContext);
+  const { uploads, pulse3dVersions, defaultUploadForReanalysis } = useContext(UploadsContext);
 
   const getDefaultAnalysisParams = () => {
     return {
@@ -143,8 +143,7 @@ export default function UploadForm() {
   };
 
   const router = useRouter();
-  // TODO move this to uploads context
-  const { usageQuota, defaultUploadForReanalysis } = useContext(AuthContext);
+  const { usageQuota } = useContext(AuthContext);
 
   const [files, setFiles] = useState(defaultUploadForReanalysis ? [defaultUploadForReanalysis] : []);
   const [formattedUploads, setFormattedUploads] = useState([]);
@@ -182,12 +181,6 @@ export default function UploadForm() {
       if (files.length === 0) {
         return false;
       } else if (reanalysis) {
-        console.log(
-          "!!!",
-          uploads ? uploads.length : "no uploads",
-          uploads ? uploads.some((upload) => upload.id === files[0].id) : "no uploads",
-          files[0]
-        );
         return uploads && uploads.some((upload) => upload.id === files[0].id);
       } else {
         return files[0] instanceof File;
