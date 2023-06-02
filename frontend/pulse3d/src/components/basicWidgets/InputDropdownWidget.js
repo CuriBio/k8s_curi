@@ -4,26 +4,18 @@ import TextField from "@mui/material/TextField";
 import Autocomplete from "@mui/material/Autocomplete";
 
 export default function InputDropdownWidget({
-  options = [],
-  width,
   label,
-  reset,
+  options = [],
+  initialOption,
   handleSelection,
-  defaultFile,
+  reset,
+  width,
 }) {
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState(initialOption || null);
 
   useEffect(() => {
     if (reset) setSelected(null);
   }, [reset]);
-
-  useEffect(() => {
-    // Set default file name if one is present
-    if (defaultFile && defaultFile.length !== 0) {
-      setSelected(defaultFile);
-      handleSelection(options.indexOf(defaultFile));
-    }
-  }, [defaultFile]);
 
   return (
     <Autocomplete
