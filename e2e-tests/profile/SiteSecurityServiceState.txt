@@ -1,0 +1,3 @@
+contile.services.mozilla.com:HSTS	0	19510	1717286030085,1,0
+location.services.mozilla.com:HSTS	0	19510	1717286029897,1,1
+spocs.getpocket.com:HSTS	0	19510	1748822030289,1,0

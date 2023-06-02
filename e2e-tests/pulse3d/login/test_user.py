@@ -4,6 +4,7 @@ from playwright.sync_api import sync_playwright
 VALID_CUSTOMER_ID = os.getenv("VALID_USER_ID")
 VALID_USER_NAME = os.getenv("VALID_USER_NAME")
 VALID_USER_PASSWORD = os.getenv("VALID_USER_PASSWORD")
+TEST_URL = os.getenv("TEST_URL")
 
 
 def test_login_succes_for_user(browser_type):
@@ -11,7 +12,7 @@ def test_login_succes_for_user(browser_type):
     browser = browser_type.launch_persistent_context("profile", headless=False)
     page = browser.new_page()
 
-    page.goto("localhost:3000/login")
+    page.goto(f"{TEST_URL}/login")
 
     # click to select login form for user
     page.get_by_role("button", name="User").click()
@@ -36,7 +37,7 @@ def test_login_succes_for_user(browser_type):
     page.wait_for_url("**/uploads")
 
     # check that the login was succesfull
-    assert page.url == "http://localhost:3000/uploads"
+    assert page.url == f"http://{TEST_URL}/uploads"
     browser.close()
 
 
