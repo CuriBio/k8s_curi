@@ -9,7 +9,7 @@ import ButtonWidget from "../basicWidgets/ButtonWidget";
 
 const Container = styled.div`
   width: 1260px;
-  height: 320px;
+  height: 328px;
   background-color: white;
   overflow-x: scroll;
   overflow-y: scroll;
@@ -44,8 +44,8 @@ const TooltipText = styled.span`
 `;
 
 const ColumnContainer = styled.div`
-  bottom: 25px;
   position: relative;
+  bottom: 25px;
 `;
 
 const XAxisLabel = styled.div`
@@ -56,10 +56,12 @@ const XAxisLabel = styled.div`
   line-height: 2;
   margin-right: 3px;
 `;
+
 const XAxisContainer = styled.div`
   position: relative;
-  height: 50px;
   width: 100%;
+  margin-top: 14px;
+  margin-bottom: -9px;
   display: flex;
   align-items: center;
   justify-content: space-around;
@@ -73,9 +75,8 @@ const YAxisLabel = styled.div`
 const YAxisContainer = styled.div`
   position: relative;
   transform: rotate(-90deg);
-  height: 50px;
   width: 50px;
-  top: 44%;
+  top: 186px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -125,6 +126,7 @@ const ChangelogLabel = styled.div`
 const Legend = styled.div`
   background-color: white;
   width: 800px;
+  margin-left: 20px;
   padding: 5px;
   border-radius: 10px;
   border: 2px solid darkgray;
@@ -505,7 +507,6 @@ export default function WaveformGraph({
       const draggedIdx = dataToGraph.findIndex((x) => Number(x[0].toFixed(2)) === Number(d[0].toFixed(2)));
 
       const duplicates = checkDuplicates();
-
       // assigns circle node new x and y coordinates based off drag event
       if (featureType === "peak") {
         d3.select(this)
@@ -514,19 +515,19 @@ export default function WaveformGraph({
             "translate(" + x(d[0]) + "," + (y(dataToGraph[draggedIdx][1]) - 7) + ") rotate(180)"
           )
           .style("fill", (d) => {
-            return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+            return duplicates[featureType].includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
           })
           .attr("stroke", (d) => {
-            return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+            return duplicates[featureType].includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
           });
       } else {
         d3.select(this)
           .attr("transform", "translate(" + x(d[0]) + "," + (y(dataToGraph[draggedIdx][1]) + 7) + ")")
           .style("fill", (d) => {
-            return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+            return duplicates[featureType].includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
           })
           .attr("stroke", (d) => {
-            return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+            return duplicates[featureType].includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
           });
       }
       // update the focus text with current x and y data points as user drags marker
@@ -570,10 +571,10 @@ export default function WaveformGraph({
         return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) - 7) + ") rotate(180)";
       })
       .style("fill", (d) => {
-        return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+        return duplicates.peak.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
       })
       .attr("stroke", (d) => {
-        return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+        return duplicates.peak.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
       })
       .style("cursor", "pointer")
       .style("display", (d) => {
@@ -607,10 +608,10 @@ export default function WaveformGraph({
         return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) + 7) + ")";
       })
       .style("fill", (d) => {
-        return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+        return duplicates.valley.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
       })
       .attr("stroke", (d) => {
-        return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+        return duplicates.valley.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
       })
       .style("cursor", "pointer")
       .style("display", (d) => {

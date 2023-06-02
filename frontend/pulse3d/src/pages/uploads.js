@@ -58,9 +58,9 @@ const SpinnerContainer = styled.div`
 
 const InteractiveAnalysisContainer = styled.div`
   width: 98%;
+  min-width: 1000px;
   margin: 1%;
   background-color: white;
-  height: 800px;
   border-radius: 5px;
   overflow: none;
 `;

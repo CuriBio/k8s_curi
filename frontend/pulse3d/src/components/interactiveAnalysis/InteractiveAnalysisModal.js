@@ -12,6 +12,7 @@ import Tooltip from "@mui/material/Tooltip";
 import semverGte from "semver/functions/gte";
 import FormInput from "@/components/basicWidgets/FormInput";
 import { AuthContext } from "@/pages/_app";
+import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
 
 const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
 
@@ -52,27 +53,29 @@ const ParamContainer = styled.div`
   display: flex;
   flex-direction: row;
   align-items: center;
-  width: 360px;
-  justify-content: space-between;
+  width: 650px;
+  justify-content: left;
 `;
 
 const ParamLabel = styled.span`
   line-height: 2;
   font-size: 16px;
   white-space: nowrap;
-  padding-right: 15px;
+  width: 47%;
+  margin-right: 19px;
+  position: relative;
   display: flex;
   align-items: center;
   cursor: default;
+  justify-content: left;
 `;
 
 const GraphContainer = styled.div`
-  height: 415px;
   border-radius: 7px;
   background-color: var(--med-gray);
   position: relative;
   width: 1350px;
-  margin-top: 4%;
+  margin-top: 2%;
   overflow: hidden;
   padding: 0px 15px;
   display: flex;
@@ -82,7 +85,7 @@ const GraphContainer = styled.div`
 `;
 
 const SpinnerContainer = styled.div`
-  height: 100%;
+  height: 328px;
   display: flex;
   width: 100%;
   align-items: center;
@@ -94,21 +97,29 @@ const ButtonContainer = styled.div`
   width: 100%;
   display: flex;
   justify-content: flex-end;
+  margin-bottom: 25px;
 `;
 
-const ErrorLabel = styled.div`
-  position: relative;
-  width: 80%;
-  height: 40px;
-  align-items: center;
-  color: red;
-  font-style: italic;
+const OuterParamContainer = styled.div`
+  width: 100%;
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  justify-content: left;
+  padding-left: 13%;
+  margin: 37px 0;
 `;
+
 const TooltipText = styled.span`
   font-size: 15px;
 `;
+
+const IconStyle = {
+  marginLeft: "5px",
+  "&:hover": {
+    color: "var(--teal-green)",
+    cursor: "pointer",
+  },
+};
 
 const constantModalLabels = {
   success: {
@@ -142,6 +153,14 @@ const constantModalLabels = {
     messages: ["Previous changes have been found for this analysis.", "Do you want to use it or start over?"],
     buttons: ["Start Over", "Use"],
   },
+  removeDuplicates: {
+    header: "Important!",
+    messages: [
+      "This action will be performed on all well and can only be undone if no other changes have been made.",
+      "Please confirm to proceed.",
+    ],
+    buttons: ["Cancel", "Continue"],
+  },
 };
 
 const wellNames = Array(24)
@@ -170,7 +189,7 @@ export default function InteractiveWaveformModal({
   const [pulse3dVersionEOLDate, setPulse3dVersionEOLDate] = useState("");
   const [nameOverride, setNameOverride] = useState();
   const [uploadInProgress, setUploadInProgress] = useState(false); // determines state of interactive analysis upload
-
+  const [removeDupsChecked, setRemoveDupsChecked] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalLabels, setModalLabels] = useState(constantModalLabels.success);
@@ -178,7 +197,6 @@ export default function InteractiveWaveformModal({
 
   const [wellIdx, setWellIdx] = useState(0); // TODO use well name everywhere instead
   const [selectedWell, setSelectedWell] = useState("A1");
-  const [errorMessage, setErrorMessage] = useState(); // Tanner (5/25/23): seems unused at the moment, but leaving it here anyway
 
   const [originalData, setOriginalData] = useState({}); // original waveform data from GET request, unedited
   const [xRange, setXRange] = useState({
@@ -320,11 +338,13 @@ export default function InteractiveWaveformModal({
     }
     features.sort((a, b) => a.idx - b.idx);
 
-    const duplicates = [];
+    const duplicates = { peak: [], valley: [] };
     for (let i = 1; i < features.length; i++) {
       const [prev, curr, next] = features.slice(i - 1, i + 2);
       if ((curr && curr.type === prev.type) || (next && next.type === curr.type)) {
-        duplicates.push(curr.idx);
+        // if index 1 is a duplicate, need to account for index 0 because loop starts at index 1
+        if (i === 1) duplicates[curr.type].push(prev.idx);
+        duplicates[curr.type].push(curr.idx);
       }
     }
 
@@ -455,8 +475,10 @@ export default function InteractiveWaveformModal({
     setEditablePeaksValleys(peaksValleysCopy);
     setChangelog(changelogCopy);
     setPeakValleyWindows(pvWindowCopy);
+    setRemoveDupsChecked(false);
     setBothLinesToDefault();
   };
+
   const postNewJob = async () => {
     try {
       setUploadInProgress(true);
@@ -528,7 +550,7 @@ export default function InteractiveWaveformModal({
     const filtered = {};
     const { startTime, endTime } = JSON.parse(JSON.stringify(editableStartEndTimes));
 
-    for (const well of Object.keys(editablePeaksValleys)) {
+    for (const well in editablePeaksValleys) {
       const wellIndex = twentyFourPlateDefinition.getWellIndexFromName(well);
       const wellCoords = originalData.coordinates[well];
 
@@ -538,6 +560,7 @@ export default function InteractiveWaveformModal({
 
       filtered[well] = [peakIndices, valleyIndices];
     }
+
     return filtered;
   };
 
@@ -572,6 +595,7 @@ export default function InteractiveWaveformModal({
       const ogWellData = originalData.peaksValleys[selectedWell];
       const maxValleyY = peakValleyWindows[selectedWell].maxValleys;
       const minPeakY = peakValleyWindows[selectedWell].minPeaks;
+
       const defaultChangelog = {
         peaks: ogWellData[0],
         valleys: ogWellData[1],
@@ -684,6 +708,7 @@ export default function InteractiveWaveformModal({
     const typeIdx = ["peak", "valley"].indexOf(peakValley);
     const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
     const targetIdx = peaksValleysCopy[selectedWell][typeIdx].indexOf(idx);
+
     if (targetIdx > -1) {
       // remove desired marker
       peaksValleysCopy[selectedWell][typeIdx].splice(targetIdx, 1);
@@ -694,7 +719,7 @@ export default function InteractiveWaveformModal({
         2
       )}, ${coordinates[1].toFixed(2)} ] was removed.`;
 
-      addToChangelog(changelogMessage);
+      addToChangelog(changelogMessage, peaksValleysCopy);
     }
   };
 
@@ -706,7 +731,6 @@ export default function InteractiveWaveformModal({
     );
 
     peaksValleysCopy[selectedWell][typeIdx].push(indexToAdd);
-
     setEditablePeaksValleys({ ...peaksValleysCopy });
 
     const coordinates = dataToGraph[indexToAdd];
@@ -714,14 +738,14 @@ export default function InteractiveWaveformModal({
       2
     )}, ${coordinates[1].toFixed(2)} ]`;
 
-    addToChangelog(changelogMessage);
+    addToChangelog(changelogMessage, peaksValleysCopy);
   };
 
-  const addToChangelog = (message) => {
+  const addToChangelog = (message, peaksValleys, checked) => {
     if (!changelog[selectedWell]) changelog[selectedWell] = [];
     // if you don't deep copy state, later changes will affect change log entries here
     const { startTime, endTime } = JSON.parse(JSON.stringify(editableStartEndTimes));
-    const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
+    const peaksValleysCopy = peaksValleys || JSON.parse(JSON.stringify(editablePeaksValleys));
     const pvWindowCopy = JSON.parse(JSON.stringify(peakValleyWindows));
 
     changelog[selectedWell].push({
@@ -735,6 +759,7 @@ export default function InteractiveWaveformModal({
       valleyYTwo: valleyY2[wellIdx],
       peakYOne: peakY1[wellIdx],
       peakYTwo: peakY2[wellIdx],
+      removeDupsChecked: checked || removeDupsChecked,
     });
 
     setChangelog({ ...changelog });
@@ -756,8 +781,9 @@ export default function InteractiveWaveformModal({
   const handleRunAnalysis = () => {
     const wellsWithDups = [];
     Object.keys(editablePeaksValleys).map((well) => {
+      const { peak, valley } = checkDuplicates(well);
       // if any duplicates are present, push well into storage array to add to modal letting user know which wells are affected
-      if (checkDuplicates(well).length > 0) wellsWithDups.push(well);
+      if (peak.length > 0 || valley.length > 0) wellsWithDups.push(well);
     });
 
     if (wellsWithDups.length > 0) {
@@ -800,7 +826,9 @@ export default function InteractiveWaveformModal({
         newWindowTimes.startTime = startTime;
         newWindowTimes.endTime = endTime;
         setBothLinesToNew(peakYOne, peakYTwo, valleyYOne, valleyYTwo);
+        setRemoveDupsChecked(changesCopy[changesCopy.length - 1].removeDupsChecked);
       } else {
+        setRemoveDupsChecked(false);
         // if undoing the very first change, revert back to original state
         newWindowTimes.startTime = xRange.min;
         newWindowTimes.endTime = xRange.max;
@@ -815,6 +843,7 @@ export default function InteractiveWaveformModal({
 
       // needs to be reassigned to hold state
       changelog[selectedWell] = changesCopy;
+
       // update values to state to rerender graph
       setEditableStartEndTimes(newWindowTimes);
       setEditablePeaksValleys(peaksValleysCopy);
@@ -900,6 +929,69 @@ export default function InteractiveWaveformModal({
     });
   };
 
+  // const isChangelogEmpty = () => {
+  //   return changelog !== {} && Object.keys(changelog).some((key) => changelog[key].length > 0);
+  // };
+
+  const removeDuplicateFeatures = (duplicates, sortedFeatures) => {
+    for (const [i, feature] of Object.entries(duplicates)) {
+      // right most feature will never be the removed duplicate so removing last index
+      if (+i !== duplicates.length - 1) {
+        // get index of feature in sorted peak/valley array
+        const idxToCheck = sortedFeatures.indexOf(feature);
+        // get the current value and the next value from sorted array
+        const [curr, next] = sortedFeatures.slice(idxToCheck, idxToCheck + 2);
+        // if the current feature and next feature are in order and match from duplicate array
+        // you know that they are right next to each other
+        if (feature === curr && duplicates[+i + 1] === next) {
+          // remove left duplicate, keep the rightmost feature
+          sortedFeatures.splice(idxToCheck, 1);
+        }
+      }
+    }
+
+    return sortedFeatures;
+  };
+
+  const handleCheckedDuplicateFeatures = async (checked) => {
+    setRemoveDupsChecked(checked);
+
+    if (checked) {
+      const currentPeaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
+
+      for (const well in currentPeaksValleysCopy) {
+        const duplicateFeatures = checkDuplicates(well);
+        const { peak, valley } = JSON.parse(JSON.stringify(duplicateFeatures));
+
+        const sortedPeaks = currentPeaksValleysCopy[well][0].sort((a, b) => a - b);
+        const sortedValleys = currentPeaksValleysCopy[well][1].sort((a, b) => a - b);
+
+        currentPeaksValleysCopy[well][0] = removeDuplicateFeatures(peak, sortedPeaks);
+        currentPeaksValleysCopy[well][1] = removeDuplicateFeatures(valley, sortedValleys);
+      }
+
+      setEditablePeaksValleys(currentPeaksValleysCopy);
+      addToChangelog(
+        "User has selected to automatically remove all duplicate peaks and valleys.",
+        currentPeaksValleysCopy,
+        true
+      );
+    } else {
+      undoLastChange();
+    }
+  };
+
+  const isRemoveDuplicatesDisabled = () => {
+    // disable if remove duplicates has been checked and other changes have been made after
+    return (
+      removeDupsChecked &&
+      Object.keys(changelog).length > 0 &&
+      Object.keys(changelog).some(
+        (key) => changelog[key][changelog[key].length - 1].removeDupsChecked && changelog[key].length > 1
+      )
+    );
+  };
+
   // ENTRYPOINT
   // defined last so that everything required for it already exists
   // Luci (12-14-2022) this component gets mounted twice and we don't want this expensive function to request waveform data to be called twice. This ensures it is only called once per job selection
@@ -961,80 +1053,92 @@ export default function InteractiveWaveformModal({
           />
         )}
       </GraphContainer>
-      <ErrorLabel>{errorMessage}</ErrorLabel>
-      <ParamContainer>
-        <ParamLabel htmlFor="selectedPulse3dVersion">
-          Pulse3d Version:
-          <Tooltip
-            title={
-              <TooltipText>{"Specifies which version of the pulse3d analysis software to use."}</TooltipText>
-            }
-          >
-            <InfoOutlinedIcon
-              sx={{
-                marginLeft: "5px",
-                "&:hover": {
-                  color: "var(--teal-green)",
-                  cursor: "pointer",
-                },
-              }}
-            />
-          </Tooltip>
-        </ParamLabel>
-        <div style={{ width: "140px" }}>
-          <DropDownWidget
-            options={pulse3dVersions.map((version) => {
-              const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
-              if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
-                return version + " " + "[ testing ]";
-              } else if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "deprecated") {
-                return version + " " + "[ deprecated ]";
-              } else {
-                return version;
-              }
-            })}
-            label="Select"
-            reset={pulse3dVersionIdx === 0}
-            handleSelection={handleVersionSelect}
-            initialSelected={0}
-          />
-        </div>
-      </ParamContainer>
-      {pulse3dVersionGte("0.32.2") && (
+      <OuterParamContainer>
         <ParamContainer>
-          <ParamLabel htmlFor="nameOverride">
-            Override Original Name:
+          <ParamLabel htmlFor="removeDupFeatures">
+            Remove Duplicate Peaks/Valleys:
             <Tooltip
               title={
                 <TooltipText>
-                  {"This name will replace the original recording name for the ouput filename."}
+                  {
+                    "Automatically remove duplicate peaks and valleys from all wells and can only be performed when no other changes have been made."
+                  }
                 </TooltipText>
               }
             >
-              <InfoOutlinedIcon
-                sx={{
-                  marginLeft: "5px",
-                  "&:hover": {
-                    color: "var(--teal-green)",
-                    cursor: "pointer",
-                  },
-                }}
-              />
+              <InfoOutlinedIcon sx={IconStyle} />
             </Tooltip>
           </ParamLabel>
-          <FormInput
-            name="nameOverride"
-            placeholder={""}
-            value={nameOverride}
-            onChangeFn={(e) => {
-              setNameOverride(e.target.value);
-            }}
+          <CheckboxWidget
+            color={"secondary"}
+            size={"small"}
+            disabled={isRemoveDuplicatesDisabled()}
+            handleCheckbox={handleCheckedDuplicateFeatures}
+            checkedState={removeDupsChecked}
           />
         </ParamContainer>
-      )}
+        <ParamContainer>
+          <ParamLabel htmlFor="selectedPulse3dVersion">
+            Pulse3d Version:
+            <Tooltip
+              title={
+                <TooltipText>
+                  {"Specifies which version of the pulse3d analysis software to use."}
+                </TooltipText>
+              }
+            >
+              <InfoOutlinedIcon sx={IconStyle} />
+            </Tooltip>
+          </ParamLabel>
+          <div style={{ width: "140px" }}>
+            <DropDownWidget
+              options={pulse3dVersions.map((version) => {
+                const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
+                if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
+                  return version + " " + "[ testing ]";
+                } else if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "deprecated") {
+                  return version + " " + "[ deprecated ]";
+                } else {
+                  return version;
+                }
+              })}
+              label="Select"
+              reset={pulse3dVersionIdx === 0}
+              handleSelection={handleVersionSelect}
+              initialSelected={0}
+            />
+          </div>
+        </ParamContainer>
+        {pulse3dVersionGte("0.32.2") && (
+          <ParamContainer>
+            <ParamLabel htmlFor="nameOverride">
+              Override Original Name:
+              <Tooltip
+                title={
+                  <TooltipText>
+                    {"This name will replace the original recording name for the ouput filename."}
+                  </TooltipText>
+                }
+              >
+                <InfoOutlinedIcon sx={IconStyle} />
+              </Tooltip>
+            </ParamLabel>
+            <div style={{ width: "50%" }}>
+              <FormInput
+                name="nameOverride"
+                placeholder={""}
+                value={nameOverride}
+                onChangeFn={(e) => {
+                  setNameOverride(e.target.value);
+                }}
+              />
+            </div>
+          </ParamContainer>
+        )}
+      </OuterParamContainer>
       <ButtonContainer>
         <ButtonWidget
-          width="150px"
+          width="200px"
           height="50px"
           position="relative"
           borderRadius="3px"
@@ -1043,7 +1147,7 @@ export default function InteractiveWaveformModal({
           clickFn={() => setOpenInteractiveAnalysis(false)}
         />
         <ButtonWidget
-          width="150px"
+          width="200px"
           height="50px"
           position="relative"
           borderRadius="3px"
