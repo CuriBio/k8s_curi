@@ -12,3 +12,4 @@ build/
 .vscode
 **/public/serviceWorker.js
 **.coverage
+profile
