@@ -977,17 +977,20 @@ export default function InteractiveWaveformModal({
         true
       );
     } else {
+      // if unchecked, revert back to previous peaks and valleys
       undoLastChange();
     }
   };
 
   const isRemoveDuplicatesDisabled = () => {
-    // disable if remove duplicates has been checked and other changes have been made after
+    // disable if remove duplicates has been checked and other changes have been made after or changes have been made first
     return (
-      removeDupsChecked &&
-      Object.keys(changelog).length > 0 &&
+      (removeDupsChecked &&
+        Object.keys(changelog).some(
+          (key) => changelog[key].length > 1 && changelog[key][0].removeDupsChecked
+        )) ||
       Object.keys(changelog).some(
-        (key) => changelog[key][changelog[key].length - 1].removeDupsChecked && changelog[key].length > 1
+        (key) => changelog[key].length > 0 && !changelog[key][changelog[key].length - 1].removeDupsChecked
       )
     );
   };
