@@ -225,9 +225,10 @@ export default function UploadForm() {
   }, [files]);
 
   useEffect(() => {
+    const newAnalysisStatus = isReanalysisPage(router);
     // only perform these updates if the page actually changed
-    if (reanalysis !== isReanalysisPage(router)) {
-      setReanalysis(isReanalysisPage(router));
+    if (reanalysis !== newAnalysisStatus) {
+      setReanalysis(newAnalysisStatus);
       // reset all params if the user switches between the "re-analyze" and "new upload" versions of this page
       resetState();
     }
