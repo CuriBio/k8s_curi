@@ -100,8 +100,13 @@ const modalObj = {
     ],
   },
 };
+
+const isReanalysisPage = (router) => {
+  return router.query.id === "Re-analyze Existing Upload";
+};
+
 export default function UploadForm() {
-  const { uploads, pulse3dVersions } = useContext(UploadsContext);
+  const { uploads, pulse3dVersions, defaultUploadForReanalysis } = useContext(UploadsContext);
 
   const getDefaultAnalysisParams = () => {
     return {
@@ -138,9 +143,9 @@ export default function UploadForm() {
   };
 
   const router = useRouter();
-  const { usageQuota, defaultReanalysisFile } = useContext(AuthContext);
+  const { usageQuota } = useContext(AuthContext);
 
-  const [files, setFiles] = useState([]);
+  const [files, setFiles] = useState(defaultUploadForReanalysis ? [defaultUploadForReanalysis] : []);
   const [formattedUploads, setFormattedUploads] = useState([]);
   const [isButtonDisabled, setIsButtonDisabled] = useState(true);
   const [paramErrors, setParamErrors] = useState({});
@@ -158,7 +163,7 @@ export default function UploadForm() {
   const [wellGroupErr, setWellGroupErr] = useState(false);
   const [creditUsageAlert, setCreditUsageAlert] = useState(false);
   const [alertShowed, setAlertShowed] = useState(false);
-  const [reanalysis, setReanalysis] = useState(false);
+  const [reanalysis, setReanalysis] = useState(isReanalysisPage(router));
   const [xlsxFilePresent, setXlsxFilePresent] = useState(false);
 
   useEffect(() => {
@@ -172,10 +177,20 @@ export default function UploadForm() {
   }, [badFiles]);
 
   useEffect(() => {
+    const checkValidSelection = () => {
+      if (files.length === 0) {
+        return false;
+      } else if (reanalysis) {
+        return uploads && uploads.some((upload) => upload.id === files[0].id);
+      } else {
+        return files[0] instanceof File;
+      }
+    };
+
     // checks if error value exists, no file is selected, or upload is in progress
     const checkConditions =
       !Object.values(paramErrors).every((val) => val.length === 0) ||
-      !((files.length > 0 && files[0] instanceof File) || (uploads && uploads.includes(files[0]))) ||
+      !checkValidSelection() ||
       inProgress ||
       wellGroupErr;
 
@@ -210,10 +225,13 @@ export default function UploadForm() {
   }, [files]);
 
   useEffect(() => {
-    setReanalysis(router.query.id === "Re-analyze Existing Upload");
-
-    // reset all params if the user switches between the "re-analyze" and "new upload" versions of this page
-    resetState();
+    const newAnalysisStatus = isReanalysisPage(router);
+    // only perform these updates if the page actually changed
+    if (reanalysis !== newAnalysisStatus) {
+      setReanalysis(newAnalysisStatus);
+      // reset all params if the user switches between the "re-analyze" and "new upload" versions of this page
+      resetState();
+    }
   }, [router.query]);
 
   useEffect(() => {
@@ -562,12 +580,19 @@ export default function UploadForm() {
 
   const handleDropDownSelect = (idx) => {
     setAlertShowed(false);
-    setFiles([uploads[idx]]); // must be an array
 
-    const filenameNoExt = removeFileExt(uploads[idx].filename);
+    let nameOverride = "";
+    if (idx === -1) {
+      setFiles([]); // must be an array
+    } else {
+      const newSelection = uploads[idx];
+      setFiles([newSelection]);
+      nameOverride = removeFileExt(newSelection.filename).join(".");
+    }
+
     setAnalysisParams({
       ...analysisParams,
-      nameOverride: filenameNoExt.join("."),
+      nameOverride: nameOverride,
     });
   };
 
@@ -596,12 +621,12 @@ export default function UploadForm() {
         {reanalysis ? (
           <DropDownContainer>
             <InputDropdownWidget
-              options={formattedUploads}
-              width={500}
               label="Select Recording"
-              reset={files.length === 0}
+              options={formattedUploads}
+              initialOption={defaultUploadForReanalysis ? defaultUploadForReanalysis.filename : null}
               handleSelection={handleDropDownSelect}
-              defaultFile={defaultReanalysisFile}
+              reset={files.length === 0}
+              width={500}
             />
           </DropDownContainer>
         ) : (

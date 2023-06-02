@@ -121,8 +121,10 @@ const modalObjs = {
 };
 export default function Uploads() {
   const router = useRouter();
-  const { accountType, usageQuota, setDefaultReanalysisFile } = useContext(AuthContext);
-  const { uploads, setFetchUploads, pulse3dVersions } = useContext(UploadsContext);
+  const { accountType, usageQuota } = useContext(AuthContext);
+  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } = useContext(
+    UploadsContext
+  );
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
@@ -471,7 +473,7 @@ export default function Uploads() {
       const selectedUpload = uploads.filter((upload) =>
         checkedUploads.some((checkUpload) => checkUpload === upload.id)
       )[0];
-      setDefaultReanalysisFile(selectedUpload.filename);
+      setDefaultUploadForReanalysis(selectedUpload);
       router.push("/upload-form?id=Re-analyze+Existing+Upload");
     }
   };
