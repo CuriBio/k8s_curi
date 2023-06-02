@@ -185,10 +185,10 @@ export default function UploadForm() {
         console.log(
           "!!!",
           uploads ? uploads.length : "no uploads",
-          uploads ? uploads.includes(files[0]) : "no uploads",
+          uploads ? uploads.some((upload) => upload.id === files[0].id) : "no uploads",
           files[0]
         );
-        return uploads && uploads.includes(files[0]);
+        return uploads && uploads.some((upload) => upload.id === files[0].id);
       } else {
         return files[0] instanceof File;
       }
@@ -586,13 +586,19 @@ export default function UploadForm() {
 
   const handleDropDownSelect = (idx) => {
     setAlertShowed(false);
-    setFiles([uploads[idx]]); // must be an array
 
-    console.log("selected idx", idx);
-    const filenameNoExt = removeFileExt(uploads[idx].filename);
+    let nameOverride = "";
+    if (idx === -1) {
+      setFiles([]); // must be an array
+    } else {
+      const newSelection = uploads[idx];
+      setFiles([newSelection]);
+      nameOverride = removeFileExt(newSelection.filename).join(".");
+    }
+
     setAnalysisParams({
       ...analysisParams,
-      nameOverride: filenameNoExt.join("."),
+      nameOverride: nameOverride,
     });
   };
 
@@ -623,7 +629,7 @@ export default function UploadForm() {
             <InputDropdownWidget
               label="Select Recording"
               options={formattedUploads}
-              initialOption={defaultUploadForReanalysis.filename}
+              initialOption={defaultUploadForReanalysis ? defaultUploadForReanalysis.filename : null}
               handleSelection={handleDropDownSelect}
               reset={files.length === 0}
               width={500}
