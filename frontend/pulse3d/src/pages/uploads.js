@@ -122,9 +122,8 @@ const modalObjs = {
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota } = useContext(AuthContext);
-  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } = useContext(
-    UploadsContext
-  );
+  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } =
+    useContext(UploadsContext);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
@@ -341,7 +340,7 @@ export default function Uploads() {
             if (parsedMeta.error.includes("Invalid file format")) {
               status += ": Invalid file format";
             } else if (parsedMeta.error.includes("Unable to converge")) {
-              status += parsedMeta.error;
+              status += `: ${parsedMeta.error}`;
             }
           }
           return {
