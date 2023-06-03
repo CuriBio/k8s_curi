@@ -11,8 +11,8 @@ TEST_URL = os.getenv("TEST_URL")
 @pytest.mark.parametrize("browser_type", ["chromium", "firefox", "webkit"])
 def test_login_succes_for_user(browser_type):
 
-    with sync_playwright() as p:
-        browser = getattr(p, browser_type).launch_persistent_context("profile", headless=False)
+    with sync_playwright() as profile:
+        browser = getattr(profile, browser_type).launch_persistent_context("profile", headless=False)
         page = browser.new_page()
 
         page.goto(f"{TEST_URL}/login")
