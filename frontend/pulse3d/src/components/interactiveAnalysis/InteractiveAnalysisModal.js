@@ -1017,17 +1017,17 @@ export default function InteractiveWaveformModal({
 
   const closeRemoveDuplicatesModal = async (idx) => {
     setRemoveDupsChecked(idx === 1);
-
+    // if user chooses to continue
     if (idx === 1) {
       const currentPeaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
-
+      // remove duplicate peaks and valleys per well
       for (const well in currentPeaksValleysCopy) {
         currentPeaksValleysCopy[well] = removeWellSpecificDuplicates(well, currentPeaksValleysCopy[well]);
       }
 
       setEditablePeaksValleys(currentPeaksValleysCopy);
     }
-
+    // close modal
     setModalOpen(false);
   };
 
@@ -1035,7 +1035,9 @@ export default function InteractiveWaveformModal({
     // removeDupsWarning tracks if a user has seen this warning modal during the IA session.
     // we do not need to show it more than once per session
     if (checked) {
+      // if user has seen the warning, immediately remove all duplicates
       if (removeDupsWarning) closeRemoveDuplicatesModal(1);
+      // else pop up modal letting user know the conditions of this action
       else {
         setRemoveDupsWarning(true);
         setModalOpen("removeDuplicates");
@@ -1048,9 +1050,9 @@ export default function InteractiveWaveformModal({
   };
 
   const isRemoveDuplicatesDisabled = (changelogCopy) => {
-    // disable if remove duplicates has been checked and other changes have been made after or changes have been made first
-    // remove if other changes were made first before checking
-    // disable if in loading state
+    // 1. disable if remove duplicates has been checked and other changes have been made after or changes have been made first
+    // 2. remove if other changes were made first before checking
+    // 3. disable if in loading state
     return (
       (removeDupsChecked &&
         Object.keys(changelogCopy).some(
