@@ -505,8 +505,7 @@ export default function WaveformGraph({
           If this is skipped, user will be able to drag circle anywhere on graph, unrelated to data line.
         */
       const draggedIdx = dataToGraph.findIndex((x) => Number(x[0].toFixed(2)) === Number(d[0].toFixed(2)));
-
-      const duplicates = checkDuplicates();
+      const duplicates = checkDuplicates(selectedWell, peaks, valleys);
       // assigns circle node new x and y coordinates based off drag event
       if (featureType === "peak") {
         d3.select(this)
@@ -556,7 +555,7 @@ export default function WaveformGraph({
       updateFeatures(featureType, featureValues);
     }
 
-    const duplicates = checkDuplicates();
+    const duplicates = checkDuplicates(selectedWell, peaks, valleys);
 
     // graph all the peak markers
     svg
@@ -639,6 +638,7 @@ export default function WaveformGraph({
     function getCorrectY(newY) {
       return Math.min(Math.max(newY, y(yMax + yRange)), y(yMin - yRange));
     }
+
     const pivotLineDrag = d3
       .drag()
       .on("start", function () {
@@ -674,6 +674,7 @@ export default function WaveformGraph({
         // decrease stroke width when unselected and dropped
         d3.select(this).attr("stroke-width", 2);
       });
+
     const moveLineUpDown = d3
       .drag()
       .on("start", function (d) {

@@ -329,16 +329,18 @@ export default function InteractiveWaveformModal({
     }
   };
 
-  const checkDuplicates = (well = selectedWell) => {
+  const checkDuplicates = (well = selectedWell, peakIndices, valleyIndices) => {
     const { startTime, endTime } = editableStartEndTimes;
 
     const wellIndex = twentyFourPlateDefinition.getWellIndexFromName(well);
 
     // filter
     const wellCoords = originalData.coordinates[well];
+    // if (well == "A1") {
+    //   console.log("PEAKS: ", peakIndices);
+    //   console.log("VALLEYS: ", valleyIndices);
+    // }
 
-    let peakIndices = editablePeaksValleys[well][0];
-    let valleyIndices = editablePeaksValleys[well][1];
     peakIndices = filterFeature("peak", peakIndices, startTime, endTime, wellCoords, wellIndex);
     valleyIndices = filterFeature("valley", valleyIndices, startTime, endTime, wellCoords, wellIndex);
 
@@ -352,16 +354,19 @@ export default function InteractiveWaveformModal({
     }
     features.sort((a, b) => a.idx - b.idx);
 
+    if (well == "A1") console.log("SORTED: ", features);
     const duplicates = { peak: [], valley: [] };
+
     for (let i = 1; i < features.length; i++) {
       const [prev, curr, next] = features.slice(i - 1, i + 2);
+      if (well == "A1") console.log(prev, curr, next);
       if ((curr && curr.type === prev.type) || (next && next.type === curr.type)) {
         // if index 1 is a duplicate, need to account for index 0 because loop starts at index 1
         if (i === 1) duplicates[curr.type].push(prev.idx);
         duplicates[curr.type].push(curr.idx);
       }
     }
-
+    if (well == "A1") console.log("DUPS: ", duplicates.peak);
     return duplicates;
   };
 
@@ -478,23 +483,30 @@ export default function InteractiveWaveformModal({
     const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
     const changelogCopy = JSON.parse(JSON.stringify(changelog));
     const pvWindowCopy = JSON.parse(JSON.stringify(peakValleyWindows));
+    const ogPeaksValleysCopy = JSON.parse(JSON.stringify(originalData.peaksValleys[selectedWell]));
 
-    peaksValleysCopy[selectedWell] = removeDupsChecked
-      ? removeWellSpecificDuplicates(selectedWell, peaksValleysCopy[selectedWell])
-      : originalData.peaksValleys[selectedWell];
+    if (changelogCopy[selectedWell] && changelogCopy[selectedWell].length > 0) {
+      // console.log("OG PEAKS: ", ogPeaksValleysCopy[0]);
 
-    changelogCopy[selectedWell] = [];
-    pvWindowCopy[selectedWell] = {
-      minPeaks: findLowestPeak(selectedWell),
-      maxValleys: findHighestValley(selectedWell),
-    };
-    // reset state
-    resetStartEndTimes();
-    setEditablePeaksValleys(peaksValleysCopy);
-    setChangelog(changelogCopy);
-    setPeakValleyWindows(pvWindowCopy);
-    setBothLinesToDefault();
-    setDisableRemoveDupsCheckbox(isRemoveDuplicatesDisabled(changelogCopy));
+      peaksValleysCopy[selectedWell] = removeDupsChecked
+        ? removeWellSpecificDuplicates(selectedWell, ogPeaksValleysCopy)
+        : ogPeaksValleysCopy;
+
+      changelogCopy[selectedWell] = [];
+
+      pvWindowCopy[selectedWell] = {
+        minPeaks: findLowestPeak(selectedWell),
+        maxValleys: findHighestValley(selectedWell),
+      };
+
+      // reset state
+      resetStartEndTimes();
+      setEditablePeaksValleys(peaksValleysCopy);
+      setChangelog(changelogCopy);
+      setPeakValleyWindows(pvWindowCopy);
+      setBothLinesToDefault();
+      setDisableRemoveDupsCheckbox(isRemoveDuplicatesDisabled(changelogCopy));
+    }
   };
 
   const postNewJob = async () => {
@@ -835,7 +847,7 @@ export default function InteractiveWaveformModal({
   const handleRunAnalysis = () => {
     const wellsWithDups = [];
     Object.keys(editablePeaksValleys).map((well) => {
-      const { peak, valley } = checkDuplicates(well);
+      const { peak, valley } = checkDuplicates(well, editablePeaksValleys[0], editablePeaksValleys[1]);
       // if any duplicates are present, push well into storage array to add to modal letting user know which wells are affected
       if (peak.length > 0 || valley.length > 0) wellsWithDups.push(well);
     });
@@ -871,31 +883,20 @@ export default function InteractiveWaveformModal({
         newWindowTimes.startTime = startTime;
         newWindowTimes.endTime = endTime;
         setBothLinesToNew(peakYOne, peakYTwo, valleyYOne, valleyYTwo);
+
+        // update values to state to rerender graph
+        setEditableStartEndTimes(newWindowTimes);
+        setEditablePeaksValleys(peaksValleysCopy);
+        setPeakValleyWindows(pvWindowCopy);
+        setDisableRemoveDupsCheckbox(isRemoveDuplicatesDisabled(changelog));
+
+        // save new changelog state
+        changelog[selectedWell] = changesCopy;
+        setChangelog(changelog);
       } else {
         // if undoing the very first change, revert back to original state
-        newWindowTimes.startTime = xRange.min;
-        newWindowTimes.endTime = xRange.max;
-
-        peaksValleysCopy[selectedWell] = removeDupsChecked
-          ? removeWellSpecificDuplicates(selectedWell, peaksValleysCopy[selectedWell])
-          : originalData.peaksValleys[selectedWell];
-
-        pvWindowCopy[selectedWell] = {
-          minPeaks: findLowestPeak(selectedWell),
-          maxValleys: findHighestValley(selectedWell),
-        };
-        setBothLinesToDefault();
+        resetWellChanges();
       }
-
-      // needs to be reassigned to hold state
-      changelog[selectedWell] = changesCopy;
-
-      // update values to state to rerender graph
-      setEditableStartEndTimes(newWindowTimes);
-      setEditablePeaksValleys(peaksValleysCopy);
-      setPeakValleyWindows(pvWindowCopy);
-      setChangelog(changelog);
-      setDisableRemoveDupsCheckbox(isRemoveDuplicatesDisabled(changelog));
     }
   };
 
@@ -997,13 +998,19 @@ export default function InteractiveWaveformModal({
   };
 
   const removeWellSpecificDuplicates = (well, currentPeaksValleys) => {
-    const duplicateFeatures = checkDuplicates(well);
+    const duplicateFeatures = checkDuplicates(well, currentPeaksValleys[0], currentPeaksValleys[1]);
     const { peak, valley } = JSON.parse(JSON.stringify(duplicateFeatures));
 
     const sortedPeaks = currentPeaksValleys[0].sort((a, b) => a - b);
     const sortedValleys = currentPeaksValleys[1].sort((a, b) => a - b);
 
-    return [removeDuplicateFeatures(peak, sortedPeaks), removeDuplicateFeatures(valley, sortedValleys)];
+    const sortedDupPeaks = peak.sort((a, b) => a - b);
+    const sortedDupValleys = valley.sort((a, b) => a - b);
+
+    return [
+      removeDuplicateFeatures(sortedDupPeaks, sortedPeaks),
+      removeDuplicateFeatures(sortedDupValleys, sortedValleys),
+    ];
   };
 
   const closeRemoveDuplicatesModal = async (idx) => {
