@@ -36,6 +36,7 @@ const CursorLocLabel = styled.div`
   font-size: 15px;
   cursor: default;
   width: 200px;
+  text-align: center;
 `;
 
 const TooltipText = styled.span`
@@ -52,6 +53,8 @@ const XAxisLabel = styled.div`
   left: 700px;
   font-size: 15px;
   overflow: hidden;
+  line-height: 2;
+  margin-right: 3px;
 `;
 const XAxisContainer = styled.div`
   position: relative;
@@ -179,67 +182,103 @@ const contextMenuItems = {
 };
 
 export default function WaveformGraph({
-  dataToGraph,
-  initialPeaksValleys,
-  startTime,
-  endTime,
-  setEditableStartEndTimes,
-  editablePeaksValleys,
-  currentWell,
-  setEditablePeaksValleys,
+  selectedWellInfo,
   xRange,
-  resetWellChanges,
-  saveChanges,
+  dataToGraph,
+  editableStartEndTimesHookItems,
+  editablePeaksValleysHookItems,
+  peakValleyWindows,
+  peakY1HookItems,
+  peakY2HookItems,
+  valleyY1HookItems,
+  valleyY2HookItems,
+  changelogActions,
   deletePeakValley,
   addPeakValley,
-  openChangelog,
-  undoLastChange,
-  peakValleyWindows,
   filterFeature,
   checkDuplicates,
-  wellIdx,
-  peakY1,
-  setPeakY1,
-  peakY2,
-  setPeakY2,
-  valleyY1,
-  setValleyY1,
-  valleyY2,
-  setValleyY2,
-  setPeakLineDataToDefault,
-  setValleyLineDataToDefault,
   assignNewArr,
 }) {
-  const [valleys, setValleys] = useState([]);
-  const [peaks, setPeaks] = useState([]);
-  const [newStartTime, setNewStartTime] = useState(xRange.min);
-  const [newEndTime, setNewEndTime] = useState(xRange.max);
+  const { selectedWell, wellIdx } = selectedWellInfo;
+  const [editableStartEndTimes, setEditableStartEndTimes] = editableStartEndTimesHookItems;
+  const { startTime, endTime } = editableStartEndTimes;
+  const [editablePeaksValleys, setEditablePeaksValleys] = editablePeaksValleysHookItems;
+  const [peaks, valleys] = editablePeaksValleys[selectedWell];
+  const [peakY1, setPeakY1] = peakY1HookItems;
+  const [peakY2, setPeakY2] = peakY2HookItems;
+  const [valleyY1, setValleyY1] = valleyY1HookItems;
+  const [valleyY2, setValleyY2] = valleyY2HookItems;
+
   const [menuItems, setMenuItems] = useState(contextMenuItems.moveDelete);
   const [selectedMarkerToMove, setSelectedMarkerToMove] = useState();
   const [cursorLoc, setCursorLoc] = useState([0, 0]);
   const [xZoomFactor, setXZoomFactor] = useState(1);
   const [yZoomFactor, setYZoomFactor] = useState(1);
-  /* NOTE!! The order of the variables and functions in createGraph() are important to functionality.
+
+  // these functions are just wrappers around hook setters, so adding them before useEffects
+  const updateFeatures = (featureType, newFeatureValues) => {
+    // ensures you don't edit the original array by creating deep copy
+    const newEntries = JSON.parse(JSON.stringify(editablePeaksValleys));
+    const featureIdx = featureType === "peak" ? 0 : 1;
+    newEntries[selectedWell][featureIdx] = newFeatureValues;
+    setEditablePeaksValleys({ ...newEntries });
+  };
+
+  const updateStartEndTimes = (newStartEndTimes) => {
+    setEditableStartEndTimes({
+      ...editableStartEndTimes,
+      ...newStartEndTimes,
+    });
+  };
+
+  useEffect(() => {
+    // manually scrolls graph div to bottom because the graph div expands down instead of up
+    const containerToScroll = document.getElementById("scrollableContainer");
+    containerToScroll.scrollTop = containerToScroll.scrollHeight;
+  }, [yZoomFactor]);
+
+  useEffect(() => {
+    if (peaks && valleys) {
+      // always remove existing graph before plotting new graph
+      d3.select("#waveformGraph").select("svg").remove();
+      createGraph();
+    }
+  }, [
+    peaks,
+    valleys,
+    selectedMarkerToMove,
+    xZoomFactor,
+    yZoomFactor,
+    peakValleyWindows,
+    valleyY1,
+    valleyY2,
+    peakY1,
+    peakY2,
+    startTime,
+    endTime,
+  ]);
+
+  /* NOTE!! The order of the variables and function calls in this function are important to functionality.
      could eventually try to break this up, but it's more sensitive in react than vue */
   const createGraph = () => {
     /* --------------------------------------
-      SET UP SVG GRAPH AND VARIABLES
-    -------------------------------------- */
+        SET UP SVG GRAPH AND VARIABLES
+      -------------------------------------- */
     const maxTime = d3.max(dataToGraph, (d) => {
       return d[0];
     });
 
     // if windowed analysis, use else use recording max and min times
-    const xMin = xRange.min ? xRange.min : dataToGraph[0][0];
-    const xMax = xRange.max ? xRange.max : maxTime;
+    const xMin = xRange.min || dataToGraph[0][0];
+    const xMax = xRange.max || maxTime;
 
     const margin = { top: 20, right: 20, bottom: 30, left: 50 },
       width = 1245 - margin.left - margin.right,
       height = 300 - margin.top - margin.bottom;
 
     // TODO handle if zoom becomes smaller than smallest component width
-    const dynamicWidth = width * xZoomFactor < width ? width : width * xZoomFactor;
-    const dynamicHeight = height * yZoomFactor < height ? height : height * yZoomFactor;
+    const dynamicWidth = Math.max(width, width * xZoomFactor);
+    const dynamicHeight = Math.max(height, height * yZoomFactor);
     // Add X axis and Y axis
     const x = d3.scaleLinear().range([0, dynamicWidth]).domain([xMin, xMax]);
 
@@ -254,9 +293,9 @@ export default function WaveformGraph({
       .range([dynamicHeight, 0])
       .domain([yMin - yRange, yMax + yRange]);
     // calculate start and end times in pixels. If windowed time found, use, else recording max and min
-    const initialStartTime = x(startTime ? startTime : xMin);
-    const initialEndTime = x(endTime ? endTime : maxTime);
-    //helper functions
+    const initialStartTime = x(startTime || xMin);
+    const initialEndTime = x(endTime || maxTime);
+    // helper functions
     function appendPeakValleyMarkers(id, lineId, xRaw, yRaw, color) {
       return svg
         .append("circle")
@@ -269,12 +308,6 @@ export default function WaveformGraph({
         .attr("stroke", color)
         .style("cursor", "pointer")
         .call(pivotLineDrag);
-    }
-    // ensure you can't move a line outside of window bounds
-    function getCorrectY(id, d3Object) {
-      return id.includes("valley")
-        ? Math.max(d3Object.y, y(yMax + yRange))
-        : Math.min(d3Object.y, y(yMin - yRange));
     }
     // waveform line
     const dataLine = d3
@@ -348,8 +381,8 @@ export default function WaveformGraph({
     }
 
     /* --------------------------------------
-      APPEND X AND Y AXES
-    -------------------------------------- */
+        APPEND X AND Y AXES
+      -------------------------------------- */
     svg
       .append("g")
       .attr("transform", `translate(0, ${dynamicHeight})`)
@@ -358,8 +391,8 @@ export default function WaveformGraph({
     svg.append("g").call(d3.axisLeft(y));
 
     /* --------------------------------------
-      WINDOW OF ANALYSIS FILLED BACKGROUND
-    -------------------------------------- */
+        WINDOW OF ANALYSIS FILLED BACKGROUND
+      -------------------------------------- */
     // NOTE!! this needs to go before the tissue line, peaks, and valleys so that it sits behind them.
     const windowedAnalysisFill = svg
       .append("rect")
@@ -387,44 +420,40 @@ export default function WaveformGraph({
               .attr("startingPosFromLine", d3.pointer(d)[0] - parseFloat(startTimeLine.attr("x1")));
           })
           .on("drag", function (d) {
-            const startingPos = d3.select(this).attr("startingPosFromLine");
-            const timeWidth = d3.select(this).attr("width");
+            const startingPos = parseFloat(d3.select(this).attr("startingPosFromLine"));
+            const timeWidth = parseFloat(d3.select(this).attr("width"));
             // make sure you can't drag outside of window bounds
-            const position =
-              d.x - startingPos < 0
-                ? 0
-                : d.x - startingPos + parseFloat(timeWidth) > dynamicWidth
-                ? dynamicWidth - parseFloat(timeWidth)
-                : d.x - startingPos;
+            const newStartPosition = Math.min(Math.max(d.x - startingPos, 0), dynamicWidth - timeWidth);
 
-            d3.select(this).attr("x", position);
+            d3.select(this).attr("x", newStartPosition);
 
             // reposition start time, peaks, valleys lines and set value to state
-            startTimeLine.attr("x1", position).attr("x2", position);
-            valleysWindowLine.attr("x1", position);
-            peaksWindowLine.attr("x1", position);
+            startTimeLine.attr("x1", newStartPosition).attr("x2", newStartPosition);
+            valleyThresholdLine.attr("x1", newStartPosition);
+            peakThresholdLine.attr("x1", newStartPosition);
 
             // reposition end time, peaks, valleys lines and set value to state
-            const endPosition = parseFloat(position) + parseFloat(timeWidth);
+            const endPosition = newStartPosition + timeWidth;
             endTimeLine.attr("x1", endPosition).attr("x2", endPosition);
-            valleysWindowLine.attr("x2", endPosition);
-            peaksWindowLine.attr("x2", endPosition);
+            valleyThresholdLine.attr("x2", endPosition);
+            peakThresholdLine.attr("x2", endPosition);
           })
           .on("end", function () {
-            const timeWidth = d3.select(this).attr("width");
-            const startPosition = d3.select(this).attr("x");
-            const endPosition = parseFloat(startPosition) + parseFloat(timeWidth);
+            const timeWidth = parseFloat(d3.select(this).attr("width"));
+            const startPosition = parseFloat(d3.select(this).attr("x"));
+            const endPosition = startPosition + timeWidth;
             // save new window analysis times to state on end so that it only updates changelog on drop
-            setNewStartTime(parseFloat(x.invert(startPosition).toFixed()));
-            setNewEndTime(parseFloat(x.invert(endPosition).toFixed()));
-
+            updateStartEndTimes({
+              startTime: parseFloat(x.invert(startPosition).toFixed()),
+              endTime: parseFloat(x.invert(endPosition).toFixed()),
+            });
             d3.select(this).attr("opacity", 0.2).attr("cursor", "default");
           })
       );
 
     /* --------------------------------------
-      WAVEFORM TISSUE LINE
-    -------------------------------------- */
+        WAVEFORM TISSUE LINE
+      -------------------------------------- */
     svg
       .append("path")
       .data([dataWithinWindow.map((x) => [x[0] * xZoomFactor, x[1] * yZoomFactor])])
@@ -450,8 +479,8 @@ export default function WaveformGraph({
       });
 
     /* --------------------------------------
-      PEAKS AND VALLEYS
-    -------------------------------------- */
+        PEAKS AND VALLEYS
+      -------------------------------------- */
     // NOTE!! these have to be in this syntax, not const () => {}  -- not sure why yet
     function dragStarted(d) {
       // close context menu if it's open
@@ -470,9 +499,9 @@ export default function WaveformGraph({
       d[1] = y.invert(d.y);
 
       /*
-        To force circle to stay along data line, find index of x-coordinate in datapoints to then grab corresponding y-coordinate
-        If this is skipped, user will be able to drag circle anywhere on graph, unrelated to data line.
-      */
+          To force circle to stay along data line, find index of x-coordinate in datapoints to then grab corresponding y-coordinate
+          If this is skipped, user will be able to drag circle anywhere on graph, unrelated to data line.
+        */
       const draggedIdx = dataToGraph.findIndex((x) => Number(x[0].toFixed(2)) === Number(d[0].toFixed(2)));
 
       const duplicates = checkDuplicates();
@@ -521,13 +550,9 @@ export default function WaveformGraph({
       );
 
       // Changing the x/y coordinates on the graph does not auto update the original array used to plot peaks and valleys so you need to update them separately
-      if (featureType === "peak") {
-        peaks.splice(indexToChange, 1, newSelectedIndex);
-        setPeaks([...peaks]); // required to change dependencies
-      } else {
-        valleys.splice(indexToChange, 1, newSelectedIndex);
-        setValleys([...valleys]); // required to change dependencies
-      }
+      const featureValues = JSON.parse(JSON.stringify(featureType === "peak" ? peaks : valleys));
+      featureValues.splice(indexToChange, 1, newSelectedIndex);
+      updateFeatures(featureType, featureValues);
     }
 
     const duplicates = checkDuplicates();
@@ -535,11 +560,11 @@ export default function WaveformGraph({
     // graph all the peak markers
     svg
       .selectAll("#waveformGraph")
-      .data(filterFeature("peak", initialPeaksValleys[0], startTime, endTime, dataToGraph))
+      .data(filterFeature("peak", peaks, startTime, endTime, dataToGraph))
       .enter()
       .append("path")
       .attr("id", "peak")
-      .attr("indexToReplace", (d) => initialPeaksValleys[0].indexOf(d)) // keep track of index in peaks array to splice later
+      .attr("indexToReplace", (d) => peaks.indexOf(d)) // keep track of index in peaks array to splice later
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
         return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) - 7) + ") rotate(180)";
@@ -570,14 +595,13 @@ export default function WaveformGraph({
       .call(d3.drag().on("start", dragStarted).on("drag", dragging).on("end", dragEnded));
 
     // graph all the valley markers
-
     svg
       .selectAll("#waveformGraph")
-      .data(filterFeature("valleys", initialPeaksValleys[1], startTime, endTime, dataToGraph))
+      .data(filterFeature("valleys", valleys, startTime, endTime, dataToGraph))
       .enter()
       .append("path")
       .attr("id", "valley")
-      .attr("indexToReplace", (d) => initialPeaksValleys[1].indexOf(d)) // keep track of index in valleys array to splice later
+      .attr("indexToReplace", (d) => valleys.indexOf(d)) // keep track of index in valleys array to splice later
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
         return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) + 7) + ")";
@@ -608,8 +632,12 @@ export default function WaveformGraph({
       .call(d3.drag().on("start", dragStarted).on("drag", dragging).on("end", dragEnded));
 
     /* --------------------------------------
-      WINDOWED PEAKS/VALLEYS LINES
-    -------------------------------------- */
+        PEAKS/VALLEYS THRESHOLD LINES
+      -------------------------------------- */
+    // ensure you can't move a line outside of window bounds
+    function getCorrectY(newY) {
+      return Math.min(Math.max(newY, y(yMax + yRange)), y(yMin - yRange));
+    }
     const pivotLineDrag = d3
       .drag()
       .on("start", function () {
@@ -619,19 +647,16 @@ export default function WaveformGraph({
         d3.select(this).attr("stroke-width", 5);
       })
       .on("drag", function (d) {
-        const id = d3.select(this).attr("id");
-        const yId = id.includes("1") ? "y1" : "y2";
+        const yPosition = getCorrectY(d.y);
 
-        const yPosition = getCorrectY(id, d);
-        //set new y for marker
+        // set new y for marker
         d3.select(this).attr("cy", yPosition);
 
-        //set new y for line
-        if (id.includes("valley")) {
-          d3.select("#valleyLine").attr(yId, yPosition);
-        } else {
-          d3.select("#peakLine").attr(yId, yPosition);
-        }
+        // set new y for line
+        const id = d3.select(this).attr("id");
+        const elementName = id.includes("peak") ? "#peakLine" : "#valleyLine";
+        const yId = id.includes("1") ? "y1" : "y2";
+        d3.select(elementName).attr(yId, yPosition);
       })
       .on("end", function (d) {
         // decrease stroke width when unselected and dropped
@@ -639,47 +664,46 @@ export default function WaveformGraph({
 
         const id = d3.select(this).attr("id");
 
-        //need to invert to make calculation compatible with dataToGraph
-        const y1 = y.invert(
-          id.includes("valley") ? d3.select("#valleyLine").attr("y1") : d3.select("#peakLine").attr("y1")
-        );
-        const y2 = y.invert(
-          id.includes("valley") ? d3.select("#valleyLine").attr("y2") : d3.select("#peakLine").attr("y2")
-        );
+        const elementName = id.includes("peak") ? "#peakLine" : "#valleyLine";
+        // need to invert to make calculation compatible with dataToGraph
+        const y1 = y.invert(d3.select(elementName).attr("y1"));
+        const y2 = y.invert(d3.select(elementName).attr("y2"));
+
         setLineCalculationVariables(id, y1, y2);
-        // descrease stroke width when unselected and dropped
+        // decrease stroke width when unselected and dropped
         d3.select(this).attr("stroke-width", 2);
       });
     const moveLineUpDown = d3
       .drag()
       .on("start", function (d) {
-        const id = d3.select(this).attr("id");
         // close context menu if it's open
         contextMenu.style("display", "none");
         // increase stroke width when selected and dragging
         d3.select(this).attr("stroke-width", 5);
-        //set starting y position
-        const initialY = getCorrectY(id, d);
-        d3.select(this).attr("startingY", initialY);
+        // set y pos where the line was grabbed at
+        d3.select(this).attr("prevGrabY", d.y);
       })
       .on("drag", function (d) {
         const id = d3.select(this).attr("id");
-        //Get the current position
-        const currentYPosition = getCorrectY(id, d);
-        //Get y value of line before the dragging happened
-        const initialY = d3.select(this).attr("startingY");
-        const changeInY = currentYPosition - initialY;
+        // Get y value of line before the dragging happened
+        const prevGrabY = d3.select(this).attr("prevGrabY");
+        const changeInY = d.y - prevGrabY;
 
-        const newY1 = parseFloat(d3.select(this).attr("y1")) + changeInY;
-        const newY2 = parseFloat(d3.select(this).attr("y2")) + changeInY;
+        const expectedNewY1 = parseFloat(d3.select(this).attr("y1")) + changeInY;
+        const expectedNewY2 = parseFloat(d3.select(this).attr("y2")) + changeInY;
+        const newY1 = getCorrectY(expectedNewY1);
+        const newY2 = getCorrectY(expectedNewY2);
 
-        //set the y variables to prevent the lines from "floating" away from pointer
-        const prefix = id.includes("peak") ? "peak" : "valley";
-        d3.select(`#${prefix}LineY1Marker`).attr("cy", newY1);
-        d3.select(`#${prefix}LineY2Marker`).attr("cy", newY2);
-        d3.select(this).attr("y1", newY1);
-        d3.select(this).attr("y2", newY2);
-        d3.select(this).attr("startingY", newY1);
+        // if these values don't match, then one of the endpoints of the lines went OOB and no updates should be performed
+        if (newY1 === expectedNewY1 && newY2 === expectedNewY2) {
+          const prefix = id.includes("peak") ? "peak" : "valley";
+          d3.select(this).attr("y1", newY1);
+          d3.select(this).attr("y2", newY2);
+          d3.select(this).attr("prevGrabY", d.y);
+          // set the y variables to prevent the lines from "floating" away from pointer
+          d3.select(`#${prefix}LineY1Marker`).attr("cy", newY1);
+          d3.select(`#${prefix}LineY2Marker`).attr("cy", newY2);
+        }
       })
       .on("end", function () {
         const id = d3.select(this).attr("id");
@@ -689,10 +713,9 @@ export default function WaveformGraph({
         setLineCalculationVariables(id, y1, y2);
       });
 
-    // only display lines if peaks and valleys were found
-    const { minPeaks, maxValleys } = peakValleyWindows[currentWell];
+    const { minPeaks, maxValleys } = peakValleyWindows[selectedWell];
     // draggable windowed peaks line
-    const peaksWindowLine = svg
+    const peakThresholdLine = svg
       .append("line")
       .attr("id", "peakLine")
       .attr("x1", x(startTime))
@@ -704,28 +727,34 @@ export default function WaveformGraph({
       .style("cursor", "pointer")
       .call(moveLineUpDown);
 
+    // this offset is used to shift the peak/valley threshold endpoint markers slightly inward so they
+    // don't sit directly underneath window bound lines. The offset factor used here was chosen arbitrarily.
+    // Could probably do this a better way
+    const offsetFactor = 100;
+    const endpointMarkerOffset = (endTime - startTime) / offsetFactor;
+
     const peaksY1 = appendPeakValleyMarkers(
       "peakLineY1Marker",
       "peakLine",
-      startTime + (endTime - startTime) / 100,
+      startTime + endpointMarkerOffset,
       peakY1[wellIdx],
       "var(--curi-peaks)"
     );
     const peaksY2 = appendPeakValleyMarkers(
       "peakLineY2Marker",
       "peakLine",
-      endTime - (endTime - startTime) / 100,
+      endTime - endpointMarkerOffset,
       peakY2[wellIdx],
       "var(--curi-peaks)"
     );
     // remove peaks line if no peaks are found
     if (!minPeaks) {
-      peaksWindowLine.attr("display", "none");
+      peakThresholdLine.attr("display", "none");
       peaksY1.attr("display", "none");
       peaksY2.attr("display", "none");
     }
     // dragable windowed valleys line
-    const valleysWindowLine = svg
+    const valleyThresholdLine = svg
       .append("line")
       .attr("id", "valleyLine")
       .attr("x1", x(startTime))
@@ -739,27 +768,27 @@ export default function WaveformGraph({
     const valleysY1 = appendPeakValleyMarkers(
       "valleyLineY1Marker",
       "peakLine",
-      startTime + (endTime - startTime) / 100,
+      startTime + endpointMarkerOffset,
       valleyY1[wellIdx],
       "var(--curi-valleys)"
     );
     const valleysY2 = appendPeakValleyMarkers(
       "valleyLineY2Marker",
       "peakLine",
-      endTime - (endTime - startTime) / 100,
+      endTime - endpointMarkerOffset,
       valleyY2[wellIdx],
       "var(--curi-valleys)"
     );
     // remove valleys line if no valleys are found
     if (!maxValleys) {
-      valleysWindowLine.attr("display", "none");
+      valleyThresholdLine.attr("display", "none");
       valleysY1.attr("display", "none");
       valleysY2.attr("display", "none");
     }
 
     /* --------------------------------------
-      START AND END TIME LINES
-    -------------------------------------- */
+        WINDOW START AND END TIME LINES
+      -------------------------------------- */
     const timeLineDrag = d3
       .drag()
       .on("start", function () {
@@ -774,20 +803,14 @@ export default function WaveformGraph({
         const endPos = endTimeLine.attr("x1");
 
         // ensure you can't move a line outside of window bounds
-        let xPosition = d.x < 0 ? 0 : d.x > dynamicWidth ? dynamicWidth : d.x;
-
+        let xPosition = Math.min(Math.max(d.x, 0), dynamicWidth);
         // ensure start time cannot go above end time and vice versa
-        if (time === "startTime") {
-          if (d.x >= endPos) xPosition = endPos;
-          // update peaks and valley windows to only be within the windowed analysis window
-          peaksWindowLine.attr("x1", xPosition);
-          valleysWindowLine.attr("x1", xPosition);
-        } else if (time === "endTime") {
-          if (d.x <= startingPos) xPosition = startingPos;
-          // update peaks and valley windows to only be within the windowed analysis window
-          peaksWindowLine.attr("x2", xPosition);
-          valleysWindowLine.attr("x2", xPosition);
-        }
+        xPosition = time === "startTime" ? Math.min(xPosition, endPos) : Math.max(xPosition, startingPos);
+
+        const attrName = time === "startTime" ? "x1" : "x2";
+        // update peaks and valley windows to only be within the windowed analysis window
+        peakThresholdLine.attr(attrName, xPosition);
+        valleyThresholdLine.attr(attrName, xPosition);
 
         // assign new x values
         d3.select(this).attr("x1", xPosition).attr("x2", xPosition);
@@ -802,17 +825,11 @@ export default function WaveformGraph({
         const xPosition = d3.select(this).attr("x1");
         const newTimeSec = parseFloat(x.invert(xPosition).toFixed(2));
 
-        if (time === "startTime") {
-          setNewStartTime(newTimeSec);
-          // update peaks and valley windows to only be within the windowed analysis window
-          peaksWindowLine.attr("x1", xPosition);
-          valleysWindowLine.attr("x1", xPosition);
-        } else {
-          setNewEndTime(newTimeSec);
-          // update peaks and valley windows to only be within the windowed analysis window
-          peaksWindowLine.attr("x2", xPosition);
-          valleysWindowLine.attr("x2", xPosition);
-        }
+        updateStartEndTimes({ [time]: newTimeSec });
+        // update peaks and valley windows to only be within the windowed analysis window
+        const attrName = time === "startTime" ? "x1" : "x2";
+        peakThresholdLine.attr(attrName, xPosition);
+        valleyThresholdLine.attr(attrName, xPosition);
 
         // descrease stroke width when unselected and dropped
         d3.select(this).attr("stroke-width", 5);
@@ -844,8 +861,8 @@ export default function WaveformGraph({
       .call(timeLineDrag);
 
     /* --------------------------------------
-      BLOCKERS (just top blocker for now)
-    -------------------------------------- */
+        BLOCKERS (just top blocker for now)
+      -------------------------------------- */
     svg
       .append("rect")
       .attr("x", -10)
@@ -855,71 +872,6 @@ export default function WaveformGraph({
       .attr("fill", "white")
       .style("overflow", "hidden");
   };
-
-  useEffect(() => {
-    if (initialPeaksValleys.length > 0) {
-      // always remove existing graph before plotting new graph
-      d3.select("#waveformGraph").select("svg").remove();
-      /*
-        TODO!! this is bad form to directly mutate state,
-        but so far is the only way it will render the new peaks and valleys
-        when selecting between wells in dropdown
-      */
-      peaks.splice(0, peaks.length);
-      initialPeaksValleys[0].map((x) => peaks.push(x));
-
-      valleys.splice(0, valleys.length);
-      initialPeaksValleys[1].map((x) => valleys.push(x));
-
-      setNewStartTime(startTime);
-      setNewEndTime(endTime);
-      createGraph();
-    }
-  }, [
-    initialPeaksValleys,
-    selectedMarkerToMove,
-    xZoomFactor,
-    yZoomFactor,
-    peakValleyWindows,
-    valleyY1,
-    valleyY2,
-    peakY1,
-    peakY2,
-    startTime,
-    endTime,
-  ]);
-
-  //run once when component is created or when well changes to set starter values for calculations
-  useEffect(() => {
-    if (!peakY1[wellIdx] || !peakY2[wellIdx]) {
-      setPeakLineDataToDefault();
-    }
-    if (!valleyY1[wellIdx] || !valleyY2[wellIdx]) {
-      setValleyLineDataToDefault();
-    }
-  }, [currentWell]);
-
-  useEffect(() => {
-    // manually scrolls graph div to bottom because the graph div expands down instead of up
-    const containerToScroll = document.getElementById("scrollableContainer");
-    containerToScroll.scrollTop = containerToScroll.scrollHeight;
-  }, [yZoomFactor]);
-
-  useEffect(() => {
-    // sometimes this does get updated to null when moving windowed analysis fill
-    // so need to update to max or min if so to prevent changelog message from erroring
-    setEditableStartEndTimes({
-      startTime: newStartTime ? newStartTime : xRange.min,
-      endTime: newEndTime ? newEndTime : xRange.max,
-    });
-  }, [newStartTime, newEndTime]);
-
-  useEffect(() => {
-    // ensures you don't edit the original array by creating deep copy
-    const newEntries = JSON.parse(JSON.stringify(editablePeaksValleys));
-    newEntries[currentWell] = [[...peaks], [...valleys]];
-    setEditablePeaksValleys(newEntries);
-  }, [peaks, valleys]);
 
   const contextMenuClick = ({ target }) => {
     const contextMenu = d3.select("#contextmenu");
@@ -947,29 +899,12 @@ export default function WaveformGraph({
   const movePeakValley = (keyCode) => {
     const { type, idx } = selectedMarkerToMove;
 
-    if (keyCode === 37) {
-      // 37 is left arrow key
-      if (type === "peak") {
-        const idxVal = peaks[idx];
-        peaks.splice(idx, 1, (idxVal -= 1));
-        setPeaks([...peaks]); // required to change dependencies
-      } else {
-        const idxVal = valleys[idx];
-        valleys.splice(idx, 1, (idxVal -= 1));
-        setValleys([...valleys]); // required to change dependencies
-      }
-    } else if (keyCode === 39) {
-      // 39 is right arrow key
-      if (type === "peak") {
-        const idxVal = peaks[idx];
-        peaks.splice(idx, 1, (idxVal += 1));
-        setPeaks([...peaks]); // required to change dependencies
-      } else {
-        const idxVal = valleys[idx];
-        valleys.splice(idx, 1, (idxVal += 1));
-        setValleys([...valleys]); // required to change dependencies
-      }
-    }
+    // Tanner (5/25/23): Currently assuming that only 37 and 39 will be passed in
+    const shiftAmount = keyCode === 37 ? -1 : 1;
+    const featureValues = JSON.parse(JSON.stringify(featureType === "peak" ? peaks : valleys));
+    const idxVal = featureValues[idx];
+    featureValues.splice(idx, 1, (idxVal += shiftAmount));
+    updateFeatures(type, featureValues);
   };
 
   const handleZoomIn = (axis) => {
@@ -1011,7 +946,7 @@ export default function WaveformGraph({
       </YAxisContainer>
       <ColumnContainer>
         <ToolbarContainer>
-          <ChangelogLabel onClick={openChangelog}>View Changelog</ChangelogLabel>
+          <ChangelogLabel onClick={changelogActions.open}>View Changelog</ChangelogLabel>
           <HowTo>
             Edit Peaks / Valleys{" "}
             <Tooltip
@@ -1049,7 +984,7 @@ export default function WaveformGraph({
             height="30px"
             fontSize={15}
             borderRadius="5px"
-            clickFn={undoLastChange}
+            clickFn={changelogActions.undo}
           />
           <ButtonWidget
             label="Reset"
@@ -1058,7 +993,7 @@ export default function WaveformGraph({
             left="5px"
             fontSize={15}
             borderRadius="5px"
-            clickFn={resetWellChanges}
+            clickFn={changelogActions.reset}
           />
           <ButtonWidget
             label="Save"
@@ -1067,7 +1002,7 @@ export default function WaveformGraph({
             left="10px"
             fontSize={15}
             borderRadius="5px"
-            clickFn={saveChanges}
+            clickFn={changelogActions.save}
           />
         </ToolbarContainer>
         <Container id="scrollableContainer">

@@ -5,10 +5,9 @@ import { useEffect } from "react";
 const fileTypes = ["zip", "xlsx"];
 
 const Container = styled.div`
-  left: 5%;
   top: 28px;
   height: 170px;
-  width: 90%;
+  width: 70%;
   position: relative;
   font-size: 24px;
   overflow: scroll;

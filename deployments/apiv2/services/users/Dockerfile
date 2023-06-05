@@ -1,4 +1,4 @@
-FROM python:3.9-slim as venv
+FROM python:3.11-slim as venv
 RUN apt-get update; \
     apt-get install -y build-essential
 
@@ -13,7 +13,7 @@ RUN python -m venv --copies /app/venv
 RUN . /app/venv/bin/activate && pip install -r ./requirements.txt && pip install ./lib/auth && pip install ./lib/utils && pip install ./lib/jobs
 
 
-FROM python:3.9-slim as prod
+FROM python:3.11-slim as prod
 
 RUN useradd -ms /bin/bash main_user && groupadd main_group
 USER main_user:main_group

@@ -27,6 +27,7 @@ export default function DashboardLayout({ children }) {
   const [fetchUploads, setFetchUploads] = useState(false);
   const [pulse3dVersions, setPulse3dVersions] = useState([]);
   const [metaPulse3dVersions, setMetaPulse3dVersions] = useState([]);
+  const [defaultUploadForReanalysis, setDefaultUploadForReanalysis] = useState();
   const router = useRouter();
 
   const stiffnessFactorDetails = {
@@ -37,13 +38,18 @@ export default function DashboardLayout({ children }) {
   };
 
   useEffect(() => {
-    if (router.pathname === "/uploads") {
+    if (router.pathname === "/uploads" || router.pathname === "/upload-form") {
       getUploads();
-      getPulse3dVersions();
-    } else if (router.pathname === "/upload-form") {
       getPulse3dVersions();
     }
   }, [router.pathname, fetchUploads]);
+
+  useEffect(() => {
+    // clear default upload when user leaves the re-analyze page
+    if (router.pathname !== "/upload-form") {
+      setDefaultUploadForReanalysis(null);
+    }
+  }, [router.pathname]);
 
   const getUploads = async () => {
     try {
@@ -90,6 +96,8 @@ export default function DashboardLayout({ children }) {
         pulse3dVersions,
         metaPulse3dVersions,
         stiffnessFactorDetails,
+        defaultUploadForReanalysis,
+        setDefaultUploadForReanalysis,
       }}
     >
       <Container>

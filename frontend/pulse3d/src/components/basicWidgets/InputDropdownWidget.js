@@ -3,8 +3,15 @@ import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import Autocomplete from "@mui/material/Autocomplete";
 
-export default function InputDropdownWidget({ options = [], width, label, reset, handleSelection }) {
-  const [selected, setSelected] = useState(null);
+export default function InputDropdownWidget({
+  label,
+  options = [],
+  initialOption,
+  handleSelection,
+  reset,
+  width,
+}) {
+  const [selected, setSelected] = useState(initialOption || null);
 
   useEffect(() => {
     if (reset) setSelected(null);

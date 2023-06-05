@@ -39,15 +39,15 @@ async def create_job(version: str, num_of_workers: int):
     running_workers_list = job_api.list_namespaced_job(QUEUE, label_selector=f"job_version={version}")
     num_of_active_workers = len(running_workers_list.items)
 
-    logger.info(f"Checking for running {version} jobs, {num_of_active_workers} found.")
+    logger.info(f"Checking for active {version} workers: {num_of_active_workers} found.")
     logger.info(f"Starting {num_of_workers - num_of_active_workers} worker(s) for {QUEUE}:{version}.")
 
     for count in range(num_of_active_workers + 1, num_of_workers + 1):
         # names can only be alphanumeric and '-' so replacing '.' with '-'
         # Cannot start jobs with the same name so count starting at 1+existing number of jobs running in namespace with version
-        formatted_name = f"test-{QUEUE}-worker-v{'-'.join(version.split('.'))}--{count}"  # TODO remove test- prefix after testing
+        formatted_name = f"{QUEUE}-worker-v{'-'.join(version.split('.'))}--{count}"
         logger.info(f"Starting {formatted_name}.")
-        complete_ecr_repo = f"{ECR_REPO}:{version}__test"  # TODO remove __test suffix after testing
+        complete_ecr_repo = f"{ECR_REPO}:{version}"
 
         POSTGRES_PASSWORD = kclient.V1EnvVar(
             name="POSTGRES_PASSWORD",
@@ -57,10 +57,7 @@ async def create_job(version: str, num_of_workers: int):
         )
         # Create container
         container = kclient.V1Container(
-            name=formatted_name,
-            image=complete_ecr_repo,
-            env=[POSTGRES_PASSWORD],
-            image_pull_policy="Always",
+            name=formatted_name, image=complete_ecr_repo, env=[POSTGRES_PASSWORD], image_pull_policy="Always"
         )
         # Create job spec with container
         spec = kclient.V1JobSpec(
@@ -98,7 +95,7 @@ async def get_next_queue_item():
         async with pool.acquire() as con:
             records = await con.fetch(
                 "SELECT meta->'version' AS version, COUNT(*) FROM jobs_queue WHERE queue LIKE $1 GROUP BY version",
-                f"%{QUEUE}%",  # TODO change to {QUEUE}% after testing is complete
+                f"{QUEUE}%",
             )
 
             if not records:

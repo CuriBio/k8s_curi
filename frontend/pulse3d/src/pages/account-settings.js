@@ -3,7 +3,6 @@ import { useContext, useEffect, useState } from "react";
 import { AuthContext } from "@/pages/_app";
 import styled from "styled-components";
 import UsageWidgetFull from "@/components/basicWidgets/UsageWidgetFull";
-import { useRouter } from "next/router";
 
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
