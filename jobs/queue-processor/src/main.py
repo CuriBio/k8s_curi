@@ -24,6 +24,10 @@ DB_USER = os.getenv("POSTGRES_USER")
 DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
 DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
 
+# TODO figure out how to pass these
+MANTARRAY_LOGS_BUCKET = kclient.V1EnvVar(name="MANTARRAY_LOGS_BUCKET", value=f"prod-mantarray-logs")
+PULSE3D_UPLOADS_BUCKET = kclient.V1EnvVar(name="PULSE3D_UPLOADS_BUCKET", value=f"prod-pulse3d-uploads")
+
 
 async def create_job(version: str, num_of_workers: int):
     # load kube config
