@@ -61,6 +61,9 @@ const ParamContainer = styled.div`
 const ParamLabel = styled.span`
   line-height: 2;
   font-size: 16px;
+  width: 30%;
+  margin-right: 19px;
+  position: relative;
   white-space: nowrap;
   width: 47%;
   margin-right: 19px;
@@ -96,6 +99,7 @@ const ButtonContainer = styled.div`
   position: relative;
   height: 50px;
   width: 100%;
+  margin-bottom: 25px;
   display: flex;
   justify-content: flex-end;
   margin-bottom: 25px;
@@ -250,7 +254,6 @@ export default function InteractiveWaveformModal({
     peakY2,
     valleyY1,
     valleyY2,
-    removeDupsChecked,
   ]);
 
   useEffect(() => {

@@ -128,6 +128,7 @@ const Legend = styled.div`
   width: 800px;
   margin-left: 20px;
   padding: 5px;
+  margin-left: 21px;
   border-radius: 10px;
   border: 2px solid darkgray;
   & table {
@@ -148,11 +149,11 @@ const Legend = styled.div`
 `;
 
 const Triangle = styled.div`
-width: 0;
-height: 0;
-border-left: 8px solid transparent;
-border-right: 8px solid transparent;
-border-${(props) => props.direction}: 13px solid ${(props) => {
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-${(props) => props.direction}: 13px solid ${(props) => {
   if (props.type === "peak") {
     return "var(--curi-peaks)";
   } else if (props.type === "valley") {
@@ -183,6 +184,9 @@ const contextMenuItems = {
   add: ["Add Peak", "Add Valley"],
 };
 
+const NoFeaturesAlert = styled.div`
+  color: red;
+`;
 export default function WaveformGraph({
   selectedWellInfo,
   xRange,
@@ -940,6 +944,13 @@ export default function WaveformGraph({
       assignNewArr(valleyY2, y2, setValleyY2);
     }
   };
+  const getFeatureAlertMessage = () => {
+    const [peaks, valleys] = editablePeaksValleys[selectedWellInfo.selectedWell];
+    if (peaks.length === 0 && valleys.length === 0) return "No peaks or valleys detected";
+    if (peaks.length === 0) return "No peaks detected";
+    if (valleys.length === 0) return "No valleys detected";
+    return null;
+  };
 
   return (
     <>
@@ -949,6 +960,7 @@ export default function WaveformGraph({
       </YAxisContainer>
       <ColumnContainer>
         <ToolbarContainer>
+          <NoFeaturesAlert>{getFeatureAlertMessage()}</NoFeaturesAlert>
           <ChangelogLabel onClick={changelogActions.open}>View Changelog</ChangelogLabel>
           <HowTo>
             Edit Peaks / Valleys{" "}

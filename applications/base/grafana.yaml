@@ -13,7 +13,14 @@ spec:
     targetRevision: HEAD
   destination:
     server: https://kubernetes.default.svc
+<<<<<<< HEAD
   syncPolicy:
     automated:
       selfHeal: true
       prune: true
+=======
+  # syncPolicy:
+  #   automated:
+  #     selfHeal: true
+  #     prune: true
+>>>>>>> RC-06-08-23

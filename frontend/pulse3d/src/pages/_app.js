@@ -37,6 +37,7 @@ function Pulse({ Component, pageProps }) {
   const [accountType, setAccountType] = useState();
   const [showLoggedOutAlert, setLoggedOutAlert] = useState(false);
   const [usageQuota, setUsageQuota] = useState(null);
+
   let swInterval = null;
   // register the SW once
   useEffect(() => {
