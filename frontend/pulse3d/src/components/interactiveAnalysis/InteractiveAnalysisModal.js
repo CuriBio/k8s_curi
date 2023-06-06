@@ -13,6 +13,7 @@ import semverGte from "semver/functions/gte";
 import FormInput from "@/components/basicWidgets/FormInput";
 import { AuthContext } from "@/pages/_app";
 import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
+import { selectAll } from "d3";
 
 const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
 
@@ -336,13 +337,10 @@ export default function InteractiveWaveformModal({
 
     // filter
     const wellCoords = originalData.coordinates[well];
-    // if (well == "A1") {
-    //   console.log("PEAKS: ", peakIndices);
-    //   console.log("VALLEYS: ", valleyIndices);
-    // }
-
+    if (well === "A1") console.log("B: ", peakIndices);
     peakIndices = filterFeature("peak", peakIndices, startTime, endTime, wellCoords, wellIndex);
     valleyIndices = filterFeature("valley", valleyIndices, startTime, endTime, wellCoords, wellIndex);
+    if (well === "A1") console.log("A: ", peakIndices);
 
     // create list with all features in order
     const features = [];
@@ -354,19 +352,17 @@ export default function InteractiveWaveformModal({
     }
     features.sort((a, b) => a.idx - b.idx);
 
-    if (well == "A1") console.log("SORTED: ", features);
     const duplicates = { peak: [], valley: [] };
 
     for (let i = 1; i < features.length; i++) {
       const [prev, curr, next] = features.slice(i - 1, i + 2);
-      if (well == "A1") console.log(prev, curr, next);
       if ((curr && curr.type === prev.type) || (next && next.type === curr.type)) {
         // if index 1 is a duplicate, need to account for index 0 because loop starts at index 1
         if (i === 1) duplicates[curr.type].push(prev.idx);
         duplicates[curr.type].push(curr.idx);
       }
     }
-    if (well == "A1") console.log("DUPS: ", duplicates.peak);
+    // if (well == "A1") console.log("DUPS: ", duplicates.peak);
     return duplicates;
   };
 
@@ -489,7 +485,7 @@ export default function InteractiveWaveformModal({
       // console.log("OG PEAKS: ", ogPeaksValleysCopy[0]);
 
       peaksValleysCopy[selectedWell] = removeDupsChecked
-        ? removeWellSpecificDuplicates(selectedWell, ogPeaksValleysCopy)
+        ? removeWellSpecificDuplicates(selectedWell)
         : ogPeaksValleysCopy;
 
       changelogCopy[selectedWell] = [];
@@ -699,8 +695,7 @@ export default function InteractiveWaveformModal({
       isNewValleyY1 = isNewY(valleyY1ToCompare, valleyY1),
       isNewValleyY2 = isNewY(valleyY2ToCompare, valleyY2),
       isNewPeakY1 = isNewY(peakY1ToCompare, peakY1),
-      isNewPeakY2 = isNewY(peakY2ToCompare, peakY2),
-      isNewRemoveDupsState = removeDupsChecked && !removeDupsCheckedToCompare;
+      isNewPeakY2 = isNewY(peakY2ToCompare, peakY2);
 
     if (peaksMoved) {
       const diffIdx = peaksToCompare.findIndex((peakIdx, i) => peakIdx !== featuresForWell[0][i]),
@@ -718,7 +713,7 @@ export default function InteractiveWaveformModal({
         const coordinates = dataToGraph[newIdx];
         changelogMessage = `Peak was added at [ ${coordinates[0].toFixed(2)}, ${coordinates[1].toFixed(2)} ]`;
       }
-    } else if (peakDeleted && !isNewRemoveDupsState) {
+    } else if (peakDeleted) {
       const newIdx = compareFeatures(featuresForWell[0], peaksToCompare);
       if (newIdx >= 0) {
         const coordinates = dataToGraph[newIdx];
@@ -744,7 +739,7 @@ export default function InteractiveWaveformModal({
           2
         )} ]`;
       }
-    } else if (valleyDeleted && !isNewRemoveDupsState) {
+    } else if (valleyDeleted) {
       const newIdx = compareFeatures(featuresForWell[1], valleysToCompare);
       if (newIdx >= 0) {
         const coordinates = dataToGraph[newIdx];
@@ -875,8 +870,17 @@ export default function InteractiveWaveformModal({
 
       if (changesCopy.length > 0) {
         // grab state from the step before the undo step to set as current state
-        const { peaks, valleys, startTime, endTime, pvWindow, valleyYOne, valleyYTwo, peakYOne, peakYTwo } =
-          changesCopy[changesCopy.length - 1];
+        const {
+          peaks,
+          valleys,
+          startTime,
+          endTime,
+          pvWindow,
+          valleyYOne,
+          valleyYTwo,
+          peakYOne,
+          peakYTwo,
+        } = changesCopy[changesCopy.length - 1];
         // set old peaks and valleys to well
         peaksValleysCopy[selectedWell] = [[...peaks], [...valleys]];
         pvWindowCopy[selectedWell] = pvWindow;
@@ -997,12 +1001,13 @@ export default function InteractiveWaveformModal({
     return sortedFeatures;
   };
 
-  const removeWellSpecificDuplicates = (well, currentPeaksValleys) => {
-    const duplicateFeatures = checkDuplicates(well, currentPeaksValleys[0], currentPeaksValleys[1]);
+  const removeWellSpecificDuplicates = (well) => {
+    const [ogPeaks, ogValleys] = JSON.parse(JSON.stringify(originalData.peaksValleys[selectedWell]));
+    const sortedPeaks = ogPeaks.sort((a, b) => a - b);
+    const sortedValleys = ogValleys.sort((a, b) => a - b);
+    console.log("1");
+    const duplicateFeatures = checkDuplicates(well, ogPeaks, ogValleys);
     const { peak, valley } = JSON.parse(JSON.stringify(duplicateFeatures));
-
-    const sortedPeaks = currentPeaksValleys[0].sort((a, b) => a - b);
-    const sortedValleys = currentPeaksValleys[1].sort((a, b) => a - b);
 
     const sortedDupPeaks = peak.sort((a, b) => a - b);
     const sortedDupValleys = valley.sort((a, b) => a - b);
@@ -1020,7 +1025,7 @@ export default function InteractiveWaveformModal({
       const currentPeaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
       // remove duplicate peaks and valleys per well
       for (const well in currentPeaksValleysCopy) {
-        currentPeaksValleysCopy[well] = removeWellSpecificDuplicates(well, currentPeaksValleysCopy[well]);
+        currentPeaksValleysCopy[well] = removeWellSpecificDuplicates(well);
       }
 
       setEditablePeaksValleys(currentPeaksValleysCopy);
