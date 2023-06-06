@@ -24,6 +24,10 @@ DB_USER = os.getenv("POSTGRES_USER")
 DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
 DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
 
+# TODO figure out how to pass these
+MANTARRAY_LOGS_BUCKET_ENV = kclient.V1EnvVar(name="MANTARRAY_LOGS_BUCKET_ENV", value="prod-mantarray-logs")
+UPLOADS_BUCKET_ENV = kclient.V1EnvVar(name="UPLOADS_BUCKET_ENV", value="prod-pulse3d-uploads")
+
 
 async def create_job(version: str, num_of_workers: int):
     # load kube config
@@ -57,7 +61,10 @@ async def create_job(version: str, num_of_workers: int):
         )
         # Create container
         container = kclient.V1Container(
-            name=formatted_name, image=complete_ecr_repo, env=[POSTGRES_PASSWORD], image_pull_policy="Always"
+            name=formatted_name,
+            image=complete_ecr_repo,
+            env=[POSTGRES_PASSWORD, UPLOADS_BUCKET_ENV, MANTARRAY_LOGS_BUCKET_ENV],
+            image_pull_policy="Always",
         )
         # Create job spec with container
         spec = kclient.V1JobSpec(
