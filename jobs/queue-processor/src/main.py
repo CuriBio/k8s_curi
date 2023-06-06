@@ -61,7 +61,10 @@ async def create_job(version: str, num_of_workers: int):
         )
         # Create container
         container = kclient.V1Container(
-            name=formatted_name, image=complete_ecr_repo, env=[POSTGRES_PASSWORD], image_pull_policy="Always"
+            name=formatted_name,
+            image=complete_ecr_repo,
+            env=[POSTGRES_PASSWORD, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET],
+            image_pull_policy="Always",
         )
         # Create job spec with container
         spec = kclient.V1JobSpec(
