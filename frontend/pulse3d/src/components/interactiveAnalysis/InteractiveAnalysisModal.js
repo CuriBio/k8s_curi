@@ -246,15 +246,7 @@ export default function InteractiveWaveformModal({
     } else {
       updateChangelog();
     }
-  }, [
-    editableStartEndTimes,
-    editablePeaksValleys,
-    peakValleyWindows,
-    peakY1,
-    peakY2,
-    valleyY1,
-    valleyY2,
-  ]);
+  }, [editableStartEndTimes, editablePeaksValleys, peakValleyWindows, peakY1, peakY2, valleyY1, valleyY2]);
 
   useEffect(() => {
     if (dataToGraph.length > 0) {
@@ -357,11 +349,9 @@ export default function InteractiveWaveformModal({
 
     const duplicates = { peak: [], valley: [] };
 
-    for (let i = 1; i < features.length; i++) {
-      const [prev, curr, next] = features.slice(i - 1, i + 2);
-      if ((curr && curr.type === prev.type) || (next && next.type === curr.type)) {
-        // if index 1 is a duplicate, need to account for index 0 because loop starts at index 1
-        if (i === 1) duplicates[curr.type].push(prev.idx);
+    for (let i = 0; i < features.length; i++) {
+      const [curr, next] = features.slice(i, i + 2);
+      if (curr && next && curr.type === next.type) {
         duplicates[curr.type].push(curr.idx);
       }
     }
@@ -985,20 +975,9 @@ export default function InteractiveWaveformModal({
   };
 
   const removeDuplicateFeatures = (duplicates, sortedFeatures) => {
-    for (const [i, feature] of Object.entries(duplicates)) {
-      // right most feature will never be the removed duplicate so removing last index
-      if (+i !== duplicates.length - 1) {
-        // get index of feature in sorted peak/valley array
-        const idxToCheck = sortedFeatures.indexOf(feature);
-        // get the current value and the next value from sorted array
-        const [curr, next] = sortedFeatures.slice(idxToCheck, idxToCheck + 2);
-        // if the current feature and next feature are in order and match from duplicate array
-        // you know that they are right next to each other
-        if (feature === curr && duplicates[+i + 1] === next) {
-          // remove left duplicate, keep the rightmost feature
-          sortedFeatures.splice(idxToCheck, 1);
-        }
-      }
+    for (const feature of duplicates) {
+      const idxToCheck = sortedFeatures.indexOf(feature);
+      sortedFeatures.splice(idxToCheck, 1);
     }
 
     return sortedFeatures;
