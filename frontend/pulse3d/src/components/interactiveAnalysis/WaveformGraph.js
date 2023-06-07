@@ -437,12 +437,16 @@ export default function WaveformGraph({
             startTimeLine.attr("x1", newStartPosition).attr("x2", newStartPosition);
             valleyThresholdLine.attr("x1", newStartPosition);
             peakThresholdLine.attr("x1", newStartPosition);
+            peaksY1.attr("cx", x(x.invert(newStartPosition) + endpointMarkerOffset));
+            valleysY1.attr("cx", x(x.invert(newStartPosition) + endpointMarkerOffset));
 
             // reposition end time, peaks, valleys lines and set value to state
             const endPosition = newStartPosition + timeWidth;
             endTimeLine.attr("x1", endPosition).attr("x2", endPosition);
             valleyThresholdLine.attr("x2", endPosition);
             peakThresholdLine.attr("x2", endPosition);
+            peaksY2.attr("cx", x(x.invert(endPosition) - endpointMarkerOffset));
+            valleysY2.attr("cx", x(x.invert(endPosition) - endpointMarkerOffset));
           })
           .on("end", function () {
             const timeWidth = parseFloat(d3.select(this).attr("width"));
@@ -772,6 +776,7 @@ export default function WaveformGraph({
       .attr("stroke", "var(--curi-valleys)")
       .style("cursor", "pointer")
       .call(moveLineUpDown);
+
     const valleysY1 = appendPeakValleyMarkers(
       "valleyLineY1Marker",
       "peakLine",
@@ -818,6 +823,14 @@ export default function WaveformGraph({
         // update peaks and valley windows to only be within the windowed analysis window
         peakThresholdLine.attr(attrName, xPosition);
         valleyThresholdLine.attr(attrName, xPosition);
+
+        if (time === "startTime") {
+          peaksY1.attr("cx", x(x.invert(xPosition) + endpointMarkerOffset));
+          valleysY1.attr("cx", x(x.invert(xPosition) + endpointMarkerOffset));
+        } else {
+          peaksY2.attr("cx", x(x.invert(xPosition) - endpointMarkerOffset));
+          valleysY2.attr("cx", x(x.invert(xPosition) - endpointMarkerOffset));
+        }
 
         // assign new x values
         d3.select(this).attr("x1", xPosition).attr("x2", xPosition);
