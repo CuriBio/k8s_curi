@@ -325,17 +325,41 @@ export default function InteractiveWaveformModal({
     }
   };
 
-  const checkDuplicates = (well = selectedWell, peakIndices, valleyIndices) => {
-    const { startTime, endTime } = editableStartEndTimes;
-
+  const checkDuplicates = (
+    well = selectedWell,
+    peaks,
+    valleys,
+    peakThresholdY1 = peakY1[wellIdx],
+    peakThresholdY2 = peakY2[wellIdx],
+    valleyThresholdY1 = valleyY1[wellIdx],
+    valleyThresholdY2 = valleyY2[wellIdx],
+    start = editableStartEndTimes.startTime,
+    end = editableStartEndTimes.endTime
+  ) => {
     const wellIndex = twentyFourPlateDefinition.getWellIndexFromName(well);
-
     // filter
     const wellCoords = originalData.coordinates[well];
-    if (well === "A1") console.log("B: ", peakIndices);
-    peakIndices = filterFeature("peak", peakIndices, startTime, endTime, wellCoords, wellIndex);
-    valleyIndices = filterFeature("valley", valleyIndices, startTime, endTime, wellCoords, wellIndex);
-    if (well === "A1") console.log("A: ", peakIndices);
+    const peakIndices = filterFeature(
+      "peak",
+      peaks,
+      start,
+      end,
+      wellCoords,
+      wellIndex,
+      peakThresholdY1,
+      peakThresholdY2
+    );
+
+    const valleyIndices = filterFeature(
+      "valley",
+      valleys,
+      start,
+      end,
+      wellCoords,
+      wellIndex,
+      valleyThresholdY1,
+      valleyThresholdY2
+    );
 
     // create list with all features in order
     const features = [];
@@ -355,7 +379,7 @@ export default function InteractiveWaveformModal({
         duplicates[curr.type].push(curr.idx);
       }
     }
-    // if (well == "A1") console.log("DUPS: ", duplicates.peak);
+
     return duplicates;
   };
 
@@ -372,7 +396,7 @@ export default function InteractiveWaveformModal({
 
   const findLowestPeak = (well) => {
     const { coordinates, peaksValleys } = originalData;
-    const { startTime, endTime } = editableStartEndTimes;
+    const { max, min } = xRange;
     // arbitrarily set to first peak
     const wellSpecificPeaks = peaksValleys[well][0];
     const wellSpecificCoords = coordinates[well];
@@ -386,8 +410,8 @@ export default function InteractiveWaveformModal({
         const peakToCompare = wellSpecificCoords[lowest][1];
         // only use peaks inside windowed analysis times
         const timeOfPeak = wellSpecificCoords[peak][0];
-        const isLessThanEndTime = !endTime || timeOfPeak <= endTime;
-        const isGreaterThanStartTime = !startTime || timeOfPeak >= startTime;
+        const isLessThanEndTime = !max || timeOfPeak <= max;
+        const isGreaterThanStartTime = !min || timeOfPeak >= min;
         // filter for peaks inside windowed time
         if (yCoord < peakToCompare && isGreaterThanStartTime && isLessThanEndTime) lowest = peak;
       });
@@ -399,7 +423,7 @@ export default function InteractiveWaveformModal({
 
   const findHighestValley = (well) => {
     const { coordinates, peaksValleys } = originalData;
-    const { startTime, endTime } = editableStartEndTimes;
+    const { max, min } = xRange;
     // arbitrarily set to first valley
     const wellSpecificValleys = peaksValleys[well][1];
     const wellSpecificCoords = coordinates[well];
@@ -414,8 +438,8 @@ export default function InteractiveWaveformModal({
 
         // only use valleys inside windowed analysis times
         const timeOfValley = wellSpecificCoords[valley][0];
-        const isLessThanEndTime = !endTime || timeOfValley <= endTime;
-        const isGreaterThanStartTime = !startTime || timeOfValley >= startTime;
+        const isLessThanEndTime = !max || timeOfValley <= max;
+        const isGreaterThanStartTime = !min || timeOfValley >= min;
 
         if (yCoord > valleyToCompare && isLessThanEndTime && isGreaterThanStartTime) highest = valley;
       });
@@ -475,8 +499,6 @@ export default function InteractiveWaveformModal({
     const ogPeaksValleysCopy = JSON.parse(JSON.stringify(originalData.peaksValleys[selectedWell]));
 
     if (changelogCopy[selectedWell] && changelogCopy[selectedWell].length > 0) {
-      // console.log("OG PEAKS: ", ogPeaksValleysCopy[0]);
-
       peaksValleysCopy[selectedWell] = removeDupsChecked
         ? removeWellSpecificDuplicates(selectedWell)
         : ogPeaksValleysCopy;
@@ -613,8 +635,8 @@ export default function InteractiveWaveformModal({
     } else if (originalData.peaksValleys && originalData.peaksValleys[selectedWell]) {
       // If are no changes detected then add default values to first index of changelog
       const ogWellData = originalData.peaksValleys[selectedWell];
-      const maxValleyY = peakValleyWindows[selectedWell].maxValleys;
-      const minPeakY = peakValleyWindows[selectedWell].minPeaks;
+      const maxValleyY = findHighestValley(selectedWell);
+      const minPeakY = findLowestPeak(selectedWell);
 
       const defaultChangelog = {
         peaks: ogWellData[0],
@@ -622,8 +644,8 @@ export default function InteractiveWaveformModal({
         startTime: xRange.min,
         endTime: xRange.max,
         pvWindow: {
-          minPeaks: findLowestPeak(selectedWell),
-          maxValleys: findHighestValley(selectedWell),
+          minPeaks: minPeakY,
+          maxValleys: maxValleyY,
         },
         valleyYOne: maxValleyY,
         valleyYTwo: maxValleyY,
@@ -688,7 +710,8 @@ export default function InteractiveWaveformModal({
       isNewValleyY1 = isNewY(valleyY1ToCompare, valleyY1),
       isNewValleyY2 = isNewY(valleyY2ToCompare, valleyY2),
       isNewPeakY1 = isNewY(peakY1ToCompare, peakY1),
-      isNewPeakY2 = isNewY(peakY2ToCompare, peakY2);
+      isNewPeakY2 = isNewY(peakY2ToCompare, peakY2),
+      isRemoveDupsCheckedDiff = removeDupsChecked !== removeDupsCheckedToCompare;
 
     if (peaksMoved) {
       const diffIdx = peaksToCompare.findIndex((peakIdx, i) => peakIdx !== featuresForWell[0][i]),
@@ -706,7 +729,7 @@ export default function InteractiveWaveformModal({
         const coordinates = dataToGraph[newIdx];
         changelogMessage = `Peak was added at [ ${coordinates[0].toFixed(2)}, ${coordinates[1].toFixed(2)} ]`;
       }
-    } else if (peakDeleted) {
+    } else if (peakDeleted && !isRemoveDupsCheckedDiff) {
       const newIdx = compareFeatures(featuresForWell[0], peaksToCompare);
       if (newIdx >= 0) {
         const coordinates = dataToGraph[newIdx];
@@ -732,7 +755,7 @@ export default function InteractiveWaveformModal({
           2
         )} ]`;
       }
-    } else if (valleyDeleted) {
+    } else if (valleyDeleted && !isRemoveDupsCheckedDiff) {
       const newIdx = compareFeatures(featuresForWell[1], valleysToCompare);
       if (newIdx >= 0) {
         const coordinates = dataToGraph[newIdx];
@@ -746,14 +769,6 @@ export default function InteractiveWaveformModal({
       changelogMessage = `Start time was changed from ${startToCompare} to ${editableStartEndTimes.startTime}.`;
     } else if (endTimeDiff) {
       changelogMessage = `End time was changed from ${endToCompare} to ${editableStartEndTimes.endTime}.`;
-    } else if (minPeaksDiff) {
-      changelogMessage = `Minimum peaks window changed from ${pvWindow.minPeaks.toFixed(
-        2
-      )} to ${peakValleyWindows[selectedWell].minPeaks.toFixed(2)}`;
-    } else if (maxValleysDiff) {
-      changelogMessage = `Maximum valleys window changed from ${pvWindow.maxValleys.toFixed(
-        2
-      )} to ${peakValleyWindows[selectedWell].maxValleys.toFixed(2)}`;
     } else if (isNewValleyY1 && isNewValleyY2) {
       changelogMessage = `Valley Line moved ${valleyY1[wellIdx] - valleyY1ToCompare}`;
     } else if (isNewPeakY1 && isNewPeakY2) {
@@ -949,8 +964,20 @@ export default function InteractiveWaveformModal({
     startTime,
     endTime,
     wellCoords,
-    wellIndex = wellIdx
+    wellIndex = wellIdx,
+    featureThresholdY1,
+    featureThresholdY2
   ) => {
+    const featureThresholdsY1 = {
+      peak: featureThresholdY1 || peakY1[wellIndex],
+      valley: featureThresholdY1 || valleyY1[wellIndex],
+    };
+
+    const featureThresholdsY2 = {
+      peak: featureThresholdY2 || peakY2[wellIndex],
+      valley: featureThresholdY2 || valleyY2[wellIndex],
+    };
+
     return featureIndices.filter((idx) => {
       // Can only filter if the data for this well has actually been loaded,
       // which is not guaranteed to be the case with the staggered loading of data for each well
@@ -958,11 +985,9 @@ export default function InteractiveWaveformModal({
 
       const [featureMarkerX, featureMarkerY] = wellCoords[idx];
 
-      const featureThresholdY1 = featureType === "peak" ? peakY1 : valleyY1;
-      const featureThresholdY2 = featureType === "peak" ? peakY2 : valleyY2;
       const featureThresholdY = calculateYLimit(
-        featureThresholdY1[wellIndex],
-        featureThresholdY2[wellIndex],
+        featureThresholdsY1[featureType],
+        featureThresholdsY2[featureType],
         featureMarkerX
       );
 
@@ -979,7 +1004,6 @@ export default function InteractiveWaveformModal({
       const idxToCheck = sortedFeatures.indexOf(feature);
       sortedFeatures.splice(idxToCheck, 1);
     }
-
     return sortedFeatures;
   };
 
@@ -987,8 +1011,24 @@ export default function InteractiveWaveformModal({
     const [ogPeaks, ogValleys] = JSON.parse(JSON.stringify(originalData.peaksValleys[selectedWell]));
     const sortedPeaks = ogPeaks.sort((a, b) => a - b);
     const sortedValleys = ogValleys.sort((a, b) => a - b);
-    console.log("1");
-    const duplicateFeatures = checkDuplicates(well, ogPeaks, ogValleys);
+
+    const { minPeaks, maxValleys } = {
+      minPeaks: findLowestPeak(well),
+      maxValleys: findHighestValley(well),
+    };
+
+    const duplicateFeatures = checkDuplicates(
+      well,
+      ogPeaks,
+      ogValleys,
+      minPeaks,
+      minPeaks,
+      maxValleys,
+      maxValleys,
+      xRange.min,
+      xRange.max
+    );
+
     const { peak, valley } = JSON.parse(JSON.stringify(duplicateFeatures));
 
     const sortedDupPeaks = peak.sort((a, b) => a - b);

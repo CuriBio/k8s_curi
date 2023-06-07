@@ -565,7 +565,7 @@ export default function WaveformGraph({
     // graph all the peak markers
     svg
       .selectAll("#waveformGraph")
-      .data(filterFeature("peak", peaks, startTime, endTime, dataToGraph))
+      .data(filterFeature("peak", peaks, startTime, endTime, dataToGraph, wellIdx))
       .enter()
       .append("path")
       .attr("id", "peak")
@@ -602,7 +602,7 @@ export default function WaveformGraph({
     // graph all the valley markers
     svg
       .selectAll("#waveformGraph")
-      .data(filterFeature("valleys", valleys, startTime, endTime, dataToGraph))
+      .data(filterFeature("valley", valleys, startTime, endTime, dataToGraph, wellIdx))
       .enter()
       .append("path")
       .attr("id", "valley")
