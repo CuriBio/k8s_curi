@@ -13,7 +13,6 @@ import semverGte from "semver/functions/gte";
 import FormInput from "@/components/basicWidgets/FormInput";
 import { AuthContext } from "@/pages/_app";
 import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
-import { selectAll } from "d3";
 
 const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
 
