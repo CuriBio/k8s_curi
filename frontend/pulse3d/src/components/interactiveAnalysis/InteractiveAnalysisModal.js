@@ -206,6 +206,7 @@ export default function InteractiveWaveformModal({
   const [selectedWell, setSelectedWell] = useState("A1");
 
   const [originalData, setOriginalData] = useState({}); // original waveform data from GET request, unedited
+  const [baseData, setBaseData] = useState({}); // same originalData but can have dups removed
   const [xRange, setXRange] = useState({
     // This is a copy of the max/min timepoints of the data. Windowed analysis start/stop times are set in editableStartEndTimes
     min: null,
@@ -238,6 +239,25 @@ export default function InteractiveWaveformModal({
       setCreditUsageAlert(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (removeDupsChecked) {
+      const currentPeaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
+      // remove duplicate peaks and valleys per well
+      for (const well in currentPeaksValleysCopy) {
+        currentPeaksValleysCopy[well] = removeWellSpecificDuplicates(well);
+      }
+      setBaseData(currentPeaksValleysCopy);
+    } else {
+      // if unchecked, revert back to previous peaks and valleys
+      setBaseData(originalData.peaksValleys);
+    }
+  }, [removeDupsChecked]);
+
+  useEffect(() => {
+    // This is just to update the editable peaks and valleys correctly after the useEffect above
+    setEditablePeaksValleys(baseData);
+  }, [baseData]);
 
   useEffect(() => {
     // updates changelog when peaks/valleys and start/end times change
@@ -496,12 +516,10 @@ export default function InteractiveWaveformModal({
     const peaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
     const changelogCopy = JSON.parse(JSON.stringify(changelog));
     const pvWindowCopy = JSON.parse(JSON.stringify(peakValleyWindows));
-    const ogPeaksValleysCopy = JSON.parse(JSON.stringify(originalData.peaksValleys[selectedWell]));
+    const baseDataCopy = JSON.parse(JSON.stringify(baseData[selectedWell]));
 
     if (changelogCopy[selectedWell] && changelogCopy[selectedWell].length > 0) {
-      peaksValleysCopy[selectedWell] = removeDupsChecked
-        ? removeWellSpecificDuplicates(selectedWell)
-        : ogPeaksValleysCopy;
+      peaksValleysCopy[selectedWell] = baseDataCopy;
 
       changelogCopy[selectedWell] = [];
 
@@ -619,7 +637,6 @@ export default function InteractiveWaveformModal({
         peakY2,
         valleyY1,
         valleyY2,
-        removeDupsChecked,
       })
     );
   };
@@ -632,22 +649,21 @@ export default function InteractiveWaveformModal({
       const wellChanges = changelog[selectedWell];
       // Use snapshot of previus state to get changelog
       changelogMessage = getChangelogMessage(wellChanges[wellChanges.length - 1]);
-    } else if (originalData.peaksValleys && originalData.peaksValleys[selectedWell]) {
+    } else if (baseData && baseData[selectedWell]) {
       // If are no changes detected then add default values to first index of changelog
-      const ogWellData = originalData.peaksValleys[selectedWell];
+      const baseWellData = baseData[selectedWell];
       const maxValleyY = findHighestValley(selectedWell);
       const minPeakY = findLowestPeak(selectedWell);
 
       const defaultChangelog = {
-        peaks: ogWellData[0],
-        valleys: ogWellData[1],
+        peaks: baseWellData[0],
+        valleys: baseWellData[1],
         startTime: xRange.min,
         endTime: xRange.max,
         valleyYOne: maxValleyY,
         valleyYTwo: maxValleyY,
         peakYOne: minPeakY,
         peakYTwo: minPeakY,
-        removeDupsChecked: false,
       };
 
       changelogMessage = getChangelogMessage(defaultChangelog);
@@ -676,7 +692,6 @@ export default function InteractiveWaveformModal({
     valleyYTwo: valleyY2ToCompare,
     peakYOne: peakY1ToCompare,
     peakYTwo: peakY2ToCompare,
-    removeDupsChecked: removeDupsCheckedToCompare,
   }) => {
     const featuresForWell = editablePeaksValleys[selectedWell];
 
@@ -703,8 +718,7 @@ export default function InteractiveWaveformModal({
       isNewValleyY1 = isNewY(valleyY1ToCompare, valleyY1),
       isNewValleyY2 = isNewY(valleyY2ToCompare, valleyY2),
       isNewPeakY1 = isNewY(peakY1ToCompare, peakY1),
-      isNewPeakY2 = isNewY(peakY2ToCompare, peakY2),
-      isRemoveDupsCheckedDiff = removeDupsChecked !== removeDupsCheckedToCompare;
+      isNewPeakY2 = isNewY(peakY2ToCompare, peakY2);
 
     if (peaksMoved) {
       const diffIdx = peaksToCompare.findIndex((peakIdx, i) => peakIdx !== featuresForWell[0][i]),
@@ -722,7 +736,7 @@ export default function InteractiveWaveformModal({
         const coordinates = dataToGraph[newIdx];
         changelogMessage = `Peak was added at [ ${coordinates[0].toFixed(2)}, ${coordinates[1].toFixed(2)} ]`;
       }
-    } else if (peakDeleted && !isRemoveDupsCheckedDiff) {
+    } else if (peakDeleted) {
       const newIdx = compareFeatures(featuresForWell[0], peaksToCompare);
       if (newIdx >= 0) {
         const coordinates = dataToGraph[newIdx];
@@ -748,7 +762,7 @@ export default function InteractiveWaveformModal({
           2
         )} ]`;
       }
-    } else if (valleyDeleted && !isRemoveDupsCheckedDiff) {
+    } else if (valleyDeleted) {
       const newIdx = compareFeatures(featuresForWell[1], valleysToCompare);
       if (newIdx >= 0) {
         const coordinates = dataToGraph[newIdx];
@@ -820,7 +834,6 @@ export default function InteractiveWaveformModal({
       valleyYTwo: valleyY2[wellIdx],
       peakYOne: peakY1[wellIdx],
       peakYTwo: peakY2[wellIdx],
-      removeDupsChecked: removeDupsChecked,
     });
 
     setDisableRemoveDupsCheckbox(isRemoveDuplicatesDisabled(changelog));
@@ -1035,16 +1048,6 @@ export default function InteractiveWaveformModal({
 
   const closeRemoveDuplicatesModal = async (idx) => {
     setRemoveDupsChecked(idx === 1);
-    // if user chooses to continue
-    if (idx === 1) {
-      const currentPeaksValleysCopy = JSON.parse(JSON.stringify(editablePeaksValleys));
-      // remove duplicate peaks and valleys per well
-      for (const well in currentPeaksValleysCopy) {
-        currentPeaksValleysCopy[well] = removeWellSpecificDuplicates(well);
-      }
-
-      setEditablePeaksValleys(currentPeaksValleysCopy);
-    }
     // close modal
     setModalOpen(false);
   };
@@ -1053,17 +1056,16 @@ export default function InteractiveWaveformModal({
     // removeDupsWarning tracks if a user has seen this warning modal during the IA session.
     // we do not need to show it more than once per session
     if (checked) {
-      // if user has seen the warning, immediately remove all duplicates
-      if (removeDupsWarning) closeRemoveDuplicatesModal(1);
-      // else pop up modal letting user know the conditions of this action
-      else {
+      if (removeDupsWarning) {
+        // if user has seen the warning, immediately remove all duplicates
+        closeRemoveDuplicatesModal(1);
+      } else {
+        // otherwise pop up modal letting user know the conditions of this action
         setRemoveDupsWarning(true);
         setModalOpen("removeDuplicates");
       }
     } else {
       setRemoveDupsChecked(false);
-      // if unchecked, revert back to previous peaks and valleys
-      setEditablePeaksValleys(originalData.peaksValleys);
     }
   };
 
