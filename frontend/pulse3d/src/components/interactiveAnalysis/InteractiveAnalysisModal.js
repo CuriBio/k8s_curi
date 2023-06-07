@@ -542,6 +542,7 @@ export default function InteractiveWaveformModal({
       setUploadInProgress(true);
 
       const filteredPeaksValleys = await filterPeaksValleys();
+
       const prevPulse3dVersion = selectedJob.analysisParams.pulse3d_version;
       // jobs run on pulse3d versions < 0.28.3 will not have a 0 timepoint so account for that here that 0.01 is still the first time point, not windowed
       const startTime =
@@ -613,6 +614,7 @@ export default function InteractiveWaveformModal({
       const wellCoords = originalData.coordinates[well];
 
       let [peakIndices, valleyIndices] = editablePeaksValleys[well];
+
       peakIndices = filterFeature("peak", peakIndices, startTime, endTime, wellCoords, wellIndex);
       valleyIndices = filterFeature("valley", valleyIndices, startTime, endTime, wellCoords, wellIndex);
 
@@ -855,7 +857,11 @@ export default function InteractiveWaveformModal({
   const handleRunAnalysis = () => {
     const wellsWithDups = [];
     Object.keys(editablePeaksValleys).map((well) => {
-      const { peak, valley } = checkDuplicates(well, editablePeaksValleys[0], editablePeaksValleys[1]);
+      const { peak, valley } = checkDuplicates(
+        well,
+        editablePeaksValleys[well][0],
+        editablePeaksValleys[well][1]
+      );
       // if any duplicates are present, push well into storage array to add to modal letting user know which wells are affected
       if (peak.length > 0 || valley.length > 0) wellsWithDups.push(well);
     });
