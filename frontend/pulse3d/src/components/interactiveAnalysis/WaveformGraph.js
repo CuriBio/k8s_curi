@@ -362,7 +362,7 @@ export default function WaveformGraph({
       // handles key presses globally, haven't found a diff way to do it
       if ([37, 39].includes(e.keyCode) && selectedMarkerToMove) {
         e.preventDefault();
-        movePeakValley(e.keyCode);
+        movePeakValley(e.keyCode, selectedMarkerToMove.type);
       }
     });
 
@@ -916,7 +916,7 @@ export default function WaveformGraph({
     contextMenu.style("display", "none");
   };
 
-  const movePeakValley = (keyCode) => {
+  const movePeakValley = (keyCode, featureType) => {
     const { type, idx } = selectedMarkerToMove;
 
     // Tanner (5/25/23): Currently assuming that only 37 and 39 will be passed in
