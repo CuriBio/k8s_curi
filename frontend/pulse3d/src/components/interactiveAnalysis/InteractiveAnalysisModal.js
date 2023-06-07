@@ -878,17 +878,8 @@ export default function InteractiveWaveformModal({
 
       if (changesCopy.length > 0) {
         // grab state from the step before the undo step to set as current state
-        const {
-          peaks,
-          valleys,
-          startTime,
-          endTime,
-          pvWindow,
-          valleyYOne,
-          valleyYTwo,
-          peakYOne,
-          peakYTwo,
-        } = changesCopy[changesCopy.length - 1];
+        const { peaks, valleys, startTime, endTime, pvWindow, valleyYOne, valleyYTwo, peakYOne, peakYTwo } =
+          changesCopy[changesCopy.length - 1];
         // set old peaks and valleys to well
         peaksValleysCopy[selectedWell] = [[...peaks], [...valleys]];
         pvWindowCopy[selectedWell] = pvWindow;
@@ -1008,7 +999,7 @@ export default function InteractiveWaveformModal({
   };
 
   const removeWellSpecificDuplicates = (well) => {
-    const [ogPeaks, ogValleys] = JSON.parse(JSON.stringify(originalData.peaksValleys[selectedWell]));
+    const [ogPeaks, ogValleys] = JSON.parse(JSON.stringify(originalData.peaksValleys[well]));
     const sortedPeaks = ogPeaks.sort((a, b) => a - b);
     const sortedValleys = ogValleys.sort((a, b) => a - b);
 
