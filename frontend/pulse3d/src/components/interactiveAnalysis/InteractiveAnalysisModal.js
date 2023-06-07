@@ -643,10 +643,6 @@ export default function InteractiveWaveformModal({
         valleys: ogWellData[1],
         startTime: xRange.min,
         endTime: xRange.max,
-        pvWindow: {
-          minPeaks: minPeakY,
-          maxValleys: maxValleyY,
-        },
         valleyYOne: maxValleyY,
         valleyYTwo: maxValleyY,
         peakYOne: minPeakY,
@@ -676,7 +672,6 @@ export default function InteractiveWaveformModal({
     valleys: valleysToCompare,
     startTime: startToCompare,
     endTime: endToCompare,
-    pvWindow,
     valleyYOne: valleyY1ToCompare,
     valleyYTwo: valleyY2ToCompare,
     peakYOne: peakY1ToCompare,
@@ -705,8 +700,6 @@ export default function InteractiveWaveformModal({
         editableStartEndTimes.endTime !== null &&
         endToCompare !== null,
       windowedTimeDiff = startTimeDiff && endTimeDiff,
-      minPeaksDiff = pvWindow && pvWindow.minPeaks !== peakValleyWindows[selectedWell].minPeaks,
-      maxValleysDiff = pvWindow && pvWindow.maxValleys !== peakValleyWindows[selectedWell].maxValleys,
       isNewValleyY1 = isNewY(valleyY1ToCompare, valleyY1),
       isNewValleyY2 = isNewY(valleyY2ToCompare, valleyY2),
       isNewPeakY1 = isNewY(peakY1ToCompare, peakY1),
