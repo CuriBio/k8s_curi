@@ -857,10 +857,15 @@ export default function InteractiveWaveformModal({
   const handleRunAnalysis = () => {
     const wellsWithDups = [];
     Object.keys(editablePeaksValleys).map((well) => {
+      const wellIndex = twentyFourPlateDefinition.getWellIndexFromName(well);
       const { peak, valley } = checkDuplicates(
         well,
         editablePeaksValleys[well][0],
-        editablePeaksValleys[well][1]
+        editablePeaksValleys[well][1],
+        peakY1[wellIndex],
+        peakY2[wellIndex],
+        valleyY1[wellIndex],
+        valleyY2[wellIndex]
       );
       // if any duplicates are present, push well into storage array to add to modal letting user know which wells are affected
       if (peak.length > 0 || valley.length > 0) wellsWithDups.push(well);
