@@ -513,7 +513,6 @@ export default function WaveformGraph({
           If this is skipped, user will be able to drag circle anywhere on graph, unrelated to data line.
         */
       const draggedIdx = dataToGraph.findIndex((x) => Number(x[0].toFixed(2)) === Number(d[0].toFixed(2)));
-      console.log("3");
       const duplicates = checkDuplicates(selectedWell, peaks, valleys);
       // assigns circle node new x and y coordinates based off drag event
       if (featureType === "peak") {
