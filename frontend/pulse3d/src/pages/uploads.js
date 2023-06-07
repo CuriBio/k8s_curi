@@ -58,10 +58,9 @@ const SpinnerContainer = styled.div`
 
 const InteractiveAnalysisContainer = styled.div`
   width: 98%;
-  min-width: 1700px;
+  min-width: 1000px;
   margin: 1%;
   background-color: white;
-  height: 800px;
   border-radius: 5px;
   overflow: none;
 `;
@@ -342,7 +341,7 @@ export default function Uploads() {
             if (parsedMeta.error.includes("Invalid file format")) {
               status += ": Invalid file format";
             } else if (parsedMeta.error.includes("Unable to converge")) {
-              status += parsedMeta.error;
+              status += `: ${parsedMeta.error}`;
             }
           }
           return {
