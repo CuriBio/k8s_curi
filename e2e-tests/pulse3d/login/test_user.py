@@ -1,13 +1,8 @@
-import os
 import pytest
-
-VALID_CUSTOMER_ID = os.getenv("VALID_USER_ID")
-VALID_USER_NAME = os.getenv("VALID_USER_NAME")
-VALID_USER_PASSWORD = os.getenv("VALID_USER_PASSWORD")
-TEST_URL = os.getenv("TEST_URL")
+from config import VALID_CUSTOMER_ID, VALID_USER_NAME, VALID_USER_PASSWORD, TEST_URL
 
 
-def test_login_succes(page):
+def test_login_success(page):
     page.goto(f"{TEST_URL}/login")
     page.wait_for_load_state("networkidle")
     page.reload()
@@ -74,7 +69,7 @@ def test_invalid_inputs(page, ExpectedMessage, InvalidInputs):
     assert userNameInput.is_visible()
     assert passwordInput.is_visible()
 
-    # populate form with valid credentials
+    # populate form with invalid credentials
     customerIdInput.fill(InvalidInputs["customerId"])
     userNameInput.fill(InvalidInputs["username"])
     passwordInput.fill(InvalidInputs["password"])
