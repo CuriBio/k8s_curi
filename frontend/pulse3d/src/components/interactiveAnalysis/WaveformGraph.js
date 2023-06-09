@@ -192,29 +192,20 @@ export default function WaveformGraph({
   waveformData,
   customAnalysisSettings,
   customAnalysisSettingsUpdaters,
-  editableStartEndTimesHookItems,
   changelogActions,
   checkDuplicates, // TODO send in the duplicates? Or maybe keeping this function is fine
 }) {
-  // TODO remove these and use customAnalysisSettings instead
-  const [editableStartEndTimes, setEditableStartEndTimes] = editableStartEndTimesHookItems;
-  const { startTime, endTime } = editableStartEndTimes;
-
-  const { peaks, valleys } = customAnalysisSettings.featureIndices;
-  const { thresholdEndpoints } = customAnalysisSettings;
+  const {
+    windowAnalysisBounds: { start: startTime, end: endTime },
+    featureIndices: { peaks, valleys },
+    thresholdEndpoints,
+  } = customAnalysisSettings;
 
   const [menuItems, setMenuItems] = useState(contextMenuItems.moveDelete);
   const [selectedMarkerToMove, setSelectedMarkerToMove] = useState();
   const [cursorLoc, setCursorLoc] = useState([0, 0]);
   const [xZoomFactor, setXZoomFactor] = useState(1);
   const [yZoomFactor, setYZoomFactor] = useState(1);
-
-  const updateStartEndTimes = (newStartEndTimes) => {
-    setEditableStartEndTimes({
-      ...editableStartEndTimes,
-      ...newStartEndTimes,
-    });
-  };
 
   useEffect(() => {
     // manually scrolls graph div to bottom because the graph div expands down instead of up
@@ -426,10 +417,11 @@ export default function WaveformGraph({
             const startPosition = parseFloat(d3.select(this).attr("x"));
             const endPosition = startPosition + timeWidth;
             // save new window analysis times to state on end so that it only updates changelog on drop
-            updateStartEndTimes({
-              startTime: parseFloat(x.invert(startPosition).toFixed()),
-              endTime: parseFloat(x.invert(endPosition).toFixed()),
-            });
+            customAnalysisSettingsUpdaters.setWindowBound(
+              "start",
+              parseFloat(x.invert(startPosition).toFixed())
+            );
+            customAnalysisSettingsUpdaters.setWindowBound("end", parseFloat(x.invert(endPosition).toFixed()));
             d3.select(this).attr("opacity", 0.2).attr("cursor", "default");
           })
       );
@@ -540,7 +532,7 @@ export default function WaveformGraph({
     // graph all the peak markers
     svg
       .selectAll("#waveformGraph")
-      .data(customAnalysisSettings.featureIndices.peaks)
+      .data(peaks)
       .enter()
       .append("path")
       .attr("id", "peak")
@@ -577,7 +569,7 @@ export default function WaveformGraph({
     // graph all the valley markers
     svg
       .selectAll("#waveformGraph")
-      .data(customAnalysisSettings.featureIndices.valleys)
+      .data(valleys)
       .enter()
       .append("path")
       .attr("id", "valley")
@@ -816,13 +808,13 @@ export default function WaveformGraph({
       .on("end", function () {
         // save adjusted time to pass up to parent component to use across all wells
         // fix to two decimal places, otherwise GET /jobs/waveform-data will error
-        const time = d3.select(this).attr("id");
+        const boundName = d3.select(this).attr("id") === "startTime" ? "start" : "end";
         const xPosition = d3.select(this).attr("x1");
         const newTimeSec = parseFloat(x.invert(xPosition).toFixed(2));
 
-        updateStartEndTimes({ [time]: newTimeSec });
+        customAnalysisSettingsUpdaters.setWindowBound(boundName, newTimeSec);
         // update peaks and valley windows to only be within the windowed analysis window
-        const attrName = time === "startTime" ? "x1" : "x2";
+        const attrName = boundName === "start" ? "x1" : "x2";
         peakThresholdLine.attr(attrName, xPosition);
         valleyThresholdLine.attr(attrName, xPosition);
 
@@ -913,11 +905,10 @@ export default function WaveformGraph({
   };
 
   const getFeatureAlertMessage = () => {
-    const [peaks, valleys] = editablePeaksValleys[selectedWellInfo.selectedWell];
     if (peaks.length === 0 && valleys.length === 0) return "No peaks or valleys detected";
     if (peaks.length === 0) return "No peaks detected";
     if (valleys.length === 0) return "No valleys detected";
-    return null;
+    return "";
   };
 
   return (
