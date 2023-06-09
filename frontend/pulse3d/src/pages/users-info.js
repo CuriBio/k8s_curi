@@ -351,7 +351,7 @@ export default function UserInfo() {
           body: JSON.stringify({ action_type: actionToPreform }),
         });
       } catch {
-        console.log("Error on put request to get users");
+        console.log("ERROR on put request to get users");
       }
     });
     setTimeout(resetTable, 300);

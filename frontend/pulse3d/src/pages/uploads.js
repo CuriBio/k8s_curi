@@ -58,10 +58,9 @@ const SpinnerContainer = styled.div`
 
 const InteractiveAnalysisContainer = styled.div`
   width: 98%;
-  min-width: 1700px;
+  min-width: 1000px;
   margin: 1%;
   background-color: white;
-  height: 800px;
   border-radius: 5px;
   overflow: none;
 `;
@@ -342,7 +341,7 @@ export default function Uploads() {
             if (parsedMeta.error.includes("Invalid file format")) {
               status += ": Invalid file format";
             } else if (parsedMeta.error.includes("Unable to converge")) {
-              status += parsedMeta.error;
+              status += `: ${parsedMeta.error}`;
             }
           }
           return {
@@ -412,11 +411,15 @@ export default function Uploads() {
     if (uploads) {
       const formattedUploads = uploads.map(({ username, id, filename, created_at, owner, auto_upload }) => {
         const formattedTime = formatDateTime(created_at);
-        const recName = filename ? filename.split(".")[0] : null;
+
+        const recName = filename ? filename.split(".").slice(0, -1).join(".") : null;
+
         const uploadJobs = jobs
           .filter(({ uploadId }) => uploadId === id)
           .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+
         const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
+
         return {
           username,
           name: recName,
@@ -428,6 +431,7 @@ export default function Uploads() {
           autoUpload: auto_upload,
         };
       });
+
       formattedUploads.sort((a, b) => new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed));
       setRows([...formattedUploads]);
       setDisplayRows([...formattedUploads]);

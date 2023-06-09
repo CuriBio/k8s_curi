@@ -9,7 +9,7 @@ import ButtonWidget from "../basicWidgets/ButtonWidget";
 
 const Container = styled.div`
   width: 1260px;
-  height: 320px;
+  height: 328px;
   background-color: white;
   overflow-x: scroll;
   overflow-y: scroll;
@@ -44,8 +44,8 @@ const TooltipText = styled.span`
 `;
 
 const ColumnContainer = styled.div`
-  bottom: 25px;
   position: relative;
+  bottom: 25px;
 `;
 
 const XAxisLabel = styled.div`
@@ -56,10 +56,12 @@ const XAxisLabel = styled.div`
   line-height: 2;
   margin-right: 3px;
 `;
+
 const XAxisContainer = styled.div`
   position: relative;
-  height: 16%;
   width: 100%;
+  margin-top: 14px;
+  margin-bottom: -9px;
   display: flex;
   align-items: center;
   justify-content: space-around;
@@ -73,9 +75,8 @@ const YAxisLabel = styled.div`
 const YAxisContainer = styled.div`
   position: relative;
   transform: rotate(-90deg);
-  height: 50px;
   width: 50px;
-  top: 44%;
+  top: 186px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -125,6 +126,7 @@ const ChangelogLabel = styled.div`
 const Legend = styled.div`
   background-color: white;
   width: 800px;
+  margin-left: 20px;
   padding: 5px;
   margin-left: 21px;
   border-radius: 10px;
@@ -408,12 +410,16 @@ export default function WaveformGraph({
             startTimeLine.attr("x1", newStartPosition).attr("x2", newStartPosition);
             valleyThresholdLine.attr("x1", newStartPosition);
             peakThresholdLine.attr("x1", newStartPosition);
+            peaksY1.attr("cx", x(x.invert(newStartPosition) + endpointMarkerOffset));
+            valleysY1.attr("cx", x(x.invert(newStartPosition) + endpointMarkerOffset));
 
             // reposition end time, peaks, valleys lines and set value to state
             const endPosition = newStartPosition + timeWidth;
             endTimeLine.attr("x1", endPosition).attr("x2", endPosition);
             valleyThresholdLine.attr("x2", endPosition);
             peakThresholdLine.attr("x2", endPosition);
+            peaksY2.attr("cx", x(x.invert(endPosition) - endpointMarkerOffset));
+            valleysY2.attr("cx", x(x.invert(endPosition) - endpointMarkerOffset));
           })
           .on("end", function () {
             const timeWidth = parseFloat(d3.select(this).attr("width"));
@@ -491,19 +497,19 @@ export default function WaveformGraph({
             "translate(" + x(d[0]) + "," + (y(waveformData[draggedIdx][1]) - 7) + ") rotate(180)"
           )
           .style("fill", (d) => {
-            return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+            return duplicates[featureType].includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
           })
           .attr("stroke", (d) => {
-            return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+            return duplicates[featureType].includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
           });
       } else {
         d3.select(this)
           .attr("transform", "translate(" + x(d[0]) + "," + (y(waveformData[draggedIdx][1]) + 7) + ")")
           .style("fill", (d) => {
-            return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+            return duplicates[featureType].includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
           })
           .attr("stroke", (d) => {
-            return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+            return duplicates[featureType].includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
           });
       }
       // update the focus text with current x and y data points as user drags marker
@@ -544,10 +550,10 @@ export default function WaveformGraph({
         return "translate(" + x(waveformData[d][0]) + "," + (y(waveformData[d][1]) - 7) + ") rotate(180)";
       })
       .style("fill", (d) => {
-        return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+        return duplicates.peak.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
       })
       .attr("stroke", (d) => {
-        return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+        return duplicates.peak.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
       })
       .style("cursor", "pointer")
       .style("display", (d) => {
@@ -581,10 +587,10 @@ export default function WaveformGraph({
         return "translate(" + x(waveformData[d][0]) + "," + (y(waveformData[d][1]) + 7) + ")";
       })
       .style("fill", (d) => {
-        return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+        return duplicates.valley.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
       })
       .attr("stroke", (d) => {
-        return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+        return duplicates.valley.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
       })
       .style("cursor", "pointer")
       .style("display", (d) => {
@@ -612,6 +618,7 @@ export default function WaveformGraph({
     function getCorrectY(newY) {
       return Math.min(Math.max(newY, y(yMax + yRange)), y(yMin - yRange));
     }
+
     const pivotLineDrag = d3
       .drag()
       .on("start", function () {
@@ -649,6 +656,7 @@ export default function WaveformGraph({
         // decrease stroke width when unselected and dropped
         d3.select(this).attr("stroke-width", 2);
       });
+
     const moveLineUpDown = d3
       .drag()
       .on("start", function (d) {
@@ -743,6 +751,7 @@ export default function WaveformGraph({
       .attr("stroke", "var(--curi-valleys)")
       .style("cursor", "pointer")
       .call(moveLineUpDown);
+
     const valleysY1 = appendPeakValleyMarkers(
       "valleyLineY1Marker",
       "peakLine",
@@ -789,6 +798,14 @@ export default function WaveformGraph({
         // update peaks and valley windows to only be within the windowed analysis window
         peakThresholdLine.attr(attrName, xPosition);
         valleyThresholdLine.attr(attrName, xPosition);
+
+        if (time === "startTime") {
+          peaksY1.attr("cx", x(x.invert(xPosition) + endpointMarkerOffset));
+          valleysY1.attr("cx", x(x.invert(xPosition) + endpointMarkerOffset));
+        } else {
+          peaksY2.attr("cx", x(x.invert(xPosition) - endpointMarkerOffset));
+          valleysY2.attr("cx", x(x.invert(xPosition) - endpointMarkerOffset));
+        }
 
         // assign new x values
         d3.select(this).attr("x1", xPosition).attr("x2", xPosition);
