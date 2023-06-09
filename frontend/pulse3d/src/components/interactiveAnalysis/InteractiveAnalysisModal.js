@@ -243,14 +243,12 @@ export default function InteractiveWaveformModal({
   const [selectedWell, setSelectedWell] = useState("A1");
   const wellIdx = twentyFourPlateDefinition.getWellIndexFromName(selectedWell);
 
-  const [errorMessage, setErrorMessage] = useState(); // Tanner (5/25/23): seems unused at the moment, but leaving it here anyway
-
   const [originalAnalysisData, setOriginalAnalysisData] = useState({}); // original waveforms and peaks/valleys for each well from GET request, unedited
   const wellWaveformData =
     originalAnalysisData.coordinates && originalAnalysisData.coordinates[selectedWell]
       ? originalAnalysisData.coordinates[selectedWell]
       : [];
-  const [baseData, setBaseData] = useState({}); // same originalData but can have dups removed
+  const [baseData, setBaseData] = useState({}); // same originalAnalysisData but can have dups removed
   const [timepointRange, setTimepointRange] = useState({
     // This is a copy of the max/min timepoints of the data. Windowed analysis start/stop times are set in editableStartEndTimes.
     // Must be stored in its own state and not tied directly to the recording data because it will be set to the start/stop times of the job if
@@ -316,7 +314,8 @@ export default function InteractiveWaveformModal({
         ...customAnalysisSettings,
         [boundName]: boundValue,
       });
-      // TODO update changelog
+      // TODO update changelog, maybe have something watching the changelog that pushes new state?
+      // Or could probably just make a function that updates the changelog and handles the state
     },
     addFeature: (featureName, timepoint) => {
       const wellSettings = customAnalysisSettings[selectedWell];
@@ -508,7 +507,7 @@ export default function InteractiveWaveformModal({
   const checkDuplicates = (well = selectedWell) => {
     const { peaks, valleys } = customAnalysisSettings[well].filteredFeatureIndices;
 
-    // TODO clean this up
+    // TODO clean this up ?
 
     // create list with all features in order
     const features = [];
@@ -1052,8 +1051,8 @@ export default function InteractiveWaveformModal({
       minPeaks,
       maxValleys,
       maxValleys,
-      xRange.min,
-      xRange.max
+      timepointRange.min,
+      timepointRange.max
     );
 
     const { peak, valley } = JSON.parse(JSON.stringify(duplicateFeatures));
