@@ -4,9 +4,9 @@ from kubernetes import config, client as kclient
 import json
 import os
 import logging
+import random
 import sys
 from time import sleep
-import random
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
