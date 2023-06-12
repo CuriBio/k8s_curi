@@ -9,7 +9,7 @@ import ButtonWidget from "../basicWidgets/ButtonWidget";
 
 const Container = styled.div`
   width: 1260px;
-  height: 320px;
+  height: 328px;
   background-color: white;
   overflow-x: scroll;
   overflow-y: scroll;
@@ -44,8 +44,8 @@ const TooltipText = styled.span`
 `;
 
 const ColumnContainer = styled.div`
-  bottom: 25px;
   position: relative;
+  bottom: 25px;
 `;
 
 const XAxisLabel = styled.div`
@@ -56,10 +56,12 @@ const XAxisLabel = styled.div`
   line-height: 2;
   margin-right: 3px;
 `;
+
 const XAxisContainer = styled.div`
   position: relative;
-  height: 50px;
   width: 100%;
+  margin-top: 14px;
+  margin-bottom: -9px;
   display: flex;
   align-items: center;
   justify-content: space-around;
@@ -73,9 +75,8 @@ const YAxisLabel = styled.div`
 const YAxisContainer = styled.div`
   position: relative;
   transform: rotate(-90deg);
-  height: 50px;
   width: 50px;
-  top: 44%;
+  top: 186px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -125,7 +126,9 @@ const ChangelogLabel = styled.div`
 const Legend = styled.div`
   background-color: white;
   width: 800px;
+  margin-left: 20px;
   padding: 5px;
+  margin-left: 21px;
   border-radius: 10px;
   border: 2px solid darkgray;
   & table {
@@ -146,11 +149,11 @@ const Legend = styled.div`
 `;
 
 const Triangle = styled.div`
-width: 0;
-height: 0;
-border-left: 8px solid transparent;
-border-right: 8px solid transparent;
-border-${(props) => props.direction}: 13px solid ${(props) => {
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-${(props) => props.direction}: 13px solid ${(props) => {
   if (props.type === "peak") {
     return "var(--curi-peaks)";
   } else if (props.type === "valley") {
@@ -181,6 +184,9 @@ const contextMenuItems = {
   add: ["Add Peak", "Add Valley"],
 };
 
+const NoFeaturesAlert = styled.div`
+  color: red;
+`;
 export default function WaveformGraph({
   selectedWellInfo,
   xRange,
@@ -356,7 +362,7 @@ export default function WaveformGraph({
       // handles key presses globally, haven't found a diff way to do it
       if ([37, 39].includes(e.keyCode) && selectedMarkerToMove) {
         e.preventDefault();
-        movePeakValley(e.keyCode);
+        movePeakValley(e.keyCode, selectedMarkerToMove.type);
       }
     });
 
@@ -431,12 +437,16 @@ export default function WaveformGraph({
             startTimeLine.attr("x1", newStartPosition).attr("x2", newStartPosition);
             valleyThresholdLine.attr("x1", newStartPosition);
             peakThresholdLine.attr("x1", newStartPosition);
+            peaksY1.attr("cx", x(x.invert(newStartPosition) + endpointMarkerOffset));
+            valleysY1.attr("cx", x(x.invert(newStartPosition) + endpointMarkerOffset));
 
             // reposition end time, peaks, valleys lines and set value to state
             const endPosition = newStartPosition + timeWidth;
             endTimeLine.attr("x1", endPosition).attr("x2", endPosition);
             valleyThresholdLine.attr("x2", endPosition);
             peakThresholdLine.attr("x2", endPosition);
+            peaksY2.attr("cx", x(x.invert(endPosition) - endpointMarkerOffset));
+            valleysY2.attr("cx", x(x.invert(endPosition) - endpointMarkerOffset));
           })
           .on("end", function () {
             const timeWidth = parseFloat(d3.select(this).attr("width"));
@@ -503,9 +513,7 @@ export default function WaveformGraph({
           If this is skipped, user will be able to drag circle anywhere on graph, unrelated to data line.
         */
       const draggedIdx = dataToGraph.findIndex((x) => Number(x[0].toFixed(2)) === Number(d[0].toFixed(2)));
-
-      const duplicates = checkDuplicates();
-
+      const duplicates = checkDuplicates(selectedWell, peaks, valleys);
       // assigns circle node new x and y coordinates based off drag event
       if (featureType === "peak") {
         d3.select(this)
@@ -514,19 +522,19 @@ export default function WaveformGraph({
             "translate(" + x(d[0]) + "," + (y(dataToGraph[draggedIdx][1]) - 7) + ") rotate(180)"
           )
           .style("fill", (d) => {
-            return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+            return duplicates[featureType].includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
           })
           .attr("stroke", (d) => {
-            return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+            return duplicates[featureType].includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
           });
       } else {
         d3.select(this)
           .attr("transform", "translate(" + x(d[0]) + "," + (y(dataToGraph[draggedIdx][1]) + 7) + ")")
           .style("fill", (d) => {
-            return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+            return duplicates[featureType].includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
           })
           .attr("stroke", (d) => {
-            return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+            return duplicates[featureType].includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
           });
       }
       // update the focus text with current x and y data points as user drags marker
@@ -555,12 +563,12 @@ export default function WaveformGraph({
       updateFeatures(featureType, featureValues);
     }
 
-    const duplicates = checkDuplicates();
+    const duplicates = checkDuplicates(selectedWell, peaks, valleys);
 
     // graph all the peak markers
     svg
       .selectAll("#waveformGraph")
-      .data(filterFeature("peak", peaks, startTime, endTime, dataToGraph))
+      .data(filterFeature("peak", peaks, startTime, endTime, dataToGraph, wellIdx))
       .enter()
       .append("path")
       .attr("id", "peak")
@@ -570,10 +578,10 @@ export default function WaveformGraph({
         return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) - 7) + ") rotate(180)";
       })
       .style("fill", (d) => {
-        return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+        return duplicates.peak.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
       })
       .attr("stroke", (d) => {
-        return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+        return duplicates.peak.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
       })
       .style("cursor", "pointer")
       .style("display", (d) => {
@@ -597,7 +605,7 @@ export default function WaveformGraph({
     // graph all the valley markers
     svg
       .selectAll("#waveformGraph")
-      .data(filterFeature("valleys", valleys, startTime, endTime, dataToGraph))
+      .data(filterFeature("valley", valleys, startTime, endTime, dataToGraph, wellIdx))
       .enter()
       .append("path")
       .attr("id", "valley")
@@ -607,10 +615,10 @@ export default function WaveformGraph({
         return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) + 7) + ")";
       })
       .style("fill", (d) => {
-        return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+        return duplicates.valley.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
       })
       .attr("stroke", (d) => {
-        return duplicates.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+        return duplicates.valley.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
       })
       .style("cursor", "pointer")
       .style("display", (d) => {
@@ -638,6 +646,7 @@ export default function WaveformGraph({
     function getCorrectY(newY) {
       return Math.min(Math.max(newY, y(yMax + yRange)), y(yMin - yRange));
     }
+
     const pivotLineDrag = d3
       .drag()
       .on("start", function () {
@@ -673,6 +682,7 @@ export default function WaveformGraph({
         // decrease stroke width when unselected and dropped
         d3.select(this).attr("stroke-width", 2);
       });
+
     const moveLineUpDown = d3
       .drag()
       .on("start", function (d) {
@@ -765,6 +775,7 @@ export default function WaveformGraph({
       .attr("stroke", "var(--curi-valleys)")
       .style("cursor", "pointer")
       .call(moveLineUpDown);
+
     const valleysY1 = appendPeakValleyMarkers(
       "valleyLineY1Marker",
       "peakLine",
@@ -811,6 +822,14 @@ export default function WaveformGraph({
         // update peaks and valley windows to only be within the windowed analysis window
         peakThresholdLine.attr(attrName, xPosition);
         valleyThresholdLine.attr(attrName, xPosition);
+
+        if (time === "startTime") {
+          peaksY1.attr("cx", x(x.invert(xPosition) + endpointMarkerOffset));
+          valleysY1.attr("cx", x(x.invert(xPosition) + endpointMarkerOffset));
+        } else {
+          peaksY2.attr("cx", x(x.invert(xPosition) - endpointMarkerOffset));
+          valleysY2.attr("cx", x(x.invert(xPosition) - endpointMarkerOffset));
+        }
 
         // assign new x values
         d3.select(this).attr("x1", xPosition).attr("x2", xPosition);
@@ -896,7 +915,7 @@ export default function WaveformGraph({
     contextMenu.style("display", "none");
   };
 
-  const movePeakValley = (keyCode) => {
+  const movePeakValley = (keyCode, featureType) => {
     const { type, idx } = selectedMarkerToMove;
 
     // Tanner (5/25/23): Currently assuming that only 37 and 39 will be passed in
@@ -937,6 +956,13 @@ export default function WaveformGraph({
       assignNewArr(valleyY2, y2, setValleyY2);
     }
   };
+  const getFeatureAlertMessage = () => {
+    const [peaks, valleys] = editablePeaksValleys[selectedWellInfo.selectedWell];
+    if (peaks.length === 0 && valleys.length === 0) return "No peaks or valleys detected";
+    if (peaks.length === 0) return "No peaks detected";
+    if (valleys.length === 0) return "No valleys detected";
+    return null;
+  };
 
   return (
     <>
@@ -946,6 +972,7 @@ export default function WaveformGraph({
       </YAxisContainer>
       <ColumnContainer>
         <ToolbarContainer>
+          <NoFeaturesAlert>{getFeatureAlertMessage()}</NoFeaturesAlert>
           <ChangelogLabel onClick={changelogActions.open}>View Changelog</ChangelogLabel>
           <HowTo>
             Edit Peaks / Valleys{" "}

@@ -9,7 +9,7 @@ from asyncpg.exceptions import UniqueViolationError
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Response, Query
 from fastapi.middleware.cors import CORSMiddleware
 from jwt.exceptions import InvalidTokenError
-from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import EmailStr
 
 from auth import (
@@ -126,7 +126,6 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
     failed_msg = "Invalid credentials"
     try:
         async with request.state.pgpool.acquire() as con:
-
             row = await con.fetchrow(select_query, *select_query_params)
             pw = details.password.get_secret_value()
 
@@ -275,9 +274,7 @@ async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False)
 
 @app.post("/register", response_model=UserProfile | CustomerProfile, status_code=status.HTTP_201_CREATED)
 async def register(
-    request: Request,
-    details: CustomerCreate | UserCreate,
-    token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES)),
+    request: Request, details: CustomerCreate | UserCreate, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))
 ):
     """Register a user or customer account.
 
@@ -319,13 +316,7 @@ async def register(
                 "VALUES ($1, $2, $3, $4, $5) RETURNING id"
             )
 
-            query_params = (
-                username,
-                email,
-                customer_tier,
-                json.dumps({"scope": user_scope}),
-                customer_id,
-            )
+            query_params = (username, email, customer_tier, json.dumps({"scope": user_scope}), customer_id)
 
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():
@@ -457,19 +448,12 @@ async def _create_user_email(
         await con.execute(query, jwt_token.token, user_id)
 
         # send email with reset token
-        await _send_user_email(
-            username=name,
-            email=email,
-            url=url,
-            subject=subject,
-            template=template,
-        )
+        await _send_user_email(username=name, email=email, url=url, subject=subject, template=template)
     except Exception as e:
         raise EmailRegistrationError(e)
 
 
 async def _send_user_email(*, username: str, email: EmailStr, url: str, subject: str, template: str) -> None:
-
     conf = ConnectionConfig(
         MAIL_USERNAME=CURIBIO_EMAIL,
         MAIL_PASSWORD=CURIBIO_EMAIL_PASSWORD,
@@ -477,14 +461,15 @@ async def _send_user_email(*, username: str, email: EmailStr, url: str, subject:
         MAIL_PORT=587,
         MAIL_SERVER="smtp.gmail.com",
         MAIL_FROM_NAME="Curi Bio Team",
-        MAIL_TLS=True,
-        MAIL_SSL=False,
+        MAIL_STARTTLS=True,
+        MAIL_SSL_TLS=False,
         USE_CREDENTIALS=True,
         TEMPLATE_FOLDER="./templates",
     )
     message = MessageSchema(
         subject=subject,
         recipients=[email],
+        subtype=MessageType.html,
         template_body={
             "username": username if username is not None else "Admin",
             "url": url,
@@ -497,9 +482,7 @@ async def _send_user_email(*, username: str, email: EmailStr, url: str, subject:
 
 @app.put("/account")
 async def update_accounts(
-    request: Request,
-    details: PasswordModel,
-    token=Depends(ProtectedAny(scope=ACCOUNT_SCOPES)),
+    request: Request, details: PasswordModel, token=Depends(ProtectedAny(scope=ACCOUNT_SCOPES))
 ):
     """Confirm and verify new user and password.
 
@@ -518,18 +501,13 @@ async def update_accounts(
             async with con.transaction():
                 # ProtectedAny will return 401 already if link has expired
                 if is_customer:
-                    row = await con.fetchrow(
-                        "SELECT pw_reset_link FROM customers WHERE id=$1",
-                        user_id,
-                    )
+                    row = await con.fetchrow("SELECT pw_reset_link FROM customers WHERE id=$1", user_id)
                     # link in db gets replaced with NULL when it's been successfully used
                     if row["pw_reset_link"] is None:
                         return UnableToUpdateAccountResponse(message="Link has already been used")
 
                     await con.execute(
-                        "UPDATE customers SET pw_reset_link=NULL, password=$1 WHERE id=$2",
-                        phash,
-                        user_id,
+                        "UPDATE customers SET pw_reset_link=NULL, password=$1 WHERE id=$2", phash, user_id
                     )
                 # Luci (12/8/22) don't use catchall else statements with customer versus user conditionals
                 elif is_user:
@@ -560,10 +538,7 @@ async def update_accounts(
 
 
 @app.get("/")
-async def get_all_users(
-    request: Request,
-    token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES)),
-):
+async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))):
     """Get info for all the users under the given customer account.
 
     List of users returned will be sorted with all active users showing up first, then all the suspended (deactivated) users
@@ -601,11 +576,7 @@ async def get_all_users(
 # Luci (10/5/22) Following two routes need to be last otherwise will mess with the ProtectedAny scope used in Auth
 # Please see https://fastapi.tiangolo.com/tutorial/path-params/#order-matters
 @app.get("/{user_id}")
-async def get_user(
-    request: Request,
-    user_id: uuid.UUID,
-    token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES)),
-):
+async def get_user(request: Request, user_id: uuid.UUID, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))):
     """Get info for the user with the given under the given customer account."""
     customer_id = uuid.UUID(hex=token["userid"])
 
@@ -650,10 +621,7 @@ async def update_user(
     if action in ("deactivate", "reactivate"):
         suspended = action == "deactivate"
         update_query = "UPDATE users SET suspended=$1 WHERE id=$2"
-        query_args = (
-            suspended,
-            user_id,
-        )
+        query_args = (suspended, user_id)
     elif action == "delete":
         update_query = "UPDATE users SET deleted_at=$1 WHERE id=$2"
         query_args = (datetime.now(), user_id)
