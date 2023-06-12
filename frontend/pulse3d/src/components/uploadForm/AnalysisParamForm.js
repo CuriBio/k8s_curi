@@ -756,7 +756,7 @@ export default function AnalysisParamForm({
           </InputErrorContainer>
         </AnalysisParamContainer>
         <AnalysisParamContainer
-          label="Disable Y-Axis Normalization:"
+          label="Disable Y-Axis Normalization"
           name="normalizeYAxis"
           tooltipText="When selected, disables normalization of the y-axis."
         >
@@ -879,7 +879,7 @@ export default function AnalysisParamForm({
           }}
           errorMsg={errorMessages.peakToBase}
         />
-        <SectionLabel>Window Analysis</SectionLabel>
+        <SectionLabel>Windowed Analysis</SectionLabel>
         <AnalysisParamContainer
           label="Start Time (s)"
           name="startTime"
