@@ -6,6 +6,7 @@ import os
 import logging
 import sys
 from time import sleep
+import random
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -47,9 +48,10 @@ async def create_job(version: str, num_of_workers: int):
     logger.info(f"Starting {num_of_workers - num_of_active_workers} worker(s) for {QUEUE}:{version}.")
 
     for count in range(num_of_active_workers + 1, num_of_workers + 1):
+        worker_id = hex(random.getrandbits(40))[2:]
         # names can only be alphanumeric and '-' so replacing '.' with '-'
         # Cannot start jobs with the same name so count starting at 1+existing number of jobs running in namespace with version
-        formatted_name = f"{QUEUE}-worker-v{'-'.join(version.split('.'))}--{count}"
+        formatted_name = f"{QUEUE}-worker-v{'-'.join(version.split('.'))}--{count}--{worker_id}"
         logger.info(f"Starting {formatted_name}.")
         complete_ecr_repo = f"{ECR_REPO}:{version}"
 
