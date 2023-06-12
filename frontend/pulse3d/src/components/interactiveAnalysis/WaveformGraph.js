@@ -193,11 +193,11 @@ export default function WaveformGraph({
   customAnalysisSettings,
   customAnalysisSettingsUpdaters,
   changelogActions,
-  checkDuplicates, // TODO send in the duplicates? Or maybe keeping this function is fine
 }) {
   const {
     windowAnalysisBounds: { start: startTime, end: endTime },
     featureIndices: { peaks, valleys },
+    duplicateIndices,
     thresholdEndpoints,
   } = customAnalysisSettings;
 
@@ -479,8 +479,6 @@ export default function WaveformGraph({
       */
       const draggedIdx = waveformData.findIndex((x) => Number(x[0].toFixed(2)) === Number(d[0].toFixed(2)));
 
-      const duplicates = checkDuplicates();
-
       // assigns circle node new x and y coordinates based off drag event
       if (featureType === "peak") {
         d3.select(this)
@@ -489,19 +487,27 @@ export default function WaveformGraph({
             "translate(" + x(d[0]) + "," + (y(waveformData[draggedIdx][1]) - 7) + ") rotate(180)"
           )
           .style("fill", (d) => {
-            return duplicates[featureType].includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+            return duplicateIndices[featureType].includes(d)
+              ? "var(--curi-error-markers)"
+              : "var(--curi-peaks)";
           })
           .attr("stroke", (d) => {
-            return duplicates[featureType].includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+            return duplicateIndices[featureType].includes(d)
+              ? "var(--curi-error-markers)"
+              : "var(--curi-peaks)";
           });
       } else {
         d3.select(this)
           .attr("transform", "translate(" + x(d[0]) + "," + (y(waveformData[draggedIdx][1]) + 7) + ")")
           .style("fill", (d) => {
-            return duplicates[featureType].includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+            return duplicateIndices[featureType].includes(d)
+              ? "var(--curi-error-markers)"
+              : "var(--curi-valleys)";
           })
           .attr("stroke", (d) => {
-            return duplicates[featureType].includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+            return duplicateIndices[featureType].includes(d)
+              ? "var(--curi-error-markers)"
+              : "var(--curi-valleys)";
           });
       }
       // update the focus text with current x and y data points as user drags marker
@@ -527,8 +533,6 @@ export default function WaveformGraph({
       customAnalysisSettingsUpdaters.moveFeature(`${featureType}s`, indexToChange, newSelectedIndex);
     }
 
-    const duplicates = checkDuplicates();
-
     // graph all the peak markers
     svg
       .selectAll("#waveformGraph")
@@ -542,10 +546,10 @@ export default function WaveformGraph({
         return "translate(" + x(waveformData[d][0]) + "," + (y(waveformData[d][1]) - 7) + ") rotate(180)";
       })
       .style("fill", (d) => {
-        return duplicates.peak.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+        return duplicateIndices.peaks.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
       })
       .attr("stroke", (d) => {
-        return duplicates.peak.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+        return duplicateIndices.peaks.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
       })
       .style("cursor", "pointer")
       .style("display", (d) => {
@@ -579,10 +583,10 @@ export default function WaveformGraph({
         return "translate(" + x(waveformData[d][0]) + "," + (y(waveformData[d][1]) + 7) + ")";
       })
       .style("fill", (d) => {
-        return duplicates.valley.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+        return duplicateIndices.valleys.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
       })
       .attr("stroke", (d) => {
-        return duplicates.valley.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+        return duplicateIndices.valleys.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
       })
       .style("cursor", "pointer")
       .style("display", (d) => {
