@@ -417,11 +417,10 @@ export default function WaveformGraph({
             const startPosition = parseFloat(d3.select(this).attr("x"));
             const endPosition = startPosition + timeWidth;
             // save new window analysis times to state on end so that it only updates changelog on drop
-            customAnalysisSettingsUpdaters.setWindowBound(
-              "start",
-              parseFloat(x.invert(startPosition).toFixed())
-            );
-            customAnalysisSettingsUpdaters.setWindowBound("end", parseFloat(x.invert(endPosition).toFixed()));
+            customAnalysisSettingsUpdaters.setWindowBounds({
+              start: parseFloat(x.invert(startPosition).toFixed()),
+              end: parseFloat(x.invert(endPosition).toFixed()),
+            });
             d3.select(this).attr("opacity", 0.2).attr("cursor", "default");
           })
       );
@@ -816,7 +815,7 @@ export default function WaveformGraph({
         const xPosition = d3.select(this).attr("x1");
         const newTimeSec = parseFloat(x.invert(xPosition).toFixed(2));
 
-        customAnalysisSettingsUpdaters.setWindowBound(boundName, newTimeSec);
+        customAnalysisSettingsUpdaters.setWindowBounds({ [boundName]: newTimeSec });
         // update peaks and valley windows to only be within the windowed analysis window
         const attrName = boundName === "start" ? "x1" : "x2";
         peakThresholdLine.attr(attrName, xPosition);
