@@ -543,6 +543,10 @@ export default function InteractiveWaveformModal({
       setUploadInProgress(true);
 
       const filteredPeaksValleys = await filterPeaksValleys();
+      for (const well in filteredPeaksValleys) {
+        filteredPeaksValleys[well][0] = filteredPeaksValleys[well][0].sort((a, b) => a - b);
+        filteredPeaksValleys[well][1] = filteredPeaksValleys[well][1].sort((a, b) => a - b);
+      }
 
       const prevPulse3dVersion = selectedJob.analysisParams.pulse3d_version;
       // jobs run on pulse3d versions < 0.28.3 will not have a 0 timepoint so account for that here that 0.01 is still the first time point, not windowed
