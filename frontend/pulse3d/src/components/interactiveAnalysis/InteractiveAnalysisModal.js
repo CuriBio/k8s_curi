@@ -309,6 +309,9 @@ export default function InteractiveWaveformModal({
           ...newBounds,
         },
       });
+      // TODO this should NOT update the changelog, it should just apply to the current state.
+      // Also need to make sure that if undo is pressed that the window bounds are reapplied to the prev state,
+      // will prob have to just rerun filtering to do this
       const changelogMsg = (() => {
         if (newBounds.start) {
           if (newBounds.end) {
