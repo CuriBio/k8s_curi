@@ -326,7 +326,7 @@ self.addEventListener("fetch", async (e) => {
         // Go to the cache first
         const cachedResponse = await cache.match(e.request.url);
         //  For now, only return cached responses for waveform data requests
-        if (cachedResponse && isWaveformDataRequest(urlParams)) {
+        if (cachedResponse && isWaveformDataRequest(destURL)) {
           return cachedResponse;
         }
         // Otherwise, hit the network

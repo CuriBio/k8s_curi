@@ -205,7 +205,7 @@ export default function InteractiveWaveformModal({
   const [selectedWell, setSelectedWell] = useState("A1");
 
   const [originalData, setOriginalData] = useState({}); // original waveform data from GET request, unedited
-  const [baseData, setBaseData] = useState({}); // same originalData but can have dups removed
+  const [baseData, setBaseData] = useState({}); // same originalData.peaksValleys but can have dups removed
   const [xRange, setXRange] = useState({
     // This is a copy of the max/min timepoints of the data. Windowed analysis start/stop times are set in editableStartEndTimes
     min: null,
@@ -302,6 +302,7 @@ export default function InteractiveWaveformModal({
           peaksValleys: res.peaks_valleys,
           coordinates: {},
         };
+        setBaseData(res.peaks_valleys);
       }
 
       const { coordinates, peaks_valleys: peaksValleys } = res;
@@ -644,6 +645,7 @@ export default function InteractiveWaveformModal({
 
   const updateChangelog = () => {
     let changelogMessage;
+
     // changelog will have length of 0 if a user clicks undo all the way back to until initial state
     if (changelog[selectedWell] && changelog[selectedWell].length > 0) {
       // If Change log has changes
