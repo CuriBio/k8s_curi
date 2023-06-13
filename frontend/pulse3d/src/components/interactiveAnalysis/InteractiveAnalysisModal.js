@@ -171,6 +171,12 @@ const wellNames = Array(24)
   .fill()
   .map((_, idx) => twentyFourPlateDefinition.getWellNameFromIndex(idx));
 
+const ACTIONS = {
+  ADD: "add",
+  UNDO: "undo",
+  RESET: "reset",
+};
+
 const getDefaultCustomAnalysisSettings = () => {
   const customVals = {
     // add values that apply to all wells
@@ -209,10 +215,8 @@ const getDefaultCustomAnalysisSettings = () => {
   return customVals;
 };
 
-const ACTIONS = {
-  ADD: "add",
-  UNDO: "undo",
-  RESET: "reset",
+const title = (s) => {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 };
 
 export default function InteractiveWaveformModal({
@@ -312,19 +316,6 @@ export default function InteractiveWaveformModal({
       // TODO this should NOT update the changelog, it should just apply to the current state.
       // Also need to make sure that if undo is pressed that the window bounds are reapplied to the prev state,
       // will prob have to just rerun filtering to do this
-      const changelogMsg = (() => {
-        if (newBounds.start) {
-          if (newBounds.end) {
-            return `Windowed Analysis bounds set to [${newBounds.start}, ${newBounds.end}].`;
-          } else {
-            return `Windowed Analysis start time set to ${newBounds.start}.`;
-          }
-        } else {
-          // assuming there is always at least one bound passed in, so end time should always be set here
-          `Windowed Analysis end time set to ${newBounds.end}.`;
-        }
-      })();
-      appendToChangelog(changelogMsg);
     },
     addFeature: (featureName, timepoint) => {
       const wellSettings = customAnalysisSettings[selectedWell];
@@ -338,7 +329,11 @@ export default function InteractiveWaveformModal({
         ...customAnalysisSettings,
         [selectedWell]: wellSettings,
       });
-      // TODO update changelog
+
+      // TODO: Should probably make a function for the next two lines
+      const [x, y] = wellWaveformData[idxToAdd];
+      const changelogMsg = `${title(featureName)} at [ ${x.toFixed(2)}, ${y.toFixed(2)} ] was added.`;
+      appendToChangelog(changelogMsg);
     },
     deleteFeature: (featureName, idxToDelete) => {
       const wellSettings = customAnalysisSettings[selectedWell];
@@ -352,7 +347,10 @@ export default function InteractiveWaveformModal({
         ...customAnalysisSettings,
         [selectedWell]: wellSettings,
       });
-      // TODO update changelog
+
+      const [x, y] = wellWaveformData[targetIdx];
+      const changelogMsg = `${title(featureName)} at [ ${x.toFixed(2)}, ${y.toFixed(2)} ] was removed.`;
+      appendToChangelog(changelogMsg);
     },
     moveFeature: (featureName, originalIdx, newIdx) => {
       const wellSettings = customAnalysisSettings[selectedWell];
@@ -366,7 +364,14 @@ export default function InteractiveWaveformModal({
         ...customAnalysisSettings,
         [selectedWell]: wellSettings,
       });
-      // TODO update changelog
+
+      // TODO make sure this works
+      const [oldX, oldY] = wellWaveformData[originalIdx];
+      const [newX, newY] = wellWaveformData[newIdx];
+      const changelogMsg = `${title(featureName)} at [ ${oldX.toFixed(2)}, ${oldY.toFixed(
+        2
+      )} ] was moved to [ ${newX.toFixed(2)}, ${newY.toFixed(2)} ].`;
+      appendToChangelog(changelogMsg);
     },
     setThresholdEndpoint: (featureName, endpointName, newValue) => {
       const wellSettings = customAnalysisSettings[selectedWell];
@@ -376,7 +381,9 @@ export default function InteractiveWaveformModal({
         ...customAnalysisSettings,
         [selectedWell]: wellSettings,
       });
-      // TODO update changelog
+
+      const changelogMsg = `${title(featureName)} Line ${title(endpointName)} switched to ${newValue}`;
+      appendToChangelog(changelogMsg);
     },
   };
 
