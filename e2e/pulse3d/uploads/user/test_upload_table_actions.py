@@ -1,4 +1,5 @@
 import pytest
+
 from fixtures import setup, video_setup, basic_page, user_logged_in_page
 
 

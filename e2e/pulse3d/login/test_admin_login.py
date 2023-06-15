@@ -1,6 +1,8 @@
 import pytest
-from config import VALID_ADMIN_EMAIL, VALID_ADMIN_PASSWORD, TEST_URL
+
 from fixtures import basic_page, setup, video_setup
+
+from config import VALID_ADMIN_EMAIL, VALID_ADMIN_PASSWORD, TEST_URL
 
 
 @pytest.mark.asyncio

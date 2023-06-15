@@ -1,6 +1,8 @@
 import pytest
-from config import TEST_URL, VALID_CUSTOMER_ID, VALID_USER_NAME, VALID_USER_PASSWORD
+
 from fixtures import basic_page, setup, video_setup
+
+from config import TEST_URL, VALID_CUSTOMER_ID, VALID_USER_NAME, VALID_USER_PASSWORD
 
 
 @pytest.mark.asyncio

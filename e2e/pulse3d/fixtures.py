@@ -1,6 +1,7 @@
+from playwright.async_api import async_playwright
 import pytest_asyncio, pytest
 import shutil
-from playwright.async_api import async_playwright
+
 from config import TEST_URL, VALID_CUSTOMER_ID, VALID_USER_NAME, VALID_USER_PASSWORD, HEADLESS
 
 # remove older videos if present
@@ -9,6 +10,7 @@ def video_setup():
     shutil.rmtree("./videos/")
 
 
+# set up basic browser and context
 @pytest_asyncio.fixture(scope="function", name="setup")
 async def setup(request):
     async with async_playwright() as p:
@@ -29,6 +31,7 @@ async def setup(request):
             shutil.rmtree(f"./videos/{test_name}")
 
 
+# navigate to login page
 @pytest_asyncio.fixture(scope="function", name="basic_page")
 async def basic_page(setup):
     await setup.goto(f"https://{TEST_URL}/login")
@@ -39,6 +42,7 @@ async def basic_page(setup):
     yield setup
 
 
+# login before running test
 @pytest_asyncio.fixture(scope="function", name="user_logged_in_page")
 async def user_logged_in_page(basic_page):
     await basic_page.click("text=User")
