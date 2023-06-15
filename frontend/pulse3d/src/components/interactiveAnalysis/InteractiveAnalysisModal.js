@@ -149,8 +149,8 @@ const constantModalLabels = {
   oldPulse3dVersion: {
     header: "Warning!",
     messages: [
-      "Interactive analysis is using a newer version of Pulse3D than the version originally used on this recording. Peaks and valleys may be slightly different.",
-      "Please re-analyze this recording using a Pulse3D version greater than 0.28.3 or continue.",
+      "Interactive analysis requires a newer version of Pulse3D than the version originally used on this recording. Peaks and valleys may be slightly different.",
+      "Please re-analyze this recording using a Pulse3D version greater than 0.28.3.",
     ],
     buttons: ["Close"],
   },
