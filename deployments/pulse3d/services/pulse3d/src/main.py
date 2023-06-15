@@ -7,7 +7,6 @@ import tempfile
 import boto3
 import os
 import pandas as pd
-from glob import glob
 from semver import VersionInfo
 import numpy as np
 
@@ -51,13 +50,7 @@ from models.models import (
 from models.types import TupleParam
 
 from utils.db import AsyncpgPoolDep
-from utils.s3 import (
-    generate_presigned_post,
-    generate_presigned_url,
-    S3Error,
-    download_directory_from_s3,
-    upload_file_to_s3,
-)
+from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error, upload_file_to_s3
 
 # logging is configured in log_config.yaml
 logger = logging.getLogger(__name__)
@@ -633,21 +626,17 @@ async def get_interactive_waveform_data(
     request: Request,
     upload_id: uuid.UUID = Query(None),
     job_id: uuid.UUID = Query(None),
-    well_name: str = Query(None),
-    peaks_valleys: bool = Query(None),
     token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES)),
 ):
     account_id = str(uuid.UUID(token["userid"]))
-    customer_id = str(uuid.UUID(token["customer_id"]))
 
-    if job_id is None or upload_id is None or not _is_valid_well_name(well_name):
+    if job_id is None or upload_id is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Missing required ids to get job metadata."
         )
 
     upload_id = str(upload_id)
     job_id = str(job_id)
-    peaks_valleys_requested = peaks_valleys
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -675,60 +664,78 @@ async def get_interactive_waveform_data(
                     message="User does not have authorization to start interactive analysis on this recording.",
                 )
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            key = f"uploads/{customer_id}/{recording_owner_id}/{upload_id}"
-            logger.info(f"Downloading recording data from {key}")
-            download_directory_from_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file_path=tmpdir)
+            # Get presigned url for time force data
+            parquet_filename = f"{os.path.splitext(selected_job['filename'])[0]}.parquet"
+            parquet_key = (
+                f"{selected_job['prefix']}/time_force_data/{pulse3d_version}/{parquet_filename}"
+                if pulse3d_version is not None
+                else f"{selected_job['prefix']}/time_force_data/{parquet_filename}"
+            )
 
-            parquet_path = None
-            # check if time force parquet file is found under pulse3d version prefix first
-            if pulse3d_version is not None:
-                # read the time force dataframe from the parquet file
-                parquet_path = glob(
-                    os.path.join(tmpdir, "time_force_data", pulse3d_version, "*.parquet"), recursive=True
-                )
-            # if no pulse3d version specified in the job metadata or no time force parquet file was found
-            # by previous glob, check s3 without pulse3d prefix
-            if not parquet_path:
-                parquet_path = glob(os.path.join(tmpdir, "time_force_data", "*.parquet"), recursive=True)
-            # if parquet file is still not found, return error msg. this will occur for any files analyzed
-            # before this release. Ask user to perform reanalysis again on most recent pulse3d
-            if not parquet_path:
-                return GenericErrorResponse(
-                    error="MissingDataError",
-                    message="Time force parquet file was not found. Reanalysis required.",
-                )
+            logger.info(f"Generating presigned URL for {parquet_filename}")
+            time_force_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, parquet_key)
 
-            # if file found, read to dataframe for IA
-            time_force_df = pd.read_parquet(parquet_path)
-            # get relevant well-specific time force coordinates
-            well_specific_force = time_force_df[well_name].dropna()
+            # Get presigned url for peaks and valleys
+            logger.info("Generating presigned URL for peaks and valleys")
+            pv_parquet_key = f"{selected_job['prefix']}/{job_id}/peaks_valleys.parquet"
+            peaks_valleys_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, pv_parquet_key)
 
-            # normalize to match pulse3d output
-            if normalize_y_axis:
-                min_value = min(well_specific_force)
-                well_specific_force -= min_value
+            # # check if time force parquet file is found under pulse3d version prefix first
+            # if pulse3d_version is not None:
+            #     # read the time force dataframe from the parquet file
+            #     parquet_path = glob(
+            #         os.path.join(tmpdir, "time_force_data", pulse3d_version, "*.parquet"), recursive=True
+            #     )
+            # # if no pulse3d version specified in the job metadata or no time force parquet file was found
+            # # by previous glob, check s3 without pulse3d prefix
+            # if not parquet_path:
+            #     parquet_path = glob(os.path.join(tmpdir, "time_force_data", "*.parquet"), recursive=True)
+            # # if parquet file is still not found, return error msg. this will occur for any files analyzed
+            # # before this release. Ask user to perform reanalysis again on most recent pulse3d
+            # if not parquet_path:
+            #     return GenericErrorResponse(
+            #         error="MissingDataError",
+            #         message="Time force parquet file was not found. Reanalysis required.",
+            #     )
 
-            time = time_force_df[time_force_df.columns[0]].tolist()
-            coordinates = [
-                [time[i] / MICRO_TO_BASE_CONVERSION, val]
-                for i, val in enumerate(well_specific_force.tolist())
-            ]
+            # # if file found, read to dataframe for IA
+            # time_force_df = pd.read_parquet(parquet_path)
+            # # get relevant well-specific time force coordinates
+            # well_specific_force = time_force_df[well_name].dropna()
+
+            # # normalize to match pulse3d output
+            # if normalize_y_axis:
+            #     min_value = min(well_specific_force)
+            #     well_specific_force -= min_value
+
+            # time = time_force_df[time_force_df.columns[0]].tolist()
+            # coordinates = [
+            #     [time[i] / MICRO_TO_BASE_CONVERSION, val]
+            #     for i, val in enumerate(well_specific_force.tolist())
+            # ]
 
             # Luci (03/21/2023) only get peaks and valleys on initial waveform request when interactive analysis is first opened
             # this request will be called each time user switches between wells, we don't want to get peaks and valleys each time
-            peaks_and_valleys = None
-            if peaks_valleys_requested:
-                pv_parquet_path = glob(os.path.join(tmpdir, job_id, "*.parquet"), recursive=True)
-                peaks_and_valleys = _get_peaks_valleys(
-                    parquet_path=pv_parquet_path,
-                    time_force_df=time_force_df,
-                    pulse3d_version=pulse3d_version,
-                    analysis_params=analysis_params,
-                )
+            # peaks_and_valleys = None
+            # if peaks_valleys_requested:
+            #     pv_parquet_path = glob(os.path.join(tmpdir, job_id, "*.parquet"), recursive=True)
+            #     peaks_and_valleys = _get_peaks_valleys(
+            #         parquet_path=pv_parquet_path,
+            #         time_force_df=time_force_df,
+            #         pulse3d_version=pulse3d_version,
+            #         analysis_params=analysis_params,
+            #     )
 
-            return WaveformDataResponse(coordinates=coordinates, peaks_valleys=peaks_and_valleys)
-
+            return WaveformDataResponse(
+                time_force_url=time_force_url,
+                peaks_valleys_url=peaks_valleys_url,
+                normalize_y_axis=normalize_y_axis,
+            )
+    # ValueError gets raised when no object is found in s3 that matches given key
+    except ValueError:
+        return GenericErrorResponse(
+            error="MissingDataError", message="Parquet file was not found in S3. Reanalysis required."
+        )
     except S3Error:
         logger.exception("Error from s3")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

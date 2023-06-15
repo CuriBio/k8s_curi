@@ -88,6 +88,7 @@ export default function Login() {
       // this state gets passed to web worker to attempt login request
     } else {
       try {
+        console.log(navigator.ServiceWorker);
         const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/login`, {
           method: "POST",
           body: JSON.stringify({ ...userData, client_type: "dashboard" }),

@@ -10,11 +10,9 @@ module.exports = {
   entry: {
     bundle: path.join(__dirname, "./serviceWorker.js"),
   },
-
   output: {
     filename: "serviceWorker.js",
     path: path.join(__dirname, "public"),
   },
-
   mode,
 };
