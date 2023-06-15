@@ -51,7 +51,7 @@ async def test_Delete(user_logged_in_page):
     await upload_checkbox.click()
 
     # get name of checked box
-    nameOfCheckedUpload = await upload_checkbox.evaluate(
+    name_of_checked_upload = await upload_checkbox.evaluate(
         "node => node.parentNode.parentNode.parentNode.children[2].children[0].innerHTML"
     )
 
@@ -66,12 +66,12 @@ async def test_Delete(user_logged_in_page):
     # await user_logged_in_page.wait_for_selector(f'#{element_id}', state='hidden')
 
     # check that first upload was deleted
-    newUploadColumn = user_logged_in_page.get_by_role("checkbox").nth(0)
-    nameOfNewUpload = await newUploadColumn.evaluate(
+    new_upload_column = user_logged_in_page.get_by_role("checkbox").nth(0)
+    name_of_new_upload = await new_upload_column.evaluate(
         "node => node.parentNode.parentNode.parentNode.children[2].children[0].innerHTML"
     )
 
-    assert nameOfNewUpload != nameOfCheckedUpload
+    assert name_of_new_upload != name_of_checked_upload
 
 
 @pytest.mark.asyncio
@@ -79,8 +79,8 @@ async def test_Open_IA(user_logged_in_page):
     await user_logged_in_page.wait_for_load_state("networkidle")
 
     # select first job in first upload
-    checkboxInFistRow = user_logged_in_page.get_by_role("checkbox").nth(0)
-    await checkboxInFistRow.evaluate(
+    checkbox_in_fist_row = user_logged_in_page.get_by_role("checkbox").nth(0)
+    await checkbox_in_fist_row.evaluate(
         "node => node.parentNode.parentNode.parentNode.children[0].children[0].click()"
     )
     await user_logged_in_page.get_by_role("checkbox").nth(1).click()

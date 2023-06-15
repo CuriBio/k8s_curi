@@ -11,16 +11,16 @@ async def test_login_succes_admin(basic_page):
     await basic_page.click("text=Admin")
 
     # get input fields
-    emailInput = basic_page.get_by_placeholder("user@curibio.com")
-    passwordInput = basic_page.get_by_placeholder("Password")
+    email_Input = basic_page.get_by_placeholder("user@curibio.com")
+    password_Input = basic_page.get_by_placeholder("Password")
 
     # check correct input form displayed
-    assert await emailInput.is_visible()
-    assert await passwordInput.is_visible()
+    assert await email_Input.is_visible()
+    assert await password_Input.is_visible()
 
     # populate form with valid credentials
-    await emailInput.fill(VALID_ADMIN_EMAIL)
-    await passwordInput.fill(VALID_ADMIN_PASSWORD)
+    await email_Input.fill(VALID_ADMIN_EMAIL)
+    await password_Input.fill(VALID_ADMIN_PASSWORD)
 
     # submit form
     await basic_page.click("text=Submit")
@@ -30,33 +30,33 @@ async def test_login_succes_admin(basic_page):
     assert basic_page.url == f"https://{TEST_URL}/uploads"
 
 
-invalidAdmins = [
+invalid_admins = [
     ("*Invalid credentials. Try again.", {"adminEmail": "invalid@email.com", "password": VALID_ADMIN_EMAIL}),
     ("*Invalid credentials. Try again.", {"adminEmail": VALID_ADMIN_EMAIL, "password": "invalidPassword"}),
 ]
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("ExpectedMessage, InvalidInputs", invalidAdmins)
-async def test_invalid_inputs_admin(basic_page, ExpectedMessage, InvalidInputs):
+@pytest.mark.parametrize("expected_message, invalid_inputs", invalid_admins)
+async def test_invalid_inputs_admin(basic_page, expected_message, invalid_inputs):
     # click to select login form for user
     await basic_page.click("text=Admin")
 
     # get input fields
-    emailInput = basic_page.get_by_placeholder("user@curibio.com")
-    passwordInput = basic_page.get_by_placeholder("Password")
+    email_input = basic_page.get_by_placeholder("user@curibio.com")
+    password_input = basic_page.get_by_placeholder("Password")
 
     # check correct input form displayed
-    assert await emailInput.is_visible()
-    assert await passwordInput.is_visible()
+    assert await email_input.is_visible()
+    assert await password_input.is_visible()
 
     # populate form with invalid credentials
-    await emailInput.fill(InvalidInputs["adminEmail"])
-    await passwordInput.fill(InvalidInputs["password"])
+    await email_input.fill(invalid_inputs["adminEmail"])
+    await password_input.fill(invalid_inputs["password"])
 
     # submit form
     await basic_page.click("text=Submit")
     await basic_page.wait_for_load_state("networkidle")
 
     # check correct error message displayed
-    assert await basic_page.locator("#loginError").inner_text() == ExpectedMessage
+    assert await basic_page.locator("#loginError").inner_text() == expected_message

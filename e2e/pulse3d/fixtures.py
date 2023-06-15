@@ -46,18 +46,18 @@ async def basic_page(setup):
 @pytest_asyncio.fixture(scope="function", name="user_logged_in_page")
 async def user_logged_in_page(basic_page):
     await basic_page.click("text=User")
-    customerIdInput = basic_page.get_by_placeholder("CuriBio")
-    userNameInput = basic_page.get_by_placeholder("user")
-    passwordInput = basic_page.get_by_placeholder("Password")
+    customer_id_input = basic_page.get_by_placeholder("CuriBio")
+    user_name_input = basic_page.get_by_placeholder("user")
+    password_input = basic_page.get_by_placeholder("Password")
 
-    assert await customerIdInput.is_visible()
-    assert await userNameInput.is_visible()
-    assert await passwordInput.is_visible()
+    assert await customer_id_input.is_visible()
+    assert await user_name_input.is_visible()
+    assert await password_input.is_visible()
 
     # log in with valid user credentials
-    await customerIdInput.fill(VALID_CUSTOMER_ID)
-    await userNameInput.fill(VALID_USER_NAME)
-    await passwordInput.fill(VALID_USER_PASSWORD)
+    await customer_id_input.fill(VALID_CUSTOMER_ID)
+    await user_name_input.fill(VALID_USER_NAME)
+    await password_input.fill(VALID_USER_PASSWORD)
 
     await basic_page.click("text=Submit")
     await basic_page.wait_for_url("**/uploads")
