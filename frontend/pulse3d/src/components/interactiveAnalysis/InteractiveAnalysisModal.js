@@ -595,15 +595,13 @@ export default function InteractiveWaveformModal({
   };
 
   const handleModalClose = async (i) => {
-    if (modalOpen !== "pulse3dWarning") {
-      if (modalOpen === "status") setOpenInteractiveAnalysis(false);
-      else if (i === 0) {
-        await getWaveformData();
-      } else {
-        loadExistingData();
-      }
-      sessionStorage.removeItem(selectedJob.jobId);
+    if (modalOpen === "status" || modalOpen === "pulse3dWarning") setOpenInteractiveAnalysis(false);
+    else if (i === 0) {
+      await getWaveformData();
+    } else {
+      loadExistingData();
     }
+    sessionStorage.removeItem(selectedJob.jobId);
 
     setModalOpen(false);
   };
