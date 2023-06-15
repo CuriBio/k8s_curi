@@ -1,7 +1,7 @@
 import pytest
-from config import TEST_URL,VALID_CUSTOMER_ID,VALID_USER_NAME,VALID_USER_PASSWORD
+from config import TEST_URL, VALID_CUSTOMER_ID, VALID_USER_NAME, VALID_USER_PASSWORD
+from fixtures import basic_page, setup, video_setup
 
-from fixtures import basic_page,setup,video_setup
 
 @pytest.mark.asyncio
 async def test_login_success_user(basic_page):
@@ -41,6 +41,8 @@ invalidUsers = [
         {"customerId": VALID_CUSTOMER_ID, "username": VALID_USER_NAME, "password": "InvalidPassword"},
     ),
 ]
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("ExpectedMessage, InvalidInputs", invalidUsers)
 async def test_invalid_inputs_user(basic_page, ExpectedMessage, InvalidInputs):
@@ -48,9 +50,9 @@ async def test_invalid_inputs_user(basic_page, ExpectedMessage, InvalidInputs):
     await basic_page.click("text=User")
 
     # get input fields
-    customerIdInput =  basic_page.get_by_placeholder("CuriBio")
-    userNameInput =  basic_page.get_by_placeholder("user")
-    passwordInput =  basic_page.get_by_placeholder("Password")
+    customerIdInput = basic_page.get_by_placeholder("CuriBio")
+    userNameInput = basic_page.get_by_placeholder("user")
+    passwordInput = basic_page.get_by_placeholder("Password")
 
     # check correct input form displayed
     assert await customerIdInput.is_visible()

@@ -1,6 +1,7 @@
 import pytest
 from config import VALID_ADMIN_EMAIL, VALID_ADMIN_PASSWORD, TEST_URL
-from fixtures import basic_page,setup,video_setup
+from fixtures import basic_page, setup, video_setup
+
 
 @pytest.mark.asyncio
 async def test_login_succes_admin(basic_page):
@@ -31,6 +32,8 @@ invalidAdmins = [
     ("*Invalid credentials. Try again.", {"adminEmail": "invalid@email.com", "password": VALID_ADMIN_EMAIL}),
     ("*Invalid credentials. Try again.", {"adminEmail": VALID_ADMIN_EMAIL, "password": "invalidPassword"}),
 ]
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("ExpectedMessage, InvalidInputs", invalidAdmins)
 async def test_invalid_inputs_admin(basic_page, ExpectedMessage, InvalidInputs):

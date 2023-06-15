@@ -1,7 +1,7 @@
-import pytest_asyncio,pytest
+import pytest_asyncio, pytest
 import shutil
 from playwright.async_api import async_playwright
-from config import TEST_URL,VALID_CUSTOMER_ID,VALID_USER_NAME,VALID_USER_PASSWORD,HEADLESS
+from config import TEST_URL, VALID_CUSTOMER_ID, VALID_USER_NAME, VALID_USER_PASSWORD, HEADLESS
 
 # remove older videos if present
 @pytest.fixture(scope="session", autouse=True)
@@ -11,10 +11,10 @@ def video_setup():
 
 @pytest_asyncio.fixture(scope="function", name="setup")
 async def setup(request):
-     async with async_playwright() as p:
+    async with async_playwright() as p:
         test_name = request.node.name.split("[")[0]
 
-        browser = await p.chromium.launch(headless=HEADLESS,slow_mo=1000)
+        browser = await p.chromium.launch(headless=HEADLESS, slow_mo=1000)
         context = await browser.new_context(record_video_dir=f"videos/{test_name}")
         page = await context.new_page()
 
@@ -34,11 +34,11 @@ async def basic_page(setup):
     await setup.goto(f"https://{TEST_URL}/login")
     await setup.wait_for_load_state("networkidle")
     await setup.reload()
-    assert await setup.title() == 'Pulse Analysis'
+    assert await setup.title() == "Pulse Analysis"
 
     yield setup
-        
-        
+
+
 @pytest_asyncio.fixture(scope="function", name="user_logged_in_page")
 async def user_logged_in_page(basic_page):
     await basic_page.click("text=User")

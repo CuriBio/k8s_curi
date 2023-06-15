@@ -1,5 +1,6 @@
 import pytest
-from fixtures import setup,video_setup, basic_page,user_logged_in_page
+from fixtures import setup, video_setup, basic_page, user_logged_in_page
+
 
 @pytest.mark.asyncio
 async def test_ReAnalyze(user_logged_in_page):
@@ -17,7 +18,7 @@ async def test_ReAnalyze(user_logged_in_page):
     await user_logged_in_page.get_by_role("button", name="Submit").click()
 
     # check upload was succes
-    assert await user_logged_in_page.get_by_text("Error Occurred").is_visible() == False
+    assert await user_logged_in_page.get_by_text("Error Occurred").is_visible() is False
 
 
 @pytest.mark.asyncio
@@ -37,7 +38,7 @@ async def test_Download(user_logged_in_page, spesificDownloadOption):
 
         # wait for dowload to complete then check that there are no errors
         download = await analysesDownload.value
-        assert  await download.failure() == None
+        assert await download.failure() is None
 
 
 @pytest.mark.asyncio
@@ -58,7 +59,7 @@ async def test_Delete(user_logged_in_page):
     await user_logged_in_page.get_by_role("option", name="Delete").click()
     await user_logged_in_page.get_by_role("button", name="Confirm").click()
 
-    element_id = await upload_checkbox.evaluate('element => element.id')
+    element_id = await upload_checkbox.evaluate("element => element.id")
 
     # wait for response to complete
     # await user_logged_in_page.wait_for_selector(f'#{element_id}', state='hidden')
@@ -88,4 +89,4 @@ async def test_Open_IA(user_logged_in_page):
     await user_logged_in_page.get_by_role("option", name="Interactive Analysis").click()
 
     # check IA was opened
-    assert await user_logged_in_page.get_by_text("Interactive Waveform Analysis").is_visible() == True
+    assert await user_logged_in_page.get_by_text("Interactive Waveform Analysis").is_visible() is True
