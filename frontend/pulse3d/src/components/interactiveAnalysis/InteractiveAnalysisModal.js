@@ -601,6 +601,7 @@ export default function InteractiveWaveformModal({
     } else {
       loadExistingData();
     }
+    
     sessionStorage.removeItem(selectedJob.jobId);
 
     setModalOpen(false);
