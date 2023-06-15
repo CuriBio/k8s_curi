@@ -301,7 +301,7 @@ self.addEventListener("fetch", async (e) => {
         // Go to the cache first
         const cachedResponse = await cache.match(e.request.url);
         //  For now, only return cached responses for waveform data requests
-        if (cachedResponse && isWaveformDataRequest(destURL)) {
+        if (cachedResponse && isWaveformDataRequest(urlParams)) {
           console.log(`Returning cached response for ${destURL}`);
           return cachedResponse;
         }

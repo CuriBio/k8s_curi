@@ -13,8 +13,11 @@ import semverGte from "semver/functions/gte";
 import FormInput from "@/components/basicWidgets/FormInput";
 import { AuthContext } from "@/pages/_app";
 import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
+<<<<<<< HEAD
 import * as apache from "apache-arrow";
 import { getPeaksValleysFromTable, getWaveformCoordsFromTable } from "@/utils/generic";
+=======
+>>>>>>> RC-06-22-23
 
 const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
 
@@ -310,6 +313,7 @@ export default function InteractiveWaveformModal({
 
       const { start_time, end_time } = selectedJob.analysisParams;
 
+<<<<<<< HEAD
       xRange = {
         min: start_time || Math.min(...coordinates["A1"].map((coords) => coords[0])),
         max: end_time || Math.max(...coordinates["A1"].map((coords) => coords[0])),
@@ -324,6 +328,25 @@ export default function InteractiveWaveformModal({
       // won't be present for older recordings or if no replacement was ever given
       if ("nameOverride" in selectedJob) setNameOverride(selectedJob.nameOverride);
       setInitialPeakValleyWindows();
+=======
+        const { start_time, end_time } = selectedJob.analysisParams;
+        const newXRange = {
+          min: start_time || Math.min(...coordinates.map((coords) => coords[0])),
+          max: end_time || Math.max(...coordinates.map((coords) => coords[0])),
+        };
+        setXRange(newXRange);
+        setEditableStartEndTimes({
+          startTime: newXRange.min,
+          endTime: newXRange.max,
+        });
+
+        // won't be present for older recordings or if no replacement was ever given
+        if ("nameOverride" in selectedJob) setNameOverride(selectedJob.nameOverride);
+      }
+
+      setInitialPeakValleyWindows(well);
+
+>>>>>>> RC-06-22-23
       // this function actually renders new graph data to the page
       setDataToGraph([...coordinates["A1"]]);
 
@@ -414,7 +437,6 @@ export default function InteractiveWaveformModal({
     const { coordinates, peaksValleys } = originalData;
     const { max, min } = xRange;
 
-    // arbitrarily set to first peak
     const wellSpecificPeaks = peaksValleys[well][0];
     const wellSpecificCoords = coordinates[well];
     // consider when no peaks or valleys were found in a well
