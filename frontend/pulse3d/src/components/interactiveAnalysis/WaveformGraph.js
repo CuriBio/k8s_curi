@@ -195,7 +195,7 @@ export default function WaveformGraph({
   changelogActions,
 }) {
   const {
-    windowAnalysisBounds: { start: startTime, end: endTime },
+    windowedAnalysisBounds: { start: startTime, end: endTime },
     featureIndices: { peaks, valleys },
     duplicateIndices,
     thresholdEndpoints,
@@ -486,12 +486,12 @@ export default function WaveformGraph({
             "translate(" + x(d[0]) + "," + (y(waveformData[draggedIdx][1]) - 7) + ") rotate(180)"
           )
           .style("fill", (d) => {
-            return duplicateIndices[featureType].includes(d)
+            return duplicateIndices[`${featureType}s`].includes(d)
               ? "var(--curi-error-markers)"
               : "var(--curi-peaks)";
           })
           .attr("stroke", (d) => {
-            return duplicateIndices[featureType].includes(d)
+            return duplicateIndices[`${featureType}s`].includes(d)
               ? "var(--curi-error-markers)"
               : "var(--curi-peaks)";
           });
@@ -499,12 +499,12 @@ export default function WaveformGraph({
         d3.select(this)
           .attr("transform", "translate(" + x(d[0]) + "," + (y(waveformData[draggedIdx][1]) + 7) + ")")
           .style("fill", (d) => {
-            return duplicateIndices[featureType].includes(d)
+            return duplicateIndices[`${featureType}s`].includes(d)
               ? "var(--curi-error-markers)"
               : "var(--curi-valleys)";
           })
           .attr("stroke", (d) => {
-            return duplicateIndices[featureType].includes(d)
+            return duplicateIndices[`${featureType}s`].includes(d)
               ? "var(--curi-error-markers)"
               : "var(--curi-valleys)";
           });

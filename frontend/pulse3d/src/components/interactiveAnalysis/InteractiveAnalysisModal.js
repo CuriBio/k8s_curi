@@ -180,7 +180,7 @@ const ACTIONS = {
 const getDefaultCustomAnalysisSettings = () => {
   const customVals = {
     // add values that apply to all wells
-    windowAnalysisBounds: {
+    windowedAnalysisBounds: {
       start: null,
       end: null,
     },
@@ -213,6 +213,14 @@ const getDefaultCustomAnalysisSettings = () => {
     };
   }
   return customVals;
+};
+
+const getDefaultChangelog = () => {
+  const changelog = {};
+  for (const well of wellNames) {
+    changelog[well] = [];
+  }
+  return changelog;
 };
 
 const title = (s) => {
@@ -252,7 +260,7 @@ export default function InteractiveWaveformModal({
       : [];
   const [baseData, setBaseData] = useState({}); // same originalAnalysisData.featuresForWells but can have dups removed
   const [timepointRange, setTimepointRange] = useState({
-    // This is a copy of the max/min timepoints of the data. Windowed analysis start/stop times are set in customAnalysisSettings.windowAnalysisBounds
+    // This is a copy of the max/min timepoints of the data. Windowed analysis start/stop times are set in customAnalysisSettings.windowedAnalysisBounds
     // Must be stored in its own state and not tied directly to the recording data because it will be set to the start/stop times of the job if
     // They were set
     min: null,
@@ -263,28 +271,43 @@ export default function InteractiveWaveformModal({
   // This only exists as a convenience for passing data down to WaveformGraph. It's a copy of customAnalysisSettings with only the data relevant for the selected well
   const [customAnalysisSettingsForWell, setCustomAnalysisSettingsForWell] = useState({});
   const [customAnalysisSettingsChanges, setCustomAnalysisSettingsChanges] = useState([]);
-  const [changelog, setChangelog] = useState({});
+  const [changelog, setChangelog] = useState(getDefaultChangelog());
   const [openChangelog, setOpenChangelog] = useState(false);
   const [prevAction, setPrevAction] = useState();
 
   const appendToChangelog = (msg) => {
-    const changelogCopy = [...changelog];
-    changelogCopy.push(msg);
+    const changelogCopy = JSON.parse(JSON.stringify(changelog));
+    changelogCopy[selectedWell].push(msg);
     setChangelog(changelogCopy);
+  };
+
+  const updateCustomAnalysisSettings = (newCustomAnalysisSettings) => {
+    newCustomAnalysisSettings = JSON.parse(JSON.stringify(newCustomAnalysisSettings));
+    for (const well of wellNames) {
+      newCustomAnalysisSettings[well].filteredFeatureIndices = filterAndSortFeatures(
+        originalAnalysisData.coordinates[well],
+        newCustomAnalysisSettings.windowedAnalysisBounds,
+        newCustomAnalysisSettings[well]
+      );
+      newCustomAnalysisSettings[well].duplicateFeatureIndices = checkDuplicates(
+        newCustomAnalysisSettings[well].filteredFeatureIndices
+      );
+    }
+    setCustomAnalysisSettings(newCustomAnalysisSettings);
   };
 
   // TODO does anything need to happen after these?
   const customAnalysisSettingsInitializers = {
     windowBounds: (initialBounds) => {
-      setCustomAnalysisSettings({
+      updateCustomAnalysisSettings({
         ...customAnalysisSettings,
-        windowAnalysisBounds: JSON.parse(JSON.stringify(initialBounds)),
+        windowedAnalysisBounds: JSON.parse(JSON.stringify(initialBounds)),
       });
     },
     featureIndices: (well, featureName, initialIndices) => {
       const wellSettings = customAnalysisSettings[well];
       wellSettings.allFeatureIndices[featureName] = JSON.parse(JSON.stringify(initialIndices));
-      setCustomAnalysisSettings({
+      updateCustomAnalysisSettings({
         ...customAnalysisSettings,
         [well]: wellSettings,
       });
@@ -295,20 +318,19 @@ export default function InteractiveWaveformModal({
         y1: initialValue,
         y2: initialValue,
       };
-      setCustomAnalysisSettings({
+      updateCustomAnalysisSettings({
         ...customAnalysisSettings,
         [well]: wellSettings,
       });
     },
   };
 
-  // TODO make sure filtering is triggered after all these changes. Easiest to do in a useEffect?
   const customAnalysisSettingsUpdaters = {
     // These functions will always update the changelog
     setWindowBounds: (newBounds) => {
-      setCustomAnalysisSettings({
+      updateCustomAnalysisSettings({
         ...customAnalysisSettings,
-        windowAnalysisBounds: {
+        windowedAnalysisBounds: {
           ...customAnalysisSettings.customAnalysisSettings,
           ...newBounds,
         },
@@ -325,7 +347,7 @@ export default function InteractiveWaveformModal({
       );
 
       wellFeatureIndices.push(idxToAdd);
-      setCustomAnalysisSettings({
+      updateCustomAnalysisSettings({
         ...customAnalysisSettings,
         [selectedWell]: wellSettings,
       });
@@ -343,7 +365,7 @@ export default function InteractiveWaveformModal({
       if (targetIdx === -1) return;
 
       wellFeatureIndices.splice(targetIdx, 1);
-      setCustomAnalysisSettings({
+      updateCustomAnalysisSettings({
         ...customAnalysisSettings,
         [selectedWell]: wellSettings,
       });
@@ -360,7 +382,7 @@ export default function InteractiveWaveformModal({
       if (targetIdx === -1) return;
 
       wellFeatureIndices.splice(targetIdx, 1, newIdx);
-      setCustomAnalysisSettings({
+      updateCustomAnalysisSettings({
         ...customAnalysisSettings,
         [selectedWell]: wellSettings,
       });
@@ -377,7 +399,7 @@ export default function InteractiveWaveformModal({
       const wellSettings = customAnalysisSettings[selectedWell];
 
       wellSettings.thresholdEndpoints[featureName][endpointName] = newValue;
-      setCustomAnalysisSettings({
+      updateCustomAnalysisSettings({
         ...customAnalysisSettings,
         [selectedWell]: wellSettings,
       });
@@ -400,12 +422,14 @@ export default function InteractiveWaveformModal({
   // TODO explain this
   useEffect(() => {
     if (removeDupsChecked) {
-      const currentFeaturesCopy = JSON.parse(JSON.stringify(wellSettings.allFeatureIndices));
-      // remove duplicate peaks and valleys per well
-      for (const well in currentFeaturesCopy) {
-        currentFeaturesCopy[well] = removeWellSpecificDuplicates(well);
+      const baseDataCopy = JSON.parse(JSON.stringify(baseData));
+      for (const well in baseDataCopy) {
+        const { duplicateFeatureIndices } = customAnalysisSettings[well];
+        // console.log("!!!", well, duplicateFeatureIndices);
+        baseDataCopy[well][0] = removeDups(baseDataCopy[well][0], duplicateFeatureIndices.peaks);
+        baseDataCopy[well][1] = removeDups(baseDataCopy[well][1], duplicateFeatureIndices.valleys);
       }
-      setBaseData(currentFeaturesCopy);
+      setBaseData(baseDataCopy);
     } else if (originalAnalysisData.featuresForWells) {
       // if unchecked, revert back to previous peaks and valleys
       setBaseData(originalAnalysisData.featuresForWells);
@@ -414,10 +438,12 @@ export default function InteractiveWaveformModal({
 
   // TODO explain this
   useEffect(() => {
-    if (baseData[selectedWell]) {
-      // This is just to update the custom peaks and valleys correctly after the useEffect above
-      customAnalysisSettingsInitializers.featureIndices(selectedWell, "peaks", baseData[selectedWell][0]);
-      customAnalysisSettingsInitializers.featureIndices(selectedWell, "valleys", baseData[selectedWell][1]);
+    for (const well of wellNames) {
+      if (baseData[well]) {
+        // This is just to update the custom peaks and valleys correctly after the useEffect above, or after baseData is initially set
+        customAnalysisSettingsInitializers.featureIndices(well, "peaks", baseData[well][0]);
+        customAnalysisSettingsInitializers.featureIndices(well, "valleys", baseData[well][1]);
+      }
     }
   }, [baseData]);
 
@@ -436,27 +462,19 @@ export default function InteractiveWaveformModal({
       originalAnalysisData.featuresForWells &&
       originalAnalysisData.featuresForWells[selectedWell]
     ) {
-      customAnalysisSettingsInitializers.featureIndices(
-        selectedWell,
-        "peaks",
-        originalAnalysisData.featuresForWells[selectedWell][0]
-      );
-      customAnalysisSettingsInitializers.featureIndices(
-        selectedWell,
-        "valleys",
-        originalAnalysisData.featuresForWells[selectedWell][1]
-      );
       setBothLinesToDefault();
     }
   }, [selectedWell, wellWaveformData]);
 
   // update customAnalysisSettingsForWell whenever customAnalysisSettings or the currently selected well changes
   useEffect(() => {
+    // console.log("$$$ filtered", customAnalysisSettings[selectedWell].filteredFeatureIndices);
+    // console.log("$$$ dups", customAnalysisSettings[selectedWell].duplicateFeatureIndices);
     setCustomAnalysisSettingsForWell(
       // Tanner (6/1/23): Copying just to be safe
       JSON.parse(
         JSON.stringify({
-          windowAnalysisBounds: customAnalysisSettings.windowAnalysisBounds,
+          windowedAnalysisBounds: customAnalysisSettings.windowedAnalysisBounds,
           featureIndices: customAnalysisSettings[selectedWell].filteredFeatureIndices,
           duplicateIndices: customAnalysisSettings[selectedWell].duplicateFeatureIndices,
           thresholdEndpoints: customAnalysisSettings[selectedWell].thresholdEndpoints,
@@ -465,17 +483,14 @@ export default function InteractiveWaveformModal({
     );
   }, [customAnalysisSettings, selectedWell]);
 
-  // run filtering, check for dups, then update the change tracker whenever prev action is set, which should always and only occur immediately after the changelog is updated
+  // TODO
+  // update the change tracker whenever prev action is set, which should always and only occur immediately after the changelog is updated
   useEffect(() => {
     const customAnalysisSettingsChangesCopy = JSON.parse(JSON.stringify(customAnalysisSettingsChanges));
-    // TODO run filtering and checks dups
-
-    for (const well of customAnalysisSettingsChangesCopy) {
-      customAnalysisSettingsChangesCopy[well].filteredFeatureIndices = filterFeatures();
-    }
+    const customAnalysisSettingsCopy = JSON.parse(JSON.stringify(customAnalysisSettings));
 
     if (prevAction === ACTIONS.ADD) {
-      customAnalysisSettingsChangesCopy.push(JSON.parse(JSON.stringify(customAnalysisSettings)));
+      customAnalysisSettingsChangesCopy.push(customAnalysisSettingsCopy);
     } else if (prevAction === ACTIONS.UNDO) {
       // TODO there is probably more handling that needs to be done here
       customAnalysisSettingsChangesCopy.splice(customAnalysisSettingsChangesCopy.length - 1, 1);
@@ -504,12 +519,12 @@ export default function InteractiveWaveformModal({
           featuresForWells: res.peaks_valleys,
           coordinates: {},
         };
+        setBaseData(res.peaks_valleys);
       }
 
       const { coordinates } = res;
       // original data is set and never changed to hold original state in case of reset
       originalAnalysisData.coordinates[well] = coordinates;
-      console.log("!!!", originalAnalysisData);
       setOriginalAnalysisData(originalAnalysisData);
 
       if (featuresNeeded) {
@@ -537,30 +552,6 @@ export default function InteractiveWaveformModal({
     }
   };
 
-  const checkDuplicates = (well) => {
-    const { peaks, valleys } = customAnalysisSettings[well].filteredFeatureIndices;
-
-    // create list with all features in order
-    const features = [];
-    for (const idx of peaks) {
-      features.push({ type: "peak", idx });
-    }
-    for (const idx of valleys) {
-      features.push({ type: "valley", idx });
-    }
-    features.sort((a, b) => a.idx - b.idx);
-
-    const duplicates = { peak: [], valley: [] };
-    for (let i = 0; i < features.length; i++) {
-      const [curr, next] = features.slice(i, i + 2);
-      if (curr && next && curr.type === next.type) {
-        duplicates[curr.type].push(curr.idx);
-      }
-    }
-
-    return duplicates;
-  };
-
   const findInitialThresholdForFeature = (well, featureType) => {
     const { coordinates, featuresForWells } = originalAnalysisData;
     const { max, min } = timepointRange;
@@ -569,7 +560,7 @@ export default function InteractiveWaveformModal({
       return featureType === "peaks" ? a < b : a > b;
     };
 
-    const featureIdx = featureType === "peaks" ? 1 : 0;
+    const featureIdx = featureType === "peaks" ? 0 : 1;
 
     const wellSpecificFeatures = featuresForWells[well][featureIdx];
     const wellSpecificCoords = coordinates[well];
@@ -580,14 +571,13 @@ export default function InteractiveWaveformModal({
       let idxOfThresholdValue = wellSpecificFeatures[0];
 
       wellSpecificFeatures.map((featureIdx) => {
-        const yCoord = wellSpecificCoords[featureIdx][1];
-        const featureToCompare = wellSpecificCoords[idxOfThresholdValue][1];
+        const [testX, testY] = wellSpecificCoords[featureIdx];
+        const currentTresholdY = wellSpecificCoords[idxOfThresholdValue][1];
         // only use features inside windowed analysis times
-        const timeOfFeature = wellSpecificCoords[featureIdx][0];
-        const isLessThanEndTime = !max || timeOfFeature <= max;
-        const isGreaterThanStartTime = !min || timeOfFeature >= min;
+        const isLessThanEndTime = !max || testX <= max;
+        const isGreaterThanStartTime = !min || testX >= min;
         // filter for features inside windowed time
-        if (compare(yCoord, featureToCompare) && isGreaterThanStartTime && isLessThanEndTime) {
+        if (compare(testY, currentTresholdY) && isGreaterThanStartTime && isLessThanEndTime) {
           idxOfThresholdValue = featureIdx;
         }
       });
@@ -608,7 +598,7 @@ export default function InteractiveWaveformModal({
     // this happens very fast so not storing to react state the first call, see line 162 (? different line now)
     const jsonData = sessionStorage.getItem(selectedJob.jobId);
     const existingData = JSON.parse(jsonData);
-    // TODO test this
+    // TODO test this, also should probably use initializers here
     setCustomAnalysisSettings(existingData);
   };
 
@@ -630,9 +620,8 @@ export default function InteractiveWaveformModal({
     setChangelog(changelogCopy);
     // reset state
     resetWindowBounds();
-    const originalFeaturesForWell = originalAnalysisData.featuresForWells[selectedWell];
-    customAnalysisSettingsInitializers.featureIndices(selectedWell, "peaks", originalFeaturesForWell[0]);
-    customAnalysisSettingsInitializers.featureIndices(selectedWell, "valleys", originalFeaturesForWell[1]);
+    customAnalysisSettingsInitializers.featureIndices(selectedWell, "peaks", baseData[selectedWell][0]);
+    customAnalysisSettingsInitializers.featureIndices(selectedWell, "valleys", baseData[selectedWell][1]);
     setBothLinesToDefault();
     setDisableRemoveDupsCheckbox(isRemoveDuplicatesDisabled(changelogCopy));
   };
@@ -643,12 +632,12 @@ export default function InteractiveWaveformModal({
 
       // TODO check that this is formatted correctly
       const filteredFeatures = {};
-      for (const well of customAnalysisSettings) {
+      for (const well in customAnalysisSettings) {
         filteredFeatures[well] = customAnalysisSettings[well].filteredFeatureIndices;
       }
 
       const prevPulse3dVersion = selectedJob.analysisParams.pulse3d_version;
-      const { start, end: endTime } = customAnalysisSettings.windowAnalysisBounds;
+      const { start, end: endTime } = customAnalysisSettings.windowedAnalysisBounds;
       // jobs run on pulse3d versions < 0.28.3 will not have a 0 timepoint so account for that here that 0.01 is still the first time point, not windowed
       const startTime = !semverGte(prevPulse3dVersion, "0.28.3") && start == 0.01 ? null : end;
 
@@ -861,7 +850,7 @@ export default function InteractiveWaveformModal({
   };
 
   const calculateYLimit = (y1, y2, markerX) => {
-    const { start, end } = customAnalysisSettings.windowAnalysisBounds;
+    const { start, end } = customAnalysisSettings.windowedAnalysisBounds;
     const slope = (y2 - y1) / (end - start);
     return y1 + slope * (markerX - start);
   };
@@ -879,82 +868,70 @@ export default function InteractiveWaveformModal({
     );
   };
 
-  const isNewY = (yToCompare, originalYArr) => {
-    return (
-      yToCompare &&
-      originalYArr.length !== 0 &&
-      originalYArr[wellIdx] &&
-      parseInt(yToCompare) !== parseInt(originalYArr[wellIdx])
-    );
-  };
+  const filterAndSortFeatures = (
+    wellCoords,
+    windowedAnalysisBounds,
+    { allFeatureIndices, thresholdEndpoints }
+  ) => {
+    allFeatureIndices = JSON.parse(JSON.stringify(allFeatureIndices));
 
-  const filterFeatures = (features) => {
-    features = JSON.parse(JSON.stringify(features));
+    const { start, end } = windowedAnalysisBounds;
 
-    for (const featureType of features) {
-      return allFeatureIndices.filter((idx) => {
-        // Can only filter if the data for this well has actually been loaded,
-        // which is not guaranteed to be the case with the staggered loading of data for each well
-        if (!wellCoords) return true;
+    let filteredAndSortedFeatures = {};
+    for (const featureType in allFeatureIndices) {
+      filteredAndSortedFeatures[featureType] = allFeatureIndices[featureType]
+        .filter((idx) => {
+          // Can only filter if the data for this well has actually been loaded,
+          // which is not guaranteed to be the case with the staggered loading of data for each well
+          if (!wellCoords) return true;
 
-        const [featureMarkerX, featureMarkerY] = wellCoords[idx];
+          const [featureMarkerX, featureMarkerY] = wellCoords[idx];
+          const isFeatureWithinWindow = featureMarkerX >= start && featureMarkerX <= end;
 
-        // TODO
-        const { thresholdEndpoints } = customAnalysisSettings;
-        thresholdEndpoints[featureType].y1;
-        const featureThresholdY1 = featureType === "peak" ? peakY1 : valleyY1;
-        const featureThresholdY2 = featureType === "peak" ? peakY2 : valleyY2;
-        const featureThresholdY = calculateYLimit(featureThresholdY1, featureThresholdY2, featureMarkerX);
+          // TODO
+          const featureThresholdY = calculateYLimit(
+            thresholdEndpoints[featureType].y1,
+            thresholdEndpoints[featureType].y2,
+            featureMarkerX
+          );
+          const isFeatureWithinThreshold =
+            featureType === "peaks"
+              ? featureMarkerY >= featureThresholdY
+              : featureMarkerY <= featureThresholdY;
 
-        const isFeatureWithinWindow = featureMarkerX >= startTime && featureMarkerX <= endTime;
-        const isFeatureWithinThreshold =
-          featureType === "peak" ? featureMarkerY >= featureThresholdY : featureMarkerY <= featureThresholdY;
-
-        return isFeatureWithinThreshold && isFeatureWithinWindow;
-      });
+          return isFeatureWithinThreshold && isFeatureWithinWindow;
+        })
+        .sort((a, b) => a - b);
     }
+    return filteredAndSortedFeatures;
   };
 
-  // TODO clean up all the dup handling
-  const removeDuplicateFeatures = (duplicates, sortedFeatures) => {
-    for (const feature of duplicates) {
-      const idxToCheck = sortedFeatures.indexOf(feature);
-      sortedFeatures.splice(idxToCheck, 1);
+  const checkDuplicates = (filteredFeatureIndices) => {
+    const { peaks, valleys } = filteredFeatureIndices;
+
+    // create list with all features in order
+    const features = [];
+    for (const idx of peaks) {
+      features.push({ type: "peaks", idx });
     }
-    return sortedFeatures;
+    for (const idx of valleys) {
+      features.push({ type: "valleys", idx });
+    }
+    features.sort((a, b) => a.idx - b.idx);
+
+    const duplicates = { peaks: [], valleys: [] };
+    for (let i = 0; i < features.length; i++) {
+      const [curr, next] = features.slice(i, i + 2);
+      if (curr && next && curr.type === next.type) {
+        duplicates[curr.type].push(curr.idx);
+      }
+    }
+
+    return duplicates;
   };
 
-  const removeWellSpecificDuplicates = (well) => {
-    const [ogPeaks, ogValleys] = JSON.parse(JSON.stringify(originalAnalysisData.featuresForWells[well]));
-    const sortedPeaks = ogPeaks.sort((a, b) => a - b);
-    const sortedValleys = ogValleys.sort((a, b) => a - b);
-
-    const { minPeaks, maxValleys } = {
-      minPeaks: findInitialThresholdForFeature(well, "peaks"),
-      maxValleys: findInitialThresholdForFeature(well, "valleys"),
-    };
-
-    const duplicateFeatures = checkDuplicates(
-      well,
-      ogPeaks,
-      ogValleys,
-      minPeaks,
-      minPeaks,
-      maxValleys,
-      maxValleys,
-      timepointRange.min,
-      timepointRange.max
-    );
-
-    const { peak, valley } = JSON.parse(JSON.stringify(duplicateFeatures));
-
-    const sortedDupPeaks = peak.sort((a, b) => a - b);
-    const sortedDupValleys = valley.sort((a, b) => a - b);
-
-    return [
-      removeDuplicateFeatures(sortedDupPeaks, sortedPeaks),
-      removeDuplicateFeatures(sortedDupValleys, sortedValleys),
-    ];
+  const removeDups = (allIndices, dupIndices) => {
+    return allIndices.filter((idx) => !dupIndices.includes(idx));
   };
 
   const closeRemoveDuplicatesModal = async (idx) => {
@@ -985,6 +962,7 @@ export default function InteractiveWaveformModal({
     // 2. remove if other changes were made first before checking
     // 3. disable if in loading state
     return (
+      // TODO check the change tracker here instead?
       (removeDupsChecked &&
         Object.keys(changelogCopy).some(
           (well) => changelogCopy[well].length > 0 && changelogCopy[well][0].removeDupsChecked
@@ -1180,7 +1158,7 @@ export default function InteractiveWaveformModal({
         header={`Changelog for ${selectedWell}`}
         labels={
           changelog[selectedWell] && changelog[selectedWell].length > 0
-            ? changelog[selectedWell].map(({ message }) => message)
+            ? changelog[selectedWell].map((message) => message)
             : ["No changes found."]
         }
       />
