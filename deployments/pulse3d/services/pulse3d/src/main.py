@@ -8,19 +8,15 @@ import boto3
 import os
 import pandas as pd
 from semver import VersionInfo
-import numpy as np
 
 from stream_zip import ZIP_64, stream_zip
 from datetime import datetime
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pulse3D.peak_detection import peak_detector
-from pulse3D.nb_peak_detection import noise_based_peak_finding
 from pulse3D.constants import (
     DEFAULT_BASELINE_WIDTHS,
     DEFAULT_PROMINENCE_FACTORS,
-    MICRO_TO_BASE_CONVERSION,
     DEFAULT_WIDTH_FACTORS,
     DEFAULT_NB_WIDTH_FACTORS,
 )
@@ -680,52 +676,6 @@ async def get_interactive_waveform_data(
             pv_parquet_key = f"{selected_job['prefix']}/{job_id}/peaks_valleys.parquet"
             peaks_valleys_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, pv_parquet_key)
 
-            # # check if time force parquet file is found under pulse3d version prefix first
-            # if pulse3d_version is not None:
-            #     # read the time force dataframe from the parquet file
-            #     parquet_path = glob(
-            #         os.path.join(tmpdir, "time_force_data", pulse3d_version, "*.parquet"), recursive=True
-            #     )
-            # # if no pulse3d version specified in the job metadata or no time force parquet file was found
-            # # by previous glob, check s3 without pulse3d prefix
-            # if not parquet_path:
-            #     parquet_path = glob(os.path.join(tmpdir, "time_force_data", "*.parquet"), recursive=True)
-            # # if parquet file is still not found, return error msg. this will occur for any files analyzed
-            # # before this release. Ask user to perform reanalysis again on most recent pulse3d
-            # if not parquet_path:
-            #     return GenericErrorResponse(
-            #         error="MissingDataError",
-            #         message="Time force parquet file was not found. Reanalysis required.",
-            #     )
-
-            # # if file found, read to dataframe for IA
-            # time_force_df = pd.read_parquet(parquet_path)
-            # # get relevant well-specific time force coordinates
-            # well_specific_force = time_force_df[well_name].dropna()
-
-            # # normalize to match pulse3d output
-            # if normalize_y_axis:
-            #     min_value = min(well_specific_force)
-            #     well_specific_force -= min_value
-
-            # time = time_force_df[time_force_df.columns[0]].tolist()
-            # coordinates = [
-            #     [time[i] / MICRO_TO_BASE_CONVERSION, val]
-            #     for i, val in enumerate(well_specific_force.tolist())
-            # ]
-
-            # Luci (03/21/2023) only get peaks and valleys on initial waveform request when interactive analysis is first opened
-            # this request will be called each time user switches between wells, we don't want to get peaks and valleys each time
-            # peaks_and_valleys = None
-            # if peaks_valleys_requested:
-            #     pv_parquet_path = glob(os.path.join(tmpdir, job_id, "*.parquet"), recursive=True)
-            #     peaks_and_valleys = _get_peaks_valleys(
-            #         parquet_path=pv_parquet_path,
-            #         time_force_df=time_force_df,
-            #         pulse3d_version=pulse3d_version,
-            #         analysis_params=analysis_params,
-            #     )
-
             return WaveformDataResponse(
                 time_force_url=time_force_url,
                 peaks_valleys_url=peaks_valleys_url,
@@ -742,77 +692,6 @@ async def get_interactive_waveform_data(
     except Exception:
         logger.exception("Failed to get interactive waveform data")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-# TODO should make a function in core that handles running peak_detector or loading peaks/valleys from parquet and import it here and in the pulse3d-worker
-def _get_peaks_valleys(
-    parquet_path: str, time_force_df: pd.DataFrame, pulse3d_version: str, analysis_params: dict
-):
-    # Luci (12/14/2022) peaks_valleys will be none when interactive analysis is being run for the first time on the original analysis. There won't be any peaks or valleys found because nothing has been altered yet
-    logger.info("Checking for peaks and valleys in S3")
-    peaks_valleys_needed = len(parquet_path) == 0 and analysis_params.get("peaks_valleys") is None
-
-    if not peaks_valleys_needed:
-        peak_valleys_df = pd.read_parquet(parquet_path)
-
-    # remove raw data columns
-    # the any conditional is for testing, the __raw always needs to be excluded
-    columns = [c for c in time_force_df.columns if not any(x in c for x in ("__raw", "__peaks", "__valleys"))]
-    # this is to handle analyses run before PR.to_dataframe() where time is in seconds
-    needs_unit_conversion = not [c for c in time_force_df.columns if "__raw" in c]
-    time = time_force_df[columns[0]].tolist()
-
-    # set up empty dictionaries to be passed in response
-    peaks_and_valleys = dict()
-    for well in columns:
-        if not _is_valid_well_name(well):
-            continue
-
-        well_force = time_force_df[well].dropna().tolist()
-        if peaks_valleys_needed:
-            if needs_unit_conversion:
-                # not exact, but this isn't used outside of graphing in FE, real raw data doesn't get changed
-                min_value = min(well_force)
-                well_force -= min_value
-                well_force *= MICRO_TO_BASE_CONVERSION
-                time = [i * MICRO_TO_BASE_CONVERSION for i in time]
-
-            interpolated_well_data = np.row_stack([time[: len(well_force)], well_force])
-
-            param_names = ["width_factors", "start_time", "end_time"]
-            if pulse3d_version >= "0.33.2":
-                interpolated_well_data[0] /= MICRO_TO_BASE_CONVERSION
-                peak_detector_fn = noise_based_peak_finding
-                param_names += [
-                    "height_factor",
-                    "relative_prominence_factor",
-                    "noise_prominence_factor",
-                    "max_frequency",
-                    "valley_search_duration",
-                    "upslope_duration",
-                    "upslope_noise_allowance_duration",
-                ]
-            else:
-                peak_detector_fn = peak_detector
-                param_names.append("prominence_factors")
-
-            peak_detector_params = {
-                param: analysis_params[param] for param in param_names if analysis_params[param] is not None
-            }
-
-            peaks, valleys = peak_detector_fn(interpolated_well_data, **peak_detector_params)
-            # needs to be converted to lists to be sent as json in response
-            peaks_and_valleys[well] = [peaks.tolist(), valleys.tolist()]
-
-        elif len(parquet_path) == 1:
-            # need to remove nan values becuase peaks and valleys are different length lists
-            peaks = peak_valleys_df[f"{well}__peaks"].dropna().tolist()
-            valleys = peak_valleys_df[f"{well}__valleys"].dropna().tolist()
-            # stored as floats in df so need to convert to int
-            peaks_and_valleys[well] = [[int(x) for x in peaks], [int(x) for x in valleys]]
-            logger.info(f"{len(peaks)} peaks and {len(valleys)} valleys for well {well}")
-
-    return peaks_and_valleys
 
 
 @app.get("/versions")
