@@ -13,11 +13,8 @@ import semverGte from "semver/functions/gte";
 import FormInput from "@/components/basicWidgets/FormInput";
 import { AuthContext } from "@/pages/_app";
 import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
-<<<<<<< HEAD
 import * as apache from "apache-arrow";
 import { getPeaksValleysFromTable, getWaveformCoordsFromTable } from "@/utils/generic";
-=======
->>>>>>> RC-06-22-23
 
 const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
 
@@ -313,7 +310,6 @@ export default function InteractiveWaveformModal({
 
       const { start_time, end_time } = selectedJob.analysisParams;
 
-<<<<<<< HEAD
       xRange = {
         min: start_time || Math.min(...coordinates["A1"].map((coords) => coords[0])),
         max: end_time || Math.max(...coordinates["A1"].map((coords) => coords[0])),
@@ -327,26 +323,8 @@ export default function InteractiveWaveformModal({
 
       // won't be present for older recordings or if no replacement was ever given
       if ("nameOverride" in selectedJob) setNameOverride(selectedJob.nameOverride);
+      // setup initial peak valley thresholds
       setInitialPeakValleyWindows();
-=======
-        const { start_time, end_time } = selectedJob.analysisParams;
-        const newXRange = {
-          min: start_time || Math.min(...coordinates.map((coords) => coords[0])),
-          max: end_time || Math.max(...coordinates.map((coords) => coords[0])),
-        };
-        setXRange(newXRange);
-        setEditableStartEndTimes({
-          startTime: newXRange.min,
-          endTime: newXRange.max,
-        });
-
-        // won't be present for older recordings or if no replacement was ever given
-        if ("nameOverride" in selectedJob) setNameOverride(selectedJob.nameOverride);
-      }
-
-      setInitialPeakValleyWindows(well);
-
->>>>>>> RC-06-22-23
       // this function actually renders new graph data to the page
       setDataToGraph([...coordinates["A1"]]);
 
@@ -919,17 +897,8 @@ export default function InteractiveWaveformModal({
 
       if (changesCopy.length > 0) {
         // grab state from the step before the undo step to set as current state
-        const {
-          peaks,
-          valleys,
-          startTime,
-          endTime,
-          pvWindow,
-          valleyYOne,
-          valleyYTwo,
-          peakYOne,
-          peakYTwo,
-        } = changesCopy[changesCopy.length - 1];
+        const { peaks, valleys, startTime, endTime, pvWindow, valleyYOne, valleyYTwo, peakYOne, peakYTwo } =
+          changesCopy[changesCopy.length - 1];
         // set old peaks and valleys to well
         peaksValleysCopy[selectedWell] = [[...peaks], [...valleys]];
         pvWindowCopy[selectedWell] = pvWindow;
