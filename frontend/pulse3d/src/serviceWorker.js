@@ -311,11 +311,11 @@ self.addEventListener("fetch", async (e) => {
         // this needs to go after interceptResponse so that the initial A1 data gets returned first and not blocked by other requests
         if (isWaveformDataRequest(destURL)) {
           const fetchedData = await getWaveformDataFromS3(response);
-          console.log(fetchedData);
           response = new Response(JSON.stringify(fetchedData), {
             status: response.status,
             statusText: response.statusText,
           });
+
           if (response) cache.put(e.request, response.clone());
         }
 
