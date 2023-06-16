@@ -628,7 +628,7 @@ export default function WaveformGraph({
         const newY = y.invert(d3.select(elementName).attr(yId));
 
         const featureName = id.includes("peak") ? "peaks" : "valleys";
-        customAnalysisSettingsUpdaters.setThresholdEndpoint(featureName, yId, newY);
+        customAnalysisSettingsUpdaters.setThresholdEndpoints(featureName, { [yId]: newY });
 
         // decrease stroke width when unselected and dropped
         d3.select(this).attr("stroke-width", 2);
@@ -673,8 +673,7 @@ export default function WaveformGraph({
         const y2 = y.invert(d3.select(this).attr("y2"));
 
         const featureName = id.includes("peak") ? "peaks" : "valleys";
-        customAnalysisSettingsUpdaters.setThresholdEndpoint(featureName, "y1", y1);
-        customAnalysisSettingsUpdaters.setThresholdEndpoint(featureName, "y2", y2);
+        customAnalysisSettingsUpdaters.setThresholdEndpoints(featureName, { y1, y2 });
       });
 
     // draggable windowed peaks line

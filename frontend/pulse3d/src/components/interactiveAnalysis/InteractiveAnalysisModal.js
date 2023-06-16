@@ -233,8 +233,12 @@ const formatFeatureName = (featureName) => {
   return title(featureName).slice(0, -1);
 };
 
+const formatFloat = (n) => {
+  return n.toFixed(2);
+};
+
 const formatCoords = ([x, y]) => {
-  return `[ ${x.toFixed(2)}, ${y.toFixed(2)} ]`;
+  return `[ ${formatFloat(x)}, ${formatFloat(y)} ]`;
 };
 
 export default function InteractiveWaveformModal({
@@ -279,7 +283,7 @@ export default function InteractiveWaveformModal({
   const [customAnalysisSettings, setCustomAnalysisSettings] = useState(getDefaultCustomAnalysisSettings());
   // This only exists as a convenience for passing data down to WaveformGraph. It's a copy of customAnalysisSettings with only the data relevant for the selected well
   const [customAnalysisSettingsForWell, setCustomAnalysisSettingsForWell] = useState({});
-  // TODO could try combining customAnalysisSettingsChanges and changelog
+  // TODO could probably combine customAnalysisSettingsChanges and changelog
   const [customAnalysisSettingsChanges, setCustomAnalysisSettingsChanges] = useState(getArraysForWells());
   const [changelog, setChangelog] = useState(getArraysForWells());
   const [openChangelog, setOpenChangelog] = useState(false);
@@ -340,7 +344,6 @@ export default function InteractiveWaveformModal({
     }
     setChangelog(changelogCopy);
     setCustomAnalysisSettingsChanges(customAnalysisSettingsChangesCopy);
-    // TODO make sure this works
     // also need to update this
     setDisableRemoveDupsCheckbox(isRemoveDuplicatesDisabled(changelogCopy));
   };
@@ -428,14 +431,26 @@ export default function InteractiveWaveformModal({
 
       handleChangeForCurrentWell(ACTIONS.ADD, wellSettings, changelogMsg);
     },
-    setThresholdEndpoint: (featureName, endpointName, newValue) => {
+    setThresholdEndpoints: (featureName, newEndpoints) => {
       const wellSettings = customAnalysisSettings[selectedWell];
 
-      wellSettings.thresholdEndpoints[featureName][endpointName] = newValue;
+      wellSettings.thresholdEndpoints[featureName] = {
+        ...wellSettings.thresholdEndpoints[featureName],
+        ...newEndpoints,
+      };
 
-      const changelogMsg = `${formatFeatureName(featureName)} Line ${title(
-        endpointName
-      )} switched to ${newValue}`;
+      let changelogMsg = `${formatFeatureName(featureName)} Line `;
+      if (newEndpoints.y1) {
+        if (newEndpoints.y2) {
+          changelogMsg += `Endpoints changed to Y1: ${formatFloat(newEndpoints.y1)} and Y2: ${formatFloat(
+            newEndpoints.y2
+          )}.`;
+        } else {
+          changelogMsg += `Y1 changed to ${formatFloat(newEndpoints.y1)}.`;
+        }
+      } else {
+        changelogMsg += `Y2 changed to ${formatFloat(newEndpoints.y2)}.`;
+      }
 
       handleChangeForCurrentWell(ACTIONS.ADD, wellSettings, changelogMsg);
     },
@@ -593,21 +608,21 @@ export default function InteractiveWaveformModal({
       // TODO check that this is formatted correctly
       const filteredFeatures = {};
       for (const well in customAnalysisSettings) {
-        filteredFeatures[well] = customAnalysisSettings[well].filteredFeatureIndices;
+        if (!wellNames.includes(well)) continue; // ignore global changes
+        const { peaks, valleys } = customAnalysisSettings[well].filteredFeatureIndices;
+        filteredFeatures[well] = [peaks, valleys];
       }
 
       const prevPulse3dVersion = selectedJob.analysisParams.pulse3d_version;
-      const { start, end: endTime } = customAnalysisSettings.windowedAnalysisBounds;
-      // jobs run on pulse3d versions < 0.28.3 will not have a 0 timepoint so account for that here that 0.01 is still the first time point, not windowed
-      const startTime = !semverGte(prevPulse3dVersion, "0.28.3") && start == 0.01 ? null : endTime;
+      const { start: startTime, end: endTime } = customAnalysisSettings.windowedAnalysisBounds;
 
       // reassign new peaks and valleys if different
       const requestBody = {
         ...selectedJob.analysisParams,
         upload_id: selectedJob.uploadId,
         peaks_valleys: filteredFeatures,
-        start_time: startTime,
-        end_time: endTime,
+        start_time: startTime === timepointRange.min ? null : startTime,
+        end_time: endTime === timepointRange.max ? null : endTime,
         version: filteredVersions[pulse3dVersionIdx],
         previous_version: prevPulse3dVersion,
       };
@@ -678,9 +693,8 @@ export default function InteractiveWaveformModal({
 
   const handleRunAnalysis = () => {
     const wellsWithDups = [];
-    // TODO make sure this is working correctly
     Object.keys(customAnalysisSettings).map((well) => {
-      if (!wellNames.includes(well)) return;
+      if (!wellNames.includes(well)) return; // ignore global changes
       const { duplicateFeatureIndices } = customAnalysisSettings[well];
       const { peaks, valleys } = duplicateFeatureIndices;
       if (peaks.length > 0 || valleys.length > 0) wellsWithDups.push(well);
