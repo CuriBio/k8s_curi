@@ -595,15 +595,21 @@ export default function InteractiveWaveformModal({
   };
 
   const handleModalClose = async (i) => {
-    if (modalOpen === "status" || modalOpen === "pulse3dWarning") setOpenInteractiveAnalysis(false);
-    else if (i === 0) {
-      await getWaveformData();
+    // close IA if error status warning or old pulse3d warning modals are closed
+    if (modalOpen === "status" || modalOpen === "pulse3dWarning") {
+      setOpenInteractiveAnalysis(false);
     } else {
-      loadExistingData();
+      // do no use existing data found in sessionStorage
+      if (i === 0) {
+        await getWaveformData();
+        // yes, load existing data in sessionStorage
+      } else {
+        loadExistingData();
+      }
+      // remove existing record
+      sessionStorage.removeItem(selectedJob.jobId);
     }
-    
-    sessionStorage.removeItem(selectedJob.jobId);
-
+    // close modal
     setModalOpen(false);
   };
 
@@ -896,17 +902,8 @@ export default function InteractiveWaveformModal({
 
       if (changesCopy.length > 0) {
         // grab state from the step before the undo step to set as current state
-        const {
-          peaks,
-          valleys,
-          startTime,
-          endTime,
-          pvWindow,
-          valleyYOne,
-          valleyYTwo,
-          peakYOne,
-          peakYTwo,
-        } = changesCopy[changesCopy.length - 1];
+        const { peaks, valleys, startTime, endTime, pvWindow, valleyYOne, valleyYTwo, peakYOne, peakYTwo } =
+          changesCopy[changesCopy.length - 1];
         // set old peaks and valleys to well
         peaksValleysCopy[selectedWell] = [[...peaks], [...valleys]];
         pvWindowCopy[selectedWell] = pvWindow;
