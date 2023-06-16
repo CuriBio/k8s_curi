@@ -57,7 +57,9 @@ const loadCsvInputToArray = (commaSeparatedInputs) => {
 const getPeaksValleysFromTable = async (table) => {
   const columns = table.schema.fields.map(({ name }) => name);
   const columnData = table.data[0].children.map(({ values }) =>
-    Array.from(values).filter((idx) => idx !== 0)
+    Array.from(values)
+      .filter((idx) => idx !== 0)
+      .map((val) => (typeof val === "bigint" ? parseInt(val) : val))
   );
 
   const peaksValleysObj = {};
