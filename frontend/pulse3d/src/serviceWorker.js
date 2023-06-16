@@ -315,8 +315,8 @@ self.addEventListener("fetch", async (e) => {
             status: response.status,
             statusText: response.statusText,
           });
-
-          if (response) cache.put(e.request, response.clone());
+          // only store if successful request
+          if (response && response.status === 200) cache.put(e.request, response.clone());
         }
 
         return response;
