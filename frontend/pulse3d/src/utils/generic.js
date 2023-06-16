@@ -1,3 +1,7 @@
+const deepCopy = (obj) => {
+  return JSON.parse(JSON.stringify(obj));
+};
+
 const hexToBase64 = (hexstring) => {
   return btoa(
     // TODO remove deprecated method btoa
@@ -48,4 +52,4 @@ const loadCsvInputToArray = (commaSeparatedInputs) => {
   return inputAsArrOfStrs;
 };
 
-export { hexToBase64, isArrayOfNumbers, loadCsvInputToArray, isArrayOfWellNames };
+export { deepCopy, hexToBase64, isArrayOfNumbers, loadCsvInputToArray, isArrayOfWellNames };

@@ -259,7 +259,7 @@ export default function WaveformGraph({
     const initialStartTime = x(startTime || xMin);
     const initialEndTime = x(endTime || maxTime);
     // helper functions
-    function appendPeakValleyMarkers(id, lineId, xRaw, yRaw, color) {
+    function appendFeatureMarkers(id, lineId, xRaw, yRaw, color) {
       return svg
         .append("circle")
         .attr("id", id)
@@ -323,8 +323,8 @@ export default function WaveformGraph({
         const { type, idx } = selectedMarkerToMove;
 
         const shiftAmount = e.keyCode === 37 ? -1 : 1;
-        const featureValues = type === "peak" ? peaks : valleys;
-        const idxVal = featureValues[idx];
+        const features = type === "peak" ? peaks : valleys;
+        const idxVal = features[idx];
 
         customAnalysisSettingsUpdaters.moveFeature(`${type}s`, idxVal, idxVal + shiftAmount);
       }
@@ -480,34 +480,15 @@ export default function WaveformGraph({
 
       // assigns circle node new x and y coordinates based off drag event
       if (featureType === "peak") {
-        d3.select(this)
-          .attr(
-            "transform",
-            "translate(" + x(d[0]) + "," + (y(waveformData[draggedIdx][1]) - 7) + ") rotate(180)"
-          )
-          .style("fill", (d) => {
-            return duplicateIndices[`${featureType}s`].includes(d)
-              ? "var(--curi-error-markers)"
-              : "var(--curi-peaks)";
-          })
-          .attr("stroke", (d) => {
-            return duplicateIndices[`${featureType}s`].includes(d)
-              ? "var(--curi-error-markers)"
-              : "var(--curi-peaks)";
-          });
+        d3.select(this).attr(
+          "transform",
+          "translate(" + x(d[0]) + "," + (y(waveformData[draggedIdx][1]) - 7) + ") rotate(180)"
+        );
       } else {
-        d3.select(this)
-          .attr("transform", "translate(" + x(d[0]) + "," + (y(waveformData[draggedIdx][1]) + 7) + ")")
-          .style("fill", (d) => {
-            return duplicateIndices[`${featureType}s`].includes(d)
-              ? "var(--curi-error-markers)"
-              : "var(--curi-valleys)";
-          })
-          .attr("stroke", (d) => {
-            return duplicateIndices[`${featureType}s`].includes(d)
-              ? "var(--curi-error-markers)"
-              : "var(--curi-valleys)";
-          });
+        d3.select(this).attr(
+          "transform",
+          "translate(" + x(d[0]) + "," + (y(waveformData[draggedIdx][1]) + 7) + ")"
+        );
       }
       // update the focus text with current x and y data points as user drags marker
       focusText
@@ -523,8 +504,9 @@ export default function WaveformGraph({
       focusText.style("opacity", 0);
 
       const featureType = d3.select(this).attr("id");
+      const features = featureType === "peak" ? peaks : valleys;
       // indexToReplace is the index of the selected peak or valley in the peaks/valley state arrays that need to be changed
-      const indexToChange = peaks[d3.select(this).attr("indexToReplace")];
+      const indexToChange = features[d3.select(this).attr("indexToReplace")];
       const newSelectedIndex = waveformData.findIndex(
         (coords) => Number(coords[0].toFixed(2)) === Number(x.invert(d.x).toFixed(2))
       );
@@ -714,14 +696,14 @@ export default function WaveformGraph({
     const offsetFactor = 100;
     const endpointMarkerOffset = (endTime - startTime) / offsetFactor;
 
-    const peaksY1 = appendPeakValleyMarkers(
+    const peaksY1 = appendFeatureMarkers(
       "peakLineY1Marker",
       "peakLine",
       startTime + endpointMarkerOffset,
       thresholdEndpoints.peaks.y1,
       "var(--curi-peaks)"
     );
-    const peaksY2 = appendPeakValleyMarkers(
+    const peaksY2 = appendFeatureMarkers(
       "peakLineY2Marker",
       "peakLine",
       endTime - endpointMarkerOffset,
@@ -747,14 +729,14 @@ export default function WaveformGraph({
       .style("cursor", "pointer")
       .call(moveLineUpDown);
 
-    const valleysY1 = appendPeakValleyMarkers(
+    const valleysY1 = appendFeatureMarkers(
       "valleyLineY1Marker",
       "peakLine",
       startTime + endpointMarkerOffset,
       thresholdEndpoints.valleys.y1,
       "var(--curi-valleys)"
     );
-    const valleysY2 = appendPeakValleyMarkers(
+    const valleysY2 = appendFeatureMarkers(
       "valleyLineY2Marker",
       "peakLine",
       endTime - endpointMarkerOffset,
@@ -871,12 +853,12 @@ export default function WaveformGraph({
       const featureType = contextMenu.attr("type");
       customAnalysisSettingsUpdaters.deleteFeature(`${featureType}s`, targetIdx);
     } else if (target.id === "Move") {
-      const peakValley = contextMenu.attr("type");
+      const featureType = contextMenu.attr("type");
 
-      const idxToChange = (peakValley === "peak" ? peaks : valleys).indexOf(targetIdx);
+      const idxToChange = (featureType === "peak" ? peaks : valleys).indexOf(targetIdx);
 
       setSelectedMarkerToMove({
-        type: peakValley,
+        type: featureType,
         idx: idxToChange,
       });
     } else {
