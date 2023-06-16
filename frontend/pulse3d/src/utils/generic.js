@@ -56,6 +56,7 @@ const loadCsvInputToArray = (commaSeparatedInputs) => {
 
 const getPeaksValleysFromTable = async (table) => {
   const columns = table.schema.fields.map(({ name }) => name);
+  // filter out null values (0) and some values get randomly parsed to bigint values which cannot be converted to JSON
   const columnData = table.data[0].children.map(({ values }) =>
     Array.from(values)
       .filter((idx) => idx !== 0)
@@ -65,6 +66,7 @@ const getPeaksValleysFromTable = async (table) => {
   const peaksValleysObj = {};
 
   for (const well of wellNames) {
+    // assign each well [[...peaks], [...valleys]]
     const [peaksIdx, valleysIdx] = ["peaks", "valleys"].map((type) => columns.indexOf(`${well}__${type}`));
     peaksValleysObj[well] = [columnData[peaksIdx], columnData[valleysIdx]];
   }
@@ -74,7 +76,6 @@ const getPeaksValleysFromTable = async (table) => {
 
 const getWaveformCoordsFromTable = async (table, normalizeYAxis) => {
   const columns = table.schema.fields.map(({ name }) => name);
-  // 0s are null in the table
   const columnData = table.data[0].children.map(({ values }) => Array.from(values));
   const time = columnData[0];
   const coordinatesObj = {};
