@@ -1,3 +1,9 @@
+import { WellTitle as LabwareDefinition } from "@/utils/labwareCalculations";
+const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
+const wellNames = Array(24)
+  .fill()
+  .map((_, idx) => twentyFourPlateDefinition.getWellNameFromIndex(idx));
+
 const hexToBase64 = (hexstring) => {
   return btoa(
     // TODO remove deprecated method btoa
@@ -48,4 +54,54 @@ const loadCsvInputToArray = (commaSeparatedInputs) => {
   return inputAsArrOfStrs;
 };
 
-export { hexToBase64, isArrayOfNumbers, loadCsvInputToArray, isArrayOfWellNames };
+const getPeaksValleysFromTable = async (table) => {
+  const columns = table.schema.fields.map(({ name }) => name);
+  // filter out null values (0) and some values get randomly parsed to bigint values which cannot be converted to JSON
+  const columnData = table.data[0].children.map(({ values }) =>
+    Array.from(values)
+      .filter((idx) => idx !== 0)
+      .map((val) => (typeof val === "bigint" ? parseInt(val) : val))
+  );
+
+  const peaksValleysObj = {};
+
+  for (const well of wellNames) {
+    // assign each well [[...peaks], [...valleys]]
+    const [peaksIdx, valleysIdx] = ["peaks", "valleys"].map((type) => columns.indexOf(`${well}__${type}`));
+    peaksValleysObj[well] = [columnData[peaksIdx], columnData[valleysIdx]];
+  }
+
+  return peaksValleysObj;
+};
+
+const getWaveformCoordsFromTable = async (table, normalizeYAxis) => {
+  const columns = table.schema.fields.map(({ name }) => name);
+  const columnData = table.data[0].children.map(({ values }) => Array.from(values));
+  // occassionally recordings end in a bunch of NaN/0 values if stim data is present so they need to be filtered out here
+  // leaving time index aat 0 because it's meant to be 0
+  const time = columnData[0].filter((val, i) => val !== 0 || (val === 0 && i === 0));
+  const coordinatesObj = {};
+
+  for (const well of wellNames) {
+    const wellForceIdx = columns.indexOf(well);
+    let wellForce = columnData[wellForceIdx];
+
+    if (normalizeYAxis) {
+      const minForce = Math.min(...wellForce);
+      wellForce = wellForce.map((val) => val - minForce);
+    }
+
+    coordinatesObj[well] = time.map((time, i) => [time / 1e6, wellForce[i]]);
+  }
+
+  return coordinatesObj;
+};
+
+export {
+  getPeaksValleysFromTable,
+  getWaveformCoordsFromTable,
+  hexToBase64,
+  isArrayOfNumbers,
+  loadCsvInputToArray,
+  isArrayOfWellNames,
+};

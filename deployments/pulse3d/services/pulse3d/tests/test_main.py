@@ -6,7 +6,6 @@ import uuid
 import pandas as pd
 import pytest
 from semver import VersionInfo
-import glob
 from auth import create_token, PULSE3D_SCOPES
 from utils.s3 import S3Error
 from src import main
@@ -14,7 +13,6 @@ import numpy as np
 import tempfile
 
 from labware_domain_models import LabwareDefinition
-from pulse3D.constants import MICRO_TO_BASE_CONVERSION
 from src.models.models import GenericErrorResponse, WaveformDataResponse
 
 TWENTY_FOUR_WELL_PLATE = LabwareDefinition(row_count=4, column_count=6)
@@ -873,7 +871,6 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
 
     expected_analysis_param_keys = [
         "baseline_widths_to_use",
-        "prominence_factors",
         "width_factors",
         "twitch_widths",
         "start_time",
@@ -891,6 +888,19 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
         expected_analysis_param_keys.append("well_groups")
     if pulse3d_semver >= "0.30.5":
         expected_analysis_param_keys.append("stim_waveform_format")
+    if pulse3d_semver < "0.33.7":
+        expected_analysis_param_keys.append("prominence_factors")
+    if pulse3d_semver >= "0.33.7":
+        for param in (
+            "upslope_noise_allowance_duration",
+            "height_factor",
+            "relative_prominence_factor",
+            "noise_prominence_factor",
+            "max_frequency",
+            "valley_search_duration",
+            "upslope_duration",
+        ):
+            expected_analysis_param_keys.append(param)
 
     expected_analysis_params = {param: None for param in expected_analysis_param_keys}
 
@@ -1237,38 +1247,23 @@ def test_waveform_data__get__getting_job_metadata_from_db_errors(mocker):
 @pytest.mark.parametrize("pulse3d_version", [None, "1.2.3"])
 @pytest.mark.parametrize("well_name, test_data", [("A1", list(range(14))), ("B1", list(range(3)))])
 def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version, well_name, test_data):
-    mocker.patch.object(main, "glob", return_value=["/tmp/directory/recording"], autospec=True)
-    mocker.patch.object(main, "download_directory_from_s3", autospec=True)
-
     test_inclusive_df = pd.DataFrame()
     mocker.patch.object(pd, "read_parquet", return_value=test_inclusive_df, autospec=True)
+
     test_user_id = uuid.uuid4()
-
-    test_A1_data = list(range(1, 15))
-    test_B1_data = list(range(2, 5))
-
-    for column in ("Time", "Stim Time (µs)", "A1", "A1__raw", "A1__peaks", "A1__valleys"):
-        series = pd.Series(test_A1_data)
-        if column == "Time":
-            series *= MICRO_TO_BASE_CONVERSION
-        elif column != "A1__raw":
-            series[test_A1_data[-1]] = np.nan
-        test_inclusive_df[column] = series
-
-    for column in ("B1", "B1__raw", "B1__peaks", "B1__valleys"):
-        series = pd.Series(test_B1_data)
-        if column != "B1__raw":
-            series[test_B1_data[-1]] = np.nan
-        test_inclusive_df[column] = series
+    expected_presigned_url = "test-url.s3"
     expected_analysis_params = {
         param: None
         for param in (
             "normalize_y_axis",
             "baseline_widths_to_use",
             "max_y",
+            "include_stim_protocols",
             "prominence_factors",
             "width_factors",
             "twitch_widths",
+            "start_time",
+            "end_time",
         )
     }
 
@@ -1276,9 +1271,12 @@ def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version, w
         {
             "user_id": test_user_id,
             "job_meta": json.dumps({"version": pulse3d_version, "analysis_params": expected_analysis_params}),
+            "filename": "test-recording.zip",
+            "prefix": "/path/to/s3/object",
         }
     ]
     mocker.patch.object(main, "get_jobs", autospec=True, return_value=test_jobs)
+    mocker.patch.object(main, "generate_presigned_url", autospec=True, return_value=expected_presigned_url)
 
     access_token = get_token(scope=["pulse3d:free"], userid=test_user_id)
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
@@ -1287,149 +1285,19 @@ def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version, w
     test_upload_id = uuid.uuid4()
 
     response = test_client.get(
-        f"/jobs/waveform-data?upload_id={test_upload_id}&job_id={test_job_id}&well_name={well_name}&peaks_valleys=True",
-        **kwargs,
-    )
-
-    assert response.status_code == 200
-    expected_time = list(range(1, len(test_data) + 1))
-    assert response.json() == WaveformDataResponse(
-        coordinates=[[float(expected_time[i]), float(i)] for i in test_data],
-        peaks_valleys={"A1": [test_A1_data, test_A1_data], "B1": [test_B1_data, test_B1_data]},
-    )
-
-
-@pytest.mark.parametrize(
-    "normalize_y_axis,expected_coords",
-    [(True, list(range(13))), (False, list(range(1, 14))), (None, list(range(13)))],
-)
-def test_waveform_data__get__only_normalize_force_data_if_not_false_in_analysis_params(
-    mocker, normalize_y_axis, expected_coords
-):
-    mocker.patch.object(main, "glob", return_value=["/tmp/directory/recording"], autospec=True)
-    mocker.patch.object(main, "download_directory_from_s3", autospec=True)
-
-    test_user_id = uuid.uuid4()
-
-    test_inclusive_df = pd.DataFrame()
-    mocker.patch.object(pd, "read_parquet", return_value=test_inclusive_df, autospec=True)
-
-    test_data = list(range(1, 14))
-    for column in ("Time", "Stim Time (µs)", "A1", "A1__raw", "A1__peaks", "A1__valleys"):
-        series = pd.Series(test_data)
-        if column == "Time":
-            series *= MICRO_TO_BASE_CONVERSION
-        elif column != "A1__raw":
-            series[test_data[-1]] = np.nan
-        test_inclusive_df[column] = series
-
-    expected_analysis_params = {
-        param: None
-        for param in (
-            "baseline_widths_to_use",
-            "max_y",
-            "prominence_factors",
-            "width_factors",
-            "twitch_widths",
-            "start_time",
-            "end_time",
-            "include_stim_protocols",
-        )
-    }
-    # set condition
-    expected_analysis_params["normalize_y_axis"] = normalize_y_axis
-
-    test_jobs = [
-        {
-            "user_id": test_user_id,
-            "job_meta": json.dumps({"version": "0.0.0", "analysis_params": expected_analysis_params}),
-        }
-    ]
-    mocker.patch.object(main, "get_jobs", autospec=True, return_value=test_jobs)
-
-    access_token = get_token(scope=["pulse3d:free"], userid=test_user_id)
-    kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
-
-    test_job_id = uuid.uuid4()
-    test_upload_id = uuid.uuid4()
-
-    response = test_client.get(
-        f"/jobs/waveform-data?upload_id={test_upload_id}&job_id={test_job_id}&well_name=A1&peaks_valleys=False",
-        **kwargs,
-    )
-
-    assert response.status_code == 200
-    expected_time = list(range(1, len(expected_coords) + 1))
-
-    assert response.json()["coordinates"] == [[expected_time[i], x] for i, x in enumerate(expected_coords)]
-
-
-def test_waveform_data__get__peaks_valleys_returns_None_when_query_is_False(mocker):
-    mocker.patch.object(main, "glob", return_value=["/tmp/directory/recording"], autospec=True)
-    mocker.patch.object(main, "download_directory_from_s3", autospec=True)
-    spied_peaks_valleys = mocker.spy(main, "_get_peaks_valleys")
-
-    test_user_id = uuid.uuid4()
-
-    test_inclusive_df = pd.DataFrame()
-    mocker.patch.object(pd, "read_parquet", return_value=test_inclusive_df, autospec=True)
-
-    test_data = list(range(5))
-    expected_data = test_data[:-1]
-
-    for column in ("Time", "Stim Time (µs)", "A1", "A1__raw", "A1__peaks", "A1__valleys"):
-        series = pd.Series(test_data)
-        if column == "Time":
-            series *= MICRO_TO_BASE_CONVERSION
-        elif column != "A1__raw":
-            series[test_data[-1]] = np.nan
-        test_inclusive_df[column] = series
-
-    expected_analysis_params = {
-        param: None
-        for param in (
-            "normalize_y_axis",
-            "baseline_widths_to_use",
-            "max_y",
-            "prominence_factors",
-            "width_factors",
-            "twitch_widths",
-            "start_time",
-            "end_time",
-            "include_stim_protocols",
-            "max_y",
-        )
-    }
-
-    test_jobs = [
-        {
-            "user_id": test_user_id,
-            "job_meta": json.dumps({"version": "0.0.0", "analysis_params": expected_analysis_params}),
-        }
-    ]
-    mocker.patch.object(main, "get_jobs", autospec=True, return_value=test_jobs)
-
-    access_token = get_token(scope=["pulse3d:free"], userid=test_user_id)
-    kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
-
-    test_job_id = uuid.uuid4()
-    test_upload_id = uuid.uuid4()
-
-    response = test_client.get(
-        f"/jobs/waveform-data?upload_id={test_upload_id}&job_id={test_job_id}&well_name=A1&peaks_valleys=False",
-        **kwargs,
+        f"/jobs/waveform-data?upload_id={test_upload_id}&job_id={test_job_id}", **kwargs
     )
 
     assert response.status_code == 200
     assert response.json() == WaveformDataResponse(
-        coordinates=[[float(i), i] for i in expected_data], peaks_valleys=None
+        time_force_url=expected_presigned_url, peaks_valleys_url=expected_presigned_url, normalize_y_axis=True
     )
-    spied_peaks_valleys.assert_not_called()
 
 
 @pytest.mark.parametrize("pulse3d_version", [None, "1.2.3"])
 def test_waveform_data__get__no_time_force_parquet_found(mocker, pulse3d_version):
     test_user_id = uuid.uuid4()
+
     expected_analysis_params = {
         param: None
         for param in (
@@ -1449,13 +1317,15 @@ def test_waveform_data__get__no_time_force_parquet_found(mocker, pulse3d_version
         {
             "user_id": test_user_id,
             "job_meta": json.dumps({"version": pulse3d_version, "analysis_params": expected_analysis_params}),
+            "filename": "test-recording.zip",
+            "prefix": "/path/to/s3/object",
         }
     ]
 
     # set up mocked df returned from parquet file
     mocker.patch.object(main, "get_jobs", autospec=True, return_value=test_jobs)
-    mocker.patch.object(main, "download_directory_from_s3", autospec=True)
-    mocker.patch.object(glob, "glob", autospec=True)
+    # ValueError gets raised with object isn't found
+    mocker.patch.object(main, "generate_presigned_url", side_effect=ValueError)
 
     access_token = get_token(scope=["pulse3d:free"], userid=test_user_id)
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
@@ -1464,13 +1334,12 @@ def test_waveform_data__get__no_time_force_parquet_found(mocker, pulse3d_version
     test_upload_id = uuid.uuid4()
 
     response = test_client.get(
-        f"/jobs/waveform-data?upload_id={test_upload_id}&job_id={test_job_id}&well_name=A1&peaks_valleys=True",
-        **kwargs,
+        f"/jobs/waveform-data?upload_id={test_upload_id}&job_id={test_job_id}", **kwargs
     )
 
     assert response.status_code == 200
     assert response.json() == GenericErrorResponse(
-        message="Time force parquet file was not found. Reanalysis required.", error="MissingDataError"
+        message="Parquet file was not found in S3. Reanalysis required.", error="MissingDataError"
     )
 
 

@@ -13,6 +13,8 @@ import semverGte from "semver/functions/gte";
 import FormInput from "@/components/basicWidgets/FormInput";
 import { AuthContext } from "@/pages/_app";
 import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
+import * as apache from "apache-arrow";
+import { getPeaksValleysFromTable, getWaveformCoordsFromTable } from "@/utils/generic";
 
 const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
 
@@ -147,8 +149,8 @@ const constantModalLabels = {
   oldPulse3dVersion: {
     header: "Warning!",
     messages: [
-      "Interactive analysis is using a newer version of Pulse3D than the version originally used on this recording. Peaks and valleys may be slightly different.",
-      "Please re-analyze this recording using a Pulse3D version greater than 0.28.3 or continue.",
+      "Interactive analysis requires a newer version of Pulse3D than the version originally used on this recording. Peaks and valleys may be slightly different.",
+      "Please re-analyze this recording using a Pulse3D version greater than 0.28.3.",
     ],
     buttons: ["Close"],
   },
@@ -205,7 +207,7 @@ export default function InteractiveWaveformModal({
   const [selectedWell, setSelectedWell] = useState("A1");
 
   const [originalData, setOriginalData] = useState({}); // original waveform data from GET request, unedited
-  const [baseData, setBaseData] = useState({}); // same originalData but can have dups removed
+  const [baseData, setBaseData] = useState({}); // same originalData.peaksValleys but can have dups removed
   const [xRange, setXRange] = useState({
     // This is a copy of the max/min timepoints of the data. Windowed analysis start/stop times are set in editableStartEndTimes
     min: null,
@@ -273,71 +275,58 @@ export default function InteractiveWaveformModal({
     }
   }, [dataToGraph, editablePeaksValleys]);
 
-  useEffect(() => {
-    if (
-      // check if these are empty
-      [peakY1, peakY2, valleyY1, valleyY2].filter((arr) => arr[wellIdx] == null).length > 0 &&
-      peakValleyWindows[selectedWell]
-    ) {
-      setBothLinesToDefault();
-    }
-  }, [peakValleyWindows]);
-
-  const getNewData = async () => {
-    await getWaveformData(true, "A1");
-  };
-
-  const getWaveformData = async (peaksValleysNeeded, well) => {
+  const getWaveformData = async () => {
     try {
+      const wasmModule = await import("parquet-wasm/esm/arrow1.js");
+      await wasmModule.default();
+
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}&peaks_valleys=${peaksValleysNeeded}&well_name=${well}`
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}`
       );
+
       if (response.status !== 200) throw Error();
 
-      const res = await response.json();
-      if (res.error) throw Error();
+      const buffer = await response.json();
 
-      if (!("coordinates" in originalData)) {
-        originalData = {
-          peaksValleys: res.peaks_valleys,
-          coordinates: {},
-        };
-      }
+      const peaksValleysParquet = wasmModule.readParquet(Object.values(buffer.peaksValleys));
+      const peaksValleysTable = apache.tableFromIPC(peaksValleysParquet);
+      const peaksValleys = await getPeaksValleysFromTable(peaksValleysTable);
 
-      const { coordinates, peaks_valleys: peaksValleys } = res;
-      // original data is set and never changed to hold original state in case of reset
-      originalData.coordinates[well] = coordinates;
+      const timeForceParquet = wasmModule.readParquet(Object.values(buffer.timeForceData));
+      const timeForceTable = apache.tableFromIPC(timeForceParquet);
+      const coordinates = await getWaveformCoordsFromTable(timeForceTable, buffer.normalizeYAxis);
+
+      originalData = { peaksValleys, coordinates };
       setOriginalData(originalData);
+      setEditablePeaksValleys(peaksValleys);
+      setBaseData(peaksValleys);
 
-      if (peaksValleysNeeded) {
-        setEditablePeaksValleys(peaksValleys);
+      const { start_time, end_time } = selectedJob.analysisParams;
 
-        const { start_time, end_time } = selectedJob.analysisParams;
-        const newXRange = {
-          min: start_time || Math.min(...coordinates.map((coords) => coords[0])),
-          max: end_time || Math.max(...coordinates.map((coords) => coords[0])),
-        };
-        setXRange(newXRange);
-        setEditableStartEndTimes({
-          startTime: newXRange.min,
-          endTime: newXRange.max,
-        });
+      xRange = {
+        min: start_time || Math.min(...coordinates["A1"].map((coords) => coords[0])),
+        max: end_time || Math.max(...coordinates["A1"].map((coords) => coords[0])),
+      };
+      setXRange(xRange);
 
-        // won't be present for older recordings or if no replacement was ever given
-        if ("nameOverride" in selectedJob) setNameOverride(selectedJob.nameOverride);
-      }
+      setEditableStartEndTimes({
+        startTime: xRange.min,
+        endTime: xRange.max,
+      });
 
-      setInitialPeakValleyWindows(well);
-
+      // won't be present for older recordings or if no replacement was ever given
+      if ("nameOverride" in selectedJob) setNameOverride(selectedJob.nameOverride);
+      // setup initial peak valley thresholds
+      setInitialPeakValleyWindows();
       // this function actually renders new graph data to the page
-      setDataToGraph([...coordinates]);
+      setDataToGraph([...coordinates["A1"]]);
 
       if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.3")) {
         setModalLabels(constantModalLabels.oldPulse3dVersion);
         setModalOpen("pulse3dWarning");
       }
     } catch (e) {
-      console.log("ERROR getting waveform data: ", e);
+      console.log("ERROR getting waveform data", e);
       // open error modal and kick users back to /uploads page if random  error
       setModalLabels(constantModalLabels.error);
       setModalOpen("status");
@@ -402,37 +391,55 @@ export default function InteractiveWaveformModal({
     return duplicates;
   };
 
-  const setInitialPeakValleyWindows = (well) => {
-    const pvCopy = JSON.parse(JSON.stringify(peakValleyWindows));
+  const setInitialPeakValleyWindows = () => {
+    const windows = {};
+    const peakThresholds = Array(24);
+    const valleyThresholds = Array(24);
 
-    pvCopy[well] = {
-      minPeaks: findLowestPeak(well),
-      maxValleys: findHighestValley(well),
-    };
+    for (const well of wellNames) {
+      const wellIdx = twentyFourPlateDefinition.getWellIndexFromName(well);
+      const minPeaks = findLowestPeak(well);
+      const maxValleys = findHighestValley(well);
 
-    setPeakValleyWindows(pvCopy);
+      peakThresholds[wellIdx] = minPeaks;
+      valleyThresholds[wellIdx] = maxValleys;
+      windows[well] = {
+        minPeaks,
+        maxValleys,
+      };
+    }
+    setPeakY1(peakThresholds);
+    setPeakY2(peakThresholds);
+    setValleyY1(valleyThresholds);
+    setValleyY2(valleyThresholds);
+    setPeakValleyWindows(windows);
   };
 
   const findLowestPeak = (well) => {
     const { coordinates, peaksValleys } = originalData;
     const { max, min } = xRange;
-    // arbitrarily set to first peak
+
     const wellSpecificPeaks = peaksValleys[well][0];
     const wellSpecificCoords = coordinates[well];
-
     // consider when no peaks or valleys were found in a well
     if (wellSpecificCoords && wellSpecificPeaks.length > 0) {
-      let lowest = wellSpecificPeaks[0];
-
-      wellSpecificPeaks.map((peak) => {
-        const yCoord = wellSpecificCoords[peak][1];
-        const peakToCompare = wellSpecificCoords[lowest][1];
+      const windowedPeaks = wellSpecificPeaks.filter((peak) => {
         // only use peaks inside windowed analysis times
         const timeOfPeak = wellSpecificCoords[peak][0];
         const isLessThanEndTime = !max || timeOfPeak <= max;
         const isGreaterThanStartTime = !min || timeOfPeak >= min;
         // filter for peaks inside windowed time
-        if (yCoord < peakToCompare && isGreaterThanStartTime && isLessThanEndTime) lowest = peak;
+        return isGreaterThanStartTime && isLessThanEndTime;
+      });
+
+      // makes sure the initial valley to compare is within window
+      let lowest = windowedPeaks[0];
+
+      windowedPeaks.map((peak) => {
+        const yCoord = wellSpecificCoords[peak][1];
+        const peakToCompare = wellSpecificCoords[lowest][1];
+        // filter for peaks inside windowed time
+        if (yCoord < peakToCompare) lowest = peak;
       });
 
       // return  y coordinate of lowest peak
@@ -443,24 +450,28 @@ export default function InteractiveWaveformModal({
   const findHighestValley = (well) => {
     const { coordinates, peaksValleys } = originalData;
     const { max, min } = xRange;
-    // arbitrarily set to first valley
+
     const wellSpecificValleys = peaksValleys[well][1];
     const wellSpecificCoords = coordinates[well];
 
     // consider when no peaks or valleys were found in a well
     if (wellSpecificCoords && wellSpecificValleys.length > 0) {
-      let highest = wellSpecificValleys[0];
-
-      wellSpecificValleys.map((valley) => {
-        const yCoord = wellSpecificCoords[valley][1];
-        const valleyToCompare = wellSpecificCoords[highest][1];
-
+      const windowedValleys = wellSpecificValleys.filter((valley) => {
         // only use valleys inside windowed analysis times
         const timeOfValley = wellSpecificCoords[valley][0];
         const isLessThanEndTime = !max || timeOfValley <= max;
         const isGreaterThanStartTime = !min || timeOfValley >= min;
+        return isLessThanEndTime && isGreaterThanStartTime;
+      });
 
-        if (yCoord > valleyToCompare && isLessThanEndTime && isGreaterThanStartTime) highest = valley;
+      // makes sure the initial valley to compare is within window
+      let highest = windowedValleys[0];
+
+      windowedValleys.map((valley) => {
+        const yCoord = wellSpecificCoords[valley][1];
+        const valleyToCompare = wellSpecificCoords[highest][1];
+
+        if (yCoord > valleyToCompare) highest = valley;
       });
 
       // return  y coordinate of highest valley
@@ -500,13 +511,9 @@ export default function InteractiveWaveformModal({
     if (wellName !== selectedWell) {
       setSelectedWell(wellName);
       setWellIdx(idx);
-      if (!(wellName in originalData.coordinates)) {
-        setIsLoading(true);
-        getWaveformData(false, wellName);
-      } else {
-        const coordinates = originalData.coordinates[wellName];
-        setDataToGraph([...coordinates]);
-      }
+
+      const coordinates = originalData.coordinates[wellName];
+      setDataToGraph([...coordinates]);
     }
   };
 
@@ -532,7 +539,7 @@ export default function InteractiveWaveformModal({
       setEditablePeaksValleys(peaksValleysCopy);
       setChangelog(changelogCopy);
       setPeakValleyWindows(pvWindowCopy);
-      setBothLinesToDefault();
+      setBothThresholdLines();
       setDisableRemoveDupsCheckbox(isRemoveDuplicatesDisabled(changelogCopy));
     }
   };
@@ -542,6 +549,10 @@ export default function InteractiveWaveformModal({
       setUploadInProgress(true);
 
       const filteredPeaksValleys = await filterPeaksValleys();
+      for (const well in filteredPeaksValleys) {
+        filteredPeaksValleys[well][0] = filteredPeaksValleys[well][0].sort((a, b) => a - b);
+        filteredPeaksValleys[well][1] = filteredPeaksValleys[well][1].sort((a, b) => a - b);
+      }
 
       const prevPulse3dVersion = selectedJob.analysisParams.pulse3d_version;
       // jobs run on pulse3d versions < 0.28.3 will not have a 0 timepoint so account for that here that 0.01 is still the first time point, not windowed
@@ -591,17 +602,22 @@ export default function InteractiveWaveformModal({
     }
   };
 
-  const handleModalClose = (i) => {
-    if (modalOpen !== "pulse3dWarning") {
-      if (modalOpen === "status") setOpenInteractiveAnalysis(false);
-      else if (i === 0) {
-        getNewData();
+  const handleModalClose = async (i) => {
+    // close IA if error status warning or old pulse3d warning modals are closed
+    if (modalOpen === "status" || modalOpen === "pulse3dWarning") {
+      setOpenInteractiveAnalysis(false);
+    } else {
+      // do no use existing data found in sessionStorage
+      if (i === 0) {
+        await getWaveformData();
+        // yes, load existing data in sessionStorage
       } else {
         loadExistingData();
       }
+      // remove existing record
       sessionStorage.removeItem(selectedJob.jobId);
     }
-
+    // close modal
     setModalOpen(false);
   };
 
@@ -644,6 +660,7 @@ export default function InteractiveWaveformModal({
 
   const updateChangelog = () => {
     let changelogMessage;
+
     // changelog will have length of 0 if a user clicks undo all the way back to until initial state
     if (changelog[selectedWell] && changelog[selectedWell].length > 0) {
       // If Change log has changes
@@ -910,7 +927,7 @@ export default function InteractiveWaveformModal({
         pvWindowCopy[selectedWell] = pvWindow;
         newWindowTimes.startTime = startTime;
         newWindowTimes.endTime = endTime;
-        setBothLinesToNew(peakYOne, peakYTwo, valleyYOne, valleyYTwo);
+        setBothThresholdLines(peakYOne, peakYTwo, valleyYOne, valleyYTwo);
 
         // update values to state to rerender graph
         setEditableStartEndTimes(newWindowTimes);
@@ -944,25 +961,25 @@ export default function InteractiveWaveformModal({
     return y1 + slope * (markerX - editableStartEndTimes.startTime);
   };
 
-  const assignNewArr = (data, newValue, setState) => {
+  const assignNewArr = (wellIndex, data, newValue, setState) => {
     let newArr = [...data];
-    newArr[wellIdx] = newValue;
+    newArr[wellIndex] = newValue;
     setState([...newArr]);
   };
 
-  // TODO clean all this up
-  const setBothLinesToDefault = () => {
-    assignNewArr(peakY1, peakValleyWindows[selectedWell].minPeaks, setPeakY1);
-    assignNewArr(peakY2, peakValleyWindows[selectedWell].minPeaks, setPeakY2);
-    assignNewArr(valleyY1, peakValleyWindows[selectedWell].maxValleys, setValleyY1);
-    assignNewArr(valleyY2, peakValleyWindows[selectedWell].maxValleys, setValleyY2);
-  };
+  const setBothThresholdLines = (
+    newPeakY1 = peakValleyWindows[selectedWell].minPeaks,
+    newPeakY2 = peakValleyWindows[selectedWell].minPeaks,
+    newValleyY1 = peakValleyWindows[selectedWell].maxValleys,
+    newValleyY2 = peakValleyWindows[selectedWell].maxValleys,
+    well = selectedWell
+  ) => {
+    const wellIndex = twentyFourPlateDefinition.getWellIndexFromName(well);
 
-  const setBothLinesToNew = (newPeakY1, newPeakY2, newValleyY1, newValleyY2) => {
-    assignNewArr(peakY1, newPeakY1, setPeakY1);
-    assignNewArr(peakY2, newPeakY2, setPeakY2);
-    assignNewArr(valleyY1, newValleyY1, setValleyY1);
-    assignNewArr(valleyY2, newValleyY2, setValleyY2);
+    assignNewArr(wellIndex, peakY1, newPeakY1, setPeakY1);
+    assignNewArr(wellIndex, peakY2, newPeakY2, setPeakY2);
+    assignNewArr(wellIndex, valleyY1, newValleyY1, setValleyY1);
+    assignNewArr(wellIndex, valleyY2, newValleyY2, setValleyY2);
   };
 
   const isNewY = (yToCompare, originalYArr) => {
@@ -1098,7 +1115,7 @@ export default function InteractiveWaveformModal({
   // ENTRYPOINT
   // defined last so that everything required for it already exists
   // Luci (12-14-2022) this component gets mounted twice and we don't want this expensive function to request waveform data to be called twice. This ensures it is only called once per job selection
-  useMemo(() => {
+  useMemo(async () => {
     const data = sessionStorage.getItem(selectedJob.jobId); // returns null if key doesn't exist in storage
     if (data) {
       // if data is found in sessionStorage then do ?
@@ -1106,7 +1123,7 @@ export default function InteractiveWaveformModal({
       setModalOpen("dataFound");
     } else {
       // if no data stored, then need to retrieve from server
-      getNewData();
+      await getWaveformData();
     }
   }, [selectedJob]);
 
