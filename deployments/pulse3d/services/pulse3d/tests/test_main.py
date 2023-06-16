@@ -13,7 +13,6 @@ import numpy as np
 import tempfile
 
 from labware_domain_models import LabwareDefinition
-from pulse3D.constants import MICRO_TO_BASE_CONVERSION
 from src.models.models import GenericErrorResponse, WaveformDataResponse
 
 TWENTY_FOUR_WELL_PLATE = LabwareDefinition(row_count=4, column_count=6)
