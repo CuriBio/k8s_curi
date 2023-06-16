@@ -949,11 +949,11 @@ export default function WaveformGraph({
 
   const setLineCalculationVariables = (id, y1, y2) => {
     if (id.includes("peak")) {
-      assignNewArr(peakY1, y1, setPeakY1);
-      assignNewArr(peakY2, y2, setPeakY2);
+      assignNewArr(wellIdx, peakY1, y1, setPeakY1);
+      assignNewArr(wellIdx, peakY2, y2, setPeakY2);
     } else {
-      assignNewArr(valleyY1, y1, setValleyY1);
-      assignNewArr(valleyY2, y2, setValleyY2);
+      assignNewArr(wellIdx, valleyY1, y1, setValleyY1);
+      assignNewArr(wellIdx, valleyY2, y2, setValleyY2);
     }
   };
   const getFeatureAlertMessage = () => {

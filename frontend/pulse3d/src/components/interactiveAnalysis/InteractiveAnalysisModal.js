@@ -273,14 +273,6 @@ export default function InteractiveWaveformModal({
     if (dataToGraph.length > 0) {
       setIsLoading(false);
     }
-
-    if (
-      // check if these are empty
-      [peakY1, peakY2, valleyY1, valleyY2].filter((arr) => arr[wellIdx] == null).length > 0 &&
-      peakValleyWindows[selectedWell]
-    ) {
-      setBothLinesToDefault();
-    }
   }, [dataToGraph, editablePeaksValleys]);
 
   const getWaveformData = async () => {
@@ -401,14 +393,25 @@ export default function InteractiveWaveformModal({
 
   const setInitialPeakValleyWindows = () => {
     const windows = {};
+    const peakThresholds = Array(24);
+    const valleyThresholds = Array(24);
 
     for (const well of wellNames) {
+      const wellIdx = twentyFourPlateDefinition.getWellIndexFromName(well);
+      const minPeaks = findLowestPeak(well);
+      const maxValleys = findHighestValley(well);
+
+      peakThresholds[wellIdx] = minPeaks;
+      valleyThresholds[wellIdx] = maxValleys;
       windows[well] = {
-        minPeaks: findLowestPeak(well),
-        maxValleys: findHighestValley(well),
+        minPeaks,
+        maxValleys,
       };
     }
-
+    setPeakY1(peakThresholds);
+    setPeakY2(peakThresholds);
+    setValleyY1(valleyThresholds);
+    setValleyY2(valleyThresholds);
     setPeakValleyWindows(windows);
   };
 
@@ -432,7 +435,7 @@ export default function InteractiveWaveformModal({
       // makes sure the initial valley to compare is within window
       let lowest = windowedPeaks[0];
 
-      wellSpecificPeaks.map((peak) => {
+      windowedPeaks.map((peak) => {
         const yCoord = wellSpecificCoords[peak][1];
         const peakToCompare = wellSpecificCoords[lowest][1];
         // filter for peaks inside windowed time
@@ -536,7 +539,7 @@ export default function InteractiveWaveformModal({
       setEditablePeaksValleys(peaksValleysCopy);
       setChangelog(changelogCopy);
       setPeakValleyWindows(pvWindowCopy);
-      setBothLinesToDefault();
+      setBothThresholdLines();
       setDisableRemoveDupsCheckbox(isRemoveDuplicatesDisabled(changelogCopy));
     }
   };
@@ -908,14 +911,23 @@ export default function InteractiveWaveformModal({
 
       if (changesCopy.length > 0) {
         // grab state from the step before the undo step to set as current state
-        const { peaks, valleys, startTime, endTime, pvWindow, valleyYOne, valleyYTwo, peakYOne, peakYTwo } =
-          changesCopy[changesCopy.length - 1];
+        const {
+          peaks,
+          valleys,
+          startTime,
+          endTime,
+          pvWindow,
+          valleyYOne,
+          valleyYTwo,
+          peakYOne,
+          peakYTwo,
+        } = changesCopy[changesCopy.length - 1];
         // set old peaks and valleys to well
         peaksValleysCopy[selectedWell] = [[...peaks], [...valleys]];
         pvWindowCopy[selectedWell] = pvWindow;
         newWindowTimes.startTime = startTime;
         newWindowTimes.endTime = endTime;
-        setBothLinesToNew(peakYOne, peakYTwo, valleyYOne, valleyYTwo);
+        setBothThresholdLines(peakYOne, peakYTwo, valleyYOne, valleyYTwo);
 
         // update values to state to rerender graph
         setEditableStartEndTimes(newWindowTimes);
@@ -949,25 +961,25 @@ export default function InteractiveWaveformModal({
     return y1 + slope * (markerX - editableStartEndTimes.startTime);
   };
 
-  const assignNewArr = (data, newValue, setState) => {
+  const assignNewArr = (wellIndex, data, newValue, setState) => {
     let newArr = [...data];
-    newArr[wellIdx] = newValue;
+    newArr[wellIndex] = newValue;
     setState([...newArr]);
   };
 
-  // TODO clean all this up
-  const setBothLinesToDefault = () => {
-    assignNewArr(peakY1, peakValleyWindows[selectedWell].minPeaks, setPeakY1);
-    assignNewArr(peakY2, peakValleyWindows[selectedWell].minPeaks, setPeakY2);
-    assignNewArr(valleyY1, peakValleyWindows[selectedWell].maxValleys, setValleyY1);
-    assignNewArr(valleyY2, peakValleyWindows[selectedWell].maxValleys, setValleyY2);
-  };
+  const setBothThresholdLines = (
+    newPeakY1 = peakValleyWindows[selectedWell].minPeaks,
+    newPeakY2 = peakValleyWindows[selectedWell].minPeaks,
+    newValleyY1 = peakValleyWindows[selectedWell].maxValleys,
+    newValleyY2 = peakValleyWindows[selectedWell].maxValleys,
+    well = selectedWell
+  ) => {
+    const wellIndex = twentyFourPlateDefinition.getWellIndexFromName(well);
 
-  const setBothLinesToNew = (newPeakY1, newPeakY2, newValleyY1, newValleyY2) => {
-    assignNewArr(peakY1, newPeakY1, setPeakY1);
-    assignNewArr(peakY2, newPeakY2, setPeakY2);
-    assignNewArr(valleyY1, newValleyY1, setValleyY1);
-    assignNewArr(valleyY2, newValleyY2, setValleyY2);
+    assignNewArr(wellIndex, peakY1, newPeakY1, setPeakY1);
+    assignNewArr(wellIndex, peakY2, newPeakY2, setPeakY2);
+    assignNewArr(wellIndex, valleyY1, newValleyY1, setValleyY1);
+    assignNewArr(wellIndex, valleyY2, newValleyY2, setValleyY2);
   };
 
   const isNewY = (yToCompare, originalYArr) => {
