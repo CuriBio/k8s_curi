@@ -418,8 +418,8 @@ export default function WaveformGraph({
             const endPosition = startPosition + timeWidth;
             // save new window analysis times to state on end so that it only updates changelog on drop
             customAnalysisSettingsUpdaters.setWindowBounds({
-              start: parseFloat(x.invert(startPosition).toFixed()),
-              end: parseFloat(x.invert(endPosition).toFixed()),
+              start: parseFloat(x.invert(startPosition).toFixed(2)),
+              end: parseFloat(x.invert(endPosition).toFixed(2)),
             });
             d3.select(this).attr("opacity", 0.2).attr("cursor", "default");
           })

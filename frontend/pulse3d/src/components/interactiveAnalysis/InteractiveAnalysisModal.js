@@ -14,6 +14,8 @@ import semverGte from "semver/functions/gte";
 import FormInput from "@/components/basicWidgets/FormInput";
 import { AuthContext } from "@/pages/_app";
 import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
+import * as apache from "apache-arrow";
+import { getPeaksValleysFromTable, getWaveformCoordsFromTable } from "@/utils/generic";
 
 const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
 
@@ -148,8 +150,8 @@ const constantModalLabels = {
   oldPulse3dVersion: {
     header: "Warning!",
     messages: [
-      "Interactive analysis is using a newer version of Pulse3D than the version originally used on this recording. Peaks and valleys may be slightly different.",
-      "Please re-analyze this recording using a Pulse3D version greater than 0.28.3 or continue.",
+      "Interactive analysis requires a newer version of Pulse3D than the version originally used on this recording. Peaks and valleys may be slightly different.",
+      "Please re-analyze this recording using a Pulse3D version greater than 0.28.3.",
     ],
     buttons: ["Close"],
   },
@@ -303,10 +305,10 @@ export default function InteractiveWaveformModal({
     setCustomAnalysisSettings(newCustomAnalysisSettings);
   };
 
-  const resetWellChanges = (newChangelog) => {
+  const resetWellChanges = () => {
     customAnalysisSettingsInitializers.featureIndices(selectedWell, "peaks", baseData[selectedWell][0]);
     customAnalysisSettingsInitializers.featureIndices(selectedWell, "valleys", baseData[selectedWell][1]);
-    setBothLinesToDefault();
+    setBothLinesToDefault(selectedWell);
   };
 
   // setChangelog and setCustomAnalysisSettingsChanges should not be called directly, use this instead so they are always handled together.
@@ -329,7 +331,7 @@ export default function InteractiveWaveformModal({
     } else if (actionType === ACTIONS.RESET || changelogCopyForWell.length <= 1) {
       customAnalysisSettingsChangesCopyForWell.splice(0, customAnalysisSettingsChangesCopyForWell.length);
       changelogCopyForWell.splice(0, changelogCopyForWell.length);
-      resetWellChanges(changelogCopy);
+      resetWellChanges();
     } else {
       // UNDO with at least 2 changes in the changelog at the time of the action, so reset does not need to be handled here
       customAnalysisSettingsChangesCopyForWell.splice(customAnalysisSettingsChangesCopyForWell.length - 1, 1);
@@ -497,22 +499,13 @@ export default function InteractiveWaveformModal({
   // A spinner is displayed until the waveform data for the currently selected well is loaded.
   // This switches from the spinner to the WaveformGraph once that happens
   useEffect(() => {
-    if (wellWaveformData.length > 0) {
+    if (wellWaveformData.length > 0 && isLoading) {
+      for (const well of wellNames) {
+        setBothLinesToDefault(well);
+      }
       setIsLoading(false);
     }
   }, [wellWaveformData]);
-
-  // set peak and valley markers if not already set and the data required to set them is present
-  useEffect(() => {
-    const { peaks, valleys } = customAnalysisSettings[selectedWell].thresholdEndpoints;
-    if (
-      [peaks.y1, peaks.y2, valleys.y1, valleys.y1].filter((val) => val == null).length > 0 &&
-      originalAnalysisData.featuresForWells &&
-      originalAnalysisData.featuresForWells[selectedWell]
-    ) {
-      setBothLinesToDefault();
-    }
-  }, [selectedWell, wellWaveformData]);
 
   // update customAnalysisSettingsForWell whenever customAnalysisSettings or the currently selected well changes
   useEffect(() => {
@@ -527,55 +520,53 @@ export default function InteractiveWaveformModal({
     );
   }, [customAnalysisSettings, selectedWell]);
 
-  const getNewData = async () => {
-    await getWaveformData(true, "A1");
-  };
-
-  const getWaveformData = async (featuresNeeded, well) => {
+  const getWaveformData = async () => {
     try {
+      const wasmModule = await import("parquet-wasm/esm/arrow1.js");
+      await wasmModule.default();
+
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}&peaks_valleys=${featuresNeeded}&well_name=${well}`
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}`
       );
+
       if (response.status !== 200) throw Error();
 
-      const res = await response.json();
-      if (res.error) throw Error();
+      const buffer = await response.json();
 
-      if (!("coordinates" in originalAnalysisData)) {
-        originalAnalysisData = {
-          featuresForWells: res.peaks_valleys,
-          coordinates: {},
-        };
-        setBaseData(res.peaks_valleys);
-      }
+      const featuresParquet = wasmModule.readParquet(Object.values(buffer.peaksValleys));
+      const featuresTable = apache.tableFromIPC(featuresParquet);
+      const featuresForWells = await getPeaksValleysFromTable(featuresTable);
 
-      const { coordinates } = res;
+      const timeForceParquet = wasmModule.readParquet(Object.values(buffer.timeForceData));
+      const timeForceTable = apache.tableFromIPC(timeForceParquet);
+      const coordinates = await getWaveformCoordsFromTable(timeForceTable, buffer.normalizeYAxis);
+
+      setBaseData(featuresForWells);
+
       // original data is set and never changed to hold original state in case of reset
-      originalAnalysisData.coordinates[well] = coordinates;
+      originalAnalysisData = { featuresForWells, coordinates };
       setOriginalAnalysisData(originalAnalysisData);
 
-      if (featuresNeeded) {
-        const { start_time, end_time } = selectedJob.analysisParams;
-        const newTimepointRange = {
-          min: start_time || Math.min(...coordinates.map((coords) => coords[0])),
-          max: end_time || Math.max(...coordinates.map((coords) => coords[0])),
-        };
-        setTimepointRange(newTimepointRange);
-        customAnalysisSettingsInitializers.windowBounds({
-          start: newTimepointRange.min,
-          end: newTimepointRange.max,
-        });
+      const { start_time, end_time } = selectedJob.analysisParams;
+      const newTimepointRange = {
+        min: start_time || Math.min(...coordinates[wellNames[0]].map((coords) => coords[0])),
+        max: end_time || Math.max(...coordinates[wellNames[0]].map((coords) => coords[0])),
+      };
+      setTimepointRange(newTimepointRange);
+      customAnalysisSettingsInitializers.windowBounds({
+        start: newTimepointRange.min,
+        end: newTimepointRange.max,
+      });
 
-        // won't be present for older recordings or if no replacement was ever given
-        if ("nameOverride" in selectedJob) setNameOverride(selectedJob.nameOverride);
-      }
+      // won't be present for older recordings or if no replacement was ever given
+      if ("nameOverride" in selectedJob) setNameOverride(selectedJob.nameOverride);
 
       if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.3")) {
         setModalLabels(constantModalLabels.oldPulse3dVersion);
         setModalOpen("pulse3dWarning");
       }
     } catch (e) {
-      console.log("ERROR getting waveform data: ", e);
+      console.log("ERROR getting waveform data:", e);
       // open error modal and kick users back to /uploads page if random  error
       setModalLabels(constantModalLabels.error);
       setModalOpen("status");
@@ -594,10 +585,6 @@ export default function InteractiveWaveformModal({
     const wellName = wellNames[idx];
     if (wellName !== selectedWell) {
       setSelectedWell(wellName);
-      if (!(wellName in originalAnalysisData.coordinates)) {
-        setIsLoading(true);
-        getWaveformData(false, wellName);
-      }
     }
   };
 
@@ -605,7 +592,6 @@ export default function InteractiveWaveformModal({
     try {
       setUploadInProgress(true);
 
-      // TODO check that this is formatted correctly
       const filteredFeatures = {};
       for (const well in customAnalysisSettings) {
         if (!wellNames.includes(well)) continue; // ignore global changes
@@ -638,7 +624,7 @@ export default function InteractiveWaveformModal({
 
       if (jobResponse.status !== 200) {
         // TODO make modal
-        console.log("ERROR posting new job: ", await jobResponse.json());
+        console.log("ERROR posting new job:", await jobResponse.json());
         setModalLabels(constantModalLabels.error);
       } else {
         setModalLabels(constantModalLabels.success);
@@ -650,24 +636,29 @@ export default function InteractiveWaveformModal({
       // currently clearing for successful uploads
       sessionStorage.removeItem(selectedJob.jobId);
     } catch (e) {
-      console.log("ERROR posting new job", e);
+      console.log("ERROR posting new job:", e);
       setModalLabels(constantModalLabels.error);
       setUploadInProgress(false);
       setModalOpen("status");
     }
   };
 
-  const handleModalClose = (i) => {
-    if (modalOpen !== "pulse3dWarning") {
-      if (modalOpen === "status") setOpenInteractiveAnalysis(false);
-      else if (i === 0) {
-        getNewData();
+  const handleModalClose = async (i) => {
+    // close IA if error status warning or old pulse3d warning modals are closed
+    if (modalOpen === "status" || modalOpen === "pulse3dWarning") {
+      setOpenInteractiveAnalysis(false);
+    } else {
+      if (i === 0) {
+        // ignore existing data in sessionStorage
+        await getWaveformData();
       } else {
+        // load existing data in sessionStorage
         loadExistingData();
       }
+      // remove existing record
       sessionStorage.removeItem(selectedJob.jobId);
     }
-
+    // close modal
     setModalOpen(false);
   };
 
@@ -761,16 +752,16 @@ export default function InteractiveWaveformModal({
     }
   };
 
-  const setBothLinesToDefault = () => {
+  const setBothLinesToDefault = (well) => {
     customAnalysisSettingsInitializers.thresholdEndpoints(
-      selectedWell,
+      well,
       "peaks",
-      findInitialThresholdForFeature(selectedWell, "peaks")
+      findInitialThresholdForFeature(well, "peaks")
     );
     customAnalysisSettingsInitializers.thresholdEndpoints(
-      selectedWell,
+      well,
       "valleys",
-      findInitialThresholdForFeature(selectedWell, "valleys")
+      findInitialThresholdForFeature(well, "valleys")
     );
   };
 
@@ -870,7 +861,7 @@ export default function InteractiveWaveformModal({
   // ENTRYPOINT
   // defined last so that everything required for it already exists
   // Luci (12-14-2022) this component gets mounted twice and we don't want this expensive function to request waveform data to be called twice. This ensures it is only called once per job selection
-  useMemo(() => {
+  useMemo(async () => {
     const data = sessionStorage.getItem(selectedJob.jobId); // returns null if key doesn't exist in storage
     if (data) {
       // if data is found in sessionStorage then do ?
@@ -878,7 +869,7 @@ export default function InteractiveWaveformModal({
       setModalOpen("dataFound");
     } else {
       // if no data stored, then need to retrieve from server
-      getNewData();
+      await getWaveformData();
     }
   }, [selectedJob]);
 
