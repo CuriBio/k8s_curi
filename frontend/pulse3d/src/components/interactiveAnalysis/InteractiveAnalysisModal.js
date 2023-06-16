@@ -207,7 +207,7 @@ export default function InteractiveWaveformModal({
   const [selectedWell, setSelectedWell] = useState("A1");
 
   const [originalData, setOriginalData] = useState({}); // original waveform data from GET request, unedited
-  const [baseData, setBaseData] = useState({}); // same originalData but can have dups removed
+  const [baseData, setBaseData] = useState({}); // same originalData.peaksValleys but can have dups removed
   const [xRange, setXRange] = useState({
     // This is a copy of the max/min timepoints of the data. Windowed analysis start/stop times are set in editableStartEndTimes
     min: null,
@@ -307,6 +307,7 @@ export default function InteractiveWaveformModal({
       originalData = { peaksValleys, coordinates };
       setOriginalData(originalData);
       setEditablePeaksValleys(peaksValleys);
+      setBaseData(peaksValleys);
 
       const { start_time, end_time } = selectedJob.analysisParams;
 
@@ -545,6 +546,10 @@ export default function InteractiveWaveformModal({
       setUploadInProgress(true);
 
       const filteredPeaksValleys = await filterPeaksValleys();
+      for (const well in filteredPeaksValleys) {
+        filteredPeaksValleys[well][0] = filteredPeaksValleys[well][0].sort((a, b) => a - b);
+        filteredPeaksValleys[well][1] = filteredPeaksValleys[well][1].sort((a, b) => a - b);
+      }
 
       const prevPulse3dVersion = selectedJob.analysisParams.pulse3d_version;
       // jobs run on pulse3d versions < 0.28.3 will not have a 0 timepoint so account for that here that 0.01 is still the first time point, not windowed
@@ -652,6 +657,7 @@ export default function InteractiveWaveformModal({
 
   const updateChangelog = () => {
     let changelogMessage;
+
     // changelog will have length of 0 if a user clicks undo all the way back to until initial state
     if (changelog[selectedWell] && changelog[selectedWell].length > 0) {
       // If Change log has changes
@@ -902,17 +908,8 @@ export default function InteractiveWaveformModal({
 
       if (changesCopy.length > 0) {
         // grab state from the step before the undo step to set as current state
-        const {
-          peaks,
-          valleys,
-          startTime,
-          endTime,
-          pvWindow,
-          valleyYOne,
-          valleyYTwo,
-          peakYOne,
-          peakYTwo,
-        } = changesCopy[changesCopy.length - 1];
+        const { peaks, valleys, startTime, endTime, pvWindow, valleyYOne, valleyYTwo, peakYOne, peakYTwo } =
+          changesCopy[changesCopy.length - 1];
         // set old peaks and valleys to well
         peaksValleysCopy[selectedWell] = [[...peaks], [...valleys]];
         pvWindowCopy[selectedWell] = pvWindow;
