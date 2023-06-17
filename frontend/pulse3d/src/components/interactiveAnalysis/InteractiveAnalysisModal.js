@@ -158,7 +158,7 @@ const constantModalLabels = {
   dataFound: {
     header: "Important!",
     messages: ["Previous changes have been found for this analysis.", "Do you want to use it or start over?"],
-    buttons: ["Start Over", "Use"],
+    buttons: ["Start Over", "Use Existing Changes"],
   },
   removeDuplicates: {
     header: "Important!",
@@ -178,6 +178,13 @@ const ACTIONS = {
   ADD: "add",
   UNDO: "undo",
   RESET: "reset",
+};
+
+const LOAD_STATUSES = {
+  NOT_LOADED: "not_loaded",
+  LOADING_EXISTING: "existing",
+  LOADING_NEW: "new",
+  LOADED: "loaded",
 };
 
 const getDefaultCustomAnalysisSettings = () => {
@@ -251,6 +258,9 @@ export default function InteractiveWaveformModal({
   const { usageQuota } = useContext(AuthContext);
   const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
 
+  const [loadStatus, setLoadStatus] = useState(LOAD_STATUSES.NOT_LOADED);
+  const isLoading = loadStatus !== LOAD_STATUSES.LOADED;
+
   const [creditUsageAlert, setCreditUsageAlert] = useState(false);
   const [pulse3dVersionIdx, setPulse3dVersionIdx] = useState(0);
   const [filteredVersions, setFilteredVersions] = useState([]);
@@ -258,7 +268,6 @@ export default function InteractiveWaveformModal({
   const [pulse3dVersionEOLDate, setPulse3dVersionEOLDate] = useState("");
   const [nameOverride, setNameOverride] = useState();
   const [uploadInProgress, setUploadInProgress] = useState(false); // determines state of interactive analysis upload
-  const [isLoading, setIsLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalLabels, setModalLabels] = useState(constantModalLabels.success);
 
@@ -344,9 +353,13 @@ export default function InteractiveWaveformModal({
     if (newCustomAnalysisSettings) {
       updateCustomAnalysisSettings(newCustomAnalysisSettings);
     }
+    updateChangelog(changelogCopy, customAnalysisSettingsChangesCopy);
+  };
+
+  const updateChangelog = (changelogCopy, customAnalysisSettingsChangesCopy) => {
     setChangelog(changelogCopy);
     setCustomAnalysisSettingsChanges(customAnalysisSettingsChangesCopy);
-    // also need to update this
+    // need to update this whenever changelog is updated
     setDisableRemoveDupsCheckbox(isRemoveDuplicatesDisabled(changelogCopy));
   };
 
@@ -414,7 +427,7 @@ export default function InteractiveWaveformModal({
       wellFeatureIndices.splice(targetIdx, 1);
 
       const changelogMsg = `${formatFeatureName(featureName)} at ${formatCoords(
-        wellWaveformData[targetIdx]
+        wellWaveformData[idxToDelete]
       )} was removed.`;
 
       handleChangeForCurrentWell(ACTIONS.ADD, wellSettings, changelogMsg);
@@ -469,8 +482,12 @@ export default function InteractiveWaveformModal({
     }
   }, []);
 
-  // Update baseData anytime the remove dups checkbox state changes
+  // Update baseData anytime the remove dups checkbox state changes, except when set during load of existing changes
   useEffect(() => {
+    console.log("removeDupsChecked useEffect:", removeDupsChecked, loadStatus);
+    if (loadStatus === LOAD_STATUSES.LOADING_EXISTING) {
+      return;
+    }
     if (removeDupsChecked) {
       const baseDataCopy = deepCopy(baseData);
       for (const well in baseDataCopy) {
@@ -486,8 +503,13 @@ export default function InteractiveWaveformModal({
   }, [removeDupsChecked]);
 
   // Update the custom peaks and valleys correctly after baseData is updated.
-  // Currently baseData will only be updated when it is initially set for all wells, and when the remove dups checkbox state changes (in the useEffect above)
+  // Currently baseData will only be updated when it is initially set for all wells, when the remove dups checkbox state changes (in the useEffect above),
+  // and when loading existing data.
   useEffect(() => {
+    console.log("baseData useEffect:", baseData, loadStatus);
+    if (loadStatus === LOAD_STATUSES.LOADING_EXISTING) {
+      return;
+    }
     for (const well of wellNames) {
       if (baseData[well]) {
         customAnalysisSettingsInitializers.featureIndices(well, "peaks", baseData[well][0]);
@@ -497,15 +519,21 @@ export default function InteractiveWaveformModal({
   }, [baseData]);
 
   // A spinner is displayed until the waveform data for the currently selected well is loaded.
-  // This switches from the spinner to the WaveformGraph once that happens
+  // This switches from the spinner to the WaveformGraph once that happens, as well as setting the default
+  // threshold lines if they aren't already set (i.e. loaded from sessionStorage)
   useEffect(() => {
-    if (wellWaveformData.length > 0 && isLoading) {
-      for (const well of wellNames) {
-        setBothLinesToDefault(well);
+    switch (loadStatus) {
+      case LOAD_STATUSES.LOADING_NEW: {
+        for (const well of wellNames) {
+          setBothLinesToDefault(well);
+        }
+        // fall through expected here
       }
-      setIsLoading(false);
+      case LOAD_STATUSES.LOADING_EXISTING: {
+        setLoadStatus(LOAD_STATUSES.LOADED);
+      }
     }
-  }, [wellWaveformData]);
+  }, [loadStatus]);
 
   // update customAnalysisSettingsForWell whenever customAnalysisSettings or the currently selected well changes
   useEffect(() => {
@@ -533,6 +561,7 @@ export default function InteractiveWaveformModal({
 
       const buffer = await response.json();
 
+      // TODO make a function for these first two lines
       const featuresParquet = wasmModule.readParquet(Object.values(buffer.peaksValleys));
       const featuresTable = apache.tableFromIPC(featuresParquet);
       const featuresForWells = await getPeaksValleysFromTable(featuresTable);
@@ -565,6 +594,8 @@ export default function InteractiveWaveformModal({
         setModalLabels(constantModalLabels.oldPulse3dVersion);
         setModalOpen("pulse3dWarning");
       }
+
+      setLoadStatus(LOAD_STATUSES.LOADING_NEW);
     } catch (e) {
       console.log("ERROR getting waveform data:", e);
       // open error modal and kick users back to /uploads page if random  error
@@ -573,12 +604,32 @@ export default function InteractiveWaveformModal({
     }
   };
 
+  const saveChanges = () => {
+    try {
+      const saveData = {
+        baseData,
+        removeDupsChecked,
+        changelog,
+        customAnalysisSettingsChanges,
+        customAnalysisSettings,
+      };
+      console.log("SAVING", saveData);
+      sessionStorage.setItem(selectedJob.jobId, JSON.stringify(saveData));
+    } catch (e) {
+      console.log("ERROR saving changes:", e);
+    }
+  };
+
   const loadExistingData = () => {
     // this happens very fast so not storing to react state the first call, see line 162 (? different line now)
     const jsonData = sessionStorage.getItem(selectedJob.jobId);
     const existingData = JSON.parse(jsonData);
-    // TODO test this, also should probably use initializers here
-    setCustomAnalysisSettings(existingData);
+    console.log("LOADING", existingData);
+    setCustomAnalysisSettings(existingData.customAnalysisSettings);
+    updateChangelog(existingData.changelog, existingData.customAnalysisSettingsChanges);
+    setRemoveDupsChecked(existingData.removeDupsChecked);
+    setBaseData(existingData.baseData);
+    setLoadStatus(LOAD_STATUSES.LOADING_EXISTING);
   };
 
   const handleWellSelection = async (idx) => {
@@ -623,7 +674,6 @@ export default function InteractiveWaveformModal({
       });
 
       if (jobResponse.status !== 200) {
-        // TODO make modal
         console.log("ERROR posting new job:", await jobResponse.json());
         setModalLabels(constantModalLabels.error);
       } else {
@@ -648,24 +698,15 @@ export default function InteractiveWaveformModal({
     if (modalOpen === "status" || modalOpen === "pulse3dWarning") {
       setOpenInteractiveAnalysis(false);
     } else {
-      if (i === 0) {
-        // ignore existing data in sessionStorage
-        await getWaveformData();
-      } else {
-        // load existing data in sessionStorage
+      await getWaveformData();
+      if (i === 1) {
         loadExistingData();
+        // remove existing record if it was loaded
+        sessionStorage.removeItem(selectedJob.jobId);
       }
-      // remove existing record
-      sessionStorage.removeItem(selectedJob.jobId);
     }
     // close modal
     setModalOpen(false);
-  };
-
-  const saveChanges = () => {
-    // TODO TANNER make sure this works
-    // TODO handle if for some reason this is full and returns error
-    sessionStorage.setItem(selectedJob.jobId, JSON.stringify(customAnalysisSettings));
   };
 
   const handleVersionSelect = (idx) => {
@@ -882,7 +923,7 @@ export default function InteractiveWaveformModal({
           options={wellNames}
           handleSelection={handleWellSelection}
           disabled={isLoading}
-          reset={selectedWell == "A1"}
+          reset={selectedWell === "A1"}
           initialSelected={0}
         />
       </WellDropdownContainer>
