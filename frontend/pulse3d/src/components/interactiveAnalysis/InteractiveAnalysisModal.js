@@ -484,7 +484,6 @@ export default function InteractiveWaveformModal({
 
   // Update baseData anytime the remove dups checkbox state changes, except when set during load of existing changes
   useEffect(() => {
-    console.log("removeDupsChecked useEffect:", removeDupsChecked, loadStatus);
     if (loadStatus === LOAD_STATUSES.LOADING_EXISTING) {
       return;
     }
@@ -506,7 +505,6 @@ export default function InteractiveWaveformModal({
   // Currently baseData will only be updated when it is initially set for all wells, when the remove dups checkbox state changes (in the useEffect above),
   // and when loading existing data.
   useEffect(() => {
-    console.log("baseData useEffect:", baseData, loadStatus);
     if (loadStatus === LOAD_STATUSES.LOADING_EXISTING) {
       return;
     }
@@ -613,7 +611,6 @@ export default function InteractiveWaveformModal({
         customAnalysisSettingsChanges,
         customAnalysisSettings,
       };
-      console.log("SAVING", saveData);
       sessionStorage.setItem(selectedJob.jobId, JSON.stringify(saveData));
     } catch (e) {
       console.log("ERROR saving changes:", e);
@@ -621,10 +618,8 @@ export default function InteractiveWaveformModal({
   };
 
   const loadExistingData = () => {
-    // this happens very fast so not storing to react state the first call, see line 162 (? different line now)
     const jsonData = sessionStorage.getItem(selectedJob.jobId);
     const existingData = JSON.parse(jsonData);
-    console.log("LOADING", existingData);
     setCustomAnalysisSettings(existingData.customAnalysisSettings);
     updateChangelog(existingData.changelog, existingData.customAnalysisSettingsChanges);
     setRemoveDupsChecked(existingData.removeDupsChecked);
