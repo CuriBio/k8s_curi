@@ -758,7 +758,7 @@ export default function InteractiveWaveformModal({
     const { max, min } = timepointRange;
 
     const compare = (a, b) => {
-      return featureType === "peaks" ? a < b : a > b;
+      return b == null || (featureType === "peaks" ? a < b : a > b);
     };
 
     const featureIdx = featureType === "peaks" ? 0 : 1;
@@ -766,26 +766,23 @@ export default function InteractiveWaveformModal({
     const wellSpecificFeatures = featuresForWells[well][featureIdx];
     const wellSpecificCoords = coordinates[well];
 
+    let currentTresholdY = null;
+
     // consider when no features were found in a well
     if (wellSpecificCoords && wellSpecificFeatures.length > 0) {
-      // arbitrarily set to first feature
-      let idxOfThresholdValue = wellSpecificFeatures[0];
-
       wellSpecificFeatures.map((featureIdx) => {
         const [testX, testY] = wellSpecificCoords[featureIdx];
-        const currentTresholdY = wellSpecificCoords[idxOfThresholdValue][1];
         // only use features inside windowed analysis times
         const isLessThanEndTime = !max || testX <= max;
         const isGreaterThanStartTime = !min || testX >= min;
         // filter for features inside windowed time
         if (compare(testY, currentTresholdY) && isGreaterThanStartTime && isLessThanEndTime) {
-          idxOfThresholdValue = featureIdx;
+          currentTresholdY = testY;
         }
       });
-
-      // return y coordinate of idx
-      return wellSpecificCoords[idxOfThresholdValue][1];
     }
+
+    return currentTresholdY;
   };
 
   const setBothLinesToDefault = (well) => {
