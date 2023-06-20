@@ -4,6 +4,10 @@ const wellNames = Array(24)
   .fill()
   .map((_, idx) => twentyFourPlateDefinition.getWellNameFromIndex(idx));
 
+const deepCopy = (obj) => {
+  return JSON.parse(JSON.stringify(obj));
+};
+
 const hexToBase64 = (hexstring) => {
   return btoa(
     // TODO remove deprecated method btoa
@@ -98,10 +102,11 @@ const getWaveformCoordsFromTable = async (table, normalizeYAxis) => {
 };
 
 export {
-  getPeaksValleysFromTable,
-  getWaveformCoordsFromTable,
+  deepCopy,
   hexToBase64,
   isArrayOfNumbers,
   loadCsvInputToArray,
   isArrayOfWellNames,
+  getPeaksValleysFromTable,
+  getWaveformCoordsFromTable,
 };
