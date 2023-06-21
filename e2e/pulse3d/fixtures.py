@@ -1,8 +1,10 @@
 from playwright.async_api import async_playwright
-import pytest_asyncio, pytest
+import pytest_asyncio
+import pytest
 import shutil
 
 from config import TEST_URL, VALID_CUSTOMER_ID, VALID_USER_NAME, VALID_USER_PASSWORD, HEADLESS
+
 
 # remove older videos if present
 @pytest.fixture(scope="session", autouse=True)

@@ -1,10 +1,10 @@
 import pytest
 
-from fixtures import setup, video_setup, basic_page, user_logged_in_page
+from fixtures import setup, video_setup, basic_page, user_logged_in_page  # noqa: F401
 
 
 @pytest.mark.asyncio
-async def test_ReAnalyze(user_logged_in_page):
+async def test_ReAnalyze(user_logged_in_page):  # noqa: F811
     # select an upload from the uploads table
     await user_logged_in_page.wait_for_load_state("networkidle")
     upload_checboxes = user_logged_in_page.get_by_role("checkbox")
@@ -24,7 +24,7 @@ async def test_ReAnalyze(user_logged_in_page):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("spesificDownloadOption", ["Download Analyses", "Download Raw Data"])
-async def test_Download(user_logged_in_page, spesificDownloadOption):
+async def test_Download(user_logged_in_page, spesificDownloadOption):  # noqa: F811
     await user_logged_in_page.wait_for_load_state("networkidle")
 
     # select first upload from the uploads table
@@ -43,7 +43,7 @@ async def test_Download(user_logged_in_page, spesificDownloadOption):
 
 
 @pytest.mark.asyncio
-async def test_Delete(user_logged_in_page):
+async def test_Delete(user_logged_in_page):  # noqa: F811
     await user_logged_in_page.wait_for_load_state("networkidle")
 
     # select first upload from the uploads table
@@ -60,7 +60,7 @@ async def test_Delete(user_logged_in_page):
     await user_logged_in_page.get_by_role("option", name="Delete").click()
     await user_logged_in_page.get_by_role("button", name="Confirm").click()
 
-    element_id = await upload_checkbox.evaluate("element => element.id")
+    # element_id = await upload_checkbox.evaluate("element => element.id")
 
     # wait for response to complete
     # await user_logged_in_page.wait_for_selector(f'#{element_id}', state='hidden')
@@ -75,7 +75,7 @@ async def test_Delete(user_logged_in_page):
 
 
 @pytest.mark.asyncio
-async def test_Open_IA(user_logged_in_page):
+async def test_Open_IA(user_logged_in_page):  # noqa: F811
     await user_logged_in_page.wait_for_load_state("networkidle")
 
     # select first job in first upload
