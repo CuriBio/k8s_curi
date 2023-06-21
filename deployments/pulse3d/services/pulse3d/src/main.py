@@ -405,10 +405,11 @@ async def create_new_job(
 
         details_dict = dict(details)
 
-        if details.peaks_valleys:
-            details_dict["peaks_valleys"] = True
-
         analysis_params = {param: details_dict[param] for param in params}
+
+        if details.peaks_valleys:
+            analysis_params["peaks_valleys"] = True
+
         # convert these params into a format compatible with pulse3D
         for param, default_values in (
             ("prominence_factors", DEFAULT_PROMINENCE_FACTORS),
