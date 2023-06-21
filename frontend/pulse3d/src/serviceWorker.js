@@ -104,8 +104,6 @@ const isEmailRequest = (url) => {
 };
 
 const isWaveformDataRequest = (url) => {
-  // if it's a string, just check that it's a waveform data request
-  // else check if it's the initial request and will be passed url params instead
   return url.pathname.includes("/waveform-data");
 };
 
