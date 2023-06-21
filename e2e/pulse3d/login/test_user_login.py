@@ -1,12 +1,12 @@
 import pytest
 
-from fixtures import basic_page, setup, video_setup
+from fixtures import basic_page, setup, video_setup  # noqa: F401
 
 from config import TEST_URL, VALID_CUSTOMER_ID, VALID_USER_NAME, VALID_USER_PASSWORD
 
 
 @pytest.mark.asyncio
-async def test_login_success_user(basic_page):
+async def test_login_success_user(basic_page):  # noqa: F811
     # select user login and check correct login inputs
     await basic_page.click("text=User")
     customer_id_Input = basic_page.get_by_placeholder("CuriBio")
@@ -47,7 +47,7 @@ invalid_users = [
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("Expected_message, Invalid_inputs", invalid_users)
-async def test_invalid_inputs_user(basic_page, Expected_message, Invalid_inputs):
+async def test_invalid_inputs_user(basic_page, Expected_message, Invalid_inputs):  # noqa: F811
     # click to select login form for user
     await basic_page.click("text=User")
 
