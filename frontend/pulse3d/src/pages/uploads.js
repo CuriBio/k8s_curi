@@ -758,6 +758,7 @@ export default function Uploads() {
       });
 
       if (response.status === 200) {
+        // TODO look at if streaming is necessary or not
         const file = await response.blob();
         const url = window.URL.createObjectURL(file);
 
