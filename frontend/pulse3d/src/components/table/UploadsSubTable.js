@@ -1,6 +1,7 @@
 import { memo } from "react";
 import styled from "styled-components";
 import Checkbox from "@mui/material/Checkbox";
+import { useState } from "react";
 
 const Container = styled.div`
   padding: 0 3.5rem;
@@ -40,7 +41,27 @@ const SubRow = styled.div`
   overflow: hidden;
 `;
 
-export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, jobs }) {
+const PreviewText = styled.div`
+  font-style: italic;
+
+  &:hover {
+    color: var(--teal-green);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+`;
+
+const JobPreviewContainer = styled.div`
+  width: 500px;
+  min-width: 1000px;
+  margin: 1%;
+  background-color: white;
+  border-radius: 5px;
+  overflow: none;
+  border: 2px solid blue;
+`;
+
+export default function UploadsSubTable({ handleCheckedJobs, checkedJobs, jobs, openJobPreview }) {
   const rows = jobs.map((job) => {
     let paramsString = [];
 
@@ -60,11 +81,7 @@ export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, j
             </div>
           );
         } else {
-          if (param === "peaks_valleys") {
-            paramVal = "user set";
-          } else {
-            paramVal = job.analysisParams[param];
-          }
+          paramVal = param === "peaks_valleys" ? "user set" : job.analysisParams[param];
 
           if (param == "inverted_post_magnet_wells") {
             param = "wells with flipped waveforms";
@@ -93,7 +110,12 @@ export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, j
         </SubRowFileName>
         <SubRow>{job.datetime}</SubRow>
         <SubRow>{paramsString.length === 0 ? "None" : paramsString}</SubRow>
-        <SubRow>{status}</SubRow>
+        <SubRow style={{ width: "15%" }}>{status}</SubRow>
+        <SubRow style={{ width: "15%" }}>
+          {status == "Completed" && (
+            <PreviewText onClick={() => openJobPreview(job.jobId)}>Preview</PreviewText>
+          )}
+        </SubRow>
       </SubContainer>
     );
   });
@@ -104,9 +126,10 @@ export default memo(function UploadsSubTable({ handleCheckedJobs, checkedJobs, j
         <FilenameHeader>Analyzed Filename</FilenameHeader>
         <Header>Created Date</Header>
         <Header>Analysis Parameters</Header>
-        <Header>Status</Header>
+        <Header style={{ width: "15%" }}>Status</Header>
+        <Header style={{ width: "15%" }} />
       </SubHeader>
       {rows}
     </Container>
   );
-});
+}
