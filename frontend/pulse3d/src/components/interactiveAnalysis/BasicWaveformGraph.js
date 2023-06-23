@@ -41,11 +41,8 @@ export default function BasicWaveformGraph({ well, featureIndicies, waveformData
       width = 250 - margin.left - margin.right,
       height = 150 - margin.top - margin.bottom;
 
-    // TODO handle if zoom becomes smaller than smallest component width
-    const dynamicWidth = width;
-    const dynamicHeight = height;
     // Add X axis and Y axis
-    const x = d3.scaleLinear().range([0, dynamicWidth]).domain([xMin, xMax]);
+    const x = d3.scaleLinear().range([0, width]).domain([xMin, xMax]);
 
     // add .15 extra to y max and y min to auto scale the graph a little outside of true max and mins
     const dataWithinWindow = waveformData.filter((coords) => coords[0] >= xMin && coords[0] <= xMax);
@@ -55,7 +52,7 @@ export default function BasicWaveformGraph({ well, featureIndicies, waveformData
 
     const y = d3
       .scaleLinear()
-      .range([dynamicHeight, 0])
+      .range([height, 0])
       .domain([yMin - yRange, yMax + yRange]);
 
     // waveform line
@@ -72,15 +69,15 @@ export default function BasicWaveformGraph({ well, featureIndicies, waveformData
     const svg = d3
       .select(`#waveformGraph${well}`)
       .append("svg")
-      .attr("width", dynamicWidth + margin.left + margin.right)
-      .attr("height", dynamicHeight + margin.top + margin.bottom)
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
       .append("g")
       .attr("transform", `translate(${margin.left}, ${margin.top})`);
 
     /* --------------------------------------
         APPEND X AND Y AXES
       -------------------------------------- */
-    svg.append("g").attr("transform", `translate(0, ${dynamicHeight})`).call(d3.axisBottom(x).ticks(10));
+    svg.append("g").attr("transform", `translate(0, ${height})`).call(d3.axisBottom(x).ticks(10));
 
     svg.append("g").call(d3.axisLeft(y));
 
@@ -145,7 +142,7 @@ export default function BasicWaveformGraph({ well, featureIndicies, waveformData
       .append("rect")
       .attr("x", -10)
       .attr("y", -margin.top)
-      .attr("width", dynamicWidth + 15)
+      .attr("width", width + 15)
       .attr("height", margin.top)
       .attr("fill", "white")
       .style("overflow", "hidden");
