@@ -1,7 +1,5 @@
-import { memo } from "react";
 import styled from "styled-components";
 import Checkbox from "@mui/material/Checkbox";
-import { useState } from "react";
 
 const Container = styled.div`
   padding: 0 3.5rem;
@@ -14,6 +12,7 @@ const SubContainer = styled.div`
   background-color: #ececed8f;
   border-bottom: 2px solid white;
 `;
+
 const SubHeader = styled.div`
   background-color: var(--dark-blue);
   color: white;
@@ -27,13 +26,17 @@ const FilenameHeader = styled.div`
   padding-left: 3.9%;
   width: 40%;
 `;
+
 const Header = styled.div`
   width: 20%;
 `;
+
 const SubRowFileName = styled.div`
   font-size: 0.75rem;
   width: 40%;
+  overflow: hidden;
 `;
+
 const SubRow = styled.div`
   font-size: 0.75rem;
   width: 20%;
@@ -49,16 +52,6 @@ const PreviewText = styled.div`
     text-decoration: underline;
     cursor: pointer;
   }
-`;
-
-const JobPreviewContainer = styled.div`
-  width: 500px;
-  min-width: 1000px;
-  margin: 1%;
-  background-color: white;
-  border-radius: 5px;
-  overflow: none;
-  border: 2px solid blue;
 `;
 
 export default function UploadsSubTable({ handleCheckedJobs, checkedJobs, jobs, openJobPreview }) {
