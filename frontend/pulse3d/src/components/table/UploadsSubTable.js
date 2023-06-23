@@ -113,7 +113,7 @@ export default function UploadsSubTable({ handleCheckedJobs, checkedJobs, jobs, 
         <SubRow style={{ width: "15%" }}>{status}</SubRow>
         <SubRow style={{ width: "15%" }}>
           {status == "Completed" && (
-            <PreviewText onClick={() => openJobPreview(job.jobId)}>Preview</PreviewText>
+            <PreviewText onClick={() => openJobPreview(job.jobId)}>Waveform Snapshot Preview</PreviewText>
           )}
         </SubRow>
       </SubContainer>
