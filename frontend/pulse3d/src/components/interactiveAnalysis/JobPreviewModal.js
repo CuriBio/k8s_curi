@@ -5,6 +5,7 @@ import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 import { getPeaksValleysFromTable, getWaveformCoordsFromTable, getTableFromParquet } from "@/utils/generic";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
+import { useWaveformData } from "@/components/interactiveAnalysis//useWaveformData";
 
 import { WellTitle as LabwareDefinition } from "@/utils/labwareCalculations";
 const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
@@ -118,15 +119,22 @@ export default function JobPreviewModal({
   selectedAnalysis: { jobId, uploadId, analysisParams },
   setOpenJobPreview,
 }) {
-  const [waveformData, setWaveformData] = useState([]);
+  // const [waveformData, setWaveformData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [timepointRange, setTimepointRange] = useState([]);
-  const [featureIndicies, setFeatureIndicies] = useState([]);
+  // const [featureIndicies, setFeatureIndicies] = useState([]);
   const [openErrorModal, setOpenErrorModal] = useState(false);
+  const { waveformData, featureIndicies, error, loading } = useWaveformData(
+    `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${uploadId}&job_id=${jobId}`
+  );
 
   useEffect(() => {
-    getWaveformData();
-  }, []);
+    if (error) setOpenErrorModal(true);
+    else if (!loading) {
+      getTimepointRange(waveformData["A1"]);
+      setIsLoading(false);
+    }
+  }, [error, loading]);
 
   const getTimepointRange = async (coordinates) => {
     const { start_time } = analysisParams;
@@ -137,37 +145,6 @@ export default function JobPreviewModal({
     setTimepointRange({ min, max });
   };
 
-  const getWaveformData = async () => {
-    try {
-      const wasmModule = await import("parquet-wasm/esm/arrow1.js");
-      await wasmModule.default();
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${uploadId}&job_id=${jobId}`
-      );
-
-      if (response.status !== 200) throw Error();
-
-      const buffer = await response.json();
-
-      const featuresTable = await getTableFromParquet(Object.values(buffer.peaksValleys));
-      const featuresForWells = await getPeaksValleysFromTable(featuresTable);
-
-      const timeForceTable = await getTableFromParquet(Object.values(buffer.timeForceData));
-      const coordinates = await getWaveformCoordsFromTable(timeForceTable, buffer.normalizeYAxis);
-
-      setWaveformData(coordinates);
-      setFeatureIndicies(featuresForWells);
-
-      await getTimepointRange(coordinates["A1"]);
-
-      setIsLoading(false);
-    } catch (e) {
-      console.log("ERROR getting waveform data:", e);
-      // open error modal and kick users back to /uploads page if random  error
-      setOpenErrorModal(true);
-    }
-  };
   return (
     <>
       <Container>

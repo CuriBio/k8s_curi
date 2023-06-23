@@ -5,10 +5,9 @@ export const useWaveformData = (url) => {
   const [waveformData, setWaveformData] = useState([]);
   const [featureIndicies, setFeatureIndicies] = useState([]);
   const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(async () => {
-    setLoading(true);
+  const getData = async () => {
     const wasmModule = await import("parquet-wasm/esm/arrow1.js");
     await wasmModule.default();
 
@@ -28,6 +27,10 @@ export const useWaveformData = (url) => {
       setFeatureIndicies(featuresForWells);
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    getData();
   }, [url]);
 
   return { waveformData, featureIndicies, error, loading };
