@@ -1,0 +1,162 @@
+import styled from "styled-components";
+import { useEffect } from "react";
+import * as d3 from "d3";
+
+const Container = styled.div`
+  background-color: white;
+  position: relative;
+  border-radius: 7px;
+  height: 150px;
+  width: 250px;
+  margin-top: 15px;
+  cursor: default;
+`;
+
+const WellNameLabel = styled.div`
+  height: 18px;
+  width: 100%;
+  padding-left: 40px;
+`;
+
+export default function BasicWaveformGraph({ well, featureIndicies, waveformData, timepointRange }) {
+  useEffect(() => {
+    if (featureIndicies) {
+      // always remove existing graph before plotting new graph
+      d3.select(`#waveformGraph${well}`).select("svg").remove();
+      createGraph();
+    }
+  }, [waveformData, featureIndicies]);
+
+  /* NOTE!! The order of the variables and function calls in this function are important to functionality.
+     could eventually try to break this up, but it's more sensitive in react than vue */
+  const createGraph = () => {
+    const [peaks, valleys] = featureIndicies;
+    const { min: xMin, max: xMax } = timepointRange;
+
+    /* --------------------------------------
+        SET UP SVG GRAPH AND VARIABLES
+      -------------------------------------- */
+
+    const margin = { top: 10, right: 10, bottom: 20, left: 40 },
+      width = 250 - margin.left - margin.right,
+      height = 150 - margin.top - margin.bottom;
+
+    // TODO handle if zoom becomes smaller than smallest component width
+    const dynamicWidth = width;
+    const dynamicHeight = height;
+    // Add X axis and Y axis
+    const x = d3.scaleLinear().range([0, dynamicWidth]).domain([xMin, xMax]);
+
+    // add .15 extra to y max and y min to auto scale the graph a little outside of true max and mins
+    const dataWithinWindow = waveformData.filter((coords) => coords[0] >= xMin && coords[0] <= xMax);
+    const yMax = d3.max(dataWithinWindow, (d) => d[1]);
+    const yMin = d3.min(dataWithinWindow, (d) => d[1]);
+    const yRange = yMax * 0.15;
+
+    const y = d3
+      .scaleLinear()
+      .range([dynamicHeight, 0])
+      .domain([yMin - yRange, yMax + yRange]);
+
+    // waveform line
+    const dataLine = d3
+      .line()
+      .x((d) => {
+        return x(d[0]);
+      })
+      .y((d) => {
+        return y(d[1]);
+      });
+
+    // append the svg object to the body of the page
+    const svg = d3
+      .select(`#waveformGraph${well}`)
+      .append("svg")
+      .attr("width", dynamicWidth + margin.left + margin.right)
+      .attr("height", dynamicHeight + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+    /* --------------------------------------
+        APPEND X AND Y AXES
+      -------------------------------------- */
+    svg.append("g").attr("transform", `translate(0, ${dynamicHeight})`).call(d3.axisBottom(x).ticks(10));
+
+    svg.append("g").call(d3.axisLeft(y));
+
+    /* --------------------------------------
+        WAVEFORM TISSUE LINE
+      -------------------------------------- */
+    svg
+      .append("path")
+      .data([dataWithinWindow.map((x) => [x[0], x[1]])])
+      .attr("fill", "none")
+      .attr("stroke", "var(--curi-waveform)")
+      .attr("stroke-width", 2)
+      .attr("d", dataLine);
+
+    /* --------------------------------------
+        PEAKS AND VALLEYS
+      -------------------------------------- */
+    // graph all the peak markers
+    svg
+      .selectAll(`#waveformGraph${well}`)
+      .data(peaks)
+      .enter()
+      .append("path")
+      .attr("id", "peak")
+      .attr("indexToReplace", (d) => peaks.indexOf(d)) // keep track of index in peaks array to splice later
+      .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
+      .attr("transform", (d) => {
+        return "translate(" + x(waveformData[d][0]) + "," + (y(waveformData[d][1]) - 7) + ") rotate(180)";
+      })
+      .style("fill", "var(--curi-peaks)")
+      .attr("stroke", "var(--curi-peaks)")
+      .style("display", (d) => {
+        // only display them inside windowed analysis times
+        const xTime = waveformData[d][0];
+        return xTime > xMax || xTime < xMin ? "none" : null;
+      });
+
+    // graph all the valley markers
+    svg
+      .selectAll(`#waveformGraph${well}`)
+      .data(valleys)
+      .enter()
+      .append("path")
+      .attr("id", "valley")
+      .attr("indexToReplace", (d) => valleys.indexOf(d)) // keep track of index in valleys array to splice later
+      .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
+      .attr("transform", (d) => {
+        return "translate(" + x(waveformData[d][0]) + "," + (y(waveformData[d][1]) + 7) + ")";
+      })
+      .style("fill", "var(--curi-valleys)")
+      .attr("stroke", "var(--curi-valleys)")
+      .style("display", (d) => {
+        // only display them inside windowed analysis times
+        const xTime = waveformData[d][0];
+        return xTime > xMax || xTime < xMin ? "none" : null;
+      });
+
+    /* --------------------------------------
+        BLOCKERS (just top blocker for now)
+      -------------------------------------- */
+    svg
+      .append("rect")
+      .attr("x", -10)
+      .attr("y", -margin.top)
+      .attr("width", dynamicWidth + 15)
+      .attr("height", margin.top)
+      .attr("fill", "white")
+      .style("overflow", "hidden");
+  };
+
+  return (
+    <>
+      <Container>
+        <WellNameLabel>{well}</WellNameLabel>
+        <div id={`waveformGraph${well}`} />
+      </Container>
+    </>
+  );
+}

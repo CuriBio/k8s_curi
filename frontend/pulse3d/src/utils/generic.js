@@ -1,3 +1,4 @@
+import * as apache from "apache-arrow";
 import { WellTitle as LabwareDefinition } from "@/utils/labwareCalculations";
 const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
 const wellNames = Array(24)
@@ -101,6 +102,14 @@ const getWaveformCoordsFromTable = async (table, normalizeYAxis) => {
   return coordinatesObj;
 };
 
+const getTableFromParquet = async (buffer) => {
+  const wasmModule = await import("parquet-wasm/esm/arrow1.js");
+  await wasmModule.default();
+
+  const parquetData = wasmModule.readParquet(buffer);
+  return apache.tableFromIPC(parquetData);
+};
+
 export {
   deepCopy,
   hexToBase64,
@@ -109,4 +118,5 @@ export {
   isArrayOfWellNames,
   getPeaksValleysFromTable,
   getWaveformCoordsFromTable,
+  getTableFromParquet,
 };

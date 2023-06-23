@@ -1,7 +1,7 @@
 import styled from "styled-components";
 import { useEffect, useState, useContext, useMemo } from "react";
 import DropDownWidget from "../basicWidgets/DropDownWidget";
-import WaveformGraph from "./WaveformGraph";
+import WaveformGraph from "./InteractiveWaveformGraph";
 import { WellTitle as LabwareDefinition } from "@/utils/labwareCalculations";
 import { deepCopy } from "@/utils/generic";
 import CircularSpinner from "../basicWidgets/CircularSpinner";
@@ -14,8 +14,7 @@ import semverGte from "semver/functions/gte";
 import FormInput from "@/components/basicWidgets/FormInput";
 import { AuthContext } from "@/pages/_app";
 import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
-import * as apache from "apache-arrow";
-import { getPeaksValleysFromTable, getWaveformCoordsFromTable } from "@/utils/generic";
+import { getPeaksValleysFromTable, getWaveformCoordsFromTable, getTableFromParquet } from "@/utils/generic";
 
 const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
 
@@ -559,13 +558,10 @@ export default function InteractiveWaveformModal({
 
       const buffer = await response.json();
 
-      // TODO make a function for these first two lines
-      const featuresParquet = wasmModule.readParquet(Object.values(buffer.peaksValleys));
-      const featuresTable = apache.tableFromIPC(featuresParquet);
+      const featuresTable = await getTableFromParquet(Object.values(buffer.peaksValleys));
       const featuresForWells = await getPeaksValleysFromTable(featuresTable);
 
-      const timeForceParquet = wasmModule.readParquet(Object.values(buffer.timeForceData));
-      const timeForceTable = apache.tableFromIPC(timeForceParquet);
+      const timeForceTable = await getTableFromParquet(Object.values(buffer.timeForceData));
       const coordinates = await getWaveformCoordsFromTable(timeForceTable, buffer.normalizeYAxis);
 
       setBaseData(featuresForWells);
