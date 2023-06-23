@@ -33,5 +33,5 @@ export const useWaveformData = (url) => {
     getData();
   }, [url]);
 
-  return { waveformData, featureIndicies, error, loading };
+  return { waveformData, featureIndicies, getErrorState: error, getLoadingState: loading };
 };

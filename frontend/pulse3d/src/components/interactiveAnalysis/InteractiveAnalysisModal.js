@@ -14,8 +14,7 @@ import semverGte from "semver/functions/gte";
 import FormInput from "@/components/basicWidgets/FormInput";
 import { AuthContext } from "@/pages/_app";
 import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
-import { getPeaksValleysFromTable, getWaveformCoordsFromTable, getTableFromParquet } from "@/utils/generic";
-
+import { useWaveformData } from "@/components/interactiveAnalysis/useWaveformData";
 const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
 
 const Container = styled.div`
@@ -254,6 +253,12 @@ export default function InteractiveWaveformModal({
   setOpenInteractiveAnalysis,
   numberOfJobsInUpload,
 }) {
+  // this hook gets waveform data no matter what first
+  // a useEffect watching the error and loading states kicks off next step
+  const { waveformData, featureIndicies, getErrorState, getLoadingState } = useWaveformData(
+    `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}`
+  );
+
   const { usageQuota } = useContext(AuthContext);
   const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
 
@@ -545,35 +550,18 @@ export default function InteractiveWaveformModal({
     );
   }, [customAnalysisSettings, selectedWell]);
 
-  const getWaveformData = async () => {
+  const handleWaveformData = async () => {
     try {
-      const wasmModule = await import("parquet-wasm/esm/arrow1.js");
-      await wasmModule.default();
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}`
-      );
-
-      if (response.status !== 200) throw Error();
-
-      const buffer = await response.json();
-
-      const featuresTable = await getTableFromParquet(Object.values(buffer.peaksValleys));
-      const featuresForWells = await getPeaksValleysFromTable(featuresTable);
-
-      const timeForceTable = await getTableFromParquet(Object.values(buffer.timeForceData));
-      const coordinates = await getWaveformCoordsFromTable(timeForceTable, buffer.normalizeYAxis);
-
-      setBaseData(featuresForWells);
+      setBaseData(featureIndicies);
 
       // original data is set and never changed to hold original state in case of reset
-      originalAnalysisData = { featuresForWells, coordinates };
+      originalAnalysisData = { featuresForWells: featureIndicies, coordinates: waveformData };
       setOriginalAnalysisData(originalAnalysisData);
 
       const { start_time, end_time } = selectedJob.analysisParams;
       const newTimepointRange = {
-        min: start_time || Math.min(...coordinates[wellNames[0]].map((coords) => coords[0])),
-        max: end_time || Math.max(...coordinates[wellNames[0]].map((coords) => coords[0])),
+        min: start_time || Math.min(...waveformData[wellNames[0]].map((coords) => coords[0])),
+        max: end_time || Math.max(...waveformData[wellNames[0]].map((coords) => coords[0])),
       };
       setTimepointRange(newTimepointRange);
       customAnalysisSettingsInitializers.windowBounds({
@@ -591,7 +579,7 @@ export default function InteractiveWaveformModal({
 
       setLoadStatus(LOAD_STATUSES.LOADING_NEW);
     } catch (e) {
-      console.log("ERROR getting waveform data:", e);
+      console.log("ERROR handling waveform data:", e);
       // open error modal and kick users back to /uploads page if random  error
       setModalLabels(constantModalLabels.error);
       setModalOpen("status");
@@ -689,7 +677,7 @@ export default function InteractiveWaveformModal({
     if (modalOpen === "status" || modalOpen === "pulse3dWarning") {
       setOpenInteractiveAnalysis(false);
     } else {
-      await getWaveformData();
+      await handleWaveformData();
       if (i === 1) {
         loadExistingData();
         // remove existing record if it was loaded
@@ -890,17 +878,24 @@ export default function InteractiveWaveformModal({
   // ENTRYPOINT
   // defined last so that everything required for it already exists
   // Luci (12-14-2022) this component gets mounted twice and we don't want this expensive function to request waveform data to be called twice. This ensures it is only called once per job selection
-  useMemo(async () => {
-    const data = sessionStorage.getItem(selectedJob.jobId); // returns null if key doesn't exist in storage
-    if (data) {
-      // if data is found in sessionStorage then do ?
-      setModalLabels(constantModalLabels.dataFound);
-      setModalOpen("dataFound");
-    } else {
-      // if no data stored, then need to retrieve from server
-      await getWaveformData();
+  useEffect(() => {
+    if (getErrorState) {
+      console.log("ERROR getting waveform data:", e);
+      // open error modal and kick users back to /uploads page if random  error
+      setModalLabels(constantModalLabels.error);
+      setModalOpen("status");
+    } else if (!getLoadingState) {
+      const data = sessionStorage.getItem(selectedJob.jobId); // returns null if key doesn't exist in storage
+      if (data) {
+        // if data is found in sessionStorage then do ?
+        setModalLabels(constantModalLabels.dataFound);
+        setModalOpen("dataFound");
+      } else {
+        // if no data stored, then need to retrieve from server
+        handleWaveformData();
+      }
     }
-  }, [selectedJob]);
+  }, [getErrorState, getLoadingState]);
 
   return (
     <Container>

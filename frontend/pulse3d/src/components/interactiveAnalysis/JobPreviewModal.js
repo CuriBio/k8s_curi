@@ -119,22 +119,20 @@ export default function JobPreviewModal({
   selectedAnalysis: { jobId, uploadId, analysisParams },
   setOpenJobPreview,
 }) {
-  // const [waveformData, setWaveformData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [timepointRange, setTimepointRange] = useState([]);
-  // const [featureIndicies, setFeatureIndicies] = useState([]);
   const [openErrorModal, setOpenErrorModal] = useState(false);
-  const { waveformData, featureIndicies, error, loading } = useWaveformData(
+  const { waveformData, featureIndicies, getErrorState, getLoadingState } = useWaveformData(
     `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${uploadId}&job_id=${jobId}`
   );
 
   useEffect(() => {
-    if (error) setOpenErrorModal(true);
-    else if (!loading) {
+    if (getErrorState) setOpenErrorModal(true);
+    else if (!getLoadingState) {
       getTimepointRange(waveformData["A1"]);
       setIsLoading(false);
     }
-  }, [error, loading]);
+  }, [getErrorState, getLoadingState]);
 
   const getTimepointRange = async (coordinates) => {
     const { start_time } = analysisParams;
