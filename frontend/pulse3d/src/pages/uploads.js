@@ -736,8 +736,6 @@ export default function Uploads() {
 
   const downloadMultiFiles = async (data, uploads = false) => {
     try {
-      //streamsaver has to be required here otherwise you get build errors with "document is not defined"
-      const { createWriteStream } = require("streamsaver");
       let url = null,
         zipFilename = null,
         body = null;
@@ -760,34 +758,15 @@ export default function Uploads() {
       });
 
       if (response.status === 200) {
-        // only stream to file if not firefox. Once the underlying issue with streaming on
-        // firefox is fixed, should remove this
-        if (navigator.userAgent.indexOf("Firefox") != -1) {
-          const file = await response.blob();
-          const url = window.URL.createObjectURL(file);
+        const file = await response.blob();
+        const url = window.URL.createObjectURL(file);
 
-          const a = document.createElement("a");
-          document.body.appendChild(a);
-          a.setAttribute("href", url);
-          a.setAttribute("download", zipFilename);
-          a.click();
-          a.remove();
-        } else {
-          const fileStream = createWriteStream(zipFilename);
-          const writer = fileStream.getWriter();
-
-          if (response.body.pipeTo) {
-            writer.releaseLock();
-            return response.body.pipeTo(fileStream);
-          }
-
-          const reader = response.body.getReader();
-
-          () =>
-            reader
-              .read()
-              .then(({ value, done }) => (done ? writer.close() : writer.write(value).then(pump)))();
-        }
+        const a = document.createElement("a");
+        document.body.appendChild(a);
+        a.setAttribute("href", url);
+        a.setAttribute("download", zipFilename);
+        a.click();
+        a.remove();
       } else {
         throw Error();
       }
