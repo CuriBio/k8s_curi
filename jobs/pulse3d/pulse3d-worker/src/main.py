@@ -291,7 +291,7 @@ async def process(con, item):
                 logger.info("Skipping the writing of peaks and valleys to parquet in S3")
 
             try:
-                outfile = write_xlsx(first_recording, **analysis_params)
+                outfile = write_xlsx(first_recording, output_dir=tmpdir, **analysis_params)
                 outfile_prefix = prefix.replace("uploads/", "analyzed/")
                 outfile_key = f"{outfile_prefix}/{job_id}/{outfile}"
             except Exception:
