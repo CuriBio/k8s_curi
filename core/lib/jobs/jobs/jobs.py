@@ -136,7 +136,7 @@ async def get_jobs(*, con, account_type, account_id, job_ids=None):
     if account_type == "user":
         query = (
             "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, "
-            "u.user_id, u.meta AS user_meta "
+            "u.user_id, u.meta AS user_meta, u.filename, u.prefix "
             "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
             "WHERE u.user_id=$1 AND j.status!='deleted'"
         )

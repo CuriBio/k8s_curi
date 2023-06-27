@@ -25,6 +25,9 @@ spec:
                   type: integer
                 seconds_to_poll_db:
                   type: integer
+                product_specific:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
 
   names:
     kind: JobRunner
