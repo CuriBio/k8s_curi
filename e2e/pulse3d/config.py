@@ -13,4 +13,5 @@ VALID_ADMIN_EMAIL = os.getenv("VALID_ADMIN_EMAIL")
 VALID_ADMIN_PASSWORD = os.getenv("VALID_ADMIN_PASSWORD")
 
 # playwright config
-HEADLESS = True
+HEADLESS = False
+SLOWMO = True

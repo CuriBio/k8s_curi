@@ -1,10 +1,12 @@
 import pytest
 
-from fixtures import setup, video_setup, basic_page, user_logged_in_page  # noqa: F401
+from fixtures import setup, video_setup, basic_page, user_logged_in_page
+
+__fixtures__ = [setup, video_setup, basic_page, user_logged_in_page]
 
 
 @pytest.mark.asyncio
-async def test_ReAnalyze(user_logged_in_page):  # noqa: F811
+async def test_ReAnalyze(user_logged_in_page):
     # select an upload from the uploads table
     await user_logged_in_page.wait_for_load_state("networkidle")
     upload_checboxes = user_logged_in_page.get_by_role("checkbox")
@@ -23,19 +25,19 @@ async def test_ReAnalyze(user_logged_in_page):  # noqa: F811
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("spesificDownloadOption", ["Download Analyses", "Download Raw Data"])
-async def test_Download(user_logged_in_page, spesificDownloadOption):  # noqa: F811
+@pytest.mark.parametrize("specificDownloadOption", ["Download Analyses", "Download Raw Data"])
+async def test_Download(user_logged_in_page, specificDownloadOption):
     await user_logged_in_page.wait_for_load_state("networkidle")
 
     # select first upload from the uploads table
-    upload_checboxes = user_logged_in_page.get_by_role("checkbox")
-    await upload_checboxes.nth(0).click()
+    upload_checkboxes = user_logged_in_page.get_by_role("checkbox")
+    await upload_checkboxes.nth(0).click()
 
     # select Dowload from Actions menu
     async with user_logged_in_page.expect_download() as analysesDownload:
         await user_logged_in_page.get_by_role("button", name="Actions").click()
         await user_logged_in_page.get_by_role("option", name="Download").click()
-        await user_logged_in_page.get_by_role("option", name=spesificDownloadOption).click()
+        await user_logged_in_page.get_by_role("option", name=specificDownloadOption).click()
 
         # wait for dowload to complete then check that there are no errors
         download = await analysesDownload.value
@@ -43,7 +45,7 @@ async def test_Download(user_logged_in_page, spesificDownloadOption):  # noqa: F
 
 
 @pytest.mark.asyncio
-async def test_Delete(user_logged_in_page):  # noqa: F811
+async def test_Delete(user_logged_in_page):
     await user_logged_in_page.wait_for_load_state("networkidle")
 
     # select first upload from the uploads table
@@ -75,7 +77,7 @@ async def test_Delete(user_logged_in_page):  # noqa: F811
 
 
 @pytest.mark.asyncio
-async def test_Open_IA(user_logged_in_page):  # noqa: F811
+async def test_Open_IA(user_logged_in_page):
     await user_logged_in_page.wait_for_load_state("networkidle")
 
     # select first job in first upload

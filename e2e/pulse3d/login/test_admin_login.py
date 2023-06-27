@@ -1,12 +1,14 @@
 import pytest
 
-from fixtures import basic_page, setup, video_setup  # noqa: F401
+from fixtures import basic_page, setup, video_setup
 
 from config import VALID_ADMIN_EMAIL, VALID_ADMIN_PASSWORD, TEST_URL
 
+__fixtures__ = [basic_page, setup, video_setup]
+
 
 @pytest.mark.asyncio
-async def test_login_succes_admin(basic_page):  # noqa: F811
+async def test_login_succes_admin(basic_page):
     # click to select login form for user
     await basic_page.click("text=Admin")
 
@@ -38,7 +40,7 @@ invalid_admins = [
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("expected_message, invalid_inputs", invalid_admins)
-async def test_invalid_inputs_admin(basic_page, expected_message, invalid_inputs):  # noqa: F811
+async def test_invalid_inputs_admin(basic_page, expected_message, invalid_inputs):
     # click to select login form for user
     await basic_page.click("text=Admin")
 
