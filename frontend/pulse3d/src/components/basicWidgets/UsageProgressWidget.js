@@ -129,9 +129,7 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
         <ProgressDiv>
           <p>Usage</p>
           <CircularProgressWithLabel value={usagePercentage} colorOfTextLabel={colorOfTextLabel} />
-          <ProgressLabel>{`${
-            actualAnalyses ? actualAnalyses : 0
-          }/${maxAnalyses} Analysis used`}</ProgressLabel>
+          <ProgressLabel>{`${actualAnalyses || 0}/${maxAnalyses} Analysis used`}</ProgressLabel>
           {UpgradeButtonElement}
         </ProgressDiv>
       )}
