@@ -397,7 +397,6 @@ export default function UploadForm() {
       });
 
       const jobData = await jobResponse.json();
-      console.log(jobData);
       // 403 gets returned in quota limit reached responses modal gets handled in ControlPanel
       if (jobData.error && jobData.error === "UsageError") {
         console.log("ERROR starting job because customer job limit has been reached");
