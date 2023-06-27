@@ -13,27 +13,29 @@ const ProgressDiv = styled.div`
   column-gap: 10px;
   cursor: default;
 `;
-const ProgressP = styled.p`
+const ProgressLabel = styled.div`
   font-size: 0.85rem;
 `;
-const ExpiredP = styled.p`
+const ExpiredDiv = styled.div`
   color: white;
 `;
 
 const DropDownStyleContainer = styled.div`
   display: flex;
-  flex-flow: column;
+  flex-flow: row;
   align-items: center;
   height: 100%;
   justify-content: space-around;
-  padding-top: 15px;
 `;
+
 const ModalWidgetStyle = styled.div`
   position: absolute;
 `;
+
 const UpgradeButton = styled.div`
   color: var(--light-gray);
-  font-size: 10px;
+  font-size: 12px;
+  margin-left: 15px;
   text-decoration: underline;
   &:hover {
     color: var(--teal-green);
@@ -48,6 +50,7 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
   const [usagePercentage, setUsagePercentage] = useState(0);
   const [isExpired, setIsExpired] = useState();
   const [newPlanModalIsOpen, setNewPlanModalIsOpen] = useState(false);
+
   const pollUsageQuota = async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/usage?service=pulse3d`);
@@ -56,11 +59,13 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
         const limit = parseInt(newUsageQuota.limits.jobs);
         const actual = parseInt(newUsageQuota.current.jobs);
         const newUsagePercentage = Math.round((actual / limit) * 100);
+
         if (newUsagePercentage > 100) {
           setUsagePercentage(100);
         } else {
           setUsagePercentage(newUsagePercentage);
         }
+
         setActualAnalyses(newUsageQuota["current"]["jobs"]);
         setIsExpired(newUsageQuota.jobs_reached);
         setUsageQuota({
@@ -79,6 +84,7 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
       console.log("ERROR fetching usage quota in /usage");
     }
   };
+
   useEffect(() => {
     if (usageQuota && usageQuota.limits && usageQuota.current) {
       const limit = parseInt(usageQuota.limits.jobs);
@@ -123,17 +129,19 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
         <ProgressDiv>
           <p>Usage</p>
           <CircularProgressWithLabel value={usagePercentage} colorOfTextLabel={colorOfTextLabel} />
-          <ProgressP>{`${actualAnalyses ? actualAnalyses : 0}/${maxAnalyses} Analysis used`}</ProgressP>
+          <ProgressLabel>{`${
+            actualAnalyses ? actualAnalyses : 0
+          }/${maxAnalyses} Analysis used`}</ProgressLabel>
           {UpgradeButtonElement}
         </ProgressDiv>
       )}
       {isExpired && (
-        <ExpiredP>
+        <ExpiredDiv>
           <DropDownStyleContainer>
             Plan Has Expired
             {UpgradeButtonElement}
           </DropDownStyleContainer>
-        </ExpiredP>
+        </ExpiredDiv>
       )}
       <ModalWidgetStyle>
         <ModalWidget

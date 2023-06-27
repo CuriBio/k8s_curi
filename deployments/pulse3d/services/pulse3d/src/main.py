@@ -476,6 +476,9 @@ async def create_new_job(
                 job_type=service,
             )
 
+            # check customer quota after job
+            usage_quota = await check_customer_quota(con, customer_id, service)
+
             # Luci (12/1/22): this happens after the job is already created to have access to the job id, hopefully this doesn't cause any issues with the job starting before the file is uploaded to s3
             if details.peaks_valleys:
                 key = f"uploads/{customer_id}/{original_upload_user}/{details.upload_id}/{job_id}/peaks_valleys.parquet"
