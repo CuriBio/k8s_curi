@@ -178,6 +178,9 @@ export default function ControlPanel() {
         else if (usageQuota.uploads_reached) setModalLabels(modalObjs.uploadsReached);
 
         setModalState(true);
+
+        // reset query param so that userJustLoggedIn becomes false
+        router.replace("/uploads", undefined, { shallow: true });
       }
     }
   }, [usageQuota]);

@@ -30,7 +30,7 @@ const Header = styled.h2`
 
 const UploadCreditUsageInfo = styled.div`
   color: red;
-  width: 51%;
+  width: 57%;
   margin: auto;
   text-align: center;
   border: 3px solid red;
@@ -96,6 +96,13 @@ const modalObj = {
     header: "Warning!",
     messages: [
       "All usage limits have been reached for this customer account during your session preventing this analyses from starting.",
+      "You will not be able to upload new recording files or perform re-analysis on existing files.",
+    ],
+  },
+  jobsReachedAfterAnalysis: {
+    header: "Warning!",
+    messages: [
+      "All usage limits have now been reached for this customer account.",
       "You will not be able to upload new recording files or perform re-analysis on existing files.",
     ],
   },
@@ -394,6 +401,9 @@ export default function UploadForm() {
       if (jobData.error && jobData.error === "UsageError") {
         console.log("ERROR starting job because customer job limit has been reached");
         setUsageModalLabels(modalObj.jobsReachedDuringSession);
+        setUsageModalState(true);
+      } else if (jobData.usage_quota.jobs_reached) {
+        setUsageModalLabels(modalObj.jobsReachedAfterAnalysis);
         setUsageModalState(true);
       } else if (jobResponse.status !== 200 || (jobData.error && jobData.error == "AuthorizationError")) {
         failedUploadsMsg.push(filename);
