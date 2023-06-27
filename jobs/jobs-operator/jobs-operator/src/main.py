@@ -29,6 +29,12 @@ def create_fn(body, spec, **kwargs):
     MAX_NUM_OF_WORKERS = kclient.V1EnvVar(name="MAX_NUM_OF_WORKERS", value=f"{spec['max_num_of_workers']}")
     POSTGRES_USER = kclient.V1EnvVar(name="POSTGRES_USER", value=f"{job_queue}_queue_processor_ro")
 
+    PRODUCT_SPECIFIC_ENV_VARS = [
+        kclient.V1EnvVar(name=var, value=value)
+        for var, value in spec["product_specific"].items()
+        if "product_specific" in spec
+    ]
+
     POSTGRES_PASSWORD = kclient.V1EnvVar(
         name="POSTGRES_PASSWORD",
         value_from=kclient.V1EnvVarSource(
@@ -41,7 +47,15 @@ def create_fn(body, spec, **kwargs):
     container = kclient.V1Container(
         name=qp_name,
         image=QUEUE_PROCESSOR_IMAGE,
-        env=[POSTGRES_PASSWORD, QUEUE_VAR, ECR_REPO, SECONDS_TO_POLL_DB, MAX_NUM_OF_WORKERS, POSTGRES_USER],
+        env=[
+            POSTGRES_PASSWORD,
+            QUEUE_VAR,
+            ECR_REPO,
+            SECONDS_TO_POLL_DB,
+            MAX_NUM_OF_WORKERS,
+            POSTGRES_USER,
+            *PRODUCT_SPECIFIC_ENV_VARS,
+        ],
         image_pull_policy="Always",
     )
 
@@ -68,11 +82,7 @@ def create_fn(body, spec, **kwargs):
         msg = f"Deployment {obj.metadata.name} created"
     except ApiException:
         #  replace deployment with new image
-        obj = api.replace_namespaced_deployment(
-            name=qp_name,
-            namespace=job_queue,
-            body=deployment,
-        )
+        obj = api.replace_namespaced_deployment(name=qp_name, namespace=job_queue, body=deployment)
         msg = f"Deployment {obj.metadata.name} restarted"
     return {"message": msg}
 
