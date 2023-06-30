@@ -80,25 +80,27 @@ const getPeaksValleysFromTable = async (table) => {
 };
 
 const getWaveformCoordsFromTable = async (table, normalizeYAxis) => {
-  const columns = table.schema.fields.map(({ name }) => name);
+  const columns = table.schema.fields.map(({ name }) => name).filter((name) => !name.includes("__raw"));
   const columnData = table.data[0].children.map(({ values }) => Array.from(values));
   // occassionally recordings end in a bunch of NaN/0 values if stim data is present so they need to be filtered out here
   // leaving time index aat 0 because it's meant to be 0
   const time = columnData[0].filter((val, i) => val !== 0 || (val === 0 && i === 0));
   const coordinatesObj = {};
-
   for (const well of wellNames) {
-    const wellForceIdx = columns.indexOf(well);
-    let wellForce = columnData[wellForceIdx];
+    // some analyses may only include a few xlsx files, not all wells
+    if (columns.includes(well)) {
+      const wellForceIdx = columns.indexOf(well);
+      let wellForce = columnData[wellForceIdx];
 
-    if (normalizeYAxis) {
-      const minForce = Math.min(...wellForce);
-      wellForce = wellForce.map((val) => val - minForce);
+      if (normalizeYAxis) {
+        const minForce = Math.min(...wellForce);
+        wellForce = wellForce.map((val) => val - minForce);
+      }
+
+      coordinatesObj[well] = time.map((time, i) => [time / 1e6, wellForce[i]]);
     }
-
-    coordinatesObj[well] = time.map((time, i) => [time / 1e6, wellForce[i]]);
   }
-
+  console.log(coordinatesObj);
   return coordinatesObj;
 };
 

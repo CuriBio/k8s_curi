@@ -442,7 +442,11 @@ export default function UploadForm() {
             const numXlxsInFile = Object.keys(loadedFiles).filter(
               (filename) => filename.includes(".xlsx") && !filename.includes("__MACOSX")
             ).length;
-
+            console.log(
+              Object.keys(loadedFiles).filter(
+                (filename) => filename.includes(".xlsx") && !filename.includes("__MACOSX")
+              )
+            );
             const numH5InFile = Object.keys(loadedFiles).filter(
               (filename) => filename.includes(".h5") && !filename.includes("__MACOSX")
             ).length;
@@ -451,13 +455,13 @@ export default function UploadForm() {
               numH5InFile > 0 ? numH5InFile === 24 || numH5InFile === 48 : numXlxsInFile > 0;
 
             // not setting xlsxInFile = (numXlxsInFile > 0) because it needs to remain true if ever made true
-            if (numXlxsInFile > 0) xlsxInFile = true;
+            if (numXlxsInFile > 0) xlsxInFile = numXlxsInFile;
 
             return !onlyOneDir || !fileContainsValidNumFiles;
           } else {
             // this will occur when user uploads single well xlsx data
             // not setting xlsxInFile = (numXlxsInFile > 0) because it needs to remain true if ever made true
-            xlsxInFile = true;
+            xlsxInFile = 1;
           }
         } catch (e) {
           console.log(`ERROR unable to read file: ${file.filename} ${e}`);

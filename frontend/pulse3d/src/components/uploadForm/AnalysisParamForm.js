@@ -482,8 +482,8 @@ export default function AnalysisParamForm({
   }, [pulse3dFilteredFileVersions, metaPulse3dVersions]);
 
   useEffect(() => {
-    const filteredOptions = pulse3dVersions.filter(
-      (version) => !xlsxFilePresent || semverGte(version, "0.32.2")
+    const filteredOptions = pulse3dVersions.filter((version) =>
+      !xlsxFilePresent || xlsxFilePresent <= 24 ? semverGte(version, "0.32.2") : semverGte(version, "0.33.9")
     );
 
     setPulse3dFilteredFileVersions([...filteredOptions]);
