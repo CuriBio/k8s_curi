@@ -1,9 +1,4 @@
 import * as apache from "apache-arrow";
-import { WellTitle as LabwareDefinition } from "@/utils/labwareCalculations";
-const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
-const wellNames = Array(24)
-  .fill()
-  .map((_, idx) => twentyFourPlateDefinition.getWellNameFromIndex(idx));
 
 const deepCopy = (obj) => {
   return JSON.parse(JSON.stringify(obj));
@@ -61,6 +56,9 @@ const loadCsvInputToArray = (commaSeparatedInputs) => {
 
 const getPeaksValleysFromTable = async (table) => {
   const columns = table.schema.fields.map(({ name }) => name);
+  //  columns are A1__peaks, A1__valleys, ....
+  const wellNames = new Set(columns.map((name) => name.split("__")[0]));
+
   // filter out null values (0) and some values get randomly parsed to bigint values which cannot be converted to JSON
   const columnData = table.data[0].children.map(({ values }) =>
     Array.from(values)
@@ -69,7 +67,6 @@ const getPeaksValleysFromTable = async (table) => {
   );
 
   const peaksValleysObj = {};
-
   for (const well of wellNames) {
     // assign each well [[...peaks], [...valleys]]
     const [peaksIdx, valleysIdx] = ["peaks", "valleys"].map((type) => columns.indexOf(`${well}__${type}`));
@@ -80,27 +77,30 @@ const getPeaksValleysFromTable = async (table) => {
 };
 
 const getWaveformCoordsFromTable = async (table, normalizeYAxis) => {
-  const columns = table.schema.fields.map(({ name }) => name).filter((name) => !name.includes("__raw"));
+  const columns = table.schema.fields.map(({ name }) => name);
+  const wellNames = columns.filter(
+    (name) =>
+      !name.includes("__raw") && !name.includes("__stim") && !name.includes("Time") && !name.includes("level")
+  );
   const columnData = table.data[0].children.map(({ values }) => Array.from(values));
   // occassionally recordings end in a bunch of NaN/0 values if stim data is present so they need to be filtered out here
   // leaving time index aat 0 because it's meant to be 0
   const time = columnData[0].filter((val, i) => val !== 0 || (val === 0 && i === 0));
+
   const coordinatesObj = {};
   for (const well of wellNames) {
     // some analyses may only include a few xlsx files, not all wells
-    if (columns.includes(well)) {
-      const wellForceIdx = columns.indexOf(well);
-      let wellForce = columnData[wellForceIdx];
+    const wellForceIdx = columns.indexOf(well);
+    let wellForce = columnData[wellForceIdx];
 
-      if (normalizeYAxis) {
-        const minForce = Math.min(...wellForce);
-        wellForce = wellForce.map((val) => val - minForce);
-      }
-
-      coordinatesObj[well] = time.map((time, i) => [time / 1e6, wellForce[i]]);
+    if (normalizeYAxis) {
+      const minForce = Math.min(...wellForce);
+      wellForce = wellForce.map((val) => val - minForce);
     }
+
+    coordinatesObj[well] = time.map((time, i) => [time / 1e6, wellForce[i]]);
   }
-  console.log(coordinatesObj);
+
   return coordinatesObj;
 };
 

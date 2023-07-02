@@ -250,16 +250,13 @@ const getWaveformDataFromS3 = async (res) => {
   try {
     const response = await res.json();
 
-    const peaksValleys = await fetch(response.peaks_valleys_url);
-    const timeForceData = await fetch(response.time_force_url);
-
     return {
       normalizeYAxis: response.normalize_y_axis,
-      peaksValleys: new Uint8Array(await peaksValleys.arrayBuffer()),
-      timeForceData: new Uint8Array(await timeForceData.arrayBuffer()),
+      peaksValleysUrl: response.peaks_valleys_url,
+      timeForceUrl: response.time_force_url,
     };
   } catch (e) {
-    console.log("Error grabbing preloaded data: " + e);
+    console.log("Error grabbing waveform data: " + e);
   }
 };
 

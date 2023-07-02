@@ -43,7 +43,7 @@ export default function BasicWaveformGraph({ well, featureIndicies, waveformData
 
     // Add X axis and Y axis
     const x = d3.scaleLinear().range([0, width]).domain([xMin, xMax]);
-    console.log(waveformData);
+
     // add .15 extra to y max and y min to auto scale the graph a little outside of true max and mins
     const dataWithinWindow = waveformData.filter((coords) => coords[0] >= xMin && coords[0] <= xMax);
     const yMax = d3.max(dataWithinWindow, (d) => d[1]);

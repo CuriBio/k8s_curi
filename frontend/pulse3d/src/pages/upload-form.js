@@ -442,11 +442,7 @@ export default function UploadForm() {
             const numXlxsInFile = Object.keys(loadedFiles).filter(
               (filename) => filename.includes(".xlsx") && !filename.includes("__MACOSX")
             ).length;
-            console.log(
-              Object.keys(loadedFiles).filter(
-                (filename) => filename.includes(".xlsx") && !filename.includes("__MACOSX")
-              )
-            );
+
             const numH5InFile = Object.keys(loadedFiles).filter(
               (filename) => filename.includes(".h5") && !filename.includes("__MACOSX")
             ).length;

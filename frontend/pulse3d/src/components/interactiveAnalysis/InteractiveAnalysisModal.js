@@ -2,7 +2,6 @@ import styled from "styled-components";
 import { useEffect, useState, useContext, useMemo } from "react";
 import DropDownWidget from "../basicWidgets/DropDownWidget";
 import WaveformGraph from "./InteractiveWaveformGraph";
-import { WellTitle as LabwareDefinition } from "@/utils/labwareCalculations";
 import { deepCopy } from "@/utils/generic";
 import CircularSpinner from "../basicWidgets/CircularSpinner";
 import ButtonWidget from "../basicWidgets/ButtonWidget";
@@ -218,6 +217,33 @@ const getDefaultCustomAnalysisSettings = (wells) => {
   return customVals;
 };
 
+const getDefaultAnalysisSettingsForWell = () => {
+  return {
+    windowedAnalysisBounds: {
+      start: null,
+      end: null,
+    },
+    featureIndices: {
+      peaks: [],
+      valleys: [],
+    },
+    duplicateIndices: {
+      peaks: [],
+      valleys: [],
+    },
+    thresholdEndpoints: {
+      peaks: {
+        y1: null,
+        y2: null,
+      },
+      valleys: {
+        y1: null,
+        y2: null,
+      },
+    },
+  };
+};
+
 const getArraysForWells = (wells) => {
   const changelog = {};
   for (const well of wells) {
@@ -292,7 +318,9 @@ export default function InteractiveWaveformModal({
 
   const [customAnalysisSettings, setCustomAnalysisSettings] = useState({});
   // This only exists as a convenience for passing data down to WaveformGraph. It's a copy of customAnalysisSettings with only the data relevant for the selected well
-  const [customAnalysisSettingsForWell, setCustomAnalysisSettingsForWell] = useState({});
+  const [customAnalysisSettingsForWell, setCustomAnalysisSettingsForWell] = useState(
+    getDefaultAnalysisSettingsForWell()
+  );
   // TODO could probably combine customAnalysisSettingsChanges and changelog
   const [customAnalysisSettingsChanges, setCustomAnalysisSettingsChanges] = useState({});
   const [changelog, setChangelog] = useState({});
@@ -300,15 +328,18 @@ export default function InteractiveWaveformModal({
 
   const updateCustomAnalysisSettings = (newCustomAnalysisSettings) => {
     newCustomAnalysisSettings = deepCopy(newCustomAnalysisSettings);
+
     for (const well of Object.keys(waveformData)) {
-      newCustomAnalysisSettings[well].filteredFeatureIndices = filterAndSortFeatures(
-        originalAnalysisData.coordinates[well],
-        newCustomAnalysisSettings.windowedAnalysisBounds,
-        newCustomAnalysisSettings[well]
-      );
-      newCustomAnalysisSettings[well].duplicateFeatureIndices = checkDuplicates(
-        newCustomAnalysisSettings[well].filteredFeatureIndices
-      );
+      if (well in newCustomAnalysisSettings) {
+        newCustomAnalysisSettings[well].filteredFeatureIndices = filterAndSortFeatures(
+          originalAnalysisData.coordinates[well],
+          newCustomAnalysisSettings.windowedAnalysisBounds,
+          newCustomAnalysisSettings[well]
+        );
+        newCustomAnalysisSettings[well].duplicateFeatureIndices = checkDuplicates(
+          newCustomAnalysisSettings[well].filteredFeatureIndices
+        );
+      }
     }
     setCustomAnalysisSettings(newCustomAnalysisSettings);
   };
@@ -370,23 +401,27 @@ export default function InteractiveWaveformModal({
       });
     },
     featureIndices: (well, featureName, initialIndices) => {
-      const wellSettings = customAnalysisSettings[well];
-      wellSettings.allFeatureIndices[featureName] = deepCopy(initialIndices);
-      updateCustomAnalysisSettings({
-        ...customAnalysisSettings,
-        [well]: wellSettings,
-      });
+      if (well in customAnalysisSettings) {
+        const wellSettings = customAnalysisSettings[well];
+        wellSettings.allFeatureIndices[featureName] = deepCopy(initialIndices);
+        updateCustomAnalysisSettings({
+          ...customAnalysisSettings,
+          [well]: wellSettings,
+        });
+      }
     },
     thresholdEndpoints: (well, featureName, initialValue) => {
-      const wellSettings = customAnalysisSettings[well];
-      wellSettings.thresholdEndpoints[featureName] = {
-        y1: initialValue,
-        y2: initialValue,
-      };
-      updateCustomAnalysisSettings({
-        ...customAnalysisSettings,
-        [well]: wellSettings,
-      });
+      if (well in customAnalysisSettings) {
+        const wellSettings = customAnalysisSettings[well];
+        wellSettings.thresholdEndpoints[featureName] = {
+          y1: initialValue,
+          y2: initialValue,
+        };
+        updateCustomAnalysisSettings({
+          ...customAnalysisSettings,
+          [well]: wellSettings,
+        });
+      }
     },
   };
 
@@ -473,9 +508,6 @@ export default function InteractiveWaveformModal({
   // One-time setup for component.
   // Currently just need to set the available pulse3d versions and check the current usage of the user
   useEffect(() => {
-    const compatibleVersions = pulse3dVersions.filter((v) => semverGte(v, "0.28.3"));
-    setFilteredVersions([...compatibleVersions]);
-
     if (usageQuota && usageQuota.limits && numberOfJobsInUpload >= 2 && usageQuota.limits.jobs !== -1) {
       setCreditUsageAlert(true);
     }
@@ -534,24 +566,27 @@ export default function InteractiveWaveformModal({
 
   // update customAnalysisSettingsForWell whenever customAnalysisSettings or the currently selected well changes
   useEffect(() => {
-    setCustomAnalysisSettingsForWell(
-      // Tanner (6/1/23): Copying just to be safe
-      deepCopy({
-        windowedAnalysisBounds: customAnalysisSettings.windowedAnalysisBounds,
-        featureIndices: customAnalysisSettings[selectedWell].filteredFeatureIndices,
-        duplicateIndices: customAnalysisSettings[selectedWell].duplicateFeatureIndices,
-        thresholdEndpoints: customAnalysisSettings[selectedWell].thresholdEndpoints,
-      })
-    );
+    if (selectedWell in customAnalysisSettings)
+      setCustomAnalysisSettingsForWell(
+        // Tanner (6/1/23): Copying just to be safe
+        deepCopy({
+          windowedAnalysisBounds: customAnalysisSettings.windowedAnalysisBounds,
+          featureIndices: customAnalysisSettings[selectedWell].filteredFeatureIndices,
+          duplicateIndices: customAnalysisSettings[selectedWell].duplicateFeatureIndices,
+          thresholdEndpoints: customAnalysisSettings[selectedWell].thresholdEndpoints,
+        })
+      );
   }, [customAnalysisSettings, selectedWell]);
 
   const handleWaveformData = async () => {
     try {
       setSelectedWell(Object.keys(waveformData)[0]);
-      setCustomAnalysisSettings(getDefaultCustomAnalysisSettings(Object.keys(waveformData)));
       setCustomAnalysisSettingsChanges(getArraysForWells(Object.keys(waveformData)));
       setChangelog(getArraysForWells(Object.keys(waveformData)));
       setBaseData(featureIndicies);
+
+      customAnalysisSettings = getDefaultCustomAnalysisSettings(Object.keys(waveformData));
+      setCustomAnalysisSettings(customAnalysisSettings);
 
       // original data is set and never changed to hold original state in case of reset
       originalAnalysisData = { featuresForWells: featureIndicies, coordinates: waveformData };
@@ -697,6 +732,7 @@ export default function InteractiveWaveformModal({
         selectedVersionMetadata.end_of_life_date || "soon"
       }.`
     );
+
     setDeprecationNotice(selectedVersionMetadata.state === "deprecated");
     setPulse3dVersionIdx(idx);
   };
@@ -745,7 +781,6 @@ export default function InteractiveWaveformModal({
     };
 
     const featureIdx = featureType === "peaks" ? 0 : 1;
-
     const wellSpecificFeatures = featuresForWells[well][featureIdx];
     const wellSpecificCoords = coordinates[well];
 
@@ -884,6 +919,15 @@ export default function InteractiveWaveformModal({
       setModalLabels(constantModalLabels.error);
       setModalOpen("status");
     } else if (!getLoadingState) {
+      const compatibleVersions = pulse3dVersions.filter((v) => {
+        if (Object.keys(waveformData).length === 24) return true;
+        else {
+          return Object.keys(waveformData).length < 24 ? semverGte(v, "0.32.2") : semverGte(v, "0.33.9");
+        }
+      });
+
+      setFilteredVersions([...compatibleVersions]);
+
       const data = sessionStorage.getItem(selectedJob.jobId); // returns null if key doesn't exist in storage
       if (data) {
         // if data is found in sessionStorage then do ?
@@ -902,10 +946,10 @@ export default function InteractiveWaveformModal({
       <WellDropdownContainer>
         <WellDropdownLabel>Select Well:</WellDropdownLabel>
         <DropDownWidget
-          options={Object.keys(waveformData) || []}
+          options={Object.keys(waveformData)}
           handleSelection={handleWellSelection}
           disabled={isLoading}
-          reset={selectedWell === "A1"}
+          reset={selectedWell === Object.keys(waveformData)[0]}
           initialSelected={0}
         />
       </WellDropdownContainer>
@@ -969,7 +1013,7 @@ export default function InteractiveWaveformModal({
           </ParamLabel>
           <div style={{ width: "140px" }}>
             <DropDownWidget
-              options={pulse3dVersions.map((version) => {
+              options={filteredVersions.map((version) => {
                 const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
                 if (selectedVersionMeta[0] && selectedVersionMeta[0].state === "testing") {
                   return version + " " + "[ testing ]";

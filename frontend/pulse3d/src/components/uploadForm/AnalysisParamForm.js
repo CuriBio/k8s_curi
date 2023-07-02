@@ -485,6 +485,7 @@ export default function AnalysisParamForm({
     const filteredOptions = pulse3dVersions.filter((version) =>
       !xlsxFilePresent || xlsxFilePresent <= 24 ? semverGte(version, "0.32.2") : semverGte(version, "0.33.9")
     );
+    console.log(xlsxFilePresent, filteredOptions);
 
     setPulse3dFilteredFileVersions([...filteredOptions]);
   }, [pulse3dVersions, xlsxFilePresent]);

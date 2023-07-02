@@ -7,25 +7,32 @@ export const useWaveformData = (url) => {
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const fetchFromS3 = async (presignedUrl, tableFn, normalizeYAxis) => {
+    const response = await fetch(presignedUrl);
+    const buffer = new Uint8Array(await response.arrayBuffer());
+    const table = await getTableFromParquet(Object.values(buffer));
+
+    return await tableFn(table, normalizeYAxis);
+  };
+
   const getData = async () => {
-    const wasmModule = await import("parquet-wasm/esm/arrow1.js");
-    await wasmModule.default();
+    try {
+      const response = await fetch(url);
 
-    const response = await fetch(url);
+      if (response.status !== 200) setError(true);
+      else {
+        const { timeForceUrl, peaksValleysUrl, normalizeYAxis } = await response.json();
 
-    if (response.status !== 200) setError(true);
-    else {
-      const buffer = await response.json();
+        const featuresForWells = await fetchFromS3(peaksValleysUrl, getPeaksValleysFromTable);
+        const coordinates = await fetchFromS3(timeForceUrl, getWaveformCoordsFromTable, normalizeYAxis);
 
-      const featuresTable = await getTableFromParquet(Object.values(buffer.peaksValleys));
-      const featuresForWells = await getPeaksValleysFromTable(featuresTable);
-
-      const timeForceTable = await getTableFromParquet(Object.values(buffer.timeForceData));
-      const coordinates = await getWaveformCoordsFromTable(timeForceTable, buffer.normalizeYAxis);
-
-      setWaveformData(coordinates);
-      setFeatureIndicies(featuresForWells);
-      setLoading(false);
+        setWaveformData(coordinates);
+        setFeatureIndicies(featuresForWells);
+        setLoading(false);
+      }
+    } catch (e) {
+      console.log("ERROR getting waveform data: ", e);
+      setError(true);
     }
   };
 
