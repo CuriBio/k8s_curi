@@ -27,9 +27,7 @@ async def setup(request):
     async with async_playwright() as p:
         test_name = request.node.name.split("[")[0]
 
-        browser = await p.chromium.launch(
-            headless=HEADLESS, slow_mo=1000 if SLOWMO else None
-        )
+        browser = await p.chromium.launch(headless=HEADLESS, slow_mo=1000 if SLOWMO else None)
         context = await browser.new_context(record_video_dir=f"videos/{test_name}")
         page = await context.new_page()
 
