@@ -42,6 +42,7 @@ from models.models import (
     UploadDownloadRequest,
     GenericErrorResponse,
     UsageQuota,
+    SavePresetRequest,
 )
 from models.types import TupleParam
 
@@ -718,6 +719,25 @@ async def get_versions(request: Request):
 @app.get("/usage", response_model=UsageQuota)
 async def get_usage_quota(
     request: Request, service: str = Query(None), token=Depends(ProtectedAny(scope=PULSE3D_SCOPES))
+):
+    """Get the usage quota for the specific user"""
+    try:
+        customer_id = (
+            str(uuid.UUID(token["userid"]))
+            if token["scope"][0] in CUSTOMER_SCOPES
+            else str(uuid.UUID(token["customer_id"]))
+        )
+        async with request.state.pgpool.acquire() as con:
+            usage_quota = await check_customer_quota(con, customer_id, service)
+            return usage_quota
+    except Exception:
+        logger.exception("Failed to fetch quota usage")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.post("/presets", response_model=UsageQuota)
+async def save_analysis_presets(
+    request: Request, details: SavePresetRequest, token=Depends(ProtectedAny(scope=PULSE3D_SCOPES))
 ):
     """Get the usage quota for the specific user"""
     try:
