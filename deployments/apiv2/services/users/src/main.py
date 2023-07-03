@@ -172,8 +172,8 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
 
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
-    except Exception as e:
-        logger.exception(f"login: Unexpected error {repr(e)}")
+    except Exception:
+        logger.exception("POST /login: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -219,8 +219,8 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.exception(f"refresh: Unexpected error {repr(e)}")
+    except Exception:
+        logger.exception("POST /refresh: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -267,8 +267,8 @@ async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False)
         async with request.state.pgpool.acquire() as con:
             await con.execute(update_query, userid)
 
-    except Exception as e:
-        logger.exception(f"logout: Unexpected error {repr(e)}")
+    except Exception:
+        logger.exception("POST /logout: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -366,8 +366,8 @@ async def register(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except RegistrationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        logger.exception(f"register: Unexpected error {repr(e)}")
+    except Exception:
+        logger.exception("POST /register: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -400,8 +400,8 @@ async def email_user(
                     email=email,
                 )
 
-    except Exception as e:
-        logger.exception(f"GET /email: Unexpected error {repr(e)}")
+    except Exception:
+        logger.exception("GET /email: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -424,8 +424,7 @@ async def _create_user_email(
             account_type = "customer"
             query = "UPDATE customers SET pw_reset_link=$1 WHERE id=$2"
         else:
-            logger.exception(f"Scope {scope} is not allowed to make this request")
-            raise Exception()
+            raise Exception(f"Scope {scope} is not allowed to make this request")
         # create email verification token, exp 24 hours
         jwt_token = create_token(
             userid=user_id, customer_id=customer_id, scope=scopes, account_type=account_type
@@ -490,50 +489,81 @@ async def update_accounts(
     """
     try:
         user_id = uuid.UUID(hex=token["userid"])
+
         is_customer = "customer:reset" in token["scope"]
         is_user = "users" in token["scope"][0]
+        # must be either a customer or user. Cannot be both or neither
+        if not (is_customer ^ is_user):
+            logger.error(f"PUT /{user_id}: Invalid scope(s): {token['scope']}")
+            # TODO change the return code here
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         customer_id = None if is_customer else uuid.UUID(hex=token["customer_id"])
 
+        pw = details.password1.get_secret_value()
         ph = PasswordHasher()
-        phash = ph.hash(details.password1.get_secret_value())
+        phash = ph.hash(pw)
 
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():
-                # ProtectedAny will return 401 already if link has expired
-                if is_customer:
-                    row = await con.fetchrow("SELECT pw_reset_link FROM customers WHERE id=$1", user_id)
-                    # link in db gets replaced with NULL when it's been successfully used
-                    if row["pw_reset_link"] is None:
-                        return UnableToUpdateAccountResponse(message="Link has already been used")
+                # ProtectedAny will return 401 already if link has expired, so no need to check again
 
-                    await con.execute(
-                        "UPDATE customers SET pw_reset_link=NULL, password=$1 WHERE id=$2", phash, user_id
+                # get necessary info from DB before making any changes or validating any data
+                row = await con.fetchrow(
+                    *(
+                        (
+                            "SELECT pw_reset_link FROM customers WHERE id=$1",
+                            user_id,
+                        )
+                        if is_customer
+                        else (
+                            "SELECT verified, pw_reset_verify_link FROM users WHERE id=$1 AND customer_id=$2",
+                            user_id,
+                            customer_id,
+                        )
                     )
-                # Luci (12/8/22) don't use catchall else statements with customer versus user conditionals
-                elif is_user:
-                    row = await con.fetchrow(
-                        "SELECT verified, pw_reset_verify_link FROM users WHERE id=$1 AND customer_id=$2",
-                        user_id,
-                        customer_id,
+                )
+
+                # if the link is being used to verify the user account and the account has already been verified, then return message to display to user
+                if is_user and details.verify and row["verified"]:
+                    return UnableToUpdateAccountResponse(message="Account has already been verified")
+                # link in db gets replaced with NULL when it's been successfully used
+                if row["pw_reset_link" if is_customer else "pw_reset_verify_link"] is None:
+                    return UnableToUpdateAccountResponse(message="Link has already been used")
+
+                for prev_pw in row["previous_passwords"]:
+                    try:
+                        ph.verify(prev_pw, pw)
+                    except VerifyMismatchError:
+                        continue
+                    else:
+                        # TODO return something different here?
+                        # TODO make a constant for the number of previous PWs stored
+                        return UnableToUpdateAccountResponse(
+                            message="Cannot set password to any of the previous 5 passwords"
+                        )
+
+                # TODO update the previous passwords. Either add a new query or figure out how to modify this one to do that
+
+                await con.execute(
+                    *(
+                        (
+                            "UPDATE customers SET pw_reset_link=NULL, password=$1 WHERE id=$2",
+                            phash,
+                            user_id,
+                        )
+                        if is_customer
+                        else (
+                            "UPDATE users SET verified='t', pw_reset_verify_link=NULL, password=$1 WHERE id=$2 AND customer_id=$3",
+                            phash,
+                            user_id,
+                            customer_id,
+                        )
                     )
-                    # if the link is being used to verify account and the account has already been verified, then return message to display to user
-                    if details.verify and row["verified"]:
-                        return UnableToUpdateAccountResponse(message="Account has already been verified")
+                )
 
-                    # link in db gets replaced with NULL when it's been successfully used
-                    if row["pw_reset_verify_link"] is None:
-                        return UnableToUpdateAccountResponse(message="Link has already been used")
-
-                    # will set verified to True even if it already is to remove extra, unnecessary conditional
-                    await con.execute(
-                        "UPDATE users SET verified='t', pw_reset_verify_link=NULL, password=$1 WHERE id=$2 AND customer_id=$3",
-                        phash,
-                        user_id,
-                        customer_id,
-                    )
-
-    except Exception as e:
-        logger.exception(f"PUT /{user_id}: Unexpected error {repr(e)}")
+    except Exception:
+        logger.exception(f"PUT /{user_id}: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -568,8 +598,8 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTO
 
         return formatted_results
 
-    except Exception as e:
-        logger.exception(f"GET /: Unexpected error {repr(e)}")
+    except Exception:
+        logger.exception("GET /: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -598,8 +628,8 @@ async def get_user(request: Request, user_id: uuid.UUID, token=Depends(Protected
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.exception(f"GET /{user_id}: Unexpected error {repr(e)}")
+    except Exception:
+        logger.exception(f"GET /{user_id}: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -631,6 +661,6 @@ async def update_user(
     try:
         async with request.state.pgpool.acquire() as con:
             await con.execute(update_query, *query_args)
-    except Exception as e:
-        logger.exception(f"PUT /{user_id}: Unexpected error {repr(e)}")
+    except Exception:
+        logger.exception(f"PUT /{user_id}: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
