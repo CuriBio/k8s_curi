@@ -1,13 +1,16 @@
 import pytest
 import time
 
+
 from fixtures import setup, video_setup, basic_page, admin_logged_in_page
 
 __fixtures__ = [setup, video_setup, basic_page, admin_logged_in_page]
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("specificDownloadOption", ["Download Analyses", "Download Raw Data"])
+@pytest.mark.parametrize(
+    "specificDownloadOption", ["Download Analyses", "Download Raw Data"]
+)
 async def test_Download(admin_logged_in_page, specificDownloadOption):
     await admin_logged_in_page.wait_for_load_state("networkidle")
 
@@ -19,7 +22,9 @@ async def test_Download(admin_logged_in_page, specificDownloadOption):
     async with admin_logged_in_page.expect_download() as analysesDownload:
         await admin_logged_in_page.get_by_role("button", name="Actions").click()
         await admin_logged_in_page.get_by_role("option", name="Download").click()
-        await admin_logged_in_page.get_by_role("option", name=specificDownloadOption).click()
+        await admin_logged_in_page.get_by_role(
+            "option", name=specificDownloadOption
+        ).click()
 
         # wait for dowload to complete then check that there are no errors
         download = await analysesDownload.value

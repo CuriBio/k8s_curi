@@ -27,7 +27,9 @@ async def setup(request):
     async with async_playwright() as p:
         test_name = request.node.name.split("[")[0]
 
-        browser = await p.chromium.launch(headless=HEADLESS, slow_mo=1000 if SLOWMO else None)
+        browser = await p.chromium.launch(
+            headless=HEADLESS, slow_mo=1000 if SLOWMO else None
+        )
         context = await browser.new_context(record_video_dir=f"videos/{test_name}")
         page = await context.new_page()
 
@@ -108,3 +110,15 @@ async def admin_logged_in_page(basic_page):
     assert basic_page.url == f"https://{TEST_URL}/uploads"
 
     yield basic_page
+
+
+# set up test for /new-user page
+@pytest_asyncio.fixture(scope="function", name="admin_user_creation_page")
+async def admin_user_creation_page(admin_logged_in_page):
+    await admin_logged_in_page.click("text=Add New User")
+    await admin_logged_in_page.wait_for_url("**/new-user")
+
+    # check correct page is loaded
+    assert admin_logged_in_page.url == f"https://{TEST_URL}/new-user"
+
+    yield admin_logged_in_page
