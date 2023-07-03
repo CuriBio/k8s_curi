@@ -467,15 +467,19 @@ export default function UserInfo() {
                 label="Actions"
                 options={["Delete", "Deactivate", "Reactivate", "Resend Verification Link"]}
                 disableOptions={[
+                  // delete
                   checkedUsers.length === 0,
+                  // deactivate
                   checkedUsers.length === 0 ||
                     usersData
                       .filter((user) => checkedUsers.includes(user.id))
                       .filter((checkedUsers) => checkedUsers.suspended).length !== 0,
+                  // reactivate
                   checkedUsers.length === 0 ||
                     usersData
                       .filter((user) => checkedUsers.includes(user.id))
                       .filter((checkedUsers) => !checkedUsers.suspended).length !== 0,
+                  // resend
                   checkedUsers.length !== 1 ||
                     (checkedUsers.length === 1 &&
                       usersData.filter(({ id }) => checkedUsers.includes(id))[0].verified) ||
@@ -505,7 +509,9 @@ export default function UserInfo() {
         buttons={["Cancel", "Verify"]}
       >
         <PasswordInputContainer>
-          {!inProgress ? (
+          {inProgress ? (
+            <CircularSpinner size={150} color={"secondary"} />
+          ) : (
             <PasswordForm
               password1={passwords.password1}
               password2={passwords.password2}
@@ -516,8 +522,6 @@ export default function UserInfo() {
                 {errorMsg}
               </ErrorText>
             </PasswordForm>
-          ) : (
-            <CircularSpinner size={150} color={"secondary"} />
           )}
         </PasswordInputContainer>
       </ModalWidget>
