@@ -922,7 +922,8 @@ export default function InteractiveWaveformModal({
       const compatibleVersions = pulse3dVersions.filter((v) => {
         if (Object.keys(waveformData).length === 24) return true;
         else {
-          return Object.keys(waveformData).length < 24 ? semverGte(v, "0.32.2") : semverGte(v, "0.33.9");
+          const minVersion = Object.keys(waveformData).length < 24 ? "0.32.2" : "0.33.9";
+          return semverGte(v, minVersion);
         }
       });
 

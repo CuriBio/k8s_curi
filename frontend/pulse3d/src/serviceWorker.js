@@ -246,14 +246,21 @@ const interceptResponse = async (req, url) => {
   }
 };
 
+const convertLargeArrToJson = (arr) => {
+  return "[" + arr.map((el) => JSON.stringify(el)).join(",") + "]";
+};
+
 const getWaveformDataFromS3 = async (res) => {
   try {
     const response = await res.json();
 
+    const timeForceRes = await fetch(response.time_force_url);
+    const peaksValleysRes = await fetch(response.peaks_valleys_url);
+
     return {
       normalizeYAxis: response.normalize_y_axis,
-      peaksValleysUrl: response.peaks_valleys_url,
-      timeForceUrl: response.time_force_url,
+      peaksValleysData: convertLargeArrToJson(new Uint8Array(await peaksValleysRes.arrayBuffer())),
+      timeForceData: convertLargeArrToJson(new Uint8Array(await timeForceRes.arrayBuffer())),
     };
   } catch (e) {
     console.log("Error grabbing waveform data: " + e);

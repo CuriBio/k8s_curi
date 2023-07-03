@@ -7,11 +7,8 @@ export const useWaveformData = (url) => {
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const fetchFromS3 = async (presignedUrl, tableFn, normalizeYAxis) => {
-    const response = await fetch(presignedUrl);
-    const buffer = new Uint8Array(await response.arrayBuffer());
-    const table = await getTableFromParquet(Object.values(buffer));
-
+  const parseParquetData = async (data, tableFn, normalizeYAxis) => {
+    const table = await getTableFromParquet(Object.values(JSON.parse(data)));
     return await tableFn(table, normalizeYAxis);
   };
 
@@ -21,10 +18,10 @@ export const useWaveformData = (url) => {
 
       if (response.status !== 200) setError(true);
       else {
-        const { timeForceUrl, peaksValleysUrl, normalizeYAxis } = await response.json();
+        const { peaksValleysData, normalizeYAxis, timeForceData } = await response.json();
 
-        const featuresForWells = await fetchFromS3(peaksValleysUrl, getPeaksValleysFromTable);
-        const coordinates = await fetchFromS3(timeForceUrl, getWaveformCoordsFromTable, normalizeYAxis);
+        const featuresForWells = await parseParquetData(peaksValleysData, getPeaksValleysFromTable);
+        const coordinates = await parseParquetData(timeForceData, getWaveformCoordsFromTable, normalizeYAxis);
 
         setWaveformData(coordinates);
         setFeatureIndicies(featuresForWells);
