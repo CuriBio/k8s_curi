@@ -1,20 +1,17 @@
 import styled from "styled-components";
-import { useEffect, useState, useContext, useMemo } from "react";
+import { useEffect, useState } from "react";
 import BasicWaveformGraph from "@/components/interactiveAnalysis/BasicWaveformGraph";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
-import { getPeaksValleysFromTable, getWaveformCoordsFromTable, getTableFromParquet } from "@/utils/generic";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import { useWaveformData } from "@/components/interactiveAnalysis//useWaveformData";
-
-import { WellTitle as LabwareDefinition } from "@/utils/labwareCalculations";
-const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
 
 const Container = styled.div`
   height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding: 2%;
   overflow: hidden;
   box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
     0px 3px 14px 2px rgb(0 0 0 / 12%);
@@ -25,16 +22,9 @@ const GraphContainer = styled.div`
   left: 1%;
   position: relative;
   display: grid;
-  overflow-y: hidden;
+  overflow-y: scroll;
   overflow-x: scroll;
   padding-bottom: 30px;
-  grid-template-columns: repeat(6, auto);
-  grid-template-rows: repeat(4, auto);
-  grid-template-areas:
-    "A1 A2 A3 A4 A5 A6"
-    "B1 B2 B3 B4 B5 B6"
-    "C1 C2 C3 C4 C5 C6"
-    "D1 D2 D3 D4 D5 D6";
   &::-webkit-scrollbar {
     height: 15px;
     background-color: var(--dark-gray);
@@ -89,10 +79,7 @@ const YAxisContainer = styled.div`
 
 const YAxisLabel = styled.div`
   position: relative;
-  transform: rotate(-90deg);
-  height: 31%;
-  width: 190px;
-  line-height: 2.5;
+  white-space: nowrap;
 `;
 
 const YAxisLine = styled.hr`
@@ -103,11 +90,8 @@ const GraphAxisContainer = styled.div`
   width: 100%;
   display: flex;
   flex-direction: row;
+  max-height: 890px;
 `;
-
-const wellNames = Array(24)
-  .fill()
-  .map((_, idx) => twentyFourPlateDefinition.getWellNameFromIndex(idx));
 
 const errorModalLabels = {
   header: "Error Occurred!",
@@ -122,6 +106,7 @@ export default function JobPreviewModal({
   const [isLoading, setIsLoading] = useState(true);
   const [timepointRange, setTimepointRange] = useState([]);
   const [openErrorModal, setOpenErrorModal] = useState(false);
+  const [gridStyle, setGridStyle] = useState({});
   const { waveformData, featureIndicies, getErrorState, getLoadingState } = useWaveformData(
     `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${uploadId}&job_id=${jobId}`
   );
@@ -129,7 +114,9 @@ export default function JobPreviewModal({
   useEffect(() => {
     if (getErrorState) setOpenErrorModal(true);
     else if (!getLoadingState) {
-      getTimepointRange(waveformData["A1"]);
+      // first well may not be A1 if optical files, so just grab first value
+      getGridStyle();
+      getTimepointRange(waveformData[Object.keys(waveformData)[0]]);
       setIsLoading(false);
     }
   }, [getErrorState, getLoadingState]);
@@ -143,6 +130,35 @@ export default function JobPreviewModal({
     setTimepointRange({ min, max });
   };
 
+  const getGridStyle = () => {
+    const numOfWells = Object.keys(waveformData).length;
+
+    let numRows, numCols;
+    if (numOfWells <= 24) {
+      numRows = 4;
+      numCols = 6;
+    } else if (numOfWells > 24 && numOfWells <= 96) {
+      numRows = 8;
+      numCols = 12;
+    } else if (numOfWells > 96 && numOfWells <= 384) {
+      numRows = 16;
+      numCols = 24;
+    } else if (numOfWells > 384) {
+      numRows = 32;
+      numCols = 48;
+    }
+
+    const areas = [...Array(numRows)].map((_, rowIdx) => {
+      return [...Array(numCols)].map((_, colIdx) => `well${rowIdx + colIdx * numRows}`).join(" ");
+    });
+
+    setGridStyle({
+      gridTemplateColumns: `repeat(${numCols}, auto)`,
+      gridTemplateRows: `repeat(${numRows}, auto)`,
+      gridTemplateAreas: `"${areas.join('" "')}`,
+    });
+  };
+
   return (
     <>
       <Container>
@@ -154,12 +170,16 @@ export default function JobPreviewModal({
           <>
             <GraphAxisContainer>
               <YAxisContainer>
-                <YAxisLabel>Active Twitch Force (uN)</YAxisLabel>
+                <YAxisLabel>
+                  {Object.keys(waveformData).length > 1 && (
+                    <div style={{ transform: "rotate(-90deg)" }}>Active Twitch Force (uN)</div>
+                  )}
+                </YAxisLabel>
                 <YAxisLine />
               </YAxisContainer>
-              <GraphContainer>
-                {wellNames.map((well) => (
-                  <div key={well} style={{ position: "relative", gridArea: well }}>
+              <GraphContainer style={gridStyle}>
+                {Object.keys(waveformData).map((well, i) => (
+                  <div key={well} style={{ position: "relative", gridArea: `well${i}`, maxWidth: 200 }}>
                     <BasicWaveformGraph
                       well={well}
                       timepointRange={timepointRange}
@@ -184,8 +204,6 @@ export default function JobPreviewModal({
             position="relative"
             borderRadius="3px"
             label="Close"
-            disabled={isLoading}
-            backgroundColor={isLoading ? "var(--dark-gray)" : "var(--dark-blue)"}
             clickFn={() => setOpenJobPreview(false)}
           />
         </ButtonContainer>

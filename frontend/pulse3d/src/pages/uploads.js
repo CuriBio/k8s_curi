@@ -70,7 +70,7 @@ const LargeModalContainer = styled.div`
 `;
 
 const ModalBackdrop = styled.div`
-  height: 100%;
+  height: auto;
   top: 0;
   position: absolute;
   background: black;
