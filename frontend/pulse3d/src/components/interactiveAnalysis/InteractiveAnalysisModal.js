@@ -217,33 +217,6 @@ const getDefaultCustomAnalysisSettings = (wells) => {
   return customVals;
 };
 
-const getDefaultAnalysisSettingsForWell = () => {
-  return {
-    windowedAnalysisBounds: {
-      start: null,
-      end: null,
-    },
-    featureIndices: {
-      peaks: [],
-      valleys: [],
-    },
-    duplicateIndices: {
-      peaks: [],
-      valleys: [],
-    },
-    thresholdEndpoints: {
-      peaks: {
-        y1: null,
-        y2: null,
-      },
-      valleys: {
-        y1: null,
-        y2: null,
-      },
-    },
-  };
-};
-
 const getArraysForWells = (wells) => {
   const changelog = {};
   for (const well of wells) {
@@ -315,12 +288,9 @@ export default function InteractiveWaveformModal({
     min: null,
     max: null,
   });
-
   const [customAnalysisSettings, setCustomAnalysisSettings] = useState({});
   // This only exists as a convenience for passing data down to WaveformGraph. It's a copy of customAnalysisSettings with only the data relevant for the selected well
-  const [customAnalysisSettingsForWell, setCustomAnalysisSettingsForWell] = useState(
-    getDefaultAnalysisSettingsForWell()
-  );
+  const [customAnalysisSettingsForWell, setCustomAnalysisSettingsForWell] = useState();
   // TODO could probably combine customAnalysisSettingsChanges and changelog
   const [customAnalysisSettingsChanges, setCustomAnalysisSettingsChanges] = useState({});
   const [changelog, setChangelog] = useState({});
