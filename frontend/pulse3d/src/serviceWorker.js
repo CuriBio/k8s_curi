@@ -246,20 +246,24 @@ const interceptResponse = async (req, url) => {
   }
 };
 
+const convertLargeArrToJson = (arr) => {
+  return "[" + arr.map((el) => JSON.stringify(el)).join(",") + "]";
+};
+
 const getWaveformDataFromS3 = async (res) => {
   try {
     const response = await res.json();
 
-    const peaksValleys = await fetch(response.peaks_valleys_url);
-    const timeForceData = await fetch(response.time_force_url);
+    const timeForceRes = await fetch(response.time_force_url);
+    const peaksValleysRes = await fetch(response.peaks_valleys_url);
 
     return {
       normalizeYAxis: response.normalize_y_axis,
-      peaksValleys: new Uint8Array(await peaksValleys.arrayBuffer()),
-      timeForceData: new Uint8Array(await timeForceData.arrayBuffer()),
+      peaksValleysData: convertLargeArrToJson(new Uint8Array(await peaksValleysRes.arrayBuffer())),
+      timeForceData: convertLargeArrToJson(new Uint8Array(await timeForceRes.arrayBuffer())),
     };
   } catch (e) {
-    console.log("Error grabbing preloaded data: " + e);
+    console.log("Error grabbing waveform data: " + e);
   }
 };
 
