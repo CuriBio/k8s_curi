@@ -1,6 +1,7 @@
 from playwright.async_api import async_playwright
 import pytest_asyncio
 import pytest
+import os
 import shutil
 
 from config import (
@@ -18,7 +19,8 @@ from config import (
 # remove older videos if present
 @pytest.fixture(scope="session", autouse=True)
 def video_setup():
-    shutil.rmtree("./videos/")
+    if os.path.exists("./videos/"):
+        shutil.rmtree("./videos/")
 
 
 # set up basic browser and context
@@ -27,7 +29,9 @@ async def setup(request):
     async with async_playwright() as p:
         test_name = request.node.name.split("[")[0]
 
-        browser = await p.chromium.launch(headless=HEADLESS, slow_mo=1000 if SLOWMO else None)
+        browser = await p.chromium.launch(
+            headless=HEADLESS, slow_mo=1000 if SLOWMO else None
+        )
         context = await browser.new_context(record_video_dir=f"videos/{test_name}")
         page = await context.new_page()
 

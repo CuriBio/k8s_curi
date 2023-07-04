@@ -3,6 +3,8 @@ import random
 import string
 import time
 
+from config import TEST_URL
+
 from fixtures import (
     setup,
     video_setup,
@@ -44,7 +46,7 @@ async def test_valid_new_user_credentials(admin_user_creation_page):
 
     assert await admin_user_creation_page.get_by_text("Success").nth(0).is_visible()
 
-    # TODO check user table for the new user
+    # go to user table and find
 
 
 invalid_usernames = [
