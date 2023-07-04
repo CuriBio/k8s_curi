@@ -11,10 +11,24 @@ import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardL
 import semverGte from "semver/functions/gte";
 import InputDropdownWidget from "@/components/basicWidgets/InputDropdownWidget";
 import { AuthContext } from "./_app";
+import FormInput from "@/components/basicWidgets/FormInput";
+
 const Container = styled.div`
   justify-content: center;
   position: relative;
   padding: 3rem;
+`;
+
+const PresetNameContainer = styled.div`
+  height: 100px;
+  padding: 60px 140px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+`;
+
+const PresetNameLabel = styled.div`
+  width: 140px;
 `;
 
 const Header = styled.h2`
@@ -56,7 +70,7 @@ const Uploads = styled.div`
 const ButtonContainer = styled.div`
   display: flex;
   justify-content: flex-end;
-  padding: 3rem 6rem;
+  padding: 3rem 8rem;
   width: 100%;
 `;
 
@@ -172,6 +186,9 @@ export default function UploadForm() {
   const [alertShowed, setAlertShowed] = useState(false);
   const [reanalysis, setReanalysis] = useState(isReanalysisPage(router));
   const [xlsxFilePresent, setXlsxFilePresent] = useState(false);
+  const [savePresetModal, setSavePresetModal] = useState(false);
+  const [analysisPresetName, setAnalysisPresetName] = useState();
+  const [presets, setPresets] = useState([]);
 
   useEffect(() => {
     if (badFiles.length > 0) {
@@ -232,6 +249,10 @@ export default function UploadForm() {
   }, [files]);
 
   useEffect(() => {
+    getAnalysisPresets();
+  }, []);
+
+  useEffect(() => {
     const newAnalysisStatus = isReanalysisPage(router);
     // only perform these updates if the page actually changed
     if (reanalysis !== newAnalysisStatus) {
@@ -246,6 +267,11 @@ export default function UploadForm() {
       setFormattedUploads([...uploads.map((upload) => upload.filename).filter((name) => name)]);
     }
   }, [uploads]);
+
+  const getAnalysisPresets = async () => {
+    const presetResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets`);
+    console.log(await presetResponse.json());
+  };
 
   const resetState = () => {
     setResetDragDrop(true);
@@ -289,108 +315,112 @@ export default function UploadForm() {
     return val === "" ? null : val;
   };
 
-  const postNewJob = async (uploadId, filename) => {
-    try {
-      const {
-        normalizeYAxis,
-        showStimSheet,
-        baseToPeak,
-        peakToBase,
-        maxY,
-        prominenceFactorPeaks,
-        prominenceFactorValleys,
-        relativeProminenceFactor,
-        noiseProminenceFactor,
-        widthFactorPeaks,
-        widthFactorValleys,
-        minPeakHeight,
-        maxPeakFreq,
-        valleySearchDuration,
-        upslopeDuration,
-        upslopeNoiseAllowance,
-        twitchWidths,
-        startTime,
-        endTime,
-        selectedPulse3dVersion,
-        stiffnessFactor,
-        wellsWithFlippedWaveforms,
-        wellGroups,
-        stimWaveformFormat,
-      } = analysisParams;
+  const getJobParams = (uploadId) => {
+    const {
+      normalizeYAxis,
+      showStimSheet,
+      baseToPeak,
+      peakToBase,
+      maxY,
+      prominenceFactorPeaks,
+      prominenceFactorValleys,
+      relativeProminenceFactor,
+      noiseProminenceFactor,
+      widthFactorPeaks,
+      widthFactorValleys,
+      minPeakHeight,
+      maxPeakFreq,
+      valleySearchDuration,
+      upslopeDuration,
+      upslopeNoiseAllowance,
+      twitchWidths,
+      startTime,
+      endTime,
+      selectedPulse3dVersion,
+      stiffnessFactor,
+      wellsWithFlippedWaveforms,
+      wellGroups,
+      stimWaveformFormat,
+    } = analysisParams;
 
-      const version =
-        selectedPulse3dVersion === "" || !selectedPulse3dVersion
-          ? pulse3dVersions[0]
-          : selectedPulse3dVersion;
+    const version =
+      selectedPulse3dVersion === "" || !selectedPulse3dVersion ? pulse3dVersions[0] : selectedPulse3dVersion;
 
-      const requestBody = {
-        upload_id: uploadId,
-        baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
-        // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
-        version,
-      };
+    const requestBody = {
+      baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
+      // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
+      version,
+    };
 
+    if (uploadId) {
+      requestBody.upload_id = uploadId;
+    }
+
+    for (const [name, value] of [
+      ["normalize_y_axis", normalizeYAxis],
+      ["twitch_widths", twitchWidths],
+      ["start_time", startTime],
+      ["end_time", endTime],
+      ["max_y", maxY],
+      ["include_stim_protocols", showStimSheet],
+    ]) {
+      requestBody[name] = getNullIfEmpty(value);
+    }
+
+    if (semverGte(version, "0.30.1")) {
+      requestBody.stiffness_factor = getNullIfEmpty(stiffnessFactor);
+      requestBody.inverted_post_magnet_wells = getNullIfEmpty(wellsWithFlippedWaveforms);
+    }
+    if (semverGte(version, "0.30.3")) {
+      requestBody.well_groups = Object.keys(wellGroups).length === 0 ? null : wellGroups;
+    }
+    if (semverGte(version, "0.30.5")) {
+      requestBody.stim_waveform_format = getNullIfEmpty(stimWaveformFormat);
+    }
+    if (semverGte(version, "0.32.2")) {
+      // don't add name if it's the original filename or if it's empty
+      const useOriginalName =
+        analysisParams.nameOverride === "" ||
+        analysisParams.nameOverride === removeFileExt(files[0].filename);
+      requestBody.name_override = useOriginalName ? null : analysisParams.nameOverride;
+    }
+
+    if (semverGte(version, "0.33.2")) {
       for (const [name, value] of [
-        ["normalize_y_axis", normalizeYAxis],
-        ["twitch_widths", twitchWidths],
-        ["start_time", startTime],
-        ["end_time", endTime],
-        ["max_y", maxY],
-        ["include_stim_protocols", showStimSheet],
+        ["relative_prominence_factor", relativeProminenceFactor],
+        ["noise_prominence_factor", noiseProminenceFactor],
+        ["height_factor", minPeakHeight],
+        ["max_frequency", maxPeakFreq],
+        ["valley_search_duration", valleySearchDuration],
+        ["upslope_duration", upslopeDuration],
+        ["upslope_noise_allowance_duration", upslopeNoiseAllowance],
       ]) {
         requestBody[name] = getNullIfEmpty(value);
       }
 
-      if (semverGte(version, "0.30.1")) {
-        requestBody.stiffness_factor = getNullIfEmpty(stiffnessFactor);
-        requestBody.inverted_post_magnet_wells = getNullIfEmpty(wellsWithFlippedWaveforms);
-      }
-      if (semverGte(version, "0.30.3")) {
-        requestBody.well_groups = Object.keys(wellGroups).length === 0 ? null : wellGroups;
-      }
-      if (semverGte(version, "0.30.5")) {
-        requestBody.stim_waveform_format = getNullIfEmpty(stimWaveformFormat);
-      }
-      if (semverGte(version, "0.32.2")) {
-        // don't add name if it's the original filename or if it's empty
-        const useOriginalName =
-          analysisParams.nameOverride === "" ||
-          analysisParams.nameOverride === removeFileExt(files[0].filename);
-        requestBody.name_override = useOriginalName ? null : analysisParams.nameOverride;
-      }
-      if (semverGte(version, "0.33.2")) {
-        for (const [name, value] of [
-          ["relative_prominence_factor", relativeProminenceFactor],
-          ["noise_prominence_factor", noiseProminenceFactor],
-          ["height_factor", minPeakHeight],
-          ["max_frequency", maxPeakFreq],
-          ["valley_search_duration", valleySearchDuration],
-          ["upslope_duration", upslopeDuration],
-          ["upslope_noise_allowance_duration", upslopeNoiseAllowance],
-        ]) {
-          requestBody[name] = getNullIfEmpty(value);
+      requestBody.width_factors = formatTupleParams(minPeakWidth, maxPeakWidth);
+      // need to convert all these params from ms to s
+      for (const name of ["valley_search_duration", "upslope_duration", "upslope_noise_allowance_duration"]) {
+        if (requestBody[name] !== null) {
+          requestBody[name] /= 1000;
         }
-        requestBody.width_factors = formatTupleParams(minPeakWidth, maxPeakWidth);
-        // need to convert all these params from ms to s
-        for (const name of [
-          "valley_search_duration",
-          "upslope_duration",
-          "upslope_noise_allowance_duration",
-        ]) {
-          if (requestBody[name] !== null) {
-            requestBody[name] /= 1000;
-          }
-        }
-        if (requestBody.width_factors !== null) {
-          requestBody.width_factors = requestBody.width_factors.map((width) => {
-            width !== null ? width / 1000 : null;
-          });
-        }
-      } else {
-        requestBody.prominence_factors = formatTupleParams(prominenceFactorPeaks, prominenceFactorValleys);
-        requestBody.width_factors = formatTupleParams(widthFactorPeaks, widthFactorValleys);
       }
+      if (requestBody.width_factors !== null) {
+        requestBody.width_factors = requestBody.width_factors.map((width) => {
+          width !== null ? width / 1000 : null;
+        });
+      }
+    } else {
+      requestBody.prominence_factors = formatTupleParams(prominenceFactorPeaks, prominenceFactorValleys);
+      requestBody.width_factors = formatTupleParams(widthFactorPeaks, widthFactorValleys);
+    }
 
+    return requestBody;
+  };
+
+  const postNewJob = async (uploadId, filename) => {
+    try {
+      const requestBody = getJobParams(uploadId);
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
         method: "POST",
         body: JSON.stringify(requestBody),
@@ -613,6 +643,17 @@ export default function UploadForm() {
     return filenameNoExt;
   };
 
+  const closeAnalysisPresetModal = async (idx) => {
+    if (idx === 0) setSavePresetModal(false);
+    else {
+      const analysisParams = getJobParams();
+      const saveResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets`, {
+        method: "POST",
+        body: JSON.stringify({ name: analysisPresetName, analysis_params: analysisParams }),
+      });
+    }
+  };
+
   const handleClose = async (idx) => {
     // if user chooses to proceed with upload when some files were flagged as bad
     if (idx === 1) {
@@ -668,11 +709,12 @@ export default function UploadForm() {
           setWellGroupErr={setWellGroupErr}
           reanalysis={reanalysis}
           xlsxFilePresent={xlsxFilePresent}
+          presets={presets}
         />
         <ButtonContainer>
           {uploadSuccess ? <SuccessText>Upload Successful!</SuccessText> : null}
           <ButtonWidget
-            width="135px"
+            width="200px"
             height="45px"
             position="relative"
             borderRadius="3px"
@@ -680,11 +722,23 @@ export default function UploadForm() {
             clickFn={resetState}
           />
           <ButtonWidget
-            width="135px"
+            width="270px"
             height="45px"
             position="relative"
             borderRadius="3px"
             left="10px"
+            // backgroundColor={isButtonDisabled ? "var(--dark-gray)" : "var(--dark-blue)"}
+            // disabled={isButtonDisabled}
+            inProgress={inProgress}
+            label="Submit and Save Preset"
+            clickFn={() => setSavePresetModal(true)}
+          />
+          <ButtonWidget
+            width="200px"
+            height="45px"
+            position="relative"
+            borderRadius="3px"
+            left="20px"
             backgroundColor={isButtonDisabled ? "var(--dark-gray)" : "var(--dark-blue)"}
             disabled={isButtonDisabled}
             inProgress={inProgress}
@@ -718,6 +772,23 @@ export default function UploadForm() {
         }}
         header={"Attention!"}
       />
+      <ModalWidget
+        open={savePresetModal}
+        labels={[]}
+        buttons={["Cancel", "Save and Submit"]}
+        header={"Save Analysis Preset"}
+        closeModal={closeAnalysisPresetModal}
+      >
+        <PresetNameContainer>
+          <PresetNameLabel>Enter name: </PresetNameLabel>
+          <FormInput
+            value={analysisPresetName}
+            onChangeFn={(e) => {
+              setAnalysisPresetName(e.target.value);
+            }}
+          />
+        </PresetNameContainer>
+      </ModalWidget>
     </Container>
   );
 }

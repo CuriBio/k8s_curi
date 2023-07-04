@@ -64,6 +64,11 @@ class JobRequest(BaseModel):
     upslope_noise_allowance_duration: Optional[Number]
 
 
+class SavePresetRequest(BaseModel):
+    name: str
+    analysis_params: Dict[str, Any]
+
+
 class JobResponse(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID

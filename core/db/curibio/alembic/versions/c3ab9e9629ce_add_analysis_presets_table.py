@@ -20,7 +20,9 @@ depends_on = None
 def upgrade():
     op.create_table(
         "analysis_presets",
-        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column(
+            "id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), unique=True
+        ),
         sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("name", sa.VARCHAR(255), nullable=False),
         sa.Column("parameters", postgresql.JSONB, server_default="{}", nullable=False),

@@ -38,6 +38,21 @@ const TwoParamContainer = styled.div`
   align-items: center;
 `;
 
+const AdditionalParamLabel = styled.div`
+  width: 300px;
+`;
+
+const PresetDropdownContainer = styled.div`
+  width: 450px;
+  padding: 0 40px;
+  display: flex;
+  flex-direction: row;
+  font-size: 13px;
+  font-style: italic;
+  white-space: nowrap;
+  align-items: center;
+`;
+
 const InputContainerOne = styled.div`
   display: flex;
   flex-direction: column;
@@ -103,21 +118,20 @@ const SectionLabel = styled.span`
   margin-top: 20px;
 `;
 
-const AdditionalParamLabel = styled.span`
+const AdditionalParamLabelContainer = styled.span`
   background-color: var(--light-gray);
   border-radius: 6px;
   position: absolute;
   left: 25%;
   display: flex;
   align-items: center;
-  width: 400px;
   font-size: 17px;
   z-index: 3;
   border: 2px solid var(--dark-gray);
   cursor: default;
-  height: 50px;
+  height: 65px;
   justify-content: center;
-  top: -21px;
+  top: -45px;
   left: 5%;
   font-weight: 900;
 `;
@@ -128,7 +142,7 @@ const TooltipText = styled.span`
 
 const DropDownContainer = styled.div`
   width: 57%;
-  height: 99%;
+  height: 89%;
   background: white;
   border-radius: 5px;
 `;
@@ -485,7 +499,6 @@ export default function AnalysisParamForm({
     const filteredOptions = pulse3dVersions.filter((version) =>
       !xlsxFilePresent || xlsxFilePresent <= 24 ? semverGte(version, "0.32.2") : semverGte(version, "0.33.9")
     );
-    console.log(xlsxFilePresent, filteredOptions);
 
     setPulse3dFilteredFileVersions([...filteredOptions]);
   }, [pulse3dVersions, xlsxFilePresent]);
@@ -667,7 +680,7 @@ export default function AnalysisParamForm({
 
   return (
     <Container>
-      <AdditionalParamLabel
+      <AdditionalParamLabelContainer
         style={checkedParams ? { background: "white" } : { background: "var(--light-gray)" }}
       >
         <CheckboxWidget
@@ -676,8 +689,19 @@ export default function AnalysisParamForm({
           handleCheckbox={(bool) => setCheckedParams(bool)}
           checkedState={checkedParams}
         />
-        Use Additional Analysis Parameters
-      </AdditionalParamLabel>
+        <AdditionalParamLabel>Use Additional Analysis Parameters</AdditionalParamLabel>
+        {checkedParams && (
+          <PresetDropdownContainer>
+            <div style={{ marginRight: "10px" }}>Select Preset:</div>
+            <DropDownWidget
+              options={pulse3dVersionOptions}
+              reset={!checkedParams}
+              handleSelection={handlePulse3dVersionSelect}
+              boxShadow="none"
+            />
+          </PresetDropdownContainer>
+        )}
+      </AdditionalParamLabelContainer>
       {!checkedParams ? <WAOverlay /> : null}
       <InputContainerOne style={{ paddingTop: "2%" }}>
         {pulse3dVersionGte("0.32.2") && reanalysis && (

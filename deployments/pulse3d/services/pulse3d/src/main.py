@@ -31,6 +31,7 @@ from jobs import (
     delete_jobs,
     delete_uploads,
     check_customer_quota,
+    create_analysis_preset,
 )
 from models.models import (
     UploadRequest,
@@ -735,20 +736,36 @@ async def get_usage_quota(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.post("/presets", response_model=UsageQuota)
+@app.post("/presets")
 async def save_analysis_presets(
     request: Request, details: SavePresetRequest, token=Depends(ProtectedAny(scope=PULSE3D_SCOPES))
 ):
-    """Get the usage quota for the specific user"""
+    """Save analysis parameter preset for user"""
     try:
-        customer_id = (
-            str(uuid.UUID(token["userid"]))
-            if token["scope"][0] in CUSTOMER_SCOPES
-            else str(uuid.UUID(token["customer_id"]))
-        )
+        user_id = str(uuid.UUID(token["userid"]))
+
         async with request.state.pgpool.acquire() as con:
-            usage_quota = await check_customer_quota(con, customer_id, service)
-            return usage_quota
+            return await create_analysis_preset(con, user_id, details)
     except Exception:
-        logger.exception("Failed to fetch quota usage")
+        logger.exception("Failed to save analysis preset for user")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.get("/presets")
+async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(scope=PULSE3D_SCOPES))):
+    """Get analysis parameter preset for user"""
+    try:
+        user_id = str(uuid.UUID(token["userid"]))
+
+        async with request.state.pgpool.acquire() as con:
+            async with con.transaction():
+                return [
+                    dict(row)
+                    async for row in con.cursor(
+                        "SELECT name, parameters FROM analysis_presets where user_id=$1", user_id
+                    )
+                ]
+
+    except Exception:
+        logger.exception("Failed to get analysis presets for user")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
