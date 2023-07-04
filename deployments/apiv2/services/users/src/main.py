@@ -494,7 +494,6 @@ async def update_accounts(
         # must be either a customer or user. Cannot be both or neither
         if not (is_customer ^ is_user):
             logger.error(f"PUT /{user_id}: Invalid scope(s): {token['scope']}")
-            # TODO change the return code here
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
         customer_id = None if is_customer else uuid.UUID(hex=token["customer_id"])
@@ -535,16 +534,16 @@ async def update_accounts(
                     try:
                         ph.verify(prev_pw, pw)
                     except VerifyMismatchError:
-                        # passwords do no match, nothing else to do
+                        # passwords don't match, nothing else to do
                         continue
                     else:
                         # passwords match, return msg indicating that this is the case
-                        # TODO return something different here?
                         # TODO make a constant for the number of previous PWs stored
                         return UnableToUpdateAccountResponse(
                             message="Cannot set password to any of the previous 5 passwords"
                         )
 
+                # Update the password of the account, and if it is a user also set the account as verified
                 await con.execute(
                     *(
                         (
