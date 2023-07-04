@@ -648,8 +648,9 @@ export default function InteractiveWaveformModal({
       };
 
       // only add for versions greater than 0.32.2
-      if (semverGte(prevPulse3dVersion, "0.32.2"))
+      if (semverGte(prevPulse3dVersion, "0.32.2")) {
         requestBody.name_override = nameOverride === "" ? null : nameOverride;
+      }
 
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
         method: "POST",
@@ -890,8 +891,9 @@ export default function InteractiveWaveformModal({
       setModalOpen("status");
     } else if (!getLoadingState) {
       const compatibleVersions = pulse3dVersions.filter((v) => {
-        if (Object.keys(waveformData).length === 24) return true;
-        else {
+        if (Object.keys(waveformData).length === 24) {
+          return true;
+        } else {
           const minVersion = Object.keys(waveformData).length < 24 ? "0.32.2" : "0.33.9";
           return semverGte(v, minVersion);
         }

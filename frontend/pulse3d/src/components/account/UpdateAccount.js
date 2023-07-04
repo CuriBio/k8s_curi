@@ -137,7 +137,7 @@ export default function UpdateAccount({ modalHeader, shortTermToken, type }) {
       const resBody = await res.json();
 
       if (res.status === 200) {
-        // default to an error, this will get overrided by a success message or more detailed error message
+        // default to an error, this will get overrided by a success message or a more detailed error message
         let labels = modalLabels.error;
         if (!resBody) {
           labels = modalLabels.successfulPWChange;
