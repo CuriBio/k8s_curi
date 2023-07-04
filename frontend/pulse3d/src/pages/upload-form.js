@@ -448,16 +448,16 @@ export default function UploadForm() {
             ).length;
 
             const fileContainsValidNumFiles =
-              numH5InFile > 0 ? numH5InFile === 24 || numH5InFile === 48 : numXlxsInFile <= 24;
+              numH5InFile > 0 ? numH5InFile === 24 || numH5InFile === 48 : numXlxsInFile > 0;
 
             // not setting xlsxInFile = (numXlxsInFile > 0) because it needs to remain true if ever made true
-            if (numXlxsInFile > 0) xlsxInFile = true;
+            if (numXlxsInFile > 0) xlsxInFile = numXlxsInFile;
 
             return !onlyOneDir || !fileContainsValidNumFiles;
           } else {
             // this will occur when user uploads single well xlsx data
             // not setting xlsxInFile = (numXlxsInFile > 0) because it needs to remain true if ever made true
-            xlsxInFile = true;
+            xlsxInFile = 1;
           }
         } catch (e) {
           console.log(`ERROR unable to read file: ${file.filename} ${e}`);
