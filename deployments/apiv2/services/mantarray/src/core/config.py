@@ -3,7 +3,7 @@ from starlette.datastructures import Secret
 
 config = Config(".env")
 # version used to tag the docker image
-VERSION = "0.5.1"
+VERSION = "0.5.0"
 
 CLUSTER_NAME = config("CLUSTER_NAME", cast=str)
 POSTGRES_USER = config("POSTGRES_USER", cast=str)
