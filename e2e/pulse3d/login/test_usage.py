@@ -11,7 +11,7 @@ __fixtures__ = [
 ]
 
 
-async def login(username, password, page):
+async def login_test_user(username, password, page):
     # select user login and check correct login inputs
     await page.click("text=User")
     customer_id_Input = page.get_by_placeholder("CuriBio")
@@ -37,15 +37,15 @@ async def login(username, password, page):
 
 @pytest.mark.asyncio
 async def test_user_with_unlimited(basic_page):
-    await login(VALID_USER_NAME, VALID_USER_PASSWORD, basic_page)
+    await login_test_user(VALID_USER_NAME, VALID_USER_PASSWORD, basic_page)
     assert await basic_page.get_by_text("Unlimited Access").is_visible()
 
 
 @pytest.mark.asyncio
 async def test_user_with_limit_reached(basic_page):
-    await login(VALID_USER_NAME, VALID_USER_PASSWORD, basic_page)
+    await login_test_user(VALID_USER_NAME, VALID_USER_PASSWORD, basic_page)
 
 
 @pytest.mark.asyncio
 async def test_user_with_limit_not_reached(basic_page):
-    await login(VALID_USER_NAME, VALID_USER_PASSWORD, basic_page)
+    await login_test_user(VALID_USER_NAME, VALID_USER_PASSWORD, basic_page)

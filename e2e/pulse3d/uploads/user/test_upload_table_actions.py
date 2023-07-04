@@ -82,9 +82,7 @@ async def test_Open_IA(user_logged_in_page):
 
     # select first job in first upload
     checkbox_in_fist_row = user_logged_in_page.get_by_role("checkbox").nth(0)
-    await checkbox_in_fist_row.evaluate(
-        "node => node.parentNode.parentNode.parentNode.children[0].children[0].click()"
-    )
+    await checkbox_in_fist_row.evaluate("node => node.parentNode.parentNode.parentNode.children[0].children[0].click()")
     await user_logged_in_page.get_by_role("checkbox").nth(1).click()
 
     # select Interactive Analysis from Actions menu

@@ -23,16 +23,18 @@ def video_setup():
         shutil.rmtree("./videos/")
 
 
-# set up basic browser and context
-@pytest_asyncio.fixture(scope="function", name="setup")
+@pytest_asyncio.fixture(scope="function", name="setup", params=[(800, 600), (1024, 768), (1280, 720), (1920, 1080)])
 async def setup(request):
+    screen_width = request.param[0]
+    screen_height = request.param[1]
+
     async with async_playwright() as p:
         test_name = request.node.name.split("[")[0]
-
-        browser = await p.chromium.launch(
-            headless=HEADLESS, slow_mo=1000 if SLOWMO else None
+        browser = await p.chromium.launch(headless=HEADLESS, slow_mo=1000 if SLOWMO else None)
+        context = await browser.new_context(
+            record_video_dir=f"videos/{test_name}",
+            viewport={"width": screen_width, "height": screen_height},
         )
-        context = await browser.new_context(record_video_dir=f"videos/{test_name}")
         page = await context.new_page()
 
         yield page

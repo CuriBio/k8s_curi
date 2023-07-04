@@ -46,9 +46,7 @@ async def test_new_uploads_runs_correctly(user_logged_in_page, test_file_name):
     assert upload_row_name == test_file_name.rpartition(".")[0]
 
     # check that upload is not in error state
-    await upload_row_checkbox.evaluate(
-        "node => node.parentNode.parentNode.parentNode.children[0].children[0].click()"
-    )
+    await upload_row_checkbox.evaluate("node => node.parentNode.parentNode.parentNode.children[0].children[0].click()")
     # 1 and last child
     assert (
         await user_logged_in_page.get_by_text("Pending").is_visible()
