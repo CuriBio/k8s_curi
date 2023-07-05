@@ -9,11 +9,6 @@ videos_dir = "./utils/videos/"
 # basic
 TEST_URL = os.getenv("TEST_URL")
 
-# playwright config
-HEADLESS = True
-SLOWMO = False
-
-
 # user data + unlimite usage
 VALID_CUSTOMER_ID = os.getenv("VALID_CUSTOMER_ID")
 VALID_USER_NAME = os.getenv("VALID_USER_NAME")

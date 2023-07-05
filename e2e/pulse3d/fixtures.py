@@ -12,18 +12,13 @@ from config import (
     VALID_USER_PASSWORD,
     VALID_ADMIN_EMAIL,
     VALID_ADMIN_PASSWORD,
-    HEADLESS,
-    SLOWMO,
 )
 
 
 def remove_empty_folders(path):
     for dirpath, dirnames, files in os.walk(path, topdown=False):
         if not dirnames and not files:
-            try:
-                os.rmdir(dirpath)
-            except OSError as e:
-                print(f"Error while removing directory: {dirpath}. Error : {str(e)}")
+            os.rmdir(dirpath)
 
 
 # remove older videos if present
@@ -37,7 +32,7 @@ def video_setup():
 
 
 @pytest_asyncio.fixture(scope="function", name="setup")
-async def setup(request):
+async def setup(request, headless, slow_mo):
     test_folder = request.node.name.split("[")[0]
     video_dir = f"./utils/videos/{test_folder}"
 
@@ -47,7 +42,7 @@ async def setup(request):
         test_name = test_name.replace(char, "_")
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=HEADLESS, slow_mo=1000 if SLOWMO else None)
+        browser = await p.chromium.launch(headless=headless, slow_mo=slow_mo)
         context = await browser.new_context(
             record_video_dir=video_dir,
         )
