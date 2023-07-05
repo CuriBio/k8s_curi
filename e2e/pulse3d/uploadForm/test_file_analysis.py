@@ -7,8 +7,9 @@ __fixtures__ = [setup, video_setup, basic_page, user_logged_in_page]
 
 
 supported_file_formats = [
-    "ZIPPED_H5_FILES.zip"
-]  # ,"one_zipped_optical_file","one_optical_file","zipped_h5_files","one_zipped_h5_file","one_h5_file"]
+    "ZIPPED_H5_FILES.zip",
+    "OPTICAL_FILE.xlsx",
+]
 
 
 @pytest.mark.asyncio
@@ -49,7 +50,7 @@ async def test_new_uploads_runs_correctly(user_logged_in_page, test_file_name):
     await upload_row_checkbox.evaluate(
         "node => node.parentNode.parentNode.parentNode.children[0].children[0].click()"
     )
-    # 1 and last child
+
     assert (
         await user_logged_in_page.get_by_text("Pending").is_visible()
         or await user_logged_in_page.get_by_text("Running").is_visible()
