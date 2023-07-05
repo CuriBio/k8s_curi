@@ -22,7 +22,7 @@ export default function LoginForm({ children, setUserData, userData, loginType, 
           <FormInput
             name="customer_id"
             label="Customer ID"
-            placeholder="CuriBio"
+            placeholder="Customer ID"
             value={userData.customer_id}
             onChangeFn={(e) => {
               setUserData({
