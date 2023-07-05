@@ -507,20 +507,15 @@ async def update_accounts(
                 # ProtectedAny will return 401 already if link has expired, so no need to check again
 
                 # get necessary info from DB before making any changes or validating any data
-                row = await con.fetchrow(
-                    *(
-                        (
-                            "SELECT pw_reset_link, previous_passwords FROM customers WHERE id=$1",
-                            user_id,
-                        )
-                        if is_customer
-                        else (
-                            "SELECT verified, pw_reset_verify_link, previous_passwords FROM users WHERE id=$1 AND customer_id=$2",
-                            user_id,
-                            customer_id,
-                        )
-                    )
+                query = (
+                    "SELECT pw_reset_link, previous_passwords FROM customers WHERE id=$1"
+                    if is_customer
+                    else "SELECT verified, pw_reset_verify_link, previous_passwords FROM users WHERE id=$1 AND customer_id=$2"
                 )
+                query_params = [user_id]
+                if is_user:
+                    query_params.append(customer_id)
+                row = await con.fetchrow(query, *query_params)
 
                 # if the link is being used to verify the user account and the account has already been verified, then return message to display to user
                 if is_user and details.verify and row["verified"]:
@@ -538,30 +533,20 @@ async def update_accounts(
                         continue
                     else:
                         # passwords match, return msg indicating that this is the case
-                        # TODO make a constant for the number of previous PWs stored
                         return UnableToUpdateAccountResponse(
                             message="Cannot set password to any of the previous 5 passwords"
                         )
 
                 # Update the password of the account, and if it is a user also set the account as verified
-                await con.execute(
-                    *(
-                        (
-                            "UPDATE customers SET pw_reset_link=NULL, password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) "
-                            "WHERE id=$2",
-                            phash,
-                            user_id,
-                        )
-                        if is_customer
-                        else (
-                            "UPDATE users SET verified='t', pw_reset_verify_link=NULL, password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) "
-                            "WHERE id=$2 AND customer_id=$3",
-                            phash,
-                            user_id,
-                            customer_id,
-                        )
-                    )
+                query = (
+                    "UPDATE customers SET pw_reset_link=NULL, password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) WHERE id=$2"
+                    if is_customer
+                    else "UPDATE users SET verified='t', pw_reset_verify_link=NULL, password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) WHERE id=$2 AND customer_id=$3"
                 )
+                query_params = [phash, user_id]
+                if is_user:
+                    query_params.append(customer_id)
+                await con.execute(query, *query_params)
 
     except Exception:
         logger.exception(f"PUT /{user_id}: Unexpected error")
