@@ -418,16 +418,18 @@ async def _create_user_email(
         scope = scopes[0]
         if "user" in scope:
             account_type = "user"
-            query = "UPDATE users SET pw_reset_verify_link=$1 WHERE id=$2"
         elif "customer" in scope:
             account_type = "customer"
-            query = "UPDATE customers SET pw_reset_link=$1 WHERE id=$2"
         else:
             raise Exception(f"Scope {scope} is not allowed to make this request")
+
+        query = f"UPDATE {account_type} SET reset_token=$1 WHERE id=$2"
+
         # create email verification token, exp 24 hours
         jwt_token = create_token(
             userid=user_id, customer_id=customer_id, scope=scopes, account_type=account_type
         )
+
         url = f"{DASHBOARD_URL}/account/{type}?token={jwt_token.token}"
 
         # assign correct email template and redirect url based on request type
@@ -438,7 +440,7 @@ async def _create_user_email(
             subject = "Please verify your email address"
             template = "registration.html"
         else:
-            logger.exception(f"{type} is not a valid type allowed in this request")
+            logger.error(f"{type} is not a valid type allowed in this request")
             raise Exception()
 
         # add token to users table after no exception is raised
@@ -484,7 +486,7 @@ async def update_accounts(
 ):
     """Confirm and verify new user and password.
 
-    Used for both resetting new password or verifying new user accounts. Route will check if link has been used or if account has already been verified.
+    Used for both resetting new password or verifying new user accounts. Route will check if the token has been used or if account has already been verified.
     """
     try:
         user_id = uuid.UUID(hex=token["userid"])
@@ -504,25 +506,34 @@ async def update_accounts(
 
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():
-                # ProtectedAny will return 401 already if link has expired, so no need to check again
+                # ProtectedAny will return 401 already if token has expired, so no need to check again
 
                 # get necessary info from DB before making any changes or validating any data
                 query = (
-                    "SELECT pw_reset_link, previous_passwords FROM customers WHERE id=$1"
+                    "SELECT reset_token, previous_passwords FROM customers WHERE id=$1"
                     if is_customer
-                    else "SELECT verified, pw_reset_verify_link, previous_passwords FROM users WHERE id=$1 AND customer_id=$2"
+                    else "SELECT verified, reset_token, previous_passwords FROM users WHERE id=$1 AND customer_id=$2"
                 )
                 query_params = [user_id]
                 if is_user:
                     query_params.append(customer_id)
                 row = await con.fetchrow(query, *query_params)
 
-                # if the link is being used to verify the user account and the account has already been verified, then return message to display to user
+                # if the token is being used to verify the user account and the account has already been verified, then return message to display to user
                 if is_user and details.verify and row["verified"]:
                     return UnableToUpdateAccountResponse(message="Account has already been verified")
-                # link in db gets replaced with NULL when it's been successfully used
-                if row["pw_reset_link" if is_customer else "pw_reset_verify_link"] is None:
+                # token in db gets replaced with NULL when it's been successfully used
+                if row["reset_token"] is None:
                     return UnableToUpdateAccountResponse(message="Link has already been used")
+
+                # if there is a token present in the DB but it does not match the one provided to this route, then presumably a new one has been created and thus the one being used should be considered expired
+                try:
+                    # decode and validate current reset token
+                    current_token = decode_token(row["reset_token"])
+                    # make sure the given token and the current token in the DB are the same
+                    assert token == current_token
+                except (InvalidTokenError, AssertionError):
+                    return UnableToUpdateAccountResponse(message="Link has expired")
 
                 # make sure new password does not match any previous passwords on file
                 for prev_pw in row["previous_passwords"]:
@@ -539,9 +550,9 @@ async def update_accounts(
 
                 # Update the password of the account, and if it is a user also set the account as verified
                 query = (
-                    "UPDATE customers SET pw_reset_link=NULL, password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) WHERE id=$2"
+                    "UPDATE customers SET reset_token=NULL, password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) WHERE id=$2"
                     if is_customer
-                    else "UPDATE users SET verified='t', pw_reset_verify_link=NULL, password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) WHERE id=$2 AND customer_id=$3"
+                    else "UPDATE users SET verified='t', reset_token=NULL, password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) WHERE id=$2 AND customer_id=$3"
                 )
                 query_params = [phash, user_id]
                 if is_user:
@@ -562,7 +573,7 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTO
     customer_id = uuid.UUID(hex=token["userid"])
 
     query = (
-        "SELECT id, name, email, created_at, last_login, verified, suspended, pw_reset_verify_link "
+        "SELECT id, name, email, created_at, last_login, verified, suspended, reset_token "
         "FROM users "
         "WHERE customer_id=$1 AND deleted_at IS NULL "
         "ORDER BY suspended"
@@ -576,11 +587,11 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTO
         for row in formatted_results:
             # unverified account should have a jwt token, otherwise will be None.
             # check expiration and if expired, return it as None, FE will handle telling user it's expired
-            if row["pw_reset_verify_link"] is not None:
+            if row["reset_token"] is not None:
                 try:
-                    decode_token(row["pw_reset_verify_link"])
+                    decode_token(row["reset_token"])
                 except jwt.exceptions.ExpiredSignatureError:
-                    row["pw_reset_verify_link"] = None
+                    row["reset_token"] = None
 
         return formatted_results
 
