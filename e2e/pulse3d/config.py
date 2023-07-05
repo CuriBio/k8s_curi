@@ -1,11 +1,5 @@
 import os
 
-videos_dir = "./utils/videos/"
-# if os.path.exists(videos_dir):
-#     shutil.rmtree(videos_dir)
-
-# remove_empty_folders(videos_dir)
-
 # basic
 TEST_URL = os.getenv("TEST_URL")
 

@@ -48,6 +48,8 @@ async def test_Download(user_logged_in_page, specificDownloadOption):
 async def test_Delete(user_logged_in_page):
     await user_logged_in_page.wait_for_load_state("networkidle")
 
+    # TODO select spesific upload
+
     # select first upload from the uploads table
     upload_checkbox = user_logged_in_page.get_by_role("checkbox").nth(0)
     await upload_checkbox.click()
@@ -62,11 +64,6 @@ async def test_Delete(user_logged_in_page):
     await user_logged_in_page.get_by_role("option", name="Delete").click()
     await user_logged_in_page.get_by_role("button", name="Confirm").click()
 
-    # element_id = await upload_checkbox.evaluate("element => element.id")
-
-    # wait for response to complete
-    # await user_logged_in_page.wait_for_selector(f'#{element_id}', state='hidden')
-
     # check that first upload was deleted
     new_upload_column = user_logged_in_page.get_by_role("checkbox").nth(0)
     name_of_new_upload = await new_upload_column.evaluate(
@@ -75,17 +72,18 @@ async def test_Delete(user_logged_in_page):
 
     assert name_of_new_upload != name_of_checked_upload
 
+    # TODO upload file again so test can be run
+
 
 @pytest.mark.asyncio
 async def test_Open_IA(user_logged_in_page):
+    # TODO select spesific upload
     await user_logged_in_page.wait_for_load_state("networkidle")
 
     # select first job in first upload
     checkbox_in_fist_row = user_logged_in_page.get_by_role("checkbox").nth(0)
-    await checkbox_in_fist_row.evaluate(
-        "node => node.parentNode.parentNode.parentNode.children[0].children[0].click()"
-    )
-    await user_logged_in_page.get_by_role("checkbox").nth(1).click()
+    await checkbox_in_fist_row.evaluate("node => node.parentNode.parentNode.parentNode.children[0].children[0].click()")
+    await user_logged_in_page.get_by_role("checkbox").nth(5).click()
 
     # select Interactive Analysis from Actions menu
     await user_logged_in_page.get_by_role("button", name="Actions").click()

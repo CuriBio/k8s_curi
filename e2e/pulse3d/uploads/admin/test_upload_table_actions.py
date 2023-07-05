@@ -31,6 +31,7 @@ async def test_Download(admin_logged_in_page, specificDownloadOption):
 @pytest.mark.asyncio
 async def test_Delete(admin_logged_in_page):
     await admin_logged_in_page.wait_for_load_state("networkidle")
+    # TODO select spesific upload
 
     # select first upload from the uploads table
     upload_checkbox = admin_logged_in_page.get_by_role("checkbox").nth(0)
@@ -55,3 +56,5 @@ async def test_Delete(admin_logged_in_page):
     )
 
     assert name_of_new_upload == name_of_checked_upload
+
+    #  TODO upload file again so test can be run

@@ -32,7 +32,7 @@ def video_setup():
 
 
 @pytest_asyncio.fixture(scope="function", name="setup")
-async def setup(request, headless, slow_mo):
+async def setup(request, view, noSlowmo):
     test_folder = request.node.name.split("[")[0]
     video_dir = f"./utils/videos/{test_folder}"
 
@@ -42,7 +42,7 @@ async def setup(request, headless, slow_mo):
         test_name = test_name.replace(char, "_")
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=headless, slow_mo=slow_mo)
+        browser = await p.chromium.launch(headless=not view, slow_mo=0 if noSlowmo else 1000)
         context = await browser.new_context(
             record_video_dir=video_dir,
         )

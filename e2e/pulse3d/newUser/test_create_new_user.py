@@ -54,7 +54,7 @@ async def test_valid_new_user_credentials(admin_logged_in_page):
 
     assert await admin_logged_in_page.get_by_text("Success").nth(0).is_visible()
 
-    # todo visit users table?
+    # todo visit users table
 
 
 invalid_usernames = [
