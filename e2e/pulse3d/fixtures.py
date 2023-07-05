@@ -3,6 +3,7 @@ import pytest_asyncio
 import pytest
 import os
 import shutil
+import glob
 
 from config import (
     TEST_URL,
@@ -16,42 +17,55 @@ from config import (
 )
 
 
+def remove_empty_folders(path):
+    for dirpath, dirnames, files in os.walk(path, topdown=False):
+        if not dirnames and not files:
+            try:
+                os.rmdir(dirpath)
+            except OSError as e:
+                print(f"Error while removing directory: {dirpath}. Error : {str(e)}")
+
+
 # remove older videos if present
 @pytest.fixture(scope="session", autouse=True)
 def video_setup():
-    if os.path.exists("./utils/videos/"):
-        shutil.rmtree("./utils/videos/")
+    videos_dir = "./utils/videos/"
+    if os.path.exists(videos_dir):
+        shutil.rmtree(videos_dir)
+    yield
+    remove_empty_folders(videos_dir)
 
 
-@pytest_asyncio.fixture(
-    scope="function",
-    name="setup",
-    params=[
-        (800, 600),
-    ],
-)  # (1024, 768), (1280, 720), (1920, 1080)])
+@pytest_asyncio.fixture(scope="function", name="setup")
 async def setup(request):
-    screen_width = request.param[0]
-    screen_height = request.param[1]
+    test_folder = request.node.name.split("[")[0]
+    video_dir = f"./utils/videos/{test_folder}"
+
+    test_name = request.node.name
+    invalid_chars = ["\\", "<", ">", ":", '"', "/", "|", "?", "*", "[", "]"]
+    for char in invalid_chars:
+        test_name = test_name.replace(char, "_")
 
     async with async_playwright() as p:
-        test_name = request.node.name.split("[")[0]
         browser = await p.chromium.launch(headless=HEADLESS, slow_mo=1000 if SLOWMO else None)
         context = await browser.new_context(
-            record_video_dir=f"./utils/videos/{screen_width}_{screen_height}_{test_name}",
-            viewport={"width": screen_width, "height": screen_height},
+            record_video_dir=video_dir,
         )
         page = await context.new_page()
 
         yield page
-
         await page.close()
         await context.close()
         await browser.close()
 
-        # save only videos of failed tests
-        if not request.node.rep_call.failed:
-            shutil.rmtree(f"./utils/videos/{screen_width}_{screen_height}_{test_name}")
+        # save videos if failed test
+        list_of_files = glob.glob(os.path.join(video_dir, "*.webm"))
+        latest_file = max(list_of_files, key=os.path.getctime)
+
+        if request.node.rep_call.failed:
+            os.rename(latest_file, os.path.join(video_dir, f"{test_name}.webm"))
+        else:
+            os.remove(latest_file)
 
 
 # navigate to login page
@@ -120,15 +134,3 @@ async def admin_logged_in_page(basic_page):
     assert basic_page.url == f"https://{TEST_URL}/uploads"
 
     yield basic_page
-
-
-# set up test for /new-user page
-@pytest_asyncio.fixture(scope="function", name="admin_user_creation_page")
-async def admin_user_creation_page(admin_logged_in_page):
-    await admin_logged_in_page.click("text=Add New User")
-    await admin_logged_in_page.wait_for_url("**/new-user")
-
-    # check correct page is loaded
-    assert admin_logged_in_page.url == f"https://{TEST_URL}/new-user"
-
-    yield admin_logged_in_page

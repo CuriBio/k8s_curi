@@ -10,7 +10,6 @@ from fixtures import (
     video_setup,
     basic_page,
     admin_logged_in_page,
-    admin_user_creation_page,
 )
 
 __fixtures__ = [
@@ -18,33 +17,42 @@ __fixtures__ = [
     video_setup,
     basic_page,
     admin_logged_in_page,
-    admin_user_creation_page,
 ]
 
 
+# set up test for /new-user page
+async def goto_user_creation(page):
+    await page.click("text=Add New User")
+    await page.wait_for_url("**/new-user")
+
+    # check correct page is loaded
+    assert page.url == f"https://{TEST_URL}/new-user"
+
+
 @pytest.mark.asyncio
-async def test_valid_new_user_credentials(admin_user_creation_page):
+async def test_valid_new_user_credentials(admin_logged_in_page):
+    await goto_user_creation(admin_logged_in_page)
     new_user_name = "".join(random.choices(string.ascii_letters + string.digits, k=5))
     new_user_email = f"{new_user_name}@testcuribio.com"
     # get input fields
 
-    email_input = admin_user_creation_page.get_by_placeholder("user@curibio.com")
-    username_input = admin_user_creation_page.get_by_placeholder("User").nth(1)
+    email_input = admin_logged_in_page.get_by_placeholder("user@curibio.com")
+    username_input = admin_logged_in_page.get_by_placeholder("User").nth(1)
 
     # fill and reset
     await email_input.fill(new_user_email)
     await username_input.fill(new_user_name)
-    await admin_user_creation_page.click("text=Reset")
+    await admin_logged_in_page.click("text=Reset")
 
     # fill again and submit
     await email_input.fill(new_user_email)
     await username_input.fill(new_user_name)
-    await admin_user_creation_page.click("text=Add User")
+    await admin_logged_in_page.click("text=Add User")
 
     # wait for api calls to reflect
     time.sleep(5)
 
-    assert await admin_user_creation_page.get_by_text("Success").nth(0).is_visible()
+    assert await admin_logged_in_page.get_by_text("Success").nth(0).is_visible()
 
     # todo visit users table?
 
@@ -61,16 +69,17 @@ invalid_usernames = [
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("invalid_username", invalid_usernames)
-async def test_invalid_new_user_credentials(admin_user_creation_page, invalid_username):
-    email_input = admin_user_creation_page.get_by_placeholder("user@curibio.com")
-    username_input = admin_user_creation_page.get_by_placeholder("User").nth(1)
+async def test_invalid_new_user_credentials(admin_logged_in_page, invalid_username):
+    await goto_user_creation(admin_logged_in_page)
+    email_input = admin_logged_in_page.get_by_placeholder("user@curibio.com")
+    username_input = admin_logged_in_page.get_by_placeholder("User").nth(1)
 
     new_user_email = f"{invalid_username}@testcuribio.com"
 
     await email_input.fill(new_user_email)
     await username_input.fill(invalid_username)
 
-    await admin_user_creation_page.click("text=Add User")
+    await admin_logged_in_page.click("text=Add User")
     time.sleep(1)
 
-    assert await admin_user_creation_page.get_by_text("* field required").is_visible()
+    assert await admin_logged_in_page.get_by_text("* field required").is_visible()

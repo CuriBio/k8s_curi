@@ -1,9 +1,20 @@
 import os
 
+videos_dir = "./utils/videos/"
+# if os.path.exists(videos_dir):
+#     shutil.rmtree(videos_dir)
+
+# remove_empty_folders(videos_dir)
+
 # basic
 TEST_URL = os.getenv("TEST_URL")
 
-# customer data
+# playwright config
+HEADLESS = True
+SLOWMO = False
+
+
+# user data + unlimite usage
 VALID_CUSTOMER_ID = os.getenv("VALID_CUSTOMER_ID")
 VALID_USER_NAME = os.getenv("VALID_USER_NAME")
 VALID_USER_PASSWORD = os.getenv("VALID_USER_PASSWORD")
@@ -12,18 +23,11 @@ VALID_USER_PASSWORD = os.getenv("VALID_USER_PASSWORD")
 VALID_ADMIN_EMAIL = os.getenv("VALID_ADMIN_EMAIL")
 VALID_ADMIN_PASSWORD = os.getenv("VALID_ADMIN_PASSWORD")
 
-# limit reached account login
+
+# usage limit reached admin data
 LIMIT_REACHED_NAME = os.getenv("LIMIT_REACHED_NAME")
 LIMIT_REACHED_PASSWORD = os.getenv("LIMIT_REACHED_PASSWORD")
 
-# unlimited account login
-UNLIMITED_NAME = os.getenv("UNLIMITED_NAME")
-UNLIMITED_PASSWORD = os.getenv("UNLIMITED_PASSWORD")
-
-# limit not reached account login
+# usage limit not reached admin data
 LIMIT_NOT_REACHED_NAME = os.getenv("LIMIT_NOT_REACHED_NAME")
 LIMIT_NOT_REACHED_PASSWORD = os.getenv("LIMIT_NOT_REACHED_PASSWORD")
-
-# playwright config
-HEADLESS = True
-SLOWMO = False
