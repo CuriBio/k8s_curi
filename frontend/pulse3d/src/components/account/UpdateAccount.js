@@ -145,6 +145,8 @@ export default function UpdateAccount({ modalHeader, shortTermToken, type }) {
           labels = modalLabels.alreadyVerified;
         } else if (resBody.message.includes("already been used")) {
           labels = modalLabels.linksBeenUsed;
+        } else if (resBody.message.includes("Link has expired")) {
+          labels = modalLabels.expiredLink;
         } else if (resBody.message.includes("Cannot set password to any of the previous")) {
           labels = modalLabels.prevPW;
         }
@@ -202,17 +204,15 @@ export default function UpdateAccount({ modalHeader, shortTermToken, type }) {
   const closeModal = async (idx) => {
     if (idx === 0) {
       setOpenModal(false);
-      // redirect user to login page to exit verify page regardless of outcome
-      router.replace("/login", undefined, { shallow: true });
+      // redirect user to login page to exit verify page unless they select a previously used password
+      if (modalToDisplay !== modalLabels.prevPW) {
+        router.replace("/login", undefined, { shallow: true });
+      }
     } else if (modalToDisplay.buttons[idx] === "Resend") {
       setModalToDisplay(modalLabels.enterEmail);
     } else if (modalToDisplay.buttons[idx] === "Send") {
       const res = await resendLink();
-      if (res.status === 204) {
-        setModalToDisplay(modalLabels.emailSent);
-      } else {
-        setModalToDisplay(modalLabels.error);
-      }
+      setModalToDisplay(res.status === 204 ? modalLabels.emailSent : modalLabels.error);
     }
   };
 

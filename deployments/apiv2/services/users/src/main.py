@@ -2,7 +2,6 @@ import logging
 import json
 import uuid
 from datetime import datetime
-import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
@@ -423,7 +422,7 @@ async def _create_user_email(
         else:
             raise Exception(f"Scope {scope} is not allowed to make this request")
 
-        query = f"UPDATE {account_type} SET reset_token=$1 WHERE id=$2"
+        query = f"UPDATE {account_type}s SET reset_token=$1 WHERE id=$2"
 
         # create email verification token, exp 24 hours
         jwt_token = create_token(
@@ -587,11 +586,10 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTO
         for row in formatted_results:
             # unverified account should have a jwt token, otherwise will be None.
             # check expiration and if expired, return it as None, FE will handle telling user it's expired
-            if row["reset_token"] is not None:
-                try:
-                    decode_token(row["reset_token"])
-                except jwt.exceptions.ExpiredSignatureError:
-                    row["reset_token"] = None
+            try:
+                decode_token(row["reset_token"])
+            except Exception:
+                row["reset_token"] = None
 
         return formatted_results
 
