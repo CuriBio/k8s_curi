@@ -28,7 +28,7 @@ async def test_Download(admin_logged_in_page, specificDownloadOption):
 
 
 # deleting with admin seems to not be working on the test or prod cluster
-# @pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_Delete(admin_logged_in_page):
     await admin_logged_in_page.wait_for_load_state("networkidle")
 
@@ -46,15 +46,11 @@ async def test_Delete(admin_logged_in_page):
     await admin_logged_in_page.get_by_role("option", name="Delete").click()
     await admin_logged_in_page.get_by_role("button", name="Confirm").click()
 
-    # element_id = await upload_checkbox.evaluate("element => element.id")
-
-    # wait for response to complete
-    # await user_logged_in_page.wait_for_selector(f'#{element_id}', state='hidden')
     time.sleep(5)
 
     # check that first upload was deleted
     new_upload_column = admin_logged_in_page.get_by_role("checkbox").nth(0)
-    name_of_new_upload = new_upload_column.evaluate(
+    name_of_new_upload = await new_upload_column.evaluate(
         "node => node.parentNode.parentNode.parentNode.children[3].children[0].innerHTML"
     )
 

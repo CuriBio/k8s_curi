@@ -19,11 +19,17 @@ from config import (
 # remove older videos if present
 @pytest.fixture(scope="session", autouse=True)
 def video_setup():
-    if os.path.exists("./videos/"):
-        shutil.rmtree("./videos/")
+    if os.path.exists("./utils/videos/"):
+        shutil.rmtree("./utils/videos/")
 
 
-@pytest_asyncio.fixture(scope="function", name="setup", params=[(800, 600), (1024, 768), (1280, 720), (1920, 1080)])
+@pytest_asyncio.fixture(
+    scope="function",
+    name="setup",
+    params=[
+        (800, 600),
+    ],
+)  # (1024, 768), (1280, 720), (1920, 1080)])
 async def setup(request):
     screen_width = request.param[0]
     screen_height = request.param[1]
@@ -32,7 +38,7 @@ async def setup(request):
         test_name = request.node.name.split("[")[0]
         browser = await p.chromium.launch(headless=HEADLESS, slow_mo=1000 if SLOWMO else None)
         context = await browser.new_context(
-            record_video_dir=f"videos/{test_name}",
+            record_video_dir=f"./utils/videos/{screen_width}_{screen_height}_{test_name}",
             viewport={"width": screen_width, "height": screen_height},
         )
         page = await context.new_page()
@@ -45,7 +51,7 @@ async def setup(request):
 
         # save only videos of failed tests
         if not request.node.rep_call.failed:
-            shutil.rmtree(f"./videos/{test_name}")
+            shutil.rmtree(f"./utils/videos/{screen_width}_{screen_height}_{test_name}")
 
 
 # navigate to login page

@@ -17,7 +17,7 @@ async def screen_shot_steps(page, url_to_screenshot, folder):
 
     screen_width = await page.evaluate("()=>screen.availWidth")
     screen_height = await page.evaluate("()=>screen.availHeight")
-    await page.screenshot(path=f"./screenshots/{folder}/{screen_width}_{screen_height}_{url_to_screenshot}.png")
+    await page.screenshot(path=f"./utils/screenshots/{folder}/{screen_width}_{screen_height}_{url_to_screenshot}.png")
 
 
 @pytest.mark.asyncio

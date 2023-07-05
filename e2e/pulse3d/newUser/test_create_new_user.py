@@ -46,7 +46,7 @@ async def test_valid_new_user_credentials(admin_user_creation_page):
 
     assert await admin_user_creation_page.get_by_text("Success").nth(0).is_visible()
 
-    # go to user table and find
+    # todo visit users table?
 
 
 invalid_usernames = [
@@ -71,5 +71,6 @@ async def test_invalid_new_user_credentials(admin_user_creation_page, invalid_us
     await username_input.fill(invalid_username)
 
     await admin_user_creation_page.click("text=Add User")
+    time.sleep(1)
 
     assert await admin_user_creation_page.get_by_text("* field required").is_visible()

@@ -27,7 +27,7 @@ async def test_new_uploads_runs_correctly(user_logged_in_page, test_file_name):
     async with user_logged_in_page.expect_file_chooser() as fc_info:
         await new_file_dropdown.click()
         file_chooser = await fc_info.value
-        await file_chooser.set_files(f"testFiles/{test_file_name}")
+        await file_chooser.set_files(f"./utils/testFiles/{test_file_name}")
 
     # submit analasys
     await user_logged_in_page.click("text=Submit")

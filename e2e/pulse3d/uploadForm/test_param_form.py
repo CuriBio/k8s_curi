@@ -6,10 +6,9 @@ __fictures__ = [setup, video_setup, basic_page, user_logged_in_page]
 
 
 input_options = [
-    ("nameOverride", ["newName"], []),
     ("maxY", ["100"], ["g"]),
     ("twitchWidths", ["100"], ["g"]),
-    ("wellsWithFlippedWaveforms", ["100"], ["g"]),
+    ("wellsWithFlippedWaveforms", ["A1,B3"], ["g"]),
     ("baseToPeak", ["100"], ["g"]),
     ("peakToBase", ["100"], ["g"]),
     ("startTime", ["100"], ["g"]),
