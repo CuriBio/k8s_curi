@@ -18,6 +18,7 @@ depends_on = None
 def upgrade():
     for table in ("users", "customers"):
         op.execute(f"ALTER TABLE {table} ADD COLUMN previous_passwords VARCHAR(128)[5]")
+        op.execute(f"ALTER TABLE {table} ALTER COLUMN previous_passwords SET DEFAULT '{{}}'")
         op.execute(f"UPDATE {table} SET previous_passwords[0]=password WHERE password IS NOT null")
     # also add reset token column in place of link column
     op.alter_column("customers", "pw_reset_link", new_column_name="reset_token")
