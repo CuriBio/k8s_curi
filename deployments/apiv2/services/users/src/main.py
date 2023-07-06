@@ -564,6 +564,8 @@ async def update_accounts(
                     query_params.append(customer_id)
                 await con.execute(query, *query_params)
 
+    except HTTPException:
+        raise
     except Exception:
         logger.exception(f"PUT /{user_id}: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
