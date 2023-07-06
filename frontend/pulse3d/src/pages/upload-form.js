@@ -241,6 +241,8 @@ export default function UploadForm() {
   }, [files]);
 
   useEffect(() => {
+    // grab list of user presets on initial load
+    // this gets called again in resetState when an analysis is submitted
     getAnalysisPresets();
   }, []);
 
@@ -279,10 +281,13 @@ export default function UploadForm() {
   };
 
   const getAnalysisPresets = async () => {
-    // TODO handle failed response
-    const presetResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets`);
-    const savedPresets = await presetResponse.json();
-    setUserPresets(savedPresets);
+    try {
+      const presetResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets`);
+      const savedPresets = await presetResponse.json();
+      setUserPresets(savedPresets);
+    } catch (e) {
+      console.log("ERROR getting user analysis presets");
+    }
   };
 
   const resetState = () => {
@@ -292,6 +297,8 @@ export default function UploadForm() {
     setFailedUploadsMsg(failedUploadsMsg);
     setModalButtons(["Close"]);
     setXlsxFilePresent(false);
+    // in case user added a new preset, want to grab updated list on analysis submission
+    getAnalysisPresets();
   };
 
   const resetAnalysisParams = () => {
