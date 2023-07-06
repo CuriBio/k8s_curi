@@ -752,6 +752,7 @@ export default function AnalysisParamForm({
             <DropDownWidget
               options={userPresets.map(({ name }) => name)}
               reset={!checkedParams}
+              disabled={userPresets.length === 0} // disable if no presets have been saved
               handleSelection={(idx) => setSelectedPresetIdx(idx)}
               boxShadow="none"
             />
