@@ -533,9 +533,12 @@ export default function AnalysisParamForm({
   }, [analysisParams.showStimSheet, checkedParams]);
 
   useEffect(() => {
-    const filteredOptions = pulse3dVersions.filter((version) =>
-      !xlsxFilePresent || xlsxFilePresent <= 24 ? semverGte(version, "0.32.2") : semverGte(version, "0.33.9")
-    );
+    const filteredOptions = pulse3dVersions.filter((version) => {
+      if (!xlsxFilePresent) return true;
+
+      const minVersion = xlsxFilePresent <= 24 ? "0.32.2" : "0.33.9";
+      return semverGte(version, minVersion);
+    });
 
     setPulse3dFilteredFileVersions([...filteredOptions]);
   }, [pulse3dVersions, xlsxFilePresent]);
