@@ -70,7 +70,7 @@ function Pulse({ Component, pageProps }) {
 
         if (data.reloadNeeded) {
           if (currentPage === "/login") {
-            // after a fresh install of the service worker, need to reload. Only perform the reload on the login page just in case this message is received on another page somehow
+            // after a fresh install of the service worker, need to reload. Only perform the reload when already on the login page just in case this message is received on another page somehow
             location.reload();
           }
         } else if (!isAccountPage) {
@@ -79,7 +79,7 @@ function Pulse({ Component, pageProps }) {
             // logged out due to inactivity message shouldn't show if already on the login page
             setLoggedOutAlert(true);
           } else if (data.isLoggedIn) {
-            // the router pathname is sent to the SW and then sent back here since for some reason this message handler
+            // the router pathname must be sent to the SW and then sent back here since for some reason this message handler can't grab the current page
             setAccountType(data.accountType);
             // if logged in and on a page that shouldn't be accessed, or if on the login page, redirect to home page (currently /uploads)
             if (currentPage === "/login" || !availablePages[data.accountType].includes(currentPage)) {
