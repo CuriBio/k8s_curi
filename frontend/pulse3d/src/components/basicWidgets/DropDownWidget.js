@@ -110,7 +110,7 @@ export default function DropDownWidget({
     if (initialSelected != null) {
       handleChange(initialSelected);
     }
-  }, []);
+  }, [initialSelected]);
 
   useEffect(() => {
     /*

@@ -11,24 +11,11 @@ import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardL
 import semverGte from "semver/functions/gte";
 import InputDropdownWidget from "@/components/basicWidgets/InputDropdownWidget";
 import { AuthContext } from "./_app";
-import FormInput from "@/components/basicWidgets/FormInput";
 
 const Container = styled.div`
   justify-content: center;
   position: relative;
   padding: 3rem;
-`;
-
-const PresetNameContainer = styled.div`
-  height: 100px;
-  padding: 60px 140px;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-`;
-
-const PresetNameLabel = styled.div`
-  width: 140px;
 `;
 
 const Header = styled.h2`
@@ -186,9 +173,10 @@ export default function UploadForm() {
   const [alertShowed, setAlertShowed] = useState(false);
   const [reanalysis, setReanalysis] = useState(isReanalysisPage(router));
   const [xlsxFilePresent, setXlsxFilePresent] = useState(false);
-  const [savePresetModal, setSavePresetModal] = useState(false);
   const [analysisPresetName, setAnalysisPresetName] = useState();
-  const [presets, setPresets] = useState([]);
+  const [userPresets, setUserPresets] = useState([]);
+  const [selectedPresetIdx, setSelectedPresetIdx] = useState();
+  const [savePresetChecked, setSavePresetChecked] = useState(false);
 
   useEffect(() => {
     if (badFiles.length > 0) {
@@ -234,6 +222,10 @@ export default function UploadForm() {
   }, [paramErrors, files, inProgress, wellGroupErr]);
 
   useEffect(() => {
+    populateFormWithPresetParams();
+  }, [selectedPresetIdx]);
+
+  useEffect(() => {
     // resets upload status when user makes changes
     if (
       (files.length > 0 && files[0] instanceof File) ||
@@ -268,9 +260,29 @@ export default function UploadForm() {
     }
   }, [uploads]);
 
+  const populateFormWithPresetParams = () => {
+    // start with default parameters
+    if (selectedPresetIdx) {
+      const currentParams = getDefaultAnalysisParams();
+      const presetParams = JSON.parse(userPresets[selectedPresetIdx].parameters);
+
+      for (const param in presetParams) {
+        // checking that the param exists incase params change over time, do not directly replace assuming all values match
+        // and don't update if already default value
+        if (param in currentParams && presetParams[param] !== currentParams[param]) {
+          currentParams[param] = presetParams[param];
+        }
+      }
+
+      setAnalysisParams(currentParams);
+    }
+  };
+
   const getAnalysisPresets = async () => {
+    // TODO handle failed response
     const presetResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets`);
-    console.log(await presetResponse.json());
+    const savedPresets = await presetResponse.json();
+    setUserPresets(savedPresets);
   };
 
   const resetState = () => {
@@ -284,6 +296,8 @@ export default function UploadForm() {
 
   const resetAnalysisParams = () => {
     setAnalysisParams(getDefaultAnalysisParams());
+    setAnalysisPresetName("");
+    setSavePresetChecked(false);
   };
 
   const updateCheckParams = (newCheckedParams) => {
@@ -515,11 +529,19 @@ export default function UploadForm() {
       for (const file of files) {
         //check file is in uploads list
         const fileIsInList = uploads.some((upload) => upload.id === file.id);
+
         if (file instanceof File) {
           await uploadFile(file);
         } else if (fileIsInList) {
           await postNewJob(file.id, file.filename);
         }
+      }
+
+      try {
+        // just logging error occurred, doesn't block rest of analysis
+        if (savePresetChecked) await saveAnalysisPreset();
+      } catch (e) {
+        console.log("ERROR saving analysis preset");
       }
 
       // open error modal notifying which files failed if any, otherwise display success text
@@ -643,15 +665,11 @@ export default function UploadForm() {
     return filenameNoExt;
   };
 
-  const closeAnalysisPresetModal = async (idx) => {
-    if (idx === 0) setSavePresetModal(false);
-    else {
-      const analysisParams = getJobParams();
-      const saveResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets`, {
-        method: "POST",
-        body: JSON.stringify({ name: analysisPresetName, analysis_params: analysisParams }),
-      });
-    }
+  const saveAnalysisPreset = async () => {
+    await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets`, {
+      method: "POST",
+      body: JSON.stringify({ name: analysisPresetName, analysis_params: analysisParams }),
+    });
   };
 
   const handleClose = async (idx) => {
@@ -709,36 +727,31 @@ export default function UploadForm() {
           setWellGroupErr={setWellGroupErr}
           reanalysis={reanalysis}
           xlsxFilePresent={xlsxFilePresent}
-          presets={presets}
+          userPresetOpts={{
+            userPresets,
+            setSelectedPresetIdx,
+            savePresetChecked,
+            setSavePresetChecked,
+            setAnalysisPresetName,
+            analysisPresetName,
+          }}
         />
         <ButtonContainer>
           {uploadSuccess ? <SuccessText>Upload Successful!</SuccessText> : null}
           <ButtonWidget
             width="200px"
-            height="45px"
+            height="50px"
             position="relative"
             borderRadius="3px"
             label="Reset"
             clickFn={resetState}
           />
           <ButtonWidget
-            width="270px"
-            height="45px"
+            width="200px"
+            height="50px"
             position="relative"
             borderRadius="3px"
             left="10px"
-            // backgroundColor={isButtonDisabled ? "var(--dark-gray)" : "var(--dark-blue)"}
-            // disabled={isButtonDisabled}
-            inProgress={inProgress}
-            label="Submit and Save Preset"
-            clickFn={() => setSavePresetModal(true)}
-          />
-          <ButtonWidget
-            width="200px"
-            height="45px"
-            position="relative"
-            borderRadius="3px"
-            left="20px"
             backgroundColor={isButtonDisabled ? "var(--dark-gray)" : "var(--dark-blue)"}
             disabled={isButtonDisabled}
             inProgress={inProgress}
@@ -772,23 +785,6 @@ export default function UploadForm() {
         }}
         header={"Attention!"}
       />
-      <ModalWidget
-        open={savePresetModal}
-        labels={[]}
-        buttons={["Cancel", "Save and Submit"]}
-        header={"Save Analysis Preset"}
-        closeModal={closeAnalysisPresetModal}
-      >
-        <PresetNameContainer>
-          <PresetNameLabel>Enter name: </PresetNameLabel>
-          <FormInput
-            value={analysisPresetName}
-            onChangeFn={(e) => {
-              setAnalysisPresetName(e.target.value);
-            }}
-          />
-        </PresetNameContainer>
-      </ModalWidget>
     </Container>
   );
 }

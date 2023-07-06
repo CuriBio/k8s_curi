@@ -1,6 +1,6 @@
 import styled from "styled-components";
 import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
-import { isArrayOfNumbers, loadCsvInputToArray, isArrayOfWellNames } from "../../utils/generic";
+import { isArrayOfNumbers, loadCsvInputToArray, isArrayOfWellNames } from "@/utils/generic";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import { useState, useContext, useEffect } from "react";
 import semverGte from "semver/functions/gte";
@@ -32,9 +32,9 @@ const Container = styled.div`
 const TwoParamContainer = styled.div`
   display: flex;
   flex-direction: row;
-  height: 100%;
-  justify-content: center;
-  width: 380px;
+  height: 74px;
+  justify-content: left;
+  width: 124%;
   align-items: center;
 `;
 
@@ -101,11 +101,20 @@ const InputErrorContainer = styled.div`
   display: flex;
   flex-direction: column;
   height: 60px;
+  margin-left: 20%;
+`;
+
+const TwoInputErrorContainer = styled.div`
+  height: 100px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
 `;
 
 const FormModify = styled.div`
   display: flex;
   width: 90px;
+  height: 54px;
   flex-direction: column;
 `;
 
@@ -154,8 +163,8 @@ const SmallLabel = styled.label`
 
 const OriginalAdvAnalysisContainer = styled.div`
   display: flex;
-  flex-direction: row;
-  width: 50%;
+  flex-direction: column;
+  width: 77%;
   height: 157px;
 `;
 
@@ -164,11 +173,20 @@ const NoiseBasedAdvAnalysisContainer = styled.div`
   flex-direction: column;
 `;
 
+const LineSeparator = styled.hr`
+  height: 1px;
+  border: 0;
+  border-top: 1px solid var(--dark-gray);
+  padding: 0;
+  position: relative;
+  width: 100%;
+`;
+
 function OrginalPeakFindingAdvAnalysisParams({ analysisParams, checkedParams, updateParams, errorMessages }) {
   return (
     <>
-      <TwoParamContainer style={{ width: "300px", alignItems: "start" }}>
-        <Label htmlFor="prominenceFactors" style={{ padding: "25px" }}>
+      <TwoParamContainer>
+        <Label htmlFor="prominenceFactors" style={{ padding: "0px 36px 0 10px" }}>
           Prominence (µN):
           <Tooltip
             title={
@@ -182,7 +200,7 @@ function OrginalPeakFindingAdvAnalysisParams({ analysisParams, checkedParams, up
             <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
           </Tooltip>
         </Label>
-        <InputErrorContainer style={{ height: "100px" }}>
+        <TwoInputErrorContainer>
           <SmallLabel htmlFor="prominenceFactorPeaks">Peaks</SmallLabel>
           <FormModify>
             <FormInput
@@ -217,10 +235,10 @@ function OrginalPeakFindingAdvAnalysisParams({ analysisParams, checkedParams, up
               </ErrorText>
             </FormInput>
           </FormModify>
-        </InputErrorContainer>
+        </TwoInputErrorContainer>
       </TwoParamContainer>
-      <TwoParamContainer style={{ alignItems: "start" }}>
-        <Label htmlFor="widthFactorPeaks" style={{ padding: "25px" }}>
+      <TwoParamContainer style={{ width: "134%" }}>
+        <Label htmlFor="widthFactorPeaks" style={{ padding: "0px 76px 0 10px" }}>
           Width (ms):
           <Tooltip
             title={
@@ -234,7 +252,7 @@ function OrginalPeakFindingAdvAnalysisParams({ analysisParams, checkedParams, up
             <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
           </Tooltip>
         </Label>
-        <InputErrorContainer style={{ height: "100px" }}>
+        <TwoInputErrorContainer>
           <SmallLabel htmlFor="widthFactorPeaks">Peaks</SmallLabel>
           <FormModify>
             <FormInput
@@ -269,7 +287,7 @@ function OrginalPeakFindingAdvAnalysisParams({ analysisParams, checkedParams, up
               </ErrorText>
             </FormInput>
           </FormModify>
-        </InputErrorContainer>
+        </TwoInputErrorContainer>
       </TwoParamContainer>
     </>
   );
@@ -312,8 +330,8 @@ function NoiseBasedPeakFindingAdvAnalysisParams({
         errorMsg={errorMessages.relativeProminenceFactor}
       />
       {/* TODO make sure to convert everything from ms to seconds before sending in the route */}
-      <TwoParamContainer style={{ alignItems: "start", height: "150px", width: "100%" }}>
-        <Label htmlFor="minPeakWidth" style={{ padding: "25px" }}>
+      <TwoParamContainer>
+        <Label htmlFor="minPeakWidth" style={{ padding: "0px 92px 0 10px" }}>
           Width (ms):
           <Tooltip
             title={<TooltipText>{"Specifies the min and max width requirements for peaks."}</TooltipText>}
@@ -321,7 +339,7 @@ function NoiseBasedPeakFindingAdvAnalysisParams({
             <InfoOutlinedIcon sx={{ fontSize: 20, margin: "0px 10px" }} />
           </Tooltip>
         </Label>
-        <InputErrorContainer style={{ height: "100px" }}>
+        <TwoInputErrorContainer>
           <SmallLabel htmlFor="minPeakWidth">Min</SmallLabel>
           <FormModify>
             <FormInput
@@ -356,7 +374,7 @@ function NoiseBasedPeakFindingAdvAnalysisParams({
               </ErrorText>
             </FormInput>
           </FormModify>
-        </InputErrorContainer>
+        </TwoInputErrorContainer>
       </TwoParamContainer>
       <AnalysisParamContainer
         label="Min Peak Height (µN)"
@@ -429,7 +447,6 @@ function NoiseBasedPeakFindingAdvAnalysisParams({
         errorMsg={errorMessages.upslopeNoiseAllowance}
         additionalLabelStyle={{
           width: "102%",
-          lineHeight: 1.5,
           whiteSpace: "normal",
         }}
       />
@@ -448,6 +465,14 @@ export default function AnalysisParamForm({
   setWellGroupErr,
   reanalysis,
   xlsxFilePresent,
+  userPresetOpts: {
+    userPresets,
+    setSelectedPresetIdx,
+    savePresetChecked,
+    setSavePresetChecked,
+    setAnalysisPresetName,
+    analysisPresetName,
+  },
 }) {
   const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails } = useContext(UploadsContext);
 
@@ -496,6 +521,18 @@ export default function AnalysisParamForm({
   }, [pulse3dFilteredFileVersions, metaPulse3dVersions]);
 
   useEffect(() => {
+    // default gets set to empty string
+    setDisableYAxisNormalization(
+      analysisParams.normalizeYAxis !== "" ? !analysisParams.normalizeYAxis : false
+    );
+  }, [analysisParams.normalizeYAxis, checkedParams]);
+
+  useEffect(() => {
+    // default gets set to empty string
+    setDisableStimProtocols(analysisParams.showStimSheet !== "" ? analysisParams.showStimSheet : false);
+  }, [analysisParams.showStimSheet, checkedParams]);
+
+  useEffect(() => {
     const filteredOptions = pulse3dVersions.filter((version) =>
       !xlsxFilePresent || xlsxFilePresent <= 24 ? semverGte(version, "0.32.2") : semverGte(version, "0.33.9")
     );
@@ -516,6 +553,11 @@ export default function AnalysisParamForm({
     None: null,
     Stacked: "stacked",
     Overlayed: "overlayed",
+  };
+
+  const getDropdownInitialSelection = (param, optionsArr) => {
+    const optionIndex = optionsArr.indexOf(analysisParams[param]);
+    return optionIndex === -1 ? 0 : optionIndex;
   };
 
   const updateParams = (newParams) => {
@@ -639,6 +681,17 @@ export default function AnalysisParamForm({
     updatedParams.wellsWithFlippedWaveforms = formattedWellNames;
   };
 
+  const validatePresetName = (input) => {
+    const nameFound = userPresets.map(({ name }) => name).find((name) => name === input);
+
+    let errorMessage = "";
+    if (nameFound) errorMessage = "*Name already exists";
+    else if (input === "" && savePresetChecked) errorMessage = "*Required";
+
+    setAnalysisPresetName(input);
+    setParamErrors({ ...paramErrors, presetName: errorMessage });
+  };
+
   const validateMinMax = (updatedParams, minName, maxName) => {
     const minValue = updatedParams[minName];
     const maxValue = updatedParams[maxName];
@@ -694,16 +747,45 @@ export default function AnalysisParamForm({
           <PresetDropdownContainer>
             <div style={{ marginRight: "10px" }}>Select Preset:</div>
             <DropDownWidget
-              options={pulse3dVersionOptions}
+              options={userPresets.map(({ name }) => name)}
               reset={!checkedParams}
-              handleSelection={handlePulse3dVersionSelect}
+              handleSelection={(idx) => setSelectedPresetIdx(idx)}
               boxShadow="none"
             />
           </PresetDropdownContainer>
         )}
       </AdditionalParamLabelContainer>
-      {!checkedParams ? <WAOverlay /> : null}
+      {!checkedParams && <WAOverlay />}
       <InputContainerOne style={{ paddingTop: "2%" }}>
+        <AnalysisParamContainer
+          label="Save Parameters as Preset"
+          name="saveAnalysisPreset"
+          tooltipText="When selected, the parameters will be saved and available for use in preset dropdown."
+        >
+          <InputErrorContainer>
+            <CheckboxWidget
+              checkedState={savePresetChecked}
+              handleCheckbox={(bool) => {
+                setSavePresetChecked(bool);
+                // want to reset this in case there was an error and doesn't block submitting analysis
+                if (!bool) validatePresetName("");
+              }}
+            />
+          </InputErrorContainer>
+        </AnalysisParamContainer>
+        {savePresetChecked && (
+          <AnalysisParamContainer
+            label="Enter Preset Name"
+            name="presetName"
+            tooltipText="Specifies name of analysis preset shown in dropdown options."
+            value={analysisPresetName}
+            changeFn={(e) => {
+              validatePresetName(e.target.value);
+            }}
+            errorMsg={errorMessages.presetName}
+          />
+        )}
+        <LineSeparator />
         {pulse3dVersionGte("0.32.2") && reanalysis && (
           <AnalysisParamContainer
             label="Override original name"
@@ -732,7 +814,10 @@ export default function AnalysisParamForm({
               options={pulse3dVersionOptions}
               reset={!checkedParams}
               handleSelection={handlePulse3dVersionSelect}
-              initialSelected={0}
+              initialSelected={getDropdownInitialSelection(
+                "selectedPulse3dVersion",
+                pulse3dFilteredFileVersions
+              )}
             />
           </DropDownContainer>
         </AnalysisParamContainer>
@@ -743,21 +828,23 @@ export default function AnalysisParamForm({
             tooltipText="Specifies the display format for the stim waveforms (if any). Defaults to 'Stacked'"
             additionalLabelStyle={{
               width: "102%",
-              lineHeight: 1.5,
               whiteSpace: "normal",
             }}
-            iconStyle={{ fontSize: 20, margin: "10px 10px" }}
+            iconStyle={{ fontSize: 20, margin: "10px 10px", right: "33px", position: "relative" }}
           >
             <DropDownContainer>
               <DropDownWidget
                 options={Object.keys(stimWaveformFormatDetails)}
                 reset={!checkedParams}
+                initialSelected={getDropdownInitialSelection(
+                  "stimWaveformFormat",
+                  Object.values(stimWaveformFormatDetails)
+                )}
                 handleSelection={(idx) => {
                   updateParams({
                     stimWaveformFormat: Object.values(stimWaveformFormatDetails)[idx],
                   });
                 }}
-                initialSelected={0}
               />
             </DropDownContainer>
           </AnalysisParamContainer>
@@ -768,11 +855,10 @@ export default function AnalysisParamForm({
           name="showStimSheet"
           tooltipText="When selected, adds a sheet to output file with stimulation protocols."
         >
-          <InputErrorContainer style={{ marginLeft: "20%" }}>
+          <InputErrorContainer>
             <CheckboxWidget
-              checkedState={disableStimProtocols}
+              checkedState={checkedParams ? disableStimProtocols : false}
               handleCheckbox={() => {
-                setDisableStimProtocols(!disableStimProtocols);
                 updateParams({
                   showStimSheet: !disableStimProtocols,
                 });
@@ -785,14 +871,13 @@ export default function AnalysisParamForm({
           name="normalizeYAxis"
           tooltipText="When selected, disables normalization of the y-axis."
         >
-          <InputErrorContainer style={{ marginLeft: "20%" }}>
+          <InputErrorContainer>
             <CheckboxWidget
-              checkedState={disableYAxisNormalization}
+              checkedState={checkedParams ? disableYAxisNormalization : false}
               handleCheckbox={(disable) => {
                 updateParams({
                   normalizeYAxis: !disable,
                 });
-                setDisableYAxisNormalization(disable);
               }}
             />
           </InputErrorContainer>
@@ -842,7 +927,10 @@ export default function AnalysisParamForm({
                     stiffnessFactor: Object.values(stiffnessFactorDetails)[idx],
                   });
                 }}
-                initialSelected={0}
+                initialSelected={getDropdownInitialSelection(
+                  "stiffnessFactor",
+                  Object.values(stiffnessFactorDetails)
+                )}
               />
             </DropDownContainer>
           </AnalysisParamContainer>
@@ -855,15 +943,15 @@ export default function AnalysisParamForm({
             tooltipText="[Beta 1.7 Instrument Recordings Only] Specifies the names of wells (i.e. A1, D6) which should have their waveforms flipped before analysis begins."
             placeholder={checkedParams ? "None" : ""}
             value={analysisParams.wellsWithFlippedWaveforms}
-            additionalErrorStyle={{ width: "50%" }}
+            additionalLabelStyle={{
+              width: "102%",
+              whiteSpace: "normal",
+            }}
+            iconStyle={{ fontSize: 20, margin: "10px 10px", right: "70px", position: "relative" }}
             changeFn={(e) => {
               updateParams({
                 wellsWithFlippedWaveforms: e.target.value,
               });
-            }}
-            additionalParamStyle={{
-              padding: "20px 0px 10px 0px",
-              width: "500px",
             }}
             errorMsg={errorMessages.wellsWithFlippedWaveforms}
           />
