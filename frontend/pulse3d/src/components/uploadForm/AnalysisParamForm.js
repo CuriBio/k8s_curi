@@ -772,6 +772,8 @@ export default function AnalysisParamForm({
                 setSavePresetChecked(bool);
                 // want to reset this in case there was an error and doesn't block submitting analysis
                 if (!bool) validatePresetName("");
+                // when initially checked and input is blank, need to ensure it's required
+                else setParamErrors({ ...paramErrors, presetName: "*Required" });
               }}
             />
           </InputErrorContainer>
