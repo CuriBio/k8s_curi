@@ -12,6 +12,8 @@ let accountType = null;
 let usageQuota = null;
 let ClientSource = null;
 
+let reloadNeeded = false;
+
 const cacheName = "preloadedWellData";
 
 const USERS_URL = new URLSearchParams(location.search).get("users_url");
@@ -272,6 +274,7 @@ const getWaveformDataFromS3 = async (res) => {
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
   console.log("Service worker installed!");
+  reloadNeeded = true;
 });
 
 self.addEventListener("activate", (event) => {
@@ -331,7 +334,13 @@ self.addEventListener("fetch", async (e) => {
 
 self.onmessage = ({ data, source }) => {
   ClientSource = source;
-  if (data.msgType === "authCheck") {
+  if (data.msgType === "checkReloadNeeded") {
+    source.postMessage({
+      reloadNeeded,
+      routerPathname: data.routerPathname,
+    });
+    reloadNeeded = false;
+  } else if (data.msgType === "authCheck") {
     console.log("Returning authentication check");
     source.postMessage({
       isLoggedIn: tokens.access !== null,
