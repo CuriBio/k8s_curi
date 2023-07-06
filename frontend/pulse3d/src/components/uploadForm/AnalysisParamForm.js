@@ -483,10 +483,11 @@ export default function AnalysisParamForm({
 
   useEffect(() => {
     const filteredOptions = pulse3dVersions.filter((version) => {
-      const minVersion = !xlsxFilePresent || xlsxFilePresent <= 24 ? "0.32.2" : "0.33.9";
+      if (!xlsxFilePresent) return true;
+
+      const minVersion = xlsxFilePresent <= 24 ? "0.32.2" : "0.33.9";
       return semverGte(version, minVersion);
     });
-    console.log(xlsxFilePresent, filteredOptions);
 
     setPulse3dFilteredFileVersions([...filteredOptions]);
   }, [pulse3dVersions, xlsxFilePresent]);
