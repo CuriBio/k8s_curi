@@ -11,6 +11,7 @@ import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardL
 import semverGte from "semver/functions/gte";
 import InputDropdownWidget from "@/components/basicWidgets/InputDropdownWidget";
 import { AuthContext } from "./_app";
+
 const Container = styled.div`
   justify-content: center;
   position: relative;
@@ -56,7 +57,7 @@ const Uploads = styled.div`
 const ButtonContainer = styled.div`
   display: flex;
   justify-content: flex-end;
-  padding: 3rem 6rem;
+  padding: 3rem 8rem;
   width: 100%;
 `;
 
@@ -172,6 +173,10 @@ export default function UploadForm() {
   const [alertShowed, setAlertShowed] = useState(false);
   const [reanalysis, setReanalysis] = useState(isReanalysisPage(router));
   const [xlsxFilePresent, setXlsxFilePresent] = useState(false);
+  const [analysisPresetName, setAnalysisPresetName] = useState();
+  const [userPresets, setUserPresets] = useState([]);
+  const [selectedPresetIdx, setSelectedPresetIdx] = useState();
+  const [savePresetChecked, setSavePresetChecked] = useState(false);
 
   useEffect(() => {
     if (badFiles.length > 0) {
@@ -217,6 +222,10 @@ export default function UploadForm() {
   }, [paramErrors, files, inProgress, wellGroupErr]);
 
   useEffect(() => {
+    populateFormWithPresetParams();
+  }, [selectedPresetIdx]);
+
+  useEffect(() => {
     // resets upload status when user makes changes
     if (
       (files.length > 0 && files[0] instanceof File) ||
@@ -230,6 +239,12 @@ export default function UploadForm() {
     // check for incorrect files and let user know
     checkFileContents();
   }, [files]);
+
+  useEffect(() => {
+    // grab list of user presets on initial load
+    // this gets called again in resetState when an analysis is submitted
+    getAnalysisPresets();
+  }, []);
 
   useEffect(() => {
     const newAnalysisStatus = isReanalysisPage(router);
@@ -247,6 +262,35 @@ export default function UploadForm() {
     }
   }, [uploads]);
 
+  const populateFormWithPresetParams = () => {
+    // start with default parameters
+    // checking against null or undefined because index 0 won't pass otherwise
+    if (Number.isInteger(selectedPresetIdx)) {
+      const currentParams = getDefaultAnalysisParams();
+      const presetParams = JSON.parse(userPresets[selectedPresetIdx].parameters);
+
+      for (const param in presetParams) {
+        // checking that the param exists incase params change over time, do not directly replace assuming all values match
+        // and don't update if already default value
+        if (param in currentParams && presetParams[param] !== currentParams[param]) {
+          currentParams[param] = presetParams[param];
+        }
+      }
+
+      setAnalysisParams(currentParams);
+    }
+  };
+
+  const getAnalysisPresets = async () => {
+    try {
+      const presetResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets`);
+      const savedPresets = await presetResponse.json();
+      setUserPresets(savedPresets);
+    } catch (e) {
+      console.log("ERROR getting user analysis presets");
+    }
+  };
+
   const resetState = () => {
     setResetDragDrop(true);
     setFiles([]);
@@ -254,10 +298,14 @@ export default function UploadForm() {
     setFailedUploadsMsg(failedUploadsMsg);
     setModalButtons(["Close"]);
     setXlsxFilePresent(false);
+    // in case user added a new preset, want to grab updated list on analysis submission
+    getAnalysisPresets();
   };
 
   const resetAnalysisParams = () => {
     setAnalysisParams(getDefaultAnalysisParams());
+    setAnalysisPresetName("");
+    setSavePresetChecked(false);
   };
 
   const updateCheckParams = (newCheckedParams) => {
@@ -289,108 +337,112 @@ export default function UploadForm() {
     return val === "" ? null : val;
   };
 
-  const postNewJob = async (uploadId, filename) => {
-    try {
-      const {
-        normalizeYAxis,
-        showStimSheet,
-        baseToPeak,
-        peakToBase,
-        maxY,
-        prominenceFactorPeaks,
-        prominenceFactorValleys,
-        relativeProminenceFactor,
-        noiseProminenceFactor,
-        widthFactorPeaks,
-        widthFactorValleys,
-        minPeakHeight,
-        maxPeakFreq,
-        valleySearchDuration,
-        upslopeDuration,
-        upslopeNoiseAllowance,
-        twitchWidths,
-        startTime,
-        endTime,
-        selectedPulse3dVersion,
-        stiffnessFactor,
-        wellsWithFlippedWaveforms,
-        wellGroups,
-        stimWaveformFormat,
-      } = analysisParams;
+  const getJobParams = (uploadId) => {
+    const {
+      normalizeYAxis,
+      showStimSheet,
+      baseToPeak,
+      peakToBase,
+      maxY,
+      prominenceFactorPeaks,
+      prominenceFactorValleys,
+      relativeProminenceFactor,
+      noiseProminenceFactor,
+      widthFactorPeaks,
+      widthFactorValleys,
+      minPeakHeight,
+      maxPeakFreq,
+      valleySearchDuration,
+      upslopeDuration,
+      upslopeNoiseAllowance,
+      twitchWidths,
+      startTime,
+      endTime,
+      selectedPulse3dVersion,
+      stiffnessFactor,
+      wellsWithFlippedWaveforms,
+      wellGroups,
+      stimWaveformFormat,
+    } = analysisParams;
 
-      const version =
-        selectedPulse3dVersion === "" || !selectedPulse3dVersion
-          ? pulse3dVersions[0]
-          : selectedPulse3dVersion;
+    const version =
+      selectedPulse3dVersion === "" || !selectedPulse3dVersion ? pulse3dVersions[0] : selectedPulse3dVersion;
 
-      const requestBody = {
-        upload_id: uploadId,
-        baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
-        // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
-        version,
-      };
+    const requestBody = {
+      baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
+      // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
+      version,
+    };
 
+    if (uploadId) {
+      requestBody.upload_id = uploadId;
+    }
+
+    for (const [name, value] of [
+      ["normalize_y_axis", normalizeYAxis],
+      ["twitch_widths", twitchWidths],
+      ["start_time", startTime],
+      ["end_time", endTime],
+      ["max_y", maxY],
+      ["include_stim_protocols", showStimSheet],
+    ]) {
+      requestBody[name] = getNullIfEmpty(value);
+    }
+
+    if (semverGte(version, "0.30.1")) {
+      requestBody.stiffness_factor = getNullIfEmpty(stiffnessFactor);
+      requestBody.inverted_post_magnet_wells = getNullIfEmpty(wellsWithFlippedWaveforms);
+    }
+    if (semverGte(version, "0.30.3")) {
+      requestBody.well_groups = Object.keys(wellGroups).length === 0 ? null : wellGroups;
+    }
+    if (semverGte(version, "0.30.5")) {
+      requestBody.stim_waveform_format = getNullIfEmpty(stimWaveformFormat);
+    }
+    if (semverGte(version, "0.32.2")) {
+      // don't add name if it's the original filename or if it's empty
+      const useOriginalName =
+        analysisParams.nameOverride === "" ||
+        analysisParams.nameOverride === removeFileExt(files[0].filename);
+      requestBody.name_override = useOriginalName ? null : analysisParams.nameOverride;
+    }
+
+    if (semverGte(version, "0.33.2")) {
       for (const [name, value] of [
-        ["normalize_y_axis", normalizeYAxis],
-        ["twitch_widths", twitchWidths],
-        ["start_time", startTime],
-        ["end_time", endTime],
-        ["max_y", maxY],
-        ["include_stim_protocols", showStimSheet],
+        ["relative_prominence_factor", relativeProminenceFactor],
+        ["noise_prominence_factor", noiseProminenceFactor],
+        ["height_factor", minPeakHeight],
+        ["max_frequency", maxPeakFreq],
+        ["valley_search_duration", valleySearchDuration],
+        ["upslope_duration", upslopeDuration],
+        ["upslope_noise_allowance_duration", upslopeNoiseAllowance],
       ]) {
         requestBody[name] = getNullIfEmpty(value);
       }
 
-      if (semverGte(version, "0.30.1")) {
-        requestBody.stiffness_factor = getNullIfEmpty(stiffnessFactor);
-        requestBody.inverted_post_magnet_wells = getNullIfEmpty(wellsWithFlippedWaveforms);
-      }
-      if (semverGte(version, "0.30.3")) {
-        requestBody.well_groups = Object.keys(wellGroups).length === 0 ? null : wellGroups;
-      }
-      if (semverGte(version, "0.30.5")) {
-        requestBody.stim_waveform_format = getNullIfEmpty(stimWaveformFormat);
-      }
-      if (semverGte(version, "0.32.2")) {
-        // don't add name if it's the original filename or if it's empty
-        const useOriginalName =
-          analysisParams.nameOverride === "" ||
-          analysisParams.nameOverride === removeFileExt(files[0].filename);
-        requestBody.name_override = useOriginalName ? null : analysisParams.nameOverride;
-      }
-      if (semverGte(version, "0.33.2")) {
-        for (const [name, value] of [
-          ["relative_prominence_factor", relativeProminenceFactor],
-          ["noise_prominence_factor", noiseProminenceFactor],
-          ["height_factor", minPeakHeight],
-          ["max_frequency", maxPeakFreq],
-          ["valley_search_duration", valleySearchDuration],
-          ["upslope_duration", upslopeDuration],
-          ["upslope_noise_allowance_duration", upslopeNoiseAllowance],
-        ]) {
-          requestBody[name] = getNullIfEmpty(value);
+      requestBody.width_factors = formatTupleParams(minPeakWidth, maxPeakWidth);
+      // need to convert all these params from ms to s
+      for (const name of ["valley_search_duration", "upslope_duration", "upslope_noise_allowance_duration"]) {
+        if (requestBody[name] !== null) {
+          requestBody[name] /= 1000;
         }
-        requestBody.width_factors = formatTupleParams(minPeakWidth, maxPeakWidth);
-        // need to convert all these params from ms to s
-        for (const name of [
-          "valley_search_duration",
-          "upslope_duration",
-          "upslope_noise_allowance_duration",
-        ]) {
-          if (requestBody[name] !== null) {
-            requestBody[name] /= 1000;
-          }
-        }
-        if (requestBody.width_factors !== null) {
-          requestBody.width_factors = requestBody.width_factors.map((width) => {
-            width !== null ? width / 1000 : null;
-          });
-        }
-      } else {
-        requestBody.prominence_factors = formatTupleParams(prominenceFactorPeaks, prominenceFactorValleys);
-        requestBody.width_factors = formatTupleParams(widthFactorPeaks, widthFactorValleys);
       }
+      if (requestBody.width_factors !== null) {
+        requestBody.width_factors = requestBody.width_factors.map((width) => {
+          width !== null ? width / 1000 : null;
+        });
+      }
+    } else {
+      requestBody.prominence_factors = formatTupleParams(prominenceFactorPeaks, prominenceFactorValleys);
+      requestBody.width_factors = formatTupleParams(widthFactorPeaks, widthFactorValleys);
+    }
 
+    return requestBody;
+  };
+
+  const postNewJob = async (uploadId, filename) => {
+    try {
+      const requestBody = getJobParams(uploadId);
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
         method: "POST",
         body: JSON.stringify(requestBody),
@@ -485,11 +537,19 @@ export default function UploadForm() {
       for (const file of files) {
         //check file is in uploads list
         const fileIsInList = uploads.some((upload) => upload.id === file.id);
+
         if (file instanceof File) {
           await uploadFile(file);
         } else if (fileIsInList) {
           await postNewJob(file.id, file.filename);
         }
+      }
+
+      try {
+        // just logging error occurred, doesn't block rest of analysis
+        if (savePresetChecked) await saveAnalysisPreset();
+      } catch (e) {
+        console.log("ERROR saving analysis preset");
       }
 
       // open error modal notifying which files failed if any, otherwise display success text
@@ -613,6 +673,13 @@ export default function UploadForm() {
     return filenameNoExt;
   };
 
+  const saveAnalysisPreset = async () => {
+    await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets`, {
+      method: "POST",
+      body: JSON.stringify({ name: analysisPresetName, analysis_params: analysisParams }),
+    });
+  };
+
   const handleClose = async (idx) => {
     // if user chooses to proceed with upload when some files were flagged as bad
     if (idx === 1) {
@@ -668,20 +735,28 @@ export default function UploadForm() {
           setWellGroupErr={setWellGroupErr}
           reanalysis={reanalysis}
           xlsxFilePresent={xlsxFilePresent}
+          userPresetOpts={{
+            userPresets,
+            setSelectedPresetIdx,
+            savePresetChecked,
+            setSavePresetChecked,
+            setAnalysisPresetName,
+            analysisPresetName,
+          }}
         />
         <ButtonContainer>
           {uploadSuccess ? <SuccessText>Upload Successful!</SuccessText> : null}
           <ButtonWidget
-            width="135px"
-            height="45px"
+            width="200px"
+            height="50px"
             position="relative"
             borderRadius="3px"
             label="Reset"
             clickFn={resetState}
           />
           <ButtonWidget
-            width="135px"
-            height="45px"
+            width="200px"
+            height="50px"
             position="relative"
             borderRadius="3px"
             left="10px"

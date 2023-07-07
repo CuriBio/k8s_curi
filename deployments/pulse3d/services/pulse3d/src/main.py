@@ -31,6 +31,7 @@ from jobs import (
     delete_jobs,
     delete_uploads,
     check_customer_quota,
+    create_analysis_preset,
 )
 from models.models import (
     UploadRequest,
@@ -42,6 +43,7 @@ from models.models import (
     UploadDownloadRequest,
     GenericErrorResponse,
     UsageQuota,
+    SavePresetRequest,
 )
 from models.types import TupleParam
 
@@ -731,4 +733,39 @@ async def get_usage_quota(
             return usage_quota
     except Exception:
         logger.exception("Failed to fetch quota usage")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.post("/presets")
+async def save_analysis_presets(
+    request: Request, details: SavePresetRequest, token=Depends(ProtectedAny(scope=PULSE3D_SCOPES))
+):
+    """Save analysis parameter preset for user"""
+    try:
+        user_id = str(uuid.UUID(token["userid"]))
+
+        async with request.state.pgpool.acquire() as con:
+            return await create_analysis_preset(con, user_id, details)
+    except Exception:
+        logger.exception("Failed to save analysis preset for user")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.get("/presets")
+async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(scope=PULSE3D_SCOPES))):
+    """Get analysis parameter preset for user"""
+    try:
+        user_id = str(uuid.UUID(token["userid"]))
+
+        async with request.state.pgpool.acquire() as con:
+            async with con.transaction():
+                return [
+                    dict(row)
+                    async for row in con.cursor(
+                        "SELECT name, parameters FROM analysis_presets where user_id=$1", user_id
+                    )
+                ]
+
+    except Exception:
+        logger.exception("Failed to get analysis presets for user")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
