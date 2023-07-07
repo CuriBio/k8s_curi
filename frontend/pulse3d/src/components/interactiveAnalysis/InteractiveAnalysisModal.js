@@ -894,7 +894,7 @@ export default function InteractiveWaveformModal({
         if (Object.keys(waveformData).length === 24) {
           return true;
         } else {
-          const minVersion = Object.keys(waveformData).length < 24 ? "0.32.2" : "0.33.9";
+          const minVersion = Object.keys(waveformData).length < 24 ? "0.32.2" : "0.33.11";
           return semverGte(v, minVersion);
         }
       });
