@@ -9,7 +9,7 @@ import { Mutex } from "async-mutex";
 const refreshMutex = new Mutex();
 
 let accountType = null;
-let usageQuota = null;
+let usageQuota = null; // TODO Tanner (7/6/23): doesn't seem like this is being used for anything other than the authcheck, but the value is ignored when that message is received. Can probably remove this
 let ClientSource = null;
 
 let reloadNeeded = false;
@@ -79,7 +79,7 @@ const clearTokens = () => {
 
 const sendLogoutMsg = () => {
   clearAccountInfo();
-  ClientSource.postMessage({ logout: true });
+  ClientSource.postMessage({ msgType: "logout" });
   console.log("logout ping sent");
 };
 
@@ -334,27 +334,35 @@ self.addEventListener("fetch", async (e) => {
 
 self.onmessage = ({ data, source }) => {
   ClientSource = source;
-  if (data.msgType === "checkReloadNeeded") {
-    source.postMessage({
-      reloadNeeded,
-      routerPathname: data.routerPathname,
-    });
+
+  const { msgType, routerPathname } = data;
+  const baseMsg = { msgType, routerPathname };
+  let msgInfo = {};
+
+  if (msgType === "checkReloadNeeded") {
+    msgInfo = { reloadNeeded };
     reloadNeeded = false;
-  } else if (data.msgType === "authCheck") {
+  } else if (msgType === "authCheck") {
     console.log("Returning authentication check");
-    source.postMessage({
+    msgInfo = {
       isLoggedIn: tokens.access !== null,
       accountType,
-      routerPathname: data.routerPathname,
       usageQuota,
-    });
-  } else if (data.msgType === "stayAlive") {
+    };
+  } else if (msgType === "stayAlive") {
     // TODO should have this do something else so that there isn't a log msg produced every 20 seconds
     console.log("Staying alive");
-  } else if (data.msgType === "clearData") {
+  } else if (msgType === "clearData") {
     // a way for the FE components to force clear all stored data in the service worker
     console.log("Recieved clear message type to clear account info");
     clearAccountInfo();
+  }
+
+  if (Object.keys(msgInfo).length > 0) {
+    source.postMessage({
+      ...baseMsg,
+      ...msgInfo,
+    });
   }
 };
 
