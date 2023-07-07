@@ -68,28 +68,32 @@ function Pulse({ Component, pageProps }) {
         const currentPage = data.routerPathname;
         const isAccountPage = currentPage && ["/account/verify", "/account/reset"].includes(currentPage);
 
-        if (data.reloadNeeded) {
-          if (currentPage === "/login") {
+        if (data.msgType === "checkReloadNeeded") {
+          if (data.reloadNeeded && currentPage === "/login") {
             // after a fresh install of the service worker, need to reload. Only perform the reload when already on the login page just in case this message is received on another page somehow
             location.reload();
           }
         } else if (!isAccountPage) {
           // ignore all the following messages if on the account page
-          if (data.logout && currentPage !== "/login") {
-            // logged out due to inactivity message shouldn't show if already on the login page
-            setLoggedOutAlert(true);
-          } else if (data.isLoggedIn) {
-            // the router pathname must be sent to the SW and then sent back here since for some reason this message handler can't grab the current page
-            setAccountType(data.accountType);
-            // if logged in and on a page that shouldn't be accessed, or if on the login page, redirect to home page (currently /uploads)
-            if (currentPage === "/login" || !availablePages[data.accountType].includes(currentPage)) {
-              // TODO Tanner (8/23/22): this probably isn't the best solution for redirecting to other pages. Should look into a better way to do this
-              router.replace("/uploads", undefined, { shallow: true });
+          if (data.msgType === "logout") {
+            if (currentPage !== "/login") {
+              // logged out due to inactivity message shouldn't show if already on the login page
+              setLoggedOutAlert(true);
             }
-          } else if (currentPage !== "/login") {
-            // always redirect to login page if not logged in
-            setAccountType(data.accountType);
-            router.replace("/login", undefined, { shallow: true });
+          } else if (data.msgType === "authCheck") {
+            if (data.isLoggedIn) {
+              // the router pathname must be sent to the SW and then sent back here since for some reason this message handler can't grab the current page
+              setAccountType(data.accountType);
+              // if logged in and on a page that shouldn't be accessed, or if on the login page, redirect to home page (currently /uploads)
+              if (currentPage === "/login" || !availablePages[data.accountType].includes(currentPage)) {
+                // TODO Tanner (8/23/22): this probably isn't the best solution for redirecting to other pages. Should look into a better way to do this
+                router.replace("/uploads", undefined, { shallow: true });
+              }
+            } else if (currentPage !== "/login") {
+              // always redirect to login page if not logged in
+              setAccountType(data.accountType);
+              router.replace("/login", undefined, { shallow: true });
+            }
           }
         }
       });
