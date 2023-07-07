@@ -264,8 +264,8 @@ export default function UploadForm() {
 
   const populateFormWithPresetParams = () => {
     // start with default parameters
-    // checking against null because index 0 won't pass otherwise
-    if (selectedPresetIdx !== null) {
+    // checking against null or undefined because index 0 won't pass otherwise
+    if (Number.isInteger(selectedPresetIdx)) {
       const currentParams = getDefaultAnalysisParams();
       const presetParams = JSON.parse(userPresets[selectedPresetIdx].parameters);
 
