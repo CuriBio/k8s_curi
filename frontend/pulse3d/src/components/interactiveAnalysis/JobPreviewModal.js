@@ -179,7 +179,7 @@ export default function JobPreviewModal({
               </YAxisContainer>
               <GraphContainer style={gridStyle}>
                 {Object.keys(waveformData).map((well, i) => (
-                  <div key={well} style={{ position: "relative", gridArea: `well${i}`, maxWidth: 200 }}>
+                  <div key={well} style={{ position: "relative", gridArea: `well${i}` }}>
                     <BasicWaveformGraph
                       well={well}
                       timepointRange={timepointRange}

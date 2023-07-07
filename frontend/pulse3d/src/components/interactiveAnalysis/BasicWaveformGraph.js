@@ -37,18 +37,20 @@ export default function BasicWaveformGraph({ well, featureIndicies, waveformData
         SET UP SVG GRAPH AND VARIABLES
       -------------------------------------- */
 
-    const margin = { top: 10, right: 10, bottom: 20, left: 40 },
+          // add .15 extra to y max and y min to auto scale the graph a little outside of true max and mins
+    const dataWithinWindow = waveformData.filter((coords) => coords[0] >= xMin && coords[0] <= xMax);
+    const yMax = d3.max(dataWithinWindow, (d) => d[1]);
+    const yMin = d3.min(dataWithinWindow, (d) => d[1]);
+    const yRange = yMax * 0.15;
+    // nautilus/optical files seem to have really high y values that get cut off if left margin isn't large enough
+    const leftMargin = yMax > 100000 ? 70 : 40
+
+    const margin = { top: 10, right: 10, bottom: 20, left: leftMargin },
       width = 250 - margin.left - margin.right,
       height = 150 - margin.top - margin.bottom;
 
     // Add X axis and Y axis
     const x = d3.scaleLinear().range([0, width]).domain([xMin, xMax]);
-
-    // add .15 extra to y max and y min to auto scale the graph a little outside of true max and mins
-    const dataWithinWindow = waveformData.filter((coords) => coords[0] >= xMin && coords[0] <= xMax);
-    const yMax = d3.max(dataWithinWindow, (d) => d[1]);
-    const yMin = d3.min(dataWithinWindow, (d) => d[1]);
-    const yRange = yMax * 0.15;
 
     const y = d3
       .scaleLinear()
