@@ -1,3 +1,3 @@
-cluster_name = "prod"
-domain_name = "curibio.com"
+cluster_name = "modl"
+domain_name  = "curibio.com"
 

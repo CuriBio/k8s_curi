@@ -37,6 +37,7 @@ resource "kubernetes_service_account" "service_account" {
       "eks.amazonaws.com/role-arn" = aws_iam_role.eks_pods.arn
     }
   }
+
   automount_service_account_token = true
 }
 
@@ -223,13 +224,30 @@ module "eks" {
   aws_auth_accounts = var.cluster_accounts
   aws_auth_users    = var.cluster_users
 
+  cluster_endpoint_public_access = true
   eks_managed_node_groups = {
     medium = {
-      desired_capacity = 8
-      max_capacity     = 10
-      min_capacity     = 1
+      desired_capacity = 3
+      max_capacity     = 3
+      min_capacity     = 3
 
-      instance_types = ["c3.large"]
+      instance_types = ["t3a.medium"]
+      subnets        = [var.private_subnets[0], var.private_subnets[1]]
+
+      k8s_labels = {
+        group = "services"
+      }
+      update_config = {
+        max_unavailable_percentage = 50 # or set `max_unavailable`
+      }
+    },
+
+    workers = {
+      desired_capacity = 3
+      max_capacity     = 3
+      min_capacity     = 3
+
+      instance_types = ["c6a.large"]
       subnets        = [var.private_subnets[0], var.private_subnets[1]]
 
       k8s_labels = {
