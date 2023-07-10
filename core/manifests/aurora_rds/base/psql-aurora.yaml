@@ -4,11 +4,11 @@ metadata:
   name: psql-rds
   namespace: default
 spec:
-  externalName: test-curibio.cluster-cml7vwdvflpa.us-east-2.rds.amazonaws.com
+  externalName: test-curibio.cluster-chen9kcdgdkw.us-east-2.rds.amazonaws.com
   ports:
-  - port: 5432
-    protocol: TCP
-    targetPort: 5432
+    - port: 5432
+      protocol: TCP
+      targetPort: 5432
   selector:
     app: psql-rds
   sessionAffinity: None
