@@ -126,7 +126,6 @@ const ChangelogLabel = styled.div`
 const Legend = styled.div`
   background-color: white;
   width: 800px;
-  margin-left: 20px;
   padding: 5px;
   margin-left: 21px;
   border-radius: 10px;
