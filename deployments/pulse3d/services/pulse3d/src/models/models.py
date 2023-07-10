@@ -83,8 +83,9 @@ class DownloadItem(BaseModel):
 
 
 class WaveformDataResponse(BaseModel):
-    coordinates: List[Any]
-    peaks_valleys: Optional[Dict[str, List[Any]]]
+    time_force_url: str
+    peaks_valleys_url: str
+    normalize_y_axis: bool
 
 
 class JobDownloadRequest(BaseModel):

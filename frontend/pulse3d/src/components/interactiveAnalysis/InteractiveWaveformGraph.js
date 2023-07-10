@@ -126,7 +126,6 @@ const ChangelogLabel = styled.div`
 const Legend = styled.div`
   background-color: white;
   width: 800px;
-  margin-left: 20px;
   padding: 5px;
   margin-left: 21px;
   border-radius: 10px;
@@ -188,54 +187,24 @@ const NoFeaturesAlert = styled.div`
   color: red;
 `;
 export default function WaveformGraph({
-  selectedWellInfo,
-  xRange,
-  dataToGraph,
-  editableStartEndTimesHookItems,
-  editablePeaksValleysHookItems,
-  peakValleyWindows,
-  peakY1HookItems,
-  peakY2HookItems,
-  valleyY1HookItems,
-  valleyY2HookItems,
+  timepointRange,
+  waveformData,
+  customAnalysisSettings,
+  customAnalysisSettingsUpdaters,
   changelogActions,
-  deletePeakValley,
-  addPeakValley,
-  filterFeature,
-  checkDuplicates,
-  assignNewArr,
 }) {
-  const { selectedWell, wellIdx } = selectedWellInfo;
-  const [editableStartEndTimes, setEditableStartEndTimes] = editableStartEndTimesHookItems;
-  const { startTime, endTime } = editableStartEndTimes;
-  const [editablePeaksValleys, setEditablePeaksValleys] = editablePeaksValleysHookItems;
-  const [peaks, valleys] = editablePeaksValleys[selectedWell];
-  const [peakY1, setPeakY1] = peakY1HookItems;
-  const [peakY2, setPeakY2] = peakY2HookItems;
-  const [valleyY1, setValleyY1] = valleyY1HookItems;
-  const [valleyY2, setValleyY2] = valleyY2HookItems;
+  const {
+    windowedAnalysisBounds: { start: startTime, end: endTime },
+    featureIndices: { peaks, valleys },
+    duplicateIndices,
+    thresholdEndpoints,
+  } = customAnalysisSettings;
 
   const [menuItems, setMenuItems] = useState(contextMenuItems.moveDelete);
   const [selectedMarkerToMove, setSelectedMarkerToMove] = useState();
   const [cursorLoc, setCursorLoc] = useState([0, 0]);
   const [xZoomFactor, setXZoomFactor] = useState(1);
   const [yZoomFactor, setYZoomFactor] = useState(1);
-
-  // these functions are just wrappers around hook setters, so adding them before useEffects
-  const updateFeatures = (featureType, newFeatureValues) => {
-    // ensures you don't edit the original array by creating deep copy
-    const newEntries = JSON.parse(JSON.stringify(editablePeaksValleys));
-    const featureIdx = featureType === "peak" ? 0 : 1;
-    newEntries[selectedWell][featureIdx] = newFeatureValues;
-    setEditablePeaksValleys({ ...newEntries });
-  };
-
-  const updateStartEndTimes = (newStartEndTimes) => {
-    setEditableStartEndTimes({
-      ...editableStartEndTimes,
-      ...newStartEndTimes,
-    });
-  };
 
   useEffect(() => {
     // manually scrolls graph div to bottom because the graph div expands down instead of up
@@ -249,20 +218,7 @@ export default function WaveformGraph({
       d3.select("#waveformGraph").select("svg").remove();
       createGraph();
     }
-  }, [
-    peaks,
-    valleys,
-    selectedMarkerToMove,
-    xZoomFactor,
-    yZoomFactor,
-    peakValleyWindows,
-    valleyY1,
-    valleyY2,
-    peakY1,
-    peakY2,
-    startTime,
-    endTime,
-  ]);
+  }, [customAnalysisSettings, selectedMarkerToMove, xZoomFactor, yZoomFactor, startTime, endTime]);
 
   /* NOTE!! The order of the variables and function calls in this function are important to functionality.
      could eventually try to break this up, but it's more sensitive in react than vue */
@@ -270,13 +226,13 @@ export default function WaveformGraph({
     /* --------------------------------------
         SET UP SVG GRAPH AND VARIABLES
       -------------------------------------- */
-    const maxTime = d3.max(dataToGraph, (d) => {
+    const maxTime = d3.max(waveformData, (d) => {
       return d[0];
     });
 
     // if windowed analysis, use else use recording max and min times
-    const xMin = xRange.min || dataToGraph[0][0];
-    const xMax = xRange.max || maxTime;
+    const xMin = timepointRange.min || waveformData[0][0];
+    const xMax = timepointRange.max || maxTime;
 
     const margin = { top: 20, right: 20, bottom: 30, left: 50 },
       width = 1245 - margin.left - margin.right,
@@ -289,7 +245,7 @@ export default function WaveformGraph({
     const x = d3.scaleLinear().range([0, dynamicWidth]).domain([xMin, xMax]);
 
     // add .15 extra to y max and y min to auto scale the graph a little outside of true max and mins
-    const dataWithinWindow = dataToGraph.filter((coords) => coords[0] >= xMin && coords[0] <= xMax);
+    const dataWithinWindow = waveformData.filter((coords) => coords[0] >= xMin && coords[0] <= xMax);
     const yMax = d3.max(dataWithinWindow, (d) => d[1]);
     const yMin = d3.min(dataWithinWindow, (d) => d[1]);
     const yRange = yMax * 0.15;
@@ -302,7 +258,7 @@ export default function WaveformGraph({
     const initialStartTime = x(startTime || xMin);
     const initialEndTime = x(endTime || maxTime);
     // helper functions
-    function appendPeakValleyMarkers(id, lineId, xRaw, yRaw, color) {
+    function appendFeatureMarkers(id, lineId, xRaw, yRaw, color) {
       return svg
         .append("circle")
         .attr("id", id)
@@ -362,7 +318,14 @@ export default function WaveformGraph({
       // handles key presses globally, haven't found a diff way to do it
       if ([37, 39].includes(e.keyCode) && selectedMarkerToMove) {
         e.preventDefault();
-        movePeakValley(e.keyCode, selectedMarkerToMove.type);
+
+        const { type, idx } = selectedMarkerToMove;
+
+        const shiftAmount = e.keyCode === 37 ? -1 : 1;
+        const features = type === "peak" ? peaks : valleys;
+        const idxVal = features[idx];
+
+        customAnalysisSettingsUpdaters.moveFeature(`${type}s`, idxVal, idxVal + shiftAmount);
       }
     });
 
@@ -376,7 +339,7 @@ export default function WaveformGraph({
 
     if (selectedMarkerToMove) {
       const features = selectedMarkerToMove.type === "peak" ? peaks : valleys;
-      const coords = dataToGraph[features[selectedMarkerToMove.idx]];
+      const coords = waveformData[features[selectedMarkerToMove.idx]];
 
       focusText
         .html("[ " + coords[0].toFixed(2) + ", " + coords[1].toFixed(2) + " ]")
@@ -453,9 +416,9 @@ export default function WaveformGraph({
             const startPosition = parseFloat(d3.select(this).attr("x"));
             const endPosition = startPosition + timeWidth;
             // save new window analysis times to state on end so that it only updates changelog on drop
-            updateStartEndTimes({
-              startTime: parseFloat(x.invert(startPosition).toFixed()),
-              endTime: parseFloat(x.invert(endPosition).toFixed()),
+            customAnalysisSettingsUpdaters.setWindowBounds({
+              start: parseFloat(x.invert(startPosition).toFixed(2)),
+              end: parseFloat(x.invert(endPosition).toFixed(2)),
             });
             d3.select(this).attr("opacity", 0.2).attr("cursor", "default");
           })
@@ -509,39 +472,28 @@ export default function WaveformGraph({
       d[1] = y.invert(d.y);
 
       /*
-          To force circle to stay along data line, find index of x-coordinate in datapoints to then grab corresponding y-coordinate
-          If this is skipped, user will be able to drag circle anywhere on graph, unrelated to data line.
-        */
-      const draggedIdx = dataToGraph.findIndex((x) => Number(x[0].toFixed(2)) === Number(d[0].toFixed(2)));
-      const duplicates = checkDuplicates(selectedWell, peaks, valleys);
+        To force circle to stay along data line, find index of x-coordinate in datapoints to then grab corresponding y-coordinate
+        If this is skipped, user will be able to drag circle anywhere on graph, unrelated to data line.
+      */
+      const draggedIdx = waveformData.findIndex((x) => Number(x[0].toFixed(2)) === Number(d[0].toFixed(2)));
+
       // assigns circle node new x and y coordinates based off drag event
       if (featureType === "peak") {
-        d3.select(this)
-          .attr(
-            "transform",
-            "translate(" + x(d[0]) + "," + (y(dataToGraph[draggedIdx][1]) - 7) + ") rotate(180)"
-          )
-          .style("fill", (d) => {
-            return duplicates[featureType].includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
-          })
-          .attr("stroke", (d) => {
-            return duplicates[featureType].includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
-          });
+        d3.select(this).attr(
+          "transform",
+          "translate(" + x(d[0]) + "," + (y(waveformData[draggedIdx][1]) - 7) + ") rotate(180)"
+        );
       } else {
-        d3.select(this)
-          .attr("transform", "translate(" + x(d[0]) + "," + (y(dataToGraph[draggedIdx][1]) + 7) + ")")
-          .style("fill", (d) => {
-            return duplicates[featureType].includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
-          })
-          .attr("stroke", (d) => {
-            return duplicates[featureType].includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
-          });
+        d3.select(this).attr(
+          "transform",
+          "translate(" + x(d[0]) + "," + (y(waveformData[draggedIdx][1]) + 7) + ")"
+        );
       }
       // update the focus text with current x and y data points as user drags marker
       focusText
-        .html("[ " + d[0].toFixed(2) + ", " + dataToGraph[draggedIdx][1].toFixed(2) + " ]")
+        .html("[ " + d[0].toFixed(2) + ", " + waveformData[draggedIdx][1].toFixed(2) + " ]")
         .attr("x", x(d[0]) + 15)
-        .attr("y", y(dataToGraph[draggedIdx][1]) - 20)
+        .attr("y", y(waveformData[draggedIdx][1]) - 20)
         .style("opacity", 1);
     }
 
@@ -551,42 +503,38 @@ export default function WaveformGraph({
       focusText.style("opacity", 0);
 
       const featureType = d3.select(this).attr("id");
+      const features = featureType === "peak" ? peaks : valleys;
       // indexToReplace is the index of the selected peak or valley in the peaks/valley state arrays that need to be changed
-      const indexToChange = d3.select(this).attr("indexToReplace");
-      const newSelectedIndex = dataToGraph.findIndex(
+      const indexToChange = features[d3.select(this).attr("indexToReplace")];
+      const newSelectedIndex = waveformData.findIndex(
         (coords) => Number(coords[0].toFixed(2)) === Number(x.invert(d.x).toFixed(2))
       );
 
-      // Changing the x/y coordinates on the graph does not auto update the original array used to plot peaks and valleys so you need to update them separately
-      const featureValues = JSON.parse(JSON.stringify(featureType === "peak" ? peaks : valleys));
-      featureValues.splice(indexToChange, 1, newSelectedIndex);
-      updateFeatures(featureType, featureValues);
+      customAnalysisSettingsUpdaters.moveFeature(`${featureType}s`, indexToChange, newSelectedIndex);
     }
-
-    const duplicates = checkDuplicates(selectedWell, peaks, valleys);
 
     // graph all the peak markers
     svg
       .selectAll("#waveformGraph")
-      .data(filterFeature("peak", peaks, startTime, endTime, dataToGraph, wellIdx))
+      .data(peaks)
       .enter()
       .append("path")
       .attr("id", "peak")
       .attr("indexToReplace", (d) => peaks.indexOf(d)) // keep track of index in peaks array to splice later
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
-        return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) - 7) + ") rotate(180)";
+        return "translate(" + x(waveformData[d][0]) + "," + (y(waveformData[d][1]) - 7) + ") rotate(180)";
       })
       .style("fill", (d) => {
-        return duplicates.peak.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+        return duplicateIndices.peaks.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
       })
       .attr("stroke", (d) => {
-        return duplicates.peak.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
+        return duplicateIndices.peaks.includes(d) ? "var(--curi-error-markers)" : "var(--curi-peaks)";
       })
       .style("cursor", "pointer")
       .style("display", (d) => {
         // only display them inside windowed analysis times
-        const xTime = dataToGraph[d][0];
+        const xTime = waveformData[d][0];
         return xTime > xMax || xTime < xMin ? "none" : null;
       })
       .on("contextmenu", (e, i) => {
@@ -605,25 +553,25 @@ export default function WaveformGraph({
     // graph all the valley markers
     svg
       .selectAll("#waveformGraph")
-      .data(filterFeature("valley", valleys, startTime, endTime, dataToGraph, wellIdx))
+      .data(valleys)
       .enter()
       .append("path")
       .attr("id", "valley")
       .attr("indexToReplace", (d) => valleys.indexOf(d)) // keep track of index in valleys array to splice later
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
-        return "translate(" + x(dataToGraph[d][0]) + "," + (y(dataToGraph[d][1]) + 7) + ")";
+        return "translate(" + x(waveformData[d][0]) + "," + (y(waveformData[d][1]) + 7) + ")";
       })
       .style("fill", (d) => {
-        return duplicates.valley.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+        return duplicateIndices.valleys.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
       })
       .attr("stroke", (d) => {
-        return duplicates.valley.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
+        return duplicateIndices.valleys.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
       })
       .style("cursor", "pointer")
       .style("display", (d) => {
         // only display them inside windowed analysis times
-        const xTime = dataToGraph[d][0];
+        const xTime = waveformData[d][0];
         return xTime > xMax || xTime < xMin ? "none" : null;
       })
       .on("contextmenu", (e, i) => {
@@ -674,11 +622,13 @@ export default function WaveformGraph({
         const id = d3.select(this).attr("id");
 
         const elementName = id.includes("peak") ? "#peakLine" : "#valleyLine";
-        // need to invert to make calculation compatible with dataToGraph
-        const y1 = y.invert(d3.select(elementName).attr("y1"));
-        const y2 = y.invert(d3.select(elementName).attr("y2"));
+        // need to invert to make calculation compatible with waveformData
+        const yId = id.includes("1") ? "y1" : "y2";
+        const newY = y.invert(d3.select(elementName).attr(yId));
 
-        setLineCalculationVariables(id, y1, y2);
+        const featureName = id.includes("peak") ? "peaks" : "valleys";
+        customAnalysisSettingsUpdaters.setThresholdEndpoints(featureName, { [yId]: newY });
+
         // decrease stroke width when unselected and dropped
         d3.select(this).attr("stroke-width", 2);
       });
@@ -720,18 +670,19 @@ export default function WaveformGraph({
         d3.select(this).attr("stroke-width", 2);
         const y1 = y.invert(d3.select(this).attr("y1"));
         const y2 = y.invert(d3.select(this).attr("y2"));
-        setLineCalculationVariables(id, y1, y2);
+
+        const featureName = id.includes("peak") ? "peaks" : "valleys";
+        customAnalysisSettingsUpdaters.setThresholdEndpoints(featureName, { y1, y2 });
       });
 
-    const { minPeaks, maxValleys } = peakValleyWindows[selectedWell];
     // draggable windowed peaks line
     const peakThresholdLine = svg
       .append("line")
       .attr("id", "peakLine")
       .attr("x1", x(startTime))
-      .attr("y1", y(peakY1[wellIdx]))
+      .attr("y1", y(thresholdEndpoints.peaks.y1))
       .attr("x2", x(endTime))
-      .attr("y2", y(peakY2[wellIdx]))
+      .attr("y2", y(thresholdEndpoints.peaks.y2))
       .attr("stroke-width", 2)
       .attr("stroke", "var(--curi-peaks)")
       .style("cursor", "pointer")
@@ -743,22 +694,22 @@ export default function WaveformGraph({
     const offsetFactor = 100;
     const endpointMarkerOffset = (endTime - startTime) / offsetFactor;
 
-    const peaksY1 = appendPeakValleyMarkers(
+    const peaksY1 = appendFeatureMarkers(
       "peakLineY1Marker",
       "peakLine",
       startTime + endpointMarkerOffset,
-      peakY1[wellIdx],
+      thresholdEndpoints.peaks.y1,
       "var(--curi-peaks)"
     );
-    const peaksY2 = appendPeakValleyMarkers(
+    const peaksY2 = appendFeatureMarkers(
       "peakLineY2Marker",
       "peakLine",
       endTime - endpointMarkerOffset,
-      peakY2[wellIdx],
+      thresholdEndpoints.peaks.y2,
       "var(--curi-peaks)"
     );
     // remove peaks line if no peaks are found
-    if (!minPeaks) {
+    if (!thresholdEndpoints.peaks.y1 || !thresholdEndpoints.peaks.y2) {
       peakThresholdLine.attr("display", "none");
       peaksY1.attr("display", "none");
       peaksY2.attr("display", "none");
@@ -768,30 +719,30 @@ export default function WaveformGraph({
       .append("line")
       .attr("id", "valleyLine")
       .attr("x1", x(startTime))
-      .attr("y1", y(valleyY1[wellIdx]))
+      .attr("y1", y(thresholdEndpoints.valleys.y1))
       .attr("x2", x(endTime))
-      .attr("y2", y(valleyY2[wellIdx]))
+      .attr("y2", y(thresholdEndpoints.valleys.y2))
       .attr("stroke-width", 2)
       .attr("stroke", "var(--curi-valleys)")
       .style("cursor", "pointer")
       .call(moveLineUpDown);
 
-    const valleysY1 = appendPeakValleyMarkers(
+    const valleysY1 = appendFeatureMarkers(
       "valleyLineY1Marker",
       "peakLine",
       startTime + endpointMarkerOffset,
-      valleyY1[wellIdx],
+      thresholdEndpoints.valleys.y1,
       "var(--curi-valleys)"
     );
-    const valleysY2 = appendPeakValleyMarkers(
+    const valleysY2 = appendFeatureMarkers(
       "valleyLineY2Marker",
       "peakLine",
       endTime - endpointMarkerOffset,
-      valleyY2[wellIdx],
+      thresholdEndpoints.valleys.y2,
       "var(--curi-valleys)"
     );
     // remove valleys line if no valleys are found
-    if (!maxValleys) {
+    if (!thresholdEndpoints.valleys.y1 || !thresholdEndpoints.valleys.y2) {
       valleyThresholdLine.attr("display", "none");
       valleysY1.attr("display", "none");
       valleysY2.attr("display", "none");
@@ -840,13 +791,13 @@ export default function WaveformGraph({
       .on("end", function () {
         // save adjusted time to pass up to parent component to use across all wells
         // fix to two decimal places, otherwise GET /jobs/waveform-data will error
-        const time = d3.select(this).attr("id");
+        const boundName = d3.select(this).attr("id") === "startTime" ? "start" : "end";
         const xPosition = d3.select(this).attr("x1");
         const newTimeSec = parseFloat(x.invert(xPosition).toFixed(2));
 
-        updateStartEndTimes({ [time]: newTimeSec });
+        customAnalysisSettingsUpdaters.setWindowBounds({ [boundName]: newTimeSec });
         // update peaks and valley windows to only be within the windowed analysis window
-        const attrName = time === "startTime" ? "x1" : "x2";
+        const attrName = boundName === "start" ? "x1" : "x2";
         peakThresholdLine.attr(attrName, xPosition);
         valleyThresholdLine.attr(attrName, xPosition);
 
@@ -897,33 +848,22 @@ export default function WaveformGraph({
     const stringNode = contextMenu.attr("target");
     const targetIdx = parseFloat(stringNode);
     if (target.id === "Delete") {
-      const peakValley = contextMenu.attr("type");
-      deletePeakValley(peakValley, targetIdx);
+      const featureType = contextMenu.attr("type");
+      customAnalysisSettingsUpdaters.deleteFeature(`${featureType}s`, targetIdx);
     } else if (target.id === "Move") {
-      const peakValley = contextMenu.attr("type");
+      const featureType = contextMenu.attr("type");
 
-      const idxToChange = (peakValley === "peak" ? peaks : valleys).indexOf(targetIdx);
+      const idxToChange = (featureType === "peak" ? peaks : valleys).indexOf(targetIdx);
 
       setSelectedMarkerToMove({
-        type: peakValley,
+        type: featureType,
         idx: idxToChange,
       });
     } else {
-      const peakValley = target.id === "Add Peak" ? "peak" : "valley";
-      addPeakValley(peakValley, targetIdx);
+      const featureType = target.id === "Add Peak" ? "peaks" : "valleys";
+      customAnalysisSettingsUpdaters.addFeature(featureType, targetIdx);
     }
     contextMenu.style("display", "none");
-  };
-
-  const movePeakValley = (keyCode, featureType) => {
-    const { type, idx } = selectedMarkerToMove;
-
-    // Tanner (5/25/23): Currently assuming that only 37 and 39 will be passed in
-    const shiftAmount = keyCode === 37 ? -1 : 1;
-    const featureValues = JSON.parse(JSON.stringify(featureType === "peak" ? peaks : valleys));
-    const idxVal = featureValues[idx];
-    featureValues.splice(idx, 1, (idxVal += shiftAmount));
-    updateFeatures(type, featureValues);
   };
 
   const handleZoomIn = (axis) => {
@@ -947,21 +887,11 @@ export default function WaveformGraph({
     }
   };
 
-  const setLineCalculationVariables = (id, y1, y2) => {
-    if (id.includes("peak")) {
-      assignNewArr(peakY1, y1, setPeakY1);
-      assignNewArr(peakY2, y2, setPeakY2);
-    } else {
-      assignNewArr(valleyY1, y1, setValleyY1);
-      assignNewArr(valleyY2, y2, setValleyY2);
-    }
-  };
   const getFeatureAlertMessage = () => {
-    const [peaks, valleys] = editablePeaksValleys[selectedWellInfo.selectedWell];
     if (peaks.length === 0 && valleys.length === 0) return "No peaks or valleys detected";
     if (peaks.length === 0) return "No peaks detected";
     if (valleys.length === 0) return "No valleys detected";
-    return null;
+    return "";
   };
 
   return (

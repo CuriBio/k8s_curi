@@ -1,0 +1,9 @@
+apiVersion: curibio.dev/v1
+kind: JobRunner
+metadata:
+  name: pulse3d-queue-processor
+spec:
+  ecr_repo: 077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker
+  product_specific:
+    pulse3d_uploads_bucket: test-pulse3d-uploads
+    mantarray_logs_bucket: test-mantarray-logs

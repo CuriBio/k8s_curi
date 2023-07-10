@@ -12,6 +12,7 @@ import Checkbox from "@mui/material/Checkbox";
 import ResizableColumn from "@/components/table/ResizableColumn";
 import ColumnHead from "@/components/table/ColumnHead";
 import { useRouter } from "next/router";
+import JobPreviewModal from "@/components/interactiveAnalysis/JobPreviewModal";
 
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
@@ -49,6 +50,7 @@ const customStyles = {
 const TableContainer = styled.div`
   margin: 3% 3% 3% 3%;
   overflow: auto;
+  white-space: nowrap;
   box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
     0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
@@ -56,13 +58,24 @@ const SpinnerContainer = styled.div`
   margin: 50px;
 `;
 
-const InteractiveAnalysisContainer = styled.div`
-  width: 98%;
+const LargeModalContainer = styled.div`
+  width: 83%;
   min-width: 1000px;
   margin: 1%;
+  top: 0px;
+  position: absolute;
   background-color: white;
   border-radius: 5px;
   overflow: none;
+`;
+
+const ModalBackdrop = styled.div`
+  height: 100%;
+  top: 0;
+  position: absolute;
+  background: black;
+  opacity: 0.2;
+  width: 100%;
 `;
 
 const DropDownContainer = styled.div`
@@ -135,6 +148,7 @@ export default function Uploads() {
   const [modalLabels, setModalLabels] = useState({ header: "", messages: [] });
   const [modalButtons, setModalButtons] = useState([]);
   const [openInteractiveAnalysis, setOpenInteractiveAnalysis] = useState(false);
+  const [openJobPreview, setOpenJobPreview] = useState(false);
   const [selectedAnalysis, setSelectedAnalysis] = useState();
   const [pending, setPending] = useState(true);
   const [filterString, setFilterString] = useState("");
@@ -722,8 +736,6 @@ export default function Uploads() {
 
   const downloadMultiFiles = async (data, uploads = false) => {
     try {
-      //streamsaver has to be required here otherwise you get build errors with "document is not defined"
-      const { createWriteStream } = require("streamsaver");
       let url = null,
         zipFilename = null,
         body = null;
@@ -746,34 +758,16 @@ export default function Uploads() {
       });
 
       if (response.status === 200) {
-        // only stream to file if not firefox. Once the underlying issue with streaming on
-        // firefox is fixed, should remove this
-        if (navigator.userAgent.indexOf("Firefox") != -1) {
-          const file = await response.blob();
-          const url = window.URL.createObjectURL(file);
+        // TODO look at if streaming is necessary or not
+        const file = await response.blob();
+        const url = window.URL.createObjectURL(file);
 
-          const a = document.createElement("a");
-          document.body.appendChild(a);
-          a.setAttribute("href", url);
-          a.setAttribute("download", zipFilename);
-          a.click();
-          a.remove();
-        } else {
-          const fileStream = createWriteStream(zipFilename);
-          const writer = fileStream.getWriter();
-
-          if (response.body.pipeTo) {
-            writer.releaseLock();
-            return response.body.pipeTo(fileStream);
-          }
-
-          const reader = response.body.getReader();
-
-          () =>
-            reader
-              .read()
-              .then(({ value, done }) => (done ? writer.close() : writer.write(value).then(pump)))();
-        }
+        const a = document.createElement("a");
+        document.body.appendChild(a);
+        a.setAttribute("href", url);
+        a.setAttribute("download", zipFilename);
+        a.click();
+        a.remove();
       } else {
         throw Error();
       }
@@ -785,7 +779,12 @@ export default function Uploads() {
 
   const ExpandedComponent = ({ data }) => {
     return (
-      <UploadsSubTable jobs={data.jobs} checkedJobs={checkedJobs} handleCheckedJobs={handleCheckedJobs} />
+      <UploadsSubTable
+        jobs={data.jobs}
+        checkedJobs={checkedJobs}
+        handleCheckedJobs={handleCheckedJobs}
+        openJobPreview={handleJobPreviewClick}
+      />
     );
   };
 
@@ -817,6 +816,12 @@ export default function Uploads() {
 
     // set jobs in state
     setCheckedJobs([...newCheckedJobs]);
+  };
+
+  const handleJobPreviewClick = (jobId) => {
+    const jobDetails = jobs.find((job) => job.jobId == jobId);
+    setSelectedAnalysis(jobDetails);
+    setOpenJobPreview(true);
   };
 
   const handleCheckedJobs = (e) => {
@@ -942,13 +947,21 @@ export default function Uploads() {
         </TableContainer>
       )}
       {openInteractiveAnalysis && (
-        <InteractiveAnalysisContainer>
+        <LargeModalContainer>
           <InteractiveAnalysisModal
             selectedJob={selectedAnalysis}
             setOpenInteractiveAnalysis={setOpenInteractiveAnalysis}
             numberOfJobsInUpload={jobsInSelectedUpload}
           />
-        </InteractiveAnalysisContainer>
+        </LargeModalContainer>
+      )}
+      {openJobPreview && (
+        <>
+          <ModalBackdrop />
+          <LargeModalContainer>
+            <JobPreviewModal setOpenJobPreview={setOpenJobPreview} selectedAnalysis={selectedAnalysis} />
+          </LargeModalContainer>
+        </>
       )}
       <ModalWidget
         open={modalState === "generic"}
