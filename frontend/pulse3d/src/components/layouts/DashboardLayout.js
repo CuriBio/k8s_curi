@@ -15,7 +15,7 @@ const Container = styled.div`
 `;
 
 const PageContainer = styled.div`
-  margin-left: 15%;
+  margin-left: max(15%, 200px);
   width: 85%;
   min-height: 95vh;
 `;
