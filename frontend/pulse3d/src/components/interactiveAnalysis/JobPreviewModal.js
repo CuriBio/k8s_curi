@@ -3,12 +3,8 @@ import { useEffect, useState, useContext, useMemo } from "react";
 import BasicWaveformGraph from "@/components/interactiveAnalysis/BasicWaveformGraph";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
-import { getPeaksValleysFromTable, getWaveformCoordsFromTable, getTableFromParquet } from "@/utils/generic";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import { useWaveformData } from "@/components/interactiveAnalysis//useWaveformData";
-
-import { WellTitle as LabwareDefinition } from "@/utils/labwareCalculations";
-const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
 
 const Container = styled.div`
   height: 100%;
@@ -105,10 +101,6 @@ const GraphAxisContainer = styled.div`
   flex-direction: row;
 `;
 
-const wellNames = Array(24)
-  .fill()
-  .map((_, idx) => twentyFourPlateDefinition.getWellNameFromIndex(idx));
-
 const errorModalLabels = {
   header: "Error Occurred!",
   messages: ["There was an issue getting the data for this analysis.", "Please try again later."],
@@ -129,7 +121,8 @@ export default function JobPreviewModal({
   useEffect(() => {
     if (getErrorState) setOpenErrorModal(true);
     else if (!getLoadingState) {
-      getTimepointRange(waveformData["A1"]);
+      const firstWell = Object.keys(waveformData)[0];
+      getTimepointRange(waveformData[firstWell]);
       setIsLoading(false);
     }
   }, [getErrorState, getLoadingState]);
@@ -158,7 +151,7 @@ export default function JobPreviewModal({
                 <YAxisLine />
               </YAxisContainer>
               <GraphContainer>
-                {wellNames.map((well) => (
+                {Object.keys(waveformData).map((well) => (
                   <div key={well} style={{ position: "relative", gridArea: well }}>
                     <BasicWaveformGraph
                       well={well}

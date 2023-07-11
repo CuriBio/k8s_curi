@@ -1,9 +1,9 @@
 import * as apache from "apache-arrow";
 import { WellTitle as LabwareDefinition } from "@/utils/labwareCalculations";
-const twentyFourPlateDefinition = new LabwareDefinition(4, 6);
-const wellNames = Array(24)
+const plateDefinition = new LabwareDefinition(16, 24);
+const wellNames = Array(384)
   .fill()
-  .map((_, idx) => twentyFourPlateDefinition.getWellNameFromIndex(idx));
+  .map((_, idx) => plateDefinition.getWellNameFromIndex(idx));
 
 const deepCopy = (obj) => {
   return JSON.parse(JSON.stringify(obj));
@@ -62,18 +62,20 @@ const loadCsvInputToArray = (commaSeparatedInputs) => {
 const getPeaksValleysFromTable = async (table) => {
   const columns = table.schema.fields.map(({ name }) => name);
   // filter out null values (0) and some values get randomly parsed to bigint values which cannot be converted to JSON
-  const columnData = table.data[0].children.map(({ values }) =>
-    Array.from(values)
+  const columnData = table.data[0].children.map(({ values }) => {
+    return Array.from(values)
       .filter((idx) => idx !== 0)
-      .map((val) => (typeof val === "bigint" ? parseInt(val) : val))
-  );
+      .map((val) => (typeof val === "bigint" ? parseInt(val) : val));
+  });
 
   const peaksValleysObj = {};
 
   for (const well of wellNames) {
-    // assign each well [[...peaks], [...valleys]]
-    const [peaksIdx, valleysIdx] = ["peaks", "valleys"].map((type) => columns.indexOf(`${well}__${type}`));
-    peaksValleysObj[well] = [columnData[peaksIdx], columnData[valleysIdx]];
+    if (columns.indexOf(`${well}__peaks`) !== -1) {
+      // assign each well [[...peaks], [...valleys]]
+      const [peaksIdx, valleysIdx] = ["peaks", "valleys"].map((type) => columns.indexOf(`${well}__${type}`));
+      peaksValleysObj[well] = [columnData[peaksIdx], columnData[valleysIdx]];
+    }
   }
 
   return peaksValleysObj;
@@ -89,14 +91,16 @@ const getWaveformCoordsFromTable = async (table, normalizeYAxis) => {
 
   for (const well of wellNames) {
     const wellForceIdx = columns.indexOf(well);
-    let wellForce = columnData[wellForceIdx];
+    if (wellForceIdx !== -1) {
+      let wellForce = columnData[wellForceIdx];
 
-    if (normalizeYAxis) {
-      const minForce = Math.min(...wellForce);
-      wellForce = wellForce.map((val) => val - minForce);
+      if (normalizeYAxis) {
+        const minForce = Math.min(...wellForce);
+        wellForce = wellForce.map((val) => val - minForce);
+      }
+
+      coordinatesObj[well] = time.map((time, i) => [time / 1e6, wellForce[i]]);
     }
-
-    coordinatesObj[well] = time.map((time, i) => [time / 1e6, wellForce[i]]);
   }
 
   return coordinatesObj;
