@@ -18,49 +18,48 @@ spec:
         version: latest
     spec:
       containers:
-      - name: pulse3d
-        env:
-        - name: POSTGRES_USER
-          value: curibio_jobs
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: curibio-jobs-creds
-              key: curibio_jobs
-        - name: POSTGRES_SERVER
-          value: psql-rds.default
-        - name: POSTGRES_DB
-          value: curibio
-        - name: JWT_SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              name: curibio-jwt-secret
-              key: jwt-secret
-        - name: UPLOADS_BUCKET_ENV
-          value: test-pulse3d-uploads
-        - name: MANTARRAY_LOGS_BUCKET_ENV
-          value: test-mantarray-logs
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 8000
+        - name: pulse3d
+          env:
+            - name: POSTGRES_USER
+              value: curibio_jobs
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: curibio-jobs-creds
+                  key: curibio_jobs
+            - name: POSTGRES_SERVER
+              value: psql-rds.default
+            - name: POSTGRES_DB
+              value: curibio
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: curibio-jwt-secret
+                  key: jwt-secret
+            - name: UPLOADS_BUCKET_ENV
+              value: test-pulse3d-uploads
+            - name: MANTARRAY_LOGS_BUCKET_ENV
+              value: test-mantarray-logs
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: pulse3d-ingress
-  annotations:
-    kubernetes.io/ingress.class: nginx
 status:
   loadBalancer: {}
 spec:
+  ingressClassName: nginx
   rules:
-  - host: pulse3d.curibio-test.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: pulse3d
-            port:
-              number: 80
+    - host: pulse3d.curibio-test.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pulse3d
+                port:
+                  number: 80
