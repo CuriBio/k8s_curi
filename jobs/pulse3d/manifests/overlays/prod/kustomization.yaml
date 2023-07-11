@@ -6,11 +6,5 @@ resources:
   - ../../base
   - pulse3d-queue-processor-creds.yaml
 
-patchesJson6902:
-- target:
-    kind: JobRunner
-    name: pulse3d-queue-processor
-  patch: |-
-    - op: add
-      path: /spec/ecr_repo
-      value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d-worker"
+patchesStrategicMerge:
+  - prod-job-runner.yaml

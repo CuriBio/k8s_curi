@@ -36,8 +36,7 @@ export default function FormInput({
         onChange={onChangeFn}
         style={{
           border: borderStyle,
-          boxShadow:
-            "0px 2px 2px -3px rgb(0 0 0 / 20%), 0px 5px 5px 0px rgb(0 0 0 / 10%), 0px 2px 5px 2px rgb(0 0 0 / 12%)",
+          boxShadow: "rgba(0, 0, 0, 0.1) 1px 1px 1px 0px, rgba(0, 0, 0, 0.12) 1px 1px 3px 2px",
         }}
         disabled={disabled}
       />

@@ -22,7 +22,7 @@ const ErrorText = styled.span`
 `;
 
 const Placeholder = styled.em`
-  font-size: 18px;
+  font-size: 16px;
   font-weight: bolder;
 `;
 
@@ -86,6 +86,7 @@ export default function DropDownWidget({
   subOptionsTooltipText = [],
   height = 40,
   setReset,
+  boxShadow = "rgba(0, 0, 0, 0.1) 1px 1px 1px 0px, rgba(0, 0, 0, 0.12) 1px 1px 3px 2px",
 }) {
   const [selected, setSelected] = useState("");
   const [errorMsg, setErrorMsg] = useState(error);
@@ -109,7 +110,7 @@ export default function DropDownWidget({
     if (initialSelected != null) {
       handleChange(initialSelected);
     }
-  }, []);
+  }, [initialSelected]);
 
   useEffect(() => {
     /*
@@ -171,8 +172,7 @@ export default function DropDownWidget({
         if (!disabled) setOpen(true);
       }}
       sx={{
-        boxShadow:
-          "0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%), 0px 3px 14px 2px rgb(0 0 0 / 12%)",
+        boxShadow,
       }}
     >
       <Select

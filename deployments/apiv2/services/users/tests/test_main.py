@@ -258,9 +258,7 @@ def test_login__incorrect_password(mocked_asyncpg_con):
 
 
 @pytest.mark.parametrize("special_char", ["", *USERNAME_VALID_SPECIAL_CHARS])
-def test_register__user__allows_valid_usernames(
-    special_char, mocked_asyncpg_con, spied_pw_hasher, cb_customer_id, mocker
-):
+def test_register__user__allows_valid_usernames(special_char, mocked_asyncpg_con, cb_customer_id, mocker):
 
     mocker.patch.object(main, "_send_user_email", autospec=True)
     use_cb_customer_id = choice([True, False])
@@ -329,8 +327,9 @@ def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, cb_cus
     }
 
     mocked_asyncpg_con.fetchval.assert_called_once_with(
-        "INSERT INTO customers (email, password, data, usage_restrictions) VALUES ($1, $2, $3, $4) RETURNING id",
+        "INSERT INTO customers (email, password, previous_passwords, data, usage_restrictions) VALUES ($1, $2, ARRAY[$3], $4, $5) RETURNING id",
         registration_details["email"].lower(),
+        spied_pw_hasher.spy_return,
         spied_pw_hasher.spy_return,
         json.dumps({"scope": expected_scope}),
         json.dumps(dict(PULSE3D_PAID_USAGE)),
@@ -451,7 +450,7 @@ def test_register__user__with_consecutive_special_chars(special_char, cb_custome
     ],
 )
 def test_register__user__unique_constraint_violations(
-    contraint_to_violate, expected_error_message, mocked_asyncpg_con, spied_pw_hasher, cb_customer_id, mocker
+    contraint_to_violate, expected_error_message, mocked_asyncpg_con, cb_customer_id
 ):
     registration_details = {
         "email": "test@email.com",
@@ -593,7 +592,7 @@ def test_user_id__get__no_id_given(mocked_asyncpg_con):
             "last_login": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
             "verified": True,
             "suspended": choice([True, False]),
-            "pw_reset_verify_link": None,
+            "reset_token": None,
         }
         for i in range(num_users_found)
     ]
@@ -735,9 +734,7 @@ def test_user_id__bad_user_id_given(method):
     "test_token_scope",
     [[s] for s in ACCOUNT_SCOPES if "customer" not in s],
 )
-def test_account__put__correctly_handles_if_account_is_already_verified(
-    test_token_scope, mocked_asyncpg_con, mocker
-):
+def test_account__put__account_is_already_verified(test_token_scope, mocked_asyncpg_con):
     test_account_id = uuid.uuid4()
     account_type = "user"
 
@@ -760,12 +757,66 @@ def test_account__put__correctly_handles_if_account_is_already_verified(
     assert response.json() == UnableToUpdateAccountResponse(message="Account has already been verified")
 
 
-@pytest.mark.parametrize(
-    "test_token_scope",
-    [[s] for s in ACCOUNT_SCOPES],
-)
-def test_account__put__correctly_handles_if_link_has_already_been_used(
-    test_token_scope, mocked_asyncpg_con, mocker
+@pytest.mark.parametrize("test_token_scope", [[s] for s in ACCOUNT_SCOPES])
+def test_account__put__link_has_already_been_used(test_token_scope, mocked_asyncpg_con):
+    test_account_id = uuid.uuid4()
+    account_type = "user" if "user" in test_token_scope[0] else "customer"
+    test_customer_id = uuid.uuid4() if account_type == "user" else None
+    access_token = get_token(
+        scope=test_token_scope,
+        account_type=account_type,
+        userid=test_account_id,
+        customer_id=test_customer_id,
+    )
+
+    mocked_asyncpg_con.fetchrow.return_value = {"verified": True, "reset_token": None}
+
+    response = test_client.put(
+        "/account",
+        json={"password1": "Test_password1", "password2": "Test_password1", "verify": False},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.json() == UnableToUpdateAccountResponse(message="Link has already been used")
+
+
+@pytest.mark.parametrize("test_token_scope", [[s] for s in ACCOUNT_SCOPES])
+def test_account__put__repeat_password(test_token_scope, mocked_asyncpg_con):
+    test_account_id = uuid.uuid4()
+    account_type = "user" if "user" in test_token_scope[0] else "customer"
+    test_customer_id = uuid.uuid4() if account_type == "user" else None
+    access_token = get_token(
+        scope=test_token_scope,
+        account_type=account_type,
+        userid=test_account_id,
+        customer_id=test_customer_id,
+    )
+
+    test_password = "Test_password1"
+
+    ph = PasswordHasher()
+
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "verified": True,
+        "reset_token": access_token,
+        "previous_passwords": [ph.hash("other_pw1"), ph.hash(test_password)],
+    }
+
+    response = test_client.put(
+        "/account",
+        json={"password1": test_password, "password2": test_password, "verify": False},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.json() == UnableToUpdateAccountResponse(
+        message="Cannot set password to any of the previous 5 passwords"
+    )
+
+
+@pytest.mark.parametrize("test_token_scope", [[s] for s in ACCOUNT_SCOPES])
+@pytest.mark.parametrize("test_reset_token", ["not a token", get_token()])
+def test_account__put__token_does_not_match_reset_token(
+    test_token_scope, test_reset_token, mocked_asyncpg_con
 ):
     test_account_id = uuid.uuid4()
     account_type = "user" if "user" in test_token_scope[0] else "customer"
@@ -777,11 +828,7 @@ def test_account__put__correctly_handles_if_link_has_already_been_used(
         customer_id=test_customer_id,
     )
 
-    mocked_asyncpg_con.fetchrow.return_value = {
-        "verified": True,
-        "pw_reset_verify_link": None,
-        "pw_reset_link": None,
-    }
+    mocked_asyncpg_con.fetchrow.return_value = {"verified": True, "reset_token": test_reset_token}
 
     response = test_client.put(
         "/account",
@@ -789,7 +836,43 @@ def test_account__put__correctly_handles_if_link_has_already_been_used(
         headers={"Authorization": f"Bearer {access_token}"},
     )
 
-    assert response.json() == UnableToUpdateAccountResponse(message="Link has already been used")
+    assert response.json() == UnableToUpdateAccountResponse(message="Link has expired")
+
+
+@pytest.mark.parametrize(
+    "test_token_scope",
+    [[s] for s in ACCOUNT_SCOPES if "customer" in s],
+)
+def test_account__put__correctly_updates_customers_table_with_account_info(
+    test_token_scope, mocked_asyncpg_con, spied_pw_hasher
+):
+    test_account_id = uuid.uuid4()
+    account_type = "customer"
+    access_token = get_token(
+        scope=test_token_scope,
+        account_type=account_type,
+        userid=test_account_id,
+    )
+
+    ph = PasswordHasher()
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "previous_passwords": [ph.hash("other_pw1"), ph.hash("other_pw1")],
+        "reset_token": access_token,
+    }
+
+    response = test_client.put(
+        "/account",
+        json={"password1": "Test_password1", "password2": "Test_password1"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+    assert not response.json()
+    mocked_asyncpg_con.execute.assert_called_once_with(
+        "UPDATE customers SET reset_token=NULL, password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) WHERE id=$2",
+        spied_pw_hasher.spy_return,
+        test_account_id,
+    )
 
 
 @pytest.mark.parametrize(
@@ -809,9 +892,11 @@ def test_account__put__correctly_updates_users_table_with_account_info(
         customer_id=test_customer_id,
     )
 
+    ph = PasswordHasher()
     mocked_asyncpg_con.fetchrow.return_value = {
         "verified": True,
-        "pw_reset_verify_link": "test_jwt_token",
+        "previous_passwords": [ph.hash("other_pw1"), ph.hash("other_pw1")],
+        "reset_token": access_token,
     }
 
     response = test_client.put(
@@ -821,12 +906,26 @@ def test_account__put__correctly_updates_users_table_with_account_info(
     )
 
     assert response.status_code == 200
+    assert not response.json()
     mocked_asyncpg_con.execute.assert_called_once_with(
-        "UPDATE users SET verified='t', pw_reset_verify_link=NULL, password=$1 WHERE id=$2 AND customer_id=$3",
+        "UPDATE users SET verified='t', reset_token=NULL, password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) WHERE id=$2 AND customer_id=$3",
         spied_pw_hasher.spy_return,
         test_account_id,
         test_customer_id,
     )
+
+
+@pytest.mark.parametrize("test_token_scope", [ACCOUNT_SCOPES, []])
+def test_account__put__invalid_scopes(test_token_scope):
+    access_token = get_token(scope=test_token_scope, account_type="customer")
+
+    response = test_client.put(
+        "/account",
+        json={"password1": "Test_password1", "password2": "Test_password1", "verify": False},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 401
 
 
 @pytest.mark.parametrize("type", ["verify", "reset"])
@@ -849,7 +948,7 @@ def test_email__get__send_correct_email_based_on_request_query_type(mocked_async
     assert response.status_code == 204
 
     mocked_asyncpg_con.execute.assert_called_once_with(
-        "UPDATE users SET pw_reset_verify_link=$1 WHERE id=$2",
+        "UPDATE users SET reset_token=$1 WHERE id=$2",
         spied_create_token.spy_return.token,
         test_user_id,
     )

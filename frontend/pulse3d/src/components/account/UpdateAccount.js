@@ -78,6 +78,14 @@ const modalLabels = {
     ],
     buttons: ["Close"],
   },
+  prevPW: {
+    header: "Error!",
+    labels: [
+      "This password has already been used.",
+      "Please enter a new one that does not match any of the previous 5 passwords used for this account.",
+    ],
+    buttons: ["Close"],
+  },
   expiredLink: {
     header: "Warning!",
     labels: ["This link has expired.", "Please select below to receive a new one."],
@@ -129,12 +137,20 @@ export default function UpdateAccount({ modalHeader, shortTermToken, type }) {
       const resBody = await res.json();
 
       if (res.status === 200) {
-        if (!resBody) setModalToDisplay(modalLabels.successfulPWChange);
-        else {
-          if (resBody.message.includes("already been verified"))
-            setModalToDisplay(modalLabels.alreadyVerified);
-          else setModalToDisplay(modalLabels.linksBeenUsed);
+        // default to an error, this will get overrided by a success message or a more detailed error message
+        let labels = modalLabels.error;
+        if (!resBody) {
+          labels = modalLabels.successfulPWChange;
+        } else if (resBody.message.includes("already been verified")) {
+          labels = modalLabels.alreadyVerified;
+        } else if (resBody.message.includes("already been used")) {
+          labels = modalLabels.linksBeenUsed;
+        } else if (resBody.message.includes("Link has expired")) {
+          labels = modalLabels.expiredLink;
+        } else if (resBody.message.includes("Cannot set password to any of the previous")) {
+          labels = modalLabels.prevPW;
         }
+        setModalToDisplay(labels);
         setOpenModal(true);
       } else if (res.status === 401) {
         setModalToDisplay(modalLabels.expiredLink);
@@ -153,8 +169,9 @@ export default function UpdateAccount({ modalHeader, shortTermToken, type }) {
   };
 
   const submitForm = () => {
-    if (passwords.password1 === "" || passwords.password2 == "") setErrorMsg("*All fields are required");
-    else if (!errorMsg || errorMsg === "") {
+    if (passwords.password1 === "" || passwords.password2 == "") {
+      setErrorMsg("*All fields are required");
+    } else if (!errorMsg || errorMsg === "") {
       // set spinner on button component to true
       setInProgress(true);
       verifyPassword();
@@ -187,17 +204,15 @@ export default function UpdateAccount({ modalHeader, shortTermToken, type }) {
   const closeModal = async (idx) => {
     if (idx === 0) {
       setOpenModal(false);
-      // redirect user to login page to exit verify page regardless of outcome
-      router.replace("/login", undefined, { shallow: true });
+      // redirect user to login page to exit verify page unless they select a previously used password
+      if (modalToDisplay !== modalLabels.prevPW) {
+        router.replace("/login", undefined, { shallow: true });
+      }
     } else if (modalToDisplay.buttons[idx] === "Resend") {
       setModalToDisplay(modalLabels.enterEmail);
     } else if (modalToDisplay.buttons[idx] === "Send") {
       const res = await resendLink();
-      if (res.status === 204) {
-        setModalToDisplay(modalLabels.emailSent);
-      } else {
-        setModalToDisplay(modalLabels.error);
-      }
+      setModalToDisplay(res.status === 204 ? modalLabels.emailSent : modalLabels.error);
     }
   };
 

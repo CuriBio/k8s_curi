@@ -130,7 +130,7 @@ export default function UserInfo() {
   const [checkedUsers, setCheckedUsers] = useState([]);
   const [sortColumn, setSortColumn] = useState("");
   const [openVerifyModal, setOpenVerifyModal] = useState(false);
-  const [verifyLink, setVerifyLink] = useState();
+  const [resetToken, setResetToken] = useState();
   const [errorMsg, setErrorMsg] = useState();
   const [passwords, setPasswords] = useState({ password1: "", password2: "" });
   const [inProgress, setInProgress] = useState(false);
@@ -293,8 +293,8 @@ export default function UserInfo() {
   }, [filterString]);
 
   const getVerificationDiv = (row) => {
-    return row.verifyLink ? (
-      <ActiveVerifyLink onClick={() => handleVerifyModal(row.verifyLink)}>
+    return row.resetToken ? (
+      <ActiveVerifyLink onClick={() => handleVerifyModal(row.resetToken)}>
         needs verification
       </ActiveVerifyLink>
     ) : (
@@ -312,7 +312,7 @@ export default function UserInfo() {
       if (response && response.status === 200) {
         const usersJson = await response.json();
         const formatedUserJson = usersJson.map(
-          ({ created_at, email, id, last_login, name, suspended, verified, pw_reset_verify_link }) => ({
+          ({ created_at, email, id, last_login, name, suspended, verified, reset_token }) => ({
             createdAt: created_at,
             email: email,
             id: id,
@@ -320,7 +320,7 @@ export default function UserInfo() {
             name: name,
             suspended,
             verified,
-            verifyLink: pw_reset_verify_link,
+            resetToken: reset_token,
           })
         );
         setUsersData(formatedUserJson);
@@ -334,7 +334,7 @@ export default function UserInfo() {
 
   const handleVerifyModal = (link) => {
     setOpenVerifyModal(true);
-    setVerifyLink(link);
+    setResetToken(link);
   };
 
   const filterColumns = () => {
@@ -401,7 +401,7 @@ export default function UserInfo() {
         // attach jwt token to verify request
         const headers = new Headers({
           "Content-Type": "application/json",
-          Authorization: `Bearer ${verifyLink}`,
+          Authorization: `Bearer ${resetToken}`,
         });
 
         const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/account`, {
@@ -433,7 +433,7 @@ export default function UserInfo() {
     getAllUsers();
     setResetDropdown(true);
     setOpenVerifyModal(false);
-    setVerifyLink();
+    setResetToken();
     setInProgress(false);
     setOpenErrorModal(false);
   };
@@ -467,21 +467,25 @@ export default function UserInfo() {
                 label="Actions"
                 options={["Delete", "Deactivate", "Reactivate", "Resend Verification Link"]}
                 disableOptions={[
+                  // delete
                   checkedUsers.length === 0,
+                  // deactivate
                   checkedUsers.length === 0 ||
                     usersData
                       .filter((user) => checkedUsers.includes(user.id))
                       .filter((checkedUsers) => checkedUsers.suspended).length !== 0,
+                  // reactivate
                   checkedUsers.length === 0 ||
                     usersData
                       .filter((user) => checkedUsers.includes(user.id))
                       .filter((checkedUsers) => !checkedUsers.suspended).length !== 0,
+                  // resend
                   checkedUsers.length !== 1 ||
                     (checkedUsers.length === 1 &&
                       usersData.filter(({ id }) => checkedUsers.includes(id))[0].verified) ||
                     (checkedUsers.length === 1 &&
                       !usersData.filter(({ id }) => checkedUsers.includes(id))[0].verified &&
-                      usersData.filter(({ id }) => checkedUsers.includes(id))[0].verifyLink),
+                      usersData.filter(({ id }) => checkedUsers.includes(id))[0].resetToken),
                 ]}
                 optionsTooltipText={[
                   "Must make a selection below before action become available.",
@@ -505,7 +509,9 @@ export default function UserInfo() {
         buttons={["Cancel", "Verify"]}
       >
         <PasswordInputContainer>
-          {!inProgress ? (
+          {inProgress ? (
+            <CircularSpinner size={150} color={"secondary"} />
+          ) : (
             <PasswordForm
               password1={passwords.password1}
               password2={passwords.password2}
@@ -516,8 +522,6 @@ export default function UserInfo() {
                 {errorMsg}
               </ErrorText>
             </PasswordForm>
-          ) : (
-            <CircularSpinner size={150} color={"secondary"} />
           )}
         </PasswordInputContainer>
       </ModalWidget>

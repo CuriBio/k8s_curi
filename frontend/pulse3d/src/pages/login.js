@@ -120,26 +120,33 @@ export default function Login() {
     setEmailErrorMsg();
 
     // first modal to appear contains input to enter email address when emailSent is false
-    if (!emailSent) {
+    if (emailSent) {
+      // this will close the modal that let user know an email has been sent if email is found in DB
+      setEmailSent(false);
+      setDisplayForgotPW(false);
+    } else {
       // if 'Cancel' then just close modal
       if (idx === 0) {
         setDisplayForgotPW(false);
       } else {
         // else if 'Send' then send request to BE to send new password email
         // emailSent to true will change modal labels to let user know it's been sent if email is found associated with an account
-        if (!userEmail || userEmail.length === 0) setEmailErrorMsg("*Field required");
-        else {
+        if (!userEmail || userEmail.length === 0) {
+          setEmailErrorMsg("*Field required");
+        } else {
           try {
             const res = await fetch(
-              `${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${userEmail}&type=reset&user=${
-                loginType == "User"
-              }`
+              `${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${encodeURIComponent(
+                userEmail
+              )}&type=reset&user=${loginType == "User"}`
             );
 
             if (res) {
               if (res.status === 204) {
                 setEmailSent(true);
-              } else throw Error();
+              } else {
+                throw Error();
+              }
             }
           } catch (e) {
             console.log("ERROR resetting password");
@@ -147,10 +154,6 @@ export default function Login() {
           }
         }
       }
-    } else {
-      // this will close the modal that let user know an email has been sent if email is found in DB
-      setEmailSent(false);
-      setDisplayForgotPW(false);
     }
     // set email back to null after request with email is sent
     setUserEmail();
