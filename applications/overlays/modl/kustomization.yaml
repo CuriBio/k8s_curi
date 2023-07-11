@@ -14,6 +14,9 @@ patchesJson6902:
       - op: replace
         path: /spec/source/path
         value: "deployments/apiv2/manifests/overlays/modl"
+      - op: replace
+        path: /spec/source/targetRevision
+        value: modl-cluster
   - target:
       kind: Application
       name: pulse3d-deployment
@@ -22,6 +25,9 @@ patchesJson6902:
       - op: replace
         path: /spec/source/path
         value: "deployments/pulse3d/manifests/overlays/modl"
+      - op: replace
+        path: /spec/source/targetRevision
+        value: modl-cluster
   - target:
       kind: Application
       name: pulse3d-jobs
@@ -30,6 +36,9 @@ patchesJson6902:
       - op: replace
         path: /spec/source/path
         value: "jobs/pulse3d/manifests/overlays/modl"
+      - op: replace
+        path: /spec/source/targetRevision
+        value: modl-cluster
   - target:
       kind: Application
       name: jobs-operator
@@ -38,6 +47,9 @@ patchesJson6902:
       - op: replace
         path: /spec/source/path
         value: "jobs/jobs-operator/manifests/overlays/modl"
+      - op: replace
+        path: /spec/source/targetRevision
+        value: modl-cluster
   - target:
       kind: Application
       name: grafana
@@ -46,6 +58,9 @@ patchesJson6902:
       - op: replace
         path: /spec/source/path
         value: "cluster/manifests/grafana/overlays/modl"
+      - op: replace
+        path: /spec/source/targetRevision
+        value: modl-cluster
   - target:
       kind: Application
       name: grafana-loki
@@ -54,3 +69,6 @@ patchesJson6902:
       - op: replace
         path: /spec/source/path
         value: "cluster/manifests/grafana-loki/overlays/modl"
+      - op: replace
+        path: /spec/source/targetRevision
+        value: modl-cluster
