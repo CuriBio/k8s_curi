@@ -53,45 +53,48 @@ function Pulse({ Component, pageProps }) {
           registration.update();
           console.log("Updating service worker");
         }) // update the service worker
-        .then(() =>
+        .then(() => {
+          sendSWMessage({ msgType: "checkReloadNeeded", routerPathname: router.pathname });
           sendSWMessage({
             msgType: "authCheck",
             routerPathname: router.pathname,
-          })
-        )
-
+          });
+        })
         .catch((e) => console.log("SERVICE WORKER ERROR: ", e));
 
       navigator.serviceWorker.addEventListener("message", ({ data }) => {
-        /* --------------------
-        Current messages received:
-
-        auth check: {isLoggedIn: bool, accountType: str, routerPathname: str, usageQuota: obj}
-        logout: {logout: bool}
-        usage: {uploads_reached: bool, jobs_reached: bool}
-        ---------------------*/
-
         // might need auth check to include actual fetch request in SW to check token status if this becomes a problem
         // will not use the correct pathname if directly accessing router.pathname
         const currentPage = data.routerPathname;
         const isAccountPage = currentPage && ["/account/verify", "/account/reset"].includes(currentPage);
-        // this prevents the inactivity from popping up when a user is already on the login page or verified page
-        // do this with multiple messages
-        if (data.logout && !isAccountPage && currentPage !== "/login") {
-          setLoggedOutAlert(true);
-        } else if (data.isLoggedIn && !isAccountPage) {
-          // the router pathname is sent to the SW and then sent back here since for some reason this message handler
-          setAccountType(data.accountType);
-          // if logged in and on a page that shouldn't be accessed, or on the login page, redirect to home page (currently /uploads)
-          // TODO Tanner (8/23/22): this probably isn't the best solution for redirecting to other pages. Should look into a better way to do this
-          if (currentPage === "/login" || !availablePages[data.accountType].includes(currentPage)) {
-            router.replace("/uploads", undefined, { shallow: true });
+
+        if (data.msgType === "checkReloadNeeded") {
+          if (data.reloadNeeded && currentPage === "/login") {
+            // after a fresh install of the service worker, need to reload. Only perform the reload when already on the login page just in case this message is received on another page somehow
+            location.reload();
           }
-        } else if (!data.isLoggedIn && !isAccountPage && currentPage !== "/login") {
-          setAccountType(data.accountType);
-          // always redirect to login page if not logged in and not an account verification
-          // protects unauthorized page access
-          router.replace("/login", undefined, { shallow: true });
+        } else if (!isAccountPage) {
+          // ignore all the following messages if on the account page
+          if (data.msgType === "logout") {
+            if (currentPage !== "/login") {
+              // logged out due to inactivity message shouldn't show if already on the login page
+              setLoggedOutAlert(true);
+            }
+          } else if (data.msgType === "authCheck") {
+            if (data.isLoggedIn) {
+              // the router pathname must be sent to the SW and then sent back here since for some reason this message handler can't grab the current page
+              setAccountType(data.accountType);
+              // if logged in and on a page that shouldn't be accessed, or if on the login page, redirect to home page (currently /uploads)
+              if (currentPage === "/login" || !availablePages[data.accountType].includes(currentPage)) {
+                // TODO Tanner (8/23/22): this probably isn't the best solution for redirecting to other pages. Should look into a better way to do this
+                router.replace("/uploads", undefined, { shallow: true });
+              }
+            } else if (currentPage !== "/login") {
+              // always redirect to login page if not logged in
+              setAccountType(data.accountType);
+              router.replace("/login", undefined, { shallow: true });
+            }
+          }
         }
       });
     }

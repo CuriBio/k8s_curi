@@ -14,6 +14,7 @@ const Header = styled.h2`
   text-align: center;
   font-weight: bold;
 `;
+
 const Text = styled.p`
   word-break: break-word;
   font-size: 18px;
@@ -22,6 +23,7 @@ const Text = styled.p`
   padding: 0 5%;
   position: relative;
 `;
+
 const ModalBody = styled.div`
   max-height: 60vh;
   overflow-y: scroll;

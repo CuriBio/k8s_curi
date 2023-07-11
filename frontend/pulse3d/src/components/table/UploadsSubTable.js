@@ -34,7 +34,7 @@ const Header = styled.div`
 
 const SubRowFileName = styled.div`
   font-size: 0.75rem;
-  width: 35%;
+  width: 40%;
   overflow: hidden;
 `;
 
@@ -104,7 +104,7 @@ export default function UploadsSubTable({ handleCheckedJobs, checkedJobs, jobs, 
         </SubRowFileName>
         <SubRow>{job.datetime}</SubRow>
         <SubRow>{paramsString.length === 0 ? "None" : paramsString}</SubRow>
-        <SubRow style={{ width: "13%" }}>{status}</SubRow>
+        <SubRow style={{ width: "15%" }}>{status}</SubRow>
         <SubRow>
           {status == "Completed" && (
             <PreviewText onClick={() => openJobPreview(job.jobId)}>Waveform Snapshot Preview</PreviewText>
@@ -120,7 +120,7 @@ export default function UploadsSubTable({ handleCheckedJobs, checkedJobs, jobs, 
         <FilenameHeader>Analyzed Filename</FilenameHeader>
         <Header>Created Date</Header>
         <Header>Analysis Parameters</Header>
-        <Header style={{ width: "13%" }}>Status</Header>
+        <Header style={{ width: "15%" }}>Status</Header>
         <Header />
       </SubHeader>
       {rows}

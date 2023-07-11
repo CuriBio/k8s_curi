@@ -9,8 +9,10 @@ import { Mutex } from "async-mutex";
 const refreshMutex = new Mutex();
 
 let accountType = null;
-let usageQuota = null;
+let usageQuota = null; // TODO Tanner (7/6/23): doesn't seem like this is being used for anything other than the authcheck, but the value is ignored when that message is received. Can probably remove this
 let ClientSource = null;
+
+let reloadNeeded = false;
 
 const cacheName = "preloadedWellData";
 
@@ -77,7 +79,7 @@ const clearTokens = () => {
 
 const sendLogoutMsg = () => {
   clearAccountInfo();
-  ClientSource.postMessage({ logout: true });
+  ClientSource.postMessage({ msgType: "logout" });
   console.log("logout ping sent");
 };
 
@@ -246,20 +248,24 @@ const interceptResponse = async (req, url) => {
   }
 };
 
+const convertLargeArrToJson = (arr) => {
+  return "[" + arr.map((el) => JSON.stringify(el)).join(",") + "]";
+};
+
 const getWaveformDataFromS3 = async (res) => {
   try {
     const response = await res.json();
 
-    const peaksValleys = await fetch(response.peaks_valleys_url);
-    const timeForceData = await fetch(response.time_force_url);
+    const timeForceRes = await fetch(response.time_force_url);
+    const peaksValleysRes = await fetch(response.peaks_valleys_url);
 
     return {
       normalizeYAxis: response.normalize_y_axis,
-      peaksValleys: new Uint8Array(await peaksValleys.arrayBuffer()),
-      timeForceData: new Uint8Array(await timeForceData.arrayBuffer()),
+      peaksValleysData: convertLargeArrToJson(new Uint8Array(await peaksValleysRes.arrayBuffer())),
+      timeForceData: convertLargeArrToJson(new Uint8Array(await timeForceRes.arrayBuffer())),
     };
   } catch (e) {
-    console.log("Error grabbing preloaded data: " + e);
+    console.log("Error grabbing waveform data: " + e);
   }
 };
 
@@ -268,6 +274,7 @@ const getWaveformDataFromS3 = async (res) => {
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
   console.log("Service worker installed!");
+  reloadNeeded = true;
 });
 
 self.addEventListener("activate", (event) => {
@@ -327,21 +334,35 @@ self.addEventListener("fetch", async (e) => {
 
 self.onmessage = ({ data, source }) => {
   ClientSource = source;
-  if (data.msgType === "authCheck") {
+
+  const { msgType, routerPathname } = data;
+  const baseMsg = { msgType, routerPathname };
+  let msgInfo = {};
+
+  if (msgType === "checkReloadNeeded") {
+    msgInfo = { reloadNeeded };
+    reloadNeeded = false;
+  } else if (msgType === "authCheck") {
     console.log("Returning authentication check");
-    source.postMessage({
+    msgInfo = {
       isLoggedIn: tokens.access !== null,
       accountType,
-      routerPathname: data.routerPathname,
       usageQuota,
-    });
-  } else if (data.msgType === "stayAlive") {
+    };
+  } else if (msgType === "stayAlive") {
     // TODO should have this do something else so that there isn't a log msg produced every 20 seconds
     console.log("Staying alive");
-  } else if (data.msgType === "clearData") {
+  } else if (msgType === "clearData") {
     // a way for the FE components to force clear all stored data in the service worker
     console.log("Recieved clear message type to clear account info");
     clearAccountInfo();
+  }
+
+  if (Object.keys(msgInfo).length > 0) {
+    source.postMessage({
+      ...baseMsg,
+      ...msgInfo,
+    });
   }
 };
 

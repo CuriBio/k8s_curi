@@ -7,6 +7,7 @@ from .jobs import get_uploads
 from .jobs import delete_jobs
 from .jobs import delete_uploads
 from .jobs import check_customer_quota
+from .jobs import create_analysis_preset
 
 __all__ = [
     "EmtpyQueue",
@@ -18,4 +19,5 @@ __all__ = [
     "delete_jobs",
     "delete_uploads",
     "check_customer_quota",
+    "create_analysis_preset",
 ]

@@ -53,9 +53,9 @@ def _load_from_dir(recording_dir, plate_recording_args):
 def _is_valid_well_name(well_name):
     return (
         isinstance(well_name, str)
-        and len(well_name) == 2
-        and well_name[0] in ("A", "B", "C", "D")
-        and well_name[1] in [str(n) for n in range(1, 7)]
+        and len(well_name) in (2, 3)
+        and well_name[0].isalpha()
+        and well_name[1].isdigit()
     )
 
 
@@ -291,7 +291,7 @@ async def process(con, item):
                 logger.info("Skipping the writing of peaks and valleys to parquet in S3")
 
             try:
-                outfile = write_xlsx(first_recording, **analysis_params)
+                outfile = write_xlsx(first_recording, output_dir=tmpdir, **analysis_params)
                 outfile_prefix = prefix.replace("uploads/", "analyzed/")
                 outfile_key = f"{outfile_prefix}/{job_id}/{outfile}"
             except Exception:
@@ -382,6 +382,7 @@ async def main():
         DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
         DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
         DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
+
         dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
 
         async with asyncpg.create_pool(dsn=dsn) as pool:
