@@ -1,0 +1,56 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: argocd
+resources:
+  - ../../base
+
+patchesJson6902:
+  - target:
+      kind: Application
+      name: apiv2-deployment
+      namespace: apiv2
+    patch: |-
+      - op: replace
+        path: /spec/source/path
+        value: "deployments/apiv2/manifests/overlays/modl"
+  - target:
+      kind: Application
+      name: pulse3d-deployment
+      namespace: pulse3d
+    patch: |-
+      - op: replace
+        path: /spec/source/path
+        value: "deployments/pulse3d/manifests/overlays/modl"
+  - target:
+      kind: Application
+      name: pulse3d-jobs
+      namespace: pulse3d
+    patch: |-
+      - op: replace
+        path: /spec/source/path
+        value: "jobs/pulse3d/manifests/overlays/modl"
+  - target:
+      kind: Application
+      name: jobs-operator
+      namespace: kopf
+    patch: |-
+      - op: replace
+        path: /spec/source/path
+        value: "jobs/jobs-operator/manifests/overlays/modl"
+  - target:
+      kind: Application
+      name: grafana
+      namespace: argocd
+    patch: |-
+      - op: replace
+        path: /spec/source/path
+        value: "cluster/manifests/grafana/overlays/modl"
+  - target:
+      kind: Application
+      name: grafana-loki
+      namespace: argocd
+    patch: |-
+      - op: replace
+        path: /spec/source/path
+        value: "cluster/manifests/grafana-loki/overlays/modl"
