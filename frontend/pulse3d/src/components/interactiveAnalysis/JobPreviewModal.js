@@ -177,8 +177,6 @@ export default function JobPreviewModal({
             position="relative"
             borderRadius="3px"
             label="Close"
-            disabled={isLoading}
-            backgroundColor={isLoading ? "var(--dark-gray)" : "var(--dark-blue)"}
             clickFn={() => setOpenJobPreview(false)}
           />
         </ButtonContainer>
