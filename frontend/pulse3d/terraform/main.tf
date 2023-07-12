@@ -95,7 +95,7 @@ module "pulse3d_cloudfront" {
   wait_for_deployment = false
 
   create_monitoring_subscription = true
-  default_root_object            = "login.html"
+  default_root_object            = "login"
   create_origin_access_identity  = true
   origin_access_identities = {
     s3_bucket_oai = "Pulse access"
