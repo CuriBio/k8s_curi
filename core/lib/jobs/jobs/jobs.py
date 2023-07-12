@@ -133,6 +133,7 @@ async def get_jobs(*, con, account_type, account_id, job_ids=None):
     If a job is marked as deleted, filter out it
     """
     query_params = [account_id]
+
     if account_type == "user":
         query = (
             "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, "
@@ -143,11 +144,10 @@ async def get_jobs(*, con, account_type, account_id, job_ids=None):
     else:
         query = (
             "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, "
-            "u.user_id, u.meta AS user_meta, users.name AS username "
+            "u.user_id, u.meta AS user_meta, users.name AS username, u.filename, u.prefix "
             "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id JOIN users ON u.user_id=users.id "
             "WHERE users.customer_id=$1 AND j.status!='deleted'"
         )
-
     if job_ids:
         places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
         query += f" AND j.job_id IN ({places})"
