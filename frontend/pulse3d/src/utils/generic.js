@@ -91,7 +91,6 @@ const getWaveformCoordsFromTable = async (table, normalizeYAxis) => {
   for (const well of wellNames) {
     // some analyses may only include a few xlsx files, not all wells
     const wellForceIdx = columns.indexOf(well);
-
     let wellForce = columnData[wellForceIdx];
 
     if (normalizeYAxis) {
