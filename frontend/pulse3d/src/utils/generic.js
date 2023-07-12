@@ -60,11 +60,11 @@ const getPeaksValleysFromTable = async (table) => {
   const wellNames = new Set(columns.map((name) => name.split("__")[0]));
 
   // filter out null values (0) and some values get randomly parsed to bigint values which cannot be converted to JSON
-  const columnData = table.data[0].children.map(({ values }) => {
-    return Array.from(values)
+  const columnData = table.data[0].children.map(({ values }) =>
+    Array.from(values)
       .filter((idx) => idx !== 0)
-      .map((val) => (typeof val === "bigint" ? parseInt(val) : val));
-  });
+      .map((val) => (typeof val === "bigint" ? parseInt(val) : val))
+  );
 
   const peaksValleysObj = {};
   for (const well of wellNames) {
