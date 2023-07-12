@@ -77,6 +77,7 @@ def _is_valid_well_name(well_name):
 async def db_session_middleware(request: Request, call_next):
     request.state.pgpool = await asyncpg_pool()
     response = await call_next(request)
+
     return response
 
 
@@ -447,6 +448,7 @@ async def create_new_job(
             # Luci (12/14/2022) customer id is checked already because the customer_id in the token is being used to find upload details
             row = await con.fetchrow("SELECT user_id FROM uploads where id=$1", details.upload_id)
             original_upload_user = str(row["user_id"])
+
             if "pulse3d:rw_all_data" not in user_scopes:
                 # if users don't match and they don't have an all_data scope, then raise unauth error
                 if user_id != original_upload_user:
@@ -661,27 +663,27 @@ async def get_interactive_waveform_data(
                     message="User does not have authorization to start interactive analysis on this recording.",
                 )
 
-            # Get presigned url for time force data
-            parquet_filename = f"{os.path.splitext(selected_job['filename'])[0]}.parquet"
-            parquet_key = (
-                f"{selected_job['prefix']}/time_force_data/{pulse3d_version}/{parquet_filename}"
-                if pulse3d_version is not None
-                else f"{selected_job['prefix']}/time_force_data/{parquet_filename}"
-            )
+        # Get presigned url for time force data
+        parquet_filename = f"{os.path.splitext(selected_job['filename'])[0]}.parquet"
+        parquet_key = (
+            f"{selected_job['prefix']}/time_force_data/{pulse3d_version}/{parquet_filename}"
+            if pulse3d_version is not None
+            else f"{selected_job['prefix']}/time_force_data/{parquet_filename}"
+        )
 
-            logger.info(f"Generating presigned URL for {parquet_filename}")
-            time_force_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, parquet_key)
+        logger.info(f"Generating presigned URL for {parquet_filename}")
+        time_force_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, parquet_key)
 
-            # Get presigned url for peaks and valleys
-            logger.info("Generating presigned URL for peaks and valleys")
-            pv_parquet_key = f"{selected_job['prefix']}/{job_id}/peaks_valleys.parquet"
-            peaks_valleys_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, pv_parquet_key)
+        # Get presigned url for peaks and valleys
+        logger.info("Generating presigned URL for peaks and valleys")
+        pv_parquet_key = f"{selected_job['prefix']}/{job_id}/peaks_valleys.parquet"
+        peaks_valleys_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, pv_parquet_key)
 
-            return WaveformDataResponse(
-                time_force_url=time_force_url,
-                peaks_valleys_url=peaks_valleys_url,
-                normalize_y_axis=normalize_y_axis,
-            )
+        return WaveformDataResponse(
+            time_force_url=time_force_url,
+            peaks_valleys_url=peaks_valleys_url,
+            normalize_y_axis=normalize_y_axis,
+        )
     # ValueError gets raised when no object is found in s3 that matches given key
     except ValueError:
         return GenericErrorResponse(

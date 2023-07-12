@@ -880,7 +880,7 @@ export default function InteractiveWaveformModal({
   // Luci (12-14-2022) this component gets mounted twice and we don't want this expensive function to request waveform data to be called twice. This ensures it is only called once per job selection
   useEffect(() => {
     if (getErrorState) {
-      console.log("ERROR getting waveform data:", e);
+      console.log("ERROR getting waveform data");
       // open error modal and kick users back to /uploads page if random  error
       setModalLabels(constantModalLabels.error);
       setModalOpen("status");
