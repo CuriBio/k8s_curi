@@ -16,7 +16,7 @@ depends_on = None
 
 
 def upgrade():
-    op.execute("ALTER TABLE customers ADD COLUMN id_alias VARCHAR(255)")
+    op.execute("ALTER TABLE customers ADD COLUMN id_alias VARCHAR(128)")
 
 
 def downgrade():
