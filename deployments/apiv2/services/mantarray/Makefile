@@ -1,4 +1,4 @@
-ecr_repo = 077346344852.dkr.ecr.us-east-2.amazonaws.com/mantarray
+ecr_repo = 725604423866.dkr.ecr.us-east-2.amazonaws.com/mantarray
 repo_root=$(shell git rev-parse --show-toplevel)
 
 .PHONY: build buildx push tag apply
@@ -11,13 +11,13 @@ buildx:
 	docker buildx build -t mantarray . --platform linux/amd64 --load -f ${repo_root}/deployments/apiv2/services/mantarray/Dockerfile
 
 tag:
-	docker tag mantarray:latest $(ecr_repo):0.5.0
+	docker tag mantarray:latest $(ecr_repo):0.0.0
 
 login:
 	aws ecr get-login-password --region us-east-2 | docker login --password-stdin --username AWS $(ecr_repo)
 
 push:
-	docker push $(ecr_repo):0.5.0
+	docker push $(ecr_repo):0.0.0
 
 apply:
 	kubectl apply -f ./manifests/

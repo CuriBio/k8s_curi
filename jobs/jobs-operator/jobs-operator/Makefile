@@ -1,4 +1,4 @@
-ecr_repo = 077346344852.dkr.ecr.us-east-2.amazonaws.com/jobs-operator
+ecr_repo = 725604423866.dkr.ecr.us-east-2.amazonaws.com/jobs-operator
 
 repo_root=$(shell git rev-parse --show-toplevel)
 
@@ -11,13 +11,13 @@ buildx:
 	docker buildx build -t jobs-operator . --platform linux/amd64 --load -f ${repo_root}/jobs/jobs-operator/jobs-operator/Dockerfile
 
 tag:
-	docker tag jobs-operator:latest $(ecr_repo):0.0.3
+	docker tag jobs-operator:latest $(ecr_repo):0.0.0
 
 login:
 	aws ecr get-login-password --region us-east-2 | docker login --password-stdin --username AWS $(ecr_repo)
 
 push:
-	docker push $(ecr_repo):0.0.3
+	docker push $(ecr_repo):0.0.0
 
 apply:
 	kubectl apply -f ./manifests/
