@@ -536,11 +536,7 @@ export default function AnalysisParamForm({
     const filteredOptions = pulse3dVersions.filter((version) => {
       if (!xlsxFilePresent) return true;
 
-<<<<<<< HEAD
-      const minVersion = xlsxFilePresent <= 24 ? "0.32.2" : "0.33.9";
-=======
       const minVersion = xlsxFilePresent <= 24 ? "0.32.2" : "0.33.11";
->>>>>>> RC-07-20-23
       return semverGte(version, minVersion);
     });
 

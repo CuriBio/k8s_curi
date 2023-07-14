@@ -14,11 +14,11 @@ patchesJson6902:
     patch: |-
       - op: replace
         path: /spec/github/k8s_curi/webhook/url
-        value: "https://githooks.curibio.com"
+        value: "https://githooks.curibio-modl.com"
   - target:
       kind: Ingress
       name: github
     patch: |-
       - op: replace
         path: /spec/rules/0/host
-        value: "githooks.curibio.com"
+        value: "githooks.curibio-modl.com"

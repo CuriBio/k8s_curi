@@ -30,7 +30,7 @@ spec:
   project: deployments
   source:
     repoURL: https://github.com/CuriBio/k8s_curi.git
-    targetRevision: RC-07-06-23
+    targetRevision: RC-07-20-23
     path: applications/overlays/modl
   destination:
     server: https://kubernetes.default.svc
