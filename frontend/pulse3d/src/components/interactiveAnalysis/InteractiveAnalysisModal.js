@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import { useEffect, useState, useContext, useMemo } from "react";
+import { useEffect, useState, useContext } from "react";
 import DropDownWidget from "../basicWidgets/DropDownWidget";
 import WaveformGraph from "./InteractiveWaveformGraph";
 import { deepCopy } from "@/utils/generic";
@@ -807,15 +807,20 @@ export default function InteractiveWaveformModal({
           const [featureMarkerX, featureMarkerY] = wellCoords[idx];
           const isFeatureWithinWindow = featureMarkerX >= start && featureMarkerX <= end;
 
-          const featureThresholdY = calculateYLimit(
-            thresholdEndpoints[featureType],
-            windowedAnalysisBounds,
-            featureMarkerX
-          );
-          const isFeatureWithinThreshold =
-            featureType === "peaks"
-              ? featureMarkerY >= featureThresholdY
-              : featureMarkerY <= featureThresholdY;
+          let isFeatureWithinThreshold;
+          if (thresholdEndpoints[featureType].y1 == null || thresholdEndpoints[featureType].y2 == null) {
+            isFeatureWithinThreshold = true;
+          } else {
+            const featureThresholdY = calculateYLimit(
+              thresholdEndpoints[featureType],
+              windowedAnalysisBounds,
+              featureMarkerX
+            );
+            isFeatureWithinThreshold =
+              featureType === "peaks"
+                ? featureMarkerY >= featureThresholdY
+                : featureMarkerY <= featureThresholdY;
+          }
 
           return isFeatureWithinThreshold && isFeatureWithinWindow;
         })
@@ -894,7 +899,7 @@ export default function InteractiveWaveformModal({
         if (Object.keys(waveformData).length === 24) {
           return true;
         } else {
-          const minVersion = Object.keys(waveformData).length < 24 ? "0.32.2" : "0.33.9";
+          const minVersion = Object.keys(waveformData).length < 24 ? "0.32.2" : "0.33.11";
           return semverGte(v, minVersion);
         }
       });

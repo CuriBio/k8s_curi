@@ -7,4 +7,4 @@ resources:
   - pulse3d-queue-processor-creds.yaml
 
 patchesStrategicMerge:
-  - test-job-runner.yaml
+  - prod-job-runner.yaml
