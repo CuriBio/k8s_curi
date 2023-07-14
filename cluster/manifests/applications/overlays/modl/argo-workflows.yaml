@@ -10,7 +10,7 @@ spec:
   source:
     path: cluster/manifests/argo-workflows/base
     repoURL: https://github.com/CuriBio/k8s_curi.git
-    targetRevision: RC-07-20-23
+    targetRevision: modl-cluster
   destination:
     server: https://kubernetes.default.svc
     namespace: argo

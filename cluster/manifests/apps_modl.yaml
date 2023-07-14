@@ -30,7 +30,7 @@ spec:
   project: cluster
   source:
     repoURL: https://github.com/CuriBio/k8s_curi.git
-    targetRevision: RC-07-20-23
+    targetRevision: modl-cluster
     path: cluster/manifests/applications/overlays/modl
   destination:
     server: https://kubernetes.default.svc
