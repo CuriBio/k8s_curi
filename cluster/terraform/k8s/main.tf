@@ -221,9 +221,9 @@ module "eks" {
   tags   = var.cluster_tags
   vpc_id = var.vpc_id
 
-  aws_auth_accounts = var.cluster_accounts
-  aws_auth_users    = var.cluster_users
-
+  aws_auth_accounts              = var.cluster_accounts
+  aws_auth_users                 = var.cluster_users
+  manage_aws_auth_configmap      = true
   cluster_endpoint_public_access = true
   eks_managed_node_groups = {
     medium = {
@@ -260,7 +260,7 @@ module "eks" {
     argo = {
       desired_capacity = 3
       max_capacity     = 3
-      min_capacity     = 1
+      min_capacity     = 3
 
       instance_types = ["t3a.medium"]
       subnets        = [var.private_subnets[2]]
@@ -274,7 +274,6 @@ module "eks" {
     }
   }
 }
-
 
 data "aws_eks_cluster" "cluster" {
   name = module.eks.cluster_name
