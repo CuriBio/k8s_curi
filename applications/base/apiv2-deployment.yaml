@@ -4,8 +4,7 @@ metadata:
   name: apiv2-deployment
   namespace: apiv2
   finalizers:
-    []
-    # - resources-finalizer.argocd.argoproj.io
+    - resources-finalizer.argocd.argoproj.io
 spec:
   project: deployments
   source:
