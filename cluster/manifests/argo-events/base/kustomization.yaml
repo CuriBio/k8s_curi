@@ -6,4 +6,3 @@ resources:
   - argo-events-namespace-v1.6.1-install.yaml
   - event-bus.yaml
   - gh-webhook-events.yaml
-  - github-webhook-secret.yaml
