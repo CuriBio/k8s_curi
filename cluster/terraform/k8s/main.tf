@@ -234,7 +234,7 @@ module "eks" {
       instance_types = ["t3a.medium"]
       subnets        = [var.private_subnets[0], var.private_subnets[1]]
 
-      k8s_labels = {
+      labels = {
         group = "services"
       }
       update_config = {
@@ -250,7 +250,7 @@ module "eks" {
       instance_types = ["c6a.large"]
       subnets        = [var.private_subnets[0], var.private_subnets[1]]
 
-      k8s_labels = {
+      labels = {
         group = "workers"
       }
       update_config = {
@@ -265,7 +265,7 @@ module "eks" {
       instance_types = ["t3a.medium"]
       subnets        = [var.private_subnets[2]]
 
-      k8s_labels = {
+      labels = {
         group = "argo"
       }
       update_config = {
