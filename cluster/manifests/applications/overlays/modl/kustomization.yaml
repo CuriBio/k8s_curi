@@ -16,3 +16,11 @@ patchesJson6902:
       - op: replace
         path: /spec/source/targetRevision
         value: modl-qc
+  - target:
+      kind: Application
+      name: sealed-secrets
+      namespace: argocd
+    patch: |-
+      - op: replace
+        path: /spec/source/targetRevision
+        value: modl-qc
