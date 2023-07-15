@@ -20,7 +20,7 @@ patchesJson6902:
       name: github-pr-open
     patch: |-
       - op: replace
-        path: /spec/dependencies/0/filters/data/3/value/0
+        path: /spec/dependencies/0/filters/data/3/value
         value: modl-qc
   - target:
       version: argoproj.io/v1alpha1
@@ -28,5 +28,5 @@ patchesJson6902:
       name: github-pr-merge
     patch: |-
       - op: replace
-        path: /spec/dependencies/0/filters/data/3/value/0
+        path: /spec/dependencies/0/filters/data/3/value
         value: modl-qc
