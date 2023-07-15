@@ -10,11 +10,11 @@ spec:
   source:
     path: cluster/manifests/ci/overlays/modl
     repoURL: https://github.com/CuriBio/k8s_curi.git
-    targetRevision: modl-cluster
+    targetRevision: modl-qc
   destination:
     server: https://kubernetes.default.svc
     namespace: argo
-  # syncPolicy:
-  #   automated:
-  #     selfHeal: true
-  #     prune: true
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true

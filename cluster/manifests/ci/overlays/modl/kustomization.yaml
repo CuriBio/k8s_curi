@@ -21,7 +21,7 @@ patchesJson6902:
     patch: |-
       - op: replace
         path: /spec/dependencies/0/filters/data/3/value/0
-        value: RC-07-20-23
+        value: modl-qc
   - target:
       version: argoproj.io/v1alpha1
       kind: Sensor
@@ -29,4 +29,4 @@ patchesJson6902:
     patch: |-
       - op: replace
         path: /spec/dependencies/0/filters/data/3/value/0
-        value: RC-07-20-23
+        value: modl-qc
