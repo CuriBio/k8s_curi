@@ -1035,3 +1035,11 @@ spec:
       securityContext:
         runAsNonRoot: true
       serviceAccountName: argo
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argo-server.service-account-token
+  annotations:
+    kubernetes.io/service-account.name: argo-server
+type: kubernetes.io/service-account-token
