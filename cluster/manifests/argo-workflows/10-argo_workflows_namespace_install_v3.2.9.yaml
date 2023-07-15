@@ -1035,6 +1035,7 @@ spec:
           readOnlyRootFilesystem: true
           runAsNonRoot: true
       nodeSelector:
+        group: argo
         kubernetes.io/os: linux
       priorityClassName: workflow-controller
       securityContext:
