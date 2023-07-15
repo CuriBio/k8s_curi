@@ -225,11 +225,12 @@ module "eks" {
   aws_auth_users                 = var.cluster_users
   manage_aws_auth_configmap      = true
   cluster_endpoint_public_access = true
+
   eks_managed_node_groups = {
     medium = {
-      desired_capacity = 3
-      max_capacity     = 3
-      min_capacity     = 3
+      desired_size = 3
+      min_size     = 1
+      max_size     = 3
 
       instance_types = ["t3a.medium"]
       subnets        = [var.private_subnets[0], var.private_subnets[1]]
@@ -243,9 +244,9 @@ module "eks" {
     },
 
     workers = {
-      desired_capacity = 3
-      max_capacity     = 3
-      min_capacity     = 3
+      desired_size = 3
+      min_size     = 1
+      max_size     = 3
 
       instance_types = ["c6a.large"]
       subnets        = [var.private_subnets[0], var.private_subnets[1]]
@@ -258,9 +259,9 @@ module "eks" {
       }
     },
     argo = {
-      desired_capacity = 3
-      max_capacity     = 3
-      min_capacity     = 3
+      desired_size = 3
+      min_size     = 1
+      max_size     = 3
 
       instance_types = ["t3a.medium"]
       subnets        = [var.private_subnets[2]]
