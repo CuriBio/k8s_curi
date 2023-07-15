@@ -977,6 +977,7 @@ spec:
         - mountPath: /tmp
           name: tmp
       nodeSelector:
+        group: argo
         kubernetes.io/os: linux
       securityContext:
         runAsNonRoot: true
