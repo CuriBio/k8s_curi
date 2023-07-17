@@ -14,14 +14,6 @@ patchesJson6902:
       - op: replace
         path: /metadata/annotations/eks.amazonaws.com~1role-arn
         value: arn:aws:iam::725604423866:role/workflow-pods-iam-role01
-  - target:
-      version: argoproj.io/v1alpha1
-      kind: Sensor
-      name: github-pr-open
-    patch: |-
-      - op: replace
-        path: /spec/dependencies/0/filters/data/3/path
-        value: modl-qc
 
 patchesStrategicMerge:
   - modl-github-pr-merge.yaml
