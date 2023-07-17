@@ -24,13 +24,15 @@ patchesJson6902:
         value: 725604423866.dkr.ecr.us-east-2.amazonaws.com/builder
       - op: replace
         path: /spec/templates/1/script/source
-        value: <<EOF echo "Changes found in {{inputs.parameters.path}}"
+        value: |
+          echo "Changes found in {{inputs.parameters.path}}"
 
           cd {{inputs.parameters.path}}
           terraform init -backend-config=backend/modl_env_config.tfvars
 
           PLAN_OUTPUT=$(terraform plan -var-file=modl_env.tfvars -no-color)
-          builder --pr-number={{inputs.parameters.number}} --pr-comment="PLAN FOR: {{inputs.parameters.path}} <br /> $PLAN_OUTPUT" <EOF
+          builder --pr-number={{inputs.parameters.number}} --pr-comment="PLAN FOR: {{inputs.parameters.path}} <br /> $PLAN_OUTPUT"
+
 patchesStrategicMerge:
   - modl-github-pr-merge.yaml
   - modl-github-pr-open.yaml
