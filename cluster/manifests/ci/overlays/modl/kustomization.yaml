@@ -18,3 +18,5 @@ patchesJson6902:
 patchesStrategicMerge:
   - modl-github-pr-merge.yaml
   - modl-github-pr-open.yaml
+  - modl-build-container-template.yaml
+  - modl-run-terraform-template.yaml
