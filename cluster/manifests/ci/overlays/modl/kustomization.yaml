@@ -22,14 +22,7 @@ patchesJson6902:
       - op: replace
         path: /spec/dependencies/0/filters/data/3/path
         value: modl-qc
-  # - target:
-  #     version: argoproj.io/v1alpha1
-  #     kind: Sensor
-  #     name: github-pr-merge
-  #   patch: |-
-  #     - op: replace
-  #       path: /spec/dependencies/0/filters/data/3/path
-  #       value: 'modl-qc'
 
 patchesStrategicMerge:
   - modl-github-pr-merge.yaml
+  - modl-github-pr-open.yaml
