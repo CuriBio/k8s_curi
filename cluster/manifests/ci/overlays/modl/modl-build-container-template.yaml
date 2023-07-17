@@ -8,6 +8,7 @@ spec:
   templates:
     - name: checkout
       script:
+        $patch: replace
         image: 725604423866.dkr.ecr.us-east-2.amazonaws.com/builder
     - name: changed-tf
       script:
@@ -15,35 +16,35 @@ spec:
     - name: http-status
       script:
         image: 725604423866.dkr.ecr.us-east-2.amazonaws.com/builder
+# ---
+# apiVersion: argoproj.io/v1alpha1
+# kind: WorkflowTemplate
+# metadata:
+#   name: build-service
+#   namespace: argo
+# spec:
+#   serviceAccountName: argo-workflows-sa
+#   templates:
+#     - $patch: replace
+#     - name: db-migrations-dry-run
+#       script:
+#         image: 725604423866.dkr.ecr.us-east-2.amazonaws.com/builder
 
----
-apiVersion: argoproj.io/v1alpha1
-kind: WorkflowTemplate
-metadata:
-  name: build-service
-  namespace: argo
-spec:
-  serviceAccountName: argo-workflows-sa
-  templates:
-    - name: db-migrations-dry-run
-      script:
-        image: 725604423866.dkr.ecr.us-east-2.amazonaws.com/builder
-
----
-apiVersion: argoproj.io/v1alpha1
-kind: WorkflowTemplate
-metadata:
-  name: build-push-service
-  namespace: argo
-spec:
-  serviceAccountName: argo-workflows-sa
-  templates:
-    - name: build
-      container:
-        args:
-          - --destination=725604423866.dkr.ecr.us-east-2.amazonaws.com/{{inputs.parameters.service}}:{{inputs.parameters.version}}
-          - --context=/tmp/git/k8s_curi/
-          - --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
-    - name: db-migrations
-      script:
-        image: 725604423866.dkr.ecr.us-east-2.amazonaws.com/builder
+# ---
+# apiVersion: argoproj.io/v1alpha1
+# kind: WorkflowTemplate
+# metadata:
+#   name: build-push-service
+#   namespace: argo
+# spec:
+#   serviceAccountName: argo-workflows-sa
+#   templates:
+#     - name: build
+#       container:
+#         args:
+#           - --destination=725604423866.dkr.ecr.us-east-2.amazonaws.com/{{inputs.parameters.service}}:{{inputs.parameters.version}}
+#           - --context=/tmp/git/k8s_curi/
+#           - --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
+#     - name: db-migrations
+#       script:
+#         image: 725604423866.dkr.ecr.us-east-2.amazonaws.com/builder

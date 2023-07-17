@@ -14,9 +14,26 @@ patchesJson6902:
       - op: replace
         path: /metadata/annotations/eks.amazonaws.com~1role-arn
         value: arn:aws:iam::725604423866:role/workflow-pods-iam-role01
+  - target:
+      version: argoproj.io/v1alpha1
+      kind: WorkflowTemplate
+      name: terraform-plan-template
+    patch: |-
+      - op: replace
+        path: /spec/templates/1/script/image
+        value: 725604423866.dkr.ecr.us-east-2.amazonaws.com/builder
+      - op: replace
+        path: /spec/templates/1/script/source
+        value: `echo "Changes found in {{inputs.parameters.path}}"
+
+          cd {{inputs.parameters.path}}
+          terraform init -backend-config=backend/modl_env_config.tfvars
+
+          PLAN_OUTPUT=$(terraform plan -var-file=modl_env.tfvars -no-color)
+          builder --pr-number={{inputs.parameters.number}} --pr-comment="PLAN FOR: {{inputs.parameters.path}} <br /> $PLAN_OUTPUT"`
 
 patchesStrategicMerge:
   - modl-github-pr-merge.yaml
   - modl-github-pr-open.yaml
   - modl-build-container-template.yaml
-  - modl-run-terraform-template.yaml
+  # - modl-run-terraform-template.yaml
