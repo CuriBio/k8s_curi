@@ -24,8 +24,6 @@ spec:
             storage: 100Mi
   templates:
     - name: ci-build
-      nodeSelector:
-        group: argo
       dag:
         tasks:
           - name: checkout
@@ -120,8 +118,6 @@ spec:
             storage: 100Mi
   templates:
     - name: ci-build-push
-      nodeSelector:
-        group: argo
       dag:
         tasks:
           - name: checkout
