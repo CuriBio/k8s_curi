@@ -64,12 +64,11 @@ def create_fn(body, spec, **kwargs):
         "apiVersion": "apps/v1",
         "metadata": {"name": f"{qp_name}", "labels": {"app": f"{job_queue}_qp"}},
         "spec": {
-            "nodeSelector": {"group": "services"},
             "replicas": 1,
             "selector": {"matchLabels": {"app": f"{job_queue}_qp"}},
             "template": {
                 "metadata": {"labels": {"app": f"{job_queue}_qp"}},
-                "spec": {"containers": [container]},
+                "spec": {"containers": [container], "nodeSelector": {"group": "services"}},
             },
         },
     }

@@ -151,8 +151,6 @@ metadata:
   name: nginx-ingress
   namespace: nginx-ingress
 spec:
-  nodeSelector:
-    group: services
   replicas: 1
   selector:
     matchLabels:
@@ -166,6 +164,8 @@ spec:
       #prometheus.io/port: "9113"
       #prometheus.io/scheme: http
     spec:
+      nodeSelector:
+        group: services
       serviceAccountName: nginx-ingress
       containers:
         - image: nginx/nginx-ingress:2.1.0

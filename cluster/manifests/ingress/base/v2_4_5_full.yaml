@@ -715,8 +715,6 @@ metadata:
   name: aws-load-balancer-controller
   namespace: kube-system
 spec:
-  nodeSelector:
-    group: services
   replicas: 1
   selector:
     matchLabels:
@@ -728,6 +726,8 @@ spec:
         app.kubernetes.io/component: controller
         app.kubernetes.io/name: aws-load-balancer-controller
     spec:
+      nodeSelector:
+        group: services
       containers:
         - args:
             - --cluster-name=your-cluster-name

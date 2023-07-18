@@ -17061,8 +17061,6 @@ metadata:
     app.kubernetes.io/component: "cainjector"
     app.kubernetes.io/version: "v1.6.1"
 spec:
-  nodeSelector:
-    group: argo
   replicas: 1
   selector:
     matchLabels:
@@ -17078,6 +17076,8 @@ spec:
         app.kubernetes.io/component: "cainjector"
         app.kubernetes.io/version: "v1.6.1"
     spec:
+      nodeSelector:
+        group: argo
       serviceAccountName: cert-manager-cainjector
       securityContext:
         runAsNonRoot: true
@@ -17108,8 +17108,6 @@ metadata:
     app.kubernetes.io/component: "controller"
     app.kubernetes.io/version: "v1.6.1"
 spec:
-  nodeSelector:
-    group: argo
   replicas: 1
   selector:
     matchLabels:
@@ -17129,6 +17127,8 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9402"
     spec:
+      nodeSelector:
+        group: argo
       serviceAccountName: cert-manager
       securityContext:
         runAsNonRoot: true
@@ -17163,8 +17163,6 @@ metadata:
     app.kubernetes.io/component: "webhook"
     app.kubernetes.io/version: "v1.6.1"
 spec:
-  nodeSelector:
-    group: argo
   replicas: 1
   selector:
     matchLabels:
@@ -17180,6 +17178,8 @@ spec:
         app.kubernetes.io/component: "webhook"
         app.kubernetes.io/version: "v1.6.1"
     spec:
+      nameodeSelector:
+        group: argo
       serviceAccountName: cert-manager-webhook
       securityContext:
         runAsNonRoot: true

@@ -3,8 +3,6 @@ kind: EventSource
 metadata:
   name: github
 spec:
-  nodeSelector:
-    group: argo
   service:
     ports:
       - port: 3000

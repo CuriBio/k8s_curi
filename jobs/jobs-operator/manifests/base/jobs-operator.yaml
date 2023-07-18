@@ -3,8 +3,6 @@ kind: Deployment
 metadata:
   name: operators
 spec:
-  nodeSelector:
-    group: services
   replicas: 1
   selector:
     matchLabels:
@@ -14,6 +12,8 @@ spec:
       labels:
         app: operators
     spec:
+      nodeSelector:
+        group: services
       serviceAccountName: operator
       containers:
         - name: jobs-operator
