@@ -1,7 +1,7 @@
 cluster_name = "modl"
 
 cluster_tags = {
-  Environment = "modl"
+  Environment = "modl cluster"
 }
 
 cluster_accounts = [

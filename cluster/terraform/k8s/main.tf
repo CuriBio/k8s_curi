@@ -264,7 +264,7 @@ module "eks" {
       max_size     = 3
 
       instance_types = ["t3a.medium"]
-      subnets        = [var.private_subnets[2]]
+      subnet_ids     = [var.private_subnets[2]]
 
       labels = {
         group = "argo"

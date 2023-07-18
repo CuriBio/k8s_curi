@@ -1,13 +1,13 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+namespace: argo
 resources:
   - ../../base
   - modl-github-pr-merge.yaml
   - modl-github-pr-open.yaml
   - templates/modl-build-container-template.yaml
   - templates/modl-run-terraform-template.yaml
-namespace: argo
 
 patchesJson6902:
   - target:
