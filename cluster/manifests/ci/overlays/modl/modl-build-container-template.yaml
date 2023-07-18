@@ -31,12 +31,13 @@ spec:
             mountPath: /tmp/git
         command: ["sh"]
         source: |
-          git clone -q "{{inputs.parameters.repo}}"
-          cd k8s_curi
-          git fetch -q origin "{{inputs.parameters.branch}}" && git checkout -q "{{inputs.parameters.branch}}"
+          echo $TOKEN
+          # git clone -q "{{inputs.parameters.repo}}"
+          # cd k8s_curi
+          # git fetch -q origin "{{inputs.parameters.branch}}" && git checkout -q "{{inputs.parameters.branch}}"
 
-          SERVICES=$(builder --changed --status=pending --sha={{inputs.parameters.sha}} --base-sha={{inputs.parameters.base-sha}})
-          echo $SERVICES
+          # SERVICES=$(builder --changed --status=pending --sha={{inputs.parameters.sha}} --base-sha={{inputs.parameters.base-sha}})
+          # echo $SERVICES
     - name: changed-tf
       inputs:
         parameters:
