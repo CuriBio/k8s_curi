@@ -890,7 +890,6 @@ export default function InteractiveWaveformModal({
   // Luci (12-14-2022) this component gets mounted twice and we don't want this expensive function to request waveform data to be called twice. This ensures it is only called once per job selection
   useEffect(() => {
     if (getErrorState) {
-      console.log("ERROR getting waveform data:", e);
       // open error modal and kick users back to /uploads page if random  error
       setModalLabels(constantModalLabels.error);
       setModalOpen("status");
@@ -899,7 +898,7 @@ export default function InteractiveWaveformModal({
         if (Object.keys(waveformData).length === 24) {
           return true;
         } else {
-          const minVersion = Object.keys(waveformData).length < 24 ? "0.32.2" : "0.33.11";
+          const minVersion = Object.keys(waveformData).length < 24 ? "0.32.2" : "0.33.13";
           return semverGte(v, minVersion);
         }
       });
