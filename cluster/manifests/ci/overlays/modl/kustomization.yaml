@@ -3,6 +3,10 @@ kind: Kustomization
 
 resources:
   - ../../base
+  - modl-github-pr-merge.yaml
+  - modl-github-pr-open.yaml
+  - templates/modl-build-container-template.yaml
+  - templates/modl-run-terraform-template.yaml
 namespace: argo
 
 patchesJson6902:
@@ -14,9 +18,3 @@ patchesJson6902:
       - op: replace
         path: /metadata/annotations/eks.amazonaws.com~1role-arn
         value: arn:aws:iam::725604423866:role/workflow-pods-iam-role01
-
-patchesStrategicMerge:
-  - modl-github-pr-merge.yaml
-  - modl-github-pr-open.yaml
-  - modl-build-container-template.yaml
-  - modl-run-terraform-template.yaml
