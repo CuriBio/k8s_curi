@@ -233,7 +233,7 @@ module "eks" {
       max_size     = 3
 
       instance_types = ["t3a.medium"]
-      subnets        = [var.private_subnets[0], var.private_subnets[1]]
+      subnet_ids     = [var.private_subnets[0], var.private_subnets[1]]
 
       labels = {
         group = "services"
@@ -249,7 +249,7 @@ module "eks" {
       max_size     = 3
 
       instance_types = ["c6a.large"]
-      subnets        = [var.private_subnets[0], var.private_subnets[1]]
+      subnet_ids     = [var.private_subnets[0], var.private_subnets[1]]
 
       labels = {
         group = "workers"
