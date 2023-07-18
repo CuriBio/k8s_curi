@@ -939,6 +939,8 @@ kind: Deployment
 metadata:
   name: argo-server
 spec:
+  nodeSelector:
+    group: argo
   selector:
     matchLabels:
       app: argo-server
@@ -986,6 +988,8 @@ kind: Deployment
 metadata:
   name: workflow-controller
 spec:
+  nodeSelector:
+    group: argo
   selector:
     matchLabels:
       app: workflow-controller

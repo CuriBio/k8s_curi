@@ -6,6 +6,8 @@ metadata:
   labels:
     app: pulse3d
 spec:
+  nodeSelector:
+    group: services
   replicas: 1
   revisionHistoryLimit: 1
   selector:
