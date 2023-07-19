@@ -276,3 +276,14 @@ async def check_customer_quota(con, customer_id, service) -> Dict[str, Any]:
     }
     uploads_reached.update(usage_info)
     return uploads_reached
+
+
+async def create_analysis_preset(con, user_id, details):
+    query = (
+        "WITH row AS (SELECT id AS user_id FROM users WHERE id=$1) "
+        "INSERT INTO analysis_presets (user_id, name, parameters) "
+        "SELECT user_id, $2, $3 FROM row "
+        "RETURNING id"
+    )
+
+    return await con.fetchval(query, user_id, details.name, json.dumps(details.analysis_params))

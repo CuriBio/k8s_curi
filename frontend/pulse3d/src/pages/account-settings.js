@@ -28,14 +28,18 @@ export default function AccountSettings() {
       setJobsLimit(usageQuota.limits.jobs);
       setCurrentJobUsage(usageQuota.current.jobs);
 
-      const endDate = new Date(usageQuota.limits.expiration_date).toUTCString();
-      setEndDate(endDate.slice(0, 16));
+      // account for edge case that expiration date is null
+      if (usageQuota.limits.expiration_date) {
+        const endDate = new Date(usageQuota.limits.expiration_date).toUTCString();
+        setEndDate(endDate.slice(0, 16));
 
-      const currentDate = new Date(new Date(Date.now()).toUTCString());
-      const daysOfPlanLeft = parseInt((new Date(endDate) - currentDate) / (1000 * 60 * 60 * 24));
-      setDaysLeft(daysOfPlanLeft);
+        const currentDate = new Date(new Date(Date.now()).toUTCString());
+        const daysOfPlanLeft = parseInt((new Date(endDate) - currentDate) / (1000 * 60 * 60 * 24));
+        setDaysLeft(daysOfPlanLeft);
+      }
     }
   }, [usageQuota]);
+
   return (
     <BackgroundContainer>
       <UsageWidgetFull
