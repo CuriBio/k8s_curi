@@ -12,12 +12,12 @@ data "aws_iam_policy_document" "eks_pods" {
 
     condition {
       test     = "StringEquals"
-      variable = "${replace(aws_iam_openid_connect_provider.default.url, "https://", "")}:sub"
+      variable = "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}:sub"
       values   = ["system:serviceaccount:kube-system:aws-load-balancer-controller"]
     }
 
     principals {
-      identifiers = [aws_iam_openid_connect_provider.default.arn]
+      identifiers = [module.eks.oidc_provider_arn]
       type        = "Federated"
     }
   }
@@ -48,12 +48,12 @@ data "aws_iam_policy_document" "workflows_pods" {
 
     condition {
       test     = "StringEquals"
-      variable = "${replace(aws_iam_openid_connect_provider.default.url, "https://", "")}:sub"
+      variable = "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}:sub"
       values   = ["system:serviceaccount:argo:argo-workflows-sa"]
     }
 
     principals {
-      identifiers = [aws_iam_openid_connect_provider.default.arn]
+      identifiers = [module.eks.oidc_provider_arn]
       type        = "Federated"
     }
   }
@@ -87,12 +87,12 @@ data "aws_iam_policy_document" "pulse3d_pods" {
 
     condition {
       test     = "StringEquals"
-      variable = "${replace(aws_iam_openid_connect_provider.default.url, "https://", "")}:sub"
+      variable = "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}:sub"
       values   = ["system:serviceaccount:pulse3d:default"]
     }
 
     principals {
-      identifiers = [aws_iam_openid_connect_provider.default.arn]
+      identifiers = [module.eks.oidc_provider_arn]
       type        = "Federated"
     }
   }
@@ -118,12 +118,12 @@ data "aws_iam_policy_document" "apiv2_pods" {
 
     condition {
       test     = "StringEquals"
-      variable = "${replace(aws_iam_openid_connect_provider.default.url, "https://", "")}:sub"
+      variable = "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}:sub"
       values   = ["system:serviceaccount:apiv2:default"]
     }
 
     principals {
-      identifiers = [aws_iam_openid_connect_provider.default.arn]
+      identifiers = [module.eks.oidc_provider_arn]
       type        = "Federated"
     }
   }
@@ -142,12 +142,12 @@ data "aws_iam_policy_document" "loki_pods" {
 
     condition {
       test     = "StringEquals"
-      variable = "${replace(aws_iam_openid_connect_provider.default.url, "https://", "")}:sub"
+      variable = "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}:sub"
       values   = ["system:serviceaccount:argocd:default"]
     }
 
     principals {
-      identifiers = [aws_iam_openid_connect_provider.default.arn]
+      identifiers = [module.eks.oidc_provider_arn]
       type        = "Federated"
     }
   }
@@ -171,12 +171,12 @@ data "aws_iam_policy_document" "operators_pods" {
 
     condition {
       test     = "StringEquals"
-      variable = "${replace(aws_iam_openid_connect_provider.default.url, "https://", "")}:sub"
+      variable = "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}:sub"
       values   = ["system:serviceaccount:kopf:operator"]
     }
 
     principals {
-      identifiers = [aws_iam_openid_connect_provider.default.arn]
+      identifiers = [module.eks.oidc_provider_arn]
       type        = "Federated"
     }
   }
@@ -191,12 +191,6 @@ resource "aws_iam_role" "operators_pods" {
 data "aws_region" "current" {}
 data "external" "thumbprint" {
   program = ["/bin/sh", "${path.module}/external/thumbprint.sh", data.aws_region.current.name]
-}
-
-resource "aws_iam_openid_connect_provider" "default" {
-  url             = module.eks.cluster_oidc_issuer_url
-  client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = [data.external.thumbprint.result.thumbprint]
 }
 
 module "argo_workflows" {
@@ -223,6 +217,7 @@ module "eks" {
   aws_auth_users                 = var.cluster_users
   manage_aws_auth_configmap      = true
   cluster_endpoint_public_access = true
+  custom_oidc_thumbprints        = [data.external.thumbprint.result.thumbprint]
 
   eks_managed_node_groups = {
     medium = {
