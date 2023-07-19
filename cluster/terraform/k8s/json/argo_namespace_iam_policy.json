@@ -54,7 +54,6 @@
         "s3:GetAnalyticsConfiguration",
         "s3:GetObjectVersionForReplication",
         "s3:GetLifecycleConfiguration",
-        "s3:ListBucketByTags",
         "s3:GetInventoryConfiguration",
         "s3:GetBucketTagging",
         "s3:PutObject",
