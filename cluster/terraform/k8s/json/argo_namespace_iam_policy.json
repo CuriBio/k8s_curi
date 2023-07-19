@@ -23,7 +23,9 @@
       "Action": ["s3:PutObject", "s3:GetObject"],
       "Resource": [
         "arn:aws:s3:::curi-prod-workflows",
-        "arn:aws:s3:::curi-prod-workflows/*"
+        "arn:aws:s3:::curi-prod-workflows/*",
+        "arn:aws:s3:::curi-modl-workflows",
+        "arn:aws:s3:::curi-modl-workflows/*"
       ]
     },
     {
@@ -80,7 +82,15 @@
         "arn:aws:s3:::prod-channel-firmware",
         "arn:aws:s3:::prod-channel-firmware/*",
         "arn:aws:s3:::prod-mantarray-logs",
-        "arn:aws:s3:::prod-mantarray-logs/*"
+        "arn:aws:s3:::prod-mantarray-logs/*",
+        "arn:aws:s3:::curi-eks-modl-cluster-tf-state",
+        "arn:aws:s3:::curi-eks-modl-cluster-tf-state/*",
+        "arn:aws:s3:::modl-main-firmware",
+        "arn:aws:s3:::modl-main-firmware/*",
+        "arn:aws:s3:::modl-channel-firmware",
+        "arn:aws:s3:::modl-channel-firmware/*",
+        "arn:aws:s3:::modl-mantarray-logs",
+        "arn:aws:s3:::modl-mantarray-logs/*"
       ]
     }
   ]

@@ -41,14 +41,6 @@ resource "kubernetes_service_account" "service_account" {
   automount_service_account_token = true
 }
 
-
-resource "aws_iam_role_policy" "workflow_pod_iam_role_policy" {
-  name = "workflow-pods-iam-role01"
-  role = aws_iam_role.workflow_pods.id
-
-  policy = file("${path.module}/json/argo_namespace_iam_policy.json")
-}
-
 data "aws_iam_policy_document" "workflows_pods" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -74,6 +66,12 @@ resource "aws_iam_role" "workflow_pods" {
 }
 
 
+resource "aws_iam_role_policy" "workflow_pod_iam_role_policy" {
+  name = "workflow-pods-iam-role01"
+  role = aws_iam_role.workflow_pods.id
+
+  policy = file("${path.module}/json/argo_namespace_iam_policy.json")
+}
 
 resource "aws_iam_role_policy" "pulse3d_pod_iam_role_policy" {
   name = "pulse3d-pods-iam-role01"
