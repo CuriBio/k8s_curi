@@ -103,13 +103,12 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
   }, []);
 
   useEffect(() => {
-    if (maxAnalyses !== -1) {
-      const pollingUsageQuota = setInterval(async () => {
-        await pollUsageQuota();
-      }, 1e4);
-
-      return () => clearInterval(pollingUsageQuota);
-    }
+    // if (maxAnalyses !== -1) {
+    //   const pollingUsageQuota = setInterval(async () => {
+    //     await pollUsageQuota();
+    //   }, 1e4);
+    //   return () => clearInterval(pollingUsageQuota);
+    // }
   }, []);
 
   const UpgradeButtonElement = (
