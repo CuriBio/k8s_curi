@@ -60,17 +60,19 @@ const getPeaksValleysFromTable = async (table) => {
   const wellNames = new Set(columns.map((name) => name.split("__")[0]));
 
   // filter out null values (0) and some values get randomly parsed to bigint values which cannot be converted to JSON
-  const columnData = table.data[0].children.map(({ values }) =>
-    Array.from(values)
+  const columnData = table.data[0].children.map(({ values }) => {
+    return Array.from(values)
       .filter((idx) => idx !== 0)
-      .map((val) => (typeof val === "bigint" ? parseInt(val) : val))
-  );
+      .map((val) => (typeof val === "bigint" ? parseInt(val) : val));
+  });
 
   const peaksValleysObj = {};
   for (const well of wellNames) {
-    // assign each well [[...peaks], [...valleys]]
-    const [peaksIdx, valleysIdx] = ["peaks", "valleys"].map((type) => columns.indexOf(`${well}__${type}`));
-    peaksValleysObj[well] = [columnData[peaksIdx], columnData[valleysIdx]];
+    if (columns.indexOf(`${well}__peaks`) !== -1) {
+      // assign each well [[...peaks], [...valleys]]
+      const [peaksIdx, valleysIdx] = ["peaks", "valleys"].map((type) => columns.indexOf(`${well}__${type}`));
+      peaksValleysObj[well] = [columnData[peaksIdx], columnData[valleysIdx]];
+    }
   }
 
   return peaksValleysObj;
@@ -79,7 +81,8 @@ const getPeaksValleysFromTable = async (table) => {
 const getWaveformCoordsFromTable = async (table, normalizeYAxis) => {
   const columns = table.schema.fields.map(({ name }) => name);
   const wellNames = columns.filter(
-    (name) => !name.includes("__raw") && !name.includes("__stim") && !name.includes("Time") && !name.includes("level")
+    (name) =>
+      !name.includes("__raw") && !name.includes("__stim") && !name.includes("Time") && !name.includes("level")
   );
   const columnData = table.data[0].children.map(({ values }) => Array.from(values));
   // occassionally recordings end in a bunch of NaN/0 values if stim data is present so they need to be filtered out here
@@ -90,14 +93,16 @@ const getWaveformCoordsFromTable = async (table, normalizeYAxis) => {
   for (const well of wellNames) {
     // some analyses may only include a few xlsx files, not all wells
     const wellForceIdx = columns.indexOf(well);
-    let wellForce = columnData[wellForceIdx];
+    if (wellForceIdx !== -1) {
+      let wellForce = columnData[wellForceIdx];
 
-    if (normalizeYAxis) {
-      const minForce = Math.min(...wellForce);
-      wellForce = wellForce.map((val) => val - minForce);
+      if (normalizeYAxis) {
+        const minForce = Math.min(...wellForce);
+        wellForce = wellForce.map((val) => val - minForce);
+      }
+
+      coordinatesObj[well] = time.map((time, i) => [time / 1e6, wellForce[i]]);
     }
-
-    coordinatesObj[well] = time.map((time, i) => [time / 1e6, wellForce[i]]);
   }
 
   return coordinatesObj;

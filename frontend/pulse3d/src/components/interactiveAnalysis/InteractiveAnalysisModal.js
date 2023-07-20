@@ -21,7 +21,8 @@ const Container = styled.div`
   flex-direction: column;
   align-items: center;
   overflow: hidden;
-  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%), 0px 3px 14px 2px rgb(0 0 0 / 12%);
+  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
+    0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
 
 const HeaderContainer = styled.div`
@@ -81,7 +82,8 @@ const GraphContainer = styled.div`
   padding: 0px 15px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%), 0px 3px 14px 2px rgb(0 0 0 / 12%);
+  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
+    0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
 
 const SpinnerContainer = styled.div`
@@ -125,7 +127,10 @@ const IconStyle = {
 const constantModalLabels = {
   success: {
     header: "Success!",
-    messages: ["You have successfully started a new analysis.", "It will appear in the uploads table shortly."],
+    messages: [
+      "You have successfully started a new analysis.",
+      "It will appear in the uploads table shortly.",
+    ],
     buttons: ["Close"],
   },
   error: {
@@ -237,7 +242,11 @@ const formatCoords = ([x, y]) => {
   return `[ ${formatFloat(x)}, ${formatFloat(y)} ]`;
 };
 
-export default function InteractiveWaveformModal({ selectedJob, setOpenInteractiveAnalysis, numberOfJobsInUpload }) {
+export default function InteractiveWaveformModal({
+  selectedJob,
+  setOpenInteractiveAnalysis,
+  numberOfJobsInUpload,
+}) {
   // this hook gets waveform data no matter what first
   // a useEffect watching the error and loading states kicks off next step
   const { waveformData, featureIndicies, getErrorState, getLoadingState } = useWaveformData(
@@ -766,7 +775,11 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   };
 
   const setBothLinesToDefault = (well) => {
-    customAnalysisSettingsInitializers.thresholdEndpoints(well, "peaks", findInitialThresholdForFeature(well, "peaks"));
+    customAnalysisSettingsInitializers.thresholdEndpoints(
+      well,
+      "peaks",
+      findInitialThresholdForFeature(well, "peaks")
+    );
     customAnalysisSettingsInitializers.thresholdEndpoints(
       well,
       "valleys",
@@ -774,7 +787,11 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
     );
   };
 
-  const filterAndSortFeatures = (wellCoords, windowedAnalysisBounds, { allFeatureIndices, thresholdEndpoints }) => {
+  const filterAndSortFeatures = (
+    wellCoords,
+    windowedAnalysisBounds,
+    { allFeatureIndices, thresholdEndpoints }
+  ) => {
     allFeatureIndices = deepCopy(allFeatureIndices);
 
     const { start, end } = windowedAnalysisBounds;
@@ -800,7 +817,9 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
               featureMarkerX
             );
             isFeatureWithinThreshold =
-              featureType === "peaks" ? featureMarkerY >= featureThresholdY : featureMarkerY <= featureThresholdY;
+              featureType === "peaks"
+                ? featureMarkerY >= featureThresholdY
+                : featureMarkerY <= featureThresholdY;
           }
 
           return isFeatureWithinThreshold && isFeatureWithinWindow;
@@ -871,7 +890,6 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
   // Luci (12-14-2022) this component gets mounted twice and we don't want this expensive function to request waveform data to be called twice. This ensures it is only called once per job selection
   useEffect(() => {
     if (getErrorState) {
-      console.log("ERROR getting waveform data:", e);
       // open error modal and kick users back to /uploads page if random  error
       setModalLabels(constantModalLabels.error);
       setModalOpen("status");
@@ -880,7 +898,7 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
         if (Object.keys(waveformData).length === 24) {
           return true;
         } else {
-          const minVersion = Object.keys(waveformData).length < 24 ? "0.32.2" : "0.33.11";
+          const minVersion = Object.keys(waveformData).length < 24 ? "0.32.2" : "0.33.13";
           return semverGte(v, minVersion);
         }
       });
@@ -961,7 +979,11 @@ export default function InteractiveWaveformModal({ selectedJob, setOpenInteracti
           <ParamLabel htmlFor="selectedPulse3dVersion">
             Pulse3d Version:
             <Tooltip
-              title={<TooltipText>{"Specifies which version of the pulse3d analysis software to use."}</TooltipText>}
+              title={
+                <TooltipText>
+                  {"Specifies which version of the pulse3d analysis software to use."}
+                </TooltipText>
+              }
             >
               <InfoOutlinedIcon sx={IconStyle} />
             </Tooltip>
