@@ -79,8 +79,7 @@ const getPeaksValleysFromTable = async (table) => {
 const getWaveformCoordsFromTable = async (table, normalizeYAxis) => {
   const columns = table.schema.fields.map(({ name }) => name);
   const wellNames = columns.filter(
-    (name) =>
-      !name.includes("__raw") && !name.includes("__stim") && !name.includes("Time") && !name.includes("level")
+    (name) => !name.includes("__raw") && !name.includes("__stim") && !name.includes("Time") && !name.includes("level")
   );
   const columnData = table.data[0].children.map(({ values }) => Array.from(values));
   // occassionally recordings end in a bunch of NaN/0 values if stim data is present so they need to be filtered out here

@@ -1,36 +1,66 @@
 from playwright.async_api import async_playwright
 import pytest_asyncio
 import pytest
+import os
 import shutil
+import glob
 
-from config import TEST_URL, VALID_CUSTOMER_ID, VALID_USER_NAME, VALID_USER_PASSWORD, HEADLESS
+from config import (
+    TEST_URL,
+    VALID_CUSTOMER_ID,
+    VALID_USER_NAME,
+    VALID_USER_PASSWORD,
+    VALID_ADMIN_EMAIL,
+    VALID_ADMIN_PASSWORD,
+)
+
+
+def remove_empty_folders(path):
+    for dirpath, dirnames, files in os.walk(path, topdown=False):
+        if not dirnames and not files:
+            os.rmdir(dirpath)
 
 
 # remove older videos if present
 @pytest.fixture(scope="session", autouse=True)
 def video_setup():
-    shutil.rmtree("./videos/")
+    videos_dir = "./utils/videos/"
+    if os.path.exists(videos_dir):
+        shutil.rmtree(videos_dir)
+    yield
+    remove_empty_folders(videos_dir)
 
 
-# set up basic browser and context
 @pytest_asyncio.fixture(scope="function", name="setup")
-async def setup(request):
-    async with async_playwright() as p:
-        test_name = request.node.name.split("[")[0]
+async def setup(request, view, noSlowmo):
+    test_folder = request.node.name.split("[")[0]
+    video_dir = f"./utils/videos/{test_folder}"
 
-        browser = await p.chromium.launch(headless=HEADLESS, slow_mo=1000)
-        context = await browser.new_context(record_video_dir=f"videos/{test_name}")
+    test_name = request.node.name
+    invalid_chars = ["\\", "<", ">", ":", '"', "/", "|", "?", "*", "[", "]"]
+    for char in invalid_chars:
+        test_name = test_name.replace(char, "_")
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=not view, slow_mo=0 if noSlowmo else 1000)
+        context = await browser.new_context(
+            record_video_dir=video_dir,
+        )
         page = await context.new_page()
 
         yield page
-
         await page.close()
         await context.close()
         await browser.close()
 
-        # save only videos of failed tests
-        if not request.node.rep_call.failed:
-            shutil.rmtree(f"./videos/{test_name}")
+        # save videos if failed test
+        list_of_files = glob.glob(os.path.join(video_dir, "*.webm"))
+        latest_file = max(list_of_files, key=os.path.getctime)
+
+        if request.node.rep_call.failed:
+            os.rename(latest_file, os.path.join(video_dir, f"{test_name}.webm"))
+        else:
+            os.remove(latest_file)
 
 
 # navigate to login page
@@ -44,10 +74,13 @@ async def basic_page(setup):
     yield setup
 
 
-# login before running test
+# login before user test
 @pytest_asyncio.fixture(scope="function", name="user_logged_in_page")
 async def user_logged_in_page(basic_page):
+    # click to select login form for user
     await basic_page.click("text=User")
+
+    # get input fields
     customer_id_input = basic_page.get_by_placeholder("CuriBio")
     user_name_input = basic_page.get_by_placeholder("user")
     password_input = basic_page.get_by_placeholder("Password")
@@ -65,6 +98,34 @@ async def user_logged_in_page(basic_page):
     await basic_page.wait_for_url("**/uploads")
 
     # test login success
+    assert basic_page.url == f"https://{TEST_URL}/uploads"
+
+    yield basic_page
+
+
+# login before admin tests
+@pytest_asyncio.fixture(scope="function", name="admin_logged_in_page")
+async def admin_logged_in_page(basic_page):
+    # click to select login form for admin
+    await basic_page.click("text=Admin")
+
+    # get input fields
+    email_Input = basic_page.get_by_placeholder("user@curibio.com")
+    password_Input = basic_page.get_by_placeholder("Password")
+
+    # check correct input form displayed
+    assert await email_Input.is_visible()
+    assert await password_Input.is_visible()
+
+    # populate form with valid credentials
+    await email_Input.fill(VALID_ADMIN_EMAIL)
+    await password_Input.fill(VALID_ADMIN_PASSWORD)
+
+    # submit form
+    await basic_page.click("text=Submit")
+    await basic_page.wait_for_url("**/uploads")
+
+    # check that the login was successful
     assert basic_page.url == f"https://{TEST_URL}/uploads"
 
     yield basic_page

@@ -21,8 +21,7 @@ const Container = styled.div`
   flex-direction: column;
   align-items: center;
   overflow: hidden;
-  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
-    0px 3px 14px 2px rgb(0 0 0 / 12%);
+  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%), 0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
 
 const HeaderContainer = styled.div`
@@ -82,8 +81,7 @@ const GraphContainer = styled.div`
   padding: 0px 15px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
-    0px 3px 14px 2px rgb(0 0 0 / 12%);
+  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%), 0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
 
 const SpinnerContainer = styled.div`
@@ -127,10 +125,7 @@ const IconStyle = {
 const constantModalLabels = {
   success: {
     header: "Success!",
-    messages: [
-      "You have successfully started a new analysis.",
-      "It will appear in the uploads table shortly.",
-    ],
+    messages: ["You have successfully started a new analysis.", "It will appear in the uploads table shortly."],
     buttons: ["Close"],
   },
   error: {
@@ -242,11 +237,7 @@ const formatCoords = ([x, y]) => {
   return `[ ${formatFloat(x)}, ${formatFloat(y)} ]`;
 };
 
-export default function InteractiveWaveformModal({
-  selectedJob,
-  setOpenInteractiveAnalysis,
-  numberOfJobsInUpload,
-}) {
+export default function InteractiveWaveformModal({ selectedJob, setOpenInteractiveAnalysis, numberOfJobsInUpload }) {
   // this hook gets waveform data no matter what first
   // a useEffect watching the error and loading states kicks off next step
   const { waveformData, featureIndicies, getErrorState, getLoadingState } = useWaveformData(
@@ -775,11 +766,7 @@ export default function InteractiveWaveformModal({
   };
 
   const setBothLinesToDefault = (well) => {
-    customAnalysisSettingsInitializers.thresholdEndpoints(
-      well,
-      "peaks",
-      findInitialThresholdForFeature(well, "peaks")
-    );
+    customAnalysisSettingsInitializers.thresholdEndpoints(well, "peaks", findInitialThresholdForFeature(well, "peaks"));
     customAnalysisSettingsInitializers.thresholdEndpoints(
       well,
       "valleys",
@@ -787,11 +774,7 @@ export default function InteractiveWaveformModal({
     );
   };
 
-  const filterAndSortFeatures = (
-    wellCoords,
-    windowedAnalysisBounds,
-    { allFeatureIndices, thresholdEndpoints }
-  ) => {
+  const filterAndSortFeatures = (wellCoords, windowedAnalysisBounds, { allFeatureIndices, thresholdEndpoints }) => {
     allFeatureIndices = deepCopy(allFeatureIndices);
 
     const { start, end } = windowedAnalysisBounds;
@@ -817,9 +800,7 @@ export default function InteractiveWaveformModal({
               featureMarkerX
             );
             isFeatureWithinThreshold =
-              featureType === "peaks"
-                ? featureMarkerY >= featureThresholdY
-                : featureMarkerY <= featureThresholdY;
+              featureType === "peaks" ? featureMarkerY >= featureThresholdY : featureMarkerY <= featureThresholdY;
           }
 
           return isFeatureWithinThreshold && isFeatureWithinWindow;
@@ -980,11 +961,7 @@ export default function InteractiveWaveformModal({
           <ParamLabel htmlFor="selectedPulse3dVersion">
             Pulse3d Version:
             <Tooltip
-              title={
-                <TooltipText>
-                  {"Specifies which version of the pulse3d analysis software to use."}
-                </TooltipText>
-              }
+              title={<TooltipText>{"Specifies which version of the pulse3d analysis software to use."}</TooltipText>}
             >
               <InfoOutlinedIcon sx={IconStyle} />
             </Tooltip>
