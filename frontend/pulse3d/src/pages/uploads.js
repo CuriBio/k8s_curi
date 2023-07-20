@@ -407,15 +407,15 @@ export default function Uploads() {
     if (uploads) {
       getAllJobs();
 
-      // if (uploads.length > 0) {
-      //   const statusUpdateInterval = setInterval(async () => {
-      //     if (!["downloading", "deleting"].includes(modalState) && !openInteractiveAnalysis) {
-      //       await getAllJobs();
-      //     }
-      //   }, [1e4]);
+      if (uploads.length > 0) {
+        const statusUpdateInterval = setInterval(async () => {
+          if (!["downloading", "deleting"].includes(modalState) && !openInteractiveAnalysis) {
+            await getAllJobs();
+          }
+        }, [1e4]);
 
-      // return () => clearInterval(statusUpdateInterval);
-      // }
+        return () => clearInterval(statusUpdateInterval);
+      }
     }
   }, [uploads]);
 
