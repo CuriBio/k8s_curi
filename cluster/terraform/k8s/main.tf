@@ -70,7 +70,7 @@ resource "aws_iam_role_policy" "workflow_pod_iam_role_policy" {
   name = "workflow-pods-iam-role01"
   role = aws_iam_role.workflow_pods.id
 
-  policy = file("${path.module}/json/argo_namespace_iam_policy.json")
+  policy = file("${path.module}/json/argo_ns_${var.cluster_name}_iam_policy.json")
 }
 
 resource "aws_iam_role_policy" "pulse3d_pod_iam_role_policy" {
