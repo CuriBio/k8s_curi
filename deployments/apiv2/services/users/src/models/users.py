@@ -27,7 +27,7 @@ class CustomerLogin(BaseModel):
 
 
 class UserLogin(BaseModel):
-    customer_id: UUID
+    customer_id: UUID | str
     username: str
     password: SecretStr
     service: str

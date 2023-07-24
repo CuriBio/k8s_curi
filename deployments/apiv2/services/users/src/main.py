@@ -90,6 +90,7 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
     """
     ph = PasswordHasher()
 
+    # Tanner (7/24/23): checking the type instead of using isinstance here in case UserLogin and CustomerLogin are ever put into the class hierarchy which would cause the isinstance approach to fail in some cases
     is_customer_login_attempt = type(details) is CustomerLogin
 
     if is_customer_login_attempt:
@@ -100,7 +101,6 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
             "FROM customers WHERE deleted_at IS NULL AND email = $1"
         )
         select_query_params = (email,)
-        customer_id = None
 
         update_last_login_query = (
             "UPDATE customers SET last_login = $1 WHERE deleted_at IS NULL AND email = $2"
@@ -111,12 +111,20 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
         username = details.username.lower()
         # suspended is for deactivated accounts and verified is for new users needing to verify through email
         # select for service specific usage restrictions listed under the customer account
-        select_query = "SELECT password, id, data->'scope' AS scope FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND suspended='f' AND verified='t'"
-        select_query_params = (username, str(details.customer_id))
-        customer_id = details.customer_id
 
-        update_last_login_query = "UPDATE users SET last_login = $1 WHERE deleted_at IS NULL AND name = $2 AND customer_id=$3 AND suspended='f' AND verified='t'"
-        update_last_login_params = (datetime.now(), username, str(details.customer_id))
+        select_query = (
+            "SELECT u.password, u.id, u.data->'scope' AS scope, u.customer_id "
+            "FROM users AS u JOIN customers AS c ON u.customer_id = c.id "
+            "WHERE deleted_at IS NULL AND name=$1 AND (customer_id=$2 OR c.alias=$2) AND suspended='f' AND verified='t'"
+        )
+        select_query_params = (username, str(details.customer_id))
+
+        update_last_login_query = (
+            "UPDATE users SET last_login=$1 "
+            "WHERE deleted_at IS NULL AND name=$2 AND customer_id=$3 AND suspended='f' AND verified='t'"
+        )
+        # the value for customer ID will be added later
+        update_last_login_params = (datetime.now(), username)
 
     client_type = details.client_type if details.client_type else "unknown"
     logger.info(f"{account_type.title()} login attempt from client '{client_type}'")
@@ -148,8 +156,8 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
             else:
                 # both users and customers have scopes
                 # check account usage quotas
-                cust_id = customer_id if customer_id is not None else row["id"]
-                usage_quota = await check_customer_quota(con, str(cust_id), details.service)
+                customer_id = row["id" if is_customer_login_attempt else "customer_id"]
+                usage_quota = await check_customer_quota(con, str(customer_id), details.service)
                 scope = json.loads(row.get("scope", "[]"))
 
                 if is_customer_login_attempt:
@@ -161,8 +169,10 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
                     # replace with customer scope
                     _, customer_tier = split_scope_account_data(scope[0])
                     scope[0] = f"customer:{customer_tier}"
+                else:
+                    update_last_login_params = (*update_last_login_params, str(customer_id))
 
-                # if login was successful, then update last_login column to now
+                # if login was successful, then update last_login column value to now
                 await con.execute(update_last_login_query, *update_last_login_params)
 
                 tokens = await _create_new_tokens(con, row["id"], customer_id, scope, account_type)
@@ -233,9 +243,9 @@ async def _create_new_tokens(db_con, userid, customer_id, scope, account_type):
 
     # insert refresh token into DB
     if account_type == "customer":
-        update_query = "UPDATE customers SET refresh_token = $1 WHERE id = $2"
+        update_query = "UPDATE customers SET refresh_token=$1 WHERE id=$2"
     else:
-        update_query = "UPDATE users SET refresh_token = $1 WHERE id = $2"
+        update_query = "UPDATE users SET refresh_token=$1 WHERE id=$2"
 
     await db_con.execute(update_query, refresh.token, userid)
 
