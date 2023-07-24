@@ -21,4 +21,5 @@ def upgrade():
 
 
 def downgrade():
+    op.execute("ALTER TABLE customers DROP CONSTRAINT customers_alias_key")
     op.execute("ALTER TABLE customers DROP COLUMN alias")
