@@ -71,7 +71,7 @@ async def startup():
     async with pool.acquire() as con:
         # might be a better way to do this without using global
         global CB_CUSTOMER_ID
-        CB_CUSTOMER_ID = await con.fetchval("SELECT id FROM customers WHERE email = 'software@curibio.com'")
+        CB_CUSTOMER_ID = await con.fetchval("SELECT id FROM customers WHERE email='software@curibio.com'")
 
 
 @app.post("/login", response_model=LoginResponse)
@@ -98,13 +98,11 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
         email = details.email.lower()
         select_query = (
             "SELECT password, id, data->'scope' AS scope "
-            "FROM customers WHERE deleted_at IS NULL AND email = $1"
+            "FROM customers WHERE deleted_at IS NULL AND email=$1"
         )
         select_query_params = (email,)
 
-        update_last_login_query = (
-            "UPDATE customers SET last_login = $1 WHERE deleted_at IS NULL AND email = $2"
-        )
+        update_last_login_query = "UPDATE customers SET last_login=$1 WHERE deleted_at IS NULL AND email=$2"
         update_last_login_params = (datetime.now(), email)
     else:
         account_type = "user"
@@ -122,7 +120,7 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
             # if no UUID given, the check against the customer account alias
             select_query = (
                 "SELECT u.password, u.id, u.data->'scope' AS scope, u.customer_id "
-                "FROM users AS u JOIN customers AS c ON u.customer_id = c.id "
+                "FROM users AS u JOIN customers AS c ON u.customer_id=c.id "
                 "WHERE u.deleted_at IS NULL AND u.name=$1 AND c.alias=$2 AND u.suspended='f' AND u.verified='t'"
             )
         select_query_params = (username, str(details.customer_id))
@@ -217,9 +215,9 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
     account_type = token["account_type"]
 
     if account_type == "customer":
-        select_query = "SELECT refresh_token FROM customers WHERE id = $1"
+        select_query = "SELECT refresh_token FROM customers WHERE id=$1"
     else:
-        select_query = "SELECT refresh_token, customer_id FROM users WHERE id = $1"
+        select_query = "SELECT refresh_token, customer_id FROM users WHERE id=$1"
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -521,7 +519,7 @@ async def update_accounts(
         user_id = uuid.UUID(hex=token["userid"])
 
         is_customer = "customer:reset" in token["scope"]
-        is_user = "users" in token["scope"][0]
+        is_user = any("users" in scope for scope in token["scope"])
         # must be either a customer or user. Cannot be both or neither
         if not (is_customer ^ is_user):
             logger.error(f"PUT /{user_id}: Invalid scope(s): {token['scope']}")
@@ -695,25 +693,25 @@ async def update_user(
                 query_args = (details.new_alias, self_id)
             else:
                 raise HTTPException(
-                    status_code=status.HTTP_403_BAD_REQUEST,
+                    status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Invalid customer-edit-self action: {action}",
                 )
         else:
             # Tanner (7/25/23): there are currently no actions a user account can take on itself
             raise HTTPException(
-                status_code=status.HTTP_403_BAD_REQUEST, detail=f"Invalid user-edit-self action: {action}"
+                status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid user-edit-self action: {action}"
             )
     else:
         if action in ("deactivate", "reactivate"):
             suspended = action == "deactivate"
-            update_query = "UPDATE users SET suspended=$1 WHERE id=$2 and customer_id=$3"
+            update_query = "UPDATE users SET suspended=$1 WHERE id=$2 AND customer_id=$3"
             query_args = (suspended, account_id, self_id)
         elif action == "delete":
-            update_query = "UPDATE users SET deleted_at=$1 WHERE id=$2 and customer_id=$3"
+            update_query = "UPDATE users SET deleted_at=$1 WHERE id=$2 AND customer_id=$3"
             query_args = (datetime.now(), account_id, self_id)
         else:
             raise HTTPException(
-                status_code=status.HTTP_403_BAD_REQUEST, detail=f"Invalid customer-edit-user action: {action}"
+                status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid customer-edit-user action: {action}"
             )
 
     try:
