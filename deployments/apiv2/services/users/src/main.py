@@ -143,8 +143,6 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
             select_query_result = await con.fetchrow(select_query, *select_query_params)
             pw = details.password.get_secret_value()
 
-            logger.info(f"!!! {select_query_result}")
-
             # if no record is returned by query then fetchrow will return None,
             # so need to set to a dict with a bad password hash
             if select_query_result is None:
@@ -189,7 +187,6 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
                 # if login was successful, then update last_login column value to now
                 await con.execute(update_last_login_query, *update_last_login_params)
 
-                logger.info(f"$$$ {select_query_result['id']}, {customer_id}, {scope}, {account_type}")
                 tokens = await _create_new_tokens(
                     con, select_query_result["id"], customer_id, scope, account_type
                 )
