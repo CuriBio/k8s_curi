@@ -109,14 +109,22 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
     else:
         account_type = "user"
         username = details.username.lower()
-        # suspended is for deactivated accounts and verified is for new users needing to verify through email
         # select for service specific usage restrictions listed under the customer account
-
-        select_query = (
-            "SELECT u.password, u.id, u.data->'scope' AS scope, u.customer_id "
-            "FROM users AS u JOIN customers AS c ON u.customer_id = c.id "
-            "WHERE deleted_at IS NULL AND name=$1 AND (customer_id=$2 OR c.alias=$2) AND suspended='f' AND verified='t'"
-        )
+        # suspended is for deactivated accounts and verified is for new users needing to verify through email
+        # Tanner (7/25/23): need to use separate queries since asyncpg will raise an error if the value passed in to be compared against customer_id is not a UUID
+        if isinstance(details.customer_id, uuid.UUID):
+            # if a UUID was given in the request then check against the customer ID
+            select_query = (
+                "SELECT password, id, data->'scope' AS scope, customer_id FROM users "
+                "WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND suspended='f' AND verified='t'"
+            )
+        else:
+            # if no UUID given, the check against the customer account alias
+            select_query = (
+                "SELECT u.password, u.id, u.data->'scope' AS scope, u.customer_id "
+                "FROM users AS u JOIN customers AS c ON u.customer_id = c.id "
+                "WHERE u.deleted_at IS NULL AND u.name=$1 AND c.alias=$2 AND u.suspended='f' AND u.verified='t'"
+            )
         select_query_params = (username, str(details.customer_id))
 
         update_last_login_query = (
@@ -132,18 +140,20 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
     failed_msg = "Invalid credentials"
     try:
         async with request.state.pgpool.acquire() as con:
-            row = await con.fetchrow(select_query, *select_query_params)
+            select_query_result = await con.fetchrow(select_query, *select_query_params)
             pw = details.password.get_secret_value()
+
+            logger.info(f"!!! {select_query_result}")
 
             # if no record is returned by query then fetchrow will return None,
             # so need to set to a dict with a bad password hash
-            if row is None:
-                row = {"password": "x" * 100}
+            if select_query_result is None:
+                select_query_result = {"password": "x" * 100}
 
             try:
                 # at this point, if no "password" key is present,
                 # then there is an issue with the table in the database
-                ph.verify(row["password"], pw)
+                ph.verify(select_query_result["password"], pw)
             except VerifyMismatchError:
                 raise LoginError(failed_msg)
             except InvalidHash:
@@ -156,9 +166,9 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
             else:
                 # both users and customers have scopes
                 # check account usage quotas
-                customer_id = row["id" if is_customer_login_attempt else "customer_id"]
+                customer_id = select_query_result["id" if is_customer_login_attempt else "customer_id"]
                 usage_quota = await check_customer_quota(con, str(customer_id), details.service)
-                scope = json.loads(row.get("scope", "[]"))
+                scope = json.loads(select_query_result.get("scope", "[]"))
 
                 if is_customer_login_attempt:
                     # get tier of service scope in list of customer scopes
@@ -169,13 +179,20 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
                     # replace with customer scope
                     _, customer_tier = split_scope_account_data(scope[0])
                     scope[0] = f"customer:{customer_tier}"
+                    # customer account tokens don't require a customer ID
+                    customer_id = None
                 else:
+                    # Tanner (7/25/23): using the customer ID returned from the select query since the customer ID
+                    # field passed in with the request may contain an alias
                     update_last_login_params = (*update_last_login_params, str(customer_id))
 
                 # if login was successful, then update last_login column value to now
                 await con.execute(update_last_login_query, *update_last_login_params)
 
-                tokens = await _create_new_tokens(con, row["id"], customer_id, scope, account_type)
+                logger.info(f"$$$ {select_query_result['id']}, {customer_id}, {scope}, {account_type}")
+                tokens = await _create_new_tokens(
+                    con, select_query_result["id"], customer_id, scope, account_type
+                )
                 return LoginResponse(tokens=tokens, usage_quota=usage_quota)
 
     except LoginError as e:
