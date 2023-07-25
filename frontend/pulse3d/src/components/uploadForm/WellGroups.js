@@ -93,7 +93,7 @@ export default function AnalysisParamForm({ setAnalysisParams, analysisParams, s
 
   const validateGroupName = (name) => {
     let feedback = "";
-    const valid_regex = new RegExp("^[0-9A-Za-z _-]+$");
+    const valid_regex = new RegExp("^[0-9A-Za-z ./_-]+$");
     if (name.length > 0) {
       if (!valid_regex.test(name)) feedback = "*Invalid character present.";
       else if (localGroups.filter((group) => group.name.toLowerCase() === name.toLowerCase()).length > 1)
