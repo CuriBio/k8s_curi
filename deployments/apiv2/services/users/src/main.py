@@ -30,7 +30,7 @@ from models.users import (
     UserCreate,
     CustomerProfile,
     UserProfile,
-    UserAction,
+    AccountUpdateAction,
     LoginResponse,
     PasswordModel,
     UnableToUpdateAccountResponse,
@@ -663,34 +663,65 @@ async def get_user(request: Request, user_id: uuid.UUID, token=Depends(Protected
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.put("/{user_id}")
+@app.put("/{account_id}")
 async def update_user(
     request: Request,
-    details: UserAction,
-    user_id: uuid.UUID,
+    details: AccountUpdateAction,
+    account_id: uuid.UUID,
     token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES)),
 ):
-    """Update a user's information in the database.
+    """Update an account's information in the database.
+
+    There are three classes of actions that can be taken:
+        - a customer account updating one of its user accounts
+        - a customer account updating itself
+        - a user account updating itself (not yet available)
 
     The action to take on the user should be passed in the body of PUT request as action_type:
-        - deactivate: set suspended field to true
-        - delete: set deleted_at field to current time
+        - deactivate (customer->user): set suspended field to true
+        - delete (customer->user): set deleted_at field to current time
+        - set_alias (customer->self): set the alias field to the given value
     """
+    self_id = uuid.UUID(hex=token["userid"])
     action = details.action_type
 
-    if action in ("deactivate", "reactivate"):
-        suspended = action == "deactivate"
-        update_query = "UPDATE users SET suspended=$1 WHERE id=$2"
-        query_args = (suspended, user_id)
-    elif action == "delete":
-        update_query = "UPDATE users SET deleted_at=$1 WHERE id=$2"
-        query_args = (datetime.now(), user_id)
+    # TODO also need to check scope below once user self edit actions are added
+
+    if self_id == account_id:
+        if token["account_type"] == "customer":
+            if action == "set_alias":
+                if not details.new_alias:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST, detail="Alias must be provided"
+                    )
+                update_query = "UPDATE customers SET alias=$1 WHERE id=$2"
+                query_args = (details.new_alias, self_id)
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_403_BAD_REQUEST,
+                    detail=f"Invalid customer-edit-self action: {action}",
+                )
+        else:
+            # Tanner (7/25/23): there are currently no actions a user account can take on itself
+            raise HTTPException(
+                status_code=status.HTTP_403_BAD_REQUEST, detail=f"Invalid user-edit-self action: {action}"
+            )
     else:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid action type")
+        if action in ("deactivate", "reactivate"):
+            suspended = action == "deactivate"
+            update_query = "UPDATE users SET suspended=$1 WHERE id=$2 and customer_id=$3"
+            query_args = (suspended, account_id, self_id)
+        elif action == "delete":
+            update_query = "UPDATE users SET deleted_at=$1 WHERE id=$2 and customer_id=$3"
+            query_args = (datetime.now(), account_id, self_id)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_403_BAD_REQUEST, detail=f"Invalid customer-edit-user action: {action}"
+            )
 
     try:
         async with request.state.pgpool.acquire() as con:
             await con.execute(update_query, *query_args)
     except Exception:
-        logger.exception(f"PUT /{user_id}: Unexpected error")
+        logger.exception(f"PUT /{account_id}: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

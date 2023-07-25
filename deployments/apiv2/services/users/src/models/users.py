@@ -98,8 +98,9 @@ class CustomerProfile(BaseModel):
     scope: list[str]
 
 
-class UserAction(BaseModel):
+class AccountUpdateAction(BaseModel):
     action_type: str
+    new_alias: str | None
 
 
 class UnableToUpdateAccountResponse(BaseModel):
