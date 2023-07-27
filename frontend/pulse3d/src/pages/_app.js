@@ -28,7 +28,7 @@ export const AuthContext = createContext();
 
 const availablePages = {
   user: ["/uploads", "/upload-form", "/account", "/account-settings"],
-  admin: ["/uploads", "/new-user", "/users-info"],
+  admin: ["/uploads", "/new-user", "/users-info", "/account-settings"],
 };
 
 function Pulse({ Component, pageProps }) {

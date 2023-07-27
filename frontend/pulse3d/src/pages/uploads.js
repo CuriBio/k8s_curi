@@ -153,6 +153,7 @@ export default function Uploads() {
   const [pending, setPending] = useState(true);
   const [filterString, setFilterString] = useState("");
   const [filterColumn, setFilterColumn] = useState("");
+  // TODO could probably put all these widths in the same object
   const [ownerWidth, setOwnerWidth] = useState("10%");
   const [recordingWidth, setRecordingWidth] = useState("30%");
   const [uploadWidth, setUploadWidth] = useState("25%");

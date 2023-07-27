@@ -1,8 +1,10 @@
 import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { useRouter } from "next/router";
 import { useContext, useEffect, useState } from "react";
 import { AuthContext } from "@/pages/_app";
 import styled from "styled-components";
 import UsageWidgetFull from "@/components/basicWidgets/UsageWidgetFull";
+import AdminAccountOptions from "@/components/account/AdminAccountOptions";
 
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
@@ -17,11 +19,19 @@ const BackgroundContainer = styled.div`
 `;
 
 export default function AccountSettings() {
-  const { usageQuota } = useContext(AuthContext);
+  const router = useRouter();
+  const { accountType, usageQuota } = useContext(AuthContext);
   const [jobsLimit, setJobsLimit] = useState(-1);
   const [currentJobUsage, setCurrentJobUsage] = useState(0);
   const [endDate, setEndDate] = useState(null);
   const [daysLeft, setDaysLeft] = useState(0);
+
+  const [accountSettings, setAccountSettings] = useState({});
+
+  // get account settings at load
+  useEffect(() => {
+    getAccountSettings();
+  }, []);
 
   useEffect(() => {
     if (usageQuota && usageQuota.limits && usageQuota.current) {
@@ -40,18 +50,34 @@ export default function AccountSettings() {
     }
   }, [usageQuota]);
 
+  // prevent user from accessing account settings page for now since it only contains admin options
+  useEffect(() => {
+    console.log("!!!", accountType, router.query.id);
+    if (accountType === "user" && router.query.id === "Account Details") {
+      router.replace("/account-settings?id=Usage+Details", undefined, { shallow: true });
+    }
+  }, [accountType, router.query]);
+
+  const getAccountSettings = async () => {
+    setAccountSettings(await fetch("TODO"));
+  };
+
   return (
     <BackgroundContainer>
-      <UsageWidgetFull
-        metricName="Analysis"
-        limitUsage={jobsLimit}
-        actualUsage={currentJobUsage}
-        subscriptionName={"Basic"}
-        daysLeft={daysLeft}
-        subscriptionEndDate={endDate}
-        colorOfTextLabel="black"
-        daysOfPlanLeft={daysLeft}
-      />
+      {router.query.id === "Account Details" ? (
+        <AdminAccountOptions accountSettings={accountSettings} />
+      ) : (
+        <UsageWidgetFull
+          metricName="Analysis"
+          limitUsage={jobsLimit}
+          actualUsage={currentJobUsage}
+          subscriptionName={"Basic"}
+          daysLeft={daysLeft}
+          subscriptionEndDate={endDate}
+          colorOfTextLabel="black"
+          daysOfPlanLeft={daysLeft}
+        />
+      )}
     </BackgroundContainer>
   );
 }
