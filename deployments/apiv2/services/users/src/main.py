@@ -175,6 +175,10 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+async def _update_failed_login_attempts(con, userid, count):
+    await con.execute("UPDATE users SET failed_login_attempts=$1 where id=$2", userid, count)
+
+
 @app.post("/refresh", response_model=AuthTokens, status_code=status.HTTP_201_CREATED)
 async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
     """Create a new access token and refresh token.
