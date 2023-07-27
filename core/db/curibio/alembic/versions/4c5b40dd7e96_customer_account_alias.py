@@ -18,6 +18,9 @@ depends_on = None
 def upgrade():
     op.execute("ALTER TABLE customers ADD COLUMN alias VARCHAR(128)")
     op.execute("ALTER TABLE customers ADD CONSTRAINT customers_alias_key UNIQUE (alias)")
+    op.execute(
+        "ALTER TABLE customers ADD CONSTRAINT customers_alias_min_length CHECK (alias IS NULL OR LENGTH(alias) >= 6)"
+    )
 
 
 def downgrade():

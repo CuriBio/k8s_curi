@@ -61,8 +61,9 @@ export default function AccountSettings() {
 
   const getAccountSettings = async () => {
     const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/${accountId}`);
-    console.log("getAccountSettings", res);
-    setAccountSettings(res);
+    const data = await res.json();
+    console.log("getAccountSettings", data);
+    setAccountSettings(data);
   };
 
   return (

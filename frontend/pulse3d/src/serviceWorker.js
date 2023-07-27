@@ -43,7 +43,7 @@ const clearAccountType = () => {
 };
 
 const setAccountId = (id) => {
-  accountType = type;
+  accountId = id;
 };
 
 const clearAccountId = () => {

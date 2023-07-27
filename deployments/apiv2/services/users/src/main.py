@@ -118,6 +118,7 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
             )
         else:
             # if no UUID given, the check against the customer account alias
+            # TODO should make sure an alias is actually set here
             select_query = (
                 "SELECT u.password, u.id, u.data->'scope' AS scope, u.customer_id "
                 "FROM users AS u JOIN customers AS c ON u.customer_id=c.id "

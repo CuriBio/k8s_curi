@@ -34,7 +34,7 @@ const availablePages = {
 function Pulse({ Component, pageProps }) {
   const getLayout = Component.getLayout || ((page) => page);
   const router = useRouter();
-  const [accountInfo, setAccountInfo] = useState();
+  const [accountInfo, setAccountInfo] = useState({});
   const [showLoggedOutAlert, setLoggedOutAlert] = useState(false);
   const [usageQuota, setUsageQuota] = useState(null);
 

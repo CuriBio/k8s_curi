@@ -40,18 +40,21 @@ const ButtonContainer = styled.div`
 export default function AdminAccountOptions({ accountSettings, inProgress }) {
   const [accountSettingsEdits, setAccountSettingsEdits] = useState({});
 
+  // TODO enforce min and max length of alias
+
   return (
     <Container>
       <Header>Account Settings</Header>
       <FormInput
-        name="account_id_alias"
-        label="Account ID Alias"
-        placeholder={accountSettings.id_alias || "Orginization Name"}
-        value={accountSettingsEdits.id_alias}
+        name="account_alias"
+        label="Account Alias"
+        placeholder={accountSettings.alias || "Orginization Name"}
+        value={accountSettingsEdits.alias}
+        tooltipText={"Set an alias for the Customer ID field used when logging into a user account."}
         onChangeFn={(e) => {
           setAccountSettingsEdits({
             ...accountSettingsEdits,
-            id_alias: e.target.value,
+            alias: e.target.value,
           });
         }}
       />
