@@ -199,9 +199,10 @@ const interceptResponse = async (req, url) => {
   if (isLoginRequest(url)) {
     const modifiedReq = await modifyRequest(req, url);
     const response = await fetch(modifiedReq);
+    const data = await response.json();
+
     if (response.status === 200) {
       // set tokens if login was successful
-      const data = await response.json();
       setTokens(data.tokens);
       let accountType = jwtDecode(tokens.access).account_type; // either token will work here
 
@@ -217,7 +218,7 @@ const interceptResponse = async (req, url) => {
     }
 
     // send the response without the tokens so they are always contained within this service worker
-    return new Response(JSON.stringify({}), {
+    return new Response(JSON.stringify(data), {
       headers: response.headers,
       status: response.status,
       statusText: response.statusText,
