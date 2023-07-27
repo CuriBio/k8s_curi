@@ -10,6 +10,7 @@ const refreshMutex = new Mutex();
 
 let accountType = null;
 let usageQuota = null; // TODO Tanner (7/6/23): doesn't seem like this is being used for anything other than the authcheck, but the value is ignored when that message is received. Can probably remove this
+let accountId = null;
 let ClientSource = null;
 
 let reloadNeeded = false;
@@ -39,6 +40,14 @@ const setAccountType = (type) => {
 
 const clearAccountType = () => {
   accountType = null;
+};
+
+const setAccountId = (id) => {
+  accountType = type;
+};
+
+const clearAccountId = () => {
+  accountId = null;
 };
 
 const setUsageQuota = (usage) => {
@@ -84,8 +93,10 @@ const sendLogoutMsg = () => {
 };
 
 const clearAccountInfo = () => {
+  // TODO should combine all this data into one object so different functions aren't needed for each
   clearTokens();
   clearAccountType();
+  clearAccountId();
   clearUsageQuota();
   // TODO change all console.log to console.debug and figure out how to enable debug logging
   console.log("account info cleared");
@@ -203,7 +214,8 @@ const interceptResponse = async (req, url) => {
       // set tokens if login was successful
       const data = await response.json();
       setTokens(data.tokens);
-      let accountType = jwtDecode(tokens.access).account_type; // either token will work here
+      const decodedAccessToken = jwtDecode(tokens.access);
+      let { account_type: accountType, userid: id } = decodedAccessToken; // either token will work here
 
       if (accountType === "customer") {
         // token types are 'user' and 'customer', but FE uses 'user' and 'admin'
@@ -212,6 +224,7 @@ const interceptResponse = async (req, url) => {
 
       console.log("Setting account type:", accountType);
       setAccountType(accountType);
+      setAccountId(id);
       // sending usage at login, is separate from auth check request because it's not needed as often
       setUsageQuota(data.usage_quota);
     }
@@ -347,6 +360,7 @@ self.onmessage = ({ data, source }) => {
     msgInfo = {
       isLoggedIn: tokens.access !== null,
       accountType,
+      accountId,
       usageQuota,
     };
   } else if (msgType === "stayAlive") {

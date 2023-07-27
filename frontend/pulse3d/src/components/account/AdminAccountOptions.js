@@ -37,10 +37,8 @@ const ButtonContainer = styled.div`
   width: 100%;
 `;
 
-export default function AdminAccountOptions({ accountSettings }) {
+export default function AdminAccountOptions({ accountSettings, inProgress }) {
   const [accountSettingsEdits, setAccountSettingsEdits] = useState({});
-
-  const inProgress = false; // TODO
 
   return (
     <Container>

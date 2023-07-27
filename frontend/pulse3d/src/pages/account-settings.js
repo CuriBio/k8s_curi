@@ -20,13 +20,15 @@ const BackgroundContainer = styled.div`
 
 export default function AccountSettings() {
   const router = useRouter();
-  const { accountType, usageQuota } = useContext(AuthContext);
+  const { accountType, usageQuota, accountId } = useContext(AuthContext);
   const [jobsLimit, setJobsLimit] = useState(-1);
   const [currentJobUsage, setCurrentJobUsage] = useState(0);
   const [endDate, setEndDate] = useState(null);
   const [daysLeft, setDaysLeft] = useState(0);
 
   const [accountSettings, setAccountSettings] = useState({});
+
+  const updateInProgress = false; // TODO
 
   // get account settings at load
   useEffect(() => {
@@ -52,20 +54,21 @@ export default function AccountSettings() {
 
   // prevent user from accessing account settings page for now since it only contains admin options
   useEffect(() => {
-    console.log("!!!", accountType, router.query.id);
     if (accountType === "user" && router.query.id === "Account Details") {
       router.replace("/account-settings?id=Usage+Details", undefined, { shallow: true });
     }
   }, [accountType, router.query]);
 
   const getAccountSettings = async () => {
-    setAccountSettings(await fetch("TODO"));
+    const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/${accountId}`);
+    console.log("getAccountSettings", res);
+    setAccountSettings(res);
   };
 
   return (
     <BackgroundContainer>
       {router.query.id === "Account Details" ? (
-        <AdminAccountOptions accountSettings={accountSettings} />
+        <AdminAccountOptions accountSettings={accountSettings} inProgress={updateInProgress} />
       ) : (
         <UsageWidgetFull
           metricName="Analysis"

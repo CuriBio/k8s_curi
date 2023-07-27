@@ -102,6 +102,7 @@ export default function Login() {
               ? setErrorMsg("*Invalid credentials. Try again.")
               : setErrorMsg("*Internal error. Please try again later.");
           }
+          console.log("!!!", res);
         }
       } catch (e) {
         console.log("ERROR logging in");
