@@ -584,7 +584,7 @@ def test_logout__success(account_type, mocked_asyncpg_con):
     )
 
 
-def test_user_id__get__no_id_given(mocked_asyncpg_con):
+def test_account_id__get__no_id(mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
     access_token = get_token(userid=test_customer_id, account_type="customer")
 
@@ -618,7 +618,38 @@ def test_user_id__get__no_id_given(mocked_asyncpg_con):
     )
 
 
-def test_user_id__get__id_given(mocked_asyncpg_con):
+def test_account_id__get__no_id__invalid_token_scope_given():
+    # account type does not matter here
+    access_token = get_token(scope=["users:free"])
+    response = test_client.get("/", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 401
+
+
+def test_account_id__get__id_given__customer_retrieving_self(mocked_asyncpg_con):
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(userid=test_customer_id, account_type="customer")
+
+    mocked_asyncpg_con.fetchrow.return_value = expected_customer_info = {
+        "id": test_customer_id,
+        "created_at": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+        "alias": "test_alias",
+    }
+
+    response = test_client.get(f"/{test_customer_id}", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 200
+
+    # convert ID to a string since fastapi does this automatically
+    expected_customer_info["id"] = str(expected_customer_info["id"])
+
+    assert response.json() == expected_customer_info
+
+    mocked_asyncpg_con.fetchrow.assert_called_once_with(
+        f"SELECT {', '.join(expected_customer_info)} FROM customers WHERE id=$1",
+        test_customer_id,
+    )
+
+
+def test_account_id__get__id_given__customer_retrieving_user__success(mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
     access_token = get_token(userid=test_customer_id, account_type="customer")
 
@@ -648,21 +679,61 @@ def test_user_id__get__id_given(mocked_asyncpg_con):
     )
 
 
-def test_user_id__get__id_given__user_not_found(mocked_asyncpg_con):
+def test_account_id__get__id_given__customer_retrieving_user__user_not_found(mocked_asyncpg_con):
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(userid=test_customer_id, account_type="customer")
+
+    test_user_id = uuid.uuid4()
+
+    mocked_asyncpg_con.fetchrow.return_value = None
+
+    response = test_client.get(f"/{test_user_id}", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 400
+
+
+def test_account_id__get__id_given__user_retrieving_self(mocked_asyncpg_con):
+    test_user_id = uuid.uuid4()
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(userid=test_user_id, customer_id=test_customer_id, account_type="user")
+
+    mocked_asyncpg_con.fetchrow.return_value = expected_user_info = {
+        "id": test_user_id,
+        "name": "name",
+        "email": "user@email.com",
+        "created_at": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+        "last_login": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+        "suspended": choice([True, False]),
+    }
+
+    response = test_client.get(f"/{test_user_id}", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 200
+
+    # convert ID to a string since fastapi does this automatically
+    expected_user_info["id"] = str(expected_user_info["id"])
+
+    assert response.json() == expected_user_info
+
+    mocked_asyncpg_con.fetchrow.assert_called_once_with(
+        f"SELECT {', '.join(expected_user_info)} FROM users WHERE customer_id=$1 AND id=$2 AND deleted_at IS NULL",
+        test_customer_id,
+        test_user_id,
+    )
+
+
+def test_account_id__get__id_given__user_attempting_to_retrieve_another_id(mocked_asyncpg_con):
+    access_token = get_token(account_type="user")
+
+    response = test_client.get(f"/{uuid.uuid4()}", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 400
+
+
+def test_account_id__get__id_given__user_not_found(mocked_asyncpg_con):
     access_token = get_token(account_type="customer")
 
     mocked_asyncpg_con.fetchrow.return_value = None
 
     response = test_client.get(f"/{uuid.uuid4()}", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 400
-
-
-@pytest.mark.parametrize("user_id", ["", uuid.uuid4()])
-def test_user_id__get__invalid_token_scope_given(user_id):
-    # account type does not matter here
-    access_token = get_token(scope=["users:free"])
-    response = test_client.get(f"/{user_id}", headers={"Authorization": f"Bearer {access_token}"})
-    assert response.status_code == 401
 
 
 @freeze_time()
@@ -727,15 +798,28 @@ def test_account_id__put__successful_customer_alias_update(mocked_asyncpg_con):
     )
 
 
-def test_account_id__put__customer_alias_update_with_mismatched_account_ids(mocked_asyncpg_con):
-    test_customer_id = uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, account_type="customer")
+def test_account_id__put__customer_edit_self_with_mismatched_account_ids(mocked_asyncpg_con):
+    access_token = get_token(account_type="customer")
+
+    response = test_client.put(
+        f"/{uuid.uuid4()}",
+        # arbitrarily choosing set_alias here
+        json={"action_type": "set_alias", "new_alias": "test_alias"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == 400
+
+    mocked_asyncpg_con.assert_not_called()
+
+
+def test_account_id__put__user_edit_self_with_mismatched_account_ids(mocked_asyncpg_con):
+    access_token = get_token(account_type="user")
 
     other_id = uuid.uuid4()
 
     response = test_client.put(
         f"/{other_id}",
-        json={"action_type": "set_alias", "new_alias": "test_alias"},
+        json={"action_type": "any"},
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 400
@@ -759,15 +843,8 @@ def test_account_id__put__no_action_type_given():
     assert response.status_code == 422
 
 
-def test_account_id__put__invalid_token_scope_given():
-    # arbitrarily deciding to use user account type here
-    access_token = get_token(scope=["users:free"])
-    response = test_client.put(f"/{uuid.uuid4()}", headers={"Authorization": f"Bearer {access_token}"})
-    assert response.status_code == 401
-
-
 @pytest.mark.parametrize("method", ["PUT", "GET"])
-def test_user_id__bad_user_id_given(method):
+def test_account_id__bad_user_id_given(method):
     access_token = get_token(account_type="customer")
 
     response = getattr(test_client, method.lower())(

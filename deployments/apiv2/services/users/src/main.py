@@ -630,31 +630,66 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTO
 
 # Luci (10/5/22) Following two routes need to be last otherwise will mess with the ProtectedAny scope used in Auth
 # Please see https://fastapi.tiangolo.com/tutorial/path-params/#order-matters
-@app.get("/{user_id}")
-async def get_user(request: Request, user_id: uuid.UUID, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))):
-    """Get info for the user with the given under the given customer account."""
-    customer_id = uuid.UUID(hex=token["userid"])
+@app.get("/{account_id}")
+async def get_user(request: Request, account_id: uuid.UUID, token=Depends(ProtectedAny(check_scope=False))):
+    """Get info for the account with the given ID.
 
-    query = (
+    If the account is a user account, the ID must exist under the customer ID in the token
+    """
+    self_id = uuid.UUID(hex=token["userid"])
+    is_customer_account = token["account_type"] == "customer"
+    is_self_retrieval = self_id == account_id
+
+    get_user_info_query = (
         "SELECT id, name, email, created_at, last_login, suspended FROM users "
         "WHERE customer_id=$1 AND id=$2 AND deleted_at IS NULL"
     )
-    try:
-        async with request.state.pgpool.acquire() as con:
-            row = await con.fetchrow(query, customer_id, user_id)
 
-        if not row:
+    if is_customer_account:
+        if is_self_retrieval:
+            query = "SELECT id, created_at, alias FROM customers WHERE id=$1"
+            query_args = (self_id,)
+        else:
+            # assume that account ID is a user ID since no customer account can retrieve details of another
+            query = get_user_info_query
+            query_args = (self_id, account_id)
+
+        # this is only being set in case an error is raised later
+        customer_id = self_id
+    else:
+        if not is_self_retrieval:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"User ID: {user_id} not found under Customer ID: {customer_id}",
+                detail="User accounts cannot retrieve details of other accounts",
             )
+
+        customer_id = uuid.UUID(hex=token["customer_id"])
+
+        query = get_user_info_query
+        query_args = (customer_id, account_id)
+
+    try:
+        async with request.state.pgpool.acquire() as con:
+            row = await con.fetchrow(query, *query_args)
+
+        if not row:
+            if is_customer_account and self_id == account_id:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Error retrieving customer account details",
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"User ID: {account_id} not found under Customer ID: {customer_id}",
+                )
 
         return dict(row)
 
     except HTTPException:
         raise
     except Exception:
-        logger.exception(f"GET /{user_id}: Unexpected error")
+        logger.exception(f"GET /{account_id}: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -663,7 +698,7 @@ async def update_user(
     request: Request,
     details: AccountUpdateAction,
     account_id: uuid.UUID,
-    token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES)),
+    token=Depends(ProtectedAny(check_scope=False)),
 ):
     """Update an account's information in the database.
 
@@ -680,10 +715,13 @@ async def update_user(
     self_id = uuid.UUID(hex=token["userid"])
     action = details.action_type
 
-    # TODO also need to check scope below once user self edit actions are added
+    is_customer_account = token["account_type"] == "customer"
+    is_self_edit = self_id == account_id
 
-    if self_id == account_id:
-        if token["account_type"] == "customer":
+    # TODO also need to check scope below once user self edit actions are added?
+
+    if is_customer_account:
+        if is_self_edit:
             if action == "set_alias":
                 if not details.new_alias:
                     raise HTTPException(
@@ -697,22 +735,30 @@ async def update_user(
                     detail=f"Invalid customer-edit-self action: {action}",
                 )
         else:
-            # Tanner (7/25/23): there are currently no actions a user account can take on itself
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid user-edit-self action: {action}"
-            )
+            if action in ("deactivate", "reactivate"):
+                suspended = action == "deactivate"
+                update_query = "UPDATE users SET suspended=$1 WHERE id=$2 AND customer_id=$3"
+                query_args = (suspended, account_id, self_id)
+            elif action == "delete":
+                update_query = "UPDATE users SET deleted_at=$1 WHERE id=$2 AND customer_id=$3"
+                query_args = (datetime.now(), account_id, self_id)
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid customer-edit-user action: {action}",
+                )
     else:
-        if action in ("deactivate", "reactivate"):
-            suspended = action == "deactivate"
-            update_query = "UPDATE users SET suspended=$1 WHERE id=$2 AND customer_id=$3"
-            query_args = (suspended, account_id, self_id)
-        elif action == "delete":
-            update_query = "UPDATE users SET deleted_at=$1 WHERE id=$2 AND customer_id=$3"
-            query_args = (datetime.now(), account_id, self_id)
-        else:
+        # TODO unit test this else branch
+        if not is_self_edit:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid customer-edit-user action: {action}"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User accounts cannot edit details of other accounts",
             )
+
+        # Tanner (7/25/23): there are currently no actions a user account can take on itself
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid user-edit-self action: {action}"
+        )
 
     try:
         async with request.state.pgpool.acquire() as con:
