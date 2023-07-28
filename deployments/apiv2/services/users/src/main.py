@@ -724,12 +724,16 @@ async def update_user(
     if is_customer_account:
         if is_self_edit:
             if action == "set_alias":
-                if not details.new_alias:
+                if details.new_alias is None:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST, detail="Alias must be provided"
                     )
+
+                # if an empty string, need to convert to None for asyncpg
+                new_alias = details.new_alias if details.new_alias else None
+
                 update_query = "UPDATE customers SET alias=$1 WHERE id=$2"
-                query_args = (details.new_alias, self_id)
+                query_args = (new_alias, self_id)
             else:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,

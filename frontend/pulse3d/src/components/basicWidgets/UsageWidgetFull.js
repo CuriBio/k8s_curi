@@ -2,61 +2,79 @@ import CircularProgressWithLabel from "./CircularProgressWithLabel";
 import styled from "styled-components";
 
 const Container = styled.div`
-  background: linear-gradient(0, var(--med-gray) 30%, var(--light-gray) 90%);
-  box-shadow: 0 3px 5px 2px var(--dark-gray);
-  border: 3px solid black;
-  padding: 0.75rem;
-  border-radius: 3px;
   display: flex;
   align-items: center;
-  color: black;
   flex-flow: column;
   text-align: center;
 `;
+
 const SmallDescription = styled.div`
   font-size: 0.75rem;
   text-align: center;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
 `;
+
+const InnerContainer1 = styled.div`
+  margin-top: 3%;
+  display: flex;
+  flex-direction: col;
+`;
+
+const InnerContainer2 = styled.div`
+  width: 33%;
+  padding-left: 2%;
+  padding-right: 2%;
+`;
+
 export default function UsageWidget({
   metricName,
   limitUsage,
   actualUsage,
-  subscriptionName,
   subscriptionEndDate,
   colorOfTextLabel,
   daysOfPlanLeft,
 }) {
+  const isUnlimited = limitUsage === -1;
+
+  const subscriptionName = isUnlimited ? "Unlimited" : "Basic";
+  const expirationMessage = subscriptionEndDate
+    ? `Plan Expires on ${subscriptionEndDate}`
+    : "No Expiration Date";
+  const remainingTimeMessage = (() => {
+    if (isUnlimited) return "Unlimited";
+    if (daysOfPlanLeft >= 0) return `${daysOfPlanLeft} days of plan left`;
+    return `${daysOfPlanLeft * -1} days expired`;
+  })();
+  const usageMessage = isUnlimited
+    ? `${actualUsage} ${metricName} used`
+    : `${actualUsage} out of ${limitUsage} ${metricName} used`;
+  const percentUsage = isUnlimited ? 0 : Math.min((actualUsage / limitUsage) * 100, 100);
+  const additionalInfo = isUnlimited
+    ? "You have unlimited access to Pulse3d analysis."
+    : "Each upload comes with one free re-analysis. The initial analysis and all re-analyses after the first one will consume 1 analysis credit each.";
+
   return (
-    <>
-      {parseInt(limitUsage) !== -1 ? (
-        <Container>
-          <h1>{subscriptionName} Plan</h1>
-          <p>{subscriptionEndDate ? `Plan Expires on ${subscriptionEndDate}` : "No Expiration Date"}</p>
-          <p>
-            {daysOfPlanLeft >= 0
-              ? `${daysOfPlanLeft} days of plan left`
-              : `${daysOfPlanLeft * -1} days expired`}
-          </p>
-          <p>{`${actualUsage} out of ${limitUsage} ${metricName} used`}</p>
+    <Container>
+      <h1>{subscriptionName} Plan</h1>
+      <InnerContainer1>
+        <InnerContainer2>
+          <p>{expirationMessage}</p>
+          <p>{remainingTimeMessage}</p>
+        </InnerContainer2>
+        <InnerContainer2>
           <CircularProgressWithLabel
-            value={(actualUsage / limitUsage) * 100 > 100 ? 100 : parseInt((actualUsage / limitUsage) * 100)}
+            value={percentUsage}
+            size={130}
+            fontSize={25}
             colorOfTextLabel={colorOfTextLabel}
           />
-          <SmallDescription>
-            Each upload comes with one free re-analysis. Initial analysis and all re-analysis after first one
-            will consume an analysis credit.
-          </SmallDescription>
-        </Container>
-      ) : (
-        <Container>
-          <h1>Unlimited Plan</h1>
-          <p>No expiration date</p>
-          <p>Unlimited days left</p>
-          <p>{`${actualUsage} ${metricName} used`}</p>
-          <CircularProgressWithLabel value={0} colorOfTextLabel={colorOfTextLabel} />
-          <SmallDescription>You have unlimited access to Pulse3d analysis.</SmallDescription>
-        </Container>
-      )}
-    </>
+        </InnerContainer2>
+        <InnerContainer2>
+          <p>{usageMessage}</p>
+          <SmallDescription>{additionalInfo}</SmallDescription>
+        </InnerContainer2>
+      </InnerContainer1>
+    </Container>
   );
 }

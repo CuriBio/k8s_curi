@@ -108,7 +108,7 @@ const adminButtons = [
     label: "Account Settings",
     disabled: false,
     page: "/account-settings",
-    options: ["Usage Details", "Account Details"],
+    options: [],
   },
 ];
 const modalObjs = {
@@ -150,7 +150,7 @@ export default function ControlPanel() {
     {
       label: "Account Settings",
       page: "/account-settings",
-      options: ["Usage Details"],
+      options: [],
       // TODO add notifications page
     },
     { label: "Metric Definitions", options: [] },

@@ -1,63 +1,130 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import FormInput from "@/components/basicWidgets/FormInput";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import styled from "styled-components";
-
-const Header = styled.h2`
-  position: relative;
-  text-align: center;
-  background-color: var(--dark-blue);
-  color: var(--light-gray);
-  margin: 0px;
-  width: 100%;
-  height: 75px;
-  line-height: 3;
-`;
-
-// TODO use whichever background color that the login form uses?
-const Container = styled.div`
-  width: 100%;
-  min-width: 1200px;
-  border: solid;
-  border-color: var(--dark-gray);
-  border-width: 2px;
-  border-radius: 15px;
-  background-color: white;
-  overflow: hidden;
-  display: flex;
-  margin: 50px;
-  flex-direction: column;
-  align-items: center;
-`;
+import { deepCopy } from "@/utils/generic";
 
 const ButtonContainer = styled.div`
   display: flex;
   justify-content: flex-end;
-  padding: 3rem 8rem;
+  padding-top: 50px;
+  padding-right: 30px;
   width: 100%;
 `;
 
-export default function AdminAccountOptions({ accountSettings, inProgress }) {
-  const [accountSettingsEdits, setAccountSettingsEdits] = useState({});
+const ErrorText = styled.span`
+  color: red;
+  font-style: italic;
+  text-align: left;
+  position: relative;
+  width: 150%;
+  font-size: 13px;
+`;
 
-  // TODO enforce min and max length of alias
+const InputContainer = styled.div`
+  padding-right: 20%;
+  display: flex;
+  flex-direction: column;
+`;
+
+export default function AdminAccountOptions({ accountId }) {
+  const [accountSettings, setAccountSettings] = useState({});
+  const [accountSettingsEdits, setAccountSettingsEdits] = useState({});
+  const [errorMessages, setErrorMessages] = useState({});
+
+  const inProgress = false; // TODO
+  const isButtonDisabled = Object.values(errorMessages).some((val) => val.length > 0) || inProgress;
+
+  // get account settings at load
+  useEffect(() => {
+    getAccountSettings();
+  }, []);
+
+  const getAccountSettings = async () => {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/${accountId}`);
+    const data = await res.json();
+    setAccountSettings(data);
+    setAccountSettingsEdits(data);
+  };
+
+  const updateErrorMessages = (newErrorMessages) => {
+    setErrorMessages({
+      ...errorMessages,
+      ...newErrorMessages,
+    });
+  };
+
+  const updateAccountSettingsEdits = (newValues) => {
+    const { alias: newAlias } = newValues;
+    if (newAlias != null) {
+      let errorMsg = "";
+      if (newAlias.length > 0) {
+        if (newAlias.length < 6 || 128 < newAlias.length) {
+          errorMsg = "Must be 6-128 characters long";
+        } else if (/^\s/.test(newAlias) || /\s$/.test(newAlias)) {
+          errorMsg = "Cannot start or end with whitespace";
+        } else if (/\s\s/.test(newAlias)) {
+          errorMsg = "Cannot contain consecutive whitespace characters";
+        }
+      }
+      updateErrorMessages({ alias: errorMsg });
+      setAccountSettingsEdits({
+        ...accountSettingsEdits,
+        alias: newAlias,
+      });
+    }
+  };
+
+  const confirmChanges = async () => {
+    if (isButtonDisabled) return;
+
+    const requestBody = {
+      action_type: "set_alias",
+      new_alias: accountSettingsEdits.alias,
+    };
+
+    const newAccountSettings = {
+      ...accountSettings,
+      ...accountSettingsEdits,
+    };
+
+    // TODO set in progress
+
+    const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/${accountId}`, {
+      method: "PUT",
+      body: JSON.stringify(requestBody),
+    });
+    const response = await res.json();
+    console.log("!!!", response);
+
+    if (res.status === 200) {
+      setAccountSettings(newAccountSettings);
+      // TODO show success checkmark
+      // TODO set not in progress
+    } else {
+      // TODO show an error message
+    }
+  };
 
   return (
-    <Container>
-      <Header>Account Settings</Header>
-      <FormInput
-        name="account_alias"
-        label="Account Alias"
-        placeholder={accountSettings.alias || "Orginization Name"}
-        value={accountSettingsEdits.alias}
-        tooltipText={"Set an alias for the Customer ID field used when logging into a user account."}
-        onChangeFn={(e) => {
-          setAccountSettingsEdits({
-            ...accountSettingsEdits,
-            alias: e.target.value,
-          });
-        }}
-      />
+    <>
+      <InputContainer>
+        <FormInput
+          name="account_alias"
+          label="Account Alias"
+          placeholder={accountSettings.alias ? "Leave empty to remove the current alias" : "None set"}
+          value={accountSettingsEdits.alias}
+          tooltipText={
+            "Set an alias for the Customer ID field used when logging into a user account (6-128 characters)."
+          }
+          onChangeFn={(e) => {
+            updateAccountSettingsEdits({ alias: e.target.value });
+          }}
+        />
+        <ErrorText id={"Account Alias Error"} role="errorMsg">
+          {errorMessages.alias}
+        </ErrorText>
+      </InputContainer>
       <ButtonContainer>
         <ButtonWidget
           width="200px"
@@ -66,11 +133,12 @@ export default function AdminAccountOptions({ accountSettings, inProgress }) {
           borderRadius="3px"
           left="10px"
           label={"Save"}
-          clickFn={"TODO"}
+          clickFn={confirmChanges}
+          disabled={isButtonDisabled}
           inProgress={inProgress}
           backgroundColor={inProgress ? "var(--teal-green)" : "var(--dark-blue)"}
         />
       </ButtonContainer>
-    </Container>
+    </>
   );
 }

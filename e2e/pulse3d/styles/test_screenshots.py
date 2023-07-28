@@ -8,7 +8,7 @@ __fixtures__ = [setup, video_setup, basic_page, admin_logged_in_page, user_logge
 
 shared_pages = [
     "/uploads",
-    "/account-settings?id=Usage+Details",
+    "/account-settings",
 ]
 admin_pages = ["/new-user", "/users-info"]
 user_pages = [
