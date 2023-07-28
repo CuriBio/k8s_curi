@@ -46,7 +46,7 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 app = FastAPI(openapi_url=None)
 
 CB_CUSTOMER_ID: uuid.UUID
-MAX_FAILED_LOGIN_ATTEMPTS = 2  # TODO change this to 10
+MAX_FAILED_LOGIN_ATTEMPTS = 10
 TEMPLATES = Jinja2Templates(directory="templates")
 
 app.add_middleware(
@@ -149,6 +149,9 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
                 ph.verify(row["password"], pw)
             except VerifyMismatchError:
                 # increment customer/user failed attempts
+                logger.info(
+                    f"Failed login attempt {row['failed_login_attempts'] + 1} for {account_type} id: {row['id']}"
+                )
                 updated_failed_attempts = row["failed_login_attempts"] + 1
                 await _update_failed_login_attempts(con, account_type, row["id"], updated_failed_attempts)
                 # update login error if this failed attempt hits limit
