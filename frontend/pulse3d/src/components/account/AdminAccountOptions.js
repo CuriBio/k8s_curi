@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import FormInput from "@/components/basicWidgets/FormInput";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import styled from "styled-components";
-import { deepCopy } from "@/utils/generic";
 
 const ButtonContainer = styled.div`
   display: flex;
@@ -10,6 +9,13 @@ const ButtonContainer = styled.div`
   padding-top: 50px;
   padding-right: 30px;
   width: 100%;
+`;
+
+const SaveButtonTextContainer = styled.span`
+  font-style: italic;
+  font-size: 15px;
+  padding-right: 10px;
+  line-height: 3;
 `;
 
 const ErrorText = styled.span`
@@ -27,13 +33,38 @@ const InputContainer = styled.div`
   flex-direction: column;
 `;
 
+const UPDATE_STATUSES = {
+  NO_EDITS: "no_edits",
+  EDITING: "editing",
+  PENDING: "pending",
+  SUCCESS: "success",
+  FAILURE: "failure",
+};
+
 export default function AdminAccountOptions({ accountId }) {
   const [accountSettings, setAccountSettings] = useState({});
   const [accountSettingsEdits, setAccountSettingsEdits] = useState({});
   const [errorMessages, setErrorMessages] = useState({});
 
-  const inProgress = false; // TODO
-  const isButtonDisabled = Object.values(errorMessages).some((val) => val.length > 0) || inProgress;
+  const [updateStatus, setUpdateStatus] = useState(UPDATE_STATUSES.NO_EDITS);
+
+  const inProgress = updateStatus === UPDATE_STATUSES.PENDING;
+  const isButtonDisabled =
+    Object.values(errorMessages).some((val) => val.length > 0) ||
+    inProgress ||
+    // disable button if the current inputs are up to date
+    [UPDATE_STATUSES.NO_EDITS, UPDATE_STATUSES.SUCCESS].includes(updateStatus);
+
+  const getSaveButtonText = () => {
+    if (updateStatus === UPDATE_STATUSES.SUCCESS) {
+      return <SaveButtonTextContainer style={{ color: "green" }}>Update Successful!</SaveButtonTextContainer>;
+    } else if (updateStatus === UPDATE_STATUSES.FAILURE) {
+      return (
+        <SaveButtonTextContainer style={{ color: "red" }}>Error, Update Failed.</SaveButtonTextContainer>
+      );
+    }
+    return <></>;
+  };
 
   // get account settings at load
   useEffect(() => {
@@ -55,6 +86,8 @@ export default function AdminAccountOptions({ accountId }) {
   };
 
   const updateAccountSettingsEdits = (newValues) => {
+    setUpdateStatus(UPDATE_STATUSES.EDITING);
+
     const { alias: newAlias } = newValues;
     if (newAlias != null) {
       let errorMsg = "";
@@ -88,21 +121,17 @@ export default function AdminAccountOptions({ accountId }) {
       ...accountSettingsEdits,
     };
 
-    // TODO set in progress
+    setUpdateStatus(UPDATE_STATUSES.PENDING);
 
     const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/${accountId}`, {
       method: "PUT",
       body: JSON.stringify(requestBody),
     });
-    const response = await res.json();
-    console.log("!!!", response);
-
     if (res.status === 200) {
       setAccountSettings(newAccountSettings);
-      // TODO show success checkmark
-      // TODO set not in progress
+      setUpdateStatus(UPDATE_STATUSES.SUCCESS);
     } else {
-      // TODO show an error message
+      setUpdateStatus(UPDATE_STATUSES.FAILURE);
     }
   };
 
@@ -113,7 +142,7 @@ export default function AdminAccountOptions({ accountId }) {
           name="account_alias"
           label="Account Alias"
           placeholder={accountSettings.alias ? "Leave empty to remove the current alias" : "None set"}
-          value={accountSettingsEdits.alias}
+          value={accountSettingsEdits.alias || ""}
           tooltipText={
             "Set an alias for the Customer ID field used when logging into a user account (6-128 characters)."
           }
@@ -126,6 +155,7 @@ export default function AdminAccountOptions({ accountId }) {
         </ErrorText>
       </InputContainer>
       <ButtonContainer>
+        {getSaveButtonText()}
         <ButtonWidget
           width="200px"
           height="50px"
@@ -134,9 +164,9 @@ export default function AdminAccountOptions({ accountId }) {
           left="10px"
           label={"Save"}
           clickFn={confirmChanges}
+          backgroundColor={isButtonDisabled ? "var(--dark-gray)" : "var(--dark-blue)"}
           disabled={isButtonDisabled}
           inProgress={inProgress}
-          backgroundColor={inProgress ? "var(--teal-green)" : "var(--dark-blue)"}
         />
       </ButtonContainer>
     </>
