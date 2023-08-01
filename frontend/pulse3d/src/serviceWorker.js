@@ -235,11 +235,10 @@ const interceptResponse = async (req, url) => {
     const response = await fetch(modifiedReq);
     if (response.status === 200) {
       // set tokens if login was successful
-      const resClone = response.clone();
       const data = await response.json();
-      await setTokens(data.tokens, resClone);
+      await setTokens(data.tokens, response.clone());
       // sending usage at login, is separate from auth check request because it's not needed as often
-      await setUsageQuota(resClone);
+      await setUsageQuota(response.clone());
     }
 
     // send the response without the tokens so they are always contained within this service worker
@@ -370,8 +369,6 @@ self.onmessage = async ({ data, source }) => {
       accountType: await getAccountType(),
       usageQuota: await getUsageQuota(),
     };
-
-    console.log(msgInfo);
   } else if (msgType === "stayAlive") {
     // TODO should have this do something else so that there isn't a log msg produced every 20 seconds
     console.log("Staying alive");
