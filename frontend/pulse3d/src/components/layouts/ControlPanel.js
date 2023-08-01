@@ -13,7 +13,7 @@ import { styled as muiStyled } from "@mui/material/styles";
 const Container = styled.div`
   height: inherit;
   background-color: var(--dark-blue);
-  min-width: 200px;
+  min-width: 240px;
   width: 15vw;
   position: fixed;
   display: flex;
