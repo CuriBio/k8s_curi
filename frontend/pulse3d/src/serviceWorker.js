@@ -92,7 +92,7 @@ const sendLogoutMsg = () => {
 
 const setUsageQuota = async (res) => {
   const swCache = await caches.open(cacheName);
-  await swCache.put("usage", res);
+  await swCache.put("usage", res.clone()); // setTokens uses same response so needs to be cloned again
 };
 
 const getUsageQuota = async () => {
@@ -234,11 +234,13 @@ const interceptResponse = async (req, url) => {
     const modifiedReq = await modifyRequest(req, url);
     const response = await fetch(modifiedReq);
     if (response.status === 200) {
+      const responseClone = response.clone();
+      await setUsageQuota(responseClone);
+
       // set tokens if login was successful
       const data = await response.json();
-      await setTokens(data.tokens, response.clone());
+      await setTokens(data.tokens, responseClone);
       // sending usage at login, is separate from auth check request because it's not needed as often
-      await setUsageQuota(response.clone());
     }
 
     // send the response without the tokens so they are always contained within this service worker

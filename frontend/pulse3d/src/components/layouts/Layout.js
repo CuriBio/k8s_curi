@@ -19,6 +19,7 @@ const Header = styled.div`
   position: fixed;
   justify-content: space-between;
   z-index: 5;
+  border-bottom: 1px solid var(--dark-gray);
 `;
 
 const Container = styled.div`

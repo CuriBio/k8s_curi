@@ -20,6 +20,7 @@ const Container = styled.div`
   flex-direction: column;
   min-height: 100vh;
   z-index: 2;
+  border-right: 1px solid var(--dark-gray);
 `;
 
 const ListItem = styled.li`
