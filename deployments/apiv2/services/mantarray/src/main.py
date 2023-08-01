@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import Depends, FastAPI, Path, Query, Request, status
+from fastapi import Depends, FastAPI, Path, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 
@@ -93,24 +93,3 @@ async def get_firmware_download_url(
         err_msg = f"{fw_type.title()} Firmware v{version} not found"
         logger.exception(err_msg)
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message": err_msg})
-
-
-"""
-DEPRECATED
-
-Keeping these alive until customers upgrade MA Controller to use new routes
-"""
-
-
-@app.get("/firmware_latest")
-async def get_firmware_latest(request: Request, serial_number: str):
-    return await get_latest_versions(request, serial_number)
-
-
-@app.get("/firmware_download")
-async def get_firmware_download(
-    firmware_type: str = Query(..., regex="^(main|channel)$"),
-    firmware_version: str = Query(..., regex=r"^\d+\.\d+\.\d+$"),
-    token=Depends(AUTH),
-):
-    return await get_firmware_download_url(firmware_type, firmware_version, token)
