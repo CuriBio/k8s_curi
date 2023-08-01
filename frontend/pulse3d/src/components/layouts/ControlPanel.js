@@ -37,8 +37,8 @@ const ListContainer = styled.ul`
   line-height: 3;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 0;
+  align-items: start;
+  padding-left: 10px;
 `;
 
 // this is the best way to target and override style props of child components used in other MUI components
