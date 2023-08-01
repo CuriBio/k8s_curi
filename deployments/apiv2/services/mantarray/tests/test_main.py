@@ -1,6 +1,5 @@
 import uuid
 from fastapi.testclient import TestClient
-import json
 import pytest
 from random import choice, randint
 
@@ -45,19 +44,7 @@ def test_default_route(mocker, mocked_asyncpg_con):
     # return a list of dicts here, but fetch will actually return a Record object with these keys/vals as attr names/vals
     mocked_asyncpg_con.fetch.return_value = expected_db_entries
 
-    expected_template_response = {"key": "val"}
-    mocked_template_response = mocker.patch.object(
-        main.templates, "TemplateResponse", autospec=True, return_value=json.dumps(expected_template_response)
-    )
-
-    response = test_client.get("/")
-    assert response.status_code == 200
-    assert json.loads(response.json()) == expected_template_response
-
-    mocked_asyncpg_con.fetch.assert_called_once_with("SELECT * FROM MAUnits")
-    mocked_template_response.assert_called_once_with(
-        "table.html", {"request": mocker.ANY, "units": expected_db_entries}
-    )
+    assert not "TODO"
 
 
 def test_software__get__success(mocker):
@@ -86,7 +73,7 @@ def test_versions__get__success(mocked_asyncpg_con, mocker):
     assert response.json() == {"latest_versions": expected_latest_fw_version}
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
-        "SELECT hw_version FROM MAUnits WHERE serial_number = $1", test_serial_number
+        "SELECT hw_version FROM MAUnits WHERE serial_number=$1", test_serial_number
     )
     mocked_get_latest_firmware_version.assert_called_once_with(expected_hw_version)
 

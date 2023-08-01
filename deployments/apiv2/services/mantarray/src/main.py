@@ -2,7 +2,6 @@ import logging
 
 from fastapi import Depends, FastAPI, Path, Request, status
 from fastapi.responses import JSONResponse
-from fastapi.templating import Jinja2Templates
 
 from auth import ProtectedAny
 from core.config import DATABASE_URL
@@ -18,7 +17,6 @@ AUTH = ProtectedAny()  # TODO add scope here
 
 
 app = FastAPI(openapi_url=None)
-templates = Jinja2Templates(directory="templates")
 
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
@@ -35,13 +33,16 @@ async def startup():
     await asyncpg_pool()
 
 
+# TODO make request and response models for all of these?
+
+
 @app.get("/")
 async def root(request: Request):
     async with request.state.pgpool.acquire() as con:
         rows = await con.fetch("SELECT * FROM MAUnits")
     # convert to dicts for use in jinja template
     units = [dict(row) for row in rows]
-    return templates.TemplateResponse("table.html", {"request": request, "units": units})
+    return units  # TODO
 
 
 @app.get("/software-range/{main_fw_version}")
@@ -64,7 +65,7 @@ async def get_latest_versions(request: Request, serial_number: str):
     async with request.state.pgpool.acquire() as con:
         # get hardware version from serial number
         try:
-            row = await con.fetchrow("SELECT hw_version FROM MAUnits WHERE serial_number = $1", serial_number)
+            row = await con.fetchrow("SELECT hw_version FROM MAUnits WHERE serial_number=$1", serial_number)
             hardware_version = row["hw_version"]
         except Exception:
             err_msg = f"Serial Number {serial_number} not found"
