@@ -265,7 +265,6 @@ def test_login__incorrect_password(mocked_asyncpg_con):
 
 @pytest.mark.parametrize("special_char", ["", *USERNAME_VALID_SPECIAL_CHARS])
 def test_register__user__allows_valid_usernames(special_char, mocked_asyncpg_con, cb_customer_id, mocker):
-
     mocker.patch.object(main, "_send_user_email", autospec=True)
     use_cb_customer_id = choice([True, False])
     end_with_num = choice([True, False])

@@ -1,19 +1,17 @@
 import logging
 
-from fastapi import Depends, FastAPI, Path, Request, status
+from fastapi import Depends, FastAPI, Path, Request, status, HTTPException
 from fastapi.responses import JSONResponse
 
 from auth import ProtectedAny
 from core.config import DATABASE_URL
 from core.versions import get_download_url, get_required_sw_version_range, resolve_versions
+from .models import MantarrayUnitsResponse
 from utils.db import AsyncpgPoolDep
 
 
 # logging is configured in log_config.yaml
 logger = logging.getLogger(__name__)
-
-
-AUTH = ProtectedAny()  # TODO add scope here
 
 
 app = FastAPI(openapi_url=None)
@@ -36,13 +34,45 @@ async def startup():
 # TODO make request and response models for all of these?
 
 
-@app.get("/")
+@app.get("/", response_model=MantarrayUnitsResponse)
 async def root(request: Request):
-    async with request.state.pgpool.acquire() as con:
-        rows = await con.fetch("SELECT * FROM MAUnits")
-    # convert to dicts for use in jinja template
-    units = [dict(row) for row in rows]
-    return units  # TODO
+    try:
+        async with request.state.pgpool.acquire() as con:
+            units = await con.fetch("SELECT * FROM MAUnits")
+    except:
+        logger.exception("Error getting Mantarray Units")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return MantarrayUnitsResponse(units=units)
+
+
+# TODO add serial number validation?
+@app.post("/serial-number/{serial_number}", status_code=status.HTTP_204_NO_CONTENT)
+async def add_serial_number(
+    request: Request,
+    serial_number: str = Path(...),
+    token=Depends(ProtectedAny(scope=["mantarray:serial_number:edit"])),
+):
+    try:
+        async with request.state.pgpool.acquire() as con:
+            await con.execute("INSERT INTO MAUnits VALUES ($1, '1.0.0')", serial_number)
+    except Exception:
+        logger.exception("Error adding serial number")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.delete("/serial-number/{serial_number}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_serial_number(
+    request: Request,
+    serial_number: str = Path(...),
+    token=Depends(ProtectedAny(scope=["mantarray:serial_number:edit"])),
+):
+    try:
+        async with request.state.pgpool.acquire() as con:
+            await con.execute("DELETE FROM MAUnits WHERE serial_number=$1", serial_number)
+    except Exception:
+        logger.exception("Error deleting serial number")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @app.get("/software-range/{main_fw_version}")
@@ -85,7 +115,7 @@ async def get_latest_versions(request: Request, serial_number: str):
 async def get_firmware_download_url(
     fw_type: str = Path(..., regex="^(main|channel)$"),
     version: str = Path(..., regex=r"^\d+\.\d+\.\d+$"),
-    token=Depends(AUTH),
+    token=Depends(ProtectedAny(scope=["mantarray:firmware:get"])),
 ):
     try:
         url = get_download_url(version, fw_type)
