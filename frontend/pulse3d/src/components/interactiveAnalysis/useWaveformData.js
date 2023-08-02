@@ -28,7 +28,7 @@ export const useWaveformData = (url) => {
         setLoading(false);
       }
     } catch (e) {
-      console.log("ERROR getting waveform data");
+      console.log("ERROR getting waveform data: ", e);
       setError(true);
     }
   };
