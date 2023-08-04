@@ -203,72 +203,72 @@ module "loki_logs_bucket" {
   cluster_name = var.cluster_name
 }
 
-module "eks" {
-  source          = "terraform-aws-modules/eks/aws"
-  version         = "19.15.3"
-  cluster_name    = var.cluster_name
-  cluster_version = "1.27"
-  subnet_ids      = var.private_subnets
-  create          = false
-  tags            = var.cluster_tags
-  vpc_id          = var.vpc_id
+# module "eks" {
+#   source          = "terraform-aws-modules/eks/aws"
+#   version         = "19.15.3"
+#   cluster_name    = var.cluster_name
+#   cluster_version = "1.27"
+#   subnet_ids      = var.private_subnets
+#   create          = false
+#   tags            = var.cluster_tags
+#   vpc_id          = var.vpc_id
 
-  aws_auth_accounts              = var.cluster_accounts
-  aws_auth_users                 = var.cluster_users
-  manage_aws_auth_configmap      = true
-  cluster_endpoint_public_access = true
-  custom_oidc_thumbprints        = [data.external.thumbprint.result.thumbprint]
-  # create                         = false
+#   aws_auth_accounts              = var.cluster_accounts
+#   aws_auth_users                 = var.cluster_users
+#   manage_aws_auth_configmap      = true
+#   cluster_endpoint_public_access = true
+#   custom_oidc_thumbprints        = [data.external.thumbprint.result.thumbprint]
+#   # create                         = false
 
-  eks_managed_node_groups = {
-    medium = {
-      desired_size = 3
-      min_size     = 1
-      max_size     = 3
+#   eks_managed_node_groups = {
+#     medium = {
+#       desired_size = 3
+#       min_size     = 1
+#       max_size     = 3
 
-      instance_types = ["t3a.medium"]
-      subnet_ids     = [var.private_subnets[0], var.private_subnets[1]]
+#       instance_types = ["t3a.medium"]
+#       subnet_ids     = [var.private_subnets[0], var.private_subnets[1]]
 
-      labels = {
-        group = "services"
-      }
-      update_config = {
-        max_unavailable_percentage = 50 # or set `max_unavailable`
-      }
-    },
+#       labels = {
+#         group = "services"
+#       }
+#       update_config = {
+#         max_unavailable_percentage = 50 # or set `max_unavailable`
+#       }
+#     },
 
-    workers = {
-      desired_size = 3
-      min_size     = 1
-      max_size     = 3
+#     workers = {
+#       desired_size = 3
+#       min_size     = 1
+#       max_size     = 3
 
-      instance_types = ["c6a.large"]
-      subnet_ids     = [var.private_subnets[0], var.private_subnets[1]]
+#       instance_types = ["c6a.large"]
+#       subnet_ids     = [var.private_subnets[0], var.private_subnets[1]]
 
-      labels = {
-        group = "workers"
-      }
-      update_config = {
-        max_unavailable_percentage = 50 # or set `max_unavailable`
-      }
-    },
-    argo = {
-      desired_size = 3
-      min_size     = 1
-      max_size     = 3
+#       labels = {
+#         group = "workers"
+#       }
+#       update_config = {
+#         max_unavailable_percentage = 50 # or set `max_unavailable`
+#       }
+#     },
+#     argo = {
+#       desired_size = 3
+#       min_size     = 1
+#       max_size     = 3
 
-      instance_types = ["t3a.medium"]
-      subnet_ids     = [var.private_subnets[2]]
+#       instance_types = ["t3a.medium"]
+#       subnet_ids     = [var.private_subnets[2]]
 
-      labels = {
-        group = "argo"
-      }
-      update_config = {
-        max_unavailable_percentage = 50 # or set `max_unavailable`
-      }
-    }
-  }
-}
+#       labels = {
+#         group = "argo"
+#       }
+#       update_config = {
+#         max_unavailable_percentage = 50 # or set `max_unavailable`
+#       }
+#     }
+#   }
+# }
 module "eks_two" {
   source          = "terraform-aws-modules/eks/aws"
   version         = "19.15.3"
