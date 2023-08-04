@@ -206,7 +206,7 @@ module "loki_logs_bucket" {
 module "eks" {
   source          = "terraform-aws-modules/eks/aws"
   version         = "19.15.3"
-  cluster_name    = "${var.cluster_name}-remove"
+  cluster_name    = var.cluster_name
   cluster_version = "1.27"
   subnet_ids      = var.private_subnets
   create          = false
