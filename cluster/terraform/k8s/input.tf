@@ -1,5 +1,5 @@
 variable "region" {
-  type = string
+  type    = string
   default = "us-east-2"
 }
 
@@ -14,6 +14,9 @@ variable "cluster_tags" {
 variable "cluster_name" {
   type = string
 }
+variable "env_name" {
+  type = string
+}
 
 variable "cluster_accounts" {
   default = []
@@ -22,9 +25,9 @@ variable "cluster_accounts" {
 
 variable "cluster_users" {
   type = list(object({
-    userarn   = string
-    username  = string
-    groups    = list(string)
+    userarn  = string
+    username = string
+    groups   = list(string)
   }))
 }
 

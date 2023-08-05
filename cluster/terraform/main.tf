@@ -101,11 +101,12 @@ resource "aws_security_group" "all_worker_mgmt" {
 
 
 #####################################################################
-module "eks_cluster" {
+module "eks_cluster_v2" {
   source = "./k8s"
 
   region           = var.region
-  cluster_name     = var.cluster_name
+  env_name         = var.cluster_name
+  cluster_name     = "${var.cluster_name}-v2"
   cluster_tags     = var.cluster_tags
   cluster_users    = var.cluster_users
   cluster_accounts = var.cluster_accounts
