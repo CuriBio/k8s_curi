@@ -17,6 +17,7 @@ let reloadNeeded = false;
 
 const cacheName = "preloadedWellData";
 
+const MANTARRAY_URL = new URLSearchParams(location.search).get("mantarray_url");
 const USERS_URL = new URLSearchParams(location.search).get("users_url");
 const PULSE3D_URL = new URLSearchParams(location.search).get("pulse3d_url");
 const USAGE_URLS = ["/login", "/uploads", "/jobs"];
@@ -309,7 +310,9 @@ self.addEventListener("fetch", async (e) => {
   let destURL = new URL(e.request.url);
 
   if (
-    (e.request.url.includes(USERS_URL) || e.request.url.includes(PULSE3D_URL)) &&
+    (e.request.url.includes(USERS_URL) ||
+      e.request.url.includes(PULSE3D_URL) ||
+      e.request.url.includes(MANTARRAY_URL)) &&
     !isEmailRequest(destURL) && // this request doesn't depend on a token
     !isUpdateRequest(destURL) // we don't need to intercept verify request because it's handling own token
   ) {

@@ -26,9 +26,10 @@ const MUItheme = createTheme({
 
 export const AuthContext = createContext();
 
+// TODO only mark production-console as availabe if the correct scope is present
 const availablePages = {
-  user: ["/uploads", "/upload-form", "/account", "/account-settings"],
-  admin: ["/uploads", "/new-user", "/users-info", "/account-settings"],
+  user: ["/uploads", "/upload-form", "/account", "/account-settings", "/production-console"],
+  admin: ["/uploads", "/new-user", "/users-info", "/account-settings", "/production-console"],
 };
 
 function Pulse({ Component, pageProps }) {
@@ -45,7 +46,7 @@ function Pulse({ Component, pageProps }) {
       // env vars need to be set here because service worker does not have access to node process
       navigator.serviceWorker
         .register(
-          `/serviceWorker.js?pulse3d_url=${process.env.NEXT_PUBLIC_PULSE3D_URL}&users_url=${process.env.NEXT_PUBLIC_USERS_URL}`,
+          `/serviceWorker.js?mantarray_url=${process.env.NEXT_PUBLIC_MANTARRAY_URL}&users_url=${process.env.NEXT_PUBLIC_USERS_URL}&pulse3d_url=${process.env.NEXT_PUBLIC_PULSE3D_URL}`,
           { type: "module" }
         )
         .then(navigator.serviceWorker.ready)

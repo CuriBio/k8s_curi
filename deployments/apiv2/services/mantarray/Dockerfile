@@ -17,6 +17,7 @@ ENV PATH /app/venv/bin:$PATH
 
 WORKDIR /app
 COPY --chown=main_user:main_group ./deployments/apiv2/services/mantarray/src/main.py ./
+COPY --chown=main_user:main_group ./deployments/apiv2/services/mantarray/src/models.py ./
 COPY --chown=main_user:main_group ./deployments/apiv2/services/mantarray/src/core ./core
 COPY --chown=main_user:main_group ./deployments/apiv2/services/mantarray/log_config.yaml ./
 

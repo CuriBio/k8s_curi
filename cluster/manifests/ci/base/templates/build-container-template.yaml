@@ -183,6 +183,11 @@ spec:
             secretKeyRef:
               name: db-migrations
               key: mantarray_ro_pass
+        - name: MANTARRAY_USER_PASS
+          valueFrom:
+            secretKeyRef:
+              name: db-migrations
+              key: mantarray_user_pass
         - name: POSTGRES_DB
           valueFrom:
             secretKeyRef:
@@ -370,6 +375,11 @@ spec:
             secretKeyRef:
               name: db-migrations
               key: mantarray_ro_pass
+        - name: MANTARRAY_USER_PASS
+          valueFrom:
+            secretKeyRef:
+              name: db-migrations
+              key: mantarray_user_pass
         - name: POSTGRES_DB
           valueFrom:
             secretKeyRef:

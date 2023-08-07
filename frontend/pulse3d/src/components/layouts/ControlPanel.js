@@ -151,12 +151,23 @@ export default function ControlPanel() {
       label: "Account Settings",
       page: "/account-settings",
       options: [],
-      // TODO add notifications page
     },
     { label: "Metric Definitions", options: [] },
   ];
 
   const buttons = accountType === "admin" ? adminButtons : userButtons;
+
+  const productionConsoleOptions = [];
+  if (true /* TODO check if any mantarray:<>:edit scopes present */) {
+    productionConsoleOptions.push("Mantarray");
+  }
+  if (productionConsoleOptions.length > 0) {
+    buttons.push({
+      label: "Production Console",
+      page: "/production-console",
+      options: productionConsoleOptions,
+    });
+  }
 
   useEffect(() => {
     // this checks if a page changes without button is clicked from a forced redirection

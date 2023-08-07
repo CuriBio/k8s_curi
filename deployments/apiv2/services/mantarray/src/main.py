@@ -1,12 +1,13 @@
 import logging
 
 from fastapi import Depends, FastAPI, Path, Request, status, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from auth import ProtectedAny
-from core.config import DATABASE_URL
+from core.config import DATABASE_URL, DASHBOARD_URL
 from core.versions import get_download_url, get_required_sw_version_range, resolve_versions
-from .models import MantarrayUnitsResponse
+from models import MantarrayUnitsResponse
 from utils.db import AsyncpgPoolDep
 
 
@@ -15,6 +16,13 @@ logger = logging.getLogger(__name__)
 
 
 app = FastAPI(openapi_url=None)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[DASHBOARD_URL],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
@@ -34,6 +42,7 @@ async def startup():
 # TODO make request and response models for all of these?
 
 
+# TODO change this to /serial-number ?
 @app.get("/", response_model=MantarrayUnitsResponse)
 async def root(request: Request):
     try:
