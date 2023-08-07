@@ -274,6 +274,10 @@ export default function UploadForm() {
         // and don't update if already default value
         if (param in currentParams && presetParams[param] !== currentParams[param]) {
           currentParams[param] = presetParams[param];
+          // protect against deprecated pulse3d versions
+          if (param == "selectedPulse3dVersion" && !pulse3dVersions.includes(presetParams[param])) {
+            currentParams[param] = pulse3dVersions[0];
+          }
         }
       }
 

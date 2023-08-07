@@ -48,13 +48,13 @@ def upload_file_to_s3(bucket, key, file) -> None:
 if __name__ == "__main__":
     try:
         cluster = sys.argv[1].lower()
-        assert cluster in ("test", "prod")
+        assert cluster in ("test", "prod", "modl")
     except IndexError:
-        print("Must provide a name for the cluster: 'python upload_fe_s3.py <test/prod>'")  # allow-print
+        print("Must provide a name for the cluster: 'python upload_fe_s3.py <test/prod/modl>'")  # allow-print
     except Exception:
-        print("Invalid value for cluster, must be 'test' or 'prod'")  # allow-print
+        print("Invalid value for cluster, must be 'test', 'modl', or 'prod'")  # allow-print
     else:
-        bucket = "dashboard.curibio.com" if cluster == "prod" else "dashboard.curibio-test.com"
+        bucket = "dashboard.curibio.com" if cluster == "prod" else f"dashboard.curibio-{cluster}.com"
 
         # get frontend version from package.json
         fe_version = get_fe_version()

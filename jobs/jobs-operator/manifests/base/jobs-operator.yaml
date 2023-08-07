@@ -12,11 +12,13 @@ spec:
       labels:
         app: operators
     spec:
+      nodeSelector:
+        group: services
       serviceAccountName: operator
       containers:
-      - name: jobs-operator
-        env:
-        - name: QUEUE_PROCESSOR_IMAGE
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 9001
+        - name: jobs-operator
+          env:
+            - name: QUEUE_PROCESSOR_IMAGE
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 9001

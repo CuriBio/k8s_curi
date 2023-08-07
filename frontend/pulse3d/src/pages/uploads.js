@@ -155,10 +155,10 @@ export default function Uploads() {
   const [filterColumn, setFilterColumn] = useState("");
   // TODO could probably put all these widths in the same object
   const [ownerWidth, setOwnerWidth] = useState("10%");
-  const [recordingWidth, setRecordingWidth] = useState("30%");
-  const [uploadWidth, setUploadWidth] = useState("25%");
-  const [createdWidth, setCreatedWidth] = useState("23%");
-  const [analyzedWidth, setAnalyzedWidth] = useState("23%");
+  const [recordingWidth, setRecordingWidth] = useState("25%");
+  const [uploadWidth, setUploadWidth] = useState("21%");
+  const [createdWidth, setCreatedWidth] = useState("20%");
+  const [analyzedWidth, setAnalyzedWidth] = useState("20%");
   const [sortColumn, setSortColumn] = useState("");
   const [uploadTableColumns, setUploadTableColumns] = useState([]);
   const [jobsInSelectedUpload, setJobsInSelectedUpload] = useState(0);
@@ -292,10 +292,13 @@ export default function Uploads() {
         },
       },
       {
-        width: "9%",
+        width: "10%",
+        id: "uploadOrigin",
         display: true,
         cell: (row) =>
-          row.autoUpload !== null && <div>{row.autoUpload ? `Auto Upload` : "Manual Upload"}</div>,
+          row.autoUpload !== null && (
+            <ResizableColumn content={row.autoUpload ? `Auto Upload` : "Manual Upload"} />
+          ),
       },
     ]);
 

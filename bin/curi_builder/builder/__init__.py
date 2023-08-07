@@ -115,18 +115,7 @@ def find_changed_svcs(sha: str):
 def find_changed_tf(sha: str):
     # get diff for all directories containing changed tf excluding those found in /cluster and /core
     completed_process = subprocess.run(
-        [
-            "git",
-            "--no-pager",
-            "diff",
-            sha,
-            "--name-only",
-            "--",
-            "*.tf",
-            "*.tfvars",
-            ":!cluster",
-            ":!core",
-        ],
+        ["git", "--no-pager", "diff", sha, "--name-only", "--", "*.tf", "*.tfvars", ":!cluster", ":!core"],
         stdout=subprocess.PIPE,
     )
     changed_paths = completed_process.stdout.decode("utf-8").split("\n")[:-1]

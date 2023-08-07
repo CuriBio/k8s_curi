@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argo-workflows
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: cluster
+  source:
+    path: cluster/manifests/argo-workflows/overlays/modl
+    repoURL: https://github.com/CuriBio/k8s_curi.git
+    targetRevision: modl-qc
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argo
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true

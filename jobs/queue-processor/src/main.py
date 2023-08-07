@@ -73,7 +73,13 @@ async def create_job(version: str, num_of_workers: int):
         )
         # Create job spec with container
         spec = kclient.V1JobSpec(
-            template={"spec": {"containers": [container], "restartPolicy": "Never"}},
+            template={
+                "spec": {
+                    "containers": [container],
+                    "restartPolicy": "Never",
+                    "nodeSelector": {"group": "workers"},
+                }
+            },
             backoff_limit=2,
             ttl_seconds_after_finished=60,
         )
