@@ -70,14 +70,14 @@ resource "aws_iam_role_policy" "workflow_pod_iam_role_policy" {
   name = "workflow-pods-iam-role01"
   role = aws_iam_role.workflow_pods.id
 
-  policy = file("${path.module}/json/argo_ns_${var.env_name}_iam_policy.json")
+  policy = file("${path.module}/json/argo_ns_${var.cluster_env}_iam_policy.json")
 }
 
 resource "aws_iam_role_policy" "pulse3d_pod_iam_role_policy" {
   name = "pulse3d-pods-iam-role01"
   role = aws_iam_role.pulse3d_pods.id
 
-  policy = file("${path.module}/json/pulse3d_${var.env_name}_iam_policy.json")
+  policy = file("${path.module}/json/pulse3d_${var.cluster_env}_iam_policy.json")
 }
 
 data "aws_iam_policy_document" "pulse3d_pods" {
@@ -108,7 +108,7 @@ resource "aws_iam_role_policy" "apiv2_pod_iam_role_policy" {
   name = "apiv2-pods-iam-role01"
   role = aws_iam_role.apiv2_pods.id
 
-  policy = file("${path.module}/json/apiv2_${var.env_name}_iam_policy.json")
+  policy = file("${path.module}/json/apiv2_${var.cluster_env}_iam_policy.json")
 }
 
 data "aws_iam_policy_document" "apiv2_pods" {
@@ -162,7 +162,7 @@ resource "aws_iam_role_policy" "loki_pod_iam_role_policy" {
   name = "loki-pods-iam-role01"
   role = aws_iam_role.loki_pods.id
 
-  policy = file("${path.module}/json/loki_${var.env_name}_iam_policy.json")
+  policy = file("${path.module}/json/loki_${var.cluster_env}_iam_policy.json")
 }
 data "aws_iam_policy_document" "operators_pods" {
   statement {
@@ -195,12 +195,12 @@ data "external" "thumbprint" {
 
 module "argo_workflows" {
   source       = "./modules/argo_workflows"
-  cluster_name = var.env_name
+  cluster_name = var.cluster_env
 }
 
 module "loki_logs_bucket" {
   source       = "./modules/grafana-loki"
-  cluster_name = var.env_name
+  cluster_name = var.cluster_env
 }
 
 module "eks" {
@@ -229,7 +229,7 @@ module "eks" {
       subnet_ids     = [var.private_subnets[0], var.private_subnets[1]]
 
       labels = {
-        group = "services"
+        group = var.node_groups[0]
       }
       update_config = {
         max_unavailable_percentage = 50 # or set `max_unavailable`
@@ -245,7 +245,7 @@ module "eks" {
       subnet_ids     = [var.private_subnets[0], var.private_subnets[1]]
 
       labels = {
-        group = "workers"
+        group = var.node_groups[1]
       }
       update_config = {
         max_unavailable_percentage = 50 # or set `max_unavailable`
@@ -260,7 +260,7 @@ module "eks" {
       subnet_ids     = [var.private_subnets[2]]
 
       labels = {
-        group = "argo"
+        group = var.node_groups[2]
       }
       update_config = {
         max_unavailable_percentage = 50 # or set `max_unavailable`

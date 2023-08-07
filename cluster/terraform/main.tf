@@ -30,7 +30,7 @@ module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "5.0.0"
 
-  name                 = "${var.cluster_name}-vpc"
+  name                 = "${var.cluster_env}-vpc"
   cidr                 = var.vpc_cidr
   azs                  = data.aws_availability_zones.available.names
   private_subnets      = var.private_subnets
@@ -40,17 +40,17 @@ module "vpc" {
   enable_dns_hostnames = true
 
   tags = {
-    "kubernetes.io/cluster/${var.cluster_name}-updated" = "shared"
+    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
   }
 
   public_subnet_tags = {
-    "kubernetes.io/cluster/${var.cluster_name}-updated" = "shared"
-    "kubernetes.io/role/elb"                            = "1"
+    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+    "kubernetes.io/role/elb"                    = "1"
   }
 
   private_subnet_tags = {
-    "kubernetes.io/cluster/${var.cluster_name}-updated" = "shared"
-    "kubernetes.io/role/internal-elb"                   = "1"
+    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+    "kubernetes.io/role/internal-elb"           = "1"
   }
 }
 
@@ -105,8 +105,9 @@ module "eks_cluster_v2" {
   source = "./k8s"
 
   region           = var.region
-  env_name         = var.cluster_name
-  cluster_name     = "${var.cluster_name}-v2"
+  cluster_env      = var.cluster_env
+  cluster_name     = var.cluster_name
+  node_groups      = var.node_groups
   cluster_tags     = var.cluster_tags
   cluster_users    = var.cluster_users
   cluster_accounts = var.cluster_accounts

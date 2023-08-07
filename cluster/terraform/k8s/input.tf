@@ -14,8 +14,12 @@ variable "cluster_tags" {
 variable "cluster_name" {
   type = string
 }
-variable "env_name" {
+variable "cluster_env" {
   type = string
+}
+
+variable "node_groups" {
+  type = list(string)
 }
 
 variable "cluster_accounts" {

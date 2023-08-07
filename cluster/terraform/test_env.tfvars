@@ -1,4 +1,6 @@
-cluster_name = "test"
+cluster_name = "test-v2"
+
+cluster_env = "test"
 
 cluster_tags = {
   Environment = "test cluster"
