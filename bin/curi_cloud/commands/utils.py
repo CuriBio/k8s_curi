@@ -66,14 +66,7 @@ def _add_service(deployment_dir, deployment_name, service_name):
     service_spec = {
         "path": f"/{service_name}",
         "pathType": "Prefix",
-        "backend": {
-            "service": {
-                "name": service_name,
-                "port": {
-                    "number": 80,
-                },
-            },
-        },
+        "backend": {"service": {"name": service_name, "port": {"number": 80}}},
     }
 
     # update deployment terraform with new service module
@@ -132,17 +125,11 @@ def _add_deployment(deployment_dir, deployment_name):
     if not os.path.isfile(f"{deployment_path}/terraform/output.tf"):
         write_template("tf_empty.mako", f"{deployment_path}/terraform/output.tf")
 
-    if not os.path.isfile(f"{deployment_path}/terraform/backend/test_env_config.tfvars"):
-        write_template(
-            "tf_deployment_backend.mako",
-            f"{deployment_path}/terraform/backend/test_env_config.tfvars",
-            deployment=deployment_name,
-            env="test",
-        )
-    if not os.path.isfile(f"{deployment_path}/terraform/backend/prod_env_config.tfvars"):
-        write_template(
-            "tf_deployment_backend.mako",
-            f"{deployment_path}/terraform/backend/prod_env_config.tfvars",
-            deployment=deployment_name,
-            env="prod",
-        )
+    for env in ("test", "modl", "prod"):
+        if not os.path.isfile(f"{deployment_path}/terraform/backend/{env}_env_config.tfvars"):
+            write_template(
+                "tf_deployment_backend.mako",
+                f"{deployment_path}/terraform/backend/{env}_env_config.tfvars",
+                deployment=deployment_name,
+                env=env,
+            )

@@ -1,18 +1,19 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: keda
+  name: ci
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: cluster
   source:
-    path: cluster/manifests/keda/base
+    path: cluster/manifests/ci/overlays/modl
     repoURL: https://github.com/CuriBio/k8s_curi.git
-    targetRevision: HEAD
+    targetRevision: modl-qc
   destination:
     server: https://kubernetes.default.svc
+    namespace: argo
   syncPolicy:
     automated:
       selfHeal: true

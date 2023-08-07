@@ -42,11 +42,15 @@ module "db" {
 
   name           = var.name
   engine         = "aurora-postgresql"
-  engine_version = "13.5"
+  engine_version = "13.8"
   instance_class = var.instance_class
+
   instances = {
     one = {}
   }
+
+  db_subnet_group_name   = var.name
+  create_db_subnet_group = true
 
   subnets                = data.terraform_remote_state.cluster.outputs.cluster_vpc.private_subnets
   vpc_id                 = data.terraform_remote_state.cluster.outputs.cluster_vpc.vpc_id
@@ -56,13 +60,12 @@ module "db" {
   apply_immediately   = true
   skip_final_snapshot = true
 
-  master_username        = "root"
-  master_password        = local.password
-  create_random_password = false
+  master_username             = "root"
+  master_password             = local.password
+  manage_master_user_password = false
 
   db_parameter_group_name         = aws_db_parameter_group.parameter_group.id
   db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.cluster_parameter_group.id
-  # enabled_cloudwatch_logs_exports = ["audit", "error", "general", "slowquery"]
 
   tags = local.tags
 }
