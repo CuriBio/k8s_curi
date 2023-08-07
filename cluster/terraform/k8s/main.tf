@@ -218,7 +218,6 @@ module "eks" {
   manage_aws_auth_configmap      = true
   cluster_endpoint_public_access = true
   custom_oidc_thumbprints        = [data.external.thumbprint.result.thumbprint]
-  # create                         = false
 
   eks_managed_node_groups = {
     medium = {
@@ -296,6 +295,17 @@ resource "aws_eks_addon" "ebs-csi" {
   }
 }
 
+
+data "aws_eks_cluster" "cluster" {
+  name = module.eks.cluster_name
+}
+
+
+data "aws_eks_cluster_auth" "cluster" {
+  name = module.eks.cluster_name
+}
+
+
 # Kubernetes provider
 # https://learn.hashicorp.com/terraform/kubernetes/provision-eks-cluster#optional-configure-terraform-kubernetes-provider
 # To learn how to schedule deployments and services using the provider,
@@ -307,6 +317,7 @@ resource "aws_eks_addon" "ebs-csi" {
 # modular (one for provision EKS, another for scheduling Kubernetes resources) as per best practices.
 
 provider "kubernetes" {
-  host                   = module.eks.cluster_endpoint
-  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+  host                   = data.aws_eks_cluster.cluster.endpoint
+  token                  = data.aws_eks_cluster_auth.cluster.token
+  cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority.0.data)
 }
