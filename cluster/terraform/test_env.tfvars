@@ -1,4 +1,4 @@
-cluster_name = "test-v3"
+cluster_name = "test-v2"
 
 cluster_env = "test"
 
