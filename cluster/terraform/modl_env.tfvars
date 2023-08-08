@@ -1,5 +1,5 @@
 cluster_name = "modl"
-
+cluster_env  = "modl"
 cluster_tags = {
   Environment = "modl cluster"
 }

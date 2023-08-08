@@ -1,4 +1,6 @@
-cluster_name = "test"
+cluster_name = "test-v3"
+
+cluster_env = "test"
 
 cluster_tags = {
   Environment = "test cluster"
@@ -9,24 +11,19 @@ cluster_accounts = [
 ]
 
 cluster_users = [
-    {
-      userarn  = "arn:aws:iam::077346344852:user/jason"
-      username = "jason"
-      groups   = ["system:masters"]
-    },
-    {
-      userarn = "arn:aws:iam::077346344852:user/tanner"
-      username = "tanner"
-      groups = ["system:masters"]
-    },
-    {
-      userarn = "arn:aws:iam::077346344852:user/luci"
-      username = "luci"
-      groups = ["system:masters"]
-    },
-    {
-      userarn = "arn:aws:iam::077346344852:user/nikita"
-      username = "nikita"
-      groups = ["system:masters"]
-    }
+  {
+    userarn  = "arn:aws:iam::077346344852:user/jason"
+    username = "jason"
+    groups   = ["system:masters"]
+  },
+  {
+    userarn  = "arn:aws:iam::077346344852:user/tanner"
+    username = "tanner"
+    groups   = ["system:masters"]
+  },
+  {
+    userarn  = "arn:aws:iam::077346344852:user/luci"
+    username = "luci"
+    groups   = ["system:masters"]
+  }
 ]
