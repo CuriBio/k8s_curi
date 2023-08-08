@@ -2,22 +2,22 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-- ../../base
-- github-access-token.yaml
+  - github-access-token.yaml
+  - ../../base
 
 patchesJson6902:
-- target:
-    version: v1alpha1
-    kind: EventSource
-    name: github
-  patch: |-
-    - op: replace
-      path: /spec/github/k8s_curi/webhook/url
-      value: "https://githooks.curibio-test.com"
-- target:
-    kind: Ingress
-    name: github
-  patch: |-
-    - op: replace
-      path: /spec/rules/0/host
-      value: "githooks.curibio-test.com"
+  - target:
+      version: v1alpha1
+      kind: EventSource
+      name: github
+    patch: |-
+      - op: replace
+        path: /spec/github/k8s_curi/webhook/url
+        value: "https://githooks.curibio-test.com"
+  - target:
+      kind: Ingress
+      name: github
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: "githooks.curibio-test.com"

@@ -23,6 +23,11 @@ variable "cluster_name" {
   default = "test_cluster"
 }
 
+variable "cluster_env" {
+  type    = string
+  default = "test"
+}
+
 variable "cluster_tags" {}
 
 variable "cluster_accounts" {
@@ -32,9 +37,9 @@ variable "cluster_accounts" {
 
 variable "cluster_users" {
   default = []
-  type    = list(object({
-    userarn   = string
-    username  = string
-    groups    = list(string)
+  type = list(object({
+    userarn  = string
+    username = string
+    groups   = list(string)
   }))
 }
