@@ -107,10 +107,57 @@ module "eks_cluster_v2" {
   region           = var.region
   cluster_env      = var.cluster_env
   cluster_name     = var.cluster_name
-  node_groups      = var.node_groups
   cluster_tags     = var.cluster_tags
   cluster_users    = var.cluster_users
   cluster_accounts = var.cluster_accounts
   private_subnets  = module.vpc.private_subnets
   vpc_id           = module.vpc.vpc_id
+  node_groups = {
+    services = {
+      desired_size = 3
+      min_size     = 1
+      max_size     = 3
+
+      instance_types = ["t3a.medium"]
+      subnet_ids     = [module.vpc.private_subnets[0], module.vpc.private_subnets[1]]
+
+      labels = {
+        group = "services"
+      }
+      update_config = {
+        max_unavailable_percentage = 50 # or set `max_unavailable`
+      }
+    },
+
+    workers = {
+      desired_size = 3
+      min_size     = 1
+      max_size     = 3
+
+      instance_types = ["c6a.large"]
+      subnet_ids     = [module.vpc.private_subnets[0], module.vpc.private_subnets[1]]
+
+      labels = {
+        group = "workers"
+      }
+      update_config = {
+        max_unavailable_percentage = 50 # or set `max_unavailable`
+      }
+    },
+    argo = {
+      desired_size = 3
+      min_size     = 1
+      max_size     = 3
+
+      instance_types = ["t3a.medium"]
+      subnet_ids     = [module.vpc.private_subnets[2]]
+
+      labels = {
+        group = "argo"
+      }
+      update_config = {
+        max_unavailable_percentage = 50 # or set `max_unavailable`
+      }
+    }
+  }
 }

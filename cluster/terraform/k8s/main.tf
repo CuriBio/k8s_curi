@@ -219,54 +219,7 @@ module "eks" {
   cluster_endpoint_public_access = true
   custom_oidc_thumbprints        = [data.external.thumbprint.result.thumbprint]
 
-  eks_managed_node_groups = {
-    medium = {
-      desired_size = 3
-      min_size     = 1
-      max_size     = 3
-
-      instance_types = ["t3a.medium"]
-      subnet_ids     = [var.private_subnets[0], var.private_subnets[1]]
-
-      labels = {
-        group = var.node_groups[0]
-      }
-      update_config = {
-        max_unavailable_percentage = 50 # or set `max_unavailable`
-      }
-    },
-
-    workers = {
-      desired_size = 3
-      min_size     = 1
-      max_size     = 3
-
-      instance_types = ["c6a.large"]
-      subnet_ids     = [var.private_subnets[0], var.private_subnets[1]]
-
-      labels = {
-        group = var.node_groups[1]
-      }
-      update_config = {
-        max_unavailable_percentage = 50 # or set `max_unavailable`
-      }
-    },
-    argo = {
-      desired_size = 3
-      min_size     = 1
-      max_size     = 3
-
-      instance_types = ["t3a.medium"]
-      subnet_ids     = [var.private_subnets[2]]
-
-      labels = {
-        group = var.node_groups[2]
-      }
-      update_config = {
-        max_unavailable_percentage = 50 # or set `max_unavailable`
-      }
-    }
-  }
+  eks_managed_node_groups = var.node_groups
 }
 
 data "aws_iam_policy" "ebs_csi_policy" {

@@ -19,7 +19,7 @@ variable "cluster_env" {
 }
 
 variable "node_groups" {
-  type = list(string)
+  type = map(any)
 }
 
 variable "cluster_accounts" {

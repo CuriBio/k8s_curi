@@ -28,11 +28,6 @@ variable "cluster_env" {
   default = "test"
 }
 
-variable "node_groups" {
-  type    = list(string)
-  default = ["services", "workers", "argo"]
-}
-
 variable "cluster_tags" {}
 
 variable "cluster_accounts" {
