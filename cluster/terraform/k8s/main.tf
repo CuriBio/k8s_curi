@@ -220,7 +220,6 @@ module "eks" {
   manage_aws_auth_configmap      = true
   cluster_endpoint_public_access = true
   custom_oidc_thumbprints        = [data.external.thumbprint.result.thumbprint]
-  # create                         = false
 
   eks_managed_node_groups = var.node_groups
 }
