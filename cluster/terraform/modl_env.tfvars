@@ -1,4 +1,4 @@
-cluster_name = "modl"
+cluster_name = "modl-v2"
 cluster_env  = "modl"
 cluster_tags = {
   Environment = "modl cluster"

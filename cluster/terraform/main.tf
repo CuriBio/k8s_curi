@@ -41,15 +41,18 @@ module "vpc" {
 
   tags = {
     "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+    "kubernetes.io/cluster/modl"                = "shared"
   }
 
   public_subnet_tags = {
     "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+    "kubernetes.io/cluster/modl"                = "shared"
     "kubernetes.io/role/elb"                    = "1"
   }
 
   private_subnet_tags = {
     "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+    "kubernetes.io/cluster/modl"                = "shared"
     "kubernetes.io/role/internal-elb"           = "1"
   }
 }
@@ -114,6 +117,67 @@ module "eks_cluster_v2" {
   vpc_id           = module.vpc.vpc_id
   node_groups = {
     services = {
+      desired_size = 3
+      min_size     = 1
+      max_size     = 3
+
+      instance_types = ["t3a.medium"]
+      subnet_ids     = [module.vpc.private_subnets[0], module.vpc.private_subnets[1]]
+
+      labels = {
+        group = "services"
+      }
+      update_config = {
+        max_unavailable_percentage = 50 # or set `max_unavailable`
+      }
+    },
+
+    workers = {
+      desired_size = 3
+      min_size     = 1
+      max_size     = 3
+
+      instance_types = ["c6a.large"]
+      subnet_ids     = [module.vpc.private_subnets[0], module.vpc.private_subnets[1]]
+
+      labels = {
+        group = "workers"
+      }
+      update_config = {
+        max_unavailable_percentage = 50 # or set `max_unavailable`
+      }
+    },
+    argo = {
+      desired_size = 3
+      min_size     = 1
+      max_size     = 3
+
+      instance_types = ["t3a.medium"]
+      subnet_ids     = [module.vpc.private_subnets[2]]
+
+      labels = {
+        group = "argo"
+      }
+      update_config = {
+        max_unavailable_percentage = 50 # or set `max_unavailable`
+      }
+    }
+  }
+}
+
+module "eks_cluster" {
+  source = "./k8s"
+
+  region           = var.region
+  cluster_env      = var.cluster_env
+  cluster_name     = "modl"
+  cluster_tags     = var.cluster_tags
+  cluster_users    = var.cluster_users
+  cluster_accounts = var.cluster_accounts
+  private_subnets  = module.vpc.private_subnets
+  vpc_id           = module.vpc.vpc_id
+  node_groups = {
+    medium = {
       desired_size = 3
       min_size     = 1
       max_size     = 3
