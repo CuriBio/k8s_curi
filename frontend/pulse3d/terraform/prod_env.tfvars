@@ -1,3 +1,3 @@
 cluster_name = "prod"
-domain_name = "curibio.com"
+domain_name  = "curibio.com"
 

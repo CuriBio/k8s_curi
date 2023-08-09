@@ -2,16 +2,16 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "4.0.0"
+      version = "5.7.0"
     }
 
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "2.8.0"
+      version = "2.21.1"
     }
   }
 
-  required_version = "1.1.6"
+  required_version = "1.5.2"
 
   backend "s3" {
   }
@@ -28,7 +28,7 @@ data "aws_availability_zones" "available" {}
 #####################################################################
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "3.2.0"
+  version = "5.0.0"
 
   name                 = "${var.cluster_name}-vpc"
   cidr                 = var.vpc_cidr
@@ -40,17 +40,17 @@ module "vpc" {
   enable_dns_hostnames = true
 
   tags = {
-    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+    "kubernetes.io/cluster/${var.cluster_name}-updated" = "shared"
   }
 
   public_subnet_tags = {
-    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
-    "kubernetes.io/role/elb"                    = "1"
+    "kubernetes.io/cluster/${var.cluster_name}-updated" = "shared"
+    "kubernetes.io/role/elb"                            = "1"
   }
 
   private_subnet_tags = {
-    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
-    "kubernetes.io/role/internal-elb"           = "1"
+    "kubernetes.io/cluster/${var.cluster_name}-updated" = "shared"
+    "kubernetes.io/role/internal-elb"                   = "1"
   }
 }
 
@@ -104,11 +104,11 @@ resource "aws_security_group" "all_worker_mgmt" {
 module "eks_cluster" {
   source = "./k8s"
 
-  region            = var.region
-  cluster_name      = var.cluster_name
-  cluster_tags      = var.cluster_tags
-  cluster_users     = var.cluster_users
-  cluster_accounts  = var.cluster_accounts
-  private_subnets   = module.vpc.private_subnets
-  vpc_id            = module.vpc.vpc_id
+  region           = var.region
+  cluster_name     = var.cluster_name
+  cluster_tags     = var.cluster_tags
+  cluster_users    = var.cluster_users
+  cluster_accounts = var.cluster_accounts
+  private_subnets  = module.vpc.private_subnets
+  vpc_id           = module.vpc.vpc_id
 }
