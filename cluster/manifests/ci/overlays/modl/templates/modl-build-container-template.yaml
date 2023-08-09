@@ -1,0 +1,429 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: git-sync
+  namespace: argo
+spec:
+  serviceAccountName: argo-workflows-sa
+  templates:
+    - name: checkout
+      inputs:
+        parameters:
+          - name: repo
+          - name: branch
+          - name: sha
+          - name: base-sha
+      nodeSelector:
+        group: argo
+      script:
+        image: 725604423866.dkr.ecr.us-east-2.amazonaws.com/builder
+        workingDir: /tmp/git
+        env:
+          - name: TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: github-access-token
+                key: token
+          # - name: ARGO_DEBUG_PAUSE_AFTER
+          #   value: 'true'
+        volumeMounts:
+          - name: workdir
+            mountPath: /tmp/git
+        command: ["sh"]
+        source: |
+          git clone -q "{{inputs.parameters.repo}}"
+          cd k8s_curi
+          git fetch -q origin "{{inputs.parameters.branch}}" && git checkout -q "{{inputs.parameters.branch}}"
+
+          SERVICES=$(builder --changed --status=pending --sha={{inputs.parameters.sha}} --base-sha={{inputs.parameters.base-sha}})
+          echo $SERVICES
+    - name: changed-tf
+      inputs:
+        parameters:
+          - name: sha
+          - name: base-sha
+      nodeSelector:
+        group: argo
+      script:
+        image: 725604423866.dkr.ecr.us-east-2.amazonaws.com/builder
+        workingDir: /tmp/git/k8s_curi
+        volumeMounts:
+          - name: workdir
+            mountPath: /tmp/git
+        env:
+          - name: TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: github-access-token
+                key: token
+        command: ["sh"]
+        source: |
+          TERRAFORM=$(builder --changed --terraform --status=pending --sha={{inputs.parameters.sha}} --base-sha={{inputs.parameters.base-sha}})
+          echo $TERRAFORM
+    - name: http-status
+      inputs:
+        parameters:
+          - name: status
+          - name: context
+          - name: sha
+      nodeSelector:
+        group: argo
+      script:
+        image: 725604423866.dkr.ecr.us-east-2.amazonaws.com/builder
+        command: ["sh"]
+        env:
+          - name: TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: github-access-token
+                key: token
+        source: |
+          builder --status={{inputs.parameters.status}} --context={{inputs.parameters.context}} --sha={{inputs.parameters.sha}}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: build-service
+  namespace: argo
+spec:
+  serviceAccountName: argo-workflows-sa
+  templates:
+    - name: kaniko-build-service
+      inputs:
+        parameters:
+          - name: path
+          - name: service
+          - name: deployment
+          - name: sha
+      nodeSelector:
+        group: argo
+      steps:
+        - - name: build-service
+            template: build
+            arguments:
+              parameters:
+                - name: path
+                  value: "{{inputs.parameters.path}}"
+                - name: service
+                  value: "{{inputs.parameters.service}}"
+                - name: deployment
+                  value: "{{inputs.parameters.deployment}}"
+        - - name: set-output-status-success
+            when: "{{steps.build-service.status}} == Succeeded"
+            templateRef:
+              name: git-sync
+              template: http-status
+            arguments:
+              parameters:
+                - name: status
+                  value: success
+                - name: context
+                  value: "{{inputs.parameters.deployment}}/{{inputs.parameters.service}}"
+                - name: sha
+                  value: "{{inputs.parameters.sha}}"
+          - name: set-output-status-failed
+            when: "{{steps.build-service.status}} != Succeeded"
+            templateRef:
+              name: git-sync
+              template: http-status
+            arguments:
+              parameters:
+                - name: status
+                  value: failure
+                - name: context
+                  value: "{{inputs.parameters.deployment}}/{{inputs.parameters.service}}"
+                - name: sha
+                  value: "{{inputs.parameters.sha}}"
+    - name: build
+      inputs:
+        parameters:
+          - name: path
+          - name: service
+          - name: deployment
+      nodeSelector:
+        group: argo
+      container:
+        image: gcr.io/kaniko-project/executor:v1.8.0-debug
+        command: [/kaniko/executor]
+        workingDir: /tmp/git/k8s_curi
+        args:
+          - --no-push
+          - --context=/tmp/git/k8s_curi/
+          - --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
+        volumeMounts:
+          - name: workdir
+            mountPath: /tmp/git
+    - name: db-migrations-dry-run
+      inputs:
+        parameters:
+          - name: number
+      nodeSelector:
+        group: argo
+      script:
+        image: 725604423866.dkr.ecr.us-east-2.amazonaws.com/builder
+        workingDir: /tmp/git/k8s_curi/core/db/curibio
+        env:
+          - name: TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: github-access-token
+                key: token
+          - name: JOBS_USER_PASS
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: jobs_user_pass
+          - name: JOBS_USER_PASS_RO
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: jobs_user_pass_ro
+          - name: MANTARRAY_RO_PASS
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: mantarray_ro_pass
+          - name: POSTGRES_DB
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: postgres_db
+          - name: POSTGRES_HOST
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: postgres_host
+          - name: POSTGRES_NAME
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: postgres_name
+          - name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: postgres_password
+          - name: POSTGRES_SERVER
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: postgres_server
+          - name: POSTGRES_USER
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: postgres_user
+          - name: TABLE_USER_PASS
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: table_user_pass
+          - name: TABLE_USER_PASS_RO
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: table_user_pass_ro
+          - name: PULSE3D_QUEUE_PROCESSOR_RO_PASS
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: pulse3d_queue_processor_ro
+        volumeMounts:
+          - name: workdir
+            mountPath: /tmp/git
+        command: ["sh"]
+        source: |
+          CURRENT_DB_REVISION=$(alembic current)
+          if [[ "$CURRENT_DB_REVISION" == *"(head)"* ]]; then
+            echo "Up to date"
+          else
+            echo "Update needed"
+            MIGRATION_PLAN=$(alembic upgrade $CURRENT_DB_REVISION:head --sql)
+            builder --pr-number={{inputs.parameters.number}} --pr-comment="$MIGRATION_PLAN"
+          fi
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: build-push-service
+  namespace: argo
+spec:
+  serviceAccountName: argo-workflows-sa
+  templates:
+    - name: kaniko-build-push-service
+      inputs:
+        parameters:
+          - name: path
+          - name: service
+          - name: deployment
+          - name: version
+          - name: sha
+      nodeSelector:
+        group: argo
+      steps:
+        - - name: set-status-pending
+            templateRef:
+              name: git-sync
+              template: http-status
+            arguments:
+              parameters:
+                - name: status
+                  value: pending
+                - name: context
+                  value: "{{inputs.parameters.deployment}}/{{inputs.parameters.service}}"
+                - name: sha
+                  value: "{{inputs.parameters.sha}}"
+        - - name: build-service
+            template: build
+            arguments:
+              parameters:
+                - name: path
+                  value: "{{inputs.parameters.path}}"
+                - name: service
+                  value: "{{inputs.parameters.service}}"
+                - name: deployment
+                  value: "{{inputs.parameters.deployment}}"
+                - name: version
+                  value: "{{inputs.parameters.version}}"
+        - - name: set-output-status-success
+            when: "{{steps.build-service.status}} == Succeeded"
+            templateRef:
+              name: git-sync
+              template: http-status
+            arguments:
+              parameters:
+                - name: status
+                  value: success
+                - name: context
+                  value: "{{inputs.parameters.deployment}}/{{inputs.parameters.service}}"
+                - name: sha
+                  value: "{{inputs.parameters.sha}}"
+          - name: set-output-status-failed
+            when: "{{steps.build-service.status}} != Succeeded"
+            templateRef:
+              name: git-sync
+              template: http-status
+            arguments:
+              parameters:
+                - name: status
+                  value: failure
+                - name: context
+                  value: "{{inputs.parameters.deployment}}/{{inputs.parameters.service}}"
+                - name: sha
+                  value: "{{inputs.parameters.sha}}"
+    - name: build
+      inputs:
+        parameters:
+          - name: path
+          - name: service
+          - name: deployment
+          - name: version
+      nodeSelector:
+        group: argo
+      container:
+        image: gcr.io/kaniko-project/executor:v1.8.0-debug
+        command: [/kaniko/executor]
+        env:
+          - name: AWS_EC2_METADATA_DISABLED
+            value: "true"
+          - name: AWS_SDK_LOAD_CONFIG
+            value: "true"
+        args:
+          - --destination=725604423866.dkr.ecr.us-east-2.amazonaws.com/{{inputs.parameters.service}}:{{inputs.parameters.version}}
+          - --context=/tmp/git/k8s_curi/
+          - --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
+        volumeMounts:
+          - name: workdir
+            mountPath: /tmp/git
+          - name: docker-config
+            mountPath: /kaniko/.docker/
+      volumes:
+        - name: docker-config
+          configMap:
+            name: docker-config
+            namespace: argo
+    - name: db-migrations
+      nodeSelector:
+        group: argo
+      script:
+        image: 725604423866.dkr.ecr.us-east-2.amazonaws.com/builder
+        workingDir: /tmp/git/k8s_curi/core/db/curibio
+        env:
+          - name: TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: github-access-token
+                key: token
+          - name: JOBS_USER_PASS
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: jobs_user_pass
+          - name: JOBS_USER_PASS_RO
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: jobs_user_pass_ro
+          - name: MANTARRAY_RO_PASS
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: mantarray_ro_pass
+          - name: POSTGRES_DB
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: postgres_db
+          - name: POSTGRES_HOST
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: postgres_host
+          - name: POSTGRES_NAME
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: postgres_name
+          - name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: postgres_password
+          - name: POSTGRES_SERVER
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: postgres_server
+          - name: POSTGRES_USER
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: postgres_user
+          - name: TABLE_USER_PASS
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: table_user_pass
+          - name: TABLE_USER_PASS_RO
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: table_user_pass_ro
+          - name: PULSE3D_QUEUE_PROCESSOR_RO_PASS
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: pulse3d_queue_processor_ro
+        volumeMounts:
+          - name: workdir
+            mountPath: /tmp/git
+        command: ["sh"]
+        source: |
+          CURRENT_DB_REVISION=$(alembic current)
+          if [[ "$CURRENT_DB_REVISION" == *"(head)"* ]]; then
+            echo "Up to date"
+          else
+            echo "Update needed"
+            alembic upgrade head
+          fi
