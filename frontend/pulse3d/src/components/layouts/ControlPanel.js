@@ -13,13 +13,14 @@ import { styled as muiStyled } from "@mui/material/styles";
 const Container = styled.div`
   height: inherit;
   background-color: var(--dark-blue);
-  min-width: 200px;
+  min-width: 240px;
   width: 15vw;
   position: fixed;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
   z-index: 2;
+  border-right: 1px solid var(--dark-gray);
 `;
 
 const ListItem = styled.li`
@@ -37,8 +38,8 @@ const ListContainer = styled.ul`
   line-height: 3;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 0;
+  align-items: start;
+  padding-left: 10px;
 `;
 
 // this is the best way to target and override style props of child components used in other MUI components
