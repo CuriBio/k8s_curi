@@ -1,4 +1,6 @@
-cluster_name = "test"
+cluster_name = "test-v2"
+
+cluster_env = "test"
 
 cluster_tags = {
   Environment = "test"
@@ -22,11 +24,6 @@ cluster_users = [
   {
     userarn  = "arn:aws:iam::077346344852:user/luci"
     username = "luci"
-    groups   = ["system:masters"]
-  },
-  {
-    userarn  = "arn:aws:iam::077346344852:user/nikita"
-    username = "nikita"
     groups   = ["system:masters"]
   }
 ]
