@@ -143,7 +143,6 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
             select_query_result = await con.fetchrow(select_query, *select_query_params)
             pw = details.password.get_secret_value()
 
-            # first check if account is locked
             if select_query_result is not None:
                 # users can be suspended for other reasons, return None to replicate previous behavior
                 if (
@@ -777,7 +776,7 @@ async def update_user(
                 )
         else:
             if action in ("deactivate"):
-                update_query = "UPDATE users SET suspended='t' WHERE id=$1 AND customer_id=$2"
+                update_query = "UPDATE users SET suspended='t' WHERE id=$1 AND customer_id=$2            # first check if account is locked"
                 query_args = (account_id, self_id)
             elif action == "reactivate":
                 # when reactivated, failed login attempts should be set back to 0.
