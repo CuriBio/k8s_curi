@@ -105,6 +105,12 @@ const adminButtons = [
     options: [],
   },
   { label: "Users Info", disabled: false, page: "/users-info", options: [] },
+  {
+    label: "Account Settings",
+    disabled: false,
+    page: "/account-settings",
+    options: [],
+  },
 ];
 const modalObjs = {
   jobsReached: {
@@ -145,8 +151,8 @@ export default function ControlPanel() {
     {
       label: "Account Settings",
       page: "/account-settings",
-      options: ["Usage Details"],
-      //TODO add notifications page
+      options: [],
+      // TODO add notifications page
     },
     { label: "Metric Definitions", options: [] },
   ];
@@ -159,9 +165,10 @@ export default function ControlPanel() {
 
     if (currentPage) {
       const { label, options } = currentPage;
-      if (label !== selected) setSelected(label);
-      if (options.length > 0) setExpanded(label);
-      else setExpanded(null);
+      if (label !== selected) {
+        setSelected(label);
+      }
+      setExpanded(options.length > 0 ? label : null);
     }
   }, [router]);
 
@@ -175,8 +182,11 @@ export default function ControlPanel() {
         // setting local state to compare against when it changes during a session to pop up new modal
         // if jobs are reached, then all uploading/analyses will be disabled
         // else if just uploads are reached, user can still perform re-analysis
-        if (usageQuota.jobs_reached) setModalLabels(modalObjs.jobsReached);
-        else if (usageQuota.uploads_reached) setModalLabels(modalObjs.uploadsReached);
+        if (usageQuota.jobs_reached) {
+          setModalLabels(modalObjs.jobsReached);
+        } else if (usageQuota.uploads_reached) {
+          setModalLabels(modalObjs.uploadsReached);
+        }
 
         setModalState(true);
 

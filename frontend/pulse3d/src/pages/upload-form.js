@@ -749,7 +749,7 @@ export default function UploadForm() {
           }}
         />
         <ButtonContainer>
-          {uploadSuccess ? <SuccessText>Upload Successful!</SuccessText> : null}
+          {uploadSuccess && <SuccessText>Upload Successful!</SuccessText>}
           <ButtonWidget
             width="200px"
             height="50px"

@@ -30,21 +30,6 @@ console.log = function () {
   originalLog(...[`[SW @ ${time}]`, ...arguments]);
 };
 
-const getAccountType = async () => {
-  const cachedTokens = await getAuthTokens();
-  let accountType = null;
-
-  if (cachedTokens.access) {
-    accountType = jwtDecode(cachedTokens.access).account_type; // either token will work here
-    if (accountType === "customer") {
-      // token types are 'user' and 'customer', but FE uses 'user' and 'admin'
-      accountType = "admin";
-    }
-  }
-
-  return accountType;
-};
-
 const getAuthTokens = async () => {
   const swCache = await caches.open(cacheName);
   const authTokensRes = await swCache.match("tokens");
@@ -59,6 +44,23 @@ const getAuthTokens = async () => {
   }
 
   return tokens;
+};
+
+const getValueFromToken = async (name) => {
+  const cachedTokens = await getAuthTokens();
+
+  if (!cachedTokens.access) {
+    return null;
+  }
+
+  let value = jwtDecode(cachedTokens.access)[name];
+
+  if (name === "accountType" && value === "customer") {
+    // token types are 'user' and 'customer', but FE uses 'user' and 'admin'
+    value = "admin";
+  }
+
+  return value;
 };
 
 let logoutTimer = null;
@@ -116,6 +118,7 @@ const getUsageQuota = async () => {
 const clearAccountInfo = async () => {
   await caches.delete(cacheName);
   clearTimeout(logoutTimer);
+
   // TODO change all console.log to console.debug and figure out how to enable debug logging
   console.log("account info cleared");
 };
@@ -370,7 +373,8 @@ self.onmessage = async ({ data, source }) => {
 
     msgInfo = {
       isLoggedIn: cachedTokens.access !== null,
-      accountType: await getAccountType(),
+      accountType: await getValueFromToken("accountType"),
+      accountId: await getValueFromToken("accountId"),
       usageQuota: await getUsageQuota(),
     };
   } else if (msgType === "stayAlive") {
@@ -394,5 +398,5 @@ export const accessToInternalsForTesting = {
   tokens: await getAuthTokens(),
   logoutTimer,
   ClientSource,
-  accountType: await getAccountType(),
+  accountType: await getValueFromToken("accountType"),
 };

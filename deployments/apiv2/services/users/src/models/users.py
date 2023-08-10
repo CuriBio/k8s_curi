@@ -27,7 +27,7 @@ class CustomerLogin(BaseModel):
 
 
 class UserLogin(BaseModel):
-    customer_id: UUID
+    customer_id: UUID | str
     username: str
     password: SecretStr
     service: str
@@ -98,8 +98,9 @@ class CustomerProfile(BaseModel):
     scope: list[str]
 
 
-class UserAction(BaseModel):
+class AccountUpdateAction(BaseModel):
     action_type: str
+    new_alias: str | None
 
 
 class UnableToUpdateAccountResponse(BaseModel):

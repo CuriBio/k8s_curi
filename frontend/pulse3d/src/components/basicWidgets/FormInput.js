@@ -1,4 +1,10 @@
 import styled from "styled-components";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import Tooltip from "@mui/material/Tooltip";
+
+const TooltipText = styled.span`
+  font-size: 15px;
+`;
 
 const formStyle = [
   `
@@ -22,12 +28,23 @@ export default function FormInput({
   value = "",
   onChangeFn,
   children,
+  tooltipText,
+  tooltipIconStyle = { fontSize: 20, margin: "0px 10px" },
   disabled = false,
   borderStyle = "none",
 }) {
   return (
     <>
-      {label ? <Label htmlFor={name}>{label}</Label> : null}
+      {label && (
+        <Label htmlFor={name}>
+          {label}
+          {tooltipText && (
+            <Tooltip title={<TooltipText>{tooltipText}</TooltipText>}>
+              <InfoOutlinedIcon sx={tooltipIconStyle} />
+            </Tooltip>
+          )}
+        </Label>
+      )}
       <Field
         id={name}
         placeholder={disabled ? "Disabled" : placeholder}
