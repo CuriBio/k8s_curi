@@ -145,10 +145,11 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
 
             # first check if account is locked
             if select_query_result is not None:
-                if select_query_result["failed_login_attempts"] >= MAX_FAILED_LOGIN_ATTEMPTS:
-                    raise LoginError(account_locked_msg)
                 # users can be suspended for other reasons, return None to replicate previous behavior
-                elif select_query_result["suspended"]:
+                if (
+                    select_query_result["suspended"]
+                    and select_query_result["failed_login_attempts"] < MAX_FAILED_LOGIN_ATTEMPTS
+                ):
                     select_query_result = None
             else:
                 # if no record is returned by query then fetchrow will return None,
@@ -160,6 +161,11 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
                 # then there is an issue with the table in the database
                 ph.verify(select_query_result["password"], pw)
             except VerifyMismatchError:
+                # first check if account is already locked
+                # should never be greater than maximum, but handling in case
+                if select_query_result["failed_login_attempts"] >= MAX_FAILED_LOGIN_ATTEMPTS:
+                    raise LoginError(account_locked_msg)
+
                 # increment customer/user failed attempts
                 logger.info(
                     f"Failed login attempt {select_query_result['failed_login_attempts'] + 1} for {account_type} id: {select_query_result['id']}"
