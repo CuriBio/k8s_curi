@@ -1,4 +1,4 @@
-cluster_name = "prod"
+cluster_name = "prod-v2"
 
 cluster_env = "prod"
 cluster_tags = {
