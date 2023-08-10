@@ -231,9 +231,7 @@ def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
         login_details["email"].lower(),
     )
     mocked_asyncpg_con.execute.assert_called_with(
-        "UPDATE customers SET refresh_token=$1 WHERE id=$2",
-        expected_refresh_token.token,
-        test_customer_id,
+        "UPDATE customers SET refresh_token=$1 WHERE id=$2", expected_refresh_token.token, test_customer_id
     )
 
     assert spied_create_token.call_count == 2
@@ -595,7 +593,7 @@ def test_logout__success(account_type, mocked_asyncpg_con):
     assert response.status_code == 204
 
     mocked_asyncpg_con.execute.assert_called_once_with(
-        f"UPDATE {account_type}s SET refresh_token = NULL WHERE id = $1", test_id
+        f"UPDATE {account_type}s SET refresh_token = NULL WHERE id=$1", test_id
     )
 
 
@@ -659,8 +657,7 @@ def test_account_id__get__id_given__customer_retrieving_self(mocked_asyncpg_con)
     assert response.json() == expected_customer_info
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
-        f"SELECT {', '.join(expected_customer_info)} FROM customers WHERE id=$1",
-        test_customer_id,
+        f"SELECT {', '.join(expected_customer_info)} FROM customers WHERE id=$1", test_customer_id
     )
 
 
@@ -787,7 +784,7 @@ def test_user_id__put__successful_deactivation(mocked_asyncpg_con):
     assert response.status_code == 200
 
     mocked_asyncpg_con.execute.assert_called_once_with(
-        "UPDATE users SET suspended='t' WHERE id=$1", test_user_id
+        "UPDATE users SET suspended='t' WHERE id=$1 AND customer_id=$2", test_user_id, test_customer_id
     )
 
 
@@ -805,7 +802,9 @@ def test_user_id__put__successful_reactivation(mocked_asyncpg_con):
     assert response.status_code == 200
 
     mocked_asyncpg_con.execute.assert_called_once_with(
-        "UPDATE users SET suspended='f', failed_login_attempts=0 WHERE id=$1", test_user_id
+        "UPDATE users SET suspended='f', failed_login_attempts=0 WHERE id=$1 AND customer_id=$2",
+        test_user_id,
+        test_customer_id,
     )
 
 
@@ -847,9 +846,7 @@ def test_account_id__put__user_edit_self_with_mismatched_account_ids(mocked_asyn
     other_id = uuid.uuid4()
 
     response = test_client.put(
-        f"/{other_id}",
-        json={"action_type": "any"},
-        headers={"Authorization": f"Bearer {access_token}"},
+        f"/{other_id}", json={"action_type": "any"}, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 400
 

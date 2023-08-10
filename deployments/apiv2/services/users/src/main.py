@@ -777,15 +777,17 @@ async def update_user(
                 )
         else:
             if action in ("deactivate"):
-                update_query = "UPDATE users SET suspended='t' WHERE id=$1"
-                query_args = (account_id,)
+                update_query = "UPDATE users SET suspended='t' WHERE id=$1 AND customer_id=$2"
+                query_args = (account_id, self_id)
             elif action == "reactivate":
                 # when reactivated, failed login attempts should be set back to 0.
-                update_query = "UPDATE users SET suspended='f', failed_login_attempts=0 WHERE id=$1"
-                query_args = (account_id,)
+                update_query = (
+                    "UPDATE users SET suspended='f', failed_login_attempts=0 WHERE id=$1 AND customer_id=$2"
+                )
+                query_args = (account_id, self_id)
             elif action == "delete":
-                update_query = "UPDATE users SET deleted_at=$1 WHERE id=$2"
-                query_args = (datetime.now(), account_id)
+                update_query = "UPDATE users SET deleted_at=$1 WHERE id=$2 AND customer_id=$3"
+                query_args = (datetime.now(), account_id, self_id)
             else:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
