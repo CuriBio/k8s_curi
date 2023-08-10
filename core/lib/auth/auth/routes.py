@@ -2,6 +2,7 @@ from calendar import timegm
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Tuple
 from uuid import UUID
+import logging
 
 from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -19,6 +20,8 @@ from .settings import (
 from .scopes import ACCOUNT_SCOPES
 
 security = HTTPBearer()
+
+logger = logging.getLogger(__name__)
 
 
 class ProtectedAny:
@@ -50,7 +53,8 @@ class ProtectedAny:
 
             return payload
 
-        except Exception:
+        except Exception as e:
+            logger.exception(f"Authentication error: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="No authenticated user",
