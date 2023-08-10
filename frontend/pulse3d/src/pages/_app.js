@@ -28,13 +28,13 @@ export const AuthContext = createContext();
 
 const availablePages = {
   user: ["/uploads", "/upload-form", "/account", "/account-settings"],
-  admin: ["/uploads", "/new-user", "/users-info"],
+  admin: ["/uploads", "/new-user", "/users-info", "/account-settings"],
 };
 
 function Pulse({ Component, pageProps }) {
   const getLayout = Component.getLayout || ((page) => page);
   const router = useRouter();
-  const [accountType, setAccountType] = useState();
+  const [accountInfo, setAccountInfo] = useState({});
   const [showLoggedOutAlert, setLoggedOutAlert] = useState(false);
   const [usageQuota, setUsageQuota] = useState(null);
 
@@ -81,9 +81,13 @@ function Pulse({ Component, pageProps }) {
               setLoggedOutAlert(true);
             }
           } else if (data.msgType === "authCheck") {
+            const accountInfo = {
+              accountType: data.accountType,
+              accountId: data.accountId,
+            };
             if (data.isLoggedIn) {
               // the router pathname must be sent to the SW and then sent back here since for some reason this message handler can't grab the current page
-              setAccountType(data.accountType);
+              setAccountInfo(accountInfo);
               // if logged in and on a page that shouldn't be accessed, or if on the login page, redirect to home page (currently /uploads)
               if (currentPage === "/login" || !availablePages[data.accountType].includes(currentPage)) {
                 // TODO Tanner (8/23/22): this probably isn't the best solution for redirecting to other pages. Should look into a better way to do this
@@ -91,7 +95,7 @@ function Pulse({ Component, pageProps }) {
               }
             } else if (currentPage !== "/login") {
               // always redirect to login page if not logged in
-              setAccountType(data.accountType);
+              setAccountInfo(accountInfo);
               router.replace("/login", undefined, { shallow: true });
             }
           }
@@ -146,7 +150,8 @@ function Pulse({ Component, pageProps }) {
     <ThemeProvider theme={MUItheme}>
       <AuthContext.Provider
         value={{
-          accountType,
+          accountType: accountInfo.accountType,
+          accountId: accountInfo.accountId,
           usageQuota,
           setUsageQuota,
         }}

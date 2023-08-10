@@ -6,10 +6,7 @@ from fixtures import setup, video_setup, basic_page, admin_logged_in_page, user_
 
 __fixtures__ = [setup, video_setup, basic_page, admin_logged_in_page, user_logged_in_page]
 
-shared_pages = [
-    "/uploads",
-    "/account-settings?id=Usage+Details",
-]
+shared_pages = ["/uploads", "/account-settings"]
 admin_pages = ["/new-user", "/users-info"]
 user_pages = [
     "/upload-form?id=Analyze+New+Files",
