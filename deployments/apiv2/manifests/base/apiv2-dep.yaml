@@ -56,12 +56,12 @@ spec:
             - name: CLUSTER_NAME
               value: test
             - name: POSTGRES_USER
-              value: curibio_mantarray_ro
+              value: curibio_mantarray
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: curibio-mantarray-creds
-                  key: curibio_mantarray_ro
+                  key: curibio_mantarray
             - name: POSTGRES_SERVER
               value: psql-rds.default
             - name: POSTGRES_DB
