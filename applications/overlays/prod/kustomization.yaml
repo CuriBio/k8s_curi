@@ -16,7 +16,7 @@ patchesJson6902:
         value: "deployments/apiv2/manifests/overlays/prod"
       - op: replace
         path: /spec/source/targetRevision
-        value: "modl-qc"
+        value: "HEAD"
   - target:
       kind: Application
       name: pulse3d-deployment
@@ -27,7 +27,7 @@ patchesJson6902:
         value: "deployments/pulse3d/manifests/overlays/prod"
       - op: replace
         path: /spec/source/targetRevision
-        value: "modl-qc"
+        value: "HEAD"
   - target:
       kind: Application
       name: pulse3d-jobs
@@ -38,7 +38,7 @@ patchesJson6902:
         value: "jobs/pulse3d/manifests/overlays/prod"
       - op: replace
         path: /spec/source/targetRevision
-        value: "modl-qc"
+        value: "HEAD"
   - target:
       kind: Application
       name: jobs-operator
@@ -49,7 +49,7 @@ patchesJson6902:
         value: "jobs/jobs-operator/manifests/overlays/prod"
       - op: replace
         path: /spec/source/targetRevision
-        value: "modl-qc"
+        value: "HEAD"
   - target:
       kind: Application
       name: grafana
@@ -60,7 +60,7 @@ patchesJson6902:
         value: "cluster/manifests/grafana/overlays/prod"
       - op: replace
         path: /spec/source/targetRevision
-        value: "modl-qc"
+        value: "HEAD"
   - target:
       kind: Application
       name: grafana-loki
@@ -71,4 +71,4 @@ patchesJson6902:
         value: "cluster/manifests/grafana-loki/overlays/prod"
       - op: replace
         path: /spec/source/targetRevision
-        value: "modl-qc"
+        value: "HEAD"
