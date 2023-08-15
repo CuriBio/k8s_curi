@@ -46,7 +46,7 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 app = FastAPI(openapi_url=None)
 
 CB_CUSTOMER_ID: uuid.UUID
-
+MAX_FAILED_LOGIN_ATTEMPTS = 10
 TEMPLATES = Jinja2Templates(directory="templates")
 
 app.add_middleware(
@@ -97,12 +97,12 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
         account_type = "customer"
         email = details.email.lower()
         select_query = (
-            "SELECT password, id, data->'scope' AS scope "
+            "SELECT password, id, data->'scope' AS scope, failed_login_attempts, suspended "
             "FROM customers WHERE deleted_at IS NULL AND email=$1"
         )
         select_query_params = (email,)
 
-        update_last_login_query = "UPDATE customers SET last_login=$1 WHERE deleted_at IS NULL AND email=$2"
+        update_last_login_query = "UPDATE customers SET last_login=$1, failed_login_attempts=0 WHERE deleted_at IS NULL AND email=$2"
         update_last_login_params = (datetime.now(), email)
     else:
         account_type = "user"
@@ -113,22 +113,22 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
         if isinstance(details.customer_id, uuid.UUID):
             # if a UUID was given in the request then check against the customer ID
             select_query = (
-                "SELECT password, id, data->'scope' AS scope, customer_id FROM users "
-                "WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND suspended='f' AND verified='t'"
+                "SELECT password, id, data->'scope' AS scope, failed_login_attempts, suspended, customer_id FROM users "
+                "WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND verified='t'"
             )
         else:
             # if no UUID given, the check against the customer account alias
             # TODO should make sure an alias is actually set here
             select_query = (
-                "SELECT u.password, u.id, u.data->'scope' AS scope, u.customer_id "
+                "SELECT u.password, u.id, u.data->'scope' AS scope, u.failed_login_attempts, u.suspended, u.customer_id "
                 "FROM users AS u JOIN customers AS c ON u.customer_id=c.id "
-                "WHERE u.deleted_at IS NULL AND u.name=$1 AND c.alias=$2 AND u.suspended='f' AND u.verified='t'"
+                "WHERE u.deleted_at IS NULL AND u.name=$1 AND c.alias=$2 AND u.verified='t'"
             )
         select_query_params = (username, str(details.customer_id))
 
         update_last_login_query = (
-            "UPDATE users SET last_login=$1 "
-            "WHERE deleted_at IS NULL AND name=$2 AND customer_id=$3 AND suspended='f' AND verified='t'"
+            "UPDATE users SET last_login=$1, failed_login_attempts=0 "
+            "WHERE deleted_at IS NULL AND name=$2 AND customer_id=$3 AND verified='t'"
         )
         # the value for customer ID will be added later
         update_last_login_params = (datetime.now(), username)
@@ -137,14 +137,22 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
     logger.info(f"{account_type.title()} login attempt from client '{client_type}'")
 
     failed_msg = "Invalid credentials"
+    account_locked_msg = "Account locked after too many failed login attempts"
     try:
         async with request.state.pgpool.acquire() as con:
             select_query_result = await con.fetchrow(select_query, *select_query_params)
             pw = details.password.get_secret_value()
 
-            # if no record is returned by query then fetchrow will return None,
-            # so need to set to a dict with a bad password hash
-            if select_query_result is None:
+            if select_query_result is not None:
+                # users can be suspended for other reasons, return None to replicate previous behavior
+                if (
+                    select_query_result["suspended"]
+                    and select_query_result["failed_login_attempts"] < MAX_FAILED_LOGIN_ATTEMPTS
+                ):
+                    select_query_result = None
+            else:
+                # if no record is returned by query then fetchrow will return None,
+                # so need to set to a dict with a bad password hash
                 select_query_result = {"password": "x" * 100}
 
             try:
@@ -152,7 +160,23 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
                 # then there is an issue with the table in the database
                 ph.verify(select_query_result["password"], pw)
             except VerifyMismatchError:
-                raise LoginError(failed_msg)
+                # first check if account is already locked
+                # should never be greater than maximum, but handling in case
+                if select_query_result["failed_login_attempts"] >= MAX_FAILED_LOGIN_ATTEMPTS:
+                    raise LoginError(account_locked_msg)
+
+                # increment customer/user failed attempts
+                logger.info(
+                    f"Failed login attempt {select_query_result['failed_login_attempts'] + 1} for {account_type} id: {select_query_result['id']}"
+                )
+                updated_failed_attempts = select_query_result["failed_login_attempts"] + 1
+                await _update_failed_login_attempts(
+                    con, account_type, select_query_result["id"], updated_failed_attempts
+                )
+                # update login error if this failed attempt hits limit
+                raise LoginError(
+                    account_locked_msg if updated_failed_attempts == MAX_FAILED_LOGIN_ATTEMPTS else failed_msg
+                )
             except InvalidHash:
                 """
                 The user or customer wasn't found but we don't want to leak info about valid users/customers
@@ -196,6 +220,17 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
     except Exception:
         logger.exception("POST /login: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+async def _update_failed_login_attempts(con, account_type: str, id: str, count: int) -> None:
+    if count == MAX_FAILED_LOGIN_ATTEMPTS:
+        # if max failed attempts is reached, then deactivate the account and increment count
+        update_query = f"UPDATE {account_type}s SET suspended='t', failed_login_attempts=failed_login_attempts+1 where id=$1"
+    else:
+        # else increment failed attempts
+        update_query = f"UPDATE {account_type}s SET failed_login_attempts=failed_login_attempts+1 where id=$1"
+
+    await con.execute(update_query, id)
 
 
 @app.post("/refresh", response_model=AuthTokens, status_code=status.HTTP_201_CREATED)
@@ -280,9 +315,9 @@ async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False)
     userid = uuid.UUID(hex=token["userid"])
 
     if token["account_type"] == "customer":
-        update_query = "UPDATE customers SET refresh_token = NULL WHERE id = $1"
+        update_query = "UPDATE customers SET refresh_token = NULL WHERE id=$1"
     else:
-        update_query = "UPDATE users SET refresh_token = NULL WHERE id = $1"
+        update_query = "UPDATE users SET refresh_token = NULL WHERE id=$1"
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -740,10 +775,15 @@ async def update_user(
                     detail=f"Invalid customer-edit-self action: {action}",
                 )
         else:
-            if action in ("deactivate", "reactivate"):
-                suspended = action == "deactivate"
-                update_query = "UPDATE users SET suspended=$1 WHERE id=$2 AND customer_id=$3"
-                query_args = (suspended, account_id, self_id)
+            if action in ("deactivate"):
+                update_query = "UPDATE users SET suspended='t' WHERE id=$1 AND customer_id=$2"
+                query_args = (account_id, self_id)
+            elif action == "reactivate":
+                # when reactivated, failed login attempts should be set back to 0.
+                update_query = (
+                    "UPDATE users SET suspended='f', failed_login_attempts=0 WHERE id=$1 AND customer_id=$2"
+                )
+                query_args = (account_id, self_id)
             elif action == "delete":
                 update_query = "UPDATE users SET deleted_at=$1 WHERE id=$2 AND customer_id=$3"
                 query_args = (datetime.now(), account_id, self_id)

@@ -8,14 +8,10 @@ import { Mutex } from "async-mutex";
 /* Global state of SW */
 const refreshMutex = new Mutex();
 
-let accountType = null;
-let usageQuota = null; // TODO Tanner (7/6/23): doesn't seem like this is being used for anything other than the authcheck, but the value is ignored when that message is received. Can probably remove this
-let accountId = null;
 let ClientSource = null;
-
 let reloadNeeded = false;
 
-const cacheName = "preloadedWellData";
+const cacheName = "swCache";
 
 const MANTARRAY_URL = new URLSearchParams(location.search).get("mantarray_url");
 const USERS_URL = new URLSearchParams(location.search).get("users_url");
@@ -35,56 +31,60 @@ console.log = function () {
   originalLog(...[`[SW @ ${time}]`, ...arguments]);
 };
 
-const setAccountType = (type) => {
-  accountType = type;
+const getAuthTokens = async () => {
+  const swCache = await caches.open(cacheName);
+  const authTokensRes = await swCache.match("tokens");
+  const tokens = { access: null, refresh: null };
+
+  if (authTokensRes) {
+    const cachedTokens = await authTokensRes.json();
+    // refresh request returns {access: {token: ...}, refresh: {token: ...}}
+    // login request returns {tokens: {access: {token: ...}, refresh: {token: ...}}, usage_quota: {...}}
+    tokens.access = cachedTokens.tokens ? cachedTokens.tokens.access.token : cachedTokens.access.token;
+    tokens.refresh = cachedTokens.tokens ? cachedTokens.tokens.refresh.token : cachedTokens.refresh.token;
+  }
+
+  return tokens;
 };
 
-const clearAccountType = () => {
-  accountType = null;
-};
+const getValueFromToken = async (name) => {
+  const cachedTokens = await getAuthTokens();
 
-const setAccountId = (id) => {
-  accountId = id;
-};
+  if (!cachedTokens.access) {
+    return null;
+  }
 
-const clearAccountId = () => {
-  accountId = null;
-};
+  let value = jwtDecode(cachedTokens.access)[name];
 
-const setUsageQuota = (usage) => {
-  usageQuota = usage;
-};
+  if (name === "accountType" && value === "customer") {
+    // token types are 'user' and 'customer', but FE uses 'user' and 'admin'
+    value = "admin";
+  }
 
-const clearUsageQuota = () => {
-  usageQuota = null;
-};
-const tokens = {
-  access: null,
-  refresh: null,
+  return value;
 };
 
 let logoutTimer = null;
 
-const setTokens = ({ access, refresh }) => {
-  tokens.access = access.token;
-  tokens.refresh = refresh.token;
+const setTokens = async ({ refresh }, res) => {
+  const swCache = await caches.open(cacheName);
+  await swCache.put("tokens", res);
 
   // clear old logout timer if one already exists
   if (logoutTimer) {
     clearTimeout(logoutTimer);
   }
   // set up new logout timer
-  const expTime = new Date(jwtDecode(tokens.refresh).exp * 1000);
+  const expTime = new Date(jwtDecode(refresh.token).exp * 1000);
   const currentTime = new Date().getTime();
   const millisBeforeLogOut = expTime - currentTime;
-  logoutTimer = setTimeout(sendLogoutMsg, millisBeforeLogOut);
+
+  logoutTimer = setTimeout(tokensExpiredLogout, millisBeforeLogOut);
 };
 
-const clearTokens = () => {
-  tokens.access = null;
-  tokens.refresh = null;
-
-  clearTimeout(logoutTimer);
+const tokensExpiredLogout = () => {
+  console.log("Sending logout ping because tokens expired");
+  sendLogoutMsg();
 };
 
 const sendLogoutMsg = () => {
@@ -93,12 +93,33 @@ const sendLogoutMsg = () => {
   console.log("logout ping sent");
 };
 
-const clearAccountInfo = () => {
-  // TODO should combine all this data into one object so different functions aren't needed for each
-  clearTokens();
-  clearAccountType();
-  clearAccountId();
-  clearUsageQuota();
+const setUsageQuota = async (res) => {
+  const swCache = await caches.open(cacheName);
+  await swCache.put("usage", res.clone()); // setTokens uses same response so needs to be cloned again
+};
+
+const getUsageQuota = async () => {
+  const swCache = await caches.open(cacheName);
+  const usageRes = await swCache.match("usage");
+  let usage = null;
+
+  if (usageRes) {
+    const body = await usageRes.json();
+    // set the usage error to SW state to send in auth check, will return a 200 status
+    if (body.error && body.error === "UsageError") {
+      usage = body.message;
+    } else {
+      usage = body.usage_quota;
+    }
+  }
+
+  return usage;
+};
+
+const clearAccountInfo = async () => {
+  await caches.delete(cacheName);
+  clearTimeout(logoutTimer);
+
   // TODO change all console.log to console.debug and figure out how to enable debug logging
   console.log("account info cleared");
 };
@@ -128,11 +149,12 @@ const modifyRequest = async (req, url) => {
     "Content-Type": "application/json",
   });
 
-  if (!isLoginRequest(url) && tokens.access) {
+  const cachedTokens = await getAuthTokens();
+  if (!isLoginRequest(url) && cachedTokens.access !== null) {
     // login request does not require the Authorization header,
     // and if there are no tokens that should mean that no account is logged in
     // and the request should fail with 403
-    headers.append("Authorization", `Bearer ${tokens.access}`);
+    headers.append("Authorization", `Bearer ${cachedTokens.access}`);
   }
 
   // apply new headers. Make sure to clone the original request obj if consuming the body by calling json()
@@ -148,13 +170,15 @@ const modifyRequest = async (req, url) => {
 
 const handleRefreshRequest = async () => {
   console.log("Requesting new tokens in handleRefreshRequest");
-
   let res = null;
+
   try {
+    const cachedTokens = await getAuthTokens();
+
     res = await fetch(`${USERS_URL}/refresh`, {
       method: "POST",
       body: JSON.stringify({}),
-      headers: { Authorization: `Bearer ${tokens.refresh}` },
+      headers: { Authorization: `Bearer ${cachedTokens.refresh}` },
     });
   } catch (e) {
     console.log("ERROR in refresh req:", e.message);
@@ -164,8 +188,9 @@ const handleRefreshRequest = async () => {
   // set new tokens if refresh was successful
   // tokens should get cleared later if refresh failed
   if (res.status === 201) {
+    const resClone = res.clone();
     const newTokens = await res.json();
-    setTokens(newTokens);
+    await setTokens(newTokens, resClone);
   }
 
   return res.status;
@@ -188,7 +213,8 @@ const requestWithRefresh = async (req, url) => {
     const retryRequest = await refreshMutex.runExclusive(async () => {
       // check remaining lifetime of access token
       const nowNoMillis = Math.floor(Date.now() / 1000);
-      const accessTokenExp = jwtDecode(tokens.access).exp;
+      const cachedTokens = await getAuthTokens();
+      const accessTokenExp = jwtDecode(cachedTokens.access).exp;
       if (accessTokenExp - nowNoMillis < 10) {
         // refresh tokens since the access token less than 10 seconds away from expiring
         const refreshResponseStatus = await handleRefreshRequest();
@@ -211,27 +237,20 @@ const interceptResponse = async (req, url) => {
   if (isLoginRequest(url)) {
     const modifiedReq = await modifyRequest(req, url);
     const response = await fetch(modifiedReq);
+    const data = await response.json();
+
     if (response.status === 200) {
+      const responseClone = response.clone();
+      await setUsageQuota(responseClone);
+
       // set tokens if login was successful
       const data = await response.json();
-      setTokens(data.tokens);
-      const decodedAccessToken = jwtDecode(tokens.access);
-      let { account_type: accountType, userid: id } = decodedAccessToken; // either token will work here
-
-      if (accountType === "customer") {
-        // token types are 'user' and 'customer', but FE uses 'user' and 'admin'
-        accountType = "admin";
-      }
-
-      console.log("Setting account type:", accountType);
-      setAccountType(accountType);
-      setAccountId(id);
+      await setTokens(data.tokens, responseClone);
       // sending usage at login, is separate from auth check request because it's not needed as often
-      setUsageQuota(data.usage_quota);
     }
 
     // send the response without the tokens so they are always contained within this service worker
-    return new Response(JSON.stringify({}), {
+    return new Response(JSON.stringify(data), {
       headers: response.headers,
       status: response.status,
       statusText: response.statusText,
@@ -241,24 +260,17 @@ const interceptResponse = async (req, url) => {
 
     // these URLs will return usage_error in the body with a 200 response
     if (USAGE_URLS.includes(url.pathname) && req.method === "POST" && response.status == 200) {
-      const resBodyToCheck = await response.json();
-
-      // set the usage error to SW state to send in auth check, will return a 200 status
-      if (resBodyToCheck.error && resBodyToCheck.error === "UsageError") {
-        setUsageQuota(resBodyToCheck.message);
-      } else {
-        setUsageQuota(resBodyToCheck.usage_quota);
-      }
-      // make sure to send the rest of the body for the uploads-form to handle response itself
-      return new Response(JSON.stringify(resBodyToCheck));
+      await setUsageQuota(response.clone());
     } else if (url.pathname.includes("logout")) {
       // just clear account info if user purposefully logs out
       clearAccountInfo();
     } else if (response.status === 401 || response.status === 403) {
       // if any other request receives an unauthorized or forbidden error code, send logout ping (this fn will also clear account info)
+      console.log(`Sending logout ping because ${response.status} was returned from ${url.pathname}`);
       sendLogoutMsg();
     }
-    return response.clone();
+
+    return response;
   }
 };
 
@@ -348,7 +360,7 @@ self.addEventListener("fetch", async (e) => {
   }
 });
 
-self.onmessage = ({ data, source }) => {
+self.onmessage = async ({ data, source }) => {
   ClientSource = source;
 
   const { msgType, routerPathname } = data;
@@ -360,11 +372,13 @@ self.onmessage = ({ data, source }) => {
     reloadNeeded = false;
   } else if (msgType === "authCheck") {
     console.log("Returning authentication check");
+    const cachedTokens = await getAuthTokens();
+
     msgInfo = {
-      isLoggedIn: tokens.access !== null,
-      accountType,
-      accountId,
-      usageQuota,
+      isLoggedIn: cachedTokens.access !== null,
+      accountType: await getValueFromToken("accountType"),
+      accountId: await getValueFromToken("accountId"),
+      usageQuota: await getUsageQuota(),
     };
   } else if (msgType === "stayAlive") {
     // TODO should have this do something else so that there isn't a log msg produced every 20 seconds
@@ -384,8 +398,8 @@ self.onmessage = ({ data, source }) => {
 };
 
 export const accessToInternalsForTesting = {
-  tokens,
+  tokens: await getAuthTokens(),
   logoutTimer,
   ClientSource,
-  accountType,
+  accountType: await getValueFromToken("accountType"),
 };
