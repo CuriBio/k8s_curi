@@ -56,7 +56,7 @@ const getValueFromToken = async (name) => {
 
   let value = jwtDecode(cachedTokens.access)[name];
 
-  if (name === "accountType" && value === "customer") {
+  if (name === "account_type" && value === "customer") {
     // token types are 'user' and 'customer', but FE uses 'user' and 'admin'
     value = "admin";
   }
@@ -198,8 +198,8 @@ const handleRefreshRequest = async () => {
 
 const requestWithRefresh = async (req, url) => {
   const safeRequest = async () => {
+    const modifiedReq = await modifyRequest(req, url);
     try {
-      const modifiedReq = await modifyRequest(req, url);
       return await fetch(modifiedReq);
     } catch (e) {
       return JSON.stringify(e.message);
@@ -234,19 +234,19 @@ const requestWithRefresh = async (req, url) => {
 };
 
 const interceptResponse = async (req, url) => {
+  console.log("interceptResponse:", req, url);
   if (isLoginRequest(url)) {
     const modifiedReq = await modifyRequest(req, url);
     const response = await fetch(modifiedReq);
+
+    const responseClone = response.clone();
     const data = await response.json();
 
     if (response.status === 200) {
-      const responseClone = response.clone();
-      await setUsageQuota(responseClone);
-
-      // set tokens if login was successful
-      const data = await response.json();
-      await setTokens(data.tokens, responseClone);
       // sending usage at login, is separate from auth check request because it's not needed as often
+      await setUsageQuota(responseClone);
+      // set tokens if login was successful
+      await setTokens(data.tokens, responseClone);
     }
 
     // send the response without the tokens so they are always contained within this service worker
@@ -328,18 +328,19 @@ self.addEventListener("fetch", async (e) => {
     !isEmailRequest(destURL) && // this request doesn't depend on a token
     !isUpdateRequest(destURL) // we don't need to intercept verify request because it's handling own token
   ) {
-    // only intercept requests to pulse3d and user APIs
+    // only intercept requests to pulse3d, user and mantarray APIs
     e.respondWith(
       caches.open(cacheName).then(async (cache) => {
         // Go to the cache first
         const cachedResponse = await cache.match(e.request.url);
-        //  For now, only return cached responses for waveform data requests
+        // For now, only return cached responses for waveform data requests
         if (cachedResponse && isWaveformDataRequest(destURL)) {
           console.log(`Returning cached response for ${destURL}`);
           return cachedResponse;
         }
         // Otherwise, hit the network
         let response = await interceptResponse(e.request, destURL);
+
         // before returning response, check if you need to preload other wells
         // this needs to go after interceptResponse so that the initial A1 data gets returned first and not blocked by other requests
         if (isWaveformDataRequest(destURL)) {
@@ -376,8 +377,8 @@ self.onmessage = async ({ data, source }) => {
 
     msgInfo = {
       isLoggedIn: cachedTokens.access !== null,
-      accountType: await getValueFromToken("accountType"),
-      accountId: await getValueFromToken("accountId"),
+      accountType: await getValueFromToken("account_type"),
+      accountId: await getValueFromToken("userid"),
       usageQuota: await getUsageQuota(),
     };
   } else if (msgType === "stayAlive") {
@@ -401,5 +402,5 @@ export const accessToInternalsForTesting = {
   tokens: await getAuthTokens(),
   logoutTimer,
   ClientSource,
-  accountType: await getValueFromToken("accountType"),
+  accountType: await getValueFromToken("account_type"),
 };

@@ -65,7 +65,6 @@ export default function SerialNumberTable() {
         hardwareVersion: hw_version,
       };
     });
-    console.log("fetchedEntries", fetchedEntries);
     setEntries(fetchedEntries);
   };
 
@@ -75,27 +74,26 @@ export default function SerialNumberTable() {
   }, []);
 
   const deleteEntry = async (serialNumber) => {
-    console.log("deleteEntry", serialNumber);
     await fetch(`${process.env.NEXT_PUBLIC_MANTARRAY_URL}/serial-number/${serialNumber}`, {
       method: "DELETE",
     });
+    // update serial numbers after prev request
+    await getSerialNumbers();
   };
 
   const finishEntry = async (save) => {
-    console.log("finishEntry", save);
     if (save) {
       if (!entryIsValid) {
         // If entry is invalid then don't do anything
-        console.log("EXIT");
         return;
       }
       await fetch(`${process.env.NEXT_PUBLIC_MANTARRAY_URL}/serial-number/${newEntry.serialNumber}`, {
         method: "POST",
+        body: JSON.stringify({}),
       });
       // update serial numbers after prev request
       await getSerialNumbers();
     }
-    console.log("FINISH");
     setAddingEntry(false);
     setNewEntry({});
   };
