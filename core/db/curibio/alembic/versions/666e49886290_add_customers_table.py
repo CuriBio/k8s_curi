@@ -10,9 +10,8 @@ import os
 from alembic import op
 from argon2 import PasswordHasher
 import sqlalchemy as sa
-from sqlalchemy.sql import func, text
+from sqlalchemy.sql import func
 from sqlalchemy.dialects import postgresql
-
 
 # revision identifiers, used by Alembic.
 revision = "666e49886290"
@@ -50,9 +49,9 @@ def upgrade():
     cb_customer_pw_hash = PasswordHasher().hash(os.environ.get("CURIBIO_CUSTOMER_PASS"))
 
     # create curibio customer
-    op.get_bind().execute(
-        text("INSERT INTO customers (email, password) VALUES (:cb_customer_login, :cb_customer_pw)"),
-        **{"cb_customer_login": cb_customer_login, "cb_customer_pw": cb_customer_pw_hash},
+    op.execute(
+        f"INSERT INTO customers (email, password) VALUES ('{cb_customer_login}', '{cb_customer_pw_hash}')"
+        # **{"cb_customer_login": cb_customer_login, "cb_customer_pw": cb_customer_pw_hash},
     )
     # drop constraints on these columns individually and combine them into a single unique constraint
     op.drop_constraint("users_customer_id_key", "users")
@@ -61,15 +60,12 @@ def upgrade():
     # drop server default of users.customer_id and make it not null
     op.alter_column("users", "customer_id", server_default=None, nullable=False)
     # put all existing users under curibio customer ID
-    op.get_bind().execute(
-        text(
-            """
-            WITH customers AS (SELECT id FROM customers WHERE email = :cb_customer_login)
+    op.execute(
+        f"""
+            WITH customers AS (SELECT id FROM customers WHERE email = '{cb_customer_login}')
             UPDATE users SET customer_id = customers.id
             FROM customers
             """
-        ),
-        **{"cb_customer_login": cb_customer_login},
     )
 
     # rename columns relevant tables
@@ -133,20 +129,14 @@ def downgrade():
     for table in ("mantarray_recording_sessions", "mantarray_session_log_files"):
         for id_type in ("customer", "user"):
             op.alter_column(
-                table,
-                f"{id_type}_id",
-                new_column_name=f"{id_type}_account_id",
-                type_=sa.VARCHAR(255),
+                table, f"{id_type}_id", new_column_name=f"{id_type}_account_id", type_=sa.VARCHAR(255)
             )
 
     # revert account_type back to AccountType
     new_account_type = sa.Enum("free", "paid", "admin", name="AccountType", create_type=True)
     new_account_type.create(op.get_bind(), checkfirst=False)
     op.alter_column(
-        "users",
-        "account_type",
-        type_=new_account_type,
-        postgresql_using='account_type::text::"AccountType"',
+        "users", "account_type", type_=new_account_type, postgresql_using='account_type::text::"AccountType"'
     )
     # drop UserAccountType
     old_account_type = sa.Enum("free", "paid", name="UserAccountType", create_type=True)

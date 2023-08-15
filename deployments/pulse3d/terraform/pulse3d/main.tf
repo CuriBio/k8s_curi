@@ -12,6 +12,13 @@ resource "aws_s3_bucket" "pulse3d_uploads_bucket" {
   bucket = "${var.cluster_name}-pulse3d-uploads"
 }
 
+resource "aws_s3_bucket_ownership_controls" "pulse3d_uploads_bucket" {
+  bucket = aws_s3_bucket.pulse3d_uploads_bucket.id
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+}
+
 resource "aws_s3_bucket_server_side_encryption_configuration" "pulse3d_uploads_bucket" {
   bucket = aws_s3_bucket.pulse3d_uploads_bucket.bucket
 
@@ -23,6 +30,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "pulse3d_uploads_b
 }
 
 resource "aws_s3_bucket_acl" "pulse3d_uploads_bucket" {
+  depends_on = [aws_s3_bucket_ownership_controls.pulse3d_uploads_bucket]
+
   bucket = aws_s3_bucket.pulse3d_uploads_bucket.id
   acl    = "private"
 }
@@ -33,7 +42,7 @@ resource "aws_s3_bucket_cors_configuration" "pulse3d_uploads_bucket" {
   cors_rule {
     allowed_headers = ["*"]
     allowed_methods = ["GET", "POST"]
-    allowed_origins = var.cluster_name == "prod" ? ["https://dashboard.curibio.com"] : ["https://dashboard.curibio-test.com", "http://localhost:3000"]
+    allowed_origins = var.cluster_name == "prod" ? ["https://dashboard.curibio.com"] : ["https://dashboard.curibio-test.com", "https://dashboard.curibio-modl.com", "http://localhost:3000"]
 
   }
 }

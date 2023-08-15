@@ -1,0 +1,15 @@
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  creationTimestamp: null
+  name: pulse3d-queue-processor-creds
+  namespace: pulse3d
+spec:
+  encryptedData:
+    pulse3d_queue_processor_ro: AgCE/+JCHPlo3uxn+GC40PVKiF5N13Ep0cpirKmvSY0bX26g1g1DEpO1kkJoQMcDMbysaR2tNjD+wzhbPP3DYfhWCK6ppVUKgADIZaGyjqUxkBz3/FVXphVvwc8hBg7blzIXYTZyBg9WScNTQdsnu78alixW8dgagDcbEQNcgWECVPAmIVLwO/5kjEIBOnUic0bALMU6vuM0eEw/dXrwY+sSrpwbNaY2nyCn7873mMmfKBTfo04GbitsNxhMgS7UxCx5O7fZnz8+NI7bsyg7zYpQGxsYn15k+3obCb/8AHZDN4Bg56dl+jeST2DVTvYdTjCKcuu6lcZ0uy6iakMXdSPTJA+nMYc3dCq++9ZtX3S24O/biZl2DtLgDUKZzSiPQ17aZMGkxZAACeskc2PxxRzuQzyuST/PGTq+q1n2DiiboYLJMtCNgKqnnClN68AraiNkGaPuDbbxeEOmwzqvJ0+npjOlaK3OToyozgXQbYkur1IJQQpTp4PJLCwkD2tp3QhiTxVMOeA3YWUSggS/Var9AUVnB7MVizFJuXPpEtJECarDsipgYYf1JewCiXpP8wxlpkTehN5rMlibYSwLL9Q2WvbOg4iXO5eb/WXEic91nJIWEjWWlMheUkSK8GO5R6NJkv9owRpRjeXfqbFNUN9Jvv9bpM6Ky1mdG10HmFHEVW5aZNuUOyaRAz74LcHfg6XB/Ed52cDaC+wiFL2NRpejkvoMAY2iGTU=
+  template:
+    metadata:
+      creationTimestamp: null
+      name: pulse3d-queue-processor-creds
+      namespace: pulse3d
+

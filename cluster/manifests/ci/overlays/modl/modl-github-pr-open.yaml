@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: github-pr-open
+  namespace: argo
+spec:
+  template:
+    nodeSelector:
+      group: argo
+  serviceAccountName: argo-workflows-sa
+  dependencies:
+    - name: github-dep
+      eventSourceName: github
+      eventName: k8s_curi
+      filters:
+        data:
+          # Name of the event that triggered the delivery: [pull_request, push, ...]
+          # https://docs.github.com/en/developers/webhooks-and-events/webhook-events-and-payloads
+          - path: body.X-GitHub-Event
+            type: string
+            value:
+              - pull_request
+          - path: body.action
+            type: string
+            value:
+              - opened
+              - edited
+              - reopened
+              - synchronize
+          - path: body.pull_request.state
+            type: string
+            value:
+              - open
+          - path: body.pull_request.base.ref
+            type: string
+            value:
+              - modl-qc

@@ -3,7 +3,7 @@ kind: Kustomization
 
 namespace: argo
 resources:
-- argo_workflows_namespace_install_v3.2.9.yaml
-- argo_workflows_rbac.yaml
-- workflow_defaults.yaml
-  #- https://raw.githubusercontent.com/argoproj/argo-workflows/v3.2.9/manifests/namespace-install.yaml
+  - argo_workflows_namespace_install_v3.2.9.yaml
+  - argo_workflows_rbac.yaml
+  - namespace.yaml
+    #- https://raw.githubusercontent.com/argoproj/argo-workflows/v3.2.9/manifests/namespace-install.yaml

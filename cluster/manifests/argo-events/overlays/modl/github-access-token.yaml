@@ -1,0 +1,15 @@
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  creationTimestamp: null
+  name: github-access-token
+  namespace: argo
+spec:
+  encryptedData:
+    token: AgDVIZWfTS/oh1pCithfBrAB9QgxGmGDkLVMF6qjPekqCq9yySUB5tPtsxSDK8nEbiZsmy5Nu3YwwLEYfTvKLsFDzRAnXLbj4akFOLwPFwZE1zFdNqIpX3oeGQFTeS4RW1s8Uuaw7GmCAilFvW2vNCXTOspbmCvsTPo7k7UhZLGk8kDAChQ/uxcvRxue9mt2cXKylrsprClm2skntrfLEnh5JtMi8Nwz3lhzDVoV2YGfpKIO+DcjKF9/54q4eXNrFX5H6LoFM1Usoc7e9zqyS/QTLZEiI02hHe/v+2cAet+e4HbOEz8Lcl+pHna+k5SiILj7StWF5du4XM30SnpU/UViWKVcb7hfqjmFsACJxBN1nMRrwtdSBhqoviwwj64KpAqWIKEjL+TeCfVO24fAmb2tn+ragA8FHhBEXAHcDCgrXa2WlOsLglOhs7+w5k5D8U5fTm8q4HbKeT7IpAVdvYAyQHQDyJ2nFDo4xWuM15ndXccrkEapUK39iDz9NalrfD7PRYqUY4RSiuIrxC4owPbqhC3reU44JvVboSI/Z6IlTLfwvA/I88od4tdU0YiubFz+MBIaSacagbLyam/xqe8YWL4DAQaf58AZZgcCfezG4gj3VHNFut4k4cWGNNVoUCNy42pYkH3+0llfQa6EH9A8NxSEdiEv5fPSSmEjLxcndLcxYBcfWCXoe9Rm1USZ7UZ0B3OsmtQZ0Kll3X92LeVHossEPVdh5hBq+fo19Xqab1OaW5upikkO
+  template:
+    metadata:
+      creationTimestamp: null
+      name: github-access-token
+      namespace: argo
+
