@@ -8,16 +8,16 @@ metadata:
 spec:
   description: Cluster applications
   sourceRepos:
-  - '*'
+    - "*"
   destinations:
-  - namespace: '*'
-    server: https://kubernetes.default.svc
+    - namespace: "*"
+      server: https://kubernetes.default.svc
   clusterResourceWhitelist:
-  - group: '*'
-    kind: '*'
+    - group: "*"
+      kind: "*"
   namespaceResourceWhitelist:
-  - group: '*'
-    kind: '*'
+    - group: "*"
+      kind: "*"
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -30,7 +30,7 @@ spec:
   project: cluster
   source:
     repoURL: https://github.com/CuriBio/k8s_curi.git
-    targetRevision: modl-qc
+    targetRevision: HEAD
     path: cluster/manifests/applications/overlays/prod
   destination:
     server: https://kubernetes.default.svc
