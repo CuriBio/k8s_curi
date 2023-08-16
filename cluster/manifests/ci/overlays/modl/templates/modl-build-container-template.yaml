@@ -178,6 +178,11 @@ spec:
               secretKeyRef:
                 name: db-migrations
                 key: jobs_user_pass_ro
+          - name: MANTARRAY_USER_PASS
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: mantarray_user_pass
           - name: MANTARRAY_USER_PASS_RO
             valueFrom:
               secretKeyRef:
@@ -365,6 +370,11 @@ spec:
               secretKeyRef:
                 name: db-migrations
                 key: jobs_user_pass_ro
+          - name: MANTARRAY_USER_PASS
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: mantarray_user_pass
           - name: MANTARRAY_USER_PASS_RO
             valueFrom:
               secretKeyRef:
