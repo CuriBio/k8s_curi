@@ -1,7 +1,7 @@
 import os
 
 # basic
-TEST_URL = os.getenv("TEST_URL")
+DASHBOARD_URL = os.getenv("DASHBOARD_URL")
 
 # user data + unlimite usage
 VALID_CUSTOMER_ID = os.getenv("VALID_CUSTOMER_ID")

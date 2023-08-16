@@ -1,7 +1,7 @@
 import pytest
 
 from fixtures import setup, video_setup, basic_page, user_logged_in_page
-from config import TEST_URL
+from config import DASHBOARD_URL
 
 __fixtures__ = [setup, video_setup, basic_page, user_logged_in_page]
 
@@ -36,7 +36,7 @@ async def test_new_uploads_runs_correctly(user_logged_in_page, test_file_name):
 
     # check analasys was succesfully added to upload table
     # navigate to uploads table
-    await user_logged_in_page.goto(f"https://{TEST_URL}/uploads")
+    await user_logged_in_page.goto(f"https://{DASHBOARD_URL}/uploads")
     await user_logged_in_page.wait_for_load_state("networkidle")
 
     # get first upload, check names match
@@ -79,7 +79,7 @@ async def test_reanalysis_runs_correctly(user_logged_in_page):
     # await user_logged_in_page.wait_for_selector("span:has-text('Upload Successful!')", state='visible')
 
     # after upload is succesfull check that first upload in uploads list is correct
-    await user_logged_in_page.goto(f"https://{TEST_URL}/uploads")
+    await user_logged_in_page.goto(f"https://{DASHBOARD_URL}/uploads")
     await user_logged_in_page.wait_for_load_state("networkidle")
     upload_checkbox = user_logged_in_page.get_by_role("checkbox").nth(0)
     name_of_new_upload = await upload_checkbox.evaluate(

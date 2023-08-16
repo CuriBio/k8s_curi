@@ -3,7 +3,7 @@ import random
 import string
 import time
 
-from config import TEST_URL
+from config import DASHBOARD_URL
 
 from fixtures import (
     setup,
@@ -26,7 +26,7 @@ async def goto_user_creation(page):
     await page.wait_for_url("**/new-user")
 
     # check correct page is loaded
-    assert page.url == f"https://{TEST_URL}/new-user"
+    assert page.url == f"https://{DASHBOARD_URL}/new-user"
 
 
 @pytest.mark.asyncio
