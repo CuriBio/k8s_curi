@@ -5,6 +5,7 @@ import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { useEffect, createContext, useState } from "react";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
+import { deepCopy } from "@/utils/generic";
 
 /*
   This theme is to be used with materialUI components
@@ -26,10 +27,25 @@ const MUItheme = createTheme({
 
 export const AuthContext = createContext();
 
-// TODO only mark production-console as availabe if the correct scope is present
-const availablePages = {
-  user: ["/uploads", "/upload-form", "/account", "/account-settings", "/production-console"],
-  admin: ["/uploads", "/new-user", "/users-info", "/account-settings", "/production-console"],
+// TODO make all pages scope based?
+const allAvailablePages = {
+  user: ["/uploads", "/upload-form", "/account", "/account-settings"],
+  admin: ["/uploads", "/new-user", "/users-info", "/account-settings"],
+};
+
+const getAvailablePages = (accountInfo) => {
+  if (!allAvailablePages[accountInfo.accountType]) {
+    // accountType isn't set yet
+    return [];
+  }
+
+  const pages = deepCopy(allAvailablePages[accountInfo.accountType]);
+  // TODO find a way to define these only once and share with the ControlPanel component
+  const productionConsoleScopes = ["mantarray:serial_number:edit", "mantarray:firmware:edit"];
+  if (accountInfo.accountScope.some((scope) => productionConsoleScopes.includes(scope))) {
+    pages.push("/production-console");
+  }
+  return pages;
 };
 
 function Pulse({ Component, pageProps }) {
@@ -82,21 +98,18 @@ function Pulse({ Component, pageProps }) {
               setLoggedOutAlert(true);
             }
           } else if (data.msgType === "authCheck") {
-            const accountInfo = {
-              accountType: data.accountType,
-              accountId: data.accountId,
-            };
+            const newAccountInfo = data.accountInfo;
             if (data.isLoggedIn) {
               // the router pathname must be sent to the SW and then sent back here since for some reason this message handler can't grab the current page
-              setAccountInfo(accountInfo);
+              setAccountInfo(newAccountInfo);
               // if logged in and on a page that shouldn't be accessed, or if on the login page, redirect to home page (currently /uploads)
-              if (currentPage === "/login" || !availablePages[data.accountType].includes(currentPage)) {
+              if (currentPage === "/login" || !getAvailablePages(newAccountInfo).includes(currentPage)) {
                 // TODO Tanner (8/23/22): this probably isn't the best solution for redirecting to other pages. Should look into a better way to do this
                 router.replace("/uploads", undefined, { shallow: true });
               }
             } else if (currentPage !== "/login") {
               // always redirect to login page if not logged in
-              setAccountInfo(accountInfo);
+              setAccountInfo(newAccountInfo);
               router.replace("/login", undefined, { shallow: true });
             }
           }
@@ -153,6 +166,7 @@ function Pulse({ Component, pageProps }) {
         value={{
           accountType: accountInfo.accountType,
           accountId: accountInfo.accountId,
+          accountScope: accountInfo.accountScope,
           usageQuota,
           setUsageQuota,
         }}

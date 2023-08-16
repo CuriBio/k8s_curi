@@ -133,7 +133,7 @@ export default function ControlPanel() {
   const router = useRouter();
   const [selected, setSelected] = useState(router.pathname.replace("-", " ").replace("/", ""));
   const [expanded, setExpanded] = useState(null);
-  const { accountType, usageQuota } = useContext(AuthContext);
+  const { accountType, usageQuota, accountScope } = useContext(AuthContext);
   const [modalState, setModalState] = useState(false);
   const [modalLabels, setModalLabels] = useState({ header: "", messages: [] });
 
@@ -159,15 +159,19 @@ export default function ControlPanel() {
   const buttons = accountType === "admin" ? adminButtons : userButtons;
 
   const productionConsoleOptions = [];
-  if (true /* TODO check if any mantarray:<>:edit scopes present */) {
-    productionConsoleOptions.push("Mantarray");
-  }
-  if (productionConsoleOptions.length > 0) {
-    buttons.push({
-      label: "Production Console",
-      page: "/production-console",
-      options: productionConsoleOptions,
-    });
+  const mantarrayProductionScopes = ["mantarray:serial_number:edit", "mantarray:firmware:edit"];
+  if (accountScope) {
+    // will have other pages that will be conditionally available depending on scope in the future
+    if (accountScope.some((scope) => mantarrayProductionScopes.includes(scope))) {
+      productionConsoleOptions.push("Mantarray");
+    }
+    if (productionConsoleOptions.length > 0) {
+      buttons.push({
+        label: "Production Console",
+        page: "/production-console",
+        options: productionConsoleOptions,
+      });
+    }
   }
 
   useEffect(() => {

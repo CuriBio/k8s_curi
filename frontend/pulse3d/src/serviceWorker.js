@@ -234,7 +234,6 @@ const requestWithRefresh = async (req, url) => {
 };
 
 const interceptResponse = async (req, url) => {
-  console.log("interceptResponse:", req, url);
   if (isLoginRequest(url)) {
     const modifiedReq = await modifyRequest(req, url);
     const response = await fetch(modifiedReq);
@@ -377,8 +376,11 @@ self.onmessage = async ({ data, source }) => {
 
     msgInfo = {
       isLoggedIn: cachedTokens.access !== null,
-      accountType: await getValueFromToken("account_type"),
-      accountId: await getValueFromToken("userid"),
+      accountInfo: {
+        accountType: await getValueFromToken("account_type"),
+        accountId: await getValueFromToken("userid"),
+        accountScope: await getValueFromToken("scope"),
+      },
       usageQuota: await getUsageQuota(),
     };
   } else if (msgType === "stayAlive") {
@@ -386,7 +388,7 @@ self.onmessage = async ({ data, source }) => {
     console.log("Staying alive");
   } else if (msgType === "clearData") {
     // a way for the FE components to force clear all stored data in the service worker
-    console.log("Recieved clear message type to clear account info");
+    console.log("Received clear message type to clear account info");
     clearAccountInfo();
   }
 
