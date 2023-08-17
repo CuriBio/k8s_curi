@@ -2,6 +2,7 @@ import argparse
 import glob
 import json
 import os
+import re
 import sys
 import subprocess
 
@@ -137,6 +138,8 @@ def set_status(context, status, sha, token):
 
 
 def post_pr_comment(pr_number, comment, token):
+    comment = re.sub(r"WITH PASSWORD '\S+'", "WITH PASSWORD ****", comment)
+
     req = {
         "headers": {"Authorization": f"Bearer {token.strip()}"},
         "json": {"body": comment},
