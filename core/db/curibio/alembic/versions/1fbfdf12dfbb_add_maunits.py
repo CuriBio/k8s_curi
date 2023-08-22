@@ -35,11 +35,11 @@ def upgrade():
         ],
     )
 
-    mantarray_ro_pass = os.getenv("MANTARRAY_RO_PASS")
-    if not mantarray_ro_pass:
-        raise Exception("Missing requireed value for MANTARRAY_RO_PASS")
+    mantarray_user_pass_ro = os.getenv("MANTARRAY_USER_PASS_RO")
+    if not mantarray_user_pass_ro:
+        raise Exception("Missing required value for MANTARRAY_USER_PASS_RO")
 
-    op.execute(f"CREATE USER curibio_mantarray_ro WITH PASSWORD '{mantarray_ro_pass}'")
+    op.execute(f"CREATE USER curibio_mantarray_ro WITH PASSWORD '{mantarray_user_pass_ro}'")
     op.execute("GRANT SELECT ON TABLE maunits TO curibio_mantarray_ro")
 
 

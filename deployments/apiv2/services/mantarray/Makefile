@@ -11,13 +11,13 @@ buildx:
 	docker buildx build -t mantarray . --platform linux/amd64 --load -f ${repo_root}/deployments/apiv2/services/mantarray/Dockerfile
 
 tag:
-	docker tag mantarray:latest $(ecr_repo):0.5.0
+	docker tag mantarray:latest $(ecr_repo):0.6.0
 
 login:
 	aws ecr get-login-password --region us-east-2 | docker login --password-stdin --username AWS $(ecr_repo)
 
 push:
-	docker push $(ecr_repo):0.5.0
+	docker push $(ecr_repo):0.6.0
 
 apply:
 	kubectl apply -f ./manifests/

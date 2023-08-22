@@ -13,6 +13,7 @@ let reloadNeeded = false;
 
 const cacheName = "swCache";
 
+const MANTARRAY_URL = new URLSearchParams(location.search).get("mantarray_url");
 const USERS_URL = new URLSearchParams(location.search).get("users_url");
 const PULSE3D_URL = new URLSearchParams(location.search).get("pulse3d_url");
 const USAGE_URLS = ["/login", "/uploads", "/jobs"];
@@ -55,7 +56,7 @@ const getValueFromToken = async (name) => {
 
   let value = jwtDecode(cachedTokens.access)[name];
 
-  if (name === "accountType" && value === "customer") {
+  if (name === "account_type" && value === "customer") {
     // token types are 'user' and 'customer', but FE uses 'user' and 'admin'
     value = "admin";
   }
@@ -197,8 +198,8 @@ const handleRefreshRequest = async () => {
 
 const requestWithRefresh = async (req, url) => {
   const safeRequest = async () => {
+    const modifiedReq = await modifyRequest(req, url);
     try {
-      const modifiedReq = await modifyRequest(req, url);
       return await fetch(modifiedReq);
     } catch (e) {
       return JSON.stringify(e.message);
@@ -236,16 +237,15 @@ const interceptResponse = async (req, url) => {
   if (isLoginRequest(url)) {
     const modifiedReq = await modifyRequest(req, url);
     const response = await fetch(modifiedReq);
+
+    const responseClone = response.clone();
     const data = await response.json();
 
     if (response.status === 200) {
-      const responseClone = response.clone();
-      await setUsageQuota(responseClone);
-
-      // set tokens if login was successful
-      const data = await response.json();
-      await setTokens(data.tokens, responseClone);
       // sending usage at login, is separate from auth check request because it's not needed as often
+      await setUsageQuota(responseClone);
+      // set tokens if login was successful
+      await setTokens(data.tokens, responseClone);
     }
 
     // send the response without the tokens so they are always contained within this service worker
@@ -321,22 +321,25 @@ self.addEventListener("fetch", async (e) => {
   let destURL = new URL(e.request.url);
 
   if (
-    (e.request.url.includes(USERS_URL) || e.request.url.includes(PULSE3D_URL)) &&
+    (e.request.url.includes(USERS_URL) ||
+      e.request.url.includes(PULSE3D_URL) ||
+      e.request.url.includes(MANTARRAY_URL)) &&
     !isEmailRequest(destURL) && // this request doesn't depend on a token
     !isUpdateRequest(destURL) // we don't need to intercept verify request because it's handling own token
   ) {
-    // only intercept requests to pulse3d and user APIs
+    // only intercept requests to pulse3d, user and mantarray APIs
     e.respondWith(
       caches.open(cacheName).then(async (cache) => {
         // Go to the cache first
         const cachedResponse = await cache.match(e.request.url);
-        //  For now, only return cached responses for waveform data requests
+        // For now, only return cached responses for waveform data requests
         if (cachedResponse && isWaveformDataRequest(destURL)) {
           console.log(`Returning cached response for ${destURL}`);
           return cachedResponse;
         }
         // Otherwise, hit the network
         let response = await interceptResponse(e.request, destURL);
+
         // before returning response, check if you need to preload other wells
         // this needs to go after interceptResponse so that the initial A1 data gets returned first and not blocked by other requests
         if (isWaveformDataRequest(destURL)) {
@@ -373,8 +376,11 @@ self.onmessage = async ({ data, source }) => {
 
     msgInfo = {
       isLoggedIn: cachedTokens.access !== null,
-      accountType: await getValueFromToken("accountType"),
-      accountId: await getValueFromToken("accountId"),
+      accountInfo: {
+        accountType: await getValueFromToken("account_type"),
+        accountId: await getValueFromToken("userid"),
+        accountScope: await getValueFromToken("scope"),
+      },
       usageQuota: await getUsageQuota(),
     };
   } else if (msgType === "stayAlive") {
@@ -382,7 +388,7 @@ self.onmessage = async ({ data, source }) => {
     console.log("Staying alive");
   } else if (msgType === "clearData") {
     // a way for the FE components to force clear all stored data in the service worker
-    console.log("Recieved clear message type to clear account info");
+    console.log("Received clear message type to clear account info");
     clearAccountInfo();
   }
 
@@ -398,5 +404,5 @@ export const accessToInternalsForTesting = {
   tokens: await getAuthTokens(),
   logoutTimer,
   ClientSource,
-  accountType: await getValueFromToken("accountType"),
+  accountType: await getValueFromToken("account_type"),
 };

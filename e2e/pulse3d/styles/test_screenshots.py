@@ -1,6 +1,6 @@
 import pytest
 
-from config import TEST_URL
+from config import DASHBOARD_URL
 
 from fixtures import setup, video_setup, basic_page, admin_logged_in_page, user_logged_in_page
 
@@ -33,16 +33,16 @@ async def screen_shot_steps(page, url_to_screenshot, folder):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("url_to_screenshot", shared_pages + admin_pages)
 async def test_screenshot_admin_pages(admin_logged_in_page, url_to_screenshot):
-    await admin_logged_in_page.goto(f"https://{TEST_URL}{url_to_screenshot}")
-    await admin_logged_in_page.wait_for_url(f"https://{TEST_URL}{url_to_screenshot}")
+    await admin_logged_in_page.goto(f"https://{DASHBOARD_URL}{url_to_screenshot}")
+    await admin_logged_in_page.wait_for_url(f"https://{DASHBOARD_URL}{url_to_screenshot}")
     await screen_shot_steps(admin_logged_in_page, url_to_screenshot, "admin")
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("url_to_screenshot", shared_pages + user_pages)
 async def test_screenshot_user_pages(user_logged_in_page, url_to_screenshot):
-    await user_logged_in_page.goto(f"https://{TEST_URL}{url_to_screenshot}")
-    await user_logged_in_page.wait_for_url(f"https://{TEST_URL}{url_to_screenshot}")
+    await user_logged_in_page.goto(f"https://{DASHBOARD_URL}{url_to_screenshot}")
+    await user_logged_in_page.wait_for_url(f"https://{DASHBOARD_URL}{url_to_screenshot}")
     await screen_shot_steps(user_logged_in_page, url_to_screenshot, "user")
 
 

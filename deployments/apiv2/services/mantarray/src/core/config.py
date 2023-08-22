@@ -3,7 +3,9 @@ from starlette.datastructures import Secret
 
 config = Config(".env")
 # version used to tag the docker image
-VERSION = "0.5.0"
+VERSION = "0.6.0"
+
+DASHBOARD_URL = config("DASHBOARD_URL", cast=str, default="https://dashboard.curibio-test.com")
 
 CLUSTER_NAME = config("CLUSTER_NAME", cast=str)
 POSTGRES_USER = config("POSTGRES_USER", cast=str)

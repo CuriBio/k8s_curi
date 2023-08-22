@@ -1,5 +1,5 @@
 import pytest
-from config import TEST_URL
+from config import DASHBOARD_URL
 from fixtures import setup, video_setup, basic_page, user_logged_in_page
 
 __fictures__ = [setup, video_setup, basic_page, user_logged_in_page]
@@ -31,7 +31,7 @@ async def test_custom_number_input_options(
     valid_inputs,
     invalid_inputs,
 ):
-    await user_logged_in_page.goto(f"https://{TEST_URL}/upload-form")
+    await user_logged_in_page.goto(f"https://{DASHBOARD_URL}/upload-form")
     await user_logged_in_page.wait_for_load_state("networkidle")
 
     # click param switch
@@ -70,7 +70,7 @@ async def test_custom_number_input_options(
     ],
 )
 async def test_advanced_analysis_valid_width_inputs(user_logged_in_page, inputs):
-    await user_logged_in_page.goto(f"https://{TEST_URL}/upload-form?id=Re-analyze+Existing+Upload")
+    await user_logged_in_page.goto(f"https://{DASHBOARD_URL}/upload-form?id=Re-analyze+Existing+Upload")
     await user_logged_in_page.wait_for_load_state("networkidle")
     # click param switch
     param_switch_text = await user_logged_in_page.query_selector("input.PrivateSwitchBase-input")
@@ -93,7 +93,7 @@ async def test_advanced_analysis_valid_width_inputs(user_logged_in_page, inputs)
 
 
 async def setUpWellGroupingsTest(page):
-    await page.goto(f"https://{TEST_URL}/upload-form?id=Re-analyze+Existing+Upload")
+    await page.goto(f"https://{DASHBOARD_URL}/upload-form?id=Re-analyze+Existing+Upload")
     await page.wait_for_load_state("networkidle")
     # click param switch
     param_switch_text = await page.query_selector("input.PrivateSwitchBase-input")
