@@ -13,4 +13,3 @@ spec:
       creationTimestamp: null
       name: curibio-mantarray-creds
       namespace: apiv2
-

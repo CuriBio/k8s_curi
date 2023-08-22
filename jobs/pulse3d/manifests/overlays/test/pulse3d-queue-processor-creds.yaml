@@ -12,4 +12,3 @@ spec:
       creationTimestamp: null
       name: pulse3d-queue-processor-creds
       namespace: pulse3d
-

@@ -8,16 +8,16 @@ metadata:
 spec:
   description: Cluster applications
   sourceRepos:
-  - '*'
+    - "*"
   destinations:
-  - namespace: '*'
-    server: https://kubernetes.default.svc
+    - namespace: "*"
+      server: https://kubernetes.default.svc
   clusterResourceWhitelist:
-  - group: '*'
-    kind: '*'
+    - group: "*"
+      kind: "*"
   namespaceResourceWhitelist:
-  - group: '*'
-    kind: '*'
+    - group: "*"
+      kind: "*"
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application

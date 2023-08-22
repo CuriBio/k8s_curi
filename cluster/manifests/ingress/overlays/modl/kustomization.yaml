@@ -13,7 +13,7 @@ patchesJson6902:
     patch: |-
       - op: replace
         path: /spec/template/spec/containers/0/args/0
-        value: "--cluster-name=modl"
+        value: "--cluster-name=modl-v2"
   - target:
       kind: Ingress
       name: alb-nginx-ingress

@@ -203,6 +203,7 @@ module "loki_logs_bucket" {
   cluster_name = var.cluster_name
 }
 
+
 module "eks" {
   source          = "terraform-aws-modules/eks/aws"
   version         = "19.15.3"
