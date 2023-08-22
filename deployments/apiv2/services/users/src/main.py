@@ -775,7 +775,7 @@ async def update_user(
                     detail=f"Invalid customer-edit-self action: {action}",
                 )
         else:
-            if action in ("deactivate"):
+            if action == "deactivate":
                 update_query = "UPDATE users SET suspended='t' WHERE id=$1 AND customer_id=$2"
                 query_args = (account_id, self_id)
             elif action == "reactivate":

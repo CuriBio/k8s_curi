@@ -130,7 +130,7 @@ export default function SerialNumberTable() {
                   serialNumber: e.target.value,
                 });
               }}
-            ></FormInput>
+            />
           </SubRow>
           <SubRow>1.0.0</SubRow>
           <SubRow

@@ -19,7 +19,7 @@ depends_on = None
 def upgrade():
     mantarray_user_pass = os.getenv("MANTARRAY_USER_PASS")
     if not mantarray_user_pass:
-        raise Exception("Missing requireed value for MANTARRAY_USER_PASS")
+        raise Exception("Missing required value for MANTARRAY_USER_PASS")
 
     op.execute(f"CREATE USER curibio_mantarray WITH PASSWORD '{mantarray_user_pass}'")
     op.execute("GRANT ALL PRIVILEGES ON TABLE maunits TO curibio_mantarray")
