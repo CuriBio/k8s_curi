@@ -17,4 +17,4 @@ patchesJson6902:
     patch: |-
       - op: replace
         path: /metadata/annotations/eks.amazonaws.com~1role-arn
-        value: arn:aws:iam::725604423866:role/workflow-pods-iam-role01
+        value: arn:aws:iam::725604423866:role/modl-v2-workflow-pods-iam-role01
