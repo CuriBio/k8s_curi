@@ -2,7 +2,7 @@ import pytest
 
 from fixtures import basic_page, setup, video_setup
 
-from config import TEST_URL, VALID_CUSTOMER_ID, VALID_USER_NAME, VALID_USER_PASSWORD
+from config import DASHBOARD_URL, VALID_CUSTOMER_ID, VALID_USER_NAME, VALID_USER_PASSWORD
 
 __fixtures__ = [basic_page, setup, video_setup]
 
@@ -28,7 +28,7 @@ async def test_login_success_user(basic_page):
     await basic_page.wait_for_url("**/uploads")
 
     # test login success
-    assert basic_page.url == f"https://{TEST_URL}/uploads"
+    assert basic_page.url == f"https://{DASHBOARD_URL}/uploads"
 
 
 invalid_users = [

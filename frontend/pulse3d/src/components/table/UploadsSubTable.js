@@ -34,7 +34,7 @@ const Header = styled.div`
 
 const SubRowFileName = styled.div`
   font-size: 0.75rem;
-  width: 40%;
+  width: 35%;
   overflow: hidden;
 `;
 

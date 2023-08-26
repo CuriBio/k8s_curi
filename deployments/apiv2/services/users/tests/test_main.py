@@ -84,7 +84,7 @@ def test_startup__sets_global_cb_customer_id(mocked_asyncpg_con):
             del main.CB_CUSTOMER_ID
 
     mocked_asyncpg_con.fetchval.assert_called_once_with(
-        "SELECT id FROM customers WHERE email = 'software@curibio.com'"
+        "SELECT id FROM customers WHERE email='software@curibio.com'"
     )
 
 
@@ -104,15 +104,13 @@ def test_routes_requiring_auth_without_tokens(method, route):
 
 @freeze_time()
 @pytest.mark.parametrize("send_client_type", [True, False])
-def test_login__user__success(send_client_type, cb_customer_id, mocked_asyncpg_con, mocker):
+@pytest.mark.parametrize("use_alias", [True, False])
+def test_login__user__success(send_client_type, use_alias, cb_customer_id, mocked_asyncpg_con, mocker):
     mocked_usage_check = mocker.patch.object(
         main,
         "check_customer_quota",
         return_value={
-            "current": {
-                "uploads": "0",
-                "jobs": "0",
-            },
+            "current": {"uploads": "0", "jobs": "0"},
             "jobs_reached": False,
             "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
             "uploads_reached": False,
@@ -121,7 +119,7 @@ def test_login__user__success(send_client_type, cb_customer_id, mocked_asyncpg_c
     )
 
     login_details = {
-        "customer_id": str(cb_customer_id),
+        "customer_id": "test_alias" if use_alias else str(cb_customer_id),
         "username": "test_USERNAME",
         "password": "test_password",
         "service": "pulse3d",
@@ -137,6 +135,9 @@ def test_login__user__success(send_client_type, cb_customer_id, mocked_asyncpg_c
         "password": pw_hash,
         "id": test_user_id,
         "scope": json.dumps(test_scope),
+        "failed_login_attempts": 0,
+        "suspended": False,
+        "customer_id": cb_customer_id,
     }
     spied_create_token = mocker.spy(main, "create_token")
 
@@ -155,13 +156,17 @@ def test_login__user__success(send_client_type, cb_customer_id, mocked_asyncpg_c
         usage_quota=mocked_usage_check.return_value,
     )
 
+    expected_query = (
+        "SELECT u.password, u.id, u.data->'scope' AS scope, u.failed_login_attempts, u.suspended, u.customer_id FROM users AS u JOIN customers AS c ON u.customer_id=c.id WHERE u.deleted_at IS NULL AND u.name=$1 AND c.alias=$2 AND u.verified='t'"
+        if use_alias
+        else "SELECT password, id, data->'scope' AS scope, failed_login_attempts, suspended, customer_id FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND verified='t'"
+    )
+
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
-        "SELECT password, id, data->'scope' AS scope FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND suspended='f' AND verified='t'",
-        login_details["username"].lower(),
-        login_details["customer_id"],
+        expected_query, login_details["username"].lower(), login_details["customer_id"]
     )
     mocked_asyncpg_con.execute.assert_called_with(
-        "UPDATE users SET refresh_token = $1 WHERE id = $2", expected_refresh_token.token, test_user_id
+        "UPDATE users SET refresh_token=$1 WHERE id=$2", expected_refresh_token.token, test_user_id
     )
 
     assert spied_create_token.call_count == 2
@@ -174,10 +179,7 @@ def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
         main,
         "check_customer_quota",
         return_value={
-            "current": {
-                "uploads": "0",
-                "jobs": "0",
-            },
+            "current": {"uploads": "0", "jobs": "0"},
             "jobs_reached": False,
             "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
             "uploads_reached": False,
@@ -197,6 +199,8 @@ def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
         "password": pw_hash,
         "id": test_customer_id,
         "scope": json.dumps(customer_scope),
+        "failed_login_attempts": 0,
+        "suspended": False,
     }
     spied_create_token = mocker.spy(main, "create_token")
 
@@ -223,13 +227,11 @@ def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
     )
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
-        "SELECT password, id, data->'scope' AS scope FROM customers WHERE deleted_at IS NULL AND email = $1",
+        "SELECT password, id, data->'scope' AS scope, failed_login_attempts, suspended FROM customers WHERE deleted_at IS NULL AND email=$1",
         login_details["email"].lower(),
     )
     mocked_asyncpg_con.execute.assert_called_with(
-        "UPDATE customers SET refresh_token = $1 WHERE id = $2",
-        expected_refresh_token.token,
-        test_customer_id,
+        "UPDATE customers SET refresh_token=$1 WHERE id=$2", expected_refresh_token.token, test_customer_id
     )
 
     assert spied_create_token.call_count == 2
@@ -250,16 +252,37 @@ def test_login__incorrect_password(mocked_asyncpg_con):
     # arbitrarily deciding to use customer login here
     login_details = {"email": "test@email.com", "password": "test_password", "service": "pulse3d"}
 
-    mocked_asyncpg_con.fetchrow.return_value = {"password": "bad_hash", "id": uuid.uuid4()}
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "password": "bad_hash",
+        "id": uuid.uuid4(),
+        "failed_login_attempts": 0,
+        "suspended": False,
+    }
 
     response = test_client.post("/login", json=login_details)
     assert response.status_code == 401
     assert response.json() == {"detail": "Invalid credentials"}
 
 
+@pytest.mark.parametrize("login_attempts", [9, 10, 11])
+def test_login__returns_locked_status_after_10_attempts(mocked_asyncpg_con, login_attempts):
+    # arbitrarily deciding to use customer login here
+    login_details = {"email": "test@email.com", "password": "test_password", "service": "pulse3d"}
+
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "password": PasswordHasher().hash("bad_pass"),
+        "id": uuid.uuid4(),
+        "failed_login_attempts": login_attempts,
+        "suspended": False,
+    }
+
+    response = test_client.post("/login", json=login_details)
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Account locked after too many failed login attempts"}
+
+
 @pytest.mark.parametrize("special_char", ["", *USERNAME_VALID_SPECIAL_CHARS])
 def test_register__user__allows_valid_usernames(special_char, mocked_asyncpg_con, cb_customer_id, mocker):
-
     mocker.patch.object(main, "_send_user_email", autospec=True)
     use_cb_customer_id = choice([True, False])
     end_with_num = choice([True, False])
@@ -452,11 +475,7 @@ def test_register__user__with_consecutive_special_chars(special_char, cb_custome
 def test_register__user__unique_constraint_violations(
     contraint_to_violate, expected_error_message, mocked_asyncpg_con, cb_customer_id
 ):
-    registration_details = {
-        "email": "test@email.com",
-        "username": "testusername",
-        "service": "pulse3d",
-    }
+    registration_details = {"email": "test@email.com", "username": "testusername", "service": "pulse3d"}
 
     test_user_id = uuid.uuid4()
     access_token = get_token(userid=test_user_id, scope=["customer:paid"], account_type="customer")
@@ -540,10 +559,10 @@ def test_refresh__success(account_type, mocked_asyncpg_con):
     assert response.json() == AuthTokens(access=new_access_token, refresh=new_refresh_token)
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
-        f"SELECT {select_clause} FROM {account_type}s WHERE id = $1", userid
+        f"SELECT {select_clause} FROM {account_type}s WHERE id=$1", userid
     )
     mocked_asyncpg_con.execute.assert_called_once_with(
-        f"UPDATE {account_type}s SET refresh_token = $1 WHERE id = $2", old_refresh_token, userid
+        f"UPDATE {account_type}s SET refresh_token=$1 WHERE id=$2", old_refresh_token, userid
     )
 
 
@@ -574,11 +593,11 @@ def test_logout__success(account_type, mocked_asyncpg_con):
     assert response.status_code == 204
 
     mocked_asyncpg_con.execute.assert_called_once_with(
-        f"UPDATE {account_type}s SET refresh_token = NULL WHERE id = $1", test_id
+        f"UPDATE {account_type}s SET refresh_token = NULL WHERE id=$1", test_id
     )
 
 
-def test_user_id__get__no_id_given(mocked_asyncpg_con):
+def test_account_id__get__no_id(mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
     access_token = get_token(userid=test_customer_id, account_type="customer")
 
@@ -612,7 +631,37 @@ def test_user_id__get__no_id_given(mocked_asyncpg_con):
     )
 
 
-def test_user_id__get__id_given(mocked_asyncpg_con):
+def test_account_id__get__no_id__invalid_token_scope_given():
+    # account type does not matter here
+    access_token = get_token(scope=["users:free"])
+    response = test_client.get("/", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 401
+
+
+def test_account_id__get__id_given__customer_retrieving_self(mocked_asyncpg_con):
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(userid=test_customer_id, account_type="customer")
+
+    mocked_asyncpg_con.fetchrow.return_value = expected_customer_info = {
+        "id": test_customer_id,
+        "created_at": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+        "alias": "test_alias",
+    }
+
+    response = test_client.get(f"/{test_customer_id}", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 200
+
+    # convert ID to a string since fastapi does this automatically
+    expected_customer_info["id"] = str(expected_customer_info["id"])
+
+    assert response.json() == expected_customer_info
+
+    mocked_asyncpg_con.fetchrow.assert_called_once_with(
+        f"SELECT {', '.join(expected_customer_info)} FROM customers WHERE id=$1", test_customer_id
+    )
+
+
+def test_account_id__get__id_given__customer_retrieving_user__success(mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
     access_token = get_token(userid=test_customer_id, account_type="customer")
 
@@ -642,7 +691,55 @@ def test_user_id__get__id_given(mocked_asyncpg_con):
     )
 
 
-def test_user_id__get__id_given__user_not_found(mocked_asyncpg_con):
+def test_account_id__get__id_given__customer_retrieving_user__user_not_found(mocked_asyncpg_con):
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(userid=test_customer_id, account_type="customer")
+
+    test_user_id = uuid.uuid4()
+
+    mocked_asyncpg_con.fetchrow.return_value = None
+
+    response = test_client.get(f"/{test_user_id}", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 400
+
+
+def test_account_id__get__id_given__user_retrieving_self(mocked_asyncpg_con):
+    test_user_id = uuid.uuid4()
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(userid=test_user_id, customer_id=test_customer_id, account_type="user")
+
+    mocked_asyncpg_con.fetchrow.return_value = expected_user_info = {
+        "id": test_user_id,
+        "name": "name",
+        "email": "user@email.com",
+        "created_at": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+        "last_login": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+        "suspended": choice([True, False]),
+    }
+
+    response = test_client.get(f"/{test_user_id}", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 200
+
+    # convert ID to a string since fastapi does this automatically
+    expected_user_info["id"] = str(expected_user_info["id"])
+
+    assert response.json() == expected_user_info
+
+    mocked_asyncpg_con.fetchrow.assert_called_once_with(
+        f"SELECT {', '.join(expected_user_info)} FROM users WHERE customer_id=$1 AND id=$2 AND deleted_at IS NULL",
+        test_customer_id,
+        test_user_id,
+    )
+
+
+def test_account_id__get__id_given__user_attempting_to_retrieve_another_id(mocked_asyncpg_con):
+    access_token = get_token(account_type="user")
+
+    response = test_client.get(f"/{uuid.uuid4()}", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 400
+
+
+def test_account_id__get__id_given__user_not_found(mocked_asyncpg_con):
     access_token = get_token(account_type="customer")
 
     mocked_asyncpg_con.fetchrow.return_value = None
@@ -651,16 +748,8 @@ def test_user_id__get__id_given__user_not_found(mocked_asyncpg_con):
     assert response.status_code == 400
 
 
-@pytest.mark.parametrize("user_id", ["", uuid.uuid4()])
-def test_user_id__get__invalid_token_scope_given(user_id):
-    # account type does not matter here
-    access_token = get_token(scope=["users:free"])
-    response = test_client.get(f"/{user_id}", headers={"Authorization": f"Bearer {access_token}"})
-    assert response.status_code == 401
-
-
 @freeze_time()
-def test_user_id__put__successful_deletion(mocked_asyncpg_con):
+def test_account_id__put__successful_user_deletion(mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
     access_token = get_token(userid=test_customer_id, account_type="customer")
 
@@ -674,12 +763,14 @@ def test_user_id__put__successful_deletion(mocked_asyncpg_con):
     assert response.status_code == 200
 
     mocked_asyncpg_con.execute.assert_called_once_with(
-        "UPDATE users SET deleted_at=$1 WHERE id=$2", datetime.now(), test_user_id
+        "UPDATE users SET deleted_at=$1 WHERE id=$2 AND customer_id=$3",
+        datetime.now(),
+        test_user_id,
+        test_customer_id,
     )
 
 
-@pytest.mark.parametrize("action", ["deactivate", "reactivate"])
-def test_user_id__put__successful_deactivation_reactivation(mocked_asyncpg_con, action):
+def test_user_id__put__successful_deactivation(mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
     access_token = get_token(userid=test_customer_id, account_type="customer")
 
@@ -687,17 +778,82 @@ def test_user_id__put__successful_deactivation_reactivation(mocked_asyncpg_con, 
 
     response = test_client.put(
         f"/{test_user_id}",
-        json={"action_type": action},
+        json={"action_type": "deactivate"},
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 200
 
     mocked_asyncpg_con.execute.assert_called_once_with(
-        "UPDATE users SET suspended=$1 WHERE id=$2", action == "deactivate", test_user_id
+        "UPDATE users SET suspended='t' WHERE id=$1 AND customer_id=$2", test_user_id, test_customer_id
     )
 
 
-def test_user_id__put__invalid_action_type_given():
+def test_user_id__put__successful_reactivation(mocked_asyncpg_con):
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(userid=test_customer_id, account_type="customer")
+
+    test_user_id = uuid.uuid4()
+
+    response = test_client.put(
+        f"/{test_user_id}",
+        json={"action_type": "reactivate"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == 200
+
+    mocked_asyncpg_con.execute.assert_called_once_with(
+        "UPDATE users SET suspended='f', failed_login_attempts=0 WHERE id=$1 AND customer_id=$2",
+        test_user_id,
+        test_customer_id,
+    )
+
+
+def test_account_id__put__successful_customer_alias_update(mocked_asyncpg_con):
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(userid=test_customer_id, account_type="customer")
+
+    test_alias = "test_alias"
+
+    response = test_client.put(
+        f"/{test_customer_id}",
+        json={"action_type": "set_alias", "new_alias": test_alias},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == 200
+
+    mocked_asyncpg_con.execute.assert_called_once_with(
+        "UPDATE customers SET alias=$1 WHERE id=$2", test_alias, test_customer_id
+    )
+
+
+def test_account_id__put__customer_edit_self_with_mismatched_account_ids(mocked_asyncpg_con):
+    access_token = get_token(account_type="customer")
+
+    response = test_client.put(
+        f"/{uuid.uuid4()}",
+        # arbitrarily choosing set_alias here
+        json={"action_type": "set_alias", "new_alias": "test_alias"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == 400
+
+    mocked_asyncpg_con.assert_not_called()
+
+
+def test_account_id__put__user_edit_self_with_mismatched_account_ids(mocked_asyncpg_con):
+    access_token = get_token(account_type="user")
+
+    other_id = uuid.uuid4()
+
+    response = test_client.put(
+        f"/{other_id}", json={"action_type": "any"}, headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert response.status_code == 400
+
+    mocked_asyncpg_con.assert_not_called()
+
+
+def test_account_id__put__invalid_action_type_given():
     access_token = get_token(account_type="customer")
 
     response = test_client.put(
@@ -706,22 +862,15 @@ def test_user_id__put__invalid_action_type_given():
     assert response.status_code == 400
 
 
-def test_user_id__put__no_action_type_given():
+def test_account_id__put__no_action_type_given():
     access_token = get_token(account_type="customer")
 
     response = test_client.put(f"/{uuid.uuid4()}", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 422
 
 
-def test_user_id__put__invalid_token_scope_given():
-    # arbitrarily deciding to use user account type here
-    access_token = get_token(scope=["users:free"])
-    response = test_client.put(f"/{uuid.uuid4()}", headers={"Authorization": f"Bearer {access_token}"})
-    assert response.status_code == 401
-
-
 @pytest.mark.parametrize("method", ["PUT", "GET"])
-def test_user_id__bad_user_id_given(method):
+def test_account_id__bad_user_id_given(method):
     access_token = get_token(account_type="customer")
 
     response = getattr(test_client, method.lower())(
@@ -730,23 +879,14 @@ def test_user_id__bad_user_id_given(method):
     assert response.status_code == 422
 
 
-@pytest.mark.parametrize(
-    "test_token_scope",
-    [[s] for s in ACCOUNT_SCOPES if "customer" not in s],
-)
+@pytest.mark.parametrize("test_token_scope", [[s] for s in ACCOUNT_SCOPES if "customer" not in s])
 def test_account__put__account_is_already_verified(test_token_scope, mocked_asyncpg_con):
     test_account_id = uuid.uuid4()
     account_type = "user"
 
-    access_token = get_token(
-        scope=test_token_scope,
-        account_type=account_type,
-        userid=test_account_id,
-    )
+    access_token = get_token(scope=test_token_scope, account_type=account_type, userid=test_account_id)
 
-    mocked_asyncpg_con.fetchrow.return_value = {
-        "verified": True,
-    }
+    mocked_asyncpg_con.fetchrow.return_value = {"verified": True}
 
     response = test_client.put(
         "/account",
@@ -839,20 +979,13 @@ def test_account__put__token_does_not_match_reset_token(
     assert response.json() == UnableToUpdateAccountResponse(message="Link has expired")
 
 
-@pytest.mark.parametrize(
-    "test_token_scope",
-    [[s] for s in ACCOUNT_SCOPES if "customer" in s],
-)
+@pytest.mark.parametrize("test_token_scope", [[s] for s in ACCOUNT_SCOPES if "customer" in s])
 def test_account__put__correctly_updates_customers_table_with_account_info(
     test_token_scope, mocked_asyncpg_con, spied_pw_hasher
 ):
     test_account_id = uuid.uuid4()
     account_type = "customer"
-    access_token = get_token(
-        scope=test_token_scope,
-        account_type=account_type,
-        userid=test_account_id,
-    )
+    access_token = get_token(scope=test_token_scope, account_type=account_type, userid=test_account_id)
 
     ph = PasswordHasher()
     mocked_asyncpg_con.fetchrow.return_value = {
@@ -875,10 +1008,7 @@ def test_account__put__correctly_updates_customers_table_with_account_info(
     )
 
 
-@pytest.mark.parametrize(
-    "test_token_scope",
-    [[s] for s in ACCOUNT_SCOPES if "customer" not in s],
-)
+@pytest.mark.parametrize("test_token_scope", [[s] for s in ACCOUNT_SCOPES if "customer" not in s])
 def test_account__put__correctly_updates_users_table_with_account_info(
     test_token_scope, mocked_asyncpg_con, spied_pw_hasher
 ):
@@ -948,9 +1078,7 @@ def test_email__get__send_correct_email_based_on_request_query_type(mocked_async
     assert response.status_code == 204
 
     mocked_asyncpg_con.execute.assert_called_once_with(
-        "UPDATE users SET reset_token=$1 WHERE id=$2",
-        spied_create_token.spy_return.token,
-        test_user_id,
+        "UPDATE users SET reset_token=$1 WHERE id=$2", spied_create_token.spy_return.token, test_user_id
     )
 
     if type == "reset":
