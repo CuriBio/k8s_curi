@@ -138,6 +138,7 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
 
     failed_msg = "Invalid credentials"
     account_locked_msg = "Account locked after too many failed login attempts"
+
     try:
         async with request.state.pgpool.acquire() as con:
             select_query_result = await con.fetchrow(select_query, *select_query_params)
