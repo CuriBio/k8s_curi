@@ -281,6 +281,21 @@ def test_login__returns_locked_status_after_10_attempts(mocked_asyncpg_con, logi
     assert response.json() == {"detail": "Account locked after too many failed login attempts"}
 
 
+def test_login__returns_invalid_creds_if_account_is_suspended(mocked_asyncpg_con):
+    login_details = {"email": "test@email.com", "password": "test_password", "service": "pulse3d"}
+
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "password": PasswordHasher().hash("bad_pass"),
+        "id": uuid.uuid4(),
+        "failed_login_attempts": 4,
+        "suspended": True,
+    }
+
+    response = test_client.post("/login", json=login_details)
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid credentials"}
+
+
 @pytest.mark.parametrize("special_char", ["", *USERNAME_VALID_SPECIAL_CHARS])
 def test_register__user__allows_valid_usernames(special_char, mocked_asyncpg_con, cb_customer_id, mocker):
     mocker.patch.object(main, "_send_user_email", autospec=True)
