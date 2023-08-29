@@ -35,7 +35,10 @@ def get_token(*, userid=None, customer_id=None, scope=None, account_type=None, r
     if not customer_id and account_type == "user":
         customer_id = uuid.uuid4()
     if not scope:
-        scope = ["pulse3d:free"] if account_type == "user" else ["customer:paid"]
+        if refresh:
+            scope = ["refresh"]
+        else:
+            scope = ["pulse3d:free"] if account_type == "user" else ["customer:paid"]
 
     return create_token(
         userid=userid, customer_id=customer_id, scope=scope, account_type=account_type, refresh=refresh
@@ -145,7 +148,7 @@ def test_login__user__success(send_client_type, use_alias, cb_customer_id, mocke
         userid=test_user_id, customer_id=cb_customer_id, scope=test_scope, account_type="user", refresh=False
     )
     expected_refresh_token = create_token(
-        userid=test_user_id, customer_id=cb_customer_id, scope=test_scope, account_type="user", refresh=True
+        userid=test_user_id, customer_id=cb_customer_id, scope=["refresh"], account_type="user", refresh=True
     )
 
     response = test_client.post("/login", json=login_details)
@@ -214,7 +217,7 @@ def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
     expected_refresh_token = create_token(
         userid=test_customer_id,
         customer_id=None,
-        scope=["customer:free"],
+        scope=["refresh"],
         account_type="customer",
         refresh=True,
     )
@@ -535,22 +538,22 @@ def test_refresh__success(account_type, mocked_asyncpg_con):
     test_scope = ["users:free"]
     customer_id = None if account_type == "customer" else uuid.uuid4()
 
-    select_clause = "refresh_token"
+    select_clause = "refresh_token, data->'scope' AS scope"
     if account_type == "user":
         select_clause += ", customer_id"
 
     old_refresh_token = get_token(
-        userid=userid, customer_id=customer_id, scope=test_scope, account_type=account_type, refresh=True
+        userid=userid, customer_id=customer_id, scope=["refresh"], account_type=account_type, refresh=True
     )
 
     new_access_token = create_token(
         userid=userid, customer_id=customer_id, scope=test_scope, account_type=account_type, refresh=False
     )
     new_refresh_token = create_token(
-        userid=userid, customer_id=customer_id, scope=test_scope, account_type=account_type, refresh=True
+        userid=userid, customer_id=customer_id, scope=["refresh"], account_type=account_type, refresh=True
     )
 
-    mocked_asyncpg_con.fetchrow.return_value = {"refresh_token": old_refresh_token}
+    mocked_asyncpg_con.fetchrow.return_value = {"refresh_token": old_refresh_token, "scope": test_scope}
     if account_type == "user":
         mocked_asyncpg_con.fetchrow.return_value["customer_id"] = customer_id
 
