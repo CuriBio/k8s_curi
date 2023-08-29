@@ -144,14 +144,7 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
             select_query_result = await con.fetchrow(select_query, *select_query_params)
             pw = details.password.get_secret_value()
 
-            if select_query_result is not None:
-                # users can be suspended for other reasons, return None to replicate previous behavior
-                if (
-                    select_query_result["suspended"]
-                    and select_query_result["failed_login_attempts"] < MAX_FAILED_LOGIN_ATTEMPTS
-                ):
-                    select_query_result = None
-            else:
+            if select_query_result is None:
                 # if no record is returned by query then fetchrow will return None,
                 # so need to set to a dict with a bad password hash
                 select_query_result = {"password": "x" * 100}
@@ -186,6 +179,13 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
                 ph.hash(pw)
                 raise LoginError(failed_msg)
             else:
+                # only raise LoginError here when account is locked on successful creds after they have been checked to prevent giving away facts about successful login combinations
+                if select_query_result["failed_login_attempts"] >= MAX_FAILED_LOGIN_ATTEMPTS:
+                    raise LoginError(account_locked_msg)
+                # user can be suspended if admin account suspends them, select_query_result will not return None in that instance
+                if select_query_result["suspended"]:
+                    raise LoginError(failed_msg)
+
                 # both users and customers have scopes
                 # check account usage quotas
                 customer_id = select_query_result["id" if is_customer_login_attempt else "customer_id"]
