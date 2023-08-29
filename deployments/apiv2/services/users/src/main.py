@@ -251,9 +251,9 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
     account_type = token["account_type"]
 
     if account_type == "customer":
-        select_query = "SELECT refresh_token FROM customers WHERE id=$1"
+        select_query = "SELECT refresh_token, data->'scope' AS scope FROM customers WHERE id=$1"
     else:
-        select_query = "SELECT refresh_token, customer_id FROM users WHERE id=$1"
+        select_query = "SELECT refresh_token, data->'scope' AS scope, customer_id FROM users WHERE id=$1"
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -271,7 +271,7 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
-            return await _create_new_tokens(con, userid, row.get("customer_id"), token["scope"], account_type)
+            return await _create_new_tokens(con, userid, row.get("customer_id"), row["scope"], account_type)
 
     except HTTPException:
         raise
@@ -285,8 +285,9 @@ async def _create_new_tokens(db_con, userid, customer_id, scope, account_type):
     access = create_token(
         userid=userid, customer_id=customer_id, scope=scope, account_type=account_type, refresh=False
     )
+    # refresh token does not need any scope, so just set it to refresh
     refresh = create_token(
-        userid=userid, customer_id=customer_id, scope=scope, account_type=account_type, refresh=True
+        userid=userid, customer_id=customer_id, scope=["refresh"], account_type=account_type, refresh=True
     )
 
     # insert refresh token into DB
