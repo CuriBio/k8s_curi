@@ -186,6 +186,10 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
                 ph.hash(pw)
                 raise LoginError(failed_msg)
             else:
+                # only raise LoginError when account is locked on successful creds after they have been checked to prevent giving away facts about successful login combinations
+                if select_query_result["failed_login_attempts"] >= MAX_FAILED_LOGIN_ATTEMPTS:
+                    raise LoginError(account_locked_msg)
+
                 # both users and customers have scopes
                 # check account usage quotas
                 customer_id = select_query_result["id" if is_customer_login_attempt else "customer_id"]
