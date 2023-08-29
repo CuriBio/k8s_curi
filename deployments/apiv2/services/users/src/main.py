@@ -182,6 +182,7 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
                 # only raise LoginError here when account is locked on successful creds after they have been checked to prevent giving away facts about successful login combinations
                 if select_query_result["failed_login_attempts"] >= MAX_FAILED_LOGIN_ATTEMPTS:
                     raise LoginError(account_locked_msg)
+                # user can be suspended if admin account suspends them, select_query_result will not return None in that instance
                 if select_query_result["suspended"]:
                     raise LoginError(failed_msg)
 
