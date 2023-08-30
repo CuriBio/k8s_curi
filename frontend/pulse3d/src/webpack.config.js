@@ -18,4 +18,12 @@ module.exports = {
   experiments: {
     topLevelAwait: true,
   },
+  module: {
+    rules: [
+      {
+        test: /\.(png|jp(e*)g|svg|gif)$/,
+        type: "asset/resource",
+      },
+    ],
+  },
 };
