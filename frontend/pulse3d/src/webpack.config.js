@@ -18,14 +18,4 @@ module.exports = {
   experiments: {
     topLevelAwait: true,
   },
-  module: {
-    rules: [
-      {
-        test: /\.svg$/i,
-        issuer: /\.[jt]sx?$/,
-        resourceQuery: { not: /url/ }, // exclude if *.svg?url
-        use: ["@svgr/webpack"],
-      },
-    ],
-  },
 };

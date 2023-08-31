@@ -149,7 +149,7 @@ export default function Login() {
                     onMouseEnter={mouseEnter}
                     onMouseLeave={mouseLeave}
                     onClick={handleProductNavigation}
-                    priority={true} // increases loading speed from lazy
+                    priority={state === "hover"} // increases loading speed from lazy
                   />
                   <ProductLabel>{name}</ProductLabel>
                   <ProductDescLabel>{description}</ProductDescLabel>
