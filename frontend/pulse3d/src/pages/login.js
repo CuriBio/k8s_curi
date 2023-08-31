@@ -95,10 +95,11 @@ export default function Login() {
           body: JSON.stringify({ ...userData, client_type: "dashboard" }),
           mode: "no-cors",
         });
-
         if (res) {
           if (res.status === 200) {
-            router.push("/uploads?checkUsage=true", "/uploads"); // routes to next page
+            loginType === "User"
+              ? router.push("/home") // routes to next page
+              : router.push("/uploads?checkUsage=true", "/uploads");
           } else {
             let errToDisplay = "*Internal error. Please try again later.";
 

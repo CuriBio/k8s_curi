@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import styled from "styled-components";
 import { useEffect, useState, useContext } from "react";
 import { AuthContext } from "@/pages/_app";
-import ArrowForwardIosSharpIcon from "@mui/icons-material/ArrowForwardIosSharp";
+import NavigateBeforeIcon from "@mui/icons-material/NavigateBefore";
 import MuiAccordion from "@mui/material/Accordion";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import MuiAccordionSummary from "@mui/material/AccordionSummary";
@@ -58,8 +58,8 @@ const theme = ({ color }) => {
   });
 };
 
-const ArrowIcon = muiStyled(ArrowForwardIosSharpIcon)`
-  font-size: 0.9rem;
+const ArrowIcon = muiStyled(NavigateBeforeIcon)`
+  font-size: 25px;
   position: relative;
   color: var(--light-gray);
   margin-left: 12px;
@@ -67,7 +67,6 @@ const ArrowIcon = muiStyled(ArrowForwardIosSharpIcon)`
 `;
 
 const AccordionSummary = muiStyled(MuiAccordionSummary)`
-  flex-direction: row-reverse;
   height: 75px;
   color: var(--light-gray);
   & .MuiAccordionSummary-expandIconWrapper.Mui-expanded {
@@ -79,8 +78,8 @@ const AccordionSummary = muiStyled(MuiAccordionSummary)`
     height: 100%;
   }
   & .MuiAccordionSummary-content {
-    margin: 0px;
-    justify-content: center;
+    margin: 0px 15px;
+    justify-content: left;
     display: flex;
     font-size: 18px;
   }
@@ -97,7 +96,7 @@ const Accordion = muiStyled(MuiAccordion)`
 `;
 
 const adminButtons = [
-  { label: "Home", disabled: false, page: "/uploads", options: [] },
+  { label: "Uploads", disabled: false, page: "/uploads", options: [] },
   {
     label: "Add New User",
     disabled: false,
@@ -138,7 +137,7 @@ export default function ControlPanel() {
   const [modalLabels, setModalLabels] = useState({ header: "", messages: [] });
 
   const userButtons = [
-    { label: "Home", disabled: false, page: "/uploads", options: [] },
+    { label: "Uploads", disabled: false, page: "/uploads", options: [] },
     {
       label: "Run Analysis",
       disabled: usageQuota && usageQuota.jobs_reached, // disabled completely if jobs quota has been reached
