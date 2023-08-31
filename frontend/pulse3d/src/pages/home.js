@@ -124,9 +124,16 @@ export default function Login() {
             {row.map((type) => {
               const { name, description, state } = products[type];
 
+              // enabled
               let color = "#ececed";
-              if (state === "disabled") color = "#4c4c4c";
-              else if (state === "hover") color = "#ffffff";
+              let cursor = "pointer";
+              // else
+              if (state === "disabled") {
+                color = "#4c4c4c";
+                cursor = "default";
+              } else if (state === "hover") {
+                color = "#ffffff";
+              }
 
               return (
                 <ImageLabelContainer key={type} style={{ color }}>
@@ -137,11 +144,12 @@ export default function Login() {
                     width={250}
                     height={250}
                     loader={imageLoader}
-                    style={{ cursor: "pointer" }}
+                    style={{ cursor }}
                     unoptimized
                     onMouseEnter={mouseEnter}
                     onMouseLeave={mouseLeave}
                     onClick={handleProductNavigation}
+                    priority={true} // increases loading speed from lazy
                   />
                   <ProductLabel>{name}</ProductLabel>
                   <ProductDescLabel>{description}</ProductDescLabel>
