@@ -392,6 +392,8 @@ async def create_new_job(
             params.append("well_groups")
         if pulse3d_semver >= "0.30.5":
             params.append("stim_waveform_format")
+        if pulse3d_semver >= "0.34.2":
+            params.append("data_type")
 
         if use_noise_based_peak_finding:
             params += [

@@ -839,7 +839,7 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocked_asyncpg_con
 
 
 # Tanner (3/13/23): only really need to test versions that are live in prod or are being tested in test cluster
-@pytest.mark.parametrize("version", ["0.28.3", "0.30.4", "0.33.7"])
+@pytest.mark.parametrize("version", ["0.28.3", "0.30.4", "0.33.7", "0.34.2"])
 def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d_version(
     version, mocked_asyncpg_con, mocker
 ):
@@ -888,8 +888,6 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
         expected_analysis_param_keys.append("well_groups")
     if pulse3d_semver >= "0.30.5":
         expected_analysis_param_keys.append("stim_waveform_format")
-    if pulse3d_semver < "0.33.7":
-        expected_analysis_param_keys.append("prominence_factors")
     if pulse3d_semver >= "0.33.7":
         for param in (
             "upslope_noise_allowance_duration",
@@ -901,6 +899,10 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
             "upslope_duration",
         ):
             expected_analysis_param_keys.append(param)
+    else:
+        expected_analysis_param_keys.append("prominence_factors")
+    if pulse3d_semver >= "0.34.2":
+        expected_analysis_param_keys.append("data_type")
 
     expected_analysis_params = {param: None for param in expected_analysis_param_keys}
 

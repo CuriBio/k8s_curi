@@ -32,6 +32,9 @@ class JobRequest(BaseModel):
     previous_version: Optional[str]
 
     name_override: Optional[str]
+
+    data_type: Optional[str]
+
     well_groups: Optional[Dict[str, List[str]]]
 
     normalize_y_axis: Optional[bool]
