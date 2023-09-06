@@ -19,6 +19,12 @@ from pulse3D.constants import (
     DEFAULT_PROMINENCE_FACTORS,
     DEFAULT_WIDTH_FACTORS,
     DEFAULT_NB_WIDTH_FACTORS,
+    DATA_TYPE_TO_AMPLITUDE_LABEL,
+    DEFAULT_AMPLITUDE_LABEL,
+    DATA_TYPE_TO_UNIT_LABEL,
+    DEFAULT_UNIT_LABEL,
+    CALCULATED_METRIC_DISPLAY_NAMES,
+    AMPLITUDE_UUID,
 )
 
 from auth import ProtectedAny, PULSE3D_USER_SCOPES, PULSE3D_SCOPES, CUSTOMER_SCOPES, split_scope_account_data
@@ -686,7 +692,9 @@ async def get_interactive_waveform_data(
             data_type = "Force"
 
         return WaveformDataResponse(
-            time_force_url=time_force_url, peaks_valleys_url=peaks_valleys_url, data_type=data_type.title()
+            time_force_url=time_force_url,
+            peaks_valleys_url=peaks_valleys_url,
+            amplitude_label=_get_full_amplitude_label(data_type),
         )
     # ValueError gets raised when no object is found in s3 that matches given key
     except ValueError:
@@ -699,6 +707,13 @@ async def get_interactive_waveform_data(
     except Exception:
         logger.exception("Failed to get interactive waveform data")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _get_full_amplitude_label(data_type: str) -> str:
+    return CALCULATED_METRIC_DISPLAY_NAMES[AMPLITUDE_UUID].format(
+        amplitude=DATA_TYPE_TO_AMPLITUDE_LABEL.get(data_type.lower(), DEFAULT_AMPLITUDE_LABEL),
+        unit=DATA_TYPE_TO_UNIT_LABEL.get(data_type.lower(), DEFAULT_UNIT_LABEL),
+    )
 
 
 @app.get("/versions")

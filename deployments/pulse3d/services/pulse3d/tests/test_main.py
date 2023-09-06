@@ -1302,7 +1302,7 @@ def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version, d
     assert response.json() == WaveformDataResponse(
         time_force_url=expected_presigned_url,
         peaks_valleys_url=expected_presigned_url,
-        data_type=expected_data_type,
+        amplitude_label=main._get_full_amplitude_label(expected_data_type),
     )
 
 

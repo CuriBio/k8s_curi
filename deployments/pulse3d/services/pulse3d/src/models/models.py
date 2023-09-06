@@ -93,7 +93,7 @@ class DownloadItem(BaseModel):
 class WaveformDataResponse(BaseModel):
     time_force_url: str
     peaks_valleys_url: str
-    data_type: str
+    amplitude_label: str
 
 
 class JobDownloadRequest(BaseModel):
