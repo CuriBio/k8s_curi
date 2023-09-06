@@ -1247,8 +1247,8 @@ def test_waveform_data__get__getting_job_metadata_from_db_errors(mocker):
 
 
 @pytest.mark.parametrize("pulse3d_version", [None, "1.2.3"])
-@pytest.mark.parametrize("well_name, test_data", [("A1", list(range(14))), ("B1", list(range(3)))])
-def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version, well_name, test_data):
+@pytest.mark.parametrize("data_type", [None, "", "Force", "calcium"])
+def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version, data_type):
     test_inclusive_df = pd.DataFrame()
     mocker.patch.object(pd, "read_parquet", return_value=test_inclusive_df, autospec=True)
 
@@ -1268,6 +1268,14 @@ def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version, w
             "end_time",
         )
     }
+
+    # intentionally only handling None case here
+    if data_type is not None:
+        expected_analysis_params["data_type"] = data_type
+        expected_data_type = data_type.title()
+    # intentionally handling all falsey cases here
+    if not data_type:
+        expected_data_type = "Force"
 
     test_jobs = [
         {
@@ -1292,7 +1300,9 @@ def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version, w
 
     assert response.status_code == 200
     assert response.json() == WaveformDataResponse(
-        time_force_url=expected_presigned_url, peaks_valleys_url=expected_presigned_url, normalize_y_axis=True
+        time_force_url=expected_presigned_url,
+        peaks_valleys_url=expected_presigned_url,
+        data_type=expected_data_type,
     )
 
 

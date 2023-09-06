@@ -652,14 +652,8 @@ async def get_interactive_waveform_data(
         selected_job = jobs[0]
         parsed_meta = json.loads(selected_job["job_meta"])
         recording_owner_id = str(selected_job["user_id"])
-        analysis_params = parsed_meta.get("analysis_params")
+        analysis_params = parsed_meta.get("analysis_params", {})
         pulse3d_version = parsed_meta.get("version")
-
-        # normalize_y_axis is not always in analysis_params and if normalize_y_axis is present, will either be None, True, or False.
-        # Only prevent normalization if explicitly False.
-        normalize_y_axis = not (
-            "normalize_y_axis" in analysis_params and analysis_params["normalize_y_axis"] is False
-        )
 
         if "pulse3d:rw_all_data" not in token["scope"]:
             # only allow user to perform interactive analysis on another user's recording if special scope
@@ -686,10 +680,13 @@ async def get_interactive_waveform_data(
         pv_parquet_key = f"{selected_job['prefix']}/{job_id}/peaks_valleys.parquet"
         peaks_valleys_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, pv_parquet_key)
 
+        data_type = analysis_params.get("data_type")
+        if not data_type:
+            # if data type is not present, is present and is None, or some other falsey value, set to Force as default
+            data_type = "Force"
+
         return WaveformDataResponse(
-            time_force_url=time_force_url,
-            peaks_valleys_url=peaks_valleys_url,
-            normalize_y_axis=normalize_y_axis,
+            time_force_url=time_force_url, peaks_valleys_url=peaks_valleys_url, data_type=data_type.title()
         )
     # ValueError gets raised when no object is found in s3 that matches given key
     except ValueError:

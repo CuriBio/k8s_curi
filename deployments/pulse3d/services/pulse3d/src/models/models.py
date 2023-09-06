@@ -93,7 +93,7 @@ class DownloadItem(BaseModel):
 class WaveformDataResponse(BaseModel):
     time_force_url: str
     peaks_valleys_url: str
-    normalize_y_axis: bool
+    data_type: str
 
 
 class JobDownloadRequest(BaseModel):
