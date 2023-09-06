@@ -192,6 +192,7 @@ export default function WaveformGraph({
   customAnalysisSettings,
   customAnalysisSettingsUpdaters,
   changelogActions,
+  yAxisLabel,
 }) {
   const {
     windowedAnalysisBounds: { start: startTime, end: endTime },
@@ -897,7 +898,7 @@ export default function WaveformGraph({
   return (
     <>
       <YAxisContainer>
-        <YAxisLabel>Active Twitch Force (uN)</YAxisLabel>
+        <YAxisLabel>{yAxisLabel}</YAxisLabel>
         <ZoomWidget size={"20px"} zoomIn={() => handleZoomIn("y")} zoomOut={() => handleZoomOut("y")} />
       </YAxisContainer>
       <ColumnContainer>

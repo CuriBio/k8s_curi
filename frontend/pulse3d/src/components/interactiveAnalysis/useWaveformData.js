@@ -4,6 +4,7 @@ import { getPeaksValleysFromTable, getWaveformCoordsFromTable, getTableFromParqu
 export const useWaveformData = (url) => {
   const [waveformData, setWaveformData] = useState([]);
   const [featureIndices, setFeatureIndicies] = useState([]);
+  const [yAxisLabel, setYAxisLabel] = useState();
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -16,16 +17,18 @@ export const useWaveformData = (url) => {
     try {
       const response = await fetch(url);
 
-      if (response.status !== 200) setError(true);
-      else {
-        const { peaksValleysData, timeForceData } = await response.json();
+      if (response.status === 200) {
+        const { peaksValleysData, timeForceData, amplitudeLabel } = await response.json();
 
         const featuresForWells = await parseParquetData(peaksValleysData, getPeaksValleysFromTable);
         const coordinates = await parseParquetData(timeForceData, getWaveformCoordsFromTable);
 
         setWaveformData(coordinates);
         setFeatureIndicies(featuresForWells);
+        setYAxisLabel(amplitudeLabel || "Active Twitch Force (µN)");
         setLoading(false);
+      } else {
+        setError(true);
       }
     } catch (e) {
       console.log("ERROR getting waveform data: ", e);
@@ -37,5 +40,5 @@ export const useWaveformData = (url) => {
     getData();
   }, [url]);
 
-  return { waveformData, featureIndices, getErrorState: error, getLoadingState: loading };
+  return { waveformData, featureIndices, getErrorState: error, getLoadingState: loading, yAxisLabel };
 };

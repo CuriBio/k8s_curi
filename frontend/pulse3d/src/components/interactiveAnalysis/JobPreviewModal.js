@@ -107,7 +107,7 @@ export default function JobPreviewModal({
   const [timepointRange, setTimepointRange] = useState([]);
   const [openErrorModal, setOpenErrorModal] = useState(false);
   const [gridStyle, setGridStyle] = useState({});
-  const { waveformData, featureIndices, getErrorState, getLoadingState } = useWaveformData(
+  const { waveformData, featureIndices, getErrorState, getLoadingState, yAxisLabel } = useWaveformData(
     `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${uploadId}&job_id=${jobId}`
   );
 
@@ -172,7 +172,7 @@ export default function JobPreviewModal({
               <YAxisContainer>
                 <YAxisLabel>
                   {Object.keys(waveformData).length > 1 && (
-                    <div style={{ transform: "rotate(-90deg)" }}>Active Twitch Force (uN)</div>
+                    <div style={{ transform: "rotate(-90deg)" }}>{yAxisLabel}</div>
                   )}
                 </YAxisLabel>
                 <YAxisLine />

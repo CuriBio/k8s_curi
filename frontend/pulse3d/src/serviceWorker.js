@@ -287,6 +287,7 @@ const getWaveformDataFromS3 = async (res) => {
     return {
       peaksValleysData: convertLargeArrToJson(new Uint8Array(await peaksValleysRes.arrayBuffer())),
       timeForceData: convertLargeArrToJson(new Uint8Array(await timeForceRes.arrayBuffer())),
+      amplitudeLabel: response.amplitude_label,
     };
   } catch (e) {
     console.log("Error grabbing waveform data: " + e);
