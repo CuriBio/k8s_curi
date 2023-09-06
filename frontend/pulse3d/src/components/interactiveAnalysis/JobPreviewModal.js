@@ -107,7 +107,7 @@ export default function JobPreviewModal({
   const [timepointRange, setTimepointRange] = useState([]);
   const [openErrorModal, setOpenErrorModal] = useState(false);
   const [gridStyle, setGridStyle] = useState({});
-  const { waveformData, featureIndicies, getErrorState, getLoadingState } = useWaveformData(
+  const { waveformData, featureIndices, getErrorState, getLoadingState } = useWaveformData(
     `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${uploadId}&job_id=${jobId}`
   );
 
@@ -184,7 +184,7 @@ export default function JobPreviewModal({
                       well={well}
                       timepointRange={timepointRange}
                       waveformData={waveformData[well]}
-                      featureIndicies={featureIndicies[well]}
+                      featureIndices={featureIndices[well]}
                     />
                   </div>
                 ))}

@@ -249,7 +249,7 @@ export default function InteractiveWaveformModal({
 }) {
   // this hook gets waveform data no matter what first
   // a useEffect watching the error and loading states kicks off next step
-  const { waveformData, featureIndicies, getErrorState, getLoadingState } = useWaveformData(
+  const { waveformData, featureIndices, getErrorState, getLoadingState } = useWaveformData(
     `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}`
   );
 
@@ -553,13 +553,13 @@ export default function InteractiveWaveformModal({
       setSelectedWell(Object.keys(waveformData)[0]);
       setCustomAnalysisSettingsChanges(getArraysForWells(Object.keys(waveformData)));
       setChangelog(getArraysForWells(Object.keys(waveformData)));
-      setBaseData(featureIndicies);
+      setBaseData(featureIndices);
 
       customAnalysisSettings = getDefaultCustomAnalysisSettings(Object.keys(waveformData));
       setCustomAnalysisSettings(customAnalysisSettings);
 
       // original data is set and never changed to hold original state in case of reset
-      originalAnalysisData = { featuresForWells: featureIndicies, coordinates: waveformData };
+      originalAnalysisData = { featuresForWells: featureIndices, coordinates: waveformData };
       setOriginalAnalysisData(originalAnalysisData);
 
       const { start_time, end_time } = selectedJob.analysisParams;

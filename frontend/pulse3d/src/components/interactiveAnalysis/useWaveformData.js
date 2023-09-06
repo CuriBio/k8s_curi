@@ -3,7 +3,7 @@ import { getPeaksValleysFromTable, getWaveformCoordsFromTable, getTableFromParqu
 
 export const useWaveformData = (url) => {
   const [waveformData, setWaveformData] = useState([]);
-  const [featureIndicies, setFeatureIndicies] = useState([]);
+  const [featureIndices, setFeatureIndicies] = useState([]);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -37,5 +37,5 @@ export const useWaveformData = (url) => {
     getData();
   }, [url]);
 
-  return { waveformData, featureIndicies, getErrorState: error, getLoadingState: loading };
+  return { waveformData, featureIndices, getErrorState: error, getLoadingState: loading };
 };
