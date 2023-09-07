@@ -568,7 +568,10 @@ def test_refresh__success(account_type, mocked_asyncpg_con):
         userid=userid, customer_id=customer_id, scope=["refresh"], account_type=account_type, refresh=True
     )
 
-    mocked_asyncpg_con.fetchrow.return_value = {"refresh_token": old_refresh_token, "scope": test_scope}
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "refresh_token": old_refresh_token,
+        "scope": json.dumps(test_scope),
+    }
     if account_type == "user":
         mocked_asyncpg_con.fetchrow.return_value["customer_id"] = customer_id
 

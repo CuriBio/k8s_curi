@@ -260,19 +260,21 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
         async with request.state.pgpool.acquire() as con:
             row = await con.fetchrow(select_query, userid)
 
-            try:
-                # decode and validate current refresh token
-                current_token = decode_token(row["refresh_token"])
-                # make sure the given token and the current token in the DB are the same
-                assert token == current_token
-            except (InvalidTokenError, AssertionError):
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="No authenticated user.",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
+        try:
+            # decode and validate current refresh token
+            current_token = decode_token(row["refresh_token"])
+            # make sure the given token and the current token in the DB are the same
+            assert token == current_token
+        except (InvalidTokenError, AssertionError):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="No authenticated user.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
-            return await _create_new_tokens(con, userid, row.get("customer_id"), row["scope"], account_type)
+        return await _create_new_tokens(
+            con, userid, row.get("customer_id"), json.loads(row["scope"]), account_type
+        )
 
     except HTTPException:
         raise
