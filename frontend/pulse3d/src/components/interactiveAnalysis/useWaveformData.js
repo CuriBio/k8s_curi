@@ -3,7 +3,7 @@ import { getPeaksValleysFromTable, getWaveformCoordsFromTable, getTableFromParqu
 
 export const useWaveformData = (url) => {
   const [waveformData, setWaveformData] = useState([]);
-  const [featureIndices, setFeatureIndicies] = useState([]);
+  const [featureIndices, setFeatureIndices] = useState([]);
   const [yAxisLabel, setYAxisLabel] = useState();
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -24,7 +24,7 @@ export const useWaveformData = (url) => {
         const coordinates = await parseParquetData(timeForceData, getWaveformCoordsFromTable);
 
         setWaveformData(coordinates);
-        setFeatureIndicies(featuresForWells);
+        setFeatureIndices(featuresForWells);
         setYAxisLabel(amplitudeLabel || "Active Twitch Force (µN)");
         setLoading(false);
       } else {
