@@ -613,6 +613,8 @@ export default function AnalysisParamForm({
     }
 
     setAnalysisParams(updatedParams);
+
+    console.log("!!!", updatedParams.dataType);
   };
 
   const checkPositiveNumberEntry = (value, allowZero = true) => {
@@ -924,7 +926,7 @@ export default function AnalysisParamForm({
             name="stiffnessFactor"
             tooltipText="Specifies the post stiffness factor. If set to 'auto', will use the value encoded in the barcode."
             additionaLabelStyle={{ width: "62%", lineHeight: 2.5 }}
-            iconStyle={{ fontSize: 20, margin: "10px 10px" }}
+            iconStyle={{ fontSize: 20, margin: "0px 10px" }}
           >
             <DropDownContainer>
               <DropDownWidget
@@ -949,7 +951,7 @@ export default function AnalysisParamForm({
             name="dataType"
             tooltipText="Specifies the type of data in the recording. If set to 'auto', will use the value encoded in the recording metadata."
             additionaLabelStyle={{ width: "62%", lineHeight: 2.5 }}
-            iconStyle={{ fontSize: 20, margin: "10px 10px" }}
+            iconStyle={{ fontSize: 20, margin: "0px 10px" }}
           >
             <DropDownContainer>
               <DropDownWidget
