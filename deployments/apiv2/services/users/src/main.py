@@ -272,7 +272,9 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
-            return await _create_new_tokens(con, userid, row.get("customer_id"), row["scope"], account_type)
+            return await _create_new_tokens(
+                con, userid, row.get("customer_id"), json.loads(row["scope"]), account_type
+            )
 
     except HTTPException:
         raise
