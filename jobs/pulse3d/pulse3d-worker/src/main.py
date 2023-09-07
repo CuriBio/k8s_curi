@@ -16,6 +16,7 @@ import numpy as np
 from pulse3D.constants import MICRO_TO_BASE_CONVERSION
 from pulse3D.constants import WELL_NAME_UUID
 from pulse3D.constants import PLATEMAP_LABEL_UUID
+from pulse3D.constants import DATA_TYPE_UUID
 from pulse3D.constants import NOT_APPLICABLE_LABEL
 from pulse3D.exceptions import (
     DuplicateWellsFoundError,
@@ -299,7 +300,10 @@ async def process(con, item):
                 raise
 
             try:
-                logger.info("Checking if well groups need to be updated in job's metadata")
+                logger.info("Updating analysis params in job's metadata")
+
+                analysis_params_updates = {}
+
                 # well_groups may have been sent in a dashboard reanalysis or upload, don't override here
                 if well_groups is None:
                     platemap_labels = dict()
@@ -316,12 +320,22 @@ async def process(con, item):
 
                     # only change assignment if any groups were found, else it will be an empty dictionary
                     if platemap_labels:
-                        # get the original params that aren't missing any plate_recordings_args
-                        updated_analysis_params = json.loads(item["meta"])["analysis_params"]
                         # update new well groups
-                        updated_analysis_params.update({"well_groups": platemap_labels})
-                        # add to job_metadata to get updated in jobs_result table
-                        job_metadata |= {"analysis_params": updated_analysis_params}
+                        analysis_params_updates["well_groups"] = platemap_labels
+
+                # if the data type is set in the recording metadata and no override was given, update the params
+                if (
+                    data_type_from_pr := first_recording.wells[0].get(str(DATA_TYPE_UUID))
+                ) and not analysis_params.get("data_type"):
+                    analysis_params_updates["data_type"] = data_type_from_pr
+
+                if analysis_params_updates:
+                    # load and updated analysis params straight from the DB result to ensure that we only change exactly
+                    # what is needed to be changed
+                    new_analysis_params = json.loads(item["meta"])["analysis_params"]
+                    new_analysis_params |= analysis_params_updates
+                    # add to job_metadata to get updated in jobs_result table
+                    job_metadata |= {"analysis_params": new_analysis_params}
 
             except Exception:
                 logger.exception("Error updating well groups")
