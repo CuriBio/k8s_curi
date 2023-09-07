@@ -300,7 +300,7 @@ async def process(con, item):
                 raise
 
             try:
-                logger.info("Checking if analysis params in job's metadata require updates")
+                logger.info("Checking if analysis params need to be updated in job's metadata")
 
                 analysis_params_updates = {}
 
@@ -321,7 +321,7 @@ async def process(con, item):
                     # only change assignment if any groups were found, else it will be an empty dictionary
                     if platemap_labels:
                         # update new well groups
-                        analysis_params_updates["well_groups"] = platemap_labels
+                        analysis_params_updates.update({"well_groups": platemap_labels})
 
                 # if the data type is set in the recording metadata and no override was given, update the params
                 if (
@@ -330,12 +330,10 @@ async def process(con, item):
                     analysis_params_updates["data_type"] = data_type_from_pr
 
                 if analysis_params_updates:
-                    # load and updated analysis params straight from the DB result to ensure that we only change exactly
-                    # what is needed to be changed
+                    logger.info(f"Updating analysis params in job's metadata: {analysis_params_updates}")
+                    # get the original params that aren't missing any plate_recordings_args or anything else
                     new_analysis_params = json.loads(item["meta"])["analysis_params"]
                     new_analysis_params |= analysis_params_updates
-
-                    logger.info(f"Updating analysis params in job's metadata: {analysis_params_updates}")
                     # add to job_metadata to get updated in jobs_result table
                     job_metadata |= {"analysis_params": new_analysis_params}
                 else:

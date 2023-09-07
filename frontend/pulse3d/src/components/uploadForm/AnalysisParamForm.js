@@ -613,8 +613,6 @@ export default function AnalysisParamForm({
     }
 
     setAnalysisParams(updatedParams);
-
-    console.log("!!!", updatedParams.dataType);
   };
 
   const checkPositiveNumberEntry = (value, allowZero = true) => {

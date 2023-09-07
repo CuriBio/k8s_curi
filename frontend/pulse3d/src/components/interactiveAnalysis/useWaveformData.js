@@ -17,8 +17,9 @@ export const useWaveformData = (url) => {
     try {
       const response = await fetch(url);
 
-      if (response.status === 200) {
-        const { peaksValleysData, timeForceData, amplitudeLabel } = await response.json();
+      if (response.status !== 200) setError(true);
+      else {
+        const { peaksValleysData, amplitudeLabel, timeForceData } = await response.json();
 
         const featuresForWells = await parseParquetData(peaksValleysData, getPeaksValleysFromTable);
         const coordinates = await parseParquetData(timeForceData, getWaveformCoordsFromTable);
@@ -27,8 +28,6 @@ export const useWaveformData = (url) => {
         setFeatureIndices(featuresForWells);
         setYAxisLabel(amplitudeLabel || "Active Twitch Force (µN)");
         setLoading(false);
-      } else {
-        setError(true);
       }
     } catch (e) {
       console.log("ERROR getting waveform data: ", e);
