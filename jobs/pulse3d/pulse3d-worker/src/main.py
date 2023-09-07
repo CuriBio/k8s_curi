@@ -300,7 +300,7 @@ async def process(con, item):
                 raise
 
             try:
-                logger.info("Updating analysis params in job's metadata")
+                logger.info("Checking if analysis params in job's metadata require updates")
 
                 analysis_params_updates = {}
 
@@ -334,11 +334,15 @@ async def process(con, item):
                     # what is needed to be changed
                     new_analysis_params = json.loads(item["meta"])["analysis_params"]
                     new_analysis_params |= analysis_params_updates
+
+                    logger.info(f"Updating analysis params in job's metadata: {analysis_params_updates}")
                     # add to job_metadata to get updated in jobs_result table
                     job_metadata |= {"analysis_params": new_analysis_params}
+                else:
+                    logger.info("No updates needed for analysis params in job's metadata")
 
             except Exception:
-                logger.exception("Error updating well groups")
+                logger.exception("Error updating analysis params")
                 raise
 
             with open(outfile, "rb") as file:
