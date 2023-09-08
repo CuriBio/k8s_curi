@@ -193,14 +193,7 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
                 scope = json.loads(select_query_result.get("scope", "[]"))
 
                 if is_customer_login_attempt:
-                    # get tier of service scope in list of customer scopes
-                    scope = [s for s in scope if details.service in s]
-                    if not scope:
-                        raise LoginError("No scope for service found in customer scopes")
-
-                    # replace with customer scope
-                    _, customer_tier = split_scope_account_data(scope[0])
-                    scope[0] = f"customer:{customer_tier}"
+                    scope = _get_customer_scope(scope, details.service)
                     # customer account tokens don't require a customer ID
                     customer_id = None
                 else:
@@ -251,7 +244,9 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
     userid = uuid.UUID(hex=token["userid"])
     account_type = token["account_type"]
 
-    if account_type == "customer":
+    is_customer_login_attempt = account_type == "customer"
+
+    if is_customer_login_attempt:
         select_query = "SELECT refresh_token, data->'scope' AS scope FROM customers WHERE id=$1"
     else:
         select_query = "SELECT refresh_token, data->'scope' AS scope, customer_id FROM users WHERE id=$1"
@@ -260,21 +255,26 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
         async with request.state.pgpool.acquire() as con:
             row = await con.fetchrow(select_query, userid)
 
-        try:
-            # decode and validate current refresh token
-            current_token = decode_token(row["refresh_token"])
-            # make sure the given token and the current token in the DB are the same
-            assert token == current_token
-        except (InvalidTokenError, AssertionError):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="No authenticated user.",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+            try:
+                # decode and validate current refresh token
+                current_token = decode_token(row["refresh_token"])
+                # make sure the given token and the current token in the DB are the same
+                assert token == current_token
+            except (InvalidTokenError, AssertionError):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="No authenticated user.",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
 
-        return await _create_new_tokens(
-            con, userid, row.get("customer_id"), json.loads(row["scope"]), account_type
-        )
+            scope = json.loads(row["scope"])
+            if is_customer_login_attempt:
+                service_scope = next(s for s in token["scope"] if s.startswith("service:"))
+                service_name = service_scope.split(":")[-1]
+                scope = _get_customer_scope(scope, service_name)
+
+            # con is passed to this function, so it must be inside this async with block
+            return await _create_new_tokens(con, userid, row.get("customer_id"), scope, account_type)
 
     except HTTPException:
         raise
@@ -283,14 +283,34 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+def _get_customer_scope(scope, service):
+    # get tier of service scope in list of customer scopes
+    scope_for_service = [s for s in scope if service in s]
+    if not scope_for_service:
+        raise LoginError(f"No scope for service '{service}' found in customer scopes: {scope}")
+
+    # replace with customer scope
+    _, customer_tier = split_scope_account_data(scope_for_service[0])
+    return [f"customer:{customer_tier}", f"service:{service}"]
+
+
 async def _create_new_tokens(db_con, userid, customer_id, scope, account_type):
+    refresh_scope = ["refresh"]
+    try:
+        service_scope_for_refresh = next(s for s in scope if s.startswith("service:"))
+    except StopIteration:
+        pass
+    else:
+        scope.remove(service_scope_for_refresh)
+        refresh_scope.append(service_scope_for_refresh)
+
     # create new tokens
     access = create_token(
         userid=userid, customer_id=customer_id, scope=scope, account_type=account_type, refresh=False
     )
     # refresh token does not need any scope, so just set it to refresh
     refresh = create_token(
-        userid=userid, customer_id=customer_id, scope=["refresh"], account_type=account_type, refresh=True
+        userid=userid, customer_id=customer_id, scope=refresh_scope, account_type=account_type, refresh=True
     )
 
     # insert refresh token into DB

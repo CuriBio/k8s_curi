@@ -217,7 +217,7 @@ def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
     expected_refresh_token = create_token(
         userid=test_customer_id,
         customer_id=None,
-        scope=["refresh"],
+        scope=["refresh", "service:pulse3d"],
         account_type="customer",
         refresh=True,
     )
@@ -550,27 +550,41 @@ def test_register__invalid_token_scope_given():
 @pytest.mark.parametrize("account_type", ["user", "customer"])
 def test_refresh__success(account_type, mocked_asyncpg_con):
     userid = uuid.uuid4()
-    test_scope = ["users:free"]
+
+    test_service = "test_service"
+
+    test_scope_in_db = [f"{test_service}:free"]
     customer_id = None if account_type == "customer" else uuid.uuid4()
 
     select_clause = "refresh_token, data->'scope' AS scope"
     if account_type == "user":
         select_clause += ", customer_id"
 
+    refresh_scope = ["refresh"]
+    if account_type == "customer":
+        refresh_scope.append(f"service:{test_service}")
+        test_scope_for_access_token = ["customer:free"]
+    else:
+        test_scope_for_access_token = test_scope_in_db
+
     old_refresh_token = get_token(
-        userid=userid, customer_id=customer_id, scope=["refresh"], account_type=account_type, refresh=True
+        userid=userid, customer_id=customer_id, scope=refresh_scope, account_type=account_type, refresh=True
     )
 
     new_access_token = create_token(
-        userid=userid, customer_id=customer_id, scope=test_scope, account_type=account_type, refresh=False
+        userid=userid,
+        customer_id=customer_id,
+        scope=test_scope_for_access_token,
+        account_type=account_type,
+        refresh=False,
     )
     new_refresh_token = create_token(
-        userid=userid, customer_id=customer_id, scope=["refresh"], account_type=account_type, refresh=True
+        userid=userid, customer_id=customer_id, scope=refresh_scope, account_type=account_type, refresh=True
     )
 
     mocked_asyncpg_con.fetchrow.return_value = {
         "refresh_token": old_refresh_token,
-        "scope": json.dumps(test_scope),
+        "scope": json.dumps(test_scope_in_db),
     }
     if account_type == "user":
         mocked_asyncpg_con.fetchrow.return_value["customer_id"] = customer_id
