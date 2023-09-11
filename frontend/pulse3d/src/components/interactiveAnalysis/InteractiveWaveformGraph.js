@@ -588,6 +588,16 @@ export default function WaveformGraph({
       })
       .call(d3.drag().on("start", dragStarted).on("drag", dragging).on("end", dragEnded));
 
+    // bring dup markers to the top
+    svg
+      .selectAll("path#peak")
+      .filter((d) => duplicateIndices.peaks.includes(d))
+      .raise();
+    svg
+      .selectAll("path#valley")
+      .filter((d) => duplicateIndices.valleys.includes(d))
+      .raise();
+
     /* --------------------------------------
         PEAKS/VALLEYS THRESHOLD LINES
       -------------------------------------- */
