@@ -30,7 +30,7 @@ data:
       #   GCS: storage.googleapis.com
       #   Minio: my-minio-endpoint.default:9000
       endpoint: s3.amazonaws.com
-      bucket: curi-modl-workflows
+      bucket: curi-modl-v2-workflows
       region: us-east-2
       # insecure will disable TLS. Primarily used for minio installs not configured with TLS
       insecure: false
