@@ -4,7 +4,7 @@ kind: Kustomization
 namespace: argo
 resources:
   - ../../base
-  - templates/build-container-template.yaml
-  - templates/run-terraform-template.yaml
-  - github_pr_merge_sensor.yaml
-  - github_pr_open_sensor.yaml
+  - templates/prod-build-container-template.yaml
+  - templates/prod-run-terraform-template.yaml
+  - prod_pr_merge_sensor.yaml
+  - prod_pr_open_sensor.yaml

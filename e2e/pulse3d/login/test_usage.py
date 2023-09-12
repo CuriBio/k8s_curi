@@ -4,7 +4,7 @@ import time
 from config import (
     VALID_ADMIN_EMAIL,
     VALID_ADMIN_PASSWORD,
-    TEST_URL,
+    DASHBOARD_URL,
     LIMIT_NOT_REACHED_EMAIL,
     LIMIT_NOT_REACHED_PASSWORD,
     LIMIT_REACHED_EMAIL,
@@ -35,7 +35,7 @@ async def login_with_admin(email, password, page):
     await page.wait_for_url("**/uploads")
 
     # test login success
-    assert page.url == f"https://{TEST_URL}/uploads"
+    assert page.url == f"https://{DASHBOARD_URL}/uploads"
     time.sleep(5)
 
 

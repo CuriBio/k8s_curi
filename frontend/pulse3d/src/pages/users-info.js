@@ -273,7 +273,7 @@ export default function UserInfo() {
     },
   ];
 
-  //gets users at load
+  // gets users at load
   useEffect(() => {
     getAllUsers();
   }, []);
@@ -282,7 +282,7 @@ export default function UserInfo() {
     if (resetDropdown) setResetDropdown(false);
   }, [resetDropdown]);
 
-  //when filter string changes refilter results
+  // when filter string changes refilter results
   useEffect(() => {
     if (filterColumn && filterColumn !== "suspended") {
       const newList = filterColumns();

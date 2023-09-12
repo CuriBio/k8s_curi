@@ -70,11 +70,11 @@ def upgrade():
 
     jobs_user_pass = os.getenv("JOBS_USER_PASS")
     if jobs_user_pass is None:
-        raise Exception("Missing requireed value for JOBS_USER_PASS")
+        raise Exception("Missing required value for JOBS_USER_PASS")
 
     jobs_user_pass_ro = os.getenv("JOBS_USER_PASS_RO")
     if jobs_user_pass_ro is None:
-        raise Exception("Missing requireed value for JOBS_USER_PASS_RO")
+        raise Exception("Missing required value for JOBS_USER_PASS_RO")
 
     op.execute(f"CREATE USER curibio_jobs WITH PASSWORD '{jobs_user_pass}'")
     op.execute(f"CREATE USER curibio_jobs_ro WITH PASSWORD '{jobs_user_pass_ro}'")

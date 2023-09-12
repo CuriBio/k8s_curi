@@ -42,6 +42,7 @@ const Container = styled.div(
 `
 );
 
+// TODO should this automatically disable itself if props.inProgress === true ?
 const ButtonWidget = (props) => {
   return (
     <Container props={props}>
@@ -53,11 +54,11 @@ const ButtonWidget = (props) => {
       >
         {props.label}
       </Button>{" "}
-      {props.inProgress ? (
+      {props.inProgress && (
         <ProgressSpinner props={props}>
           <CircularSpinner />
         </ProgressSpinner>
-      ) : null}
+      )}
     </Container>
   );
 };

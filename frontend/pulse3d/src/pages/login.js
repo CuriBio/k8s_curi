@@ -72,6 +72,8 @@ export default function Login() {
   const [userEmail, setUserEmail] = useState();
   const [inProgress, setInProgress] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [openAccountLocked, setOpenAccountLocked] = useState(false);
+  const [accountLockedLabels, setAccountLockedLabels] = useState([]);
 
   const validateEmail = (email) => {
     const re = /\S+@\S+\.\S+/;
@@ -98,9 +100,25 @@ export default function Login() {
           if (res.status === 200) {
             router.push("/uploads?checkUsage=true", "/uploads"); // routes to next page
           } else {
-            res.status === 401 || res.status === 422
-              ? setErrorMsg("*Invalid credentials. Try again.")
-              : setErrorMsg("*Internal error. Please try again later.");
+            let errToDisplay = "*Internal error. Please try again later.";
+
+            if (res.status === 401) {
+              const errMsg = await res.json();
+              if ("Invalid credentials" === errMsg.detail) {
+                errToDisplay = `*Invalid credentials. Account will be locked after 10 failed attempts.`;
+              } else {
+                errToDisplay = "*Account locked. Too many failed attempts.";
+                setAccountLockedLabels([
+                  "This account has been locked because it has reached the maximum login attempts.",
+                  loginType === "Admin"
+                    ? "Please contact CuriBio at contact@curibio.com to unlock this account."
+                    : "Please contact your administrator to unlock this account.",
+                ]);
+                setOpenAccountLocked(true);
+              }
+            }
+
+            setErrorMsg(errToDisplay);
           }
         }
       } catch (e) {
@@ -235,6 +253,14 @@ export default function Login() {
           </ModalInputContainer>
         )}
       </ModalWidget>
+      <ModalWidget
+        open={openAccountLocked}
+        width={500}
+        closeModal={() => setOpenAccountLocked(false)}
+        header={"Warning!"}
+        labels={accountLockedLabels}
+        buttons={["Close"]}
+      />
     </BackgroundContainer>
   );
 }

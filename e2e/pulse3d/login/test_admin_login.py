@@ -2,7 +2,7 @@ import pytest
 
 from fixtures import basic_page, setup, video_setup
 
-from config import VALID_ADMIN_EMAIL, VALID_ADMIN_PASSWORD, TEST_URL
+from config import VALID_ADMIN_EMAIL, VALID_ADMIN_PASSWORD, DASHBOARD_URL
 
 __fixtures__ = [basic_page, setup, video_setup]
 
@@ -29,7 +29,7 @@ async def test_login_succes_admin(basic_page):
     await basic_page.wait_for_url("**/uploads")
 
     # check that the login was successful
-    assert basic_page.url == f"https://{TEST_URL}/uploads"
+    assert basic_page.url == f"https://{DASHBOARD_URL}/uploads"
 
 
 invalid_admins = [

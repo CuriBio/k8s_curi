@@ -30,7 +30,7 @@ from models.users import (
     UserCreate,
     CustomerProfile,
     UserProfile,
-    UserAction,
+    AccountUpdateAction,
     LoginResponse,
     PasswordModel,
     UnableToUpdateAccountResponse,
@@ -46,7 +46,7 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 app = FastAPI(openapi_url=None)
 
 CB_CUSTOMER_ID: uuid.UUID
-
+MAX_FAILED_LOGIN_ATTEMPTS = 10
 TEMPLATES = Jinja2Templates(directory="templates")
 
 app.add_middleware(
@@ -71,7 +71,7 @@ async def startup():
     async with pool.acquire() as con:
         # might be a better way to do this without using global
         global CB_CUSTOMER_ID
-        CB_CUSTOMER_ID = await con.fetchval("SELECT id FROM customers WHERE email = 'software@curibio.com'")
+        CB_CUSTOMER_ID = await con.fetchval("SELECT id FROM customers WHERE email='software@curibio.com'")
 
 
 @app.post("/login", response_model=LoginResponse)
@@ -90,54 +90,87 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
     """
     ph = PasswordHasher()
 
+    # Tanner (7/24/23): checking the type instead of using isinstance here in case UserLogin and CustomerLogin are ever put into the class hierarchy which would cause the isinstance approach to fail in some cases
     is_customer_login_attempt = type(details) is CustomerLogin
 
     if is_customer_login_attempt:
         account_type = "customer"
         email = details.email.lower()
         select_query = (
-            "SELECT password, id, data->'scope' AS scope "
-            "FROM customers WHERE deleted_at IS NULL AND email = $1"
+            "SELECT password, id, data->'scope' AS scope, failed_login_attempts, suspended "
+            "FROM customers WHERE deleted_at IS NULL AND email=$1"
         )
         select_query_params = (email,)
-        customer_id = None
 
-        update_last_login_query = (
-            "UPDATE customers SET last_login = $1 WHERE deleted_at IS NULL AND email = $2"
-        )
+        update_last_login_query = "UPDATE customers SET last_login=$1, failed_login_attempts=0 WHERE deleted_at IS NULL AND email=$2"
         update_last_login_params = (datetime.now(), email)
     else:
         account_type = "user"
         username = details.username.lower()
-        # suspended is for deactivated accounts and verified is for new users needing to verify through email
         # select for service specific usage restrictions listed under the customer account
-        select_query = "SELECT password, id, data->'scope' AS scope FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND suspended='f' AND verified='t'"
+        # suspended is for deactivated accounts and verified is for new users needing to verify through email
+        # Tanner (7/25/23): need to use separate queries since asyncpg will raise an error if the value passed in to be compared against customer_id is not a UUID
+        if isinstance(details.customer_id, uuid.UUID):
+            # if a UUID was given in the request then check against the customer ID
+            select_query = (
+                "SELECT password, id, data->'scope' AS scope, failed_login_attempts, suspended, customer_id FROM users "
+                "WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND verified='t'"
+            )
+        else:
+            # if no UUID given, the check against the customer account alias
+            # TODO should make sure an alias is actually set here
+            select_query = (
+                "SELECT u.password, u.id, u.data->'scope' AS scope, u.failed_login_attempts, u.suspended, u.customer_id "
+                "FROM users AS u JOIN customers AS c ON u.customer_id=c.id "
+                "WHERE u.deleted_at IS NULL AND u.name=$1 AND c.alias=$2 AND u.verified='t'"
+            )
         select_query_params = (username, str(details.customer_id))
-        customer_id = details.customer_id
 
-        update_last_login_query = "UPDATE users SET last_login = $1 WHERE deleted_at IS NULL AND name = $2 AND customer_id=$3 AND suspended='f' AND verified='t'"
-        update_last_login_params = (datetime.now(), username, str(details.customer_id))
+        update_last_login_query = (
+            "UPDATE users SET last_login=$1, failed_login_attempts=0 "
+            "WHERE deleted_at IS NULL AND name=$2 AND customer_id=$3 AND verified='t'"
+        )
+        # the value for customer ID will be added later
+        update_last_login_params = (datetime.now(), username)
 
     client_type = details.client_type if details.client_type else "unknown"
     logger.info(f"{account_type.title()} login attempt from client '{client_type}'")
 
     failed_msg = "Invalid credentials"
+    account_locked_msg = "Account locked after too many failed login attempts"
+
     try:
         async with request.state.pgpool.acquire() as con:
-            row = await con.fetchrow(select_query, *select_query_params)
+            select_query_result = await con.fetchrow(select_query, *select_query_params)
             pw = details.password.get_secret_value()
 
-            # if no record is returned by query then fetchrow will return None,
-            # so need to set to a dict with a bad password hash
-            if row is None:
-                row = {"password": "x" * 100}
+            if select_query_result is None:
+                # if no record is returned by query then fetchrow will return None,
+                # so need to set to a dict with a bad password hash
+                select_query_result = {"password": "x" * 100}
 
             try:
                 # at this point, if no "password" key is present,
                 # then there is an issue with the table in the database
-                ph.verify(row["password"], pw)
+                ph.verify(select_query_result["password"], pw)
             except VerifyMismatchError:
-                raise LoginError(failed_msg)
+                # first check if account is already locked
+                # should never be greater than maximum, but handling in case
+                if select_query_result["failed_login_attempts"] >= MAX_FAILED_LOGIN_ATTEMPTS:
+                    raise LoginError(account_locked_msg)
+
+                # increment customer/user failed attempts
+                logger.info(
+                    f"Failed login attempt {select_query_result['failed_login_attempts'] + 1} for {account_type} id: {select_query_result['id']}"
+                )
+                updated_failed_attempts = select_query_result["failed_login_attempts"] + 1
+                await _update_failed_login_attempts(
+                    con, account_type, select_query_result["id"], updated_failed_attempts
+                )
+                # update login error if this failed attempt hits limit
+                raise LoginError(
+                    account_locked_msg if updated_failed_attempts == MAX_FAILED_LOGIN_ATTEMPTS else failed_msg
+                )
             except InvalidHash:
                 """
                 The user or customer wasn't found but we don't want to leak info about valid users/customers
@@ -146,26 +179,34 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
                 ph.hash(pw)
                 raise LoginError(failed_msg)
             else:
+                # only raise LoginError here when account is locked on successful creds after they have been checked to prevent giving away facts about successful login combinations
+                if select_query_result["failed_login_attempts"] >= MAX_FAILED_LOGIN_ATTEMPTS:
+                    raise LoginError(account_locked_msg)
+                # user can be suspended if admin account suspends them, select_query_result will not return None in that instance
+                if select_query_result["suspended"]:
+                    raise LoginError(failed_msg)
+
                 # both users and customers have scopes
                 # check account usage quotas
-                cust_id = customer_id if customer_id is not None else row["id"]
-                usage_quota = await check_customer_quota(con, str(cust_id), details.service)
-                scope = json.loads(row.get("scope", "[]"))
+                customer_id = select_query_result["id" if is_customer_login_attempt else "customer_id"]
+                usage_quota = await check_customer_quota(con, str(customer_id), details.service)
+                scope = json.loads(select_query_result.get("scope", "[]"))
 
                 if is_customer_login_attempt:
-                    # get tier of service scope in list of customer scopes
-                    scope = [s for s in scope if details.service in s]
-                    if not scope:
-                        raise LoginError("No scope for service found in customer scopes")
+                    scope = _get_customer_scope(scope, details.service)
+                    # customer account tokens don't require a customer ID
+                    customer_id = None
+                else:
+                    # Tanner (7/25/23): using the customer ID returned from the select query since the customer ID
+                    # field passed in with the request may contain an alias
+                    update_last_login_params = (*update_last_login_params, str(customer_id))
 
-                    # replace with customer scope
-                    _, customer_tier = split_scope_account_data(scope[0])
-                    scope[0] = f"customer:{customer_tier}"
-
-                # if login was successful, then update last_login column to now
+                # if login was successful, then update last_login column value to now
                 await con.execute(update_last_login_query, *update_last_login_params)
 
-                tokens = await _create_new_tokens(con, row["id"], customer_id, scope, account_type)
+                tokens = await _create_new_tokens(
+                    con, select_query_result["id"], customer_id, scope, account_type
+                )
                 return LoginResponse(tokens=tokens, usage_quota=usage_quota)
 
     except LoginError as e:
@@ -173,6 +214,17 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
     except Exception:
         logger.exception("POST /login: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+async def _update_failed_login_attempts(con, account_type: str, id: str, count: int) -> None:
+    if count == MAX_FAILED_LOGIN_ATTEMPTS:
+        # if max failed attempts is reached, then deactivate the account and increment count
+        update_query = f"UPDATE {account_type}s SET suspended='t', failed_login_attempts=failed_login_attempts+1 where id=$1"
+    else:
+        # else increment failed attempts
+        update_query = f"UPDATE {account_type}s SET failed_login_attempts=failed_login_attempts+1 where id=$1"
+
+    await con.execute(update_query, id)
 
 
 @app.post("/refresh", response_model=AuthTokens, status_code=status.HTTP_201_CREATED)
@@ -192,10 +244,12 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
     userid = uuid.UUID(hex=token["userid"])
     account_type = token["account_type"]
 
-    if account_type == "customer":
-        select_query = "SELECT refresh_token FROM customers WHERE id = $1"
+    is_customer_login_attempt = account_type == "customer"
+
+    if is_customer_login_attempt:
+        select_query = "SELECT refresh_token, data->'scope' AS scope FROM customers WHERE id=$1"
     else:
-        select_query = "SELECT refresh_token, customer_id FROM users WHERE id = $1"
+        select_query = "SELECT refresh_token, data->'scope' AS scope, customer_id FROM users WHERE id=$1"
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -213,7 +267,14 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
-            return await _create_new_tokens(con, userid, row.get("customer_id"), token["scope"], account_type)
+            scope = json.loads(row["scope"])
+            if is_customer_login_attempt:
+                service_scope = next(s for s in token["scope"] if s.startswith("service:"))
+                service_name = service_scope.split(":")[-1]
+                scope = _get_customer_scope(scope, service_name)
+
+            # con is passed to this function, so it must be inside this async with block
+            return await _create_new_tokens(con, userid, row.get("customer_id"), scope, account_type)
 
     except HTTPException:
         raise
@@ -222,20 +283,41 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+def _get_customer_scope(scope, service):
+    # get tier of service scope in list of customer scopes
+    scope_for_service = [s for s in scope if service in s]
+    if not scope_for_service:
+        raise LoginError(f"No scope for service '{service}' found in customer scopes: {scope}")
+
+    # replace with customer scope
+    _, customer_tier = split_scope_account_data(scope_for_service[0])
+    return [f"customer:{customer_tier}", f"service:{service}"]
+
+
 async def _create_new_tokens(db_con, userid, customer_id, scope, account_type):
+    refresh_scope = ["refresh"]
+    try:
+        service_scope_for_refresh = next(s for s in scope if s.startswith("service:"))
+    except StopIteration:
+        pass
+    else:
+        scope.remove(service_scope_for_refresh)
+        refresh_scope.append(service_scope_for_refresh)
+
     # create new tokens
     access = create_token(
         userid=userid, customer_id=customer_id, scope=scope, account_type=account_type, refresh=False
     )
+    # refresh token does not need any scope, so just set it to refresh
     refresh = create_token(
-        userid=userid, customer_id=customer_id, scope=scope, account_type=account_type, refresh=True
+        userid=userid, customer_id=customer_id, scope=refresh_scope, account_type=account_type, refresh=True
     )
 
     # insert refresh token into DB
     if account_type == "customer":
-        update_query = "UPDATE customers SET refresh_token = $1 WHERE id = $2"
+        update_query = "UPDATE customers SET refresh_token=$1 WHERE id=$2"
     else:
-        update_query = "UPDATE users SET refresh_token = $1 WHERE id = $2"
+        update_query = "UPDATE users SET refresh_token=$1 WHERE id=$2"
 
     await db_con.execute(update_query, refresh.token, userid)
 
@@ -257,9 +339,9 @@ async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False)
     userid = uuid.UUID(hex=token["userid"])
 
     if token["account_type"] == "customer":
-        update_query = "UPDATE customers SET refresh_token = NULL WHERE id = $1"
+        update_query = "UPDATE customers SET refresh_token = NULL WHERE id=$1"
     else:
-        update_query = "UPDATE users SET refresh_token = NULL WHERE id = $1"
+        update_query = "UPDATE users SET refresh_token = NULL WHERE id=$1"
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -497,7 +579,7 @@ async def update_accounts(
         user_id = uuid.UUID(hex=token["userid"])
 
         is_customer = "customer:reset" in token["scope"]
-        is_user = "users" in token["scope"][0]
+        is_user = any("users" in scope for scope in token["scope"])
         # must be either a customer or user. Cannot be both or neither
         if not (is_customer ^ is_user):
             logger.error(f"PUT /{user_id}: Invalid scope(s): {token['scope']}")
@@ -608,62 +690,148 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTO
 
 # Luci (10/5/22) Following two routes need to be last otherwise will mess with the ProtectedAny scope used in Auth
 # Please see https://fastapi.tiangolo.com/tutorial/path-params/#order-matters
-@app.get("/{user_id}")
-async def get_user(request: Request, user_id: uuid.UUID, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))):
-    """Get info for the user with the given under the given customer account."""
-    customer_id = uuid.UUID(hex=token["userid"])
+@app.get("/{account_id}")
+async def get_user(request: Request, account_id: uuid.UUID, token=Depends(ProtectedAny(check_scope=False))):
+    """Get info for the account with the given ID.
 
-    query = (
+    If the account is a user account, the ID must exist under the customer ID in the token
+    """
+    self_id = uuid.UUID(hex=token["userid"])
+    is_customer_account = token["account_type"] == "customer"
+    is_self_retrieval = self_id == account_id
+
+    get_user_info_query = (
         "SELECT id, name, email, created_at, last_login, suspended FROM users "
         "WHERE customer_id=$1 AND id=$2 AND deleted_at IS NULL"
     )
-    try:
-        async with request.state.pgpool.acquire() as con:
-            row = await con.fetchrow(query, customer_id, user_id)
 
-        if not row:
+    if is_customer_account:
+        if is_self_retrieval:
+            query = "SELECT id, created_at, alias FROM customers WHERE id=$1"
+            query_args = (self_id,)
+        else:
+            # assume that account ID is a user ID since no customer account can retrieve details of another
+            query = get_user_info_query
+            query_args = (self_id, account_id)
+
+        # this is only being set in case an error is raised later
+        customer_id = self_id
+    else:
+        if not is_self_retrieval:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"User ID: {user_id} not found under Customer ID: {customer_id}",
+                detail="User accounts cannot retrieve details of other accounts",
             )
+
+        customer_id = uuid.UUID(hex=token["customer_id"])
+
+        query = get_user_info_query
+        query_args = (customer_id, account_id)
+
+    try:
+        async with request.state.pgpool.acquire() as con:
+            row = await con.fetchrow(query, *query_args)
+
+        if not row:
+            if is_customer_account and self_id == account_id:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Error retrieving customer account details",
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"User ID: {account_id} not found under Customer ID: {customer_id}",
+                )
 
         return dict(row)
 
     except HTTPException:
         raise
     except Exception:
-        logger.exception(f"GET /{user_id}: Unexpected error")
+        logger.exception(f"GET /{account_id}: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.put("/{user_id}")
+@app.put("/{account_id}")
 async def update_user(
     request: Request,
-    details: UserAction,
-    user_id: uuid.UUID,
-    token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES)),
+    details: AccountUpdateAction,
+    account_id: uuid.UUID,
+    token=Depends(ProtectedAny(check_scope=False)),
 ):
-    """Update a user's information in the database.
+    """Update an account's information in the database.
+
+    There are three classes of actions that can be taken:
+        - a customer account updating one of its user accounts
+        - a customer account updating itself
+        - a user account updating itself (not yet available)
 
     The action to take on the user should be passed in the body of PUT request as action_type:
-        - deactivate: set suspended field to true
-        - delete: set deleted_at field to current time
+        - deactivate (customer->user): set suspended field to true
+        - delete (customer->user): set deleted_at field to current time
+        - set_alias (customer->self): set the alias field to the given value
     """
+    self_id = uuid.UUID(hex=token["userid"])
     action = details.action_type
 
-    if action in ("deactivate", "reactivate"):
-        suspended = action == "deactivate"
-        update_query = "UPDATE users SET suspended=$1 WHERE id=$2"
-        query_args = (suspended, user_id)
-    elif action == "delete":
-        update_query = "UPDATE users SET deleted_at=$1 WHERE id=$2"
-        query_args = (datetime.now(), user_id)
+    is_customer_account = token["account_type"] == "customer"
+    is_self_edit = self_id == account_id
+
+    # TODO also need to check scope below once user self edit actions are added?
+
+    if is_customer_account:
+        if is_self_edit:
+            if action == "set_alias":
+                if details.new_alias is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST, detail="Alias must be provided"
+                    )
+
+                # if an empty string, need to convert to None for asyncpg
+                new_alias = details.new_alias if details.new_alias else None
+
+                update_query = "UPDATE customers SET alias=$1 WHERE id=$2"
+                query_args = (new_alias, self_id)
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid customer-edit-self action: {action}",
+                )
+        else:
+            if action == "deactivate":
+                update_query = "UPDATE users SET suspended='t' WHERE id=$1 AND customer_id=$2"
+                query_args = (account_id, self_id)
+            elif action == "reactivate":
+                # when reactivated, failed login attempts should be set back to 0.
+                update_query = (
+                    "UPDATE users SET suspended='f', failed_login_attempts=0 WHERE id=$1 AND customer_id=$2"
+                )
+                query_args = (account_id, self_id)
+            elif action == "delete":
+                update_query = "UPDATE users SET deleted_at=$1 WHERE id=$2 AND customer_id=$3"
+                query_args = (datetime.now(), account_id, self_id)
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid customer-edit-user action: {action}",
+                )
     else:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid action type")
+        # TODO unit test this else branch
+        if not is_self_edit:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User accounts cannot edit details of other accounts",
+            )
+
+        # Tanner (7/25/23): there are currently no actions a user account can take on itself
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid user-edit-self action: {action}"
+        )
 
     try:
         async with request.state.pgpool.acquire() as con:
             await con.execute(update_query, *query_args)
     except Exception:
-        logger.exception(f"PUT /{user_id}: Unexpected error")
+        logger.exception(f"PUT /{account_id}: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

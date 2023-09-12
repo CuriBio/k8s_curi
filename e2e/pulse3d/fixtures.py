@@ -6,7 +6,7 @@ import shutil
 import glob
 
 from config import (
-    TEST_URL,
+    DASHBOARD_URL,
     VALID_CUSTOMER_ID,
     VALID_USER_NAME,
     VALID_USER_PASSWORD,
@@ -66,7 +66,7 @@ async def setup(request, view, noSlowmo):
 # navigate to login page
 @pytest_asyncio.fixture(scope="function", name="basic_page")
 async def basic_page(setup):
-    await setup.goto(f"https://{TEST_URL}/login")
+    await setup.goto(f"https://{DASHBOARD_URL}/login")
     await setup.wait_for_load_state("networkidle")
     await setup.reload()
     assert await setup.title() == "Pulse Analysis"
@@ -98,7 +98,7 @@ async def user_logged_in_page(basic_page):
     await basic_page.wait_for_url("**/uploads")
 
     # test login success
-    assert basic_page.url == f"https://{TEST_URL}/uploads"
+    assert basic_page.url == f"https://{DASHBOARD_URL}/uploads"
 
     yield basic_page
 
@@ -126,6 +126,6 @@ async def admin_logged_in_page(basic_page):
     await basic_page.wait_for_url("**/uploads")
 
     # check that the login was successful
-    assert basic_page.url == f"https://{TEST_URL}/uploads"
+    assert basic_page.url == f"https://{DASHBOARD_URL}/uploads"
 
     yield basic_page
