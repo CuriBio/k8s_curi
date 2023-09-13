@@ -97,7 +97,7 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
         account_type = "customer"
         email = details.email.lower()
         select_query = (
-            "SELECT password, id, data->'scope' AS scope, failed_login_attempts, suspended "
+            "SELECT password, id, failed_login_attempts, suspended "
             "FROM customers WHERE deleted_at IS NULL AND email=$1"
         )
         select_query_params = (email,)
@@ -113,14 +113,14 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
         if isinstance(details.customer_id, uuid.UUID):
             # if a UUID was given in the request then check against the customer ID
             select_query = (
-                "SELECT password, id, data->'scope' AS scope, failed_login_attempts, suspended, customer_id FROM users "
+                "SELECT password, id, failed_login_attempts, suspended, customer_id FROM users "
                 "WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND verified='t'"
             )
         else:
             # if no UUID given, the check against the customer account alias
-            # TODO should make sure an alias is actually set here
+            # TODO should make sure an alias is actually set here?
             select_query = (
-                "SELECT u.password, u.id, u.data->'scope' AS scope, u.failed_login_attempts, u.suspended, u.customer_id "
+                "SELECT u.password, u.id, u.failed_login_attempts, u.suspended, u.customer_id "
                 "FROM users AS u JOIN customers AS c ON u.customer_id=c.id "
                 "WHERE u.deleted_at IS NULL AND u.name=$1 AND c.alias=$2 AND u.verified='t'"
             )
@@ -186,14 +186,14 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
                 if select_query_result["suspended"]:
                     raise LoginError(failed_msg)
 
-                # both users and customers have scopes
                 # check account usage quotas
                 customer_id = select_query_result["id" if is_customer_login_attempt else "customer_id"]
                 usage_quota = await check_customer_quota(con, str(customer_id), details.service)
-                scope = json.loads(select_query_result.get("scope", "[]"))
+
+                scope = await _get_account_scope(con, select_query_result["id"], is_customer_login_attempt)
 
                 if is_customer_login_attempt:
-                    scope = _get_customer_scope(scope, details.service)
+                    scope = _convert_to_customer_scope(scope, details.service)
                     # customer account tokens don't require a customer ID
                     customer_id = None
                 else:
@@ -244,12 +244,12 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
     userid = uuid.UUID(hex=token["userid"])
     account_type = token["account_type"]
 
-    is_customer_login_attempt = account_type == "customer"
+    is_customer_account = account_type == "customer"
 
-    if is_customer_login_attempt:
-        select_query = "SELECT refresh_token, data->'scope' AS scope FROM customers WHERE id=$1"
+    if is_customer_account:
+        select_query = "SELECT refresh_token FROM customers WHERE id=$1"
     else:
-        select_query = "SELECT refresh_token, data->'scope' AS scope, customer_id FROM users WHERE id=$1"
+        select_query = "SELECT refresh_token, customer_id FROM users WHERE id=$1"
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -267,11 +267,12 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
-            scope = json.loads(row["scope"])
-            if is_customer_login_attempt:
+            scope = await _get_account_scope(con, userid, is_customer_account)
+
+            if is_customer_account:
                 service_scope = next(s for s in token["scope"] if s.startswith("service:"))
                 service_name = service_scope.split(":")[-1]
-                scope = _get_customer_scope(scope, service_name)
+                scope = _convert_to_customer_scope(scope, service_name)
 
             # con is passed to this function, so it must be inside this async with block
             return await _create_new_tokens(con, userid, row.get("customer_id"), scope, account_type)
@@ -283,7 +284,18 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def _get_customer_scope(scope, service):
+async def _get_account_scope(db_con, account_id, is_customer_account):
+    if is_customer_account:
+        query = "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL"
+    else:
+        query = "SELECT scope FROM account_scopes WHERE user_id=$1"
+
+    query_res = await db_con.fetch(query, account_id)
+    scope = [row["scope"] for row in query_res]
+    return scope
+
+
+def _convert_to_customer_scope(scope, service):
     # get tier of service scope in list of customer scopes
     scope_for_service = [s for s in scope if service in s]
     if not scope_for_service:
