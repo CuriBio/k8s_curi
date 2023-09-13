@@ -401,7 +401,7 @@ async def register(
                 phash,
                 json.dumps(dict(PULSE3D_PAID_USAGE)),
             )
-            insert_scope_query = "INSERT INTO account_scopes VALUES ($1, NULL, unnest($2))"
+            insert_scope_query = "INSERT INTO account_scopes VALUES ($1, NULL, unnest($2::text[]))"
         else:
             # TODO add handling for multiple service scopes and exception handling if none found
             _, customer_tier = split_scope_account_data(customer_scope[0])  # 'free' or 'paid'
@@ -420,7 +420,7 @@ async def register(
                 customer_tier,
                 customer_id,
             )
-            insert_scope_query = "INSERT INTO account_scopes VALUES ($1, $2, unnest($3))"
+            insert_scope_query = "INSERT INTO account_scopes VALUES ($1, $2, unnest($3::text[]))"
 
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():
