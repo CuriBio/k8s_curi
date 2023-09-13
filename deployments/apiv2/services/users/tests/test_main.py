@@ -307,7 +307,7 @@ def test_login__returns_invalid_creds_if_account_is_suspended(mocked_asyncpg_con
 
 @pytest.mark.parametrize("special_char", ["", *USERNAME_VALID_SPECIAL_CHARS])
 def test_register__user__allows_valid_usernames(special_char, mocked_asyncpg_con, cb_customer_id, mocker):
-    mocker.patch.object(main, "_send_user_email", autospec=True)
+    mocker.patch.object(main, "_create_user_email", autospec=True)
     use_cb_customer_id = choice([True, False])
     end_with_num = choice([True, False])
 
@@ -325,7 +325,7 @@ def test_register__user__allows_valid_usernames(special_char, mocked_asyncpg_con
     access_token = get_token(userid=test_customer_id, scope=["customer:paid"], account_type="customer")
 
     mocked_asyncpg_con.fetchval.return_value = test_user_id
-    expected_scope = ["pulse3d:paid"]
+    expected_scope = ["pulse3d:paid", "mantarray:firmware:get"]
 
     response = test_client.post(
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -340,12 +340,17 @@ def test_register__user__allows_valid_usernames(special_char, mocked_asyncpg_con
     }
 
     mocked_asyncpg_con.fetchval.assert_called_once_with(
-        "INSERT INTO users (name, email, account_type, data, customer_id) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+        "INSERT INTO users (name, email, account_type, customer_id) VALUES ($1, $2, $3, $4) RETURNING id",
         registration_details["username"].lower(),
         registration_details["email"].lower(),
         "paid",
-        json.dumps({"scope": expected_scope}),
         test_customer_id,
+    )
+    mocked_asyncpg_con.execute.assert_called_once_with(
+        "INSERT INTO account_scopes VALUES ($1, $2, unnest($3))",
+        test_customer_id,
+        test_user_id,
+        expected_scope,
     )
 
 
@@ -374,12 +379,14 @@ def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, cb_cus
     }
 
     mocked_asyncpg_con.fetchval.assert_called_once_with(
-        "INSERT INTO customers (email, password, previous_passwords, data, usage_restrictions) VALUES ($1, $2, ARRAY[$3], $4, $5) RETURNING id",
+        "INSERT INTO customers (email, password, previous_passwords, usage_restrictions) VALUES ($1, $2, $3, $4) RETURNING id",
         registration_details["email"].lower(),
         spied_pw_hasher.spy_return,
         spied_pw_hasher.spy_return,
-        json.dumps({"scope": expected_scope}),
         json.dumps(dict(PULSE3D_PAID_USAGE)),
+    )
+    mocked_asyncpg_con.execute.assert_called_once_with(
+        "INSERT INTO account_scopes VALUES ($1, NULL, unnest($2))", test_user_id, expected_scope
     )
     spied_pw_hasher.assert_called_once_with(mocker.ANY, registration_details["password1"])
 
