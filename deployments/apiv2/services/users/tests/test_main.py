@@ -379,7 +379,7 @@ def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, cb_cus
     }
 
     mocked_asyncpg_con.fetchval.assert_called_once_with(
-        "INSERT INTO customers (email, password, previous_passwords, usage_restrictions) VALUES ($1, $2, $3, $4) RETURNING id",
+        "INSERT INTO customers (email, password, previous_passwords, usage_restrictions) VALUES ($1, $2, ARRAY[$3], $4) RETURNING id",
         registration_details["email"].lower(),
         spied_pw_hasher.spy_return,
         spied_pw_hasher.spy_return,

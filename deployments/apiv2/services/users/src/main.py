@@ -395,7 +395,7 @@ async def register(
             phash = ph.hash(details.password1.get_secret_value())
             insert_account_query_args = (
                 "INSERT INTO customers (email, password, previous_passwords, usage_restrictions) "
-                "VALUES ($1, $2, $3, $4) RETURNING id",
+                "VALUES ($1, $2, ARRAY[$3], $4) RETURNING id",
                 email,
                 phash,
                 phash,
@@ -444,7 +444,6 @@ async def register(
                         failed_msg = "Account registration failed"
                     raise RegistrationError(failed_msg)
 
-                # TODO add test for this
                 # add scope for new account
                 if is_customer_registration_attempt:
                     insert_scope_query_args = (new_account_id, details.scope)
