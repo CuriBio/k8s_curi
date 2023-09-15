@@ -17,7 +17,7 @@ const BackgroundContainer = styled.div`
   width: 100%;
   height: 95vh;
   flex-direction: column;
-  background: black;
+  background: var(--dark-gray);
   overflow-x: scroll;
 `;
 
