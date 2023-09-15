@@ -135,8 +135,9 @@ const modalObjs = {
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota } = useContext(AuthContext);
-  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } =
-    useContext(UploadsContext);
+  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } = useContext(
+    UploadsContext
+  );
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
@@ -591,7 +592,6 @@ export default function Uploads() {
 
     try {
       let failedDeletion = false;
-      console.log(uploadsToDelete);
       //soft delete uploads
       if (uploadsToDelete) {
         // filter for uploads where there are no pending jobs to prevent deleting uploads for pending jobs
