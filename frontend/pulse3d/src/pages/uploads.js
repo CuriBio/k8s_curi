@@ -478,9 +478,11 @@ export default function Uploads() {
 
   const handleSelectAll = () => {
     if (!selectAll) {
+      // check all uploads
       const allUploadsIds = uploads.map(({ id }) => id);
       setCheckedUploads(allUploadsIds);
 
+      //check all jobs
       const allJobIds = [];
       allUploadsIds.map((upload) => {
         const idx = rows.map((row) => row.id).indexOf(upload);
@@ -491,10 +493,11 @@ export default function Uploads() {
       });
       setCheckedJobs(allJobIds);
     } else {
+      // reset all uploads and jobs
       setCheckedUploads([]);
       setCheckedJobs([]);
     }
-
+    // update select all state
     setSelectAll(!selectAll);
   };
 
