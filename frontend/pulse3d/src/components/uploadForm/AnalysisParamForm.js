@@ -474,7 +474,9 @@ export default function AnalysisParamForm({
     analysisPresetName,
   },
 }) {
-  const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails } = useContext(UploadsContext);
+  const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails, dataTypeDetails } = useContext(
+    UploadsContext
+  );
 
   const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
   const [disableStimProtocols, setDisableStimProtocols] = useState(false);
@@ -922,7 +924,7 @@ export default function AnalysisParamForm({
             name="stiffnessFactor"
             tooltipText="Specifies the post stiffness factor. If set to 'auto', will use the value encoded in the barcode."
             additionaLabelStyle={{ width: "62%", lineHeight: 2.5 }}
-            iconStyle={{ fontSize: 20, margin: "10px 10px" }}
+            iconStyle={{ fontSize: 20, margin: "0px 10px" }}
           >
             <DropDownContainer>
               <DropDownWidget
@@ -937,6 +939,28 @@ export default function AnalysisParamForm({
                   "stiffnessFactor",
                   Object.values(stiffnessFactorDetails)
                 )}
+              />
+            </DropDownContainer>
+          </AnalysisParamContainer>
+        )}
+        {pulse3dVersionGte("0.34.2") && (
+          <AnalysisParamContainer
+            label="Data Type"
+            name="dataType"
+            tooltipText="Specifies the type of data in the recording. If set to 'auto', will use the value encoded in the recording metadata."
+            additionaLabelStyle={{ width: "62%", lineHeight: 2.5 }}
+            iconStyle={{ fontSize: 20, margin: "0px 10px" }}
+          >
+            <DropDownContainer>
+              <DropDownWidget
+                options={Object.keys(dataTypeDetails)}
+                reset={!checkedParams}
+                handleSelection={(idx) => {
+                  updateParams({
+                    dataType: Object.values(dataTypeDetails)[idx],
+                  });
+                }}
+                initialSelected={getDropdownInitialSelection("dataType", Object.values(dataTypeDetails))}
               />
             </DropDownContainer>
           </AnalysisParamContainer>

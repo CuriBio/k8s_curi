@@ -132,6 +132,7 @@ export default function UploadForm() {
       wellGroups: {},
       stimWaveformFormat: "",
       nameOverride: "",
+      dataType: null,
       // original advanced params
       prominenceFactorPeaks: "",
       prominenceFactorValleys: "",
@@ -367,6 +368,7 @@ export default function UploadForm() {
       wellsWithFlippedWaveforms,
       wellGroups,
       stimWaveformFormat,
+      dataType,
     } = analysisParams;
 
     const version =
@@ -409,6 +411,9 @@ export default function UploadForm() {
         analysisParams.nameOverride === "" ||
         analysisParams.nameOverride === removeFileExt(files[0].filename);
       requestBody.name_override = useOriginalName ? null : analysisParams.nameOverride;
+    }
+    if (semverGte(version, "0.34.2")) {
+      requestBody.data_type = getNullIfEmpty(dataType);
     }
 
     if (semverGte(version, "0.33.2")) {

@@ -839,7 +839,7 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocked_asyncpg_con
 
 
 # Tanner (3/13/23): only really need to test versions that are live in prod or are being tested in test cluster
-@pytest.mark.parametrize("version", ["0.28.3", "0.30.4", "0.33.7"])
+@pytest.mark.parametrize("version", ["0.28.3", "0.30.4", "0.33.7", "0.34.2"])
 def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d_version(
     version, mocked_asyncpg_con, mocker
 ):
@@ -901,6 +901,8 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
             "upslope_duration",
         ):
             expected_analysis_param_keys.append(param)
+    if pulse3d_semver >= "0.34.2":
+        expected_analysis_param_keys.append("data_type")
 
     expected_analysis_params = {param: None for param in expected_analysis_param_keys}
 
@@ -1245,8 +1247,8 @@ def test_waveform_data__get__getting_job_metadata_from_db_errors(mocker):
 
 
 @pytest.mark.parametrize("pulse3d_version", [None, "1.2.3"])
-@pytest.mark.parametrize("well_name, test_data", [("A1", list(range(14))), ("B1", list(range(3)))])
-def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version, well_name, test_data):
+@pytest.mark.parametrize("data_type", [None, "", "Force", "calcium"])
+def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version, data_type):
     test_inclusive_df = pd.DataFrame()
     mocker.patch.object(pd, "read_parquet", return_value=test_inclusive_df, autospec=True)
 
@@ -1266,6 +1268,14 @@ def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version, w
             "end_time",
         )
     }
+
+    # intentionally only handling None case here
+    if data_type is not None:
+        expected_analysis_params["data_type"] = data_type
+        expected_data_type = data_type.title()
+    # intentionally handling all falsey cases here
+    if not data_type:
+        expected_data_type = "Force"
 
     test_jobs = [
         {
@@ -1290,7 +1300,9 @@ def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version, w
 
     assert response.status_code == 200
     assert response.json() == WaveformDataResponse(
-        time_force_url=expected_presigned_url, peaks_valleys_url=expected_presigned_url, normalize_y_axis=True
+        time_force_url=expected_presigned_url,
+        peaks_valleys_url=expected_presigned_url,
+        amplitude_label=main._get_full_amplitude_label(expected_data_type),
     )
 
 

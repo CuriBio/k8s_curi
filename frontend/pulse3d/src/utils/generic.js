@@ -78,7 +78,7 @@ const getPeaksValleysFromTable = async (table) => {
   return peaksValleysObj;
 };
 
-const getWaveformCoordsFromTable = async (table, normalizeYAxis) => {
+const getWaveformCoordsFromTable = async (table) => {
   const columns = table.schema.fields.map(({ name }) => name);
   const wellNames = columns.filter(
     (name) =>
@@ -96,10 +96,8 @@ const getWaveformCoordsFromTable = async (table, normalizeYAxis) => {
     if (wellForceIdx !== -1) {
       let wellForce = columnData[wellForceIdx];
 
-      if (normalizeYAxis) {
-        const minForce = Math.min(...wellForce);
-        wellForce = wellForce.map((val) => val - minForce);
-      }
+      const minForce = Math.min(...wellForce);
+      wellForce = wellForce.map((val) => val - minForce);
 
       coordinatesObj[well] = time.map((time, i) => [time / 1e6, wellForce[i]]);
     }

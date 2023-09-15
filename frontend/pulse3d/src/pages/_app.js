@@ -29,7 +29,7 @@ export const AuthContext = createContext();
 
 // TODO make all pages scope based?
 const allAvailablePages = {
-  user: ["/uploads", "/upload-form", "/account", "/account-settings"],
+  user: ["/home", "/uploads", "/upload-form", "/account", "/account-settings"],
   admin: ["/uploads", "/new-user", "/users-info", "/account-settings"],
 };
 

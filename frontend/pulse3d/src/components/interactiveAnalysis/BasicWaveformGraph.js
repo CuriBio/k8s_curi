@@ -18,19 +18,19 @@ const WellNameLabel = styled.div`
   padding-left: 40px;
 `;
 
-export default function BasicWaveformGraph({ well, featureIndicies, waveformData, timepointRange }) {
+export default function BasicWaveformGraph({ well, featureIndices, waveformData, timepointRange }) {
   useEffect(() => {
-    if (featureIndicies) {
+    if (featureIndices) {
       // always remove existing graph before plotting new graph
       d3.select(`#waveformGraph${well}`).select("svg").remove();
       createGraph();
     }
-  }, [waveformData, featureIndicies]);
+  }, [waveformData, featureIndices]);
 
   /* NOTE!! The order of the variables and function calls in this function are important to functionality.
      could eventually try to break this up, but it's more sensitive in react than vue */
   const createGraph = () => {
-    const [peaks, valleys] = featureIndicies;
+    const [peaks, valleys] = featureIndices;
     const { min: xMin, max: xMax } = timepointRange;
 
     /* --------------------------------------

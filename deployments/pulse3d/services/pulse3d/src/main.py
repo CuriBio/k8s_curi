@@ -19,6 +19,12 @@ from pulse3D.constants import (
     DEFAULT_PROMINENCE_FACTORS,
     DEFAULT_WIDTH_FACTORS,
     DEFAULT_NB_WIDTH_FACTORS,
+    DATA_TYPE_TO_AMPLITUDE_LABEL,
+    DEFAULT_AMPLITUDE_LABEL,
+    DATA_TYPE_TO_UNIT_LABEL,
+    DEFAULT_UNIT_LABEL,
+    CALCULATED_METRIC_DISPLAY_NAMES,
+    AMPLITUDE_UUID,
 )
 
 from auth import ProtectedAny, PULSE3D_USER_SCOPES, PULSE3D_SCOPES, CUSTOMER_SCOPES, split_scope_account_data
@@ -392,6 +398,8 @@ async def create_new_job(
             params.append("well_groups")
         if pulse3d_semver >= "0.30.5":
             params.append("stim_waveform_format")
+        if pulse3d_semver >= "0.34.2":
+            params.append("data_type")
 
         if use_noise_based_peak_finding:
             params += [
@@ -650,14 +658,8 @@ async def get_interactive_waveform_data(
         selected_job = jobs[0]
         parsed_meta = json.loads(selected_job["job_meta"])
         recording_owner_id = str(selected_job["user_id"])
-        analysis_params = parsed_meta.get("analysis_params")
+        analysis_params = parsed_meta.get("analysis_params", {})
         pulse3d_version = parsed_meta.get("version")
-
-        # normalize_y_axis is not always in analysis_params and if normalize_y_axis is present, will either be None, True, or False.
-        # Only prevent normalization if explicitly False.
-        normalize_y_axis = not (
-            "normalize_y_axis" in analysis_params and analysis_params["normalize_y_axis"] is False
-        )
 
         if "pulse3d:rw_all_data" not in token["scope"]:
             # only allow user to perform interactive analysis on another user's recording if special scope
@@ -684,10 +686,15 @@ async def get_interactive_waveform_data(
         pv_parquet_key = f"{selected_job['prefix']}/{job_id}/peaks_valleys.parquet"
         peaks_valleys_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, pv_parquet_key)
 
+        data_type = analysis_params.get("data_type")
+        if not data_type:
+            # if data type is not present, is present and is None, or some other falsey value, set to Force as default
+            data_type = "Force"
+
         return WaveformDataResponse(
             time_force_url=time_force_url,
             peaks_valleys_url=peaks_valleys_url,
-            normalize_y_axis=normalize_y_axis,
+            amplitude_label=_get_full_amplitude_label(data_type),
         )
     # ValueError gets raised when no object is found in s3 that matches given key
     except ValueError:
@@ -700,6 +707,13 @@ async def get_interactive_waveform_data(
     except Exception:
         logger.exception("Failed to get interactive waveform data")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _get_full_amplitude_label(data_type: str) -> str:
+    return CALCULATED_METRIC_DISPLAY_NAMES[AMPLITUDE_UUID].format(
+        amplitude=DATA_TYPE_TO_AMPLITUDE_LABEL.get(data_type.lower(), DEFAULT_AMPLITUDE_LABEL),
+        unit=DATA_TYPE_TO_UNIT_LABEL.get(data_type.lower(), DEFAULT_UNIT_LABEL),
+    )
 
 
 @app.get("/versions")
