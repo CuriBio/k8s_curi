@@ -570,7 +570,7 @@ def test_refresh__success(account_type, mocked_asyncpg_con):
     is_customer_account = account_type == "customer"
     customer_id = None if is_customer_account else uuid.uuid4()
 
-    select_clause = "refresh_token, data->'scope' AS scope"
+    select_clause = "refresh_token"
     if account_type == "user":
         select_clause += ", customer_id"
 
