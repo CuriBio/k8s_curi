@@ -135,9 +135,8 @@ const modalObjs = {
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota } = useContext(AuthContext);
-  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } = useContext(
-    UploadsContext
-  );
+  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } =
+    useContext(UploadsContext);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
@@ -155,13 +154,14 @@ export default function Uploads() {
   const [filterColumn, setFilterColumn] = useState("");
   // TODO could probably put all these widths in the same object
   const [ownerWidth, setOwnerWidth] = useState("10%");
-  const [recordingWidth, setRecordingWidth] = useState("25%");
+  const [recordingWidth, setRecordingWidth] = useState("24%");
   const [uploadWidth, setUploadWidth] = useState("21%");
   const [createdWidth, setCreatedWidth] = useState("20%");
   const [analyzedWidth, setAnalyzedWidth] = useState("20%");
   const [sortColumn, setSortColumn] = useState("");
   const [uploadTableColumns, setUploadTableColumns] = useState([]);
   const [jobsInSelectedUpload, setJobsInSelectedUpload] = useState(0);
+  const [selectAll, setSelectAll] = useState(false);
 
   useEffect(() => {
     // removing loading spinner once jobs have been recieved or if 0 jobs were receieved because there were zero uploads for new users
@@ -172,10 +172,14 @@ export default function Uploads() {
 
   useEffect(() => {
     const displayOwner = displayRows.filter(({ username }) => username).length == displayRows.length;
+    const selectAllStyle = { color: "var(--light-gray)" };
 
     setUploadTableColumns([
       {
-        width: "3%",
+        name: (
+          <Checkbox color={"secondary"} checked={selectAll} onChange={handleSelectAll} sx={selectAllStyle} />
+        ),
+        width: "6%",
         display: true,
         cell: (row) => (
           <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
@@ -307,7 +311,16 @@ export default function Uploads() {
       setCreatedWidth("13%");
       setAnalyzedWidth("13%");
     }
-  }, [displayRows, checkedUploads]);
+
+    // handle select all check state if changes are made to checked uploads
+    if (uploads && checkedUploads.length !== uploads.length && selectAll) {
+      // if user had previously set select all to true and unchecks an individual upload, set select all state back to false
+      setSelectAll(false);
+    } else if (uploads && checkedUploads.length === uploads.length && !selectAll) {
+      // else if user individually selects all uploads, then set select all state to true
+      setSelectAll(true);
+    }
+  }, [displayRows, checkedUploads, selectAll]);
 
   const filterColumns = () => {
     return rows.filter((row) => {
@@ -463,6 +476,28 @@ export default function Uploads() {
     }
   }, [jobs]);
 
+  const handleSelectAll = () => {
+    if (!selectAll) {
+      const allUploadsIds = uploads.map(({ id }) => id);
+      setCheckedUploads(allUploadsIds);
+
+      const allJobIds = [];
+      allUploadsIds.map((upload) => {
+        const idx = rows.map((row) => row.id).indexOf(upload);
+        rows[idx].jobs.map(({ jobId, status }) => {
+          // only add jobs to checked array if not pending
+          if (!["pending", "running"].includes(status)) allJobIds.push(jobId);
+        });
+      });
+      setCheckedJobs(allJobIds);
+    } else {
+      setCheckedUploads([]);
+      setCheckedJobs([]);
+    }
+
+    setSelectAll(!selectAll);
+  };
+
   const handleDropdownSelection = (option) => {
     if (option === 1) {
       setModalButtons(["Close", "Confirm"]);
@@ -540,16 +575,20 @@ export default function Uploads() {
     // NOTE the query that soft deletes the files will also fail even if non-owner files get sent since the user_ids will not match to what's in the database
     //remove all pending from list
     const jobsToDelete = jobs.filter(
-      ({ jobId, status, owner }) => checkedJobs.includes(jobId) && status !== "pending" && owner
+      ({ jobId, status, owner }) =>
+        checkedJobs.includes(jobId) && !["pending", "running"].includes(status) && owner
     );
     // get upload meta data
     const uploadsToDelete = displayRows.filter(
       ({ id, jobs, owner }) =>
-        checkedUploads.includes(id) && jobs.filter((job) => job.status === "pending").length == 0 && owner
+        checkedUploads.includes(id) &&
+        jobs.filter(({ status }) => !["pending", "running"].includes(status)).length == 0 &&
+        owner
     );
 
     try {
       let failedDeletion = false;
+      console.log(uploadsToDelete);
       //soft delete uploads
       if (uploadsToDelete) {
         // filter for uploads where there are no pending jobs to prevent deleting uploads for pending jobs
@@ -806,18 +845,15 @@ export default function Uploads() {
     setCheckedUploads([...checkedUploads]);
 
     const newCheckedJobs = [];
-
     // every checked upload should have all of it's jobs checked
     // so it's resetting checkedJobs to empty array, then concat all relevant jobs
     checkedUploads.map((upload) => {
       const idx = rows.map((row) => row.id).indexOf(upload);
-      const jobIds = rows[idx].jobs.map(({ jobId, status }) => {
+      rows[idx].jobs.map(({ jobId, status }) => {
         // only add jobs to checked array if not pending
-        if (status !== "pending") newCheckedJobs.push(jobId);
+        if (!["pending", "running"].includes(status)) newCheckedJobs.push(jobId);
       });
-      newCheckedJobs.concat(jobIds);
     });
-
     // set jobs in state
     setCheckedJobs([...newCheckedJobs]);
   };
@@ -904,6 +940,7 @@ export default function Uploads() {
             customStyles={customStyles}
             progressPending={pending}
             defaultSortFieldId="lastAnalyzed"
+            paginationRowsPerPageOptions={[10, 50, 100, 200]}
             progressComponent={
               <SpinnerContainer>
                 <CircularSpinner size={200} color={"secondary"} />
