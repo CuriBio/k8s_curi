@@ -16,7 +16,7 @@ const SmallDescription = styled.div`
 `;
 
 const InnerContainer1 = styled.div`
-  margin-top: 3%;
+  margin-top: 2%;
   display: flex;
   flex-direction: col;
 `;
@@ -46,9 +46,11 @@ export default function UsageWidget({
     if (daysOfPlanLeft >= 0) return `${daysOfPlanLeft} days of plan left`;
     return `${daysOfPlanLeft * -1} days expired`;
   })();
+
   const usageMessage = isUnlimited
     ? `${actualUsage} ${metricName} used`
     : `${actualUsage} out of ${limitUsage} ${metricName} used`;
+
   const percentUsage = isUnlimited ? 0 : Math.min((actualUsage / limitUsage) * 100, 100);
   const additionalInfo = isUnlimited
     ? "You have unlimited access to Pulse3d analysis."

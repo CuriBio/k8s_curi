@@ -1,6 +1,10 @@
 {
   "name": "pulse",
+<<<<<<< HEAD
   "version": "0.8.0",
+=======
+  "version": "0.9.1",
+>>>>>>> RC-09-14-23
   "private": true,
   "scripts": {
     "_ce": "node ./check-engines.js",
