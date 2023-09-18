@@ -159,7 +159,7 @@ export default function Uploads() {
   const [uploadWidth, setUploadWidth] = useState("21%");
   const [createdWidth, setCreatedWidth] = useState("20%");
   const [analyzedWidth, setAnalyzedWidth] = useState("20%");
-  const [sortColumn, setSortColumn] = useState("");
+  const [sortColumn, setSortColumn] = useState();
   const [uploadTableColumns, setUploadTableColumns] = useState([]);
   const [jobsInSelectedUpload, setJobsInSelectedUpload] = useState(0);
   const [selectAll, setSelectAll] = useState(false);
@@ -198,7 +198,7 @@ export default function Uploads() {
             setSelfWidth={setOwnerWidth}
             setRightNeighbor={setRecordingWidth}
             rightWidth={recordingWidth.replace("%", "")}
-            setSortColumns={setSortColumn}
+            setSortColumn={setSortColumn}
             sortColumn={sortColumn}
           />
         ),
@@ -219,7 +219,7 @@ export default function Uploads() {
             setSelfWidth={setRecordingWidth}
             setRightNeighbor={setUploadWidth}
             rightWidth={uploadWidth.replace("%", "")}
-            setSortColumns={setSortColumn}
+            setSortColumn={setSortColumn}
             sortColumn={sortColumn}
           />
         ),
@@ -240,7 +240,7 @@ export default function Uploads() {
             setSelfWidth={setUploadWidth}
             setRightNeighbor={setCreatedWidth}
             rightWidth={createdWidth.replace("%", "")}
-            setSortColumns={setSortColumn}
+            setSortColumn={setSortColumn}
             sortColumn={sortColumn}
           />
         ),
@@ -261,7 +261,7 @@ export default function Uploads() {
             setSelfWidth={setCreatedWidth}
             setRightNeighbor={setAnalyzedWidth}
             rightWidth={analyzedWidth.replace("%", "")}
-            setSortColumns={setSortColumn}
+            setSortColumn={setSortColumn}
             sortColumn={sortColumn}
           />
         ),
@@ -281,9 +281,8 @@ export default function Uploads() {
             filterColumn={filterColumn}
             setSelfWidth={setAnalyzedWidth}
             setRightNeighbor={() => {}}
-            setSortColumns={setSortColumn}
+            setSortColumn={setSortColumn}
             sortColumn={sortColumn}
-            last={true}
           />
         ),
         width: analyzedWidth,
@@ -314,14 +313,14 @@ export default function Uploads() {
     }
 
     // handle select all check state if changes are made to checked uploads
-    if (uploads && checkedUploads.length !== uploads.length && selectAll) {
+    if (uploads && checkedUploads.length !== displayRows.length && selectAll) {
       // if user had previously set select all to true and unchecks an individual upload, set select all state back to false
       setSelectAll(false);
-    } else if (uploads && checkedUploads.length === uploads.length && !selectAll) {
+    } else if (uploads && checkedUploads.length === displayRows.length && !selectAll) {
       // else if user individually selects all uploads, then set select all state to true
       setSelectAll(true);
     }
-  }, [displayRows, checkedUploads, selectAll]);
+  }, [displayRows, checkedUploads, selectAll, sortColumn]);
 
   const filterColumns = () => {
     return rows.filter((row) => {
@@ -480,7 +479,7 @@ export default function Uploads() {
   const handleSelectAll = () => {
     if (!selectAll) {
       // check all uploads
-      const allUploadsIds = uploads.map(({ id }) => id);
+      const allUploadsIds = displayRows.map(({ id }) => id);
       setCheckedUploads(allUploadsIds);
 
       //check all jobs
@@ -742,6 +741,7 @@ export default function Uploads() {
       let response = null,
         presignedUrl = null,
         name = null;
+
       if (jobId) {
         const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?job_ids=${jobId}`;
         response = await fetch(url);
@@ -879,6 +879,7 @@ export default function Uploads() {
         const idx = rows.map((row) => row.id).indexOf(upload);
         const jobIds = rows[idx].jobs.map(({ jobId }) => jobId);
         const missingJobs = jobIds.filter((id) => !checkedJobs.includes(id));
+
         if (missingJobs.length > 0) checkedUploads.splice(uploadIdx, 1);
       });
 

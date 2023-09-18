@@ -1,21 +1,27 @@
-import DragHandleIcon from "@mui/icons-material/DragHandle";
-import EjectIcon from "@mui/icons-material/Eject";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+import SortIcon from "@mui/icons-material/Sort";
 import { useState, useEffect } from "react";
 import styled from "styled-components";
 
 const ResizeDiv = styled.div`
-  transform: rotate(90deg);
+  display: flex;
+  align-items: center;
+  &:hover {
+    cursor: url("./drag-horizontal.png");
+  }
 `;
 const Container = styled.div`
   width: 100%;
   display: flex;
   justify-content: space-between;
+  align-items: center;
 `;
 const FilterInput = styled.input`
   width: 80%;
-  padding: 0 10px;
+  padding: 5px 10px;
   margin-right: 5px;
 `;
+
 export default function ColumnHead({
   title,
   setFilterString,
@@ -27,38 +33,57 @@ export default function ColumnHead({
   rightWidth,
   last,
   filterColumn,
-  setSortColumns,
+  setSortColumn,
   sortColumn,
 }) {
   const [input, setInput] = useState("");
   const [initialX, setInitialX] = useState();
   const [order, setOrder] = useState("");
+
   useEffect(() => {
-    if (sortColumn !== columnName) {
-      setOrder("");
-    }
+    setOrder(sortColumn !== columnName ? "" : "asc");
   }, [sortColumn]);
+
   useEffect(() => {
     if (filterColumn !== columnName) {
       setInput("");
     }
   }, [filterColumn]);
+
   useEffect(() => {
     setFilterString(input);
   }, [input]);
 
+  // useEffect(() => {
+  //   console.log("X: ", initialX);
+  // }, [initialX]);
+
+  // useEffect(() => {
+  //   if (title == "Recording Name") console.log("USE EFF: ", width);
+  // }, [width]);
+
   const updateWidth = (e) => {
-    const difference = parseInt((e.clientX - initialX) / 10);
+    console.log(e);
+    const difference = parseInt(e.clientX - initialX);
     const newWidth = parseInt(width) + difference;
     const newNeighborWidth = parseInt(rightWidth) - difference;
-    // size the columns in steps
-    if (Math.abs(difference) < 3 || newWidth < 9 || newNeighborWidth < 9) {
-      return;
-    }
+    // console.log("-------------------------");
+    // console.log("CLIENTX: ", e.clientX, initialX);
+    // console.log("DIFF: ", difference);
+    // console.log("WIDTH: ", width);
+    // console.log("NEW WIDTH: ", newWidth);
+    // console.log("NEIGHBOR: ", newNeighborWidth);
+
+    // // size the columns in steps
+    // if (Math.abs(difference) < 3 || newWidth < 9 || newNeighborWidth < 9) {
+    //   return;
+    // }
+
     setSelfWidth(`${newWidth}%`);
     setRightNeighbor(`${newNeighborWidth}%`);
     setInitialX(e.clientX);
   };
+
   return (
     <Container>
       <FilterInput
@@ -74,33 +99,25 @@ export default function ColumnHead({
           e.stopPropagation();
         }}
       />
-      {order === "" ? (
-        <EjectIcon
+      {columnName !== order ? (
+        <SortIcon
           onClick={() => {
             setOrder("asc");
-            setSortColumns(columnName);
+            setSortColumn(columnName);
           }}
           style={{ color: "gray" }}
         />
-      ) : null}
-      {order === "asc" && (
-        <EjectIcon
+      ) : (
+        <SortIcon
           onClick={() => {
-            setOrder("desc");
+            setOrder(order === "asc" ? "desc" : "asc");
           }}
-        />
-      )}
-      {order === "desc" && (
-        <EjectIcon
-          onClick={() => {
-            setOrder("asc");
-          }}
-          style={{ transform: "rotate(180deg)" }}
+          style={{ transform: order === "desc" && "rotate(180deg)" }}
         />
       )}
       {!last && (
         <ResizeDiv
-          onMouseDown={(e) => {
+          onDragStart={(e) => {
             setInitialX(e.clientX);
           }}
           onDrag={(e) => {
@@ -109,9 +126,9 @@ export default function ColumnHead({
           onClick={(e) => {
             e.stopPropagation();
           }}
-          draggable={true}
+          draggable
         >
-          <DragHandleIcon />
+          <DragIndicatorIcon />
         </ResizeDiv>
       )}
     </Container>

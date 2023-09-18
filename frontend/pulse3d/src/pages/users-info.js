@@ -168,7 +168,7 @@ export default function UserInfo() {
           setSelfWidth={setNameWidth}
           setRightNeighbor={setEmailWidth}
           rightWidth={emailWidth.replace("%", "")}
-          setSortColumns={setSortColumn}
+          setSortColumn={setSortColumn}
           sortColumn={sortColumn}
           filterColumn={filterColumn}
         />
@@ -188,7 +188,7 @@ export default function UserInfo() {
           setSelfWidth={setEmailWidth}
           setRightNeighbor={setDateWidth}
           rightWidth={dateWidth.replace("%", "")}
-          setSortColumns={setSortColumn}
+          setSortColumn={setSortColumn}
           sortColumn={sortColumn}
           filterColumn={filterColumn}
         />
@@ -208,7 +208,7 @@ export default function UserInfo() {
           setSelfWidth={setDateWidth}
           setRightNeighbor={setLoginWidth}
           rightWidth={loginWidth.replace("%", "")}
-          setSortColumns={setSortColumn}
+          setSortColumn={setSortColumn}
           sortColumn={sortColumn}
           filterColumn={filterColumn}
         />
@@ -228,7 +228,7 @@ export default function UserInfo() {
           setSelfWidth={setLoginWidth}
           setRightNeighbor={setStatusWidth}
           rightWidth={statusWidth.replace("%", "")}
-          setSortColumns={setSortColumn}
+          setSortColumn={setSortColumn}
           sortColumn={sortColumn}
           filterColumn={filterColumn}
         />
@@ -248,7 +248,7 @@ export default function UserInfo() {
           width={statusWidth.replace("%", "")}
           setSelfWidth={setStatusWidth}
           setRightNeighbor={() => {}}
-          setSortColumns={setSortColumn}
+          setSortColumn={setSortColumn}
           sortColumn={sortColumn}
           filterColumn={filterColumn}
           last={true}
