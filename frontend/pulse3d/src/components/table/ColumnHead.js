@@ -8,6 +8,16 @@ const ResizeDiv = styled.div`
   cursor: col-resize;
   align-items: center;
 `;
+
+const GhostDiv = styled.div`
+  height: 20px;
+  width: 20px;
+  position: relative;
+  right: 20px;
+  z-index: 2;
+  cursor: col-resize;
+`;
+
 const Container = styled.div`
   width: 100%;
   display: flex;
@@ -105,20 +115,23 @@ export default function ColumnHead({
         />
       )}
       {!last && (
-        <ResizeDiv
-          onMouseDown={(e) => {
-            setInitialX(e.clientX);
-          }}
-          onDrag={(e) => {
-            updateWidth(e);
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-          }}
-          draggable
-        >
-          <DragIndicatorIcon />
-        </ResizeDiv>
+        <>
+          <ResizeDiv>
+            <DragIndicatorIcon />
+          </ResizeDiv>
+          <GhostDiv
+            onMouseDown={(e) => {
+              setInitialX(e.clientX);
+            }}
+            onDrag={(e) => {
+              updateWidth(e);
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+            draggable
+          />
+        </>
       )}
     </Container>
   );
