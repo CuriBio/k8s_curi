@@ -159,7 +159,7 @@ export default function Uploads() {
   const [uploadWidth, setUploadWidth] = useState("21%");
   const [createdWidth, setCreatedWidth] = useState("20%");
   const [analyzedWidth, setAnalyzedWidth] = useState("20%");
-  const [sortColumn, setSortColumn] = useState();
+  const [sortColumn, setSortColumn] = useState("");
   const [uploadTableColumns, setUploadTableColumns] = useState([]);
   const [jobsInSelectedUpload, setJobsInSelectedUpload] = useState(0);
   const [selectAll, setSelectAll] = useState(false);
@@ -311,6 +311,10 @@ export default function Uploads() {
       setCreatedWidth("13%");
       setAnalyzedWidth("13%");
     }
+  }, [displayRows, checkedUploads, sortColumn, recordingWidth, ownerWidth, createdWidth, analyzedWidth]);
+
+  useEffect(() => {
+    console.log(displayRows, checkedUploads);
 
     // handle select all check state if changes are made to checked uploads
     if (uploads && checkedUploads.length !== displayRows.length && selectAll) {
@@ -320,7 +324,7 @@ export default function Uploads() {
       // else if user individually selects all uploads, then set select all state to true
       setSelectAll(true);
     }
-  }, [displayRows, checkedUploads, selectAll, sortColumn]);
+  }, [displayRows, checkedUploads, selectAll]);
 
   const filterColumns = () => {
     return rows.filter((row) => {
@@ -333,6 +337,12 @@ export default function Uploads() {
       const newList = filterColumns();
       if (newList.length > 0) {
         setDisplayRows(newList);
+        // check all uploads
+        const allUploadsIds = newList.map(({ id }) => id);
+        setCheckedUploads(allUploadsIds);
+        //check all jobs
+        const allJobIds = getJobsForUploads(allUploadsIds);
+        setCheckedJobs(allJobIds);
       }
     }
   }, [filterString]);
@@ -476,21 +486,26 @@ export default function Uploads() {
     }
   }, [jobs]);
 
+  const getJobsForUploads = (uploadIds) => {
+    //check all jobs
+    const jobIds = [];
+    uploadIds.map((upload) => {
+      const idx = rows.map((row) => row.id).indexOf(upload);
+      rows[idx].jobs.map(({ jobId, status }) => {
+        // only add jobs to checked array if not pending
+        if (!["pending", "running"].includes(status)) jobIds.push(jobId);
+      });
+    });
+    return jobIds;
+  };
+
   const handleSelectAll = () => {
     if (!selectAll) {
       // check all uploads
       const allUploadsIds = displayRows.map(({ id }) => id);
       setCheckedUploads(allUploadsIds);
-
       //check all jobs
-      const allJobIds = [];
-      allUploadsIds.map((upload) => {
-        const idx = rows.map((row) => row.id).indexOf(upload);
-        rows[idx].jobs.map(({ jobId, status }) => {
-          // only add jobs to checked array if not pending
-          if (!["pending", "running"].includes(status)) allJobIds.push(jobId);
-        });
-      });
+      const allJobIds = getJobsForUploads(allUploadsIds);
       setCheckedJobs(allJobIds);
     } else {
       // reset all uploads and jobs
@@ -523,17 +538,20 @@ export default function Uploads() {
       const jobDetails = jobs.filter(({ jobId }) => jobId == checkedJobs[0]);
       setSelectedAnalysis(jobDetails[0]);
       const uploadId = jobDetails[0].uploadId;
+
       for (let uploadIdx in displayRows) {
         if (displayRows[uploadIdx].id === uploadId) {
           setJobsInSelectedUpload(displayRows[uploadIdx].jobs.length);
         }
       }
+
       setOpenInteractiveAnalysis(true);
     } else if (option === 3) {
       // Open Re-analyze tab with name of file pre-selected
       const selectedUpload = uploads.filter((upload) =>
         checkedUploads.some((checkUpload) => checkUpload === upload.id)
       )[0];
+
       setDefaultUploadForReanalysis(selectedUpload);
       router.push("/upload-form?id=Re-analyze+Existing+Upload");
     }

@@ -5,14 +5,13 @@ import styled from "styled-components";
 
 const ResizeDiv = styled.div`
   display: flex;
+  cursor: col-resize;
   align-items: center;
-  &:hover {
-    cursor: url("./drag-horizontal.png");
-  }
 `;
 const Container = styled.div`
   width: 100%;
   display: flex;
+  height: 70px;
   justify-content: space-between;
   align-items: center;
 `;
@@ -41,7 +40,11 @@ export default function ColumnHead({
   const [order, setOrder] = useState("");
 
   useEffect(() => {
-    setOrder(sortColumn !== columnName ? "" : "asc");
+    if (sortColumn !== columnName) {
+      setOrder("");
+    } else {
+      setOrder("asc");
+    }
   }, [sortColumn]);
 
   useEffect(() => {
@@ -54,33 +57,19 @@ export default function ColumnHead({
     setFilterString(input);
   }, [input]);
 
-  // useEffect(() => {
-  //   console.log("X: ", initialX);
-  // }, [initialX]);
-
-  // useEffect(() => {
-  //   if (title == "Recording Name") console.log("USE EFF: ", width);
-  // }, [width]);
-
   const updateWidth = (e) => {
-    console.log(e);
-    const difference = parseInt(e.clientX - initialX);
-    const newWidth = parseInt(width) + difference;
-    const newNeighborWidth = parseInt(rightWidth) - difference;
-    // console.log("-------------------------");
-    // console.log("CLIENTX: ", e.clientX, initialX);
-    // console.log("DIFF: ", difference);
-    // console.log("WIDTH: ", width);
-    // console.log("NEW WIDTH: ", newWidth);
-    // console.log("NEIGHBOR: ", newNeighborWidth);
+    // 50 is arbitrary here, 100 was too slow, it's an attempt to translate to percentage
+    const difference = (e.clientX - initialX) / 50;
+    const newWidth = parseFloat(+width + difference);
+    const newNeighborWidth = parseFloat(+rightWidth - difference);
 
-    // // size the columns in steps
-    // if (Math.abs(difference) < 3 || newWidth < 9 || newNeighborWidth < 9) {
-    //   return;
-    // }
+    // size the columns in steps
+    if (Math.abs(difference) < 0.5 || newWidth < 10 || newNeighborWidth < 10) {
+      return;
+    }
 
-    setSelfWidth(`${newWidth}%`);
-    setRightNeighbor(`${newNeighborWidth}%`);
+    setSelfWidth(`${+newWidth.toFixed(2)}%`);
+    setRightNeighbor(`${+newNeighborWidth.toFixed(2)}%`);
     setInitialX(e.clientX);
   };
 
@@ -99,25 +88,25 @@ export default function ColumnHead({
           e.stopPropagation();
         }}
       />
-      {columnName !== order ? (
+      {order == "" ? (
         <SortIcon
           onClick={() => {
             setOrder("asc");
             setSortColumn(columnName);
           }}
-          style={{ color: "gray" }}
+          style={{ color: "gray", fontSize: "20px", margin: "0 5px" }}
         />
       ) : (
         <SortIcon
           onClick={() => {
             setOrder(order === "asc" ? "desc" : "asc");
           }}
-          style={{ transform: order === "desc" && "rotate(180deg)" }}
+          style={{ transform: order === "desc" && "rotate(180deg)", margin: "0px 5px" }}
         />
       )}
       {!last && (
         <ResizeDiv
-          onDragStart={(e) => {
+          onMouseDown={(e) => {
             setInitialX(e.clientX);
           }}
           onDrag={(e) => {
