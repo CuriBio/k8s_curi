@@ -303,12 +303,22 @@ export default function Uploads() {
           ),
       },
     ]);
-  }, [displayRows, checkedUploads, sortColumn, recordingWidth, ownerWidth, createdWidth, analyzedWidth]);
+  }, [
+    displayRows,
+    checkedUploads,
+    sortColumn,
+    selectAll,
+    recordingWidth,
+    ownerWidth,
+    createdWidth,
+    analyzedWidth,
+  ]);
 
   useEffect(() => {
-    if (uploads) {
-      // handle select all check state if changes are made to checked uploads
+    // protect against user who doesn't have any uploads to show
+    if (displayRows.length > 0) {
       if (checkedUploads.length !== displayRows.length && selectAll) {
+        // handle select all check state if changes are made to checked uploads
         // if user had previously set select all to true and unchecks an individual upload, set select all state back to false
         setSelectAll(false);
       } else if (checkedUploads.length === displayRows.length && !selectAll) {
@@ -316,7 +326,7 @@ export default function Uploads() {
         setSelectAll(true);
       }
     }
-  }, [displayRows, checkedUploads, selectAll]);
+  }, [displayRows, checkedUploads]);
 
   useEffect(() => {
     if (uploads) {
