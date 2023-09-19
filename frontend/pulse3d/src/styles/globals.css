@@ -51,7 +51,3 @@ textarea:focus,
 select:focus {
   outline: none;
 }
-
-.dragging {
-  cursor: "col-resize";
-}
