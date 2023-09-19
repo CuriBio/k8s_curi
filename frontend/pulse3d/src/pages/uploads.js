@@ -135,9 +135,8 @@ const modalObjs = {
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota } = useContext(AuthContext);
-  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } = useContext(
-    UploadsContext
-  );
+  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } =
+    useContext(UploadsContext);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
@@ -306,13 +305,15 @@ export default function Uploads() {
   }, [displayRows, checkedUploads, sortColumn, recordingWidth, ownerWidth, createdWidth, analyzedWidth]);
 
   useEffect(() => {
-    // handle select all check state if changes are made to checked uploads
-    if (uploads && checkedUploads.length !== displayRows.length && selectAll) {
-      // if user had previously set select all to true and unchecks an individual upload, set select all state back to false
-      setSelectAll(false);
-    } else if (uploads && checkedUploads.length === displayRows.length && !selectAll) {
-      // else if user individually selects all uploads, then set select all state to true
-      setSelectAll(true);
+    if (uploads) {
+      // handle select all check state if changes are made to checked uploads
+      if (checkedUploads.length !== displayRows.length && selectAll) {
+        // if user had previously set select all to true and unchecks an individual upload, set select all state back to false
+        setSelectAll(false);
+      } else if (checkedUploads.length === displayRows.length && !selectAll) {
+        // else if user individually selects all uploads, then set select all state to true
+        setSelectAll(true);
+      }
     }
   }, [displayRows, checkedUploads, selectAll]);
 
