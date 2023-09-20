@@ -155,13 +155,14 @@ export default function Uploads() {
   const [filterColumn, setFilterColumn] = useState("");
   // TODO could probably put all these widths in the same object
   const [ownerWidth, setOwnerWidth] = useState("10%");
-  const [recordingWidth, setRecordingWidth] = useState("25%");
+  const [recordingWidth, setRecordingWidth] = useState("24%");
   const [uploadWidth, setUploadWidth] = useState("21%");
-  const [createdWidth, setCreatedWidth] = useState("20%");
-  const [analyzedWidth, setAnalyzedWidth] = useState("20%");
+  const [createdWidth, setCreatedWidth] = useState("17%");
+  const [analyzedWidth, setAnalyzedWidth] = useState("17%");
   const [sortColumn, setSortColumn] = useState("");
   const [uploadTableColumns, setUploadTableColumns] = useState([]);
   const [jobsInSelectedUpload, setJobsInSelectedUpload] = useState(0);
+  const [selectAll, setSelectAll] = useState(false);
 
   useEffect(() => {
     // removing loading spinner once jobs have been recieved or if 0 jobs were receieved because there were zero uploads for new users
@@ -171,11 +172,13 @@ export default function Uploads() {
   }, [displayRows]);
 
   useEffect(() => {
-    const displayOwner = displayRows.filter(({ username }) => username).length == displayRows.length;
-
+    const selectAllStyle = { color: "var(--light-gray)" };
     setUploadTableColumns([
       {
-        width: "3%",
+        name: (
+          <Checkbox color={"secondary"} checked={selectAll} onChange={handleSelectAll} sx={selectAllStyle} />
+        ),
+        width: "6%",
         display: true,
         cell: (row) => (
           <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
@@ -193,12 +196,12 @@ export default function Uploads() {
             setSelfWidth={setOwnerWidth}
             setRightNeighbor={setRecordingWidth}
             rightWidth={recordingWidth.replace("%", "")}
-            setSortColumns={setSortColumn}
+            setSortColumn={setSortColumn}
             sortColumn={sortColumn}
           />
         ),
         width: ownerWidth,
-        display: displayOwner,
+        display: displayRows.find((i) => i.username),
         sortFunction: (rowA, rowB) => rowA.username.localeCompare(rowB.username),
         cell: (row) => <ResizableColumn content={row.username} />,
       },
@@ -214,7 +217,7 @@ export default function Uploads() {
             setSelfWidth={setRecordingWidth}
             setRightNeighbor={setUploadWidth}
             rightWidth={uploadWidth.replace("%", "")}
-            setSortColumns={setSortColumn}
+            setSortColumn={setSortColumn}
             sortColumn={sortColumn}
           />
         ),
@@ -235,7 +238,7 @@ export default function Uploads() {
             setSelfWidth={setUploadWidth}
             setRightNeighbor={setCreatedWidth}
             rightWidth={createdWidth.replace("%", "")}
-            setSortColumns={setSortColumn}
+            setSortColumn={setSortColumn}
             sortColumn={sortColumn}
           />
         ),
@@ -256,7 +259,7 @@ export default function Uploads() {
             setSelfWidth={setCreatedWidth}
             setRightNeighbor={setAnalyzedWidth}
             rightWidth={analyzedWidth.replace("%", "")}
-            setSortColumns={setSortColumn}
+            setSortColumn={setSortColumn}
             sortColumn={sortColumn}
           />
         ),
@@ -276,9 +279,8 @@ export default function Uploads() {
             filterColumn={filterColumn}
             setSelfWidth={setAnalyzedWidth}
             setRightNeighbor={() => {}}
-            setSortColumns={setSortColumn}
+            setSortColumn={setSortColumn}
             sortColumn={sortColumn}
-            last={true}
           />
         ),
         width: analyzedWidth,
@@ -292,7 +294,7 @@ export default function Uploads() {
         },
       },
       {
-        width: "10%",
+        width: "11%",
         id: "uploadOrigin",
         display: true,
         cell: (row) =>
@@ -301,25 +303,64 @@ export default function Uploads() {
           ),
       },
     ]);
+  }, [
+    displayRows,
+    checkedUploads,
+    sortColumn,
+    selectAll,
+    recordingWidth,
+    ownerWidth,
+    createdWidth,
+    analyzedWidth,
+  ]);
 
-    if (displayOwner) {
-      // admin accounts have an extra Owners column so the widths should be different
-      setCreatedWidth("13%");
-      setAnalyzedWidth("13%");
+  useEffect(() => {
+    // protect against user who doesn't have any uploads to show
+    if (displayRows.length > 0) {
+      if (checkedUploads.length !== displayRows.length && selectAll) {
+        // handle select all check state if changes are made to checked uploads
+        // if user had previously set select all to true and unchecks an individual upload, set select all state back to false
+        setSelectAll(false);
+      } else if (checkedUploads.length === displayRows.length && !selectAll) {
+        // else if user individually selects all uploads, then set select all state to true
+        setSelectAll(true);
+      }
     }
   }, [displayRows, checkedUploads]);
 
-  const filterColumns = () => {
-    return rows.filter((row) => {
-      return row[filterColumn].toLocaleLowerCase().includes(filterString.toLocaleLowerCase());
-    });
-  };
+  useEffect(() => {
+    if (uploads) {
+      getAllJobs();
+
+      if (uploads.length > 0) {
+        const statusUpdateInterval = setInterval(async () => {
+          if (!["downloading", "deleting"].includes(modalState) && !openInteractiveAnalysis) {
+            await getAllJobs();
+          }
+        }, [1e4]);
+
+        return () => clearInterval(statusUpdateInterval);
+      }
+    }
+  }, [uploads]);
+
+  useEffect(() => {
+    // reset to false everytime it gets triggered
+    if (resetDropdown) setResetDropdown(false);
+  }, [resetDropdown]);
+
   //when filter string changes, refilter results
   useEffect(() => {
     if (filterColumn) {
       const newList = filterColumns();
       if (newList.length > 0) {
         setDisplayRows(newList);
+        // check all uploads
+        const allUploadsIds = newList.map(({ id }) => id);
+        setCheckedUploads(allUploadsIds);
+        //check all jobs
+        const allJobIds = getJobsForUploads(allUploadsIds);
+        setCheckedJobs(allJobIds);
       }
     }
   }, [filterString]);
@@ -331,11 +372,61 @@ export default function Uploads() {
     }
   }, [openInteractiveAnalysis]);
 
+  useEffect(() => {
+    let displayOwner = false;
+    if (uploads) {
+      const formattedUploads = uploads.map(({ username, id, filename, created_at, owner, auto_upload }) => {
+        if (username) displayOwner = true;
+
+        const formattedTime = formatDateTime(created_at);
+        const recName = filename ? filename.split(".").slice(0, -1).join(".") : null;
+        const uploadJobs = jobs
+          .filter(({ uploadId }) => uploadId === id)
+          .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+        const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
+
+        return {
+          username,
+          name: recName,
+          id,
+          createdAt: formattedTime,
+          lastAnalyzed,
+          jobs: uploadJobs,
+          owner,
+          autoUpload: auto_upload,
+        };
+      });
+
+      formattedUploads.sort((a, b) => new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed));
+      setRows([...formattedUploads]);
+      setDisplayRows([...formattedUploads]);
+
+      if (displayOwner) {
+        // admin accounts have an extra Owners column so the widths should be different
+        setCreatedWidth("13%");
+        setAnalyzedWidth("13%");
+      }
+
+      if (filterColumn) {
+        const newList = filterColumns();
+        if (newList.length > 0) {
+          setDisplayRows(newList);
+        }
+      }
+    }
+  }, [jobs]);
+
   const resetTable = () => {
     setResetDropdown(true);
     setCheckedUploads([]);
     setCheckedJobs([]);
     getAllJobs();
+  };
+
+  const filterColumns = () => {
+    return rows.filter((row) => {
+      return row[filterColumn].toLocaleLowerCase().includes(filterString.toLocaleLowerCase());
+    });
   };
 
   const getAllJobs = async () => {
@@ -404,64 +495,35 @@ export default function Uploads() {
     }
   };
 
-  useEffect(() => {
-    if (uploads) {
-      getAllJobs();
-
-      if (uploads.length > 0) {
-        const statusUpdateInterval = setInterval(async () => {
-          if (!["downloading", "deleting"].includes(modalState) && !openInteractiveAnalysis) {
-            await getAllJobs();
-          }
-        }, [1e4]);
-
-        return () => clearInterval(statusUpdateInterval);
-      }
-    }
-  }, [uploads]);
-
-  useEffect(() => {
-    // reset to false everytime it gets triggered
-    if (resetDropdown) setResetDropdown(false);
-  }, [resetDropdown]);
-
-  useEffect(() => {
-    if (uploads) {
-      const formattedUploads = uploads.map(({ username, id, filename, created_at, owner, auto_upload }) => {
-        const formattedTime = formatDateTime(created_at);
-
-        const recName = filename ? filename.split(".").slice(0, -1).join(".") : null;
-
-        const uploadJobs = jobs
-          .filter(({ uploadId }) => uploadId === id)
-          .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
-
-        const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
-
-        return {
-          username,
-          name: recName,
-          id,
-          createdAt: formattedTime,
-          lastAnalyzed,
-          jobs: uploadJobs,
-          owner,
-          autoUpload: auto_upload,
-        };
+  const getJobsForUploads = (uploadIds) => {
+    //check all jobs
+    const jobIds = [];
+    uploadIds.map((upload) => {
+      const idx = rows.map((row) => row.id).indexOf(upload);
+      rows[idx].jobs.map(({ jobId, status }) => {
+        // only add jobs to checked array if not pending
+        if (!["pending", "running"].includes(status)) jobIds.push(jobId);
       });
+    });
+    return jobIds;
+  };
 
-      formattedUploads.sort((a, b) => new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed));
-      setRows([...formattedUploads]);
-      setDisplayRows([...formattedUploads]);
-
-      if (filterColumn) {
-        const newList = filterColumns();
-        if (newList.length > 0) {
-          setDisplayRows(newList);
-        }
-      }
+  const handleSelectAll = () => {
+    if (!selectAll) {
+      // check all uploads
+      const allUploadsIds = displayRows.map(({ id }) => id);
+      setCheckedUploads(allUploadsIds);
+      //check all jobs
+      const allJobIds = getJobsForUploads(allUploadsIds);
+      setCheckedJobs(allJobIds);
+    } else {
+      // reset all uploads and jobs
+      setCheckedUploads([]);
+      setCheckedJobs([]);
     }
-  }, [jobs]);
+    // update select all state
+    setSelectAll(!selectAll);
+  };
 
   const handleDropdownSelection = (option) => {
     if (option === 1) {
@@ -485,17 +547,20 @@ export default function Uploads() {
       const jobDetails = jobs.filter(({ jobId }) => jobId == checkedJobs[0]);
       setSelectedAnalysis(jobDetails[0]);
       const uploadId = jobDetails[0].uploadId;
+
       for (let uploadIdx in displayRows) {
         if (displayRows[uploadIdx].id === uploadId) {
           setJobsInSelectedUpload(displayRows[uploadIdx].jobs.length);
         }
       }
+
       setOpenInteractiveAnalysis(true);
     } else if (option === 3) {
       // Open Re-analyze tab with name of file pre-selected
       const selectedUpload = uploads.filter((upload) =>
         checkedUploads.some((checkUpload) => checkUpload === upload.id)
       )[0];
+
       setDefaultUploadForReanalysis(selectedUpload);
       router.push("/upload-form?id=Re-analyze+Existing+Upload");
     }
@@ -540,12 +605,15 @@ export default function Uploads() {
     // NOTE the query that soft deletes the files will also fail even if non-owner files get sent since the user_ids will not match to what's in the database
     //remove all pending from list
     const jobsToDelete = jobs.filter(
-      ({ jobId, status, owner }) => checkedJobs.includes(jobId) && status !== "pending" && owner
+      ({ jobId, status, owner }) =>
+        checkedJobs.includes(jobId) && !["pending", "running"].includes(status) && owner
     );
     // get upload meta data
     const uploadsToDelete = displayRows.filter(
       ({ id, jobs, owner }) =>
-        checkedUploads.includes(id) && jobs.filter((job) => job.status === "pending").length == 0 && owner
+        checkedUploads.includes(id) &&
+        jobs.filter(({ status }) => !["pending", "running"].includes(status)).length == 0 &&
+        owner
     );
 
     try {
@@ -700,6 +768,7 @@ export default function Uploads() {
       let response = null,
         presignedUrl = null,
         name = null;
+
       if (jobId) {
         const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?job_ids=${jobId}`;
         response = await fetch(url);
@@ -806,18 +875,15 @@ export default function Uploads() {
     setCheckedUploads([...checkedUploads]);
 
     const newCheckedJobs = [];
-
     // every checked upload should have all of it's jobs checked
     // so it's resetting checkedJobs to empty array, then concat all relevant jobs
     checkedUploads.map((upload) => {
       const idx = rows.map((row) => row.id).indexOf(upload);
-      const jobIds = rows[idx].jobs.map(({ jobId, status }) => {
+      rows[idx].jobs.map(({ jobId, status }) => {
         // only add jobs to checked array if not pending
-        if (status !== "pending") newCheckedJobs.push(jobId);
+        if (!["pending", "running"].includes(status)) newCheckedJobs.push(jobId);
       });
-      newCheckedJobs.concat(jobIds);
     });
-
     // set jobs in state
     setCheckedJobs([...newCheckedJobs]);
   };
@@ -840,6 +906,7 @@ export default function Uploads() {
         const idx = rows.map((row) => row.id).indexOf(upload);
         const jobIds = rows[idx].jobs.map(({ jobId }) => jobId);
         const missingJobs = jobIds.filter((id) => !checkedJobs.includes(id));
+
         if (missingJobs.length > 0) checkedUploads.splice(uploadIdx, 1);
       });
 
@@ -904,6 +971,7 @@ export default function Uploads() {
             customStyles={customStyles}
             progressPending={pending}
             defaultSortFieldId="lastAnalyzed"
+            paginationRowsPerPageOptions={[10, 50, 100, 200]}
             progressComponent={
               <SpinnerContainer>
                 <CircularSpinner size={200} color={"secondary"} />
