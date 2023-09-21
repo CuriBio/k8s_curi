@@ -109,8 +109,9 @@ export default function Login() {
   };
 
   const handleProductNavigation = ({ target }) => {
-    // TODO handle different nav once product differences are more specced out
-    router.push("/uploads?checkUsage=true", "/uploads");
+    if (!target.id.includes("disabled"))
+      // TODO handle different nav once product differences are more specced out
+      router.push("/uploads?checkUsage=true", "/uploads");
   };
 
   return (
@@ -140,7 +141,7 @@ export default function Login() {
                   <Image
                     src={`/Curi-Bio-cloud-design_${type} ${state} state.svg`}
                     alt={`${name} logo`}
-                    id={type}
+                    id={`${type}-${state}`}
                     width={250}
                     height={250}
                     loader={imageLoader}
