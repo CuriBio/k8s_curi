@@ -95,16 +95,18 @@ export default function Login() {
   }, [accountScope]);
 
   const mouseEnter = ({ target }) => {
+    const productType = target.id.split("-")[0];
     // protect against hovering over disabled products
-    if (products[target.id].state === "default") {
-      setProducts({ ...products, [target.id]: { ...products[target.id], state: "hover" } });
+    if (products[productType].state === "default") {
+      setProducts({ ...products, [productType]: { ...products[productType], state: "hover" } });
     }
   };
 
   const mouseLeave = ({ target }) => {
+    const productType = target.id.split("-")[0];
     // protect against non hovered products
-    if (products[target.id].state === "hover") {
-      setProducts({ ...products, [target.id]: { ...products[target.id], state: "default" } });
+    if (products[productType].state === "hover") {
+      setProducts({ ...products, [productType]: { ...products[productType], state: "default" } });
     }
   };
 
