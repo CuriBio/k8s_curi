@@ -89,9 +89,9 @@ export default function NewUserForm() {
         } else if (res.status === 422) {
           const error = await res.json();
           // some very unuseful errors get returned from the serve, so filter those out and use the first meaningful error message
-          const firstError = error.detail.find((d) => d.msg);
-          const nameOfInvalidField = firstError.loc[1];
-          const reason = firstError.msg;
+          const usernameError = error.detail.find((d) => d.loc.includes("username"));
+          const nameOfInvalidField = usernameError.loc[1];
+          const reason = usernameError.msg;
           setErrorMessage(nameOfInvalidField, reason);
         } else if (res.status === 400) {
           const error = await res.json();

@@ -1,7 +1,6 @@
 import logging
 import json
 import uuid
-
 from datetime import datetime
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHash
@@ -367,7 +366,7 @@ async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False)
 
 @app.post("/register", response_model=UserProfile | CustomerProfile, status_code=status.HTTP_201_CREATED)
 async def register(
-    request: Request, details: UserCreate | CustomerCreate, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))
+    request: Request, details: CustomerCreate | UserCreate, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))
 ):
     """Register a user or customer account.
 
