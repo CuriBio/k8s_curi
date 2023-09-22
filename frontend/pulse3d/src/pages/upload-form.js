@@ -305,6 +305,7 @@ export default function UploadForm() {
     setXlsxFilePresent(false);
     // in case user added a new preset, want to grab updated list on analysis submission
     getAnalysisPresets();
+    setSelectedPresetIdx();
   };
 
   const resetAnalysisParams = () => {

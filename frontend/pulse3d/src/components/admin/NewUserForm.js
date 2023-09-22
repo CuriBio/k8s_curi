@@ -66,7 +66,6 @@ export default function NewUserForm() {
     setUserData({
       email: "",
       username: "",
-      service: "pulse3d",
     });
   };
 
@@ -75,7 +74,6 @@ export default function NewUserForm() {
   const submitForm = async () => {
     setErrorMsg(""); // reset to show user something happened
     setInProgress(true);
-
     if (Object.values(userData).includes("")) setErrorMsg("* All fields are required");
     // this state gets passed to web worker to attempt login request
     else {
