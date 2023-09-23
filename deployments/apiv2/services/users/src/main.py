@@ -364,67 +364,37 @@ async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.post("/register", response_model=UserProfile | CustomerProfile, status_code=status.HTTP_201_CREATED)
-async def register(
-    request: Request, details: CustomerCreate | UserCreate, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))
+@app.post("/register/customer", response_model=CustomerProfile, status_code=status.HTTP_201_CREATED)
+async def register_customer(
+    request: Request, details: CustomerCreate, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))
 ):
-    """Register a user or customer account.
+    """Register a customer account.
 
-    Only customer accounts with admin privileges can register users, and only the Curi Bio customer account
-    can create new customers.
+    Only the Curi Bio customer account can create new customers.
 
     If the customer ID in the auth token matches the Curi Bio Customer ID *AND* no username is given,
     assume this is an attempt to register a new customer account.
-
-    Otherwise, attempt to register a regular user under the customer ID in the auth token
     """
     customer_id = uuid.UUID(hex=token["userid"])
-    # 'customer:paid' or 'customer:free'
-    customer_scope = token["scope"]
     try:
-        is_customer_registration_attempt = (
-            customer_id == CB_CUSTOMER_ID and type(details) is CustomerCreate  # noqa: F821
-        )
+        if customer_id != CB_CUSTOMER_ID:  # noqa: F821 complains this variable is undefined
+            raise ("Only the Curi Bio customer account can create new customers.")
 
-        register_type = "customer" if is_customer_registration_attempt else "user"
-        logger.info(f"Attempting {register_type} registration")
         email = details.email.lower()
-        # scope will not be sent in request body for both customer and user registration
-        if is_customer_registration_attempt:
-            ph = PasswordHasher()
-            phash = ph.hash(details.password1.get_secret_value())
-            insert_account_query_args = (
-                "INSERT INTO customers (email, password, previous_passwords, usage_restrictions) "
-                "VALUES ($1, $2, ARRAY[$3], $4) RETURNING id",
-                email,
-                phash,
-                phash,
-                json.dumps(dict(PULSE3D_PAID_USAGE)),
-            )
-            insert_scope_query = "INSERT INTO account_scopes VALUES ($1, NULL, unnest($2::text[]))"
-        else:
-            # TODO add handling for multiple service scopes and exception handling if none found
-            _, customer_tier = split_scope_account_data(customer_scope[0])  # 'free' or 'paid'
-            # eventually scopes will be passed from FE, but for now just auto set to paid user
-            user_scope = (
-                details.scope if details.scope is not None else ["pulse3d:paid", "mantarray:firmware:get"]
-            )
-            username = details.username.lower()
-            # suspended and verified get set to False by default
-            insert_account_query_args = (
-                # TODO do we still need the account_type col? Might not need it now that scopes are being used. If we keep it, should probably rename it since 'account type' is more commonly used to hold if an account is a 'user' or 'customer' account
-                "INSERT INTO users (name, email, account_type, customer_id) "
-                "VALUES ($1, $2, $3, $4) RETURNING id",
-                username,
-                email,
-                customer_tier,
-                customer_id,
-            )
-            insert_scope_query = "INSERT INTO account_scopes VALUES ($1, $2, unnest($3::text[]))"
 
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():
                 try:
+                    ph = PasswordHasher()
+                    phash = ph.hash(details.password1.get_secret_value())
+                    insert_account_query_args = (
+                        "INSERT INTO customers (email, password, previous_passwords, usage_restrictions) "
+                        "VALUES ($1, $2, ARRAY[$3], $4) RETURNING id",
+                        email,
+                        phash,
+                        phash,
+                        json.dumps(dict(PULSE3D_PAID_USAGE)),
+                    )
                     new_account_id = await con.fetchval(*insert_account_query_args)
                 except UniqueViolationError as e:
                     if "customers_email_key" in str(e):
@@ -432,7 +402,65 @@ async def register(
                         # can register other customers. Consider removing this message if the permissions are
                         # ever changed to allow people outside of Curi to register customer accounts
                         failed_msg = "Email already in use"
-                    elif "users_customer_id_name_key" in str(e):
+                    else:
+                        # default catch-all error message
+                        failed_msg = "Customer registration failed"
+                    raise RegistrationError(failed_msg)
+
+                # add scope for new account
+                insert_scope_query_args = (new_account_id, details.scope)
+                await con.execute(
+                    "INSERT INTO account_scopes VALUES ($1, NULL, unnest($2::text[]))",
+                    *insert_scope_query_args,
+                )
+
+                return CustomerProfile(email=email, user_id=new_account_id.hex, scope=details.scope)
+
+    except RegistrationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception:
+        logger.exception("POST /register/customer: Unexpected error")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.post("/register/user", response_model=UserProfile, status_code=status.HTTP_201_CREATED)
+async def register_user(
+    request: Request, details: UserCreate, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))
+):
+    """Register a user account.
+
+    Only customer accounts with admin privileges can register users.
+    """
+    customer_id = uuid.UUID(hex=token["userid"])
+    # 'customer:paid' or 'customer:free'
+    customer_scope = token["scope"]
+    try:
+        email = details.email.lower()
+
+        # TODO add handling for multiple service scopes and exception handling if none found
+        _, customer_tier = split_scope_account_data(customer_scope[0])  # 'free' or 'paid'
+        # eventually scopes will be passed from FE, but for now just auto set to paid user
+        user_scope = (
+            details.scope if details.scope is not None else ["pulse3d:paid", "mantarray:firmware:get"]
+        )
+        username = details.username.lower()
+        # suspended and verified get set to False by default
+        insert_account_query_args = (
+            # TODO do we still need the account_type col? Might not need it now that scopes are being used. If we keep it, should probably rename it since 'account type' is more commonly used to hold if an account is a 'user' or 'customer' account
+            "INSERT INTO users (name, email, account_type, customer_id) "
+            "VALUES ($1, $2, $3, $4) RETURNING id",
+            username,
+            email,
+            customer_tier,
+            customer_id,
+        )
+
+        async with request.state.pgpool.acquire() as con:
+            async with con.transaction():
+                try:
+                    new_account_id = await con.fetchval(*insert_account_query_args)
+                except UniqueViolationError as e:
+                    if "users_customer_id_name_key" in str(e):
                         # Returning this message is currently ok since duplicate usernames are only
                         # disallowed if tied to the same customer account ID, so no info about users under
                         # other customer accounts will be leaked
@@ -445,34 +473,29 @@ async def register(
                     raise RegistrationError(failed_msg)
 
                 # add scope for new account
-                if is_customer_registration_attempt:
-                    insert_scope_query_args = (new_account_id, details.scope)
-                else:
-                    insert_scope_query_args = (customer_id, new_account_id, user_scope)
-                await con.execute(insert_scope_query, *insert_scope_query_args)
+                insert_scope_query_args = (customer_id, new_account_id, user_scope)
+                await con.execute(
+                    "INSERT INTO account_scopes VALUES ($1, $2, unnest($3::text[]))", *insert_scope_query_args
+                )
 
-                # only send verification emails to new users, not new customers and if successful
-                if not is_customer_registration_attempt:
-                    await _create_user_email(
-                        con=con,
-                        type="verify",
-                        user_id=new_account_id,
-                        customer_id=customer_id,
-                        scopes=["users:verify"],
-                        name=username,
-                        email=email,
-                    )
+                # only send verification emails to new users
+                await _create_user_email(
+                    con=con,
+                    type="verify",
+                    user_id=new_account_id,
+                    customer_id=customer_id,
+                    scopes=["users:verify"],
+                    name=username,
+                    email=email,
+                )
 
-                if is_customer_registration_attempt:
-                    return CustomerProfile(email=email, user_id=new_account_id.hex, scope=details.scope)
-                else:
-                    return UserProfile(
-                        username=username,
-                        email=email,
-                        user_id=new_account_id.hex,
-                        account_type=customer_tier,
-                        scope=user_scope,
-                    )
+                return UserProfile(
+                    username=username,
+                    email=email,
+                    user_id=new_account_id.hex,
+                    account_type=customer_tier,
+                    scope=user_scope,
+                )
 
     except EmailRegistrationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
