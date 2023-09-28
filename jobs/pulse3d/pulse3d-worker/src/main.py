@@ -18,6 +18,7 @@ from pulse3D.constants import WELL_NAME_UUID
 from pulse3D.constants import PLATEMAP_LABEL_UUID
 from pulse3D.constants import DATA_TYPE_UUID
 from pulse3D.constants import NOT_APPLICABLE_LABEL
+from pulse3D.constants import USER_DEFINED_METADATA_UUID
 from pulse3D.exceptions import (
     DuplicateWellsFoundError,
     InvalidValleySearchDurationError,
@@ -75,7 +76,7 @@ async def process(con, item):
             logger.info(f"Retrieving user ID and metadata for upload with ID: {upload_id}")
 
             query = (
-                "SELECT users.customer_id, up.user_id, up.prefix, up.filename "
+                "SELECT users.customer_id, up.user_id, up.prefix, up.filename, up.meta "
                 "FROM uploads AS up JOIN users ON up.user_id = users.id "
                 "WHERE up.id=$1"
             )
@@ -189,6 +190,31 @@ async def process(con, item):
             except Exception:
                 logger.exception("PlateRecording failed")
                 raise
+
+            # if metadata is not set yet, set it here
+            try:
+                upload_meta = upload_details.get("meta", {})
+
+                if not upload_meta.get("user_defined_metadata"):
+                    logger.info("No user-defined metadata found in DB")
+                    if user_defined_metadata := first_recording.wells[0].get(
+                        USER_DEFINED_METADATA_UUID, r"{}"
+                    ):
+                        logger.info(f"Inserting user-defined metadata into DB: {user_defined_metadata}")
+
+                        upload_meta["user_defined_metadata"] = user_defined_metadata
+                        con.execute(
+                            "UPDATE uploads SET meta=$1 WHERE id=$2",
+                            json.dumps(upload_meta),
+                            upload_id,
+                        )
+                    else:
+                        logger.info("No user-defined metadata found in file")
+                else:
+                    logger.info("Skipping insertion of user-defined metadata into DB")
+            except Exception:
+                # Tanner (9/28/23): not raising the exception here to avoid user-defined metadata issues stopping entire analyses
+                logger.exception("Inserting user-defined metadata into DB failed")
 
             if use_existing_time_v_force:
                 logger.info("Skipping step to write time force data for upload")
