@@ -117,3 +117,4 @@ class UsageQuota(BaseModel):
 class LoginResponse(BaseModel):
     tokens: AuthTokens
     usage_quota: UsageQuota
+    user_scopes: dict[str, list[str]]

@@ -18,6 +18,8 @@ from auth import (
     split_scope_account_data,
     ACCOUNT_SCOPES,
     PULSE3D_PAID_USAGE,
+    USER_SCOPES,
+    DEFAULT_MANTARRAY_SCOPES,
 )
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
@@ -191,9 +193,10 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
                 usage_quota = await check_customer_quota(con, str(customer_id), details.service)
 
                 scope = await _get_account_scope(con, select_query_result["id"], is_customer_login_attempt)
+                avail_user_scopes = None
 
                 if is_customer_login_attempt:
-                    scope = _convert_to_customer_scope(scope, details.service)
+                    avail_user_scopes = _get_user_scopes_from_customer(scope)
                     # customer account tokens don't require a customer ID
                     customer_id = None
                 else:
@@ -207,13 +210,19 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
                 tokens = await _create_new_tokens(
                     con, select_query_result["id"], customer_id, scope, account_type
                 )
-                return LoginResponse(tokens=tokens, usage_quota=usage_quota)
+                return LoginResponse(tokens=tokens, usage_quota=usage_quota, user_scopes=avail_user_scopes)
 
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     except Exception:
         logger.exception("POST /login: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _get_user_scopes_from_customer(customer_scopes) -> dict[str, list[str]]:
+    customer_products = [split_scope_account_data(s)[0] for s in customer_scopes]
+    # return {"nautilus": ["nautilus:rw_all_data"], "mantarray": ["mantarray:rw_all_data"]}
+    return {p: USER_SCOPES[p] for p in customer_products}
 
 
 async def _update_failed_login_attempts(con, account_type: str, id: str, count: int) -> None:
@@ -269,11 +278,6 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
 
             scope = await _get_account_scope(con, userid, is_customer_account)
 
-            if is_customer_account:
-                service_scope = next(s for s in token["scope"] if s.startswith("service:"))
-                service_name = service_scope.split(":")[-1]
-                scope = _convert_to_customer_scope(scope, service_name)
-
             # con is passed to this function, so it must be inside this async with block
             return await _create_new_tokens(con, userid, row.get("customer_id"), scope, account_type)
 
@@ -295,26 +299,8 @@ async def _get_account_scope(db_con, account_id, is_customer_account):
     return scope
 
 
-def _convert_to_customer_scope(scope, service):
-    # get tier of service scope in list of customer scopes
-    scope_for_service = [s for s in scope if service in s]
-    if not scope_for_service:
-        raise LoginError(f"No scope for service '{service}' found in customer scopes: {scope}")
-
-    # replace with customer scope
-    _, customer_tier = split_scope_account_data(scope_for_service[0])
-    return [f"customer:{customer_tier}", f"service:{service}"]
-
-
 async def _create_new_tokens(db_con, userid, customer_id, scope, account_type):
     refresh_scope = ["refresh"]
-    try:
-        service_scope_for_refresh = next(s for s in scope if s.startswith("service:"))
-    except StopIteration:
-        pass
-    else:
-        scope.remove(service_scope_for_refresh)
-        refresh_scope.append(service_scope_for_refresh)
 
     # create new tokens
     access = create_token(
@@ -439,10 +425,16 @@ async def register_user(
 
         # TODO add handling for multiple service scopes and exception handling if none found
         _, customer_tier = split_scope_account_data(customer_scope[0])  # 'free' or 'paid'
-        # eventually scopes will be passed from FE, but for now just auto set to paid user
-        user_scope = (
-            details.scope if details.scope is not None else ["pulse3d:paid", "mantarray:firmware:get"]
-        )
+
+        user_scope = details.scope
+        for idx, product in enumerate(user_scope):
+            if product in USER_SCOPES.keys():
+                _, product_tier = split_scope_account_data(next(s for s in customer_scope if product in s))
+                user_scope[idx] = f"{product}:{product_tier}"
+        # all users need mantarray:firmware:get
+        user_scope.append("mantarray:firmware:get")
+        logger.info(f"Registering new user with scopes: {user_scope}")
+
         username = details.username.lower()
         # suspended and verified get set to False by default
         insert_account_query_args = (
@@ -451,7 +443,7 @@ async def register_user(
             "VALUES ($1, $2, $3, $4) RETURNING id",
             username,
             email,
-            customer_tier,
+            "paid",  # should remove column
             customer_id,
         )
 
@@ -711,11 +703,14 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTO
     customer_id = uuid.UUID(hex=token["userid"])
 
     query = (
-        "SELECT id, name, email, created_at, last_login, verified, suspended, reset_token "
-        "FROM users "
-        "WHERE customer_id=$1 AND deleted_at IS NULL "
-        "ORDER BY suspended"
+        "SELECT u.id, u.name, u.email, u.created_at, u.last_login, u.verified, u.suspended, u.reset_token, array_agg(s.scope) as scopes "
+        "FROM users u "
+        "INNER JOIN account_scopes s ON u.id=s.user_id "
+        "WHERE u.customer_id=$1 AND u.deleted_at IS NULL "
+        "GROUP BY u.id, u.name, u.email, u.created_at, u.last_login, u.verified, u.suspended, u.reset_token "
+        "ORDER BY u.suspended"
     )
+
     try:
         async with request.state.pgpool.acquire() as con:
             result = await con.fetch(query, customer_id)
@@ -723,6 +718,8 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTO
         formatted_results = [dict(row) for row in result]
 
         for row in formatted_results:
+            # remove user-hidden scopes from user list for display
+            row["scopes"] = list(set(row["scopes"]) - set(DEFAULT_MANTARRAY_SCOPES))
             # unverified account should have a jwt token, otherwise will be None.
             # check expiration and if expired, return it as None, FE will handle telling user it's expired
             try:

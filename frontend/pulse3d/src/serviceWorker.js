@@ -47,6 +47,19 @@ const getAuthTokens = async () => {
   return tokens;
 };
 
+const getUserScopes = async () => {
+  const swCache = await caches.open(cacheName);
+  const cachedLoginResponse = await swCache.match("userScopes");
+  let scopes = [];
+
+  if (cachedLoginResponse) {
+    const responseBody = await cachedLoginResponse.json();
+    scopes = responseBody.user_scopes;
+  }
+
+  return scopes;
+};
+
 const getValueFromToken = async (name) => {
   const cachedTokens = await getAuthTokens();
 
@@ -66,9 +79,14 @@ const getValueFromToken = async (name) => {
 
 let logoutTimer = null;
 
+const setUserScopes = async (res) => {
+  const swCache = await caches.open(cacheName);
+  await swCache.put("userScopes", res.clone());
+};
+
 const setTokens = async ({ refresh }, res) => {
   const swCache = await caches.open(cacheName);
-  await swCache.put("tokens", res);
+  await swCache.put("tokens", res.clone());
 
   // clear old logout timer if one already exists
   if (logoutTimer) {
@@ -242,10 +260,12 @@ const interceptResponse = async (req, url) => {
     const data = await response.json();
 
     if (response.status === 200) {
+      // these three need to remain independent cache items even though they use the same response because they get updated from different requests later
       // sending usage at login, is separate from auth check request because it's not needed as often
       await setUsageQuota(responseClone);
       // set tokens if login was successful
       await setTokens(data.tokens, responseClone);
+      await setUserScopes(responseClone);
     }
 
     // send the response without the tokens so they are always contained within this service worker
@@ -382,6 +402,7 @@ self.onmessage = async ({ data, source }) => {
         accountScope: await getValueFromToken("scope"),
       },
       usageQuota: await getUsageQuota(),
+      userScopes: await getUserScopes(),
     };
   } else if (msgType === "stayAlive") {
     // TODO should have this do something else so that there isn't a log msg produced every 20 seconds

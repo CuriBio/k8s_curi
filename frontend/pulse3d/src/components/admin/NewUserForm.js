@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import FormInput from "../basicWidgets/FormInput";
 import ModalWidget from "../basicWidgets/ModalWidget";
+import ScopeWidget from "./ScopeWidget";
 
 const InputContainer = styled.div`
   min-height: 260px;
@@ -15,7 +16,6 @@ const InputContainer = styled.div`
   width: inherit;
 `;
 const ModalContainer = styled.div`
-  height: 390px;
   width: 800px;
   background-color: white;
   position: relative;
@@ -38,10 +38,10 @@ const ErrorText = styled.span`
 const Header = styled.h2`
   position: relative;
   text-align: center;
-  background-color: var(--dark-gray);
+  background-color: var(--dark-blue);
   align-content: center;
-  color: var(--dark-blue);
-  height: 80px;
+  color: var(--light-gray);
+  height: 72px;
   margin: auto;
   line-height: 3;
 `;
@@ -55,9 +55,10 @@ export default function NewUserForm() {
   const [userData, setUserData] = useState({
     email: "",
     username: "",
+    scope: [],
   });
 
-  const [errorMsg, setErrorMsg] = useState("");
+  const [errorMsg, setErrorMsg] = useState(" ");
   const [inProgress, setInProgress] = useState(false);
   const [userCreatedVisible, setUserCreatedVisible] = useState(false);
 
@@ -66,6 +67,7 @@ export default function NewUserForm() {
     setUserData({
       email: "",
       username: "",
+      scope: [],
     });
   };
 
@@ -74,7 +76,8 @@ export default function NewUserForm() {
   const submitForm = async () => {
     setErrorMsg(""); // reset to show user something happened
     setInProgress(true);
-    if (Object.values(userData).includes("")) setErrorMsg("* All fields are required");
+    if (Object.values(userData).includes("") || userData.scope.length === 0)
+      setErrorMsg("* All fields are required");
     // this state gets passed to web worker to attempt login request
     else {
       const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/register/user`, {
@@ -92,6 +95,7 @@ export default function NewUserForm() {
           const usernameError = error.detail.find((d) => d.loc.includes("username"));
           const nameOfInvalidField = usernameError.loc[1];
           const reason = usernameError.msg;
+
           setErrorMessage(nameOfInvalidField, reason);
         } else if (res.status === 400) {
           const error = await res.json();
@@ -106,6 +110,10 @@ export default function NewUserForm() {
   const setErrorMessage = (nameOfInvalidField, reason) => {
     const errorMsg = nameOfInvalidField === "email" ? "Please enter a valid email" : reason;
     if (errorMsg) setErrorMsg(`* ${errorMsg}`);
+  };
+
+  const handleSelectedScopes = (scope) => {
+    setUserData({ ...userData, scope });
   };
 
   return (
@@ -147,6 +155,7 @@ export default function NewUserForm() {
             });
           }}
         />
+        <ScopeWidget selectedScopes={userData.scope} setSelectedScopes={handleSelectedScopes} />
         <ErrorText id="userError" role="errorMsg">
           {errorMsg}
         </ErrorText>

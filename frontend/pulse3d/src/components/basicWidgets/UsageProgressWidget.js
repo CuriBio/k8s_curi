@@ -53,7 +53,8 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
 
   const pollUsageQuota = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/usage?service=pulse3d`);
+      // TODO once nautilus and mantarray have separate tables, replace service in url with correct product type
+      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/usage?service=mantarray`);
       if (response && response.status === 200) {
         const newUsageQuota = await response.json();
         const limit = parseInt(newUsageQuota.limits.jobs);

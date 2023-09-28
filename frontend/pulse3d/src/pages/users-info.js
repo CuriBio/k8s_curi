@@ -10,6 +10,8 @@ import Checkbox from "@mui/material/Checkbox";
 import { Tooltip } from "@mui/material";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import PasswordForm from "@/components/account/PasswordForm";
+import EditUserForm from "@/components/admin/EditUserForm";
+
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
   center: false,
@@ -122,10 +124,11 @@ export default function UserInfo() {
   const [filterColumn, setFilterColumn] = useState("");
   const [usersData, setUsersData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [nameWidth, setNameWidth] = useState("20%");
-  const [emailWidth, setEmailWidth] = useState("20%");
-  const [dateWidth, setDateWidth] = useState("20%");
-  const [loginWidth, setLoginWidth] = useState("20%");
+  const [nameWidth, setNameWidth] = useState("16%");
+  const [emailWidth, setEmailWidth] = useState("17%");
+  const [dateWidth, setDateWidth] = useState("16%");
+  const [scopesWidth, setScopesWidth] = useState("15%");
+  const [loginWidth, setLoginWidth] = useState("15%");
   const [statusWidth, setStatusWidth] = useState("15%");
   const [checkedUsers, setCheckedUsers] = useState([]);
   const [sortColumn, setSortColumn] = useState("");
@@ -135,6 +138,8 @@ export default function UserInfo() {
   const [passwords, setPasswords] = useState({ password1: "", password2: "" });
   const [inProgress, setInProgress] = useState(false);
   const [openErrorModal, setOpenErrorModal] = useState(false);
+  const [openEditModal, setOpenEditModal] = useState(false);
+
   const columns = [
     {
       width: "5%",
@@ -186,8 +191,8 @@ export default function UserInfo() {
           setFilterColumn={setFilterColumn}
           width={emailWidth.replace("%", "")}
           setSelfWidth={setEmailWidth}
-          setRightNeighbor={setDateWidth}
-          rightWidth={dateWidth.replace("%", "")}
+          setRightNeighbor={setScopesWidth}
+          rightWidth={scopesWidth.replace("%", "")}
           setSortColumn={setSortColumn}
           sortColumn={sortColumn}
           filterColumn={filterColumn}
@@ -196,6 +201,26 @@ export default function UserInfo() {
       width: emailWidth,
       sortFunction: (rowA, rowB) => rowA.email.localeCompare(rowB.email),
       cell: (row) => <ResizableColumn content={row.email} />,
+    },
+    {
+      name: (
+        <ColumnHead
+          title="Scopes"
+          setFilterString={setFilterString}
+          columnName="scope"
+          setFilterColumn={setFilterColumn}
+          width={scopesWidth.replace("%", "")}
+          setSelfWidth={setScopesWidth}
+          setRightNeighbor={setDateWidth}
+          rightWidth={dateWidth.replace("%", "")}
+          setSortColumn={setSortColumn}
+          sortColumn={sortColumn}
+          filterColumn={filterColumn}
+        />
+      ),
+      width: scopesWidth,
+      sortFunction: (rowA, rowB) => rowA.scopes.localeCompare(rowB.scopes),
+      cell: (row) => <ResizableColumn content={row.scopes} />,
     },
     {
       name: (
@@ -312,12 +337,13 @@ export default function UserInfo() {
       if (response && response.status === 200) {
         const usersJson = await response.json();
         const formatedUserJson = usersJson.map(
-          ({ created_at, email, id, last_login, name, suspended, verified, reset_token }) => ({
+          ({ created_at, email, id, last_login, name, scopes, suspended, verified, reset_token }) => ({
             createdAt: created_at,
             email: email,
             id: id,
             lastLogin: last_login,
             name: name,
+            scopes,
             suspended,
             verified,
             resetToken: reset_token,
@@ -367,8 +393,10 @@ export default function UserInfo() {
 
       const action = option === 1 ? "deactivate" : "reactivate";
       await sendUserActionPutRequest(action);
-    } else {
+    } else if (option === 3) {
       await resendVerificationLink();
+    } else {
+      setOpenEditModal(true);
     }
   };
 
@@ -436,6 +464,7 @@ export default function UserInfo() {
     setResetToken();
     setInProgress(false);
     setOpenErrorModal(false);
+    setOpenEditModal(false);
   };
 
   return (
@@ -465,7 +494,7 @@ export default function UserInfo() {
             <DropDownContainer>
               <DropDownWidget
                 label="Actions"
-                options={["Delete", "Deactivate", "Reactivate", "Resend Verification Link"]}
+                options={["Delete", "Deactivate", "Reactivate", "Resend Verification Link", "Edit User"]}
                 disableOptions={[
                   // delete
                   checkedUsers.length === 0,
@@ -486,12 +515,15 @@ export default function UserInfo() {
                     (checkedUsers.length === 1 &&
                       !usersData.filter(({ id }) => checkedUsers.includes(id))[0].verified &&
                       usersData.filter(({ id }) => checkedUsers.includes(id))[0].resetToken),
+                  // edit
+                  checkedUsers.length !== 1,
                 ]}
                 optionsTooltipText={[
                   "Must make a selection below before action become available.",
                   "Must select a user who is active before action become available.",
                   "Must select a user who is suspended before action become available.",
                   "Must select an unverified user with an expired link.",
+                  "Must select a user to edit.",
                 ]}
                 handleSelection={handleDropdownSelection}
                 reset={resetDropdown}
@@ -533,6 +565,16 @@ export default function UserInfo() {
         labels={["Something went wrong while performing this action.", "Please try again later."]}
         buttons={["Close"]}
       />
+      <ModalWidget
+        open={openEditModal}
+        width={600}
+        closeModal={resetTable}
+        header={"Edit User"}
+        labels={[]}
+        buttons={["Close", "Save"]}
+      >
+        <EditUserForm userData={usersData.find((user) => checkedUsers.includes(user.id))} />
+      </ModalWidget>
     </>
   );
 }

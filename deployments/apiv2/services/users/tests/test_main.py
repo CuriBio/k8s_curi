@@ -38,7 +38,7 @@ def get_token(*, userid=None, customer_id=None, scope=None, account_type=None, r
         if refresh:
             scope = ["refresh"]
         else:
-            scope = ["pulse3d:free"] if account_type == "user" else ["customer:paid"]
+            scope = ["mantarray:free"] if account_type == "user" else ["customer:paid"]
 
     return create_token(
         userid=userid, customer_id=customer_id, scope=scope, account_type=account_type, refresh=refresh
@@ -199,7 +199,7 @@ def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
 
     pw_hash = PasswordHasher().hash(login_details["password"])
     test_customer_id = uuid.uuid4()
-    customer_scope = ["pulse3d:free"]
+    customer_scope = ["mantarray:free"]
 
     mocked_asyncpg_con.fetchrow.return_value = {
         "password": pw_hash,
@@ -325,7 +325,7 @@ def test_register__user__allows_valid_usernames(special_char, mocked_asyncpg_con
     access_token = get_token(userid=test_customer_id, scope=["customer:paid"], account_type="customer")
 
     mocked_asyncpg_con.fetchval.return_value = test_user_id
-    expected_scope = ["pulse3d:paid", "mantarray:firmware:get"]
+    expected_scope = ["mantarray:paid", "mantarray:firmware:get"]
 
     response = test_client.post(
         "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
