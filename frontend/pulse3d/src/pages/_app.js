@@ -53,7 +53,7 @@ function Pulse({ Component, pageProps }) {
   const router = useRouter();
   const [accountInfo, setAccountInfo] = useState({});
   const [showLoggedOutAlert, setLoggedOutAlert] = useState(false);
-  const [usageQuota, setUsageQuota] = useState(null);
+  const [usageQuota, setUsageQuota] = useState();
   const [userScopes, setUserScopes] = useState([]);
   // TODO defaulting to mantarray for customer accounts until it's decided how to handle usage for multiple products
   const [productPage, setProductPage] = useState("mantarray");

@@ -52,7 +52,7 @@ const ProductDescLabel = styled.div`
 
 export default function Login() {
   const router = useRouter();
-  const { accountScope, setProductPage } = useContext(AuthContext);
+  const { accountScope, setProductPage, setUsageQuota } = useContext(AuthContext);
 
   const [products, setProducts] = useState({
     mantarray: {
@@ -93,6 +93,11 @@ export default function Login() {
       });
     }
   }, [accountScope]);
+
+  useEffect(() => {
+    // reset usage quota each time the home page is navigated too so that the previous product usage doesn't affect navigating to a different product
+    setUsageQuota();
+  }, []);
 
   const mouseEnter = ({ target }) => {
     const productType = target.id.split("-")[0];

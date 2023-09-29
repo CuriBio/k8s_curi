@@ -25,9 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class ProtectedAny:
-    def __init__(
-        self, scope: List[str] = ["mantarray:paid"], refresh: bool = False, check_scope: bool = True
-    ):
+    def __init__(self, scope: List[str], refresh: bool = False, check_scope: bool = True):
         # don't check scope if using this for refresh tokens
         if refresh:
             check_scope = False
