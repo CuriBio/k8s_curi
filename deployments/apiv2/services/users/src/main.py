@@ -20,6 +20,7 @@ from auth import (
     PULSE3D_PAID_USAGE,
     USER_SCOPES,
     DEFAULT_MANTARRAY_SCOPES,
+    ALL_PULSE3D_SCOPES,
 )
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
@@ -229,10 +230,11 @@ def _get_user_scopes_from_customer(customer_scopes) -> dict[str, list[str]]:
 
 def _get_scopes_from_request(user_scopes, customer_scope) -> list[str]:
     for idx, product in enumerate(user_scopes):
+        # if scope is the main product scope, then attach customer tier to scope
         if product in USER_SCOPES.keys():
             _, product_tier = split_scope_account_data(next(s for s in customer_scope if product in s))
             user_scopes[idx] = f"{product}:{product_tier}"
-
+        # else check if scope exists in available scopes, then raise exception
         elif any([USER_SCOPES[s] for s in USER_SCOPES.keys() if product in USER_SCOPES[s]]):
             raise UnknownScopeError(f"Attempting to assign unknown scope: {product}")
 
@@ -253,7 +255,7 @@ async def _update_failed_login_attempts(con, account_type: str, id: str, count: 
 
 
 @app.post("/refresh", response_model=AuthTokens, status_code=status.HTTP_201_CREATED)
-async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
+async def refresh(request: Request, token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES, refresh=True))):
     """Create a new access token and refresh token.
 
     The refresh token given in the request is first decoded and validated itself,
@@ -340,7 +342,7 @@ async def _create_new_tokens(db_con, userid, customer_id, scope, account_type):
 
 
 @app.post("/logout", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
-async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False))):
+async def logout(request: Request, token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES, check_scope=False))):
     """Logout the user/customer.
 
     The refresh token for the user/customer will be removed from the DB, so they will
@@ -684,7 +686,8 @@ async def update_accounts(
                 if is_user:
                     query_params.append(customer_id)
                 await con.execute(query, *query_params)
-
+    except HTTPException:
+        raise
     except Exception:
         logger.exception(f"PUT /{user_id}: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -767,7 +770,11 @@ async def update_user_scopes(
 # Luci (10/5/22) Following two routes need to be last otherwise will mess with the ProtectedAny scope used in Auth
 # Please see https://fastapi.tiangolo.com/tutorial/path-params/#order-matters
 @app.get("/{account_id}")
-async def get_user(request: Request, account_id: uuid.UUID, token=Depends(ProtectedAny(check_scope=False))):
+async def get_user(
+    request: Request,
+    account_id: uuid.UUID,
+    token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES, check_scope=False)),
+):
     """Get info for the account with the given ID.
 
     If the account is a user account, the ID must exist under the customer ID in the token
@@ -834,7 +841,7 @@ async def update_user(
     request: Request,
     details: AccountUpdateAction,
     account_id: uuid.UUID,
-    token=Depends(ProtectedAny(check_scope=False)),
+    token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES, check_scope=False)),
 ):
     """Update an account's information in the database.
 

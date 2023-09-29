@@ -6,7 +6,7 @@ import uuid
 import pandas as pd
 import pytest
 from semver import VersionInfo
-from auth import create_token, ALL_PULSE3D_SCOPES
+from auth import create_token, ALL_PULSE3D_SCOPES, CUSTOMER_SCOPES
 from utils.s3 import S3Error
 from src import main
 import numpy as np
@@ -132,7 +132,7 @@ def test_uploads__get(test_token_scope, test_upload_ids, mocked_asyncpg_con, moc
         # falsey query params are automatically converted to None
         expected_upload_ids = None
 
-    if test_token_scope == ["pulse3d:rw_all_data"]:
+    if "mantarray:rw_all_data" in test_token_scope:
         account_type = "dataUser"
         test_account_id = test_customer_id
 
@@ -300,7 +300,7 @@ def test_uploads__delete__failure_to_delete_uploads(mocker):
 )
 def test_jobs__get__jobs_found(download, test_token_scope, test_job_ids, mocked_asyncpg_con, mocker):
     test_account_id = uuid.uuid4()
-    account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
+    account_type = "customer" if test_token_scope[0] in CUSTOMER_SCOPES else "user"
     test_customer_id = uuid.uuid4() if account_type != "customer" else None
 
     if test_job_ids:
@@ -371,7 +371,7 @@ def test_jobs__get__jobs_found(download, test_token_scope, test_job_ids, mocked_
         assert response_job == expected_job
     # this changes after token creation
 
-    if test_token_scope == ["pulse3d:rw_all_data"]:
+    if "mantarray:rw_all_data" in test_token_scope:
         account_type = "dataUser"
         test_account_id = test_customer_id
 
@@ -533,7 +533,7 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
         priority=expected_job_priority,
         meta={"analysis_params": expected_analysis_params, "version": test_version},
         customer_id=str(test_customer_id),
-        job_type="pulse3d",
+        job_type="mantarray",
     )
 
 
@@ -972,7 +972,7 @@ def test_jobs_download__post__no_duplicate_analysis_file_names(
     test_token_scope, test_job_ids, mocked_asyncpg_con, mocker
 ):
     test_account_id = uuid.uuid4()
-    account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
+    account_type = "customer" if test_token_scope[0] in CUSTOMER_SCOPES else "user"
     test_customer_id = uuid.uuid4() if account_type != "customer" else None
 
     access_token = get_token(
@@ -1005,7 +1005,7 @@ def test_jobs_download__post__no_duplicate_analysis_file_names(
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/zip"
 
-    if "pulse3d:rw_all_data" in test_token_scope:
+    if "mantarray:rw_all_data" in test_token_scope:
         account_type = "dataUser"
         test_account_id = test_customer_id
 
@@ -1061,7 +1061,7 @@ def test_jobs_download__post__duplicate_analysis_file_names(mocked_asyncpg_con, 
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/zip"
 
-    if "pulse3d:rw_all_data" in test_token_scope:
+    if "mantarray:rw_all_data" in test_token_scope:
         account_type = "dataUser"
         test_account_id = test_customer_id
 
