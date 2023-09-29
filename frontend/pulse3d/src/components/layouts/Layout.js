@@ -77,7 +77,9 @@ export default function Layout({ children }) {
   const [showHomeArrow, setShowHomeArrow] = useState(false);
   const router = useRouter();
   const { accountType } = useContext(AuthContext);
-  const isAuthorizedPage = !["/login", "/account/verify", "/account/reset"].includes(router.pathname);
+  const isAuthorizedPage = !["/login", "/account/verify", "/account/reset", "/home"].includes(
+    router.pathname
+  );
 
   useEffect(() => {
     setShowHomeArrow(accountType === "user" && !["/home", "/login"].includes(router.pathname));

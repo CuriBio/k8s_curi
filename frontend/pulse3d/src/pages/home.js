@@ -52,7 +52,7 @@ const ProductDescLabel = styled.div`
 
 export default function Login() {
   const router = useRouter();
-  const { accountScope } = useContext(AuthContext);
+  const { accountScope, setProductPage, setUsageQuota } = useContext(AuthContext);
 
   const [products, setProducts] = useState({
     mantarray: {
@@ -94,23 +94,34 @@ export default function Login() {
     }
   }, [accountScope]);
 
+  useEffect(() => {
+    // reset usage quota each time the home page is navigated too so that the previous product usage doesn't affect navigating to a different product
+    setUsageQuota();
+  }, []);
+
   const mouseEnter = ({ target }) => {
+    const productType = target.id.split("-")[0];
     // protect against hovering over disabled products
-    if (products[target.id].state === "default") {
-      setProducts({ ...products, [target.id]: { ...products[target.id], state: "hover" } });
+    if (products[productType].state === "default") {
+      setProducts({ ...products, [productType]: { ...products[productType], state: "hover" } });
     }
   };
 
   const mouseLeave = ({ target }) => {
+    const productType = target.id.split("-")[0];
     // protect against non hovered products
-    if (products[target.id].state === "hover") {
-      setProducts({ ...products, [target.id]: { ...products[target.id], state: "default" } });
+    if (products[productType].state === "hover") {
+      setProducts({ ...products, [productType]: { ...products[productType], state: "default" } });
     }
   };
 
   const handleProductNavigation = ({ target }) => {
-    // TODO handle different nav once product differences are more specced out
-    router.push("/uploads?checkUsage=true", "/uploads");
+    if (!target.id.includes("disabled")) {
+      // used to poll usage for correct product
+      setProductPage(target.id.split("-")[0]);
+      // TODO handle different nav once product differences are more specced out
+      router.push("/uploads?checkUsage=true", "/uploads");
+    }
   };
 
   return (
@@ -140,7 +151,7 @@ export default function Login() {
                   <Image
                     src={`/Curi-Bio-cloud-design_${type} ${state} state.svg`}
                     alt={`${name} logo`}
-                    id={type}
+                    id={`${type}-${state}`}
                     width={250}
                     height={250}
                     loader={imageLoader}

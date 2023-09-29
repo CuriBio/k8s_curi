@@ -22,7 +22,7 @@ PASSWORD_REGEX = r"""(
 class CustomerLogin(BaseModel):
     email: EmailStr
     password: SecretStr
-    service: str
+    service: str | None  # TODO decide how to check usage for multiple products for a customer login
     client_type: str | None
 
 
@@ -30,7 +30,7 @@ class UserLogin(BaseModel):
     customer_id: UUID | str
     username: str
     password: SecretStr
-    service: str
+    service: str | None  # TODO remove after this key is removed from MA login request
     client_type: str | None
 
 
@@ -88,7 +88,6 @@ class UserProfile(BaseModel):
     username: constr(min_length=USERNAME_MIN_LEN, max_length=USERNAME_MAX_LEN, regex=USERNAME_REGEX_STR)
     email: EmailStr
     user_id: str
-    account_type: str
     scope: list[str]
 
 
@@ -101,6 +100,10 @@ class CustomerProfile(BaseModel):
 class AccountUpdateAction(BaseModel):
     action_type: str
     new_alias: str | None
+
+
+class UserScopesUpdate(BaseModel):
+    scopes: list[str]
 
 
 class UnableToUpdateAccountResponse(BaseModel):
@@ -116,4 +119,5 @@ class UsageQuota(BaseModel):
 
 class LoginResponse(BaseModel):
     tokens: AuthTokens
-    usage_quota: UsageQuota
+    usage_quota: UsageQuota | None
+    user_scopes: dict[str, list[str]] | None
