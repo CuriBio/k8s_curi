@@ -140,17 +140,21 @@ async def create_recording_upload(
     try:
         user_id = str(uuid.UUID(token["userid"]))
         customer_id = str(uuid.UUID(token["customer_id"]))
+        # TODO Luci (09/30/2023) eventually select for upload type specific scope instead of defaulting to index 0, not currently specced out how to handle multiple products
         service, _ = split_scope_account_data(token["scope"][0])
         # generating uuid here instead of letting PG handle it so that it can be inserted into the prefix more easily
         upload_id = uuid.uuid4()
         s3_key = f"uploads/{customer_id}/{user_id}/{upload_id}"
+
+        # TODO Luci (09/30/2023) remove after MA v1.2.2+, will no longer need to handle pulse3d upload types
+        upload_type = details.upload_type if details.upload_type != "pulse3d" else "mantarray"
 
         upload_params = {
             "prefix": s3_key,
             "filename": details.filename,
             "md5": details.md5s,
             "user_id": user_id,
-            "type": details.upload_type,
+            "type": upload_type,
             "customer_id": customer_id,
             "auto_upload": details.auto_upload,
             "upload_id": upload_id,
