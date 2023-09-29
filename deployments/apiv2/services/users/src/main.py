@@ -35,6 +35,7 @@ from models.users import (
     AccountUpdateAction,
     LoginResponse,
     PasswordModel,
+    UserScopesUpdate,
     UnableToUpdateAccountResponse,
 )
 from utils.db import AsyncpgPoolDep
@@ -223,6 +224,16 @@ def _get_user_scopes_from_customer(customer_scopes) -> dict[str, list[str]]:
     customer_products = [split_scope_account_data(s)[0] for s in customer_scopes]
     # return {"nautilus": ["nautilus:rw_all_data"], "mantarray": ["mantarray:rw_all_data"]}
     return {p: USER_SCOPES[p] for p in customer_products}
+
+
+def _get_scopes_from_request(user_scopes, customer_scope) -> list[str]:
+    for idx, product in enumerate(user_scopes):
+        if product in USER_SCOPES.keys():
+            _, product_tier = split_scope_account_data(next(s for s in customer_scope if product in s))
+            user_scopes[idx] = f"{product}:{product_tier}"
+    # all users need mantarray:firmware:get
+    user_scopes.append("mantarray:firmware:get")
+    return user_scopes
 
 
 async def _update_failed_login_attempts(con, account_type: str, id: str, count: int) -> None:
@@ -423,27 +434,15 @@ async def register_user(
     try:
         email = details.email.lower()
 
-        # TODO add handling for multiple service scopes and exception handling if none found
-        _, customer_tier = split_scope_account_data(customer_scope[0])  # 'free' or 'paid'
-
-        user_scope = details.scope
-        for idx, product in enumerate(user_scope):
-            if product in USER_SCOPES.keys():
-                _, product_tier = split_scope_account_data(next(s for s in customer_scope if product in s))
-                user_scope[idx] = f"{product}:{product_tier}"
-        # all users need mantarray:firmware:get
-        user_scope.append("mantarray:firmware:get")
+        user_scope = _get_scopes_from_request(details.scope, customer_scope)
         logger.info(f"Registering new user with scopes: {user_scope}")
 
         username = details.username.lower()
         # suspended and verified get set to False by default
         insert_account_query_args = (
-            # TODO do we still need the account_type col? Might not need it now that scopes are being used. If we keep it, should probably rename it since 'account type' is more commonly used to hold if an account is a 'user' or 'customer' account
-            "INSERT INTO users (name, email, account_type, customer_id) "
-            "VALUES ($1, $2, $3, $4) RETURNING id",
+            "INSERT INTO users (name, email, customer_id) " "VALUES ($1, $2, $3) RETURNING id",
             username,
             email,
-            "paid",  # should remove column
             customer_id,
         )
 
@@ -482,11 +481,7 @@ async def register_user(
                 )
 
                 return UserProfile(
-                    username=username,
-                    email=email,
-                    user_id=new_account_id.hex,
-                    account_type=customer_tier,
-                    scope=user_scope,
+                    username=username, email=email, user_id=new_account_id.hex, scope=user_scope
                 )
 
     except EmailRegistrationError as e:
@@ -731,6 +726,37 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTO
 
     except Exception:
         logger.exception("GET /: Unexpected error")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.put("/scopes/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def update_user_scopes(
+    request: Request,
+    details: UserScopesUpdate,
+    account_id: uuid.UUID,
+    token=Depends(ProtectedAny(CUSTOMER_SCOPES)),
+):
+    """Update a user account's scopes in the database."""
+    customer_id = uuid.UUID(hex=token["userid"])
+    customer_scope = token["scope"]
+    user_scope = _get_scopes_from_request(details.scopes, customer_scope)
+
+    try:
+        async with request.state.pgpool.acquire() as con:
+            async with con.transaction():
+                # first delete existing scopes from database
+                await con.execute(
+                    "DELETE FROM account_scopes WHERE customer_id=$1 AND user_id=$2", customer_id, account_id
+                )
+                # add new scopes
+                await con.execute(
+                    "INSERT INTO account_scopes VALUES ($1, $2, unnest($3::text[]))",
+                    customer_id,
+                    account_id,
+                    user_scope,
+                )
+    except Exception:
+        logger.exception(f"PUT /scopes/{account_id}: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

@@ -27,13 +27,7 @@ from pulse3D.constants import (
     AMPLITUDE_UUID,
 )
 
-from auth import (
-    ProtectedAny,
-    PULSE3D_USER_SCOPES,
-    ALL_PULSE3D_SCOPES,
-    CUSTOMER_SCOPES,
-    split_scope_account_data,
-)
+from auth import ProtectedAny, PULSE3D_USER_SCOPES, ALL_PULSE3D_SCOPES, split_scope_account_data
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET, DASHBOARD_URL
 from jobs import (
     create_upload,
@@ -116,7 +110,8 @@ async def get_info_of_uploads(
         account_type = token["account_type"]
 
         # give advanced privileges to access all uploads under customer_id
-        if "pulse3d:rw_all_data" in token["scope"]:
+        # TODO update this to product specific when landing page is specced out more
+        if "mantarray:rw_all_data" in token["scope"]:
             account_id = str(uuid.UUID(token["customer_id"]))
             # catches in the else block like customers in get_uploads, just set here so it's not customer and become confusing
             account_type = "dataUser"
@@ -351,7 +346,8 @@ async def _get_jobs(con, token, job_ids):
     logger.info(f"Retrieving job info with IDs: {job_ids} for {account_type}: {account_id}")
 
     # give advanced privileges to access all uploads under customer_id
-    if "pulse3d:rw_all_data" in token["scope"]:
+    # TODO update this to product specific when landing page is specced out more
+    if "mantarray:rw_all_data" in token["scope"]:
         account_id = str(uuid.UUID(token["customer_id"]))
         # catches in the else block like customers in get_uploads, just set here so it's not customer and become confusing
         account_type = "dataUser"

@@ -6,6 +6,7 @@ Create Date: 2023-09-26 08:46:32.666101
 
 """
 from alembic import op
+import sqlalchemy as sa
 import json
 
 # revision identifiers, used by Alembic.
@@ -43,6 +44,10 @@ def upgrade():
     op.execute("UPDATE jobs_result SET type='mantarray' where type='nautilus'")
     op.execute("ALTER TABLE jobs_result ALTER COLUMN type SET DEFAULT 'mantarray'")
 
+    # drop account_type column from customers, no longer needed since we have multiple products with independent tiers
+    # this info can be found in the usage_restrictions column and account_scopes table
+    op.drop_column("users", "account_type")
+
 
 def downgrade():
     op.execute(
@@ -74,3 +79,13 @@ def downgrade():
     op.execute("UPDATE uploads SET type='pulse3d' where type='nautilus'")
     op.execute("UPDATE jobs_result SET type='pulse3d' where type='nautilus'")
     op.execute("ALTER TABLE jobs_result ALTER COLUMN type SET DEFAULT 'pulse3d'")
+
+    op.add_column(
+        "users",
+        sa.Column(
+            "account_type",
+            sa.Enum("free", "paid", "admin", name="UserAccountType", create_type=True),
+            nullable=False,
+            server_default="paid",
+        ),
+    )

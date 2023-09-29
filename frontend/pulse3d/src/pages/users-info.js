@@ -565,16 +565,12 @@ export default function UserInfo() {
         labels={["Something went wrong while performing this action.", "Please try again later."]}
         buttons={["Close"]}
       />
-      <ModalWidget
-        open={openEditModal}
-        width={600}
-        closeModal={resetTable}
-        header={"Edit User"}
-        labels={[]}
-        buttons={["Close", "Save"]}
-      >
-        <EditUserForm userData={usersData.find((user) => checkedUsers.includes(user.id))} />
-      </ModalWidget>
+      <EditUserForm
+        userData={usersData.find((user) => checkedUsers.includes(user.id))}
+        openEditModal={openEditModal}
+        setOpenEditModal={setOpenEditModal}
+        resetTable={resetTable}
+      />
     </>
   );
 }

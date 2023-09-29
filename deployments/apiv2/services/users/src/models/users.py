@@ -88,7 +88,6 @@ class UserProfile(BaseModel):
     username: constr(min_length=USERNAME_MIN_LEN, max_length=USERNAME_MAX_LEN, regex=USERNAME_REGEX_STR)
     email: EmailStr
     user_id: str
-    account_type: str
     scope: list[str]
 
 
@@ -101,6 +100,10 @@ class CustomerProfile(BaseModel):
 class AccountUpdateAction(BaseModel):
     action_type: str
     new_alias: str | None
+
+
+class UserScopesUpdate(BaseModel):
+    scopes: list[str]
 
 
 class UnableToUpdateAccountResponse(BaseModel):
@@ -117,4 +120,4 @@ class UsageQuota(BaseModel):
 class LoginResponse(BaseModel):
     tokens: AuthTokens
     usage_quota: UsageQuota
-    user_scopes: dict[str, list[str]]
+    user_scopes: dict[str, list[str]] | None
