@@ -53,7 +53,10 @@ function Pulse({ Component, pageProps }) {
   const router = useRouter();
   const [accountInfo, setAccountInfo] = useState({});
   const [showLoggedOutAlert, setLoggedOutAlert] = useState(false);
-  const [usageQuota, setUsageQuota] = useState(null);
+  const [usageQuota, setUsageQuota] = useState();
+  const [userScopes, setUserScopes] = useState([]);
+  // TODO defaulting to mantarray for customer accounts until it's decided how to handle usage for multiple products
+  const [productPage, setProductPage] = useState("mantarray");
 
   let swInterval = null;
   // register the SW once
@@ -100,6 +103,7 @@ function Pulse({ Component, pageProps }) {
           } else if (data.msgType === "authCheck") {
             const newAccountInfo = data.accountInfo;
             if (data.isLoggedIn) {
+              setUserScopes(data.userScopes);
               // the router pathname must be sent to the SW and then sent back here since for some reason this message handler can't grab the current page
               setAccountInfo(newAccountInfo);
               // if logged in and on a page that shouldn't be accessed, or if on the login page, redirect to home page (currently /uploads)
@@ -169,6 +173,10 @@ function Pulse({ Component, pageProps }) {
           accountScope: accountInfo.accountScope,
           usageQuota,
           setUsageQuota,
+          userScopes,
+          setUserScopes,
+          productPage,
+          setProductPage,
         }}
       >
         <Layout>

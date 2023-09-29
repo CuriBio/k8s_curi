@@ -18,10 +18,13 @@ from auth import (
     split_scope_account_data,
     ACCOUNT_SCOPES,
     PULSE3D_PAID_USAGE,
+    USER_SCOPES,
+    DEFAULT_MANTARRAY_SCOPES,
+    ALL_PULSE3D_SCOPES,
 )
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
-from models.errors import LoginError, RegistrationError, EmailRegistrationError
+from models.errors import LoginError, RegistrationError, EmailRegistrationError, UnknownScopeError
 from models.tokens import AuthTokens
 from models.users import (
     CustomerLogin,
@@ -33,6 +36,7 @@ from models.users import (
     AccountUpdateAction,
     LoginResponse,
     PasswordModel,
+    UserScopesUpdate,
     UnableToUpdateAccountResponse,
 )
 from utils.db import AsyncpgPoolDep
@@ -89,7 +93,6 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
     like Pulse, Phenolearn, etc.
     """
     ph = PasswordHasher()
-
     # Tanner (7/24/23): checking the type instead of using isinstance here in case UserLogin and CustomerLogin are ever put into the class hierarchy which would cause the isinstance approach to fail in some cases
     is_customer_login_attempt = type(details) is CustomerLogin
 
@@ -188,12 +191,15 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
 
                 # check account usage quotas
                 customer_id = select_query_result["id" if is_customer_login_attempt else "customer_id"]
-                usage_quota = await check_customer_quota(con, str(customer_id), details.service)
 
                 scope = await _get_account_scope(con, select_query_result["id"], is_customer_login_attempt)
+                avail_user_scopes = None
+                usage_quota = None
 
                 if is_customer_login_attempt:
-                    scope = _convert_to_customer_scope(scope, details.service)
+                    avail_user_scopes = _get_user_scopes_from_customer(scope)
+                    # TODO decide how to show customer accounts usage data for multiple products, defaulting to mantarray now
+                    usage_quota = await check_customer_quota(con, str(customer_id), "mantarray")
                     # customer account tokens don't require a customer ID
                     customer_id = None
                 else:
@@ -207,13 +213,34 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
                 tokens = await _create_new_tokens(
                     con, select_query_result["id"], customer_id, scope, account_type
                 )
-                return LoginResponse(tokens=tokens, usage_quota=usage_quota)
+                return LoginResponse(tokens=tokens, usage_quota=usage_quota, user_scopes=avail_user_scopes)
 
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     except Exception:
         logger.exception("POST /login: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _get_user_scopes_from_customer(customer_scopes) -> dict[str, list[str]]:
+    customer_products = [split_scope_account_data(s)[0] for s in customer_scopes]
+    # return {"nautilus": ["nautilus:rw_all_data"], "mantarray": ["mantarray:rw_all_data"]}
+    return {p: USER_SCOPES[p] for p in customer_products}
+
+
+def _get_scopes_from_request(user_scopes, customer_scope) -> list[str]:
+    for idx, product in enumerate(user_scopes):
+        # if scope is the main product scope, then attach customer tier to scope
+        if product in USER_SCOPES.keys():
+            _, product_tier = split_scope_account_data(next(s for s in customer_scope if product in s))
+            user_scopes[idx] = f"{product}:{product_tier}"
+        # else check if scope exists in available scopes, then raise exception
+        elif any([USER_SCOPES[s] for s in USER_SCOPES.keys() if product in USER_SCOPES[s]]):
+            raise UnknownScopeError(f"Attempting to assign unknown scope: {product}")
+
+    # all users need mantarray:firmware:get
+    user_scopes.append("mantarray:firmware:get")
+    return user_scopes
 
 
 async def _update_failed_login_attempts(con, account_type: str, id: str, count: int) -> None:
@@ -228,7 +255,7 @@ async def _update_failed_login_attempts(con, account_type: str, id: str, count: 
 
 
 @app.post("/refresh", response_model=AuthTokens, status_code=status.HTTP_201_CREATED)
-async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
+async def refresh(request: Request, token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES, refresh=True))):
     """Create a new access token and refresh token.
 
     The refresh token given in the request is first decoded and validated itself,
@@ -269,11 +296,6 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
 
             scope = await _get_account_scope(con, userid, is_customer_account)
 
-            if is_customer_account:
-                service_scope = next(s for s in token["scope"] if s.startswith("service:"))
-                service_name = service_scope.split(":")[-1]
-                scope = _convert_to_customer_scope(scope, service_name)
-
             # con is passed to this function, so it must be inside this async with block
             return await _create_new_tokens(con, userid, row.get("customer_id"), scope, account_type)
 
@@ -295,26 +317,8 @@ async def _get_account_scope(db_con, account_id, is_customer_account):
     return scope
 
 
-def _convert_to_customer_scope(scope, service):
-    # get tier of service scope in list of customer scopes
-    scope_for_service = [s for s in scope if service in s]
-    if not scope_for_service:
-        raise LoginError(f"No scope for service '{service}' found in customer scopes: {scope}")
-
-    # replace with customer scope
-    _, customer_tier = split_scope_account_data(scope_for_service[0])
-    return [f"customer:{customer_tier}", f"service:{service}"]
-
-
 async def _create_new_tokens(db_con, userid, customer_id, scope, account_type):
     refresh_scope = ["refresh"]
-    try:
-        service_scope_for_refresh = next(s for s in scope if s.startswith("service:"))
-    except StopIteration:
-        pass
-    else:
-        scope.remove(service_scope_for_refresh)
-        refresh_scope.append(service_scope_for_refresh)
 
     # create new tokens
     access = create_token(
@@ -338,7 +342,7 @@ async def _create_new_tokens(db_con, userid, customer_id, scope, account_type):
 
 
 @app.post("/logout", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
-async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False))):
+async def logout(request: Request, token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES, check_scope=False))):
     """Logout the user/customer.
 
     The refresh token for the user/customer will be removed from the DB, so they will
@@ -437,21 +441,15 @@ async def register_user(
     try:
         email = details.email.lower()
 
-        # TODO add handling for multiple service scopes and exception handling if none found
-        _, customer_tier = split_scope_account_data(customer_scope[0])  # 'free' or 'paid'
-        # eventually scopes will be passed from FE, but for now just auto set to paid user
-        user_scope = (
-            details.scope if details.scope is not None else ["pulse3d:paid", "mantarray:firmware:get"]
-        )
+        user_scope = _get_scopes_from_request(details.scope, customer_scope)
+        logger.info(f"Registering new user with scopes: {user_scope}")
+
         username = details.username.lower()
         # suspended and verified get set to False by default
         insert_account_query_args = (
-            # TODO do we still need the account_type col? Might not need it now that scopes are being used. If we keep it, should probably rename it since 'account type' is more commonly used to hold if an account is a 'user' or 'customer' account
-            "INSERT INTO users (name, email, account_type, customer_id) "
-            "VALUES ($1, $2, $3, $4) RETURNING id",
+            "INSERT INTO users (name, email, customer_id) " "VALUES ($1, $2, $3) RETURNING id",
             username,
             email,
-            customer_tier,
             customer_id,
         )
 
@@ -490,16 +488,10 @@ async def register_user(
                 )
 
                 return UserProfile(
-                    username=username,
-                    email=email,
-                    user_id=new_account_id.hex,
-                    account_type=customer_tier,
-                    scope=user_scope,
+                    username=username, email=email, user_id=new_account_id.hex, scope=user_scope
                 )
 
-    except EmailRegistrationError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except RegistrationError as e:
+    except (EmailRegistrationError, UnknownScopeError, RegistrationError) as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception:
         logger.exception("POST /register: Unexpected error")
@@ -694,7 +686,6 @@ async def update_accounts(
                 if is_user:
                     query_params.append(customer_id)
                 await con.execute(query, *query_params)
-
     except HTTPException:
         raise
     except Exception:
@@ -711,11 +702,14 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTO
     customer_id = uuid.UUID(hex=token["userid"])
 
     query = (
-        "SELECT id, name, email, created_at, last_login, verified, suspended, reset_token "
-        "FROM users "
-        "WHERE customer_id=$1 AND deleted_at IS NULL "
-        "ORDER BY suspended"
+        "SELECT u.id, u.name, u.email, u.created_at, u.last_login, u.verified, u.suspended, u.reset_token, array_agg(s.scope) as scopes "
+        "FROM users u "
+        "INNER JOIN account_scopes s ON u.id=s.user_id "
+        "WHERE u.customer_id=$1 AND u.deleted_at IS NULL "
+        "GROUP BY u.id, u.name, u.email, u.created_at, u.last_login, u.verified, u.suspended, u.reset_token "
+        "ORDER BY u.suspended"
     )
+
     try:
         async with request.state.pgpool.acquire() as con:
             result = await con.fetch(query, customer_id)
@@ -723,6 +717,8 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTO
         formatted_results = [dict(row) for row in result]
 
         for row in formatted_results:
+            # remove user-hidden scopes from user list for display
+            row["scopes"] = list(set(row["scopes"]) - set(DEFAULT_MANTARRAY_SCOPES))
             # unverified account should have a jwt token, otherwise will be None.
             # check expiration and if expired, return it as None, FE will handle telling user it's expired
             try:
@@ -737,10 +733,48 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTO
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@app.put("/scopes/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def update_user_scopes(
+    request: Request,
+    details: UserScopesUpdate,
+    account_id: uuid.UUID,
+    token=Depends(ProtectedAny(CUSTOMER_SCOPES)),
+):
+    """Update a user account's scopes in the database."""
+    customer_id = uuid.UUID(hex=token["userid"])
+    customer_scope = token["scope"]
+
+    try:
+        user_scope = _get_scopes_from_request(details.scopes, customer_scope)
+
+        async with request.state.pgpool.acquire() as con:
+            async with con.transaction():
+                # first delete existing scopes from database
+                await con.execute(
+                    "DELETE FROM account_scopes WHERE customer_id=$1 AND user_id=$2", customer_id, account_id
+                )
+                # add new scopes
+                await con.execute(
+                    "INSERT INTO account_scopes VALUES ($1, $2, unnest($3::text[]))",
+                    customer_id,
+                    account_id,
+                    user_scope,
+                )
+    except UnknownScopeError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception:
+        logger.exception(f"PUT /scopes/{account_id}: Unexpected error")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 # Luci (10/5/22) Following two routes need to be last otherwise will mess with the ProtectedAny scope used in Auth
 # Please see https://fastapi.tiangolo.com/tutorial/path-params/#order-matters
 @app.get("/{account_id}")
-async def get_user(request: Request, account_id: uuid.UUID, token=Depends(ProtectedAny(check_scope=False))):
+async def get_user(
+    request: Request,
+    account_id: uuid.UUID,
+    token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES, check_scope=False)),
+):
     """Get info for the account with the given ID.
 
     If the account is a user account, the ID must exist under the customer ID in the token
@@ -807,7 +841,7 @@ async def update_user(
     request: Request,
     details: AccountUpdateAction,
     account_id: uuid.UUID,
-    token=Depends(ProtectedAny(check_scope=False)),
+    token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES, check_scope=False)),
 ):
     """Update an account's information in the database.
 
