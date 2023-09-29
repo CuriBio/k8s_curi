@@ -22,7 +22,7 @@ PASSWORD_REGEX = r"""(
 class CustomerLogin(BaseModel):
     email: EmailStr
     password: SecretStr
-    service: str
+    service: str | None  # TODO decide how to check usage for multiple products for a customer login
     client_type: str | None
 
 
@@ -30,7 +30,7 @@ class UserLogin(BaseModel):
     customer_id: UUID | str
     username: str
     password: SecretStr
-    service: str
+    service: str | None  # TODO remove after this key is removed from MA login request
     client_type: str | None
 
 

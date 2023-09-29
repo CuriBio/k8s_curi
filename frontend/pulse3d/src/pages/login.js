@@ -68,7 +68,7 @@ export default function Login() {
   const [errorMsg, setErrorMsg] = useState();
   const [emailErrorMsg, setEmailErrorMsg] = useState();
   const [loginType, setLoginType] = useState("User");
-  const [userData, setUserData] = useState({ service: "mantarray" });
+  const [userData, setUserData] = useState({});
   const [displayForgotPW, setDisplayForgotPW] = useState(false);
   const [userEmail, setUserEmail] = useState();
   const [inProgress, setInProgress] = useState(false);
@@ -197,7 +197,7 @@ export default function Login() {
                 backgroundColor={isSelected ? "var(--teal-green)" : "var(--dark-blue)"}
                 clickFn={() => {
                   setErrorMsg("");
-                  setUserData({ service: "mantarray" });
+                  setUserData({});
                   setLoginType(type);
                 }}
               />
