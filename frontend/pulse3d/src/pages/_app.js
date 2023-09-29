@@ -55,6 +55,8 @@ function Pulse({ Component, pageProps }) {
   const [showLoggedOutAlert, setLoggedOutAlert] = useState(false);
   const [usageQuota, setUsageQuota] = useState(null);
   const [userScopes, setUserScopes] = useState([]);
+  // TODO defaulting to mantarray for customer accounts until it's decided how to handle usage for multiple products
+  const [productPage, setProductPage] = useState("mantarray");
 
   let swInterval = null;
   // register the SW once
@@ -173,6 +175,8 @@ function Pulse({ Component, pageProps }) {
           setUsageQuota,
           userScopes,
           setUserScopes,
+          productPage,
+          setProductPage,
         }}
       >
         <Layout>

@@ -23,7 +23,7 @@ from auth import (
 )
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
-from models.errors import LoginError, RegistrationError, EmailRegistrationError
+from models.errors import LoginError, RegistrationError, EmailRegistrationError, UnknownScopeError
 from models.tokens import AuthTokens
 from models.users import (
     CustomerLogin,
@@ -92,7 +92,6 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
     like Pulse, Phenolearn, etc.
     """
     ph = PasswordHasher()
-
     # Tanner (7/24/23): checking the type instead of using isinstance here in case UserLogin and CustomerLogin are ever put into the class hierarchy which would cause the isinstance approach to fail in some cases
     is_customer_login_attempt = type(details) is CustomerLogin
 
@@ -191,13 +190,15 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
 
                 # check account usage quotas
                 customer_id = select_query_result["id" if is_customer_login_attempt else "customer_id"]
-                usage_quota = await check_customer_quota(con, str(customer_id), details.service)
 
                 scope = await _get_account_scope(con, select_query_result["id"], is_customer_login_attempt)
                 avail_user_scopes = None
+                usage_quota = None
 
                 if is_customer_login_attempt:
                     avail_user_scopes = _get_user_scopes_from_customer(scope)
+                    # TODO decide how to show customer accounts usage data for multiple products, defaulting to mantarray now
+                    usage_quota = await check_customer_quota(con, str(customer_id), "mantarray")
                     # customer account tokens don't require a customer ID
                     customer_id = None
                 else:
@@ -231,6 +232,10 @@ def _get_scopes_from_request(user_scopes, customer_scope) -> list[str]:
         if product in USER_SCOPES.keys():
             _, product_tier = split_scope_account_data(next(s for s in customer_scope if product in s))
             user_scopes[idx] = f"{product}:{product_tier}"
+
+        elif any([USER_SCOPES[s] for s in USER_SCOPES.keys() if product in USER_SCOPES[s]]):
+            raise UnknownScopeError(f"Attempting to assign unknown scope: {product}")
+
     # all users need mantarray:firmware:get
     user_scopes.append("mantarray:firmware:get")
     return user_scopes
@@ -484,9 +489,7 @@ async def register_user(
                     username=username, email=email, user_id=new_account_id.hex, scope=user_scope
                 )
 
-    except EmailRegistrationError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except RegistrationError as e:
+    except (EmailRegistrationError, UnknownScopeError, RegistrationError) as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception:
         logger.exception("POST /register: Unexpected error")
@@ -682,8 +685,6 @@ async def update_accounts(
                     query_params.append(customer_id)
                 await con.execute(query, *query_params)
 
-    except HTTPException:
-        raise
     except Exception:
         logger.exception(f"PUT /{user_id}: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -739,9 +740,10 @@ async def update_user_scopes(
     """Update a user account's scopes in the database."""
     customer_id = uuid.UUID(hex=token["userid"])
     customer_scope = token["scope"]
-    user_scope = _get_scopes_from_request(details.scopes, customer_scope)
 
     try:
+        user_scope = _get_scopes_from_request(details.scopes, customer_scope)
+
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():
                 # first delete existing scopes from database
@@ -755,6 +757,8 @@ async def update_user_scopes(
                     account_id,
                     user_scope,
                 )
+    except UnknownScopeError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception:
         logger.exception(f"PUT /scopes/{account_id}: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
