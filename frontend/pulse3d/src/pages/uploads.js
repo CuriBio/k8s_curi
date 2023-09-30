@@ -13,7 +13,6 @@ import ResizableColumn from "@/components/table/ResizableColumn";
 import ColumnHead from "@/components/table/ColumnHead";
 import { useRouter } from "next/router";
 import JobPreviewModal from "@/components/interactiveAnalysis/JobPreviewModal";
-import { select } from "d3";
 
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
@@ -136,9 +135,8 @@ const modalObjs = {
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota } = useContext(AuthContext);
-  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } = useContext(
-    UploadsContext
-  );
+  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } =
+    useContext(UploadsContext);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
