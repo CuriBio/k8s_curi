@@ -91,7 +91,12 @@ export default function Login() {
       // this state gets passed to web worker to attempt login request
     } else {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/login`, {
+        let loginURL = `${process.env.NEXT_PUBLIC_USERS_URL}/login`;
+        if (loginType === "Admin") {
+          loginURL += "/customer";
+        }
+
+        const res = await fetch(loginURL, {
           method: "POST",
           body: JSON.stringify({ ...userData, client_type: "dashboard" }),
           mode: "no-cors",

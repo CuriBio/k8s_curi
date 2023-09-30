@@ -13,6 +13,7 @@ import ResizableColumn from "@/components/table/ResizableColumn";
 import ColumnHead from "@/components/table/ColumnHead";
 import { useRouter } from "next/router";
 import JobPreviewModal from "@/components/interactiveAnalysis/JobPreviewModal";
+import { select } from "d3";
 
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
@@ -155,7 +156,7 @@ export default function Uploads() {
   const [filterColumn, setFilterColumn] = useState("");
   // TODO could probably put all these widths in the same object
   const [ownerWidth, setOwnerWidth] = useState("10%");
-  const [recordingWidth, setRecordingWidth] = useState("24%");
+  const [recordingWidth, setRecordingWidth] = useState("23%");
   const [uploadWidth, setUploadWidth] = useState("21%");
   const [createdWidth, setCreatedWidth] = useState("17%");
   const [analyzedWidth, setAnalyzedWidth] = useState("17%");
@@ -317,10 +318,19 @@ export default function Uploads() {
   useEffect(() => {
     // protect against user who doesn't have any uploads to show
     if (displayRows.length > 0) {
-      if (checkedUploads.length !== displayRows.length && selectAll) {
-        // handle select all check state if changes are made to checked uploads
-        // if user had previously set select all to true and unchecks an individual upload, set select all state back to false
-        setSelectAll(false);
+      if (selectAll) {
+        if (checkedUploads.length < displayRows.length) {
+          // handle select all check state if changes are made to checked uploads
+          // if user had previously set select all to true and unchecks an individual upload, set select all state back to false
+          setSelectAll(false);
+        } else if (checkedUploads.length > displayRows.length) {
+          // else if a user has selected all and then filters the uploads by some string, then only check displayed items and don't include hidden items
+          const allUploadsIds = displayRows.map(({ id }) => id);
+          setCheckedUploads(allUploadsIds);
+          //check all jobs
+          const allJobIds = getJobsForUploads(allUploadsIds);
+          setCheckedJobs(allJobIds);
+        }
       } else if (checkedUploads.length === displayRows.length && !selectAll) {
         // else if user individually selects all uploads, then set select all state to true
         setSelectAll(true);
@@ -355,12 +365,6 @@ export default function Uploads() {
       const newList = filterColumns();
       if (newList.length > 0) {
         setDisplayRows(newList);
-        // check all uploads
-        const allUploadsIds = newList.map(({ id }) => id);
-        setCheckedUploads(allUploadsIds);
-        //check all jobs
-        const allJobIds = getJobsForUploads(allUploadsIds);
-        setCheckedJobs(allJobIds);
       }
     }
   }, [filterString]);

@@ -78,9 +78,9 @@ async def startup():
         CB_CUSTOMER_ID = await con.fetchval("SELECT id FROM customers WHERE email='software@curibio.com'")
 
 
-@app.post("/login", response_model=LoginResponse)
-async def login(request: Request, details: UserLogin | CustomerLogin):
-    """Login a user or customer account.
+@app.post("/login/customer", response_model=LoginResponse)
+async def login_customer(request: Request, details: CustomerLogin):
+    """Login a customer account.
 
     Logging in consists of validating the given credentials and, if valid,
     returning a JWT with the appropriate privileges.
@@ -88,138 +88,166 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
     If no customer id is given, assume this is an attempt to login to a
     customer account which has admin privileges over its users, but cannot
     interact with any other services.
-
-    Otherwise, attempt to login a regular user, which can interact with services
-    like Pulse, Phenolearn, etc.
     """
-    ph = PasswordHasher()
-    # Tanner (7/24/23): checking the type instead of using isinstance here in case UserLogin and CustomerLogin are ever put into the class hierarchy which would cause the isinstance approach to fail in some cases
-    is_customer_login_attempt = type(details) is CustomerLogin
-
-    if is_customer_login_attempt:
-        account_type = "customer"
-        email = details.email.lower()
-        select_query = (
-            "SELECT password, id, failed_login_attempts, suspended "
-            "FROM customers WHERE deleted_at IS NULL AND email=$1"
-        )
-        select_query_params = (email,)
-
-        update_last_login_query = "UPDATE customers SET last_login=$1, failed_login_attempts=0 WHERE deleted_at IS NULL AND email=$2"
-        update_last_login_params = (datetime.now(), email)
-    else:
-        account_type = "user"
-        username = details.username.lower()
-        # select for service specific usage restrictions listed under the customer account
-        # suspended is for deactivated accounts and verified is for new users needing to verify through email
-        # Tanner (7/25/23): need to use separate queries since asyncpg will raise an error if the value passed in to be compared against customer_id is not a UUID
-        if isinstance(details.customer_id, uuid.UUID):
-            # if a UUID was given in the request then check against the customer ID
-            select_query = (
-                "SELECT password, id, failed_login_attempts, suspended, customer_id FROM users "
-                "WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND verified='t'"
-            )
-        else:
-            # if no UUID given, the check against the customer account alias
-            # TODO should make sure an alias is actually set here?
-            select_query = (
-                "SELECT u.password, u.id, u.failed_login_attempts, u.suspended, u.customer_id "
-                "FROM users AS u JOIN customers AS c ON u.customer_id=c.id "
-                "WHERE u.deleted_at IS NULL AND u.name=$1 AND c.alias=$2 AND u.verified='t'"
-            )
-        select_query_params = (username, str(details.customer_id))
-
-        update_last_login_query = (
-            "UPDATE users SET last_login=$1, failed_login_attempts=0 "
-            "WHERE deleted_at IS NULL AND name=$2 AND customer_id=$3 AND verified='t'"
-        )
-        # the value for customer ID will be added later
-        update_last_login_params = (datetime.now(), username)
-
+    account_type = "customer"
+    email = details.email.lower()
     client_type = details.client_type if details.client_type else "unknown"
-    logger.info(f"{account_type.title()} login attempt from client '{client_type}'")
-
-    failed_msg = "Invalid credentials"
-    account_locked_msg = "Account locked after too many failed login attempts"
+    logger.info(f"Customer login attempt from client '{client_type}'")
 
     try:
         async with request.state.pgpool.acquire() as con:
-            select_query_result = await con.fetchrow(select_query, *select_query_params)
+            select_query_result = await con.fetchrow(
+                "SELECT password, id, failed_login_attempts, suspended "
+                "FROM customers WHERE deleted_at IS NULL AND email=$1",
+                email,
+            )
+            pw = details.password.get_secret_value()
+            # verify password, else raise LoginError
+            await _verify_password(con, account_type, pw, select_query_result)
+            # get scopes from account_scopes table
+            scope = await _get_account_scope(con, select_query_result["id"], True)
+            # get list of scopes that a customer can assign to it's users
+            avail_user_scopes = _get_user_scopes_from_customer(scope)
+            # TODO decide how to show customer accounts usage data for multiple products, defaulting to mantarray now
+            # check usage for customer account
+            usage_quota = await check_customer_quota(con, str(select_query_result["id"]), "mantarray")
+
+            # if login was successful, then update last_login column value to now
+            await con.execute(
+                "UPDATE customers SET last_login=$1, failed_login_attempts=0 WHERE deleted_at IS NULL AND email=$2",
+                datetime.now(),
+                email,
+            )
+
+            tokens = await _create_new_tokens(con, select_query_result["id"], None, scope, account_type)
+            return LoginResponse(tokens=tokens, usage_quota=usage_quota, user_scopes=avail_user_scopes)
+
+    except LoginError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+    except Exception:
+        logger.exception("POST /login/customer: Unexpected error")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.post("/login", response_model=LoginResponse)
+async def login_user(request: Request, details: UserLogin):
+    """Login a user account.
+
+    Logging in consists of validating the given credentials and, if valid,
+    returning a JWT with the appropriate privileges.
+    """
+    account_type = "user"
+    username = details.username.lower()
+    # select for service specific usage restrictions listed under the customer account
+    # suspended is for deactivated accounts and verified is for new users needing to verify through email
+    # Tanner (7/25/23): need to use separate queries since asyncpg will raise an error if the value passed in to be compared against customer_id is not a UUID
+    if isinstance(details.customer_id, uuid.UUID):
+        # if a UUID was given in the request then check against the customer ID
+        select_query = (
+            "SELECT password, id, failed_login_attempts, suspended, customer_id FROM users "
+            "WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND verified='t'"
+        )
+    else:
+        # if no UUID given, the check against the customer account alias
+        # TODO should make sure an alias is actually set here?
+        select_query = (
+            "SELECT u.password, u.id, u.failed_login_attempts, u.suspended, u.customer_id "
+            "FROM users AS u JOIN customers AS c ON u.customer_id=c.id "
+            "WHERE u.deleted_at IS NULL AND u.name=$1 AND c.alias=$2 AND u.verified='t'"
+        )
+
+    client_type = details.client_type if details.client_type else "unknown"
+    logger.info(f"User login attempt from client '{client_type}'")
+
+    try:
+        async with request.state.pgpool.acquire() as con:
+            select_query_result = await con.fetchrow(select_query, username, str(details.customer_id))
             pw = details.password.get_secret_value()
 
-            if select_query_result is None:
-                # if no record is returned by query then fetchrow will return None,
-                # so need to set to a dict with a bad password hash
-                select_query_result = {"password": "x" * 100}
+            # verify password, else raise LoginError
+            await _verify_password(con, account_type, pw, select_query_result)
+            # check account usage quotas
+            customer_id = select_query_result["customer_id"]
+            #  get scopes from account_scopes table
+            scope = await _get_account_scope(con, select_query_result["id"], False)
 
-            try:
-                # at this point, if no "password" key is present,
-                # then there is an issue with the table in the database
-                ph.verify(select_query_result["password"], pw)
-            except VerifyMismatchError:
-                # first check if account is already locked
-                # should never be greater than maximum, but handling in case
-                if select_query_result["failed_login_attempts"] >= MAX_FAILED_LOGIN_ATTEMPTS:
-                    raise LoginError(account_locked_msg)
+            # users logging into the dashboard should not have usage returned because they need to select a product from the landing page first to be given correct limits
+            # users logging into a specific instrument need the the usage returned right away and it is known what instrument they are using
+            usage_quota = None
+            if (service := details.service) is not None:
+                # TODO Luci (09/30/23) remove after MA v1.2.2+ is released, handling for pulse3d login types will no longer be needed
+                service = service if service != "pulse3d" else "mantarray"
+                usage_quota = await check_customer_quota(con, str(customer_id), service)
 
-                # increment customer/user failed attempts
-                logger.info(
-                    f"Failed login attempt {select_query_result['failed_login_attempts'] + 1} for {account_type} id: {select_query_result['id']}"
-                )
-                updated_failed_attempts = select_query_result["failed_login_attempts"] + 1
-                await _update_failed_login_attempts(
-                    con, account_type, select_query_result["id"], updated_failed_attempts
-                )
-                # update login error if this failed attempt hits limit
-                raise LoginError(
-                    account_locked_msg if updated_failed_attempts == MAX_FAILED_LOGIN_ATTEMPTS else failed_msg
-                )
-            except InvalidHash:
-                """
-                The user or customer wasn't found but we don't want to leak info about valid users/customers
-                through timing analysis so we still hash the supplied password before returning an error
-                """
-                ph.hash(pw)
-                raise LoginError(failed_msg)
-            else:
-                # only raise LoginError here when account is locked on successful creds after they have been checked to prevent giving away facts about successful login combinations
-                if select_query_result["failed_login_attempts"] >= MAX_FAILED_LOGIN_ATTEMPTS:
-                    raise LoginError(account_locked_msg)
-                # user can be suspended if admin account suspends them, select_query_result will not return None in that instance
-                if select_query_result["suspended"]:
-                    raise LoginError(failed_msg)
+            # if login was successful, then update last_login column value to now
+            # Tanner (7/25/23): using the customer ID returned from the select query since the customer ID field passed in with the request may contain an alias
+            await con.execute(
+                "UPDATE users SET last_login=$1, failed_login_attempts=0 "
+                "WHERE deleted_at IS NULL AND name=$2 AND customer_id=$3 AND verified='t'",
+                datetime.now(),
+                username,
+                str(customer_id),
+            )
 
-                # check account usage quotas
-                customer_id = select_query_result["id" if is_customer_login_attempt else "customer_id"]
-
-                scope = await _get_account_scope(con, select_query_result["id"], is_customer_login_attempt)
-                avail_user_scopes = None
-                usage_quota = None
-
-                if is_customer_login_attempt:
-                    avail_user_scopes = _get_user_scopes_from_customer(scope)
-                    # TODO decide how to show customer accounts usage data for multiple products, defaulting to mantarray now
-                    usage_quota = await check_customer_quota(con, str(customer_id), "mantarray")
-                    # customer account tokens don't require a customer ID
-                    customer_id = None
-                else:
-                    # Tanner (7/25/23): using the customer ID returned from the select query since the customer ID
-                    # field passed in with the request may contain an alias
-                    update_last_login_params = (*update_last_login_params, str(customer_id))
-
-                # if login was successful, then update last_login column value to now
-                await con.execute(update_last_login_query, *update_last_login_params)
-
-                tokens = await _create_new_tokens(
-                    con, select_query_result["id"], customer_id, scope, account_type
-                )
-                return LoginResponse(tokens=tokens, usage_quota=usage_quota, user_scopes=avail_user_scopes)
+            tokens = await _create_new_tokens(
+                con, select_query_result["id"], customer_id, scope, account_type
+            )
+            return LoginResponse(tokens=tokens, usage_quota=usage_quota, user_scopes=None)
 
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     except Exception:
         logger.exception("POST /login: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+async def _verify_password(con, account_type, pw, select_query_result) -> None:
+    ph = PasswordHasher()
+
+    failed_msg = "Invalid credentials"
+    account_locked_msg = "Account locked after too many failed login attempts"
+
+    if select_query_result is None:
+        # if no record is returned by query then fetchrow will return None,
+        # so need to set to a dict with a bad password hash
+        select_query_result = {"password": "x" * 100}
+
+    try:
+        # at this point, if no "password" key is present,
+        # then there is an issue with the table in the database
+        ph.verify(select_query_result["password"], pw)
+    except VerifyMismatchError:
+        # first check if account is already locked
+        # should never be greater than maximum, but handling in case
+        if select_query_result["failed_login_attempts"] >= MAX_FAILED_LOGIN_ATTEMPTS:
+            raise LoginError(account_locked_msg)
+
+        # increment customer/user failed attempts
+        logger.info(
+            f"Failed login attempt {select_query_result['failed_login_attempts'] + 1} for {account_type} id: {select_query_result['id']}"
+        )
+        updated_failed_attempts = select_query_result["failed_login_attempts"] + 1
+        await _update_failed_login_attempts(
+            con, account_type, select_query_result["id"], updated_failed_attempts
+        )
+        # update login error if this failed attempt hits limit
+        raise LoginError(
+            account_locked_msg if updated_failed_attempts == MAX_FAILED_LOGIN_ATTEMPTS else failed_msg
+        )
+    except InvalidHash:
+        """
+        The user or customer wasn't found but we don't want to leak info about valid users/customers
+        through timing analysis so we still hash the supplied password before returning an error
+        """
+        ph.hash(pw)
+        raise LoginError(failed_msg)
+    else:
+        # only raise LoginError here when account is locked on successful creds after they have been checked to prevent giving away facts about successful login combinations
+        if select_query_result["failed_login_attempts"] >= MAX_FAILED_LOGIN_ATTEMPTS:
+            raise LoginError(account_locked_msg)
+        # user can be suspended if admin account suspends them, select_query_result will not return None in that instance
+        if select_query_result["suspended"]:
+            raise LoginError(failed_msg)
 
 
 def _get_user_scopes_from_customer(customer_scopes) -> dict[str, list[str]]:
