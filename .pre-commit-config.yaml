@@ -1,4 +1,4 @@
-minimum_pre_commit_version: 2.11.1
+minimum_pre_commit_version: 3.1.1
 fail_fast: false
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
