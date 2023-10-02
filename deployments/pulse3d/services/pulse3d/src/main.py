@@ -146,7 +146,7 @@ async def create_recording_upload(
         upload_id = uuid.uuid4()
         s3_key = f"uploads/{customer_id}/{user_id}/{upload_id}"
 
-        # TODO Luci (09/30/2023) remove after MA v1.2.2+, will no longer need to handle pulse3d upload types
+        # TODO Luci (09/30/2023) can remove after MA v1.2.2+, will no longer need to handle pulse3d upload types
         upload_type = details.upload_type if details.upload_type != "pulse3d" else "mantarray"
 
         upload_params = {
