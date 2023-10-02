@@ -126,7 +126,9 @@ export default function Layout({ children }) {
               unoptimized
             />
           </LogoContainer>
-          {isAuthorizedPage && router.pathname !== "/home" && <UsageProgressWidget colorOfTextLabel="white" />}
+          {isAuthorizedPage && router.pathname !== "/home" && (
+            <UsageProgressWidget colorOfTextLabel="white" />
+          )}
         </HeaderCenterSectContainer>
         <HeaderSideSectContainer>
           {isAuthorizedPage && (
