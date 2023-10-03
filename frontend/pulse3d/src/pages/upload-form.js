@@ -152,7 +152,7 @@ export default function UploadForm() {
   };
 
   const router = useRouter();
-  const { usageQuota } = useContext(AuthContext);
+  const { usageQuota, productPage } = useContext(AuthContext);
 
   const [files, setFiles] = useState(defaultUploadForReanalysis ? [defaultUploadForReanalysis] : []);
   const [formattedUploads, setFormattedUploads] = useState([]);
@@ -305,6 +305,7 @@ export default function UploadForm() {
     setXlsxFilePresent(false);
     // in case user added a new preset, want to grab updated list on analysis submission
     getAnalysisPresets();
+    setSelectedPresetIdx();
   };
 
   const resetAnalysisParams = () => {
@@ -610,7 +611,7 @@ export default function UploadForm() {
         body: JSON.stringify({
           filename,
           md5s: hexToBase64(fileHash),
-          upload_type: "pulse3d",
+          upload_type: productPage,
           auto_upload: false,
         }),
       });

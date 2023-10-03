@@ -52,7 +52,7 @@ const ProductDescLabel = styled.div`
 
 export default function Login() {
   const router = useRouter();
-  const { accountScope } = useContext(AuthContext);
+  const { accountScope, setProductPage, setUsageQuota } = useContext(AuthContext);
 
   const [products, setProducts] = useState({
     mantarray: {
@@ -94,6 +94,11 @@ export default function Login() {
     }
   }, [accountScope]);
 
+  useEffect(() => {
+    // reset usage quota each time the home page is navigated too so that the previous product usage doesn't affect navigating to a different product
+    setUsageQuota();
+  }, []);
+
   const mouseEnter = ({ target }) => {
     const productType = target.id.split("-")[0];
     // protect against hovering over disabled products
@@ -111,9 +116,12 @@ export default function Login() {
   };
 
   const handleProductNavigation = ({ target }) => {
-    if (!target.id.includes("disabled"))
+    if (!target.id.includes("disabled")) {
+      // used to poll usage for correct product
+      setProductPage(target.id.split("-")[0]);
       // TODO handle different nav once product differences are more specced out
       router.push("/uploads?checkUsage=true", "/uploads");
+    }
   };
 
   return (

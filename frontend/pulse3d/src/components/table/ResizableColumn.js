@@ -4,5 +4,9 @@ const RowCell = styled.div`
   overflow: hidden;
 `;
 export default function ResizableColumn({ content }) {
-  return <RowCell>{content}</RowCell>;
+  const getContent = (content) => {
+    return Array.isArray(content) ? content.map((item) => <div key={item}>{item}</div>) : content;
+  };
+
+  return <RowCell>{getContent(content)}</RowCell>;
 }

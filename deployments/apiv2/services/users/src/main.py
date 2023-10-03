@@ -18,10 +18,13 @@ from auth import (
     split_scope_account_data,
     ACCOUNT_SCOPES,
     PULSE3D_PAID_USAGE,
+    USER_SCOPES,
+    DEFAULT_MANTARRAY_SCOPES,
+    ALL_PULSE3D_SCOPES,
 )
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
-from models.errors import LoginError, RegistrationError, EmailRegistrationError
+from models.errors import LoginError, RegistrationError, EmailRegistrationError, UnknownScopeError
 from models.tokens import AuthTokens
 from models.users import (
     CustomerLogin,
@@ -33,6 +36,7 @@ from models.users import (
     AccountUpdateAction,
     LoginResponse,
     PasswordModel,
+    UserScopesUpdate,
     UnableToUpdateAccountResponse,
 )
 from utils.db import AsyncpgPoolDep
@@ -74,9 +78,9 @@ async def startup():
         CB_CUSTOMER_ID = await con.fetchval("SELECT id FROM customers WHERE email='software@curibio.com'")
 
 
-@app.post("/login", response_model=LoginResponse)
-async def login(request: Request, details: UserLogin | CustomerLogin):
-    """Login a user or customer account.
+@app.post("/login/customer", response_model=LoginResponse)
+async def login_customer(request: Request, details: CustomerLogin):
+    """Login a customer account.
 
     Logging in consists of validating the given credentials and, if valid,
     returning a JWT with the appropriate privileges.
@@ -84,136 +88,187 @@ async def login(request: Request, details: UserLogin | CustomerLogin):
     If no customer id is given, assume this is an attempt to login to a
     customer account which has admin privileges over its users, but cannot
     interact with any other services.
-
-    Otherwise, attempt to login a regular user, which can interact with services
-    like Pulse, Phenolearn, etc.
     """
-    ph = PasswordHasher()
-
-    # Tanner (7/24/23): checking the type instead of using isinstance here in case UserLogin and CustomerLogin are ever put into the class hierarchy which would cause the isinstance approach to fail in some cases
-    is_customer_login_attempt = type(details) is CustomerLogin
-
-    if is_customer_login_attempt:
-        account_type = "customer"
-        email = details.email.lower()
-        select_query = (
-            "SELECT password, id, failed_login_attempts, suspended "
-            "FROM customers WHERE deleted_at IS NULL AND email=$1"
-        )
-        select_query_params = (email,)
-
-        update_last_login_query = "UPDATE customers SET last_login=$1, failed_login_attempts=0 WHERE deleted_at IS NULL AND email=$2"
-        update_last_login_params = (datetime.now(), email)
-    else:
-        account_type = "user"
-        username = details.username.lower()
-        # select for service specific usage restrictions listed under the customer account
-        # suspended is for deactivated accounts and verified is for new users needing to verify through email
-        # Tanner (7/25/23): need to use separate queries since asyncpg will raise an error if the value passed in to be compared against customer_id is not a UUID
-        if isinstance(details.customer_id, uuid.UUID):
-            # if a UUID was given in the request then check against the customer ID
-            select_query = (
-                "SELECT password, id, failed_login_attempts, suspended, customer_id FROM users "
-                "WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND verified='t'"
-            )
-        else:
-            # if no UUID given, the check against the customer account alias
-            # TODO should make sure an alias is actually set here?
-            select_query = (
-                "SELECT u.password, u.id, u.failed_login_attempts, u.suspended, u.customer_id "
-                "FROM users AS u JOIN customers AS c ON u.customer_id=c.id "
-                "WHERE u.deleted_at IS NULL AND u.name=$1 AND c.alias=$2 AND u.verified='t'"
-            )
-        select_query_params = (username, str(details.customer_id))
-
-        update_last_login_query = (
-            "UPDATE users SET last_login=$1, failed_login_attempts=0 "
-            "WHERE deleted_at IS NULL AND name=$2 AND customer_id=$3 AND verified='t'"
-        )
-        # the value for customer ID will be added later
-        update_last_login_params = (datetime.now(), username)
-
+    account_type = "customer"
+    email = details.email.lower()
     client_type = details.client_type if details.client_type else "unknown"
-    logger.info(f"{account_type.title()} login attempt from client '{client_type}'")
-
-    failed_msg = "Invalid credentials"
-    account_locked_msg = "Account locked after too many failed login attempts"
+    logger.info(f"Customer login attempt from client '{client_type}'")
 
     try:
         async with request.state.pgpool.acquire() as con:
-            select_query_result = await con.fetchrow(select_query, *select_query_params)
+            select_query_result = await con.fetchrow(
+                "SELECT password, id, failed_login_attempts, suspended "
+                "FROM customers WHERE deleted_at IS NULL AND email=$1",
+                email,
+            )
+            pw = details.password.get_secret_value()
+            # verify password, else raise LoginError
+            await _verify_password(con, account_type, pw, select_query_result)
+            # get scopes from account_scopes table
+            scope = await _get_account_scope(con, select_query_result["id"], True)
+            # get list of scopes that a customer can assign to it's users
+            avail_user_scopes = _get_user_scopes_from_customer(scope)
+            # TODO decide how to show customer accounts usage data for multiple products, defaulting to mantarray now
+            # check usage for customer account
+            usage_quota = await check_customer_quota(con, str(select_query_result["id"]), "mantarray")
+
+            # if login was successful, then update last_login column value to now
+            await con.execute(
+                "UPDATE customers SET last_login=$1, failed_login_attempts=0 WHERE deleted_at IS NULL AND email=$2",
+                datetime.now(),
+                email,
+            )
+
+            tokens = await _create_new_tokens(con, select_query_result["id"], None, scope, account_type)
+            return LoginResponse(tokens=tokens, usage_quota=usage_quota, user_scopes=avail_user_scopes)
+
+    except LoginError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+    except Exception:
+        logger.exception("POST /login/customer: Unexpected error")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.post("/login", response_model=LoginResponse)
+async def login_user(request: Request, details: UserLogin):
+    """Login a user account.
+
+    Logging in consists of validating the given credentials and, if valid,
+    returning a JWT with the appropriate privileges.
+    """
+    account_type = "user"
+    username = details.username.lower()
+    # select for service specific usage restrictions listed under the customer account
+    # suspended is for deactivated accounts and verified is for new users needing to verify through email
+    # Tanner (7/25/23): need to use separate queries since asyncpg will raise an error if the value passed in to be compared against customer_id is not a UUID
+    if isinstance(details.customer_id, uuid.UUID):
+        # if a UUID was given in the request then check against the customer ID
+        select_query = (
+            "SELECT password, id, failed_login_attempts, suspended, customer_id FROM users "
+            "WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND verified='t'"
+        )
+    else:
+        # if no UUID given, the check against the customer account alias
+        # TODO should make sure an alias is actually set here?
+        select_query = (
+            "SELECT u.password, u.id, u.failed_login_attempts, u.suspended, u.customer_id "
+            "FROM users AS u JOIN customers AS c ON u.customer_id=c.id "
+            "WHERE u.deleted_at IS NULL AND u.name=$1 AND c.alias=$2 AND u.verified='t'"
+        )
+
+    client_type = details.client_type if details.client_type else "unknown"
+    logger.info(f"User login attempt from client '{client_type}'")
+
+    try:
+        async with request.state.pgpool.acquire() as con:
+            select_query_result = await con.fetchrow(select_query, username, str(details.customer_id))
             pw = details.password.get_secret_value()
 
-            if select_query_result is None:
-                # if no record is returned by query then fetchrow will return None,
-                # so need to set to a dict with a bad password hash
-                select_query_result = {"password": "x" * 100}
+            # verify password, else raise LoginError
+            await _verify_password(con, account_type, pw, select_query_result)
+            # check account usage quotas
+            customer_id = select_query_result["customer_id"]
+            #  get scopes from account_scopes table
+            scope = await _get_account_scope(con, select_query_result["id"], False)
 
-            try:
-                # at this point, if no "password" key is present,
-                # then there is an issue with the table in the database
-                ph.verify(select_query_result["password"], pw)
-            except VerifyMismatchError:
-                # first check if account is already locked
-                # should never be greater than maximum, but handling in case
-                if select_query_result["failed_login_attempts"] >= MAX_FAILED_LOGIN_ATTEMPTS:
-                    raise LoginError(account_locked_msg)
+            # users logging into the dashboard should not have usage returned because they need to select a product from the landing page first to be given correct limits
+            # users logging into a specific instrument need the the usage returned right away and it is known what instrument they are using
+            usage_quota = None
+            if (service := details.service) is not None:
+                # TODO Luci (09/30/23) remove after MA v1.2.2+ is released, handling for pulse3d login types will no longer be needed
+                service = service if service != "pulse3d" else "mantarray"
+                usage_quota = await check_customer_quota(con, str(customer_id), service)
 
-                # increment customer/user failed attempts
-                logger.info(
-                    f"Failed login attempt {select_query_result['failed_login_attempts'] + 1} for {account_type} id: {select_query_result['id']}"
-                )
-                updated_failed_attempts = select_query_result["failed_login_attempts"] + 1
-                await _update_failed_login_attempts(
-                    con, account_type, select_query_result["id"], updated_failed_attempts
-                )
-                # update login error if this failed attempt hits limit
-                raise LoginError(
-                    account_locked_msg if updated_failed_attempts == MAX_FAILED_LOGIN_ATTEMPTS else failed_msg
-                )
-            except InvalidHash:
-                """
-                The user or customer wasn't found but we don't want to leak info about valid users/customers
-                through timing analysis so we still hash the supplied password before returning an error
-                """
-                ph.hash(pw)
-                raise LoginError(failed_msg)
-            else:
-                # only raise LoginError here when account is locked on successful creds after they have been checked to prevent giving away facts about successful login combinations
-                if select_query_result["failed_login_attempts"] >= MAX_FAILED_LOGIN_ATTEMPTS:
-                    raise LoginError(account_locked_msg)
-                # user can be suspended if admin account suspends them, select_query_result will not return None in that instance
-                if select_query_result["suspended"]:
-                    raise LoginError(failed_msg)
+            # if login was successful, then update last_login column value to now
+            # Tanner (7/25/23): using the customer ID returned from the select query since the customer ID field passed in with the request may contain an alias
+            await con.execute(
+                "UPDATE users SET last_login=$1, failed_login_attempts=0 "
+                "WHERE deleted_at IS NULL AND name=$2 AND customer_id=$3 AND verified='t'",
+                datetime.now(),
+                username,
+                str(customer_id),
+            )
 
-                # check account usage quotas
-                customer_id = select_query_result["id" if is_customer_login_attempt else "customer_id"]
-                usage_quota = await check_customer_quota(con, str(customer_id), details.service)
-
-                scope = await _get_account_scope(con, select_query_result["id"], is_customer_login_attempt)
-
-                if is_customer_login_attempt:
-                    scope = _convert_to_customer_scope(scope, details.service)
-                    # customer account tokens don't require a customer ID
-                    customer_id = None
-                else:
-                    # Tanner (7/25/23): using the customer ID returned from the select query since the customer ID
-                    # field passed in with the request may contain an alias
-                    update_last_login_params = (*update_last_login_params, str(customer_id))
-
-                # if login was successful, then update last_login column value to now
-                await con.execute(update_last_login_query, *update_last_login_params)
-
-                tokens = await _create_new_tokens(
-                    con, select_query_result["id"], customer_id, scope, account_type
-                )
-                return LoginResponse(tokens=tokens, usage_quota=usage_quota)
+            tokens = await _create_new_tokens(
+                con, select_query_result["id"], customer_id, scope, account_type
+            )
+            return LoginResponse(tokens=tokens, usage_quota=usage_quota, user_scopes=None)
 
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     except Exception:
         logger.exception("POST /login: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+async def _verify_password(con, account_type, pw, select_query_result) -> None:
+    ph = PasswordHasher()
+
+    failed_msg = "Invalid credentials"
+    account_locked_msg = "Account locked after too many failed login attempts"
+
+    if select_query_result is None:
+        # if no record is returned by query then fetchrow will return None,
+        # so need to set to a dict with a bad password hash
+        select_query_result = {"password": "x" * 100}
+
+    try:
+        # at this point, if no "password" key is present,
+        # then there is an issue with the table in the database
+        ph.verify(select_query_result["password"], pw)
+    except VerifyMismatchError:
+        # first check if account is already locked
+        # should never be greater than maximum, but handling in case
+        if select_query_result["failed_login_attempts"] >= MAX_FAILED_LOGIN_ATTEMPTS:
+            raise LoginError(account_locked_msg)
+
+        # increment customer/user failed attempts
+        logger.info(
+            f"Failed login attempt {select_query_result['failed_login_attempts'] + 1} for {account_type} id: {select_query_result['id']}"
+        )
+        updated_failed_attempts = select_query_result["failed_login_attempts"] + 1
+        await _update_failed_login_attempts(
+            con, account_type, select_query_result["id"], updated_failed_attempts
+        )
+        # update login error if this failed attempt hits limit
+        raise LoginError(
+            account_locked_msg if updated_failed_attempts == MAX_FAILED_LOGIN_ATTEMPTS else failed_msg
+        )
+    except InvalidHash:
+        """
+        The user or customer wasn't found but we don't want to leak info about valid users/customers
+        through timing analysis so we still hash the supplied password before returning an error
+        """
+        ph.hash(pw)
+        raise LoginError(failed_msg)
+    else:
+        # only raise LoginError here when account is locked on successful creds after they have been checked to prevent giving away facts about successful login combinations
+        if select_query_result["failed_login_attempts"] >= MAX_FAILED_LOGIN_ATTEMPTS:
+            raise LoginError(account_locked_msg)
+        # user can be suspended if admin account suspends them, select_query_result will not return None in that instance
+        if select_query_result["suspended"]:
+            raise LoginError(failed_msg)
+
+
+def _get_user_scopes_from_customer(customer_scopes) -> dict[str, list[str]]:
+    customer_products = [split_scope_account_data(s)[0] for s in customer_scopes]
+    # return {"nautilus": ["nautilus:rw_all_data"], "mantarray": ["mantarray:rw_all_data"]}
+    return {p: USER_SCOPES[p] for p in customer_products}
+
+
+def _get_scopes_from_request(user_scopes, customer_scope) -> list[str]:
+    for idx, product in enumerate(user_scopes):
+        # if scope is the main product scope, then attach customer tier to scope
+        if product in USER_SCOPES.keys():
+            _, product_tier = split_scope_account_data(next(s for s in customer_scope if product in s))
+            user_scopes[idx] = f"{product}:{product_tier}"
+        # else check if scope exists in available scopes, then raise exception
+        elif any([USER_SCOPES[s] for s in USER_SCOPES.keys() if product in USER_SCOPES[s]]):
+            raise UnknownScopeError(f"Attempting to assign unknown scope: {product}")
+
+    # all users need mantarray:firmware:get
+    user_scopes.append("mantarray:firmware:get")
+    return user_scopes
 
 
 async def _update_failed_login_attempts(con, account_type: str, id: str, count: int) -> None:
@@ -228,7 +283,7 @@ async def _update_failed_login_attempts(con, account_type: str, id: str, count: 
 
 
 @app.post("/refresh", response_model=AuthTokens, status_code=status.HTTP_201_CREATED)
-async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
+async def refresh(request: Request, token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES, refresh=True))):
     """Create a new access token and refresh token.
 
     The refresh token given in the request is first decoded and validated itself,
@@ -269,11 +324,6 @@ async def refresh(request: Request, token=Depends(ProtectedAny(refresh=True))):
 
             scope = await _get_account_scope(con, userid, is_customer_account)
 
-            if is_customer_account:
-                service_scope = next(s for s in token["scope"] if s.startswith("service:"))
-                service_name = service_scope.split(":")[-1]
-                scope = _convert_to_customer_scope(scope, service_name)
-
             # con is passed to this function, so it must be inside this async with block
             return await _create_new_tokens(con, userid, row.get("customer_id"), scope, account_type)
 
@@ -295,26 +345,8 @@ async def _get_account_scope(db_con, account_id, is_customer_account):
     return scope
 
 
-def _convert_to_customer_scope(scope, service):
-    # get tier of service scope in list of customer scopes
-    scope_for_service = [s for s in scope if service in s]
-    if not scope_for_service:
-        raise LoginError(f"No scope for service '{service}' found in customer scopes: {scope}")
-
-    # replace with customer scope
-    _, customer_tier = split_scope_account_data(scope_for_service[0])
-    return [f"customer:{customer_tier}", f"service:{service}"]
-
-
 async def _create_new_tokens(db_con, userid, customer_id, scope, account_type):
     refresh_scope = ["refresh"]
-    try:
-        service_scope_for_refresh = next(s for s in scope if s.startswith("service:"))
-    except StopIteration:
-        pass
-    else:
-        scope.remove(service_scope_for_refresh)
-        refresh_scope.append(service_scope_for_refresh)
 
     # create new tokens
     access = create_token(
@@ -338,7 +370,7 @@ async def _create_new_tokens(db_con, userid, customer_id, scope, account_type):
 
 
 @app.post("/logout", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
-async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False))):
+async def logout(request: Request, token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES, check_scope=False))):
     """Logout the user/customer.
 
     The refresh token for the user/customer will be removed from the DB, so they will
@@ -364,67 +396,37 @@ async def logout(request: Request, token=Depends(ProtectedAny(check_scope=False)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.post("/register", response_model=UserProfile | CustomerProfile, status_code=status.HTTP_201_CREATED)
-async def register(
-    request: Request, details: CustomerCreate | UserCreate, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))
+@app.post("/register/customer", response_model=CustomerProfile, status_code=status.HTTP_201_CREATED)
+async def register_customer(
+    request: Request, details: CustomerCreate, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))
 ):
-    """Register a user or customer account.
+    """Register a customer account.
 
-    Only customer accounts with admin privileges can register users, and only the Curi Bio customer account
-    can create new customers.
+    Only the Curi Bio customer account can create new customers.
 
     If the customer ID in the auth token matches the Curi Bio Customer ID *AND* no username is given,
     assume this is an attempt to register a new customer account.
-
-    Otherwise, attempt to register a regular user under the customer ID in the auth token
     """
     customer_id = uuid.UUID(hex=token["userid"])
-    # 'customer:paid' or 'customer:free'
-    customer_scope = token["scope"]
     try:
-        is_customer_registration_attempt = (
-            customer_id == CB_CUSTOMER_ID and type(details) is CustomerCreate  # noqa: F821
-        )
+        if customer_id != CB_CUSTOMER_ID:  # noqa: F821 complains this variable is undefined
+            raise ("Only the Curi Bio customer account can create new customers.")
 
-        register_type = "customer" if is_customer_registration_attempt else "user"
-        logger.info(f"Attempting {register_type} registration")
         email = details.email.lower()
-        # scope will not be sent in request body for both customer and user registration
-        if is_customer_registration_attempt:
-            ph = PasswordHasher()
-            phash = ph.hash(details.password1.get_secret_value())
-            insert_account_query_args = (
-                "INSERT INTO customers (email, password, previous_passwords, usage_restrictions) "
-                "VALUES ($1, $2, ARRAY[$3], $4) RETURNING id",
-                email,
-                phash,
-                phash,
-                json.dumps(dict(PULSE3D_PAID_USAGE)),
-            )
-            insert_scope_query = "INSERT INTO account_scopes VALUES ($1, NULL, unnest($2::text[]))"
-        else:
-            # TODO add handling for multiple service scopes and exception handling if none found
-            _, customer_tier = split_scope_account_data(customer_scope[0])  # 'free' or 'paid'
-            # eventually scopes will be passed from FE, but for now just auto set to paid user
-            user_scope = (
-                details.scope if details.scope is not None else ["pulse3d:paid", "mantarray:firmware:get"]
-            )
-            username = details.username.lower()
-            # suspended and verified get set to False by default
-            insert_account_query_args = (
-                # TODO do we still need the account_type col? Might not need it now that scopes are being used. If we keep it, should probably rename it since 'account type' is more commonly used to hold if an account is a 'user' or 'customer' account
-                "INSERT INTO users (name, email, account_type, customer_id) "
-                "VALUES ($1, $2, $3, $4) RETURNING id",
-                username,
-                email,
-                customer_tier,
-                customer_id,
-            )
-            insert_scope_query = "INSERT INTO account_scopes VALUES ($1, $2, unnest($3::text[]))"
 
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():
                 try:
+                    ph = PasswordHasher()
+                    phash = ph.hash(details.password1.get_secret_value())
+                    insert_account_query_args = (
+                        "INSERT INTO customers (email, password, previous_passwords, usage_restrictions) "
+                        "VALUES ($1, $2, ARRAY[$3], $4) RETURNING id",
+                        email,
+                        phash,
+                        phash,
+                        json.dumps(dict(PULSE3D_PAID_USAGE)),
+                    )
                     new_account_id = await con.fetchval(*insert_account_query_args)
                 except UniqueViolationError as e:
                     if "customers_email_key" in str(e):
@@ -432,7 +434,59 @@ async def register(
                         # can register other customers. Consider removing this message if the permissions are
                         # ever changed to allow people outside of Curi to register customer accounts
                         failed_msg = "Email already in use"
-                    elif "users_customer_id_name_key" in str(e):
+                    else:
+                        # default catch-all error message
+                        failed_msg = "Customer registration failed"
+                    raise RegistrationError(failed_msg)
+
+                # add scope for new account
+                insert_scope_query_args = (new_account_id, details.scope)
+                await con.execute(
+                    "INSERT INTO account_scopes VALUES ($1, NULL, unnest($2::text[]))",
+                    *insert_scope_query_args,
+                )
+
+                return CustomerProfile(email=email, user_id=new_account_id.hex, scope=details.scope)
+
+    except RegistrationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception:
+        logger.exception("POST /register/customer: Unexpected error")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.post("/register/user", response_model=UserProfile, status_code=status.HTTP_201_CREATED)
+async def register_user(
+    request: Request, details: UserCreate, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))
+):
+    """Register a user account.
+
+    Only customer accounts with admin privileges can register users.
+    """
+    customer_id = uuid.UUID(hex=token["userid"])
+    # 'customer:paid' or 'customer:free'
+    customer_scope = token["scope"]
+    try:
+        email = details.email.lower()
+
+        user_scope = _get_scopes_from_request(details.scope, customer_scope)
+        logger.info(f"Registering new user with scopes: {user_scope}")
+
+        username = details.username.lower()
+        # suspended and verified get set to False by default
+        insert_account_query_args = (
+            "INSERT INTO users (name, email, customer_id) " "VALUES ($1, $2, $3) RETURNING id",
+            username,
+            email,
+            customer_id,
+        )
+
+        async with request.state.pgpool.acquire() as con:
+            async with con.transaction():
+                try:
+                    new_account_id = await con.fetchval(*insert_account_query_args)
+                except UniqueViolationError as e:
+                    if "users_customer_id_name_key" in str(e):
                         # Returning this message is currently ok since duplicate usernames are only
                         # disallowed if tied to the same customer account ID, so no info about users under
                         # other customer accounts will be leaked
@@ -445,38 +499,27 @@ async def register(
                     raise RegistrationError(failed_msg)
 
                 # add scope for new account
-                if is_customer_registration_attempt:
-                    insert_scope_query_args = (new_account_id, details.scope)
-                else:
-                    insert_scope_query_args = (customer_id, new_account_id, user_scope)
-                await con.execute(insert_scope_query, *insert_scope_query_args)
+                insert_scope_query_args = (customer_id, new_account_id, user_scope)
+                await con.execute(
+                    "INSERT INTO account_scopes VALUES ($1, $2, unnest($3::text[]))", *insert_scope_query_args
+                )
 
-                # only send verification emails to new users, not new customers and if successful
-                if not is_customer_registration_attempt:
-                    await _create_user_email(
-                        con=con,
-                        type="verify",
-                        user_id=new_account_id,
-                        customer_id=customer_id,
-                        scopes=["users:verify"],
-                        name=username,
-                        email=email,
-                    )
+                # only send verification emails to new users
+                await _create_user_email(
+                    con=con,
+                    type="verify",
+                    user_id=new_account_id,
+                    customer_id=customer_id,
+                    scopes=["users:verify"],
+                    name=username,
+                    email=email,
+                )
 
-                if is_customer_registration_attempt:
-                    return CustomerProfile(email=email, user_id=new_account_id.hex, scope=details.scope)
-                else:
-                    return UserProfile(
-                        username=username,
-                        email=email,
-                        user_id=new_account_id.hex,
-                        account_type=customer_tier,
-                        scope=user_scope,
-                    )
+                return UserProfile(
+                    username=username, email=email, user_id=new_account_id.hex, scope=user_scope
+                )
 
-    except EmailRegistrationError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except RegistrationError as e:
+    except (EmailRegistrationError, UnknownScopeError, RegistrationError) as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception:
         logger.exception("POST /register: Unexpected error")
@@ -671,7 +714,6 @@ async def update_accounts(
                 if is_user:
                     query_params.append(customer_id)
                 await con.execute(query, *query_params)
-
     except HTTPException:
         raise
     except Exception:
@@ -688,11 +730,14 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTO
     customer_id = uuid.UUID(hex=token["userid"])
 
     query = (
-        "SELECT id, name, email, created_at, last_login, verified, suspended, reset_token "
-        "FROM users "
-        "WHERE customer_id=$1 AND deleted_at IS NULL "
-        "ORDER BY suspended"
+        "SELECT u.id, u.name, u.email, u.created_at, u.last_login, u.verified, u.suspended, u.reset_token, array_agg(s.scope) as scopes "
+        "FROM users u "
+        "INNER JOIN account_scopes s ON u.id=s.user_id "
+        "WHERE u.customer_id=$1 AND u.deleted_at IS NULL "
+        "GROUP BY u.id, u.name, u.email, u.created_at, u.last_login, u.verified, u.suspended, u.reset_token "
+        "ORDER BY u.suspended"
     )
+
     try:
         async with request.state.pgpool.acquire() as con:
             result = await con.fetch(query, customer_id)
@@ -700,6 +745,8 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTO
         formatted_results = [dict(row) for row in result]
 
         for row in formatted_results:
+            # remove user-hidden scopes from user list for display
+            row["scopes"] = list(set(row["scopes"]) - set(DEFAULT_MANTARRAY_SCOPES))
             # unverified account should have a jwt token, otherwise will be None.
             # check expiration and if expired, return it as None, FE will handle telling user it's expired
             try:
@@ -714,10 +761,48 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTO
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@app.put("/scopes/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def update_user_scopes(
+    request: Request,
+    details: UserScopesUpdate,
+    account_id: uuid.UUID,
+    token=Depends(ProtectedAny(CUSTOMER_SCOPES)),
+):
+    """Update a user account's scopes in the database."""
+    customer_id = uuid.UUID(hex=token["userid"])
+    customer_scope = token["scope"]
+
+    try:
+        user_scope = _get_scopes_from_request(details.scopes, customer_scope)
+
+        async with request.state.pgpool.acquire() as con:
+            async with con.transaction():
+                # first delete existing scopes from database
+                await con.execute(
+                    "DELETE FROM account_scopes WHERE customer_id=$1 AND user_id=$2", customer_id, account_id
+                )
+                # add new scopes
+                await con.execute(
+                    "INSERT INTO account_scopes VALUES ($1, $2, unnest($3::text[]))",
+                    customer_id,
+                    account_id,
+                    user_scope,
+                )
+    except UnknownScopeError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception:
+        logger.exception(f"PUT /scopes/{account_id}: Unexpected error")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 # Luci (10/5/22) Following two routes need to be last otherwise will mess with the ProtectedAny scope used in Auth
 # Please see https://fastapi.tiangolo.com/tutorial/path-params/#order-matters
 @app.get("/{account_id}")
-async def get_user(request: Request, account_id: uuid.UUID, token=Depends(ProtectedAny(check_scope=False))):
+async def get_user(
+    request: Request,
+    account_id: uuid.UUID,
+    token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES, check_scope=False)),
+):
     """Get info for the account with the given ID.
 
     If the account is a user account, the ID must exist under the customer ID in the token
@@ -784,7 +869,7 @@ async def update_user(
     request: Request,
     details: AccountUpdateAction,
     account_id: uuid.UUID,
-    token=Depends(ProtectedAny(check_scope=False)),
+    token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES, check_scope=False)),
 ):
     """Update an account's information in the database.
 
