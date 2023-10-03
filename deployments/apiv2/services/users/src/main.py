@@ -263,7 +263,7 @@ def _get_scopes_from_request(user_scopes, customer_scope) -> list[str]:
             _, product_tier = split_scope_account_data(next(s for s in customer_scope if product in s))
             user_scopes[idx] = f"{product}:{product_tier}"
         # else check if scope exists in available scopes, then raise exception
-        elif any([USER_SCOPES[s] for s in USER_SCOPES.keys() if product in USER_SCOPES[s]]):
+        elif not any([USER_SCOPES[s] for s in USER_SCOPES.keys() if product in USER_SCOPES[s]]):
             raise UnknownScopeError(f"Attempting to assign unknown scope: {product}")
 
     # all users need mantarray:firmware:get
