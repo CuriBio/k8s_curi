@@ -21,7 +21,7 @@ from auth import (
     USER_SCOPES,
     DEFAULT_MANTARRAY_SCOPES,
     ALL_PULSE3D_SCOPES,
-    CURIBIO_SCOPE,
+    CURIBIO_SCOPES,
 )
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
@@ -247,7 +247,8 @@ async def _verify_password(con, account_type, pw, select_query_result) -> None:
 
 
 def _get_user_scopes_from_customer(customer_scopes) -> dict[str, list[str]]:
-    customer_products = [split_scope_account_data(s)[0] for s in customer_scopes if "curi" not in s]
+    # don't include special curibio scopes
+    customer_products = [split_scope_account_data(s)[0] for s in customer_scopes if s not in CURIBIO_SCOPES]
     # return {"nautilus": ["nautilus:rw_all_data"], "mantarray": ["mantarray:rw_all_data"]}
     return {p: USER_SCOPES[p] for p in customer_products}
 
@@ -394,7 +395,7 @@ async def logout(request: Request, token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES
 
 @app.post("/register/customer", response_model=CustomerProfile, status_code=status.HTTP_201_CREATED)
 async def register_customer(
-    request: Request, details: CustomerCreate, token=Depends(ProtectedAny(scope=CURIBIO_SCOPE))
+    request: Request, details: CustomerCreate, token=Depends(ProtectedAny(scope=CURIBIO_SCOPES))
 ):
     """Register a customer account.
 

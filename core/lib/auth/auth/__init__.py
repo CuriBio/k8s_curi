@@ -8,7 +8,7 @@ from .scopes import (
     PULSE3D_PAID_USAGE,
     PULSE3D_USER_SCOPES,
     USER_SCOPES,
-    CURIBIO_SCOPE,
+    CURIBIO_SCOPES,
 )
 
 from .routes import ProtectedAny, create_token, decode_token, split_scope_account_data
