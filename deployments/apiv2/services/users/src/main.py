@@ -153,7 +153,7 @@ async def login_user(request: Request, details: UserLogin):
         select_query = (
             "SELECT u.password, u.id, u.failed_login_attempts, u.suspended, u.customer_id "
             "FROM users AS u JOIN customers AS c ON u.customer_id=c.id "
-            "WHERE u.deleted_at IS NULL AND u.name=$1 AND c.alias=$2 AND u.verified='t'"
+            "WHERE u.deleted_at IS NULL AND u.name=$1 AND LOWER(c.alias)=LOWER($2) AND u.verified='t'"
         )
 
     client_type = details.client_type if details.client_type else "unknown"
@@ -902,7 +902,7 @@ async def update_user(
                 # if an empty string, need to convert to None for asyncpg
                 new_alias = details.new_alias if details.new_alias else None
 
-                update_query = "UPDATE customers SET alias=$1 WHERE id=$2"
+                update_query = "UPDATE customers SET alias=LOWER($1) WHERE id=$2"
                 query_args = (new_alias, self_id)
             else:
                 raise HTTPException(
