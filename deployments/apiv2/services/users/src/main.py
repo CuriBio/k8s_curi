@@ -902,7 +902,7 @@ async def update_user(
                 # if an empty string, need to convert to None for asyncpg
                 new_alias = details.new_alias if details.new_alias else None
 
-                update_query = "UPDATE customers SET alias=$1 WHERE id=$2"
+                update_query = "UPDATE customers SET alias=LOWER($1) WHERE id=$2"
                 query_args = (new_alias, self_id)
             else:
                 raise HTTPException(
