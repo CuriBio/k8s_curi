@@ -71,16 +71,6 @@ app.add_middleware(
 )
 
 
-# TODO move this to core lib
-def _is_valid_well_name(well_name):
-    return (
-        isinstance(well_name, str)
-        and len(well_name) == 2
-        and well_name[0] in ("A", "B", "C", "D")
-        and well_name[1] in [str(n) for n in range(1, 7)]
-    )
-
-
 @app.middleware("http")
 async def db_session_middleware(request: Request, call_next):
     request.state.pgpool = await asyncpg_pool()

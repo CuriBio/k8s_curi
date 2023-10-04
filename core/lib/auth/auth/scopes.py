@@ -1,9 +1,10 @@
 from immutabledict import immutabledict
 
+CURIBIO_SCOPE = frozenset(["curi:admin"])
+
 CUSTOMER_SCOPES = frozenset(["nautilus:free", "nautilus:paid", "mantarray:free", "mantarray:paid"])
 ACCOUNT_SCOPES = frozenset(["users:verify", "users:reset", "customer:reset"])
 NAUTILUS_SCOPES = frozenset(["nautilus:free", "nautilus:paid", "nautilus:rw_all_data"])
-
 # not currently auto assigned anywhere
 DEFAULT_MANTARRAY_SCOPES = frozenset(
     ["mantarray:serial_number:edit", "mantarray:firmware:edit", "mantarray:firmware:get"]

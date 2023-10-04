@@ -21,6 +21,7 @@ from auth import (
     USER_SCOPES,
     DEFAULT_MANTARRAY_SCOPES,
     ALL_PULSE3D_SCOPES,
+    CURIBIO_SCOPE,
 )
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
@@ -49,7 +50,6 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
 app = FastAPI(openapi_url=None)
 
-CB_CUSTOMER_ID: uuid.UUID
 MAX_FAILED_LOGIN_ATTEMPTS = 10
 TEMPLATES = Jinja2Templates(directory="templates")
 
@@ -71,11 +71,7 @@ async def db_session_middleware(request: Request, call_next):
 
 @app.on_event("startup")
 async def startup():
-    pool = await asyncpg_pool()
-    async with pool.acquire() as con:
-        # might be a better way to do this without using global
-        global CB_CUSTOMER_ID
-        CB_CUSTOMER_ID = await con.fetchval("SELECT id FROM customers WHERE email='software@curibio.com'")
+    await asyncpg_pool()
 
 
 @app.post("/login/customer", response_model=LoginResponse)
@@ -398,7 +394,7 @@ async def logout(request: Request, token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES
 
 @app.post("/register/customer", response_model=CustomerProfile, status_code=status.HTTP_201_CREATED)
 async def register_customer(
-    request: Request, details: CustomerCreate, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))
+    request: Request, details: CustomerCreate, token=Depends(ProtectedAny(scope=CURIBIO_SCOPE))
 ):
     """Register a customer account.
 
@@ -407,11 +403,7 @@ async def register_customer(
     If the customer ID in the auth token matches the Curi Bio Customer ID *AND* no username is given,
     assume this is an attempt to register a new customer account.
     """
-    customer_id = uuid.UUID(hex=token["userid"])
     try:
-        if customer_id != CB_CUSTOMER_ID:  # noqa: F821 complains this variable is undefined
-            raise ("Only the Curi Bio customer account can create new customers.")
-
         email = details.email.lower()
 
         async with request.state.pgpool.acquire() as con:
