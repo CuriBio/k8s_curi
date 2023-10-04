@@ -153,7 +153,7 @@ async def login_user(request: Request, details: UserLogin):
         select_query = (
             "SELECT u.password, u.id, u.failed_login_attempts, u.suspended, u.customer_id "
             "FROM users AS u JOIN customers AS c ON u.customer_id=c.id "
-            "WHERE u.deleted_at IS NULL AND u.name=$1 AND c.alias=$2 AND u.verified='t'"
+            "WHERE u.deleted_at IS NULL AND u.name=$1 AND LOWER(c.alias)=LOWER($2) AND u.verified='t'"
         )
 
     client_type = details.client_type if details.client_type else "unknown"
