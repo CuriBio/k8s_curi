@@ -8,6 +8,7 @@ build:
 	docker build -t queue-processor . -f ${repo_root}/jobs/queue-processor/Dockerfile
 
 buildx:
+	cd ${repo_root} && \
 	docker buildx build -t queue-processor . --platform linux/amd64 --load -f ${repo_root}/jobs/queue-processor/Dockerfile
 
 tag:

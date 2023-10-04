@@ -8,6 +8,7 @@ build:
 	docker build -t jobs-operator . -f ${repo_root}/jobs/jobs-operator/jobs-operator/Dockerfile
 
 buildx:
+	cd ${repo_root} && \
 	docker buildx build -t jobs-operator . --platform linux/amd64 --load -f ${repo_root}/jobs/jobs-operator/jobs-operator/Dockerfile
 
 tag:
