@@ -15,19 +15,19 @@ resource "aws_ecr_lifecycle_policy" "pulse3d_ecr_lifecycle_policy" {
     "rules": [
         {
             "rulePriority": 1,
-            "description": "Keep last 15 tagged images",
+            "description": "Keep last 3 tagged images",
             "selection": {
                 "tagStatus": "tagged",
-                "tagPrefixList": ["v"],
+                "tagPrefixList": ["0"],
                 "countType": "imageCountMoreThan",
-                "countNumber": 15
+                "countNumber": 3
             },
             "action": {
                 "type": "expire"
             }
         },
         {
-            "rulePriority": 1,
+            "rulePriority": 2,
             "description": "Keep only 1 untagged image",
             "selection": {
                 "tagStatus": "untagged",
@@ -49,27 +49,27 @@ resource "aws_s3_bucket" "pulse3d_uploads_bucket" {
 }
 
 resource "aws_s3_bucket_policy" "pulse3d_uploads_bucket" {
-    bucket = aws_s3_bucket.pulse3d_uploads_bucket.id
-    policy = jsonencode({
-        Version = "2012-10-17"
-        Statement = [
-            {
-                Sid       = "EnforceTls"
-                Effect    = "Deny"
-                Principal = "*"
-                Action    = "s3:*"
-                Resource = [
-                    "${aws_s3_bucket.pulse3d_uploads_bucket.arn}/*",
-                    "${aws_s3_bucket.pulse3d_uploads_bucket.arn}",
-                ]
-                Condition = {
-                    Bool = {
-                        "aws:SecureTransport" = "false"
-                    }
-                }
-            },
+  bucket = aws_s3_bucket.pulse3d_uploads_bucket.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "EnforceTls"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource = [
+          "${aws_s3_bucket.pulse3d_uploads_bucket.arn}/*",
+          "${aws_s3_bucket.pulse3d_uploads_bucket.arn}",
         ]
-    })
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
+      },
+    ]
+  })
 }
 
 resource "aws_s3_bucket_ownership_controls" "pulse3d_uploads_bucket" {

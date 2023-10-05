@@ -19,11 +19,11 @@ terraform {
 
 # Configure the AWS Provider
 provider "aws" {
-  region  = var.region
+  region = var.region
 }
 
 variable "region" {
-  type = string
+  type    = string
   default = "us-east-2"
 }
 
@@ -44,19 +44,19 @@ resource "aws_ecr_lifecycle_policy" "pheno_worker_ecr_lifecycle_policy" {
     "rules": [
         {
             "rulePriority": 1,
-            "description": "Keep last 15 tagged images",
+            "description": "Keep last 3 tagged images",
             "selection": {
                 "tagStatus": "tagged",
-                "tagPrefixList": ["v"],
+                "tagPrefixList": ["0"],
                 "countType": "imageCountMoreThan",
-                "countNumber": 15
+                "countNumber": 3
             },
             "action": {
                 "type": "expire"
             }
         },
         {
-            "rulePriority": 1,
+            "rulePriority": 2,
             "description": "Keep only 1 untagged image",
             "selection": {
                 "tagStatus": "untagged",

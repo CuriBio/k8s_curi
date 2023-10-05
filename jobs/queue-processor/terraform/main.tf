@@ -36,26 +36,26 @@ resource "aws_ecr_repository" "queue_processor_ecr" {
 }
 
 resource "aws_ecr_lifecycle_policy" "queue_processor_ecr_lifecycle_policy" {
-  repository = aws_ecr_repository.queue_processor_ecr_repo.name
+  repository = aws_ecr_repository.queue_processor_ecr.name
 
   policy = <<EOF
 {
     "rules": [
         {
             "rulePriority": 1,
-            "description": "Keep last 15 tagged images",
+            "description": "Keep last 3 tagged images",
             "selection": {
                 "tagStatus": "tagged",
-                "tagPrefixList": ["v"],
+                "tagPrefixList": ["0"],
                 "countType": "imageCountMoreThan",
-                "countNumber": 15
+                "countNumber": 3
             },
             "action": {
                 "type": "expire"
             }
         },
         {
-            "rulePriority": 1,
+            "rulePriority": 2,
             "description": "Keep only 1 untagged image",
             "selection": {
                 "tagStatus": "untagged",
