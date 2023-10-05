@@ -7,6 +7,42 @@ resource "aws_ecr_repository" "pulse3d_ecr_repo" {
   }
 }
 
+resource "aws_ecr_lifecycle_policy" "pulse3d_ecr_lifecycle_policy" {
+  repository = aws_ecr_repository.pulse3d_ecr_repo.name
+
+  policy = <<EOF
+{
+    "rules": [
+        {
+            "rulePriority": 1,
+            "description": "Keep last 15 tagged images",
+            "selection": {
+                "tagStatus": "tagged",
+                "tagPrefixList": ["v"],
+                "countType": "imageCountMoreThan",
+                "countNumber": 15
+            },
+            "action": {
+                "type": "expire"
+            }
+        },
+        {
+            "rulePriority": 1,
+            "description": "Keep only 1 untagged image",
+            "selection": {
+                "tagStatus": "untagged",
+                "countType": "imageCountMoreThan",
+                "countNumber": 1
+            },
+            "action": {
+                "type": "expire"
+            }
+        }
+    ]
+}
+EOF
+}
+
 
 resource "aws_s3_bucket" "pulse3d_uploads_bucket" {
   bucket = "${var.cluster_name}-pulse3d-uploads"
