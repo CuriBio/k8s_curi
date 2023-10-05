@@ -23,7 +23,7 @@ patchesJson6902:
     patch: |-
       - op: add
         path: /spec/template/spec/containers/0/image
-        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/users:0.7.5"
+        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/users:0.7.6"
       - op: add
         path: /spec/template/spec/containers/0/env/0
         value:
