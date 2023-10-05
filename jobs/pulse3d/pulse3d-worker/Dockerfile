@@ -1,4 +1,4 @@
-FROM python:3.11-alpine as venv
+FROM python:3.11-slim as venv
 
 WORKDIR /app
 COPY ./jobs/pulse3d/pulse3d-worker/src/requirements.txt ./
@@ -11,12 +11,11 @@ RUN python -m venv --copies /app/venv && \
     pip install ./lib/jobs && \
     pip install ./lib/utils
 
-FROM python:3.11-alpine as prod
-
+FROM python:3.11-slim as prod
 ARG DEBIAN_FRONTEND=noninteractive
 
-RUN addgroup -S main_group
-RUN adduser -S main_user --ingroup main_group
+RUN useradd main_user && groupadd main_group
+
 USER main_user:main_group
 
 COPY --from=venv --chown=main_user:main_group /app/venv /app/venv/
