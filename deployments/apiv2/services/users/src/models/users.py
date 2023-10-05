@@ -121,3 +121,4 @@ class LoginResponse(BaseModel):
     tokens: AuthTokens
     usage_quota: UsageQuota | None
     user_scopes: dict[str, list[str]] | None
+    customer_scopes: dict[str, list[str]] | None

@@ -47,14 +47,14 @@ const getAuthTokens = async () => {
   return tokens;
 };
 
-const getUserScopes = async () => {
+const getAvailableScopes = async (type) => {
   const swCache = await caches.open(cacheName);
-  const cachedLoginResponse = await swCache.match("userScopes");
+  const cachedLoginResponse = await swCache.match("availableScopes");
   let scopes = [];
 
   if (cachedLoginResponse) {
     const responseBody = await cachedLoginResponse.json();
-    scopes = responseBody.user_scopes;
+    scopes = responseBody[type];
   }
 
   return scopes;
@@ -79,9 +79,9 @@ const getValueFromToken = async (name) => {
 
 let logoutTimer = null;
 
-const setUserScopes = async (res) => {
+const setAvailableScopes = async (res) => {
   const swCache = await caches.open(cacheName);
-  await swCache.put("userScopes", res.clone());
+  await swCache.put("availableScopes", res.clone());
 };
 
 const setTokens = async ({ refresh }, res) => {
@@ -265,7 +265,7 @@ const interceptResponse = async (req, url) => {
       await setUsageQuota(responseClone);
       // set tokens if login was successful
       await setTokens(data.tokens, responseClone);
-      await setUserScopes(responseClone);
+      await setAvailableScopes(responseClone);
     }
 
     // send the response without the tokens so they are always contained within this service worker
@@ -402,7 +402,8 @@ self.onmessage = async ({ data, source }) => {
         accountScope: await getValueFromToken("scope"),
       },
       usageQuota: await getUsageQuota(),
-      userScopes: await getUserScopes(),
+      userScopes: await getAvailableScopes("user_scopes"),
+      customerScopes: await getAvailableScopes("customer_scopes"),
     };
   } else if (msgType === "stayAlive") {
     // TODO should have this do something else so that there isn't a log msg produced every 20 seconds

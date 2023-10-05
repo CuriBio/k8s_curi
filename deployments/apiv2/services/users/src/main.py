@@ -120,7 +120,12 @@ async def login_customer(request: Request, details: CustomerLogin):
             )
 
             tokens = await _create_new_tokens(con, select_query_result["id"], None, scope, account_type)
-            return LoginResponse(tokens=tokens, usage_quota=usage_quota, user_scopes=avail_user_scopes)
+            return LoginResponse(
+                tokens=tokens,
+                usage_quota=usage_quota,
+                user_scopes=avail_user_scopes,
+                customer_scopes=CUSTOMER_SCOPES,
+            )
 
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
@@ -192,7 +197,7 @@ async def login_user(request: Request, details: UserLogin):
             tokens = await _create_new_tokens(
                 con, select_query_result["id"], customer_id, scope, account_type
             )
-            return LoginResponse(tokens=tokens, usage_quota=usage_quota, user_scopes=None)
+            return LoginResponse(tokens=tokens, usage_quota=usage_quota)
 
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
