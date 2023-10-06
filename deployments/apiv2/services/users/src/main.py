@@ -21,6 +21,7 @@ from auth import (
     USER_SCOPES,
     DEFAULT_MANTARRAY_SCOPES,
     ALL_PULSE3D_SCOPES,
+    CURIBIO_SCOPES,
 )
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
@@ -49,7 +50,6 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
 app = FastAPI(openapi_url=None)
 
-CB_CUSTOMER_ID: uuid.UUID
 MAX_FAILED_LOGIN_ATTEMPTS = 10
 TEMPLATES = Jinja2Templates(directory="templates")
 
@@ -71,11 +71,7 @@ async def db_session_middleware(request: Request, call_next):
 
 @app.on_event("startup")
 async def startup():
-    pool = await asyncpg_pool()
-    async with pool.acquire() as con:
-        # might be a better way to do this without using global
-        global CB_CUSTOMER_ID
-        CB_CUSTOMER_ID = await con.fetchval("SELECT id FROM customers WHERE email='software@curibio.com'")
+    await asyncpg_pool()
 
 
 @app.post("/login/customer", response_model=LoginResponse)
@@ -251,7 +247,8 @@ async def _verify_password(con, account_type, pw, select_query_result) -> None:
 
 
 def _get_user_scopes_from_customer(customer_scopes) -> dict[str, list[str]]:
-    customer_products = [split_scope_account_data(s)[0] for s in customer_scopes]
+    # don't include special curibio scopes
+    customer_products = [split_scope_account_data(s)[0] for s in customer_scopes if s not in CURIBIO_SCOPES]
     # return {"nautilus": ["nautilus:rw_all_data"], "mantarray": ["mantarray:rw_all_data"]}
     return {p: USER_SCOPES[p] for p in customer_products}
 
@@ -263,7 +260,7 @@ def _get_scopes_from_request(user_scopes, customer_scope) -> list[str]:
             _, product_tier = split_scope_account_data(next(s for s in customer_scope if product in s))
             user_scopes[idx] = f"{product}:{product_tier}"
         # else check if scope exists in available scopes, then raise exception
-        elif any([USER_SCOPES[s] for s in USER_SCOPES.keys() if product in USER_SCOPES[s]]):
+        elif not any([USER_SCOPES[s] for s in USER_SCOPES.keys() if product in USER_SCOPES[s]]):
             raise UnknownScopeError(f"Attempting to assign unknown scope: {product}")
 
     # all users need mantarray:firmware:get
@@ -398,7 +395,7 @@ async def logout(request: Request, token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES
 
 @app.post("/register/customer", response_model=CustomerProfile, status_code=status.HTTP_201_CREATED)
 async def register_customer(
-    request: Request, details: CustomerCreate, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))
+    request: Request, details: CustomerCreate, token=Depends(ProtectedAny(scope=CURIBIO_SCOPES))
 ):
     """Register a customer account.
 
@@ -407,11 +404,7 @@ async def register_customer(
     If the customer ID in the auth token matches the Curi Bio Customer ID *AND* no username is given,
     assume this is an attempt to register a new customer account.
     """
-    customer_id = uuid.UUID(hex=token["userid"])
     try:
-        if customer_id != CB_CUSTOMER_ID:  # noqa: F821 complains this variable is undefined
-            raise ("Only the Curi Bio customer account can create new customers.")
-
         email = details.email.lower()
 
         async with request.state.pgpool.acquire() as con:
