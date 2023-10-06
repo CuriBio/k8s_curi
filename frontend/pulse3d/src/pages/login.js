@@ -111,10 +111,9 @@ export default function Login() {
 
             if (res.status === 401) {
               const errMsg = await res.json();
-              if ("Invalid credentials" === errMsg.detail) {
-                errToDisplay = `*Invalid credentials. Account will be locked after 10 failed attempts.`;
-              } else if (errMsg.detail.includes("Account locked")) {
-                errToDisplay = "*Account locked. Too many failed attempts.";
+              errToDisplay = `*${errMsg.detail}`;
+
+              if (errMsg.detail.includes("Account locked")) {
                 setAccountLockedLabels([
                   "This account has been locked because it has reached the maximum login attempts.",
                   loginType === "Admin"
