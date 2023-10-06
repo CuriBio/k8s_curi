@@ -1,9 +1,10 @@
 import styled from "styled-components";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import FormInput from "../basicWidgets/FormInput";
 import ModalWidget from "../basicWidgets/ModalWidget";
 import ScopeWidget from "./ScopeWidget";
+import { AuthContext } from "@/pages/_app";
 
 const InputContainer = styled.div`
   min-height: 260px;
@@ -51,38 +52,53 @@ const ButtonContainer = styled.div`
   flex-direction: row;
 `;
 
-export default function NewUserForm() {
-  const [userData, setUserData] = useState({
+const accountInfo = {
+  customer: {
+    email: "",
+    scope: [],
+  },
+  user: {
     email: "",
     username: "",
     scope: [],
-  });
+  },
+};
 
+export default function NewAccountForm({ type }) {
+  const isForUser = type === "user";
+
+  const { availableScopes } = useContext(AuthContext);
+
+  const [newAccountInfo, setNewAccountInfo] = useState(accountInfo[type]);
+  const [accountTitle, setAccountTitle] = useState(type);
   const [errorMsg, setErrorMsg] = useState(" ");
   const [inProgress, setInProgress] = useState(false);
   const [userCreatedVisible, setUserCreatedVisible] = useState(false);
 
   const resetForm = () => {
     setErrorMsg(""); // reset to show user something happened
-    setUserData({
-      email: "",
-      username: "",
-      scope: [],
-    });
+    setNewAccountInfo(accountInfo[type]);
   };
 
   useEffect(() => resetForm(), []);
+  useEffect(() => {
+    if (type) {
+      setAccountTitle(type.charAt(0).toUpperCase() + type.slice(1));
+      setNewAccountInfo(accountInfo[type]);
+    }
+  }, [type]);
 
   const submitForm = async () => {
     setErrorMsg(""); // reset to show user something happened
     setInProgress(true);
-    if (Object.values(userData).includes("") || userData.scope.length === 0)
+
+    if (Object.values(newAccountInfo).includes("") || newAccountInfo.scope.length === 0)
       setErrorMsg("* All fields are required");
     // this state gets passed to web worker to attempt login request
     else {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/register/user`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/register/${type}`, {
         method: "POST",
-        body: JSON.stringify(userData),
+        body: JSON.stringify(newAccountInfo),
       });
 
       if (res) {
@@ -91,10 +107,11 @@ export default function NewUserForm() {
           resetForm();
         } else if (res.status === 422) {
           const error = await res.json();
+          console.log(error);
           // some very unuseful errors get returned from the serve, so filter those out and use the first meaningful error message
-          const usernameError = error.detail.find((d) => d.loc.includes("username"));
-          const nameOfInvalidField = usernameError.loc[1];
-          const reason = usernameError.msg;
+          const errorMsg = error.detail.find((d) => d.msg);
+          const nameOfInvalidField = errorMsg.loc[1];
+          const reason = errorMsg.msg;
 
           setErrorMessage(nameOfInvalidField, reason);
         } else if (res.status === 400) {
@@ -113,7 +130,7 @@ export default function NewUserForm() {
   };
 
   const handleSelectedScopes = (scope) => {
-    setUserData({ ...userData, scope });
+    setNewAccountInfo({ ...newAccountInfo, scope });
   };
 
   return (
@@ -123,39 +140,46 @@ export default function NewUserForm() {
         closeModal={() => setUserCreatedVisible(false)}
         header="Success"
         labels={[
-          "User was created successfully!",
+          `${accountTitle} was created successfully!`,
           "Please have them check their inbox for a verification email to begin accessing their account. Link will expire after 24 hours.",
         ]}
       />
-      <Header>New User Details</Header>
+      <Header>{`New ${accountTitle} Details`}</Header>
       <InputContainer>
         <FormInput
           name="email"
           label="Email"
           placeholder="user@curibio.com"
-          value={userData.email}
+          value={newAccountInfo.email}
           onChangeFn={(e) => {
             setErrorMsg("");
-            setUserData({
-              ...userData,
+            setNewAccountInfo({
+              ...newAccountInfo,
               email: e.target.value.toLowerCase(),
             });
           }}
         />
-        <FormInput
-          name="username"
-          label="Username"
-          placeholder="User"
-          value={userData.username}
-          onChangeFn={(e) => {
-            setErrorMsg("");
-            setUserData({
-              ...userData,
-              username: e.target.value.toLowerCase(),
-            });
-          }}
+        {isForUser && (
+          <FormInput
+            name="username"
+            label="Username"
+            placeholder="User"
+            value={newAccountInfo.username}
+            onChangeFn={(e) => {
+              setErrorMsg("");
+              setNewAccountInfo({
+                ...newAccountInfo,
+                username: e.target.value.toLowerCase(),
+              });
+            }}
+          />
+        )}
+        <ScopeWidget
+          selectedScopes={newAccountInfo.scope}
+          setSelectedScopes={handleSelectedScopes}
+          availableScopes={availableScopes[type]}
+          isForUser={isForUser}
         />
-        <ScopeWidget selectedScopes={userData.scope} setSelectedScopes={handleSelectedScopes} />
         <ErrorText id="userError" role="errorMsg">
           {errorMsg}
         </ErrorText>
@@ -163,12 +187,10 @@ export default function NewUserForm() {
       <ButtonContainer>
         {[
           { label: "Reset", inProgress: false },
-          { label: "Add User", inProgress },
+          { label: `Add`, inProgress },
         ].map(({ label, inProgress }, idx) => (
           <ButtonWidget
             label={label}
-            backgroundColor={"var(--dark-gray)"}
-            color={"var(--dark-blue)"}
             key={label}
             height={"50px"}
             inProgress={inProgress}

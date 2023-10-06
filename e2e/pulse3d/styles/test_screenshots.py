@@ -7,11 +7,8 @@ from fixtures import setup, video_setup, basic_page, admin_logged_in_page, user_
 __fixtures__ = [setup, video_setup, basic_page, admin_logged_in_page, user_logged_in_page]
 
 shared_pages = ["/uploads", "/account-settings"]
-admin_pages = ["/new-user", "/users-info"]
-user_pages = [
-    "/upload-form?id=Analyze+New+Files",
-    "/upload-form?id=Re-analyze+Existing+Upload",
-]
+admin_pages = ["/add-new-account", "/users-info"]
+user_pages = ["/upload-form?id=Analyze+New+Files", "/upload-form?id=Re-analyze+Existing+Upload"]
 view_ports = [(800, 600), (1024, 768), (1280, 720), (1920, 1080)]
 
 

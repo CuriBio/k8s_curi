@@ -415,14 +415,9 @@ async def register_customer(
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():
                 try:
-                    ph = PasswordHasher()
-                    phash = ph.hash(details.password1.get_secret_value())
                     insert_account_query_args = (
-                        "INSERT INTO customers (email, password, previous_passwords, usage_restrictions) "
-                        "VALUES ($1, $2, ARRAY[$3], $4) RETURNING id",
+                        "INSERT INTO customers (email, usage_restrictions) VALUES ($1, $2) RETURNING id",
                         email,
-                        phash,
-                        phash,
                         json.dumps(dict(PULSE3D_PAID_USAGE)),
                     )
                     new_account_id = await con.fetchval(*insert_account_query_args)
@@ -473,7 +468,7 @@ async def register_user(
         username = details.username.lower()
         # suspended and verified get set to False by default
         insert_account_query_args = (
-            "INSERT INTO users (name, email, customer_id) " "VALUES ($1, $2, $3) RETURNING id",
+            "INSERT INTO users (name, email, customer_id) VALUES ($1, $2, $3) RETURNING id",
             username,
             email,
             customer_id,
