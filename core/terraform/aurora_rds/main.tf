@@ -42,11 +42,13 @@ module "db" {
 
   name           = var.name
   engine         = "aurora-postgresql"
-  engine_version = "13.8"
+  engine_version = "13.9"
   instance_class = var.instance_class
 
+  # need atleast two instances for multi-az
   instances = {
     one = {}
+    two = {}
   }
 
   db_subnet_group_name   = var.name
@@ -56,6 +58,7 @@ module "db" {
   vpc_id                 = data.terraform_remote_state.cluster.outputs.cluster_vpc.vpc_id
   vpc_security_group_ids = [data.terraform_remote_state.cluster.outputs.sg_worker_group_mgmt_one.id]
   create_security_group  = false
+  availability_zones        = data.terraform_remote_state.cluster.outputs.cluster_vpc.azs
 
   apply_immediately   = true
   skip_final_snapshot = true
@@ -67,6 +70,42 @@ module "db" {
   db_parameter_group_name         = aws_db_parameter_group.parameter_group.id
   db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.cluster_parameter_group.id
 
+  enabled_cloudwatch_logs_exports = ["postgresql"]
+
+  # Enhanced monitoring
+  monitoring_interval = 30
+  monitoring_role_arn = aws_iam_role.rds_enhanced_monitoring.arn
+
+  deletion_protection = true
+
+  performance_insights_enabled          = true
+  performance_insights_retention_period = 7
+  create_monitoring_role                = true
+
   tags = local.tags
 }
 
+resource "aws_iam_role" "rds_enhanced_monitoring" {
+  name_prefix        = "${var.environment}-rds-enhanced-monitoring-"
+  assume_role_policy = data.aws_iam_policy_document.rds_enhanced_monitoring.json
+}
+
+resource "aws_iam_role_policy_attachment" "rds_enhanced_monitoring" {
+  role       = aws_iam_role.rds_enhanced_monitoring.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
+}
+
+data "aws_iam_policy_document" "rds_enhanced_monitoring" {
+  statement {
+    actions = [
+      "sts:AssumeRole",
+    ]
+
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["monitoring.rds.amazonaws.com"]
+    }
+  }
+}
