@@ -221,15 +221,15 @@ export default function WaveformGraph({
     }
   }, [customAnalysisSettings, selectedMarkerToMove, xZoomFactor, yZoomFactor, startTime, endTime]);
 
-  const getClosestIndex = (data, x) => {
-    const time = data.map((x) => x[0]);
+  const getClosestIndex = (coordinates, x) => {
+    const time = coordinates.map((x) => x[0]);
     const closestValue = time.sort(
       (a, b) =>
         Math.abs(Number(x.toFixed(2)) - Number(a.toFixed(2))) -
         Math.abs(Number(x.toFixed(2)) - Number(b.toFixed(2)))
     )[0];
 
-    return data.findIndex((x) => Number(x[0].toFixed(2)) === Number(closestValue.toFixed(2)));
+    return coordinates.findIndex((x) => Number(x[0].toFixed(2)) === Number(closestValue.toFixed(2)));
   };
 
   /* NOTE!! The order of the variables and function calls in this function are important to functionality.
