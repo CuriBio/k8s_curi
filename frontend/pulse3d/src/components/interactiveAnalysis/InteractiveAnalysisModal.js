@@ -437,19 +437,17 @@ export default function InteractiveWaveformModal({
       handleChangeForCurrentWell(ACTIONS.ADD, wellSettings, changelogMsg);
     },
     moveFeature: (featureName, originalIdx, newIdx) => {
-      if (newIdx > -1) {
-        const wellSettings = customAnalysisSettings[selectedWell];
-        const wellFeatureIndices = wellSettings.allFeatureIndices[featureName];
+      const wellSettings = customAnalysisSettings[selectedWell];
+      const wellFeatureIndices = wellSettings.allFeatureIndices[featureName];
 
-        const targetIdx = wellFeatureIndices.indexOf(originalIdx);
-        if (targetIdx === -1) return;
-        wellFeatureIndices.splice(targetIdx, 1, newIdx);
-        const changelogMsg = `${formatFeatureName(featureName)} at ${formatCoords(
-          wellWaveformData[originalIdx]
-        )} was moved to ${formatCoords(wellWaveformData[newIdx])}.`;
+      const targetIdx = wellFeatureIndices.indexOf(originalIdx);
+      if (targetIdx === -1 || newIdx === -1) return;
+      wellFeatureIndices.splice(targetIdx, 1, newIdx);
+      const changelogMsg = `${formatFeatureName(featureName)} at ${formatCoords(
+        wellWaveformData[originalIdx]
+      )} was moved to ${formatCoords(wellWaveformData[newIdx])}.`;
 
-        handleChangeForCurrentWell(ACTIONS.ADD, wellSettings, changelogMsg);
-      }
+      handleChangeForCurrentWell(ACTIONS.ADD, wellSettings, changelogMsg);
     },
     setThresholdEndpoints: (featureName, newEndpoints) => {
       const wellSettings = customAnalysisSettings[selectedWell];
