@@ -221,6 +221,17 @@ export default function WaveformGraph({
     }
   }, [customAnalysisSettings, selectedMarkerToMove, xZoomFactor, yZoomFactor, startTime, endTime]);
 
+  const getClosestIndex = (data, x) => {
+    const time = data.map((x) => x[0]);
+    const closestValue = time.sort(
+      (a, b) =>
+        Math.abs(Number(x.toFixed(2)) - Number(a.toFixed(2))) -
+        Math.abs(Number(x.toFixed(2)) - Number(b.toFixed(2)))
+    )[0];
+
+    return data.findIndex((x) => Number(x[0].toFixed(2)) === Number(closestValue.toFixed(2)));
+  };
+
   /* NOTE!! The order of the variables and function calls in this function are important to functionality.
      could eventually try to break this up, but it's more sensitive in react than vue */
   const createGraph = () => {
@@ -476,27 +487,25 @@ export default function WaveformGraph({
         To force circle to stay along data line, find index of x-coordinate in datapoints to then grab corresponding y-coordinate
         If this is skipped, user will be able to drag circle anywhere on graph, unrelated to data line.
       */
-      const draggedIdx = waveformData.findIndex((x) => Number(x[0].toFixed(2)) === Number(d[0].toFixed(2)));
-      if (draggedIdx > -1) {
-        // assigns circle node new x and y coordinates based off drag event
-        if (featureType === "peak") {
-          d3.select(this).attr(
-            "transform",
-            "translate(" + x(d[0]) + "," + (y(waveformData[draggedIdx][1]) - 7) + ") rotate(180)"
-          );
-        } else {
-          d3.select(this).attr(
-            "transform",
-            "translate(" + x(d[0]) + "," + (y(waveformData[draggedIdx][1]) + 7) + ")"
-          );
-        }
-        // update the focus text with current x and y data points as user drags marker
-        focusText
-          .html("[ " + d[0].toFixed(2) + ", " + waveformData[draggedIdx][1].toFixed(2) + " ]")
-          .attr("x", x(d[0]) + 15)
-          .attr("y", y(waveformData[draggedIdx][1]) - 20)
-          .style("opacity", 1);
+      const draggedIdx = getClosestIndex(waveformData, d[0]);
+      // assigns circle node new x and y coordinates based off drag event
+      if (featureType === "peak") {
+        d3.select(this).attr(
+          "transform",
+          "translate(" + x(d[0]) + "," + (y(waveformData[draggedIdx][1]) - 7) + ") rotate(180)"
+        );
+      } else {
+        d3.select(this).attr(
+          "transform",
+          "translate(" + x(d[0]) + "," + (y(waveformData[draggedIdx][1]) + 7) + ")"
+        );
       }
+      // update the focus text with current x and y data points as user drags marker
+      focusText
+        .html("[ " + d[0].toFixed(2) + ", " + waveformData[draggedIdx][1].toFixed(2) + " ]")
+        .attr("x", x(d[0]) + 15)
+        .attr("y", y(waveformData[draggedIdx][1]) - 20)
+        .style("opacity", 1);
     }
 
     function dragEnded(d) {
@@ -508,9 +517,7 @@ export default function WaveformGraph({
       const features = featureType === "peak" ? peaks : valleys;
       // indexToReplace is the index of the selected peak or valley in the peaks/valley state arrays that need to be changed
       const indexToChange = features[d3.select(this).attr("indexToReplace")];
-      const newSelectedIndex = waveformData.findIndex(
-        (coords) => Number(coords[0].toFixed(2)) === Number(x.invert(d.x).toFixed(2))
-      );
+      const newSelectedIndex = getClosestIndex(waveformData, x.invert(d.x));
 
       customAnalysisSettingsUpdaters.moveFeature(`${featureType}s`, indexToChange, newSelectedIndex);
     }
