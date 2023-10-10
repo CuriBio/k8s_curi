@@ -477,25 +477,26 @@ export default function WaveformGraph({
         If this is skipped, user will be able to drag circle anywhere on graph, unrelated to data line.
       */
       const draggedIdx = waveformData.findIndex((x) => Number(x[0].toFixed(2)) === Number(d[0].toFixed(2)));
-
-      // assigns circle node new x and y coordinates based off drag event
-      if (featureType === "peak") {
-        d3.select(this).attr(
-          "transform",
-          "translate(" + x(d[0]) + "," + (y(waveformData[draggedIdx][1]) - 7) + ") rotate(180)"
-        );
-      } else {
-        d3.select(this).attr(
-          "transform",
-          "translate(" + x(d[0]) + "," + (y(waveformData[draggedIdx][1]) + 7) + ")"
-        );
+      if (draggedIdx > -1) {
+        // assigns circle node new x and y coordinates based off drag event
+        if (featureType === "peak") {
+          d3.select(this).attr(
+            "transform",
+            "translate(" + x(d[0]) + "," + (y(waveformData[draggedIdx][1]) - 7) + ") rotate(180)"
+          );
+        } else {
+          d3.select(this).attr(
+            "transform",
+            "translate(" + x(d[0]) + "," + (y(waveformData[draggedIdx][1]) + 7) + ")"
+          );
+        }
+        // update the focus text with current x and y data points as user drags marker
+        focusText
+          .html("[ " + d[0].toFixed(2) + ", " + waveformData[draggedIdx][1].toFixed(2) + " ]")
+          .attr("x", x(d[0]) + 15)
+          .attr("y", y(waveformData[draggedIdx][1]) - 20)
+          .style("opacity", 1);
       }
-      // update the focus text with current x and y data points as user drags marker
-      focusText
-        .html("[ " + d[0].toFixed(2) + ", " + waveformData[draggedIdx][1].toFixed(2) + " ]")
-        .attr("x", x(d[0]) + 15)
-        .attr("y", y(waveformData[draggedIdx][1]) - 20)
-        .style("opacity", 1);
     }
 
     function dragEnded(d) {

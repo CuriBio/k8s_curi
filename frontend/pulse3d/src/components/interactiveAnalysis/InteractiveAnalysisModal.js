@@ -437,18 +437,19 @@ export default function InteractiveWaveformModal({
       handleChangeForCurrentWell(ACTIONS.ADD, wellSettings, changelogMsg);
     },
     moveFeature: (featureName, originalIdx, newIdx) => {
-      const wellSettings = customAnalysisSettings[selectedWell];
-      const wellFeatureIndices = wellSettings.allFeatureIndices[featureName];
+      if (newIdx > -1) {
+        const wellSettings = customAnalysisSettings[selectedWell];
+        const wellFeatureIndices = wellSettings.allFeatureIndices[featureName];
 
-      const targetIdx = wellFeatureIndices.indexOf(originalIdx);
-      if (targetIdx === -1) return;
-      wellFeatureIndices.splice(targetIdx, 1, newIdx);
+        const targetIdx = wellFeatureIndices.indexOf(originalIdx);
+        if (targetIdx === -1) return;
+        wellFeatureIndices.splice(targetIdx, 1, newIdx);
+        const changelogMsg = `${formatFeatureName(featureName)} at ${formatCoords(
+          wellWaveformData[originalIdx]
+        )} was moved to ${formatCoords(wellWaveformData[newIdx])}.`;
 
-      const changelogMsg = `${formatFeatureName(featureName)} at ${formatCoords(
-        wellWaveformData[originalIdx]
-      )} was moved to ${formatCoords(wellWaveformData[newIdx])}.`;
-
-      handleChangeForCurrentWell(ACTIONS.ADD, wellSettings, changelogMsg);
+        handleChangeForCurrentWell(ACTIONS.ADD, wellSettings, changelogMsg);
+      }
     },
     setThresholdEndpoints: (featureName, newEndpoints) => {
       const wellSettings = customAnalysisSettings[selectedWell];
@@ -802,7 +803,7 @@ export default function InteractiveWaveformModal({
         .filter((idx) => {
           // Can only filter if the data for this well has actually been loaded,
           // which is not guaranteed to be the case with the staggered loading of data for each well
-          if (!wellCoords) return true;
+          if (!wellCoords || idx === -1) return true;
 
           const [featureMarkerX, featureMarkerY] = wellCoords[idx];
           const isFeatureWithinWindow = featureMarkerX >= start && featureMarkerX <= end;
