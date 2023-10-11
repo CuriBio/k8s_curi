@@ -7,6 +7,7 @@ from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Response, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from jwt.exceptions import InvalidTokenError
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import EmailStr
@@ -61,6 +62,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(HTTPSRedirectMiddleware)
+
 
 @app.middleware("http")
 async def db_session_middleware(request: Request, call_next):
@@ -70,7 +73,7 @@ async def db_session_middleware(request: Request, call_next):
     # add security headers
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Strict-Transport-Security"] = "max-age=31536000"
-    
+
     return response
 
 

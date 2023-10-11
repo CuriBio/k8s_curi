@@ -2,6 +2,7 @@ import logging
 
 from fastapi import Depends, FastAPI, Path, Request, status, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from fastapi.responses import JSONResponse
 
 from auth import ProtectedAny
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 app = FastAPI(openapi_url=None)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[DASHBOARD_URL],
@@ -23,6 +25,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(HTTPSRedirectMiddleware)
 
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
