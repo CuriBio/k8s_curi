@@ -62,17 +62,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.add_middleware(HTTPSRedirectMiddleware)
+# app.add_middleware(HTTPSRedirectMiddleware)
 
 
 @app.middleware("http")
 async def db_session_middleware(request: Request, call_next):
     request.state.pgpool = await asyncpg_pool()
     response = await call_next(request)
-
-    # add security headers
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["Strict-Transport-Security"] = "max-age=31536000"
 
     return response
 
