@@ -542,11 +542,7 @@ async def register_user(
 
 @app.get("/email", status_code=status.HTTP_204_NO_CONTENT)
 async def email_account(
-    request: Request,
-    email: EmailStr = Query(None),
-    id: str = Query(None),
-    type: str = Query(None),
-    user: bool = Query(None),
+    request: Request, email: EmailStr = Query(None), type: str = Query(None), user: bool = Query(None)
 ):
     """Send or resend account emails.
 
@@ -556,12 +552,12 @@ async def email_account(
     try:
         async with request.state.pgpool.acquire() as con:
             query = (
-                "SELECT id, customer_id, name FROM users WHERE email=$1 AND id=$2"
+                "SELECT id, customer_id, name FROM users WHERE email=$1"
                 if user
-                else "SELECT id FROM customers WHERE email=$1 AND id=$2"
+                else "SELECT id FROM customers WHERE email=$1"
             )
 
-            row = await con.fetchrow(query, email, id)
+            row = await con.fetchrow(query, email)
             # send email if found, otherwise return 204, doesn't need to raise an exception
             if row is not None:
                 await _create_account_email(
