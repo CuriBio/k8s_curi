@@ -95,22 +95,6 @@ const Accordion = muiStyled(MuiAccordion)`
   box-shadow: none;
 `;
 
-const adminButtons = [
-  { label: "Uploads", disabled: false, page: "/uploads", options: [] },
-  {
-    label: "Add New User",
-    disabled: false,
-    page: "/new-user",
-    options: [],
-  },
-  { label: "Users Info", disabled: false, page: "/users-info", options: [] },
-  {
-    label: "Account Settings",
-    disabled: false,
-    page: "/account-settings",
-    options: [],
-  },
-];
 const modalObjs = {
   jobsReached: {
     header: "Warning!",
@@ -132,7 +116,7 @@ export default function ControlPanel() {
   const router = useRouter();
   const [selected, setSelected] = useState(router.pathname.replace("-", " ").replace("/", ""));
   const [expanded, setExpanded] = useState(null);
-  const { accountType, usageQuota, accountScope } = useContext(AuthContext);
+  const { accountType, usageQuota, accountScope, isCuriAdmin } = useContext(AuthContext);
   const [modalState, setModalState] = useState(false);
   const [modalLabels, setModalLabels] = useState({ header: "", messages: [] });
 
@@ -155,17 +139,35 @@ export default function ControlPanel() {
     { label: "Metric Definitions", options: [] },
   ];
 
-  const buttons = accountType === "admin" ? adminButtons : userButtons;
+  const adminButtons = [
+    { label: "Uploads", disabled: false, page: "/uploads", options: [] },
+    {
+      label: "Add New",
+      disabled: false,
+      page: "/add-new-account",
+      options: ["User"],
+    },
+    { label: "Users Info", disabled: false, page: "/users-info", options: [] },
+    {
+      label: "Account Settings",
+      disabled: false,
+      page: "/account-settings",
+      options: [],
+    },
+  ];
 
+  const panelButtons = accountType === "admin" ? adminButtons : userButtons;
   const productionConsoleOptions = [];
   const mantarrayProductionScopes = ["mantarray:serial_number:edit", "mantarray:firmware:edit"];
+
   if (accountScope) {
     // will have other pages that will be conditionally available depending on scope in the future
     if (accountScope.some((scope) => mantarrayProductionScopes.includes(scope))) {
       productionConsoleOptions.push("Mantarray");
     }
+
     if (productionConsoleOptions.length > 0) {
-      buttons.push({
+      panelButtons.push({
         label: "Production Console",
         page: "/production-console",
         options: productionConsoleOptions,
@@ -173,15 +175,22 @@ export default function ControlPanel() {
     }
   }
 
+  if (isCuriAdmin) {
+    // if the curi admin acccount is logged in, allow them to add new customers
+    adminButtons[1].options.push("Customer");
+  }
+
   useEffect(() => {
     // this checks if a page changes without button is clicked from a forced redirection
-    const currentPage = buttons.filter(({ page }) => page === router.pathname)[0];
+    const currentPage = panelButtons.filter(({ page }) => page === router.pathname)[0];
 
     if (currentPage) {
       const { label, options } = currentPage;
+
       if (label !== selected) {
         setSelected(label);
       }
+
       setExpanded(options.length > 0 ? label : null);
     }
   }, [router]);
@@ -213,10 +222,10 @@ export default function ControlPanel() {
   return (
     <>
       <Container>
-        {buttons.map(({ disabled, label, page, options }, idx) => {
+        {panelButtons.map(({ disabled, label, page, options }, idx) => {
           const handleListClick = (e) => {
             e.preventDefault();
-            router.push({ pathname: page, query: { id: e.target.id } });
+            router.push({ pathname: page, query: { id: e.target.id.toLowerCase() } });
           };
 
           const handleSelected = (e) => {
@@ -226,6 +235,7 @@ export default function ControlPanel() {
               window.open("https://pulse3d.readthedocs.io/en/latest/_images/twitch_metrics_diagram.png");
               return;
             }
+
             setSelected(label);
 
             if (options.length === 0) {
@@ -235,6 +245,7 @@ export default function ControlPanel() {
               setExpanded(expanded === label ? null : label);
             }
           };
+
           let backgroundColor =
             selected.toLocaleLowerCase() === label.toLowerCase() ? "var(--teal-green)" : "var(--dark-blue)";
 

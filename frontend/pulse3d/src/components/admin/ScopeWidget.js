@@ -1,7 +1,6 @@
 import styled from "styled-components";
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect } from "react";
 import CheckboxList from "@/components/basicWidgets/CheckboxList";
-import { AuthContext } from "@/pages/_app";
 
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
@@ -23,17 +22,19 @@ const ScopeLabel = styled.div`
   line-height: 2;
 `;
 
-export default function ScopeWidget({ initialChecked = [], selectedScopes, setSelectedScopes }) {
+export default function ScopeWidget({
+  initialChecked = [],
+  selectedScopes,
+  setSelectedScopes,
+  availableScopes,
+  isForUser,
+}) {
   const [scopeOptions, setScopeOptions] = useState([]);
   const [scopeDisabledStates, setScopeDisabledStates] = useState([]);
 
-  const { userScopes } = useContext(AuthContext);
-
   useEffect(() => {
-    if (userScopes) {
-      formatUserScopes();
-    }
-  }, [userScopes]);
+    formatUserScopes();
+  }, [availableScopes]);
 
   useEffect(() => {
     if (initialChecked.length > 0) {
@@ -46,15 +47,28 @@ export default function ScopeWidget({ initialChecked = [], selectedScopes, setSe
   }, [selectedScopes]);
 
   const formatUserScopes = () => {
-    const scopeList = Object.entries(userScopes).map(([product, addScopes]) => [product, addScopes]);
+    // customer scopes are an array, user scopes are an object
+    const scopeList = isForUser
+      ? Object.entries(availableScopes).map(([product, addScopes]) => [product, addScopes])
+      : availableScopes;
+
     const flattenedScopes = scopeList.flat(2);
+
     setScopeOptions(flattenedScopes);
     handleScopeDisabledStates();
   };
 
   const handleScopeDisabledStates = (selected = selectedScopes) => {
+    const disabledStates = isForUser
+      ? disableUserScopes(selected)
+      : Array(availableScopes.length).fill(false);
+
+    setScopeDisabledStates(disabledStates);
+  };
+
+  const disableUserScopes = (selected) => {
     const disabledStates = [];
-    Object.entries(userScopes).map(([product, addScopes]) => {
+    Object.entries(availableScopes).map(([product, addScopes]) => {
       // product itself is always enabled
       disabledStates.push(false);
       // if main product is checked, then enabled other scope options under product
@@ -64,7 +78,7 @@ export default function ScopeWidget({ initialChecked = [], selectedScopes, setSe
         .map(() => disabledStates.push(!selected.includes(product)));
     });
 
-    setScopeDisabledStates(disabledStates);
+    return disabledStates;
   };
 
   const handleCheckedScopes = (scope, state) => {
@@ -76,8 +90,8 @@ export default function ScopeWidget({ initialChecked = [], selectedScopes, setSe
       newCheckedScopes.splice(newCheckedScopes.indexOf(scope), 1);
       // if main product scope is being unchecked, auto uncheck any dependent scopes if checked
       // example: 'mantarray' is unchecked, ensure that 'mantarray:rw_all_data' is unchecked
-      if (Object.keys(userScopes).includes(scope)) {
-        for (const s of userScopes[scope]) {
+      if (Object.keys(availableScopes).includes(scope)) {
+        for (const s of availableScopes[scope]) {
           if (newCheckedScopes.includes(s)) {
             newCheckedScopes.splice(newCheckedScopes.indexOf(s), 1);
           }

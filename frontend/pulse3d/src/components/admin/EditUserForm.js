@@ -19,11 +19,14 @@ export default function EditUserForm({ userData, openEditModal, setOpenEditModal
   const [buttons, setButtons] = useState(["Close", "Save"]);
   const [labels, setLabels] = useState([]);
 
-  const { userScopes } = useContext(AuthContext);
+  const { availableScopes } = useContext(AuthContext);
 
   useEffect(() => {
-    if (userData && userScopes) {
-      const scopeList = Object.entries(userScopes).map(([product, addScopes]) => [product, addScopes]);
+    if (userData && availableScopes.user) {
+      const scopeList = Object.entries(availableScopes.user).map(([product, addScopes]) => [
+        product,
+        addScopes,
+      ]);
       const flattenedScopes = scopeList.flat(2);
 
       let displayedScopes = userData.scopes.map((s) => {
@@ -34,7 +37,7 @@ export default function EditUserForm({ userData, openEditModal, setOpenEditModal
       displayedScopes = [...new Set(displayedScopes)];
       setExistingScopes(displayedScopes);
     }
-  }, [userData, userScopes]);
+  }, [userData, availableScopes]);
 
   const handleButtonSelection = async (idx) => {
     if (idx === 1) {

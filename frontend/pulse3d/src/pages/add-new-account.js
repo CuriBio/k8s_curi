@@ -1,6 +1,8 @@
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
-import NewUserForm from "@/components/admin/NewUserForm";
+import NewAccountForm from "@/components/admin/NewAccountForm";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
 
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
@@ -11,14 +13,21 @@ const BackgroundContainer = styled.div`
   flex-direction: column;
 `;
 
-export default function NewUser() {
+export default function AddNewAccount() {
+  const router = useRouter();
+  const [newAccountType, setNewAccountType] = useState("user");
+
+  useEffect(() => {
+    setNewAccountType(router.query.id);
+  }, [router.query]);
+
   return (
     <BackgroundContainer>
-      <NewUserForm />
+      <NewAccountForm type={newAccountType} />
     </BackgroundContainer>
   );
 }
 
-NewUser.getLayout = (page) => {
+AddNewAccount.getLayout = (page) => {
   return <DashboardLayout>{page}</DashboardLayout>;
 };

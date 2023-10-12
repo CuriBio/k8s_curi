@@ -5,7 +5,7 @@ CURIBIO_SCOPES = frozenset(["curi:admin"])
 CUSTOMER_SCOPES = frozenset(["nautilus:free", "nautilus:paid", "mantarray:free", "mantarray:paid"])
 # ignore free or paid tier scopes, will only send product name to FE to select for user, only contain special scopes
 USER_SCOPES = immutabledict({"nautilus": ["nautilus:rw_all_data"], "mantarray": ["mantarray:rw_all_data"]})
-ACCOUNT_SCOPES = frozenset(["users:verify", "users:reset", "customer:reset"])
+ACCOUNT_SCOPES = frozenset(["users:verify", "users:reset", "customer:reset", "customer:verify"])
 
 NAUTILUS_SCOPES = frozenset(["nautilus:free", "nautilus:paid", "nautilus:rw_all_data"])
 # not currently auto assigned anywhere
