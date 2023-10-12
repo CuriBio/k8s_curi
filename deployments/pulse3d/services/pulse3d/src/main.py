@@ -13,7 +13,6 @@ from stream_zip import ZIP_64, stream_zip
 from datetime import datetime
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from fastapi.responses import StreamingResponse
 from pulse3D.constants import (
     DEFAULT_BASELINE_WIDTHS,
@@ -70,8 +69,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.add_middleware(HTTPSRedirectMiddleware)
 
 
 @app.middleware("http")
