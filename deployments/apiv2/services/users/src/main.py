@@ -66,6 +66,7 @@ app.add_middleware(
 async def db_session_middleware(request: Request, call_next):
     request.state.pgpool = await asyncpg_pool()
     response = await call_next(request)
+
     return response
 
 
