@@ -81,7 +81,7 @@ export default function Layout({ children }) {
 
   useEffect(() => {
     setShowHomeArrow(accountType === "user" && !isAuthorizedPage && router.pathname !== "/home");
-  }, [accountType, router.pathname]);
+  }, [accountType, router]);
 
   const logoutUser = async () => {
     await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/logout`, {
