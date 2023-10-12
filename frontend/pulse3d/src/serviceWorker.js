@@ -257,7 +257,7 @@ const interceptResponse = async (req, url) => {
     const response = await fetch(modifiedReq);
 
     const responseClone = response.clone();
-    const data = await response.json();
+    let data = await response.json();
 
     if (response.status === 200) {
       // these three need to remain independent cache items even though they use the same response because they get updated from different requests later
@@ -266,6 +266,8 @@ const interceptResponse = async (req, url) => {
       // set tokens if login was successful
       await setTokens(data.tokens, responseClone);
       await setUserScopes(responseClone);
+      // remove tokens
+      data = {};
     }
 
     // send the response without the tokens so they are always contained within this service worker
