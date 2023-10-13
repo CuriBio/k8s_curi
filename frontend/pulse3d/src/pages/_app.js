@@ -104,7 +104,7 @@ function Pulse({ Component, pageProps }) {
             }
           } else if (data.msgType === "authCheck") {
             const newAccountInfo = data.accountInfo;
-            console.log(data);
+
             if (data.isLoggedIn) {
               setAvailableScopes({ customer: data.customerScopes, user: data.userScopes });
               setIsCuriAdmin(newAccountInfo.accountScope.find((scope) => scope === "curi:admin"));
