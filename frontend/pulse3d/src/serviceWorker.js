@@ -232,7 +232,7 @@ const requestWithRefresh = async (req, url) => {
     const retryRequest = await refreshMutex.runExclusive(async () => {
       // check remaining lifetime of access token
       const nowNoMillis = Math.floor(Date.now() / 1000);
-      const accessTokenExp = getValueFromToken("exp");
+      const accessTokenExp = await getValueFromToken("exp");
       if (accessTokenExp - nowNoMillis < 10) {
         // refresh tokens since the access token less than 10 seconds away from expiring
         const refreshResponseStatus = await handleRefreshRequest();
@@ -397,7 +397,8 @@ self.onmessage = async ({ data, source }) => {
     const cachedTokens = await getAuthTokens();
 
     msgInfo = {
-      isLoggedIn: cachedTokens.access !== null && Date.now() < new Date(getValueFromToken("exp") * 1000),
+      isLoggedIn:
+        cachedTokens.access !== null && Date.now() < new Date((await getValueFromToken("exp")) * 1000),
       accountInfo: {
         accountType: await getValueFromToken("account_type"),
         accountId: await getValueFromToken("userid"),
