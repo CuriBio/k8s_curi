@@ -92,6 +92,7 @@ const setTokens = async ({ refresh }, res) => {
   if (logoutTimer) {
     clearTimeout(logoutTimer);
   }
+
   // set up new logout timer
   const expTime = new Date(jwtDecode(refresh.token).exp * 1000);
   const currentTime = new Date().getTime();
@@ -231,8 +232,7 @@ const requestWithRefresh = async (req, url) => {
     const retryRequest = await refreshMutex.runExclusive(async () => {
       // check remaining lifetime of access token
       const nowNoMillis = Math.floor(Date.now() / 1000);
-      const cachedTokens = await getAuthTokens();
-      const accessTokenExp = jwtDecode(cachedTokens.access).exp;
+      const accessTokenExp = getValueFromToken("exp");
       if (accessTokenExp - nowNoMillis < 10) {
         // refresh tokens since the access token less than 10 seconds away from expiring
         const refreshResponseStatus = await handleRefreshRequest();
@@ -257,7 +257,7 @@ const interceptResponse = async (req, url) => {
     const response = await fetch(modifiedReq);
 
     const responseClone = response.clone();
-    const data = await response.json();
+    let data = await response.json();
 
     if (response.status === 200) {
       // these three need to remain independent cache items even though they use the same response because they get updated from different requests later
@@ -266,6 +266,8 @@ const interceptResponse = async (req, url) => {
       // set tokens if login was successful
       await setTokens(data.tokens, responseClone);
       await setAvailableScopes(responseClone);
+      // remove tokens after
+      data = {};
     }
 
     // send the response without the tokens so they are always contained within this service worker
@@ -395,7 +397,7 @@ self.onmessage = async ({ data, source }) => {
     const cachedTokens = await getAuthTokens();
 
     msgInfo = {
-      isLoggedIn: cachedTokens.access !== null,
+      isLoggedIn: cachedTokens.access !== null && Date.now() < new Date(getValueFromToken("exp") * 1000),
       accountInfo: {
         accountType: await getValueFromToken("account_type"),
         accountId: await getValueFromToken("userid"),

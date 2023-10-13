@@ -132,6 +132,7 @@ const modalObjs = {
     ],
   },
 };
+
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota } = useContext(AuthContext);

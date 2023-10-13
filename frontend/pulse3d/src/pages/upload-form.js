@@ -306,6 +306,7 @@ export default function UploadForm() {
     // in case user added a new preset, want to grab updated list on analysis submission
     getAnalysisPresets();
     setSelectedPresetIdx();
+    resetAnalysisParams();
   };
 
   const resetAnalysisParams = () => {
@@ -714,6 +715,7 @@ export default function UploadForm() {
               handleSelection={handleDropDownSelect}
               reset={files.length === 0}
               width={500}
+              disabled={inProgress}
             />
           </DropDownContainer>
         ) : (
