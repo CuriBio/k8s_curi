@@ -19,9 +19,15 @@ from pulse3D.constants import (
     DEFAULT_PROMINENCE_FACTORS,
     DEFAULT_WIDTH_FACTORS,
     DEFAULT_NB_WIDTH_FACTORS,
+    DATA_TYPE_TO_AMPLITUDE_LABEL,
+    DEFAULT_AMPLITUDE_LABEL,
+    DATA_TYPE_TO_UNIT_LABEL,
+    DEFAULT_UNIT_LABEL,
+    CALCULATED_METRIC_DISPLAY_NAMES,
+    AMPLITUDE_UUID,
 )
 
-from auth import ProtectedAny, PULSE3D_USER_SCOPES, PULSE3D_SCOPES, CUSTOMER_SCOPES, split_scope_account_data
+from auth import ProtectedAny, PULSE3D_USER_SCOPES, ALL_PULSE3D_SCOPES, split_scope_account_data
 from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET, DASHBOARD_URL
 from jobs import (
     create_upload,
@@ -93,7 +99,7 @@ async def startup():
 async def get_info_of_uploads(
     request: Request,
     upload_ids: Optional[List[uuid.UUID]] = Query(None),
-    token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)),
+    token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES)),
 ):
     # need to convert to UUIDs to str to avoid issues with DB
     if upload_ids:
@@ -104,7 +110,8 @@ async def get_info_of_uploads(
         account_type = token["account_type"]
 
         # give advanced privileges to access all uploads under customer_id
-        if "pulse3d:rw_all_data" in token["scope"]:
+        # TODO update this to product specific when landing page is specced out more
+        if "mantarray:rw_all_data" in token["scope"]:
             account_id = str(uuid.UUID(token["customer_id"]))
             # catches in the else block like customers in get_uploads, just set here so it's not customer and become confusing
             account_type = "dataUser"
@@ -133,17 +140,21 @@ async def create_recording_upload(
     try:
         user_id = str(uuid.UUID(token["userid"]))
         customer_id = str(uuid.UUID(token["customer_id"]))
+        # TODO Luci (09/30/2023) eventually select for upload type specific scope instead of defaulting to index 0, not currently specced out how to handle multiple products
         service, _ = split_scope_account_data(token["scope"][0])
         # generating uuid here instead of letting PG handle it so that it can be inserted into the prefix more easily
         upload_id = uuid.uuid4()
         s3_key = f"uploads/{customer_id}/{user_id}/{upload_id}"
+
+        # TODO Luci (09/30/2023) can remove after MA v1.2.2+, will no longer need to handle pulse3d upload types
+        upload_type = details.upload_type if details.upload_type != "pulse3d" else "mantarray"
 
         upload_params = {
             "prefix": s3_key,
             "filename": details.filename,
             "md5": details.md5s,
             "user_id": user_id,
-            "type": details.upload_type,
+            "type": upload_type,
             "customer_id": customer_id,
             "auto_upload": details.auto_upload,
             "upload_id": upload_id,
@@ -173,7 +184,7 @@ async def create_recording_upload(
 async def soft_delete_uploads(
     request: Request,
     upload_ids: List[uuid.UUID] = Query(None),
-    token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)),
+    token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES)),
 ):
     # make sure at least one upload ID was given
     if not upload_ids:
@@ -194,7 +205,7 @@ async def soft_delete_uploads(
 
 @app.post("/uploads/download")
 async def download_zip_files(
-    request: Request, details: UploadDownloadRequest, token=Depends(ProtectedAny(scope=PULSE3D_SCOPES))
+    request: Request, details: UploadDownloadRequest, token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES))
 ):
     upload_ids = details.upload_ids
 
@@ -272,7 +283,7 @@ async def get_info_of_jobs(
     request: Request,
     job_ids: Optional[List[uuid.UUID]] = Query(None),
     download: bool = Query(True),
-    token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)),
+    token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES)),
 ):
     # need to convert UUIDs to str to avoid issues with DB
     if job_ids:
@@ -339,7 +350,8 @@ async def _get_jobs(con, token, job_ids):
     logger.info(f"Retrieving job info with IDs: {job_ids} for {account_type}: {account_id}")
 
     # give advanced privileges to access all uploads under customer_id
-    if "pulse3d:rw_all_data" in token["scope"]:
+    # TODO update this to product specific when landing page is specced out more
+    if "mantarray:rw_all_data" in token["scope"]:
         account_id = str(uuid.UUID(token["customer_id"]))
         # catches in the else block like customers in get_uploads, just set here so it's not customer and become confusing
         account_type = "dataUser"
@@ -392,6 +404,8 @@ async def create_new_job(
             params.append("well_groups")
         if pulse3d_semver >= "0.30.5":
             params.append("stim_waveform_format")
+        if pulse3d_semver >= "0.34.2":
+            params.append("data_type")
 
         if use_noise_based_peak_finding:
             params += [
@@ -541,7 +555,7 @@ def _format_tuple_param(
 async def soft_delete_jobs(
     request: Request,
     job_ids: List[uuid.UUID] = Query(None),
-    token=Depends(ProtectedAny(scope=PULSE3D_SCOPES)),
+    token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES)),
 ):
     # make sure at least one job ID was given
     if not job_ids:
@@ -563,7 +577,7 @@ async def soft_delete_jobs(
 
 @app.post("/jobs/download")
 async def download_analyses(
-    request: Request, details: JobDownloadRequest, token=Depends(ProtectedAny(scope=PULSE3D_SCOPES))
+    request: Request, details: JobDownloadRequest, token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES))
 ):
     job_ids = details.job_ids
 
@@ -650,14 +664,8 @@ async def get_interactive_waveform_data(
         selected_job = jobs[0]
         parsed_meta = json.loads(selected_job["job_meta"])
         recording_owner_id = str(selected_job["user_id"])
-        analysis_params = parsed_meta.get("analysis_params")
+        analysis_params = parsed_meta.get("analysis_params", {})
         pulse3d_version = parsed_meta.get("version")
-
-        # normalize_y_axis is not always in analysis_params and if normalize_y_axis is present, will either be None, True, or False.
-        # Only prevent normalization if explicitly False.
-        normalize_y_axis = not (
-            "normalize_y_axis" in analysis_params and analysis_params["normalize_y_axis"] is False
-        )
 
         if "pulse3d:rw_all_data" not in token["scope"]:
             # only allow user to perform interactive analysis on another user's recording if special scope
@@ -684,10 +692,15 @@ async def get_interactive_waveform_data(
         pv_parquet_key = f"{selected_job['prefix']}/{job_id}/peaks_valleys.parquet"
         peaks_valleys_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, pv_parquet_key)
 
+        data_type = analysis_params.get("data_type")
+        if not data_type:
+            # if data type is not present, is present and is None, or some other falsey value, set to Force as default
+            data_type = "Force"
+
         return WaveformDataResponse(
             time_force_url=time_force_url,
             peaks_valleys_url=peaks_valleys_url,
-            normalize_y_axis=normalize_y_axis,
+            amplitude_label=_get_full_amplitude_label(data_type),
         )
     # ValueError gets raised when no object is found in s3 that matches given key
     except ValueError:
@@ -700,6 +713,13 @@ async def get_interactive_waveform_data(
     except Exception:
         logger.exception("Failed to get interactive waveform data")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _get_full_amplitude_label(data_type: str) -> str:
+    return CALCULATED_METRIC_DISPLAY_NAMES[AMPLITUDE_UUID].format(
+        amplitude=DATA_TYPE_TO_AMPLITUDE_LABEL.get(data_type.lower(), DEFAULT_AMPLITUDE_LABEL),
+        unit=DATA_TYPE_TO_UNIT_LABEL.get(data_type.lower(), DEFAULT_UNIT_LABEL),
+    )
 
 
 @app.get("/versions")
@@ -721,15 +741,17 @@ async def get_versions(request: Request):
 
 @app.get("/usage", response_model=UsageQuota)
 async def get_usage_quota(
-    request: Request, service: str = Query(None), token=Depends(ProtectedAny(scope=PULSE3D_SCOPES))
+    request: Request, service: str = Query(None), token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES))
 ):
     """Get the usage quota for the specific user"""
     try:
+        # no customer_id assigned to customer tokens
         customer_id = (
             str(uuid.UUID(token["userid"]))
-            if token["scope"][0] in CUSTOMER_SCOPES
+            if token["customer_id"] is None
             else str(uuid.UUID(token["customer_id"]))
         )
+
         async with request.state.pgpool.acquire() as con:
             usage_quota = await check_customer_quota(con, customer_id, service)
             return usage_quota
@@ -740,7 +762,7 @@ async def get_usage_quota(
 
 @app.post("/presets")
 async def save_analysis_presets(
-    request: Request, details: SavePresetRequest, token=Depends(ProtectedAny(scope=PULSE3D_SCOPES))
+    request: Request, details: SavePresetRequest, token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES))
 ):
     """Save analysis parameter preset for user"""
     try:
@@ -754,7 +776,7 @@ async def save_analysis_presets(
 
 
 @app.get("/presets")
-async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(scope=PULSE3D_SCOPES))):
+async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES))):
     """Get analysis parameter preset for user"""
     try:
         user_id = str(uuid.UUID(token["userid"]))

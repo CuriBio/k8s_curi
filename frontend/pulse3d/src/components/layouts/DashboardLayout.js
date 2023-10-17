@@ -37,6 +37,13 @@ export default function DashboardLayout({ children }) {
     // Tanner (11/1/22): if we need to add an option for variable stiffness in the dropdown, a new version of pulse3d will need to be released
   };
 
+  const dataTypeDetails = {
+    Auto: null,
+    Force: "Force",
+    Calcium: "Calcium",
+    Voltage: "Voltage",
+  };
+
   useEffect(() => {
     if (router.pathname === "/uploads" || router.pathname === "/upload-form") {
       getUploads();
@@ -96,6 +103,7 @@ export default function DashboardLayout({ children }) {
         pulse3dVersions,
         metaPulse3dVersions,
         stiffnessFactorDetails,
+        dataTypeDetails,
         defaultUploadForReanalysis,
         setDefaultUploadForReanalysis,
       }}

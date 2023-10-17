@@ -38,7 +38,7 @@ def get_token(*, userid=None, customer_id=None, scope=None, account_type=None, r
         if refresh:
             scope = ["refresh"]
         else:
-            scope = ["pulse3d:free"] if account_type == "user" else ["customer:paid"]
+            scope = ["mantarray:free"] if account_type == "user" else ["customer:paid"]
 
     return create_token(
         userid=userid, customer_id=customer_id, scope=scope, account_type=account_type, refresh=refresh
@@ -94,7 +94,8 @@ def test_startup__sets_global_cb_customer_id(mocked_asyncpg_con):
 @pytest.mark.parametrize(
     "method,route",
     [
-        ("POST", "/register"),
+        ("POST", "/register/user"),
+        ("POST", "/register/customer"),
         ("POST", "/refresh"),
         ("POST", "/logout"),
         ("GET", "/"),
@@ -109,7 +110,7 @@ def test_routes_requiring_auth_without_tokens(method, route):
 @pytest.mark.parametrize("send_client_type", [True, False])
 @pytest.mark.parametrize("use_alias", [True, False])
 def test_login__user__success(send_client_type, use_alias, cb_customer_id, mocked_asyncpg_con, mocker):
-    mocked_usage_check = mocker.patch.object(
+    mocker.patch.object(
         main,
         "check_customer_quota",
         return_value={
@@ -125,23 +126,22 @@ def test_login__user__success(send_client_type, use_alias, cb_customer_id, mocke
         "customer_id": "test_alias" if use_alias else str(cb_customer_id),
         "username": "test_USERNAME",
         "password": "test_password",
-        "service": "pulse3d",
     }
     if send_client_type:
         login_details["client_type"] = "dashboard"
 
-    pw_hash = PasswordHasher().hash(login_details["password"])
     test_user_id = uuid.uuid4()
-    test_scope = ["test:scope"]
+    test_scope = ["test:scope1", "test:scope2"]
+    pw_hash = PasswordHasher().hash(login_details["password"])
 
     mocked_asyncpg_con.fetchrow.return_value = {
         "password": pw_hash,
         "id": test_user_id,
-        "scope": json.dumps(test_scope),
         "failed_login_attempts": 0,
         "suspended": False,
         "customer_id": cb_customer_id,
     }
+    mocked_asyncpg_con.fetch.return_value = [{"scope": s} for s in test_scope]
     spied_create_token = mocker.spy(main, "create_token")
 
     expected_access_token = create_token(
@@ -156,7 +156,14 @@ def test_login__user__success(send_client_type, use_alias, cb_customer_id, mocke
 
     assert response.json() == LoginResponse(
         tokens=AuthTokens(access=expected_access_token, refresh=expected_refresh_token),
-        usage_quota=mocked_usage_check.return_value,
+        usage_quota=None,
+        user_scopes=None,
+    )
+
+    expected_query = (
+        "SELECT u.password, u.id, u.failed_login_attempts, u.suspended, u.customer_id FROM users AS u JOIN customers AS c ON u.customer_id=c.id WHERE u.deleted_at IS NULL AND u.name=$1 AND c.alias=$2 AND u.verified='t'"
+        if use_alias
+        else "SELECT password, id, failed_login_attempts, suspended, customer_id FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND verified='t'"
     )
 
     expected_query = (
@@ -167,6 +174,9 @@ def test_login__user__success(send_client_type, use_alias, cb_customer_id, mocke
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
         expected_query, login_details["username"].lower(), login_details["customer_id"]
+    )
+    mocked_asyncpg_con.fetch.assert_called_once_with(
+        "SELECT scope FROM account_scopes WHERE user_id=$1", test_user_id
     )
     mocked_asyncpg_con.execute.assert_called_with(
         "UPDATE users SET refresh_token=$1 WHERE id=$2", expected_refresh_token.token, test_user_id
@@ -190,36 +200,32 @@ def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
         asutospec=True,
     )
 
-    login_details = {"email": "TEST@email.com", "password": "test_password", "service": "pulse3d"}
+    login_details = {"email": "TEST@email.com", "password": "test_password"}
     if send_client_type:
         login_details["client_type"] = "dashboard"
 
     pw_hash = PasswordHasher().hash(login_details["password"])
     test_customer_id = uuid.uuid4()
-    customer_scope = ["pulse3d:free"]
+    customer_scope = ["mantarray:free"]
 
     mocked_asyncpg_con.fetchrow.return_value = {
         "password": pw_hash,
         "id": test_customer_id,
-        "scope": json.dumps(customer_scope),
         "failed_login_attempts": 0,
         "suspended": False,
     }
+    mocked_asyncpg_con.fetch.return_value = [{"scope": s} for s in customer_scope]
     spied_create_token = mocker.spy(main, "create_token")
 
     expected_access_token = create_token(
         userid=test_customer_id,
         customer_id=None,
-        scope=["customer:free"],
+        scope=["mantarray:free"],
         account_type="customer",
         refresh=False,
     )
     expected_refresh_token = create_token(
-        userid=test_customer_id,
-        customer_id=None,
-        scope=["refresh", "service:pulse3d"],
-        account_type="customer",
-        refresh=True,
+        userid=test_customer_id, customer_id=None, scope=["refresh"], account_type="customer", refresh=True
     )
 
     response = test_client.post("/login", json=login_details)
@@ -227,11 +233,15 @@ def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
     assert response.json() == LoginResponse(
         tokens=AuthTokens(access=expected_access_token, refresh=expected_refresh_token),
         usage_quota=mocked_usage_check.return_value,
+        user_scopes={"mantarray": ["mantarray:rw_all_data"]},
     )
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
-        "SELECT password, id, data->'scope' AS scope, failed_login_attempts, suspended FROM customers WHERE deleted_at IS NULL AND email=$1",
+        "SELECT password, id, failed_login_attempts, suspended FROM customers WHERE deleted_at IS NULL AND email=$1",
         login_details["email"].lower(),
+    )
+    mocked_asyncpg_con.fetch.assert_called_once_with(
+        "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL", test_customer_id
     )
     mocked_asyncpg_con.execute.assert_called_with(
         "UPDATE customers SET refresh_token=$1 WHERE id=$2", expected_refresh_token.token, test_customer_id
@@ -301,14 +311,14 @@ def test_login__returns_invalid_creds_if_account_is_suspended(mocked_asyncpg_con
 
 @pytest.mark.parametrize("special_char", ["", *USERNAME_VALID_SPECIAL_CHARS])
 def test_register__user__allows_valid_usernames(special_char, mocked_asyncpg_con, cb_customer_id, mocker):
-    mocker.patch.object(main, "_send_user_email", autospec=True)
+    mocker.patch.object(main, "_create_user_email", autospec=True)
     use_cb_customer_id = choice([True, False])
     end_with_num = choice([True, False])
 
     registration_details = {
         "email": "USEr@example.com",
         "username": f"Test{special_char}UseRName",
-        "service": "pulse3d",
+        "scope": ["mantarray:paid"],
     }
 
     if end_with_num:
@@ -316,30 +326,34 @@ def test_register__user__allows_valid_usernames(special_char, mocked_asyncpg_con
 
     test_user_id = uuid.uuid4()
     test_customer_id = cb_customer_id if use_cb_customer_id else uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, scope=["customer:paid"], account_type="customer")
+    access_token = get_token(userid=test_customer_id, scope=["mantarray:paid"], account_type="customer")
 
     mocked_asyncpg_con.fetchval.return_value = test_user_id
-    expected_scope = ["pulse3d:paid"]
+    expected_scope = ["mantarray:paid", "mantarray:firmware:get"]
 
     response = test_client.post(
-        "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+        "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
-    assert response.status_code == 201
+
     assert response.json() == {
         "username": registration_details["username"].lower(),
         "email": registration_details["email"].lower(),
         "user_id": test_user_id.hex,
-        "account_type": "paid",
         "scope": expected_scope,
     }
+    assert response.status_code == 201
 
     mocked_asyncpg_con.fetchval.assert_called_once_with(
-        "INSERT INTO users (name, email, account_type, data, customer_id) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+        "INSERT INTO users (name, email, customer_id) VALUES ($1, $2, $3) RETURNING id",
         registration_details["username"].lower(),
         registration_details["email"].lower(),
-        "paid",
-        json.dumps({"scope": expected_scope}),
         test_customer_id,
+    )
+    mocked_asyncpg_con.execute.assert_called_once_with(
+        "INSERT INTO account_scopes VALUES ($1, $2, unnest($3::text[]))",
+        test_customer_id,
+        test_user_id,
+        expected_scope,
     )
 
 
@@ -348,17 +362,17 @@ def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, cb_cus
         "email": "tEsT@email.com",
         "password1": TEST_PASSWORD,
         "password2": TEST_PASSWORD,
-        "scope": ["customer:paid"],
+        "scope": ["mantarray:paid", "nautilus:paid"],
     }
 
     test_user_id = uuid.uuid4()
-    expected_scope = ["customer:paid"]
+    expected_scope = ["mantarray:paid", "nautilus:paid"]
     access_token = get_token(userid=cb_customer_id, scope=expected_scope, account_type="customer")
 
     mocked_asyncpg_con.fetchval.return_value = test_user_id
 
     response = test_client.post(
-        "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+        "/register/customer", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 201
     assert response.json() == {
@@ -368,12 +382,14 @@ def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, cb_cus
     }
 
     mocked_asyncpg_con.fetchval.assert_called_once_with(
-        "INSERT INTO customers (email, password, previous_passwords, data, usage_restrictions) VALUES ($1, $2, ARRAY[$3], $4, $5) RETURNING id",
+        "INSERT INTO customers (email, password, previous_passwords, usage_restrictions) VALUES ($1, $2, ARRAY[$3], $4) RETURNING id",
         registration_details["email"].lower(),
         spied_pw_hasher.spy_return,
         spied_pw_hasher.spy_return,
-        json.dumps({"scope": expected_scope}),
         json.dumps(dict(PULSE3D_PAID_USAGE)),
+    )
+    mocked_asyncpg_con.execute.assert_called_once_with(
+        "INSERT INTO account_scopes VALUES ($1, NULL, unnest($2::text[]))", test_user_id, expected_scope
     )
     spied_pw_hasher.assert_called_once_with(mocker.ANY, registration_details["password1"])
 
@@ -386,18 +402,12 @@ def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, cb_cus
     ],
 )
 def test_register__user__invalid_username_length(length, err_msg, cb_customer_id):
-    registration_details = {
-        "email": "test@email.com",
-        "username": "a" * length,
-        "password1": TEST_PASSWORD,
-        "password2": TEST_PASSWORD,
-        "service": "pulse3d",
-    }
+    registration_details = {"email": "test@email.com", "username": "a" * length}
 
-    access_token = get_token(userid=cb_customer_id, scope=["customer:paid"], account_type="customer")
+    access_token = get_token(userid=cb_customer_id, scope=["mantarray:paid"], account_type="customer")
 
     response = test_client.post(
-        "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+        "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
     assert response.json()["detail"][-1]["msg"] == err_msg
@@ -405,18 +415,12 @@ def test_register__user__invalid_username_length(length, err_msg, cb_customer_id
 
 @pytest.mark.parametrize("special_char", ["@", "#", "$", "*", "&", "%"])
 def test_register__user__with_invalid_char_in_username(special_char, cb_customer_id):
-    registration_details = {
-        "email": "test@email.com",
-        "username": f"bad{special_char}username",
-        "password1": TEST_PASSWORD,
-        "password2": TEST_PASSWORD,
-        "service": "pulse3d",
-    }
+    registration_details = {"email": "test@email.com", "username": f"bad{special_char}username"}
 
-    access_token = get_token(userid=cb_customer_id, scope=["customer:paid"], account_type="customer")
+    access_token = get_token(userid=cb_customer_id, scope=["mantarray:paid"], account_type="customer")
 
     response = test_client.post(
-        "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+        "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
     assert (
@@ -427,18 +431,12 @@ def test_register__user__with_invalid_char_in_username(special_char, cb_customer
 
 @pytest.mark.parametrize("bad_first_char", [*USERNAME_VALID_SPECIAL_CHARS, str(randint(0, 9))])
 def test_register__user__with_invalid_first_char(bad_first_char, cb_customer_id):
-    registration_details = {
-        "email": "test@email.com",
-        "username": f"{bad_first_char}username",
-        "password1": TEST_PASSWORD,
-        "password2": TEST_PASSWORD,
-        "service": "pulse3d",
-    }
+    registration_details = {"email": "test@email.com", "username": f"{bad_first_char}username"}
 
-    access_token = get_token(userid=cb_customer_id, scope=["customer:paid"], account_type="customer")
+    access_token = get_token(userid=cb_customer_id, scope=["mantarray:paid"], account_type="customer")
 
     response = test_client.post(
-        "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+        "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
     assert response.json()["detail"][-1]["msg"] == "Username must start with a letter"
@@ -446,18 +444,12 @@ def test_register__user__with_invalid_first_char(bad_first_char, cb_customer_id)
 
 @pytest.mark.parametrize("bad_final_char", USERNAME_VALID_SPECIAL_CHARS)
 def test_register__user__with_invalid_final_char(bad_final_char, cb_customer_id):
-    registration_details = {
-        "email": "test@email.com",
-        "username": f"username{bad_final_char}",
-        "password1": TEST_PASSWORD,
-        "password2": TEST_PASSWORD,
-        "service": "pulse3d",
-    }
+    registration_details = {"email": "test@email.com", "username": f"username{bad_final_char}"}
 
-    access_token = get_token(userid=cb_customer_id, scope=["customer:paid"], account_type="customer")
+    access_token = get_token(userid=cb_customer_id, scope=["mantarray:paid"], account_type="customer")
 
     response = test_client.post(
-        "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+        "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
     assert response.json()["detail"][-1]["msg"] == "Username must end with a letter or number"
@@ -465,18 +457,12 @@ def test_register__user__with_invalid_final_char(bad_final_char, cb_customer_id)
 
 @pytest.mark.parametrize("special_char", USERNAME_VALID_SPECIAL_CHARS)
 def test_register__user__with_consecutive_special_chars(special_char, cb_customer_id):
-    registration_details = {
-        "email": "test@email.com",
-        "username": f"a-{special_char}a",
-        "password1": TEST_PASSWORD,
-        "password2": TEST_PASSWORD,
-        "service": "pulse3d",
-    }
+    registration_details = {"email": "test@email.com", "username": f"a-{special_char}a"}
 
-    access_token = get_token(userid=cb_customer_id, scope=["customer:paid"], account_type="customer")
+    access_token = get_token(userid=cb_customer_id, scope=["mantarray:paid"], account_type="customer")
 
     response = test_client.post(
-        "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+        "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
     assert response.json()["detail"][-1]["msg"] == "Username cannot contain consecutive special characters"
@@ -491,17 +477,23 @@ def test_register__user__with_consecutive_special_chars(special_char, cb_custome
     ],
 )
 def test_register__user__unique_constraint_violations(
-    contraint_to_violate, expected_error_message, mocked_asyncpg_con, cb_customer_id
+    contraint_to_violate, expected_error_message, mocked_asyncpg_con
 ):
-    registration_details = {"email": "test@email.com", "username": "testusername", "service": "pulse3d"}
+    registration_details = {
+        "email": "test@email.com",
+        "username": "testusername",
+        "scope": ["mantarray", "nautilus"],
+    }
 
     test_user_id = uuid.uuid4()
-    access_token = get_token(userid=test_user_id, scope=["customer:paid"], account_type="customer")
+    access_token = get_token(
+        userid=test_user_id, scope=["mantarray:paid", "nautilus:paid"], account_type="customer"
+    )
 
     mocked_asyncpg_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)
 
     response = test_client.post(
-        "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+        "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 400
     assert response.json() == {"detail": expected_error_message}
@@ -509,7 +501,7 @@ def test_register__user__unique_constraint_violations(
 
 @pytest.mark.parametrize(
     "contraint_to_violate,expected_error_message",
-    [("customers_email_key", "Email already in use"), ("all others", "Account registration failed")],
+    [("customers_email_key", "Email already in use"), ("all others", "Customer registration failed")],
 )
 def test_register__customer__unique_constraint_violations(
     contraint_to_violate, expected_error_message, mocked_asyncpg_con, spied_pw_hasher, cb_customer_id, mocker
@@ -518,16 +510,16 @@ def test_register__customer__unique_constraint_violations(
         "email": "test@email.com",
         "password1": TEST_PASSWORD,
         "password2": TEST_PASSWORD,
-        "scope": ["customer:paid"],
+        "scope": ["nautilus:paid"],
     }
 
-    access_token = get_token(userid=cb_customer_id, scope=["customer:paid"], account_type="customer")
+    access_token = get_token(userid=cb_customer_id, scope=["nautilus:paid"], account_type="customer")
 
     # setting this
     mocked_asyncpg_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)
 
     response = test_client.post(
-        "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+        "/register/customer", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 400
     assert response.json() == {"detail": expected_error_message}
@@ -541,7 +533,7 @@ def test_register__invalid_token_scope_given():
     registration_details = {"email": "user@new.com", "password1": "pw", "password2": "pw"}
     access_token = get_token(scope=["users:free"], account_type="customer")
     response = test_client.post(
-        "/register", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+        "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 401
 
@@ -551,21 +543,17 @@ def test_register__invalid_token_scope_given():
 def test_refresh__success(account_type, mocked_asyncpg_con):
     userid = uuid.uuid4()
 
-    test_service = "test_service"
-
+    test_service = "mantarray"
     test_scope_in_db = [f"{test_service}:free"]
-    customer_id = None if account_type == "customer" else uuid.uuid4()
+
+    is_customer_account = account_type == "customer"
+    customer_id = None if is_customer_account else uuid.uuid4()
 
     select_clause = "refresh_token, data->'scope' AS scope"
     if account_type == "user":
         select_clause += ", customer_id"
 
     refresh_scope = ["refresh"]
-    if account_type == "customer":
-        refresh_scope.append(f"service:{test_service}")
-        test_scope_for_access_token = ["customer:free"]
-    else:
-        test_scope_for_access_token = test_scope_in_db
 
     old_refresh_token = get_token(
         userid=userid, customer_id=customer_id, scope=refresh_scope, account_type=account_type, refresh=True
@@ -574,7 +562,7 @@ def test_refresh__success(account_type, mocked_asyncpg_con):
     new_access_token = create_token(
         userid=userid,
         customer_id=customer_id,
-        scope=test_scope_for_access_token,
+        scope=test_scope_in_db,
         account_type=account_type,
         refresh=False,
     )
@@ -582,20 +570,25 @@ def test_refresh__success(account_type, mocked_asyncpg_con):
         userid=userid, customer_id=customer_id, scope=refresh_scope, account_type=account_type, refresh=True
     )
 
-    mocked_asyncpg_con.fetchrow.return_value = {
-        "refresh_token": old_refresh_token,
-        "scope": json.dumps(test_scope_in_db),
-    }
-    if account_type == "user":
+    mocked_asyncpg_con.fetchrow.return_value = {"refresh_token": old_refresh_token}
+    if not is_customer_account:
         mocked_asyncpg_con.fetchrow.return_value["customer_id"] = customer_id
+    mocked_asyncpg_con.fetch.return_value = [{"scope": s} for s in test_scope_in_db]
 
     response = test_client.post("/refresh", headers={"Authorization": f"Bearer {old_refresh_token}"})
     assert response.status_code == 201
     assert response.json() == AuthTokens(access=new_access_token, refresh=new_refresh_token)
 
+    expected_fetch_query = (
+        "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL"
+        if is_customer_account
+        else "SELECT scope FROM account_scopes WHERE user_id=$1"
+    )
+
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
         f"SELECT {select_clause} FROM {account_type}s WHERE id=$1", userid
     )
+    mocked_asyncpg_con.fetch.assert_called_once_with(expected_fetch_query, userid)
     mocked_asyncpg_con.execute.assert_called_once_with(
         f"UPDATE {account_type}s SET refresh_token=$1 WHERE id=$2", old_refresh_token, userid
     )
@@ -634,7 +627,7 @@ def test_logout__success(account_type, mocked_asyncpg_con):
 
 def test_account_id__get__no_id(mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, account_type="customer")
+    access_token = get_token(scope=["nautilus:free"], userid=test_customer_id, account_type="customer")
 
     num_users_found = 3
     mocked_asyncpg_con.fetch.return_value = expected_users_info = [
@@ -647,6 +640,7 @@ def test_account_id__get__no_id(mocked_asyncpg_con):
             "verified": True,
             "suspended": choice([True, False]),
             "reset_token": None,
+            "scopes": ["mantarray:free"],
         }
         for i in range(num_users_found)
     ]
@@ -661,7 +655,7 @@ def test_account_id__get__no_id(mocked_asyncpg_con):
     assert response.json() == expected_users_info
 
     mocked_asyncpg_con.fetch.assert_called_once_with(
-        f"SELECT {', '.join(expected_users_info[0])} FROM users WHERE customer_id=$1 AND deleted_at IS NULL ORDER BY suspended",
+        "SELECT u.id, u.name, u.email, u.created_at, u.last_login, u.verified, u.suspended, u.reset_token, array_agg(s.scope) as scopes FROM users u INNER JOIN account_scopes s ON u.id=s.user_id WHERE u.customer_id=$1 AND u.deleted_at IS NULL GROUP BY u.id, u.name, u.email, u.created_at, u.last_login, u.verified, u.suspended, u.reset_token ORDER BY u.suspended",
         test_customer_id,
     )
 

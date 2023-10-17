@@ -29,7 +29,7 @@ export const AuthContext = createContext();
 
 // TODO make all pages scope based?
 const allAvailablePages = {
-  user: ["/uploads", "/upload-form", "/account", "/account-settings"],
+  user: ["/home", "/uploads", "/upload-form", "/account", "/account-settings"],
   admin: ["/uploads", "/new-user", "/users-info", "/account-settings"],
 };
 
@@ -53,7 +53,10 @@ function Pulse({ Component, pageProps }) {
   const router = useRouter();
   const [accountInfo, setAccountInfo] = useState({});
   const [showLoggedOutAlert, setLoggedOutAlert] = useState(false);
-  const [usageQuota, setUsageQuota] = useState(null);
+  const [usageQuota, setUsageQuota] = useState();
+  const [userScopes, setUserScopes] = useState([]);
+  // TODO defaulting to mantarray for customer accounts until it's decided how to handle usage for multiple products
+  const [productPage, setProductPage] = useState("mantarray");
 
   let swInterval = null;
   // register the SW once
@@ -100,12 +103,13 @@ function Pulse({ Component, pageProps }) {
           } else if (data.msgType === "authCheck") {
             const newAccountInfo = data.accountInfo;
             if (data.isLoggedIn) {
+              setUserScopes(data.userScopes);
               // the router pathname must be sent to the SW and then sent back here since for some reason this message handler can't grab the current page
               setAccountInfo(newAccountInfo);
               // if logged in and on a page that shouldn't be accessed, or if on the login page, redirect to home page (currently /uploads)
               if (currentPage === "/login" || !getAvailablePages(newAccountInfo).includes(currentPage)) {
                 // TODO Tanner (8/23/22): this probably isn't the best solution for redirecting to other pages. Should look into a better way to do this
-                router.replace("/uploads", undefined, { shallow: true });
+                router.replace("/home", undefined, { shallow: true });
               }
             } else if (currentPage !== "/login") {
               // always redirect to login page if not logged in
@@ -169,6 +173,10 @@ function Pulse({ Component, pageProps }) {
           accountScope: accountInfo.accountScope,
           usageQuota,
           setUsageQuota,
+          userScopes,
+          setUserScopes,
+          productPage,
+          setProductPage,
         }}
       >
         <Layout>

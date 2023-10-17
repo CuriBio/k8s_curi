@@ -16,7 +16,9 @@ import numpy as np
 from pulse3D.constants import MICRO_TO_BASE_CONVERSION
 from pulse3D.constants import WELL_NAME_UUID
 from pulse3D.constants import PLATEMAP_LABEL_UUID
+from pulse3D.constants import DATA_TYPE_UUID
 from pulse3D.constants import NOT_APPLICABLE_LABEL
+from pulse3D.constants import USER_DEFINED_METADATA_UUID
 from pulse3D.exceptions import (
     DuplicateWellsFoundError,
     InvalidValleySearchDurationError,
@@ -74,7 +76,7 @@ async def process(con, item):
             logger.info(f"Retrieving user ID and metadata for upload with ID: {upload_id}")
 
             query = (
-                "SELECT users.customer_id, up.user_id, up.prefix, up.filename "
+                "SELECT users.customer_id, up.user_id, up.prefix, up.filename, up.meta "
                 "FROM uploads AS up JOIN users ON up.user_id = users.id "
                 "WHERE up.id=$1"
             )
@@ -189,6 +191,31 @@ async def process(con, item):
                 logger.exception("PlateRecording failed")
                 raise
 
+            # if metadata is not set yet, set it here
+            try:
+                upload_meta = upload_details.get("meta", {})
+
+                if not upload_meta.get("user_defined_metadata"):
+                    logger.info("No user-defined metadata found in DB")
+                    if user_defined_metadata := first_recording.wells[0].get(
+                        USER_DEFINED_METADATA_UUID, r"{}"
+                    ):
+                        logger.info(f"Inserting user-defined metadata into DB: {user_defined_metadata}")
+
+                        upload_meta["user_defined_metadata"] = user_defined_metadata
+                        con.execute(
+                            "UPDATE uploads SET meta=$1 WHERE id=$2",
+                            json.dumps(upload_meta),
+                            upload_id,
+                        )
+                    else:
+                        logger.info("No user-defined metadata found in file")
+                else:
+                    logger.info("Skipping insertion of user-defined metadata into DB")
+            except Exception:
+                # Tanner (9/28/23): not raising the exception here to avoid user-defined metadata issues stopping entire analyses
+                logger.exception("Inserting user-defined metadata into DB failed")
+
             if use_existing_time_v_force:
                 logger.info("Skipping step to write time force data for upload")
             else:
@@ -299,7 +326,10 @@ async def process(con, item):
                 raise
 
             try:
-                logger.info("Checking if well groups need to be updated in job's metadata")
+                logger.info("Checking if analysis params need to be updated in job's metadata")
+
+                analysis_params_updates = {}
+
                 # well_groups may have been sent in a dashboard reanalysis or upload, don't override here
                 if well_groups is None:
                     platemap_labels = dict()
@@ -316,15 +346,27 @@ async def process(con, item):
 
                     # only change assignment if any groups were found, else it will be an empty dictionary
                     if platemap_labels:
-                        # get the original params that aren't missing any plate_recordings_args
-                        updated_analysis_params = json.loads(item["meta"])["analysis_params"]
                         # update new well groups
-                        updated_analysis_params.update({"well_groups": platemap_labels})
-                        # add to job_metadata to get updated in jobs_result table
-                        job_metadata |= {"analysis_params": updated_analysis_params}
+                        analysis_params_updates.update({"well_groups": platemap_labels})
+
+                # if the data type is set in the recording metadata and no override was given, update the params
+                if (
+                    data_type_from_pr := first_recording.wells[0].get(str(DATA_TYPE_UUID))
+                ) and not analysis_params.get("data_type"):
+                    analysis_params_updates["data_type"] = data_type_from_pr
+
+                if analysis_params_updates:
+                    logger.info(f"Updating analysis params in job's metadata: {analysis_params_updates}")
+                    # get the original params that aren't missing any plate_recordings_args or anything else
+                    new_analysis_params = json.loads(item["meta"])["analysis_params"]
+                    new_analysis_params |= analysis_params_updates
+                    # add to job_metadata to get updated in jobs_result table
+                    job_metadata |= {"analysis_params": new_analysis_params}
+                else:
+                    logger.info("No updates needed for analysis params in job's metadata")
 
             except Exception:
-                logger.exception("Error updating well groups")
+                logger.exception("Error updating analysis params")
                 raise
 
             with open(outfile, "rb") as file:

@@ -42,6 +42,7 @@ const ButtonContainer = styled.div`
   flex-direction: row;
   width: 100%;
 `;
+
 const ForgotPWLabel = styled.span`
   font-style: italic;
   font-size: 15px;
@@ -67,7 +68,7 @@ export default function Login() {
   const [errorMsg, setErrorMsg] = useState();
   const [emailErrorMsg, setEmailErrorMsg] = useState();
   const [loginType, setLoginType] = useState("User");
-  const [userData, setUserData] = useState({ service: "pulse3d" });
+  const [userData, setUserData] = useState({});
   const [displayForgotPW, setDisplayForgotPW] = useState(false);
   const [userEmail, setUserEmail] = useState();
   const [inProgress, setInProgress] = useState(false);
@@ -90,15 +91,21 @@ export default function Login() {
       // this state gets passed to web worker to attempt login request
     } else {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/login`, {
+        let loginURL = `${process.env.NEXT_PUBLIC_USERS_URL}/login`;
+        if (loginType === "Admin") {
+          loginURL += "/customer";
+        }
+
+        const res = await fetch(loginURL, {
           method: "POST",
           body: JSON.stringify({ ...userData, client_type: "dashboard" }),
           mode: "no-cors",
         });
-
         if (res) {
           if (res.status === 200) {
-            router.push("/uploads?checkUsage=true", "/uploads"); // routes to next page
+            loginType === "User"
+              ? router.push("/home") // routes to next page
+              : router.push("/uploads?checkUsage=true", "/uploads");
           } else {
             let errToDisplay = "*Internal error. Please try again later.";
 
@@ -106,7 +113,7 @@ export default function Login() {
               const errMsg = await res.json();
               if ("Invalid credentials" === errMsg.detail) {
                 errToDisplay = `*Invalid credentials. Account will be locked after 10 failed attempts.`;
-              } else {
+              } else if (errMsg.detail.includes("Account locked")) {
                 errToDisplay = "*Account locked. Too many failed attempts.";
                 setAccountLockedLabels([
                   "This account has been locked because it has reached the maximum login attempts.",
@@ -195,7 +202,7 @@ export default function Login() {
                 backgroundColor={isSelected ? "var(--teal-green)" : "var(--dark-blue)"}
                 clickFn={() => {
                   setErrorMsg("");
-                  setUserData({ service: "pulse3d" });
+                  setUserData({});
                   setLoginType(type);
                 }}
               />

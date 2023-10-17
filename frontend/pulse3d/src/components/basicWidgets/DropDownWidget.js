@@ -141,7 +141,12 @@ export default function DropDownWidget({
       // reset dropdown if user clicks outside of dropdown, mui adds a backdrop component that takes up entire view so any clicking will reset
       // if setReset is not passed down, then it signals not to reset on clicking away
       // this is important for accordion tab selections
-      if (setReset && e.target.className && e.target.className.includes("MuiBackdrop-root")) setReset(true);
+      if (
+        setReset &&
+        e.target.className &&
+        (e.target.id == "dropdown-arrow-icon" || e.target.className.includes("MuiBackdrop-root"))
+      )
+        setReset(true);
     }
   };
 
@@ -222,7 +227,7 @@ export default function DropDownWidget({
                 <AccordionTab
                   expandIcon={
                     <ExpandMoreIcon
-                      id={`dropdown-arrow-icon`}
+                      id="dropdown-arrow-icon"
                       onClick={(e) => {
                         e.preventDefault();
                         setSelected(idx);

@@ -44,7 +44,8 @@ const UpgradeButton = styled.div`
 `;
 
 export default function UsageProgressWidget({ colorOfTextLabel }) {
-  const { usageQuota, setUsageQuota } = useContext(AuthContext);
+  const { usageQuota, setUsageQuota, productPage } = useContext(AuthContext);
+
   const [maxAnalyses, setMaxAnalyses] = useState(0);
   const [actualAnalyses, setActualAnalyses] = useState();
   const [usagePercentage, setUsagePercentage] = useState(0);
@@ -53,20 +54,17 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
 
   const pollUsageQuota = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/usage?service=pulse3d`);
+      // TODO once nautilus and mantarray have separate tables, replace service in url with correct product type
+      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/usage?service=${productPage}`);
       if (response && response.status === 200) {
         const newUsageQuota = await response.json();
+
         const limit = parseInt(newUsageQuota.limits.jobs);
         const actual = parseInt(newUsageQuota.current.jobs);
         const newUsagePercentage = Math.round((actual / limit) * 100);
 
-        if (newUsagePercentage > 100) {
-          setUsagePercentage(100);
-        } else {
-          setUsagePercentage(newUsagePercentage);
-        }
-
-        setActualAnalyses(newUsageQuota["current"]["jobs"]);
+        setUsagePercentage(newUsagePercentage > 100 ? 100 : newUsagePercentage);
+        setActualAnalyses(newUsageQuota.current.jobs);
         setIsExpired(newUsageQuota.jobs_reached);
         setUsageQuota({
           current: { jobs: newUsageQuota.current.jobs, uploads: newUsageQuota.current.uploads },
@@ -89,14 +87,12 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
     if (usageQuota && usageQuota.limits && usageQuota.current) {
       const limit = parseInt(usageQuota.limits.jobs);
       const actual = parseInt(usageQuota.current.jobs);
+
       setMaxAnalyses(limit);
       setActualAnalyses(actual);
+
       const usagePercentage = Math.round((actual / limit) * 100);
-      if (usagePercentage > 100) {
-        setUsagePercentage(100);
-      } else {
-        setUsagePercentage(usagePercentage);
-      }
+      setUsagePercentage(usagePercentage > 100 ? 100 : usagePercentage);
       setIsExpired(usageQuota.jobs_reached);
     }
     pollUsageQuota();

@@ -192,6 +192,7 @@ export default function WaveformGraph({
   customAnalysisSettings,
   customAnalysisSettingsUpdaters,
   changelogActions,
+  yAxisLabel,
 }) {
   const {
     windowedAnalysisBounds: { start: startTime, end: endTime },
@@ -587,6 +588,16 @@ export default function WaveformGraph({
       })
       .call(d3.drag().on("start", dragStarted).on("drag", dragging).on("end", dragEnded));
 
+    // bring dup markers to the top
+    svg
+      .selectAll("path#peak")
+      .filter((d) => duplicateIndices.peaks.includes(d))
+      .raise();
+    svg
+      .selectAll("path#valley")
+      .filter((d) => duplicateIndices.valleys.includes(d))
+      .raise();
+
     /* --------------------------------------
         PEAKS/VALLEYS THRESHOLD LINES
       -------------------------------------- */
@@ -897,7 +908,7 @@ export default function WaveformGraph({
   return (
     <>
       <YAxisContainer>
-        <YAxisLabel>Active Twitch Force (uN)</YAxisLabel>
+        <YAxisLabel>{yAxisLabel}</YAxisLabel>
         <ZoomWidget size={"20px"} zoomIn={() => handleZoomIn("y")} zoomOut={() => handleZoomOut("y")} />
       </YAxisContainer>
       <ColumnContainer>

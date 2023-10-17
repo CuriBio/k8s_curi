@@ -32,6 +32,9 @@ class JobRequest(BaseModel):
     previous_version: Optional[str]
 
     name_override: Optional[str]
+
+    data_type: Optional[str]
+
     well_groups: Optional[Dict[str, List[str]]]
 
     normalize_y_axis: Optional[bool]
@@ -90,7 +93,7 @@ class DownloadItem(BaseModel):
 class WaveformDataResponse(BaseModel):
     time_force_url: str
     peaks_valleys_url: str
-    normalize_y_axis: bool
+    amplitude_label: str
 
 
 class JobDownloadRequest(BaseModel):
