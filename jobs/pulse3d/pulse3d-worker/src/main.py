@@ -7,6 +7,14 @@ import os
 import pkg_resources
 import sys
 import tempfile
+import structlog
+from structlog.contextvars import (
+    bind_contextvars,
+    bound_contextvars,
+    clear_contextvars,
+    merge_contextvars,
+    unbind_contextvars,
+)
 
 import asyncpg
 import boto3
@@ -34,13 +42,25 @@ from jobs import get_item, EmptyQueue
 from utils.s3 import upload_file_to_s3
 from lib.db import insert_metadata_into_pg, PULSE3D_UPLOADS_BUCKET
 
-logging.basicConfig(
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    level=logging.INFO,
-    datefmt="%Y-%m-%d %H:%M:%S",
-    stream=sys.stdout,
+# logging.basicConfig(
+#     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+#     level=logging.INFO,
+#     datefmt="%Y-%m-%d %H:%M:%S",
+#     stream=sys.stdout,
+# )
+# logger = logging.getLogger(__name__)
+
+structlog.configure(
+    processors=[
+        merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M.%S"),
+        structlog.processors.dict_tracebacks,
+        structlog.processors.JSONRenderer(),
+    ],
 )
-logger = logging.getLogger(__name__)
+
+logger = structlog.getLogger()
 
 PULSE3D_VERSION = pkg_resources.get_distribution("pulse3D").version
 
@@ -73,7 +93,11 @@ async def process(con, item):
             job_id = item["id"]
             upload_id = item["upload_id"]
 
-            logger.info(f"Retrieving user ID and metadata for upload with ID: {upload_id}")
+            clear_contextvars()
+            bind_contextvars(upload_id=str(upload_id), job_id=str(job_id))
+
+            # logger.info(f"Retrieving user ID and metadata for upload with ID: {upload_id}")
+            logger.info("Starting job")
 
             query = (
                 "SELECT users.customer_id, up.user_id, up.prefix, up.filename, up.meta "
@@ -412,6 +436,8 @@ async def process(con, item):
     else:
         logger.info(f"Job complete for upload {upload_id}")
         result = "finished"
+    
+    clear_contextvars()
 
     return result, job_metadata, outfile_key
 
