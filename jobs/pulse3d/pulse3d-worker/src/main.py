@@ -193,23 +193,19 @@ async def process(con, item):
 
             # if metadata is not set yet, set it here
             try:
-                upload_meta = upload_details.get("meta", {})
+                upload_meta = json.loads(upload_details["meta"])
 
-                if not upload_meta.get("user_defined_metadata"):
+                if "user_defined_metadata" not in upload_meta:
                     logger.info("No user-defined metadata found in DB")
-                    if user_defined_metadata := first_recording.wells[0].get(
-                        USER_DEFINED_METADATA_UUID, r"{}"
-                    ):
-                        logger.info(f"Inserting user-defined metadata into DB: {user_defined_metadata}")
+                    user_defined_metadata = json.loads(
+                        first_recording.wells[0].get(USER_DEFINED_METADATA_UUID, r"{}")
+                    )
 
-                        upload_meta["user_defined_metadata"] = user_defined_metadata
-                        con.execute(
-                            "UPDATE uploads SET meta=$1 WHERE id=$2",
-                            json.dumps(upload_meta),
-                            upload_id,
-                        )
-                    else:
-                        logger.info("No user-defined metadata found in file")
+                    logger.info(f"Inserting user-defined metadata into DB: {user_defined_metadata}")
+                    upload_meta["user_defined_metadata"] = user_defined_metadata
+                    await con.execute(
+                        "UPDATE uploads SET meta=$1 WHERE id=$2", json.dumps(upload_meta), upload_id
+                    )
                 else:
                     logger.info("Skipping insertion of user-defined metadata into DB")
             except Exception:
