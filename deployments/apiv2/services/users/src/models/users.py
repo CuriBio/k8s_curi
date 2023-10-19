@@ -56,7 +56,7 @@ class PasswordModel(BaseModel):
         return v
 
 
-class CustomerCreate(PasswordModel):
+class CustomerCreate(BaseModel):
     email: EmailStr
     scope: list[str]
 
@@ -121,3 +121,4 @@ class LoginResponse(BaseModel):
     tokens: AuthTokens
     usage_quota: UsageQuota | None
     user_scopes: dict[str, list[str]] | None
+    customer_scopes: list[str] | None

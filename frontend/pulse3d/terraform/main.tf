@@ -46,33 +46,42 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "pulse3d_static_bu
   }
 }
 
-resource "aws_s3_bucket_acl" "pulse3d_static_bucket" {
-  depends_on = [aws_s3_bucket_ownership_controls.pulse3d_static_bucket]
-
-  bucket = aws_s3_bucket.pulse3d_static_bucket.id
-  acl    = "private"
+resource "aws_s3_bucket_policy" "pulse3d_static_bucket" {
+    depends_on = [
+      module.pulse3d_cloudfront
+    ]
+    bucket = aws_s3_bucket.pulse3d_static_bucket.id
+    policy = jsonencode({
+        Version = "2012-10-17"
+        Statement = [
+            {
+                Sid       = "EnforceTls"
+                Effect    = "Deny"
+                Principal = "*"
+                Action    = "s3:*"
+                Resource = [
+                    "${aws_s3_bucket.pulse3d_static_bucket.arn}/*",
+                    "${aws_s3_bucket.pulse3d_static_bucket.arn}",
+                ]
+                Condition = {
+                    Bool = {
+                        "aws:SecureTransport" = "false"
+                    }
+                }
+            },
+            {
+                Sid       = "CloudFrontAccess"
+                Effect    = "Allow"
+                Principal = "*"
+                Action    = "s3:GetObject"
+                Resource = ["${aws_s3_bucket.pulse3d_static_bucket.arn}/*"]
+                Principal = {
+                  "AWS" = module.pulse3d_cloudfront.cloudfront_origin_access_identity_iam_arns
+                }
+            },
+        ]
+    })
 }
-
-data "aws_iam_policy_document" "s3_policy" {
-  depends_on = [
-    module.pulse3d_cloudfront
-  ]
-  statement {
-    actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.pulse3d_static_bucket.arn}/*"]
-
-    principals {
-      type        = "AWS"
-      identifiers = module.pulse3d_cloudfront.cloudfront_origin_access_identity_iam_arns
-    }
-  }
-}
-
-resource "aws_s3_bucket_policy" "pulse3d_bucket_policy" {
-  bucket = aws_s3_bucket.pulse3d_static_bucket.id
-  policy = data.aws_iam_policy_document.s3_policy.json
-}
-
 
 data "aws_acm_certificate" "curibio_issued" {
   domain   = "*.${var.domain_name}"

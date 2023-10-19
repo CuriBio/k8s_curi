@@ -81,13 +81,16 @@ export default function Layout({ children }) {
 
   useEffect(() => {
     setShowHomeArrow(accountType === "user" && !isAuthorizedPage && router.pathname !== "/home");
-  }, [accountType, router.pathname]);
+  }, [accountType, router]);
 
   const logoutUser = async () => {
-    await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/logout`, {
-      method: "POST",
-      body: JSON.stringify({}),
-    });
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/logout`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+    } catch (e) {}
+
     // should not matter what the response is, should log user out
     router.replace("/login", undefined, { shallow: true });
   };

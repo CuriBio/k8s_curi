@@ -47,14 +47,14 @@ const getAuthTokens = async () => {
   return tokens;
 };
 
-const getUserScopes = async () => {
+const getAvailableScopes = async (type) => {
   const swCache = await caches.open(cacheName);
-  const cachedLoginResponse = await swCache.match("userScopes");
+  const cachedLoginResponse = await swCache.match("availableScopes");
   let scopes = [];
 
   if (cachedLoginResponse) {
     const responseBody = await cachedLoginResponse.json();
-    scopes = responseBody.user_scopes;
+    scopes = responseBody[type];
   }
 
   return scopes;
@@ -79,9 +79,9 @@ const getValueFromToken = async (name) => {
 
 let logoutTimer = null;
 
-const setUserScopes = async (res) => {
+const setAvailableScopes = async (res) => {
   const swCache = await caches.open(cacheName);
-  await swCache.put("userScopes", res.clone());
+  await swCache.put("availableScopes", res.clone());
 };
 
 const setTokens = async ({ refresh }, res) => {
@@ -92,6 +92,7 @@ const setTokens = async ({ refresh }, res) => {
   if (logoutTimer) {
     clearTimeout(logoutTimer);
   }
+
   // set up new logout timer
   const expTime = new Date(jwtDecode(refresh.token).exp * 1000);
   const currentTime = new Date().getTime();
@@ -231,8 +232,7 @@ const requestWithRefresh = async (req, url) => {
     const retryRequest = await refreshMutex.runExclusive(async () => {
       // check remaining lifetime of access token
       const nowNoMillis = Math.floor(Date.now() / 1000);
-      const cachedTokens = await getAuthTokens();
-      const accessTokenExp = jwtDecode(cachedTokens.access).exp;
+      const accessTokenExp = await getValueFromToken("exp");
       if (accessTokenExp - nowNoMillis < 10) {
         // refresh tokens since the access token less than 10 seconds away from expiring
         const refreshResponseStatus = await handleRefreshRequest();
@@ -265,8 +265,8 @@ const interceptResponse = async (req, url) => {
       await setUsageQuota(responseClone);
       // set tokens if login was successful
       await setTokens(data.tokens, responseClone);
-      await setUserScopes(responseClone);
-      // remove tokens
+      await setAvailableScopes(responseClone);
+      // remove tokens after
       data = {};
     }
 
@@ -397,14 +397,16 @@ self.onmessage = async ({ data, source }) => {
     const cachedTokens = await getAuthTokens();
 
     msgInfo = {
-      isLoggedIn: cachedTokens.access !== null,
+      isLoggedIn:
+        cachedTokens.access !== null && Date.now() < new Date((await getValueFromToken("exp")) * 1000),
       accountInfo: {
         accountType: await getValueFromToken("account_type"),
         accountId: await getValueFromToken("userid"),
         accountScope: await getValueFromToken("scope"),
       },
       usageQuota: await getUsageQuota(),
-      userScopes: await getUserScopes(),
+      userScopes: await getAvailableScopes("user_scopes"),
+      customerScopes: await getAvailableScopes("customer_scopes"),
     };
   } else if (msgType === "stayAlive") {
     // TODO should have this do something else so that there isn't a log msg produced every 20 seconds

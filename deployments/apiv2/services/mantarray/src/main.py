@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 app = FastAPI(openapi_url=None)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[DASHBOARD_URL],
@@ -31,6 +32,7 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 async def db_session_middleware(request: Request, call_next):
     request.state.pgpool = await asyncpg_pool()
     response = await call_next(request)
+
     return response
 
 

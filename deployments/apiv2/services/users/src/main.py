@@ -21,6 +21,7 @@ from auth import (
     USER_SCOPES,
     DEFAULT_MANTARRAY_SCOPES,
     ALL_PULSE3D_SCOPES,
+    CURIBIO_SCOPES,
 )
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
@@ -49,7 +50,6 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
 app = FastAPI(openapi_url=None)
 
-CB_CUSTOMER_ID: uuid.UUID
 MAX_FAILED_LOGIN_ATTEMPTS = 10
 TEMPLATES = Jinja2Templates(directory="templates")
 
@@ -66,16 +66,13 @@ app.add_middleware(
 async def db_session_middleware(request: Request, call_next):
     request.state.pgpool = await asyncpg_pool()
     response = await call_next(request)
+
     return response
 
 
 @app.on_event("startup")
 async def startup():
-    pool = await asyncpg_pool()
-    async with pool.acquire() as con:
-        # might be a better way to do this without using global
-        global CB_CUSTOMER_ID
-        CB_CUSTOMER_ID = await con.fetchval("SELECT id FROM customers WHERE email='software@curibio.com'")
+    await asyncpg_pool()
 
 
 @app.post("/login/customer", response_model=LoginResponse)
@@ -101,6 +98,10 @@ async def login_customer(request: Request, details: CustomerLogin):
                 "FROM customers WHERE deleted_at IS NULL AND email=$1",
                 email,
             )
+
+            if select_query_result["password"] is None:
+                raise LoginError("Account needs verification")
+
             pw = details.password.get_secret_value()
             # verify password, else raise LoginError
             await _verify_password(con, account_type, pw, select_query_result)
@@ -120,13 +121,24 @@ async def login_customer(request: Request, details: CustomerLogin):
             )
 
             tokens = await _create_new_tokens(con, select_query_result["id"], None, scope, account_type)
-            return LoginResponse(tokens=tokens, usage_quota=usage_quota, user_scopes=avail_user_scopes)
+
+            return LoginResponse(
+                tokens=tokens,
+                usage_quota=usage_quota,
+                user_scopes=avail_user_scopes,
+                customer_scopes=[
+                    s for s in CUSTOMER_SCOPES if "paid" in s
+                ],  # only returning paid scopes until tier system is enabled for customers
+            )
 
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     except Exception:
         logger.exception("POST /login/customer: Unexpected error")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal error. Please try again later.",
+        )
 
 
 @app.post("/login", response_model=LoginResponse)
@@ -153,7 +165,7 @@ async def login_user(request: Request, details: UserLogin):
         select_query = (
             "SELECT u.password, u.id, u.failed_login_attempts, u.suspended, u.customer_id "
             "FROM users AS u JOIN customers AS c ON u.customer_id=c.id "
-            "WHERE u.deleted_at IS NULL AND u.name=$1 AND c.alias=$2 AND u.verified='t'"
+            "WHERE u.deleted_at IS NULL AND u.name=$1 AND LOWER(c.alias)=LOWER($2) AND u.verified='t'"
         )
 
     client_type = details.client_type if details.client_type else "unknown"
@@ -192,7 +204,7 @@ async def login_user(request: Request, details: UserLogin):
             tokens = await _create_new_tokens(
                 con, select_query_result["id"], customer_id, scope, account_type
             )
-            return LoginResponse(tokens=tokens, usage_quota=usage_quota, user_scopes=None)
+            return LoginResponse(tokens=tokens, usage_quota=usage_quota)
 
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
@@ -204,8 +216,8 @@ async def login_user(request: Request, details: UserLogin):
 async def _verify_password(con, account_type, pw, select_query_result) -> None:
     ph = PasswordHasher()
 
-    failed_msg = "Invalid credentials"
-    account_locked_msg = "Account locked after too many failed login attempts"
+    failed_msg = "Invalid credentials. Account will be locked after 10 failed attempts."
+    account_locked_msg = "Account locked. Too many failed attempts."
 
     if select_query_result is None:
         # if no record is returned by query then fetchrow will return None,
@@ -251,7 +263,8 @@ async def _verify_password(con, account_type, pw, select_query_result) -> None:
 
 
 def _get_user_scopes_from_customer(customer_scopes) -> dict[str, list[str]]:
-    customer_products = [split_scope_account_data(s)[0] for s in customer_scopes]
+    # don't include special curibio scopes
+    customer_products = [split_scope_account_data(s)[0] for s in customer_scopes if s not in CURIBIO_SCOPES]
     # return {"nautilus": ["nautilus:rw_all_data"], "mantarray": ["mantarray:rw_all_data"]}
     return {p: USER_SCOPES[p] for p in customer_products}
 
@@ -398,7 +411,7 @@ async def logout(request: Request, token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES
 
 @app.post("/register/customer", response_model=CustomerProfile, status_code=status.HTTP_201_CREATED)
 async def register_customer(
-    request: Request, details: CustomerCreate, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))
+    request: Request, details: CustomerCreate, token=Depends(ProtectedAny(scope=CURIBIO_SCOPES))
 ):
     """Register a customer account.
 
@@ -407,24 +420,15 @@ async def register_customer(
     If the customer ID in the auth token matches the Curi Bio Customer ID *AND* no username is given,
     assume this is an attempt to register a new customer account.
     """
-    customer_id = uuid.UUID(hex=token["userid"])
     try:
-        if customer_id != CB_CUSTOMER_ID:  # noqa: F821 complains this variable is undefined
-            raise ("Only the Curi Bio customer account can create new customers.")
-
         email = details.email.lower()
 
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():
                 try:
-                    ph = PasswordHasher()
-                    phash = ph.hash(details.password1.get_secret_value())
                     insert_account_query_args = (
-                        "INSERT INTO customers (email, password, previous_passwords, usage_restrictions) "
-                        "VALUES ($1, $2, ARRAY[$3], $4) RETURNING id",
+                        "INSERT INTO customers (email, usage_restrictions) VALUES ($1, $2) RETURNING id",
                         email,
-                        phash,
-                        phash,
                         json.dumps(dict(PULSE3D_PAID_USAGE)),
                     )
                     new_account_id = await con.fetchval(*insert_account_query_args)
@@ -444,6 +448,17 @@ async def register_customer(
                 await con.execute(
                     "INSERT INTO account_scopes VALUES ($1, NULL, unnest($2::text[]))",
                     *insert_scope_query_args,
+                )
+
+                # only send verification emails to new users
+                await _create_account_email(
+                    con=con,
+                    type="verify",
+                    user_id=new_account_id,
+                    customer_id=None,
+                    scopes=["customer:verify"],
+                    name=None,
+                    email=email,
                 )
 
                 return CustomerProfile(email=email, user_id=new_account_id.hex, scope=details.scope)
@@ -475,7 +490,7 @@ async def register_user(
         username = details.username.lower()
         # suspended and verified get set to False by default
         insert_account_query_args = (
-            "INSERT INTO users (name, email, customer_id) " "VALUES ($1, $2, $3) RETURNING id",
+            "INSERT INTO users (name, email, customer_id) VALUES ($1, $2, $3) RETURNING id",
             username,
             email,
             customer_id,
@@ -505,7 +520,7 @@ async def register_user(
                 )
 
                 # only send verification emails to new users
-                await _create_user_email(
+                await _create_account_email(
                     con=con,
                     type="verify",
                     user_id=new_account_id,
@@ -527,10 +542,10 @@ async def register_user(
 
 
 @app.get("/email", status_code=status.HTTP_204_NO_CONTENT)
-async def email_user(
+async def email_account(
     request: Request, email: EmailStr = Query(None), type: str = Query(None), user: bool = Query(None)
 ):
-    """Send or resend user account emails.
+    """Send or resend account emails.
 
     No token required for request. Currently sending reset password and new registration emails based on query type.
     """
@@ -542,10 +557,11 @@ async def email_user(
                 if user
                 else "SELECT id FROM customers WHERE email=$1"
             )
+
             row = await con.fetchrow(query, email)
             # send email if found, otherwise return 204, doesn't need to raise an exception
             if row is not None:
-                await _create_user_email(
+                await _create_account_email(
                     con=con,
                     type=type,
                     user_id=row["id"],
@@ -560,7 +576,7 @@ async def email_user(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-async def _create_user_email(
+async def _create_account_email(
     *,
     con,
     type: str,
@@ -572,6 +588,7 @@ async def _create_user_email(
 ):
     try:
         scope = scopes[0]
+
         if "user" in scope:
             account_type = "user"
         elif "customer" in scope:
@@ -604,12 +621,14 @@ async def _create_user_email(
         await con.execute(query, jwt_token.token, user_id)
 
         # send email with reset token
-        await _send_user_email(username=name, email=email, url=url, subject=subject, template=template)
+        await _send_account_email(username=name, email=email, url=url, subject=subject, template=template)
     except Exception as e:
         raise EmailRegistrationError(e)
 
 
-async def _send_user_email(*, username: str, email: EmailStr, url: str, subject: str, template: str) -> None:
+async def _send_account_email(
+    *, username: str, email: EmailStr, url: str, subject: str, template: str
+) -> None:
     conf = ConnectionConfig(
         MAIL_USERNAME=CURIBIO_EMAIL,
         MAIL_PASSWORD=CURIBIO_EMAIL_PASSWORD,
@@ -647,7 +666,7 @@ async def update_accounts(
     try:
         user_id = uuid.UUID(hex=token["userid"])
 
-        is_customer = "customer:reset" in token["scope"]
+        is_customer = any("customer" in scope for scope in token["scope"])
         is_user = any("users" in scope for scope in token["scope"])
         # must be either a customer or user. Cannot be both or neither
         if not (is_customer ^ is_user):
@@ -673,6 +692,7 @@ async def update_accounts(
                 query_params = [user_id]
                 if is_user:
                     query_params.append(customer_id)
+
                 row = await con.fetchrow(query, *query_params)
 
                 # if the token is being used to verify the user account and the account has already been verified, then return message to display to user
@@ -902,7 +922,7 @@ async def update_user(
                 # if an empty string, need to convert to None for asyncpg
                 new_alias = details.new_alias if details.new_alias else None
 
-                update_query = "UPDATE customers SET alias=$1 WHERE id=$2"
+                update_query = "UPDATE customers SET alias=LOWER($1) WHERE id=$2"
                 query_args = (new_alias, self_id)
             else:
                 raise HTTPException(
