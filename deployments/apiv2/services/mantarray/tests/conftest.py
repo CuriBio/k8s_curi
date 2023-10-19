@@ -31,5 +31,7 @@ def get_secret_value_se(SecretId):
 
 # import core and add to sys.modules so that main.py can find it, not sure why it can't otherwise
 from src import core
+from src import models
 
 sys.modules["core"] = core
+sys.modules["models"] = models
