@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from auth import ProtectedAny
 from core.config import DATABASE_URL, DASHBOARD_URL
 from core.versions import get_download_url, get_required_sw_version_range, resolve_versions
-from src.models import MantarrayUnitsResponse
+from models.responses import MantarrayUnitsResponse
 from utils.db import AsyncpgPoolDep
 
 
