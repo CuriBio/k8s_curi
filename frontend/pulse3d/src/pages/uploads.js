@@ -545,7 +545,7 @@ export default function Uploads() {
       )[0];
 
       setDefaultUploadForReanalysis(selectedUpload);
-      router.push("/upload-form?id=Re-analyze+Existing+Upload");
+      router.push("/upload-form?id=re-analyze+existing+upload");
     }
   };
 
