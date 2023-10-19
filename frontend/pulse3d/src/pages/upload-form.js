@@ -110,7 +110,9 @@ const modalObj = {
 };
 
 const isReanalysisPage = (router) => {
-  return router.query.id === "re-analyze existing upload";
+  return (
+    typeof router.query.id === "string" && router.query.id.toLowerCase() === "re-analyze existing upload"
+  );
 };
 
 export default function UploadForm() {
