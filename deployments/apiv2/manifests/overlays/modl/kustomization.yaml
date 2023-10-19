@@ -31,7 +31,7 @@ patchesJson6902:
           value: https://dashboard.curibio-modl.com
       - op: add
         path: /spec/template/spec/containers/1/image
-        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.6.1"
+        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.6.2"
       - op: replace
         path: /spec/template/spec/containers/1/env/0/value
         value: modl

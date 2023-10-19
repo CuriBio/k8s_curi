@@ -1,4 +1,4 @@
-ecr_repo = 245339368379.dkr.ecr.us-east-2.amazonaws.com/builder
+ecr_repo = 725604423866.dkr.ecr.us-east-2.amazonaws.com/builder
 
 .PHONY: build buildx push tag apply
 build:
