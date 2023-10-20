@@ -219,7 +219,7 @@ async def download_zip_files(
     account_type = token["account_type"]
 
     # give advanced privileges to access all uploads under customer_id
-    if "pulse3d:rw_all_data" in token["scope"]:
+    if "mantarray:rw_all_data" in token["scope"]:
         account_id = str(uuid.UUID(token["customer_id"]))
         account_type = "dataUser"
 
@@ -465,7 +465,7 @@ async def create_new_job(
             row = await con.fetchrow("SELECT user_id FROM uploads where id=$1", details.upload_id)
             original_upload_user = str(row["user_id"])
 
-            if "pulse3d:rw_all_data" not in user_scopes:
+            if "mantarray:rw_all_data" not in user_scopes:
                 # if users don't match and they don't have an all_data scope, then raise unauth error
                 if user_id != original_upload_user:
                     return GenericErrorResponse(
@@ -667,7 +667,7 @@ async def get_interactive_waveform_data(
         analysis_params = parsed_meta.get("analysis_params", {})
         pulse3d_version = parsed_meta.get("version")
 
-        if "pulse3d:rw_all_data" not in token["scope"]:
+        if "mantarray:rw_all_data" not in token["scope"]:
             # only allow user to perform interactive analysis on another user's recording if special scope
             # customer id will be checked when attempting to locate file in s3 with customer id found in token
             if recording_owner_id != account_id:
