@@ -3,20 +3,20 @@ kind: Kustomization
 
 namespace: apiv2
 resources:
-  - ../../base
-  - curibio-jwt-secret.yaml
-  - curibio-users-creds.yaml
-  - curibio-mantarray-creds.yaml
-  - curibio-email-creds.yaml
+- ../../base
+- curibio-jwt-secret.yaml
+- curibio-users-creds.yaml
+- curibio-mantarray-creds.yaml
+- curibio-email-creds.yaml
 
-patchesJson6902:
-  - target:
-      kind: Deployment
-      name: apiv2
-    patch: |-
-      - op: add
-        path: /spec/template/spec/containers/0/image
-        value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/users:0.7.7"
-      - op: add
-        path: /spec/template/spec/containers/1/image
-        value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.6.3"
+patches:
+- patch: |-
+    - op: add
+      path: /spec/template/spec/containers/0/image
+      value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/users:0.7.7"
+    - op: add
+      path: /spec/template/spec/containers/1/image
+      value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.6.3"
+  target:
+    kind: Deployment
+    name: apiv2
