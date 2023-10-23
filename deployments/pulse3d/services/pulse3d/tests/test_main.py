@@ -1161,7 +1161,7 @@ def test_uploads_download__post__correctly_handles_single_file_downloads(
         "url": mocked_presigned_url.return_value,
     }
 
-    if "pulse3d:rw_all_data" in test_token_scope:
+    if "mantarray:rw_all_data" in test_token_scope:
         account_type = "dataUser"
         test_account_id = test_customer_id
 
