@@ -14,7 +14,8 @@
         "ecr:GetAuthorizationToken",
         "ecr:DescribeRepositories",
         "ecr:ListTagsForResource",
-        "ecr:CreateRepository"
+        "ecr:CreateRepository",
+        "ecr:GetLifecyclePolicy"
       ],
       "Resource": ["*"]
     },
