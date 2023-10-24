@@ -9,18 +9,15 @@ resources:
   - curibio-mantarray-creds.yaml
   - curibio-email-creds.yaml
 
-patchesJson6902:
-  - target:
-      kind: Ingress
-      name: apiv2-ingress
-    patch: |-
+patches:
+  - patch: |-
       - op: replace
         path: /spec/rules/0/host
         value: apiv2.curibio-modl.com
-  - target:
-      kind: Deployment
-      name: apiv2
-    patch: |-
+    target:
+      kind: Ingress
+      name: apiv2-ingress
+  - patch: |-
       - op: add
         path: /spec/template/spec/containers/0/image
         value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/users:0.7.7"
@@ -31,7 +28,7 @@ patchesJson6902:
           value: https://dashboard.curibio-modl.com
       - op: add
         path: /spec/template/spec/containers/1/image
-        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.6.1"
+        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.6.3"
       - op: replace
         path: /spec/template/spec/containers/1/env/0/value
         value: modl
@@ -40,3 +37,6 @@ patchesJson6902:
         value:
           name: DASHBOARD_URL
           value: https://dashboard.curibio-modl.com
+    target:
+      kind: Deployment
+      name: apiv2

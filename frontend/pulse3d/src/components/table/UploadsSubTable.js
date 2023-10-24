@@ -1,5 +1,6 @@
 import styled from "styled-components";
 import Checkbox from "@mui/material/Checkbox";
+import { formatDateTime } from "@/utils/generic";
 
 const Container = styled.div`
   padding: 0 3.5rem;
@@ -102,7 +103,7 @@ export default function UploadsSubTable({ handleCheckedJobs, checkedJobs, jobs, 
           />
           {job.analyzedFile ? job.analyzedFile : "None"}
         </SubRowFileName>
-        <SubRow>{job.datetime}</SubRow>
+        <SubRow>{formatDateTime(job.datetime)}</SubRow>
         <SubRow>{paramsString.length === 0 ? "None" : paramsString}</SubRow>
         <SubRow style={{ width: "15%", whiteSpace: "normal" }}>{status}</SubRow>
         <SubRow>
