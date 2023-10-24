@@ -11,6 +11,7 @@ metadata:
     alb.ingress.kubernetes.io/group.name: curibio-group
     alb.ingress.kubernetes.io/healthcheck-path: /nginx-ready
     alb.ingress.kubernetes.io/healthcheck-port: "8081"
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
 spec:
   ingressClassName: alb
   tls:
