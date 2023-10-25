@@ -81,6 +81,9 @@ metadata:
   name: apiv2-ingress
   annotations:
     nginx.org/rewrites: serviceName=mantarray rewrite=/; serviceName=users rewrite=/
+    nginx.org/location-snippets: |
+      more_clear_headers Server;
+
 status:
   loadBalancer: {}
 spec:
