@@ -15,7 +15,8 @@
         "ecr:DescribeRepositories",
         "ecr:ListTagsForResource",
         "ecr:CreateRepository",
-        "ecr:GetLifecyclePolicy"
+        "ecr:GetLifecyclePolicy",
+        "s3:GetBucketOwnershipControls"
       ],
       "Resource": ["*"]
     },
@@ -67,8 +68,7 @@
         "s3:DeleteObjectVersionTagging",
         "s3:GetObjectLegalHold",
         "s3:GetBucketNotification",
-        "s3:GetReplicationConfiguration",
-        "s3:GetBucketOwnershipControls"
+        "s3:GetReplicationConfiguration"
       ],
       "Resource": [
         "arn:aws:s3:::curi-eks-modl-cluster-tf-state",
@@ -78,9 +78,7 @@
         "arn:aws:s3:::modl-channel-firmware",
         "arn:aws:s3:::modl-channel-firmware/*",
         "arn:aws:s3:::modl-mantarray-logs",
-        "arn:aws:s3:::modl-mantarray-logs/*",
-        "arn:aws:s3:::modl-pulse3d-uploads/*",
-        "arn:aws:s3:::modl-pulse3d-uploads"
+        "arn:aws:s3:::modl-mantarray-logs/*"
       ]
     }
   ]

@@ -141,7 +141,7 @@ apiVersion: networking.k8s.io/v1
 kind: IngressClass
 metadata:
   name: nginx
-  annotations:
+  # annotations:
   #   ingressclass.kubernetes.io/is-default-class: "true"
 spec:
   controller: nginx.org/ingress-controller
@@ -206,7 +206,6 @@ spec:
           args:
             - -nginx-configmaps=$(POD_NAMESPACE)/nginx-config
             - -enable-custom-resources=false
-            - -enable-snippets
             # - -default-server-tls-secret=$(POD_NAMESPACE)/default-server-secret
             #- -v=3 # Enables extensive logging. Useful for troubleshooting.
             #- -report-ingress-status

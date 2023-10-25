@@ -15,7 +15,8 @@
         "ecr:DescribeRepositories",
         "ecr:ListTagsForResource",
         "ecr:CreateRepository",
-        "ecr:GetLifecyclePolicy"
+        "ecr:GetLifecyclePolicy",
+        "s3:GetBucketOwnershipControls"
       ],
       "Resource": ["*"]
     },
