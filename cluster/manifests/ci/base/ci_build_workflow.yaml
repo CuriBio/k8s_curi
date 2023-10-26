@@ -21,7 +21,7 @@ spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 100Mi
+            storage: 10Gi
   templates:
     - name: ci-build
       dag:
@@ -115,7 +115,7 @@ spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 100Mi
+            storage: 10Gi
   templates:
     - name: ci-build-push
       dag:
