@@ -32,6 +32,7 @@ from mantarray_magnet_finding.exceptions import UnableToConvergeError
 
 from jobs import get_item, EmptyQueue
 from utils.s3 import upload_file_to_s3
+from lib.queries import SELECT_UPLOAD_DETAILS
 from lib.db import insert_metadata_into_pg, PULSE3D_UPLOADS_BUCKET
 
 structlog.configure(
@@ -78,14 +79,8 @@ async def process(con, item):
         try:
             job_id = item["id"]
             upload_id = item["upload_id"]
+            upload_details = await con.fetchrow(SELECT_UPLOAD_DETAILS, upload_id)
 
-            query = (
-                "SELECT users.customer_id, up.user_id, up.prefix, up.filename, up.meta "
-                "FROM uploads AS up JOIN users ON up.user_id = users.id "
-                "WHERE up.id=$1"
-            )
-
-            upload_details = await con.fetchrow(query, upload_id)
             # bind details to logger
             bind_contextvars(
                 upload_id=str(upload_id),
