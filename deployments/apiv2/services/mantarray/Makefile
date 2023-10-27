@@ -18,6 +18,4 @@ login:
 
 push:
 	docker push $(ecr_repo):0.6.3
-
-apply:
 	kubectl apply -f ./manifests/
