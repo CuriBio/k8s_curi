@@ -1,16 +1,42 @@
-# based on https://github.com/encode/uvicorn/issues/491#issuecomment-809546591
+# # based on https://github.com/encode/uvicorn/issues/491#issuecomment-809546591
+# version: 1
+# disable_existing_loggers: False
+# formatters:
+#   timestamped:
+#     format: %(asctime)s %(levelname)s: %(message)s
+#     datefmt: %Y-%m-%d %H:%M:%S
+# handlers:
+#   console:
+#     class: logging.StreamHandler
+#     level: INFO
+#     formatter: timestamped
+#     stream: ext://sys.stdout
+# root:
+#   level: INFO
+#   handlers: [console]
+
 version: 1
-disable_existing_loggers: False
+disable_existing_loggers: false
 formatters:
-  timestamped:
-    format: "%(asctime)s %(levelname)s: %(message)s"
-    datefmt: "%Y-%m-%d %H:%M:%S"
+  default:
+    (): uvicorn.logging.DefaultFormatter
+    format: %(asctime)s - %(name)s - %(levelname)s - %(message)s
+
+  access:
+    (): uvicorn.logging.AccessFormatter
+    format: %(asctime)s - %(name)s - %(levelname)s - %(message)s
+
 handlers:
-  console:
-    class: logging.StreamHandler
+  default:
+    formatter: default
+    class: logging.NullHandler
+
+  access:
+    formatter: access
+    class: logging.NullHandler
+
+loggers:
+  uvicorn.access:
     level: INFO
-    formatter: timestamped
-    stream: ext://sys.stdout
-root:
-  level: INFO
-  handlers: [console]
+    handlers: [access]
+    propagate: false

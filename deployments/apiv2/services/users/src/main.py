@@ -1,4 +1,3 @@
-import logging
 import json
 import uuid
 from datetime import datetime
@@ -10,6 +9,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from jwt.exceptions import InvalidTokenError
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import EmailStr
+import structlog
+from structlog.contextvars import bind_contextvars, clear_contextvars
+import time
+from uvicorn.protocols.utils import get_path_with_query_string
+
 from auth import (
     ProtectedAny,
     create_token,
@@ -25,6 +29,7 @@ from auth import (
 )
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
+from logger_config import setup_logger
 from models.errors import LoginError, RegistrationError, EmailRegistrationError, UnknownScopeError
 from models.tokens import AuthTokens
 from models.users import (
@@ -43,8 +48,8 @@ from models.users import (
 from utils.db import AsyncpgPoolDep
 from fastapi.templating import Jinja2Templates
 
-# logging is configured in log_config.yaml
-logger = logging.getLogger(__name__)
+setup_logger()
+logger = structlog.stdlib.get_logger("api.access")
 
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
@@ -55,7 +60,7 @@ TEMPLATES = Jinja2Templates(directory="templates")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[DASHBOARD_URL],
+    allow_origins=[DASHBOARD_URL, "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -63,9 +68,32 @@ app.add_middleware(
 
 
 @app.middleware("http")
-async def db_session_middleware(request: Request, call_next):
+async def db_session_middleware(request: Request, call_next) -> Response:
     request.state.pgpool = await asyncpg_pool()
+    # clear previous request variables
+    clear_contextvars()
+    # get request details for logging
+    if (client_ip := request.headers.get("X-Forwarded-For")) is None:
+        client_ip = f"{request.client.host}:{request.client.port}"
+
+    url = get_path_with_query_string(request.scope)
+    http_method = request.method
+    http_version = request.scope["http_version"]
+    start_time = time.perf_counter_ns()
+
+    # bind details to logger
+    bind_contextvars(url=str(request.url), method=http_method)
+
     response = await call_next(request)
+
+    process_time = time.perf_counter_ns() - start_time
+    status_code = response.status_code
+
+    logger.info(
+        f"""{client_ip} - "{http_method} {url} HTTP/{http_version}" {status_code}""",
+        status_code=status_code,
+        duration=process_time / 10**9,
+    )
 
     return response
 
@@ -89,6 +117,9 @@ async def login_customer(request: Request, details: CustomerLogin):
     account_type = "customer"
     email = details.email.lower()
     client_type = details.client_type if details.client_type else "unknown"
+
+    bind_contextvars(client_type=client_type, email=email)
+
     logger.info(f"Customer login attempt from client '{client_type}'")
 
     try:
@@ -99,6 +130,9 @@ async def login_customer(request: Request, details: CustomerLogin):
                 email,
             )
 
+            customer_id = select_query_result.get("id")
+            bind_contextvars(customer_id=str(customer_id))
+
             if select_query_result["password"] is None:
                 raise LoginError("Account needs verification")
 
@@ -106,12 +140,12 @@ async def login_customer(request: Request, details: CustomerLogin):
             # verify password, else raise LoginError
             await _verify_password(con, account_type, pw, select_query_result)
             # get scopes from account_scopes table
-            scope = await _get_account_scope(con, select_query_result["id"], True)
+            scope = await _get_account_scope(con, customer_id, True)
             # get list of scopes that a customer can assign to it's users
             avail_user_scopes = _get_user_scopes_from_customer(scope)
             # TODO decide how to show customer accounts usage data for multiple products, defaulting to mantarray now
             # check usage for customer account
-            usage_quota = await check_customer_quota(con, str(select_query_result["id"]), "mantarray")
+            usage_quota = await check_customer_quota(con, str(customer_id), "mantarray")
 
             # if login was successful, then update last_login column value to now
             await con.execute(
@@ -120,7 +154,7 @@ async def login_customer(request: Request, details: CustomerLogin):
                 email,
             )
 
-            tokens = await _create_new_tokens(con, select_query_result["id"], None, scope, account_type)
+            tokens = await _create_new_tokens(con, customer_id, None, scope, account_type)
 
             return LoginResponse(
                 tokens=tokens,
@@ -150,10 +184,12 @@ async def login_user(request: Request, details: UserLogin):
     """
     account_type = "user"
     username = details.username.lower()
+    customer_id = details.customer_id
+
     # select for service specific usage restrictions listed under the customer account
     # suspended is for deactivated accounts and verified is for new users needing to verify through email
     # Tanner (7/25/23): need to use separate queries since asyncpg will raise an error if the value passed in to be compared against customer_id is not a UUID
-    if isinstance(details.customer_id, uuid.UUID):
+    if isinstance(customer_id, uuid.UUID):
         # if a UUID was given in the request then check against the customer ID
         select_query = (
             "SELECT password, id, failed_login_attempts, suspended, customer_id FROM users "
@@ -169,17 +205,24 @@ async def login_user(request: Request, details: UserLogin):
         )
 
     client_type = details.client_type if details.client_type else "unknown"
+    # bind relevant info to logger
+    bind_contextvars(customer_id=str(customer_id), username=username, client_type=client_type)
+
     logger.info(f"User login attempt from client '{client_type}'")
 
     try:
         async with request.state.pgpool.acquire() as con:
             select_query_result = await con.fetchrow(select_query, username, str(details.customer_id))
+            user_id = select_query_result.get("id")
+            customer_id = select_query_result.get("customer_id")
+
+            bind_contextvars(user_id=str(user_id))
+
             pw = details.password.get_secret_value()
 
             # verify password, else raise LoginError
             await _verify_password(con, account_type, pw, select_query_result)
-            # check account usage quotas
-            customer_id = select_query_result["customer_id"]
+
             #  get scopes from account_scopes table
             scope = await _get_account_scope(con, select_query_result["id"], False)
 
@@ -201,9 +244,8 @@ async def login_user(request: Request, details: UserLogin):
                 str(customer_id),
             )
 
-            tokens = await _create_new_tokens(
-                con, select_query_result["id"], customer_id, scope, account_type
-            )
+            tokens = await _create_new_tokens(con, user_id, customer_id, scope, account_type)
+
             return LoginResponse(tokens=tokens, usage_quota=usage_quota)
 
     except LoginError as e:
