@@ -14,7 +14,10 @@
         "ecr:GetAuthorizationToken",
         "ecr:DescribeRepositories",
         "ecr:ListTagsForResource",
-        "ecr:CreateRepository"
+        "ecr:CreateRepository",
+        "ecr:GetLifecyclePolicy",
+        "s3:GetBucketOwnershipControls",
+        "acm:ListCertificates"
       ],
       "Resource": ["*"]
     },
