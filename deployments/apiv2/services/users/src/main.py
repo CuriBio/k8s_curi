@@ -10,7 +10,7 @@ from jwt.exceptions import InvalidTokenError
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import EmailStr
 import structlog
-from structlog.contextvars import bind_contextvars, clear_contextvars
+from structlog.threadlocal import bind_threadlocal, clear_threadlocal
 import time
 from uvicorn.protocols.utils import get_path_with_query_string
 
@@ -71,7 +71,7 @@ app.add_middleware(
 async def db_session_middleware(request: Request, call_next) -> Response:
     request.state.pgpool = await asyncpg_pool()
     # clear previous request variables
-    clear_contextvars()
+    clear_threadlocal()
     # get request details for logging
     if (client_ip := request.headers.get("X-Forwarded-For")) is None:
         client_ip = f"{request.client.host}:{request.client.port}"
@@ -82,7 +82,7 @@ async def db_session_middleware(request: Request, call_next) -> Response:
     start_time = time.perf_counter_ns()
 
     # bind details to logger
-    bind_contextvars(url=str(request.url), method=http_method)
+    bind_threadlocal(url=str(request.url), method=http_method, client_ip=client_ip)
 
     response = await call_next(request)
 
@@ -118,7 +118,7 @@ async def login_customer(request: Request, details: CustomerLogin):
     email = details.email.lower()
     client_type = details.client_type if details.client_type else "unknown"
 
-    bind_contextvars(client_type=client_type, email=email)
+    bind_threadlocal(client_type=client_type, email=email)
 
     logger.info(f"Customer login attempt from client '{client_type}'")
 
@@ -131,7 +131,7 @@ async def login_customer(request: Request, details: CustomerLogin):
             )
 
             customer_id = select_query_result.get("id")
-            bind_contextvars(customer_id=str(customer_id))
+            bind_threadlocal(customer_id=str(customer_id))
 
             if select_query_result["password"] is None:
                 raise LoginError("Account needs verification")
@@ -206,7 +206,7 @@ async def login_user(request: Request, details: UserLogin):
 
     client_type = details.client_type if details.client_type else "unknown"
     # bind relevant info to logger
-    bind_contextvars(customer_id=str(customer_id), username=username, client_type=client_type)
+    bind_threadlocal(customer_id=str(customer_id), username=username, client_type=client_type)
 
     logger.info(f"User login attempt from client '{client_type}'")
 
@@ -216,7 +216,7 @@ async def login_user(request: Request, details: UserLogin):
             user_id = select_query_result.get("id")
             customer_id = select_query_result.get("customer_id")
 
-            bind_contextvars(user_id=str(user_id))
+            bind_threadlocal(user_id=str(user_id))
 
             pw = details.password.get_secret_value()
 
@@ -353,13 +353,14 @@ async def refresh(request: Request, token=Depends(ProtectedAny(ALL_PULSE3D_SCOPE
     """
     userid = uuid.UUID(hex=token["userid"])
     account_type = token["account_type"]
-
     is_customer_account = account_type == "customer"
 
     if is_customer_account:
         select_query = "SELECT refresh_token FROM customers WHERE id=$1"
+        bind_threadlocal(customer_id=str(userid), user_id=None)
     else:
         select_query = "SELECT refresh_token, customer_id FROM users WHERE id=$1"
+        bind_threadlocal(customer_id=token.get("customer_id"), user_id=str(userid))
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -436,8 +437,11 @@ async def logout(request: Request, token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES
     It is up to the client to discard the access token in order to truly logout the user.
     """
     userid = uuid.UUID(hex=token["userid"])
+    is_customer_account = token["account_type"] == "customer"
 
-    if token["account_type"] == "customer":
+    bind_threadlocal(customer_id=token.get("customer_id"), user_id=str(userid))
+
+    if is_customer_account:
         update_query = "UPDATE customers SET refresh_token = NULL WHERE id=$1"
     else:
         update_query = "UPDATE users SET refresh_token = NULL WHERE id=$1"
@@ -474,6 +478,8 @@ async def register_customer(
                         json.dumps(dict(PULSE3D_PAID_USAGE)),
                     )
                     new_account_id = await con.fetchval(*insert_account_query_args)
+
+                    bind_threadlocal(customer_id=str(new_account_id), email=email)
                 except UniqueViolationError as e:
                     if "customers_email_key" in str(e):
                         # Returning this message is currently ok since only the Curi customer account
@@ -525,11 +531,12 @@ async def register_user(
     customer_scope = token["scope"]
     try:
         email = details.email.lower()
+        username = details.username.lower()
+        bind_threadlocal(customer_id=str(customer_id), email=email, username=username)
 
         user_scope = _get_scopes_from_request(details.scope, customer_scope)
         logger.info(f"Registering new user with scopes: {user_scope}")
 
-        username = details.username.lower()
         # suspended and verified get set to False by default
         insert_account_query_args = (
             "INSERT INTO users (name, email, customer_id) VALUES ($1, $2, $3) RETURNING id",
@@ -542,6 +549,7 @@ async def register_user(
             async with con.transaction():
                 try:
                     new_account_id = await con.fetchval(*insert_account_query_args)
+                    bind_threadlocal(user_id=str(new_account_id))
                 except UniqueViolationError as e:
                     if "users_customer_id_name_key" in str(e):
                         # Returning this message is currently ok since duplicate usernames are only
@@ -601,15 +609,22 @@ async def email_account(
             )
 
             row = await con.fetchrow(query, email)
+
             # send email if found, otherwise return 204, doesn't need to raise an exception
             if row is not None:
+                user_id = row.get("id")
+                customer_id = row.get("customer_id")
+                username = row.get("name")
+
+                bind_threadlocal(user_id=str(user_id), customer_id=str(customer_id), username=username)
+
                 await _create_account_email(
                     con=con,
                     type=type,
-                    user_id=row["id"],
-                    customer_id=row.get("customer_id", None),
+                    user_id=user_id,
+                    customer_id=customer_id,
                     scopes=[f"{'users' if user else 'customer'}:{type}"],
-                    name=row.get("name", None),
+                    name=username,
                     email=email,
                 )
 
@@ -717,6 +732,11 @@ async def update_accounts(
 
         customer_id = None if is_customer else uuid.UUID(hex=token["customer_id"])
 
+        if is_customer:
+            bind_threadlocal(customer_id=str(user_id), user_id=None)
+        else:
+            bind_threadlocal(customer_id=str(customer_id), user_id=str(user_id))
+
         pw = details.password1.get_secret_value()
         ph = PasswordHasher()
         phash = ph.hash(pw)
@@ -791,6 +811,8 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTO
     """
     customer_id = uuid.UUID(hex=token["userid"])
 
+    bind_threadlocal(customer_id=str(customer_id), user_id=None)
+
     query = (
         "SELECT u.id, u.name, u.email, u.created_at, u.last_login, u.verified, u.suspended, u.reset_token, array_agg(s.scope) as scopes "
         "FROM users u "
@@ -833,6 +855,8 @@ async def update_user_scopes(
     """Update a user account's scopes in the database."""
     customer_id = uuid.UUID(hex=token["userid"])
     customer_scope = token["scope"]
+
+    bind_threadlocal(customer_id=str(customer_id), user_id=str(account_id))
 
     try:
         user_scope = _get_scopes_from_request(details.scopes, customer_scope)
@@ -889,6 +913,7 @@ async def get_user(
 
         # this is only being set in case an error is raised later
         customer_id = self_id
+        bind_threadlocal(user_id=str(account_id), customer_id=str(customer_id))
     else:
         if not is_self_retrieval:
             raise HTTPException(
@@ -897,6 +922,7 @@ async def get_user(
             )
 
         customer_id = uuid.UUID(hex=token["customer_id"])
+        bind_threadlocal(user_id=str(self_id), customer_id=str(customer_id))
 
         query = get_user_info_query
         query_args = (customer_id, account_id)
@@ -954,6 +980,8 @@ async def update_user(
     # TODO also need to check scope below once user self edit actions are added?
 
     if is_customer_account:
+        bind_threadlocal(user_id=str(account_id), customer_id=str(self_id), action=action)
+
         if is_self_edit:
             if action == "set_alias":
                 if details.new_alias is None:
@@ -991,6 +1019,8 @@ async def update_user(
                 )
     else:
         # TODO unit test this else branch
+        bind_threadlocal(user_id=str(self_id), customer_id=token.get("customer_id"), action=action)
+
         if not is_self_edit:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

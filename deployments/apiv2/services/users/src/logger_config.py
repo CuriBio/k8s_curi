@@ -28,7 +28,7 @@ def drop_color_message_key(_, __, event_dict: EventDict) -> EventDict:
 
 def setup_logger():
     shared_processors: list[Processor] = [
-        structlog.contextvars.merge_contextvars,
+        structlog.threadlocal.merge_threadlocal,
         drop_color_message_key,
         structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M.%S"),
         structlog.processors.dict_tracebacks,
@@ -54,8 +54,8 @@ def setup_logger():
     )
 
     handler = logging.StreamHandler()
-    # Use OUR `ProcessorFormatter` to format all `logging` entries.
     handler.setFormatter(formatter)
+
     root_logger = logging.getLogger()
     root_logger.addHandler(handler)
     root_logger.setLevel("INFO")
