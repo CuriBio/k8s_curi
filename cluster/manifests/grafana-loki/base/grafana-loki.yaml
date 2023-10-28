@@ -13,7 +13,7 @@ spec:
         valueFiles:
           - $values/cluster/manifests/grafana-loki
     - repoURL: https://github.com/CuriBio/k8s_curi.git
-      targetRevision: RC-10-26-23
+      targetRevision: HEAD
       ref: values
   destination:
     server: "https://kubernetes.default.svc"
