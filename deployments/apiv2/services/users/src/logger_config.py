@@ -4,6 +4,7 @@ import sys
 import structlog
 from structlog.types import EventDict, Processor
 
+# TODO move this to utils to use amongst all services
 
 # https://github.com/hynek/structlog/issues/35#issuecomment-591321744
 # def rename_event_key(_, __, event_dict: EventDict) -> EventDict:
