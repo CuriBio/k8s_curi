@@ -10,7 +10,7 @@ spec:
   source:
     path: cluster/manifests/grafana/overlays/test
     repoURL: https://github.com/CuriBio/k8s_curi.git
-    targetRevision: HEAD
+    targetRevision: RC-10-26-23
   destination:
     server: https://kubernetes.default.svc
   # syncPolicy:

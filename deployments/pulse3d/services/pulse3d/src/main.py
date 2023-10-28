@@ -53,11 +53,16 @@ from models.models import (
 )
 from models.types import TupleParam
 
+import structlog
+from structlog.threadlocal import bind_threadlocal, clear_threadlocal
+import time
+from uvicorn.protocols.utils import get_path_with_query_string
+from logger_config import setup_logger
 from utils.db import AsyncpgPoolDep
 from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error, upload_file_to_s3
 
-# logging is configured in log_config.yaml
-logger = logging.getLogger(__name__)
+setup_logger()
+logger = structlog.stdlib.get_logger("api.access")
 
 app = FastAPI(openapi_url=None)
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
