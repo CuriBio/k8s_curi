@@ -71,6 +71,7 @@ app.add_middleware(
 @app.middleware("http")
 async def db_session_middleware(request: Request, call_next) -> Response:
     request.state.pgpool = await asyncpg_pool()
+
     # clear previous request variables
     clear_threadlocal()
     # get request details for logging

@@ -1,11 +1,12 @@
-FROM python:3.9-slim as venv
+FROM python:3.11-slim as venv
 
 WORKDIR /app
+COPY ./core/lib/utils ./lib/utils
 
 RUN python -m venv --copies /app/venv
-RUN . /app/venv/bin/activate && pip install asyncpg asyncio kubernetes
+RUN . /app/venv/bin/activate && pip install asyncpg asyncio kubernetes structlog && pip install ./lib/utils
 
-FROM python:3.9-slim as prod
+FROM python:3.11-slim as prod
 
 RUN useradd main_user && groupadd main_group
 USER main_user:main_group
