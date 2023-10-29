@@ -70,8 +70,7 @@ async def startup():
 # TODO make request and response models for all of these?
 
 
-# TODO change this to /serial-number ?
-@app.get("/", response_model=MantarrayUnitsResponse)
+@app.get("/serial-number", response_model=MantarrayUnitsResponse)
 async def root(request: Request):
     try:
         async with request.state.pgpool.acquire() as con:

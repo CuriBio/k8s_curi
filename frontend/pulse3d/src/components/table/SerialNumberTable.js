@@ -57,7 +57,7 @@ export default function SerialNumberTable() {
   const SaveButtonText = entryIsValid ? ActionText : DisabledActionText;
 
   const getSerialNumbers = async () => {
-    const getSerialNumRes = await fetch(`${process.env.NEXT_PUBLIC_MANTARRAY_URL}/`);
+    const getSerialNumRes = await fetch(`${process.env.NEXT_PUBLIC_MANTARRAY_URL}/serial-number`);
     const getSerialNumResJson = await getSerialNumRes.json();
     const fetchedEntries = getSerialNumResJson.units.map(({ serial_number, hw_version }) => {
       return {
