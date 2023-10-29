@@ -27,7 +27,6 @@ COPY --chown=main_user:main_group ./deployments/apiv2/services/users/src/templat
 COPY --chown=main_user:main_group ./deployments/apiv2/services/users/src/models/ ./models
 COPY --chown=main_user:main_group ./deployments/apiv2/services/users/src/main.py ./
 COPY --chown=main_user:main_group ./deployments/apiv2/services/users/disable_log_config.yaml ./
-COPY --chown=main_user:main_group ./deployments/apiv2/services/users/src/logger_config.py ./
 
 ENV PYTHONUNBUFFERED 1
 # add security headers

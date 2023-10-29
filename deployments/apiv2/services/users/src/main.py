@@ -1,6 +1,8 @@
 import json
+import time
 import uuid
 from datetime import datetime
+
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
@@ -11,7 +13,6 @@ from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import EmailStr
 import structlog
 from structlog.threadlocal import bind_threadlocal, clear_threadlocal
-import time
 from uvicorn.protocols.utils import get_path_with_query_string
 
 from auth import (
@@ -29,7 +30,6 @@ from auth import (
 )
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
-from logger_config import setup_logger
 from models.errors import LoginError, RegistrationError, EmailRegistrationError, UnknownScopeError
 from models.tokens import AuthTokens
 from models.users import (
@@ -46,6 +46,7 @@ from models.users import (
     UnableToUpdateAccountResponse,
 )
 from utils.db import AsyncpgPoolDep
+from utils.logging import setup_logger
 from fastapi.templating import Jinja2Templates
 
 setup_logger()

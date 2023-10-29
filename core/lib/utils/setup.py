@@ -14,5 +14,6 @@ setup(
         "s3transfer==0.6.1",
         "six==1.16.0",
         "urllib3==1.26.9",
+        "structlog==23.2.0",
     ],
 )

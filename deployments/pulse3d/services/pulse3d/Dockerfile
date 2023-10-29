@@ -23,6 +23,6 @@ COPY --chown=main_user:main_group ./deployments/pulse3d/services/pulse3d/src/mai
 COPY --chown=main_user:main_group ./deployments/pulse3d/services/pulse3d/src/core/ ./core
 COPY --chown=main_user:main_group ./deployments/pulse3d/services/pulse3d/src/models/ ./models
 COPY --chown=main_user:main_group ./deployments/pulse3d/services/pulse3d/disable_log_config.yaml ./
-COPY --chown=main_user:main_group ./deployments/pulse3d/services/pulse3d/src/logger_config.py ./
+
 ENV PYTHONUNBUFFERED 1
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-config", "disable_log_config.yaml", "--header", "X-Content-Type-Options:nosniff", "--header", "Strict-Transport-Security:max-age=31536000"]

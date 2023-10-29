@@ -40,11 +40,11 @@ from semver import VersionInfo
 from stream_zip import ZIP_64, stream_zip
 from structlog.threadlocal import bind_threadlocal, clear_threadlocal
 from utils.db import AsyncpgPoolDep
+from utils.logging import setup_logger
 from utils.s3 import S3Error, generate_presigned_post, generate_presigned_url, upload_file_to_s3
 from uvicorn.protocols.utils import get_path_with_query_string
 
 from core.config import DASHBOARD_URL, DATABASE_URL, MANTARRAY_LOGS_BUCKET, PULSE3D_UPLOADS_BUCKET
-from logger_config import setup_logger
 from models.models import (
     GenericErrorResponse,
     JobDownloadRequest,
