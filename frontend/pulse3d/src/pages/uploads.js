@@ -617,7 +617,7 @@ export default function Uploads() {
           failedDeletion ||= uploadsResponse.status !== 200;
         }
       }
-
+      console.log(jobs.filter(({ jobId, status, owner }) => checkedJobs.includes(jobId)));
       // soft delete all jobs
       if (jobsToDelete.length > 0) {
         const jobsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;

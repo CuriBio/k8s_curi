@@ -326,7 +326,7 @@ async def get_info_of_jobs(
     try:
         user_id = str(uuid.UUID(token["userid"]))
         account_type = token["account_type"]
-        is_user = account_type == "customer"
+        is_user = account_type == "user"
 
         if is_user:
             bind_threadlocal(user_id=None, customer_id=user_id, job_ids=job_ids)
