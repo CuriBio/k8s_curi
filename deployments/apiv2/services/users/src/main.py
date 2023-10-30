@@ -131,7 +131,7 @@ async def login_customer(request: Request, details: CustomerLogin):
                 "FROM customers WHERE deleted_at IS NULL AND email=$1",
                 email,
             )
-
+            # query will return None if customer email is not found
             customer_id = select_query_result.get("id") if select_query_result is not None else None
             bind_threadlocal(customer_id=str(customer_id))
 
@@ -215,6 +215,7 @@ async def login_user(request: Request, details: UserLogin):
     try:
         async with request.state.pgpool.acquire() as con:
             select_query_result = await con.fetchrow(select_query, username, str(details.customer_id))
+            # query will return None if username is not found
             user_id = select_query_result.get("id") if select_query_result is not None else None
             bind_threadlocal(user_id=str(user_id))
 
