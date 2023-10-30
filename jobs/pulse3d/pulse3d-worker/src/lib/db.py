@@ -1,4 +1,4 @@
-import logging
+import structlog
 import os
 
 from .queries import UPDATE_UPLOADS_TABLE
@@ -10,7 +10,8 @@ from .utils import load_data_to_df
 
 MANTARRAY_LOGS_BUCKET = os.environ.get("MANTARRAY_LOGS_BUCKET_ENV", "test-mantarray-logs")
 PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-pulse3d-uploads")
-logger = logging.getLogger(__name__)
+# will automatically have the bound variables from main.py
+logger = structlog.getLogger()
 
 
 async def insert_metadata_into_pg(con, pr, customer_id, user_id, upload_id, file, outfile_key, re_analysis):

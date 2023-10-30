@@ -7,11 +7,11 @@ resources:
   - curibio-jwt-secret.yaml
   - curibio-jobs-creds.yaml
 
-patchesJson6902:
-  - target:
-      kind: Deployment
-      name: pulse3d
-    patch: |-
+patches:
+  - patch: |-
       - op: add
         path: /spec/template/spec/containers/0/image
-        value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d_api:0.8.8"
+        value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/pulse3d_api:0.8.9"
+    target:
+      kind: Deployment
+      name: pulse3d

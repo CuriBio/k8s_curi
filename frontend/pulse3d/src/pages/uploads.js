@@ -622,6 +622,7 @@ export default function Uploads() {
       if (jobsToDelete.length > 0) {
         const jobsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;
         jobsToDelete.map(({ jobId }) => (jobsURL += `job_ids=${jobId}&`));
+
         const jobsResponse = await fetch(jobsURL.slice(0, -1), {
           method: "DELETE",
         });
