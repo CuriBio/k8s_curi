@@ -1,7 +1,8 @@
-import logging
 import json
+import time
 import uuid
 from datetime import datetime
+
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
@@ -10,6 +11,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from jwt.exceptions import InvalidTokenError
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import EmailStr
+import structlog
+from structlog.threadlocal import bind_threadlocal, clear_threadlocal
+from uvicorn.protocols.utils import get_path_with_query_string
+
 from auth import (
     ProtectedAny,
     create_token,
@@ -41,10 +46,11 @@ from models.users import (
     UnableToUpdateAccountResponse,
 )
 from utils.db import AsyncpgPoolDep
+from utils.logging import setup_logger
 from fastapi.templating import Jinja2Templates
 
-# logging is configured in log_config.yaml
-logger = logging.getLogger(__name__)
+setup_logger()
+logger = structlog.stdlib.get_logger("api.access")
 
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
@@ -63,9 +69,33 @@ app.add_middleware(
 
 
 @app.middleware("http")
-async def db_session_middleware(request: Request, call_next):
+async def db_session_middleware(request: Request, call_next) -> Response:
     request.state.pgpool = await asyncpg_pool()
+
+    # clear previous request variables
+    clear_threadlocal()
+    # get request details for logging
+    if (client_ip := request.headers.get("X-Forwarded-For")) is None:
+        client_ip = f"{request.client.host}:{request.client.port}"
+
+    url = get_path_with_query_string(request.scope)
+    http_method = request.method
+    http_version = request.scope["http_version"]
+    start_time = time.perf_counter_ns()
+
+    # bind details to logger
+    bind_threadlocal(url=str(request.url), method=http_method, client_ip=client_ip)
+
     response = await call_next(request)
+
+    process_time = time.perf_counter_ns() - start_time
+    status_code = response.status_code
+
+    logger.info(
+        f"""{client_ip} - "{http_method} {url} HTTP/{http_version}" {status_code}""",
+        status_code=status_code,
+        duration=process_time / 10**9,
+    )
 
     return response
 
@@ -89,6 +119,9 @@ async def login_customer(request: Request, details: CustomerLogin):
     account_type = "customer"
     email = details.email.lower()
     client_type = details.client_type if details.client_type else "unknown"
+
+    bind_threadlocal(client_type=client_type, email=email)
+
     logger.info(f"Customer login attempt from client '{client_type}'")
 
     try:
@@ -99,6 +132,9 @@ async def login_customer(request: Request, details: CustomerLogin):
                 email,
             )
 
+            customer_id = select_query_result.get("id")
+            bind_threadlocal(customer_id=str(customer_id))
+
             if select_query_result["password"] is None:
                 raise LoginError("Account needs verification")
 
@@ -106,12 +142,12 @@ async def login_customer(request: Request, details: CustomerLogin):
             # verify password, else raise LoginError
             await _verify_password(con, account_type, pw, select_query_result)
             # get scopes from account_scopes table
-            scope = await _get_account_scope(con, select_query_result["id"], True)
+            scope = await _get_account_scope(con, customer_id, True)
             # get list of scopes that a customer can assign to it's users
             avail_user_scopes = _get_user_scopes_from_customer(scope)
             # TODO decide how to show customer accounts usage data for multiple products, defaulting to mantarray now
             # check usage for customer account
-            usage_quota = await check_customer_quota(con, str(select_query_result["id"]), "mantarray")
+            usage_quota = await check_customer_quota(con, str(customer_id), "mantarray")
 
             # if login was successful, then update last_login column value to now
             await con.execute(
@@ -120,7 +156,7 @@ async def login_customer(request: Request, details: CustomerLogin):
                 email,
             )
 
-            tokens = await _create_new_tokens(con, select_query_result["id"], None, scope, account_type)
+            tokens = await _create_new_tokens(con, customer_id, None, scope, account_type)
 
             return LoginResponse(
                 tokens=tokens,
@@ -150,10 +186,12 @@ async def login_user(request: Request, details: UserLogin):
     """
     account_type = "user"
     username = details.username.lower()
+    customer_id = details.customer_id
+
     # select for service specific usage restrictions listed under the customer account
     # suspended is for deactivated accounts and verified is for new users needing to verify through email
     # Tanner (7/25/23): need to use separate queries since asyncpg will raise an error if the value passed in to be compared against customer_id is not a UUID
-    if isinstance(details.customer_id, uuid.UUID):
+    if isinstance(customer_id, uuid.UUID):
         # if a UUID was given in the request then check against the customer ID
         select_query = (
             "SELECT password, id, failed_login_attempts, suspended, customer_id FROM users "
@@ -169,17 +207,24 @@ async def login_user(request: Request, details: UserLogin):
         )
 
     client_type = details.client_type if details.client_type else "unknown"
+    # bind relevant info to logger
+    bind_threadlocal(customer_id=str(customer_id), username=username, client_type=client_type)
+
     logger.info(f"User login attempt from client '{client_type}'")
 
     try:
         async with request.state.pgpool.acquire() as con:
             select_query_result = await con.fetchrow(select_query, username, str(details.customer_id))
+            user_id = select_query_result.get("id")
+            customer_id = select_query_result.get("customer_id")
+
+            bind_threadlocal(user_id=str(user_id))
+
             pw = details.password.get_secret_value()
 
             # verify password, else raise LoginError
             await _verify_password(con, account_type, pw, select_query_result)
-            # check account usage quotas
-            customer_id = select_query_result["customer_id"]
+
             #  get scopes from account_scopes table
             scope = await _get_account_scope(con, select_query_result["id"], False)
 
@@ -201,9 +246,8 @@ async def login_user(request: Request, details: UserLogin):
                 str(customer_id),
             )
 
-            tokens = await _create_new_tokens(
-                con, select_query_result["id"], customer_id, scope, account_type
-            )
+            tokens = await _create_new_tokens(con, user_id, customer_id, scope, account_type)
+
             return LoginResponse(tokens=tokens, usage_quota=usage_quota)
 
     except LoginError as e:
@@ -311,13 +355,14 @@ async def refresh(request: Request, token=Depends(ProtectedAny(ALL_PULSE3D_SCOPE
     """
     userid = uuid.UUID(hex=token["userid"])
     account_type = token["account_type"]
-
     is_customer_account = account_type == "customer"
 
     if is_customer_account:
         select_query = "SELECT refresh_token FROM customers WHERE id=$1"
+        bind_threadlocal(customer_id=str(userid), user_id=None)
     else:
         select_query = "SELECT refresh_token, customer_id FROM users WHERE id=$1"
+        bind_threadlocal(customer_id=token.get("customer_id"), user_id=str(userid))
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -394,8 +439,11 @@ async def logout(request: Request, token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES
     It is up to the client to discard the access token in order to truly logout the user.
     """
     userid = uuid.UUID(hex=token["userid"])
+    is_customer_account = token["account_type"] == "customer"
 
-    if token["account_type"] == "customer":
+    bind_threadlocal(customer_id=token.get("customer_id"), user_id=str(userid))
+
+    if is_customer_account:
         update_query = "UPDATE customers SET refresh_token = NULL WHERE id=$1"
     else:
         update_query = "UPDATE users SET refresh_token = NULL WHERE id=$1"
@@ -432,6 +480,8 @@ async def register_customer(
                         json.dumps(dict(PULSE3D_PAID_USAGE)),
                     )
                     new_account_id = await con.fetchval(*insert_account_query_args)
+
+                    bind_threadlocal(customer_id=str(new_account_id), email=email)
                 except UniqueViolationError as e:
                     if "customers_email_key" in str(e):
                         # Returning this message is currently ok since only the Curi customer account
@@ -483,11 +533,12 @@ async def register_user(
     customer_scope = token["scope"]
     try:
         email = details.email.lower()
+        username = details.username.lower()
+        bind_threadlocal(customer_id=str(customer_id), email=email, username=username)
 
         user_scope = _get_scopes_from_request(details.scope, customer_scope)
         logger.info(f"Registering new user with scopes: {user_scope}")
 
-        username = details.username.lower()
         # suspended and verified get set to False by default
         insert_account_query_args = (
             "INSERT INTO users (name, email, customer_id) VALUES ($1, $2, $3) RETURNING id",
@@ -500,6 +551,7 @@ async def register_user(
             async with con.transaction():
                 try:
                     new_account_id = await con.fetchval(*insert_account_query_args)
+                    bind_threadlocal(user_id=str(new_account_id))
                 except UniqueViolationError as e:
                     if "users_customer_id_name_key" in str(e):
                         # Returning this message is currently ok since duplicate usernames are only
@@ -559,15 +611,22 @@ async def email_account(
             )
 
             row = await con.fetchrow(query, email)
+
             # send email if found, otherwise return 204, doesn't need to raise an exception
             if row is not None:
+                user_id = row.get("id")
+                customer_id = row.get("customer_id")
+                username = row.get("name")
+
+                bind_threadlocal(user_id=str(user_id), customer_id=str(customer_id), username=username)
+
                 await _create_account_email(
                     con=con,
                     type=type,
-                    user_id=row["id"],
-                    customer_id=row.get("customer_id", None),
+                    user_id=user_id,
+                    customer_id=customer_id,
                     scopes=[f"{'users' if user else 'customer'}:{type}"],
-                    name=row.get("name", None),
+                    name=username,
                     email=email,
                 )
 
@@ -675,6 +734,11 @@ async def update_accounts(
 
         customer_id = None if is_customer else uuid.UUID(hex=token["customer_id"])
 
+        if is_customer:
+            bind_threadlocal(customer_id=str(user_id), user_id=None)
+        else:
+            bind_threadlocal(customer_id=str(customer_id), user_id=str(user_id))
+
         pw = details.password1.get_secret_value()
         ph = PasswordHasher()
         phash = ph.hash(pw)
@@ -749,6 +813,8 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTO
     """
     customer_id = uuid.UUID(hex=token["userid"])
 
+    bind_threadlocal(customer_id=str(customer_id), user_id=None)
+
     query = (
         "SELECT u.id, u.name, u.email, u.created_at, u.last_login, u.verified, u.suspended, u.reset_token, array_agg(s.scope) as scopes "
         "FROM users u "
@@ -791,6 +857,8 @@ async def update_user_scopes(
     """Update a user account's scopes in the database."""
     customer_id = uuid.UUID(hex=token["userid"])
     customer_scope = token["scope"]
+
+    bind_threadlocal(customer_id=str(customer_id), user_id=str(account_id))
 
     try:
         user_scope = _get_scopes_from_request(details.scopes, customer_scope)
@@ -847,6 +915,7 @@ async def get_user(
 
         # this is only being set in case an error is raised later
         customer_id = self_id
+        bind_threadlocal(user_id=str(account_id), customer_id=str(customer_id))
     else:
         if not is_self_retrieval:
             raise HTTPException(
@@ -855,6 +924,7 @@ async def get_user(
             )
 
         customer_id = uuid.UUID(hex=token["customer_id"])
+        bind_threadlocal(user_id=str(self_id), customer_id=str(customer_id))
 
         query = get_user_info_query
         query_args = (customer_id, account_id)
@@ -912,6 +982,8 @@ async def update_user(
     # TODO also need to check scope below once user self edit actions are added?
 
     if is_customer_account:
+        bind_threadlocal(user_id=str(account_id), customer_id=str(self_id), action=action)
+
         if is_self_edit:
             if action == "set_alias":
                 if details.new_alias is None:
@@ -949,6 +1021,8 @@ async def update_user(
                 )
     else:
         # TODO unit test this else branch
+        bind_threadlocal(user_id=str(self_id), customer_id=token.get("customer_id"), action=action)
+
         if not is_self_edit:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
