@@ -137,9 +137,8 @@ const modalObjs = {
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota } = useContext(AuthContext);
-  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } = useContext(
-    UploadsContext
-  );
+  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } =
+    useContext(UploadsContext);
   const [jobs, setJobs] = useState([]);
   const [rows, setRows] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
@@ -617,7 +616,6 @@ export default function Uploads() {
           failedDeletion ||= uploadsResponse.status !== 200;
         }
       }
-      console.log(jobs.filter(({ jobId, status, owner }) => checkedJobs.includes(jobId)));
       // soft delete all jobs
       if (jobsToDelete.length > 0) {
         const jobsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;
