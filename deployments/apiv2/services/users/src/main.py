@@ -132,7 +132,7 @@ async def login_customer(request: Request, details: CustomerLogin):
                 email,
             )
 
-            customer_id = select_query_result.get("id")
+            customer_id = select_query_result.get("id") if select_query_result is not None else None
             bind_threadlocal(customer_id=str(customer_id))
 
             if select_query_result["password"] is None:
@@ -215,9 +215,7 @@ async def login_user(request: Request, details: UserLogin):
     try:
         async with request.state.pgpool.acquire() as con:
             select_query_result = await con.fetchrow(select_query, username, str(details.customer_id))
-            user_id = select_query_result.get("id")
-            customer_id = select_query_result.get("customer_id")
-
+            user_id = select_query_result.get("id") if select_query_result is not None else None
             bind_threadlocal(user_id=str(user_id))
 
             pw = details.password.get_secret_value()
@@ -226,7 +224,7 @@ async def login_user(request: Request, details: UserLogin):
             await _verify_password(con, account_type, pw, select_query_result)
 
             #  get scopes from account_scopes table
-            scope = await _get_account_scope(con, select_query_result["id"], False)
+            scope = await _get_account_scope(con, user_id, False)
 
             # users logging into the dashboard should not have usage returned because they need to select a product from the landing page first to be given correct limits
             # users logging into a specific instrument need the the usage returned right away and it is known what instrument they are using
