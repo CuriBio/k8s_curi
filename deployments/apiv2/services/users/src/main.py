@@ -187,6 +187,7 @@ async def login_user(request: Request, details: UserLogin):
     account_type = "user"
     username = details.username.lower()
     customer_id = details.customer_id
+    user_id = None
 
     # select for service specific usage restrictions listed under the customer account
     # suspended is for deactivated accounts and verified is for new users needing to verify through email
@@ -215,9 +216,13 @@ async def login_user(request: Request, details: UserLogin):
     try:
         async with request.state.pgpool.acquire() as con:
             select_query_result = await con.fetchrow(select_query, username, str(details.customer_id))
+
             # query will return None if username is not found
-            user_id = select_query_result.get("id") if select_query_result is not None else None
-            bind_threadlocal(user_id=str(user_id))
+            if select_query_result is not None:
+                user_id = select_query_result.get("id")
+                customer_id = select_query_result.get("customer_id")
+                # rebind customer id with uuid incase an alias was used above
+                bind_threadlocal(user_id=str(user_id), customer_id=str(customer_id))
 
             pw = details.password.get_secret_value()
 

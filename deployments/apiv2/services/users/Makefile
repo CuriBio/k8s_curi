@@ -1,4 +1,4 @@
-ecr_repo = 077346344852.dkr.ecr.us-east-2.amazonaws.com/users
+ecr_repo = 725604423866.dkr.ecr.us-east-2.amazonaws.com/users
 repo_root=$(shell git rev-parse --show-toplevel)
 
 .PHONY: build buildx push tag apply
