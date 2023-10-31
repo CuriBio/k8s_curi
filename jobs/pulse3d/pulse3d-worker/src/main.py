@@ -38,7 +38,6 @@ from lib.db import insert_metadata_into_pg, PULSE3D_UPLOADS_BUCKET
 structlog.configure(
     processors=[
         merge_contextvars,
-        structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M.%S"),
         structlog.processors.dict_tracebacks,
         structlog.processors.JSONRenderer(),
