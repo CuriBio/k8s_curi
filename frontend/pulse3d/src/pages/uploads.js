@@ -617,7 +617,6 @@ export default function Uploads() {
           failedDeletion ||= uploadsResponse.status !== 200;
         }
       }
-
       // soft delete all jobs
       if (jobsToDelete.length > 0) {
         const jobsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;

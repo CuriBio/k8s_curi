@@ -75,12 +75,13 @@ const HeaderCenterSectContainer = styled.div`
 
 export default function Layout({ children }) {
   const [showHomeArrow, setShowHomeArrow] = useState(false);
+
   const router = useRouter();
   const { accountType } = useContext(AuthContext);
   const isAuthorizedPage = !["/login", "/account/verify", "/account/reset"].includes(router.pathname);
 
   useEffect(() => {
-    setShowHomeArrow(accountType === "user" && !isAuthorizedPage && router.pathname !== "/home");
+    setShowHomeArrow(accountType === "user" && isAuthorizedPage && router.pathname !== "/home");
   }, [accountType, router]);
 
   const logoutUser = async () => {
