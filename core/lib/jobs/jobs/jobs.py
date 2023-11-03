@@ -18,14 +18,25 @@ def get_item(*, queue):
 
     def _outer(fn):
         @wraps(fn)
-        async def _inner(*, con, con_to_set_job_running=None):
+        async def _inner(*, con, con_to_update_job_result=None):
             async with con.transaction():
                 item = await con.fetchrow(query, queue)
                 if not item:
                     raise EmptyQueue(queue)
 
-                if con_to_set_job_running:
-                    await con_to_set_job_running.execute(
+                if con_to_update_job_result:
+                    current_job_status = await con_to_update_job_result.fetchval(
+                        "SELECT status FROM jobs_result WHERE job_id=$1", item["id"]
+                    )
+
+                    # if already set to running, then assume that a different worker already tried processing the job and failed
+                    if current_job_status == "running":
+                        await con_to_update_job_result.execute(
+                            "UPDATE jobs_result SET status='error' WHERE job_id=$1", item["id"]
+                        )
+                        return
+
+                    await con_to_update_job_result.execute(
                         "UPDATE jobs_result SET status='running' WHERE job_id=$1", item["id"]
                     )
 
