@@ -27,6 +27,7 @@ export default function EditUserForm({ userData, openEditModal, setOpenEditModal
         product,
         addScopes,
       ]);
+
       const flattenedScopes = scopeList.flat(2);
 
       let displayedScopes = userData.scopes.map((s) => {
@@ -65,7 +66,7 @@ export default function EditUserForm({ userData, openEditModal, setOpenEditModal
 
   return (
     <ModalWidget
-      open={openEditModal}
+      open={typeof openEditModal == "object" || openEditModal}
       width={600}
       closeModal={handleButtonSelection}
       header={"Edit User"}
@@ -78,6 +79,8 @@ export default function EditUserForm({ userData, openEditModal, setOpenEditModal
             selectedScopes={selectedScopes}
             setSelectedScopes={setSelectedScopes}
             initialChecked={existingScopes}
+            availableScopes={availableScopes.user}
+            isForUser={true}
           />
         </BodyContainer>
       )}
