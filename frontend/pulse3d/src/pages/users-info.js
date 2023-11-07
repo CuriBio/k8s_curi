@@ -77,6 +77,8 @@ export default function Users() {
   const [openErrorModal, setOpenErrorModal] = useState(false);
   const [inProgress, setInProgress] = useState(false);
   const [rowSelection, setRowSelection] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+
   // gets users at load
   useEffect(() => {
     getAllUsers();
@@ -106,6 +108,7 @@ export default function Users() {
         );
 
         setUsersData([...formatedUserJson]);
+        setIsLoading(false);
       }
     } catch (e) {
       console.log("ERROR fetching all users info");
@@ -367,6 +370,7 @@ export default function Users() {
           defaultSortColumn={"lastLogin"}
           rowSelection={rowSelection}
           setRowSelection={setRowSelection}
+          isLoading={isLoading}
         />
       </TableContainer>
       <ModalWidget

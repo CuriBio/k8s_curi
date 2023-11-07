@@ -21,6 +21,7 @@ export default function Table({
   isLoading = false,
   enableRowSelection = true,
   showColumnFilters = true,
+  columnVisibility = {},
 }) {
   const table = useMaterialReactTable({
     columns,
@@ -76,7 +77,7 @@ export default function Table({
     onRowSelectionChange: setRowSelection, // returns {[id]: true, [id2]: true, ...}
     renderDetailPanel: subTableFn ? ({ row }) => subTableFn(row) : null,
     renderTopToolbar: toolbarFn ? ({ table }) => toolbarFn(table) : null,
-    state: { rowSelection, isLoading, density: "compact" }, // rowSelection can be {[id]: true, [id2]: false, [id3]: true, ... }
+    state: { rowSelection, isLoading, density: "compact", columnVisibility }, // rowSelection can be {[id]: true, [id2]: false, [id3]: true, ... }
     enableExpanding: enableExpanding,
     muiCircularProgressProps: { size: 100 },
     getRowId: getRowId,

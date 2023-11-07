@@ -101,9 +101,8 @@ const modalObjs = {
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota } = useContext(AuthContext);
-  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } = useContext(
-    UploadsContext
-  );
+  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } =
+    useContext(UploadsContext);
 
   const [jobs, setJobs] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
@@ -187,6 +186,13 @@ export default function Uploads() {
 
   const columns = useMemo(
     () => [
+      {
+        accessorKey: "username",
+        id: "username",
+        header: "Owner",
+        filterVariant: "autocomplete",
+        size: 200,
+      },
       {
         accessorKey: "name",
         id: "name",
@@ -740,6 +746,7 @@ export default function Uploads() {
             rowSelection={selectedUploads}
             setRowSelection={setSelectedUploads}
             toolbarFn={actionsFn}
+            columnVisibility={{ username: accountType !== "user" }}
             subTableFn={(row) => (
               <Jobs
                 row={row}
