@@ -30,7 +30,6 @@ export default function Jobs({
   const [jobs, setJobs] = useState([]);
   const [uploadId, setUploadId] = useState();
 
-  const uploadIsSelected = uploadId in selectedUploads && selectedUploads[uploadId];
   const localSelectedJobs = Object.keys(rowSelection).filter((x) => rowSelection[x]);
 
   useEffect(() => {
@@ -40,45 +39,39 @@ export default function Jobs({
     }
   }, [row]);
 
-  const handleSelectedJobsDiff = () => {
-    if (jobs.length > 0) {
-      if (jobs.length === localSelectedJobs.length && !uploadIsSelected) {
-        // if all jobs are selected and the parent upload isn't, then auto selected the upload
-        selectedUploads[uploadId] = true;
-        setSelectedUploads({ ...selectedUploads });
-      } else if (jobs.length > localSelectedJobs.length && uploadIsSelected) {
-        // else if the parent upload is selected, but a user unchecks a job, then auto uncheck the parent upload
-        selectedUploads[uploadId] = false;
-        setSelectedUploads({ ...selectedUploads });
+  useEffect(() => {
+    checkInitialSelectedJobs();
+  }, [selectedJobs, uploadId]);
+
+  const checkInitialSelectedJobs = () => {
+    if (uploadId in selectedJobs) {
+      const initialJobs = {};
+
+      for (const id of selectedJobs[uploadId]) {
+        initialJobs[id] = true;
       }
-      // set state in parent component to hold all selected jobs
-      setSelectedJobs({ ...selectedJobs, [uploadId]: localSelectedJobs });
+
+      setRowSelection(initialJobs);
     }
   };
 
-  const handleSelectedUploadsDiff = () => {
-    if (jobs.length !== localSelectedJobs.length && uploadIsSelected) {
-      // if parent upload is selected and all the jobs aren't selected, then auto select all the jobs
-      for (const { jobId } of jobs) {
-        rowSelection[jobId] = true;
-      }
-      setRowSelection({ ...rowSelection });
-    } else if (jobs.length === localSelectedJobs.length && !uploadIsSelected) {
-      // else if parent upload is unselected and all the jobs are selected, then auto unselect all the jobs
-      for (const { jobId } of jobs) {
-        rowSelection[jobId] = false;
-      }
-      setRowSelection({ ...rowSelection });
+  const handleSelectedJobsDiff = () => {
+    if (jobs.length > 0) {
+      if (
+        !(
+          uploadId in selectedJobs &&
+          selectedJobs[uploadId].length === localSelectedJobs.length &&
+          selectedJobs[uploadId].every((val) => localSelectedJobs.includes(val))
+        )
+      )
+        // set state in parent component to hold all selected jobs
+        setSelectedJobs({ ...selectedJobs, [uploadId]: localSelectedJobs });
     }
   };
 
   useEffect(() => {
     handleSelectedJobsDiff();
   }, [rowSelection]);
-
-  useEffect(() => {
-    handleSelectedUploadsDiff();
-  }, [selectedUploads]);
 
   const getAnalysisParamsStr = (params) => {
     return (

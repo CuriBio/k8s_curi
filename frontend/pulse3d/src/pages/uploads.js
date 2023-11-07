@@ -101,8 +101,9 @@ const modalObjs = {
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota } = useContext(AuthContext);
-  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } =
-    useContext(UploadsContext);
+  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } = useContext(
+    UploadsContext
+  );
 
   const [jobs, setJobs] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
@@ -175,6 +176,14 @@ export default function Uploads() {
     }
   }, [jobs]);
 
+  useEffect(() => {
+    handleSelectedJobs();
+  }, [selectedJobs]);
+
+  useEffect(() => {
+    handleSelectedUploads();
+  }, [selectedUploads]);
+
   const columns = useMemo(
     () => [
       {
@@ -221,6 +230,47 @@ export default function Uploads() {
     ],
     []
   );
+
+  const handleSelectedJobs = () => {
+    for (const uploadId in selectedJobs) {
+      const uploadJobs = displayRows.find((x) => x.id === uploadId).jobs;
+      const selected = selectedJobs[uploadId];
+      const uploadIsSelected = uploadId in selectedUploads && selectedUploads[uploadId];
+
+      if (uploadJobs.length === selected.length && !uploadIsSelected) {
+        // if all jobs are selected and the parent upload isn't, then auto selected the upload
+        selectedUploads[uploadId] = true;
+        setSelectedUploads({ ...selectedUploads });
+      } else if (uploadJobs.length > selected.length && uploadIsSelected) {
+        // else if the parent upload is selected, but a user unchecks a job, then auto uncheck the parent upload
+        selectedUploads[uploadId] = false;
+        setSelectedUploads({ ...selectedUploads });
+      }
+    }
+  };
+
+  const handleSelectedUploads = () => {
+    const selectedJobsCopy = JSON.parse(JSON.stringify(selectedJobs));
+
+    for (const uploadId in selectedUploads) {
+      const uploadJobs = displayRows.find((x) => x.id === uploadId).jobs;
+      const uploadIsSelected = selectedUploads[uploadId];
+
+      if (uploadIsSelected) {
+        // if parent upload is selected and all the jobs aren't selected, then auto select all the jobs
+        const allSelectedJobs = uploadJobs.map(({ jobId }) => jobId);
+        selectedJobsCopy[uploadId] = allSelectedJobs;
+        setSelectedJobs({ ...selectedJobsCopy });
+      }
+    }
+
+    for (const uploadId in selectedJobsCopy) {
+      if (!Object.keys(selectedUploads).includes(uploadId)) {
+        selectedJobsCopy[uploadId] = [];
+        setSelectedJobs({ ...selectedJobsCopy });
+      }
+    }
+  };
 
   const getJobsList = (j) => {
     return Object.values(j).flat(2);
