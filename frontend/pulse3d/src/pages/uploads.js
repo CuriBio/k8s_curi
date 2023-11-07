@@ -101,8 +101,9 @@ const modalObjs = {
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota } = useContext(AuthContext);
-  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } =
-    useContext(UploadsContext);
+  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } = useContext(
+    UploadsContext
+  );
 
   const [jobs, setJobs] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
@@ -116,6 +117,7 @@ export default function Uploads() {
   const [openInteractiveAnalysis, setOpenInteractiveAnalysis] = useState(false);
   const [openJobPreview, setOpenJobPreview] = useState(false);
   const [selectedAnalysis, setSelectedAnalysis] = useState();
+  const [jobsInSelectedUpload, setJobsInSelectedUpload] = useState(0);
 
   useEffect(() => {
     if (uploads) {
@@ -590,15 +592,18 @@ export default function Uploads() {
   };
 
   const disableOptions = () => {
-    const multiTargetOptions = Array(2).fill(selectedJobs.length === 0 && selectedUploads.length === 0);
-    return [...multiTargetOptions, isSingleTargetSelected(), isSingleUploadSelected()];
+    const jobsList = getJobsList(selectedJobs);
+    const multiTargetOptions = Array(2).fill(
+      jobsList.length === 0 && Object.keys(selectedUploads).length === 0
+    );
+    return [...multiTargetOptions, isSingleTargetSelected(jobsList), isSingleUploadSelected()];
   };
 
-  const isSingleTargetSelected = () => {
-    const selectedJobsList = jobs.filter((job) => job.jobId === selectedJobs[0]);
+  const isSingleTargetSelected = (jobsList) => {
+    const selectedJobsList = jobs.filter((job) => job.jobId === jobsList[0]);
 
     return (
-      selectedJobs.length !== 1 ||
+      jobsList.length !== 1 ||
       (selectedJobsList.length > 0 && selectedJobsList[0].status !== "finished") ||
       (usageQuota && usageQuota.jobs_reached)
     );
@@ -636,15 +641,12 @@ export default function Uploads() {
           setModalState("generic");
         }
       } else if (option === 2) {
-        const jobDetails = jobs.filter(({ jobId }) => jobId == selectedJobs[0]);
-        setSelectedAnalysis(jobDetails[0]);
-        const uploadId = jobDetails[0].uploadId;
+        const jobsList = getJobsList(selectedJobs);
+        const jobDetails = jobs.find(({ jobId }) => jobId == jobsList[0]);
+        setSelectedAnalysis(jobDetails);
 
-        for (let uploadIdx in displayRows) {
-          if (displayRows[uploadIdx].id === uploadId) {
-            setJobsInSelectedUpload(displayRows[uploadIdx].jobs.length);
-          }
-        }
+        const jobUpload = displayRows.find(({ id }) => id === jobDetails.uploadId);
+        setJobsInSelectedUpload(jobUpload.jobs.length); // used to show credit usage if necessary
 
         setOpenInteractiveAnalysis(true);
       } else if (option === 3) {
@@ -729,28 +731,30 @@ export default function Uploads() {
 
   return (
     <>
-      <TableContainer>
-        <Table
-          columns={columns}
-          rowData={displayRows}
-          defaultSortColumn={"lastAnalyzed"}
-          rowSelection={selectedUploads}
-          setRowSelection={setSelectedUploads}
-          toolbarFn={actionsFn}
-          subTableFn={(row) => (
-            <Jobs
-              row={row}
-              openJobPreview={handleJobPreviewClick}
-              selectedUploads={selectedUploads}
-              setSelectedUploads={setSelectedUploads}
-              setSelectedJobs={setSelectedJobs}
-              selectedJobs={selectedJobs}
-            />
-          )}
-          enableExpanding={true}
-          isLoading={isLoading}
-        />
-      </TableContainer>
+      {!openInteractiveAnalysis && (
+        <TableContainer>
+          <Table
+            columns={columns}
+            rowData={displayRows}
+            defaultSortColumn={"lastAnalyzed"}
+            rowSelection={selectedUploads}
+            setRowSelection={setSelectedUploads}
+            toolbarFn={actionsFn}
+            subTableFn={(row) => (
+              <Jobs
+                row={row}
+                openJobPreview={handleJobPreviewClick}
+                selectedUploads={selectedUploads}
+                setSelectedUploads={setSelectedUploads}
+                setSelectedJobs={setSelectedJobs}
+                selectedJobs={selectedJobs}
+              />
+            )}
+            enableExpanding={true}
+            isLoading={isLoading}
+          />
+        </TableContainer>
+      )}
       {openJobPreview && (
         <>
           <ModalBackdrop />
@@ -758,6 +762,15 @@ export default function Uploads() {
             <JobPreviewModal setOpenJobPreview={setOpenJobPreview} selectedAnalysis={selectedAnalysis} />
           </LargeModalContainer>
         </>
+      )}
+      {openInteractiveAnalysis && (
+        <LargeModalContainer>
+          <InteractiveAnalysisModal
+            selectedJob={selectedAnalysis}
+            setOpenInteractiveAnalysis={setOpenInteractiveAnalysis}
+            numberOfJobsInUpload={jobsInSelectedUpload}
+          />
+        </LargeModalContainer>
       )}
       <ModalWidget
         open={modalState === "generic"}
