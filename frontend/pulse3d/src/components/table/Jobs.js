@@ -31,7 +31,7 @@ export default function Jobs({
   const [uploadId, setUploadId] = useState();
 
   const uploadIsSelected = uploadId in selectedUploads && selectedUploads[uploadId];
-  const selectedJobs = Object.keys(rowSelection).filter((x) => rowSelection[x]);
+  const localSelectedJobs = Object.keys(rowSelection).filter((x) => rowSelection[x]);
 
   useEffect(() => {
     if (row && "original" in row) {
@@ -40,32 +40,30 @@ export default function Jobs({
     }
   }, [row]);
 
-  useEffect(() => console.log(jobs), [jobs]);
-
   const handleSelectedJobsDiff = () => {
     if (jobs.length > 0) {
-      if (jobs.length === selectedJobs.length && !uploadIsSelected) {
+      if (jobs.length === localSelectedJobs.length && !uploadIsSelected) {
         // if all jobs are selected and the parent upload isn't, then auto selected the upload
         selectedUploads[uploadId] = true;
         setSelectedUploads({ ...selectedUploads });
-      } else if (jobs.length > selectedJobs.length && uploadIsSelected) {
+      } else if (jobs.length > localSelectedJobs.length && uploadIsSelected) {
         // else if the parent upload is selected, but a user unchecks a job, then auto uncheck the parent upload
         selectedUploads[uploadId] = false;
         setSelectedUploads({ ...selectedUploads });
       }
       // set state in parent component to hold all selected jobs
-      setSelectedJobs({ ...selectedJobs, [uploadId]: selectedJobs });
+      setSelectedJobs({ ...selectedJobs, [uploadId]: localSelectedJobs });
     }
   };
 
   const handleSelectedUploadsDiff = () => {
-    if (jobs.length !== selectedJobs.length && uploadIsSelected) {
+    if (jobs.length !== localSelectedJobs.length && uploadIsSelected) {
       // if parent upload is selected and all the jobs aren't selected, then auto select all the jobs
       for (const { jobId } of jobs) {
         rowSelection[jobId] = true;
       }
       setRowSelection({ ...rowSelection });
-    } else if (jobs.length === selectedJobs.length && !uploadIsSelected) {
+    } else if (jobs.length === localSelectedJobs.length && !uploadIsSelected) {
       // else if parent upload is unselected and all the jobs are selected, then auto unselect all the jobs
       for (const { jobId } of jobs) {
         rowSelection[jobId] = false;

@@ -101,9 +101,8 @@ const modalObjs = {
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota } = useContext(AuthContext);
-  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } = useContext(
-    UploadsContext
-  );
+  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } =
+    useContext(UploadsContext);
 
   const [jobs, setJobs] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
@@ -117,7 +116,6 @@ export default function Uploads() {
   const [openInteractiveAnalysis, setOpenInteractiveAnalysis] = useState(false);
   const [openJobPreview, setOpenJobPreview] = useState(false);
   const [selectedAnalysis, setSelectedAnalysis] = useState();
-  const [jobsInSelectedUpload, setJobsInSelectedUpload] = useState(0);
 
   useEffect(() => {
     if (uploads) {
@@ -224,6 +222,10 @@ export default function Uploads() {
     []
   );
 
+  const getJobsList = (j) => {
+    return Object.values(j).flat(2);
+  };
+
   const resetTable = () => {
     setResetDropdown(true);
     setSelectedUploads({});
@@ -272,7 +274,6 @@ export default function Uploads() {
         setJobs(newJobs);
       }
     } catch (e) {
-      console.log(e);
       console.log("ERROR fetching jobs in /uploads");
     }
   };
@@ -340,8 +341,9 @@ export default function Uploads() {
       displayRows.filter(({ id, owner }) => id in selectedUploads && selectedUploads[id] && owner).length ==
       selectedUploads.length;
 
+    const alljobs = getJobsList(selectedJobs);
     const ownerOfJobs =
-      jobs.filter(({ jobId, owner }) => selectedJobs.includes(jobId) && owner).length == selectedJobs.length;
+      jobs.filter(({ jobId, owner }) => alljobs.includes(jobId) && owner).length == alljobs.length;
 
     return ownerOfJobs && ownerOfUploads;
   };
