@@ -27,11 +27,10 @@ ALL_SVC_PATHS = frozenset(
     ]
 )
 
-CORE_LIB_PATH = "core/lib"
-
 
 def parse_py_dep_version(svc_path: str, dep_name: str) -> str:
     req_file = os.path.join(svc_path, "src", "requirements.txt")
+
     with open(req_file) as f:
         for line in f.readlines():
             if line.startswith(dep_name):
@@ -63,28 +62,13 @@ def find_changed_svcs(sha: str):
     patterns_to_check = (SVC_PATH_PATTERN, WORKER_PATH_PATTERN, JOBS_OPERATOR_PATH, QUEUE_PROCESSOR_PATH)
 
     completed_process = subprocess.run(
-        [
-            "git",
-            "--no-pager",
-            "diff",
-            sha,
-            "--name-only",
-            "--",
-            *get_dir_args(*patterns_to_check),
-            f"{CORE_LIB_PATH}/**",
-        ],
+        ["git", "--no-pager", "diff", sha, "--name-only", "--", *get_dir_args(*patterns_to_check)],
         stdout=subprocess.PIPE,
     )
 
     changed_paths_list = completed_process.stdout.decode("utf-8").split("\n")[:-1]
-
-    # if any core lib files were changed, consider all svcs changed,
-    # otherwise just include the svcs that actually had files changed
-    if any(ch_path.startswith(CORE_LIB_PATH) for ch_path in changed_paths_list):
-        # Tanner (9/8/22): building the pheno svcs is causing issues in CI, so filtering them out here
-        changed_svc_paths = set(path for path in ALL_SVC_PATHS if "pheno" not in path)
-    else:
-        changed_svc_paths = set(get_svc_name_from_path(ch_path) for ch_path in changed_paths_list)
+    # include the svcs that actually had files changed
+    changed_svc_paths = set(get_svc_name_from_path(ch_path) for ch_path in changed_paths_list)
 
     list_to_return = []
     for ch_path in changed_svc_paths:
