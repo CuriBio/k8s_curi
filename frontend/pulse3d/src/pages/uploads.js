@@ -101,8 +101,9 @@ const modalObjs = {
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota } = useContext(AuthContext);
-  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } =
-    useContext(UploadsContext);
+  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } = useContext(
+    UploadsContext
+  );
 
   const [jobs, setJobs] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
@@ -147,10 +148,8 @@ export default function Uploads() {
   }, [openInteractiveAnalysis]);
 
   useEffect(() => {
-    let displayOwner = false;
     if (uploads) {
       const formattedUploads = uploads.map(({ username, id, filename, created_at, owner, auto_upload }) => {
-        if (username) displayOwner = true;
         // const formattedTime = formatDateTime(created_at);
         const recName = filename ? filename.split(".").slice(0, -1).join(".") : null;
         const uploadJobs = jobs
@@ -342,7 +341,9 @@ export default function Uploads() {
     const jobsList = getJobsList(selectedJobs);
     const jobsToDelete = jobs.filter(
       ({ jobId, status, owner }) =>
-        jobsList.includes(jobId) && !["pending", "running"].includes(status) && owner
+        jobsList.includes(jobId) &&
+        !["pending", "running"].includes(status) &&
+        (owner || accountType === "admin")
     );
     // get upload meta data
     const uploadsToDelete = displayRows.filter(
@@ -351,7 +352,7 @@ export default function Uploads() {
         !jobs.find(
           ({ status, jobId }) => !jobsList.includes(jobId) || ["pending", "running"].includes(status)
         ) &&
-        owner
+        (owner || accountType === "admin")
     );
 
     try {
@@ -511,6 +512,7 @@ export default function Uploads() {
         name = null;
 
       if (jobId) {
+        console.log(jobId);
         const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?job_ids=${jobId}`;
         response = await fetch(url);
 
@@ -681,7 +683,9 @@ export default function Uploads() {
             setModalLabels({
               header: "Success!",
               messages: [
-                `The following number of recording files have been successfully downloaded: ${selectedUploads.length}`,
+                `The following number of recording files have been successfully downloaded: ${
+                  Object.keys(selectedUploads).length
+                }`,
                 "They can be found in your local downloads folder.",
               ],
             });
@@ -722,7 +726,7 @@ export default function Uploads() {
             handleSubSelection={handleDownloadSubSelection}
             reset={resetDropdown}
             disableSubOptions={{
-              Download: [selectedJobs.length === 0, selectedUploads.length === 0],
+              Download: [getJobsList(selectedJobs).length === 0, Object.keys(selectedUploads).length === 0],
             }}
             subOptionsTooltipText={[
               "Must make a job selection before becoming available.",

@@ -48,7 +48,7 @@ def setup_logger():
         processors=[
             # Remove _record & _from_structlog.
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
-            structlog.processors.JSONRenderer(),
+            # structlog.processors.JSONRenderer(),
         ],
     )
 
