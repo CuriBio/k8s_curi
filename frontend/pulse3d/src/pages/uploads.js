@@ -101,9 +101,8 @@ const modalObjs = {
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota } = useContext(AuthContext);
-  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } = useContext(
-    UploadsContext
-  );
+  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } =
+    useContext(UploadsContext);
 
   const [jobs, setJobs] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
@@ -321,7 +320,7 @@ export default function Uploads() {
           };
         });
 
-        setJobs(newJobs);
+        setJobs([...newJobs]);
       }
     } catch (e) {
       console.log("ERROR fetching jobs in /uploads");
@@ -331,15 +330,19 @@ export default function Uploads() {
   const handleDeletions = async () => {
     // NOTE the query that soft deletes the files will also fail even if non-owner files get sent since the user_ids will not match to what's in the database
     //remove all pending from list
+
+    const jobsList = getJobsList(selectedJobs);
     const jobsToDelete = jobs.filter(
       ({ jobId, status, owner }) =>
-        selectedJobs.includes(jobId) && !["pending", "running"].includes(status) && owner
+        jobsList.includes(jobId) && !["pending", "running"].includes(status) && owner
     );
     // get upload meta data
     const uploadsToDelete = displayRows.filter(
       ({ id, jobs, owner }) =>
-        selectedUploads.includes(id) &&
-        jobs.filter(({ status }) => !["pending", "running"].includes(status)).length == 0 &&
+        Object.keys(selectedUploads).includes(id) &&
+        !jobs.find(
+          ({ status, jobId }) => !jobsList.includes(jobId) || ["pending", "running"].includes(status)
+        ) &&
         owner
     );
 
@@ -389,7 +392,7 @@ export default function Uploads() {
   const checkOwnerOfFiles = async () => {
     const ownerOfUploads =
       displayRows.filter(({ id, owner }) => id in selectedUploads && selectedUploads[id] && owner).length ==
-      selectedUploads.length;
+      Object.keys(selectedUploads).length;
 
     const alljobs = getJobsList(selectedJobs);
     const ownerOfJobs =
@@ -442,9 +445,11 @@ export default function Uploads() {
 
   const downloadAnalyses = async () => {
     // removes any jobs with error + pending statuses
+    const jobsList = getJobsList(selectedJobs);
     const finishedJobs = jobs.filter(
-      ({ jobId, status }) => selectedJobs.includes(jobId) && status === "finished"
+      ({ jobId, status }) => jobsList.includes(jobId) && status === "finished"
     );
+
     const numberOfJobs = finishedJobs.length;
 
     if (numberOfJobs > 0) {
@@ -620,9 +625,8 @@ export default function Uploads() {
         setModalState("generic");
       } else if (option === 0) {
         // if download, check that no job contains an error status
-        const failedJobs = jobs.filter(
-          ({ jobId, status }) => selectedJobs.includes(jobId) && status === "error"
-        );
+        const jobsList = getJobsList(selectedJobs);
+        const failedJobs = jobs.filter(({ jobId, status }) => jobsList.includes(jobId) && status === "error");
 
         if (failedJobs.length === 0) {
           downloadAnalyses();
@@ -654,15 +658,16 @@ export default function Uploads() {
     const handleDownloadSubSelection = async ({ Download }) => {
       if (Download === 1) {
         try {
-          if (selectedUploads.length === 1) {
-            await downloadSingleFile({ uploadId: selectedUploads[0] });
+          const uploadIds = Object.keys(selectedUploads);
+          if (uploadIds.length === 1) {
+            await downloadSingleFile({ uploadId: uploadIds[0] });
             resetTable();
-          } else if (selectedUploads.length > 1) {
+          } else if (uploadIds.length > 1) {
             // show active downloading modal only for multifile downloads
             setModalLabels(modalObjs.empty);
             setModalState("downloading");
 
-            await downloadMultiFiles(selectedUploads, true);
+            await downloadMultiFiles(uploadIds, true);
 
             // show successful download modal only for multifile downloads
             setModalLabels({
