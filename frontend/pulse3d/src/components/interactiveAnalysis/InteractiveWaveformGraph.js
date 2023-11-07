@@ -221,6 +221,17 @@ export default function WaveformGraph({
     }
   }, [customAnalysisSettings, selectedMarkerToMove, xZoomFactor, yZoomFactor, startTime, endTime]);
 
+  const getClosestIndex = (coordinates, x) => {
+    const time = coordinates.map((x) => x[0]);
+    const closestValue = time.sort(
+      (a, b) =>
+        Math.abs(Number(x.toFixed(2)) - Number(a.toFixed(2))) -
+        Math.abs(Number(x.toFixed(2)) - Number(b.toFixed(2)))
+    )[0];
+
+    return coordinates.findIndex((x) => Number(x[0].toFixed(2)) === Number(closestValue.toFixed(2)));
+  };
+
   /* NOTE!! The order of the variables and function calls in this function are important to functionality.
      could eventually try to break this up, but it's more sensitive in react than vue */
   const createGraph = () => {
@@ -476,8 +487,7 @@ export default function WaveformGraph({
         To force circle to stay along data line, find index of x-coordinate in datapoints to then grab corresponding y-coordinate
         If this is skipped, user will be able to drag circle anywhere on graph, unrelated to data line.
       */
-      const draggedIdx = waveformData.findIndex((x) => Number(x[0].toFixed(2)) === Number(d[0].toFixed(2)));
-
+      const draggedIdx = getClosestIndex(waveformData, d[0]);
       // assigns circle node new x and y coordinates based off drag event
       if (featureType === "peak") {
         d3.select(this).attr(
@@ -507,9 +517,7 @@ export default function WaveformGraph({
       const features = featureType === "peak" ? peaks : valleys;
       // indexToReplace is the index of the selected peak or valley in the peaks/valley state arrays that need to be changed
       const indexToChange = features[d3.select(this).attr("indexToReplace")];
-      const newSelectedIndex = waveformData.findIndex(
-        (coords) => Number(coords[0].toFixed(2)) === Number(x.invert(d.x).toFixed(2))
-      );
+      const newSelectedIndex = getClosestIndex(waveformData, x.invert(d.x));
 
       customAnalysisSettingsUpdaters.moveFeature(`${featureType}s`, indexToChange, newSelectedIndex);
     }

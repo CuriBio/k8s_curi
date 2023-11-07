@@ -135,6 +135,7 @@ metadata:
   name: nginx-config
   namespace: nginx-ingress
 data:
+  server-tokens: "False"
 ---
 apiVersion: networking.k8s.io/v1
 kind: IngressClass
@@ -159,7 +160,7 @@ spec:
     metadata:
       labels:
         app: nginx-ingress
-      #annotations:
+      # annotations:
       #prometheus.io/scrape: "true"
       #prometheus.io/port: "9113"
       #prometheus.io/scheme: http

@@ -114,6 +114,28 @@ const getTableFromParquet = async (buffer) => {
   return apache.tableFromIPC(parquetData);
 };
 
+const formatDateTime = (datetime) => {
+  if (datetime)
+    return new Date(datetime + "Z").toLocaleDateString(undefined, {
+      hour: "numeric",
+      minute: "numeric",
+    });
+  else {
+    const now = new Date();
+    const datetime =
+      now.getFullYear() +
+      "-" +
+      (now.getMonth() + 1) +
+      "-" +
+      now.getDate() +
+      "-" +
+      now.getHours() +
+      now.getMinutes() +
+      now.getSeconds();
+    return datetime;
+  }
+};
+
 export {
   deepCopy,
   hexToBase64,
@@ -123,4 +145,5 @@ export {
   getPeaksValleysFromTable,
   getWaveformCoordsFromTable,
   getTableFromParquet,
+  formatDateTime,
 };

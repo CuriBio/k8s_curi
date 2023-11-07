@@ -4,14 +4,14 @@ kind: Kustomization
 resources:
   - ../../base
 
-patchesJson6902:
-  - target:
-      kind: Deployment
-      name: operators
-    patch: |-
+patches:
+  - patch: |-
       - op: replace
         path: /spec/template/spec/containers/0/image
         value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/jobs-operator:0.0.3"
       - op: add
         path: /spec/template/spec/containers/0/env/0/value
-        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/queue-processor:0.0.4"
+        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/queue-processor:0.0.5"
+    target:
+      kind: Deployment
+      name: operators

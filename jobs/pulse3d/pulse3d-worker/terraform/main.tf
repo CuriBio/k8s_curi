@@ -35,3 +35,27 @@ resource "aws_ecr_repository" "pulse3d_worker_ecr" {
     scan_on_push = true
   }
 }
+
+resource "aws_ecr_lifecycle_policy" "pulse3d_worker_ecr_lifecycle_policy" {
+  repository = aws_ecr_repository.pulse3d_worker_ecr.name
+
+  policy = <<EOF
+{
+    "rules": [
+        {
+            "rulePriority": 1,
+            "description": "Keep only 1 untagged image",
+            "selection": {
+                "tagStatus": "untagged",
+                "countType": "imageCountMoreThan",
+                "countNumber": 1
+            },
+            "action": {
+                "type": "expire"
+            }
+        }
+    ]
+}
+EOF
+}
+

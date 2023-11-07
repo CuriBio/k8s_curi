@@ -2,16 +2,16 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "4.0.0"
+      version = "5.7.0"
     }
 
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "2.8.0"
+      version = "2.21.1"
     }
   }
 
-  required_version = "1.1.6"
+  required_version = "1.5.2"
 
   backend "s3" {
   }
@@ -34,6 +34,30 @@ module "apiv1" {
 # S3 bucket
 resource "aws_s3_bucket" "phenolearn" {
   bucket = "phenolearn"
+}
+
+resource "aws_s3_bucket_policy" "phenolearn" {
+    bucket = aws_s3_bucket.phenolearn.id
+    policy = jsonencode({
+        Version = "2012-10-17"
+        Statement = [
+            {
+                Sid       = "EnforceTls"
+                Effect    = "Deny"
+                Principal = "*"
+                Action    = "s3:*"
+                Resource = [
+                    "${aws_s3_bucket.phenolearn.arn}/*",
+                    "${aws_s3_bucket.phenolearn.arn}",
+                ]
+                Condition = {
+                    Bool = {
+                        "aws:SecureTransport" = "false"
+                    }
+                }
+            },
+        ]
+    })
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "phenolearn" {

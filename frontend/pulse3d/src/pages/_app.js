@@ -30,7 +30,7 @@ export const AuthContext = createContext();
 // TODO make all pages scope based?
 const allAvailablePages = {
   user: ["/home", "/uploads", "/upload-form", "/account", "/account-settings"],
-  admin: ["/uploads", "/new-user", "/users-info", "/account-settings"],
+  admin: ["/uploads", "/add-new-account", "/users-info", "/account-settings"],
 };
 
 const getAvailablePages = (accountInfo) => {
@@ -54,7 +54,9 @@ function Pulse({ Component, pageProps }) {
   const [accountInfo, setAccountInfo] = useState({});
   const [showLoggedOutAlert, setLoggedOutAlert] = useState(false);
   const [usageQuota, setUsageQuota] = useState();
-  const [userScopes, setUserScopes] = useState([]);
+  const [availableScopes, setAvailableScopes] = useState({ customer: [], user: [] });
+  const [isCuriAdmin, setIsCuriAdmin] = useState(false);
+
   // TODO defaulting to mantarray for customer accounts until it's decided how to handle usage for multiple products
   const [productPage, setProductPage] = useState("mantarray");
 
@@ -102,14 +104,18 @@ function Pulse({ Component, pageProps }) {
             }
           } else if (data.msgType === "authCheck") {
             const newAccountInfo = data.accountInfo;
+
             if (data.isLoggedIn) {
-              setUserScopes(data.userScopes);
+              setAvailableScopes({ customer: data.customerScopes, user: data.userScopes });
+              setIsCuriAdmin(newAccountInfo.accountScope.find((scope) => scope === "curi:admin"));
               // the router pathname must be sent to the SW and then sent back here since for some reason this message handler can't grab the current page
               setAccountInfo(newAccountInfo);
               // if logged in and on a page that shouldn't be accessed, or if on the login page, redirect to home page (currently /uploads)
               if (currentPage === "/login" || !getAvailablePages(newAccountInfo).includes(currentPage)) {
                 // TODO Tanner (8/23/22): this probably isn't the best solution for redirecting to other pages. Should look into a better way to do this
-                router.replace("/home", undefined, { shallow: true });
+                router.replace(accountInfo.accountType == "User" ? " /home" : "/uploads", undefined, {
+                  shallow: true,
+                });
               }
             } else if (currentPage !== "/login") {
               // always redirect to login page if not logged in
@@ -173,10 +179,11 @@ function Pulse({ Component, pageProps }) {
           accountScope: accountInfo.accountScope,
           usageQuota,
           setUsageQuota,
-          userScopes,
-          setUserScopes,
+          availableScopes,
+          setAvailableScopes,
           productPage,
           setProductPage,
+          isCuriAdmin,
         }}
       >
         <Layout>

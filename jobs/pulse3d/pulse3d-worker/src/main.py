@@ -2,11 +2,11 @@ import asyncio
 import base64
 import hashlib
 import json
-import logging
 import os
 import pkg_resources
-import sys
 import tempfile
+import structlog
+from structlog.contextvars import bind_contextvars, clear_contextvars, merge_contextvars
 
 import asyncpg
 import boto3
@@ -32,15 +32,20 @@ from mantarray_magnet_finding.exceptions import UnableToConvergeError
 
 from jobs import get_item, EmptyQueue
 from utils.s3 import upload_file_to_s3
+from lib.queries import SELECT_UPLOAD_DETAILS
 from lib.db import insert_metadata_into_pg, PULSE3D_UPLOADS_BUCKET
 
-logging.basicConfig(
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    level=logging.INFO,
-    datefmt="%Y-%m-%d %H:%M:%S",
-    stream=sys.stdout,
+structlog.configure(
+    processors=[
+        merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M.%S"),
+        structlog.processors.dict_tracebacks,
+        structlog.processors.JSONRenderer(),
+    ]
 )
-logger = logging.getLogger(__name__)
+
+logger = structlog.getLogger()
 
 PULSE3D_VERSION = pkg_resources.get_distribution("pulse3D").version
 
@@ -63,7 +68,9 @@ def _is_valid_well_name(well_name):
 
 @get_item(queue=f"pulse3d-v{PULSE3D_VERSION}")
 async def process(con, item):
+    # keeping initial log without bound variables
     logger.info(f"Processing item: {item}")
+
     s3_client = boto3.client("s3")
     job_metadata = {"processed_by": PULSE3D_VERSION}
     outfile_key = None
@@ -72,19 +79,21 @@ async def process(con, item):
         try:
             job_id = item["id"]
             upload_id = item["upload_id"]
+            upload_details = await con.fetchrow(SELECT_UPLOAD_DETAILS, upload_id)
 
-            logger.info(f"Retrieving user ID and metadata for upload with ID: {upload_id}")
-
-            query = (
-                "SELECT users.customer_id, up.user_id, up.prefix, up.filename, up.meta "
-                "FROM uploads AS up JOIN users ON up.user_id = users.id "
-                "WHERE up.id=$1"
+            # bind details to logger
+            bind_contextvars(
+                upload_id=str(upload_id),
+                job_id=str(job_id),
+                customer_id=str(upload_details["customer_id"]),
+                user_id=str(upload_details["user_id"]),
             )
 
-            upload_details = await con.fetchrow(query, upload_id)
+            logger.info("Starting job")
 
             prefix = upload_details["prefix"]
             metadata = json.loads(item["meta"])
+
             upload_filename = upload_details["filename"]
             # if a new name has been given in the upload form, then replace here, else use original name
             analysis_filename = (
@@ -100,7 +109,6 @@ async def process(con, item):
             raise
 
         with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
-            logger.info(f"Downloading {PULSE3D_UPLOADS_BUCKET}/{key} to {tmpdir}/{analysis_filename}")
             # adding prefix here representing the version of pulse3D used
             parquet_filename = f"{os.path.splitext(upload_filename)[0]}.parquet"
             parquet_key = f"{prefix}/time_force_data/{PULSE3D_VERSION}/{parquet_filename}"
@@ -111,30 +119,27 @@ async def process(con, item):
 
             try:
                 s3_client.download_file(PULSE3D_UPLOADS_BUCKET, key, f"{tmpdir}/{analysis_filename}")
+                logger.info(f"Downloaded {PULSE3D_UPLOADS_BUCKET}/{key} to {tmpdir}/{analysis_filename}")
             except Exception:
                 logger.exception("Failed to download recording zip file")
                 raise
 
             try:
                 # attempt to download parquet file if recording has already been analyzed
-                logger.info("Checking if time force data exists in s3")
-
                 s3_client.download_file(PULSE3D_UPLOADS_BUCKET, parquet_key, parquet_path)
                 re_analysis = True
 
-                logger.info(f"Successfully downloaded {parquet_filename} to {parquet_path}")
+                logger.info(f"Downloaded {parquet_filename} to {parquet_path}")
             except Exception:  # TODO catch only boto3 errors here
                 logger.info(f"No existing data found for recording {parquet_filename}")
                 re_analysis = False
 
             try:
                 # attempt to download peaks and valleys from s3, will only be the case for interactive analysis jobs
-                logger.info("Checking if peaks and valleys exist in s3")
-
                 s3_client.download_file(PULSE3D_UPLOADS_BUCKET, pv_parquet_key, pv_temp_path)
                 interactive_analysis = True
 
-                logger.info(f"Successfully downloaded peaks and valleys to {pv_temp_path}")
+                logger.info(f"Downloaded peaks and valleys to {pv_temp_path}")
             except Exception:  # TODO catch only boto3 errors here
                 logger.info("No existing peaks and valleys found for recording")
                 interactive_analysis = False
@@ -158,7 +163,6 @@ async def process(con, item):
                 logger.info("Starting pulse3d analysis")
                 if use_existing_time_v_force:
                     # if any plate recording args are provided, can't load from data frame since a re-analysis is required to recalculate the waveforms
-                    logger.info(f"Loading previous time force data from {parquet_filename}")
                     recording_df = pd.read_parquet(parquet_path)
 
                     try:
@@ -193,23 +197,19 @@ async def process(con, item):
 
             # if metadata is not set yet, set it here
             try:
-                upload_meta = upload_details.get("meta", {})
+                upload_meta = json.loads(upload_details["meta"])
 
-                if not upload_meta.get("user_defined_metadata"):
-                    logger.info("No user-defined metadata found in DB")
-                    if user_defined_metadata := first_recording.wells[0].get(
-                        USER_DEFINED_METADATA_UUID, r"{}"
-                    ):
-                        logger.info(f"Inserting user-defined metadata into DB: {user_defined_metadata}")
+                if "user_defined_metadata" not in upload_meta:
+                    user_defined_metadata = json.loads(
+                        first_recording.wells[0].get(USER_DEFINED_METADATA_UUID, r"{}")
+                    )
 
-                        upload_meta["user_defined_metadata"] = user_defined_metadata
-                        con.execute(
-                            "UPDATE uploads SET meta=$1 WHERE id=$2",
-                            json.dumps(upload_meta),
-                            upload_id,
-                        )
-                    else:
-                        logger.info("No user-defined metadata found in file")
+                    logger.info(f"Inserting user-defined metadata into DB: {user_defined_metadata}")
+                    upload_meta["user_defined_metadata"] = user_defined_metadata
+
+                    await con.execute(
+                        "UPDATE uploads SET meta=$1 WHERE id=$2", json.dumps(upload_meta), upload_id
+                    )
                 else:
                     logger.info("Skipping insertion of user-defined metadata into DB")
             except Exception:
@@ -220,7 +220,6 @@ async def process(con, item):
                 logger.info("Skipping step to write time force data for upload")
             else:
                 try:
-                    logger.info("Writing time force data to parquet file for new upload")
                     recording_df = first_recording.to_dataframe()
                     recording_df.to_parquet(parquet_path)
 
@@ -233,7 +232,7 @@ async def process(con, item):
             try:
                 peaks_valleys_dict = dict()
                 if not interactive_analysis:
-                    logger.info("Running peak_detector on recording for export to parquet")
+                    logger.info("Running peak_detector")
                     # remove raw data columns
                     columns = [c for c in recording_df.columns if "__raw" not in c]
                     # this is to handle analyses run before PR.to_dataframe() where time is in seconds
@@ -263,7 +262,6 @@ async def process(con, item):
                         if not _is_valid_well_name(well):
                             continue
 
-                        logger.info(f"Finding peaks and valleys for well {well}")
                         well_force = recording_df[well].dropna().tolist()
                         interpolated_well_data = np.row_stack([time[: len(well_force)], well_force])
                         # noise based peak finding requires times to be in seconds
@@ -286,7 +284,7 @@ async def process(con, item):
                     # this df will be written to parquet and stored in s3, two columns for each well prefixed with well name
                     peaks_valleys_df = pd.DataFrame(peaks_valleys_for_df)
                 else:
-                    logger.info("Formatting peaks and valleys from parquet file for write_xlsx")
+                    logger.info("Formatting peaks and valleys")
                     peaks_valleys_df = pd.read_parquet(pv_temp_path)
 
                     for well in first_recording:
@@ -306,7 +304,6 @@ async def process(con, item):
 
             if not interactive_analysis:
                 try:
-                    logger.info(f"Writing peaks and valleys to parquet file for job: {job_id}")
                     peaks_valleys_df.to_parquet(pv_temp_path)
 
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=pv_parquet_key, file=pv_temp_path)
@@ -326,8 +323,6 @@ async def process(con, item):
                 raise
 
             try:
-                logger.info("Checking if analysis params need to be updated in job's metadata")
-
                 analysis_params_updates = {}
 
                 # well_groups may have been sent in a dashboard reanalysis or upload, don't override here
@@ -371,8 +366,6 @@ async def process(con, item):
 
             with open(outfile, "rb") as file:
                 try:
-                    logger.info(f"Uploading {outfile} to {PULSE3D_UPLOADS_BUCKET}/{outfile_key}")
-
                     contents = file.read()
                     md5 = hashlib.md5(contents).digest()
                     md5s = base64.b64encode(md5).decode()
@@ -380,12 +373,13 @@ async def process(con, item):
                     s3_client.put_object(
                         Body=contents, Bucket=PULSE3D_UPLOADS_BUCKET, Key=outfile_key, ContentMD5=md5s
                     )
+
+                    logger.info(f"Uploaded {outfile} to {PULSE3D_UPLOADS_BUCKET}/{outfile_key}")
                 except Exception:
                     logger.exception("Upload failed")
                     raise
 
                 try:
-                    logger.info(f"Inserting {outfile} metadata into db for upload {upload_id}")
                     plate_barcode, stim_barcode, recording_length_ms = await insert_metadata_into_pg(
                         con,
                         first_recording,
@@ -402,16 +396,21 @@ async def process(con, item):
                         "stim_barcode": stim_barcode,
                         "recording_length_ms": recording_length_ms,
                     }
+
+                    logger.info(f"Inserted {outfile} metadata into db for upload {upload_id}")
                 except Exception:
-                    logger.exception(f"Failed to insert metadata to db for upload {upload_id}")
+                    logger.exception("Failed to insert metadata to db")
                     raise
 
     except Exception as e:
         job_metadata["error"] = f"{str(e)}"
         result = "error"
     else:
-        logger.info(f"Job complete for upload {upload_id}")
+        logger.info("Job complete")
         result = "finished"
+
+    # clear bound variables (IDs) for this job to reset for next job
+    clear_contextvars()
 
     return result, job_metadata, outfile_key
 

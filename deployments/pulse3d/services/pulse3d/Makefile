@@ -12,13 +12,13 @@ buildx:
 	docker buildx build -t pulse3d_api . --platform linux/amd64 --load -f ${repo_root}/deployments/pulse3d/services/pulse3d/Dockerfile
 
 tag:
-	docker tag pulse3d_api:latest $(ecr_repo):0.8.8
+	docker tag pulse3d_api:latest $(ecr_repo):0.8.10
 
 login:
 	aws ecr get-login-password --region us-east-2 | docker login --password-stdin --username AWS $(ecr_repo)
 
 push:
-	docker push $(ecr_repo):0.8.8
+	docker push $(ecr_repo):0.8.10
 
 apply:
 	kubectl apply -f ./manifests/
