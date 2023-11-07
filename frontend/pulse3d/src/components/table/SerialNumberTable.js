@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import styled from "styled-components";
 import FormInput from "@/components/basicWidgets/FormInput";
+import semverValid from "semver/functions/valid";
 
 const SubContainer = styled.div`
   width: 60%;
@@ -53,7 +54,7 @@ export default function SerialNumberTable() {
   const [addingEntry, setAddingEntry] = useState(false);
   const [newEntry, setNewEntry] = useState({});
 
-  const entryIsValid = Boolean(newEntry.serialNumber);
+  const entryIsValid = Boolean(newEntry.serialNumber) && semverValid(newEntry.hardwareVersion);
   const SaveButtonText = entryIsValid ? ActionText : DisabledActionText;
 
   const getSerialNumbers = async () => {
@@ -87,9 +88,9 @@ export default function SerialNumberTable() {
         // If entry is invalid then don't do anything
         return;
       }
-      await fetch(`${process.env.NEXT_PUBLIC_MANTARRAY_URL}/serial-number/${newEntry.serialNumber}`, {
+      await fetch(`${process.env.NEXT_PUBLIC_MANTARRAY_URL}/serial-number`, {
         method: "POST",
-        body: JSON.stringify({}),
+        body: JSON.stringify({ serial_number: newEntry.serialNumber, hw_version: newEntry.hardwareVersion }),
       });
       // update serial numbers after prev request
       await getSerialNumbers();
@@ -121,7 +122,7 @@ export default function SerialNumberTable() {
         <>
           <SubRow>
             <FormInput
-              name="newEntry"
+              name="serialNumber"
               placeholder="Enter Serial Number"
               value={newEntry.serialNumber || ""}
               onChangeFn={(e) => {
@@ -132,7 +133,19 @@ export default function SerialNumberTable() {
               }}
             />
           </SubRow>
-          <SubRow>1.0.0</SubRow>
+          <SubRow>
+            <FormInput
+              name="hardwareVersion"
+              placeholder="Enter Hardware Version"
+              value={newEntry.hardwareVersion || ""}
+              onChangeFn={(e) => {
+                setNewEntry({
+                  ...newEntry,
+                  hardwareVersion: e.target.value,
+                });
+              }}
+            />
+          </SubRow>
           <SubRow
             style={{ display: "flex", flexDirection: "row", justifyContent: "right", paddingRight: "30px" }}
           >
