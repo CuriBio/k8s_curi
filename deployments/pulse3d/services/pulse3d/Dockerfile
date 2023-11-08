@@ -11,7 +11,7 @@ RUN . /app/venv/bin/activate && pip install -r ./requirements.txt && pip install
 
 FROM python:3.11-slim as prod
 
-RUN useradd main_user && groupadd main_group
+RUN useradd -ms /bin/bash main_user && groupadd main_group
 USER main_user:main_group
 
 COPY --chown=main_user:main_group --from=venv /app/venv /app/venv/
