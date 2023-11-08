@@ -290,6 +290,7 @@ export default function Uploads() {
     setResetDropdown(true);
     setSelectedUploads({});
     setSelectedJobs({});
+    setFetchUploads(true);
     await getAllJobs();
   };
 
@@ -338,10 +339,16 @@ export default function Uploads() {
     }
   };
 
+  const removeDeletedUploads = (deletedUploads) => {
+    const deletedIds = deletedUploads.map(({ id }) => id);
+    const filteredRows = displayRows.filter(({ id }) => !deletedIds.includes(id));
+    console.log(displayRows.length, filteredRows.length);
+    setDisplayRows([...filteredRows]);
+  };
+
   const handleDeletions = async () => {
     // NOTE the query that soft deletes the files will also fail even if non-owner files get sent since the user_ids will not match to what's in the database
     //remove all pending from list
-
     const jobsList = getJobsList(selectedJobs);
     const jobsToDelete = jobs.filter(
       ({ jobId, status, owner }) =>
@@ -350,6 +357,7 @@ export default function Uploads() {
         (owner || accountType === "admin")
     );
     // get upload meta data
+    // check if upload is selected, check that upload has no actively running jobs, and check user is deleting own upload or it's an admin account
     const uploadsToDelete = displayRows.filter(
       ({ id, jobs, owner }) =>
         getSelectedUploads(selectedUploads).includes(id) &&
@@ -363,9 +371,8 @@ export default function Uploads() {
       let failedDeletion = false;
       //soft delete uploads
       if (uploadsToDelete) {
-        // filter for uploads where there are no pending jobs to prevent deleting uploads for pending jobs
         const finalUploadIds = uploadsToDelete.map(({ id }) => id);
-
+        // filter for uploads where there are no pending jobs to prevent deleting uploads for pending jobs
         if (finalUploadIds && finalUploadIds.length > 0) {
           const uploadsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads?`;
           finalUploadIds.map((id) => (uploadsURL += `upload_ids=${id}&`));
@@ -377,16 +384,23 @@ export default function Uploads() {
           failedDeletion ||= uploadsResponse.status !== 200;
         }
       }
-      // soft delete all jobs
-      if (jobsToDelete.length > 0) {
-        const jobsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;
-        jobsToDelete.map(({ jobId }) => (jobsURL += `job_ids=${jobId}&`));
 
-        const jobsResponse = await fetch(jobsURL.slice(0, -1), {
-          method: "DELETE",
-        });
+      // only proceed if upload successfully deleted
+      if (!failedDeletion) {
+        // remove uploads from list to show auto deletion, waiting for get uploads request is too slow
+        // will self-correct if anything is different when actual get uploads request renders
+        removeDeletedUploads(uploadsToDelete);
+        // soft delete all jobs
+        if (jobsToDelete.length > 0) {
+          const jobsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;
+          jobsToDelete.map(({ jobId }) => (jobsURL += `job_ids=${jobId}&`));
 
-        failedDeletion ||= jobsResponse.status !== 200;
+          const jobsResponse = await fetch(jobsURL.slice(0, -1), {
+            method: "DELETE",
+          });
+
+          failedDeletion ||= jobsResponse.status !== 200;
+        }
       }
 
       if (failedDeletion) {
@@ -394,11 +408,11 @@ export default function Uploads() {
         setModalLabels(modalObjs.failedDeletion);
         setModalState("generic");
       }
-      // rerender table with updated deletions
-      await setFetchUploads();
+
       return failedDeletion;
     } catch (e) {
-      console.log("ERROR attempting to soft delete selected jobs and uploadfs");
+      console.log(e);
+      console.log("ERROR attempting to soft delete selected jobs and uploads");
     }
   };
 

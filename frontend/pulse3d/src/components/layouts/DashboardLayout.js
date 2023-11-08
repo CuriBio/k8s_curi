@@ -49,6 +49,8 @@ export default function DashboardLayout({ children }) {
       getUploads();
       getPulse3dVersions();
     }
+    // reset
+    if (fetchUploads) setFetchUploads(false);
   }, [router.pathname, fetchUploads]);
 
   useEffect(() => {
