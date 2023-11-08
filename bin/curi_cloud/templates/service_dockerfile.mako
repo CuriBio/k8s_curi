@@ -1,4 +1,4 @@
-FROM python:3.11-slim as venv
+FROM python:3.11-alpine as venv
 
 WORKDIR /app
 COPY ./src/requirements.txt ./
@@ -8,7 +8,7 @@ RUN python -m venv --copies /app/venv
 RUN . /app/venv/bin/activate && pip install -r ./requirements.txt
 
 
-FROM python:3.11-slim as prod
+FROM python:3.11-alpine as prod
 
 #### copy Python dependencies from build image
 COPY --from=venv /app/venv /app/venv/

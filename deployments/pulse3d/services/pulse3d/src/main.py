@@ -219,9 +219,13 @@ async def soft_delete_uploads(
 
     try:
         account_id = str(uuid.UUID(token["userid"]))
-        customer_id = str(uuid.UUID(token["customer_id"]))
-        # for now, only user accounts can make deletions so customer id will exist
-        bind_threadlocal(customer_id=customer_id, user_id=account_id, upload_ids=upload_ids)
+        account_type = token["account_type"]
+        is_user = account_type == "user"
+
+        if is_user:
+            bind_threadlocal(user_id=None, customer_id=account_id, upload_ids=upload_ids)
+        else:
+            bind_threadlocal(user_id=account_id, customer_id=token.get("customer_id"), upload_ids=upload_ids)
 
         async with request.state.pgpool.acquire() as con:
             await delete_uploads(
@@ -245,10 +249,13 @@ async def download_zip_files(
     # need to convert UUIDs to str to avoid issues with DB
     upload_ids = [str(id) for id in upload_ids]
     account_id = str(uuid.UUID(token["userid"]))
-    customer_id = str(uuid.UUID(token["customer_id"]))
     account_type = token["account_type"]
+    is_user = account_type == "user"
 
-    bind_threadlocal(customer_id=customer_id, user_id=account_id, upload_ids=upload_ids)
+    if is_user:
+        bind_threadlocal(user_id=None, customer_id=account_id, upload_ids=upload_ids)
+    else:
+        bind_threadlocal(user_id=account_id, customer_id=token.get("customer_id"), upload_ids=upload_ids)
 
     # give advanced privileges to access all uploads under customer_id
     if "mantarray:rw_all_data" in token["scope"]:
@@ -616,9 +623,13 @@ async def soft_delete_jobs(
 
     try:
         account_id = str(uuid.UUID(token["userid"]))
-        customer_id = str(uuid.UUID(token["customer_id"]))
+        account_type = token["account_type"]
+        is_user = account_type == "user"
 
-        bind_threadlocal(customer_id=customer_id, user_id=account_id, job_ids=job_ids)
+        if is_user:
+            bind_threadlocal(user_id=None, customer_id=account_id, job_ids=job_ids)
+        else:
+            bind_threadlocal(user_id=account_id, customer_id=token.get("customer_id"), job_ids=job_ids)
 
         async with request.state.pgpool.acquire() as con:
             await delete_jobs(
@@ -642,9 +653,13 @@ async def download_analyses(
     job_ids = [str(job_id) for job_id in job_ids]
 
     user_id = str(uuid.UUID(token["userid"]))
-    customer_id = str(uuid.UUID(token["customer_id"]))
+    account_type = token["account_type"]
+    is_user = account_type == "user"
 
-    bind_threadlocal(customer_id=customer_id, user_id=user_id, job_ids=job_ids)
+    if is_user:
+        bind_threadlocal(user_id=None, customer_id=user_id, job_ids=job_ids)
+    else:
+        bind_threadlocal(user_id=user_id, customer_id=token.get("customer_id"), job_ids=job_ids)
 
     try:
         async with request.state.pgpool.acquire() as con:

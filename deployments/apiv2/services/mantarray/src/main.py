@@ -10,7 +10,7 @@ from uvicorn.protocols.utils import get_path_with_query_string
 from auth import ProtectedAny
 from core.config import DATABASE_URL, DASHBOARD_URL
 from core.versions import get_download_url, get_required_sw_version_range, resolve_versions
-from models.responses import MantarrayUnitsResponse
+from models.responses import MantarrayUnitsResponse, SerialNumberRequest
 from utils.db import AsyncpgPoolDep
 from utils.logging import setup_logger
 
@@ -83,19 +83,23 @@ async def root(request: Request):
 
 
 # TODO add serial number validation?
-@app.post("/serial-number/{serial_number}", status_code=status.HTTP_204_NO_CONTENT)
+@app.post("/serial-number", status_code=status.HTTP_204_NO_CONTENT)
 async def add_serial_number(
     request: Request,
-    serial_number: str = Path(...),
+    details: SerialNumberRequest,
     token=Depends(ProtectedAny(scope=["mantarray:serial_number:edit"])),
 ):
     try:
         bind_threadlocal(
-            user_id=token.get("userid"), customer_id=token.get("customer_id"), serial_number=serial_number
+            user_id=token.get("userid"),
+            customer_id=token.get("customer_id"),
+            serial_number=details.serial_number,
         )
 
         async with request.state.pgpool.acquire() as con:
-            await con.execute("INSERT INTO MAUnits VALUES ($1, '1.0.0')", serial_number)
+            await con.execute(
+                "INSERT INTO MAUnits VALUES ($1, $2)", details.serial_number, details.hw_version
+            )
     except Exception:
         logger.exception("Error adding serial number")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
