@@ -1,6 +1,6 @@
 {
   "name": "pulse",
-  "version": "0.9.9",
+  "version": "0.9.10",
   "private": true,
   "scripts": {
     "_ce": "node ./check-engines.js",
@@ -18,17 +18,20 @@
     "node": "^16.17.0"
   },
   "dependencies": {
-    "@emotion/react": "^11.9.0",
-    "@emotion/styled": "^11.8.1",
+    "@emotion/react": "^11.11.1",
+    "@emotion/styled": "^11.11.0",
     "@fontsource/mulish": "^4.5.10",
-    "@mui/icons-material": "^5.8.4",
-    "@mui/material": "^5.8.2",
+    "@mui/icons-material": "^5.14.16",
+    "@mui/material": "^5.14.16",
     "@mui/styled-engine-sc": "^5.10.6",
+    "@mui/x-date-pickers": "^6.17.0",
     "apache-arrow": "^12.0.1",
     "async-mutex": "0.3.2",
     "d3": "^7.6.1",
+    "dayjs": "^1.11.10",
     "jszip": "^3.10.0",
     "jwt-decode": "3.1.2",
+    "material-react-table": "^2.0.2",
     "next": "12.1.6",
     "parquet-wasm": "^0.4.0-beta.5",
     "react": "18.1.0",
