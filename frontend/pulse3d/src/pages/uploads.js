@@ -98,6 +98,14 @@ const modalObjs = {
   },
 };
 
+const getJobsList = (j) => {
+  return Object.values(j).flat(2);
+};
+
+const getSelectedUploads = (u) => {
+  return Object.keys(u).filter((x) => u[x]);
+};
+
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota } = useContext(AuthContext);
@@ -271,19 +279,11 @@ export default function Uploads() {
     }
 
     for (const uploadId in selectedJobsCopy) {
-      if (!getSelectedUploads(selectedUploads).includes(uploadId)) {
+      if (!Object.keys(selectedUploads).includes(uploadId)) {
         selectedJobsCopy[uploadId] = [];
         setSelectedJobs({ ...selectedJobsCopy });
       }
     }
-  };
-
-  const getJobsList = (j) => {
-    return Object.values(j).flat(2);
-  };
-
-  const getSelectedUploads = (u) => {
-    return Object.keys(u).filter((x) => u[x]);
   };
 
   const resetTable = async () => {
@@ -516,7 +516,6 @@ export default function Uploads() {
         name = null;
 
       if (jobId) {
-        console.log(jobId);
         const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?job_ids=${jobId}`;
         response = await fetch(url);
 
