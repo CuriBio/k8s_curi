@@ -271,7 +271,7 @@ export default function Uploads() {
     }
 
     for (const uploadId in selectedJobsCopy) {
-      if (!Object.keys(selectedUploads).includes(uploadId)) {
+      if (!getSelectedUploads(selectedUploads).includes(uploadId)) {
         selectedJobsCopy[uploadId] = [];
         setSelectedJobs({ ...selectedJobsCopy });
       }
@@ -282,11 +282,15 @@ export default function Uploads() {
     return Object.values(j).flat(2);
   };
 
-  const resetTable = () => {
+  const getSelectedUploads = (u) => {
+    return Object.keys(u).filter((x) => u[x]);
+  };
+
+  const resetTable = async () => {
     setResetDropdown(true);
     setSelectedUploads({});
     setSelectedJobs({});
-    getAllJobs();
+    await getAllJobs();
   };
 
   const getAllJobs = async () => {
@@ -348,7 +352,7 @@ export default function Uploads() {
     // get upload meta data
     const uploadsToDelete = displayRows.filter(
       ({ id, jobs, owner }) =>
-        Object.keys(selectedUploads).includes(id) &&
+        getSelectedUploads(selectedUploads).includes(id) &&
         !jobs.find(
           ({ status, jobId }) => !jobsList.includes(jobId) || ["pending", "running"].includes(status)
         ) &&
@@ -401,7 +405,7 @@ export default function Uploads() {
   const checkOwnerOfFiles = async () => {
     const ownerOfUploads =
       displayRows.filter(({ id, owner }) => id in selectedUploads && selectedUploads[id] && owner).length ==
-      Object.keys(selectedUploads).length;
+      getSelectedUploads(selectedUploads).length;
 
     const alljobs = getJobsList(selectedJobs);
     const ownerOfJobs =
@@ -602,8 +606,9 @@ export default function Uploads() {
   const disableOptions = () => {
     const jobsList = getJobsList(selectedJobs);
     const multiTargetOptions = Array(2).fill(
-      jobsList.length === 0 && Object.keys(selectedUploads).length === 0
+      jobsList.length === 0 && getSelectedUploads(selectedUploads).length === 0
     );
+
     return [...multiTargetOptions, isSingleTargetSelected(jobsList), isSingleUploadSelected()];
   };
 
@@ -619,7 +624,7 @@ export default function Uploads() {
 
   const isSingleUploadSelected = () => {
     if (uploads) {
-      return Object.keys(selectedUploads).length != 1 || (usageQuota && usageQuota.jobs_reached);
+      return getSelectedUploads(selectedUploads).length != 1 || (usageQuota && usageQuota.jobs_reached);
     }
   };
 
@@ -668,7 +673,7 @@ export default function Uploads() {
     const handleDownloadSubSelection = async ({ Download }) => {
       if (Download === 1) {
         try {
-          const uploadIds = Object.keys(selectedUploads);
+          const uploadIds = getSelectedUploads(selectedUploads);
           if (uploadIds.length === 1) {
             await downloadSingleFile({ uploadId: uploadIds[0] });
             resetTable();
@@ -684,7 +689,7 @@ export default function Uploads() {
               header: "Success!",
               messages: [
                 `The following number of recording files have been successfully downloaded: ${
-                  Object.keys(selectedUploads).length
+                  getSelectedUploads(selectedUploads).length
                 }`,
                 "They can be found in your local downloads folder.",
               ],
@@ -726,7 +731,10 @@ export default function Uploads() {
             handleSubSelection={handleDownloadSubSelection}
             reset={resetDropdown}
             disableSubOptions={{
-              Download: [getJobsList(selectedJobs).length === 0, Object.keys(selectedUploads).length === 0],
+              Download: [
+                getJobsList(selectedJobs).length === 0,
+                getSelectedUploads(selectedUploads).length === 0,
+              ],
             }}
             subOptionsTooltipText={[
               "Must make a job selection before becoming available.",

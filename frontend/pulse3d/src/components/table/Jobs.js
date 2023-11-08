@@ -18,14 +18,7 @@ const PreviewText = styled.div`
   }
 `;
 
-export default function Jobs({
-  row,
-  openJobPreview,
-  selectedUploads,
-  setSelectedUploads,
-  setSelectedJobs,
-  selectedJobs,
-}) {
+export default function Jobs({ row, openJobPreview, setSelectedJobs, selectedJobs }) {
   const [rowSelection, setRowSelection] = useState({});
   const [jobs, setJobs] = useState([]);
   const [uploadId, setUploadId] = useState();
@@ -52,6 +45,8 @@ export default function Jobs({
       }
 
       setRowSelection(initialJobs);
+    } else if (Object.keys(selectedJobs).length === 0) {
+      setRowSelection({});
     }
   };
 
