@@ -108,7 +108,7 @@ const getSelectedUploads = (u) => {
 
 export default function Uploads() {
   const router = useRouter();
-  const { accountType, usageQuota } = useContext(AuthContext);
+  const { accountType, usageQuota, accountScope, productPage } = useContext(AuthContext);
   const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } = useContext(
     UploadsContext
   );
@@ -757,7 +757,9 @@ export default function Uploads() {
             rowSelection={selectedUploads}
             setRowSelection={setSelectedUploads}
             toolbarFn={actionsFn}
-            columnVisibility={{ username: accountType !== "user" }}
+            columnVisibility={{
+              username: accountType !== "user" || accountScope.includes(`${productPage}:rw_all_data`),
+            }}
             subTableFn={(row) => (
               <Jobs
                 row={row}

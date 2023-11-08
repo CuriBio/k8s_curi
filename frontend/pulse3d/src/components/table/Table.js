@@ -62,8 +62,11 @@ export default function Table({
       },
     },
     muiTableHeadCellProps: {
-      // sx: { borderBottom: "1px solid var(--dark-gray)", background: "var(--dark-blue)", color: "white" },
-      sx: { borderBottom: "1px solid var(--dark-gray)" },
+      sx: {
+        borderBottom: "1px solid var(--dark-gray)",
+        background: showColumnFilters ? "white" : "var(--dark-blue)",
+        color: showColumnFilters ? "black" : "white",
+      },
     },
     muiTableBodyCellProps: {
       sx: { whiteSpace: "nowrap" },

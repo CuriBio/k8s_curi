@@ -173,7 +173,7 @@ export default function Jobs({ row, openJobPreview, setSelectedJobs, selectedJob
         enableSelectAll={false}
         enableStickyHeader={false}
         getRowId={(row) => row.jobId}
-        enableRowSelection={(row) => !["pending", "running"].includes(row.status)}
+        enableRowSelection={(row) => !["pending", "running"].includes(row.original.status)}
         showColumnFilters={false}
       />
     </Container>
