@@ -3,18 +3,18 @@ kind: Kustomization
 
 namespace: argo
 resources:
-  - ../../base
-  - modl-github-pr-merge.yaml
-  - modl-github-pr-open.yaml
-  - templates/modl-build-container-template.yaml
-  - templates/modl-run-terraform-template.yaml
+- ../../base
+- modl-github-pr-merge.yaml
+- modl-github-pr-open.yaml
+- templates/modl-build-container-template.yaml
+- templates/modl-run-terraform-template.yaml
 
-patchesJson6902:
-  - target:
-      version: v1
-      kind: ServiceAccount
-      name: argo-workflows-sa
-    patch: |-
-      - op: replace
-        path: /metadata/annotations/eks.amazonaws.com~1role-arn
-        value: arn:aws:iam::725604423866:role/modl-v2-workflow-pods-iam-role01
+patches:
+- patch: |-
+    - op: replace
+      path: /metadata/annotations/eks.amazonaws.com~1role-arn
+      value: arn:aws:iam::725604423866:role/modl-v2-workflow-pods-iam-role01
+  target:
+    kind: ServiceAccount
+    name: argo-workflows-sa
+    version: v1

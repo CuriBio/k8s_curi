@@ -2,6 +2,30 @@ resource "aws_s3_bucket" "workflow_artifacts" {
   bucket = "curi-${var.cluster_name}-workflows"
 }
 
+resource "aws_s3_bucket_policy" "workflow_artifacts" {
+    bucket = aws_s3_bucket.workflow_artifacts.id
+    policy = jsonencode({
+        Version = "2012-10-17"
+        Statement = [
+            {
+                Sid       = "EnforceTls"
+                Effect    = "Deny"
+                Principal = "*"
+                Action    = "s3:*"
+                Resource = [
+                    "${aws_s3_bucket.workflow_artifacts.arn}/*",
+                    "${aws_s3_bucket.workflow_artifacts.arn}",
+                ]
+                Condition = {
+                    Bool = {
+                        "aws:SecureTransport" = "false"
+                    }
+                }
+            },
+        ]
+    })
+}
+
 resource "aws_s3_bucket_ownership_controls" "workflow_artifacts" {
   bucket = aws_s3_bucket.workflow_artifacts.id
   rule {

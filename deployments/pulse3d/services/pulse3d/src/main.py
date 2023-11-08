@@ -1,63 +1,66 @@
-from collections import defaultdict
 import json
-import logging
-from typing import List, Optional, Tuple, Union
-import uuid
-import tempfile
-import boto3
 import os
-import pandas as pd
-from semver import VersionInfo
-
-from stream_zip import ZIP_64, stream_zip
+import tempfile
+import time
+import uuid
+from collections import defaultdict
 from datetime import datetime
-from fastapi import FastAPI, Request, Depends, HTTPException, status, Query
+from typing import List, Optional, Tuple, Union
+
+import boto3
+import pandas as pd
+import structlog
+from auth import ALL_PULSE3D_SCOPES, PULSE3D_USER_SCOPES, ProtectedAny, split_scope_account_data
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pulse3D.constants import (
-    DEFAULT_BASELINE_WIDTHS,
-    DEFAULT_PROMINENCE_FACTORS,
-    DEFAULT_WIDTH_FACTORS,
-    DEFAULT_NB_WIDTH_FACTORS,
-    DATA_TYPE_TO_AMPLITUDE_LABEL,
-    DEFAULT_AMPLITUDE_LABEL,
-    DATA_TYPE_TO_UNIT_LABEL,
-    DEFAULT_UNIT_LABEL,
-    CALCULATED_METRIC_DISPLAY_NAMES,
-    AMPLITUDE_UUID,
-)
-
-from auth import ProtectedAny, PULSE3D_USER_SCOPES, ALL_PULSE3D_SCOPES, split_scope_account_data
-from core.config import DATABASE_URL, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET, DASHBOARD_URL
 from jobs import (
-    create_upload,
-    create_job,
-    get_uploads,
-    get_jobs,
-    delete_jobs,
-    delete_uploads,
     check_customer_quota,
     create_analysis_preset,
+    create_job,
+    create_upload,
+    delete_jobs,
+    delete_uploads,
+    get_jobs,
+    get_uploads,
 )
+from pulse3D.constants import (
+    AMPLITUDE_UUID,
+    CALCULATED_METRIC_DISPLAY_NAMES,
+    DATA_TYPE_TO_AMPLITUDE_LABEL,
+    DATA_TYPE_TO_UNIT_LABEL,
+    DEFAULT_AMPLITUDE_LABEL,
+    DEFAULT_BASELINE_WIDTHS,
+    DEFAULT_NB_WIDTH_FACTORS,
+    DEFAULT_PROMINENCE_FACTORS,
+    DEFAULT_UNIT_LABEL,
+    DEFAULT_WIDTH_FACTORS,
+)
+from semver import VersionInfo
+from stream_zip import ZIP_64, stream_zip
+from structlog.threadlocal import bind_threadlocal, clear_threadlocal
+from utils.db import AsyncpgPoolDep
+from utils.logging import setup_logger
+from utils.s3 import S3Error, generate_presigned_post, generate_presigned_url, upload_file_to_s3
+from uvicorn.protocols.utils import get_path_with_query_string
+
+from core.config import DASHBOARD_URL, DATABASE_URL, MANTARRAY_LOGS_BUCKET, PULSE3D_UPLOADS_BUCKET
 from models.models import (
-    UploadRequest,
-    UploadResponse,
+    GenericErrorResponse,
+    JobDownloadRequest,
     JobRequest,
     JobResponse,
-    JobDownloadRequest,
-    WaveformDataResponse,
-    UploadDownloadRequest,
-    GenericErrorResponse,
-    UsageQuota,
     SavePresetRequest,
+    UploadDownloadRequest,
+    UploadRequest,
+    UploadResponse,
+    UsageQuota,
+    WaveformDataResponse,
 )
 from models.types import TupleParam
 
-from utils.db import AsyncpgPoolDep
-from utils.s3 import generate_presigned_post, generate_presigned_url, S3Error, upload_file_to_s3
-
-# logging is configured in log_config.yaml
-logger = logging.getLogger(__name__)
+setup_logger()
+logger = structlog.stdlib.get_logger("api.access")
 
 app = FastAPI(openapi_url=None)
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
@@ -71,20 +74,33 @@ app.add_middleware(
 )
 
 
-# TODO move this to core lib
-def _is_valid_well_name(well_name):
-    return (
-        isinstance(well_name, str)
-        and len(well_name) == 2
-        and well_name[0] in ("A", "B", "C", "D")
-        and well_name[1] in [str(n) for n in range(1, 7)]
-    )
-
-
 @app.middleware("http")
-async def db_session_middleware(request: Request, call_next):
+async def db_session_middleware(request: Request, call_next) -> Response:
     request.state.pgpool = await asyncpg_pool()
+    # clear previous request variables
+    clear_threadlocal()
+    # get request details for logging
+    if (client_ip := request.headers.get("X-Forwarded-For")) is None:
+        client_ip = f"{request.client.host}:{request.client.port}"
+
+    url = get_path_with_query_string(request.scope)
+    http_method = request.method
+    http_version = request.scope["http_version"]
+    start_time = time.perf_counter_ns()
+
+    # bind details to logger
+    bind_threadlocal(url=str(request.url), method=http_method, client_ip=client_ip)
+
     response = await call_next(request)
+
+    process_time = time.perf_counter_ns() - start_time
+    status_code = response.status_code
+
+    logger.info(
+        f"""{client_ip} - "{http_method} {url} HTTP/{http_version}" {status_code}""",
+        status_code=status_code,
+        duration=process_time / 10**9,
+    )
 
     return response
 
@@ -108,6 +124,12 @@ async def get_info_of_uploads(
     try:
         account_id = str(uuid.UUID(token["userid"]))
         account_type = token["account_type"]
+        is_user = account_type == "user"
+
+        if is_user:
+            bind_threadlocal(user_id=None, customer_id=account_id, upload_ids=upload_ids)
+        else:
+            bind_threadlocal(user_id=account_id, customer_id=token.get("customer_id"), upload_ids=upload_ids)
 
         # give advanced privileges to access all uploads under customer_id
         # TODO update this to product specific when landing page is specced out more
@@ -120,7 +142,7 @@ async def get_info_of_uploads(
             uploads = await get_uploads(
                 con=con, account_type=account_type, account_id=account_id, upload_ids=upload_ids
             )
-            if account_type != "customer":
+            if is_user:
                 # customer accounts don't matter here because they don't have the ability to delete
                 for upload in uploads:
                     # need way on FE to tell if user owns recordings besides username since current user's username is not stored on the FE. We want to prevent users from attempting to delete files that aren't theirs before calling /delete route
@@ -149,6 +171,10 @@ async def create_recording_upload(
         # TODO Luci (09/30/2023) can remove after MA v1.2.2+, will no longer need to handle pulse3d upload types
         upload_type = details.upload_type if details.upload_type != "pulse3d" else "mantarray"
 
+        bind_threadlocal(
+            user_id=user_id, customer_id=customer_id, upload_id=str(upload_id), upload_type=upload_type
+        )
+
         upload_params = {
             "prefix": s3_key,
             "filename": details.filename,
@@ -169,7 +195,6 @@ async def create_recording_upload(
             # then the new upload row won't be committed
             async with con.transaction():
                 upload_id = await create_upload(con=con, upload_params=upload_params)
-
                 params = _generate_presigned_post(details, PULSE3D_UPLOADS_BUCKET, s3_key)
                 return UploadResponse(id=upload_id, params=params)
     except S3Error:
@@ -194,6 +219,10 @@ async def soft_delete_uploads(
 
     try:
         account_id = str(uuid.UUID(token["userid"]))
+        customer_id = str(uuid.UUID(token["customer_id"]))
+        # for now, only user accounts can make deletions so customer id will exist
+        bind_threadlocal(customer_id=customer_id, user_id=account_id, upload_ids=upload_ids)
+
         async with request.state.pgpool.acquire() as con:
             await delete_uploads(
                 con=con, account_type=token["account_type"], account_id=account_id, upload_ids=upload_ids
@@ -216,10 +245,13 @@ async def download_zip_files(
     # need to convert UUIDs to str to avoid issues with DB
     upload_ids = [str(id) for id in upload_ids]
     account_id = str(uuid.UUID(token["userid"]))
+    customer_id = str(uuid.UUID(token["customer_id"]))
     account_type = token["account_type"]
 
+    bind_threadlocal(customer_id=customer_id, user_id=account_id, upload_ids=upload_ids)
+
     # give advanced privileges to access all uploads under customer_id
-    if "pulse3d:rw_all_data" in token["scope"]:
+    if "mantarray:rw_all_data" in token["scope"]:
         account_id = str(uuid.UUID(token["customer_id"]))
         account_type = "dataUser"
 
@@ -260,6 +292,8 @@ async def create_log_upload(
         customer_id = str(uuid.UUID(token["customer_id"]))
         s3_key = f"{customer_id}/{user_id}"
 
+        bind_threadlocal(customer_id=customer_id, user_id=user_id)
+
         params = _generate_presigned_post(details, MANTARRAY_LOGS_BUCKET, s3_key)
         return UploadResponse(params=params)
     except S3Error:
@@ -292,6 +326,12 @@ async def get_info_of_jobs(
     try:
         user_id = str(uuid.UUID(token["userid"]))
         account_type = token["account_type"]
+        is_user = account_type == "user"
+
+        if is_user:
+            bind_threadlocal(user_id=None, customer_id=user_id, job_ids=job_ids)
+        else:
+            bind_threadlocal(user_id=user_id, customer_id=token.get("customer_id"), job_ids=job_ids)
 
         async with request.state.pgpool.acquire() as con:
             jobs = await _get_jobs(con, token, job_ids)
@@ -308,7 +348,7 @@ async def get_info_of_jobs(
                 "meta": job["job_meta"],
             }
 
-            if account_type != "customer":
+            if is_user:
                 # customer accounts don't have the ability to delete so doesn't need this key:value
                 # need way on FE to tell if user owns recordings besides username since current user's username is not stored on the FE. We want to prevent users from attempting to delete files that aren't theirs before calling /delete route
                 job_info["owner"] = str(job["user_id"]) == user_id
@@ -368,7 +408,11 @@ async def create_new_job(
         customer_id = str(uuid.UUID(token["customer_id"]))
         user_scopes = token["scope"]
         service, _ = split_scope_account_data(user_scopes[0])
-        logger.info(f"Creating {service} job for upload {details.upload_id} with user ID: {user_id}")
+        upload_id = details.upload_id
+
+        bind_threadlocal(user_id=user_id, customer_id=customer_id, upload_id=str(upload_id))
+
+        logger.info(f"Creating {service} job for upload {upload_id} with user ID: {user_id}")
 
         # params to use for all current versions of pulse3d
         params = [
@@ -385,6 +429,8 @@ async def create_new_job(
         previous_semver_version = (
             VersionInfo.parse(details.previous_version) if details.previous_version else None
         )
+
+        bind_threadlocal(version=details.version)
 
         pulse3d_semver = VersionInfo.parse(details.version)
         use_noise_based_peak_finding = pulse3d_semver >= "0.33.2"
@@ -462,10 +508,10 @@ async def create_new_job(
             # first check user_id of upload matches user_id in token
             # Luci (12/14/2022) checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
             # Luci (12/14/2022) customer id is checked already because the customer_id in the token is being used to find upload details
-            row = await con.fetchrow("SELECT user_id FROM uploads where id=$1", details.upload_id)
+            row = await con.fetchrow("SELECT user_id FROM uploads where id=$1", upload_id)
             original_upload_user = str(row["user_id"])
 
-            if "pulse3d:rw_all_data" not in user_scopes:
+            if "mantarray:rw_all_data" not in user_scopes:
                 # if users don't match and they don't have an all_data scope, then raise unauth error
                 if user_id != original_upload_user:
                     return GenericErrorResponse(
@@ -486,7 +532,7 @@ async def create_new_job(
             # finally create job
             job_id = await create_job(
                 con=con,
-                upload_id=details.upload_id,
+                upload_id=upload_id,
                 queue=f"pulse3d-v{details.version}",
                 priority=priority,
                 meta=job_meta,
@@ -494,12 +540,16 @@ async def create_new_job(
                 job_type=service,
             )
 
+            bind_threadlocal(job_id=str(job_id))
+
             # check customer quota after job
             usage_quota = await check_customer_quota(con, customer_id, service)
 
             # Luci (12/1/22): this happens after the job is already created to have access to the job id, hopefully this doesn't cause any issues with the job starting before the file is uploaded to s3
             if details.peaks_valleys:
-                key = f"uploads/{customer_id}/{original_upload_user}/{details.upload_id}/{job_id}/peaks_valleys.parquet"
+                key = (
+                    f"uploads/{customer_id}/{original_upload_user}/{upload_id}/{job_id}/peaks_valleys.parquet"
+                )
                 logger.info(f"Peaks and valleys found in job request, uploading to s3: {key}")
 
                 # only added during interactive analysis
@@ -522,7 +572,7 @@ async def create_new_job(
         return JobResponse(
             id=job_id,
             user_id=user_id,
-            upload_id=details.upload_id,
+            upload_id=upload_id,
             status="pending",
             priority=priority,
             usage_quota=usage_quota,
@@ -566,6 +616,10 @@ async def soft_delete_jobs(
 
     try:
         account_id = str(uuid.UUID(token["userid"]))
+        customer_id = str(uuid.UUID(token["customer_id"]))
+
+        bind_threadlocal(customer_id=customer_id, user_id=account_id, job_ids=job_ids)
+
         async with request.state.pgpool.acquire() as con:
             await delete_jobs(
                 con=con, account_type=token["account_type"], account_id=account_id, job_ids=job_ids
@@ -580,13 +634,17 @@ async def download_analyses(
     request: Request, details: JobDownloadRequest, token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES))
 ):
     job_ids = details.job_ids
-
     # make sure at least one job ID was given
     if not job_ids:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No job IDs given")
 
     # need to convert UUIDs to str to avoid issues with DB
     job_ids = [str(job_id) for job_id in job_ids]
+
+    user_id = str(uuid.UUID(token["userid"]))
+    customer_id = str(uuid.UUID(token["customer_id"]))
+
+    bind_threadlocal(customer_id=customer_id, user_id=user_id, job_ids=job_ids)
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -596,6 +654,7 @@ async def download_analyses(
 
         unique_filenames = list()
         keys = list()
+
         for job in jobs:
             if job["status"] != "finished":
                 continue
@@ -647,6 +706,7 @@ async def get_interactive_waveform_data(
     token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES)),
 ):
     account_id = str(uuid.UUID(token["userid"]))
+    customer_id = str(uuid.UUID(token["customer_id"]))
 
     if job_id is None or upload_id is None:
         raise HTTPException(
@@ -655,6 +715,8 @@ async def get_interactive_waveform_data(
 
     upload_id = str(upload_id)
     job_id = str(job_id)
+
+    bind_threadlocal(customer_id=customer_id, user_id=account_id, upload_id=upload_id, job_id=job_id)
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -667,7 +729,7 @@ async def get_interactive_waveform_data(
         analysis_params = parsed_meta.get("analysis_params", {})
         pulse3d_version = parsed_meta.get("version")
 
-        if "pulse3d:rw_all_data" not in token["scope"]:
+        if "mantarray:rw_all_data" not in token["scope"]:
             # only allow user to perform interactive analysis on another user's recording if special scope
             # customer id will be checked when attempting to locate file in s3 with customer id found in token
             if recording_owner_id != account_id:
@@ -752,6 +814,8 @@ async def get_usage_quota(
             else str(uuid.UUID(token["customer_id"]))
         )
 
+        bind_threadlocal(customer_id=customer_id)
+
         async with request.state.pgpool.acquire() as con:
             usage_quota = await check_customer_quota(con, customer_id, service)
             return usage_quota
@@ -767,6 +831,8 @@ async def save_analysis_presets(
     """Save analysis parameter preset for user"""
     try:
         user_id = str(uuid.UUID(token["userid"]))
+        customer_id = str(uuid.UUID(token["customer_id"]))
+        bind_threadlocal(customer_id=customer_id, user_id=user_id)
 
         async with request.state.pgpool.acquire() as con:
             return await create_analysis_preset(con, user_id, details)
@@ -780,6 +846,8 @@ async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(scop
     """Get analysis parameter preset for user"""
     try:
         user_id = str(uuid.UUID(token["userid"]))
+        customer_id = str(uuid.UUID(token["customer_id"]))
+        bind_threadlocal(customer_id=customer_id, user_id=user_id)
 
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():

@@ -36,7 +36,7 @@ loki:
     storage_config:
       aws:
         s3forcepathstyle: false
-        bucketnames: modl-loki-logs
+        bucketnames: modl-v2-loki-logs
         region: us-east-2
       boltdb_shipper:
         active_index_directory: /data/loki/index

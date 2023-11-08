@@ -58,7 +58,7 @@ export default function Login() {
     mantarray: {
       name: "Mantarray",
       description: "3D Tissue Contractility Analysis",
-      state: "default",
+      state: "disabled",
     },
     nautilus: {
       name: "Nautilus",
@@ -83,14 +83,21 @@ export default function Login() {
   });
 
   useEffect(() => {
-    // Currently everyone will have access to mantarray, only checking for nautilus until scopes are figured out
     // TODO come up with a better way to match account scopes and all products
     if (accountScope) {
-      const nautilusState = accountScope.map((scope) => scope.split(":")[0]).includes("nautilus");
-      setProducts({
-        ...products,
-        nautilus: { ...products.nautilus, state: nautilusState ? "default" : "disabled" },
-      });
+      const productStates = JSON.parse(JSON.stringify(products));
+      const productTiers = ["paid", "free"];
+
+      for (const product of Object.keys(products)) {
+        // example: nautilus:paid -> "nautilus" === product and "paid" in ["paid", "free"]
+        const isProductAvailable = accountScope.some(
+          (scope) => scope.split(":")[0] == product && productTiers.includes(scope.split(":")[1])
+        );
+
+        productStates[product].state = isProductAvailable ? "default" : "disabled";
+      }
+
+      setProducts(productStates);
     }
   }, [accountScope]);
 

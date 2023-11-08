@@ -10,6 +10,7 @@ export default function InputDropdownWidget({
   handleSelection,
   reset,
   width,
+  disabled = false,
 }) {
   const [selected, setSelected] = useState(initialOption || null);
 
@@ -21,6 +22,7 @@ export default function InputDropdownWidget({
     <Autocomplete
       id="input-dropdown"
       sx={{ width }}
+      disabled={disabled}
       value={selected}
       options={options}
       getOptionLabel={(option) => option}

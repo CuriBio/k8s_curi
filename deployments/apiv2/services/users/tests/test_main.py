@@ -166,6 +166,12 @@ def test_login__user__success(send_client_type, use_alias, cb_customer_id, mocke
         else "SELECT password, id, failed_login_attempts, suspended, customer_id FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND verified='t'"
     )
 
+    expected_query = (
+        "SELECT u.password, u.id, u.data->'scope' AS scope, u.failed_login_attempts, u.suspended, u.customer_id FROM users AS u JOIN customers AS c ON u.customer_id=c.id WHERE u.deleted_at IS NULL AND u.name=$1 AND c.alias=$2 AND u.verified='t'"
+        if use_alias
+        else "SELECT password, id, data->'scope' AS scope, failed_login_attempts, suspended, customer_id FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND verified='t'"
+    )
+
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
         expected_query, login_details["username"].lower(), login_details["customer_id"]
     )
@@ -543,7 +549,7 @@ def test_refresh__success(account_type, mocked_asyncpg_con):
     is_customer_account = account_type == "customer"
     customer_id = None if is_customer_account else uuid.uuid4()
 
-    select_clause = "refresh_token"
+    select_clause = "refresh_token, data->'scope' AS scope"
     if account_type == "user":
         select_clause += ", customer_id"
 

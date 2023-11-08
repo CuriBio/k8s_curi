@@ -5,6 +5,7 @@ import PasswordForm from "@/components/account/PasswordForm";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import FormInput from "@/components/basicWidgets/FormInput";
+import jwtDecode from "jwt-decode";
 
 const BackgroundContainer = styled.div`
   position: relative;
@@ -110,6 +111,7 @@ const modalLabels = {
     buttons: ["Close"],
   },
 };
+
 export default function UpdateAccount({ modalHeader, shortTermToken, type }) {
   const router = useRouter();
   const [errorMsg, setErrorMsg] = useState();
@@ -139,6 +141,7 @@ export default function UpdateAccount({ modalHeader, shortTermToken, type }) {
       if (res.status === 200) {
         // default to an error, this will get overrided by a success message or a more detailed error message
         let labels = modalLabels.error;
+
         if (!resBody) {
           labels = modalLabels.successfulPWChange;
         } else if (resBody.message.includes("already been verified")) {
@@ -150,6 +153,7 @@ export default function UpdateAccount({ modalHeader, shortTermToken, type }) {
         } else if (resBody.message.includes("Cannot set password to any of the previous")) {
           labels = modalLabels.prevPW;
         }
+
         setModalToDisplay(labels);
         setOpenModal(true);
       } else if (res.status === 401) {
@@ -193,7 +197,7 @@ export default function UpdateAccount({ modalHeader, shortTermToken, type }) {
       return await fetch(
         `${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${encodeURIComponent(
           userEmail
-        )}&type=${type}&user=true`
+        )}&type=${type}&user=${jwtDecode(shortTermToken).account_type === "user"}`
       );
     } catch (e) {
       console.log("ERROR resending verification email", e);

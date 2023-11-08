@@ -5,28 +5,18 @@ import time
 
 from config import DASHBOARD_URL
 
-from fixtures import (
-    setup,
-    video_setup,
-    basic_page,
-    admin_logged_in_page,
-)
+from fixtures import setup, video_setup, basic_page, admin_logged_in_page
 
-__fixtures__ = [
-    setup,
-    video_setup,
-    basic_page,
-    admin_logged_in_page,
-]
+__fixtures__ = [setup, video_setup, basic_page, admin_logged_in_page]
 
 
-# set up test for /new-user page
+# set up test for /add-new-account page
 async def goto_user_creation(page):
     await page.click("text=Add New User")
-    await page.wait_for_url("**/new-user")
+    await page.wait_for_url("**/add-new-account")
 
     # check correct page is loaded
-    assert page.url == f"https://{DASHBOARD_URL}/new-user"
+    assert page.url == f"https://{DASHBOARD_URL}/add-new-account"
 
 
 @pytest.mark.asyncio
@@ -57,14 +47,7 @@ async def test_valid_new_user_credentials(admin_logged_in_page):
     # todo visit users table
 
 
-invalid_usernames = [
-    "1username",
-    "!username",
-    "user name",
-    "user$name",
-    "user&name",
-    "user%name",
-]
+invalid_usernames = ["1username", "!username", "user name", "user$name", "user&name", "user%name"]
 
 
 @pytest.mark.asyncio

@@ -13,6 +13,7 @@ import ResizableColumn from "@/components/table/ResizableColumn";
 import ColumnHead from "@/components/table/ColumnHead";
 import { useRouter } from "next/router";
 import JobPreviewModal from "@/components/interactiveAnalysis/JobPreviewModal";
+import { formatDateTime } from "@/utils/generic";
 
 // These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
 const columnProperties = {
@@ -132,6 +133,7 @@ const modalObjs = {
     ],
   },
 };
+
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota } = useContext(AuthContext);
@@ -266,7 +268,7 @@ export default function Uploads() {
         width: createdWidth,
         display: true,
         sortFunction: (rowA, rowB) => new Date(rowB.createdAt) - new Date(rowA.createdAt),
-        cell: (row) => <ResizableColumn content={row.createdAt} />,
+        cell: (row) => <ResizableColumn content={formatDateTime(row.createdAt)} />,
       },
       {
         name: (
@@ -290,7 +292,7 @@ export default function Uploads() {
         cell: (row) => {
           //make sure to use the correct last analyzed date
           const latestDate = row.jobs.map((job) => job.datetime).sort((a, b) => new Date(b) - new Date(a))[0];
-          return <ResizableColumn last={true} content={latestDate} />;
+          return <ResizableColumn last={true} content={formatDateTime(latestDate)} />;
         },
       },
       {
@@ -380,19 +382,19 @@ export default function Uploads() {
     if (uploads) {
       const formattedUploads = uploads.map(({ username, id, filename, created_at, owner, auto_upload }) => {
         if (username) displayOwner = true;
-
-        const formattedTime = formatDateTime(created_at);
+        // const formattedTime = formatDateTime(created_at);
         const recName = filename ? filename.split(".").slice(0, -1).join(".") : null;
         const uploadJobs = jobs
           .filter(({ uploadId }) => uploadId === id)
           .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
-        const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : formattedTime;
+
+        const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : created_at;
 
         return {
           username,
           name: recName,
           id,
-          createdAt: formattedTime,
+          createdAt: created_at,
           lastAnalyzed,
           jobs: uploadJobs,
           owner,
@@ -440,7 +442,7 @@ export default function Uploads() {
 
         const newJobs = jobs.map(({ id, upload_id, created_at, object_key, status, meta, owner }) => {
           const analyzedFile = object_key ? object_key.split("/")[object_key.split("/").length - 1] : "";
-          const formattedTime = formatDateTime(created_at);
+          const formattedTime = created_at;
           const isChecked = checkedJobs.includes(id);
           const parsedMeta = JSON.parse(meta);
           const analysisParams = parsedMeta.analysis_params;
@@ -473,28 +475,6 @@ export default function Uploads() {
       }
     } catch (e) {
       console.log("ERROR fetching jobs in /uploads");
-    }
-  };
-
-  const formatDateTime = (datetime) => {
-    if (datetime)
-      return new Date(datetime + "Z").toLocaleDateString(undefined, {
-        hour: "numeric",
-        minute: "numeric",
-      });
-    else {
-      const now = new Date();
-      const datetime =
-        now.getFullYear() +
-        "-" +
-        (now.getMonth() + 1) +
-        "-" +
-        now.getDate() +
-        "-" +
-        now.getHours() +
-        now.getMinutes() +
-        now.getSeconds();
-      return datetime;
     }
   };
 
@@ -565,7 +545,7 @@ export default function Uploads() {
       )[0];
 
       setDefaultUploadForReanalysis(selectedUpload);
-      router.push("/upload-form?id=Re-analyze+Existing+Upload");
+      router.push("/upload-form?id=re-analyze+existing+upload");
     }
   };
 
@@ -637,11 +617,11 @@ export default function Uploads() {
           failedDeletion ||= uploadsResponse.status !== 200;
         }
       }
-
       // soft delete all jobs
       if (jobsToDelete.length > 0) {
         const jobsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;
         jobsToDelete.map(({ jobId }) => (jobsURL += `job_ids=${jobId}&`));
+
         const jobsResponse = await fetch(jobsURL.slice(0, -1), {
           method: "DELETE",
         });

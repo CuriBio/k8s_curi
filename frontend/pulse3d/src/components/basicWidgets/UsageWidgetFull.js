@@ -41,7 +41,6 @@ export default function UsageWidget({
   const expirationMessage = subscriptionEndDate
     ? `Plan Expires on ${subscriptionEndDate}`
     : "No Expiration Date";
-
   const remainingTimeMessage = (() => {
     if (isUnlimited) return "Unlimited";
     if (daysOfPlanLeft >= 0) return `${daysOfPlanLeft} days of plan left`;

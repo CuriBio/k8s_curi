@@ -3,18 +3,22 @@ import asyncpg
 from kubernetes import config, client as kclient
 import json
 import os
-import logging
 import random
-import sys
+import structlog
+from structlog.contextvars import bind_contextvars, bound_contextvars, merge_contextvars
 from time import sleep
 
-logging.basicConfig(
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    level=logging.INFO,
-    datefmt="%Y-%m-%d %H:%M:%S",
-    stream=sys.stdout,
+structlog.configure(
+    processors=[
+        merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M.%S"),
+        structlog.processors.dict_tracebacks,
+        structlog.processors.JSONRenderer(),
+    ]
 )
-logger = logging.getLogger(__name__)
+
+logger = structlog.getLogger()
 
 SECONDS_TO_POLL_DB = int(os.getenv("SECONDS_TO_POLL_DB"))
 ECR_REPO = os.getenv("ECR_REPO")
@@ -64,12 +68,14 @@ async def create_job(version: str, num_of_workers: int):
                 secret_key_ref=kclient.V1SecretKeySelector(name="curibio-jobs-creds", key="curibio_jobs")
             ),
         )
+        resources = kclient.V1ResourceRequirements(limits={"memory": "500Mi"})
         # Create container
         container = kclient.V1Container(
             name=formatted_name,
             image=complete_ecr_repo,
             env=[POSTGRES_PASSWORD, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET],
             image_pull_policy="Always",
+            resources=resources,
         )
         # Create job spec with container
         spec = kclient.V1JobSpec(
@@ -117,21 +123,24 @@ async def get_next_queue_item():
             )
 
             if not records:
-                logger.info(f"{QUEUE} queue is empty, nothing to process.")
+                logger.info("Queue is empty, nothing to process.")
 
             for record in records:
-                logger.info(f"Found {record['count']} item(s) for {record['version']}.")
                 version = json.loads(record["version"])
-                # spin up max 5 workers, one per first five jobs in queue
-                num_of_workers = min(record["count"], MAX_NUM_OF_WORKERS)
+                with bound_contextvars(version=version):
+                    logger.info(f"Found {record['count']} item(s) for {version}.")
+                    # spin up max 5 workers, one per first five jobs in queue
+                    num_of_workers = min(record["count"], MAX_NUM_OF_WORKERS)
 
-                await create_job(version, num_of_workers)
+                    await create_job(version, num_of_workers)
 
 
 if __name__ == "__main__":
+    bind_contextvars(queue=QUEUE)
+
     while True:
         try:
-            logger.info(f"Checking {QUEUE} queue for new items")
+            logger.info("Checking queue for new items")
             asyncio.run(get_next_queue_item())
             sleep(SECONDS_TO_POLL_DB)
         except Exception as e:

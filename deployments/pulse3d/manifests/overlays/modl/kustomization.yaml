@@ -7,21 +7,18 @@ resources:
   - curibio-jwt-secret.yaml
   - curibio-jobs-creds.yaml
 
-patchesJson6902:
-  - target:
-      kind: Ingress
-      name: pulse3d-ingress
-    patch: |-
+patches:
+  - patch: |-
       - op: replace
         path: /spec/rules/0/host
         value: pulse3d.curibio-modl.com
-  - target:
-      kind: Deployment
-      name: pulse3d
-    patch: |-
+    target:
+      kind: Ingress
+      name: pulse3d-ingress
+  - patch: |-
       - op: add
         path: /spec/template/spec/containers/0/image
-        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/pulse3d_api:0.8.7"
+        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/pulse3d_api:0.8.10"
       - op: replace
         path: /spec/template/spec/containers/0/env/5/value
         value: modl-pulse3d-uploads
@@ -33,3 +30,6 @@ patchesJson6902:
         value:
           name: DASHBOARD_URL
           value: https://dashboard.curibio-modl.com
+    target:
+      kind: Deployment
+      name: pulse3d
