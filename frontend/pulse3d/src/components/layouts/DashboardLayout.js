@@ -64,7 +64,7 @@ export default function DashboardLayout({ children }) {
 
       if (response && response.status === 200) {
         const uploadsArr = await response.json();
-        setUploads(uploadsArr);
+        setUploads([...uploadsArr]);
       }
     } catch (e) {
       console.log("ERROR getting uploads for user");
