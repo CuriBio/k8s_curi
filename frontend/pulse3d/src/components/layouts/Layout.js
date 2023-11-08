@@ -50,12 +50,13 @@ const LogoContainer = styled.a`
 
 const NavHomeIcon = muiStyled(NavigateBeforeIcon)`
   position: relative;
-  font-size: 40px;
+  font-size: 30px;
 `;
 
 const NavHomeContainer = styled.div`
   color: var(--dark-gray);
   display: flex;
+  align-items: center;
   flex-direction: row;
   line-height: 2.5;
   cursor: pointer;

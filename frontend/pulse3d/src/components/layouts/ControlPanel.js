@@ -69,13 +69,16 @@ const ArrowIcon = muiStyled(NavigateBeforeIcon)`
 const AccordionSummary = muiStyled(MuiAccordionSummary)`
   height: 75px;
   color: var(--light-gray);
+
   & .MuiAccordionSummary-expandIconWrapper.Mui-expanded {
     transform: rotate(90deg);
     height: 100%;
-    padding-right: 6px;
+    margin-bottom: 23px;
   }
   & .MuiAccordionSummary-expandIconWrapper {
     height: 100%;
+    transform: rotate(-90deg);
+    margin-top: 13px;
   }
   & .MuiAccordionSummary-content {
     margin: 0px 15px;
