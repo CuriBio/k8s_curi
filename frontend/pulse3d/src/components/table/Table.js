@@ -26,7 +26,7 @@ export default function Table({
   const table = useMaterialReactTable({
     columns,
     data: rowData,
-    enableColumnFilterModes: false, // TODO remove this and set correct filter modes
+    enableColumnFilterModes: false,
     enableColumnResizing: true,
     enableRowSelection: enableRowSelection,
     enableStickyHeader: enableStickyHeader,

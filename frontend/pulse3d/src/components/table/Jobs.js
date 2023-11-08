@@ -145,7 +145,6 @@ export default function Jobs({ row, openJobPreview, setSelectedJobs, selectedJob
         filterVariant: "autocomplete",
         header: "",
         size: 250,
-        // TODO handle snapshot preview functionality
         Cell: ({ cell }) => {
           return (
             cell.getValue() == "finished" && (
