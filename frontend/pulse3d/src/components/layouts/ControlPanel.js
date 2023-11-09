@@ -9,6 +9,7 @@ import MuiAccordionSummary from "@mui/material/AccordionSummary";
 import MuiAccordionDetails from "@mui/material/AccordionDetails";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import { styled as muiStyled } from "@mui/material/styles";
+import VersionWidget from "@/components/basicWidgets/VersionWidget";
 
 const Container = styled.div`
   height: inherit;
@@ -98,6 +99,14 @@ const Accordion = muiStyled(MuiAccordion)`
   box-shadow: none;
 `;
 
+const VersionContainer = styled.div`
+  width: 100%;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  height: 100px;
+`;
+
 const modalObjs = {
   jobsReached: {
     header: "Warning!",
@@ -113,6 +122,10 @@ const modalObjs = {
       "Users will only be allowed to perform re-analysis on existing files.",
     ],
   },
+  deprecationWarning: {
+    header: "Action Required!",
+    messages: ["Your preferred Pulse3D version will be deprecated soon.", "Please select another version:"],
+  },
 };
 
 export default function ControlPanel() {
@@ -122,6 +135,7 @@ export default function ControlPanel() {
   const { accountType, usageQuota, accountScope, isCuriAdmin } = useContext(AuthContext);
   const [modalState, setModalState] = useState(false);
   const [modalLabels, setModalLabels] = useState({ header: "", messages: [] });
+  const [deprecationModalState, setDeprecationModalState] = useState(true);
 
   const userButtons = [
     { label: "Uploads", disabled: false, page: "/uploads", options: [] },
@@ -222,6 +236,10 @@ export default function ControlPanel() {
     }
   }, [usageQuota]);
 
+  const handleDeprecationClose = (e) => {
+    console.log(e);
+  };
+
   return (
     <>
       <Container>
@@ -289,6 +307,16 @@ export default function ControlPanel() {
         closeModal={() => setModalState(false)}
         header={modalLabels.header}
       />
+      <ModalWidget
+        open={deprecationModalState}
+        labels={modalObjs.deprecationWarning.messages}
+        closeModal={handleDeprecationClose}
+        header={modalObjs.deprecationWarning.header}
+      >
+        <VersionContainer>
+          <VersionWidget />
+        </VersionContainer>
+      </ModalWidget>
     </>
   );
 }
