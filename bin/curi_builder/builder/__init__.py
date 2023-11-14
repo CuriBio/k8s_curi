@@ -72,6 +72,10 @@ def find_changed_svcs(sha: str):
 
     list_to_return = []
     for ch_path in changed_svc_paths:
+        if "pheno" in ch_path:
+            # ignoring all pheno related changes at the moment
+            continue
+
         if "queue-processor" in ch_path:
             dep_name, svc = ch_path.split("/")
             dep_type = None
