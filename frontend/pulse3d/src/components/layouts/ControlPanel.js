@@ -69,13 +69,16 @@ const ArrowIcon = muiStyled(NavigateBeforeIcon)`
 const AccordionSummary = muiStyled(MuiAccordionSummary)`
   height: 75px;
   color: var(--light-gray);
+
   & .MuiAccordionSummary-expandIconWrapper.Mui-expanded {
     transform: rotate(90deg);
     height: 100%;
-    padding-right: 6px;
+    margin-bottom: 23px;
   }
   & .MuiAccordionSummary-expandIconWrapper {
     height: 100%;
+    transform: rotate(-90deg);
+    margin-top: 13px;
   }
   & .MuiAccordionSummary-content {
     margin: 0px 15px;
@@ -136,7 +139,7 @@ export default function ControlPanel() {
       page: "/account-settings",
       options: [],
     },
-    { label: "Metric Definitions", options: [] },
+    { label: "Metric Definitions", page: "/metrics", options: [] },
   ];
 
   const adminButtons = [
@@ -230,12 +233,6 @@ export default function ControlPanel() {
 
           const handleSelected = (e) => {
             e.preventDefault();
-            //if metric definitions button then open window with metric definitions
-            if (label === userButtons[3].label) {
-              window.open("https://pulse3d.readthedocs.io/en/latest/_images/twitch_metrics_diagram.png");
-              return;
-            }
-
             setSelected(label);
 
             if (options.length === 0) {

@@ -8,7 +8,8 @@ build:
 	docker build -t pheno/apiv1 . -f ${repo_root}/deployments/pheno/services/apiv1/Dockerfile
 
 buildx:
-	docker buildx build -t pheno/apiv1 . --platform linux/amd64 --load
+	cd ${repo_root} && \
+	docker buildx build -t pheno/apiv1 . -f ${repo_root}/deployments/pheno/services/apiv1/Dockerfile --platform linux/amd64 --load
 
 tag:
 	docker tag pheno/apiv1:latest $(ecr_repo):latest
