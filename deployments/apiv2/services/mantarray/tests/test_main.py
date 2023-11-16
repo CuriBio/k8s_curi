@@ -25,7 +25,7 @@ def get_token(*, scope):
 
 ROUTES_WITH_AUTH = (
     ("GET", f"/firmware/{random_firmware_type()}/{random_semver()}"),
-    ("POST", "/serial-number/test_serial_number"),
+    ("POST", "/serial-number"),
     ("DELETE", "/serial-number/test_serial_number"),
 )
 
@@ -50,8 +50,7 @@ def test_routes_with_auth__no_access_token_given(test_method, test_route):
 @pytest.mark.parametrize("test_method,test_route", ROUTES_WITH_AUTH)
 def test_routes_with_auth__bad_access_token_given(test_method, test_route):
     response = getattr(test_client, test_method.lower())(
-        test_route,
-        headers={"Authorization": "Bearer bad.auth.token"},
+        test_route, headers={"Authorization": "Bearer bad.auth.token"}
     )
     assert response.status_code == 401
 
@@ -61,13 +60,12 @@ def test_firmware__get__invalid_scope_given(test_method, test_route):
     access_token = get_token(scope=["bad"])
 
     response = getattr(test_client, test_method.lower())(
-        test_route,
-        headers={"Authorization": f"Bearer {access_token}"},
+        test_route, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 401
 
 
-def test_default_route(mocked_asyncpg_con):
+def test_serial_number__get__success(mocked_asyncpg_con):
     expected_db_entries = [
         {"serial_number": "123", "hw_version": "1.2.3"},
         {"serial_number": "444", "hw_version": "0.0.0"},
@@ -75,7 +73,7 @@ def test_default_route(mocked_asyncpg_con):
     # return a list of dicts here, but fetch will actually return a Record object with these keys/vals as attr names/vals
     mocked_asyncpg_con.fetch.return_value = expected_db_entries
 
-    response = test_client.get("/")
+    response = test_client.get("/serial-number")
     assert response.status_code == 200
     assert response.json() == {"units": expected_db_entries}
 
@@ -84,15 +82,17 @@ def test_serial_number__post__success(mocked_asyncpg_con):
     access_token = get_token(scope=["mantarray:serial_number:edit"])
 
     test_serial_number = "serial_number"
+    test_hw_version = random_semver()
 
     response = test_client.post(
-        f"/serial-number/{test_serial_number}",
+        "/serial-number",
         headers={"Authorization": f"Bearer {access_token}"},
+        json={"serial_number": test_serial_number, "hw_version": test_hw_version},
     )
     assert response.status_code == 204
 
     mocked_asyncpg_con.execute.assert_called_once_with(
-        "INSERT INTO MAUnits VALUES ($1, '1.0.0')", test_serial_number
+        "INSERT INTO MAUnits VALUES ($1, $2)", test_serial_number, test_hw_version
     )
 
 
@@ -102,8 +102,7 @@ def test_serial_number__delete__success(mocked_asyncpg_con):
     test_serial_number = "serial_number"
 
     response = test_client.delete(
-        f"/serial-number/{test_serial_number}",
-        headers={"Authorization": f"Bearer {access_token}"},
+        f"/serial-number/{test_serial_number}", headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 204
 
