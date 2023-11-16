@@ -82,7 +82,6 @@ async def root(request: Request):
     return MantarrayUnitsResponse(units=units)
 
 
-# TODO add serial number validation?
 @app.post("/serial-number", status_code=status.HTTP_204_NO_CONTENT)
 async def add_serial_number(
     request: Request,

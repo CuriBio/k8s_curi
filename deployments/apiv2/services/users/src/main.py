@@ -313,7 +313,6 @@ async def _verify_password(con, account_type, pw, select_query_result) -> None:
 def _get_user_scopes_from_customer(customer_scopes) -> dict[str, list[str]]:
     # don't include special curibio scopes
     customer_products = [split_scope_account_data(s)[0] for s in customer_scopes if s not in CURIBIO_SCOPES]
-    # return {"nautilus": ["nautilus:rw_all_data"], "mantarray": ["mantarray:rw_all_data"]}
     return {p: USER_SCOPES[p] for p in customer_products}
 
 
@@ -327,6 +326,7 @@ def _get_scopes_from_request(user_scopes, customer_scope) -> list[str]:
         elif not any([USER_SCOPES[s] for s in USER_SCOPES.keys() if product in USER_SCOPES[s]]):
             raise UnknownScopeError(f"Attempting to assign unknown scope: {product}")
 
+    # TODO make this an constant
     # all users need mantarray:firmware:get
     user_scopes.append("mantarray:firmware:get")
     return user_scopes
