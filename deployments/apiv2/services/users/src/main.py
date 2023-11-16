@@ -131,19 +131,22 @@ async def login_customer(request: Request, details: CustomerLogin):
                 "FROM customers WHERE deleted_at IS NULL AND email=$1",
                 email,
             )
-            # query will return None if customer email is not found
-            customer_id = select_query_result.get("id") if select_query_result is not None else None
-            bind_threadlocal(customer_id=str(customer_id))
 
-            if select_query_result["password"] is None:
-                raise LoginError("Account needs verification")
+            # query will return None if customer email is not found
+            if select_query_result is None:
+                customer_id = None
+            else:
+                customer_id = select_query_result.get("id")
+                if select_query_result["password"] is None:
+                    raise LoginError("Account needs verification")
+            bind_threadlocal(customer_id=str(customer_id))
 
             pw = details.password.get_secret_value()
             # verify password, else raise LoginError
             await _verify_password(con, account_type, pw, select_query_result)
             # get scopes from account_scopes table
             scope = await _get_account_scope(con, customer_id, True)
-            # get list of scopes that a customer can assign to it's users
+            # get list of scopes that a customer can assign to its users
             avail_user_scopes = _get_user_scopes_from_customer(scope)
             # TODO decide how to show customer accounts usage data for multiple products, defaulting to mantarray now
             # check usage for customer account
@@ -159,12 +162,7 @@ async def login_customer(request: Request, details: CustomerLogin):
             tokens = await _create_new_tokens(con, customer_id, None, scope, account_type)
 
             return LoginResponse(
-                tokens=tokens,
-                usage_quota=usage_quota,
-                user_scopes=avail_user_scopes,
-                customer_scopes=[
-                    s for s in CUSTOMER_SCOPES if "paid" in s
-                ],  # only returning paid scopes until tier system is enabled for customers
+                tokens=tokens, usage_quota=usage_quota, user_scopes=avail_user_scopes, customer_scopes=scope
             )
 
     except LoginError as e:
@@ -236,7 +234,7 @@ async def login_user(request: Request, details: UserLogin):
             # users logging into a specific instrument need the the usage returned right away and it is known what instrument they are using
             usage_quota = None
             if (service := details.service) is not None:
-                # TODO Luci (09/30/23) remove after MA v1.2.2+ is released, handling for pulse3d login types will no longer be needed
+                # TODO Luci (09/30/23): remove after all users upgrade to MA controller v1.2.2+, handling for pulse3d login types will no longer be needed
                 service = service if service != "pulse3d" else "mantarray"
                 usage_quota = await check_customer_quota(con, str(customer_id), service)
 
@@ -468,9 +466,6 @@ async def register_customer(
     """Register a customer account.
 
     Only the Curi Bio customer account can create new customers.
-
-    If the customer ID in the auth token matches the Curi Bio Customer ID *AND* no username is given,
-    assume this is an attempt to register a new customer account.
     """
     try:
         email = details.email.lower()
