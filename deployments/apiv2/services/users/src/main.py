@@ -324,9 +324,8 @@ def _get_scopes_from_request(user_scopes, customer_scope) -> list[str]:
         elif not any([USER_SCOPES[s] for s in USER_SCOPES.keys() if product in USER_SCOPES[s]]):
             raise UnknownScopeError(f"Attempting to assign unknown scope: {product}")
 
-    # TODO make this an constant
-    # all users need mantarray:firmware:get
-    user_scopes.append("mantarray:firmware:get")
+    # TODO only add this if registering a user under a customer account that has mantarray scopes
+    user_scopes.extend(DEFAULT_MANTARRAY_SCOPES)
     return user_scopes
 
 
@@ -804,6 +803,7 @@ async def update_accounts(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+# TODO test this on dashboard
 @app.get("/")
 async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))):
     """Get info for all the users under the given customer account.
@@ -831,7 +831,7 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTO
 
         for row in formatted_results:
             # remove user-hidden scopes from user list for display
-            row["scopes"] = list(set(row["scopes"]) - set(DEFAULT_MANTARRAY_SCOPES))
+            row["scopes"] = list(set(row["scopes"]) - DEFAULT_MANTARRAY_SCOPES)
             # unverified account should have a jwt token, otherwise will be None.
             # check expiration and if expired, return it as None, FE will handle telling user it's expired
             try:

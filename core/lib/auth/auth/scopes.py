@@ -4,11 +4,11 @@ CURIBIO_SCOPES = frozenset(["curi:admin"])
 
 CUSTOMER_SCOPES = frozenset(["nautilus:free", "nautilus:paid", "mantarray:free", "mantarray:paid"])
 # ignore free or paid tier scopes, will only send product name to FE to select for user, only contain special scopes
-USER_SCOPES = immutabledict({"nautilus": ("nautilus:rw_all_data"), "mantarray": ("mantarray:rw_all_data")})
+USER_SCOPES = immutabledict({"nautilus": ("nautilus:rw_all_data",), "mantarray": ("mantarray:rw_all_data",)})
 ACCOUNT_SCOPES = frozenset(["users:verify", "users:reset", "customer:reset", "customer:verify"])
 
 NAUTILUS_SCOPES = frozenset(["nautilus:free", "nautilus:paid", "nautilus:rw_all_data"])
-# not currently auto assigned anywhere
+
 DEFAULT_MANTARRAY_SCOPES = frozenset(["mantarray:firmware:get"])
 MANTARRAY_PRODUCTION_SCOPES = frozenset(
     [
@@ -18,7 +18,6 @@ MANTARRAY_PRODUCTION_SCOPES = frozenset(
         "mantarray:software:edit",
     ]
 )
-
 MANTARRAY_SCOPES = frozenset(["mantarray:free", "mantarray:paid", "mantarray:rw_all_data"])
 
 PULSE3D_USER_SCOPES = frozenset([*MANTARRAY_SCOPES, *NAUTILUS_SCOPES])
