@@ -14,7 +14,7 @@ MANTARRAY_PRODUCTION_SCOPES = frozenset(
     [
         "mantarray:serial_number:edit",
         "mantarray:firmware:edit",
-        "mantarray:firmware:view",
+        "mantarray:firmware:info",
         "mantarray:software:edit",
     ]
 )

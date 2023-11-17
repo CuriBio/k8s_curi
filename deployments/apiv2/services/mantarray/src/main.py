@@ -3,16 +3,25 @@ import time
 from fastapi import Depends, FastAPI, Path, Request, status, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+import semver
 import structlog
 from structlog.threadlocal import bind_threadlocal, clear_threadlocal
 from uvicorn.protocols.utils import get_path_with_query_string
 
 from auth import ProtectedAny
-from core.config import DATABASE_URL, DASHBOARD_URL
+from core.config import CLUSTER_NAME, DATABASE_URL, DASHBOARD_URL
 from core.versions import get_download_url, get_required_sw_version_range, resolve_versions
-from models.responses import MantarrayUnitsResponse, SerialNumberRequest
+from models.models import (
+    FirmwareUploadResponse,
+    MantarrayUnitsResponse,
+    SerialNumberRequest,
+    FirmwareInfoResponse,
+    MainFirmwareUploadRequest,
+    ChannelFirmwareUploadRequest,
+)
 from utils.db import AsyncpgPoolDep
 from utils.logging import setup_logger
+from utils.s3 import generate_presigned_post
 
 setup_logger()
 logger = structlog.stdlib.get_logger("api.access")
@@ -67,7 +76,14 @@ async def startup():
     await asyncpg_pool()
 
 
+SEMVER_REGEX = r"^\d+\.\d+\.\d+$"
+FW_TYPE_REGEX = "^(main|channel)$"
+SW_TYPE_REGEX = "^(mantarray|stingray)$"
+
+
 # TODO make request and response models for all of these?
+
+# ROUTES
 
 
 @app.get("/serial-number", response_model=MantarrayUnitsResponse)
@@ -82,7 +98,7 @@ async def root(request: Request):
     return MantarrayUnitsResponse(units=units)
 
 
-@app.post("/serial-number", status_code=status.HTTP_204_NO_CONTENT)
+@app.post("/serial-number", status_code=status.HTTP_201_CREATED)
 async def add_serial_number(
     request: Request,
     details: SerialNumberRequest,
@@ -122,10 +138,9 @@ async def delete_serial_number(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+# TODO update this
 @app.get("/software-range/{main_fw_version}")
-async def get_software_for_main_fw(
-    request: Request, main_fw_version: str = Path(..., regex=r"^\d+\.\d+\.\d+$")
-):
+async def get_software_for_main_fw(request: Request, main_fw_version: str = Path(..., regex=SEMVER_REGEX)):
     """Get the max/min SW version compatible with the given main firmware version."""
     try:
         max_min_version_dict = get_required_sw_version_range(main_fw_version)
@@ -136,6 +151,7 @@ async def get_software_for_main_fw(
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"message": err_msg})
 
 
+# TODO update this
 @app.get("/versions/{serial_number}")
 async def get_latest_versions(request: Request, serial_number: str):
     """Get the latest SW, main FW, and channel FW versions compatible with the MA instrument with the given serial number."""
@@ -160,10 +176,26 @@ async def get_latest_versions(request: Request, serial_number: str):
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"message": err_msg})
 
 
+@app.get("/firmware/info")
+async def get_all_fw_sw_compatibility(
+    request: Request, token=Depends(ProtectedAny(scope=["mantarray:firmware:info"]))
+):
+    try:
+        async with request.state.pgpool.acquire() as con:
+            # TODO make this a function?
+            main_fw_info = await con.fetch("SELECT * FROM ma_main_firmware")
+            channel_fw_info = await con.fetch("SELECT * FROM ma_channel_firmware")
+
+        return FirmwareInfoResponse(main_fw_info=main_fw_info, channel_fw_info=channel_fw_info)
+    except Exception:
+        logger.exception("Error getting FW/SW compatibility")
+        raise
+
+
 @app.get("/firmware/{fw_type}/{version}")
 async def get_firmware_download_url(
-    fw_type: str = Path(..., regex="^(main|channel)$"),
-    version: str = Path(..., regex=r"^\d+\.\d+\.\d+$"),
+    fw_type: str = Path(..., regex=FW_TYPE_REGEX),
+    version: str = Path(..., regex=SEMVER_REGEX),
     token=Depends(ProtectedAny(scope=["mantarray:firmware:get"])),
 ):
     try:
@@ -175,3 +207,88 @@ async def get_firmware_download_url(
         err_msg = f"{fw_type.title()} Firmware v{version} not found"
         logger.exception(err_msg)
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message": err_msg})
+
+
+@app.post("/firmware/{fw_type}/{fw_version}")
+async def upload_firmware_file(
+    request: Request,
+    details: MainFirmwareUploadRequest | ChannelFirmwareUploadRequest,
+    fw_type: str = Path(..., regex=FW_TYPE_REGEX),
+    fw_version: str = Path(..., regex=SEMVER_REGEX),
+    token=Depends(ProtectedAny(scope=["mantarray:firmware:edit"])),
+):
+    bind_threadlocal(fw_type=fw_type, fw_version=fw_version)
+
+    async with request.state.pgpool.acquire() as con:
+        if fw_type == "main":
+            min_ma_controller_version = _get_min_compatible_sw_version(
+                await con.fetch("SELECT version FROM ma_controllers"),
+                details.is_compatible_with_current_ma_sw,
+            )
+            min_sting_controller_version = _get_min_compatible_sw_version(
+                await con.fetch("SELECT version FROM sting_controllers"),
+                details.is_compatible_with_current_sting_sw,
+            )
+
+            query_args = (
+                "INSERT INTO ma_main_firmware (version, min_ma_controller_version, min_sting_controller_version) VALUES ($1, $2, $3)",
+                fw_version,
+                min_ma_controller_version,
+                min_sting_controller_version,
+            )
+        else:
+            query_args = (
+                "INSERT INTO ma_channel_firmware (version, main_fw_version, hw_version) VALUES ($1, $2, $3)",
+                fw_version,
+                details.main_fw_version,
+                details.hw_version,
+            )
+
+        # create upload url before inserting FW version into DB so that if this step fails the DB insertion won't happen
+        try:
+            upload_params = generate_presigned_post(
+                bucket=f"{CLUSTER_NAME}-{fw_type}-firmware", key=f"{fw_version}.bin", md5s=details.md5s
+            )
+        except Exception:
+            logger.exception(f"Error generating presigned post for {fw_type} firmware v{fw_version}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        try:
+            await con.execute(*query_args)
+        except Exception:
+            err_msg = f"Error adding {fw_type} firmware v{fw_version} to DB"
+            logger.exception(err_msg)
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"message": err_msg})
+
+    return FirmwareUploadResponse(params=upload_params)
+
+
+@app.put("/firmware/{fw_type}/{version}")
+async def update_firmware_info(
+    fw_type: str = Path(..., regex=FW_TYPE_REGEX),
+    version: str = Path(..., regex=SEMVER_REGEX),
+    token=Depends(ProtectedAny(scope=["mantarray:firmware:edit"])),
+):
+    pass
+
+
+@app.post("/software/{controller}/{version}")
+async def add_software_version(
+    controller: str = Path(..., regex=SW_TYPE_REGEX),
+    version: str = Path(..., regex=SEMVER_REGEX),
+    token=Depends(ProtectedAny(scope=["mantarray:software:edit"])),
+):
+    pass
+
+
+# HELPERS
+
+
+def _get_min_compatible_sw_version(sw_version_rows, is_compatible):
+    max_sw_version = sorted([semver.Version.parse(row["version"]) for row in sw_version_rows])[-1]
+
+    # just bump the patch version
+    if not is_compatible:
+        max_sw_version = max_sw_version.bump_patch()
+
+    return str(max_sw_version)

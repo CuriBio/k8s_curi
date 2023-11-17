@@ -2,7 +2,7 @@ import functools
 import re
 
 import boto3
-from semver import VersionInfo
+import semver
 
 from .config import CLUSTER_NAME
 from utils.s3 import generate_presigned_url
@@ -31,7 +31,7 @@ def filter_and_sort_semvers(version_container, filter_fn=None, return_keys=False
         filter_fn = no_filter
 
     def filter_fn_adj(*args):
-        return filter_fn(*[VersionInfo.parse(arg) for arg in args])
+        return filter_fn(*[semver.Version.parse(arg) for arg in args])
 
     if isinstance(version_container, dict):
         filtered = [(k if return_keys else v) for k, v in version_container.items() if filter_fn_adj(k, v)]
@@ -40,7 +40,7 @@ def filter_and_sort_semvers(version_container, filter_fn=None, return_keys=False
             raise ValueError("Cannot use return_keys if version_container is not a dict")
         filtered = [v for v in version_container if filter_fn_adj(v)]
 
-    return sorted(filtered, key=VersionInfo.parse)
+    return sorted(filtered, key=semver.Version.parse)
 
 
 def create_dependency_mapping():
