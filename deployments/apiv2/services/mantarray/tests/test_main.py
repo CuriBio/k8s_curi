@@ -34,8 +34,8 @@ ROUTES_WITH_AUTH = (
     ("GET", "/firmware/info"),
     ("GET", f"/firmware/{random_firmware_type()}/{random_semver()}"),
     ("POST", f"/firmware/{random_firmware_type()}/{random_semver()}"),
-    ("PUT", f"/firmware/{random_firmware_type()}/{random_semver()}"),
-    ("POST", f"/firmware/{random_software_type()}/{random_semver()}"),
+    ("PUT", f"/firmware/channel/{random_semver()}"),
+    ("POST", f"/software/{random_software_type()}/{random_semver()}"),
 )
 
 
@@ -291,13 +291,46 @@ def test_firmware__post__channel_fw__success(mocker, mocked_asyncpg_con):
     )
 
 
-def test_firmware__put__success(mocker):
-    # access_token = get_token(scope=["mantarray:firmware:edit"])
+def test_firmware__put__success(mocked_asyncpg_con):
+    access_token = get_token(scope=["mantarray:firmware:edit"])
 
-    assert not "TODO"
+    test_fw_version = random_semver()
+
+    test_main_fw_version = random_semver()
+    test_hw_version = random_semver()
+
+    response = test_client.put(
+        f"/firmware/channel/{test_fw_version}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={
+            "version": test_fw_version,
+            "main_fw_version": test_main_fw_version,
+            "hw_version": test_hw_version,
+            "md5s": "any",
+        },
+    )
+    assert response.status_code == 200
+
+    mocked_asyncpg_con.execute.assert_called_once_with(
+        "UPDATE ma_channel_firmware SET main_fw_version=$1 WHERE version=$2",
+        test_main_fw_version,
+        test_fw_version,
+    )
 
 
-def test_software__post__success(mocker):
-    # access_token = get_token(scope=["mantarray:software:edit"])
+@pytest.mark.parametrize(
+    "test_sw_type, expected_table_name", [("mantarray", "ma_controllers"), ("stingray", "sting_controllers")]
+)
+def test_software__post__success(test_sw_type, expected_table_name, mocked_asyncpg_con):
+    access_token = get_token(scope=["mantarray:software:edit"])
 
-    assert not "TODO"
+    test_version = random_semver()
+
+    response = test_client.post(
+        f"/software/{test_sw_type}/{test_version}", headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert response.status_code == 200
+
+    mocked_asyncpg_con.execute.assert_called_once_with(
+        f"INSERT INTO {expected_table_name} (version) VALUES ($1)", test_version
+    )

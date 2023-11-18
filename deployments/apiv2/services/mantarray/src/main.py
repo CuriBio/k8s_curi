@@ -182,7 +182,6 @@ async def get_all_fw_sw_compatibility(
 ):
     try:
         async with request.state.pgpool.acquire() as con:
-            # TODO make this a function?
             main_fw_info = await con.fetch("SELECT * FROM ma_main_firmware")
             channel_fw_info = await con.fetch("SELECT * FROM ma_channel_firmware")
 
@@ -258,27 +257,54 @@ async def upload_firmware_file(
         except Exception:
             err_msg = f"Error adding {fw_type} firmware v{fw_version} to DB"
             logger.exception(err_msg)
-            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"message": err_msg})
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err_msg))
 
     return FirmwareUploadResponse(params=upload_params)
 
 
-@app.put("/firmware/{fw_type}/{version}")
+@app.put("/firmware/channel/{version}")
 async def update_firmware_info(
-    fw_type: str = Path(..., regex=FW_TYPE_REGEX),
+    request: Request,
+    details: ChannelFirmwareUploadRequest,
     version: str = Path(..., regex=SEMVER_REGEX),
     token=Depends(ProtectedAny(scope=["mantarray:firmware:edit"])),
 ):
-    pass
+    bind_threadlocal(fw_version=version)
+
+    # currently the only thing that needs to be updated through this route is the main FW version tied to a channel FW version
+    try:
+        async with request.state.pgpool.acquire() as con:
+            await con.execute(
+                "UPDATE ma_channel_firmware SET main_fw_version=$1 WHERE version=$2",
+                details.main_fw_version,
+                version,
+            )
+    except Exception:
+        logger.exception(f"Error updating channel firmware v{version}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @app.post("/software/{controller}/{version}")
 async def add_software_version(
+    request: Request,
     controller: str = Path(..., regex=SW_TYPE_REGEX),
     version: str = Path(..., regex=SEMVER_REGEX),
     token=Depends(ProtectedAny(scope=["mantarray:software:edit"])),
 ):
-    pass
+    bind_threadlocal(controller_type=controller, sw_version=version)
+
+    if controller == "mantarray":
+        query = "INSERT INTO ma_controllers (version) VALUES ($1)"
+    else:
+        query = "INSERT INTO sting_controllers (version) VALUES ($1)"
+
+    try:
+        async with request.state.pgpool.acquire() as con:
+            await con.execute(query, version)
+    except Exception:
+        err_msg = f"Error adding {controller} controller v{version} to DB"
+        logger.exception(err_msg)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err_msg))
 
 
 # HELPERS
