@@ -77,14 +77,15 @@ const ButtonContainer = styled.div`
 `;
 
 export default function AccountSettings() {
-  const { accountType, usageQuota, accountId } = useContext(AuthContext);
+  const { accountType, usageQuota, accountId, productPage } = useContext(AuthContext);
   const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
   const [jobsLimit, setJobsLimit] = useState(-1);
   const [currentJobUsage, setCurrentJobUsage] = useState(0);
   const [endDate, setEndDate] = useState(null);
   const [daysLeft, setDaysLeft] = useState(0);
   const [pulse3dVersionOptions, setPulse3dVersionOptions] = useState([]);
-  const [selectedP3dVersion, setSelectedP3dVersion] = useState(0);
+  const [userPreferences, setUserPreferences] = useState({ version: 0 });
+  const [inProgress, setInProgress] = useState(false);
 
   const isAdminAccount = accountType === "admin";
 
@@ -119,11 +120,25 @@ export default function AccountSettings() {
   }, [pulse3dVersions, metaPulse3dVersions]);
 
   const handlePulse3dVersionSelect = (idx) => {
-    setSelectedP3dVersion(idx);
+    setUserPreferences({ ...userPreferences, version: idx });
   };
 
-  const savePreferences = () => {
-    console.log("Save");
+  const savePreferences = async () => {
+    try {
+      setInProgress(true);
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/preferences`, {
+        method: "PUT",
+        body: JSON.stringify({
+          product: productPage,
+          changes: { ...userPreferences, version: pulse3dVersions[userPreferences.version] },
+        }),
+      });
+
+      setInProgress(false);
+    } catch (e) {
+      console.log("ERROR updating user preferences");
+    }
   };
 
   return (
@@ -144,7 +159,7 @@ export default function AccountSettings() {
                 <DropDownWidget
                   options={pulse3dVersionOptions}
                   handleSelection={handlePulse3dVersionSelect}
-                  initialSelected={selectedP3dVersion}
+                  initialSelected={userPreferences.version}
                 />
               </DropDownContainer>
             </AnalysisParamContainer>
@@ -155,6 +170,7 @@ export default function AccountSettings() {
                 position="relative"
                 borderRadius="3px"
                 label="Save"
+                inProgress={inProgress}
                 clickFn={savePreferences}
               />
             </ButtonContainer>

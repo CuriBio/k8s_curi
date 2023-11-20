@@ -237,7 +237,7 @@ export default function ControlPanel() {
   }, [usageQuota]);
 
   const handleDeprecationClose = (e) => {
-    console.log(e);
+    setDeprecationModalState(false);
   };
 
   return (
