@@ -142,7 +142,6 @@ async def get_info_of_uploads(
             uploads = await get_uploads(
                 con=con, account_type=account_type, account_id=account_id, upload_ids=upload_ids
             )
-
             if is_user:
                 # customer accounts don't matter here because they don't have the ability to delete
                 for upload in uploads:

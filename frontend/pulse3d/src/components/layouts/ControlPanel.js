@@ -228,7 +228,6 @@ export default function ControlPanel() {
         {panelButtons.map(({ disabled, label, page, options }, idx) => {
           const handleListClick = (e) => {
             e.preventDefault();
-            console.log("here");
             router.push({ pathname: page, query: { id: e.target.id.toLowerCase() } });
           };
 

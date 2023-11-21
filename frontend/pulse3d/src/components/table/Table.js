@@ -4,6 +4,30 @@ import { MaterialReactTable, useMaterialReactTable } from "material-react-table"
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 
+const getHeaderSx = (showColumnFilters) => {
+  const commonStyle = { borderBottom: "1px solid var(--dark-gray)", padding: "1rem" };
+  const commonSvgRoot = { paddingBottom: "3px", fontSize: 24 };
+  const commonSortLabel = { fontSize: 24, paddingTop: "3px" };
+
+  return showColumnFilters
+    ? {
+        ...commonStyle,
+        background: "white",
+        color: "black",
+        "& .MuiSvgIcon-root": commonSvgRoot,
+        "& .MuiTableSortLabel-icon": commonSortLabel,
+        "& .MuiFormControl-root": { minWidth: "80px" },
+      }
+    : {
+        ...commonStyle,
+        background: "var(--dark-blue)",
+        color: "white",
+        "& .MuiSvgIcon-root": { ...commonSvgRoot, fill: "white" },
+        "& .MuiTableSortLabel-icon": { ...commonSortLabel, fill: "white" },
+        "& .MuiDivider-root": { borderColor: "white", borderWidth: "1px" },
+      };
+};
+
 export default function Table({
   columns = [],
   rowData = [],
@@ -23,44 +47,6 @@ export default function Table({
   showColumnFilters = true,
   columnVisibility = {},
 }) {
-  const getHeaderSx = () => {
-    return showColumnFilters
-      ? {
-          borderBottom: "1px solid var(--dark-gray)",
-          background: "white",
-          color: "black",
-          padding: "1rem",
-          "& .MuiSvgIcon-root": {
-            paddingBottom: "3px",
-            fontSize: 24,
-          },
-          "& .MuiTableSortLabel-icon": {
-            paddingTop: "3px",
-            fontSize: 24,
-          },
-          "& .MuiFormControl-root": {
-            minWidth: "80px",
-          },
-        }
-      : {
-          borderBottom: "1px solid var(--dark-gray)",
-          background: "var(--dark-blue)",
-          color: "white",
-          padding: "1rem",
-          "& .MuiSvgIcon-root": {
-            color: "white",
-            paddingBottom: "3px",
-            fontSize: 24,
-          },
-          "& .MuiTableSortLabel-icon": {
-            fill: "white",
-            paddingTop: "3px",
-            fontSize: 24,
-          },
-          "& .MuiDivider-root": { borderColor: "white", borderWidth: "1px" },
-        };
-  };
-
   const table = useMaterialReactTable({
     columns,
     data: rowData,
@@ -73,7 +59,7 @@ export default function Table({
     enableSelectAll,
     selectAllMode: "all",
     initialState: {
-      showColumnFilters: showColumnFilters,
+      showColumnFilters,
       sorting: [
         {
           id: defaultSortColumn,
@@ -85,7 +71,7 @@ export default function Table({
       sx: {
         cursor: "default",
         "& .Mui-TableBodyCell-DetailPanel": {
-          maxWidth: 1400,
+          maxWidth: 1500,
         },
       },
     },
@@ -111,7 +97,7 @@ export default function Table({
       },
     },
     muiTableHeadCellProps: {
-      sx: getHeaderSx(),
+      sx: getHeaderSx(showColumnFilters),
     },
     muiTableBodyCellProps: {
       sx: { whiteSpace: "nowrap" },
