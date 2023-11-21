@@ -40,3 +40,10 @@ class FirmwareInfoResponse(BaseModel):
 
 class FirmwareUploadResponse(BaseModel):
     params: dict[str, Any]
+
+
+class LatestVersionsResponse(BaseModel):
+    ma_sw: str
+    sting_sw: str
+    main_fw: str
+    channel_fw: str

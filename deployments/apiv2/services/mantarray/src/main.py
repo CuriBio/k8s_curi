@@ -10,7 +10,7 @@ from uvicorn.protocols.utils import get_path_with_query_string
 
 from auth import ProtectedAny
 from core.config import CLUSTER_NAME, DATABASE_URL, DASHBOARD_URL
-from core.versions import get_download_url, get_required_sw_version_range, resolve_versions
+from core.versions import get_fw_download_url, get_required_sw_version_range, get_latest_compatible_versions
 from models.models import (
     FirmwareUploadResponse,
     MantarrayUnitsResponse,
@@ -18,6 +18,7 @@ from models.models import (
     FirmwareInfoResponse,
     MainFirmwareUploadRequest,
     ChannelFirmwareUploadRequest,
+    LatestVersionsResponse,
 )
 from utils.db import AsyncpgPoolDep
 from utils.logging import setup_logger
@@ -138,12 +139,16 @@ async def delete_serial_number(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# TODO update this
 @app.get("/software-range/{main_fw_version}")
 async def get_software_for_main_fw(request: Request, main_fw_version: str = Path(..., regex=SEMVER_REGEX)):
     """Get the max/min SW version compatible with the given main firmware version."""
     try:
-        max_min_version_dict = get_required_sw_version_range(main_fw_version)
+        async with request.state.pgpool.acquire() as con:
+            main_fw_compatibility = await con.fetch(
+                "SELECT version AS main_fw_version, min_ma_controller_version, min_sting_controller_version "
+                "FROM ma_main_firmware"
+            )
+        max_min_version_dict = get_required_sw_version_range(main_fw_version, main_fw_compatibility)
         return JSONResponse(max_min_version_dict)
     except Exception:
         err_msg = f"Error getting the required SW version for main FW v{main_fw_version}"
@@ -151,29 +156,61 @@ async def get_software_for_main_fw(request: Request, main_fw_version: str = Path
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"message": err_msg})
 
 
-# TODO update this
+# TODO Tanner (11/20/23): this is kept here to support backwards compatibility with older controller versions. It can be removed once all users upgrade to the controller versions released after the date of this note
 @app.get("/versions/{serial_number}")
-async def get_latest_versions(request: Request, serial_number: str):
+async def get_latest_prod_versions(request: Request, serial_number: str):
+    latest_versions = await _get_latest_versions(request, serial_number, True)
+    return JSONResponse(
+        {
+            "latest_versions": {
+                "sw": latest_versions["min_ma_controller_version"],
+                "main-fw": latest_versions["main_fw_version"],
+                "channel-fw": latest_versions["channel_fw_version"],
+            }
+        }
+    )
+
+
+@app.get("/versions/{serial_number}/{prod}")
+async def get_latest_versions(request: Request, serial_number: str, prod: bool):
+    latest_versions = await _get_latest_versions(request, serial_number, prod)
+    return LatestVersionsResponse(
+        ma_sw=latest_versions["min_ma_controller_version"],
+        sting_sw=latest_versions["min_sting_controller_version"],
+        main_fw=latest_versions["main_fw_version"],
+        channel_fw=latest_versions["channel_fw_version"],
+    )
+
+
+async def _get_latest_versions(request: Request, serial_number: str, prod: bool):
     """Get the latest SW, main FW, and channel FW versions compatible with the MA instrument with the given serial number."""
+    bind_threadlocal(serial_number=serial_number, is_prod_controller=prod)
+
+    query = (
+        "SELECT m.min_ma_controller_version, m.min_sting_controller_version, m.version AS main_fw_version, c.version AS channel_fw_version "
+        "FROM ma_channel_firmware AS c "
+        "JOIN ma_main_firmware AS m ON c.main_fw_version=m.version "
+        "JOIN maunits AS u ON c.hw_version=u.hw_version "
+        "WHERE u.serial_number=$1 "
+    )
+    if prod:
+        query += "AND m.state='external' AND c.state='external'"
+
     async with request.state.pgpool.acquire() as con:
-        bind_threadlocal(serial_number=serial_number)
-        # get hardware version from serial number
         try:
-            row = await con.fetchrow("SELECT hw_version FROM MAUnits WHERE serial_number=$1", serial_number)
-            hardware_version = row["hw_version"]
-            bind_threadlocal(hardware_version=hardware_version)
+            all_compatible_versions = await con.fetch(query, serial_number)
         except Exception:
-            err_msg = f"Serial Number {serial_number} not found"
-            logger.exception(err_msg)
-            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message": err_msg})
-    # try to get latest FW versions from HW version
+            logger.exception(f"Serial Number {serial_number} not found")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+
     try:
-        latest_versions = resolve_versions(hardware_version)
-        return JSONResponse({"latest_versions": latest_versions})
+        latest_versions = get_latest_compatible_versions(all_compatible_versions)
     except Exception:
-        err_msg = f"Error getting latest FW versions for {serial_number} with HW version {hardware_version}"
+        err_msg = f"Error determining latest FW + SW versions for {serial_number}"
         logger.exception(err_msg)
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"message": err_msg})
+
+    return latest_versions
 
 
 @app.get("/firmware/info")
@@ -200,7 +237,7 @@ async def get_firmware_download_url(
     try:
         bind_threadlocal(fw_type=fw_type, fw_version=version)
 
-        url = get_download_url(version, fw_type)
+        url = get_fw_download_url(version, fw_type)
         return JSONResponse({"presigned_url": url})
     except Exception:
         err_msg = f"{fw_type.title()} Firmware v{version} not found"
@@ -208,15 +245,15 @@ async def get_firmware_download_url(
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message": err_msg})
 
 
-@app.post("/firmware/{fw_type}/{fw_version}")
+@app.post("/firmware/{fw_type}/{version}")
 async def upload_firmware_file(
     request: Request,
     details: MainFirmwareUploadRequest | ChannelFirmwareUploadRequest,
     fw_type: str = Path(..., regex=FW_TYPE_REGEX),
-    fw_version: str = Path(..., regex=SEMVER_REGEX),
+    version: str = Path(..., regex=SEMVER_REGEX),
     token=Depends(ProtectedAny(scope=["mantarray:firmware:edit"])),
 ):
-    bind_threadlocal(fw_type=fw_type, fw_version=fw_version)
+    bind_threadlocal(fw_type=fw_type, fw_version=version)
 
     async with request.state.pgpool.acquire() as con:
         if fw_type == "main":
@@ -231,14 +268,14 @@ async def upload_firmware_file(
 
             query_args = (
                 "INSERT INTO ma_main_firmware (version, min_ma_controller_version, min_sting_controller_version) VALUES ($1, $2, $3)",
-                fw_version,
+                version,
                 min_ma_controller_version,
                 min_sting_controller_version,
             )
         else:
             query_args = (
                 "INSERT INTO ma_channel_firmware (version, main_fw_version, hw_version) VALUES ($1, $2, $3)",
-                fw_version,
+                version,
                 details.main_fw_version,
                 details.hw_version,
             )
@@ -246,16 +283,16 @@ async def upload_firmware_file(
         # create upload url before inserting FW version into DB so that if this step fails the DB insertion won't happen
         try:
             upload_params = generate_presigned_post(
-                bucket=f"{CLUSTER_NAME}-{fw_type}-firmware", key=f"{fw_version}.bin", md5s=details.md5s
+                bucket=f"{CLUSTER_NAME}-{fw_type}-firmware", key=f"{version}.bin", md5s=details.md5s
             )
         except Exception:
-            logger.exception(f"Error generating presigned post for {fw_type} firmware v{fw_version}")
+            logger.exception(f"Error generating presigned post for {fw_type} firmware v{version}")
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         try:
             await con.execute(*query_args)
         except Exception:
-            err_msg = f"Error adding {fw_type} firmware v{fw_version} to DB"
+            err_msg = f"Error adding {fw_type} firmware v{version} to DB"
             logger.exception(err_msg)
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err_msg))
 

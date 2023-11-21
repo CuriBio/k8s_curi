@@ -5,7 +5,7 @@ from random import choice, randint
 
 from auth import create_token
 from src import main
-from src.models.models import FirmwareUploadResponse
+from src.models.models import FirmwareUploadResponse, LatestVersionsResponse
 
 test_client = TestClient(main.app)
 
@@ -131,33 +131,82 @@ def test_software_range__get__success(mocker):
     assert response.json() == expected_max_min
 
 
-def test_versions__get__success(mocked_asyncpg_con, mocker):
-    expected_latest_fw_version = random_semver()
-    mocked_get_latest_firmware_version = mocker.patch.object(
-        main, "resolve_versions", autospec=True, return_value=expected_latest_fw_version
+@pytest.mark.parametrize("is_prod", [True, False])
+def test_versions__get__success(is_prod, mocked_asyncpg_con, mocker):
+    test_latest_versions = {
+        "min_ma_controller_version": "1.0.0",
+        "min_sting_controller_version": "2.0.0",
+        "main_fw_version": "3.0.0",
+        "channel_fw_version": "4.0.0",
+    }
+
+    mocked_get_latest = mocker.patch.object(
+        main, "get_latest_compatible_versions", autospec=True, return_value=test_latest_versions
     )
 
-    expected_hw_version = "2.2.2"
-    mocked_asyncpg_con.fetchrow.return_value = {"hw_version": expected_hw_version}
+    test_serial_number = "MA2022001000"
+    response = test_client.get(f"/versions/{test_serial_number}/{is_prod}")
+    assert response.status_code == 200
+    assert response.json() == LatestVersionsResponse(
+        ma_sw=test_latest_versions["min_ma_controller_version"],
+        sting_sw=test_latest_versions["min_sting_controller_version"],
+        main_fw=test_latest_versions["main_fw_version"],
+        channel_fw=test_latest_versions["channel_fw_version"],
+    )
+
+    expected_query = (
+        "SELECT m.min_ma_controller_version, m.min_sting_controller_version, m.version AS main_fw_version, c.version AS channel_fw_version "
+        "FROM ma_channel_firmware AS c "
+        "JOIN ma_main_firmware AS m ON c.main_fw_version=m.version "
+        "JOIN maunits AS u ON c.hw_version=u.hw_version "
+        "WHERE u.serial_number=$1 "
+    )
+    if is_prod:
+        expected_query += "AND m.state='external' AND c.state='external'"
+
+    mocked_asyncpg_con.fetch.assert_called_once_with(expected_query, test_serial_number)
+    mocked_get_latest.assert_called_once_with(mocked_asyncpg_con.fetch.return_value)
+
+
+def test_versions__get__no_prod__success(mocked_asyncpg_con, mocker):
+    test_latest_versions = {
+        "min_ma_controller_version": "1.0.0",
+        "min_sting_controller_version": "2.0.0",
+        "main_fw_version": "3.0.0",
+        "channel_fw_version": "4.0.0",
+    }
+
+    mocked_get_latest = mocker.patch.object(
+        main, "get_latest_compatible_versions", autospec=True, return_value=test_latest_versions
+    )
 
     test_serial_number = "MA2022001000"
     response = test_client.get(f"/versions/{test_serial_number}")
     assert response.status_code == 200
-    assert response.json() == {"latest_versions": expected_latest_fw_version}
+    assert response.json() == {
+        "latest_versions": {
+            "sw": test_latest_versions["min_ma_controller_version"],
+            "main-fw": test_latest_versions["main_fw_version"],
+            "channel-fw": test_latest_versions["channel_fw_version"],
+        }
+    }
 
-    mocked_asyncpg_con.fetchrow.assert_called_once_with(
-        "SELECT hw_version FROM MAUnits WHERE serial_number=$1", test_serial_number
+    expected_query = (
+        "SELECT m.min_ma_controller_version, m.min_sting_controller_version, m.version AS main_fw_version, c.version AS channel_fw_version "
+        "FROM ma_channel_firmware AS c "
+        "JOIN ma_main_firmware AS m ON c.main_fw_version=m.version "
+        "JOIN maunits AS u ON c.hw_version=u.hw_version "
+        "WHERE u.serial_number=$1 AND m.state='external' AND c.state='external'"
     )
-    mocked_get_latest_firmware_version.assert_called_once_with(expected_hw_version)
+    mocked_asyncpg_con.fetch.assert_called_once_with(expected_query, test_serial_number)
+    mocked_get_latest.assert_called_once_with(mocked_asyncpg_con.fetch.return_value)
 
 
 def test_versions__get__serial_number_not_found_in_db(mocked_asyncpg_con):
-    mocked_asyncpg_con.fetchrow.side_effect = Exception()
+    mocked_asyncpg_con.fetch.side_effect = Exception()
 
-    test_serial_number = "MA2022001000"
-    response = test_client.get(f"/versions/{test_serial_number}")
-    assert response.status_code == 404
-    assert response.json() == {"message": f"Serial Number {test_serial_number} not found"}
+    response = test_client.get("/versions/TEST-SERIAL-NUMBER")
+    assert response.status_code == 400
 
 
 def test_firmware_info__get__success(mocked_asyncpg_con):
@@ -185,7 +234,9 @@ def test_firmware__get__success(mocker):
     access_token = get_token(scope=["mantarray:firmware:get"])
 
     expected_url = "url"
-    mocked_get_url = mocker.patch.object(main, "get_download_url", autospec=True, return_value=expected_url)
+    mocked_get_url = mocker.patch.object(
+        main, "get_fw_download_url", autospec=True, return_value=expected_url
+    )
 
     test_firmware_version = random_semver()
     test_firmware_type = random_firmware_type()
