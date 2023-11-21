@@ -84,6 +84,9 @@ export default function Table({
     muiTableProps: {
       sx: {
         cursor: "default",
+        "& .Mui-TableBodyCell-DetailPanel": {
+          maxWidth: 1400,
+        },
       },
     },
     muiTablePaperProps: {

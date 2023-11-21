@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import Table from "./Table";
 
 const Container = styled.div`
-  padding: 0 3.5rem;
+  margin: 0 3.5rem;
 `;
 
 const PreviewText = styled.div`

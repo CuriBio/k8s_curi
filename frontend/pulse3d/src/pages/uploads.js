@@ -228,7 +228,7 @@ export default function Uploads() {
         Cell: ({ cell }) => formatDateTime(cell.getValue()),
       },
       {
-        accessorFn: (row) => new Date(row.lastAnalyzed + "Z"),
+        accessorFn: (row) => new Date(row.lastAnalyzed),
         header: "Last Analyzed",
         id: "lastAnalyzed",
         filterVariant: "date-range",
@@ -244,7 +244,7 @@ export default function Uploads() {
         header: "Upload Origin",
         enableColumnFilter: false,
         enableResizing: false,
-        size: 200,
+        size: 180,
         Cell: ({ cell }) =>
           cell.getValue() !== null && <div>{cell.getValue() ? `Auto Upload` : "Manual Upload"}</div>,
       },
@@ -791,7 +791,7 @@ export default function Uploads() {
                 selectedJobs={selectedJobs}
               />
             )}
-            enableExpanding={false}
+            enableExpanding={true}
             isLoading={isLoading}
           />
         </TableContainer>
