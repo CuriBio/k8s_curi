@@ -127,9 +127,9 @@ async def get_info_of_uploads(
         is_user = account_type == "user"
 
         if is_user:
-            bind_threadlocal(user_id=None, customer_id=account_id, upload_ids=upload_ids)
-        else:
             bind_threadlocal(user_id=account_id, customer_id=token.get("customer_id"), upload_ids=upload_ids)
+        else:
+            bind_threadlocal(user_id=None, customer_id=account_id, upload_ids=upload_ids)
 
         # give advanced privileges to access all uploads under customer_id
         # TODO update this to product specific when landing page is specced out more
@@ -223,9 +223,9 @@ async def soft_delete_uploads(
         is_user = account_type == "user"
 
         if is_user:
-            bind_threadlocal(user_id=None, customer_id=account_id, upload_ids=upload_ids)
-        else:
             bind_threadlocal(user_id=account_id, customer_id=token.get("customer_id"), upload_ids=upload_ids)
+        else:
+            bind_threadlocal(user_id=None, customer_id=account_id, upload_ids=upload_ids)
 
         async with request.state.pgpool.acquire() as con:
             await delete_uploads(
@@ -253,9 +253,9 @@ async def download_zip_files(
     is_user = account_type == "user"
 
     if is_user:
-        bind_threadlocal(user_id=None, customer_id=account_id, upload_ids=upload_ids)
-    else:
         bind_threadlocal(user_id=account_id, customer_id=token.get("customer_id"), upload_ids=upload_ids)
+    else:
+        bind_threadlocal(user_id=None, customer_id=account_id, upload_ids=upload_ids)
 
     # give advanced privileges to access all uploads under customer_id
     if "mantarray:rw_all_data" in token["scope"]:
@@ -336,9 +336,9 @@ async def get_info_of_jobs(
         is_user = account_type == "user"
 
         if is_user:
-            bind_threadlocal(user_id=None, customer_id=user_id, job_ids=job_ids)
-        else:
             bind_threadlocal(user_id=user_id, customer_id=token.get("customer_id"), job_ids=job_ids)
+        else:
+            bind_threadlocal(user_id=None, customer_id=user_id, job_ids=job_ids)
 
         async with request.state.pgpool.acquire() as con:
             jobs = await _get_jobs(con, token, job_ids)
@@ -627,9 +627,9 @@ async def soft_delete_jobs(
         is_user = account_type == "user"
 
         if is_user:
-            bind_threadlocal(user_id=None, customer_id=account_id, job_ids=job_ids)
-        else:
             bind_threadlocal(user_id=account_id, customer_id=token.get("customer_id"), job_ids=job_ids)
+        else:
+            bind_threadlocal(user_id=None, customer_id=account_id, job_ids=job_ids)
 
         async with request.state.pgpool.acquire() as con:
             await delete_jobs(
@@ -657,9 +657,9 @@ async def download_analyses(
     is_user = account_type == "user"
 
     if is_user:
-        bind_threadlocal(user_id=None, customer_id=user_id, job_ids=job_ids)
-    else:
         bind_threadlocal(user_id=user_id, customer_id=token.get("customer_id"), job_ids=job_ids)
+    else:
+        bind_threadlocal(user_id=None, customer_id=user_id, job_ids=job_ids)
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -721,7 +721,8 @@ async def get_interactive_waveform_data(
     token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES)),
 ):
     account_id = str(uuid.UUID(token["userid"]))
-    customer_id = str(uuid.UUID(token["customer_id"]))
+    account_type = token["account_type"]
+    is_user = account_type == "user"
 
     if job_id is None or upload_id is None:
         raise HTTPException(
@@ -731,7 +732,12 @@ async def get_interactive_waveform_data(
     upload_id = str(upload_id)
     job_id = str(job_id)
 
-    bind_threadlocal(customer_id=customer_id, user_id=account_id, upload_id=upload_id, job_id=job_id)
+    if is_user:
+        bind_threadlocal(
+            customer_id=token.get("customer_id"), user_id=account_id, upload_id=upload_id, job_id=job_id
+        )
+    else:
+        bind_threadlocal(user_id=None, customer_id=account_id, upload_id=upload_id, job_id=job_id)
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -744,7 +750,7 @@ async def get_interactive_waveform_data(
         analysis_params = parsed_meta.get("analysis_params", {})
         pulse3d_version = parsed_meta.get("version")
 
-        if "mantarray:rw_all_data" not in token["scope"]:
+        if "mantarray:rw_all_data" not in token["scope"] and is_user:
             # only allow user to perform interactive analysis on another user's recording if special scope
             # customer id will be checked when attempting to locate file in s3 with customer id found in token
             if recording_owner_id != account_id:
