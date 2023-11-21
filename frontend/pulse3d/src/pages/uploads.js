@@ -109,9 +109,8 @@ const getSelectedUploads = (u) => {
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota, accountScope, productPage } = useContext(AuthContext);
-  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } = useContext(
-    UploadsContext
-  );
+  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } =
+    useContext(UploadsContext);
 
   const [jobs, setJobs] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
@@ -258,7 +257,7 @@ export default function Uploads() {
       const selected = selectedJobs[uploadId];
       const uploadIsSelected = uploadId in selectedUploads && selectedUploads[uploadId];
 
-      if (uploadJobs.length === selected.length && !uploadIsSelected) {
+      if (uploadJobs.length === selected.length && uploadJobs.length !== 0 && !uploadIsSelected) {
         // if all jobs are selected and the parent upload isn't, then auto selected the upload
         selectedUploads[uploadId] = true;
         setSelectedUploads({ ...selectedUploads });
