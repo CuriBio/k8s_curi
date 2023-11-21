@@ -123,6 +123,7 @@ export default function Users() {
         header: "Name",
         filterVariant: "autocomplete",
         size: 250,
+        minSize: 130,
       },
       {
         accessorKey: "email", //accessorKey used to define `data` column. `id` gets set to accessorKey automatically
@@ -130,6 +131,7 @@ export default function Users() {
         id: "email",
         header: "Email",
         size: 250,
+        minSize: 130,
       },
       {
         accessorKey: "scopes",
@@ -137,6 +139,7 @@ export default function Users() {
         filterVariant: "autocomplete",
         header: "Scopes",
         size: 250,
+        minSize: 130,
         Cell: ({ cell }) => (
           <Box component="div">
             {cell.getValue().map((s) => (
@@ -149,18 +152,20 @@ export default function Users() {
         accessorFn: (row) => new Date(row.createdAt),
         header: "Date Created",
         id: "createdAt",
-        filterVariant: "date",
+        filterVariant: "date-range",
         sortingFn: "datetime",
-        size: 230,
+        size: 275,
+        minSize: 275,
         Cell: ({ cell }) => formatDateTime(cell.getValue()),
       },
       {
         accessorFn: (row) => new Date(row.lastLogin),
         header: "Last Login",
         id: "lastLogin",
-        filterVariant: "date",
+        filterVariant: "date-range",
         sortingFn: "datetime",
-        size: 230,
+        size: 275,
+        minSize: 275,
         Cell: ({ cell }) => formatDateTime(cell.getValue()),
       },
       {
@@ -169,6 +174,7 @@ export default function Users() {
         filterVariant: "autocomplete",
         header: "Status",
         size: 200,
+        minSize: 130,
         Cell: ({ cell }) => getStatusDiv(cell),
       },
     ],

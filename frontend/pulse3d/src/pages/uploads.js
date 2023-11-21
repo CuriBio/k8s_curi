@@ -199,37 +199,42 @@ export default function Uploads() {
         header: "Owner",
         filterVariant: "autocomplete",
         size: 200,
+        minSize: 130,
       },
       {
         accessorKey: "name",
         id: "name",
         header: "Recording Name",
         filterVariant: "autocomplete",
-        size: 350,
+        size: 320,
+        minSize: 130,
       },
       {
         accessorKey: "id", //accessorKey used to define `data` column. `id` gets set to accessorKey automatically
         filterVariant: "autocomplete",
         id: "id",
         header: "Upload ID",
-        size: 350,
+        size: 320,
+        minSize: 130,
       },
       {
         accessorFn: (row) => new Date(row.createdAt),
         header: "Date Created",
         id: "createdAt",
-        filterVariant: "date",
+        filterVariant: "date-range",
         sortingFn: "datetime",
-        size: 230,
+        size: 275,
+        minSize: 275,
         Cell: ({ cell }) => formatDateTime(cell.getValue()),
       },
       {
-        accessorFn: (row) => new Date(row.lastAnalyzed),
+        accessorFn: (row) => new Date(row.lastAnalyzed + "Z"),
         header: "Last Analyzed",
         id: "lastAnalyzed",
-        filterVariant: "date",
+        filterVariant: "date-range",
         sortingFn: "datetime",
-        size: 230,
+        size: 275,
+        minSize: 275,
         Cell: ({ cell }) => formatDateTime(cell.getValue()),
       },
       {
@@ -237,6 +242,8 @@ export default function Uploads() {
         id: "autoUpload",
         filterVariant: "autocomplete",
         header: "Upload Origin",
+        enableColumnFilter: false,
+        enableResizing: false,
         size: 200,
         Cell: ({ cell }) =>
           cell.getValue() !== null && <div>{cell.getValue() ? `Auto Upload` : "Manual Upload"}</div>,
@@ -784,7 +791,7 @@ export default function Uploads() {
                 selectedJobs={selectedJobs}
               />
             )}
-            enableExpanding={true}
+            enableExpanding={false}
             isLoading={isLoading}
           />
         </TableContainer>

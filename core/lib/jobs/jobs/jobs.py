@@ -75,6 +75,7 @@ async def get_uploads(*, con, account_type, account_id, upload_ids=None):
     If an upload is marked as deleted, filter out it
     """
     query_params = [account_id]
+
     if account_type == "user":
         query = "SELECT * FROM uploads WHERE user_id=$1 AND deleted='f'"
     else:
