@@ -161,6 +161,10 @@ const isWaveformDataRequest = (url) => {
   return url.pathname.includes("/waveform-data");
 };
 
+const isPreferencesRequest = () => {
+  return url.pathname.includes("/preferences");
+};
+
 const modifyRequest = async (req, url) => {
   // setup new headers
   const headers = new Headers({
@@ -282,6 +286,8 @@ const interceptResponse = async (req, url) => {
     // these URLs will return usage_error in the body with a 200 response
     if (USAGE_URLS.includes(url.pathname) && req.method === "POST" && response.status == 200) {
       await setUsageQuota(response.clone());
+    } else if (USAGE_URLS.includes(url.pathname) && req.method === "POST" && response.status == 200) {
+      await setUserPreferences(response.clone());
     } else if (url.pathname.includes("logout")) {
       // just clear account info if user purposefully logs out
       clearAccountInfo();
@@ -407,6 +413,7 @@ self.onmessage = async ({ data, source }) => {
       usageQuota: await getUsageQuota(),
       userScopes: await getAvailableScopes("user_scopes"),
       customerScopes: await getAvailableScopes("customer_scopes"),
+      preferences: await getUserPreferences(),
     };
   } else if (msgType === "stayAlive") {
     // TODO should have this do something else so that there isn't a log msg produced every 20 seconds

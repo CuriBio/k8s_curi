@@ -889,19 +889,21 @@ async def update_user_scopes(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# @app.get("/preferences")
-# async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))):
-#     """Get info for all the users under the given customer account.
+@app.get("/preferences")
+async def get_all_users(request: Request, token=Depends(ProtectedAny(PULSE3D_USER_SCOPES))):
+    """Get preferences for user."""
+    user_id = uuid.UUID(token["userid"])
+    customer_id = uuid.UUID(token["customer_id"])
+    bind_threadlocal(customer_id=str(customer_id), user_id=str(user_id))
 
-#     List of users returned will be sorted with all active users showing up first, then all the suspended (deactivated) users
-#     """
-#     customer_id = uuid.UUID(hex=token["userid"])
+    try:
+        async with request.state.pgpool.acquire() as con:
+            query = "SELECT preferences FROM users WHERE id=$1"
+            return await con.execute(query, user_id)
 
-#     bind_threadlocal(customer_id=str(customer_id), user_id=None)
-
-#     except Exception:
-#         logger.exception("GET /: Unexpected error")
-#         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception:
+        logger.exception("GET /: Unexpected error")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @app.put("/preferences", status_code=status.HTTP_204_NO_CONTENT)
@@ -920,15 +922,8 @@ async def update_user_preferences(
 
     try:
         async with request.state.pgpool.acquire() as con:
-            print(details.product, json.dumps(details.changes))
-            print(
-                "UPDATE users SET preferences=jsonb_set(preferences, '{{}}', {}) WHERE id={}",
-                details.product,
-                json.dumps(details.changes),
-                user_id,
-            )
-            query = "UPDATE users SET preferences=jsonb_set(preferences, '{$1}', $2) WHERE id=$3"
-            await con.execute(query, details.product, json.dumps(details.changes), user_id)
+            query = "UPDATE users SET preferences=jsonb_set(preferences, $1, $2) WHERE id=$3"
+            await con.execute(query, {details.product}, json.dumps(details.changes), user_id)
 
     except Exception:
         logger.exception(f"PUT /preferences: Unexpected error")
