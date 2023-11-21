@@ -4,6 +4,30 @@ import { MaterialReactTable, useMaterialReactTable } from "material-react-table"
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 
+const getHeaderSx = (showColumnFilters) => {
+  const commonStyle = { borderBottom: "1px solid var(--dark-gray)", padding: "1rem" };
+  const commonSvgRoot = { paddingBottom: "3px", fontSize: 24 };
+  const commonSortLabel = { fontSize: 24, paddingTop: "3px" };
+
+  return showColumnFilters
+    ? {
+        ...commonStyle,
+        background: "white",
+        color: "black",
+        "& .MuiSvgIcon-root": commonSvgRoot,
+        "& .MuiTableSortLabel-icon": commonSortLabel,
+        "& .MuiFormControl-root": { minWidth: "80px" },
+      }
+    : {
+        ...commonStyle,
+        background: "var(--dark-blue)",
+        color: "white",
+        "& .MuiSvgIcon-root": { ...commonSvgRoot, fill: "white" },
+        "& .MuiTableSortLabel-icon": { ...commonSortLabel, fill: "white" },
+        "& .MuiDivider-root": { borderColor: "white", borderWidth: "1px" },
+      };
+};
+
 export default function Table({
   columns = [],
   rowData = [],
@@ -28,14 +52,14 @@ export default function Table({
     data: rowData,
     enableColumnFilterModes: false,
     enableColumnResizing: true,
-    enableRowSelection: enableRowSelection,
-    enableStickyHeader: enableStickyHeader,
-    enableTopToolbar: enableTopToolbar,
-    enablePagination: enablePagination,
-    enableSelectAll: enableSelectAll,
+    enableRowSelection,
+    enableStickyHeader,
+    enableTopToolbar,
+    enablePagination,
+    enableSelectAll,
     selectAllMode: "all",
     initialState: {
-      showColumnFilters: showColumnFilters,
+      showColumnFilters,
       sorting: [
         {
           id: defaultSortColumn,
@@ -44,10 +68,21 @@ export default function Table({
       ],
     },
     muiTableProps: {
-      sx: { cursor: "default" },
+      sx: {
+        cursor: "default",
+        "& .Mui-TableBodyCell-DetailPanel": {
+          maxWidth: 1500,
+        },
+      },
     },
     muiTablePaperProps: {
-      sx: { background: "var(--dark-blue)" },
+      sx: {
+        background: "var(--dark-blue)",
+        // don't set it at all if pagination because it will mess up for all box css components that have varying heights
+        "& .MuiBox-root": !enablePagination && {
+          minHeight: 0,
+        },
+      },
     },
     muiTableContainerProps: {
       sx: { background: "var(--med-gray)" },
@@ -62,11 +97,7 @@ export default function Table({
       },
     },
     muiTableHeadCellProps: {
-      sx: {
-        borderBottom: "1px solid var(--dark-gray)",
-        background: showColumnFilters ? "white" : "var(--dark-blue)",
-        color: showColumnFilters ? "black" : "white",
-      },
+      sx: getHeaderSx(showColumnFilters),
     },
     muiTableBodyCellProps: {
       sx: { whiteSpace: "nowrap" },
@@ -74,14 +105,13 @@ export default function Table({
     muiPaginationProps: {
       color: "secondary",
       rowsPerPageOptions: [10, 30, 50, 100],
-      shape: "rounded",
       variant: "outlined",
     },
     onRowSelectionChange: setRowSelection, // returns {[id]: true, [id2]: true, ...}
     renderDetailPanel: subTableFn ? ({ row }) => subTableFn(row) : null,
     renderTopToolbar: toolbarFn ? ({ table }) => toolbarFn(table) : null,
     state: { rowSelection, isLoading, density: "compact", columnVisibility }, // rowSelection can be {[id]: true, [id2]: false, [id3]: true, ... }
-    enableExpanding: enableExpanding,
+    enableExpanding,
     muiCircularProgressProps: { size: 100 },
     getRowId: getRowId,
   });
