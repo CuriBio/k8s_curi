@@ -67,6 +67,7 @@ def test_get_fw_download_url__generates_and_returns_presigned_using_the_params_g
 
 
 def test_get_previous_sw_version__returns_correct_version_when_a_previous_version_exists():
+    assert versions._get_previous_sw_version(["1.0.11", "1.1.0", "1.1.1", "11.0.0"], "11.0.0") == "1.1.1"
     assert versions._get_previous_sw_version(["1.0.11", "1.1.0", "1.1.1", "11.0.0"], "2.0.0") == "1.1.1"
 
 
@@ -105,8 +106,8 @@ def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_o
     version_bounds = versions.get_required_sw_version_range(
         main_fw_compatibility[test_idx]["main_fw_version"], _shuffled_copy(main_fw_compatibility)
     )
-    assert version_bounds["max_sw"] == f"{mocked_prev_versions[0]}-pre.0"
-    assert version_bounds["max_sting_sw"] == f"{mocked_prev_versions[1]}-pre.0"
+    assert version_bounds["max_sw"] == str(mocked_prev_versions[0])
+    assert version_bounds["max_sting_sw"] == str(mocked_prev_versions[1])
 
     assert mocked_get_prev.call_args_list == [
         mocker.call(mocker.ANY, main_fw_compatibility[test_idx + 1]["min_ma_controller_version"]),
@@ -134,8 +135,8 @@ def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_n
     version_bounds = versions.get_required_sw_version_range(
         main_fw_compatibility[test_idx]["main_fw_version"], _shuffled_copy(main_fw_compatibility)
     )
-    assert version_bounds["max_sw"] == f"{mocked_prev_versions[0]}-pre.0"
-    assert version_bounds["max_sting_sw"] == f"{mocked_prev_versions[1]}-pre.0"
+    assert version_bounds["max_sw"] == str(mocked_prev_versions[0])
+    assert version_bounds["max_sting_sw"] == str(mocked_prev_versions[1])
 
     assert mocked_get_prev.call_args_list == [
         mocker.call(mocker.ANY, main_fw_compatibility[test_idx + 2]["min_ma_controller_version"]),
@@ -154,8 +155,8 @@ def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_o
     version_bounds = versions.get_required_sw_version_range(
         expected_versions["main_fw_version"], _shuffled_copy(main_fw_compatibility)
     )
-    assert version_bounds["max_sw"] == f"{expected_versions['min_ma_controller_version']}-pre.0"
-    assert version_bounds["max_sting_sw"] == f"{expected_versions['min_sting_controller_version']}-pre.0"
+    assert version_bounds["max_sw"] == expected_versions["min_ma_controller_version"]
+    assert version_bounds["max_sting_sw"] == expected_versions["min_sting_controller_version"]
 
     mocked_get_prev.assert_not_called()
 

@@ -50,7 +50,7 @@ def get_required_sw_version_range(main_fw_version: str, main_fw_compatibility: l
             max_sw_version = _get_previous_sw_version(all_sw_versions, min_sw_version_of_next_main_fw)
 
         version_bounds.update(
-            {f"min_{sw_type}": f"{min_sw_version}-pre.0", f"max_{sw_type}": f"{max_sw_version}-pre.0"}
+            {f"min_{sw_type}": f"{min_sw_version}-pre.0", f"max_{sw_type}": f"{max_sw_version}"}
         )
 
     return version_bounds
