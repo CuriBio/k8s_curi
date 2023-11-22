@@ -57,11 +57,6 @@ const isRequest = (url, pathname) => {
 };
 
 /* SETTERS */
-const setAvailableScopes = async (res) => {
-  const swCache = await caches.open(cacheName);
-  await swCache.put("availableScopes", res.clone());
-};
-
 const setTokens = async ({ refresh }, res) => {
   const swCache = await caches.open(cacheName);
   await swCache.put("tokens", res.clone());
@@ -79,14 +74,9 @@ const setTokens = async ({ refresh }, res) => {
   logoutTimer = setTimeout(tokensExpiredLogout, millisBeforeLogOut);
 };
 
-const setUsageQuota = async (res) => {
+const cacheResponse = async (res, name) => {
   const swCache = await caches.open(cacheName);
-  await swCache.put("usage", res.clone());
-};
-
-const setUserPreferences = async (res) => {
-  const swCache = await caches.open(cacheName);
-  await swCache.put("preferences", res.clone());
+  await swCache.put(name, res.clone());
 };
 
 /* GETTERS */
@@ -262,10 +252,10 @@ const interceptResponse = async (req, url) => {
     if (response.status === 200) {
       // these three need to remain independent cache items even though they use the same response because they get updated from different requests later
       // sending usage at login, is separate from auth check request because it's not needed as often
-      await setUsageQuota(responseClone);
+      await cacheResponse(responseClone, "usage");
       // set tokens if login was successful
       await setTokens(data.tokens, responseClone);
-      await setAvailableScopes(responseClone);
+      await cacheResponse(responseClone, "availableScopes");
 
       // remove tokens after
       data = {};
@@ -282,9 +272,9 @@ const interceptResponse = async (req, url) => {
 
     // these URLs will return usage_error in the body with a 200 response
     if (USAGE_URLS.includes(url.pathname) && req.method === "POST" && response.status == 200) {
-      await setUsageQuota(response.clone());
+      await cacheResponse(response.clone(), "usage");
     } else if (isRequest(url, "/preferences") && response.status == 200) {
-      await setUserPreferences(response.clone());
+      await cacheResponse(response.clone(), "preferences");
     } else if (isRequest(url, "/logout")) {
       // just clear account info if user purposefully logs out
       clearAccountInfo();
