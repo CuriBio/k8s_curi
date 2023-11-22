@@ -31,6 +31,65 @@ console.log = function () {
   originalLog(...[`[SW @ ${time}]`, ...arguments]);
 };
 
+let logoutTimer = null;
+
+const clearAccountInfo = async () => {
+  await caches.delete(cacheName);
+  clearTimeout(logoutTimer);
+
+  // TODO change all console.log to console.debug and figure out how to enable debug logging
+  console.log("account info cleared");
+};
+
+const tokensExpiredLogout = () => {
+  console.log("Sending logout ping because tokens expired");
+  sendLogoutMsg();
+};
+
+const sendLogoutMsg = () => {
+  clearAccountInfo();
+  ClientSource.postMessage({ msgType: "logout" });
+  console.log("logout ping sent");
+};
+
+const isRequest = (url, pathname) => {
+  return url.pathname.includes(pathname);
+};
+
+/* SETTERS */
+const setAvailableScopes = async (res) => {
+  const swCache = await caches.open(cacheName);
+  await swCache.put("availableScopes", res.clone());
+};
+
+const setTokens = async ({ refresh }, res) => {
+  const swCache = await caches.open(cacheName);
+  await swCache.put("tokens", res.clone());
+
+  // clear old logout timer if one already exists
+  if (logoutTimer) {
+    clearTimeout(logoutTimer);
+  }
+
+  // set up new logout timer
+  const expTime = new Date(jwtDecode(refresh.token).exp * 1000);
+  const currentTime = new Date().getTime();
+  const millisBeforeLogOut = expTime - currentTime;
+
+  logoutTimer = setTimeout(tokensExpiredLogout, millisBeforeLogOut);
+};
+
+const setUsageQuota = async (res) => {
+  const swCache = await caches.open(cacheName);
+  await swCache.put("usage", res.clone());
+};
+
+const setUserPreferences = async (res) => {
+  const swCache = await caches.open(cacheName);
+  await swCache.put("preferences", res.clone());
+};
+
+/* GETTERS */
 const getAuthTokens = async () => {
   const swCache = await caches.open(cacheName);
   const authTokensRes = await swCache.match("tokens");
@@ -77,51 +136,6 @@ const getValueFromToken = async (name) => {
   return value;
 };
 
-let logoutTimer = null;
-
-const setAvailableScopes = async (res) => {
-  const swCache = await caches.open(cacheName);
-  await swCache.put("availableScopes", res.clone());
-};
-
-const setTokens = async ({ refresh }, res) => {
-  const swCache = await caches.open(cacheName);
-  await swCache.put("tokens", res.clone());
-
-  // clear old logout timer if one already exists
-  if (logoutTimer) {
-    clearTimeout(logoutTimer);
-  }
-
-  // set up new logout timer
-  const expTime = new Date(jwtDecode(refresh.token).exp * 1000);
-  const currentTime = new Date().getTime();
-  const millisBeforeLogOut = expTime - currentTime;
-
-  logoutTimer = setTimeout(tokensExpiredLogout, millisBeforeLogOut);
-};
-
-const tokensExpiredLogout = () => {
-  console.log("Sending logout ping because tokens expired");
-  sendLogoutMsg();
-};
-
-const sendLogoutMsg = () => {
-  clearAccountInfo();
-  ClientSource.postMessage({ msgType: "logout" });
-  console.log("logout ping sent");
-};
-
-const setUsageQuota = async (res) => {
-  const swCache = await caches.open(cacheName);
-  await swCache.put("usage", res.clone());
-};
-
-const setUserPreferences = async (res) => {
-  const swCache = await caches.open(cacheName);
-  await swCache.put("preferences", res.clone());
-};
-
 const getUsageQuota = async () => {
   const swCache = await caches.open(cacheName);
   const usageRes = await swCache.match("usage");
@@ -146,36 +160,7 @@ const getUserPreferences = async () => {
   return res ? await res.json() : {};
 };
 
-const clearAccountInfo = async () => {
-  await caches.delete(cacheName);
-  clearTimeout(logoutTimer);
-
-  // TODO change all console.log to console.debug and figure out how to enable debug logging
-  console.log("account info cleared");
-};
-
 /* Request intercept functions */
-
-const isLoginRequest = (url) => {
-  return url.pathname.includes("/login");
-};
-
-const isUpdateRequest = (url) => {
-  return url.pathname.includes("/account");
-};
-
-const isEmailRequest = (url) => {
-  return url.pathname.includes("/email");
-};
-
-const isWaveformDataRequest = (url) => {
-  return url.pathname.includes("/waveform-data");
-};
-
-const isPreferencesRequest = (url) => {
-  return url.pathname.includes("/preferences");
-};
-
 const modifyRequest = async (req, url) => {
   // setup new headers
   const headers = new Headers({
@@ -184,7 +169,7 @@ const modifyRequest = async (req, url) => {
   });
 
   const cachedTokens = await getAuthTokens();
-  if (!isLoginRequest(url) && cachedTokens.access !== null) {
+  if (!isRequest(url, "/login") && cachedTokens.access !== null) {
     // login request does not require the Authorization header,
     // and if there are no tokens that should mean that no account is logged in
     // and the request should fail with 403
@@ -267,7 +252,7 @@ const requestWithRefresh = async (req, url) => {
 };
 
 const interceptResponse = async (req, url) => {
-  if (isLoginRequest(url)) {
+  if (isRequest(url, "/login")) {
     const modifiedReq = await modifyRequest(req, url);
     const response = await fetch(modifiedReq);
 
@@ -298,9 +283,9 @@ const interceptResponse = async (req, url) => {
     // these URLs will return usage_error in the body with a 200 response
     if (USAGE_URLS.includes(url.pathname) && req.method === "POST" && response.status == 200) {
       await setUsageQuota(response.clone());
-    } else if (isPreferencesRequest(url) && response.status == 200) {
+    } else if (isRequest(url, "/preferences") && response.status == 200) {
       await setUserPreferences(response.clone());
-    } else if (url.pathname.includes("logout")) {
+    } else if (isRequest(url, "/logout")) {
       // just clear account info if user purposefully logs out
       clearAccountInfo();
     } else if (response.status === 401 || response.status === 403) {
@@ -364,8 +349,8 @@ self.addEventListener("fetch", async (e) => {
     (e.request.url.includes(USERS_URL) ||
       e.request.url.includes(PULSE3D_URL) ||
       e.request.url.includes(MANTARRAY_URL)) &&
-    !isEmailRequest(destURL) && // this request doesn't depend on a token
-    !isUpdateRequest(destURL) // we don't need to intercept verify request because it's handling own token
+    !isRequest(destURL, "/email") && // this request doesn't depend on a token
+    !isRequest(destURL, "/account") // we don't need to intercept verify request because it's handling own token
   ) {
     // only intercept requests to pulse3d, user and mantarray APIs
     e.respondWith(
@@ -373,7 +358,7 @@ self.addEventListener("fetch", async (e) => {
         // Go to the cache first
         const cachedResponse = await cache.match(e.request.url);
         // For now, only return cached responses for waveform data requests
-        if (cachedResponse && isWaveformDataRequest(destURL)) {
+        if (cachedResponse && isRequest(destURL, "/waveform-data")) {
           console.log(`Returning cached response for ${destURL}`);
           return cachedResponse;
         }
@@ -382,7 +367,7 @@ self.addEventListener("fetch", async (e) => {
 
         // before returning response, check if you need to preload other wells
         // this needs to go after interceptResponse so that the initial A1 data gets returned first and not blocked by other requests
-        if (isWaveformDataRequest(destURL)) {
+        if (isRequest(destURL, "/waveform-data")) {
           const fetchedData = await getWaveformDataFromS3(response);
           response = new Response(JSON.stringify(fetchedData), {
             status: response.status,
