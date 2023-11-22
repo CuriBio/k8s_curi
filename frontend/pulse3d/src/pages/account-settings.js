@@ -77,7 +77,7 @@ const ButtonContainer = styled.div`
 `;
 
 export default function AccountSettings() {
-  const { accountType, usageQuota, accountId, productPage } = useContext(AuthContext);
+  const { accountType, usageQuota, accountId, productPage, preferences } = useContext(AuthContext);
   const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
   const [jobsLimit, setJobsLimit] = useState(-1);
   const [currentJobUsage, setCurrentJobUsage] = useState(0);
@@ -107,11 +107,17 @@ export default function AccountSettings() {
   }, [usageQuota]);
 
   useEffect(() => {
+    if (productPage in preferences && "version" in preferences[productPage] && pulse3dVersions.length > 0) {
+      setUserPreferences({ version: pulse3dVersions.indexOf(preferences[productPage].version) });
+    }
+  }, [preferences, pulse3dVersions, productPage]);
+
+  useEffect(() => {
     if (pulse3dVersions) {
       const options = pulse3dVersions.map((version) => {
-        const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
-        return selectedVersionMeta[0] && ["testing", "deprecated"].includes(selectedVersionMeta[0].state)
-          ? version + `  [ ${selectedVersionMeta[0].state} ]`
+        const selectedVersionMeta = metaPulse3dVersions.find((meta) => meta.version === version);
+        return selectedVersionMeta && ["testing", "deprecated"].includes(selectedVersionMeta.state)
+          ? version + `  [ ${selectedVersionMeta.state} ]`
           : version;
       });
 
@@ -127,7 +133,7 @@ export default function AccountSettings() {
     try {
       setInProgress(true);
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/preferences`, {
+      await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/preferences`, {
         method: "PUT",
         body: JSON.stringify({
           product: productPage,
@@ -170,7 +176,9 @@ export default function AccountSettings() {
                 position="relative"
                 borderRadius="3px"
                 label="Save"
+                backgroundColor={inProgress ? "var(--dark-gray)" : "var(--dark-blue)"}
                 inProgress={inProgress}
+                disabled={inProgress}
                 clickFn={savePreferences}
               />
             </ButtonContainer>

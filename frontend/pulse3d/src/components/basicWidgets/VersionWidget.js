@@ -11,10 +11,9 @@ const DropDownContainer = styled.div`
   border-radius: 5px;
 `;
 
-export default function VersionWidget() {
+export default function VersionWidget({ selectedP3dVersion, setSelectedP3dVersion }) {
   const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
   const [pulse3dVersionOptions, setPulse3dVersionOptions] = useState([]);
-  const [selectedP3dVersion, setSelectedP3dVersion] = useState(0);
 
   useEffect(() => {
     if (pulse3dVersions) {

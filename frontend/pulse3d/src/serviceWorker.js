@@ -114,7 +114,12 @@ const sendLogoutMsg = () => {
 
 const setUsageQuota = async (res) => {
   const swCache = await caches.open(cacheName);
-  await swCache.put("usage", res.clone()); // setTokens uses same response so needs to be cloned again
+  await swCache.put("usage", res.clone());
+};
+
+const setUserPreferences = async (res) => {
+  const swCache = await caches.open(cacheName);
+  await swCache.put("preferences", res.clone());
 };
 
 const getUsageQuota = async () => {
@@ -133,6 +138,12 @@ const getUsageQuota = async () => {
   }
 
   return usage;
+};
+
+const getUserPreferences = async () => {
+  const swCache = await caches.open(cacheName);
+  const res = await swCache.match("preferences");
+  return res ? await res.json() : {};
 };
 
 const clearAccountInfo = async () => {
@@ -161,7 +172,7 @@ const isWaveformDataRequest = (url) => {
   return url.pathname.includes("/waveform-data");
 };
 
-const isPreferencesRequest = () => {
+const isPreferencesRequest = (url) => {
   return url.pathname.includes("/preferences");
 };
 
@@ -270,6 +281,7 @@ const interceptResponse = async (req, url) => {
       // set tokens if login was successful
       await setTokens(data.tokens, responseClone);
       await setAvailableScopes(responseClone);
+
       // remove tokens after
       data = {};
     }
@@ -286,7 +298,7 @@ const interceptResponse = async (req, url) => {
     // these URLs will return usage_error in the body with a 200 response
     if (USAGE_URLS.includes(url.pathname) && req.method === "POST" && response.status == 200) {
       await setUsageQuota(response.clone());
-    } else if (USAGE_URLS.includes(url.pathname) && req.method === "POST" && response.status == 200) {
+    } else if (isPreferencesRequest(url) && response.status == 200) {
       await setUserPreferences(response.clone());
     } else if (url.pathname.includes("logout")) {
       // just clear account info if user purposefully logs out

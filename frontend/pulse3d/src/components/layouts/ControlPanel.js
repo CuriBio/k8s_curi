@@ -10,6 +10,7 @@ import MuiAccordionDetails from "@mui/material/AccordionDetails";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import { styled as muiStyled } from "@mui/material/styles";
 import VersionWidget from "@/components/basicWidgets/VersionWidget";
+import { UploadsContext } from "@/components/layouts/DashboardLayout";
 
 const Container = styled.div`
   height: inherit;
@@ -130,12 +131,16 @@ const modalObjs = {
 
 export default function ControlPanel() {
   const router = useRouter();
+  const { accountType, usageQuota, accountScope, isCuriAdmin, preferences, productPage } = useContext(
+    AuthContext
+  );
+  const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
   const [selected, setSelected] = useState(router.pathname.replace("-", " ").replace("/", ""));
   const [expanded, setExpanded] = useState(null);
-  const { accountType, usageQuota, accountScope, isCuriAdmin } = useContext(AuthContext);
   const [modalState, setModalState] = useState(false);
   const [modalLabels, setModalLabels] = useState({ header: "", messages: [] });
-  const [deprecationModalState, setDeprecationModalState] = useState(true);
+  const [deprecationModalState, setDeprecationModalState] = useState(false);
+  const [selectedP3dVersion, setSelectedP3dVersion] = useState(0);
 
   const userButtons = [
     { label: "Uploads", disabled: false, page: "/uploads", options: [] },
@@ -213,6 +218,12 @@ export default function ControlPanel() {
   }, [router]);
 
   useEffect(() => {
+    if (productPage in preferences && "version" in preferences[productPage] && pulse3dVersions.length > 0) {
+      checkVersionDeprecation();
+    }
+  }, [pulse3dVersions]);
+
+  useEffect(() => {
     if (usageQuota) {
       // the query param is the only way to check if a user has just logged in versus refreshing the page
       const userJustLoggedIn = router.query.checkUsage && router.pathname === "/uploads";
@@ -236,8 +247,29 @@ export default function ControlPanel() {
     }
   }, [usageQuota]);
 
-  const handleDeprecationClose = (e) => {
-    setDeprecationModalState(false);
+  const handleDeprecationClose = async (_) => {
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/preferences`, {
+        method: "PUT",
+        body: JSON.stringify({
+          product: productPage,
+          changes: { version: pulse3dVersions[selectedP3dVersion] },
+        }),
+      });
+      setDeprecationModalState(false);
+    } catch (e) {
+      console.log("ERROR updating user preferences");
+    }
+  };
+
+  const checkVersionDeprecation = () => {
+    const selectedVersionMeta = metaPulse3dVersions.find(
+      (m) => preferences[productPage].version === m.version
+    );
+    // deprecated versions are filtered out in DashboardLayout
+    if (!selectedVersionMeta) {
+      setDeprecationModalState(true);
+    }
   };
 
   return (
@@ -311,10 +343,14 @@ export default function ControlPanel() {
         open={deprecationModalState}
         labels={modalObjs.deprecationWarning.messages}
         closeModal={handleDeprecationClose}
+        buttons={["Save"]}
         header={modalObjs.deprecationWarning.header}
       >
         <VersionContainer>
-          <VersionWidget />
+          <VersionWidget
+            selectedP3dVersion={selectedP3dVersion}
+            setSelectedP3dVersion={setSelectedP3dVersion}
+          />
         </VersionContainer>
       </ModalWidget>
     </>

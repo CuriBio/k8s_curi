@@ -890,31 +890,29 @@ async def update_user_scopes(
 
 
 @app.get("/preferences")
-async def get_all_users(request: Request, token=Depends(ProtectedAny(PULSE3D_USER_SCOPES))):
+async def get_user_preferences(request: Request, token=Depends(ProtectedAny(PULSE3D_USER_SCOPES))):
     """Get preferences for user."""
     user_id = uuid.UUID(token["userid"])
-    customer_id = uuid.UUID(token["customer_id"])
-    bind_threadlocal(customer_id=str(customer_id), user_id=str(user_id))
+    bind_threadlocal(customer_id=token["customer_id"], user_id=str(user_id))
 
     try:
         async with request.state.pgpool.acquire() as con:
             query = "SELECT preferences FROM users WHERE id=$1"
-            return await con.execute(query, user_id)
-
+            row = await con.fetchrow(query, user_id)
+            return json.loads(row["preferences"])
     except Exception:
         logger.exception("GET /: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.put("/preferences", status_code=status.HTTP_204_NO_CONTENT)
+@app.put("/preferences")
 async def update_user_preferences(
     request: Request, details: PreferencesUpdate, token=Depends(ProtectedAny(PULSE3D_USER_SCOPES))
 ):
     """Update a user's product preferences."""
     user_id = uuid.UUID(token["userid"])
-    customer_id = uuid.UUID(token["customer_id"])
     bind_threadlocal(
-        customer_id=str(customer_id),
+        customer_id=token["customer_id"],
         user_id=str(user_id),
         product=details.product,
         preferences=details.changes,
@@ -922,11 +920,12 @@ async def update_user_preferences(
 
     try:
         async with request.state.pgpool.acquire() as con:
-            query = "UPDATE users SET preferences=jsonb_set(preferences, $1, $2) WHERE id=$3"
-            await con.execute(query, {details.product}, json.dumps(details.changes), user_id)
-
+            query = "UPDATE users SET preferences=jsonb_set(preferences, $1, $2) WHERE id=$3 RETURNING preferences"
+            row = await con.fetchrow(query, {details.product}, json.dumps(details.changes), user_id)
+            # return new preferences because service worker caches both GET and POST so return value needs to be the same format
+            return json.loads(row["preferences"])
     except Exception:
-        logger.exception(f"PUT /preferences: Unexpected error")
+        logger.exception("PUT /preferences: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
