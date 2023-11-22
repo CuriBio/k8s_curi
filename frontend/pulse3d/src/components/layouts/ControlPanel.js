@@ -125,15 +125,14 @@ const modalObjs = {
   },
   deprecationWarning: {
     header: "Action Required!",
-    messages: ["Your preferred Pulse3D version will be deprecated soon.", "Please select another version:"],
+    messages: ["Your preferred Pulse3D version is now deprecated.", "Please select another version:"],
   },
 };
 
 export default function ControlPanel() {
   const router = useRouter();
-  const { accountType, usageQuota, accountScope, isCuriAdmin, preferences, productPage } = useContext(
-    AuthContext
-  );
+  const { accountType, usageQuota, accountScope, isCuriAdmin, preferences, productPage } =
+    useContext(AuthContext);
   const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
   const [selected, setSelected] = useState(router.pathname.replace("-", " ").replace("/", ""));
   const [expanded, setExpanded] = useState(null);
