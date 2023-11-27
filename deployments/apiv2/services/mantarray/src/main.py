@@ -1,5 +1,6 @@
 import time
 
+from asyncpg.exceptions import UniqueViolationError
 from fastapi import Depends, FastAPI, Path, Request, status, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -338,6 +339,8 @@ async def add_software_version(
     try:
         async with request.state.pgpool.acquire() as con:
             await con.execute(query, version)
+    except UniqueViolationError:
+        pass  # TODO comment
     except Exception:
         err_msg = f"Error adding {controller} controller v{version} to DB"
         logger.exception(err_msg)
