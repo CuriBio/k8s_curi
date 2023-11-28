@@ -107,6 +107,7 @@ export default function Table({
       rowsPerPageOptions: [10, 30, 50, 100],
       variant: "outlined",
     },
+    autoResetPageIndex: false,
     onRowSelectionChange: setRowSelection, // returns {[id]: true, [id2]: true, ...}
     renderDetailPanel: subTableFn ? ({ row }) => subTableFn(row) : null,
     renderTopToolbar: toolbarFn ? ({ table }) => toolbarFn(table) : null,
