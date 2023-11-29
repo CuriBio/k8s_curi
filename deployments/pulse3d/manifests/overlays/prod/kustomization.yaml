@@ -18,7 +18,7 @@ patches:
   - patch: |-
       - op: add
         path: /spec/template/spec/containers/0/image
-        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d_api:0.8.11"
+        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/pulse3d_api:0.8.12"
       - op: replace
         path: /spec/template/spec/containers/0/env/5/value
         value: prod-pulse3d-uploads
