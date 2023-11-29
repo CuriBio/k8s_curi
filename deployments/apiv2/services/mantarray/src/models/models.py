@@ -34,8 +34,8 @@ class MantarrayUnitsResponse(BaseModel):
 
 
 class FirmwareInfoResponse(BaseModel):
-    main_fw_info: list[dict[str, str]]
-    channel_fw_info: list[dict[str, str]]
+    main_fw_info: list[dict[str, Any]]
+    channel_fw_info: list[dict[str, Any]]
 
 
 class FirmwareUploadResponse(BaseModel):

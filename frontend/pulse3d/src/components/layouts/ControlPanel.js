@@ -161,7 +161,11 @@ export default function ControlPanel() {
 
   const panelButtons = accountType === "admin" ? adminButtons : userButtons;
   const productionConsoleOptions = [];
-  const mantarrayProductionScopes = ["mantarray:serial_number:edit", "mantarray:firmware:edit"];
+  const mantarrayProductionScopes = [
+    "mantarray:serial_number:edit",
+    "mantarray:firmware:edit",
+    "mantarray:firmware:info",
+  ];
 
   if (accountScope) {
     // will have other pages that will be conditionally available depending on scope in the future
