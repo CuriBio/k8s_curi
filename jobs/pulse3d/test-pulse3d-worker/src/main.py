@@ -8,12 +8,12 @@ import asyncpg
 import boto3
 import pkg_resources
 import polars as pl
-import pulse3D.metrics as metrics
-import pulse3D.peak_finding as peak_finder
-import pulse3D.rendering as renderer
 import structlog
 from jobs import EmptyQueue, get_item
 from mantarray_magnet_finding.exceptions import UnableToConvergeError
+from pulse3D import metrics
+from pulse3D import peak_finding as peak_finder
+from pulse3D import rendering as renderer
 from pulse3D.data_loader import MantarrayBeta1Metadata, MantarrayBeta2Metadata, from_file
 from pulse3D.pre_analysis import PreAnalyzedData, process
 from pulse3D.rendering import OutputFormats
@@ -39,13 +39,13 @@ PULSE3D_VERSION = pkg_resources.get_distribution("pulse3D").version
 
 
 # needs to be prefixed so that the queue processor doesn't pick it up
-@get_item(queue="test-pulse3d-v1.0.0rc6")
+@get_item(queue="test-pulse3d-v1.0.0rc7")
 async def process_item(con, item):
     # keeping initial log without bound variables
     logger.info(f"Processing item: {item}")
 
     s3_client = boto3.client("s3")
-    job_metadata = {"processed_by": "1.0.0rc6"}
+    job_metadata = {"processed_by": "1.0.0rc7"}
     outfile_key = None
 
     try:

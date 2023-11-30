@@ -114,8 +114,8 @@ async def create_job(version: str, num_of_workers: int):
         # Create container
         logger.info(f"Starting rewrite pulse3d worker: test-{formatted_name}")
         rewrite_container = kclient.V1Container(
-            name=f"test-{formatted_name}",
-            image=f"{ECR_REPO}:1.0.0rc6",
+            name=f"test-{QUEUE}-worker-v1-0-0rc7--{count}--{worker_id}",
+            image=f"{ECR_REPO}:1.0.0rc7",
             env=[POSTGRES_PASSWORD, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET],
             image_pull_policy="Always",
             resources=resources,
@@ -137,8 +137,8 @@ async def create_job(version: str, num_of_workers: int):
             api_version="batch/v1",
             kind="Job",
             metadata=kclient.V1ObjectMeta(
-                name=f"test-{formatted_name}",
-                labels={"job_version": "1.0.0rc6"},
+                name=f"test-{QUEUE}-worker-v1-0-0rc7--{count}--{worker_id}",
+                labels={"job_version": "1.0.0rc7"},
                 owner_references=[
                     kclient.V1OwnerReference(
                         api_version="v1",
