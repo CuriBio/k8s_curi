@@ -1,11 +1,11 @@
 import styled from "styled-components";
 import { useEffect, useState, useContext } from "react";
-import DropDownWidget from "../basicWidgets/DropDownWidget";
+import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import WaveformGraph from "./InteractiveWaveformGraph";
 import { deepCopy } from "@/utils/generic";
-import CircularSpinner from "../basicWidgets/CircularSpinner";
-import ButtonWidget from "../basicWidgets/ButtonWidget";
-import ModalWidget from "../basicWidgets/ModalWidget";
+import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
+import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
+import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import { UploadsContext } from "@/components/layouts/DashboardLayout";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";

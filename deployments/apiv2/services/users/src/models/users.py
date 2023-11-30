@@ -122,3 +122,8 @@ class LoginResponse(BaseModel):
     usage_quota: UsageQuota | None
     user_scopes: dict[str, list[str]] | None
     customer_scopes: list[str] | None
+
+
+class PreferencesUpdate(BaseModel):
+    product: str
+    changes: dict[str, Any]
