@@ -48,7 +48,7 @@ async def create_job(version: str, num_of_workers: int):
     qp_pods_list = pod_api.list_namespaced_pod(namespace="pulse3d", label_selector=f"app={QUEUE}_qp")
     # get existing jobs to prevent starting a job with the same count suffix
     # make sure to only get jobs of specific version
-    running_workers_list = job_api.list_namespaced_job(QUEUE, label_selector=f"job_version={version}")
+    running_workers_list = job_api.list_namespaced_job("pulse3d", label_selector=f"job_version={version}")
     num_of_active_workers = len(running_workers_list.items)
 
     logger.info(f"Checking for active {version} workers: {num_of_active_workers} found.")
@@ -111,6 +111,49 @@ async def create_job(version: str, num_of_workers: int):
 
         job_api.create_namespaced_job(namespace="pulse3d", body=job)
 
+        # Create container
+        logger.info(f"Starting rewrite pulse3d worker: test-{formatted_name}")
+        rewrite_container = kclient.V1Container(
+            name=f"test-{formatted_name}",
+            image=f"{ECR_REPO}:1.0.0rc6",
+            env=[POSTGRES_PASSWORD, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET],
+            image_pull_policy="Always",
+            resources=resources,
+        )
+        # Create job spec with container
+        rewrite_spec = kclient.V1JobSpec(
+            template={
+                "spec": {
+                    "containers": [rewrite_container],
+                    "restartPolicy": "Never",
+                    "nodeSelector": {"group": "workers"},
+                }
+            },
+            backoff_limit=2,
+            ttl_seconds_after_finished=60,
+        )
+        # Instantiate the job object
+        rewrite_job = kclient.V1Job(
+            api_version="batch/v1",
+            kind="Job",
+            metadata=kclient.V1ObjectMeta(
+                name=f"test-{formatted_name}",
+                labels={"job_version": "1.0.0rc6"},
+                owner_references=[
+                    kclient.V1OwnerReference(
+                        api_version="v1",
+                        controller=True,
+                        kind="Pod",
+                        uid=qp_pods_list.items[0].metadata.uid,
+                        name=qp_pods_list.items[0].metadata.name,
+                    )
+                ],
+            ),
+            spec=rewrite_spec,
+        )
+
+        job_api.create_namespaced_job(namespace="pulse3d", body=rewrite_job)
+
 
 async def get_next_queue_item():
     dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
@@ -140,7 +183,7 @@ if __name__ == "__main__":
 
     while True:
         try:
-            logger.info("Checking queue for new items")
+            logger.info("Checking queue for items")
             asyncio.run(get_next_queue_item())
             sleep(SECONDS_TO_POLL_DB)
         except Exception as e:

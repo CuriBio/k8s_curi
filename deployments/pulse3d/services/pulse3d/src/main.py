@@ -575,6 +575,17 @@ async def create_new_job(
                     pd.DataFrame(peak_valleys_dict).to_parquet(pv_parquet_path)
                     # upload to s3 under upload id and job id for pulse3d-worker to use
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
+            else:
+                # if not interactive analysis, kick off second job to test pulse3d rewrite. IA is not setup to work yet.
+                await create_job(
+                    con=con,
+                    upload_id=upload_id,
+                    queue="test-pulse3d-v1.0.0rc6",
+                    priority=priority,
+                    meta=job_meta,
+                    customer_id=customer_id,
+                    job_type=service,
+                )
 
         return JobResponse(
             id=job_id,
