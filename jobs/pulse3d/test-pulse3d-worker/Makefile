@@ -4,12 +4,12 @@ repo_root=$(shell git rev-parse --show-toplevel)
 .PHONY: build buildx push tag apply
 build:
 	cd ${repo_root} && \
-	docker build -t pulse3d-worker . -f ${repo_root}/jobs/pulse3d/pulse3d-worker_rewrite/Dockerfile
+	docker build -t pulse3d-worker . -f ${repo_root}/jobs/pulse3d/test-pulse3d-worker/Dockerfile
 
 buildx:
 
 	cd ${repo_root} && \
-	docker buildx build -t pulse3d-worker . -f ${repo_root}/jobs/pulse3d/pulse3d-worker_rewrite/Dockerfile --platform linux/amd64 --load
+	docker buildx build -t pulse3d-worker . -f ${repo_root}/jobs/pulse3d/test-pulse3d-worker/Dockerfile --platform linux/amd64 --load
 
 tag:
 	docker tag pulse3d-worker:latest $(ecr_repo):1.0.0rc6
