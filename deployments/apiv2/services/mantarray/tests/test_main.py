@@ -348,17 +348,11 @@ def test_firmware__put__success(mocked_asyncpg_con):
     test_fw_version = random_semver()
 
     test_main_fw_version = random_semver()
-    test_hw_version = random_semver()
 
     response = test_client.put(
         f"/firmware/channel/{test_fw_version}",
         headers={"Authorization": f"Bearer {access_token}"},
-        json={
-            "version": test_fw_version,
-            "main_fw_version": test_main_fw_version,
-            "hw_version": test_hw_version,
-            "md5s": "any",
-        },
+        json={"main_fw_version": test_main_fw_version},
     )
     assert response.status_code == 200
 

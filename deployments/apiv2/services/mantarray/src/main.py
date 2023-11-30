@@ -13,6 +13,7 @@ from auth import ProtectedAny
 from core.config import CLUSTER_NAME, DATABASE_URL, DASHBOARD_URL
 from core.versions import get_fw_download_url, get_required_sw_version_range, get_latest_compatible_versions
 from models.models import (
+    ChannelFirmwareUpdateRequest,
     FirmwareUploadResponse,
     MantarrayUnitsResponse,
     SerialNumberRequest,
@@ -303,7 +304,7 @@ async def upload_firmware_file(
 @app.put("/firmware/channel/{version}")
 async def update_firmware_info(
     request: Request,
-    details: ChannelFirmwareUploadRequest,
+    details: ChannelFirmwareUpdateRequest,
     version: str = Path(..., regex=SEMVER_REGEX),
     token=Depends(ProtectedAny(scope=["mantarray:firmware:edit"])),
 ):

@@ -26,6 +26,10 @@ class ChannelFirmwareUploadRequest(BaseModel):
     md5s: str
 
 
+class ChannelFirmwareUpdateRequest(BaseModel):
+    main_fw_version: str
+
+
 # RESPONSES
 
 
