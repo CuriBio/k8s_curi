@@ -13,7 +13,7 @@ RUN python -m venv --copies /app/venv && \
 
 RUN echo "Getting CodeArtifact Auth"
 
-ARG ACCESS_KEY 
+ARG ACCESS_KEY
 ARG ACCESS_KEY_ID
 
 ENV AWS_SECRET_ACCESS_KEY=$ACCESS_KEY
