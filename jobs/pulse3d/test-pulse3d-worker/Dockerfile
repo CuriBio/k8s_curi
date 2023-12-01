@@ -5,9 +5,11 @@ COPY ./jobs/pulse3d/test-pulse3d-worker/src/requirements.txt ./
 COPY ./core/lib/jobs ./lib/jobs
 COPY ./core/lib/utils ./lib/utils
 
+
+ARG ACCOUNT_ID
 # ARG ACCESS_KEY
 # ARG ACCESS_KEY_ID
-
+ENV AWS_ACCOUNT_ID=$ACCOUNT_ID
 # ENV AWS_SECRET_ACCESS_KEY=$ACCESS_KEY
 # ENV AWS_ACCESS_KEY_ID=$ACCESS_KEY_ID
 
@@ -18,8 +20,8 @@ RUN python -m venv --copies /app/venv && \
     pip install ./lib/utils && pip install awscli && \
     # export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY && \
     # export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID && \
-    export CODEARTIFACT_AUTH_TOKEN=$(aws codeartifact get-authorization-token --domain curibio --domain-owner 725604423866 --region us-east-2 --query authorizationToken --output text) && \
-    pip install pulse3d==1.0.0rc7 --extra-index-url=https://aws:$CODEARTIFACT_AUTH_TOKEN@curibio-725604423866.d.codeartifact.us-east-2.amazonaws.com/pypi/pulse3d/simple/
+    export CODEARTIFACT_AUTH_TOKEN=$(aws codeartifact get-authorization-token --domain curibio --domain-owner $AWS_ACCOUNT_ID --region us-east-2 --query authorizationToken --output text) && \
+    pip install pulse3d==1.0.0rc7 --extra-index-url=https://aws:$CODEARTIFACT_AUTH_TOKEN@curibio-$AWS_ACCOUNT_ID.d.codeartifact.us-east-2.amazonaws.com/pypi/pulse3d/simple/
 
 FROM python:3.11-slim as prod
 ARG DEBIAN_FRONTEND=noninteractive
