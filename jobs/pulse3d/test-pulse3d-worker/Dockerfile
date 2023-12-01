@@ -19,7 +19,7 @@ RUN python -m venv --copies /app/venv && \
     pip install ./lib/jobs && \
     pip install ./lib/utils && pip install awscli && \
     # export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY && \
-    export AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID && \
+    # export AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID && \
     export CODEARTIFACT_AUTH_TOKEN=$(aws codeartifact get-authorization-token --domain curibio --domain-owner $AWS_ACCOUNT_ID --region us-east-2 --query authorizationToken --output text) && \
     pip install pulse3d==1.0.0rc7 --extra-index-url=https://aws:$CODEARTIFACT_AUTH_TOKEN@curibio-$AWS_ACCOUNT_ID.d.codeartifact.us-east-2.amazonaws.com/pypi/pulse3d/simple/
 
