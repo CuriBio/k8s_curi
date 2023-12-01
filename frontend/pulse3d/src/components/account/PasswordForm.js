@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import FormInput from "../basicWidgets/FormInput";
+import FormInput from "@/components/basicWidgets/FormInput";
 import Tooltip from "@mui/material/Tooltip";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useEffect, useState } from "react";
