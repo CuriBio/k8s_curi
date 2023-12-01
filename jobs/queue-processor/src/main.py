@@ -45,10 +45,10 @@ async def create_job(version: str, num_of_workers: int):
 
     # get pod list to get uid to use in owner_reference when spinning up new jobs
     # the pod needed is the pod this code is being executed in
-    qp_pods_list = pod_api.list_namespaced_pod(namespace="pulse3d", label_selector=f"app={QUEUE}_qp")
+    qp_pods_list = pod_api.list_namespaced_pod(namespace=QUEUE, label_selector=f"app={QUEUE}_qp")
     # get existing jobs to prevent starting a job with the same count suffix
     # make sure to only get jobs of specific version
-    running_workers_list = job_api.list_namespaced_job("pulse3d", label_selector=f"job_version={version}")
+    running_workers_list = job_api.list_namespaced_job(QUEUE, label_selector=f"job_version={version}")
     num_of_active_workers = len(running_workers_list.items)
 
     logger.info(f"Checking for active {version} workers: {num_of_active_workers} found.")
@@ -109,7 +109,7 @@ async def create_job(version: str, num_of_workers: int):
             spec=spec,
         )
 
-        job_api.create_namespaced_job(namespace="pulse3d", body=job)
+        job_api.create_namespaced_job(namespace=QUEUE, body=job)
 
         # Create container
         logger.info(f"Starting rewrite pulse3d worker: test-{formatted_name}")
