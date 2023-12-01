@@ -54,6 +54,13 @@ async def create_job(version: str, num_of_workers: int):
     logger.info(f"Checking for active {version} workers: {num_of_active_workers} found.")
     logger.info(f"Starting {num_of_workers - num_of_active_workers} worker(s) for {QUEUE}:{version}.")
 
+    POSTGRES_PASSWORD = kclient.V1EnvVar(
+        name="POSTGRES_PASSWORD",
+        value_from=kclient.V1EnvVarSource(
+            secret_key_ref=kclient.V1SecretKeySelector(name="curibio-jobs-creds", key="curibio_jobs")
+        ),
+    )
+
     for count in range(num_of_active_workers + 1, num_of_workers + 1):
         worker_id = hex(random.getrandbits(40))[2:]
         # names can only be alphanumeric and '-' so replacing '.' with '-'
@@ -62,12 +69,6 @@ async def create_job(version: str, num_of_workers: int):
         logger.info(f"Starting {formatted_name}.")
         complete_ecr_repo = f"{ECR_REPO}:{version}"
 
-        POSTGRES_PASSWORD = kclient.V1EnvVar(
-            name="POSTGRES_PASSWORD",
-            value_from=kclient.V1EnvVarSource(
-                secret_key_ref=kclient.V1SecretKeySelector(name="curibio-jobs-creds", key="curibio_jobs")
-            ),
-        )
         resources = kclient.V1ResourceRequirements(limits={"memory": "500Mi"})
         # Create container
         container = kclient.V1Container(
@@ -111,10 +112,35 @@ async def create_job(version: str, num_of_workers: int):
 
         job_api.create_namespaced_job(namespace=QUEUE, body=job)
 
+    await create_rewrite_jobs(num_of_workers - num_of_active_workers)
+
+
+async def create_rewrite_jobs(total_new_jobs):
+    # load kube config
+    config.load_incluster_config()
+    job_api = kclient.BatchV1Api()
+    pod_api = kclient.CoreV1Api()
+    version = "1.0.0rc7"
+
+    qp_pods_list = pod_api.list_namespaced_pod(namespace=QUEUE, label_selector="app=pulse3d_qp")
+    running_workers_list = job_api.list_namespaced_job(QUEUE, label_selector=f"job_version={version}")
+    num_of_active_workers = len(running_workers_list.items)
+    POSTGRES_PASSWORD = kclient.V1EnvVar(
+        name="POSTGRES_PASSWORD",
+        value_from=kclient.V1EnvVarSource(
+            secret_key_ref=kclient.V1SecretKeySelector(name="curibio-jobs-creds", key="curibio_jobs")
+        ),
+    )
+
+    for _ in range(min(MAX_NUM_OF_WORKERS - num_of_active_workers, total_new_jobs)):
+        worker_id = hex(random.getrandbits(40))[2:]
+        formatted_name = f"test-pulse3d-worker-v1-0-0rc7--{worker_id}"
+        resources = kclient.V1ResourceRequirements(limits={"memory": "500Mi"})
+
         # Create container
-        logger.info(f"Starting rewrite pulse3d worker: test-{formatted_name}")
+        logger.info(f"Starting rewrite pulse3d worker: {formatted_name}")
         rewrite_container = kclient.V1Container(
-            name=f"test-{QUEUE}-worker-v1-0-0rc7--{count}--{worker_id}",
+            name=formatted_name,
             image=f"{ECR_REPO}:1.0.0rc7",
             env=[POSTGRES_PASSWORD, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET],
             image_pull_policy="Always",
@@ -137,7 +163,7 @@ async def create_job(version: str, num_of_workers: int):
             api_version="batch/v1",
             kind="Job",
             metadata=kclient.V1ObjectMeta(
-                name=f"test-{QUEUE}-worker-v1-0-0rc7--{count}--{worker_id}",
+                name=formatted_name,
                 labels={"job_version": "1.0.0rc7"},
                 owner_references=[
                     kclient.V1OwnerReference(
@@ -174,7 +200,6 @@ async def get_next_queue_item():
                     logger.info(f"Found {record['count']} item(s) for {version}.")
                     # spin up max 5 workers, one per first five jobs in queue
                     num_of_workers = min(record["count"], MAX_NUM_OF_WORKERS)
-
                     await create_job(version, num_of_workers)
 
 
