@@ -219,7 +219,7 @@ async def process_item(con, item):
                 raise
 
             try:
-                outfile_prefix = prefix.replace("uploads/", "analyzed/test-pulse3d")
+                outfile_prefix = prefix.replace("uploads/", "analyzed/test-pulse3d/")
                 outfile_key = f"{outfile_prefix}/{job_id}/{output_filename}"
                 upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=outfile_key, file=output_filename)
                 logger.info(f"Uploaded {output_filename} to {PULSE3D_UPLOADS_BUCKET}/{outfile_key}")
