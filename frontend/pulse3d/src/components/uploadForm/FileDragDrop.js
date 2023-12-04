@@ -2,8 +2,6 @@ import styled from "styled-components";
 import { FileUploader } from "react-drag-drop-files";
 import { useEffect } from "react";
 
-const fileTypes = ["zip", "xlsx"];
-
 const Container = styled.div`
   top: 28px;
   height: 170px;
@@ -48,6 +46,8 @@ export default function FileDragDrop({
   dropZoneStyle = {},
   setResetDragDrop,
   resetDragDrop,
+  fileTypes = ["zip", "xlsx"],
+  multiple = true,
 }) {
   useEffect(() => {
     if (resetDragDrop) setResetDragDrop(false);
@@ -61,7 +61,7 @@ export default function FileDragDrop({
           handleChange={handleFileChange}
           name="file"
           types={fileTypes}
-          multiple={true}
+          multiple={multiple}
         >
           <DropZone style={dropZoneStyle}>
             {dropZoneText}
