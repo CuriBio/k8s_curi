@@ -512,11 +512,9 @@ export default function AnalysisParamForm({
 
     const options = pulse3dFilteredFileVersions.map((version) => {
       const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
-      if (selectedVersionMeta[0] && ["testing", "deprecated"].includes(selectedVersionMeta[0].state)) {
-        return version + `  [ ${selectedVersionMeta[0].state} ]`;
-      } else {
-        return version;
-      }
+      return selectedVersionMeta[0] && ["testing", "deprecated"].includes(selectedVersionMeta[0].state)
+        ? version + `  [ ${selectedVersionMeta[0].state} ]`
+        : version;
     });
 
     setPulse3dVersionOptions([...options]);

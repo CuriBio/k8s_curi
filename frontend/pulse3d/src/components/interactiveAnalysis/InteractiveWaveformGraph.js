@@ -1,11 +1,11 @@
 import styled from "styled-components";
 import { useEffect, useState } from "react";
 import * as d3 from "d3";
-import ZoomWidget from "../basicWidgets/ZoomWidget";
+import ZoomWidget from "@/components/basicWidgets/ZoomWidget";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
 import MenuItem from "@mui/material/MenuItem";
-import ButtonWidget from "../basicWidgets/ButtonWidget";
+import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 
 const Container = styled.div`
   width: 1260px;

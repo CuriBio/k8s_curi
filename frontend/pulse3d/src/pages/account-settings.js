@@ -2,10 +2,13 @@ import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useContext, useEffect, useState } from "react";
 import { AuthContext } from "@/pages/_app";
 import styled from "styled-components";
-import UsageWidgetFull from "@/components/basicWidgets/UsageWidgetFull";
+import UsageWidgetFull from "@/components/account/UsageWidgetFull";
 import AdminAccountOptions from "@/components/account/AdminAccountOptions";
+import AnalysisParamContainer from "@/components/uploadForm/AnalysisParamContainer";
+import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
+import { UploadsContext } from "@/components/layouts/DashboardLayout";
+import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 
-// TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
   width: 90%;
   min-width: 1200px;
@@ -20,6 +23,13 @@ const BackgroundContainer = styled.div`
   margin: 5%;
   align-items: left;
   padding-bottom: 3%;
+`;
+
+const DropDownContainer = styled.div`
+  width: 57%;
+  height: 89%;
+  background: white;
+  border-radius: 5px;
 `;
 
 const Header = styled.h2`
@@ -46,8 +56,7 @@ const SubSectionBody = styled.div`
   border-radius: 15px;
   display: flex;
   flex-direction: column;
-  padding-block: 30px;
-  padding-inline: 40px;
+  padding: 15px;
 `;
 
 const Subheader = styled.h2`
@@ -55,18 +64,28 @@ const Subheader = styled.h2`
   text-align: left;
   margin: 0px;
   margin-left: 30px;
-  margin-top: 30px;
+  margin-top: 8px;
   width: 100%;
-  height: 75px;
+  height: 65px;
   line-height: 3;
 `;
 
+const ButtonContainer = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  padding-right: 45px;
+`;
+
 export default function AccountSettings() {
-  const { accountType, usageQuota, accountId } = useContext(AuthContext);
+  const { accountType, usageQuota, accountId, productPage, preferences } = useContext(AuthContext);
+  const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
   const [jobsLimit, setJobsLimit] = useState(-1);
   const [currentJobUsage, setCurrentJobUsage] = useState(0);
   const [endDate, setEndDate] = useState(null);
   const [daysLeft, setDaysLeft] = useState(0);
+  const [pulse3dVersionOptions, setPulse3dVersionOptions] = useState([]);
+  const [userPreferences, setUserPreferences] = useState({ version: 0 });
+  const [inProgress, setInProgress] = useState(false);
 
   const isAdminAccount = accountType === "admin";
 
@@ -87,9 +106,85 @@ export default function AccountSettings() {
     }
   }, [usageQuota]);
 
+  useEffect(() => {
+    if (productPage in preferences && "version" in preferences[productPage] && pulse3dVersions.length > 0) {
+      setUserPreferences({ version: pulse3dVersions.indexOf(preferences[productPage].version) });
+    }
+  }, [preferences, pulse3dVersions, productPage]);
+
+  useEffect(() => {
+    if (pulse3dVersions) {
+      const options = pulse3dVersions.map((version) => {
+        const selectedVersionMeta = metaPulse3dVersions.find((meta) => meta.version === version);
+        return selectedVersionMeta && ["testing", "deprecated"].includes(selectedVersionMeta.state)
+          ? version + `  [ ${selectedVersionMeta.state} ]`
+          : version;
+      });
+
+      setPulse3dVersionOptions(options);
+    }
+  }, [pulse3dVersions, metaPulse3dVersions]);
+
+  const handlePulse3dVersionSelect = (idx) => {
+    setUserPreferences({ ...userPreferences, version: idx });
+  };
+
+  const savePreferences = async () => {
+    try {
+      setInProgress(true);
+
+      await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/preferences`, {
+        method: "PUT",
+        body: JSON.stringify({
+          product: productPage,
+          changes: { ...userPreferences, version: pulse3dVersions[userPreferences.version] },
+        }),
+      });
+
+      setInProgress(false);
+    } catch (e) {
+      console.log("ERROR updating user preferences");
+    }
+  };
+
   return (
     <BackgroundContainer>
       <Header>Account Settings</Header>
+      {!isAdminAccount && (
+        <SubsectionContainer>
+          <Subheader>Preferences</Subheader>
+          <SubSectionBody>
+            <AnalysisParamContainer
+              label="Pulse3D Version"
+              name="selectedPulse3dVersion"
+              tooltipText="Specifies which version of the Pulse3D analysis software to use."
+              additionalLabelStyle={{ lineHeight: 1.5 }}
+              iconStyle={{ fontSize: 20, margin: "2px 10px" }}
+            >
+              <DropDownContainer>
+                <DropDownWidget
+                  options={pulse3dVersionOptions}
+                  handleSelection={handlePulse3dVersionSelect}
+                  initialSelected={userPreferences.version}
+                />
+              </DropDownContainer>
+            </AnalysisParamContainer>
+            <ButtonContainer>
+              <ButtonWidget
+                width="200px"
+                height="50px"
+                position="relative"
+                borderRadius="3px"
+                label="Save"
+                backgroundColor={inProgress ? "var(--dark-gray)" : "var(--dark-blue)"}
+                inProgress={inProgress}
+                disabled={inProgress}
+                clickFn={savePreferences}
+              />
+            </ButtonContainer>
+          </SubSectionBody>
+        </SubsectionContainer>
+      )}
       <SubsectionContainer>
         <Subheader>Usage Details</Subheader>
         <SubSectionBody>
