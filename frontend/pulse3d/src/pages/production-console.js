@@ -224,10 +224,11 @@ function FirmwareUpload({ fwInfo, refreshTables }) {
     }
 
     let updatedOptions = { ...uploadOptions, [key]: val };
+    let updatedOptionErrors = { ...uploadOptionErrors };
 
     if (["version", "mainFwVersion", "hwVersion"].includes(key)) {
       const errorMsg = semverValid(val) ? "" : "Must be a valid version";
-      setUploadOptionErrors({ ...uploadOptionErrors, [key]: errorMsg });
+      updatedOptionErrors[key] = errorMsg;
     } else if (key === "fwType") {
       // remove all other keys except version
       updatedOptions = {
@@ -236,9 +237,21 @@ function FirmwareUpload({ fwInfo, refreshTables }) {
       };
     }
 
-    console.log("!!!", JSON.stringify(updatedOptions));
+    const dupVersionErrMsg = "FW type + version already present";
+    if (
+      ["fwType", "version"].includes(key) &&
+      updatedOptions.fwType &&
+      updatedOptions.version &&
+      ["", dupVersionErrMsg].includes(updatedOptionErrors.version)
+    ) {
+      const fwTypeKey = updatedOptions.fwType.toLowerCase();
+      const versionsForFwTypes = fwInfo[fwTypeKey].map((row) => row.version);
+      const errorMsg = versionsForFwTypes.includes(updatedOptions.version) ? dupVersionErrMsg : "";
+      updatedOptionErrors.version = errorMsg;
+    }
 
     setUploadOptions(updatedOptions);
+    setUploadOptionErrors(updatedOptionErrors);
   };
 
   const handleSubmit = async () => {
