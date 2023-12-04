@@ -1,7 +1,7 @@
 """MA FW version tables
 
 Revision ID: 4ed3b25ebd9c
-Revises: 511a7ede79a9
+Revises: c8b48ddce1ec
 Create Date: 2023-11-15 12:25:12.457951
 
 """
@@ -12,7 +12,7 @@ from sqlalchemy.sql import func
 
 # revision identifiers, used by Alembic.
 revision = "4ed3b25ebd9c"
-down_revision = "511a7ede79a9"
+down_revision = "c8b48ddce1ec"
 branch_labels = None
 depends_on = None
 
