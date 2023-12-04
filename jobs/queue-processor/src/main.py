@@ -134,7 +134,7 @@ async def create_rewrite_jobs(total_new_jobs):
 
     for _ in range(min(MAX_NUM_OF_WORKERS - num_of_active_workers, total_new_jobs)):
         worker_id = hex(random.getrandbits(40))[2:]
-        formatted_name = f"test-pulse3d-worker-v1-0-0rc7--{worker_id}"
+        formatted_name = f"test-pulse3d-worker-v1-0rc7--{worker_id}"
         resources = kclient.V1ResourceRequirements(limits={"memory": "500Mi"})
 
         # Create container
