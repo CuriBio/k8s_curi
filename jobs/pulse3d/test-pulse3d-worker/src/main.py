@@ -160,6 +160,21 @@ async def process_item(con, item):
                     raise
 
             try:
+                pre_analyzed_tissue_data = pre_analyzed_data.tissue_waveforms
+
+                if (start_time_sec := analysis_params.get("start_time")) is not None:
+                    pre_analyzed_data.tissue_waveforms = pre_analyzed_tissue_data.filter(
+                        pl.col("time") >= start_time_sec
+                    )
+
+                if (end_time_sec := analysis_params.get("end_time")) is not None:
+                    pre_analyzed_data.tissue_waveforms = pre_analyzed_tissue_data.filter(
+                        pl.col("time") <= end_time_sec
+                    )
+            except Exception:
+                logger.exception("Error windowing tissue data")
+
+            try:
                 peak_detector_args = {
                     param: val
                     for param in (
@@ -188,6 +203,7 @@ async def process_item(con, item):
                     for arg_name, orig_name in (
                         ("widths", "twitch_widths"),
                         ("baseline_widths", "baseline_widths_to_use"),
+                        ("well_groups", "well_groups"),
                     )
                     if (val := analysis_params.get(orig_name)) is not None
                 }
