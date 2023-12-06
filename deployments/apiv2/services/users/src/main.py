@@ -19,19 +19,16 @@ from auth import (
     ProtectedAny,
     create_token,
     decode_token,
-    CUSTOMER_SCOPES,
-    split_scope_account_data,
-    ACCOUNT_SCOPES,
+    get_assignable_scopes_from_admin,
+    check_prohibited_scopes,
+    ScopeTags,
+    Scopes,
     PULSE3D_PAID_USAGE,
-    USER_SCOPES,
-    DEFAULT_MANTARRAY_SCOPES,
-    ALL_PULSE3D_SCOPES,
-    CURIBIO_SCOPES,
-    PULSE3D_USER_SCOPES,
+    ProhibitedScopeError,
 )
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
-from models.errors import LoginError, RegistrationError, EmailRegistrationError, UnknownScopeError
+from models.errors import LoginError, RegistrationError, EmailRegistrationError
 from models.tokens import AuthTokens
 from models.users import (
     CustomerLogin,
@@ -149,7 +146,8 @@ async def login_customer(request: Request, details: CustomerLogin):
             # get scopes from account_scopes table
             scope = await _get_account_scope(con, customer_id, True)
             # get list of scopes that a customer can assign to its users
-            avail_user_scopes = _get_user_scopes_from_customer(scope)
+            # TODO split this part out into a new route
+            avail_user_scopes = get_assignable_scopes_from_admin(scope)
             # TODO decide how to show customer accounts usage data for multiple products, defaulting to mantarray now
             # check usage for customer account
             usage_quota = await check_customer_quota(con, str(customer_id), "mantarray")
@@ -310,27 +308,6 @@ async def _verify_password(con, account_type, pw, select_query_result) -> None:
             raise LoginError(failed_msg)
 
 
-def _get_user_scopes_from_customer(customer_scopes) -> dict[str, list[str]]:
-    # don't include special curibio scopes
-    customer_products = [split_scope_account_data(s)[0] for s in customer_scopes if s not in CURIBIO_SCOPES]
-    return {p: USER_SCOPES[p] for p in customer_products}
-
-
-def _get_scopes_from_request(user_scopes, customer_scope) -> list[str]:
-    for idx, product in enumerate(user_scopes):
-        # if scope is the main product scope, then attach customer tier to scope
-        if product in USER_SCOPES.keys():
-            _, product_tier = split_scope_account_data(next(s for s in customer_scope if product in s))
-            user_scopes[idx] = f"{product}:{product_tier}"
-        # else check if scope exists in available scopes, then raise exception
-        elif not any([USER_SCOPES[s] for s in USER_SCOPES.keys() if product in USER_SCOPES[s]]):
-            raise UnknownScopeError(f"Attempting to assign unknown scope: {product}")
-
-    # TODO only add this if registering a user under a customer account that has mantarray scopes
-    user_scopes.extend(DEFAULT_MANTARRAY_SCOPES)
-    return user_scopes
-
-
 async def _update_failed_login_attempts(con, account_type: str, id: str, count: int) -> None:
     if count == MAX_FAILED_LOGIN_ATTEMPTS:
         # if max failed attempts is reached, then deactivate the account and increment count
@@ -343,7 +320,7 @@ async def _update_failed_login_attempts(con, account_type: str, id: str, count: 
 
 
 @app.post("/refresh", response_model=AuthTokens, status_code=status.HTTP_201_CREATED)
-async def refresh(request: Request, token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES, refresh=True))):
+async def refresh(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.REFRESH]))):
     """Create a new access token and refresh token.
 
     The refresh token given in the request is first decoded and validated itself,
@@ -431,7 +408,7 @@ async def _create_new_tokens(db_con, userid, customer_id, scope, account_type):
 
 
 @app.post("/logout", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
-async def logout(request: Request, token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES, check_scope=False))):
+async def logout(request: Request, token=Depends(ProtectedAny(tags=ScopeTags.all()))):
     """Logout the user/customer.
 
     The refresh token for the user/customer will be removed from the DB, so they will
@@ -462,7 +439,7 @@ async def logout(request: Request, token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES
 
 @app.post("/register/customer", response_model=CustomerProfile, status_code=status.HTTP_201_CREATED)
 async def register_customer(
-    request: Request, details: CustomerCreate, token=Depends(ProtectedAny(scope=CURIBIO_SCOPES))
+    request: Request, details: CustomerCreate, token=Depends(ProtectedAny(scopes=[Scopes.CURI__ADMIN]))
 ):
     """Register a customer account.
 
@@ -522,7 +499,7 @@ async def register_customer(
 
 @app.post("/register/user", response_model=UserProfile, status_code=status.HTTP_201_CREATED)
 async def register_user(
-    request: Request, details: UserCreate, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))
+    request: Request, details: UserCreate, token=Depends(ProtectedAny(tag=ScopeTags.ADMIN))
 ):
     """Register a user account.
 
@@ -530,14 +507,16 @@ async def register_user(
     """
     customer_id = uuid.UUID(hex=token["userid"])
     # 'customer:paid' or 'customer:free'
-    customer_scope = token["scope"]
+    admin_scopes = token["scope"]
+    user_scopes = details.scope
     try:
         email = details.email.lower()
         username = details.username.lower()
         bind_threadlocal(customer_id=str(customer_id), email=email, username=username)
 
-        user_scope = _get_scopes_from_request(details.scope, customer_scope)
-        logger.info(f"Registering new user with scopes: {user_scope}")
+        check_prohibited_scopes(user_scopes, admin_scopes)
+
+        logger.info(f"Registering new user with scopes: {user_scopes}")
 
         # suspended and verified get set to False by default
         insert_account_query_args = (
@@ -566,7 +545,7 @@ async def register_user(
                     raise RegistrationError(failed_msg)
 
                 # add scope for new account
-                insert_scope_query_args = (customer_id, new_account_id, user_scope)
+                insert_scope_query_args = (customer_id, new_account_id, user_scopes)
                 await con.execute(
                     "INSERT INTO account_scopes VALUES ($1, $2, unnest($3::text[]))", *insert_scope_query_args
                 )
@@ -583,10 +562,10 @@ async def register_user(
                 )
 
                 return UserProfile(
-                    username=username, email=email, user_id=new_account_id.hex, scope=user_scope
+                    username=username, email=email, user_id=new_account_id.hex, scope=user_scopes
                 )
 
-    except (EmailRegistrationError, UnknownScopeError, RegistrationError) as e:
+    except (EmailRegistrationError, ProhibitedScopeError, RegistrationError) as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception:
         logger.exception("POST /register: Unexpected error")
@@ -716,7 +695,7 @@ async def _send_account_email(
 
 @app.put("/account")
 async def update_accounts(
-    request: Request, details: PasswordModel, token=Depends(ProtectedAny(scope=ACCOUNT_SCOPES))
+    request: Request, details: PasswordModel, token=Depends(ProtectedAny(tag=ScopeTags.ACCOUNT))
 ):
     """Confirm and verify new user and password.
 
@@ -805,9 +784,8 @@ async def update_accounts(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# TODO test this on dashboard
 @app.get("/")
-async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))):
+async def get_all_users(request: Request, token=Depends(ProtectedAny(tag=ScopeTags.ADMIN))):
     """Get info for all the users under the given customer account.
 
     List of users returned will be sorted with all active users showing up first, then all the suspended (deactivated) users
@@ -832,8 +810,6 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTO
         formatted_results = [dict(row) for row in result]
 
         for row in formatted_results:
-            # remove user-hidden scopes from user list for display
-            row["scopes"] = list(set(row["scopes"]) - DEFAULT_MANTARRAY_SCOPES)
             # unverified account should have a jwt token, otherwise will be None.
             # check expiration and if expired, return it as None, FE will handle telling user it's expired
             try:
@@ -853,16 +829,17 @@ async def update_user_scopes(
     request: Request,
     details: UserScopesUpdate,
     account_id: uuid.UUID,
-    token=Depends(ProtectedAny(CUSTOMER_SCOPES)),
+    token=Depends(ProtectedAny(tag=ScopeTags.ADMIN)),
 ):
     """Update a user account's scopes in the database."""
     customer_id = uuid.UUID(hex=token["userid"])
-    customer_scope = token["scope"]
+    admin_scopes = token["scope"]
+    user_scopes = details.scopes
 
     bind_threadlocal(customer_id=str(customer_id), user_id=str(account_id))
 
     try:
-        user_scope = _get_scopes_from_request(details.scopes, customer_scope)
+        check_prohibited_scopes(user_scopes, admin_scopes)
 
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():
@@ -875,9 +852,9 @@ async def update_user_scopes(
                     "INSERT INTO account_scopes VALUES ($1, $2, unnest($3::text[]))",
                     customer_id,
                     account_id,
-                    user_scope,
+                    user_scopes,
                 )
-    except UnknownScopeError as e:
+    except ProhibitedScopeError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception:
         logger.exception(f"PUT /scopes/{account_id}: Unexpected error")
@@ -885,7 +862,7 @@ async def update_user_scopes(
 
 
 @app.get("/preferences")
-async def get_user_preferences(request: Request, token=Depends(ProtectedAny(PULSE3D_USER_SCOPES))):
+async def get_user_preferences(request: Request, token=Depends(ProtectedAny(tags=[ScopeTags.PULSE3D_WRITE]))):
     """Get preferences for user."""
     user_id = uuid.UUID(token["userid"])
     bind_threadlocal(customer_id=token["customer_id"], user_id=str(user_id))
@@ -902,7 +879,7 @@ async def get_user_preferences(request: Request, token=Depends(ProtectedAny(PULS
 
 @app.put("/preferences")
 async def update_user_preferences(
-    request: Request, details: PreferencesUpdate, token=Depends(ProtectedAny(PULSE3D_USER_SCOPES))
+    request: Request, details: PreferencesUpdate, token=Depends(ProtectedAny(tags=[ScopeTags.PULSE3D_WRITE]))
 ):
     """Update a user's product preferences."""
     user_id = uuid.UUID(token["userid"])
@@ -930,7 +907,7 @@ async def update_user_preferences(
 async def get_user(
     request: Request,
     account_id: uuid.UUID,
-    token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES, check_scope=False)),
+    token=Depends(ProtectedAny(scopes=[s for s in ScopeTags if s != ScopeTags.ACCOUNT])),
 ):
     """Get info for the account with the given ID.
 
@@ -1000,7 +977,7 @@ async def update_user(
     request: Request,
     details: AccountUpdateAction,
     account_id: uuid.UUID,
-    token=Depends(ProtectedAny(ALL_PULSE3D_SCOPES, check_scope=False)),
+    token=Depends(ProtectedAny(scopes=[s for s in ScopeTags if s != ScopeTags.ACCOUNT])),
 ):
     """Update an account's information in the database.
 

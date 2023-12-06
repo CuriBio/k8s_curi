@@ -1,15 +1,10 @@
 from .models import Token
 from .scopes import (
-    CUSTOMER_SCOPES,
-    DEFAULT_MANTARRAY_SCOPES,
-    MANTARRAY_PRODUCTION_SCOPES,
-    ALL_PULSE3D_SCOPES,
-    MANTARRAY_SCOPES,
-    ACCOUNT_SCOPES,
-    PULSE3D_PAID_USAGE,
-    PULSE3D_USER_SCOPES,
-    USER_SCOPES,
-    CURIBIO_SCOPES,
+    Scopes,
+    ScopeTags,
+    ProhibitedScopeError,
+    get_assignable_scopes_from_admin,
+    check_prohibited_scopes,
 )
-
-from .routes import ProtectedAny, create_token, decode_token, split_scope_account_data
+from .usage import PULSE3D_PAID_USAGE
+from .routes import ProtectedAny, create_token, decode_token

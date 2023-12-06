@@ -10,7 +10,7 @@ from typing import List, Optional, Tuple, Union
 import boto3
 import pandas as pd
 import structlog
-from auth import ALL_PULSE3D_SCOPES, PULSE3D_USER_SCOPES, ProtectedAny, split_scope_account_data
+from auth import ScopeTags, ProtectedAny, check_prohibited_product
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -115,7 +115,7 @@ async def startup():
 async def get_info_of_uploads(
     request: Request,
     upload_ids: Optional[List[uuid.UUID]] = Query(None),
-    token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES)),
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     # need to convert to UUIDs to str to avoid issues with DB
     if upload_ids:
@@ -157,19 +157,18 @@ async def get_info_of_uploads(
 
 @app.post("/uploads", response_model=Union[UploadResponse, GenericErrorResponse])
 async def create_recording_upload(
-    request: Request, details: UploadRequest, token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES))
+    request: Request, details: UploadRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
         customer_id = str(uuid.UUID(token["customer_id"]))
-        # TODO Luci (09/30/2023) eventually select for upload type specific scope instead of defaulting to index 0, not currently specced out how to handle multiple products
-        service, _ = split_scope_account_data(token["scope"][0])
         # generating uuid here instead of letting PG handle it so that it can be inserted into the prefix more easily
         upload_id = uuid.uuid4()
         s3_key = f"uploads/{customer_id}/{user_id}/{upload_id}"
 
         # TODO Luci (09/30/2023) can remove after MA v1.2.2+, will no longer need to handle pulse3d upload types
         upload_type = details.upload_type if details.upload_type != "pulse3d" else "mantarray"
+        check_prohibited_product(upload_type)
 
         bind_threadlocal(
             user_id=user_id, customer_id=customer_id, upload_id=str(upload_id), upload_type=upload_type
@@ -187,7 +186,7 @@ async def create_recording_upload(
         }
 
         async with request.state.pgpool.acquire() as con:
-            usage_quota = await check_customer_quota(con, customer_id, service)
+            usage_quota = await check_customer_quota(con, customer_id, upload_type)
             if usage_quota["uploads_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
@@ -209,7 +208,7 @@ async def create_recording_upload(
 async def soft_delete_uploads(
     request: Request,
     upload_ids: List[uuid.UUID] = Query(None),
-    token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES)),
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     # make sure at least one upload ID was given
     if not upload_ids:
@@ -238,7 +237,7 @@ async def soft_delete_uploads(
 
 @app.post("/uploads/download")
 async def download_zip_files(
-    request: Request, details: UploadDownloadRequest, token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES))
+    request: Request, details: UploadDownloadRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
 ):
     upload_ids = details.upload_ids
 
@@ -292,7 +291,7 @@ async def download_zip_files(
 # TODO Tanner (4/21/22): probably want to move this to a more general svc (maybe in apiv2-dep) dedicated to uploading misc files to s3
 @app.post("/logs")
 async def create_log_upload(
-    request: Request, details: UploadRequest, token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES))
+    request: Request, details: UploadRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
@@ -324,7 +323,7 @@ async def get_info_of_jobs(
     request: Request,
     job_ids: Optional[List[uuid.UUID]] = Query(None),
     download: bool = Query(True),
-    token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES)),
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     # need to convert UUIDs to str to avoid issues with DB
     if job_ids:
@@ -408,18 +407,17 @@ async def _get_jobs(con, token, job_ids):
 
 @app.post("/jobs")
 async def create_new_job(
-    request: Request, details: JobRequest, token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES))
+    request: Request, details: JobRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
 ):
     try:
         user_id = str(uuid.UUID(token["userid"]))
         customer_id = str(uuid.UUID(token["customer_id"]))
         user_scopes = token["scope"]
-        service, _ = split_scope_account_data(user_scopes[0])
         upload_id = details.upload_id
 
         bind_threadlocal(user_id=user_id, customer_id=customer_id, upload_id=str(upload_id))
 
-        logger.info(f"Creating {service} job for upload {upload_id} with user ID: {user_id}")
+        logger.info(f"Creating job for upload {upload_id} with user ID: {user_id}")
 
         # params to use for all current versions of pulse3d
         params = [
@@ -442,6 +440,7 @@ async def create_new_job(
         pulse3d_semver = VersionInfo.parse(details.version)
         use_noise_based_peak_finding = pulse3d_semver >= "0.33.2"
 
+        # TODO see if any of this pertains to deprecated pulse3d versions and can be removed
         # Luci (12/14/2022) PlateRecording.to_dataframe() was updated in 0.28.3 to include 0.0 timepoint so this accounts for the index difference between versions
         peak_valley_diff = 0
         if previous_semver_version is not None and previous_semver_version != pulse3d_semver:
@@ -496,6 +495,13 @@ async def create_new_job(
 
         priority = 10
         async with request.state.pgpool.acquire() as con:
+            # first check user_id of upload matches user_id in token
+            # Luci (12/14/2022) checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
+            # Luci (12/14/2022) customer id is checked already because the customer_id in the token is being used to find upload details
+            row = await con.fetchrow("SELECT user_id, type FROM uploads where id=$1", upload_id)
+            original_upload_user = str(row["user_id"])
+            upload_type = row["type"]
+
             # check if pulse3d version is available
             # if deprecated and end of life date passed then cancel the upload
             # if end of life date is none then pulse3d version is usable
@@ -512,11 +518,6 @@ async def create_new_job(
                 return GenericErrorResponse(
                     message="Attempted to use pulse3d version that is removed", error="pulse3dVersionError"
                 )
-            # first check user_id of upload matches user_id in token
-            # Luci (12/14/2022) checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
-            # Luci (12/14/2022) customer id is checked already because the customer_id in the token is being used to find upload details
-            row = await con.fetchrow("SELECT user_id FROM uploads where id=$1", upload_id)
-            original_upload_user = str(row["user_id"])
 
             if "mantarray:rw_all_data" not in user_scopes:
                 # if users don't match and they don't have an all_data scope, then raise unauth error
@@ -527,7 +528,7 @@ async def create_new_job(
                     )
 
             # second, check usage quota for customer account
-            usage_quota = await check_customer_quota(con, customer_id, service)
+            usage_quota = await check_customer_quota(con, customer_id, upload_type)
             if usage_quota["jobs_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
@@ -544,13 +545,13 @@ async def create_new_job(
                 priority=priority,
                 meta=job_meta,
                 customer_id=customer_id,
-                job_type=service,
+                job_type=upload_type,
             )
 
             bind_threadlocal(job_id=str(job_id))
 
             # check customer quota after job
-            usage_quota = await check_customer_quota(con, customer_id, service)
+            usage_quota = await check_customer_quota(con, customer_id, upload_type)
 
             # Luci (12/1/22): this happens after the job is already created to have access to the job id, hopefully this doesn't cause any issues with the job starting before the file is uploaded to s3
             if details.peaks_valleys:
@@ -612,7 +613,7 @@ def _format_tuple_param(
 async def soft_delete_jobs(
     request: Request,
     job_ids: List[uuid.UUID] = Query(None),
-    token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES)),
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     # make sure at least one job ID was given
     if not job_ids:
@@ -642,7 +643,7 @@ async def soft_delete_jobs(
 
 @app.post("/jobs/download")
 async def download_analyses(
-    request: Request, details: JobDownloadRequest, token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES))
+    request: Request, details: JobDownloadRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
 ):
     job_ids = details.job_ids
     # make sure at least one job ID was given
@@ -718,7 +719,7 @@ async def get_interactive_waveform_data(
     request: Request,
     upload_id: uuid.UUID = Query(None),
     job_id: uuid.UUID = Query(None),
-    token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES)),
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
 ):
     account_id = str(uuid.UUID(token["userid"]))
     account_type = token["account_type"]
@@ -824,7 +825,7 @@ async def get_versions(request: Request):
 
 @app.get("/usage", response_model=UsageQuota)
 async def get_usage_quota(
-    request: Request, service: str = Query(None), token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES))
+    request: Request, service: str = Query(None), token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
 ):
     """Get the usage quota for the specific user"""
     try:
@@ -847,7 +848,7 @@ async def get_usage_quota(
 
 @app.post("/presets")
 async def save_analysis_presets(
-    request: Request, details: SavePresetRequest, token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES))
+    request: Request, details: SavePresetRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
 ):
     """Save analysis parameter preset for user"""
     try:
@@ -863,7 +864,7 @@ async def save_analysis_presets(
 
 
 @app.get("/presets")
-async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES))):
+async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))):
     """Get analysis parameter preset for user"""
     try:
         user_id = str(uuid.UUID(token["userid"]))
