@@ -1,4 +1,5 @@
 import asyncio
+from copy import deepcopy
 import json
 import os
 import tempfile
@@ -6,7 +7,6 @@ from zipfile import ZipFile
 
 import asyncpg
 import boto3
-import pkg_resources
 import polars as pl
 import structlog
 from jobs import EmptyQueue, get_item
@@ -35,17 +35,17 @@ structlog.configure(
 
 logger = structlog.get_logger()
 
-PULSE3D_VERSION = pkg_resources.get_distribution("pulse3D").version
+PULSE3D_VERSION = "v1.0.0rc8"
 
 
 # needs to be prefixed so that the queue processor doesn't pick it up
-@get_item(queue="test-pulse3d-v1.0.0rc7")
+@get_item(queue="test-pulse3d-v1.0.0rc8")
 async def process_item(con, item):
     # keeping initial log without bound variables
     logger.info(f"Processing item: {item}")
 
     s3_client = boto3.client("s3")
-    job_metadata = {"processed_by": "1.0.0rc7"}
+    job_metadata = {"processed_by": "1.0.0rc8"}
     outfile_key = None
 
     try:
@@ -160,16 +160,17 @@ async def process_item(con, item):
                     raise
 
             try:
-                pre_analyzed_tissue_data = pre_analyzed_data.tissue_waveforms
-
+                # copy so that windowed data isn't written to S3 and used on following recordings
+                windowed_pre_analyzed_data = deepcopy(pre_analyzed_data)
+                # TODO could window stim data as well
                 if (start_time_sec := analysis_params.get("start_time")) is not None:
-                    pre_analyzed_data.tissue_waveforms = pre_analyzed_tissue_data.filter(
-                        pl.col("time") >= start_time_sec
+                    windowed_pre_analyzed_data.tissue_waveforms = (
+                        windowed_pre_analyzed_data.tissue_waveforms.filter(pl.col("time") >= start_time_sec)
                     )
 
                 if (end_time_sec := analysis_params.get("end_time")) is not None:
-                    pre_analyzed_data.tissue_waveforms = pre_analyzed_tissue_data.filter(
-                        pl.col("time") <= end_time_sec
+                    windowed_pre_analyzed_data.tissue_waveforms = (
+                        windowed_pre_analyzed_data.tissue_waveforms.filter(pl.col("time") <= end_time_sec)
                     )
             except Exception:
                 logger.exception("Error windowing tissue data")
@@ -190,7 +191,7 @@ async def process_item(con, item):
                     if (val := analysis_params.get(param)) is not None
                 }
                 logger.info("Running peak detector")
-                data_with_features = peak_finder.run(pre_analyzed_data, alg_args=peak_detector_args)
+                data_with_features = peak_finder.run(windowed_pre_analyzed_data, alg_args=peak_detector_args)
             except Exception:
                 logger.exception("PeakDetector failed")
                 raise

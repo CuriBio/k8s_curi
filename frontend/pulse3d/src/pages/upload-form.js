@@ -326,19 +326,16 @@ export default function UploadForm() {
     setCheckedParams(newCheckedParams);
   };
   const formatTupleParams = (firstParam, secondParam) => {
-    // convert factors that aren't specified to null
-    if (firstParam === "") {
-      firstParam = null;
-    }
-    if (secondParam === "") {
-      secondParam = null;
-    }
+    firstParam = firstParam === "" ? null : parseFloat(firstParam);
+    secondParam = secondParam === "" ? null : parseFloat(secondParam);
 
     let factors = [firstParam, secondParam];
+
     if (factors.every((v) => !v)) {
       // if both factors are null, return null instead of an array
       return null;
     }
+
     return factors;
   };
 
