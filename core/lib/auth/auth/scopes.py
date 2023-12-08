@@ -61,8 +61,8 @@ class Scopes(StrEnum):
     )
     # TODO need to revisit these
     REFRESH = auto()
-    NON_ADMIN__VERIFY = auto(), ScopeTags.ACCOUNT
-    NON_ADMIN__RESET = auto(), ScopeTags.ACCOUNT
+    USER__VERIFY = auto(), ScopeTags.ACCOUNT
+    USER__RESET = auto(), ScopeTags.ACCOUNT
     ADMIN__VERIFY = auto(), ScopeTags.ACCOUNT
     ADMIN__RESET = auto(), ScopeTags.ACCOUNT
 

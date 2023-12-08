@@ -450,7 +450,7 @@ async def register_customer(
                     type="verify",
                     user_id=new_account_id,
                     customer_id=None,
-                    scopes=["customer:verify"],
+                    scopes=[Scopes.ADMIN__VERIFY],
                     name=None,
                     email=email,
                 )
@@ -473,8 +473,7 @@ async def register_user(
     Only customer accounts with admin privileges can register users.
     """
     customer_id = uuid.UUID(hex=token["userid"])
-    # 'customer:paid' or 'customer:free'
-    admin_scopes = token["scope"]
+    admin_scopes = token["scopes"]
     user_scopes = details.scope
     try:
         email = details.email.lower()
@@ -523,7 +522,7 @@ async def register_user(
                     type="verify",
                     user_id=new_account_id,
                     customer_id=customer_id,
-                    scopes=["users:verify"],
+                    scopes=[Scopes.USERS__VERIFY],
                     name=username,
                     email=email,
                 )
@@ -566,12 +565,15 @@ async def email_account(
 
                 bind_threadlocal(user_id=str(user_id), customer_id=str(customer_id), username=username)
 
+                scope_str = f"{'user' if user else 'admin'}:{type}"
+                scope = next(s for s in Scopes if s == scope_str)
+
                 await _create_account_email(
                     con=con,
                     type=type,
                     user_id=user_id,
                     customer_id=customer_id,
-                    scopes=[f"{'users' if user else 'customer'}:{type}"],
+                    scopes=[scope],
                     name=username,
                     email=email,
                 )
@@ -671,11 +673,11 @@ async def update_accounts(
     try:
         user_id = uuid.UUID(hex=token["userid"])
 
-        is_customer = any("customer" in scope for scope in token["scope"])
-        is_user = any("users" in scope for scope in token["scope"])
+        is_customer = any("admin" in scope for scope in token["scopes"])
+        is_user = any("users" in scope for scope in token["scopes"])
         # must be either a customer or user. Cannot be both or neither
         if not (is_customer ^ is_user):
-            logger.error(f"PUT /{user_id}: Invalid scope(s): {token['scope']}")
+            logger.error(f"PUT /{user_id}: Invalid scope(s): {token['scopes']}")
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
         customer_id = None if is_customer else uuid.UUID(hex=token["customer_id"])
@@ -800,7 +802,7 @@ async def update_user_scopes(
 ):
     """Update a user account's scopes in the database."""
     customer_id = uuid.UUID(hex=token["userid"])
-    admin_scopes = token["scope"]
+    admin_scopes = token["scopes"]
     user_scopes = details.scopes
 
     bind_threadlocal(customer_id=str(customer_id), user_id=str(account_id))
@@ -829,7 +831,7 @@ async def update_user_scopes(
 
 
 @app.get("/preferences")
-async def get_user_preferences(request: Request, token=Depends(ProtectedAny(tags=[ScopeTags.PULSE3D_WRITE]))):
+async def get_user_preferences(request: Request, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))):
     """Get preferences for user."""
     user_id = uuid.UUID(token["userid"])
     bind_threadlocal(customer_id=token["customer_id"], user_id=str(user_id))
@@ -846,7 +848,7 @@ async def get_user_preferences(request: Request, token=Depends(ProtectedAny(tags
 
 @app.put("/preferences")
 async def update_user_preferences(
-    request: Request, details: PreferencesUpdate, token=Depends(ProtectedAny(tags=[ScopeTags.PULSE3D_WRITE]))
+    request: Request, details: PreferencesUpdate, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
 ):
     """Update a user's product preferences."""
     user_id = uuid.UUID(token["userid"])
