@@ -25,11 +25,13 @@ from auth import (
     Scopes,
     PULSE3D_PAID_USAGE,
     ProhibitedScopeError,
+    AuthTokens,
+    get_account_scope,
+    create_new_tokens,
 )
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
 from models.errors import LoginError, RegistrationError, EmailRegistrationError
-from models.tokens import AuthTokens
 from models.users import (
     CustomerLogin,
     UserLogin,
@@ -144,7 +146,7 @@ async def login_customer(request: Request, details: CustomerLogin):
             # verify password, else raise LoginError
             await _verify_password(con, account_type, pw, select_query_result)
             # get scopes from account_scopes table
-            scope = await _get_account_scope(con, customer_id, True)
+            scope = await get_account_scope(con, customer_id, True)
             # get list of scopes that a customer can assign to its users
             # TODO split this part out into a new route
             avail_user_scopes = get_assignable_scopes_from_admin(scope)
@@ -159,7 +161,7 @@ async def login_customer(request: Request, details: CustomerLogin):
                 email,
             )
 
-            tokens = await _create_new_tokens(con, customer_id, None, scope, account_type)
+            tokens = await create_new_tokens(con, customer_id, None, scope, account_type)
 
             return LoginResponse(
                 tokens=tokens, usage_quota=usage_quota, user_scopes=avail_user_scopes, customer_scopes=scope
@@ -228,7 +230,7 @@ async def login_user(request: Request, details: UserLogin):
             await _verify_password(con, account_type, pw, select_query_result)
 
             #  get scopes from account_scopes table
-            scope = await _get_account_scope(con, user_id, False)
+            scope = await get_account_scope(con, user_id, False)
 
             # users logging into the dashboard should not have usage returned because they need to select a product from the landing page first to be given correct limits
             # users logging into a specific instrument need the the usage returned right away and it is known what instrument they are using
@@ -248,7 +250,7 @@ async def login_user(request: Request, details: UserLogin):
                 str(customer_id),
             )
 
-            tokens = await _create_new_tokens(con, user_id, customer_id, scope, account_type)
+            tokens = await create_new_tokens(con, user_id, customer_id, scope, account_type)
 
             return LoginResponse(tokens=tokens, usage_quota=usage_quota)
 
@@ -360,10 +362,10 @@ async def refresh(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.RE
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
-            scope = await _get_account_scope(con, userid, is_customer_account)
+            scope = await get_account_scope(con, userid, is_customer_account)
 
             # con is passed to this function, so it must be inside this async with block
-            return await _create_new_tokens(con, userid, row.get("customer_id"), scope, account_type)
+            return await create_new_tokens(con, userid, row.get("customer_id"), scope, account_type)
 
     except HTTPException:
         raise
@@ -372,43 +374,8 @@ async def refresh(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.RE
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-async def _get_account_scope(db_con, account_id, is_customer_account):
-    if is_customer_account:
-        query = "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL"
-    else:
-        query = "SELECT scope FROM account_scopes WHERE user_id=$1"
-
-    query_res = await db_con.fetch(query, account_id)
-    scope = [row["scope"] for row in query_res]
-    return scope
-
-
-async def _create_new_tokens(db_con, userid, customer_id, scope, account_type):
-    refresh_scope = ["refresh"]
-
-    # create new tokens
-    access = create_token(
-        userid=userid, customer_id=customer_id, scope=scope, account_type=account_type, refresh=False
-    )
-    # refresh token does not need any scope, so just set it to refresh
-    refresh = create_token(
-        userid=userid, customer_id=customer_id, scope=refresh_scope, account_type=account_type, refresh=True
-    )
-
-    # insert refresh token into DB
-    if account_type == "customer":
-        update_query = "UPDATE customers SET refresh_token=$1 WHERE id=$2"
-    else:
-        update_query = "UPDATE users SET refresh_token=$1 WHERE id=$2"
-
-    await db_con.execute(update_query, refresh.token, userid)
-
-    # return token model
-    return AuthTokens(access=access, refresh=refresh)
-
-
 @app.post("/logout", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
-async def logout(request: Request, token=Depends(ProtectedAny(tags=ScopeTags.all()))):
+async def logout(request: Request, token=Depends(ProtectedAny(scopes=list(Scopes)))):
     """Logout the user/customer.
 
     The refresh token for the user/customer will be removed from the DB, so they will

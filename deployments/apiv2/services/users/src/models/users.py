@@ -3,7 +3,7 @@ from typing import Any
 from uuid import UUID
 from pydantic import BaseModel, EmailStr, SecretStr
 from pydantic import constr, validator
-from models.tokens import AuthTokens
+from auth import AuthTokens
 
 USERNAME_MIN_LEN = 3
 USERNAME_MAX_LEN = 32

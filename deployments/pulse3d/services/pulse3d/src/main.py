@@ -10,7 +10,7 @@ from typing import List, Optional, Tuple, Union
 import boto3
 import pandas as pd
 import structlog
-from auth import ScopeTags, ProtectedAny, check_prohibited_product
+from auth import ScopeTags, ProtectedAny, check_prohibited_product, ProhibitedProductError
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -196,6 +196,9 @@ async def create_recording_upload(
                 upload_id = await create_upload(con=con, upload_params=upload_params)
                 params = _generate_presigned_post(details, PULSE3D_UPLOADS_BUCKET, s3_key)
                 return UploadResponse(id=upload_id, params=params)
+    except ProhibitedProductError:
+        logger.exception(f"User does not permission to upload {upload_type} recordings")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
     except S3Error:
         logger.exception("Error creating recording")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)

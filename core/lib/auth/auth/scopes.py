@@ -5,6 +5,10 @@ class ProhibitedScopeError(Exception):
     pass
 
 
+class ProhibitedProductError(Exception):
+    pass
+
+
 class ScopeTags(Enum):
     INTERNAL = auto()  # TODO rename this to production?
     MANTARRAY = auto()
@@ -72,8 +76,7 @@ def check_prohibited_product(admin_scopes, product) -> None:
     product_tags_of_admin = get_product_tags_of_admin(admin_scopes)
 
     if product not in product_tags_of_admin:
-        # TODO make a specific exception for this
-        raise Exception(product)
+        raise ProhibitedProductError(product)
 
 
 def get_assignable_scopes_from_admin(admin_scopes) -> dict[str, list[str]]:

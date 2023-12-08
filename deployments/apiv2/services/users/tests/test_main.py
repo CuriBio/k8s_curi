@@ -9,10 +9,9 @@ from fastapi.testclient import TestClient
 from freezegun import freeze_time
 import pytest
 
-from auth import create_token, ACCOUNT_SCOPES, PULSE3D_PAID_USAGE
+from auth import create_token, ACCOUNT_SCOPES, PULSE3D_PAID_USAGE, AuthTokens
 from auth.settings import REFRESH_TOKEN_EXPIRE_MINUTES
 from src import main
-from src.models.tokens import AuthTokens
 from src.models.users import (
     USERNAME_MIN_LEN,
     USERNAME_MAX_LEN,

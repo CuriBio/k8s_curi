@@ -1,11 +1,10 @@
 from calendar import timegm
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional  # TODO clean up these types
 from uuid import UUID
 import logging
 
-# TODO rename this module to tokens?
 
+from pydantic import BaseModel
 from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
@@ -19,25 +18,26 @@ from .settings import (
     REFRESH_TOKEN_EXPIRE_MINUTES,
     EMAIL_VER_TOKEN_EXPIRE_MINUTES,
 )
-from .scopes import ScopeTags
+from .scopes import ScopeTags, Scopes
 
 security = HTTPBearer()
 
 logger = logging.getLogger(__name__)
 
 
-# TODO update this to work correctly with refresh tokens
-class ProtectedAny:
-    def __init__(self, scope: List[str], refresh: bool = False, check_scope: bool = True):
-        # don't check scope if using this for refresh tokens
-        if refresh:
-            check_scope = False
+class AuthTokens(BaseModel):
+    access: Token
+    refresh: Token
 
-        self.scope = set(scope)
-        self.refresh = refresh
-        # Tanner (5/24/22): currently /refresh and /logout don't have any required scope,
-        # so don't need to check the scope of tokens that they receive
-        self.check_scope = check_scope
+
+class ProtectedAny:
+    def __init__(self, *, scopes: list[Scopes] | None, tag: ScopeTags | None):
+        if scopes:
+            self.scopes = frozenset(scopes)
+        elif tag:
+            self.scopes = frozenset(s for s in Scopes if tag in s.tags)
+        else:
+            raise ValueError("Either a list of scopes or a scope tag must be provided")
 
     async def __call__(self, credentials: HTTPAuthorizationCredentials = Depends(security)):
         token = credentials.credentials
@@ -46,12 +46,8 @@ class ProtectedAny:
             payload = decode_token(token)
             payload_scopes = set(payload["scope"])
 
-            # check if the wrong type of token was given
-            if payload["refresh"] != self.refresh:
-                raise Exception()
-
             # if checking scope, make sure that the access token has the required scope
-            if self.check_scope and not self.scope.intersection(payload_scopes):
+            if not self.scopes & payload_scopes:
                 raise Exception()
 
             return payload
@@ -70,7 +66,7 @@ def decode_token(token: str):
 
 
 def create_token(
-    *, userid: UUID, customer_id: Optional[UUID], scopes: List[str], account_type: str, refresh: bool = False
+    *, userid: UUID, customer_id: UUID | None, scopes: list[Scopes], account_type: str, refresh: bool = False
 ):
     # make sure tokens have at least 1 scope
     if not scopes:
@@ -88,6 +84,12 @@ def create_token(
     if account_type == "customer":
         if customer_id:
             raise ValueError("Customer tokens cannot have a customer ID")
+
+    if refresh:
+        if non_refresh_scopes := list(set(scopes) - {Scopes.REFRESH}):
+            raise ValueError(f"Invalid scopes for refresh token {non_refresh_scopes}")
+    elif Scopes.REFRESH in scopes:
+        raise ValueError("access token cannot contain 'refresh' scope")
 
     # three different constant exp times based on token type
     if refresh:
@@ -107,3 +109,39 @@ def create_token(
     jwt_token = jwt.encode(payload=jwt_payload.dict(), key=str(JWT_SECRET_KEY), algorithm=JWT_ALGORITHM)
 
     return Token(token=jwt_token)
+
+
+# TODO add testing for all this
+async def get_account_scope(db_con, account_id, is_customer_account):
+    if is_customer_account:
+        query = "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL"
+    else:
+        query = "SELECT scope FROM account_scopes WHERE user_id=$1"
+
+    query_res = await db_con.fetch(query, account_id)
+    scope = [row["scope"] for row in query_res]
+    return scope
+
+
+async def create_new_tokens(db_con, userid, customer_id, scope, account_type):
+    refresh_scope = [Scopes.REFRESH]
+
+    # create new tokens
+    access = create_token(
+        userid=userid, customer_id=customer_id, scope=scope, account_type=account_type, refresh=False
+    )
+    # refresh token does not need any scope, so just set it to refresh
+    refresh = create_token(
+        userid=userid, customer_id=customer_id, scope=refresh_scope, account_type=account_type, refresh=True
+    )
+
+    # insert refresh token into DB
+    if account_type == "customer":
+        update_query = "UPDATE customers SET refresh_token=$1 WHERE id=$2"
+    else:
+        update_query = "UPDATE users SET refresh_token=$1 WHERE id=$2"
+
+    await db_con.execute(update_query, refresh.token, userid)
+
+    # return token model
+    return AuthTokens(access=access, refresh=refresh)
