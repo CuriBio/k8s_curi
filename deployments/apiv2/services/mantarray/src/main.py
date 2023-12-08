@@ -9,7 +9,7 @@ import structlog
 from structlog.threadlocal import bind_threadlocal, clear_threadlocal
 from uvicorn.protocols.utils import get_path_with_query_string
 
-from auth import ProtectedAny
+from auth import ProtectedAny, Scopes
 from core.config import CLUSTER_NAME, DATABASE_URL, DASHBOARD_URL
 from core.versions import get_fw_download_url, get_required_sw_version_range, get_latest_compatible_versions
 from models.models import (
@@ -105,7 +105,7 @@ async def root(request: Request):
 async def add_serial_number(
     request: Request,
     details: SerialNumberRequest,
-    token=Depends(ProtectedAny(scope=["mantarray:serial_number:edit"])),
+    token=Depends(ProtectedAny(scopes=[Scopes.MANTARRAY__SERIAL_NUMBER__EDIT])),
 ):
     try:
         bind_threadlocal(
@@ -127,7 +127,7 @@ async def add_serial_number(
 async def delete_serial_number(
     request: Request,
     serial_number: str = Path(...),
-    token=Depends(ProtectedAny(scope=["mantarray:serial_number:edit"])),
+    token=Depends(ProtectedAny(scopes=[Scopes.MANTARRAY__SERIAL_NUMBER__EDIT])),
 ):
     try:
         bind_threadlocal(
@@ -217,7 +217,7 @@ async def _get_latest_versions(request: Request, serial_number: str, prod: bool)
 
 @app.get("/firmware/info")
 async def get_all_fw_sw_compatibility(
-    request: Request, token=Depends(ProtectedAny(scope=["mantarray:firmware:info"]))
+    request: Request, token=Depends(ProtectedAny(scopes=[Scopes.MANTARRAY__FIRMWARE__LIST]))
 ):
     try:
         async with request.state.pgpool.acquire() as con:
@@ -234,7 +234,7 @@ async def get_all_fw_sw_compatibility(
 async def get_firmware_download_url(
     fw_type: str = Path(..., regex=FW_TYPE_REGEX),
     version: str = Path(..., regex=SEMVER_REGEX),
-    token=Depends(ProtectedAny(scope=["mantarray:firmware:get"])),
+    token=Depends(ProtectedAny(scopes=[Scopes.MANTARRAY__FIRMWARE__GET])),
 ):
     try:
         bind_threadlocal(fw_type=fw_type, fw_version=version)
@@ -253,7 +253,7 @@ async def upload_firmware_file(
     details: MainFirmwareUploadRequest | ChannelFirmwareUploadRequest,
     fw_type: str = Path(..., regex=FW_TYPE_REGEX),
     version: str = Path(..., regex=SEMVER_REGEX),
-    token=Depends(ProtectedAny(scope=["mantarray:firmware:edit"])),
+    token=Depends(ProtectedAny(scopes=[Scopes.MANTARRAY__FIRMWARE__EDIT])),
 ):
     bind_threadlocal(fw_type=fw_type, fw_version=version)
 
@@ -306,7 +306,7 @@ async def update_firmware_info(
     request: Request,
     details: ChannelFirmwareUpdateRequest,
     version: str = Path(..., regex=SEMVER_REGEX),
-    token=Depends(ProtectedAny(scope=["mantarray:firmware:edit"])),
+    token=Depends(ProtectedAny(scopes=[Scopes.MANTARRAY__FIRMWARE__EDIT])),
 ):
     bind_threadlocal(fw_version=version)
 
@@ -328,7 +328,7 @@ async def add_software_version(
     request: Request,
     controller: str = Path(..., regex=SW_TYPE_REGEX),
     version: str = Path(..., regex=SEMVER_REGEX),
-    token=Depends(ProtectedAny(scope=["mantarray:software:edit"])),
+    token=Depends(ProtectedAny(scopes=[Scopes.MANTARRAY__SOFTWARE__EDIT])),
 ):
     bind_threadlocal(controller_type=controller, sw_version=version)
 

@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from pydantic import BaseModel
 
 
@@ -8,14 +6,14 @@ class JWTMeta(BaseModel):
     aud: str
     iat: float
     exp: float
-    scope: List[str]
+    scopes: list[str]
     refresh: bool = False
 
 
 class JWTDetails(BaseModel):
     """How we'll identify users and customers"""
 
-    customer_id: Optional[str]
+    customer_id: str | None
     userid: str
     account_type: str
 

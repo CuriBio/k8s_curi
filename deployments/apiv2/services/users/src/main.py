@@ -455,7 +455,7 @@ async def register_customer(
                     email=email,
                 )
 
-                return CustomerProfile(email=email, user_id=new_account_id.hex, scope=details.scope)
+                return CustomerProfile(email=email, user_id=new_account_id.hex, scopes=details.scope)
 
     except RegistrationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -529,7 +529,7 @@ async def register_user(
                 )
 
                 return UserProfile(
-                    username=username, email=email, user_id=new_account_id.hex, scope=user_scopes
+                    username=username, email=email, user_id=new_account_id.hex, scopes=user_scopes
                 )
 
     except (EmailRegistrationError, ProhibitedScopeError, RegistrationError) as e:
@@ -605,7 +605,7 @@ async def _create_account_email(
 
         # create email verification token, exp 24 hours
         jwt_token = create_token(
-            userid=user_id, customer_id=customer_id, scope=scopes, account_type=account_type
+            userid=user_id, customer_id=customer_id, scopes=scopes, account_type=account_type
         )
 
         url = f"{DASHBOARD_URL}/account/{type}?token={jwt_token.token}"

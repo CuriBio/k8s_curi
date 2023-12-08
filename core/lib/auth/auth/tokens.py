@@ -31,7 +31,7 @@ class AuthTokens(BaseModel):
 
 
 class ProtectedAny:
-    def __init__(self, *, scopes: list[Scopes] | None, tag: ScopeTags | None):
+    def __init__(self, *, scopes: list[Scopes] | None = None, tag: ScopeTags | None = None):
         if scopes:
             self.scopes = frozenset(scopes)
         elif tag:
@@ -44,7 +44,7 @@ class ProtectedAny:
 
         try:
             payload = decode_token(token)
-            payload_scopes = set(payload["scope"])
+            payload_scopes = set(payload["scopes"])
 
             # if checking scope, make sure that the access token has the required scope
             if not self.scopes & payload_scopes:
@@ -102,7 +102,7 @@ def create_token(
     now = datetime.now(tz=timezone.utc)
     iat = timegm(now.utctimetuple())
     exp = timegm((now + timedelta(minutes=exp_dur)).utctimetuple())
-    jwt_meta = JWTMeta(aud=JWT_AUDIENCE, scope=scopes, iat=iat, exp=exp, refresh=refresh)
+    jwt_meta = JWTMeta(aud=JWT_AUDIENCE, scopes=scopes, iat=iat, exp=exp, refresh=refresh)
     jwt_details = JWTDetails(customer_id=customer_id, userid=userid.hex, account_type=account_type)
     jwt_payload = JWTPayload(**jwt_meta.dict(), **jwt_details.dict())
 
@@ -123,16 +123,16 @@ async def get_account_scope(db_con, account_id, is_customer_account):
     return scope
 
 
-async def create_new_tokens(db_con, userid, customer_id, scope, account_type):
+async def create_new_tokens(db_con, userid, customer_id, scopes, account_type):
     refresh_scope = [Scopes.REFRESH]
 
     # create new tokens
     access = create_token(
-        userid=userid, customer_id=customer_id, scope=scope, account_type=account_type, refresh=False
+        userid=userid, customer_id=customer_id, scopes=scopes, account_type=account_type, refresh=False
     )
     # refresh token does not need any scope, so just set it to refresh
     refresh = create_token(
-        userid=userid, customer_id=customer_id, scope=refresh_scope, account_type=account_type, refresh=True
+        userid=userid, customer_id=customer_id, scopes=refresh_scope, account_type=account_type, refresh=True
     )
 
     # insert refresh token into DB

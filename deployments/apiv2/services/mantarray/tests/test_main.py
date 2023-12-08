@@ -1,9 +1,10 @@
 import uuid
+from enum import StrEnum, auto
 from fastapi.testclient import TestClient
 import pytest
 from random import choice, randint
 
-from auth import create_token
+from auth import create_token, Scopes
 from src import main
 from src.models.models import FirmwareUploadResponse, LatestVersionsResponse
 
@@ -22,10 +23,18 @@ def random_software_type():
     return choice(["mantarray", "stingray"])
 
 
-def get_token(*, scope):
+def get_token(*, scopes):
     return create_token(
-        userid=uuid.uuid4(), customer_id=uuid.uuid4(), scope=scope, account_type="user", refresh=False
+        userid=uuid.uuid4(), customer_id=uuid.uuid4(), scopes=scopes, account_type="user", refresh=False
     ).token
+
+
+class DummyScopes(StrEnum):
+    @property
+    def tags(self):
+        return []
+
+    FAKE = auto()
 
 
 ROUTES_WITH_AUTH = (
@@ -66,7 +75,7 @@ def test_routes_with_auth__bad_access_token_given(test_method, test_route):
 
 @pytest.mark.parametrize("test_method,test_route", ROUTES_WITH_AUTH)
 def test_routes_with_auth__invalid_scope_given(test_method, test_route):
-    access_token = get_token(scope=["bad"])
+    access_token = get_token(scopes=[DummyScopes.FAKE])
 
     response = getattr(test_client, test_method.lower())(
         test_route, headers={"Authorization": f"Bearer {access_token}"}
@@ -88,7 +97,7 @@ def test_serial_number__get__success(mocked_asyncpg_con):
 
 
 def test_serial_number__post__success(mocked_asyncpg_con):
-    access_token = get_token(scope=["mantarray:serial_number:edit"])
+    access_token = get_token(scopes=[Scopes.MANTARRAY__SERIAL_NUMBER__EDIT])
 
     test_serial_number = "serial_number"
     test_hw_version = random_semver()
@@ -106,7 +115,7 @@ def test_serial_number__post__success(mocked_asyncpg_con):
 
 
 def test_serial_number__delete__success(mocked_asyncpg_con):
-    access_token = get_token(scope=["mantarray:serial_number:edit"])
+    access_token = get_token(scopes=[Scopes.MANTARRAY__SERIAL_NUMBER__EDIT])
 
     test_serial_number = "serial_number"
 
@@ -210,7 +219,7 @@ def test_versions__get__serial_number_not_found_in_db(mocked_asyncpg_con):
 
 
 def test_firmware_info__get__success(mocked_asyncpg_con):
-    access_token = get_token(scope=["mantarray:firmware:info"])
+    access_token = get_token(scopes=[Scopes.MANTARRAY__FIRMWARE__LIST])
 
     expected_response = main.FirmwareInfoResponse(
         main_fw_info=[{"main": "1.1.1"}], channel_fw_info=[{"channel": "2.2.2"}]
@@ -231,7 +240,7 @@ def test_firmware_info__get__success(mocked_asyncpg_con):
 
 
 def test_firmware__get__success(mocker):
-    access_token = get_token(scope=["mantarray:firmware:get"])
+    access_token = get_token(scopes=[Scopes.MANTARRAY__FIRMWARE__GET])
 
     expected_url = "url"
     mocked_get_url = mocker.patch.object(
@@ -252,7 +261,7 @@ def test_firmware__get__success(mocker):
 
 @pytest.mark.parametrize("bad_param_type", ["firmware_version", "firmware_type"])
 def test_firmware__get__bad_path_params(bad_param_type):
-    access_token = get_token(scope=["mantarray:firmware:get"])
+    access_token = get_token(scopes=[Scopes.MANTARRAY__FIRMWARE__GET])
 
     test_params = {"firmware_version": random_semver(), "firmware_type": random_firmware_type()}
     # change one param to invalid value
@@ -271,7 +280,7 @@ def test_firmware__get__bad_path_params(bad_param_type):
 def test_firmware__post__main_fw__success(
     mocker, mocked_asyncpg_con, is_compatible_with_current_ma_sw, is_compatible_with_current_sting_sw
 ):
-    access_token = get_token(scope=["mantarray:firmware:edit"])
+    access_token = get_token(scopes=[Scopes.MANTARRAY__FIRMWARE__EDIT])
 
     test_fw_version = random_semver()
 
@@ -310,7 +319,7 @@ def test_firmware__post__main_fw__success(
 
 
 def test_firmware__post__channel_fw__success(mocker, mocked_asyncpg_con):
-    access_token = get_token(scope=["mantarray:firmware:edit"])
+    access_token = get_token(scopes=[Scopes.MANTARRAY__FIRMWARE__EDIT])
 
     test_fw_version = random_semver()
 
@@ -343,7 +352,7 @@ def test_firmware__post__channel_fw__success(mocker, mocked_asyncpg_con):
 
 
 def test_firmware__put__success(mocked_asyncpg_con):
-    access_token = get_token(scope=["mantarray:firmware:edit"])
+    access_token = get_token(scopes=[Scopes.MANTARRAY__FIRMWARE__EDIT])
 
     test_fw_version = random_semver()
 
@@ -367,7 +376,7 @@ def test_firmware__put__success(mocked_asyncpg_con):
     "test_sw_type, expected_table_name", [("mantarray", "ma_controllers"), ("stingray", "sting_controllers")]
 )
 def test_software__post__success(test_sw_type, expected_table_name, mocked_asyncpg_con):
-    access_token = get_token(scope=["mantarray:software:edit"])
+    access_token = get_token(scopes=[Scopes.MANTARRAY__SOFTWARE__EDIT])
 
     test_version = random_semver()
 
