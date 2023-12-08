@@ -1,5 +1,4 @@
 import uuid
-from enum import StrEnum, auto
 from fastapi.testclient import TestClient
 import pytest
 from random import choice, randint
@@ -27,14 +26,6 @@ def get_token(*, scopes):
     return create_token(
         userid=uuid.uuid4(), customer_id=uuid.uuid4(), scopes=scopes, account_type="user", refresh=False
     ).token
-
-
-class DummyScopes(StrEnum):
-    @property
-    def tags(self):
-        return []
-
-    FAKE = auto()
 
 
 ROUTES_WITH_AUTH = (
@@ -75,7 +66,8 @@ def test_routes_with_auth__bad_access_token_given(test_method, test_route):
 
 @pytest.mark.parametrize("test_method,test_route", ROUTES_WITH_AUTH)
 def test_routes_with_auth__invalid_scope_given(test_method, test_route):
-    access_token = get_token(scopes=[DummyScopes.FAKE])
+    # using nautilus scope here since it will never be valid for any route in the mantarray svc
+    access_token = get_token(scopes=[Scopes.NAUTILUS__BASE])
 
     response = getattr(test_client, test_method.lower())(
         test_route, headers={"Authorization": f"Bearer {access_token}"}

@@ -9,7 +9,14 @@ from fastapi.testclient import TestClient
 from freezegun import freeze_time
 import pytest
 
-from auth import create_token, Scopes, ScopeTags, PULSE3D_PAID_USAGE, AuthTokens
+from auth import (
+    create_token,
+    Scopes,
+    ScopeTags,
+    PULSE3D_PAID_USAGE,
+    AuthTokens,
+    get_assignable_scopes_from_admin,
+)
 from auth.settings import REFRESH_TOKEN_EXPIRE_MINUTES
 from src import main
 from src.models.users import (
@@ -108,7 +115,7 @@ def test_login__user__success(send_client_type, use_alias, mocked_asyncpg_con, m
         login_details["client_type"] = "dashboard"
 
     test_user_id = uuid.uuid4()
-    test_scope = ["test:scope1", "test:scope2"]
+    test_scope = [Scopes.MANTARRAY__BASE]
     pw_hash = PasswordHasher().hash(login_details["password"])
 
     mocked_asyncpg_con.fetchrow.return_value = {
@@ -119,7 +126,7 @@ def test_login__user__success(send_client_type, use_alias, mocked_asyncpg_con, m
         "customer_id": test_customer_id,
     }
     mocked_asyncpg_con.fetch.return_value = [{"scope": s} for s in test_scope]
-    spied_create_token = mocker.spy(main, "create_token")
+    spied_create_token = mocker.spy(main, "create_new_tokens")
 
     expected_access_token = create_token(
         userid=test_user_id,
@@ -131,7 +138,7 @@ def test_login__user__success(send_client_type, use_alias, mocked_asyncpg_con, m
     expected_refresh_token = create_token(
         userid=test_user_id,
         customer_id=test_customer_id,
-        scopes=["refresh"],
+        scopes=[Scopes.REFRESH],
         account_type="user",
         refresh=True,
     )
@@ -161,7 +168,7 @@ def test_login__user__success(send_client_type, use_alias, mocked_asyncpg_con, m
         "UPDATE users SET refresh_token=$1 WHERE id=$2", expected_refresh_token.token, test_user_id
     )
 
-    assert spied_create_token.call_count == 2
+    assert spied_create_token.call_count == 1
 
 
 def test_login__user__no_matching_record_in_db(mocked_asyncpg_con):
@@ -263,7 +270,7 @@ def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
 
     pw_hash = PasswordHasher().hash(login_details["password"])
     test_customer_id = uuid.uuid4()
-    customer_scope = [Scopes.MANTARRAY__BASE]
+    customer_scopes = [Scopes.MANTARRAY__ADMIN]
 
     mocked_asyncpg_con.fetchrow.return_value = {
         "password": pw_hash,
@@ -271,18 +278,22 @@ def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
         "failed_login_attempts": 0,
         "suspended": False,
     }
-    mocked_asyncpg_con.fetch.return_value = [{"scope": s} for s in customer_scope]
-    spied_create_token = mocker.spy(main, "create_token")
+    mocked_asyncpg_con.fetch.return_value = [{"scope": s} for s in customer_scopes]
+    spied_create_token = mocker.spy(main, "create_new_tokens")
 
     expected_access_token = create_token(
         userid=test_customer_id,
         customer_id=None,
-        scopes=customer_scope,
+        scopes=customer_scopes,
         account_type="customer",
         refresh=False,
     )
     expected_refresh_token = create_token(
-        userid=test_customer_id, customer_id=None, scopes=["refresh"], account_type="customer", refresh=True
+        userid=test_customer_id,
+        customer_id=None,
+        scopes=[Scopes.REFRESH],
+        account_type="customer",
+        refresh=True,
     )
 
     response = test_client.post("/login/customer", json=login_details)
@@ -290,8 +301,8 @@ def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
     assert response.json() == LoginResponse(
         tokens=AuthTokens(access=expected_access_token, refresh=expected_refresh_token),
         usage_quota=mocked_usage_check.return_value,
-        user_scopes={"mantarray": [Scopes.MANTARRAY__RW_ALL_DATA]},
-        customer_scopes=customer_scope,
+        user_scopes=get_assignable_scopes_from_admin(customer_scopes),
+        customer_scopes=customer_scopes,
     )
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
@@ -305,7 +316,7 @@ def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
         "UPDATE customers SET refresh_token=$1 WHERE id=$2", expected_refresh_token.token, test_customer_id
     )
 
-    assert spied_create_token.call_count == 2
+    assert spied_create_token.call_count == 1
 
 
 def test_login__customer__no_matching_record_in_db(mocked_asyncpg_con):
@@ -375,10 +386,12 @@ def test_register__user__allows_valid_usernames(special_char, mocked_asyncpg_con
     mocker.patch.object(main, "_create_account_email", autospec=True)
     end_with_num = choice([True, False])
 
+    expected_scopes = [Scopes.MANTARRAY__RW_ALL_DATA, Scopes.MANTARRAY__FIRMWARE__GET]
+
     registration_details = {
         "email": "USEr@example.com",
         "username": f"Test{special_char}UseRName",
-        "scope": [Scopes.MANTARRAY__RW_ALL_DATA],
+        "scopes": expected_scopes,
     }
 
     if end_with_num:
@@ -386,12 +399,9 @@ def test_register__user__allows_valid_usernames(special_char, mocked_asyncpg_con
 
     test_user_id = uuid.uuid4()
     test_customer_id = uuid.uuid4()
-    access_token = get_token(
-        userid=test_customer_id, scopes=[Scopes.MANTARRAY__BASE], account_type="customer"
-    )
+    access_token = get_token(userid=test_customer_id, account_type="customer")
 
     mocked_asyncpg_con.fetchval.return_value = test_user_id
-    expected_scope = [Scopes.MANTARRAY__RW_ALL_DATA, Scopes.MANTARRAY__FIRMWARE__GET]
 
     response = test_client.post(
         "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -401,7 +411,7 @@ def test_register__user__allows_valid_usernames(special_char, mocked_asyncpg_con
         "username": registration_details["username"].lower(),
         "email": registration_details["email"].lower(),
         "user_id": test_user_id.hex,
-        "scope": expected_scope,
+        "scopes": expected_scopes,
     }
     assert response.status_code == 201
 
@@ -415,7 +425,7 @@ def test_register__user__allows_valid_usernames(special_char, mocked_asyncpg_con
         "INSERT INTO account_scopes VALUES ($1, $2, unnest($3::text[]))",
         test_customer_id,
         test_user_id,
-        expected_scope,
+        expected_scopes,
     )
 
 
@@ -427,12 +437,14 @@ def test_register__user__allows_valid_usernames(special_char, mocked_asyncpg_con
     ],
 )
 def test_register__user__invalid_username_length(length, err_msg):
-    registration_details = {"email": "test@email.com", "username": "a" * length}
+    registration_details = {
+        "email": "test@email.com",
+        "username": "a" * length,
+        "scopes": [Scopes.MANTARRAY__BASE],
+    }
 
     test_customer_id = uuid.uuid4()
-    access_token = get_token(
-        userid=test_customer_id, scopes=[Scopes.MANTARRAY__BASE], account_type="customer"
-    )
+    access_token = get_token(userid=test_customer_id, account_type="customer")
 
     response = test_client.post(
         "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -443,12 +455,14 @@ def test_register__user__invalid_username_length(length, err_msg):
 
 @pytest.mark.parametrize("special_char", ["@", "#", "$", "*", "&", "%"])
 def test_register__user__with_invalid_char_in_username(special_char):
-    registration_details = {"email": "test@email.com", "username": f"bad{special_char}username"}
+    registration_details = {
+        "email": "test@email.com",
+        "username": f"bad{special_char}username",
+        "scopes": [Scopes.MANTARRAY__BASE],
+    }
 
     test_customer_id = uuid.uuid4()
-    access_token = get_token(
-        userid=test_customer_id, scopes=[Scopes.MANTARRAY__BASE], account_type="customer"
-    )
+    access_token = get_token(userid=test_customer_id, account_type="customer")
 
     response = test_client.post(
         "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -462,12 +476,14 @@ def test_register__user__with_invalid_char_in_username(special_char):
 
 @pytest.mark.parametrize("bad_first_char", [*USERNAME_VALID_SPECIAL_CHARS, str(randint(0, 9))])
 def test_register__user__with_invalid_first_char(bad_first_char):
-    registration_details = {"email": "test@email.com", "username": f"{bad_first_char}username"}
+    registration_details = {
+        "email": "test@email.com",
+        "username": f"{bad_first_char}username",
+        "scopes": [Scopes.MANTARRAY__BASE],
+    }
 
     test_customer_id = uuid.uuid4()
-    access_token = get_token(
-        userid=test_customer_id, scopes=[Scopes.MANTARRAY__BASE], account_type="customer"
-    )
+    access_token = get_token(userid=test_customer_id, account_type="customer")
 
     response = test_client.post(
         "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -478,12 +494,14 @@ def test_register__user__with_invalid_first_char(bad_first_char):
 
 @pytest.mark.parametrize("bad_final_char", USERNAME_VALID_SPECIAL_CHARS)
 def test_register__user__with_invalid_final_char(bad_final_char):
-    registration_details = {"email": "test@email.com", "username": f"username{bad_final_char}"}
+    registration_details = {
+        "email": "test@email.com",
+        "username": f"username{bad_final_char}",
+        "scopes": [Scopes.MANTARRAY__BASE],
+    }
 
     test_customer_id = uuid.uuid4()
-    access_token = get_token(
-        userid=test_customer_id, scopes=[Scopes.MANTARRAY__BASE], account_type="customer"
-    )
+    access_token = get_token(userid=test_customer_id, account_type="customer")
 
     response = test_client.post(
         "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -494,13 +512,15 @@ def test_register__user__with_invalid_final_char(bad_final_char):
 
 @pytest.mark.parametrize("special_char", USERNAME_VALID_SPECIAL_CHARS)
 def test_register__user__with_consecutive_special_chars(special_char):
-    registration_details = {"email": "test@email.com", "username": f"a-{special_char}a"}
+    registration_details = {
+        "email": "test@email.com",
+        "username": f"a-{special_char}a",
+        "scopes": [Scopes.MANTARRAY__BASE],
+    }
 
     test_customer_id = uuid.uuid4()
 
-    access_token = get_token(
-        userid=test_customer_id, scopes=[Scopes.MANTARRAY__BASE], account_type="customer"
-    )
+    access_token = get_token(userid=test_customer_id, account_type="customer")
 
     response = test_client.post(
         "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -523,12 +543,12 @@ def test_register__user__unique_constraint_violations(
     registration_details = {
         "email": "test@email.com",
         "username": "testusername",
-        "scope": ["mantarray", "nautilus"],
+        "scopes": [Scopes.MANTARRAY__BASE, Scopes.NAUTILUS__BASE],
     }
 
     test_user_id = uuid.uuid4()
     access_token = get_token(
-        userid=test_user_id, scopes=[Scopes.MANTARRAY__BASE, "nautilus:paid"], account_type="customer"
+        userid=test_user_id, scopes=[Scopes.MANTARRAY__ADMIN, Scopes.NAUTILUS__ADMIN], account_type="customer"
     )
 
     mocked_asyncpg_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)
@@ -541,9 +561,8 @@ def test_register__user__unique_constraint_violations(
 
 
 def test_register__user__invalid_token_scope_given():
-    # TODO
     registration_details = {"email": "user@new.com", "password1": "pw", "password2": "pw"}
-    access_token = get_token(scopes=["users:free"], account_type="customer")
+    access_token = get_token(scopes=[Scopes.MANTARRAY__BASE], account_type="customer")
     response = test_client.post(
         "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
@@ -553,17 +572,17 @@ def test_register__user__invalid_token_scope_given():
 def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, mocker):
     mocker.patch.object(main, "_create_account_email", autospec=True)
 
+    expected_scopes = [Scopes.MANTARRAY__ADMIN, Scopes.NAUTILUS__ADMIN]
     registration_details = {
         "email": "tEsT@email.com",
         "password1": TEST_PASSWORD,
         "password2": TEST_PASSWORD,
-        "scope": [Scopes.MANTARRAY__BASE, "nautilus:paid"],
+        "scopes": expected_scopes,
     }
 
     test_user_id = uuid.uuid4()
     test_customer_id = uuid.uuid4()
-    expected_scope = [Scopes.MANTARRAY__BASE, "nautilus:paid"]
-    access_token = get_token(userid=test_customer_id, scopes=["curi:admin"], account_type="customer")
+    access_token = get_token(userid=test_customer_id, scopes=[Scopes.CURI__ADMIN], account_type="customer")
 
     mocked_asyncpg_con.fetchval.return_value = test_user_id
 
@@ -574,7 +593,7 @@ def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, mocker
     assert response.json() == {
         "email": registration_details["email"].lower(),
         "user_id": test_user_id.hex,
-        "scope": expected_scope,
+        "scopes": expected_scopes,
     }
 
     mocked_asyncpg_con.fetchval.assert_called_once_with(
@@ -583,7 +602,7 @@ def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, mocker
         json.dumps(dict(PULSE3D_PAID_USAGE)),
     )
     mocked_asyncpg_con.execute.assert_called_once_with(
-        "INSERT INTO account_scopes VALUES ($1, NULL, unnest($2::text[]))", test_user_id, expected_scope
+        "INSERT INTO account_scopes VALUES ($1, NULL, unnest($2::text[]))", test_user_id, expected_scopes
     )
 
 
@@ -594,20 +613,19 @@ def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, mocker
 def test_register__customer__unique_constraint_violations(
     contraint_to_violate, expected_error_message, mocked_asyncpg_con, spied_pw_hasher, mocker
 ):
-    test_scope = ["nautilus:paid"]
+    test_scope = [Scopes.NAUTILUS__BASE]
 
     registration_details = {
         "email": "test@email.com",
         "password1": TEST_PASSWORD,
         "password2": TEST_PASSWORD,
-        "scope": test_scope,
+        "scopes": test_scope,
     }
 
     test_customer_id = uuid.uuid4()
 
-    access_token = get_token(userid=test_customer_id, scopes=["curi:admin"], account_type="customer")
+    access_token = get_token(userid=test_customer_id, scopes=[Scopes.CURI__ADMIN], account_type="customer")
 
-    # setting this
     mocked_asyncpg_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)
 
     response = test_client.post(
@@ -622,9 +640,9 @@ def test_register__customer__invalid_token_scope_given():
         "email": "test@email.com",
         "password1": TEST_PASSWORD,
         "password2": TEST_PASSWORD,
-        "scope": ["nautilus:paid"],
+        "scopes": ["any"],
     }
-    access_token = get_token(userid=uuid.uuid4(), scopes=["curi:not_admin"], account_type="customer")
+    access_token = get_token(userid=uuid.uuid4(), scopes=[Scopes.NAUTILUS__BASE], account_type="customer")
     response = test_client.post(
         "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
@@ -636,8 +654,8 @@ def test_register__customer__invalid_token_scope_given():
 def test_refresh__success(account_type, mocked_asyncpg_con):
     userid = uuid.uuid4()
 
-    test_service = "mantarray"
-    test_scope_in_db = [f"{test_service}:free"]
+    # arbitrarily choosing this scope
+    test_scope_in_db = [Scopes.MANTARRAY__BASE]
 
     is_customer_account = account_type == "customer"
     customer_id = None if is_customer_account else uuid.uuid4()
@@ -720,7 +738,7 @@ def test_logout__success(account_type, mocked_asyncpg_con):
 
 def test_account_id__get__no_id(mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
-    access_token = get_token(scopes=["nautilus:free"], userid=test_customer_id, account_type="customer")
+    access_token = get_token(userid=test_customer_id, account_type="customer")
 
     num_users_found = 3
     mocked_asyncpg_con.fetch.return_value = expected_users_info = [
@@ -754,8 +772,7 @@ def test_account_id__get__no_id(mocked_asyncpg_con):
 
 
 def test_account_id__get__no_id__invalid_token_scope_given():
-    # account type does not matter here
-    access_token = get_token(scopes=["users:free"])
+    access_token = get_token(account_type="user")
     response = test_client.get("/", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 401
 

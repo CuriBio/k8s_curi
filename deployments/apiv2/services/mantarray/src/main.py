@@ -109,9 +109,7 @@ async def add_serial_number(
 ):
     try:
         bind_threadlocal(
-            user_id=token.get("userid"),
-            customer_id=token.get("customer_id"),
-            serial_number=details.serial_number,
+            user_id=token.userid, customer_id=token.customer_id, serial_number=details.serial_number
         )
 
         async with request.state.pgpool.acquire() as con:
@@ -130,9 +128,7 @@ async def delete_serial_number(
     token=Depends(ProtectedAny(scopes=[Scopes.MANTARRAY__SERIAL_NUMBER__EDIT])),
 ):
     try:
-        bind_threadlocal(
-            user_id=token.get("userid"), customer_id=token.get("customer_id"), serial_number=serial_number
-        )
+        bind_threadlocal(user_id=token.userid, customer_id=token.customer_id, serial_number=serial_number)
 
         async with request.state.pgpool.acquire() as con:
             await con.execute("DELETE FROM MAUnits WHERE serial_number=$1", serial_number)

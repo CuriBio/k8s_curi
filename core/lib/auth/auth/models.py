@@ -1,12 +1,13 @@
 from pydantic import BaseModel
+from .scopes import ScopeConverter, Scopes
 
 
-class JWTMeta(BaseModel):
+class JWTMeta(ScopeConverter):
     iss: str = "curibio.com"
     aud: str
     iat: float
     exp: float
-    scopes: list[str]
+    scopes: list[Scopes]
     refresh: bool = False
 
 

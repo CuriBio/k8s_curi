@@ -1,4 +1,5 @@
 from enum import Enum, StrEnum, auto
+from pydantic import BaseModel, validator
 
 
 class ProhibitedScopeError(Exception):
@@ -13,7 +14,6 @@ class ScopeTags(Enum):
     INTERNAL = auto()  # TODO rename this to production?
     MANTARRAY = auto()
     NAUTILUS = auto()
-    DEFAULT = auto()
     ADMIN = auto()
     PULSE3D_READ = auto()
     PULSE3D_WRITE = auto()
@@ -37,14 +37,8 @@ class Scopes(StrEnum):
     CURI__ADMIN = auto(), ScopeTags.INTERNAL, ScopeTags.ADMIN, ScopeTags.PULSE3D_READ
     MANTARRAY__ADMIN = auto(), ScopeTags.MANTARRAY, ScopeTags.ADMIN, ScopeTags.PULSE3D_READ
     MANTARRAY__RW_ALL_DATA = auto(), ScopeTags.MANTARRAY, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE
-    MANTARRAY__BASE = (
-        auto(),
-        ScopeTags.DEFAULT,
-        ScopeTags.MANTARRAY,
-        ScopeTags.PULSE3D_READ,
-        ScopeTags.PULSE3D_WRITE,
-    )
-    MANTARRAY__FIRMWARE__GET = auto(), ScopeTags.DEFAULT, ScopeTags.MANTARRAY
+    MANTARRAY__BASE = (auto(), ScopeTags.MANTARRAY, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE)
+    MANTARRAY__FIRMWARE__GET = auto(), ScopeTags.MANTARRAY
     MANTARRAY__SOFTWARE__EDIT = auto(), ScopeTags.MANTARRAY, ScopeTags.INTERNAL
     MANTARRAY__FIRMWARE__EDIT = auto(), ScopeTags.MANTARRAY, ScopeTags.INTERNAL
     MANTARRAY__FIRMWARE__LIST = auto(), ScopeTags.MANTARRAY, ScopeTags.INTERNAL
@@ -52,13 +46,7 @@ class Scopes(StrEnum):
     MANTARRAY__SERIAL_NUMBER__LIST = auto(), ScopeTags.MANTARRAY, ScopeTags.INTERNAL
     NAUTILUS__ADMIN = auto(), ScopeTags.NAUTILUS, ScopeTags.PULSE3D_READ, ScopeTags.ADMIN
     NAUTILUS__RW_ALL_DATA = auto(), ScopeTags.NAUTILUS, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE
-    NAUTILUS__BASE = (
-        auto(),
-        ScopeTags.DEFAULT,
-        ScopeTags.NAUTILUS,
-        ScopeTags.PULSE3D_READ,
-        ScopeTags.PULSE3D_WRITE,
-    )
+    NAUTILUS__BASE = (auto(), ScopeTags.NAUTILUS, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE)
     # TODO need to revisit these
     REFRESH = auto()
     USER__VERIFY = auto(), ScopeTags.ACCOUNT
@@ -67,9 +55,21 @@ class Scopes(StrEnum):
     ADMIN__RESET = auto(), ScopeTags.ACCOUNT
 
 
+class ScopeConverter(BaseModel):
+    @validator("scopes", check_fields=False)
+    def convert_scopes(cls, scopes):
+        if scopes is None:
+            return None
+
+        return [Scopes[s.upper().replace(":", "__")] for s in scopes]
+
+
 # TODO add testing for these
 def get_product_tags_of_admin(admin_scopes) -> set[Scopes]:
-    return {tag for s in admin_scopes for tag in s.tags} & {ScopeTags.MANTARRAY, ScopeTags.NAUTILUS}
+    return {tag for s in admin_scopes for tag in s.tags if ScopeTags.ADMIN in s.tags} & {
+        ScopeTags.MANTARRAY,
+        ScopeTags.NAUTILUS,
+    }
 
 
 def check_prohibited_product(admin_scopes, product) -> None:
@@ -82,7 +82,7 @@ def check_prohibited_product(admin_scopes, product) -> None:
 def get_assignable_scopes_from_admin(admin_scopes) -> dict[str, list[str]]:
     unassignable_tags = {ScopeTags.ADMIN}
     if Scopes.CURI__ADMIN not in admin_scopes:
-        unassignable_tags += ScopeTags.INTERNAL
+        unassignable_tags.add(ScopeTags.INTERNAL)
 
     product_tags_of_admin = get_product_tags_of_admin(admin_scopes)
 
@@ -97,6 +97,9 @@ def get_assignable_scopes_from_admin(admin_scopes) -> dict[str, list[str]]:
 
 
 def check_prohibited_scopes(user_scopes, admin_scopes) -> None:
-    assignable_scopes = get_assignable_scopes_from_admin(admin_scopes)
-    if prohibited_scopes := set(user_scopes) - set(assignable_scopes):
+    assignable_scopes_by_product = get_assignable_scopes_from_admin(admin_scopes)
+    assignable_scopes = set(
+        s for product_scopes in assignable_scopes_by_product.values() for s in product_scopes
+    )
+    if prohibited_scopes := set(user_scopes) - assignable_scopes:
         raise ProhibitedScopeError(f"Attempting to assign prohibited scope(s): {prohibited_scopes}")

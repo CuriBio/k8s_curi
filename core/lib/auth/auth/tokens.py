@@ -50,7 +50,7 @@ class ProtectedAny:
             if not self.scopes & payload_scopes:
                 raise Exception()
 
-            return payload
+            return JWTPayload(**payload)
 
         except Exception as e:
             logger.exception(f"Authentication error: {str(e)}")
@@ -112,7 +112,7 @@ def create_token(
 
 
 # TODO add testing for all this
-async def get_account_scope(db_con, account_id, is_customer_account):
+async def get_account_scopes(db_con, account_id, is_customer_account):
     if is_customer_account:
         query = "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL"
     else:
@@ -135,6 +135,7 @@ async def create_new_tokens(db_con, userid, customer_id, scopes, account_type):
         userid=userid, customer_id=customer_id, scopes=refresh_scope, account_type=account_type, refresh=True
     )
 
+    # TODO should probably split this part out into its own function
     # insert refresh token into DB
     if account_type == "customer":
         update_query = "UPDATE customers SET refresh_token=$1 WHERE id=$2"

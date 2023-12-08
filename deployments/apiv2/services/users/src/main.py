@@ -26,7 +26,7 @@ from auth import (
     PULSE3D_PAID_USAGE,
     ProhibitedScopeError,
     AuthTokens,
-    get_account_scope,
+    get_account_scopes,
     create_new_tokens,
 )
 from jobs import check_customer_quota
@@ -146,10 +146,10 @@ async def login_customer(request: Request, details: CustomerLogin):
             # verify password, else raise LoginError
             await _verify_password(con, account_type, pw, select_query_result)
             # get scopes from account_scopes table
-            scope = await get_account_scope(con, customer_id, True)
+            scopes = await get_account_scopes(con, customer_id, True)
             # get list of scopes that a customer can assign to its users
             # TODO split this part out into a new route
-            avail_user_scopes = get_assignable_scopes_from_admin(scope)
+            avail_user_scopes = get_assignable_scopes_from_admin(scopes)
             # TODO decide how to show customer accounts usage data for multiple products, defaulting to mantarray now
             # check usage for customer account
             usage_quota = await check_customer_quota(con, str(customer_id), "mantarray")
@@ -161,10 +161,10 @@ async def login_customer(request: Request, details: CustomerLogin):
                 email,
             )
 
-            tokens = await create_new_tokens(con, customer_id, None, scope, account_type)
+            tokens = await create_new_tokens(con, customer_id, None, scopes, account_type)
 
             return LoginResponse(
-                tokens=tokens, usage_quota=usage_quota, user_scopes=avail_user_scopes, customer_scopes=scope
+                tokens=tokens, usage_quota=usage_quota, user_scopes=avail_user_scopes, customer_scopes=scopes
             )
 
     except LoginError as e:
@@ -230,7 +230,7 @@ async def login_user(request: Request, details: UserLogin):
             await _verify_password(con, account_type, pw, select_query_result)
 
             #  get scopes from account_scopes table
-            scope = await get_account_scope(con, user_id, False)
+            scope = await get_account_scopes(con, user_id, False)
 
             # users logging into the dashboard should not have usage returned because they need to select a product from the landing page first to be given correct limits
             # users logging into a specific instrument need the the usage returned right away and it is known what instrument they are using
@@ -335,8 +335,8 @@ async def refresh(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.RE
 
     In a successful request, the new refresh token will be stored in the DB for the given user/customer account
     """
-    userid = uuid.UUID(hex=token["userid"])
-    account_type = token["account_type"]
+    userid = uuid.UUID(hex=token.userid)
+    account_type = token.account_type
     is_customer_account = account_type == "customer"
 
     if is_customer_account:
@@ -344,7 +344,7 @@ async def refresh(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.RE
         bind_threadlocal(customer_id=str(userid), user_id=None)
     else:
         select_query = "SELECT refresh_token, customer_id FROM users WHERE id=$1"
-        bind_threadlocal(customer_id=token.get("customer_id"), user_id=str(userid))
+        bind_threadlocal(customer_id=token.customer_id, user_id=str(userid))
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -362,7 +362,7 @@ async def refresh(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.RE
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
-            scope = await get_account_scope(con, userid, is_customer_account)
+            scope = await get_account_scopes(con, userid, is_customer_account)
 
             # con is passed to this function, so it must be inside this async with block
             return await create_new_tokens(con, userid, row.get("customer_id"), scope, account_type)
@@ -385,10 +385,10 @@ async def logout(request: Request, token=Depends(ProtectedAny(scopes=list(Scopes
     This will not however affect their access token which will work fine until it expires.
     It is up to the client to discard the access token in order to truly logout the user.
     """
-    userid = uuid.UUID(hex=token["userid"])
-    is_customer_account = token["account_type"] == "customer"
+    userid = uuid.UUID(hex=token.userid)
+    is_customer_account = token.account_type == "customer"
 
-    bind_threadlocal(customer_id=token.get("customer_id"), user_id=str(userid))
+    bind_threadlocal(customer_id=token.customer_id, user_id=str(userid))
 
     if is_customer_account:
         update_query = "UPDATE customers SET refresh_token = NULL WHERE id=$1"
@@ -438,7 +438,7 @@ async def register_customer(
                     raise RegistrationError(failed_msg)
 
                 # add scope for new account
-                insert_scope_query_args = (new_account_id, details.scope)
+                insert_scope_query_args = (new_account_id, details.scopes)
                 await con.execute(
                     "INSERT INTO account_scopes VALUES ($1, NULL, unnest($2::text[]))",
                     *insert_scope_query_args,
@@ -455,7 +455,7 @@ async def register_customer(
                     email=email,
                 )
 
-                return CustomerProfile(email=email, user_id=new_account_id.hex, scopes=details.scope)
+                return CustomerProfile(email=email, user_id=new_account_id.hex, scopes=details.scopes)
 
     except RegistrationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -472,9 +472,9 @@ async def register_user(
 
     Only customer accounts with admin privileges can register users.
     """
-    customer_id = uuid.UUID(hex=token["userid"])
-    admin_scopes = token["scopes"]
-    user_scopes = details.scope
+    customer_id = uuid.UUID(hex=token.userid)
+    admin_scopes = token.scopes
+    user_scopes = details.scopes
     try:
         email = details.email.lower()
         username = details.username.lower()
@@ -522,7 +522,7 @@ async def register_user(
                     type="verify",
                     user_id=new_account_id,
                     customer_id=customer_id,
-                    scopes=[Scopes.USERS__VERIFY],
+                    scopes=[Scopes.USER__VERIFY],
                     name=username,
                     email=email,
                 )
@@ -671,16 +671,16 @@ async def update_accounts(
     Used for both resetting new password or verifying new user accounts. Route will check if the token has been used or if account has already been verified.
     """
     try:
-        user_id = uuid.UUID(hex=token["userid"])
+        user_id = uuid.UUID(hex=token.userid)
 
-        is_customer = any("admin" in scope for scope in token["scopes"])
-        is_user = any("users" in scope for scope in token["scopes"])
+        is_customer = any("admin" in scope for scope in token.scopes)
+        is_user = any("user" in scope for scope in token.scopes)
         # must be either a customer or user. Cannot be both or neither
         if not (is_customer ^ is_user):
-            logger.error(f"PUT /{user_id}: Invalid scope(s): {token['scopes']}")
+            logger.error(f"PUT /{user_id}: Invalid scope(s): {token.scopes}")
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
-        customer_id = None if is_customer else uuid.UUID(hex=token["customer_id"])
+        customer_id = None if is_customer else uuid.UUID(hex=token.customer_id)
 
         if is_customer:
             bind_threadlocal(customer_id=str(user_id), user_id=None)
@@ -759,7 +759,7 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(tag=ScopeTa
 
     List of users returned will be sorted with all active users showing up first, then all the suspended (deactivated) users
     """
-    customer_id = uuid.UUID(hex=token["userid"])
+    customer_id = uuid.UUID(hex=token.userid)
 
     bind_threadlocal(customer_id=str(customer_id), user_id=None)
 
@@ -801,8 +801,8 @@ async def update_user_scopes(
     token=Depends(ProtectedAny(tag=ScopeTags.ADMIN)),
 ):
     """Update a user account's scopes in the database."""
-    customer_id = uuid.UUID(hex=token["userid"])
-    admin_scopes = token["scopes"]
+    customer_id = uuid.UUID(hex=token.userid)
+    admin_scopes = token.scopes
     user_scopes = details.scopes
 
     bind_threadlocal(customer_id=str(customer_id), user_id=str(account_id))
@@ -833,8 +833,8 @@ async def update_user_scopes(
 @app.get("/preferences")
 async def get_user_preferences(request: Request, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))):
     """Get preferences for user."""
-    user_id = uuid.UUID(token["userid"])
-    bind_threadlocal(customer_id=token["customer_id"], user_id=str(user_id))
+    user_id = uuid.UUID(token.userid)
+    bind_threadlocal(customer_id=token.customer_id, user_id=str(user_id))
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -851,9 +851,9 @@ async def update_user_preferences(
     request: Request, details: PreferencesUpdate, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
 ):
     """Update a user's product preferences."""
-    user_id = uuid.UUID(token["userid"])
+    user_id = uuid.UUID(token.userid)
     bind_threadlocal(
-        customer_id=token["customer_id"],
+        customer_id=token.customer_id,
         user_id=str(user_id),
         product=details.product,
         preferences=details.changes,
@@ -876,14 +876,14 @@ async def update_user_preferences(
 async def get_user(
     request: Request,
     account_id: uuid.UUID,
-    token=Depends(ProtectedAny(scopes=[s for s in ScopeTags if s != ScopeTags.ACCOUNT])),
+    token=Depends(ProtectedAny(scopes=[s for s in Scopes if ScopeTags.ACCOUNT not in s.tags])),
 ):
     """Get info for the account with the given ID.
 
     If the account is a user account, the ID must exist under the customer ID in the token
     """
-    self_id = uuid.UUID(hex=token["userid"])
-    is_customer_account = token["account_type"] == "customer"
+    self_id = uuid.UUID(hex=token.userid)
+    is_customer_account = token.account_type == "customer"
     is_self_retrieval = self_id == account_id
 
     get_user_info_query = (
@@ -910,7 +910,7 @@ async def get_user(
                 detail="User accounts cannot retrieve details of other accounts",
             )
 
-        customer_id = uuid.UUID(hex=token["customer_id"])
+        customer_id = uuid.UUID(hex=token.customer_id)
         bind_threadlocal(user_id=str(self_id), customer_id=str(customer_id))
 
         query = get_user_info_query
@@ -946,7 +946,7 @@ async def update_user(
     request: Request,
     details: AccountUpdateAction,
     account_id: uuid.UUID,
-    token=Depends(ProtectedAny(scopes=[s for s in ScopeTags if s != ScopeTags.ACCOUNT])),
+    token=Depends(ProtectedAny(scopes=[s for s in Scopes if ScopeTags.ACCOUNT not in s.tags])),
 ):
     """Update an account's information in the database.
 
@@ -960,10 +960,10 @@ async def update_user(
         - delete (customer->user): set deleted_at field to current time
         - set_alias (customer->self): set the alias field to the given value
     """
-    self_id = uuid.UUID(hex=token["userid"])
+    self_id = uuid.UUID(hex=token.userid)
     action = details.action_type
 
-    is_customer_account = token["account_type"] == "customer"
+    is_customer_account = token.account_type == "customer"
     is_self_edit = self_id == account_id
 
     # TODO also need to check scope below once user self edit actions are added?
@@ -1008,7 +1008,7 @@ async def update_user(
                 )
     else:
         # TODO unit test this else branch
-        bind_threadlocal(user_id=str(self_id), customer_id=token.get("customer_id"), action=action)
+        bind_threadlocal(user_id=str(self_id), customer_id=token.customer_id, action=action)
 
         if not is_self_edit:
             raise HTTPException(

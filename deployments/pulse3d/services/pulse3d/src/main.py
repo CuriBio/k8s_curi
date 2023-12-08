@@ -122,19 +122,19 @@ async def get_info_of_uploads(
         upload_ids = [str(upload_id) for upload_id in upload_ids]
 
     try:
-        account_id = str(uuid.UUID(token["userid"]))
-        account_type = token["account_type"]
+        account_id = str(uuid.UUID(token.userid))
+        account_type = token.account_type
         is_user = account_type == "user"
 
         if is_user:
-            bind_threadlocal(user_id=account_id, customer_id=token.get("customer_id"), upload_ids=upload_ids)
+            bind_threadlocal(user_id=account_id, customer_id=token.customer_id, upload_ids=upload_ids)
         else:
             bind_threadlocal(user_id=None, customer_id=account_id, upload_ids=upload_ids)
 
         # give advanced privileges to access all uploads under customer_id
         # TODO update this to product specific when landing page is specced out more
-        if "mantarray:rw_all_data" in token["scope"]:
-            account_id = str(uuid.UUID(token["customer_id"]))
+        if "mantarray:rw_all_data" in token.scope:
+            account_id = str(uuid.UUID(token.customer_id))
             # catches in the else block like customers in get_uploads, just set here so it's not customer and become confusing
             account_type = "dataUser"
 
@@ -146,7 +146,7 @@ async def get_info_of_uploads(
                 # customer accounts don't matter here because they don't have the ability to delete
                 for upload in uploads:
                     # need way on FE to tell if user owns recordings besides username since current user's username is not stored on the FE. We want to prevent users from attempting to delete files that aren't theirs before calling /delete route
-                    upload["owner"] = str(upload["user_id"]) == str(uuid.UUID(token["userid"]))
+                    upload["owner"] = str(upload["user_id"]) == str(uuid.UUID(token.userid))
 
             return uploads
 
@@ -160,8 +160,8 @@ async def create_recording_upload(
     request: Request, details: UploadRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
 ):
     try:
-        user_id = str(uuid.UUID(token["userid"]))
-        customer_id = str(uuid.UUID(token["customer_id"]))
+        user_id = str(uuid.UUID(token.userid))
+        customer_id = str(uuid.UUID(token.customer_id))
         # generating uuid here instead of letting PG handle it so that it can be inserted into the prefix more easily
         upload_id = uuid.uuid4()
         s3_key = f"uploads/{customer_id}/{user_id}/{upload_id}"
@@ -220,18 +220,18 @@ async def soft_delete_uploads(
     upload_ids = [str(upload_id) for upload_id in upload_ids]
 
     try:
-        account_id = str(uuid.UUID(token["userid"]))
-        account_type = token["account_type"]
+        account_id = str(uuid.UUID(token.userid))
+        account_type = token.account_type
         is_user = account_type == "user"
 
         if is_user:
-            bind_threadlocal(user_id=account_id, customer_id=token.get("customer_id"), upload_ids=upload_ids)
+            bind_threadlocal(user_id=account_id, customer_id=token.customer_id, upload_ids=upload_ids)
         else:
             bind_threadlocal(user_id=None, customer_id=account_id, upload_ids=upload_ids)
 
         async with request.state.pgpool.acquire() as con:
             await delete_uploads(
-                con=con, account_type=token["account_type"], account_id=account_id, upload_ids=upload_ids
+                con=con, account_type=token.account_type, account_id=account_id, upload_ids=upload_ids
             )
     except Exception:
         logger.exception("Error deleting upload")
@@ -250,18 +250,18 @@ async def download_zip_files(
 
     # need to convert UUIDs to str to avoid issues with DB
     upload_ids = [str(id) for id in upload_ids]
-    account_id = str(uuid.UUID(token["userid"]))
-    account_type = token["account_type"]
+    account_id = str(uuid.UUID(token.userid))
+    account_type = token.account_type
     is_user = account_type == "user"
 
     if is_user:
-        bind_threadlocal(user_id=account_id, customer_id=token.get("customer_id"), upload_ids=upload_ids)
+        bind_threadlocal(user_id=account_id, customer_id=token.customer_id, upload_ids=upload_ids)
     else:
         bind_threadlocal(user_id=None, customer_id=account_id, upload_ids=upload_ids)
 
     # give advanced privileges to access all uploads under customer_id
-    if "mantarray:rw_all_data" in token["scope"]:
-        account_id = str(uuid.UUID(token["customer_id"]))
+    if "mantarray:rw_all_data" in token.scope:
+        account_id = str(uuid.UUID(token.customer_id))
         account_type = "dataUser"
 
     try:
@@ -297,8 +297,8 @@ async def create_log_upload(
     request: Request, details: UploadRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
 ):
     try:
-        user_id = str(uuid.UUID(token["userid"]))
-        customer_id = str(uuid.UUID(token["customer_id"]))
+        user_id = str(uuid.UUID(token.userid))
+        customer_id = str(uuid.UUID(token.customer_id))
         s3_key = f"{customer_id}/{user_id}"
 
         bind_threadlocal(customer_id=customer_id, user_id=user_id)
@@ -333,12 +333,12 @@ async def get_info_of_jobs(
         job_ids = [str(job_id) for job_id in job_ids]
 
     try:
-        user_id = str(uuid.UUID(token["userid"]))
-        account_type = token["account_type"]
+        user_id = str(uuid.UUID(token.userid))
+        account_type = token.account_type
         is_user = account_type == "user"
 
         if is_user:
-            bind_threadlocal(user_id=user_id, customer_id=token.get("customer_id"), job_ids=job_ids)
+            bind_threadlocal(user_id=user_id, customer_id=token.customer_id, job_ids=job_ids)
         else:
             bind_threadlocal(user_id=None, customer_id=user_id, job_ids=job_ids)
 
@@ -393,15 +393,15 @@ async def get_info_of_jobs(
 
 
 async def _get_jobs(con, token, job_ids):
-    account_type = token["account_type"]
-    account_id = str(uuid.UUID(token["userid"]))
+    account_type = token.account_type
+    account_id = str(uuid.UUID(token.userid))
 
     logger.info(f"Retrieving job info with IDs: {job_ids} for {account_type}: {account_id}")
 
     # give advanced privileges to access all uploads under customer_id
     # TODO update this to product specific when landing page is specced out more
-    if "mantarray:rw_all_data" in token["scope"]:
-        account_id = str(uuid.UUID(token["customer_id"]))
+    if "mantarray:rw_all_data" in token.scope:
+        account_id = str(uuid.UUID(token.customer_id))
         # catches in the else block like customers in get_uploads, just set here so it's not customer and become confusing
         account_type = "dataUser"
 
@@ -413,9 +413,9 @@ async def create_new_job(
     request: Request, details: JobRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
 ):
     try:
-        user_id = str(uuid.UUID(token["userid"]))
-        customer_id = str(uuid.UUID(token["customer_id"]))
-        user_scopes = token["scope"]
+        user_id = str(uuid.UUID(token.userid))
+        customer_id = str(uuid.UUID(token.customer_id))
+        user_scopes = token.scope
         upload_id = details.upload_id
 
         bind_threadlocal(user_id=user_id, customer_id=customer_id, upload_id=str(upload_id))
@@ -626,18 +626,18 @@ async def soft_delete_jobs(
     job_ids = [str(job_id) for job_id in job_ids]
 
     try:
-        account_id = str(uuid.UUID(token["userid"]))
-        account_type = token["account_type"]
+        account_id = str(uuid.UUID(token.userid))
+        account_type = token.account_type
         is_user = account_type == "user"
 
         if is_user:
-            bind_threadlocal(user_id=account_id, customer_id=token.get("customer_id"), job_ids=job_ids)
+            bind_threadlocal(user_id=account_id, customer_id=token.customer_id, job_ids=job_ids)
         else:
             bind_threadlocal(user_id=None, customer_id=account_id, job_ids=job_ids)
 
         async with request.state.pgpool.acquire() as con:
             await delete_jobs(
-                con=con, account_type=token["account_type"], account_id=account_id, job_ids=job_ids
+                con=con, account_type=token.account_type, account_id=account_id, job_ids=job_ids
             )
     except Exception:
         logger.exception("Failed to soft delete jobs")
@@ -656,12 +656,12 @@ async def download_analyses(
     # need to convert UUIDs to str to avoid issues with DB
     job_ids = [str(job_id) for job_id in job_ids]
 
-    user_id = str(uuid.UUID(token["userid"]))
-    account_type = token["account_type"]
+    user_id = str(uuid.UUID(token.userid))
+    account_type = token.account_type
     is_user = account_type == "user"
 
     if is_user:
-        bind_threadlocal(user_id=user_id, customer_id=token.get("customer_id"), job_ids=job_ids)
+        bind_threadlocal(user_id=user_id, customer_id=token.customer_id, job_ids=job_ids)
     else:
         bind_threadlocal(user_id=None, customer_id=user_id, job_ids=job_ids)
 
@@ -724,8 +724,8 @@ async def get_interactive_waveform_data(
     job_id: uuid.UUID = Query(None),
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
 ):
-    account_id = str(uuid.UUID(token["userid"]))
-    account_type = token["account_type"]
+    account_id = str(uuid.UUID(token.userid))
+    account_type = token.account_type
     is_user = account_type == "user"
 
     if job_id is None or upload_id is None:
@@ -738,7 +738,7 @@ async def get_interactive_waveform_data(
 
     if is_user:
         bind_threadlocal(
-            customer_id=token.get("customer_id"), user_id=account_id, upload_id=upload_id, job_id=job_id
+            customer_id=token.customer_id, user_id=account_id, upload_id=upload_id, job_id=job_id
         )
     else:
         bind_threadlocal(user_id=None, customer_id=account_id, upload_id=upload_id, job_id=job_id)
@@ -754,7 +754,7 @@ async def get_interactive_waveform_data(
         analysis_params = parsed_meta.get("analysis_params", {})
         pulse3d_version = parsed_meta.get("version")
 
-        if "mantarray:rw_all_data" not in token["scope"] and is_user:
+        if "mantarray:rw_all_data" not in token.scope and is_user:
             # only allow user to perform interactive analysis on another user's recording if special scope
             # customer id will be checked when attempting to locate file in s3 with customer id found in token
             if recording_owner_id != account_id:
@@ -834,9 +834,7 @@ async def get_usage_quota(
     try:
         # no customer_id assigned to customer tokens
         customer_id = (
-            str(uuid.UUID(token["userid"]))
-            if token["customer_id"] is None
-            else str(uuid.UUID(token["customer_id"]))
+            str(uuid.UUID(token.userid)) if token.customer_id is None else str(uuid.UUID(token.customer_id))
         )
 
         bind_threadlocal(customer_id=customer_id)
@@ -855,8 +853,8 @@ async def save_analysis_presets(
 ):
     """Save analysis parameter preset for user"""
     try:
-        user_id = str(uuid.UUID(token["userid"]))
-        customer_id = str(uuid.UUID(token["customer_id"]))
+        user_id = str(uuid.UUID(token.userid))
+        customer_id = str(uuid.UUID(token.customer_id))
         bind_threadlocal(customer_id=customer_id, user_id=user_id)
 
         async with request.state.pgpool.acquire() as con:
@@ -870,8 +868,8 @@ async def save_analysis_presets(
 async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))):
     """Get analysis parameter preset for user"""
     try:
-        user_id = str(uuid.UUID(token["userid"]))
-        customer_id = str(uuid.UUID(token["customer_id"]))
+        user_id = str(uuid.UUID(token.userid))
+        customer_id = str(uuid.UUID(token.customer_id))
         bind_threadlocal(customer_id=customer_id, user_id=user_id)
 
         async with request.state.pgpool.acquire() as con:
