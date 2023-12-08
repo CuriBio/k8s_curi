@@ -6,7 +6,7 @@ import uuid
 import pandas as pd
 import pytest
 from semver import VersionInfo
-from auth import create_token, ALL_PULSE3D_SCOPES, CUSTOMER_SCOPES
+from auth import create_token, Scopes, ScopeTags
 from utils.s3 import S3Error
 from src import main
 import numpy as np
@@ -21,6 +21,9 @@ DEFAULT_PROMINENCE_FACTORS = (6, 6)
 DEFAULT_WIDTH_FACTORS = (7, 7)
 
 test_client = TestClient(main.app)
+
+P3D_READ_SCOPES = [s for s in Scopes if ScopeTags.PULSE3D_READ in s.tags]
+P3D_WRITE_SCOPES = [s for s in Scopes if ScopeTags.PULSE3D_WRITE in s.tags]
 
 
 def random_semver(*, max_version="99.99.99"):
@@ -50,17 +53,17 @@ def create_test_df(include_raw_data: bool = True):
     return pd.DataFrame(data)
 
 
-def get_token(scope, account_type="user", userid=None, customer_id=None):
+def get_token(scopes, account_type="user", userid=None, customer_id=None):
     if not userid:
         userid = uuid.uuid4()
     if account_type == "user" and not customer_id:
         customer_id = uuid.uuid4()
     return create_token(
-        userid=userid, customer_id=customer_id, scopes=scope, account_type=account_type, refresh=False
+        userid=userid, customer_id=customer_id, scopes=scopes, account_type=account_type, refresh=False
     ).token
 
 
-@pytest.fixture(scopes="function", name="mocked_asyncpg_con", autouse=True)
+@pytest.fixture(scope="function", name="mocked_asyncpg_con", autouse=True)
 async def fixture_mocked_asyncpg_con(mocker):
     mocked_asyncpg_pool = mocker.patch.object(main, "asyncpg_pool", autospec=True)
 
@@ -82,7 +85,9 @@ def test_logs__post(mocker):
     test_user_id = uuid.uuid4()
     test_customer_id = uuid.uuid4()
 
-    access_token = get_token(scopes=["mantarray:free"], customer_id=test_customer_id, userid=test_user_id)
+    access_token = get_token(
+        scopes=[Scopes.MANTARRAY__BASE], customer_id=test_customer_id, userid=test_user_id
+    )
     kwargs = {
         "headers": {"Authorization": f"Bearer {access_token}"},
         "json": {"filename": test_file_name, "upload_type": "logs"},
@@ -97,7 +102,7 @@ def test_logs__post(mocker):
     )
 
 
-@pytest.mark.parametrize("test_token_scope", [[s] for s in ALL_PULSE3D_SCOPES])
+@pytest.mark.parametrize("test_token_scope", [[s] for s in P3D_READ_SCOPES])
 @pytest.mark.parametrize(
     "test_upload_ids", [None, [], uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]]
 )
@@ -132,7 +137,7 @@ def test_uploads__get(test_token_scope, test_upload_ids, mocked_asyncpg_con, moc
         # falsey query params are automatically converted to None
         expected_upload_ids = None
 
-    if "mantarray:rw_all_data" in test_token_scope:
+    if Scopes.MANTARRAY__RW_ALL_DATA in test_token_scope:
         account_type = "dataUser"
         test_account_id = test_customer_id
 
@@ -170,11 +175,13 @@ def test_uploads__post_if_customer_quota_has_not_been_reached(mocked_asyncpg_con
 
     test_file_name = "recording_file"
     test_md5s = "testhash"
-    test_upload_type = "pulse3d"
+    test_upload_type = "mantarray"
     test_user_id = uuid.uuid4()
     test_customer_id = uuid.uuid4()
 
-    access_token = get_token(scopes=["mantarray:paid"], customer_id=test_customer_id, userid=test_user_id)
+    access_token = get_token(
+        scopes=[Scopes.MANTARRAY__BASE], customer_id=test_customer_id, userid=test_user_id
+    )
     kwargs = {
         "headers": {"Authorization": f"Bearer {access_token}"},
         "json": {"filename": test_file_name, "md5s": test_md5s, "upload_type": test_upload_type},
@@ -215,10 +222,12 @@ def test_uploads__post_if_customer_quota_has_been_reached(mocked_asyncpg_con, mo
 
     test_file_name = "recording_file"
     test_md5s = "testhash"
-    test_upload_type = "pulse3d"
+    test_upload_type = "mantarray"
     test_customer_id = uuid.uuid4()
 
-    access_token = get_token(scopes=["mantarray:free"], customer_id=test_customer_id, userid=test_user_id)
+    access_token = get_token(
+        scopes=[Scopes.MANTARRAY__BASE], customer_id=test_customer_id, userid=test_user_id
+    )
     kwargs = {
         "headers": {"Authorization": f"Bearer {access_token}"},
         "json": {"filename": test_file_name, "md5s": test_md5s, "upload_type": test_upload_type},
@@ -232,7 +241,7 @@ def test_uploads__post_if_customer_quota_has_been_reached(mocked_asyncpg_con, mo
     mocked_create_upload.assert_not_called()
 
 
-@pytest.mark.parametrize("test_token_scope", [[s] for s in ALL_PULSE3D_SCOPES])
+@pytest.mark.parametrize("test_token_scope", [[s] for s in P3D_READ_SCOPES])
 @pytest.mark.parametrize("test_upload_ids", [uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]])
 def test_uploads__delete(test_token_scope, test_upload_ids, mocked_asyncpg_con, mocker):
     mocked_delete_uploads = mocker.patch.object(main, "delete_uploads", autospec=True)
@@ -266,7 +275,7 @@ def test_uploads__delete(test_token_scope, test_upload_ids, mocked_asyncpg_con, 
 def test_uploads__delete__no_upload_ids_given(test_upload_ids, mocker):
     mocked_delete_uploads = mocker.patch.object(main, "delete_uploads", autospec=True)
 
-    access_token = get_token(scopes=["mantarray:free"])
+    access_token = get_token(scopes=[Scopes.MANTARRAY__BASE])
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
 
     # in None case, don't even pass a query param
@@ -283,7 +292,7 @@ def test_uploads__delete__failure_to_delete_uploads(mocker):
     mocker.patch.object(main, "delete_uploads", autospec=True, side_effect=Exception())
 
     test_user_id = uuid.uuid4()
-    access_token = get_token(scopes=["mantarray:free"], userid=test_user_id)
+    access_token = get_token(scopes=[Scopes.MANTARRAY__BASE], userid=test_user_id)
     kwargs = {
         "headers": {"Authorization": f"Bearer {access_token}"},
         "params": {"upload_ids": [uuid.uuid4()]},
@@ -294,13 +303,13 @@ def test_uploads__delete__failure_to_delete_uploads(mocker):
 
 
 @pytest.mark.parametrize("download", [True, False, None])
-@pytest.mark.parametrize("test_token_scope", [[s] for s in ALL_PULSE3D_SCOPES])
+@pytest.mark.parametrize("test_token_scope", [[s] for s in P3D_READ_SCOPES])
 @pytest.mark.parametrize(
     "test_job_ids", [None, [], uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]]
 )
 def test_jobs__get__jobs_found(download, test_token_scope, test_job_ids, mocked_asyncpg_con, mocker):
     test_account_id = uuid.uuid4()
-    account_type = "customer" if test_token_scope[0] in CUSTOMER_SCOPES else "user"
+    account_type = "customer" if ScopeTags.ADMIN in test_token_scope[0].tags else "user"
     test_customer_id = uuid.uuid4() if account_type != "customer" else None
 
     if test_job_ids:
@@ -371,7 +380,7 @@ def test_jobs__get__jobs_found(download, test_token_scope, test_job_ids, mocked_
         assert response_job == expected_job
     # this changes after token creation
 
-    if "mantarray:rw_all_data" in test_token_scope:
+    if Scopes.MANTARRAY__RW_ALL_DATA in test_token_scope:
         account_type = "dataUser"
         test_account_id = test_customer_id
 
@@ -413,7 +422,7 @@ def test_jobs__get__error_with_creating_presigned_url_for_single_file(mocked_asy
         main, "generate_presigned_url", autospec=True, side_effect=["url0", Exception(), "url2"]
     )
 
-    access_token = get_token(scopes=["mantarray:free"], userid=test_user_id)
+    access_token = get_token(scopes=[Scopes.MANTARRAY__BASE], userid=test_user_id)
 
     kwargs = {
         "headers": {"Authorization": f"Bearer {access_token}"},
@@ -451,7 +460,7 @@ def test_jobs__get__no_jobs_found(mocked_asyncpg_con, mocker):
     mocked_get_uploads = mocker.patch.object(main, "get_uploads", autospec=True)
 
     test_user_id = uuid.uuid4()
-    access_token = get_token(scopes=["mantarray:free"], userid=test_user_id)
+    access_token = get_token(scopes=[Scopes.MANTARRAY__BASE], userid=test_user_id)
 
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
     response = test_client.get("/jobs", **kwargs)
@@ -472,10 +481,13 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
     test_customer_id = uuid.uuid4()
     test_version = random_semver(max_version="0.24.0")
 
-    access_token = get_token(scopes=["mantarray:free"], userid=test_user_id, customer_id=test_customer_id)
+    access_token = get_token(
+        scopes=[Scopes.MANTARRAY__BASE], userid=test_user_id, customer_id=test_customer_id
+    )
     mocked_asyncpg_con.fetchrow.return_value = {
         "user_id": test_user_id,
         "state": "external",
+        "type": "mantarray",
         "end_of_life_date": None,
     }
 
@@ -537,7 +549,7 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
     )
 
 
-@pytest.mark.parametrize("test_token_scope", [[s] for s in ["mantarray:free", "mantarray:paid"]])
+@pytest.mark.parametrize("test_token_scope", [[s] for s in [Scopes.MANTARRAY__BASE, Scopes.MANTARRAY__BASE]])
 def test_jobs__post__returns_unauthorized_error_if_user_ids_dont_match(mocked_asyncpg_con, test_token_scope):
     test_upload_id = uuid.uuid4()
     test_user_id = uuid.uuid4()
@@ -549,6 +561,7 @@ def test_jobs__post__returns_unauthorized_error_if_user_ids_dont_match(mocked_as
     mocked_asyncpg_con.fetchrow.return_value = {
         "user_id": diff_user_id,
         "state": "external",
+        "type": "mantarray",
         "end_of_life_date": None,
     }
 
@@ -567,11 +580,12 @@ def test_jobs__post__basic_params_given(mocker, mocked_asyncpg_con):
     test_analysis_params = {"twitch_widths": [10, 20], "start_time": 0, "end_time": 1}
     test_user_id = uuid.uuid4()
 
-    access_token = get_token(scopes=["mantarray:free"], userid=test_user_id, account_type="user")
+    access_token = get_token(scopes=[Scopes.MANTARRAY__BASE], userid=test_user_id, account_type="user")
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
     mocked_asyncpg_con.fetchrow.return_value = {
         "user_id": test_user_id,
         "state": "external",
+        "type": "mantarray",
         "end_of_life_date": None,
     }
     mocker.patch.object(
@@ -637,13 +651,17 @@ def test_jobs__post__uploads_peaks_and_valleys_when_passed_into_request(mocker, 
     test_upload_id = uuid.uuid4()
 
     access_token = get_token(
-        scopes=["mantarray:free"], userid=test_user_id, account_type="user", customer_id=test_customer_id
+        scopes=[Scopes.MANTARRAY__BASE],
+        userid=test_user_id,
+        account_type="user",
+        customer_id=test_customer_id,
     )
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
     mocked_upload_to_s3 = mocker.patch.object(main, "upload_file_to_s3", autospec=True)
     mocked_asyncpg_con.fetchrow.return_value = {
         "user_id": test_user_id,
         "state": "external",
+        "type": "mantarray",
         "end_of_life_date": None,
     }
     spied_tempdir = mocker.spy(tempfile, "TemporaryDirectory")
@@ -689,11 +707,12 @@ def test_jobs__post__returns_error_dict_if_quota_has_been_reached(mocker, mocked
     mocked_asyncpg_con.fetchrow.return_value = {
         "user_id": test_user_id,
         "state": "external",
+        "type": "mantarray",
         "end_of_life_date": None,
     }
 
     test_analysis_params = {"twitch_widths": [10, 20], "start_time": 0, "end_time": 1}
-    access_token = get_token(scopes=["mantarray:free"], userid=test_user_id, account_type="user")
+    access_token = get_token(scopes=[Scopes.MANTARRAY__BASE], userid=test_user_id, account_type="user")
     spied_create_job = mocker.spy(main, "create_job")
 
     kwargs = {
@@ -717,7 +736,7 @@ def test_jobs__post__returns_error_dict_if_quota_has_been_reached(mocker, mocked
 def test_jobs__post__advanced_params_given(param_name, mocked_asyncpg_con, param_tuple, mocker):
     test_analysis_params = {param_name: param_tuple}
     test_user_id = uuid.uuid4()
-    access_token = get_token(scopes=["mantarray:free"], userid=test_user_id)
+    access_token = get_token(scopes=[Scopes.MANTARRAY__BASE], userid=test_user_id)
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
     mocker.patch.object(
         main,
@@ -733,6 +752,7 @@ def test_jobs__post__advanced_params_given(param_name, mocked_asyncpg_con, param
     mocked_asyncpg_con.fetchrow.return_value = {
         "user_id": test_user_id,
         "state": "external",
+        "type": "mantarray",
         "end_of_life_date": None,
     }
 
@@ -794,10 +814,11 @@ def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocked_asyncpg_con
     mocked_asyncpg_con.fetchrow.return_value = {
         "user_id": test_user_id,
         "state": "external",
+        "type": "mantarray",
         "end_of_life_date": None,
     }
     test_analysis_params = {"baseline_widths_to_use": param_tuple}
-    access_token = get_token(scopes=["mantarray:free"], userid=test_user_id)
+    access_token = get_token(scopes=[Scopes.MANTARRAY__BASE], userid=test_user_id)
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
     kwargs = {
         "json": {
@@ -844,10 +865,11 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
     version, mocked_asyncpg_con, mocker
 ):
     test_user_id = uuid.uuid4()
-    access_token = get_token(scopes=["mantarray:free"], userid=test_user_id)
+    access_token = get_token(scopes=[Scopes.MANTARRAY__BASE], userid=test_user_id)
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
     mocked_asyncpg_con.fetchrow.return_value = {
         "user_id": test_user_id,
+        "type": "mantarray",
         "state": "external",
         "end_of_life_date": None,
     }
@@ -910,7 +932,7 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
     assert mocked_create_job.call_args[1]["meta"]["analysis_params"] == expected_analysis_params
 
 
-@pytest.mark.parametrize("test_token_scope", [[s] for s in ALL_PULSE3D_SCOPES])
+@pytest.mark.parametrize("test_token_scope", [[s] for s in P3D_READ_SCOPES])
 @pytest.mark.parametrize("test_job_ids", [uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]])
 def test_jobs__delete(test_token_scope, test_job_ids, mocked_asyncpg_con, mocker):
     mocked_delete_jobs = mocker.patch.object(main, "delete_jobs", autospec=True)
@@ -942,7 +964,7 @@ def test_jobs__delete__no_job_ids_given(test_job_ids, mocker):
     mocked_delete_jobs = mocker.patch.object(main, "delete_jobs", autospec=True)
 
     test_user_id = uuid.uuid4()
-    access_token = get_token(scopes=["mantarray:free"], userid=test_user_id)
+    access_token = get_token(scopes=[Scopes.MANTARRAY__BASE], userid=test_user_id)
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
 
     # in None case, don't even pass a query param
@@ -959,20 +981,20 @@ def test_jobs__delete__failure_to_delete_jobs(mocker):
     mocker.patch.object(main, "delete_jobs", autospec=True, side_effect=Exception())
 
     test_user_id = uuid.uuid4()
-    access_token = get_token(scopes=["mantarray:free"], userid=test_user_id)
+    access_token = get_token(scopes=[Scopes.MANTARRAY__BASE], userid=test_user_id)
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}, "params": {"job_ids": [uuid.uuid4()]}}
 
     response = test_client.delete("/jobs", **kwargs)
     assert response.status_code == 500
 
 
-@pytest.mark.parametrize("test_token_scope", [[s] for s in ALL_PULSE3D_SCOPES])
+@pytest.mark.parametrize("test_token_scope", [[s] for s in P3D_READ_SCOPES])
 @pytest.mark.parametrize("test_job_ids", [[uuid.uuid4() for _ in range(r)] for r in range(1, 4)])
 def test_jobs_download__post__no_duplicate_analysis_file_names(
     test_token_scope, test_job_ids, mocked_asyncpg_con, mocker
 ):
     test_account_id = uuid.uuid4()
-    account_type = "customer" if test_token_scope[0] in CUSTOMER_SCOPES else "user"
+    account_type = "customer" if ScopeTags.ADMIN in test_token_scope[0].tags else "user"
     test_customer_id = uuid.uuid4() if account_type != "customer" else None
 
     access_token = get_token(
@@ -1005,7 +1027,7 @@ def test_jobs_download__post__no_duplicate_analysis_file_names(
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/zip"
 
-    if "mantarray:rw_all_data" in test_token_scope:
+    if Scopes.MANTARRAY__RW_ALL_DATA in test_token_scope:
         account_type = "dataUser"
         test_account_id = test_customer_id
 
@@ -1024,7 +1046,7 @@ def test_jobs_download__post__no_duplicate_analysis_file_names(
     )
 
 
-@pytest.mark.parametrize("test_token_scope", [[s] for s in ALL_PULSE3D_SCOPES])
+@pytest.mark.parametrize("test_token_scope", [[s] for s in P3D_READ_SCOPES])
 def test_jobs_download__post__duplicate_analysis_file_names(mocked_asyncpg_con, test_token_scope, mocker):
     test_account_id = uuid.uuid4()
     account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
@@ -1061,7 +1083,7 @@ def test_jobs_download__post__duplicate_analysis_file_names(mocked_asyncpg_con, 
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/zip"
 
-    if "mantarray:rw_all_data" in test_token_scope:
+    if Scopes.MANTARRAY__RW_ALL_DATA in test_token_scope:
         account_type = "dataUser"
         test_account_id = test_customer_id
 
@@ -1085,7 +1107,7 @@ def test_jobs_download__post__no_job_ids_given(test_job_ids, test_error_code, mo
     mocked_get_jobs = mocker.patch.object(main, "get_jobs", autospec=True)
     mocked_yield_objs = mocker.patch.object(main, "_yield_s3_objects", autospec=True)
 
-    access_token = get_token(scopes=["mantarray:free"])
+    access_token = get_token(scopes=[Scopes.MANTARRAY__BASE])
 
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
     # in None case, don't even pass a param
@@ -1104,7 +1126,7 @@ def test_uploads_download__post__no_job_ids_given(test_upload_ids, test_error_co
     mocked_get_uploads = mocker.patch.object(main, "get_uploads", autospec=True)
     mocked_yield_objs = mocker.patch.object(main, "_yield_s3_objects", autospec=True)
 
-    access_token = get_token(scopes=["mantarray:free"])
+    access_token = get_token(scopes=[Scopes.MANTARRAY__BASE])
 
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
     # in None case, don't even pass a param
@@ -1118,7 +1140,7 @@ def test_uploads_download__post__no_job_ids_given(test_upload_ids, test_error_co
     mocked_yield_objs.assert_not_called()
 
 
-@pytest.mark.parametrize("test_token_scope", [[s] for s in ALL_PULSE3D_SCOPES])
+@pytest.mark.parametrize("test_token_scope", [[s] for s in P3D_READ_SCOPES])
 def test_uploads_download__post__correctly_handles_single_file_downloads(
     test_token_scope, mocked_asyncpg_con, mocker
 ):
@@ -1161,7 +1183,7 @@ def test_uploads_download__post__correctly_handles_single_file_downloads(
         "url": mocked_presigned_url.return_value,
     }
 
-    if "mantarray:rw_all_data" in test_token_scope:
+    if Scopes.MANTARRAY__RW_ALL_DATA in test_token_scope:
         account_type = "dataUser"
         test_account_id = test_customer_id
 
@@ -1175,14 +1197,16 @@ def test_uploads_download__post__correctly_handles_single_file_downloads(
     mocked_yield_objs.assert_not_called()
 
 
-@pytest.mark.parametrize("test_token_scope", [[s] for s in ALL_PULSE3D_SCOPES])
+@pytest.mark.parametrize("test_token_scope", [[s] for s in P3D_READ_SCOPES])
 @pytest.mark.parametrize("test_upload_ids", [[uuid.uuid4() for _ in range(r)] for r in range(2, 4)])
 def test_uploads_download__post__correctly_handles_multiple_file_downloads(
     test_token_scope, test_upload_ids, mocked_asyncpg_con, mocker
 ):
     test_account_id = uuid.uuid4()
     account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
-    access_token = get_token(scopes=["mantarray:free"], account_type=account_type, userid=test_account_id)
+    access_token = get_token(
+        scopes=[Scopes.MANTARRAY__BASE], account_type=account_type, userid=test_account_id
+    )
 
     test_upload_rows = [
         {"filename": f"file_{upload}zip", "prefix": "/obj/prefix/"} for upload in test_upload_ids
@@ -1221,7 +1245,7 @@ def test_uploads_download__post__correctly_handles_multiple_file_downloads(
 
 @pytest.mark.parametrize("test_query_params", [f"upload_id={uuid.uuid4()}", f"job_id={uuid.uuid4()}"])
 def test_waveform_data__get__no_job_or_upload_id_is_found(mocker, test_query_params):
-    access_token = get_token(scopes=["mantarray:free"])
+    access_token = get_token(scopes=[Scopes.MANTARRAY__BASE])
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
 
     response = test_client.get(f"/jobs/waveform-data?{test_query_params}", **kwargs)
@@ -1232,7 +1256,7 @@ def test_waveform_data__get__no_job_or_upload_id_is_found(mocker, test_query_par
 def test_waveform_data__get__getting_job_metadata_from_db_errors(mocker):
     mocker.patch.object(main, "get_jobs", autospec=True, return_value=S3Error())
 
-    access_token = get_token(scopes=["mantarray:free"])
+    access_token = get_token(scopes=[Scopes.MANTARRAY__BASE])
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
 
     test_job_id = uuid.uuid4()
@@ -1288,7 +1312,7 @@ def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version, d
     mocker.patch.object(main, "get_jobs", autospec=True, return_value=test_jobs)
     mocker.patch.object(main, "generate_presigned_url", autospec=True, return_value=expected_presigned_url)
 
-    access_token = get_token(scopes=["mantarray:free"], userid=test_user_id)
+    access_token = get_token(scopes=[Scopes.MANTARRAY__BASE], userid=test_user_id)
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
 
     test_job_id = uuid.uuid4()
@@ -1339,7 +1363,7 @@ def test_waveform_data__get__no_time_force_parquet_found(mocker, pulse3d_version
     # ValueError gets raised with object isn't found
     mocker.patch.object(main, "generate_presigned_url", side_effect=ValueError)
 
-    access_token = get_token(scopes=["mantarray:free"], userid=test_user_id)
+    access_token = get_token(scopes=[Scopes.MANTARRAY__BASE], userid=test_user_id)
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
 
     test_job_id = uuid.uuid4()
@@ -1358,10 +1382,8 @@ def test_waveform_data__get__no_time_force_parquet_found(mocker, pulse3d_version
 @pytest.mark.parametrize(
     "token",
     [
-        get_token(["mantarray:free"], account_type="user"),
-        get_token(["customer:free"], account_type="customer"),
-        get_token(["mantarray:paid"], account_type="user"),
-        get_token(["customer:paid"], account_type="customer"),
+        get_token([Scopes.MANTARRAY__BASE], account_type="user"),
+        get_token([Scopes.MANTARRAY__ADMIN], account_type="customer"),
         None,
     ],
 )

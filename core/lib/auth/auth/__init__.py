@@ -3,8 +3,10 @@ from .scopes import (
     Scopes,
     ScopeTags,
     ProhibitedScopeError,
+    ProhibitedProductError,
     get_assignable_scopes_from_admin,
     check_prohibited_scopes,
+    check_prohibited_product,
     ScopeConverter,
 )
 from .usage import PULSE3D_PAID_USAGE

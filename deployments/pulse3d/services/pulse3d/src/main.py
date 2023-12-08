@@ -133,7 +133,7 @@ async def get_info_of_uploads(
 
         # give advanced privileges to access all uploads under customer_id
         # TODO update this to product specific when landing page is specced out more
-        if "mantarray:rw_all_data" in token.scope:
+        if "mantarray:rw_all_data" in token.scopes:
             account_id = str(uuid.UUID(token.customer_id))
             # catches in the else block like customers in get_uploads, just set here so it's not customer and become confusing
             account_type = "dataUser"
@@ -168,7 +168,7 @@ async def create_recording_upload(
 
         # TODO Luci (09/30/2023) can remove after MA v1.2.2+, will no longer need to handle pulse3d upload types
         upload_type = details.upload_type if details.upload_type != "pulse3d" else "mantarray"
-        check_prohibited_product(upload_type)
+        check_prohibited_product(token.scopes, upload_type)
 
         bind_threadlocal(
             user_id=user_id, customer_id=customer_id, upload_id=str(upload_id), upload_type=upload_type
@@ -260,7 +260,7 @@ async def download_zip_files(
         bind_threadlocal(user_id=None, customer_id=account_id, upload_ids=upload_ids)
 
     # give advanced privileges to access all uploads under customer_id
-    if "mantarray:rw_all_data" in token.scope:
+    if "mantarray:rw_all_data" in token.scopes:
         account_id = str(uuid.UUID(token.customer_id))
         account_type = "dataUser"
 
@@ -400,7 +400,7 @@ async def _get_jobs(con, token, job_ids):
 
     # give advanced privileges to access all uploads under customer_id
     # TODO update this to product specific when landing page is specced out more
-    if "mantarray:rw_all_data" in token.scope:
+    if "mantarray:rw_all_data" in token.scopes:
         account_id = str(uuid.UUID(token.customer_id))
         # catches in the else block like customers in get_uploads, just set here so it's not customer and become confusing
         account_type = "dataUser"
@@ -415,7 +415,7 @@ async def create_new_job(
     try:
         user_id = str(uuid.UUID(token.userid))
         customer_id = str(uuid.UUID(token.customer_id))
-        user_scopes = token.scope
+        user_scopes = token.scopes
         upload_id = details.upload_id
 
         bind_threadlocal(user_id=user_id, customer_id=customer_id, upload_id=str(upload_id))
@@ -754,7 +754,7 @@ async def get_interactive_waveform_data(
         analysis_params = parsed_meta.get("analysis_params", {})
         pulse3d_version = parsed_meta.get("version")
 
-        if "mantarray:rw_all_data" not in token.scope and is_user:
+        if "mantarray:rw_all_data" not in token.scopes and is_user:
             # only allow user to perform interactive analysis on another user's recording if special scope
             # customer id will be checked when attempting to locate file in s3 with customer id found in token
             if recording_owner_id != account_id:

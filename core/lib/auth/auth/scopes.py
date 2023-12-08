@@ -1,4 +1,4 @@
-from enum import Enum, StrEnum, auto
+from enum import StrEnum, auto
 from pydantic import BaseModel, validator
 
 
@@ -10,7 +10,7 @@ class ProhibitedProductError(Exception):
     pass
 
 
-class ScopeTags(Enum):
+class ScopeTags(StrEnum):
     INTERNAL = auto()  # TODO rename this to production?
     MANTARRAY = auto()
     NAUTILUS = auto()
@@ -72,10 +72,8 @@ def get_product_tags_of_admin(admin_scopes) -> set[Scopes]:
     }
 
 
-def check_prohibited_product(admin_scopes, product) -> None:
-    product_tags_of_admin = get_product_tags_of_admin(admin_scopes)
-
-    if product not in product_tags_of_admin:
+def check_prohibited_product(user_scopes, product) -> None:
+    if not [s for s in user_scopes if product in s.tags]:
         raise ProhibitedProductError(product)
 
 
