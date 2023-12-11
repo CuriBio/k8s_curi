@@ -54,9 +54,9 @@ def create_test_df(include_raw_data: bool = True):
 
 
 def get_token(scopes, account_type="user", userid=None, customer_id=None):
-    if not userid:
+    if not userid and account_type == "user":
         userid = uuid.uuid4()
-    if account_type == "user" and not customer_id:
+    if not customer_id:
         customer_id = uuid.uuid4()
     return create_token(
         userid=userid, customer_id=customer_id, scopes=scopes, account_type=account_type, refresh=False
@@ -109,13 +109,15 @@ def test_logs__post(mocker):
 def test_uploads__get(test_token_scope, test_upload_ids, mocked_asyncpg_con, mocker):
     mocked_get_uploads = mocker.patch.object(main, "get_uploads", autospec=True, return_value=[])
 
+    account_type = "customer" if ScopeTags.ADMIN in test_token_scope[0].tags else "user"
+
     test_account_id = uuid.uuid4()
-    account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
-    test_customer_id = uuid.uuid4() if account_type != "customer" else None
+    test_customer_id = test_account_id if account_type == "customer" else uuid.uuid4()
+
     access_token = get_token(
         scopes=test_token_scope,
         account_type=account_type,
-        userid=test_account_id,
+        userid=None if account_type == "customer" else test_account_id,
         customer_id=test_customer_id,
     )
 
@@ -138,7 +140,7 @@ def test_uploads__get(test_token_scope, test_upload_ids, mocked_asyncpg_con, moc
         expected_upload_ids = None
 
     if Scopes.MANTARRAY__RW_ALL_DATA in test_token_scope:
-        account_type = "dataUser"
+        account_type = "rw_all_user"
         test_account_id = test_customer_id
 
     mocked_get_uploads.assert_called_once_with(
@@ -246,14 +248,22 @@ def test_uploads__post_if_customer_quota_has_been_reached(mocked_asyncpg_con, mo
 def test_uploads__delete(test_token_scope, test_upload_ids, mocked_asyncpg_con, mocker):
     mocked_delete_uploads = mocker.patch.object(main, "delete_uploads", autospec=True)
 
+    account_type = "customer" if ScopeTags.ADMIN in test_token_scope[0].tags else "user"
+
     test_account_id = uuid.uuid4()
-    account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
-    access_token = get_token(scopes=test_token_scope, account_type=account_type, userid=test_account_id)
+    test_customer_id = test_account_id if account_type == "customer" else uuid.uuid4()
+
+    access_token = get_token(
+        scopes=test_token_scope,
+        account_type=account_type,
+        userid=None if account_type == "customer" else test_account_id,
+        customer_id=test_customer_id,
+    )
+
     kwargs = {
         "headers": {"Authorization": f"Bearer {access_token}"},
         "params": {"upload_ids": test_upload_ids},
     }
-
     response = test_client.delete("/uploads", **kwargs)
     assert response.status_code == 200
 
@@ -308,9 +318,17 @@ def test_uploads__delete__failure_to_delete_uploads(mocker):
     "test_job_ids", [None, [], uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]]
 )
 def test_jobs__get__jobs_found(download, test_token_scope, test_job_ids, mocked_asyncpg_con, mocker):
-    test_account_id = uuid.uuid4()
     account_type = "customer" if ScopeTags.ADMIN in test_token_scope[0].tags else "user"
-    test_customer_id = uuid.uuid4() if account_type != "customer" else None
+
+    test_account_id = uuid.uuid4()
+    test_customer_id = test_account_id if account_type == "customer" else uuid.uuid4()
+
+    access_token = get_token(
+        scopes=test_token_scope,
+        account_type=account_type,
+        userid=None if account_type == "customer" else test_account_id,
+        customer_id=test_customer_id,
+    )
 
     if test_job_ids:
         if isinstance(test_job_ids, uuid.UUID):
@@ -338,13 +356,6 @@ def test_jobs__get__jobs_found(download, test_token_scope, test_job_ids, mocked_
 
     mocked_get_jobs = mocker.patch.object(main, "get_jobs", autospec=True, return_value=test_job_rows)
     mocked_generate = mocker.patch.object(main, "generate_presigned_url", autospec=True, return_value="url0")
-
-    access_token = get_token(
-        scopes=test_token_scope,
-        account_type=account_type,
-        userid=test_account_id,
-        customer_id=test_customer_id,
-    )
 
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}, "params": {}}
     # in None case, don't even pass a query param
@@ -381,7 +392,7 @@ def test_jobs__get__jobs_found(download, test_token_scope, test_job_ids, mocked_
     # this changes after token creation
 
     if Scopes.MANTARRAY__RW_ALL_DATA in test_token_scope:
-        account_type = "dataUser"
+        account_type = "rw_all_user"
         test_account_id = test_customer_id
 
     expected_job_id_arg = None if not test_job_ids else expected_job_ids
@@ -937,11 +948,18 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
 def test_jobs__delete(test_token_scope, test_job_ids, mocked_asyncpg_con, mocker):
     mocked_delete_jobs = mocker.patch.object(main, "delete_jobs", autospec=True)
 
+    account_type = "customer" if ScopeTags.ADMIN in test_token_scope[0].tags else "user"
     test_account_id = uuid.uuid4()
-    account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
-    access_token = get_token(scopes=test_token_scope, account_type=account_type, userid=test_account_id)
-    kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}, "params": {"job_ids": test_job_ids}}
+    test_customer_id = test_account_id if account_type == "customer" else uuid.uuid4()
 
+    access_token = get_token(
+        scopes=test_token_scope,
+        account_type=account_type,
+        userid=None if account_type == "customer" else test_account_id,
+        customer_id=test_customer_id,
+    )
+
+    kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}, "params": {"job_ids": test_job_ids}}
     response = test_client.delete("/jobs", **kwargs)
     assert response.status_code == 200
 
@@ -993,14 +1011,15 @@ def test_jobs__delete__failure_to_delete_jobs(mocker):
 def test_jobs_download__post__no_duplicate_analysis_file_names(
     test_token_scope, test_job_ids, mocked_asyncpg_con, mocker
 ):
-    test_account_id = uuid.uuid4()
     account_type = "customer" if ScopeTags.ADMIN in test_token_scope[0].tags else "user"
-    test_customer_id = uuid.uuid4() if account_type != "customer" else None
+
+    test_account_id = uuid.uuid4()
+    test_customer_id = test_account_id if account_type == "customer" else uuid.uuid4()
 
     access_token = get_token(
         scopes=test_token_scope,
         account_type=account_type,
-        userid=test_account_id,
+        userid=None if account_type == "customer" else test_account_id,
         customer_id=test_customer_id,
     )
 
@@ -1028,7 +1047,7 @@ def test_jobs_download__post__no_duplicate_analysis_file_names(
     assert response.headers["content-type"] == "application/zip"
 
     if Scopes.MANTARRAY__RW_ALL_DATA in test_token_scope:
-        account_type = "dataUser"
+        account_type = "rw_all_user"
         test_account_id = test_customer_id
 
     mocked_get_jobs.assert_called_once_with(
@@ -1048,14 +1067,15 @@ def test_jobs_download__post__no_duplicate_analysis_file_names(
 
 @pytest.mark.parametrize("test_token_scope", [[s] for s in P3D_READ_SCOPES])
 def test_jobs_download__post__duplicate_analysis_file_names(mocked_asyncpg_con, test_token_scope, mocker):
+    account_type = "customer" if ScopeTags.ADMIN in test_token_scope[0].tags else "user"
+
     test_account_id = uuid.uuid4()
-    account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
-    test_customer_id = uuid.uuid4() if account_type != "customer" else None
+    test_customer_id = test_account_id if account_type == "customer" else uuid.uuid4()
 
     access_token = get_token(
         scopes=test_token_scope,
         account_type=account_type,
-        userid=test_account_id,
+        userid=None if account_type == "customer" else test_account_id,
         customer_id=test_customer_id,
     )
 
@@ -1084,7 +1104,7 @@ def test_jobs_download__post__duplicate_analysis_file_names(mocked_asyncpg_con, 
     assert response.headers["content-type"] == "application/zip"
 
     if Scopes.MANTARRAY__RW_ALL_DATA in test_token_scope:
-        account_type = "dataUser"
+        account_type = "rw_all_user"
         test_account_id = test_customer_id
 
     mocked_get_jobs.assert_called_once_with(
@@ -1144,15 +1164,16 @@ def test_uploads_download__post__no_job_ids_given(test_upload_ids, test_error_co
 def test_uploads_download__post__correctly_handles_single_file_downloads(
     test_token_scope, mocked_asyncpg_con, mocker
 ):
-    test_account_id = uuid.uuid4()
     test_upload_ids = [uuid.uuid4()]
-    account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
-    test_customer_id = uuid.uuid4() if account_type != "customer" else None
+    account_type = "customer" if ScopeTags.ADMIN in test_token_scope[0].tags else "user"
+
+    test_account_id = uuid.uuid4()
+    test_customer_id = test_account_id if account_type == "customer" else uuid.uuid4()
 
     access_token = get_token(
         scopes=test_token_scope,
         account_type=account_type,
-        userid=test_account_id,
+        userid=None if account_type == "customer" else test_account_id,
         customer_id=test_customer_id,
     )
 
@@ -1184,7 +1205,7 @@ def test_uploads_download__post__correctly_handles_single_file_downloads(
     }
 
     if Scopes.MANTARRAY__RW_ALL_DATA in test_token_scope:
-        account_type = "dataUser"
+        account_type = "rw_all_user"
         test_account_id = test_customer_id
 
     mocked_get_uploads.assert_called_once_with(

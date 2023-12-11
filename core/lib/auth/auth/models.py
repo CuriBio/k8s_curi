@@ -1,5 +1,11 @@
+from enum import auto, StrEnum
 from pydantic import BaseModel
 from .scopes import ScopeConverter, Scopes
+
+
+class AccountTypes(StrEnum):
+    CUSTOMER = auto()
+    USER = auto()
 
 
 class JWTMeta(ScopeConverter):
@@ -14,9 +20,13 @@ class JWTMeta(ScopeConverter):
 class JWTDetails(BaseModel):
     """How we'll identify users and customers"""
 
-    customer_id: str | None
-    userid: str
-    account_type: str
+    customer_id: str
+    userid: str | None  # None for admin accounts
+    account_type: AccountTypes
+
+    @property
+    def account_id(self):
+        return self.customer_id if self.account_type == AccountTypes.CUSTOMER else self.userid
 
 
 class JWTPayload(JWTMeta, JWTDetails):

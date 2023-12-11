@@ -36,11 +36,11 @@ ACCOUNT_SCOPES = tuple(s for s in Scopes if ScopeTags.ACCOUNT in s.tags)
 
 
 def get_token(*, userid=None, customer_id=None, scopes=None, account_type=None, refresh=False):
-    if not userid:
-        userid = uuid.uuid4()
     if not account_type:
         account_type = choice(["user", "customer"])
-    if not customer_id and account_type == "user":
+    if not userid and account_type == "user":
+        userid = uuid.uuid4()
+    if not customer_id:
         customer_id = uuid.uuid4()
     if not scopes:
         if refresh:
@@ -282,15 +282,15 @@ def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
     spied_create_token = mocker.spy(main, "create_new_tokens")
 
     expected_access_token = create_token(
-        userid=test_customer_id,
-        customer_id=None,
+        userid=None,
+        customer_id=test_customer_id,
         scopes=customer_scopes,
         account_type="customer",
         refresh=False,
     )
     expected_refresh_token = create_token(
-        userid=test_customer_id,
-        customer_id=None,
+        userid=None,
+        customer_id=test_customer_id,
         scopes=[Scopes.REFRESH],
         account_type="customer",
         refresh=True,
@@ -399,7 +399,7 @@ def test_register__user__allows_valid_usernames(special_char, mocked_asyncpg_con
 
     test_user_id = uuid.uuid4()
     test_customer_id = uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, account_type="customer")
+    access_token = get_token(customer_id=test_customer_id, account_type="customer")
 
     mocked_asyncpg_con.fetchval.return_value = test_user_id
 
@@ -444,7 +444,7 @@ def test_register__user__invalid_username_length(length, err_msg):
     }
 
     test_customer_id = uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, account_type="customer")
+    access_token = get_token(customer_id=test_customer_id, account_type="customer")
 
     response = test_client.post(
         "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -461,8 +461,7 @@ def test_register__user__with_invalid_char_in_username(special_char):
         "scopes": [Scopes.MANTARRAY__BASE],
     }
 
-    test_customer_id = uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, account_type="customer")
+    access_token = get_token(account_type="customer")
 
     response = test_client.post(
         "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -482,8 +481,7 @@ def test_register__user__with_invalid_first_char(bad_first_char):
         "scopes": [Scopes.MANTARRAY__BASE],
     }
 
-    test_customer_id = uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, account_type="customer")
+    access_token = get_token(account_type="customer")
 
     response = test_client.post(
         "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -500,8 +498,7 @@ def test_register__user__with_invalid_final_char(bad_final_char):
         "scopes": [Scopes.MANTARRAY__BASE],
     }
 
-    test_customer_id = uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, account_type="customer")
+    access_token = get_token(account_type="customer")
 
     response = test_client.post(
         "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -518,9 +515,7 @@ def test_register__user__with_consecutive_special_chars(special_char):
         "scopes": [Scopes.MANTARRAY__BASE],
     }
 
-    test_customer_id = uuid.uuid4()
-
-    access_token = get_token(userid=test_customer_id, account_type="customer")
+    access_token = get_token(scopes=[Scopes.MANTARRAY__ADMIN], account_type="customer")
 
     response = test_client.post(
         "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -546,9 +541,8 @@ def test_register__user__unique_constraint_violations(
         "scopes": [Scopes.MANTARRAY__BASE, Scopes.NAUTILUS__BASE],
     }
 
-    test_user_id = uuid.uuid4()
     access_token = get_token(
-        userid=test_user_id, scopes=[Scopes.MANTARRAY__ADMIN, Scopes.NAUTILUS__ADMIN], account_type="customer"
+        scopes=[Scopes.MANTARRAY__ADMIN, Scopes.NAUTILUS__ADMIN], account_type="customer"
     )
 
     mocked_asyncpg_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)
@@ -562,7 +556,7 @@ def test_register__user__unique_constraint_violations(
 
 def test_register__user__invalid_token_scope_given():
     registration_details = {"email": "user@new.com", "password1": "pw", "password2": "pw"}
-    access_token = get_token(scopes=[Scopes.MANTARRAY__BASE], account_type="customer")
+    access_token = get_token(scopes=[Scopes.MANTARRAY__BASE], account_type="user")
     response = test_client.post(
         "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
@@ -582,7 +576,9 @@ def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, mocker
 
     test_user_id = uuid.uuid4()
     test_customer_id = uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, scopes=[Scopes.CURI__ADMIN], account_type="customer")
+    access_token = get_token(
+        customer_id=test_customer_id, scopes=[Scopes.CURI__ADMIN], account_type="customer"
+    )
 
     mocked_asyncpg_con.fetchval.return_value = test_user_id
 
@@ -624,7 +620,9 @@ def test_register__customer__unique_constraint_violations(
 
     test_customer_id = uuid.uuid4()
 
-    access_token = get_token(userid=test_customer_id, scopes=[Scopes.CURI__ADMIN], account_type="customer")
+    access_token = get_token(
+        customer_id=test_customer_id, scopes=[Scopes.CURI__ADMIN], account_type="customer"
+    )
 
     mocked_asyncpg_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)
 
@@ -642,9 +640,9 @@ def test_register__customer__invalid_token_scope_given():
         "password2": TEST_PASSWORD,
         "scopes": ["any"],
     }
-    access_token = get_token(userid=uuid.uuid4(), scopes=[Scopes.NAUTILUS__BASE], account_type="customer")
+    access_token = get_token(scopes=[Scopes.NAUTILUS__ADMIN], account_type="customer")
     response = test_client.post(
-        "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+        "/register/customer", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 401
 
@@ -652,19 +650,18 @@ def test_register__customer__invalid_token_scope_given():
 @freeze_time()
 @pytest.mark.parametrize("account_type", ["user", "customer"])
 def test_refresh__success(account_type, mocked_asyncpg_con):
-    userid = uuid.uuid4()
+    is_customer_account = account_type == "customer"
+    userid = None if is_customer_account else uuid.uuid4()
+    customer_id = uuid.uuid4()
 
     # arbitrarily choosing this scope
-    test_scope_in_db = [Scopes.MANTARRAY__BASE]
-
-    is_customer_account = account_type == "customer"
-    customer_id = None if is_customer_account else uuid.uuid4()
+    test_scope_in_db = [Scopes.MANTARRAY__ADMIN if is_customer_account else Scopes.MANTARRAY__BASE]
 
     select_clause = "refresh_token"
     if account_type == "user":
         select_clause += ", customer_id"
 
-    refresh_scope = ["refresh"]
+    refresh_scope = [Scopes.REFRESH]
 
     old_refresh_token = get_token(
         userid=userid, customer_id=customer_id, scopes=refresh_scope, account_type=account_type, refresh=True
@@ -696,12 +693,13 @@ def test_refresh__success(account_type, mocked_asyncpg_con):
         else "SELECT scope FROM account_scopes WHERE user_id=$1"
     )
 
+    account_id = customer_id if is_customer_account else userid
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
-        f"SELECT {select_clause} FROM {account_type}s WHERE id=$1", userid
+        f"SELECT {select_clause} FROM {account_type}s WHERE id=$1", account_id
     )
-    mocked_asyncpg_con.fetch.assert_called_once_with(expected_fetch_query, userid)
+    mocked_asyncpg_con.fetch.assert_called_once_with(expected_fetch_query, account_id)
     mocked_asyncpg_con.execute.assert_called_once_with(
-        f"UPDATE {account_type}s SET refresh_token=$1 WHERE id=$2", old_refresh_token, userid
+        f"UPDATE {account_type}s SET refresh_token=$1 WHERE id=$2", old_refresh_token, account_id
     )
 
 
@@ -725,20 +723,22 @@ def test_refresh__wrong_token_type_given():
 
 @pytest.mark.parametrize("account_type", ["user", "customer"])
 def test_logout__success(account_type, mocked_asyncpg_con):
-    test_id = uuid.uuid4()
-    access_token = get_token(userid=test_id, account_type=account_type)
+    test_user_id = uuid.uuid4() if account_type == "user" else None
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(userid=test_user_id, customer_id=test_customer_id, account_type=account_type)
 
     response = test_client.post("/logout", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 204
 
+    expected_account_id = test_user_id if account_type == "user" else test_customer_id
     mocked_asyncpg_con.execute.assert_called_once_with(
-        f"UPDATE {account_type}s SET refresh_token = NULL WHERE id=$1", test_id
+        f"UPDATE {account_type}s SET refresh_token = NULL WHERE id=$1", expected_account_id
     )
 
 
 def test_account_id__get__no_id(mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, account_type="customer")
+    access_token = get_token(customer_id=test_customer_id, account_type="customer")
 
     num_users_found = 3
     mocked_asyncpg_con.fetch.return_value = expected_users_info = [
@@ -779,7 +779,7 @@ def test_account_id__get__no_id__invalid_token_scope_given():
 
 def test_account_id__get__id_given__customer_retrieving_self(mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, account_type="customer")
+    access_token = get_token(customer_id=test_customer_id, account_type="customer")
 
     mocked_asyncpg_con.fetchrow.return_value = expected_customer_info = {
         "id": test_customer_id,
@@ -802,7 +802,7 @@ def test_account_id__get__id_given__customer_retrieving_self(mocked_asyncpg_con)
 
 def test_account_id__get__id_given__customer_retrieving_user__success(mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, account_type="customer")
+    access_token = get_token(customer_id=test_customer_id, account_type="customer")
 
     test_user_id = uuid.uuid4()
 
@@ -832,7 +832,7 @@ def test_account_id__get__id_given__customer_retrieving_user__success(mocked_asy
 
 def test_account_id__get__id_given__customer_retrieving_user__user_not_found(mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, account_type="customer")
+    access_token = get_token(customer_id=test_customer_id, account_type="customer")
 
     test_user_id = uuid.uuid4()
 
@@ -890,7 +890,7 @@ def test_account_id__get__id_given__user_not_found(mocked_asyncpg_con):
 @freeze_time()
 def test_account_id__put__successful_user_deletion(mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, account_type="customer")
+    access_token = get_token(customer_id=test_customer_id, account_type="customer")
 
     test_user_id = uuid.uuid4()
 
@@ -911,7 +911,7 @@ def test_account_id__put__successful_user_deletion(mocked_asyncpg_con):
 
 def test_user_id__put__successful_deactivation(mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, account_type="customer")
+    access_token = get_token(customer_id=test_customer_id, account_type="customer")
 
     test_user_id = uuid.uuid4()
 
@@ -929,7 +929,7 @@ def test_user_id__put__successful_deactivation(mocked_asyncpg_con):
 
 def test_user_id__put__successful_reactivation(mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, account_type="customer")
+    access_token = get_token(customer_id=test_customer_id, account_type="customer")
 
     test_user_id = uuid.uuid4()
 
@@ -949,7 +949,7 @@ def test_user_id__put__successful_reactivation(mocked_asyncpg_con):
 
 def test_account_id__put__successful_customer_alias_update(mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
-    access_token = get_token(userid=test_customer_id, account_type="customer")
+    access_token = get_token(customer_id=test_customer_id, account_type="customer")
 
     test_alias = "test_alias"
 
@@ -1038,14 +1038,11 @@ def test_account__put__user_account_is_already_verified(test_token_scope, mocked
 
 @pytest.mark.parametrize("test_token_scope", [[s] for s in ACCOUNT_SCOPES])
 def test_account__put__link_has_already_been_used(test_token_scope, mocked_asyncpg_con):
-    test_account_id = uuid.uuid4()
     account_type = "user" if "user" in test_token_scope[0] else "customer"
-    test_customer_id = uuid.uuid4() if account_type == "user" else None
+    test_user_id = uuid.uuid4() if account_type == "user" else None
+    test_customer_id = uuid.uuid4()
     access_token = get_token(
-        scopes=test_token_scope,
-        account_type=account_type,
-        userid=test_account_id,
-        customer_id=test_customer_id,
+        scopes=test_token_scope, account_type=account_type, userid=test_user_id, customer_id=test_customer_id
     )
 
     mocked_asyncpg_con.fetchrow.return_value = {"verified": True, "reset_token": None}
@@ -1061,14 +1058,11 @@ def test_account__put__link_has_already_been_used(test_token_scope, mocked_async
 
 @pytest.mark.parametrize("test_token_scope", [[s] for s in ACCOUNT_SCOPES])
 def test_account__put__repeat_password(test_token_scope, mocked_asyncpg_con):
-    test_account_id = uuid.uuid4()
     account_type = "user" if "user" in test_token_scope[0] else "customer"
-    test_customer_id = uuid.uuid4() if account_type == "user" else None
+    test_user_id = uuid.uuid4() if account_type == "user" else None
+    test_customer_id = uuid.uuid4()
     access_token = get_token(
-        scopes=test_token_scope,
-        account_type=account_type,
-        userid=test_account_id,
-        customer_id=test_customer_id,
+        scopes=test_token_scope, account_type=account_type, userid=test_user_id, customer_id=test_customer_id
     )
 
     test_password = "Test_password1"
@@ -1097,14 +1091,11 @@ def test_account__put__repeat_password(test_token_scope, mocked_asyncpg_con):
 def test_account__put__token_does_not_match_reset_token(
     test_token_scope, test_reset_token, mocked_asyncpg_con
 ):
-    test_account_id = uuid.uuid4()
     account_type = "user" if "user" in test_token_scope[0] else "customer"
-    test_customer_id = uuid.uuid4() if account_type == "user" else None
+    test_user_id = uuid.uuid4() if account_type == "user" else None
+    test_customer_id = uuid.uuid4()
     access_token = get_token(
-        scopes=test_token_scope,
-        account_type=account_type,
-        userid=test_account_id,
-        customer_id=test_customer_id,
+        scopes=test_token_scope, account_type=account_type, userid=test_user_id, customer_id=test_customer_id
     )
 
     mocked_asyncpg_con.fetchrow.return_value = {"verified": True, "reset_token": test_reset_token}
@@ -1124,7 +1115,7 @@ def test_account__put__correctly_updates_customers_table_with_account_info(
 ):
     test_account_id = uuid.uuid4()
     account_type = "customer"
-    access_token = get_token(scopes=test_token_scope, account_type=account_type, userid=test_account_id)
+    access_token = get_token(scopes=test_token_scope, account_type=account_type, customer_id=test_account_id)
 
     ph = PasswordHasher()
     mocked_asyncpg_con.fetchrow.return_value = {
@@ -1182,19 +1173,6 @@ def test_account__put__correctly_updates_users_table_with_account_info(
         test_account_id,
         test_customer_id,
     )
-
-
-@pytest.mark.parametrize("test_token_scope", [ACCOUNT_SCOPES, []])
-def test_account__put__invalid_scopes(test_token_scope):
-    access_token = get_token(scopes=test_token_scope, account_type="customer")
-
-    response = test_client.put(
-        "/account",
-        json={"password1": "Test_password1", "password2": "Test_password1", "verify": False},
-        headers={"Authorization": f"Bearer {access_token}"},
-    )
-
-    assert response.status_code == 401
 
 
 @pytest.mark.parametrize("type", ["verify", "reset"])

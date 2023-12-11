@@ -161,7 +161,7 @@ async def login_customer(request: Request, details: CustomerLogin):
                 email,
             )
 
-            tokens = await create_new_tokens(con, customer_id, None, scopes, account_type)
+            tokens = await create_new_tokens(con, None, customer_id, scopes, account_type)
 
             return LoginResponse(
                 tokens=tokens, usage_quota=usage_quota, user_scopes=avail_user_scopes, customer_scopes=scopes
@@ -335,20 +335,20 @@ async def refresh(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.RE
 
     In a successful request, the new refresh token will be stored in the DB for the given user/customer account
     """
-    userid = uuid.UUID(hex=token.userid)
+    account_id = uuid.UUID(hex=token.account_id)
     account_type = token.account_type
     is_customer_account = account_type == "customer"
 
+    bind_threadlocal(customer_id=token.customer_id, user_id=token.userid)
+
     if is_customer_account:
         select_query = "SELECT refresh_token FROM customers WHERE id=$1"
-        bind_threadlocal(customer_id=str(userid), user_id=None)
     else:
         select_query = "SELECT refresh_token, customer_id FROM users WHERE id=$1"
-        bind_threadlocal(customer_id=token.customer_id, user_id=str(userid))
 
     try:
         async with request.state.pgpool.acquire() as con:
-            row = await con.fetchrow(select_query, userid)
+            row = await con.fetchrow(select_query, account_id)
 
             try:
                 # decode and validate current refresh token
@@ -362,10 +362,12 @@ async def refresh(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.RE
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
-            scope = await get_account_scopes(con, userid, is_customer_account)
+            scope = await get_account_scopes(con, account_id, is_customer_account)
 
             # con is passed to this function, so it must be inside this async with block
-            return await create_new_tokens(con, userid, row.get("customer_id"), scope, account_type)
+            user_id = None if is_customer_account else account_id
+            customer_id = account_id if is_customer_account else row["customer_id"]
+            return await create_new_tokens(con, user_id, customer_id, scope, account_type)
 
     except HTTPException:
         raise
@@ -385,10 +387,10 @@ async def logout(request: Request, token=Depends(ProtectedAny(scopes=list(Scopes
     This will not however affect their access token which will work fine until it expires.
     It is up to the client to discard the access token in order to truly logout the user.
     """
-    userid = uuid.UUID(hex=token.userid)
+    account_id = uuid.UUID(hex=token.account_id)
     is_customer_account = token.account_type == "customer"
 
-    bind_threadlocal(customer_id=token.customer_id, user_id=str(userid))
+    bind_threadlocal(customer_id=token.customer_id, user_id=str(account_id))
 
     if is_customer_account:
         update_query = "UPDATE customers SET refresh_token = NULL WHERE id=$1"
@@ -397,7 +399,7 @@ async def logout(request: Request, token=Depends(ProtectedAny(scopes=list(Scopes
 
     try:
         async with request.state.pgpool.acquire() as con:
-            await con.execute(update_query, userid)
+            await con.execute(update_query, account_id)
 
     except Exception:
         logger.exception("POST /logout: Unexpected error")
@@ -472,7 +474,7 @@ async def register_user(
 
     Only customer accounts with admin privileges can register users.
     """
-    customer_id = uuid.UUID(hex=token.userid)
+    customer_id = uuid.UUID(hex=token.customer_id)
     admin_scopes = token.scopes
     user_scopes = details.scopes
     try:
@@ -671,21 +673,13 @@ async def update_accounts(
     Used for both resetting new password or verifying new user accounts. Route will check if the token has been used or if account has already been verified.
     """
     try:
-        user_id = uuid.UUID(hex=token.userid)
+        account_id = uuid.UUID(hex=token.account_id)
+        customer_id = uuid.UUID(hex=token.customer_id)
 
-        is_customer = any("admin" in scope for scope in token.scopes)
-        is_user = any("user" in scope for scope in token.scopes)
-        # must be either a customer or user. Cannot be both or neither
-        if not (is_customer ^ is_user):
-            logger.error(f"PUT /{user_id}: Invalid scope(s): {token.scopes}")
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+        bind_threadlocal(customer_id=token.customer_id, user_id=token.userid)
 
-        customer_id = None if is_customer else uuid.UUID(hex=token.customer_id)
-
-        if is_customer:
-            bind_threadlocal(customer_id=str(user_id), user_id=None)
-        else:
-            bind_threadlocal(customer_id=str(customer_id), user_id=str(user_id))
+        is_customer = token.account_type == "customer"
+        is_user = not is_customer
 
         pw = details.password1.get_secret_value()
         ph = PasswordHasher()
@@ -701,7 +695,7 @@ async def update_accounts(
                     if is_customer
                     else "SELECT verified, reset_token, previous_passwords FROM users WHERE id=$1 AND customer_id=$2"
                 )
-                query_params = [user_id]
+                query_params = [account_id]
                 if is_user:
                     query_params.append(customer_id)
 
@@ -742,14 +736,14 @@ async def update_accounts(
                     if is_customer
                     else "UPDATE users SET verified='t', reset_token=NULL, password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) WHERE id=$2 AND customer_id=$3"
                 )
-                query_params = [phash, user_id]
+                query_params = [phash, account_id]
                 if is_user:
                     query_params.append(customer_id)
                 await con.execute(query, *query_params)
     except HTTPException:
         raise
     except Exception:
-        logger.exception(f"PUT /{user_id}: Unexpected error")
+        logger.exception(f"PUT /{account_id}: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -759,7 +753,7 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(tag=ScopeTa
 
     List of users returned will be sorted with all active users showing up first, then all the suspended (deactivated) users
     """
-    customer_id = uuid.UUID(hex=token.userid)
+    customer_id = uuid.UUID(hex=token.customer_id)
 
     bind_threadlocal(customer_id=str(customer_id), user_id=None)
 
@@ -882,7 +876,7 @@ async def get_user(
 
     If the account is a user account, the ID must exist under the customer ID in the token
     """
-    self_id = uuid.UUID(hex=token.userid)
+    self_id = uuid.UUID(hex=token.account_id)
     is_customer_account = token.account_type == "customer"
     is_self_retrieval = self_id == account_id
 
@@ -960,7 +954,7 @@ async def update_user(
         - delete (customer->user): set deleted_at field to current time
         - set_alias (customer->self): set the alias field to the given value
     """
-    self_id = uuid.UUID(hex=token.userid)
+    self_id = uuid.UUID(hex=token.account_id)
     action = details.action_type
 
     is_customer_account = token.account_type == "customer"
