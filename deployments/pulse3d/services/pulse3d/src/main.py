@@ -580,7 +580,7 @@ async def create_new_job(
                 await create_job(
                     con=con,
                     upload_id=upload_id,
-                    queue="test-pulse3d-v1.0.0rc8",
+                    queue="test-pulse3d-v1.0.0rc9",
                     priority=priority,
                     meta=job_meta,
                     customer_id=customer_id,

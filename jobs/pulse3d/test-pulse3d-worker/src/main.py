@@ -35,17 +35,17 @@ structlog.configure(
 
 logger = structlog.get_logger()
 
-PULSE3D_VERSION = "v1.0.0rc8"
+PULSE3D_VERSION = "v1.0.0rc9"
 
 
 # needs to be prefixed so that the queue processor doesn't pick it up
-@get_item(queue="test-pulse3d-v1.0.0rc8")
+@get_item(queue="test-pulse3d-v1.0.0rc9")
 async def process_item(con, item):
     # keeping initial log without bound variables
     logger.info(f"Processing item: {item}")
 
     s3_client = boto3.client("s3")
-    job_metadata = {"processed_by": "1.0.0rc8"}
+    job_metadata = {"processed_by": "1.0.0rc9"}
     outfile_key = None
 
     try:
@@ -162,7 +162,7 @@ async def process_item(con, item):
             try:
                 # copy so that windowed data isn't written to S3 and used on following recordings
                 windowed_pre_analyzed_data = deepcopy(pre_analyzed_data)
-                # TODO could window stim data as well
+                # TODO could window stim data as well?
                 if (start_time_sec := analysis_params.get("start_time")) is not None:
                     windowed_pre_analyzed_data.tissue_waveforms = (
                         windowed_pre_analyzed_data.tissue_waveforms.filter(pl.col("time") >= start_time_sec)
