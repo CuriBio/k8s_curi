@@ -2,7 +2,7 @@ from datetime import datetime
 from functools import wraps
 import json
 import time
-from typing import Dict, Any
+from typing import Any
 
 
 class EmptyQueue(Exception):
@@ -232,7 +232,7 @@ def _get_placeholders_str(num_placeholders, start=1):
     return ", ".join(f"${i}" for i in range(start, start + num_placeholders))
 
 
-async def get_customer_quota(con, customer_id, service) -> Dict[str, Any]:
+async def get_customer_quota(con, customer_id, service) -> dict[str, Any]:
     """Query DB and return usage limit and current usage.
     Returns:
         - Dictionary with account limits and account usage
@@ -261,7 +261,7 @@ async def get_customer_quota(con, customer_id, service) -> Dict[str, Any]:
     return {"limits": usage_limit_dict, "current": current_usage_dict}
 
 
-async def check_customer_quota(con, customer_id, service) -> Dict[str, Any]:
+async def check_customer_quota(con, customer_id, service) -> dict[str, Any]:
     """Query DB for service-specific customer account usage.
 
     Will be called for all account tiers, unlimited has a value of -1.

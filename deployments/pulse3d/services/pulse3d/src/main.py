@@ -5,7 +5,6 @@ import time
 import uuid
 from collections import defaultdict
 from datetime import datetime
-from typing import List, Optional, Tuple, Union
 
 import boto3
 import pandas as pd
@@ -114,7 +113,7 @@ async def startup():
 @app.get("/uploads")
 async def get_info_of_uploads(
     request: Request,
-    upload_ids: Optional[List[uuid.UUID]] = Query(None),
+    upload_ids: list[uuid.UUID] | None = Query(None),
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     # need to convert to UUIDs to str to avoid issues with DB
@@ -155,7 +154,7 @@ async def get_info_of_uploads(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.post("/uploads", response_model=Union[UploadResponse, GenericErrorResponse])
+@app.post("/uploads", response_model=UploadResponse | GenericErrorResponse)
 async def create_recording_upload(
     request: Request, details: UploadRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
 ):
@@ -210,7 +209,7 @@ async def create_recording_upload(
 @app.delete("/uploads")
 async def soft_delete_uploads(
     request: Request,
-    upload_ids: List[uuid.UUID] = Query(None),
+    upload_ids: list[uuid.UUID] = Query(None),
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     # make sure at least one upload ID was given
@@ -319,7 +318,7 @@ def _generate_presigned_post(details, bucket, s3_key):
 @app.get("/jobs")
 async def get_info_of_jobs(
     request: Request,
-    job_ids: Optional[List[uuid.UUID]] = Query(None),
+    job_ids: list[uuid.UUID] | None = Query(None),
     download: bool = Query(True),
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
@@ -588,8 +587,8 @@ async def create_new_job(
 
 
 def _format_tuple_param(
-    options: Optional[TupleParam], default_values: Union[int, Tuple[int, ...]]
-) -> Optional[TupleParam]:
+    options: TupleParam | None, default_values: int | tuple[int, ...]
+) -> TupleParam | None:
     if options is None or all(op is None for op in options):
         return None
 
@@ -608,7 +607,7 @@ def _format_tuple_param(
 @app.delete("/jobs")
 async def soft_delete_jobs(
     request: Request,
-    job_ids: List[uuid.UUID] = Query(None),
+    job_ids: list[uuid.UUID] = Query(None),
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     # make sure at least one job ID was given
@@ -686,7 +685,7 @@ async def download_analyses(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def _yield_s3_objects(bucket: str, keys: List[str], filenames: List[str]):
+def _yield_s3_objects(bucket: str, keys: list[str], filenames: list[str]):
     # TODO consider moving this to core s3 utils if more routes need to start using it
     try:
         s3 = boto3.session.Session().resource("s3")
@@ -698,7 +697,7 @@ def _yield_s3_objects(bucket: str, keys: List[str], filenames: List[str]):
         raise S3Error(f"Failed to access {bucket}/{key}") from e
 
 
-@app.get("/jobs/waveform-data", response_model=Union[WaveformDataResponse, GenericErrorResponse])
+@app.get("/jobs/waveform-data", response_model=WaveformDataResponse | GenericErrorResponse)
 async def get_interactive_waveform_data(
     request: Request,
     upload_id: uuid.UUID = Query(None),
