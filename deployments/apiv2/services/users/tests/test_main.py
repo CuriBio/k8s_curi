@@ -751,7 +751,7 @@ def test_account_id__get__no_id(mocked_asyncpg_con):
             "verified": True,
             "suspended": choice([True, False]),
             "reset_token": None,
-            "scopes": ["mantarray:free"],
+            "scopes": [Scopes.MANTARRAY__BASE],
         }
         for i in range(num_users_found)
     ]

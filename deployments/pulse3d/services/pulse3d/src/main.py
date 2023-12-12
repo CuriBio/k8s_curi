@@ -10,7 +10,7 @@ from typing import List, Optional, Tuple, Union
 import boto3
 import pandas as pd
 import structlog
-from auth import ScopeTags, ProtectedAny, check_prohibited_product, ProhibitedProductError
+from auth import ScopeTags, Scopes, ProtectedAny, check_prohibited_product, ProhibitedProductError
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -133,7 +133,7 @@ async def get_info_of_uploads(
 
         # give advanced privileges to access all uploads under customer_id
         # TODO update this to product specific when landing page is specced out more
-        if "mantarray:rw_all_data" in token.scopes:
+        if Scopes.MANTARRAY__RW_ALL_DATA in token.scopes:
             account_id = str(uuid.UUID(token.customer_id))
             # catches in the else block like customers in get_uploads, just set here so it's not customer and become confusing
             account_type = "rw_all_user"
@@ -255,7 +255,7 @@ async def download_zip_files(
         bind_threadlocal(user_id=None, customer_id=account_id, upload_ids=upload_ids)
 
     # give advanced privileges to access all uploads under customer_id
-    if "mantarray:rw_all_data" in token.scopes:
+    if Scopes.MANTARRAY__RW_ALL_DATA in token.scopes:
         account_id = str(uuid.UUID(token.customer_id))
         account_type = "rw_all_user"
 
@@ -392,7 +392,7 @@ async def _get_jobs(con, token, job_ids):
 
     # give advanced privileges to access all uploads under customer_id
     # TODO update this to product specific when landing page is specced out more
-    if "mantarray:rw_all_data" in token.scopes:
+    if Scopes.MANTARRAY__RW_ALL_DATA in token.scopes:
         account_id = str(uuid.UUID(token.customer_id))
         # catches in the else block like customers in get_uploads, just set here so it's not customer and become confusing
         account_type = "rw_all_user"
@@ -495,6 +495,7 @@ async def create_new_job(
             # Luci (12/14/2022) customer id is checked already because the customer_id in the token is being used to find upload details
             row = await con.fetchrow("SELECT user_id, type FROM uploads where id=$1", upload_id)
             original_upload_user = str(row["user_id"])
+            # TODO Tanner (12/11/23): do we need to handle the case where this value is missing?
             upload_type = row["type"]
 
             # check if pulse3d version is available
@@ -514,7 +515,7 @@ async def create_new_job(
                     message="Attempted to use pulse3d version that is removed", error="pulse3dVersionError"
                 )
 
-            if "mantarray:rw_all_data" not in user_scopes:
+            if Scopes.MANTARRAY__RW_ALL_DATA not in user_scopes:
                 # if users don't match and they don't have an all_data scope, then raise unauth error
                 if user_id != original_upload_user:
                     return GenericErrorResponse(
@@ -734,7 +735,7 @@ async def get_interactive_waveform_data(
         analysis_params = parsed_meta.get("analysis_params", {})
         pulse3d_version = parsed_meta.get("version")
 
-        if "mantarray:rw_all_data" not in token.scopes and is_user:
+        if Scopes.MANTARRAY__RW_ALL_DATA not in token.scopes and is_user:
             # only allow user to perform interactive analysis on another user's recording if special scope
             # customer id will be checked when attempting to locate file in s3 with customer id found in token
             if recording_owner_id != account_id:
@@ -812,7 +813,6 @@ async def get_usage_quota(
 ):
     """Get the usage quota for the specific user"""
     try:
-        # no customer_id assigned to customer tokens
         customer_id = str(uuid.UUID(token.customer_id))
 
         bind_threadlocal(customer_id=customer_id)

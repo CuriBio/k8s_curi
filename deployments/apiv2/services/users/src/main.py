@@ -452,7 +452,7 @@ async def register_customer(
                     type="verify",
                     user_id=new_account_id,
                     customer_id=None,
-                    scopes=[Scopes.ADMIN__VERIFY],
+                    scope=Scopes.ADMIN__VERIFY,
                     name=None,
                     email=email,
                 )
@@ -524,7 +524,7 @@ async def register_user(
                     type="verify",
                     user_id=new_account_id,
                     customer_id=customer_id,
-                    scopes=[Scopes.USER__VERIFY],
+                    scope=Scopes.USER__VERIFY,
                     name=username,
                     email=email,
                 )
@@ -567,15 +567,14 @@ async def email_account(
 
                 bind_threadlocal(user_id=str(user_id), customer_id=str(customer_id), username=username)
 
-                scope_str = f"{'user' if user else 'admin'}:{type}"
-                scope = next(s for s in Scopes if s == scope_str)
+                scope = Scopes[f"{'user' if user else 'admin'}__{type}".upper()]
 
                 await _create_account_email(
                     con=con,
                     type=type,
                     user_id=user_id,
                     customer_id=customer_id,
-                    scopes=[scope],
+                    scope=scope,
                     name=username,
                     email=email,
                 )
@@ -591,13 +590,11 @@ async def _create_account_email(
     type: str,
     user_id: uuid.UUID,
     customer_id: uuid.UUID | None,
-    scopes: list[str],
+    scope: list[str],
     name: str | None,
     email: EmailStr,
 ):
     try:
-        scope = scopes[0]
-
         if "user" in scope:
             account_type = "user"
         elif "customer" in scope:
@@ -609,7 +606,7 @@ async def _create_account_email(
 
         # create email verification token, exp 24 hours
         jwt_token = create_token(
-            userid=user_id, customer_id=customer_id, scopes=scopes, account_type=account_type
+            userid=user_id, customer_id=customer_id, scopes=[scope], account_type=account_type
         )
 
         url = f"{DASHBOARD_URL}/account/{type}?token={jwt_token.token}"
@@ -870,6 +867,7 @@ async def update_user_preferences(
 async def get_user(
     request: Request,
     account_id: uuid.UUID,
+    # TODO consider changing how this is scoped
     token=Depends(ProtectedAny(scopes=[s for s in Scopes if ScopeTags.ACCOUNT not in s.tags])),
 ):
     """Get info for the account with the given ID.
@@ -940,6 +938,7 @@ async def update_user(
     request: Request,
     details: AccountUpdateAction,
     account_id: uuid.UUID,
+    # TODO consider changing how this is scoped
     token=Depends(ProtectedAny(scopes=[s for s in Scopes if ScopeTags.ACCOUNT not in s.tags])),
 ):
     """Update an account's information in the database.

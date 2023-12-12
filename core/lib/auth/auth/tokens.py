@@ -46,8 +46,9 @@ class ProtectedAny:
             payload = decode_token(token)
             payload_scopes = set(payload["scopes"])
 
-            # if checking scope, make sure that the access token has the required scope
+            # make sure that the access token has the required scope
             if not self.scopes & payload_scopes:
+                # TODO raise a specific exeption here so that other errors result in a 500?
                 raise Exception()
 
             return JWTPayload(**payload)
