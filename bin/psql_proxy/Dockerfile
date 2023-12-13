@@ -1,6 +1,5 @@
 FROM alpine:latest
 RUN apk add --no-cache --update curl python3 py3-pip aws-cli
-# RUN pip install awscli
 
 # currently not switching to non-root user for this image
 

@@ -194,7 +194,7 @@ async def create_job(*, con, upload_id, queue, priority, meta, customer_id, job_
         cols = ", ".join(list(data))
         places = _get_placeholders_str(len(data))
 
-        # pulse3d rewrite duplicate jobs should not be added to results table
+        # Luci (12/13/23): pulse3d rewrite duplicate jobs should not be added to results table while testing
         if add_to_results:
             # insert job info result table with 'pending' status
             await con.execute(f"INSERT INTO jobs_result ({cols}) VALUES ({places})", *data.values())

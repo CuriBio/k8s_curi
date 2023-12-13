@@ -326,8 +326,8 @@ export default function UploadForm() {
     setCheckedParams(newCheckedParams);
   };
   const formatTupleParams = (firstParam, secondParam) => {
-    firstParam = firstParam === "" ? null : parseFloat(firstParam);
-    secondParam = secondParam === "" ? null : parseFloat(secondParam);
+    firstParam = firstParam === "" ? null : firstParam;
+    secondParam = secondParam === "" ? null : secondParam;
 
     let factors = [firstParam, secondParam];
 
@@ -376,7 +376,8 @@ export default function UploadForm() {
       selectedPulse3dVersion === "" || !selectedPulse3dVersion ? pulse3dVersions[0] : selectedPulse3dVersion;
 
     const requestBody = {
-      baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
+      // prevent baseline widths from being sent as float, pulse3d does not accept
+      baseline_widths_to_use: formatTupleParams(parseInt(baseToPeak), parseInt(peakToBase)),
       // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
       version,
     };

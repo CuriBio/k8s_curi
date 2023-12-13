@@ -576,7 +576,7 @@ async def create_new_job(
                     # upload to s3 under upload id and job id for pulse3d-worker to use
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
             else:
-                # if not interactive analysis, kick off second job to test pulse3d rewrite. IA is not setup to work yet.
+                # Luci (12/13/23): if not interactive analysis, kick off second job to test pulse3d rewrite. IA is not setup to work yet.
                 await create_job(
                     con=con,
                     upload_id=upload_id,
