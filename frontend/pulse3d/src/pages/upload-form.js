@@ -452,7 +452,7 @@ export default function UploadForm() {
       requestBody.prominence_factors = formatTupleParams(prominenceFactorPeaks, prominenceFactorValleys);
       requestBody.width_factors = formatTupleParams(widthFactorPeaks, widthFactorValleys);
     }
-    console.log(requestBody);
+
     return requestBody;
   };
 

@@ -3,6 +3,7 @@ from copy import deepcopy
 import json
 import os
 import tempfile
+from typing import Any
 from zipfile import ZipFile
 
 import asyncpg
@@ -42,6 +43,19 @@ structlog.configure(
 logger = structlog.get_logger()
 
 PULSE3D_VERSION = "v1.0.0rc9"
+
+
+def _get_existing_metadata(
+    metadata_dict: dict[str, Any]
+) -> BaseMetadata | MantarrayBeta2Metadata | MantarrayBeta1Metadata:
+    is_beta_2 = metadata_dict["file_format_version"] >= VersionInfo.parse("1.0.0")
+
+    if metadata_dict["instrument_type"] == InstrumentTypes.NAUTILUS:
+        return BaseMetadata(**metadata_dict)
+    elif is_beta_2:
+        return MantarrayBeta2Metadata(**metadata_dict)
+    else:
+        return MantarrayBeta1Metadata(**metadata_dict)
 
 
 # needs to be prefixed so that the queue processor doesn't pick it up
@@ -128,14 +142,7 @@ async def process_item(con, item):
                 )
 
                 metadata_dict = json.load(open(metadata_path))
-                is_beta_2 = metadata_dict["file_format_version"] >= VersionInfo.parse("1.0.0")
-
-                if metadata_dict["instrument_type"] == InstrumentTypes.NAUTILUS:
-                    existing_metadata = BaseMetadata(**metadata_dict)
-                elif is_beta_2:
-                    existing_metadata = MantarrayBeta2Metadata(**metadata_dict)
-                else:
-                    existing_metadata = MantarrayBeta1Metadata(**metadata_dict)
+                existing_metadata = _get_existing_metadata(metadata_dict)
 
                 pre_analyzed_data = PreAnalyzedData(
                     tissue_waveforms=tissue_waveforms,
