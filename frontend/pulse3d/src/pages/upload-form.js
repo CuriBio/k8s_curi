@@ -379,8 +379,7 @@ export default function UploadForm() {
       selectedPulse3dVersion === "" || !selectedPulse3dVersion ? pulse3dVersions[0] : selectedPulse3dVersion;
 
     const requestBody = {
-      // prevent baseline widths from being sent as float, pulse3d does not accept
-      baseline_widths_to_use: formatTupleParams(parseInt(baseToPeak), parseInt(peakToBase)),
+      baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
       // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
       version,
     };

@@ -612,8 +612,9 @@ def _format_tuple_param(
         default_values = (default_values,) * len(options)
 
     # set any unspecified values to the default value
+    # pulse3d does not like float values
     formatted_options = tuple(
-        (option if option is not None else default_value)
+        (int(option) if option is not None else default_value)
         for option, default_value in zip(options, default_values)
     )
 
