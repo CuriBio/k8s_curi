@@ -474,9 +474,8 @@ export default function AnalysisParamForm({
     analysisPresetName,
   },
 }) {
-  const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails, dataTypeDetails } = useContext(
-    UploadsContext
-  );
+  const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails, dataTypeDetails } =
+    useContext(UploadsContext);
 
   const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
   const [disableStimProtocols, setDisableStimProtocols] = useState(false);
@@ -729,8 +728,16 @@ export default function AnalysisParamForm({
       // bounds do not conflict with each other
       Number(updatedParams[minName]) >= Number(updatedParams[maxName])
     ) {
-      updatedParamErrors[maxName] = "*Must be greater than Start Time";
+      const errorLabel =
+        minName[0].toUpperCase() +
+        minName
+          .slice(1)
+          .split(/(?=[A-Z])/)
+          .join(" ");
+
+      updatedParamErrors[maxName] = `*Must be greater than ${errorLabel}`;
     }
+
     setParamErrors(updatedParamErrors);
   };
 
