@@ -325,6 +325,7 @@ export default function UploadForm() {
     }
     setCheckedParams(newCheckedParams);
   };
+
   const formatTupleParams = (firstParam, secondParam) => {
     // convert factors that aren't specified to null
     if (firstParam === "") {
@@ -335,6 +336,7 @@ export default function UploadForm() {
     }
 
     let factors = [firstParam, secondParam];
+
     if (factors.every((v) => !v)) {
       // if both factors are null, return null instead of an array
       return null;
@@ -373,6 +375,8 @@ export default function UploadForm() {
       wellGroups,
       stimWaveformFormat,
       dataType,
+      minPeakWidth,
+      maxPeakWidth,
     } = analysisParams;
 
     const version =
@@ -434,6 +438,7 @@ export default function UploadForm() {
       }
 
       requestBody.width_factors = formatTupleParams(minPeakWidth, maxPeakWidth);
+      console.log(minPeakWidth, maxPeakWidth, requestBody.width_factors);
       // need to convert all these params from ms to s
       for (const name of ["valley_search_duration", "upslope_duration", "upslope_noise_allowance_duration"]) {
         if (requestBody[name] !== null) {
@@ -441,15 +446,15 @@ export default function UploadForm() {
         }
       }
       if (requestBody.width_factors !== null) {
-        requestBody.width_factors = requestBody.width_factors.map((width) => {
-          width !== null ? width / 1000 : null;
-        });
+        requestBody.width_factors = requestBody.width_factors.map((width) =>
+          width !== null ? width / 1000 : null
+        );
       }
     } else {
       requestBody.prominence_factors = formatTupleParams(prominenceFactorPeaks, prominenceFactorValleys);
       requestBody.width_factors = formatTupleParams(widthFactorPeaks, widthFactorValleys);
     }
-
+    console.log(requestBody);
     return requestBody;
   };
 
