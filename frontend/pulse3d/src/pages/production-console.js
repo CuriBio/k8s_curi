@@ -208,7 +208,6 @@ function FirmwareUpload({ fwInfo, refreshTables }) {
   const noErrors = () => {
     return Object.values(uploadOptionErrors).every((val) => val.length === 0);
   };
-  fwTypes.includes(uploadOptions.fwType);
 
   const checkFwTypeSpecificOptions = () => {
     if (uploadOptions.fwType === "Main") {
