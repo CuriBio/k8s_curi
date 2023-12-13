@@ -3,50 +3,15 @@ import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
-import { useContext, useState, useEffect } from "react";
+import { useContext, useState, useEffect, useMemo } from "react";
 import InteractiveAnalysisModal from "@/components/interactiveAnalysis/InteractiveAnalysisModal";
 import { AuthContext } from "@/pages/_app";
-import DataTable from "react-data-table-component";
-import UploadsSubTable from "@/components/table/UploadsSubTable";
-import Checkbox from "@mui/material/Checkbox";
-import ResizableColumn from "@/components/table/ResizableColumn";
-import ColumnHead from "@/components/table/ColumnHead";
 import { useRouter } from "next/router";
 import JobPreviewModal from "@/components/interactiveAnalysis/JobPreviewModal";
 import { formatDateTime } from "@/utils/generic";
-
-// These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
-const columnProperties = {
-  center: false,
-  sortable: true,
-};
-
-const customStyles = {
-  headRow: {
-    style: {
-      backgroundColor: "var(--dark-blue)",
-      color: "white",
-      fontSize: "1.2rem",
-    },
-  },
-  subHeader: {
-    style: {
-      backgroundColor: "var(--dark-blue)",
-    },
-  },
-  expanderCell: {
-    style: { flex: "0" },
-  },
-  expanderButton: {},
-  rows: {
-    style: {
-      height: "60px",
-    },
-  },
-  cells: {
-    style: { padding: "0 2rem 0 0" },
-  },
-};
+import Table from "@/components/table/Table";
+import { Box } from "@mui/material";
+import Jobs from "@/components/table/Jobs";
 
 const TableContainer = styled.div`
   margin: 3% 3% 3% 3%;
@@ -55,8 +20,21 @@ const TableContainer = styled.div`
   box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
     0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
-const SpinnerContainer = styled.div`
-  margin: 50px;
+
+const ModalSpinnerContainer = styled.div`
+  position: relative;
+  display: flex;
+  justify-content: center;
+  height: 315px;
+  align-items: center;
+`;
+
+const DropDownContainer = styled.div`
+  width: 250px;
+  background-color: white;
+  border-radius: 8px;
+  position: relative;
+  margin: 15px 20px;
 `;
 
 const LargeModalContainer = styled.div`
@@ -68,6 +46,7 @@ const LargeModalContainer = styled.div`
   background-color: white;
   border-radius: 5px;
   overflow: none;
+  z-index: 5;
 `;
 
 const ModalBackdrop = styled.div`
@@ -77,21 +56,6 @@ const ModalBackdrop = styled.div`
   background: black;
   opacity: 0.2;
   width: 100%;
-`;
-
-const DropDownContainer = styled.div`
-  width: 200px;
-  background-color: white;
-  border-radius: 5px;
-  height: 40px;
-  margin: 10px 0px;
-`;
-const ModalSpinnerContainer = styled.div`
-  position: relative;
-  display: flex;
-  justify-content: center;
-  height: 315px;
-  align-items: center;
 `;
 
 const modalObjs = {
@@ -134,17 +98,26 @@ const modalObjs = {
   },
 };
 
+const getJobsList = (j) => {
+  return Object.values(j).flat(2);
+};
+
+const getSelectedUploads = (u) => {
+  return Object.keys(u).filter((x) => u[x]);
+};
+
 export default function Uploads() {
   const router = useRouter();
-  const { accountType, usageQuota } = useContext(AuthContext);
+  const { accountType, usageQuota, accountScope, productPage } = useContext(AuthContext);
   const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } = useContext(
     UploadsContext
   );
+
   const [jobs, setJobs] = useState([]);
-  const [rows, setRows] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
-  const [checkedJobs, setCheckedJobs] = useState([]);
-  const [checkedUploads, setCheckedUploads] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedUploads, setSelectedUploads] = useState({});
+  const [selectedJobs, setSelectedJobs] = useState({});
   const [resetDropdown, setResetDropdown] = useState(false);
   const [modalState, setModalState] = useState(false);
   const [modalLabels, setModalLabels] = useState({ header: "", messages: [] });
@@ -152,192 +125,7 @@ export default function Uploads() {
   const [openInteractiveAnalysis, setOpenInteractiveAnalysis] = useState(false);
   const [openJobPreview, setOpenJobPreview] = useState(false);
   const [selectedAnalysis, setSelectedAnalysis] = useState();
-  const [pending, setPending] = useState(true);
-  const [filterString, setFilterString] = useState("");
-  const [filterColumn, setFilterColumn] = useState("");
-  // TODO could probably put all these widths in the same object
-  const [ownerWidth, setOwnerWidth] = useState("10%");
-  const [recordingWidth, setRecordingWidth] = useState("23%");
-  const [uploadWidth, setUploadWidth] = useState("21%");
-  const [createdWidth, setCreatedWidth] = useState("17%");
-  const [analyzedWidth, setAnalyzedWidth] = useState("17%");
-  const [sortColumn, setSortColumn] = useState("");
-  const [uploadTableColumns, setUploadTableColumns] = useState([]);
   const [jobsInSelectedUpload, setJobsInSelectedUpload] = useState(0);
-  const [selectAll, setSelectAll] = useState(false);
-
-  useEffect(() => {
-    // removing loading spinner once jobs have been recieved or if 0 jobs were receieved because there were zero uploads for new users
-    if (jobs.length > 0 || (jobs.length === 0 && uploads)) {
-      setPending(false);
-    }
-  }, [displayRows]);
-
-  useEffect(() => {
-    const selectAllStyle = { color: "var(--light-gray)" };
-    setUploadTableColumns([
-      {
-        name: (
-          <Checkbox color={"secondary"} checked={selectAll} onChange={handleSelectAll} sx={selectAllStyle} />
-        ),
-        width: "6%",
-        display: true,
-        cell: (row) => (
-          <Checkbox id={row.id} checked={checkedUploads.includes(row.id)} onChange={handleCheckedUploads} />
-        ),
-      },
-      {
-        name: (
-          <ColumnHead
-            title="Owner"
-            setFilterString={setFilterString}
-            columnName="username"
-            setFilterColumn={setFilterColumn}
-            width={ownerWidth.replace("%", "")}
-            filterColumn={filterColumn}
-            setSelfWidth={setOwnerWidth}
-            setRightNeighbor={setRecordingWidth}
-            rightWidth={recordingWidth.replace("%", "")}
-            setSortColumn={setSortColumn}
-            sortColumn={sortColumn}
-          />
-        ),
-        width: ownerWidth,
-        display: displayRows.find((i) => i.username),
-        sortFunction: (rowA, rowB) => rowA.username.localeCompare(rowB.username),
-        cell: (row) => <ResizableColumn content={row.username} />,
-      },
-      {
-        name: (
-          <ColumnHead
-            title="Recording Name"
-            setFilterString={setFilterString}
-            columnName="name"
-            setFilterColumn={setFilterColumn}
-            width={recordingWidth.replace("%", "")}
-            filterColumn={filterColumn}
-            setSelfWidth={setRecordingWidth}
-            setRightNeighbor={setUploadWidth}
-            rightWidth={uploadWidth.replace("%", "")}
-            setSortColumn={setSortColumn}
-            sortColumn={sortColumn}
-          />
-        ),
-        width: recordingWidth,
-        display: true,
-        sortFunction: (rowA, rowB) => rowA.name.localeCompare(rowB.name),
-        cell: (row) => <ResizableColumn content={row.name} />,
-      },
-      {
-        name: (
-          <ColumnHead
-            title="Upload ID"
-            setFilterString={setFilterString}
-            columnName="id"
-            setFilterColumn={setFilterColumn}
-            width={uploadWidth.replace("%", "")}
-            filterColumn={filterColumn}
-            setSelfWidth={setUploadWidth}
-            setRightNeighbor={setCreatedWidth}
-            rightWidth={createdWidth.replace("%", "")}
-            setSortColumn={setSortColumn}
-            sortColumn={sortColumn}
-          />
-        ),
-        width: uploadWidth,
-        display: true,
-        sortFunction: (rowA, rowB) => rowA.id.localeCompare(rowB.id),
-        cell: (row) => <ResizableColumn content={row.id} />,
-      },
-      {
-        name: (
-          <ColumnHead
-            title="Date Created"
-            setFilterString={setFilterString}
-            columnName="createdAt"
-            setFilterColumn={setFilterColumn}
-            width={createdWidth.replace("%", "")}
-            filterColumn={filterColumn}
-            setSelfWidth={setCreatedWidth}
-            setRightNeighbor={setAnalyzedWidth}
-            rightWidth={analyzedWidth.replace("%", "")}
-            setSortColumn={setSortColumn}
-            sortColumn={sortColumn}
-          />
-        ),
-        width: createdWidth,
-        display: true,
-        sortFunction: (rowA, rowB) => new Date(rowB.createdAt) - new Date(rowA.createdAt),
-        cell: (row) => <ResizableColumn content={formatDateTime(row.createdAt)} />,
-      },
-      {
-        name: (
-          <ColumnHead
-            title="Last Analyzed"
-            setFilterString={setFilterString}
-            columnName="lastAnalyzed"
-            setFilterColumn={setFilterColumn}
-            width={analyzedWidth.replace("%", "")}
-            filterColumn={filterColumn}
-            setSelfWidth={setAnalyzedWidth}
-            setRightNeighbor={() => {}}
-            setSortColumn={setSortColumn}
-            sortColumn={sortColumn}
-          />
-        ),
-        width: analyzedWidth,
-        id: "lastAnalyzed",
-        display: true,
-        sortFunction: (rowA, rowB) => new Date(rowB.lastAnalyzed) - new Date(rowA.lastAnalyzed),
-        cell: (row) => {
-          //make sure to use the correct last analyzed date
-          const latestDate = row.jobs.map((job) => job.datetime).sort((a, b) => new Date(b) - new Date(a))[0];
-          return <ResizableColumn last={true} content={formatDateTime(latestDate)} />;
-        },
-      },
-      {
-        width: "11%",
-        id: "uploadOrigin",
-        display: true,
-        cell: (row) =>
-          row.autoUpload !== null && (
-            <ResizableColumn content={row.autoUpload ? `Auto Upload` : "Manual Upload"} />
-          ),
-      },
-    ]);
-  }, [
-    displayRows,
-    checkedUploads,
-    sortColumn,
-    selectAll,
-    recordingWidth,
-    ownerWidth,
-    createdWidth,
-    analyzedWidth,
-  ]);
-
-  useEffect(() => {
-    // protect against user who doesn't have any uploads to show
-    if (displayRows.length > 0) {
-      if (selectAll) {
-        if (checkedUploads.length < displayRows.length) {
-          // handle select all check state if changes are made to checked uploads
-          // if user had previously set select all to true and unchecks an individual upload, set select all state back to false
-          setSelectAll(false);
-        } else if (checkedUploads.length > displayRows.length) {
-          // else if a user has selected all and then filters the uploads by some string, then only check displayed items and don't include hidden items
-          const allUploadsIds = displayRows.map(({ id }) => id);
-          setCheckedUploads(allUploadsIds);
-          //check all jobs
-          const allJobIds = getJobsForUploads(allUploadsIds);
-          setCheckedJobs(allJobIds);
-        }
-      } else if (checkedUploads.length === displayRows.length && !selectAll) {
-        // else if user individually selects all uploads, then set select all state to true
-        setSelectAll(true);
-      }
-    }
-  }, [displayRows, checkedUploads]);
 
   useEffect(() => {
     if (uploads) {
@@ -360,16 +148,6 @@ export default function Uploads() {
     if (resetDropdown) setResetDropdown(false);
   }, [resetDropdown]);
 
-  //when filter string changes, refilter results
-  useEffect(() => {
-    if (filterColumn) {
-      const newList = filterColumns();
-      if (newList.length > 0) {
-        setDisplayRows(newList);
-      }
-    }
-  }, [filterString]);
-
   useEffect(() => {
     if (!openInteractiveAnalysis) {
       // reset when interactive analysis modal closes
@@ -378,60 +156,149 @@ export default function Uploads() {
   }, [openInteractiveAnalysis]);
 
   useEffect(() => {
-    let displayOwner = false;
     if (uploads) {
       const formattedUploads = uploads.map(({ username, id, filename, created_at, owner, auto_upload }) => {
-        if (username) displayOwner = true;
         // const formattedTime = formatDateTime(created_at);
         const recName = filename ? filename.split(".").slice(0, -1).join(".") : null;
         const uploadJobs = jobs
           .filter(({ uploadId }) => uploadId === id)
-          .sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-        const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].datetime : created_at;
+        const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].createdAt : created_at;
 
         return {
           username,
           name: recName,
           id,
+          jobs: uploadJobs,
           createdAt: created_at,
           lastAnalyzed,
-          jobs: uploadJobs,
           owner,
           autoUpload: auto_upload,
         };
       });
 
-      formattedUploads.sort((a, b) => new Date(b.lastAnalyzed) - new Date(a.lastAnalyzed));
-      setRows([...formattedUploads]);
       setDisplayRows([...formattedUploads]);
-
-      if (displayOwner) {
-        // admin accounts have an extra Owners column so the widths should be different
-        setCreatedWidth("13%");
-        setAnalyzedWidth("13%");
-      }
-
-      if (filterColumn) {
-        const newList = filterColumns();
-        if (newList.length > 0) {
-          setDisplayRows(newList);
-        }
-      }
+      setIsLoading(false);
     }
   }, [jobs]);
 
-  const resetTable = () => {
-    setResetDropdown(true);
-    setCheckedUploads([]);
-    setCheckedJobs([]);
-    getAllJobs();
+  useEffect(() => {
+    handleSelectedJobs();
+  }, [selectedJobs]);
+
+  useEffect(() => {
+    handleSelectedUploads();
+  }, [selectedUploads]);
+
+  const columns = useMemo(
+    () => [
+      {
+        accessorKey: "username",
+        id: "username",
+        header: "Owner",
+        filterVariant: "autocomplete",
+        size: 200,
+        minSize: 130,
+      },
+      {
+        accessorKey: "name",
+        id: "name",
+        header: "Recording Name",
+        filterVariant: "autocomplete",
+        size: 320,
+        minSize: 130,
+      },
+      {
+        accessorKey: "id", //accessorKey used to define `data` column. `id` gets set to accessorKey automatically
+        filterVariant: "autocomplete",
+        id: "id",
+        header: "Upload ID",
+        size: 320,
+        minSize: 130,
+      },
+      {
+        accessorFn: (row) => new Date(row.createdAt),
+        header: "Date Created",
+        id: "createdAt",
+        filterVariant: "date-range",
+        sortingFn: "datetime",
+        size: 275,
+        minSize: 275,
+        Cell: ({ cell }) => formatDateTime(cell.getValue()),
+      },
+      {
+        accessorFn: (row) => new Date(row.lastAnalyzed),
+        header: "Last Analyzed",
+        id: "lastAnalyzed",
+        filterVariant: "date-range",
+        sortingFn: "datetime",
+        size: 275,
+        minSize: 275,
+        Cell: ({ cell }) => formatDateTime(cell.getValue()),
+      },
+      {
+        accessorKey: "autoUpload",
+        id: "autoUpload",
+        filterVariant: "autocomplete",
+        header: "Upload Origin",
+        enableColumnFilter: false,
+        enableResizing: false,
+        size: 180,
+        Cell: ({ cell }) =>
+          cell.getValue() !== null && <div>{cell.getValue() ? `Auto Upload` : "Manual Upload"}</div>,
+      },
+    ],
+    []
+  );
+
+  const handleSelectedJobs = () => {
+    for (const uploadId in selectedJobs) {
+      const uploadJobs = displayRows.find((x) => x.id === uploadId).jobs;
+      const selected = selectedJobs[uploadId];
+      const uploadIsSelected = uploadId in selectedUploads && selectedUploads[uploadId];
+
+      if (uploadJobs.length === selected.length && uploadJobs.length !== 0 && !uploadIsSelected) {
+        // if all jobs are selected and the parent upload isn't, then auto selected the upload
+        selectedUploads[uploadId] = true;
+        setSelectedUploads({ ...selectedUploads });
+      } else if (uploadJobs.length > selected.length && uploadIsSelected) {
+        // else if the parent upload is selected, but a user unchecks a job, then auto uncheck the parent upload
+        selectedUploads[uploadId] = false;
+        setSelectedUploads({ ...selectedUploads });
+      }
+    }
   };
 
-  const filterColumns = () => {
-    return rows.filter((row) => {
-      return row[filterColumn].toLocaleLowerCase().includes(filterString.toLocaleLowerCase());
-    });
+  const handleSelectedUploads = () => {
+    const selectedJobsCopy = JSON.parse(JSON.stringify(selectedJobs));
+
+    for (const uploadId in selectedUploads) {
+      const uploadJobs = displayRows.find((x) => x.id === uploadId).jobs;
+      const uploadIsSelected = selectedUploads[uploadId];
+
+      if (uploadIsSelected) {
+        // if parent upload is selected and all the jobs aren't selected, then auto select all the jobs
+        const allSelectedJobs = uploadJobs.map(({ jobId }) => jobId);
+        selectedJobsCopy[uploadId] = allSelectedJobs;
+        setSelectedJobs({ ...selectedJobsCopy });
+      }
+    }
+
+    for (const uploadId in selectedJobsCopy) {
+      if (!Object.keys(selectedUploads).includes(uploadId)) {
+        selectedJobsCopy[uploadId] = [];
+        setSelectedJobs({ ...selectedJobsCopy });
+      }
+    }
+  };
+
+  const resetTable = async () => {
+    setResetDropdown(true);
+    setSelectedUploads({});
+    setSelectedJobs({});
+    setFetchUploads(true);
+    await getAllJobs();
   };
 
   const getAllJobs = async () => {
@@ -442,13 +309,13 @@ export default function Uploads() {
 
         const newJobs = jobs.map(({ id, upload_id, created_at, object_key, status, meta, owner }) => {
           const analyzedFile = object_key ? object_key.split("/")[object_key.split("/").length - 1] : "";
-          const formattedTime = created_at;
-          const isChecked = checkedJobs.includes(id);
+          const isChecked = Object.keys(selectedJobs).includes(id);
           const parsedMeta = JSON.parse(meta);
           const analysisParams = parsedMeta.analysis_params;
           // add pulse3d version used on job to be displayed with other analysis params
           analysisParams.pulse3d_version = parsedMeta.version;
           const metaParams = { analysisParams };
+
           if ("name_override" in parsedMeta) metaParams.nameOverride = parsedMeta.name_override;
           // handle specific errors to let users know
           if ("error" in parsedMeta) {
@@ -458,11 +325,12 @@ export default function Uploads() {
               status += `: ${parsedMeta.error}`;
             }
           }
+
           return {
             jobId: id,
             uploadId: upload_id,
             analyzedFile,
-            datetime: formattedTime,
+            createdAt: created_at,
             status,
             version: pulse3dVersions[0], // tag with latest version for now
             checked: isChecked,
@@ -471,141 +339,47 @@ export default function Uploads() {
           };
         });
 
-        setJobs(newJobs);
+        setJobs([...newJobs]);
       }
     } catch (e) {
       console.log("ERROR fetching jobs in /uploads");
     }
   };
 
-  const getJobsForUploads = (uploadIds) => {
-    //check all jobs
-    const jobIds = [];
-    uploadIds.map((upload) => {
-      const idx = rows.map((row) => row.id).indexOf(upload);
-      rows[idx].jobs.map(({ jobId, status }) => {
-        // only add jobs to checked array if not pending
-        if (!["pending", "running"].includes(status)) jobIds.push(jobId);
-      });
-    });
-    return jobIds;
-  };
-
-  const handleSelectAll = () => {
-    if (!selectAll) {
-      // check all uploads
-      const allUploadsIds = displayRows.map(({ id }) => id);
-      setCheckedUploads(allUploadsIds);
-      //check all jobs
-      const allJobIds = getJobsForUploads(allUploadsIds);
-      setCheckedJobs(allJobIds);
-    } else {
-      // reset all uploads and jobs
-      setCheckedUploads([]);
-      setCheckedJobs([]);
-    }
-    // update select all state
-    setSelectAll(!selectAll);
-  };
-
-  const handleDropdownSelection = (option) => {
-    if (option === 1) {
-      setModalButtons(["Close", "Confirm"]);
-      setModalLabels(modalObjs.delete);
-      setModalState("generic");
-    } else if (option === 0) {
-      // if download, check that no job contains an error status
-      const failedJobs = jobs.filter(
-        ({ jobId, status }) => checkedJobs.includes(jobId) && status === "error"
-      );
-
-      if (failedJobs.length === 0) {
-        downloadAnalyses();
-      } else {
-        setModalButtons(["Close", "Continue"]);
-        setModalLabels(modalObjs.containsFailedJob);
-        setModalState("generic");
-      }
-    } else if (option === 2) {
-      const jobDetails = jobs.filter(({ jobId }) => jobId == checkedJobs[0]);
-      setSelectedAnalysis(jobDetails[0]);
-      const uploadId = jobDetails[0].uploadId;
-
-      for (let uploadIdx in displayRows) {
-        if (displayRows[uploadIdx].id === uploadId) {
-          setJobsInSelectedUpload(displayRows[uploadIdx].jobs.length);
-        }
-      }
-
-      setOpenInteractiveAnalysis(true);
-    } else if (option === 3) {
-      // Open Re-analyze tab with name of file pre-selected
-      const selectedUpload = uploads.filter((upload) =>
-        checkedUploads.some((checkUpload) => checkUpload === upload.id)
-      )[0];
-
-      setDefaultUploadForReanalysis(selectedUpload);
-      router.push("/upload-form?id=re-analyze+existing+upload");
-    }
-  };
-
-  const handleDownloadSubSelection = async ({ Download }) => {
-    if (Download === 1) {
-      try {
-        if (checkedUploads.length === 1) {
-          await downloadSingleFile({ uploadId: checkedUploads[0] });
-          resetTable();
-        } else if (checkedUploads.length > 1) {
-          // show active downloading modal only for multifile downloads
-          setModalLabels(modalObjs.empty);
-          setModalState("downloading");
-
-          await downloadMultiFiles(checkedUploads, true);
-
-          // show successful download modal only for multifile downloads
-          setModalLabels({
-            header: "Success!",
-            messages: [
-              `The following number of recording files have been successfully downloaded: ${checkedUploads.length}`,
-              "They can be found in your local downloads folder.",
-            ],
-          });
-          setModalButtons(["Close"]);
-          setModalState("generic");
-        }
-      } catch (e) {
-        console.log(`ERROR fetching presigned url to download recording files: ${e}`);
-        setModalLabels(modalObjs.downloadError);
-        setModalButtons(["Close"]);
-        setModalState("generic");
-      }
-    } else {
-      handleDropdownSelection(Download);
-    }
+  const removeDeletedUploads = (deletedUploads) => {
+    const deletedIds = deletedUploads.map(({ id }) => id);
+    const filteredRows = displayRows.filter(({ id }) => !deletedIds.includes(id));
+    console.log(displayRows.length, filteredRows.length);
+    setDisplayRows([...filteredRows]);
   };
 
   const handleDeletions = async () => {
     // NOTE the query that soft deletes the files will also fail even if non-owner files get sent since the user_ids will not match to what's in the database
     //remove all pending from list
+    const jobsList = getJobsList(selectedJobs);
     const jobsToDelete = jobs.filter(
       ({ jobId, status, owner }) =>
-        checkedJobs.includes(jobId) && !["pending", "running"].includes(status) && owner
+        jobsList.includes(jobId) &&
+        !["pending", "running"].includes(status) &&
+        (owner || accountType === "admin")
     );
     // get upload meta data
+    // check if upload is selected, check that upload has no actively running jobs, and check user is deleting own upload or it's an admin account
     const uploadsToDelete = displayRows.filter(
       ({ id, jobs, owner }) =>
-        checkedUploads.includes(id) &&
-        jobs.filter(({ status }) => !["pending", "running"].includes(status)).length == 0 &&
-        owner
+        getSelectedUploads(selectedUploads).includes(id) &&
+        !jobs.find(
+          ({ status, jobId }) => !jobsList.includes(jobId) || ["pending", "running"].includes(status)
+        ) &&
+        (owner || accountType === "admin")
     );
 
     try {
       let failedDeletion = false;
       //soft delete uploads
       if (uploadsToDelete) {
-        // filter for uploads where there are no pending jobs to prevent deleting uploads for pending jobs
         const finalUploadIds = uploadsToDelete.map(({ id }) => id);
-
+        // filter for uploads where there are no pending jobs to prevent deleting uploads for pending jobs
         if (finalUploadIds && finalUploadIds.length > 0) {
           const uploadsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads?`;
           finalUploadIds.map((id) => (uploadsURL += `upload_ids=${id}&`));
@@ -617,16 +391,23 @@ export default function Uploads() {
           failedDeletion ||= uploadsResponse.status !== 200;
         }
       }
-      // soft delete all jobs
-      if (jobsToDelete.length > 0) {
-        const jobsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;
-        jobsToDelete.map(({ jobId }) => (jobsURL += `job_ids=${jobId}&`));
 
-        const jobsResponse = await fetch(jobsURL.slice(0, -1), {
-          method: "DELETE",
-        });
+      // only proceed if upload successfully deleted
+      if (!failedDeletion) {
+        // remove uploads from list to show auto deletion, waiting for get uploads request is too slow
+        // will self-correct if anything is different when actual get uploads request renders
+        removeDeletedUploads(uploadsToDelete);
+        // soft delete all jobs
+        if (jobsToDelete.length > 0) {
+          const jobsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;
+          jobsToDelete.map(({ jobId }) => (jobsURL += `job_ids=${jobId}&`));
 
-        failedDeletion ||= jobsResponse.status !== 200;
+          const jobsResponse = await fetch(jobsURL.slice(0, -1), {
+            method: "DELETE",
+          });
+
+          failedDeletion ||= jobsResponse.status !== 200;
+        }
       }
 
       if (failedDeletion) {
@@ -634,21 +415,22 @@ export default function Uploads() {
         setModalLabels(modalObjs.failedDeletion);
         setModalState("generic");
       }
-      // rerender table with updated deletions
-      await setFetchUploads();
+
       return failedDeletion;
     } catch (e) {
-      console.log("ERROR attempting to soft delete selected jobs and uploadfs");
+      console.log(e);
+      console.log("ERROR attempting to soft delete selected jobs and uploads");
     }
   };
 
   const checkOwnerOfFiles = async () => {
     const ownerOfUploads =
-      displayRows.filter(({ id, owner }) => checkedUploads.includes(id) && owner).length ==
-      checkedUploads.length;
+      displayRows.filter(({ id, owner }) => id in selectedUploads && selectedUploads[id] && owner).length ==
+      getSelectedUploads(selectedUploads).length;
 
+    const alljobs = getJobsList(selectedJobs);
     const ownerOfJobs =
-      jobs.filter(({ jobId, owner }) => checkedJobs.includes(jobId) && owner).length == checkedJobs.length;
+      jobs.filter(({ jobId, owner }) => alljobs.includes(jobId) && owner).length == alljobs.length;
 
     return ownerOfJobs && ownerOfUploads;
   };
@@ -697,9 +479,11 @@ export default function Uploads() {
 
   const downloadAnalyses = async () => {
     // removes any jobs with error + pending statuses
+    const jobsList = getJobsList(selectedJobs);
     const finishedJobs = jobs.filter(
-      ({ jobId, status }) => checkedJobs.includes(jobId) && status === "finished"
+      ({ jobId, status }) => jobsList.includes(jobId) && status === "finished"
     );
+
     const numberOfJobs = finishedJobs.length;
 
     if (numberOfJobs > 0) {
@@ -795,6 +579,7 @@ export default function Uploads() {
       let url = null,
         zipFilename = null,
         body = null;
+
       const now = formatDateTime();
 
       if (uploads) {
@@ -833,84 +618,25 @@ export default function Uploads() {
     }
   };
 
-  const ExpandedComponent = ({ data }) => {
-    return (
-      <UploadsSubTable
-        jobs={data.jobs}
-        checkedJobs={checkedJobs}
-        handleCheckedJobs={handleCheckedJobs}
-        openJobPreview={handleJobPreviewClick}
-      />
-    );
-  };
-
-  const handleCheckedUploads = (e) => {
-    // first check if change is adding or removing an upload
-    if (!checkedUploads.includes(e.target.id)) {
-      // if adding, push to state
-      checkedUploads.push(e.target.id);
-    } else {
-      // if removing, splice to state
-      const idxToSplice = checkedUploads.indexOf(e.target.id);
-      checkedUploads.splice(idxToSplice, 1);
-    }
-    // set state
-    setCheckedUploads([...checkedUploads]);
-
-    const newCheckedJobs = [];
-    // every checked upload should have all of it's jobs checked
-    // so it's resetting checkedJobs to empty array, then concat all relevant jobs
-    checkedUploads.map((upload) => {
-      const idx = rows.map((row) => row.id).indexOf(upload);
-      rows[idx].jobs.map(({ jobId, status }) => {
-        // only add jobs to checked array if not pending
-        if (!["pending", "running"].includes(status)) newCheckedJobs.push(jobId);
-      });
-    });
-    // set jobs in state
-    setCheckedJobs([...newCheckedJobs]);
-  };
-
-  const handleJobPreviewClick = (jobId) => {
-    const jobDetails = jobs.find((job) => job.jobId == jobId);
-    setSelectedAnalysis(jobDetails);
+  const handleJobPreviewClick = (j) => {
+    setSelectedAnalysis(j);
     setOpenJobPreview(true);
   };
 
-  const handleCheckedJobs = (e) => {
-    // check if action is unchecking a job
-    if (checkedJobs.includes(e.target.id)) {
-      // remove from job state
-      const idxToSplice = checkedJobs.indexOf(e.target.id);
-      checkedJobs.splice(idxToSplice, 1);
-
-      // remove corresponding upload as checked because a checked upload cannot have any unchecked jobs
-      checkedUploads.map((upload, uploadIdx) => {
-        const idx = rows.map((row) => row.id).indexOf(upload);
-        const jobIds = rows[idx].jobs.map(({ jobId }) => jobId);
-        const missingJobs = jobIds.filter((id) => !checkedJobs.includes(id));
-
-        if (missingJobs.length > 0) checkedUploads.splice(uploadIdx, 1);
-      });
-
-      // set checked uploads
-      setCheckedUploads([...checkedUploads]);
-    } else checkedJobs.push(e.target.id); // else if action is checking a job, then push job id to state
-
-    // set checked jobs either way
-    setCheckedJobs([...checkedJobs]);
-  };
-
   const disableOptions = () => {
-    const multiTargetOptions = Array(2).fill(checkedJobs.length === 0 && checkedUploads.length === 0);
-    return [...multiTargetOptions, isSingleTargetSelected(), isSingleUploadSelected()];
+    const jobsList = getJobsList(selectedJobs);
+    const multiTargetOptions = Array(2).fill(
+      jobsList.length === 0 && getSelectedUploads(selectedUploads).length === 0
+    );
+
+    return [...multiTargetOptions, isSingleTargetSelected(jobsList), isSingleUploadSelected()];
   };
 
-  const isSingleTargetSelected = () => {
-    const selectedJobsList = jobs.filter((job) => job.jobId === checkedJobs[0]);
+  const isSingleTargetSelected = (jobsList) => {
+    const selectedJobsList = jobs.filter((job) => job.jobId === jobsList[0]);
 
     return (
-      checkedJobs.length !== 1 ||
+      jobsList.length !== 1 ||
       (selectedJobsList.length > 0 && selectedJobsList[0].status !== "finished") ||
       (usageQuota && usageQuota.jobs_reached)
     );
@@ -918,88 +644,165 @@ export default function Uploads() {
 
   const isSingleUploadSelected = () => {
     if (uploads) {
-      const selectedUpoadsList = uploads.filter((upload) =>
-        checkedUploads.some((checkUpload) => checkUpload === upload.id)
-      );
-
-      return (
-        checkedUploads.length !== 1 ||
-        selectedUpoadsList.length !== 1 ||
-        (usageQuota && usageQuota.jobs_reached)
-      );
+      return getSelectedUploads(selectedUploads).length != 1 || (usageQuota && usageQuota.jobs_reached);
     }
+  };
+
+  const actionsFn = (t) => {
+    const dropdownOptions =
+      accountType === "admin"
+        ? ["Download", "Delete"]
+        : ["Download", "Delete", "Interactive Analysis", "Re-Analyze"];
+
+    const checkedRows = t.getSelectedRowModel().rows;
+
+    const handleDropdownSelection = (option) => {
+      if (option === 1) {
+        setModalButtons(["Close", "Confirm"]);
+        setModalLabels(modalObjs.delete);
+        setModalState("generic");
+      } else if (option === 0) {
+        // if download, check that no job contains an error status
+        const jobsList = getJobsList(selectedJobs);
+        const failedJobs = jobs.filter(({ jobId, status }) => jobsList.includes(jobId) && status === "error");
+
+        if (failedJobs.length === 0) {
+          downloadAnalyses();
+        } else {
+          setModalButtons(["Close", "Continue"]);
+          setModalLabels(modalObjs.containsFailedJob);
+          setModalState("generic");
+        }
+      } else if (option === 2) {
+        const jobsList = getJobsList(selectedJobs);
+        const jobDetails = jobs.find(({ jobId }) => jobId == jobsList[0]);
+        setSelectedAnalysis(jobDetails);
+
+        const jobUpload = displayRows.find(({ id }) => id === jobDetails.uploadId);
+        setJobsInSelectedUpload(jobUpload.jobs.length); // used to show credit usage if necessary
+
+        setOpenInteractiveAnalysis(true);
+      } else if (option === 3) {
+        // Open Re-analyze tab with name of file pre-selected
+        const selectedUpload = uploads.find((upload) => upload.id == checkedRows[0].id);
+        setDefaultUploadForReanalysis(selectedUpload);
+        router.push("/upload-form?id=re-analyze+existing+upload");
+      }
+    };
+
+    const handleDownloadSubSelection = async ({ Download }) => {
+      if (Download === 1) {
+        try {
+          const uploadIds = getSelectedUploads(selectedUploads);
+          if (uploadIds.length === 1) {
+            await downloadSingleFile({ uploadId: uploadIds[0] });
+            resetTable();
+          } else if (uploadIds.length > 1) {
+            // show active downloading modal only for multifile downloads
+            setModalLabels(modalObjs.empty);
+            setModalState("downloading");
+
+            await downloadMultiFiles(uploadIds, true);
+
+            // show successful download modal only for multifile downloads
+            setModalLabels({
+              header: "Success!",
+              messages: [
+                `The following number of recording files have been successfully downloaded: ${
+                  getSelectedUploads(selectedUploads).length
+                }`,
+                "They can be found in your local downloads folder.",
+              ],
+            });
+            setModalButtons(["Close"]);
+            setModalState("generic");
+          }
+        } catch (e) {
+          console.log(`ERROR fetching presigned url to download recording files: ${e}`);
+          setModalLabels(modalObjs.downloadError);
+          setModalButtons(["Close"]);
+          setModalState("generic");
+        }
+      } else {
+        handleDropdownSelection(Download);
+      }
+    };
+
+    return (
+      <Box sx={{ width: "100%", position: "relative", display: "flex", justifyContent: "end" }}>
+        <DropDownContainer>
+          <DropDownWidget
+            label="Actions"
+            options={dropdownOptions}
+            subOptions={{
+              Download: ["Download Analyses", "Download Raw Data"],
+            }}
+            disableOptions={disableOptions()}
+            optionsTooltipText={[
+              ...Array(2).fill("Must make a selection below before actions become available."),
+              usageQuota && usageQuota.jobs_reached
+                ? "Interactive analysis is disabled because customer limit has been reached."
+                : "You must select one successful job to enable interactive analysis.",
+              usageQuota && usageQuota.jobs_reached
+                ? "Re-analysis is disabled because customer limit has been reached."
+                : "You must select one upload to enable re-analysis.",
+            ]}
+            handleSelection={handleDropdownSelection}
+            handleSubSelection={handleDownloadSubSelection}
+            reset={resetDropdown}
+            disableSubOptions={{
+              Download: [
+                getJobsList(selectedJobs).length === 0,
+                getSelectedUploads(selectedUploads).length === 0,
+              ],
+            }}
+            subOptionsTooltipText={[
+              "Must make a job selection before becoming available.",
+              "Must make an upload selection before becoming available.",
+            ]}
+            setReset={setResetDropdown}
+          />
+        </DropDownContainer>
+      </Box>
+    );
   };
 
   return (
     <>
       {!openInteractiveAnalysis && (
         <TableContainer>
-          <DataTable
-            data={displayRows}
-            compact={true}
-            columns={uploadTableColumns
-              .filter(
-                // if admin user then show all columns, else just show non-admin columns
-                (e) => e.display
-              )
-              .map((e) => {
-                return {
-                  ...columnProperties,
-                  ...e,
-                };
-              })}
-            pagination
-            expandableRows
-            expandableRowsComponent={ExpandedComponent}
-            customStyles={customStyles}
-            progressPending={pending}
-            defaultSortFieldId="lastAnalyzed"
-            paginationRowsPerPageOptions={[10, 50, 100, 200]}
-            progressComponent={
-              <SpinnerContainer>
-                <CircularSpinner size={200} color={"secondary"} />
-              </SpinnerContainer>
-            }
-            sortIcon={<></>}
-            subHeader={true}
-            subHeaderComponent={
-              <DropDownContainer>
-                <DropDownWidget
-                  label="Actions"
-                  options={
-                    accountType === "admin"
-                      ? ["Download", "Delete"]
-                      : ["Download", "Delete", "Interactive Analysis", "Re-Analyze"]
-                  }
-                  subOptions={{
-                    Download: ["Download Analyses", "Download Raw Data"],
-                  }}
-                  disableOptions={disableOptions()}
-                  optionsTooltipText={[
-                    ...Array(2).fill("Must make a selection below before actions become available."),
-                    usageQuota && usageQuota.jobs_reached
-                      ? "Interactive analysis is disabled because customer limit has been reached."
-                      : "You must select one successful job to enable interactive analysis.",
-                    usageQuota && usageQuota.jobs_reached
-                      ? "Re-analysis is disabled because customer limit has been reached."
-                      : "You must select one upload to enable re-analysis.",
-                  ]}
-                  handleSelection={handleDropdownSelection}
-                  handleSubSelection={handleDownloadSubSelection}
-                  reset={resetDropdown}
-                  disableSubOptions={{
-                    Download: [checkedJobs.length === 0, checkedUploads.length === 0],
-                  }}
-                  subOptionsTooltipText={[
-                    "Must make a job selection before becoming available.",
-                    "Must make an upload selection before becoming available.",
-                  ]}
-                  setReset={setResetDropdown}
-                />
-              </DropDownContainer>
-            }
+          <Table
+            columns={columns}
+            rowData={displayRows}
+            defaultSortColumn={"lastAnalyzed"}
+            rowSelection={selectedUploads}
+            setRowSelection={setSelectedUploads}
+            toolbarFn={actionsFn}
+            columnVisibility={{
+              username: accountType !== "user" || accountScope.includes(`${productPage}:rw_all_data`),
+            }}
+            subTableFn={(row) => (
+              <Jobs
+                row={row}
+                openJobPreview={handleJobPreviewClick}
+                selectedUploads={selectedUploads}
+                setSelectedUploads={setSelectedUploads}
+                setSelectedJobs={setSelectedJobs}
+                selectedJobs={selectedJobs}
+              />
+            )}
+            enableExpanding={true}
+            isLoading={isLoading}
           />
         </TableContainer>
+      )}
+      {openJobPreview && (
+        <>
+          <ModalBackdrop />
+          <LargeModalContainer>
+            <JobPreviewModal setOpenJobPreview={setOpenJobPreview} selectedAnalysis={selectedAnalysis} />
+          </LargeModalContainer>
+        </>
       )}
       {openInteractiveAnalysis && (
         <LargeModalContainer>
@@ -1009,14 +812,6 @@ export default function Uploads() {
             numberOfJobsInUpload={jobsInSelectedUpload}
           />
         </LargeModalContainer>
-      )}
-      {openJobPreview && (
-        <>
-          <ModalBackdrop />
-          <LargeModalContainer>
-            <JobPreviewModal setOpenJobPreview={setOpenJobPreview} selectedAnalysis={selectedAnalysis} />
-          </LargeModalContainer>
-        </>
       )}
       <ModalWidget
         open={modalState === "generic"}

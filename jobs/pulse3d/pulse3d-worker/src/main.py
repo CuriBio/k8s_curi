@@ -38,7 +38,6 @@ from lib.db import insert_metadata_into_pg, PULSE3D_UPLOADS_BUCKET
 structlog.configure(
     processors=[
         merge_contextvars,
-        structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M.%S"),
         structlog.processors.dict_tracebacks,
         structlog.processors.JSONRenderer(),
@@ -427,11 +426,11 @@ async def main():
         dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
 
         async with asyncpg.create_pool(dsn=dsn) as pool:
-            async with pool.acquire() as con, pool.acquire() as con_to_set_job_running:
+            async with pool.acquire() as con, pool.acquire() as con_to_update_job_result:
                 while True:
                     try:
                         logger.info("Pulling job from queue")
-                        await process(con=con, con_to_set_job_running=con_to_set_job_running)
+                        await process(con=con, con_to_update_job_result=con_to_update_job_result)
                     except EmptyQueue as e:
                         logger.info(f"No jobs in queue: {e}")
                         return

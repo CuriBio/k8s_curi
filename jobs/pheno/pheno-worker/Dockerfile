@@ -1,4 +1,4 @@
-FROM python:3.9-slim as venv
+FROM python:3.11-alpine as venv
 
 WORKDIR /app
 COPY ./jobs/pheno/pheno-worker/src/requirements.txt ./
@@ -22,9 +22,9 @@ COPY ./jobs/pheno/pheno-worker/src/lib ./lib
 COPY ./jobs/pheno/pheno-worker/src/pytorch ./pytorch
 COPY ./core/lib/utils/s3.py ./lib/
 
-# TODO
-# RUN useradd main_user && groupadd main_group
-# USER main_user:main_group
+RUN addgroup -S main_group
+RUN adduser -S main_user --ingroup main_group
+USER main_user:main_group
 
 ENV PYTHONUNBUFFERED 1
 CMD ["python", "main.py"]

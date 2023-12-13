@@ -1,5 +1,4 @@
 FROM python:3.11-slim as venv
-
 WORKDIR /app
 COPY ./deployments/pulse3d/services/pulse3d/src/requirements.txt ./
 COPY ./core/lib/auth ./lib/auth
