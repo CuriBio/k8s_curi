@@ -237,6 +237,17 @@ async def process_item(con, item):
                 logger.exception("PeakDetector failed")
                 raise
 
+            if not interactive_analysis:
+                try:
+                    data_with_features.tissue_features.write_parquet(features_filepath)
+                    upload_file_to_s3(
+                        bucket=PULSE3D_UPLOADS_BUCKET, key=features_parquet_key, file=features_filepath
+                    )
+                    logger.info(f"Uploaded features to {PULSE3D_UPLOADS_BUCKET}/{features_parquet_key}")
+                except Exception:
+                    logger.exception("Upload failed")
+                    raise
+
             try:
                 # TODO sync these values
                 # twitch_widths v. widths --- baseline_widths_to_use v. baseline_widths
@@ -284,17 +295,6 @@ async def process_item(con, item):
             except Exception:
                 logger.exception("Upload failed")
                 raise
-
-            if not interactive_analysis:
-                try:
-                    data_with_features.tissue_features.write_parquet(features_filepath)
-                    upload_file_to_s3(
-                        bucket=PULSE3D_UPLOADS_BUCKET, key=features_parquet_key, file=features_filepath
-                    )
-                    logger.info(f"Uploaded features to {PULSE3D_UPLOADS_BUCKET}/{features_parquet_key}")
-                except Exception:
-                    logger.exception("Upload failed")
-                    raise
 
             try:
                 upload_meta = json.loads(upload_details["meta"])
