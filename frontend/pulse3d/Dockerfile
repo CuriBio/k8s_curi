@@ -1,5 +1,14 @@
 FROM node:16.17.0
 
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-RUN unzip awscliv2.zip
-RUN ./aws/install
+ARG CLUSTER
+ENV CLUSTER=$CLUSTER
+
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip python3-boto3
+
+WORKDIR /app
+COPY ./frontend/pulse3d/src ./src
+COPY ./frontend/pulse3d/upload_fe_s3.py ./
+
+RUN cd src/ && npm i && npm run export:$CLUSTER
+RUN python upload_fe_s3.py $CLUSTER

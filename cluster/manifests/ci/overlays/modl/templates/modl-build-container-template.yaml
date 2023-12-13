@@ -437,3 +437,29 @@ spec:
             echo "Update needed"
             alembic upgrade head
           fi
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: upload-service
+  namespace: argo
+spec:
+  serviceAccountName: argo-workflows-sa
+  templates:
+    - name: upload-ui
+      nodeSelector:
+        group: argo
+      script:
+        image: node:20.5.0
+        workingDir: /tmp/git/k8s_curi
+        volumeMounts:
+          - name: workdir
+            mountPath: /tmp/git
+
+        source: |
+          python --version
+
+          cd frontend/pulse3d/src
+          npm run export:modl
+          cd ../
+          python upload_fe_s3.py modl
