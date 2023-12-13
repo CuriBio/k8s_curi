@@ -14,7 +14,13 @@ from mantarray_magnet_finding.exceptions import UnableToConvergeError
 from pulse3D import metrics
 from pulse3D import peak_finding as peak_finder
 from pulse3D import rendering as renderer
-from pulse3D.data_loader import MantarrayBeta1Metadata, MantarrayBeta2Metadata, from_file
+from pulse3D.data_loader import (
+    MantarrayBeta1Metadata,
+    MantarrayBeta2Metadata,
+    from_file,
+    InstrumentTypes,
+    BaseMetadata,
+)
 from pulse3D.pre_analysis import PreAnalyzedData, process
 from pulse3D.rendering import OutputFormats
 from semver import VersionInfo
@@ -39,13 +45,13 @@ PULSE3D_VERSION = "v1.0.0rc9"
 
 
 # needs to be prefixed so that the queue processor doesn't pick it up
-@get_item(queue="test-pulse3d-v1.0.0rc9")
+@get_item(queue=f"test-pulse3d-{PULSE3D_VERSION}")
 async def process_item(con, item):
     # keeping initial log without bound variables
     logger.info(f"Processing item: {item}")
 
     s3_client = boto3.client("s3")
-    job_metadata = {"processed_by": "1.0.0rc9"}
+    job_metadata = {"processed_by": PULSE3D_VERSION}
     outfile_key = None
 
     try:
@@ -123,11 +129,13 @@ async def process_item(con, item):
 
                 metadata_dict = json.load(open(metadata_path))
                 is_beta_2 = metadata_dict["file_format_version"] >= VersionInfo.parse("1.0.0")
-                existing_metadata = (
-                    MantarrayBeta2Metadata(**metadata_dict)
-                    if is_beta_2
-                    else MantarrayBeta1Metadata(**metadata_dict)
-                )
+
+                if metadata_dict["instrument_type"] == InstrumentTypes.NAUTILUS:
+                    existing_metadata = BaseMetadata(**metadata_dict)
+                elif is_beta_2:
+                    existing_metadata = MantarrayBeta2Metadata(**metadata_dict)
+                else:
+                    existing_metadata = MantarrayBeta1Metadata(**metadata_dict)
 
                 pre_analyzed_data = PreAnalyzedData(
                     tissue_waveforms=tissue_waveforms,
@@ -159,19 +167,45 @@ async def process_item(con, item):
                     logger.exception("PreAnalysis failed")
                     raise
 
+                try:
+                    # TODO cleanup
+                    zipfile = "pre_analysis_data.zip"
+                    with ZipFile(zipfile, "w") as z:
+                        for field in ("tissue_waveforms", "stim_waveforms"):
+                            df = getattr(pre_analyzed_data, field)
+                            if df is not None:  # stim_waveforms can be None
+                                parquet_filepath = os.path.join(tmpdir, f"{field}.parquet")
+                                df.write_parquet(parquet_filepath)
+                                z.write(parquet_filepath, f"{field}.parquet")
+
+                        with open(metadata_path, "w") as f:
+                            f.write(pre_analyzed_data.metadata.model_dump_json())
+
+                        z.write(metadata_path, "metadata.json")
+
+                    upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=zipped_recording_key, file=zipfile)
+                    logger.info("Uploaded preanalyzed data to S3")
+                except Exception:
+                    logger.exception("Upload failed")
+                    raise
+
             try:
                 # copy so that windowed data isn't written to S3 and used on following recordings
                 windowed_pre_analyzed_data = deepcopy(pre_analyzed_data)
-                # TODO could window stim data as well?
-                if (start_time_sec := analysis_params.get("start_time")) is not None:
-                    windowed_pre_analyzed_data.tissue_waveforms = (
-                        windowed_pre_analyzed_data.tissue_waveforms.filter(pl.col("time") >= start_time_sec)
-                    )
+                tissue_data = windowed_pre_analyzed_data.tissue_waveforms
+                stim_data = windowed_pre_analyzed_data.stim_waveforms
 
-                if (end_time_sec := analysis_params.get("end_time")) is not None:
-                    windowed_pre_analyzed_data.tissue_waveforms = (
-                        windowed_pre_analyzed_data.tissue_waveforms.filter(pl.col("time") <= end_time_sec)
-                    )
+                for window, filter_fn in (
+                    ("start_time", lambda x: pl.col("time") >= x),
+                    ("end_time", lambda x: pl.col("time") <= x),
+                ):
+                    if (time_sec := analysis_params.get(window)) is not None:
+                        tissue_data = tissue_data.filter(filter_fn(time_sec))
+                        if stim_data is not None:
+                            stim_data = stim_data.filter(filter_fn(time_sec))
+
+                windowed_pre_analyzed_data.tissue_waveforms = tissue_data
+                windowed_pre_analyzed_data.stim_waveforms = stim_data
             except Exception:
                 logger.exception("Error windowing tissue data")
 
@@ -251,28 +285,6 @@ async def process_item(con, item):
                         bucket=PULSE3D_UPLOADS_BUCKET, key=features_parquet_key, file=features_filepath
                     )
                     logger.info(f"Uploaded features to {PULSE3D_UPLOADS_BUCKET}/{features_parquet_key}")
-                except Exception:
-                    logger.exception("Upload failed")
-                    raise
-
-            if not re_analysis:
-                try:
-                    # TODO cleanup
-                    zipfile = "pre_analysis_data.zip"
-                    with ZipFile(zipfile, "w") as z:
-                        for field in ("tissue_waveforms", "stim_waveforms"):
-                            df = getattr(pre_analyzed_data, field)
-                            if df is not None:  # stim_waveforms can be None
-                                parquet_filepath = os.path.join(tmpdir, f"{field}.parquet")
-                                df.write_parquet(parquet_filepath)
-                                z.write(parquet_filepath, f"{field}.parquet")
-
-                        with open(metadata_path, "w") as f:
-                            f.write(pre_analyzed_data.metadata.model_dump_json())
-                        z.write(metadata_path, "metadata.json")
-
-                    upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=zipped_recording_key, file=zipfile)
-                    logger.info(f"Uploaded {output_filename} to {PULSE3D_UPLOADS_BUCKET}/{outfile_key}")
                 except Exception:
                     logger.exception("Upload failed")
                     raise

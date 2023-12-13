@@ -437,7 +437,6 @@ export default function UploadForm() {
       }
 
       requestBody.width_factors = formatTupleParams(minPeakWidth, maxPeakWidth);
-      console.log(minPeakWidth, maxPeakWidth, requestBody.width_factors);
       // need to convert all these params from ms to s
       for (const name of ["valley_search_duration", "upslope_duration", "upslope_noise_allowance_duration"]) {
         if (requestBody[name] !== null) {
