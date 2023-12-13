@@ -16,6 +16,7 @@ from auth import (
     PULSE3D_PAID_USAGE,
     AuthTokens,
     get_assignable_scopes_from_admin,
+    get_scope_dependencies,
 )
 from auth.settings import REFRESH_TOKEN_EXPIRE_MINUTES
 from src import main
@@ -301,7 +302,7 @@ def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
     assert response.json() == LoginResponse(
         tokens=AuthTokens(access=expected_access_token, refresh=expected_refresh_token),
         usage_quota=mocked_usage_check.return_value,
-        user_scopes=get_assignable_scopes_from_admin([customer_scope]),
+        user_scopes=get_scope_dependencies(get_assignable_scopes_from_admin([customer_scope])),
         customer_scopes=[customer_scope],
     )
 

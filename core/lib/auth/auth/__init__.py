@@ -5,6 +5,7 @@ from .scopes import (
     ProhibitedScopeError,
     ProhibitedProductError,
     get_assignable_scopes_from_admin,
+    get_scope_dependencies,
     check_prohibited_scopes,
     check_prohibited_product,
     ScopeConverter,

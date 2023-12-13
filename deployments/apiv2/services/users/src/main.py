@@ -20,6 +20,7 @@ from auth import (
     create_token,
     decode_token,
     get_assignable_scopes_from_admin,
+    get_scope_dependencies,
     check_prohibited_scopes,
     convert_scope_str,
     ScopeTags,
@@ -151,6 +152,7 @@ async def login_customer(request: Request, details: CustomerLogin):
             # get list of scopes that a customer can assign to its users
             # TODO split this part out into a new route
             avail_user_scopes = get_assignable_scopes_from_admin(scopes)
+            user_scope_dependencies = get_scope_dependencies(avail_user_scopes)
             # TODO decide how to show customer accounts usage data for multiple products, defaulting to mantarray now
             # check usage for customer account
             usage_quota = await check_customer_quota(con, str(customer_id), "mantarray")
@@ -165,7 +167,10 @@ async def login_customer(request: Request, details: CustomerLogin):
             tokens = await create_new_tokens(con, None, customer_id, scopes, account_type)
 
             return LoginResponse(
-                tokens=tokens, usage_quota=usage_quota, user_scopes=avail_user_scopes, customer_scopes=scopes
+                tokens=tokens,
+                usage_quota=usage_quota,
+                user_scopes=user_scope_dependencies,
+                customer_scopes=scopes,
             )
 
     except LoginError as e:
@@ -793,7 +798,7 @@ async def update_user_scopes(
     token=Depends(ProtectedAny(tag=ScopeTags.ADMIN)),
 ):
     """Update a user account's scopes in the database."""
-    customer_id = uuid.UUID(hex=token.userid)
+    customer_id = uuid.UUID(hex=token.customer_id)
     admin_scopes = token.scopes
     user_scopes = details.scopes
 

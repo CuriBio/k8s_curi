@@ -120,8 +120,8 @@ class UsageQuota(BaseModel):
 class LoginResponse(BaseModel):
     tokens: AuthTokens
     usage_quota: UsageQuota | None
-    user_scopes: dict[str, list[Scopes]] | None
-    customer_scopes: list[Scopes] | None
+    user_scopes: dict[Scopes, Scopes | None] | None
+    customer_scopes: list[Scopes] | None  # TODO change this to match the type above
 
 
 class PreferencesUpdate(BaseModel):
