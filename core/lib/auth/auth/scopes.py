@@ -39,15 +39,15 @@ class Scopes(StrEnum):
     MANTARRAY__RW_ALL_DATA = auto(), ScopeTags.MANTARRAY, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE
     MANTARRAY__BASE = (auto(), ScopeTags.MANTARRAY, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE)
     MANTARRAY__FIRMWARE__GET = auto(), ScopeTags.MANTARRAY
-    MANTARRAY__SOFTWARE__EDIT = auto(), ScopeTags.MANTARRAY, ScopeTags.INTERNAL
     MANTARRAY__FIRMWARE__EDIT = auto(), ScopeTags.MANTARRAY, ScopeTags.INTERNAL
     MANTARRAY__FIRMWARE__LIST = auto(), ScopeTags.MANTARRAY, ScopeTags.INTERNAL
+    MANTARRAY__SOFTWARE__EDIT = auto(), ScopeTags.MANTARRAY, ScopeTags.INTERNAL
     MANTARRAY__SERIAL_NUMBER__EDIT = auto(), ScopeTags.MANTARRAY, ScopeTags.INTERNAL
     MANTARRAY__SERIAL_NUMBER__LIST = auto(), ScopeTags.MANTARRAY, ScopeTags.INTERNAL
     NAUTILUS__ADMIN = auto(), ScopeTags.NAUTILUS, ScopeTags.PULSE3D_READ, ScopeTags.ADMIN
     NAUTILUS__RW_ALL_DATA = auto(), ScopeTags.NAUTILUS, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE
     NAUTILUS__BASE = (auto(), ScopeTags.NAUTILUS, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE)
-    # TODO need to revisit these
+    # TODO need to revisit these. Maybe tag these as UNASSIGNABLE since they will never be in the DB?
     REFRESH = auto()
     USER__VERIFY = auto(), ScopeTags.ACCOUNT
     USER__RESET = auto(), ScopeTags.ACCOUNT
@@ -61,7 +61,11 @@ class ScopeConverter(BaseModel):
         if scopes is None:
             return None
 
-        return [Scopes[s.upper().replace(":", "__")] for s in scopes]
+        return [convert_scope_str(s) for s in scopes]
+
+
+def convert_scope_str(scope_str: str) -> Scopes:
+    return Scopes[scope_str.upper().replace(":", "__")]
 
 
 # TODO add testing for these

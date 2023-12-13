@@ -44,7 +44,7 @@ const getAvailablePages = (accountInfo) => {
   const productionConsoleScopes = [
     "mantarray:serial_number:edit",
     "mantarray:firmware:edit",
-    "mantarray:firmware:info",
+    "mantarray:firmware:list",
   ];
   if (accountInfo.accountScope.some((scope) => productionConsoleScopes.includes(scope))) {
     pages.push("/production-console");

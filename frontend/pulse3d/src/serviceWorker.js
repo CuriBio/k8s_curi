@@ -395,7 +395,7 @@ self.onmessage = async ({ data, source }) => {
       accountInfo: {
         accountType: await getValueFromToken("account_type"),
         accountId: await getValueFromToken("userid"),
-        accountScope: await getValueFromToken("scope"),
+        accountScope: await getValueFromToken("scopes"),
       },
       usageQuota: await getUsageQuota(),
       userScopes: await getAvailableScopes("user_scopes"),

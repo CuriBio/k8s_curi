@@ -115,7 +115,7 @@ def test_login__user__success(send_client_type, use_alias, mocked_asyncpg_con, m
         login_details["client_type"] = "dashboard"
 
     test_user_id = uuid.uuid4()
-    test_scope = [Scopes.MANTARRAY__BASE]
+    test_scope = Scopes.MANTARRAY__BASE
     pw_hash = PasswordHasher().hash(login_details["password"])
 
     mocked_asyncpg_con.fetchrow.return_value = {
@@ -125,13 +125,13 @@ def test_login__user__success(send_client_type, use_alias, mocked_asyncpg_con, m
         "suspended": False,
         "customer_id": test_customer_id,
     }
-    mocked_asyncpg_con.fetch.return_value = [{"scope": s} for s in test_scope]
+    mocked_asyncpg_con.fetch.return_value = [{"scope": test_scope.value}]
     spied_create_token = mocker.spy(main, "create_new_tokens")
 
     expected_access_token = create_token(
         userid=test_user_id,
         customer_id=test_customer_id,
-        scopes=test_scope,
+        scopes=[test_scope],
         account_type="user",
         refresh=False,
     )
@@ -270,7 +270,7 @@ def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
 
     pw_hash = PasswordHasher().hash(login_details["password"])
     test_customer_id = uuid.uuid4()
-    customer_scopes = [Scopes.MANTARRAY__ADMIN]
+    customer_scope = Scopes.MANTARRAY__ADMIN
 
     mocked_asyncpg_con.fetchrow.return_value = {
         "password": pw_hash,
@@ -278,13 +278,13 @@ def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
         "failed_login_attempts": 0,
         "suspended": False,
     }
-    mocked_asyncpg_con.fetch.return_value = [{"scope": s} for s in customer_scopes]
+    mocked_asyncpg_con.fetch.return_value = [{"scope": customer_scope.value}]
     spied_create_token = mocker.spy(main, "create_new_tokens")
 
     expected_access_token = create_token(
         userid=None,
         customer_id=test_customer_id,
-        scopes=customer_scopes,
+        scopes=[customer_scope],
         account_type="customer",
         refresh=False,
     )
@@ -301,8 +301,8 @@ def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
     assert response.json() == LoginResponse(
         tokens=AuthTokens(access=expected_access_token, refresh=expected_refresh_token),
         usage_quota=mocked_usage_check.return_value,
-        user_scopes=get_assignable_scopes_from_admin(customer_scopes),
-        customer_scopes=customer_scopes,
+        user_scopes=get_assignable_scopes_from_admin([customer_scope]),
+        customer_scopes=[customer_scope],
     )
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
@@ -655,7 +655,7 @@ def test_refresh__success(account_type, mocked_asyncpg_con):
     customer_id = uuid.uuid4()
 
     # arbitrarily choosing this scope
-    test_scope_in_db = [Scopes.MANTARRAY__ADMIN if is_customer_account else Scopes.MANTARRAY__BASE]
+    test_scope_in_db = Scopes.MANTARRAY__ADMIN if is_customer_account else Scopes.MANTARRAY__BASE
 
     select_clause = "refresh_token"
     if account_type == "user":
@@ -670,7 +670,7 @@ def test_refresh__success(account_type, mocked_asyncpg_con):
     new_access_token = create_token(
         userid=userid,
         customer_id=customer_id,
-        scopes=test_scope_in_db,
+        scopes=[test_scope_in_db],
         account_type=account_type,
         refresh=False,
     )
@@ -681,7 +681,7 @@ def test_refresh__success(account_type, mocked_asyncpg_con):
     mocked_asyncpg_con.fetchrow.return_value = {"refresh_token": old_refresh_token}
     if not is_customer_account:
         mocked_asyncpg_con.fetchrow.return_value["customer_id"] = customer_id
-    mocked_asyncpg_con.fetch.return_value = [{"scope": s} for s in test_scope_in_db]
+    mocked_asyncpg_con.fetch.return_value = [{"scope": test_scope_in_db.value}]
 
     response = test_client.post("/refresh", headers={"Authorization": f"Bearer {old_refresh_token}"})
     assert response.status_code == 201

@@ -494,7 +494,6 @@ async def create_new_job(
             # Luci (12/14/2022) customer id is checked already because the customer_id in the token is being used to find upload details
             row = await con.fetchrow("SELECT user_id, type FROM uploads where id=$1", upload_id)
             original_upload_user = str(row["user_id"])
-            # TODO Tanner (12/11/23): do we need to handle the case where this value is missing?
             upload_type = row["type"]
 
             # check if pulse3d version is available

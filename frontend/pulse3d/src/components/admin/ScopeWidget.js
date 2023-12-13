@@ -2,6 +2,23 @@ import styled from "styled-components";
 import { useState, useEffect } from "react";
 import CheckboxList from "@/components/basicWidgets/CheckboxList";
 
+const SCOPE_HIERARCHY = {
+  "mantarray:admin": null,
+  "mantarray:base": {
+    "mantarray:rw_all_data": null,
+    "mantarray:serial_number:list": {
+      "mantarray:serial_number:edit": null,
+    },
+    "mantarray:firmware:list": {
+      "mantarray:firmware:edit": null,
+    },
+  },
+  "nautilus:admin": null,
+  "nautilus:base": {
+    "nautilus:rw_all_data": null,
+  },
+};
+
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
   position: relative;
@@ -48,11 +65,20 @@ export default function ScopeWidget({
 
   const formatUserScopes = () => {
     // customer scopes are an array, user scopes are an object
+    // console.log("availableScopes", availableScopes);
+
     const scopeList = isForUser
-      ? Object.entries(availableScopes).map(([product, addScopes]) => [product, addScopes])
+      ? Object.entries(availableScopes).map(([product, addScopes]) => {
+          const baseScope = `${product}:${baseScope}`;
+          addScopes = addScopes.filter((scope) => scope != baseScope);
+          // TODO sort here?
+          return addScopes;
+        })
       : availableScopes;
 
+    // console.log("scopeList", scopeList);
     const flattenedScopes = scopeList.flat(2);
+    // console.log("flattenedScopes", flattenedScopes);
 
     setScopeOptions(flattenedScopes);
     handleScopeDisabledStates();

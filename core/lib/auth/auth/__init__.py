@@ -8,6 +8,7 @@ from .scopes import (
     check_prohibited_scopes,
     check_prohibited_product,
     ScopeConverter,
+    convert_scope_str,
 )
 from .usage import PULSE3D_PAID_USAGE
 from .tokens import (

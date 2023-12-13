@@ -183,7 +183,7 @@ export default function ControlPanel() {
   const mantarrayProductionScopes = [
     "mantarray:serial_number:edit",
     "mantarray:firmware:edit",
-    "mantarray:firmware:info",
+    "mantarray:firmware:list",
   ];
 
   if (accountScope) {

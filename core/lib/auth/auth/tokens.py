@@ -18,7 +18,7 @@ from .settings import (
     REFRESH_TOKEN_EXPIRE_MINUTES,
     EMAIL_VER_TOKEN_EXPIRE_MINUTES,
 )
-from .scopes import ScopeTags, Scopes
+from .scopes import ScopeTags, Scopes, convert_scope_str
 
 security = HTTPBearer()
 
@@ -139,7 +139,7 @@ async def get_account_scopes(db_con, account_id, is_customer_account):
         query = "SELECT scope FROM account_scopes WHERE user_id=$1"
 
     query_res = await db_con.fetch(query, account_id)
-    scope = [row["scope"] for row in query_res]
+    scope = [convert_scope_str(row["scope"]) for row in query_res]
     return scope
 
 

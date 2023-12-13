@@ -21,6 +21,7 @@ from auth import (
     decode_token,
     get_assignable_scopes_from_admin,
     check_prohibited_scopes,
+    convert_scope_str,
     ScopeTags,
     Scopes,
     PULSE3D_PAID_USAGE,
@@ -230,7 +231,7 @@ async def login_user(request: Request, details: UserLogin):
             await _verify_password(con, account_type, pw, select_query_result)
 
             #  get scopes from account_scopes table
-            scope = await get_account_scopes(con, user_id, False)
+            scopes = await get_account_scopes(con, user_id, False)
 
             # users logging into the dashboard should not have usage returned because they need to select a product from the landing page first to be given correct limits
             # users logging into a specific instrument need the the usage returned right away and it is known what instrument they are using
@@ -250,7 +251,7 @@ async def login_user(request: Request, details: UserLogin):
                 str(customer_id),
             )
 
-            tokens = await create_new_tokens(con, user_id, customer_id, scope, account_type)
+            tokens = await create_new_tokens(con, user_id, customer_id, scopes, account_type)
 
             return LoginResponse(tokens=tokens, usage_quota=usage_quota)
 
@@ -362,12 +363,12 @@ async def refresh(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.RE
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
-            scope = await get_account_scopes(con, account_id, is_customer_account)
+            scopes = await get_account_scopes(con, account_id, is_customer_account)
 
             # con is passed to this function, so it must be inside this async with block
             user_id = None if is_customer_account else account_id
             customer_id = account_id if is_customer_account else row["customer_id"]
-            return await create_new_tokens(con, user_id, customer_id, scope, account_type)
+            return await create_new_tokens(con, user_id, customer_id, scopes, account_type)
 
     except HTTPException:
         raise
@@ -567,7 +568,7 @@ async def email_account(
 
                 bind_threadlocal(user_id=str(user_id), customer_id=str(customer_id), username=username)
 
-                scope = Scopes[f"{'user' if user else 'admin'}__{type}".upper()]
+                scope = convert_scope_str(f"{'user' if user else 'admin'}:{type}")
 
                 await _create_account_email(
                     con=con,
