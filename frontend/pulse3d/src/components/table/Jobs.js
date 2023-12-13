@@ -2,10 +2,9 @@ import styled from "styled-components";
 import { formatDateTime } from "@/utils/generic";
 import { useState, useMemo, useEffect } from "react";
 import Table from "./Table";
-import { select } from "d3";
 
 const Container = styled.div`
-  padding: 0 3.5rem;
+  margin: 0 3.5rem;
 `;
 
 const PreviewText = styled.div`
@@ -108,22 +107,18 @@ export default function Jobs({ row, openJobPreview, setSelectedJobs, selectedJob
         accessorFn: (row) => (row.analyzedFile ? row.analyzedFile : "None"),
         id: "analyzedFile",
         header: "Analyzed Filename",
-        filterVariant: "autocomplete",
         size: 300,
       },
       {
         accessorFn: (row) => new Date(row.createdAt),
         header: "Date Created",
         id: "createdAt",
-        filterVariant: "date",
         sortingFn: "datetime",
         size: 200,
         Cell: ({ cell }) => formatDateTime(cell.getValue()),
       },
       {
-        // TODO fix filtering, doesn't grab correct values
         accessorKey: "analysisParams", //accessorKey used to define `data` column. `id` gets set to accessorKey automatically
-        filterVariant: "autocomplete",
         id: "analysisParams",
         header: "Analysis Parameters",
         size: 300,
@@ -133,7 +128,6 @@ export default function Jobs({ row, openJobPreview, setSelectedJobs, selectedJob
         accessorFn: (row) =>
           row.status == "finished" ? "Completed" : row.status[0].toUpperCase() + row.status.slice(1),
         id: "status",
-        filterVariant: "autocomplete",
         header: "Status",
         size: 200,
       },
@@ -141,8 +135,8 @@ export default function Jobs({ row, openJobPreview, setSelectedJobs, selectedJob
         accessorKey: "status",
         id: "snapshot",
         enableColumnFilter: false,
+        enableColumnResizing: false,
         enableSorting: false,
-        filterVariant: "autocomplete",
         header: "",
         size: 250,
         Cell: ({ cell }) => {

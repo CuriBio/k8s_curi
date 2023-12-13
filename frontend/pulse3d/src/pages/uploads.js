@@ -199,37 +199,42 @@ export default function Uploads() {
         header: "Owner",
         filterVariant: "autocomplete",
         size: 200,
+        minSize: 130,
       },
       {
         accessorKey: "name",
         id: "name",
         header: "Recording Name",
         filterVariant: "autocomplete",
-        size: 350,
+        size: 320,
+        minSize: 130,
       },
       {
         accessorKey: "id", //accessorKey used to define `data` column. `id` gets set to accessorKey automatically
         filterVariant: "autocomplete",
         id: "id",
         header: "Upload ID",
-        size: 350,
+        size: 320,
+        minSize: 130,
       },
       {
         accessorFn: (row) => new Date(row.createdAt),
         header: "Date Created",
         id: "createdAt",
-        filterVariant: "date",
+        filterVariant: "date-range",
         sortingFn: "datetime",
-        size: 230,
+        size: 275,
+        minSize: 275,
         Cell: ({ cell }) => formatDateTime(cell.getValue()),
       },
       {
         accessorFn: (row) => new Date(row.lastAnalyzed),
         header: "Last Analyzed",
         id: "lastAnalyzed",
-        filterVariant: "date",
+        filterVariant: "date-range",
         sortingFn: "datetime",
-        size: 230,
+        size: 275,
+        minSize: 275,
         Cell: ({ cell }) => formatDateTime(cell.getValue()),
       },
       {
@@ -237,7 +242,9 @@ export default function Uploads() {
         id: "autoUpload",
         filterVariant: "autocomplete",
         header: "Upload Origin",
-        size: 200,
+        enableColumnFilter: false,
+        enableResizing: false,
+        size: 180,
         Cell: ({ cell }) =>
           cell.getValue() !== null && <div>{cell.getValue() ? `Auto Upload` : "Manual Upload"}</div>,
       },
@@ -251,7 +258,7 @@ export default function Uploads() {
       const selected = selectedJobs[uploadId];
       const uploadIsSelected = uploadId in selectedUploads && selectedUploads[uploadId];
 
-      if (uploadJobs.length === selected.length && !uploadIsSelected) {
+      if (uploadJobs.length === selected.length && uploadJobs.length !== 0 && !uploadIsSelected) {
         // if all jobs are selected and the parent upload isn't, then auto selected the upload
         selectedUploads[uploadId] = true;
         setSelectedUploads({ ...selectedUploads });

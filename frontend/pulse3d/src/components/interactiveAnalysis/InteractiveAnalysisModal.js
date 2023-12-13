@@ -1004,6 +1004,7 @@ export default function InteractiveWaveformModal({
               reset={pulse3dVersionIdx === 0}
               handleSelection={handleVersionSelect}
               initialSelected={0}
+              disabled={filteredVersions.length === 0}
             />
           </div>
         </ParamContainer>
