@@ -68,7 +68,7 @@ async def create_job(version: str, num_of_workers: int):
                 secret_key_ref=kclient.V1SecretKeySelector(name="curibio-jobs-creds", key="curibio_jobs")
             ),
         )
-        resources = kclient.V1ResourceRequirements(limits={"memory": "500Mi"})
+        resources = kclient.V1ResourceRequirements(requests={"memory": "1000Mi"})
         # Create container
         container = kclient.V1Container(
             name=formatted_name,
