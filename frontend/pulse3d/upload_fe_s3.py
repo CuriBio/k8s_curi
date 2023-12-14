@@ -34,7 +34,10 @@ def upload_directory_to_s3(bucket, fe_version):
 
 def upload_file_to_s3(bucket, key, file) -> None:
     s3_client = boto3.client("s3")
-    content_type = mimetypes.guess_type(file)
+    content_type = mimetypes.guess_type(file)[0]
+
+    if content_type is None:  # sitemanifest returns None here in docker
+        content_type = "application/manifest+json"
 
     with open(file, "rb") as f:
         contents = f.read()
@@ -42,7 +45,7 @@ def upload_file_to_s3(bucket, key, file) -> None:
         md5s = base64.b64encode(md5).decode()
         # you have to add 'text/html' content-type to put_object when you remove the file extension
         # file extension for non-html files will get correct content-type without having to set it
-        s3_client.put_object(Body=f, Bucket=bucket, Key=key, ContentMD5=md5s, ContentType=content_type[0])
+        s3_client.put_object(Body=f, Bucket=bucket, Key=key, ContentMD5=md5s, ContentType=content_type)
 
 
 if __name__ == "__main__":

@@ -449,17 +449,14 @@ spec:
     - name: upload-ui
       nodeSelector:
         group: argo
-      script:
-        image: node:20.5.0
+      container:
+        image: gcr.io/kaniko-project/executor:v1.8.0-debug
+        command: [/kaniko/executor]
         workingDir: /tmp/git/k8s_curi
+        args:
+          - --no-push
+          - --context=/tmp/git/k8s_curi/
+          - --dockerfile=/tmp/git/k8s_curi/frontend/pulse3d/Dockerfile
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
-
-        source: |
-          python --version
-
-          cd frontend/pulse3d/src
-          npm run export:modl
-          cd ../
-          python upload_fe_s3.py modl
