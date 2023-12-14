@@ -23,6 +23,7 @@ class ScopeTags(StrEnum):
         # maybe EMAIL since these tokens are currently only used in emails?
         auto()
     )
+    UNASSIGNABLE = auto()
 
 
 class Scopes(StrEnum):
@@ -47,8 +48,12 @@ class Scopes(StrEnum):
     def required(self) -> Self | None:
         return self._required
 
-    # TODO does this scope really need to be tagged with ScopeTags.PULSE3D_READ? Or should the root account just have every admin scope
-    CURI__ADMIN = auto(), None, [ScopeTags.INTERNAL, ScopeTags.ADMIN, ScopeTags.PULSE3D_READ]
+    CURI__ADMIN = (
+        auto(),
+        None,
+        # TODO does this scope really need to be tagged with ScopeTags.PULSE3D_READ? Or should the root account just be assigned every admin scope
+        [ScopeTags.INTERNAL, ScopeTags.ADMIN, ScopeTags.PULSE3D_READ, ScopeTags.UNASSIGNABLE],
+    )
     MANTARRAY__ADMIN = auto(), None, [ScopeTags.MANTARRAY, ScopeTags.ADMIN, ScopeTags.PULSE3D_READ]
     MANTARRAY__BASE = auto(), None, [ScopeTags.MANTARRAY, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE]
     MANTARRAY__RW_ALL_DATA = (
@@ -59,7 +64,11 @@ class Scopes(StrEnum):
     MANTARRAY__FIRMWARE__GET = auto(), MANTARRAY__BASE, [ScopeTags.MANTARRAY]
     MANTARRAY__FIRMWARE__LIST = auto(), MANTARRAY__BASE, [ScopeTags.MANTARRAY, ScopeTags.INTERNAL]
     MANTARRAY__FIRMWARE__EDIT = auto(), MANTARRAY__FIRMWARE__LIST, [ScopeTags.MANTARRAY, ScopeTags.INTERNAL]
-    MANTARRAY__SOFTWARE__EDIT = auto(), None, [ScopeTags.MANTARRAY, ScopeTags.INTERNAL]
+    MANTARRAY__SOFTWARE__EDIT = (
+        auto(),
+        None,
+        [ScopeTags.MANTARRAY, ScopeTags.INTERNAL, ScopeTags.UNASSIGNABLE],
+    )
     MANTARRAY__SERIAL_NUMBER__LIST = auto(), MANTARRAY__BASE, [ScopeTags.MANTARRAY, ScopeTags.INTERNAL]
     MANTARRAY__SERIAL_NUMBER__EDIT = (
         auto(),
@@ -73,12 +82,11 @@ class Scopes(StrEnum):
         NAUTILUS__BASE,
         [ScopeTags.NAUTILUS, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE],
     )
-    # TODO need to revisit these. Maybe tag these as UNASSIGNABLE since they will never be in the DB?
-    REFRESH = auto(), None, []
-    USER__VERIFY = auto(), None, [ScopeTags.ACCOUNT]
-    USER__RESET = auto(), None, [ScopeTags.ACCOUNT]
-    ADMIN__VERIFY = auto(), None, [ScopeTags.ACCOUNT]
-    ADMIN__RESET = auto(), None, [ScopeTags.ACCOUNT]
+    REFRESH = auto(), None, [ScopeTags.UNASSIGNABLE]
+    USER__VERIFY = auto(), None, [ScopeTags.ACCOUNT, ScopeTags.UNASSIGNABLE]
+    USER__RESET = auto(), None, [ScopeTags.ACCOUNT, ScopeTags.UNASSIGNABLE]
+    ADMIN__VERIFY = auto(), None, [ScopeTags.ACCOUNT, ScopeTags.UNASSIGNABLE]
+    ADMIN__RESET = auto(), None, [ScopeTags.ACCOUNT, ScopeTags.UNASSIGNABLE]
 
 
 class ScopeConverter(BaseModel):
@@ -108,7 +116,7 @@ def check_prohibited_product(user_scopes, product) -> None:
 
 
 def get_assignable_user_scopes(admin_scopes: list[Scopes]) -> list[Scopes]:
-    unassignable_tags = {ScopeTags.ADMIN}
+    unassignable_tags = {ScopeTags.ADMIN, ScopeTags.UNASSIGNABLE}
     if Scopes.CURI__ADMIN not in admin_scopes:
         unassignable_tags.add(ScopeTags.INTERNAL)
 
