@@ -11,7 +11,7 @@ ENV CLUSTER=$CLUSTER
 
 
 RUN apt-get update && \
-    apt-get install -y python3 python3-pip python3-boto3
+    apt-get install -y python3 python3-pip python3-boto3 awscli
 
 WORKDIR /app
 COPY ./frontend/pulse3d/src ./src

@@ -1,10 +1,9 @@
-import hashlib
-import base64
 import os
 import sys
-import boto3
 import json
 import mimetypes
+import subprocess
+
 
 """
 To use this independently, you'll still need to generate the static files for export manually before running this script.
@@ -28,24 +27,18 @@ def upload_directory_to_s3(bucket, fe_version):
             rel_path = rel_path_no_ext if "html" in file_ext else rel_path_with_ext
             obj_key = f"v{fe_version}/{rel_path}"
 
-            print(f"Uploading {obj_key}")  # allow-print
             upload_file_to_s3(bucket, obj_key, file_path)
 
 
 def upload_file_to_s3(bucket, key, file) -> None:
-    s3_client = boto3.client("s3")
     content_type = mimetypes.guess_type(file)[0]
 
     if content_type is None:  # sitemanifest returns None here in docker
         content_type = "application/manifest+json"
 
-    with open(file, "rb") as f:
-        contents = f.read()
-        md5 = hashlib.md5(contents).digest()
-        md5s = base64.b64encode(md5).decode()
-        # you have to add 'text/html' content-type to put_object when you remove the file extension
-        # file extension for non-html files will get correct content-type without having to set it
-        s3_client.put_object(Body=f, Bucket=bucket, Key=key, ContentMD5=md5s, ContentType=content_type)
+    # you have to add 'text/html' content-type to put_object when you remove the file extension
+    # file extension for non-html files will get correct content-type without having to set it
+    subprocess.call(["aws", "s3", "cp", file, f"s3://{bucket}/{key}", "--content-type", content_type])
 
 
 if __name__ == "__main__":
