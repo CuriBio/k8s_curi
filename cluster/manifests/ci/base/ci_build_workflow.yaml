@@ -42,6 +42,7 @@ spec:
                   value: "{{workflow.parameters.base-sha}}"
           # TODO remove or make an export-only check here
           - name: upload-ui
+            dependencies: [checkout]
             templateRef:
               name: upload-service
               template: upload-ui
