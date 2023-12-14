@@ -716,6 +716,7 @@ export default function ProductionConsole() {
 
   return (
     <SectionContainer>
+      {/* TODO break these out into their own files once we find a way to reuse styling */}
       {canViewFwSection && <FirmwareSection accountScope={accountScope} />}
       {canViewSerNumSection && <SerialNumberSection />}
     </SectionContainer>
