@@ -18,7 +18,9 @@ class ScopeTags(StrEnum):
     ADMIN = auto()
     PULSE3D_READ = auto()
     PULSE3D_WRITE = auto()
-    ACCOUNT = (  # TODO might want to come up with a better name for this since there are other account related things and this could become confusing
+    ACCOUNT = (
+        # TODO might want to come up with a better name for this since there are other account related things and this could become confusing.
+        # maybe EMAIL since these tokens are currently only used in emails?
         auto()
     )
 
@@ -45,6 +47,7 @@ class Scopes(StrEnum):
     def required(self) -> Self | None:
         return self._required
 
+    # TODO does this scope really need to be tagged with ScopeTags.PULSE3D_READ? Or should the root account just have every admin scope
     CURI__ADMIN = auto(), None, [ScopeTags.INTERNAL, ScopeTags.ADMIN, ScopeTags.PULSE3D_READ]
     MANTARRAY__ADMIN = auto(), None, [ScopeTags.MANTARRAY, ScopeTags.ADMIN, ScopeTags.PULSE3D_READ]
     MANTARRAY__BASE = auto(), None, [ScopeTags.MANTARRAY, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE]
@@ -104,7 +107,7 @@ def check_prohibited_product(user_scopes, product) -> None:
         raise ProhibitedProductError(product)
 
 
-def get_assignable_scopes_from_admin(admin_scopes: list[Scopes]) -> list[Scopes]:
+def get_assignable_user_scopes(admin_scopes: list[Scopes]) -> list[Scopes]:
     unassignable_tags = {ScopeTags.ADMIN}
     if Scopes.CURI__ADMIN not in admin_scopes:
         unassignable_tags.add(ScopeTags.INTERNAL)
@@ -121,11 +124,27 @@ def get_assignable_scopes_from_admin(admin_scopes: list[Scopes]) -> list[Scopes]
     return assignable_scopes
 
 
+def get_assignable_admin_scopes(admin_scopes: list[Scopes]) -> list[Scopes]:
+    if Scopes.CURI__ADMIN not in admin_scopes:
+        return []
+
+    return [s for s in Scopes if ScopeTags.ADMIN in s.tags and ScopeTags.INTERNAL not in s.tags]
+
+
 def get_scope_dependencies(scopes: list[Scopes]) -> dict[Scopes, Scopes]:
     return {s: s.required for s in scopes}
 
 
-def check_prohibited_scopes(user_scopes: list[Scopes], admin_scopes: list[Scopes]) -> None:
-    assignable_scopes = get_assignable_scopes_from_admin(admin_scopes)
+def check_prohibited_user_scopes(user_scopes: list[Scopes], admin_scopes: list[Scopes]) -> None:
+    assignable_scopes = get_assignable_user_scopes(admin_scopes)
     if prohibited_scopes := set(user_scopes) - set(assignable_scopes):
         raise ProhibitedScopeError(f"Attempting to assign prohibited scope(s): {prohibited_scopes}")
+
+
+def check_prohibited_admin_scopes(other_admin_scopes: list[Scopes], root_admin_scopes: list[Scopes]) -> None:
+    assignable_scopes = get_assignable_admin_scopes(root_admin_scopes)
+    if prohibited_scopes := set(other_admin_scopes) - set(assignable_scopes):
+        raise ProhibitedScopeError(f"Attempting to assign prohibited scope(s): {prohibited_scopes}")
+    # Tanner (12/14/23): for good measure, double check that the root scope is not present
+    if Scopes.CURI__ADMIN in other_admin_scopes:
+        raise ProhibitedScopeError(f"Attempting to assign prohibited scope(s): {Scopes.CURI__ADMIN}")

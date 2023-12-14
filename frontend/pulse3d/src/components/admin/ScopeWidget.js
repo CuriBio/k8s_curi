@@ -27,6 +27,10 @@ export default function ScopeWidget({ selectedScopes, setSelectedScopes, availab
   const [scopeDisabledStates, setScopeDisabledStates] = useState([]);
 
   useEffect(() => {
+    if (availableScopes == null || Object.keys(availableScopes).length === 0 || selectedScopes == null) {
+      return;
+    }
+
     const newScopeOptions = [];
     const newScopeDisabledStates = [];
 

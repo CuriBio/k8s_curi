@@ -19,9 +19,11 @@ from auth import (
     ProtectedAny,
     create_token,
     decode_token,
-    get_assignable_scopes_from_admin,
+    get_assignable_user_scopes,
+    get_assignable_admin_scopes,
     get_scope_dependencies,
-    check_prohibited_scopes,
+    check_prohibited_user_scopes,
+    check_prohibited_admin_scopes,
     convert_scope_str,
     ScopeTags,
     Scopes,
@@ -149,10 +151,14 @@ async def login_customer(request: Request, details: CustomerLogin):
             await _verify_password(con, account_type, pw, select_query_result)
             # get scopes from account_scopes table
             scopes = await get_account_scopes(con, customer_id, True)
-            # get list of scopes that a customer can assign to its users
+
             # TODO split this part out into a new route
-            avail_user_scopes = get_assignable_scopes_from_admin(scopes)
+            # get list of scopes that a customer can assign to its users
+            avail_user_scopes = get_assignable_user_scopes(scopes)
             user_scope_dependencies = get_scope_dependencies(avail_user_scopes)
+            avail_admin_scopes = get_assignable_admin_scopes(scopes)
+            admin_scope_dependencies = get_scope_dependencies(avail_admin_scopes)
+
             # TODO decide how to show customer accounts usage data for multiple products, defaulting to mantarray now
             # check usage for customer account
             usage_quota = await check_customer_quota(con, str(customer_id), "mantarray")
@@ -166,11 +172,12 @@ async def login_customer(request: Request, details: CustomerLogin):
 
             tokens = await create_new_tokens(con, None, customer_id, scopes, account_type)
 
+            # TODO fix tests for this
             return LoginResponse(
                 tokens=tokens,
                 usage_quota=usage_quota,
                 user_scopes=user_scope_dependencies,
-                customer_scopes=scopes,
+                customer_scopes=admin_scope_dependencies,
             )
 
     except LoginError as e:
@@ -418,10 +425,12 @@ async def register_customer(
 ):
     """Register a customer account.
 
-    Only the Curi Bio customer account can create new customers.
+    Only the Curi Bio root account can create new customers.
     """
     try:
         email = details.email.lower()
+
+        check_prohibited_admin_scopes(details.scopes, token.scopes)
 
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():
@@ -456,8 +465,8 @@ async def register_customer(
                 await _create_account_email(
                     con=con,
                     type="verify",
-                    user_id=new_account_id,
-                    customer_id=None,
+                    user_id=None,
+                    customer_id=new_account_id,
                     scope=Scopes.ADMIN__VERIFY,
                     name=None,
                     email=email,
@@ -465,7 +474,7 @@ async def register_customer(
 
                 return CustomerProfile(email=email, user_id=new_account_id.hex, scopes=details.scopes)
 
-    except RegistrationError as e:
+    except (RegistrationError, ProhibitedScopeError) as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception:
         logger.exception("POST /register/customer: Unexpected error")
@@ -488,7 +497,7 @@ async def register_user(
         username = details.username.lower()
         bind_threadlocal(customer_id=str(customer_id), email=email, username=username)
 
-        check_prohibited_scopes(user_scopes, admin_scopes)
+        check_prohibited_user_scopes(user_scopes, admin_scopes)
 
         logger.info(f"Registering new user with scopes: {user_scopes}")
 
@@ -566,24 +575,31 @@ async def email_account(
             row = await con.fetchrow(query, email)
 
             # send email if found, otherwise return 204, doesn't need to raise an exception
-            if row is not None:
-                user_id = row.get("id")
-                customer_id = row.get("customer_id")
-                username = row.get("name")
+            if row is None:
+                return
 
-                bind_threadlocal(user_id=str(user_id), customer_id=str(customer_id), username=username)
+            if user:
+                user_id = row["id"]
+                customer_id = row["customer_id"]
+                username = row["name"]
+            else:
+                user_id = None
+                customer_id = row["id"]
+                username = None
 
-                scope = convert_scope_str(f"{'user' if user else 'admin'}:{type}")
+            bind_threadlocal(user_id=str(user_id), customer_id=str(customer_id), username=username)
 
-                await _create_account_email(
-                    con=con,
-                    type=type,
-                    user_id=user_id,
-                    customer_id=customer_id,
-                    scope=scope,
-                    name=username,
-                    email=email,
-                )
+            scope = convert_scope_str(f"{'user' if user else 'admin'}:{type}")
+
+            await _create_account_email(
+                con=con,
+                type=type,
+                user_id=user_id,
+                customer_id=customer_id,
+                scope=scope,
+                name=username,
+                email=email,
+            )
 
     except Exception:
         logger.exception("GET /email: Unexpected error")
@@ -594,19 +610,17 @@ async def _create_account_email(
     *,
     con,
     type: str,
-    user_id: uuid.UUID,
-    customer_id: uuid.UUID | None,
-    scope: list[str],
+    user_id: uuid.UUID | None,
+    customer_id: uuid.UUID,
+    scope: Scopes,
     name: str | None,
     email: EmailStr,
 ):
     try:
-        if "user" in scope:
-            account_type = "user"
-        elif "customer" in scope:
-            account_type = "customer"
-        else:
-            raise Exception(f"Scope {scope} is not allowed to make this request")
+        if ScopeTags.ACCOUNT not in scope.tags:
+            raise Exception(f"Scope {scope} is not allowed in an email token")
+
+        account_type = "user" if "user" in scope else "customer"
 
         query = f"UPDATE {account_type}s SET reset_token=$1 WHERE id=$2"
 
@@ -805,7 +819,7 @@ async def update_user_scopes(
     bind_threadlocal(customer_id=str(customer_id), user_id=str(account_id))
 
     try:
-        check_prohibited_scopes(user_scopes, admin_scopes)
+        check_prohibited_user_scopes(user_scopes, admin_scopes)
 
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():

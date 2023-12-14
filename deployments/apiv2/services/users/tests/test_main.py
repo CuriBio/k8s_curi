@@ -15,7 +15,8 @@ from auth import (
     ScopeTags,
     PULSE3D_PAID_USAGE,
     AuthTokens,
-    get_assignable_scopes_from_admin,
+    get_assignable_user_scopes,
+    get_assignable_admin_scopes,
     get_scope_dependencies,
 )
 from auth.settings import REFRESH_TOKEN_EXPIRE_MINUTES
@@ -302,8 +303,8 @@ def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
     assert response.json() == LoginResponse(
         tokens=AuthTokens(access=expected_access_token, refresh=expected_refresh_token),
         usage_quota=mocked_usage_check.return_value,
-        user_scopes=get_scope_dependencies(get_assignable_scopes_from_admin([customer_scope])),
-        customer_scopes=[customer_scope],
+        user_scopes=get_scope_dependencies(get_assignable_user_scopes([customer_scope])),
+        customer_scopes=get_scope_dependencies(get_assignable_admin_scopes([customer_scope])),
     )
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
@@ -383,7 +384,7 @@ def test_login__customer__returns_invalid_creds_if_account_is_suspended(mocked_a
 
 
 @pytest.mark.parametrize("special_char", ["", *USERNAME_VALID_SPECIAL_CHARS])
-def test_register__user__allows_valid_usernames(special_char, mocked_asyncpg_con, mocker):
+def test_register__user__success(special_char, mocked_asyncpg_con, mocker):
     mocker.patch.object(main, "_create_account_email", autospec=True)
     end_with_num = choice([True, False])
 
@@ -428,6 +429,26 @@ def test_register__user__allows_valid_usernames(special_char, mocked_asyncpg_con
         test_user_id,
         expected_scopes,
     )
+
+
+@pytest.mark.parametrize(
+    "test_admin_scope,test_user_scope",
+    [
+        (Scopes.MANTARRAY__ADMIN, Scopes.NAUTILUS__BASE),
+        (Scopes.MANTARRAY__ADMIN, Scopes.MANTARRAY__FIRMWARE__EDIT),
+        (Scopes.NAUTILUS__ADMIN, Scopes.MANTARRAY__BASE),
+        (Scopes.MANTARRAY__ADMIN, Scopes.CURI__ADMIN),
+        (Scopes.NAUTILUS__ADMIN, Scopes.CURI__ADMIN),
+        (Scopes.CURI__ADMIN, Scopes.CURI__ADMIN),
+    ],
+)
+def test_register__user__invalid_token_scope_assigned(test_admin_scope, test_user_scope):
+    registration_details = {"email": "user@example.com", "username": "username", "scopes": [test_user_scope]}
+    access_token = get_token(scopes=[test_admin_scope], account_type="customer")
+    response = test_client.post(
+        "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert response.status_code == 400
 
 
 @pytest.mark.parametrize(
@@ -604,13 +625,30 @@ def test_register__customer__success(mocked_asyncpg_con, spied_pw_hasher, mocker
 
 
 @pytest.mark.parametrize(
+    "test_admin_scope", [Scopes.CURI__ADMIN, Scopes.NAUTILUS__BASE, Scopes.MANTARRAY__BASE]
+)
+def test_register__customer__invalid_token_scope_assigned(test_admin_scope):
+    registration_details = {
+        "email": "test@email.com",
+        "password1": TEST_PASSWORD,
+        "password2": TEST_PASSWORD,
+        "scopes": [test_admin_scope],
+    }
+    access_token = get_token(scopes=[Scopes.CURI__ADMIN], account_type="customer")
+    response = test_client.post(
+        "/register/customer", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize(
     "contraint_to_violate,expected_error_message",
     [("customers_email_key", "Email already in use"), ("all others", "Customer registration failed")],
 )
 def test_register__customer__unique_constraint_violations(
     contraint_to_violate, expected_error_message, mocked_asyncpg_con, spied_pw_hasher, mocker
 ):
-    test_scope = [Scopes.NAUTILUS__BASE]
+    test_scope = [Scopes.NAUTILUS__ADMIN]
 
     registration_details = {
         "email": "test@email.com",
