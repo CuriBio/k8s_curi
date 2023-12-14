@@ -452,7 +452,11 @@ spec:
       container:
         image: gcr.io/kaniko-project/executor:v1.8.0-debug
         command: [/kaniko/executor]
-        workingDir: /tmp/git/k8s_curi
+        env:
+          - name: AWS_EC2_METADATA_DISABLED
+            value: "true"
+          - name: AWS_SDK_LOAD_CONFIG
+            value: "true"
         args:
           - --no-push
           - --context=/tmp/git/k8s_curi/
@@ -462,3 +466,10 @@ spec:
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
+          - name: docker-config
+            mountPath: /kaniko/.docker/
+      volumes:
+        - name: docker-config
+          configMap:
+            name: docker-config
+            namespace: argo
