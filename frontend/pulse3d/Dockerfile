@@ -1,7 +1,7 @@
 FROM node:16.17.0
 
-ARG CLUSTER
-ENV CLUSTER=$CLUSTER
+# ARG CLUSTER
+# ENV CLUSTER=$CLUSTER
 
 
 # ARG ACCESS_KEY
@@ -17,5 +17,5 @@ WORKDIR /app
 COPY ./frontend/pulse3d/src ./src
 COPY ./frontend/pulse3d/upload_fe_s3.py ./
 
-RUN cd src/ && npm i && npm run export:$CLUSTER
-RUN python3 upload_fe_s3.py $CLUSTER
+RUN cd src/ && npm i && npm run export:modl
+RUN python3 upload_fe_s3.py modl

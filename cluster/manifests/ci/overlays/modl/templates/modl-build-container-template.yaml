@@ -446,36 +446,52 @@ metadata:
 spec:
   serviceAccountName: argo-workflows-sa
   templates:
+    # - name: upload-ui
+    #   nodeSelector:
+    #     group: argo
+    #   script:
+    #     image: node:16.17.0
+    #     env:
+    #       - name: ARGO_DEBUG_PAUSE_AFTER
+    #         value: "true"
+    #     workingDir: /tmp/git/k8s_curi
+    #     volumeMounts:
+    #       - name: workdir
+    #         mountPath: /tmp/git
+    #     command: ["sh"]
+    #     source: |
+    #       apt-get update && \
+    #       apt-get install -y python3 python3-pip python3-boto3 awscli
+
+    #       aws sts get-caller-identity
+
+    #       cd ./frontend/pulse3d/src/
+    #       npm i && npm run export:modl
+    #       python3 ../upload_fe_s3.py modl
+
     - name: upload-ui
-      volumes:
-        - name: aws-iam-token
-          projected:
-            defaultMode: 420
-            sources:
-              - serviceAccountToken:
-                  audience: sts.amazonaws.com
-                  expirationSeconds: 86400
-                  path: token
       nodeSelector:
         group: argo
-      script:
-        image: node:16.17.0
-        workingDir: /tmp/git/k8s_curi
+      container:
+        image: gcr.io/kaniko-project/executor:v1.8.0-debug
+        command: [/kaniko/executor]
+        env:
+          - name: AWS_EC2_METADATA_DISABLED
+            value: "true"
+          - name: AWS_SDK_LOAD_CONFIG
+            value: "true"
+        args:
+          - --no-push
+          # - --destination=725604423866.dkr.ecr.us-east-2.amazonaws.com/{{inputs.parameters.service}}:{{inputs.parameters.version}}
+          - --context=/tmp/git/k8s_curi/
+          - --dockerfile=/tmp/git/k8s_curi/frontend/pulse3d/Dockerfile
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
-          - name: aws-iam-token
-            mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
-        env:
-          - name: AWS_ROLE_ARN
-            value: "arn:aws:iam::725604423866:role/modl-v2-workflow-pods-iam-role01"
-          - name: AWS_WEB_IDENTITY_TOKEN_FILE
-            value: /var/run/secrets/eks.amazonaws.com/serviceaccount/token
-
-        command: ["sh"]
-        source: |
-          apt-get update && \
-          apt-get install -y python3 python3-pip python3-boto3 awscli
-
-          cd ./frontend/pulse3d/src/ && npm i && npm run export:modl
-          cd  ../ && python3 upload_fe_s3.py modl
+          - name: docker-config
+            mountPath: /kaniko/.docker/
+      volumes:
+        - name: docker-config
+          configMap:
+            name: docker-config
+            namespace: argo
