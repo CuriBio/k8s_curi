@@ -2,6 +2,7 @@ from .models import Token
 from .scopes import (
     CUSTOMER_SCOPES,
     DEFAULT_MANTARRAY_SCOPES,
+    MANTARRAY_PRODUCTION_SCOPES,
     ALL_PULSE3D_SCOPES,
     MANTARRAY_SCOPES,
     ACCOUNT_SCOPES,
