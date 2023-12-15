@@ -729,8 +729,16 @@ export default function AnalysisParamForm({
       // bounds do not conflict with each other
       Number(updatedParams[minName]) >= Number(updatedParams[maxName])
     ) {
-      updatedParamErrors[maxName] = "*Must be greater than Start Time";
+      const errorLabel =
+        minName[0].toUpperCase() +
+        minName
+          .slice(1)
+          .split(/(?=[A-Z])/)
+          .join(" ");
+
+      updatedParamErrors[maxName] = `*Must be greater than ${errorLabel}`;
     }
+
     setParamErrors(updatedParamErrors);
   };
 
