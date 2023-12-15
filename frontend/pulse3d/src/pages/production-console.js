@@ -126,7 +126,7 @@ const TableHeader = styled.div`
   padding-left: 10px;
 `;
 
-const serNumScopes = ["mantarray:serial_number:edit"];
+const serNumScopes = ["mantarray:serial_number:edit", "mantarray:serial_number:list"];
 const fwScopes = ["mantarray:firmware:edit", "mantarray:firmware:list"];
 
 const fwTypes = ["Main", "Channel"];
@@ -208,7 +208,6 @@ function FirmwareUpload({ fwInfo, refreshTables }) {
   const noErrors = () => {
     return Object.values(uploadOptionErrors).every((val) => val.length === 0);
   };
-  fwTypes.includes(uploadOptions.fwType);
 
   const checkFwTypeSpecificOptions = () => {
     if (uploadOptions.fwType === "Main") {
@@ -717,6 +716,7 @@ export default function ProductionConsole() {
 
   return (
     <SectionContainer>
+      {/* TODO break these out into their own files once we find a way to reuse styling */}
       {canViewFwSection && <FirmwareSection accountScope={accountScope} />}
       {/* TODO need to handle case where user only has mantarray:serial_number:list */}
       {canViewSerNumSection && <SerialNumberSection />}

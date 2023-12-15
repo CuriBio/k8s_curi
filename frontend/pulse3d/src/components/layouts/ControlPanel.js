@@ -181,6 +181,7 @@ export default function ControlPanel() {
   const panelButtons = accountType === "admin" ? adminButtons : userButtons;
   const productionConsoleOptions = [];
   const mantarrayProductionScopes = [
+    "mantarray:serial_number:list",
     "mantarray:serial_number:edit",
     "mantarray:firmware:edit",
     "mantarray:firmware:list",

@@ -42,6 +42,7 @@ const getAvailablePages = (accountInfo) => {
   const pages = deepCopy(allAvailablePages[accountInfo.accountType]);
   // TODO find a way to define these only once and share with the ControlPanel component
   const productionConsoleScopes = [
+    "mantarray:serial_number:list",
     "mantarray:serial_number:edit",
     "mantarray:firmware:edit",
     "mantarray:firmware:list",
