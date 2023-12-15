@@ -45,9 +45,7 @@ logger = structlog.get_logger()
 PULSE3D_VERSION = "v1.0.0rc9"
 
 
-def _get_existing_metadata(
-    metadata_dict: dict[str, Any]
-) -> BaseMetadata | MantarrayBeta2Metadata | MantarrayBeta1Metadata:
+def _get_existing_metadata(metadata_dict: dict[str, Any]) -> BaseMetadata:
     is_beta_2 = metadata_dict["file_format_version"] >= VersionInfo.parse("1.0.0")
 
     if metadata_dict["instrument_type"] == InstrumentTypes.NAUTILUS:
