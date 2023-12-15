@@ -570,6 +570,18 @@ async def create_new_job(
                     pd.DataFrame(peak_valleys_dict).to_parquet(pv_parquet_path)
                     # upload to s3 under upload id and job id for pulse3d-worker to use
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
+            else:
+                # Luci (12/13/23): if not interactive analysis, kick off second job to test pulse3d rewrite. IA is not setup to work yet.
+                await create_job(
+                    con=con,
+                    upload_id=upload_id,
+                    queue="test-pulse3d-v1.0.0rc9",
+                    priority=priority,
+                    meta=job_meta,
+                    customer_id=customer_id,
+                    job_type=upload_type,
+                    add_to_results=False,
+                )
 
         return JobResponse(
             id=job_id,
@@ -595,8 +607,9 @@ def _format_tuple_param(
         default_values = (default_values,) * len(options)
 
     # set any unspecified values to the default value
+    # pulse3d does not like float values
     formatted_options = tuple(
-        (option if option is not None else default_value)
+        (int(option) if option is not None else default_value)
         for option, default_value in zip(options, default_values)
     )
 

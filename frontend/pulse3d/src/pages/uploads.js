@@ -349,7 +349,6 @@ export default function Uploads() {
   const removeDeletedUploads = (deletedUploads) => {
     const deletedIds = deletedUploads.map(({ id }) => id);
     const filteredRows = displayRows.filter(({ id }) => !deletedIds.includes(id));
-    console.log(displayRows.length, filteredRows.length);
     setDisplayRows([...filteredRows]);
   };
 
