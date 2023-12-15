@@ -38,7 +38,7 @@ def upload_file_to_s3(bucket, key, file) -> None:
 
     # you have to add 'text/html' content-type to put_object when you remove the file extension
     # file extension for non-html files will get correct content-type without having to set it
-    subprocess.call(["aws", "s3", "cp", file, f"s3://{bucket}/{key}", "--content-type", content_type])
+    subprocess.run(["aws", "s3", "cp", file, f"s3://{bucket}/{key}", "--content-type", content_type])
 
 
 if __name__ == "__main__":
