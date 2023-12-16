@@ -27,6 +27,7 @@ from auth import (
     DEFAULT_MANTARRAY_SCOPES,
     ALL_PULSE3D_SCOPES,
     CURIBIO_SCOPES,
+    PULSE3D_USER_SCOPES,
 )
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
@@ -44,6 +45,7 @@ from models.users import (
     PasswordModel,
     UserScopesUpdate,
     UnableToUpdateAccountResponse,
+    PreferencesUpdate,
 )
 from utils.db import AsyncpgPoolDep
 from utils.logging import setup_logger
@@ -131,19 +133,22 @@ async def login_customer(request: Request, details: CustomerLogin):
                 "FROM customers WHERE deleted_at IS NULL AND email=$1",
                 email,
             )
-            # query will return None if customer email is not found
-            customer_id = select_query_result.get("id") if select_query_result is not None else None
-            bind_threadlocal(customer_id=str(customer_id))
 
-            if select_query_result["password"] is None:
-                raise LoginError("Account needs verification")
+            # query will return None if customer email is not found
+            if select_query_result is None:
+                customer_id = None
+            else:
+                customer_id = select_query_result.get("id")
+                if select_query_result["password"] is None:
+                    raise LoginError("Account needs verification")
+            bind_threadlocal(customer_id=str(customer_id))
 
             pw = details.password.get_secret_value()
             # verify password, else raise LoginError
             await _verify_password(con, account_type, pw, select_query_result)
             # get scopes from account_scopes table
             scope = await _get_account_scope(con, customer_id, True)
-            # get list of scopes that a customer can assign to it's users
+            # get list of scopes that a customer can assign to its users
             avail_user_scopes = _get_user_scopes_from_customer(scope)
             # TODO decide how to show customer accounts usage data for multiple products, defaulting to mantarray now
             # check usage for customer account
@@ -159,12 +164,7 @@ async def login_customer(request: Request, details: CustomerLogin):
             tokens = await _create_new_tokens(con, customer_id, None, scope, account_type)
 
             return LoginResponse(
-                tokens=tokens,
-                usage_quota=usage_quota,
-                user_scopes=avail_user_scopes,
-                customer_scopes=[
-                    s for s in CUSTOMER_SCOPES if "paid" in s
-                ],  # only returning paid scopes until tier system is enabled for customers
+                tokens=tokens, usage_quota=usage_quota, user_scopes=avail_user_scopes, customer_scopes=scope
             )
 
     except LoginError as e:
@@ -236,7 +236,7 @@ async def login_user(request: Request, details: UserLogin):
             # users logging into a specific instrument need the the usage returned right away and it is known what instrument they are using
             usage_quota = None
             if (service := details.service) is not None:
-                # TODO Luci (09/30/23) remove after MA v1.2.2+ is released, handling for pulse3d login types will no longer be needed
+                # TODO Luci (09/30/23): remove after all users upgrade to MA controller v1.2.2+, handling for pulse3d login types will no longer be needed
                 service = service if service != "pulse3d" else "mantarray"
                 usage_quota = await check_customer_quota(con, str(customer_id), service)
 
@@ -313,7 +313,6 @@ async def _verify_password(con, account_type, pw, select_query_result) -> None:
 def _get_user_scopes_from_customer(customer_scopes) -> dict[str, list[str]]:
     # don't include special curibio scopes
     customer_products = [split_scope_account_data(s)[0] for s in customer_scopes if s not in CURIBIO_SCOPES]
-    # return {"nautilus": ["nautilus:rw_all_data"], "mantarray": ["mantarray:rw_all_data"]}
     return {p: USER_SCOPES[p] for p in customer_products}
 
 
@@ -327,8 +326,8 @@ def _get_scopes_from_request(user_scopes, customer_scope) -> list[str]:
         elif not any([USER_SCOPES[s] for s in USER_SCOPES.keys() if product in USER_SCOPES[s]]):
             raise UnknownScopeError(f"Attempting to assign unknown scope: {product}")
 
-    # all users need mantarray:firmware:get
-    user_scopes.append("mantarray:firmware:get")
+    # TODO only add this if registering a user under a customer account that has mantarray scopes
+    user_scopes.extend(DEFAULT_MANTARRAY_SCOPES)
     return user_scopes
 
 
@@ -468,9 +467,6 @@ async def register_customer(
     """Register a customer account.
 
     Only the Curi Bio customer account can create new customers.
-
-    If the customer ID in the auth token matches the Curi Bio Customer ID *AND* no username is given,
-    assume this is an attempt to register a new customer account.
     """
     try:
         email = details.email.lower()
@@ -809,6 +805,7 @@ async def update_accounts(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+# TODO test this on dashboard
 @app.get("/")
 async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTOMER_SCOPES))):
     """Get info for all the users under the given customer account.
@@ -836,7 +833,7 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(scope=CUSTO
 
         for row in formatted_results:
             # remove user-hidden scopes from user list for display
-            row["scopes"] = list(set(row["scopes"]) - set(DEFAULT_MANTARRAY_SCOPES))
+            row["scopes"] = list(set(row["scopes"]) - DEFAULT_MANTARRAY_SCOPES)
             # unverified account should have a jwt token, otherwise will be None.
             # check expiration and if expired, return it as None, FE will handle telling user it's expired
             try:
@@ -884,6 +881,46 @@ async def update_user_scopes(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception:
         logger.exception(f"PUT /scopes/{account_id}: Unexpected error")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.get("/preferences")
+async def get_user_preferences(request: Request, token=Depends(ProtectedAny(PULSE3D_USER_SCOPES))):
+    """Get preferences for user."""
+    user_id = uuid.UUID(token["userid"])
+    bind_threadlocal(customer_id=token["customer_id"], user_id=str(user_id))
+
+    try:
+        async with request.state.pgpool.acquire() as con:
+            query = "SELECT preferences FROM users WHERE id=$1"
+            row = await con.fetchrow(query, user_id)
+            return json.loads(row["preferences"])
+    except Exception:
+        logger.exception("GET /: Unexpected error")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.put("/preferences")
+async def update_user_preferences(
+    request: Request, details: PreferencesUpdate, token=Depends(ProtectedAny(PULSE3D_USER_SCOPES))
+):
+    """Update a user's product preferences."""
+    user_id = uuid.UUID(token["userid"])
+    bind_threadlocal(
+        customer_id=token["customer_id"],
+        user_id=str(user_id),
+        product=details.product,
+        preferences=details.changes,
+    )
+
+    try:
+        async with request.state.pgpool.acquire() as con:
+            query = "UPDATE users SET preferences=jsonb_set(preferences, $1, $2) WHERE id=$3 RETURNING preferences"
+            row = await con.fetchrow(query, {details.product}, json.dumps(details.changes), user_id)
+            # return new preferences because service worker caches both GET and POST so return value needs to be the same format
+            return json.loads(row["preferences"])
+    except Exception:
+        logger.exception("PUT /preferences: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

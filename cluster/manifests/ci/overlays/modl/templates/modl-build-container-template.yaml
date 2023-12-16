@@ -150,6 +150,8 @@ spec:
           - --no-push
           - --context=/tmp/git/k8s_curi/
           - --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
+          - --build-arg
+          - ACCOUNT_ID=725604423866
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
@@ -338,6 +340,8 @@ spec:
           - --destination=725604423866.dkr.ecr.us-east-2.amazonaws.com/{{inputs.parameters.service}}:{{inputs.parameters.version}}
           - --context=/tmp/git/k8s_curi/
           - --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
+          - --build-arg
+          - ACCOUNT_ID=725604423866
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git

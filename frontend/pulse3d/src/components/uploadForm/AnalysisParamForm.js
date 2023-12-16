@@ -512,11 +512,9 @@ export default function AnalysisParamForm({
 
     const options = pulse3dFilteredFileVersions.map((version) => {
       const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
-      if (selectedVersionMeta[0] && ["testing", "deprecated"].includes(selectedVersionMeta[0].state)) {
-        return version + `  [ ${selectedVersionMeta[0].state} ]`;
-      } else {
-        return version;
-      }
+      return selectedVersionMeta[0] && ["testing", "deprecated"].includes(selectedVersionMeta[0].state)
+        ? version + `  [ ${selectedVersionMeta[0].state} ]`
+        : version;
     });
 
     setPulse3dVersionOptions([...options]);
@@ -731,8 +729,16 @@ export default function AnalysisParamForm({
       // bounds do not conflict with each other
       Number(updatedParams[minName]) >= Number(updatedParams[maxName])
     ) {
-      updatedParamErrors[maxName] = "*Must be greater than Start Time";
+      const errorLabel =
+        minName[0].toUpperCase() +
+        minName
+          .slice(1)
+          .split(/(?=[A-Z])/)
+          .join(" ");
+
+      updatedParamErrors[maxName] = `*Must be greater than ${errorLabel}`;
     }
+
     setParamErrors(updatedParamErrors);
   };
 

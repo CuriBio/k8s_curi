@@ -168,7 +168,7 @@ async def get_jobs(*, con, account_type, account_id, job_ids=None):
         return [dict(row) async for row in con.cursor(query, *query_params)]
 
 
-async def create_job(*, con, upload_id, queue, priority, meta, customer_id, job_type):
+async def create_job(*, con, upload_id, queue, priority, meta, customer_id, job_type, add_to_results=True):
     # the WITH clause in this query is necessary to make sure the given upload_id actually exists
     enqueue_job_query = (
         "WITH row AS (SELECT id FROM uploads WHERE id=$1) "
@@ -194,8 +194,10 @@ async def create_job(*, con, upload_id, queue, priority, meta, customer_id, job_
         cols = ", ".join(list(data))
         places = _get_placeholders_str(len(data))
 
-        # insert job info result table with 'pending' status
-        await con.execute(f"INSERT INTO jobs_result ({cols}) VALUES ({places})", *data.values())
+        # Luci (12/13/23): pulse3d rewrite duplicate jobs should not be added to results table while testing
+        if add_to_results:
+            # insert job info result table with 'pending' status
+            await con.execute(f"INSERT INTO jobs_result ({cols}) VALUES ({places})", *data.values())
 
     return job_id
 

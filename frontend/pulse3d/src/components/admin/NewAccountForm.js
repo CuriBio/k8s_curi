@@ -1,8 +1,8 @@
 import styled from "styled-components";
 import { useEffect, useState, useContext } from "react";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
-import FormInput from "../basicWidgets/FormInput";
-import ModalWidget from "../basicWidgets/ModalWidget";
+import FormInput from "@/components/basicWidgets/FormInput";
+import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import ScopeWidget from "./ScopeWidget";
 import { AuthContext } from "@/pages/_app";
 

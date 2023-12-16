@@ -41,7 +41,11 @@ const getAvailablePages = (accountInfo) => {
 
   const pages = deepCopy(allAvailablePages[accountInfo.accountType]);
   // TODO find a way to define these only once and share with the ControlPanel component
-  const productionConsoleScopes = ["mantarray:serial_number:edit", "mantarray:firmware:edit"];
+  const productionConsoleScopes = [
+    "mantarray:serial_number:edit",
+    "mantarray:firmware:edit",
+    "mantarray:firmware:info",
+  ];
   if (accountInfo.accountScope.some((scope) => productionConsoleScopes.includes(scope))) {
     pages.push("/production-console");
   }
@@ -56,6 +60,7 @@ function Pulse({ Component, pageProps }) {
   const [usageQuota, setUsageQuota] = useState();
   const [availableScopes, setAvailableScopes] = useState({ customer: [], user: [] });
   const [isCuriAdmin, setIsCuriAdmin] = useState(false);
+  const [preferences, setPreferences] = useState({});
 
   // TODO defaulting to mantarray for customer accounts until it's decided how to handle usage for multiple products
   const [productPage, setProductPage] = useState("mantarray");
@@ -110,6 +115,7 @@ function Pulse({ Component, pageProps }) {
               setIsCuriAdmin(newAccountInfo.accountScope.find((scope) => scope === "curi:admin"));
               // the router pathname must be sent to the SW and then sent back here since for some reason this message handler can't grab the current page
               setAccountInfo(newAccountInfo);
+              setPreferences(data.preferences); // will be {} is None
               // if logged in and on a page that shouldn't be accessed, or if on the login page, redirect to home page (currently /uploads)
               if (currentPage === "/login" || !getAvailablePages(newAccountInfo).includes(currentPage)) {
                 // TODO Tanner (8/23/22): this probably isn't the best solution for redirecting to other pages. Should look into a better way to do this
@@ -184,6 +190,8 @@ function Pulse({ Component, pageProps }) {
           productPage,
           setProductPage,
           isCuriAdmin,
+          preferences,
+          setPreferences,
         }}
       >
         <Layout>

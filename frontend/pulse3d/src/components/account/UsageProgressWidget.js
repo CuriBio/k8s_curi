@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import CircularProgressWithLabel from "./CircularProgressWithLabel";
+import CircularProgressWithLabel from "@/components/basicWidgets/CircularProgressWithLabel";
 import { useContext } from "react";
 import { AuthContext } from "@/pages/_app";
 import styled from "styled-components";
-import ModalWidget from "./ModalWidget";
+import ModalWidget from "@/components/basicWidgets/ModalWidget";
 
 const ProgressDiv = styled.div`
   color: white;
