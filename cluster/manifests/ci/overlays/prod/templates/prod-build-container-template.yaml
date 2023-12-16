@@ -343,11 +343,8 @@ spec:
           - --destination=245339368379.dkr.ecr.us-east-2.amazonaws.com/{{inputs.parameters.service}}:{{inputs.parameters.version}}
           - --context=/tmp/git/k8s_curi/
           - --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
-<<<<<<< HEAD
-=======
           - --build-arg
           - ACCOUNT_ID=245339368379
->>>>>>> RC-12-07-23
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
