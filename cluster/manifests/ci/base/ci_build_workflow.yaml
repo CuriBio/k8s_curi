@@ -40,62 +40,56 @@ spec:
                   value: "{{workflow.parameters.sha}}"
                 - name: base-sha
                   value: "{{workflow.parameters.base-sha}}"
-          # TODO remove or make an export-only check here
-          - name: upload-ui
+          - name: check-db-upgrades
             dependencies: [checkout]
             templateRef:
-              name: upload-service
-              template: upload-ui
-          # - name: check-db-upgrades
-          #   dependencies: [checkout]
-          #   templateRef:
-          #     name: build-service
-          #     template: db-migrations-dry-run
-          #   arguments:
-          #     parameters:
-          #       - name: number
-          #         value: "{{workflow.parameters.number}}"
-          # - name: build-services
-          #   dependencies: [checkout]
-          #   templateRef:
-          #     name: build-service
-          #     template: kaniko-build-service
-          #   arguments:
-          #     parameters:
-          #       - name: path
-          #         value: "{{item.path}}"
-          #       - name: service
-          #         value: "{{item.service}}"
-          #       - name: deployment
-          #         value: "{{item.deployment}}"
-          #       - name: sha
-          #         value: "{{workflow.parameters.sha}}"
-          #   withParam: "{{tasks.checkout.outputs.result}}"
-          # - name: changed-tf
-          #   dependencies: [checkout]
-          #   templateRef:
-          #     name: git-sync
-          #     template: changed-tf
-          #   arguments:
-          #     parameters:
-          #       - name: sha
-          #         value: "{{workflow.parameters.sha}}"
-          #       - name: base-sha
-          #         value: "{{workflow.parameters.base-sha}}"
-          # - name: ci-terraform-plan
-          #   dependencies: [changed-tf]
-          #   templateRef:
-          #     name: terraform-plan-template
-          #     template: ci-terraform-plan
-          #   arguments:
-          #     parameters:
-          #       - name: path
-          #         value: "{{item.path}}"
-          #       - name: number
-          #         value: "{{workflow.parameters.number}}"
-          #       - name: sha
-          #         value: "{{workflow.parameters.sha}}"
-          #   withParam: "{{tasks.changed-tf.outputs.result}}"
+              name: build-service
+              template: db-migrations-dry-run
+            arguments:
+              parameters:
+                - name: number
+                  value: "{{workflow.parameters.number}}"
+          - name: build-services
+            dependencies: [checkout]
+            templateRef:
+              name: build-service
+              template: kaniko-build-service
+            arguments:
+              parameters:
+                - name: path
+                  value: "{{item.path}}"
+                - name: service
+                  value: "{{item.service}}"
+                - name: deployment
+                  value: "{{item.deployment}}"
+                - name: sha
+                  value: "{{workflow.parameters.sha}}"
+            withParam: "{{tasks.checkout.outputs.result}}"
+          - name: changed-tf
+            dependencies: [checkout]
+            templateRef:
+              name: git-sync
+              template: changed-tf
+            arguments:
+              parameters:
+                - name: sha
+                  value: "{{workflow.parameters.sha}}"
+                - name: base-sha
+                  value: "{{workflow.parameters.base-sha}}"
+          - name: ci-terraform-plan
+            dependencies: [changed-tf]
+            templateRef:
+              name: terraform-plan-template
+              template: ci-terraform-plan
+            arguments:
+              parameters:
+                - name: path
+                  value: "{{item.path}}"
+                - name: number
+                  value: "{{workflow.parameters.number}}"
+                - name: sha
+                  value: "{{workflow.parameters.sha}}"
+            withParam: "{{tasks.changed-tf.outputs.result}}"
 
 ---
 apiVersion: argoproj.io/v1alpha1
@@ -140,10 +134,11 @@ spec:
                   value: "{{workflow.parameters.sha}}"
                 - name: base-sha
                   value: "{{workflow.parameters.base-sha}}"
-          # - name: upload-ui
-          #   templateRef:
-          #     name: upload-service
-          #     template: upload-ui
+          - name: upload-ui
+            dependencies: [checkout]
+            templateRef:
+              name: upload-service
+              template: upload-ui
           - name: upgrade-db
             dependencies: [checkout]
             templateRef:
