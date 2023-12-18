@@ -8,8 +8,6 @@ import subprocess
 
 import requests
 
-from typing import List
-
 
 K8S_REPO_BASE_URL = "https://api.github.com/repos/CuriBio/k8s_curi"
 
@@ -50,7 +48,7 @@ def get_svc_version(svc_path: str) -> str:
     raise Exception(f"Version not found in {config_file}")
 
 
-def get_dir_args(*dirs: List[str]) -> List[str]:
+def get_dir_args(*dirs: list[str]) -> list[str]:
     return [f"{dir_}/{arg}" for dir_ in dirs for arg in ("src/**", "log_config.yaml", "Dockerfile")]
 
 

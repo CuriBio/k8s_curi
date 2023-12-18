@@ -126,13 +126,13 @@ const TableHeader = styled.div`
   padding-left: 10px;
 `;
 
-const serNumScopes = ["mantarray:serial_number:edit"];
-const fwScopes = ["mantarray:firmware:edit", "mantarray:firmware:info"];
+const serNumScopes = ["mantarray:serial_number:edit", "mantarray:serial_number:list"];
+const fwScopes = ["mantarray:firmware:edit", "mantarray:firmware:list"];
 
 const fwTypes = ["Main", "Channel"];
 
 function FirmwareSection({ accountScope }) {
-  const canViewFwTables = accountScope.includes("mantarray:firmware:info");
+  const canViewFwTables = accountScope.includes("mantarray:firmware:list");
   const canEditFw = accountScope.includes("mantarray:firmware:edit");
 
   const [fwInfo, setFwInfo] = useState({ main: [], channel: [] });
@@ -718,6 +718,7 @@ export default function ProductionConsole() {
     <SectionContainer>
       {/* TODO break these out into their own files once we find a way to reuse styling */}
       {canViewFwSection && <FirmwareSection accountScope={accountScope} />}
+      {/* TODO need to handle case where user only has mantarray:serial_number:list */}
       {canViewSerNumSection && <SerialNumberSection />}
     </SectionContainer>
   );

@@ -5,12 +5,11 @@ import time
 import uuid
 from collections import defaultdict
 from datetime import datetime
-from typing import List, Optional, Tuple, Union
 
 import boto3
 import pandas as pd
 import structlog
-from auth import ALL_PULSE3D_SCOPES, PULSE3D_USER_SCOPES, ProtectedAny, split_scope_account_data
+from auth import ScopeTags, Scopes, ProtectedAny, check_prohibited_product, ProhibitedProductError
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -114,29 +113,29 @@ async def startup():
 @app.get("/uploads")
 async def get_info_of_uploads(
     request: Request,
-    upload_ids: Optional[List[uuid.UUID]] = Query(None),
-    token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES)),
+    upload_ids: list[uuid.UUID] | None = Query(None),
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     # need to convert to UUIDs to str to avoid issues with DB
     if upload_ids:
         upload_ids = [str(upload_id) for upload_id in upload_ids]
 
     try:
-        account_id = str(uuid.UUID(token["userid"]))
-        account_type = token["account_type"]
+        account_id = str(uuid.UUID(token.account_id))
+        account_type = token.account_type
         is_user = account_type == "user"
 
         if is_user:
-            bind_threadlocal(user_id=account_id, customer_id=token.get("customer_id"), upload_ids=upload_ids)
+            bind_threadlocal(user_id=account_id, customer_id=token.customer_id, upload_ids=upload_ids)
         else:
             bind_threadlocal(user_id=None, customer_id=account_id, upload_ids=upload_ids)
 
         # give advanced privileges to access all uploads under customer_id
         # TODO update this to product specific when landing page is specced out more
-        if "mantarray:rw_all_data" in token["scope"]:
-            account_id = str(uuid.UUID(token["customer_id"]))
+        if Scopes.MANTARRAY__RW_ALL_DATA in token.scopes:
+            account_id = str(uuid.UUID(token.customer_id))
             # catches in the else block like customers in get_uploads, just set here so it's not customer and become confusing
-            account_type = "dataUser"
+            account_type = "rw_all_user"
 
         async with request.state.pgpool.acquire() as con:
             uploads = await get_uploads(
@@ -146,7 +145,7 @@ async def get_info_of_uploads(
                 # customer accounts don't matter here because they don't have the ability to delete
                 for upload in uploads:
                     # need way on FE to tell if user owns recordings besides username since current user's username is not stored on the FE. We want to prevent users from attempting to delete files that aren't theirs before calling /delete route
-                    upload["owner"] = str(upload["user_id"]) == str(uuid.UUID(token["userid"]))
+                    upload["owner"] = str(upload["user_id"]) == account_id
 
             return uploads
 
@@ -155,21 +154,20 @@ async def get_info_of_uploads(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.post("/uploads", response_model=Union[UploadResponse, GenericErrorResponse])
+@app.post("/uploads", response_model=UploadResponse | GenericErrorResponse)
 async def create_recording_upload(
-    request: Request, details: UploadRequest, token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES))
+    request: Request, details: UploadRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
 ):
     try:
-        user_id = str(uuid.UUID(token["userid"]))
-        customer_id = str(uuid.UUID(token["customer_id"]))
-        # TODO Luci (09/30/2023) eventually select for upload type specific scope instead of defaulting to index 0, not currently specced out how to handle multiple products
-        service, _ = split_scope_account_data(token["scope"][0])
+        user_id = str(uuid.UUID(token.userid))
+        customer_id = str(uuid.UUID(token.customer_id))
         # generating uuid here instead of letting PG handle it so that it can be inserted into the prefix more easily
         upload_id = uuid.uuid4()
         s3_key = f"uploads/{customer_id}/{user_id}/{upload_id}"
 
         # TODO Luci (09/30/2023) can remove after MA v1.2.2+, will no longer need to handle pulse3d upload types
         upload_type = details.upload_type if details.upload_type != "pulse3d" else "mantarray"
+        check_prohibited_product(token.scopes, upload_type)
 
         bind_threadlocal(
             user_id=user_id, customer_id=customer_id, upload_id=str(upload_id), upload_type=upload_type
@@ -187,7 +185,7 @@ async def create_recording_upload(
         }
 
         async with request.state.pgpool.acquire() as con:
-            usage_quota = await check_customer_quota(con, customer_id, service)
+            usage_quota = await check_customer_quota(con, customer_id, upload_type)
             if usage_quota["uploads_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
@@ -197,6 +195,9 @@ async def create_recording_upload(
                 upload_id = await create_upload(con=con, upload_params=upload_params)
                 params = _generate_presigned_post(details, PULSE3D_UPLOADS_BUCKET, s3_key)
                 return UploadResponse(id=upload_id, params=params)
+    except ProhibitedProductError:
+        logger.exception(f"User does not permission to upload {upload_type} recordings")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
     except S3Error:
         logger.exception("Error creating recording")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
@@ -208,8 +209,8 @@ async def create_recording_upload(
 @app.delete("/uploads")
 async def soft_delete_uploads(
     request: Request,
-    upload_ids: List[uuid.UUID] = Query(None),
-    token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES)),
+    upload_ids: list[uuid.UUID] = Query(None),
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     # make sure at least one upload ID was given
     if not upload_ids:
@@ -218,18 +219,13 @@ async def soft_delete_uploads(
     upload_ids = [str(upload_id) for upload_id in upload_ids]
 
     try:
-        account_id = str(uuid.UUID(token["userid"]))
-        account_type = token["account_type"]
-        is_user = account_type == "user"
+        account_id = str(uuid.UUID(token.account_id))
 
-        if is_user:
-            bind_threadlocal(user_id=account_id, customer_id=token.get("customer_id"), upload_ids=upload_ids)
-        else:
-            bind_threadlocal(user_id=None, customer_id=account_id, upload_ids=upload_ids)
+        bind_threadlocal(user_id=token.userid, customer_id=token.customer_id, upload_ids=upload_ids)
 
         async with request.state.pgpool.acquire() as con:
             await delete_uploads(
-                con=con, account_type=token["account_type"], account_id=account_id, upload_ids=upload_ids
+                con=con, account_type=token.account_type, account_id=account_id, upload_ids=upload_ids
             )
     except Exception:
         logger.exception("Error deleting upload")
@@ -238,7 +234,7 @@ async def soft_delete_uploads(
 
 @app.post("/uploads/download")
 async def download_zip_files(
-    request: Request, details: UploadDownloadRequest, token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES))
+    request: Request, details: UploadDownloadRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
 ):
     upload_ids = details.upload_ids
 
@@ -248,19 +244,19 @@ async def download_zip_files(
 
     # need to convert UUIDs to str to avoid issues with DB
     upload_ids = [str(id) for id in upload_ids]
-    account_id = str(uuid.UUID(token["userid"]))
-    account_type = token["account_type"]
+    account_id = str(uuid.UUID(token.account_id))
+    account_type = token.account_type
     is_user = account_type == "user"
 
     if is_user:
-        bind_threadlocal(user_id=account_id, customer_id=token.get("customer_id"), upload_ids=upload_ids)
+        bind_threadlocal(user_id=account_id, customer_id=token.customer_id, upload_ids=upload_ids)
     else:
         bind_threadlocal(user_id=None, customer_id=account_id, upload_ids=upload_ids)
 
     # give advanced privileges to access all uploads under customer_id
-    if "mantarray:rw_all_data" in token["scope"]:
-        account_id = str(uuid.UUID(token["customer_id"]))
-        account_type = "dataUser"
+    if Scopes.MANTARRAY__RW_ALL_DATA in token.scopes:
+        account_id = str(uuid.UUID(token.customer_id))
+        account_type = "rw_all_user"
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -292,11 +288,11 @@ async def download_zip_files(
 # TODO Tanner (4/21/22): probably want to move this to a more general svc (maybe in apiv2-dep) dedicated to uploading misc files to s3
 @app.post("/logs")
 async def create_log_upload(
-    request: Request, details: UploadRequest, token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES))
+    request: Request, details: UploadRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
 ):
     try:
-        user_id = str(uuid.UUID(token["userid"]))
-        customer_id = str(uuid.UUID(token["customer_id"]))
+        user_id = str(uuid.UUID(token.userid))
+        customer_id = str(uuid.UUID(token.customer_id))
         s3_key = f"{customer_id}/{user_id}"
 
         bind_threadlocal(customer_id=customer_id, user_id=user_id)
@@ -322,23 +318,20 @@ def _generate_presigned_post(details, bucket, s3_key):
 @app.get("/jobs")
 async def get_info_of_jobs(
     request: Request,
-    job_ids: Optional[List[uuid.UUID]] = Query(None),
+    job_ids: list[uuid.UUID] | None = Query(None),
     download: bool = Query(True),
-    token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES)),
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     # need to convert UUIDs to str to avoid issues with DB
     if job_ids:
         job_ids = [str(job_id) for job_id in job_ids]
 
     try:
-        user_id = str(uuid.UUID(token["userid"]))
-        account_type = token["account_type"]
+        account_id = str(uuid.UUID(token.account_id))
+        account_type = token.account_type
         is_user = account_type == "user"
 
-        if is_user:
-            bind_threadlocal(user_id=user_id, customer_id=token.get("customer_id"), job_ids=job_ids)
-        else:
-            bind_threadlocal(user_id=None, customer_id=user_id, job_ids=job_ids)
+        bind_threadlocal(user_id=token.userid, customer_id=token.customer_id, job_ids=job_ids)
 
         async with request.state.pgpool.acquire() as con:
             jobs = await _get_jobs(con, token, job_ids)
@@ -358,7 +351,7 @@ async def get_info_of_jobs(
             if is_user:
                 # customer accounts don't have the ability to delete so doesn't need this key:value
                 # need way on FE to tell if user owns recordings besides username since current user's username is not stored on the FE. We want to prevent users from attempting to delete files that aren't theirs before calling /delete route
-                job_info["owner"] = str(job["user_id"]) == user_id
+                job_info["owner"] = str(job["user_id"]) == account_id
 
             if job_info["status"] == "finished" and download:
                 # This is in case any current users uploaded files before object_key was dropped from uploads table and added to jobs_result
@@ -391,35 +384,34 @@ async def get_info_of_jobs(
 
 
 async def _get_jobs(con, token, job_ids):
-    account_type = token["account_type"]
-    account_id = str(uuid.UUID(token["userid"]))
+    account_type = token.account_type
+    account_id = str(uuid.UUID(token.account_id))
 
     logger.info(f"Retrieving job info with IDs: {job_ids} for {account_type}: {account_id}")
 
     # give advanced privileges to access all uploads under customer_id
     # TODO update this to product specific when landing page is specced out more
-    if "mantarray:rw_all_data" in token["scope"]:
-        account_id = str(uuid.UUID(token["customer_id"]))
+    if Scopes.MANTARRAY__RW_ALL_DATA in token.scopes:
+        account_id = str(uuid.UUID(token.customer_id))
         # catches in the else block like customers in get_uploads, just set here so it's not customer and become confusing
-        account_type = "dataUser"
+        account_type = "rw_all_user"
 
     return await get_jobs(con=con, account_type=account_type, account_id=account_id, job_ids=job_ids)
 
 
 @app.post("/jobs")
 async def create_new_job(
-    request: Request, details: JobRequest, token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES))
+    request: Request, details: JobRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
 ):
     try:
-        user_id = str(uuid.UUID(token["userid"]))
-        customer_id = str(uuid.UUID(token["customer_id"]))
-        user_scopes = token["scope"]
-        service, _ = split_scope_account_data(user_scopes[0])
+        user_id = str(uuid.UUID(token.userid))
+        customer_id = str(uuid.UUID(token.customer_id))
+        user_scopes = token.scopes
         upload_id = details.upload_id
 
         bind_threadlocal(user_id=user_id, customer_id=customer_id, upload_id=str(upload_id))
 
-        logger.info(f"Creating {service} job for upload {upload_id} with user ID: {user_id}")
+        logger.info(f"Creating job for upload {upload_id} with user ID: {user_id}")
 
         # params to use for all current versions of pulse3d
         params = [
@@ -442,6 +434,7 @@ async def create_new_job(
         pulse3d_semver = VersionInfo.parse(details.version)
         use_noise_based_peak_finding = pulse3d_semver >= "0.33.2"
 
+        # TODO see if any of this pertains to deprecated pulse3d versions and can be removed
         # Luci (12/14/2022) PlateRecording.to_dataframe() was updated in 0.28.3 to include 0.0 timepoint so this accounts for the index difference between versions
         peak_valley_diff = 0
         if previous_semver_version is not None and previous_semver_version != pulse3d_semver:
@@ -496,6 +489,13 @@ async def create_new_job(
 
         priority = 10
         async with request.state.pgpool.acquire() as con:
+            # first check user_id of upload matches user_id in token
+            # Luci (12/14/2022) checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
+            # Luci (12/14/2022) customer id is checked already because the customer_id in the token is being used to find upload details
+            row = await con.fetchrow("SELECT user_id, type FROM uploads where id=$1", upload_id)
+            original_upload_user = str(row["user_id"])
+            upload_type = row["type"]
+
             # check if pulse3d version is available
             # if deprecated and end of life date passed then cancel the upload
             # if end of life date is none then pulse3d version is usable
@@ -512,13 +512,8 @@ async def create_new_job(
                 return GenericErrorResponse(
                     message="Attempted to use pulse3d version that is removed", error="pulse3dVersionError"
                 )
-            # first check user_id of upload matches user_id in token
-            # Luci (12/14/2022) checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
-            # Luci (12/14/2022) customer id is checked already because the customer_id in the token is being used to find upload details
-            row = await con.fetchrow("SELECT user_id FROM uploads where id=$1", upload_id)
-            original_upload_user = str(row["user_id"])
 
-            if "mantarray:rw_all_data" not in user_scopes:
+            if Scopes.MANTARRAY__RW_ALL_DATA not in user_scopes:
                 # if users don't match and they don't have an all_data scope, then raise unauth error
                 if user_id != original_upload_user:
                     return GenericErrorResponse(
@@ -527,7 +522,7 @@ async def create_new_job(
                     )
 
             # second, check usage quota for customer account
-            usage_quota = await check_customer_quota(con, customer_id, service)
+            usage_quota = await check_customer_quota(con, customer_id, upload_type)
             if usage_quota["jobs_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
@@ -544,13 +539,13 @@ async def create_new_job(
                 priority=priority,
                 meta=job_meta,
                 customer_id=customer_id,
-                job_type=service,
+                job_type=upload_type,
             )
 
             bind_threadlocal(job_id=str(job_id))
 
             # check customer quota after job
-            usage_quota = await check_customer_quota(con, customer_id, service)
+            usage_quota = await check_customer_quota(con, customer_id, upload_type)
 
             # Luci (12/1/22): this happens after the job is already created to have access to the job id, hopefully this doesn't cause any issues with the job starting before the file is uploaded to s3
             if details.peaks_valleys:
@@ -584,7 +579,7 @@ async def create_new_job(
                     priority=priority,
                     meta=job_meta,
                     customer_id=customer_id,
-                    job_type=service,
+                    job_type=upload_type,
                     add_to_results=False,
                 )
 
@@ -603,8 +598,8 @@ async def create_new_job(
 
 
 def _format_tuple_param(
-    options: Optional[TupleParam], default_values: Union[int, Tuple[int, ...]]
-) -> Optional[TupleParam]:
+    options: TupleParam | None, default_values: int | tuple[int, ...]
+) -> TupleParam | None:
     if options is None or all(op is None for op in options):
         return None
 
@@ -624,8 +619,8 @@ def _format_tuple_param(
 @app.delete("/jobs")
 async def soft_delete_jobs(
     request: Request,
-    job_ids: List[uuid.UUID] = Query(None),
-    token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES)),
+    job_ids: list[uuid.UUID] = Query(None),
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     # make sure at least one job ID was given
     if not job_ids:
@@ -635,18 +630,13 @@ async def soft_delete_jobs(
     job_ids = [str(job_id) for job_id in job_ids]
 
     try:
-        account_id = str(uuid.UUID(token["userid"]))
-        account_type = token["account_type"]
-        is_user = account_type == "user"
+        account_id = str(uuid.UUID(token.account_id))
 
-        if is_user:
-            bind_threadlocal(user_id=account_id, customer_id=token.get("customer_id"), job_ids=job_ids)
-        else:
-            bind_threadlocal(user_id=None, customer_id=account_id, job_ids=job_ids)
+        bind_threadlocal(user_id=token.userid, customer_id=token.customer_id, job_ids=job_ids)
 
         async with request.state.pgpool.acquire() as con:
             await delete_jobs(
-                con=con, account_type=token["account_type"], account_id=account_id, job_ids=job_ids
+                con=con, account_type=token.account_type, account_id=account_id, job_ids=job_ids
             )
     except Exception:
         logger.exception("Failed to soft delete jobs")
@@ -655,7 +645,7 @@ async def soft_delete_jobs(
 
 @app.post("/jobs/download")
 async def download_analyses(
-    request: Request, details: JobDownloadRequest, token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES))
+    request: Request, details: JobDownloadRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
 ):
     job_ids = details.job_ids
     # make sure at least one job ID was given
@@ -665,14 +655,7 @@ async def download_analyses(
     # need to convert UUIDs to str to avoid issues with DB
     job_ids = [str(job_id) for job_id in job_ids]
 
-    user_id = str(uuid.UUID(token["userid"]))
-    account_type = token["account_type"]
-    is_user = account_type == "user"
-
-    if is_user:
-        bind_threadlocal(user_id=user_id, customer_id=token.get("customer_id"), job_ids=job_ids)
-    else:
-        bind_threadlocal(user_id=None, customer_id=user_id, job_ids=job_ids)
+    bind_threadlocal(user_id=token.userid, customer_id=token.customer_id, job_ids=job_ids)
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -714,7 +697,7 @@ async def download_analyses(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def _yield_s3_objects(bucket: str, keys: List[str], filenames: List[str]):
+def _yield_s3_objects(bucket: str, keys: list[str], filenames: list[str]):
     # TODO consider moving this to core s3 utils if more routes need to start using it
     try:
         s3 = boto3.session.Session().resource("s3")
@@ -726,15 +709,15 @@ def _yield_s3_objects(bucket: str, keys: List[str], filenames: List[str]):
         raise S3Error(f"Failed to access {bucket}/{key}") from e
 
 
-@app.get("/jobs/waveform-data", response_model=Union[WaveformDataResponse, GenericErrorResponse])
+@app.get("/jobs/waveform-data", response_model=WaveformDataResponse | GenericErrorResponse)
 async def get_interactive_waveform_data(
     request: Request,
     upload_id: uuid.UUID = Query(None),
     job_id: uuid.UUID = Query(None),
-    token=Depends(ProtectedAny(scope=PULSE3D_USER_SCOPES)),
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
 ):
-    account_id = str(uuid.UUID(token["userid"]))
-    account_type = token["account_type"]
+    account_id = str(uuid.UUID(token.account_id))
+    account_type = token.account_type
     is_user = account_type == "user"
 
     if job_id is None or upload_id is None:
@@ -747,7 +730,7 @@ async def get_interactive_waveform_data(
 
     if is_user:
         bind_threadlocal(
-            customer_id=token.get("customer_id"), user_id=account_id, upload_id=upload_id, job_id=job_id
+            customer_id=token.customer_id, user_id=account_id, upload_id=upload_id, job_id=job_id
         )
     else:
         bind_threadlocal(user_id=None, customer_id=account_id, upload_id=upload_id, job_id=job_id)
@@ -763,7 +746,7 @@ async def get_interactive_waveform_data(
         analysis_params = parsed_meta.get("analysis_params", {})
         pulse3d_version = parsed_meta.get("version")
 
-        if "mantarray:rw_all_data" not in token["scope"] and is_user:
+        if Scopes.MANTARRAY__RW_ALL_DATA not in token.scopes and is_user:
             # only allow user to perform interactive analysis on another user's recording if special scope
             # customer id will be checked when attempting to locate file in s3 with customer id found in token
             if recording_owner_id != account_id:
@@ -837,16 +820,11 @@ async def get_versions(request: Request):
 
 @app.get("/usage", response_model=UsageQuota)
 async def get_usage_quota(
-    request: Request, service: str = Query(None), token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES))
+    request: Request, service: str = Query(None), token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
 ):
     """Get the usage quota for the specific user"""
     try:
-        # no customer_id assigned to customer tokens
-        customer_id = (
-            str(uuid.UUID(token["userid"]))
-            if token["customer_id"] is None
-            else str(uuid.UUID(token["customer_id"]))
-        )
+        customer_id = str(uuid.UUID(token.customer_id))
 
         bind_threadlocal(customer_id=customer_id)
 
@@ -860,12 +838,12 @@ async def get_usage_quota(
 
 @app.post("/presets")
 async def save_analysis_presets(
-    request: Request, details: SavePresetRequest, token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES))
+    request: Request, details: SavePresetRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
 ):
     """Save analysis parameter preset for user"""
     try:
-        user_id = str(uuid.UUID(token["userid"]))
-        customer_id = str(uuid.UUID(token["customer_id"]))
+        user_id = str(uuid.UUID(token.userid))
+        customer_id = str(uuid.UUID(token.customer_id))
         bind_threadlocal(customer_id=customer_id, user_id=user_id)
 
         async with request.state.pgpool.acquire() as con:
@@ -876,11 +854,11 @@ async def save_analysis_presets(
 
 
 @app.get("/presets")
-async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(scope=ALL_PULSE3D_SCOPES))):
+async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))):
     """Get analysis parameter preset for user"""
     try:
-        user_id = str(uuid.UUID(token["userid"]))
-        customer_id = str(uuid.UUID(token["customer_id"]))
+        user_id = str(uuid.UUID(token.userid))
+        customer_id = str(uuid.UUID(token.customer_id))
         bind_threadlocal(customer_id=customer_id, user_id=user_id)
 
         async with request.state.pgpool.acquire() as con:

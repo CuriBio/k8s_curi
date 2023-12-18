@@ -3,7 +3,7 @@ from typing import Any
 from uuid import UUID
 from pydantic import BaseModel, EmailStr, SecretStr
 from pydantic import constr, validator
-from models.tokens import AuthTokens
+from auth import AuthTokens, Scopes, ScopeConverter
 
 USERNAME_MIN_LEN = 3
 USERNAME_MAX_LEN = 32
@@ -56,15 +56,15 @@ class PasswordModel(BaseModel):
         return v
 
 
-class CustomerCreate(BaseModel):
+class CustomerCreate(ScopeConverter):
     email: EmailStr
-    scope: list[str]
+    scopes: list[Scopes]
 
 
-class UserCreate(BaseModel):
+class UserCreate(ScopeConverter):
     email: EmailStr
     username: str
-    scope: list[str] | None
+    scopes: list[Scopes]
 
     @validator("username")
     def username_alphanumeric(cls, v):
@@ -88,13 +88,13 @@ class UserProfile(BaseModel):
     username: constr(min_length=USERNAME_MIN_LEN, max_length=USERNAME_MAX_LEN, regex=USERNAME_REGEX_STR)
     email: EmailStr
     user_id: str
-    scope: list[str]
+    scopes: list[Scopes]
 
 
 class CustomerProfile(BaseModel):
     email: EmailStr
     user_id: str
-    scope: list[str]
+    scopes: list[Scopes]
 
 
 class AccountUpdateAction(BaseModel):
@@ -102,8 +102,8 @@ class AccountUpdateAction(BaseModel):
     new_alias: str | None
 
 
-class UserScopesUpdate(BaseModel):
-    scopes: list[str]
+class UserScopesUpdate(ScopeConverter):
+    scopes: list[Scopes]
 
 
 class UnableToUpdateAccountResponse(BaseModel):
@@ -120,8 +120,8 @@ class UsageQuota(BaseModel):
 class LoginResponse(BaseModel):
     tokens: AuthTokens
     usage_quota: UsageQuota | None
-    user_scopes: dict[str, list[str]] | None
-    customer_scopes: list[str] | None
+    user_scopes: dict[Scopes, Scopes | None] | None
+    customer_scopes: dict[Scopes, Scopes | None] | None
 
 
 class PreferencesUpdate(BaseModel):

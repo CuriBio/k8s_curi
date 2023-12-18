@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 import uuid
 
 from .types import Number, TupleParam
@@ -7,69 +7,69 @@ from .types import Number, TupleParam
 
 class UploadRequest(BaseModel):
     filename: str
-    md5s: Optional[str]
+    md5s: str | None  # TODO when would this be None?
     upload_type: str
     # default to True to preserve backwards compatibility with older MA controller versions
-    auto_upload: Optional[bool] = True
+    auto_upload: bool | None = True
 
 
 class UsageQuota(BaseModel):
-    current: Dict[str, Any]
-    limits: Dict[str, Any]
+    current: dict[str, Any]
+    limits: dict[str, Any]
     jobs_reached: bool
     uploads_reached: bool
 
 
 class UploadResponse(BaseModel):
-    id: Optional[uuid.UUID]
-    params: Dict[str, Any]
+    id: uuid.UUID | None
+    params: dict[str, Any]
 
 
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
 
     version: str
-    previous_version: Optional[str]
+    previous_version: str | None
 
-    name_override: Optional[str]
+    name_override: str | None
 
-    data_type: Optional[str]
+    data_type: str | None
 
-    well_groups: Optional[Dict[str, List[str]]]
+    well_groups: dict[str, list[str]] | None
 
-    normalize_y_axis: Optional[bool]
-    max_y: Optional[Number]
+    normalize_y_axis: bool | None
+    max_y: Number | None
 
-    stim_waveform_format: Optional[str]
-    include_stim_protocols: Optional[bool]
+    stim_waveform_format: str | None
+    include_stim_protocols: bool | None
 
-    stiffness_factor: Optional[int]
-    inverted_post_magnet_wells: Optional[List[str]]
+    stiffness_factor: int | None
+    inverted_post_magnet_wells: list[str] | None
 
-    baseline_widths_to_use: Optional[TupleParam]
-    twitch_widths: Optional[List[int]]
-    peaks_valleys: Optional[Dict[str, List[List[Number]]]]
+    baseline_widths_to_use: TupleParam | None
+    twitch_widths: list[int] | None
+    peaks_valleys: dict[str, list[list[Number]]] | None
 
-    start_time: Optional[Number]
-    end_time: Optional[Number]
+    start_time: Number | None
+    end_time: Number | None
 
     # shared peak finding params
-    width_factors: Optional[TupleParam]
+    width_factors: TupleParam | None
     # old peak finding params
-    prominence_factors: Optional[TupleParam]
+    prominence_factors: TupleParam | None
     # noise based peak finding params
-    relative_prominence_factor: Optional[Number]
-    noise_prominence_factor: Optional[Number]
-    height_factor: Optional[Number]
-    max_frequency: Optional[Number]
-    valley_search_duration: Optional[Number]
-    upslope_duration: Optional[Number]
-    upslope_noise_allowance_duration: Optional[Number]
+    relative_prominence_factor: Number | None
+    noise_prominence_factor: Number | None
+    height_factor: Number | None
+    max_frequency: Number | None
+    valley_search_duration: Number | None
+    upslope_duration: Number | None
+    upslope_noise_allowance_duration: Number | None
 
 
 class SavePresetRequest(BaseModel):
     name: str
-    analysis_params: Dict[str, Any]
+    analysis_params: dict[str, Any]
 
 
 class JobResponse(BaseModel):
@@ -87,7 +87,7 @@ class DownloadItem(BaseModel):
     analyzedFile: str
     datetime: str
     status: str
-    analysisParams: Dict[Any, Any]
+    analysisParams: dict[Any, Any]
 
 
 class WaveformDataResponse(BaseModel):
@@ -97,13 +97,13 @@ class WaveformDataResponse(BaseModel):
 
 
 class JobDownloadRequest(BaseModel):
-    job_ids: List[uuid.UUID]
+    job_ids: list[uuid.UUID]
 
 
 class UploadDownloadRequest(BaseModel):
-    upload_ids: List[uuid.UUID]
+    upload_ids: list[uuid.UUID]
 
 
 class GenericErrorResponse(BaseModel):
-    message: Union[str, UsageQuota, Dict[str, bool]]
+    message: str | UsageQuota | dict[str, bool]
     error: str
