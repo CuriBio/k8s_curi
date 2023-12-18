@@ -69,7 +69,7 @@ async def create_job(version: str, num_of_workers: int):
         logger.info(f"Starting {formatted_name}.")
         complete_ecr_repo = f"{ECR_REPO}:{version}"
 
-        resources = kclient.V1ResourceRequirements(limits={"memory": "500Mi"})
+        resources = kclient.V1ResourceRequirements(requests={"memory": "1000Mi"})
         # Create container
         container = kclient.V1Container(
             name=formatted_name,

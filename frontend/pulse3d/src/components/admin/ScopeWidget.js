@@ -22,80 +22,52 @@ const ScopeLabel = styled.div`
   line-height: 2;
 `;
 
-export default function ScopeWidget({
-  initialChecked = [],
-  selectedScopes,
-  setSelectedScopes,
-  availableScopes,
-  isForUser,
-}) {
+export default function ScopeWidget({ selectedScopes, setSelectedScopes, availableScopes }) {
   const [scopeOptions, setScopeOptions] = useState([]);
   const [scopeDisabledStates, setScopeDisabledStates] = useState([]);
 
   useEffect(() => {
-    formatUserScopes();
-  }, [availableScopes]);
-
-  useEffect(() => {
-    if (initialChecked.length > 0) {
-      setSelectedScopes(initialChecked);
+    if (availableScopes == null || Object.keys(availableScopes).length === 0 || selectedScopes == null) {
+      return;
     }
-  }, [initialChecked]);
 
-  useEffect(() => {
-    handleScopeDisabledStates();
-  }, [selectedScopes]);
+    const newScopeOptions = [];
+    const newScopeDisabledStates = [];
 
-  const formatUserScopes = () => {
-    // customer scopes are an array, user scopes are an object
-    const scopeList = isForUser
-      ? Object.entries(availableScopes).map(([product, addScopes]) => [product, addScopes])
-      : availableScopes;
-
-    const flattenedScopes = scopeList.flat(2);
-
-    setScopeOptions(flattenedScopes);
-    handleScopeDisabledStates();
-  };
-
-  const handleScopeDisabledStates = (selected = selectedScopes) => {
-    const disabledStates = isForUser
-      ? disableUserScopes(selected)
-      : Array(availableScopes.length).fill(false);
-
-    setScopeDisabledStates(disabledStates);
-  };
-
-  const disableUserScopes = (selected) => {
-    const disabledStates = [];
-    Object.entries(availableScopes).map(([product, addScopes]) => {
-      // product itself is always enabled
-      disabledStates.push(false);
-      // if main product is checked, then enabled other scope options under product
-      // example: nautilus:rw_all_data
-      Array(addScopes.length)
-        .fill()
-        .map(() => disabledStates.push(!selected.includes(product)));
+    Object.entries(availableScopes).map(([scope, requiredScope]) => {
+      newScopeOptions.push(scope);
+      newScopeDisabledStates.push(
+        // Tanner (12/13/23): don't want to let users mess with this scope at the moment. Any user with mantarray:base should also have this scope
+        scope === "mantarray:firmware:get" || (requiredScope && !selectedScopes.includes(requiredScope))
+      );
     });
 
-    return disabledStates;
-  };
+    setScopeOptions(newScopeOptions);
+    setScopeDisabledStates(newScopeDisabledStates);
+  }, [availableScopes, selectedScopes]);
 
-  const handleCheckedScopes = (scope, state) => {
-    const newCheckedScopes = JSON.parse(JSON.stringify(selectedScopes));
+  const handleCheckedScopes = (scope, checked) => {
+    let newCheckedScopes = JSON.parse(JSON.stringify(selectedScopes));
 
-    if (state && !newCheckedScopes.includes(scope)) {
-      newCheckedScopes.push(scope);
-    } else {
-      newCheckedScopes.splice(newCheckedScopes.indexOf(scope), 1);
-      // if main product scope is being unchecked, auto uncheck any dependent scopes if checked
-      // example: 'mantarray' is unchecked, ensure that 'mantarray:rw_all_data' is unchecked
-      if (Object.keys(availableScopes).includes(scope)) {
-        for (const s of availableScopes[scope]) {
-          if (newCheckedScopes.includes(s)) {
-            newCheckedScopes.splice(newCheckedScopes.indexOf(s), 1);
-          }
+    if (checked) {
+      if (!newCheckedScopes.includes(scope)) {
+        newCheckedScopes.push(scope);
+        if (scope === "mantarray:base") {
+          newCheckedScopes.push("mantarray:firmware:get");
         }
+      }
+    } else if (newCheckedScopes.includes(scope)) {
+      newCheckedScopes.splice(newCheckedScopes.indexOf(scope), 1);
+      let updated = [];
+      let count = 0; // Tanner (12/13/23): this shouldn't be necessary but leaving here in case something breaks so that the page doesn't freeze
+      while (count < 10) {
+        count += 1;
+        updated = newCheckedScopes.filter((scope) => {
+          const requiredScope = availableScopes[scope];
+          return !requiredScope || newCheckedScopes.includes(requiredScope);
+        });
+        if (updated.length === newCheckedScopes.length) break;
+        newCheckedScopes = updated;
       }
     }
     setSelectedScopes(newCheckedScopes);

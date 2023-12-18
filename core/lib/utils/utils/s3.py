@@ -1,7 +1,7 @@
 import hashlib
 import base64
 import os
-from typing import Any, List, Dict
+from typing import Any
 
 import boto3
 from botocore.exceptions import ClientError
@@ -34,7 +34,7 @@ def generate_presigned_url(bucket: str, key: str, exp: int = 3600) -> Any:
     return url
 
 
-def generate_presigned_urls_for_dir(bucket: str, key_prefix: str, objs_only: bool = False) -> List[str]:
+def generate_presigned_urls_for_dir(bucket: str, key_prefix: str, objs_only: bool = False) -> list[str]:
     try:
         s3 = boto3.resource("s3")
         bucket = s3.Bucket(bucket)
@@ -49,7 +49,7 @@ def generate_presigned_urls_for_dir(bucket: str, key_prefix: str, objs_only: boo
         raise S3Error(f"Failed to generate presigned urls for {bucket}/{key_prefix}: {repr(e)}")
 
 
-def generate_presigned_post(bucket: str, key: str, md5s: str) -> Dict[Any, Any]:
+def generate_presigned_post(bucket: str, key: str, md5s: str) -> dict[Any, Any]:
     s3_client = boto3.client("s3", config=Config(signature_version="s3v4"))
 
     try:
