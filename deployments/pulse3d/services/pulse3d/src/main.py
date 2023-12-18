@@ -24,6 +24,7 @@ from jobs import (
     get_jobs,
     get_uploads,
 )
+from pulse3D.constants import DataTypes
 from pulse3D.peak_finding.constants import DefaultLegacyPeakFindingParams, DefaultNoiseBasedPeakFindingParams
 from pulse3D.metrics.constants import TwitchMetrics, DefaultMetricsParams
 from pulse3D.rendering.utils import get_metric_display_title, get_labels
@@ -540,6 +541,20 @@ async def create_new_job(
                 job_type=service,
             )
 
+            # if most recent pulse3d version, kick off job with pulse3d rewrite to compare outputs of both versions
+            rewrite_job_id = None
+            if pulse3d_semver == "0.34.4":
+                rewrite_job_id = await create_job(
+                    con=con,
+                    upload_id=upload_id,
+                    queue="test-pulse3d-v1.0.0rc10",
+                    priority=priority,
+                    meta=job_meta,
+                    customer_id=customer_id,
+                    job_type=service,
+                    add_to_results=False,
+                )
+
             bind_threadlocal(job_id=str(job_id))
 
             # check customer quota after job
@@ -568,18 +583,12 @@ async def create_new_job(
                     pd.DataFrame(peak_valleys_dict).to_parquet(pv_parquet_path)
                     # upload to s3 under upload id and job id for pulse3d-worker to use
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
-            else:
-                # Luci (12/13/23): if not interactive analysis, kick off second job to test pulse3d rewrite. IA is not setup to work yet.
-                await create_job(
-                    con=con,
-                    upload_id=upload_id,
-                    queue="test-pulse3d-v1.0.0rc9",
-                    priority=priority,
-                    meta=job_meta,
-                    customer_id=customer_id,
-                    job_type=service,
-                    add_to_results=False,
-                )
+
+                    if rewrite_job_id:
+                        rewrite_key = f"uploads/{customer_id}/{original_upload_user}/{upload_id}/{rewrite_job_id}/peaks_valleys.parquet"
+                        upload_file_to_s3(
+                            bucket=PULSE3D_UPLOADS_BUCKET, key=rewrite_key, file=pv_parquet_path
+                        )
 
         return JobResponse(
             id=job_id,
@@ -781,11 +790,12 @@ async def get_interactive_waveform_data(
         pv_parquet_key = f"{selected_job['prefix']}/{job_id}/peaks_valleys.parquet"
         peaks_valleys_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, pv_parquet_key)
 
-        # TODO probably need to update this
-        data_type = analysis_params.get("data_type")
-        if not data_type:
+        data_type_str: str | None = analysis_params.get("data_type")
+        if data_type_str:
+            data_type = DataTypes[data_type_str.upper()]
+        else:
             # if data type is not present, is present and is None, or some other falsey value, set to Force as default
-            data_type = "Force"
+            data_type = DataTypes.FORCE
 
         return WaveformDataResponse(
             time_force_url=time_force_url,

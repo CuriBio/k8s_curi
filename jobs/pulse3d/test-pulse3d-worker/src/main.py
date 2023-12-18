@@ -42,7 +42,7 @@ structlog.configure(
 
 logger = structlog.get_logger()
 
-PULSE3D_VERSION = "v1.0.0rc9"
+PULSE3D_VERSION = "v1.0.0rc10"
 
 
 def _get_existing_metadata(metadata_dict: dict[str, Any]) -> BaseMetadata:
