@@ -125,10 +125,7 @@ async def get_info_of_uploads(
         account_type = token.account_type
         is_user = account_type == "user"
 
-        if is_user:
-            bind_threadlocal(user_id=account_id, customer_id=token.customer_id, upload_ids=upload_ids)
-        else:
-            bind_threadlocal(user_id=None, customer_id=account_id, upload_ids=upload_ids)
+        bind_threadlocal(user_id=token.userid, customer_id=token.customer_id, upload_ids=upload_ids)
 
         # give advanced privileges to access all uploads under customer_id
         # TODO update this to product specific when landing page is specced out more
@@ -210,6 +207,7 @@ async def create_recording_upload(
 async def soft_delete_uploads(
     request: Request,
     upload_ids: list[uuid.UUID] = Query(None),
+    # TODO should this be ScopeTags.PULSE3D_WRITE?
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     # make sure at least one upload ID was given
@@ -246,12 +244,8 @@ async def download_zip_files(
     upload_ids = [str(id) for id in upload_ids]
     account_id = str(uuid.UUID(token.account_id))
     account_type = token.account_type
-    is_user = account_type == "user"
 
-    if is_user:
-        bind_threadlocal(user_id=account_id, customer_id=token.customer_id, upload_ids=upload_ids)
-    else:
-        bind_threadlocal(user_id=None, customer_id=account_id, upload_ids=upload_ids)
+    bind_threadlocal(user_id=token.userid, customer_id=token.customer_id, upload_ids=upload_ids)
 
     # give advanced privileges to access all uploads under customer_id
     if Scopes.MANTARRAY__RW_ALL_DATA in token.scopes:
@@ -620,6 +614,7 @@ def _format_tuple_param(
 async def soft_delete_jobs(
     request: Request,
     job_ids: list[uuid.UUID] = Query(None),
+    # TODO should this be ScopeTags.PULSE3D_WRITE?
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     # make sure at least one job ID was given
@@ -728,12 +723,7 @@ async def get_interactive_waveform_data(
     upload_id = str(upload_id)
     job_id = str(job_id)
 
-    if is_user:
-        bind_threadlocal(
-            customer_id=token.customer_id, user_id=account_id, upload_id=upload_id, job_id=job_id
-        )
-    else:
-        bind_threadlocal(user_id=None, customer_id=account_id, upload_id=upload_id, job_id=job_id)
+    bind_threadlocal(user_id=token.userid, customer_id=token.customer_id, upload_id=upload_id, job_id=job_id)
 
     try:
         async with request.state.pgpool.acquire() as con:
