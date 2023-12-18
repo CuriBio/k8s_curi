@@ -5,8 +5,25 @@ COPY ./core/lib/auth ./lib/auth
 COPY ./core/lib/utils ./lib/utils
 COPY ./core/lib/jobs ./lib/jobs
 
-RUN python -m venv --copies /app/venv
-RUN . /app/venv/bin/activate && pip install -r ./requirements.txt && pip install ./lib/auth && pip install ./lib/utils && pip install ./lib/jobs
+-RUN python -m venv --copies /app/venv
+-RUN . /app/venv/bin/activate && pip install -r ./requirements.txt && pip install ./lib/auth && pip install ./lib/utils && pip install ./lib/jobs
+
+ARG ACCOUNT_ID
+ENV AWS_ACCOUNT_ID=$ACCOUNT_ID
+
+# Following args are required for pushing to the test cluster, you need to add and export modl access keys to get pulse3d repo
+# ARG ACCESS_KEY
+# ARG ACCESS_KEY_ID
+# ENV AWS_SECRET_ACCESS_KEY=$ACCESS_KEY
+# ENV AWS_ACCESS_KEY_ID=$ACCESS_KEY_ID
+
+
+RUN python -m venv --copies /app/venv && \
+    . /app/venv/bin/activate && \
+    pip install -r ./requirements.txt --extra-index-url=https://aws:$CODEARTIFACT_AUTH_TOKEN@curibio-$AWS_ACCOUNT_ID.d.codeartifact.us-east-2.amazonaws.com/pypi/pulse3d/simple/ && \
+    pip install ./lib/auth && \
+    pip install ./lib/utils && \
+    pip install ./lib/jobs
 
 
 FROM python:3.11-slim as prod

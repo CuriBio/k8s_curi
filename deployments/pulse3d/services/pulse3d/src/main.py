@@ -24,18 +24,9 @@ from jobs import (
     get_jobs,
     get_uploads,
 )
-from pulse3D.constants import (
-    AMPLITUDE_UUID,
-    CALCULATED_METRIC_DISPLAY_NAMES,
-    DATA_TYPE_TO_AMPLITUDE_LABEL,
-    DATA_TYPE_TO_UNIT_LABEL,
-    DEFAULT_AMPLITUDE_LABEL,
-    DEFAULT_BASELINE_WIDTHS,
-    DEFAULT_NB_WIDTH_FACTORS,
-    DEFAULT_PROMINENCE_FACTORS,
-    DEFAULT_UNIT_LABEL,
-    DEFAULT_WIDTH_FACTORS,
-)
+from pulse3D.peak_finding.constants import DefaultLegacyPeakFindingParams, DefaultNoiseBasedPeakFindingParams
+from pulse3D.metrics.constants import TwitchMetrics, DefaultMetricsParams
+from pulse3D.rendering.utils import get_metric_display_title, get_labels
 from semver import VersionInfo
 from stream_zip import ZIP_64, stream_zip
 from structlog.threadlocal import bind_threadlocal, clear_threadlocal
@@ -482,12 +473,14 @@ async def create_new_job(
 
         # convert these params into a format compatible with pulse3D
         for param, default_values in (
-            ("prominence_factors", DEFAULT_PROMINENCE_FACTORS),
+            ("prominence_factors", DefaultLegacyPeakFindingParams.PROMINENCE_FACTORS),
             (
                 "width_factors",
-                DEFAULT_NB_WIDTH_FACTORS if use_noise_based_peak_finding else DEFAULT_WIDTH_FACTORS,
+                DefaultNoiseBasedPeakFindingParams.WIDTH_FACTORS
+                if use_noise_based_peak_finding
+                else DefaultLegacyPeakFindingParams.WIDTH_FACTORS,
             ),
-            ("baseline_widths_to_use", DEFAULT_BASELINE_WIDTHS),
+            ("baseline_widths_to_use", DefaultMetricsParams.BASELINE_WIDTHS),
         ):
             if param in analysis_params:
                 analysis_params[param] = _format_tuple_param(analysis_params[param], default_values)
@@ -531,10 +524,10 @@ async def create_new_job(
             if usage_quota["jobs_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
-            # if a name is present, then add to metadata of job
             job_meta = {"analysis_params": analysis_params, "version": details.version}
+            # if a name is present, then add to metadata of job
             if details.name_override and pulse3d_semver >= "0.32.2":
-                job_meta.update({"name_override": details.name_override})
+                job_meta["name_override"] = details.name_override
 
             # finally create job
             job_id = await create_job(
@@ -788,6 +781,7 @@ async def get_interactive_waveform_data(
         pv_parquet_key = f"{selected_job['prefix']}/{job_id}/peaks_valleys.parquet"
         peaks_valleys_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, pv_parquet_key)
 
+        # TODO probably need to update this
         data_type = analysis_params.get("data_type")
         if not data_type:
             # if data type is not present, is present and is None, or some other falsey value, set to Force as default
@@ -796,7 +790,7 @@ async def get_interactive_waveform_data(
         return WaveformDataResponse(
             time_force_url=time_force_url,
             peaks_valleys_url=peaks_valleys_url,
-            amplitude_label=_get_full_amplitude_label(data_type),
+            amplitude_label=get_metric_display_title(TwitchMetrics.AMPLITUDE, get_labels(data_type)),
         )
     # ValueError gets raised when no object is found in s3 that matches given key
     except ValueError:
@@ -809,13 +803,6 @@ async def get_interactive_waveform_data(
     except Exception:
         logger.exception("Failed to get interactive waveform data")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-def _get_full_amplitude_label(data_type: str) -> str:
-    return CALCULATED_METRIC_DISPLAY_NAMES[AMPLITUDE_UUID].format(
-        amplitude=DATA_TYPE_TO_AMPLITUDE_LABEL.get(data_type.lower(), DEFAULT_AMPLITUDE_LABEL),
-        unit=DATA_TYPE_TO_UNIT_LABEL.get(data_type.lower(), DEFAULT_UNIT_LABEL),
-    )
 
 
 @app.get("/versions")
