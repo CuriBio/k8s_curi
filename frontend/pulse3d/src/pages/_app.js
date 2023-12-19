@@ -59,11 +59,11 @@ function Pulse({ Component, pageProps }) {
   const [accountInfo, setAccountInfo] = useState({});
   const [showLoggedOutAlert, setLoggedOutAlert] = useState(false);
   const [usageQuota, setUsageQuota] = useState();
-  const [availableScopes, setAvailableScopes] = useState({ customer: [], user: [] });
+  const [availableScopes, setAvailableScopes] = useState({ admin: [], user: [] });
   const [isCuriAdmin, setIsCuriAdmin] = useState(false);
   const [preferences, setPreferences] = useState({});
 
-  // TODO defaulting to mantarray for customer accounts until it's decided how to handle usage for multiple products
+  // TODO defaulting to mantarray for admin accounts until it's decided how to handle usage for multiple products
   const [productPage, setProductPage] = useState("mantarray");
 
   let swInterval = null;
@@ -112,7 +112,7 @@ function Pulse({ Component, pageProps }) {
             const newAccountInfo = data.accountInfo;
 
             if (data.isLoggedIn) {
-              setAvailableScopes({ customer: data.customerScopes, user: data.userScopes });
+              setAvailableScopes({ admin: data.adminScopes, user: data.userScopes });
               setIsCuriAdmin(newAccountInfo.accountScope.find((scope) => scope === "curi:admin"));
               // the router pathname must be sent to the SW and then sent back here since for some reason this message handler can't grab the current page
               setAccountInfo(newAccountInfo);

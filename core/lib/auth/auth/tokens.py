@@ -9,7 +9,7 @@ from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
 
-from .models import JWTMeta, JWTDetails, JWTPayload, Token
+from .models import AccountTypes, JWTMeta, JWTDetails, JWTPayload, Token
 from .settings import (
     JWT_SECRET_KEY,
     JWT_AUDIENCE,
@@ -67,14 +67,22 @@ def decode_token(token: str):
 
 
 def create_token(
-    *, userid: UUID | None, customer_id: UUID, scopes: list[Scopes], account_type: str, refresh: bool = False
+    *,
+    userid: UUID | None,
+    customer_id: UUID,
+    scopes: list[Scopes],
+    account_type: AccountTypes,
+    refresh: bool = False,
 ):
     # make sure tokens have at least 1 scope
     if not scopes:
         raise ValueError("Tokens must have at least 1 scope")
+
+    # TODO remove this once all calls use AccountTypes enum
     # make sure account type is valid
-    if account_type not in ("user", "customer"):
-        raise ValueError(f"Valid account types are 'user' and 'customer', not '{account_type}'")
+    if account_type not in ("user", "admin"):
+        raise ValueError(f"Valid account types are 'user' and 'admin', not '{account_type}'")
+
     # TODO remove this after testing?
     if not customer_id:
         raise ValueError("All tokens must have a customer ID")
@@ -85,7 +93,7 @@ def create_token(
         raise ValueError("If an account scope is present, it must be the only scope present")
 
     # make sure no invalid scopes or fields based on account type
-    if account_type == "user":
+    if account_type == AccountTypes.USER:
         # make sure a user is not given admin privileges
         if account_scopes:
             if admin_account_scopes := [s for s in account_scopes if "admin" in s]:
@@ -95,15 +103,15 @@ def create_token(
         if not userid:
             raise ValueError("User tokens must have a user ID")
         userid = userid.hex
-    if account_type == "customer":
+    if account_type == AccountTypes.ADMIN:
         if userid:
-            raise ValueError("Customer tokens cannot have a user ID")
+            raise ValueError("Admin tokens cannot have a user ID")
         # make sure admin only has admin scopes
         if account_scopes:
             if non_admin_account_scopes := [s for s in account_scopes if "admin" not in s]:
-                raise ValueError(f"Customer tokens cannot have scopes '{non_admin_account_scopes}'")
+                raise ValueError(f"Admin tokens cannot have scopes '{non_admin_account_scopes}'")
         elif non_admin_scopes := set(s for s in scopes if ScopeTags.ADMIN not in s.tags) - {Scopes.REFRESH}:
-            raise ValueError(f"Customer tokens cannot have scopes '{list(non_admin_scopes)}'")
+            raise ValueError(f"Admin tokens cannot have scopes '{list(non_admin_scopes)}'")
     # make sure no invalid scopes or fields based on token type
     if refresh:
         if non_refresh_scopes := set(scopes) - {Scopes.REFRESH}:
@@ -132,8 +140,8 @@ def create_token(
 
 
 # TODO add testing for all this
-async def get_account_scopes(db_con, account_id, is_customer_account):
-    if is_customer_account:
+async def get_account_scopes(db_con, account_id, is_admin_account):
+    if is_admin_account:
         query = "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL"
     else:
         query = "SELECT scope FROM account_scopes WHERE user_id=$1"
@@ -143,6 +151,7 @@ async def get_account_scopes(db_con, account_id, is_customer_account):
     return scope
 
 
+# TODO make sure all calls to this use AccountTypes
 async def create_new_tokens(db_con, userid, customer_id, scopes, account_type):
     refresh_scope = [Scopes.REFRESH]
 
@@ -157,7 +166,7 @@ async def create_new_tokens(db_con, userid, customer_id, scopes, account_type):
 
     # TODO should probably split this part out into its own function
     # insert refresh token into DB
-    if account_type == "customer":
+    if account_type == AccountTypes.ADMIN:
         account_id = customer_id
         update_query = "UPDATE customers SET refresh_token=$1 WHERE id=$2"
     else:

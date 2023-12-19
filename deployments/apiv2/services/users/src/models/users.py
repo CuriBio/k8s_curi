@@ -19,10 +19,10 @@ PASSWORD_REGEX = r"""(
     $)"""
 
 
-class CustomerLogin(BaseModel):
+class AdminLogin(BaseModel):
     email: EmailStr
     password: SecretStr
-    service: str | None  # TODO decide how to check usage for multiple products for a customer login
+    service: str | None  # TODO decide how to check usage for multiple products for an admin login
     client_type: str | None
 
 
@@ -56,7 +56,7 @@ class PasswordModel(BaseModel):
         return v
 
 
-class CustomerCreate(ScopeConverter):
+class AdminCreate(ScopeConverter):
     email: EmailStr
     scopes: list[Scopes]
 
@@ -91,7 +91,7 @@ class UserProfile(BaseModel):
     scopes: list[Scopes]
 
 
-class CustomerProfile(BaseModel):
+class AdminProfile(BaseModel):
     email: EmailStr
     user_id: str
     scopes: list[Scopes]
@@ -121,7 +121,7 @@ class LoginResponse(BaseModel):
     tokens: AuthTokens
     usage_quota: UsageQuota | None
     user_scopes: dict[Scopes, Scopes | None] | None
-    customer_scopes: dict[Scopes, Scopes | None] | None
+    admin_scopes: dict[Scopes, Scopes | None] | None
 
 
 class PreferencesUpdate(BaseModel):

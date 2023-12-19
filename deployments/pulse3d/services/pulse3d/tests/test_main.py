@@ -6,7 +6,7 @@ import uuid
 import pandas as pd
 import pytest
 from semver import VersionInfo
-from auth import create_token, Scopes, ScopeTags
+from auth import create_token, Scopes, ScopeTags, AccountTypes
 from utils.s3 import S3Error
 from src import main
 import numpy as np
@@ -53,8 +53,8 @@ def create_test_df(include_raw_data: bool = True):
     return pd.DataFrame(data)
 
 
-def get_token(scopes, account_type="user", userid=None, customer_id=None):
-    if not userid and account_type == "user":
+def get_token(scopes, account_type=AccountTypes.USER, userid=None, customer_id=None):
+    if not userid and account_type == AccountTypes.USER:
         userid = uuid.uuid4()
     if not customer_id:
         customer_id = uuid.uuid4()
@@ -109,15 +109,16 @@ def test_logs__post(mocker):
 def test_uploads__get(test_token_scope, test_upload_ids, mocked_asyncpg_con, mocker):
     mocked_get_uploads = mocker.patch.object(main, "get_uploads", autospec=True, return_value=[])
 
-    account_type = "customer" if ScopeTags.ADMIN in test_token_scope[0].tags else "user"
+    account_type = AccountTypes.ADMIN if ScopeTags.ADMIN in test_token_scope[0].tags else AccountTypes.USER
+    is_admin_account = account_type == AccountTypes.ADMIN
 
     test_account_id = uuid.uuid4()
-    test_customer_id = test_account_id if account_type == "customer" else uuid.uuid4()
+    test_customer_id = test_account_id if is_admin_account else uuid.uuid4()
 
     access_token = get_token(
         scopes=test_token_scope,
         account_type=account_type,
-        userid=None if account_type == "customer" else test_account_id,
+        userid=None if is_admin_account else test_account_id,
         customer_id=test_customer_id,
     )
 
@@ -248,15 +249,17 @@ def test_uploads__post_if_customer_quota_has_been_reached(mocked_asyncpg_con, mo
 def test_uploads__delete(test_token_scope, test_upload_ids, mocked_asyncpg_con, mocker):
     mocked_delete_uploads = mocker.patch.object(main, "delete_uploads", autospec=True)
 
-    account_type = "customer" if ScopeTags.ADMIN in test_token_scope[0].tags else "user"
+    account_type = AccountTypes.ADMIN if ScopeTags.ADMIN in test_token_scope[0].tags else AccountTypes.USER
 
     test_account_id = uuid.uuid4()
-    test_customer_id = test_account_id if account_type == "customer" else uuid.uuid4()
+
+    is_admin_account = account_type == AccountTypes.ADMIN
+    test_customer_id = test_account_id if is_admin_account else uuid.uuid4()
 
     access_token = get_token(
         scopes=test_token_scope,
         account_type=account_type,
-        userid=None if account_type == "customer" else test_account_id,
+        userid=None if is_admin_account else test_account_id,
         customer_id=test_customer_id,
     )
 
@@ -318,15 +321,16 @@ def test_uploads__delete__failure_to_delete_uploads(mocker):
     "test_job_ids", [None, [], uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]]
 )
 def test_jobs__get__jobs_found(download, test_token_scope, test_job_ids, mocked_asyncpg_con, mocker):
-    account_type = "customer" if ScopeTags.ADMIN in test_token_scope[0].tags else "user"
+    account_type = AccountTypes.ADMIN if ScopeTags.ADMIN in test_token_scope[0].tags else AccountTypes.USER
+    is_admin_account = account_type == AccountTypes.ADMIN
 
     test_account_id = uuid.uuid4()
-    test_customer_id = test_account_id if account_type == "customer" else uuid.uuid4()
+    test_customer_id = test_account_id if is_admin_account else uuid.uuid4()
 
     access_token = get_token(
         scopes=test_token_scope,
         account_type=account_type,
-        userid=None if account_type == "customer" else test_account_id,
+        userid=None if is_admin_account else test_account_id,
         customer_id=test_customer_id,
     )
 
@@ -381,7 +385,7 @@ def test_jobs__get__jobs_found(download, test_token_scope, test_job_ids, mocked_
         job["id"] = job.pop("job_id")
         job["meta"] = job.pop("job_meta")
         job.pop("user_id")
-        if account_type != "customer":
+        if account_type != AccountTypes.ADMIN:
             job["owner"] = True
 
     # if all jobs are retrieved successfully, this should be the only key in the response dict
@@ -948,14 +952,16 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
 def test_jobs__delete(test_token_scope, test_job_ids, mocked_asyncpg_con, mocker):
     mocked_delete_jobs = mocker.patch.object(main, "delete_jobs", autospec=True)
 
-    account_type = "customer" if ScopeTags.ADMIN in test_token_scope[0].tags else "user"
+    account_type = AccountTypes.ADMIN if ScopeTags.ADMIN in test_token_scope[0].tags else AccountTypes.USER
     test_account_id = uuid.uuid4()
-    test_customer_id = test_account_id if account_type == "customer" else uuid.uuid4()
+
+    is_admin_account = account_type == AccountTypes.ADMIN
+    test_customer_id = test_account_id if is_admin_account else uuid.uuid4()
 
     access_token = get_token(
         scopes=test_token_scope,
         account_type=account_type,
-        userid=None if account_type == "customer" else test_account_id,
+        userid=None if is_admin_account else test_account_id,
         customer_id=test_customer_id,
     )
 
@@ -1011,15 +1017,17 @@ def test_jobs__delete__failure_to_delete_jobs(mocker):
 def test_jobs_download__post__no_duplicate_analysis_file_names(
     test_token_scope, test_job_ids, mocked_asyncpg_con, mocker
 ):
-    account_type = "customer" if ScopeTags.ADMIN in test_token_scope[0].tags else "user"
+    account_type = AccountTypes.ADMIN if ScopeTags.ADMIN in test_token_scope[0].tags else AccountTypes.USER
 
     test_account_id = uuid.uuid4()
-    test_customer_id = test_account_id if account_type == "customer" else uuid.uuid4()
+
+    is_admin_account = account_type == AccountTypes.ADMIN
+    test_customer_id = test_account_id if is_admin_account else uuid.uuid4()
 
     access_token = get_token(
         scopes=test_token_scope,
         account_type=account_type,
-        userid=None if account_type == "customer" else test_account_id,
+        userid=None if is_admin_account else test_account_id,
         customer_id=test_customer_id,
     )
 
@@ -1067,15 +1075,17 @@ def test_jobs_download__post__no_duplicate_analysis_file_names(
 
 @pytest.mark.parametrize("test_token_scope", [[s] for s in P3D_READ_SCOPES])
 def test_jobs_download__post__duplicate_analysis_file_names(mocked_asyncpg_con, test_token_scope, mocker):
-    account_type = "customer" if ScopeTags.ADMIN in test_token_scope[0].tags else "user"
+    account_type = AccountTypes.ADMIN if ScopeTags.ADMIN in test_token_scope[0].tags else AccountTypes.USER
 
     test_account_id = uuid.uuid4()
-    test_customer_id = test_account_id if account_type == "customer" else uuid.uuid4()
+
+    is_admin_account = account_type == AccountTypes.ADMIN
+    test_customer_id = test_account_id if is_admin_account else uuid.uuid4()
 
     access_token = get_token(
         scopes=test_token_scope,
         account_type=account_type,
-        userid=None if account_type == "customer" else test_account_id,
+        userid=None if is_admin_account else test_account_id,
         customer_id=test_customer_id,
     )
 
@@ -1165,15 +1175,16 @@ def test_uploads_download__post__correctly_handles_single_file_downloads(
     test_token_scope, mocked_asyncpg_con, mocker
 ):
     test_upload_ids = [uuid.uuid4()]
-    account_type = "customer" if ScopeTags.ADMIN in test_token_scope[0].tags else "user"
+    account_type = AccountTypes.ADMIN if ScopeTags.ADMIN in test_token_scope[0].tags else AccountTypes.USER
 
     test_account_id = uuid.uuid4()
-    test_customer_id = test_account_id if account_type == "customer" else uuid.uuid4()
+    is_admin_account = account_type == AccountTypes.ADMIN
+    test_customer_id = test_account_id if is_admin_account else uuid.uuid4()
 
     access_token = get_token(
         scopes=test_token_scope,
         account_type=account_type,
-        userid=None if account_type == "customer" else test_account_id,
+        userid=None if is_admin_account else test_account_id,
         customer_id=test_customer_id,
     )
 
@@ -1224,7 +1235,7 @@ def test_uploads_download__post__correctly_handles_multiple_file_downloads(
     test_token_scope, test_upload_ids, mocked_asyncpg_con, mocker
 ):
     test_account_id = uuid.uuid4()
-    account_type = "customer" if test_token_scope in (["customer:free"], ["customer:paid"]) else "user"
+    account_type = AccountTypes.ADMIN if ScopeTags.ADMIN in test_token_scope[0].tags else AccountTypes.USER
     access_token = get_token(
         scopes=[Scopes.MANTARRAY__BASE], account_type=account_type, userid=test_account_id
     )
@@ -1403,8 +1414,8 @@ def test_waveform_data__get__no_time_force_parquet_found(mocker, pulse3d_version
 @pytest.mark.parametrize(
     "token",
     [
-        get_token([Scopes.MANTARRAY__BASE], account_type="user"),
-        get_token([Scopes.MANTARRAY__ADMIN], account_type="customer"),
+        get_token([Scopes.MANTARRAY__BASE], account_type=AccountTypes.USER),
+        get_token([Scopes.MANTARRAY__ADMIN], account_type=AccountTypes.ADMIN),
         None,
     ],
 )

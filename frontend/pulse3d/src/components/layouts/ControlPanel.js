@@ -131,9 +131,8 @@ const modalObjs = {
 
 export default function ControlPanel() {
   const router = useRouter();
-  const { accountType, usageQuota, accountScope, isCuriAdmin, preferences, productPage } = useContext(
-    AuthContext
-  );
+  const { accountType, usageQuota, accountScope, isCuriAdmin, preferences, productPage } =
+    useContext(AuthContext);
   const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
   const [selected, setSelected] = useState(router.pathname.replace("-", " ").replace("/", ""));
   const [expanded, setExpanded] = useState(null);
@@ -203,8 +202,8 @@ export default function ControlPanel() {
   }
 
   if (isCuriAdmin) {
-    // if the curi admin acccount is logged in, allow them to add new customers
-    adminButtons[1].options.push("Customer");
+    // if the curi admin acccount is logged in, allow them to add new admins
+    adminButtons[1].options.push("Admin");
   }
 
   useEffect(() => {

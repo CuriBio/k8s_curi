@@ -131,7 +131,7 @@ async def get_info_of_uploads(
         # TODO update this to product specific when landing page is specced out more
         if Scopes.MANTARRAY__RW_ALL_DATA in token.scopes:
             account_id = str(uuid.UUID(token.customer_id))
-            # catches in the else block like customers in get_uploads, just set here so it's not customer and become confusing
+            # catches in the else block like admins in get_uploads, just set here so it's not admin and become confusing
             account_type = "rw_all_user"
 
         async with request.state.pgpool.acquire() as con:
@@ -139,7 +139,7 @@ async def get_info_of_uploads(
                 con=con, account_type=account_type, account_id=account_id, upload_ids=upload_ids
             )
             if is_user:
-                # customer accounts don't matter here because they don't have the ability to delete
+                # admin accounts don't matter here because they don't have the ability to delete
                 for upload in uploads:
                     # need way on FE to tell if user owns recordings besides username since current user's username is not stored on the FE. We want to prevent users from attempting to delete files that aren't theirs before calling /delete route
                     upload["owner"] = str(upload["user_id"]) == account_id
@@ -343,7 +343,7 @@ async def get_info_of_jobs(
             }
 
             if is_user:
-                # customer accounts don't have the ability to delete so doesn't need this key:value
+                # admin accounts don't have the ability to delete so doesn't need this key:value  # TODO is this comment still necessary?
                 # need way on FE to tell if user owns recordings besides username since current user's username is not stored on the FE. We want to prevent users from attempting to delete files that aren't theirs before calling /delete route
                 job_info["owner"] = str(job["user_id"]) == account_id
 
@@ -515,7 +515,7 @@ async def create_new_job(
                         error="AuthorizationError",
                     )
 
-            # second, check usage quota for customer account
+            # second, check usage quota for customer
             usage_quota = await check_customer_quota(con, customer_id, upload_type)
             if usage_quota["jobs_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")

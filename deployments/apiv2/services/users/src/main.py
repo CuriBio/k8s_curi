@@ -32,16 +32,17 @@ from auth import (
     AuthTokens,
     get_account_scopes,
     create_new_tokens,
+    AccountTypes,
 )
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
 from models.errors import LoginError, RegistrationError, EmailRegistrationError
 from models.users import (
-    CustomerLogin,
+    AdminLogin,
     UserLogin,
-    CustomerCreate,
+    AdminCreate,
     UserCreate,
-    CustomerProfile,
+    AdminProfile,
     UserProfile,
     AccountUpdateAction,
     LoginResponse,
@@ -110,24 +111,24 @@ async def startup():
     await asyncpg_pool()
 
 
-@app.post("/login/customer", response_model=LoginResponse)
-async def login_customer(request: Request, details: CustomerLogin):
-    """Login a customer account.
+@app.post("/login/admin", response_model=LoginResponse)
+async def login_admin(request: Request, details: AdminLogin):
+    """Login an admin account.
 
     Logging in consists of validating the given credentials and, if valid,
     returning a JWT with the appropriate privileges.
 
     If no customer id is given, assume this is an attempt to login to a
-    customer account which has admin privileges over its users, but cannot
+    admin account which has admin privileges over its users, but cannot
     interact with any other services.
     """
-    account_type = "customer"
+    account_type = AccountTypes.ADMIN
     email = details.email.lower()
     client_type = details.client_type if details.client_type else "unknown"
 
     bind_threadlocal(client_type=client_type, email=email)
 
-    logger.info(f"Customer login attempt from client '{client_type}'")
+    logger.info(f"Admin login attempt from client '{client_type}'")
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -153,14 +154,14 @@ async def login_customer(request: Request, details: CustomerLogin):
             scopes = await get_account_scopes(con, customer_id, True)
 
             # TODO split this part out into a new route
-            # get list of scopes that a customer can assign to its users
+            # get list of scopes that the admin can assign to its users
             avail_user_scopes = get_assignable_user_scopes(scopes)
             user_scope_dependencies = get_scope_dependencies(avail_user_scopes)
             avail_admin_scopes = get_assignable_admin_scopes(scopes)
             admin_scope_dependencies = get_scope_dependencies(avail_admin_scopes)
 
-            # TODO decide how to show customer accounts usage data for multiple products, defaulting to mantarray now
-            # check usage for customer account
+            # TODO decide how to show admin accounts usage data for multiple products, defaulting to mantarray now
+            # check usage for customer
             usage_quota = await check_customer_quota(con, str(customer_id), "mantarray")
 
             # if login was successful, then update last_login column value to now
@@ -172,18 +173,18 @@ async def login_customer(request: Request, details: CustomerLogin):
 
             tokens = await create_new_tokens(con, None, customer_id, scopes, account_type)
 
-            # TODO fix tests for this
+            # TODO fix tests for this?
             return LoginResponse(
                 tokens=tokens,
                 usage_quota=usage_quota,
                 user_scopes=user_scope_dependencies,
-                customer_scopes=admin_scope_dependencies,
+                admin_scopes=admin_scope_dependencies,
             )
 
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     except Exception:
-        logger.exception("POST /login/customer: Unexpected error")
+        logger.exception("POST /login/admin: Unexpected error")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal error. Please try again later.",
@@ -202,7 +203,7 @@ async def login_user(request: Request, details: UserLogin):
     customer_id = details.customer_id
     user_id = None
 
-    # select for service specific usage restrictions listed under the customer account
+    # select for service specific usage restrictions of the customer
     # suspended is for deactivated accounts and verified is for new users needing to verify through email
     # Tanner (7/25/23): need to use separate queries since asyncpg will raise an error if the value passed in to be compared against customer_id is not a UUID
     if isinstance(customer_id, uuid.UUID):
@@ -295,7 +296,7 @@ async def _verify_password(con, account_type, pw, select_query_result) -> None:
         if select_query_result["failed_login_attempts"] >= MAX_FAILED_LOGIN_ATTEMPTS:
             raise LoginError(account_locked_msg)
 
-        # increment customer/user failed attempts
+        # increment admin/user failed attempts
         logger.info(
             f"Failed login attempt {select_query_result['failed_login_attempts'] + 1} for {account_type} id: {select_query_result['id']}"
         )
@@ -309,7 +310,7 @@ async def _verify_password(con, account_type, pw, select_query_result) -> None:
         )
     except InvalidHash:
         """
-        The user or customer wasn't found but we don't want to leak info about valid users/customers
+        The user or admin wasn't found but we don't want to leak info about valid users/admins
         through timing analysis so we still hash the supplied password before returning an error
         """
         ph.hash(pw)
@@ -339,22 +340,22 @@ async def refresh(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.RE
     """Create a new access token and refresh token.
 
     The refresh token given in the request is first decoded and validated itself,
-    then the refresh token stored in the DB for the user/customer making the request
+    then the refresh token stored in the DB for the user/admin making the request
     is decoded and validated, followed by checking that both tokens are the same.
 
     The value for the refresh token in the DB can either be null, an expired token, or a valid token.
     The client is considered logged out if the refresh token in the DB is null or expired and new tokens will
     not be generated in this case.
 
-    In a successful request, the new refresh token will be stored in the DB for the given user/customer account
+    In a successful request, the new refresh token will be stored in the DB for the given user/admin account
     """
     account_id = uuid.UUID(hex=token.account_id)
     account_type = token.account_type
-    is_customer_account = account_type == "customer"
+    is_admin_account = account_type == AccountTypes.ADMIN
 
     bind_threadlocal(customer_id=token.customer_id, user_id=token.userid)
 
-    if is_customer_account:
+    if is_admin_account:
         select_query = "SELECT refresh_token FROM customers WHERE id=$1"
     else:
         select_query = "SELECT refresh_token, customer_id FROM users WHERE id=$1"
@@ -375,11 +376,11 @@ async def refresh(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.RE
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
-            scopes = await get_account_scopes(con, account_id, is_customer_account)
+            scopes = await get_account_scopes(con, account_id, is_admin_account)
 
             # con is passed to this function, so it must be inside this async with block
-            user_id = None if is_customer_account else account_id
-            customer_id = account_id if is_customer_account else row["customer_id"]
+            user_id = None if is_admin_account else account_id
+            customer_id = account_id if is_admin_account else row["customer_id"]
             return await create_new_tokens(con, user_id, customer_id, scopes, account_type)
 
     except HTTPException:
@@ -391,9 +392,9 @@ async def refresh(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.RE
 
 @app.post("/logout", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 async def logout(request: Request, token=Depends(ProtectedAny(scopes=list(Scopes)))):
-    """Logout the user/customer.
+    """Logout the user/admin.
 
-    The refresh token for the user/customer will be removed from the DB, so they will
+    The refresh token for the user/admin will be removed from the DB, so they will
     not be able to retrieve new tokens from /refresh. The only way to get new tokens at this point
     is through /login.
 
@@ -401,11 +402,11 @@ async def logout(request: Request, token=Depends(ProtectedAny(scopes=list(Scopes
     It is up to the client to discard the access token in order to truly logout the user.
     """
     account_id = uuid.UUID(hex=token.account_id)
-    is_customer_account = token.account_type == "customer"
+    is_admin_account = token.account_type == AccountTypes.ADMIN
 
     bind_threadlocal(customer_id=token.customer_id, user_id=str(account_id))
 
-    if is_customer_account:
+    if is_admin_account:
         update_query = "UPDATE customers SET refresh_token = NULL WHERE id=$1"
     else:
         update_query = "UPDATE users SET refresh_token = NULL WHERE id=$1"
@@ -419,13 +420,13 @@ async def logout(request: Request, token=Depends(ProtectedAny(scopes=list(Scopes
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.post("/register/customer", response_model=CustomerProfile, status_code=status.HTTP_201_CREATED)
-async def register_customer(
-    request: Request, details: CustomerCreate, token=Depends(ProtectedAny(scopes=[Scopes.CURI__ADMIN]))
+@app.post("/register/admin", response_model=AdminProfile, status_code=status.HTTP_201_CREATED)
+async def register_admin(
+    request: Request, details: AdminCreate, token=Depends(ProtectedAny(scopes=[Scopes.CURI__ADMIN]))
 ):
-    """Register a customer account.
+    """Register an admin account for a new customer.
 
-    Only the Curi Bio root account can create new customers.
+    Only the Curi Bio root account can create new admins.
     """
     try:
         email = details.email.lower()
@@ -445,9 +446,9 @@ async def register_customer(
                     bind_threadlocal(customer_id=str(new_account_id), email=email)
                 except UniqueViolationError as e:
                     if "customers_email_key" in str(e):
-                        # Returning this message is currently ok since only the Curi customer account
-                        # can register other customers. Consider removing this message if the permissions are
-                        # ever changed to allow people outside of Curi to register customer accounts
+                        # Returning this message is currently ok since only the Curi root account
+                        # can register other admins. Consider removing this message if the permissions are
+                        # ever changed to allow people outside of Curi to register admin accounts
                         failed_msg = "Email already in use"
                     else:
                         # default catch-all error message
@@ -472,12 +473,12 @@ async def register_customer(
                     email=email,
                 )
 
-                return CustomerProfile(email=email, user_id=new_account_id.hex, scopes=details.scopes)
+                return AdminProfile(email=email, user_id=new_account_id.hex, scopes=details.scopes)
 
     except (RegistrationError, ProhibitedScopeError) as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception:
-        logger.exception("POST /register/customer: Unexpected error")
+        logger.exception("POST /register/admin: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -487,7 +488,7 @@ async def register_user(
 ):
     """Register a user account.
 
-    Only customer accounts with admin privileges can register users.
+    Only admin accounts can register users.
     """
     customer_id = uuid.UUID(hex=token.customer_id)
     admin_scopes = token.scopes
@@ -620,7 +621,7 @@ async def _create_account_email(
         if ScopeTags.ACCOUNT not in scope.tags:
             raise Exception(f"Scope {scope} is not allowed in an email token")
 
-        account_type = "user" if "user" in scope else "customer"
+        account_type = AccountTypes.USER if "user" in scope else AccountTypes.ADMIN
 
         query = f"UPDATE {account_type}s SET reset_token=$1 WHERE id=$2"
 
@@ -695,8 +696,8 @@ async def update_accounts(
 
         bind_threadlocal(customer_id=token.customer_id, user_id=token.userid)
 
-        is_customer = token.account_type == "customer"
-        is_user = not is_customer
+        is_admin = token.account_type == AccountTypes.ADMIN
+        is_user = not is_admin
 
         pw = details.password1.get_secret_value()
         ph = PasswordHasher()
@@ -709,7 +710,7 @@ async def update_accounts(
                 # get necessary info from DB before making any changes or validating any data
                 query = (
                     "SELECT reset_token, previous_passwords FROM customers WHERE id=$1"
-                    if is_customer
+                    if is_admin
                     else "SELECT verified, reset_token, previous_passwords FROM users WHERE id=$1 AND customer_id=$2"
                 )
                 query_params = [account_id]
@@ -750,7 +751,7 @@ async def update_accounts(
                 # Update the password of the account, and if it is a user also set the account as verified
                 query = (
                     "UPDATE customers SET reset_token=NULL, password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) WHERE id=$2"
-                    if is_customer
+                    if is_admin
                     else "UPDATE users SET verified='t', reset_token=NULL, password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) WHERE id=$2 AND customer_id=$3"
                 )
                 query_params = [phash, account_id]
@@ -766,7 +767,7 @@ async def update_accounts(
 
 @app.get("/")
 async def get_all_users(request: Request, token=Depends(ProtectedAny(tag=ScopeTags.ADMIN))):
-    """Get info for all the users under the given customer account.
+    """Get info for all the users under the given admin account.
 
     List of users returned will be sorted with all active users showing up first, then all the suspended (deactivated) users
     """
@@ -811,7 +812,7 @@ async def update_user_scopes(
     account_id: uuid.UUID,
     token=Depends(ProtectedAny(tag=ScopeTags.ADMIN)),
 ):
-    """Update a user account's scopes in the database."""
+    """Update a user's scopes in the database."""
     customer_id = uuid.UUID(hex=token.customer_id)
     admin_scopes = token.scopes
     user_scopes = details.scopes
@@ -895,7 +896,7 @@ async def get_user(
     If the account is a user account, the ID must exist under the customer ID in the token
     """
     self_id = uuid.UUID(hex=token.account_id)
-    is_customer_account = token.account_type == "customer"
+    is_admin_account = token.account_type == AccountTypes.ADMIN
     is_self_retrieval = self_id == account_id
 
     get_user_info_query = (
@@ -903,12 +904,12 @@ async def get_user(
         "WHERE customer_id=$1 AND id=$2 AND deleted_at IS NULL"
     )
 
-    if is_customer_account:
+    if is_admin_account:
         if is_self_retrieval:
             query = "SELECT id, created_at, alias FROM customers WHERE id=$1"
             query_args = (self_id,)
         else:
-            # assume that account ID is a user ID since no customer account can retrieve details of another
+            # assume that account ID is a user ID since no admin account can retrieve details of another
             query = get_user_info_query
             query_args = (self_id, account_id)
 
@@ -933,10 +934,10 @@ async def get_user(
             row = await con.fetchrow(query, *query_args)
 
         if not row:
-            if is_customer_account and self_id == account_id:
+            if is_admin_account and self_id == account_id:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Error retrieving customer account details",
+                    detail="Error retrieving admin account details",
                 )
             else:
                 raise HTTPException(
@@ -964,24 +965,24 @@ async def update_user(
     """Update an account's information in the database.
 
     There are three classes of actions that can be taken:
-        - a customer account updating one of its user accounts
-        - a customer account updating itself
+        - an admin account updating one of its user accounts
+        - an admin account updating itself
         - a user account updating itself (not yet available)
 
     The action to take on the user should be passed in the body of PUT request as action_type:
-        - deactivate (customer->user): set suspended field to true
-        - delete (customer->user): set deleted_at field to current time
-        - set_alias (customer->self): set the alias field to the given value
+        - deactivate (admin->user): set suspended field to true
+        - delete (admin->user): set deleted_at field to current time
+        - set_alias (admin->self): set the alias field to the given value
     """
     self_id = uuid.UUID(hex=token.account_id)
     action = details.action_type
 
-    is_customer_account = token.account_type == "customer"
+    is_admin_account = token.account_type == AccountTypes.ADMIN
     is_self_edit = self_id == account_id
 
     # TODO also need to check scope below once user self edit actions are added?
 
-    if is_customer_account:
+    if is_admin_account:
         bind_threadlocal(user_id=str(account_id), customer_id=str(self_id), action=action)
 
         if is_self_edit:
@@ -999,7 +1000,7 @@ async def update_user(
             else:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid customer-edit-self action: {action}",
+                    detail=f"Invalid admin-edit-self action: {action}",
                 )
         else:
             if action == "deactivate":
@@ -1017,7 +1018,7 @@ async def update_user(
             else:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid customer-edit-user action: {action}",
+                    detail=f"Invalid admin-edit-user action: {action}",
                 )
     else:
         # TODO unit test this else branch
