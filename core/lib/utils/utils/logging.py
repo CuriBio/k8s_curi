@@ -30,7 +30,6 @@ def drop_color_message_key(_, __, event_dict: EventDict) -> EventDict:
 
 def setup_logger():
     shared_processors: list[Processor] = [
-        # structlog.threadlocal.merge_threadlocal,
         structlog.contextvars.merge_contextvars,
         drop_color_message_key,
         structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M.%S"),
