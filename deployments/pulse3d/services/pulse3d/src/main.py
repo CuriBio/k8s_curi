@@ -217,6 +217,7 @@ async def create_recording_upload(
 async def soft_delete_uploads(
     request: Request,
     upload_ids: list[uuid.UUID] = Query(None),
+    # TODO should this be ScopeTags.PULSE3D_WRITE?
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     # make sure at least one upload ID was given
@@ -629,6 +630,7 @@ def _format_tuple_param(
 async def soft_delete_jobs(
     request: Request,
     job_ids: list[uuid.UUID] = Query(None),
+    # TODO should this be ScopeTags.PULSE3D_WRITE?
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     # make sure at least one job ID was given
