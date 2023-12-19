@@ -49,6 +49,7 @@ class JobRequest(BaseModel):
     baseline_widths_to_use: TupleParam | None
     twitch_widths: list[int] | None
     peaks_valleys: dict[str, list[list[Number]]] | None
+    timepoints: list[Number] | None  # not used for pulse3d versions < 1.0.0
 
     start_time: Number | None
     end_time: Number | None

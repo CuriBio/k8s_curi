@@ -7,7 +7,7 @@ from collections import defaultdict
 from datetime import datetime
 
 import boto3
-import pandas as pd
+import polars as pl
 import structlog
 from auth import ScopeTags, Scopes, ProtectedAny, check_prohibited_product, ProhibitedProductError
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
@@ -24,7 +24,12 @@ from jobs import (
     get_uploads,
 )
 from pulse3D.constants import DataTypes
-from pulse3D.peak_finding.constants import DefaultLegacyPeakFindingParams, DefaultNoiseBasedPeakFindingParams
+from pulse3D.peak_finding.constants import (
+    DefaultLegacyPeakFindingParams,
+    DefaultNoiseBasedPeakFindingParams,
+    FeatureMarkers,
+)
+from pulse3D.peak_finding.utils import create_empty_df, mark_features
 from pulse3D.metrics.constants import TwitchMetrics, DefaultMetricsParams
 from pulse3D.rendering.utils import get_metric_display_title, get_labels
 from semver import VersionInfo
@@ -559,17 +564,15 @@ async def create_new_job(
                 # only added during interactive analysis
                 with tempfile.TemporaryDirectory() as tmpdir:
                     pv_parquet_path = os.path.join(tmpdir, "peaks_valleys.parquet")
-                    peak_valleys_dict = dict()
 
-                    # format peaks and valleys to simple df
-                    for well, peaks_valleys in details.peaks_valleys.items():
-                        for feature_idx, feature_name in enumerate(["peaks", "valleys"]):
-                            peak_valleys_dict[f"{well}__{feature_name}"] = (
-                                pd.Series(peaks_valleys[feature_idx]) + peak_valley_diff
-                            )
-
+                    if pulse3d_semver >= "1.0.0":
+                        features_df = _create_features_df(
+                            details.timepoints, details.peaks_valleys, peak_valley_diff
+                        )
+                    else:
+                        features_df = _create_legacy_features_df(details.peaks_valleys, peak_valley_diff)
                     # write peaks and valleys to parquet file in temporary directory
-                    pd.DataFrame(peak_valleys_dict).to_parquet(pv_parquet_path)
+                    features_df.to_parquet(pv_parquet_path)
                     # upload to s3 under upload id and job id for pulse3d-worker to use
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
 
@@ -860,3 +863,33 @@ async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(tag=
     except Exception:
         logger.exception("Failed to get analysis presets for user")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _create_features_df(timepoints, features, peak_valley_diff):
+    ia_features = _create_legacy_features_df(features, peak_valley_diff)
+
+    wells = {c.split("__")[0] for c in ia_features.columns}
+
+    formatted_features = create_empty_df(timepoints, wells)
+
+    for well in ia_features.select(pl.exclude("time")).columns:
+        peaks = ia_features[f"{well}__peaks"].cast(int).drop_nulls()
+        valleys = ia_features[f"{well}__valleys"].cast(int).drop_nulls()
+
+        formatted_features = mark_features(formatted_features, peaks, FeatureMarkers.PEAKS, well)
+        formatted_features = mark_features(formatted_features, valleys, FeatureMarkers.VALLEYS, well)
+
+    return formatted_features
+
+
+def _create_legacy_features_df(features, peak_valley_diff):
+    peak_valleys_dict = dict()
+
+    # format peaks and valleys to simple df
+    for well, peaks_valleys in features.items():
+        for feature_idx, feature_name in enumerate(["peaks", "valleys"]):
+            peak_valleys_dict[f"{well}__{feature_name}"] = (
+                pl.Series(peaks_valleys[feature_idx]) + peak_valley_diff
+            )
+
+    return pl.DataFrame(peak_valleys_dict)

@@ -1,5 +1,6 @@
 import asyncio
 from copy import deepcopy
+from dataclasses import asdict
 import json
 import os
 import tempfile
@@ -22,6 +23,7 @@ from pulse3D.data_loader import (
     InstrumentTypes,
     BaseMetadata,
 )
+from pulse3D.peak_finding import LoadedDataWithFeatures
 from pulse3D.pre_analysis import PreAnalyzedData, process
 from pulse3D.rendering import OutputFormats
 from semver import VersionInfo
@@ -99,9 +101,9 @@ async def process_item(con, item):
             raise
 
         with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
-            zipped_recording_filename = f"{os.path.splitext(upload_filename)[0]}.zip"
-            zipped_recording_key = f"{prefix}/time_force_data/{PULSE3D_VERSION}/{zipped_recording_filename}"
-            zipped_recording_path = os.path.join(tmpdir, zipped_recording_filename)
+            zipped_analysis_filename = f"{os.path.splitext(upload_filename)[0]}.zip"
+            zipped_analysis_key = f"{prefix}/time_force_data/{PULSE3D_VERSION}/{zipped_analysis_filename}"
+            zipped_analysis_path = os.path.join(tmpdir, zipped_analysis_filename)
 
             stim_waveforms_path = os.path.join(tmpdir, "stim_waveforms.parquet")
             tissue_waveforms_path = os.path.join(tmpdir, "tissue_waveforms.parquet")
@@ -128,10 +130,10 @@ async def process_item(con, item):
                 logger.info("No existing peaks and valleys found for recording")
 
             try:
-                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, zipped_recording_key, zipped_recording_path)
-                logger.info(f"Downloaded existing preanalyed data to {zipped_recording_path}")
+                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, zipped_analysis_key, zipped_analysis_path)
+                logger.info(f"Downloaded existing preanalyed data to {zipped_analysis_path}")
 
-                with ZipFile(zipped_recording_path) as z:
+                with ZipFile(zipped_analysis_path) as z:
                     z.extractall(tmpdir)
 
                 tissue_waveforms = pl.read_parquet(tissue_waveforms_path)
@@ -150,7 +152,7 @@ async def process_item(con, item):
 
                 re_analysis = True
             except Exception:  # TODO catch only boto3 errors here
-                logger.info(f"No existing data found for recording {zipped_recording_filename}")
+                logger.info(f"No existing data found for recording {zipped_analysis_filename}")
 
             # remove params that were not given as these already have default values
             analysis_params = {k: v for k, v in metadata["analysis_params"].items() if v is not None}
@@ -188,7 +190,7 @@ async def process_item(con, item):
 
                         z.write(metadata_path, "metadata.json")
 
-                    upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=zipped_recording_key, file=zipfile)
+                    upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=zipped_analysis_key, file=zipfile)
                     logger.info("Uploaded preanalyzed data to S3")
                 except Exception:
                     logger.exception("Upload failed")
@@ -214,26 +216,38 @@ async def process_item(con, item):
             except Exception:
                 logger.exception("Error windowing tissue data")
 
-            try:
-                peak_detector_args = {
-                    param: val
-                    for param in (
-                        "relative_prominence_factor",
-                        "noise_prominence_factor",
-                        "height_factor",
-                        "width_factors",
-                        "max_frequency",
-                        "valley_search_duration",
-                        "upslope_duration",
-                        "upslope_noise_allowance_duration",
+            if interactive_analysis:
+                try:
+                    data_with_features = LoadedDataWithFeatures(
+                        **asdict(windowed_pre_analyzed_data),
+                        tissue_features=pl.read_parquet(features_filepath),
                     )
-                    if (val := analysis_params.get(param)) is not None
-                }
-                logger.info("Running peak detector")
-                data_with_features = peak_finder.run(windowed_pre_analyzed_data, alg_args=peak_detector_args)
-            except Exception:
-                logger.exception("PeakDetector failed")
-                raise
+                except Exception:
+                    logger.exception("Loading features from IA failed")
+                    raise
+            else:
+                try:
+                    peak_detector_args = {
+                        param: val
+                        for param in (
+                            "relative_prominence_factor",
+                            "noise_prominence_factor",
+                            "height_factor",
+                            "width_factors",
+                            "max_frequency",
+                            "valley_search_duration",
+                            "upslope_duration",
+                            "upslope_noise_allowance_duration",
+                        )
+                        if (val := analysis_params.get(param)) is not None
+                    }
+                    logger.info("Running peak detector")
+                    data_with_features = peak_finder.run(
+                        windowed_pre_analyzed_data, alg_args=peak_detector_args
+                    )
+                except Exception:
+                    logger.exception("PeakDetector failed")
+                    raise
 
             if not interactive_analysis:
                 try:
