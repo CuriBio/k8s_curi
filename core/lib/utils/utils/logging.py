@@ -33,7 +33,6 @@ def setup_logger():
         structlog.contextvars.merge_contextvars,
         drop_color_message_key,
         structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M.%S"),
-        structlog.processors.dict_tracebacks,
         structlog.processors.format_exc_info,
     ]
 
