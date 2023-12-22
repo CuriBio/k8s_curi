@@ -32,7 +32,7 @@ from pulse3D.peak_finding.constants import (
 )
 from pulse3D.peak_finding.utils import create_empty_df, mark_features
 from pulse3D.metrics.constants import TwitchMetrics, DefaultMetricsParams
-from pulse3D.rendering.utils import get_metric_display_title, get_labels
+from pulse3D.rendering.utils import get_metric_display_title
 from semver import VersionInfo
 from stream_zip import ZIP_64, stream_zip
 from structlog.threadlocal import bind_threadlocal, clear_threadlocal
@@ -524,7 +524,7 @@ async def create_new_job(
             # TODO remove this once done testing rc versions of pulse3d rewrite
             version = details.version
             if version == "1.0.0":
-                version = "1.0.0rc11"
+                version = "1.0.0rc13"
 
             job_meta = {"analysis_params": analysis_params, "version": version}
             # if a name is present, then add to metadata of job
@@ -548,9 +548,9 @@ async def create_new_job(
                 rewrite_job_id = await create_job(
                     con=con,
                     upload_id=upload_id,
-                    queue="test-pulse3d-v1.0.0rc11",
+                    queue="test-pulse3d-v1.0.0rc13",
                     priority=priority,
-                    meta={**job_meta, "version": "1.0.0rc11"},
+                    meta={**job_meta, "version": "1.0.0rc13"},
                     customer_id=customer_id,
                     job_type=upload_type,
                     # add_to_results=False,
@@ -783,7 +783,7 @@ async def get_interactive_waveform_data(
         return WaveformDataResponse(
             time_force_url=time_force_url,
             peaks_valleys_url=peaks_valleys_url,
-            amplitude_label=get_metric_display_title(TwitchMetrics.AMPLITUDE, get_labels(data_type)),
+            amplitude_label=get_metric_display_title(TwitchMetrics.AMPLITUDE, data_type),
         )
     # ValueError gets raised when no object is found in s3 that matches given key
     except ValueError:

@@ -13,7 +13,7 @@ import numpy as np
 import tempfile
 
 from pulse3D.constants import DataTypes
-from pulse3D.rendering.utils import get_metric_display_title, get_labels
+from pulse3D.rendering.utils import get_metric_display_title
 from pulse3D.metrics.constants import TwitchMetrics
 from labware_domain_models import LabwareDefinition
 from src.models.models import GenericErrorResponse, WaveformDataResponse
@@ -1356,7 +1356,7 @@ def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version, d
         == WaveformDataResponse(
             time_force_url=expected_presigned_url,
             peaks_valleys_url=expected_presigned_url,
-            amplitude_label=get_metric_display_title(TwitchMetrics.AMPLITUDE, get_labels(expected_data_type)),
+            amplitude_label=get_metric_display_title(TwitchMetrics.AMPLITUDE, expected_data_type),
         ).model_dump()
     )
 
