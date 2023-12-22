@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Any
 import uuid
 
@@ -7,10 +7,10 @@ from .types import Number, TupleParam
 
 class UploadRequest(BaseModel):
     filename: str
-    md5s: str | None  # TODO when would this be None?
+    md5s: str | None = Field(default=None)  # TODO when would this be None?
     upload_type: str
     # default to True to preserve backwards compatibility with older MA controller versions
-    auto_upload: bool | None = True
+    auto_upload: bool | None = Field(default=True)
 
 
 class UsageQuota(BaseModel):
@@ -21,7 +21,7 @@ class UsageQuota(BaseModel):
 
 
 class UploadResponse(BaseModel):
-    id: uuid.UUID | None
+    id: uuid.UUID | None = Field(default=None)  # None for log uploads
     params: dict[str, Any]
 
 
@@ -29,43 +29,43 @@ class JobRequest(BaseModel):
     upload_id: uuid.UUID
 
     version: str
-    previous_version: str | None
+    previous_version: str | None = Field(default=None)
 
-    name_override: str | None
+    name_override: str | None = Field(default=None)
 
-    data_type: str | None
+    data_type: str | None = Field(default=None)
 
-    well_groups: dict[str, list[str]] | None
+    well_groups: dict[str, list[str]] | None = Field(default=None)
 
-    normalize_y_axis: bool | None
-    max_y: Number | None
+    normalize_y_axis: bool | None = Field(default=None)
+    max_y: Number | None = Field(default=None)
 
-    stim_waveform_format: str | None
-    include_stim_protocols: bool | None
+    stim_waveform_format: str | None = Field(default=None)
+    include_stim_protocols: bool | None = Field(default=None)
 
-    stiffness_factor: int | None
-    inverted_post_magnet_wells: list[str] | None
+    stiffness_factor: int | None = Field(default=None)
+    inverted_post_magnet_wells: list[str] | None = Field(default=None)
 
-    baseline_widths_to_use: TupleParam | None
-    twitch_widths: list[int] | None
-    peaks_valleys: dict[str, list[list[Number]]] | None
-    timepoints: list[Number] | None  # not used for pulse3d versions < 1.0.0
+    baseline_widths_to_use: TupleParam | None = Field(default=None)
+    twitch_widths: list[int] | None = Field(default=None)
+    peaks_valleys: dict[str, list[list[Number]]] | None = Field(default=None)
+    timepoints: list[Number] | None = Field(default=None)  # not used for pulse3d versions < 1.0.0
 
-    start_time: Number | None
-    end_time: Number | None
+    start_time: Number | None = Field(default=None)
+    end_time: Number | None = Field(default=None)
 
     # shared peak finding params
-    width_factors: TupleParam | None
+    width_factors: TupleParam | None = Field(default=None)
     # old peak finding params
-    prominence_factors: TupleParam | None
+    prominence_factors: TupleParam | None = Field(default=None)
     # noise based peak finding params
-    relative_prominence_factor: Number | None
-    noise_prominence_factor: Number | None
-    height_factor: Number | None
-    max_frequency: Number | None
-    valley_search_duration: Number | None
-    upslope_duration: Number | None
-    upslope_noise_allowance_duration: Number | None
+    relative_prominence_factor: Number | None = Field(default=None)
+    noise_prominence_factor: Number | None = Field(default=None)
+    height_factor: Number | None = Field(default=None)
+    max_frequency: Number | None = Field(default=None)
+    valley_search_duration: Number | None = Field(default=None)
+    upslope_duration: Number | None = Field(default=None)
+    upslope_noise_allowance_duration: Number | None = Field(default=None)
 
 
 class SavePresetRequest(BaseModel):

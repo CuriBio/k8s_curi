@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 import json
 import os
 import tempfile
@@ -58,8 +59,17 @@ from models.types import TupleParam
 setup_logger()
 logger = structlog.stdlib.get_logger("api.access")
 
-app = FastAPI(openapi_url=None)
+
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await asyncpg_pool()
+    yield
+
+
+app = FastAPI(openapi_url=None, lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -99,11 +109,6 @@ async def db_session_middleware(request: Request, call_next) -> Response:
     )
 
     return response
-
-
-@app.on_event("startup")
-async def startup():
-    await asyncpg_pool()
 
 
 # TODO define response model
@@ -428,11 +433,8 @@ async def create_new_job(
         # TODO see if any of this pertains to deprecated pulse3d versions and can be removed
         # Luci (12/14/2022) PlateRecording.to_dataframe() was updated in 0.28.3 to include 0.0 timepoint so this accounts for the index difference between versions
         peak_valley_diff = 0
-        if previous_semver_version is not None and previous_semver_version != pulse3d_semver:
-            if previous_semver_version < "0.28.3" and pulse3d_semver >= "0.28.3":
-                peak_valley_diff += 1
-            elif previous_semver_version >= "0.28.3" and pulse3d_semver < "0.28.3":
-                peak_valley_diff -= 1
+        if previous_semver_version is not None and previous_semver_version < "0.28.3":
+            peak_valley_diff = 1
 
         if pulse3d_semver >= "0.30.1":
             # Tanner (2/7/23): these params added in earlier versions but there are bugs with using this param in re-analysis prior to 0.30.1
@@ -466,14 +468,14 @@ async def create_new_job(
 
         # convert these params into a format compatible with pulse3D
         for param, default_values in (
-            ("prominence_factors", DefaultLegacyPeakFindingParams.PROMINENCE_FACTORS),
+            ("prominence_factors", DefaultLegacyPeakFindingParams.PROMINENCE_FACTORS.value),
             (
                 "width_factors",
-                DefaultNoiseBasedPeakFindingParams.WIDTH_FACTORS
+                DefaultNoiseBasedPeakFindingParams.WIDTH_FACTORS.value
                 if use_noise_based_peak_finding
-                else DefaultLegacyPeakFindingParams.WIDTH_FACTORS,
+                else DefaultLegacyPeakFindingParams.WIDTH_FACTORS.value,
             ),
-            ("baseline_widths_to_use", DefaultMetricsParams.BASELINE_WIDTHS),
+            ("baseline_widths_to_use", DefaultMetricsParams.BASELINE_WIDTHS.value),
         ):
             if param in analysis_params:
                 analysis_params[param] = _format_tuple_param(analysis_params[param], default_values)
@@ -519,7 +521,12 @@ async def create_new_job(
             if usage_quota["jobs_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
-            job_meta = {"analysis_params": analysis_params, "version": details.version}
+            # TODO remove this once done testing rc versions of pulse3d rewrite
+            version = details.version
+            if version == "1.0.0":
+                version = "1.0.0rc11"
+
+            job_meta = {"analysis_params": analysis_params, "version": version}
             # if a name is present, then add to metadata of job
             if details.name_override and pulse3d_semver >= "0.32.2":
                 job_meta["name_override"] = details.name_override
@@ -528,7 +535,7 @@ async def create_new_job(
             job_id = await create_job(
                 con=con,
                 upload_id=upload_id,
-                queue=f"pulse3d-v{details.version}",
+                queue=f"pulse3d-v{version}",
                 priority=priority,
                 meta=job_meta,
                 customer_id=customer_id,
@@ -541,12 +548,12 @@ async def create_new_job(
                 rewrite_job_id = await create_job(
                     con=con,
                     upload_id=upload_id,
-                    queue="test-pulse3d-v1.0.0rc10",
+                    queue="test-pulse3d-v1.0.0rc11",
                     priority=priority,
-                    meta=job_meta,
+                    meta={**job_meta, "version": "1.0.0rc11"},
                     customer_id=customer_id,
                     job_type=upload_type,
-                    add_to_results=False,
+                    # add_to_results=False,
                 )
 
             bind_threadlocal(job_id=str(job_id))
@@ -572,7 +579,7 @@ async def create_new_job(
                     else:
                         features_df = _create_legacy_features_df(details.peaks_valleys, peak_valley_diff)
                     # write peaks and valleys to parquet file in temporary directory
-                    features_df.to_parquet(pv_parquet_path)
+                    features_df.write_parquet(pv_parquet_path)
                     # upload to s3 under upload id and job id for pulse3d-worker to use
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
 

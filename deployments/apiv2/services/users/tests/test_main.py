@@ -148,10 +148,13 @@ def test_login__user__success(send_client_type, use_alias, mocked_asyncpg_con, m
     response = test_client.post("/login", json=login_details)
     assert response.status_code == 200
 
-    assert response.json() == LoginResponse(
-        tokens=AuthTokens(access=expected_access_token, refresh=expected_refresh_token),
-        usage_quota=None,
-        user_scopes=None,
+    assert (
+        response.json()
+        == LoginResponse(
+            tokens=AuthTokens(access=expected_access_token, refresh=expected_refresh_token),
+            usage_quota=None,
+            user_scopes=None,
+        ).model_dump()
     )
 
     expected_query = (
@@ -300,11 +303,14 @@ def test_login__customer__success(send_client_type, mocked_asyncpg_con, mocker):
 
     response = test_client.post("/login/customer", json=login_details)
     assert response.status_code == 200
-    assert response.json() == LoginResponse(
-        tokens=AuthTokens(access=expected_access_token, refresh=expected_refresh_token),
-        usage_quota=mocked_usage_check.return_value,
-        user_scopes=get_scope_dependencies(get_assignable_user_scopes([customer_scope])),
-        customer_scopes=get_scope_dependencies(get_assignable_admin_scopes([customer_scope])),
+    assert (
+        response.json()
+        == LoginResponse(
+            tokens=AuthTokens(access=expected_access_token, refresh=expected_refresh_token),
+            usage_quota=mocked_usage_check.return_value,
+            user_scopes=get_scope_dependencies(get_assignable_user_scopes([customer_scope])),
+            customer_scopes=get_scope_dependencies(get_assignable_admin_scopes([customer_scope])),
+        ).model_dump()
     )
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
@@ -472,7 +478,7 @@ def test_register__user__invalid_username_length(length, err_msg):
         "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
-    assert response.json()["detail"][-1]["msg"] == err_msg
+    assert response.json()["detail"][-1]["msg"].endswith(err_msg)
 
 
 @pytest.mark.parametrize("special_char", ["@", "#", "$", "*", "&", "%"])
@@ -489,9 +495,8 @@ def test_register__user__with_invalid_char_in_username(special_char):
         "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
-    assert (
-        response.json()["detail"][-1]["msg"]
-        == f"Username can only contain letters, numbers, and these special characters: {USERNAME_VALID_SPECIAL_CHARS}"
+    assert response.json()["detail"][-1]["msg"].endswith(
+        f"Username can only contain letters, numbers, and these special characters: {USERNAME_VALID_SPECIAL_CHARS}"
     )
 
 
@@ -509,7 +514,7 @@ def test_register__user__with_invalid_first_char(bad_first_char):
         "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
-    assert response.json()["detail"][-1]["msg"] == "Username must start with a letter"
+    assert response.json()["detail"][-1]["msg"].endswith("Username must start with a letter")
 
 
 @pytest.mark.parametrize("bad_final_char", USERNAME_VALID_SPECIAL_CHARS)
@@ -526,7 +531,7 @@ def test_register__user__with_invalid_final_char(bad_final_char):
         "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
-    assert response.json()["detail"][-1]["msg"] == "Username must end with a letter or number"
+    assert response.json()["detail"][-1]["msg"].endswith("Username must end with a letter or number")
 
 
 @pytest.mark.parametrize("special_char", USERNAME_VALID_SPECIAL_CHARS)
@@ -543,7 +548,9 @@ def test_register__user__with_consecutive_special_chars(special_char):
         "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
-    assert response.json()["detail"][-1]["msg"] == "Username cannot contain consecutive special characters"
+    assert response.json()["detail"][-1]["msg"].endswith(
+        "Username cannot contain consecutive special characters"
+    )
 
 
 @pytest.mark.parametrize(
@@ -724,7 +731,7 @@ def test_refresh__success(account_type, mocked_asyncpg_con):
 
     response = test_client.post("/refresh", headers={"Authorization": f"Bearer {old_refresh_token}"})
     assert response.status_code == 201
-    assert response.json() == AuthTokens(access=new_access_token, refresh=new_refresh_token)
+    assert response.json() == AuthTokens(access=new_access_token, refresh=new_refresh_token).model_dump()
 
     expected_fetch_query = (
         "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL"
@@ -1072,7 +1079,10 @@ def test_account__put__user_account_is_already_verified(test_token_scope, mocked
         headers={"Authorization": f"Bearer {access_token}"},
     )
 
-    assert response.json() == UnableToUpdateAccountResponse(message="Account has already been verified")
+    assert (
+        response.json()
+        == UnableToUpdateAccountResponse(message="Account has already been verified").model_dump()
+    )
 
 
 @pytest.mark.parametrize("test_token_scope", [[s] for s in ACCOUNT_SCOPES])
@@ -1092,7 +1102,7 @@ def test_account__put__link_has_already_been_used(test_token_scope, mocked_async
         headers={"Authorization": f"Bearer {access_token}"},
     )
 
-    assert response.json() == UnableToUpdateAccountResponse(message="Link has already been used")
+    assert response.json() == UnableToUpdateAccountResponse(message="Link has already been used").model_dump()
 
 
 @pytest.mark.parametrize("test_token_scope", [[s] for s in ACCOUNT_SCOPES])
@@ -1120,8 +1130,11 @@ def test_account__put__repeat_password(test_token_scope, mocked_asyncpg_con):
         headers={"Authorization": f"Bearer {access_token}"},
     )
 
-    assert response.json() == UnableToUpdateAccountResponse(
-        message="Cannot set password to any of the previous 5 passwords"
+    assert (
+        response.json()
+        == UnableToUpdateAccountResponse(
+            message="Cannot set password to any of the previous 5 passwords"
+        ).model_dump()
     )
 
 
@@ -1145,7 +1158,7 @@ def test_account__put__token_does_not_match_reset_token(
         headers={"Authorization": f"Bearer {access_token}"},
     )
 
-    assert response.json() == UnableToUpdateAccountResponse(message="Link has expired")
+    assert response.json() == UnableToUpdateAccountResponse(message="Link has expired").model_dump()
 
 
 @pytest.mark.parametrize("test_token_scope", [[s] for s in ACCOUNT_SCOPES if "admin" in s])

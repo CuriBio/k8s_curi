@@ -44,14 +44,14 @@ class ProtectedAny:
 
         try:
             payload = decode_token(token)
-            payload_scopes = set(payload["scopes"])
+            payload_scopes = set(payload.scopes)
 
             # make sure that the access token has the required scope
             if not self.scopes & payload_scopes:
                 # TODO raise a specific exeption here so that other errors result in a 500?
                 raise Exception()
 
-            return JWTPayload(**payload)
+            return payload
 
         except Exception as e:
             logger.exception(f"Authentication error: {str(e)}")
@@ -63,7 +63,9 @@ class ProtectedAny:
 
 
 def decode_token(token: str):
-    return jwt.decode(token, key=str(JWT_SECRET_KEY), algorithms=JWT_ALGORITHM, audience=JWT_AUDIENCE)
+    return JWTPayload(
+        **jwt.decode(token, key=str(JWT_SECRET_KEY), algorithms=JWT_ALGORITHM, audience=JWT_AUDIENCE)
+    )
 
 
 def create_token(
@@ -124,9 +126,9 @@ def create_token(
     exp = timegm((now + timedelta(minutes=exp_dur)).utctimetuple())
     jwt_meta = JWTMeta(aud=JWT_AUDIENCE, scopes=scopes, iat=iat, exp=exp, refresh=refresh)
     jwt_details = JWTDetails(customer_id=customer_id.hex, userid=userid, account_type=account_type)
-    jwt_payload = JWTPayload(**jwt_meta.dict(), **jwt_details.dict())
+    jwt_payload = JWTPayload(**jwt_meta.model_dump(), **jwt_details.model_dump())
 
-    jwt_token = jwt.encode(payload=jwt_payload.dict(), key=str(JWT_SECRET_KEY), algorithm=JWT_ALGORITHM)
+    jwt_token = jwt.encode(payload=jwt_payload.model_dump(), key=str(JWT_SECRET_KEY), algorithm=JWT_ALGORITHM)
 
     return Token(token=jwt_token)
 

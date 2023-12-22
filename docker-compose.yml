@@ -46,6 +46,10 @@ services:
   pulse3d:
     build:
       context: .
+      args:
+        - ACCOUNT_ID=${CODE_ARTIFACT_ACCOUNT_ID}
+        - ACCESS_KEY=${CODE_ARTIFACT_ACCESS_KEY}
+        - ACCESS_KEY_ID=${CODE_ARTIFACT_ACCESS_KEY_ID}
       dockerfile: ./deployments/pulse3d/services/pulse3d/Dockerfile
     environment:
       - POSTGRES_SERVER=host.docker.internal

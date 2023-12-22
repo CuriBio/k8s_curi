@@ -1,5 +1,6 @@
 import time
 
+from contextlib import asynccontextmanager
 from asyncpg.exceptions import UniqueViolationError
 from fastapi import Depends, FastAPI, Path, Request, status, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,7 +31,16 @@ setup_logger()
 logger = structlog.stdlib.get_logger("api.access")
 
 
-app = FastAPI(openapi_url=None)
+asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await asyncpg_pool()
+    yield
+
+
+app = FastAPI(openapi_url=None, lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -39,8 +49,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
 
 @app.middleware("http")
@@ -74,11 +82,6 @@ async def db_session_middleware(request: Request, call_next) -> Response:
     return response
 
 
-@app.on_event("startup")
-async def startup():
-    await asyncpg_pool()
-
-
 SEMVER_REGEX = r"^\d+\.\d+\.\d+$"
 FW_TYPE_REGEX = "^(main|channel)$"
 SW_TYPE_REGEX = "^(mantarray|stingray)$"
@@ -86,9 +89,8 @@ SW_TYPE_REGEX = "^(mantarray|stingray)$"
 
 # TODO make request and response models for all of these?
 
+
 # ROUTES
-
-
 @app.get("/serial-number", response_model=MantarrayUnitsResponse)
 async def root(request: Request):
     try:
@@ -138,7 +140,7 @@ async def delete_serial_number(
 
 
 @app.get("/software-range/{main_fw_version}")
-async def get_software_for_main_fw(request: Request, main_fw_version: str = Path(..., regex=SEMVER_REGEX)):
+async def get_software_for_main_fw(request: Request, main_fw_version: str = Path(..., pattern=SEMVER_REGEX)):
     """Get the max/min SW version compatible with the given main firmware version."""
     try:
         async with request.state.pgpool.acquire() as con:
@@ -228,8 +230,8 @@ async def get_all_fw_sw_compatibility(
 
 @app.get("/firmware/{fw_type}/{version}")
 async def get_firmware_download_url(
-    fw_type: str = Path(..., regex=FW_TYPE_REGEX),
-    version: str = Path(..., regex=SEMVER_REGEX),
+    fw_type: str = Path(..., pattern=FW_TYPE_REGEX),
+    version: str = Path(..., pattern=SEMVER_REGEX),
     token=Depends(ProtectedAny(scopes=[Scopes.MANTARRAY__FIRMWARE__GET])),
 ):
     try:
@@ -247,8 +249,8 @@ async def get_firmware_download_url(
 async def upload_firmware_file(
     request: Request,
     details: MainFirmwareUploadRequest | ChannelFirmwareUploadRequest,
-    fw_type: str = Path(..., regex=FW_TYPE_REGEX),
-    version: str = Path(..., regex=SEMVER_REGEX),
+    fw_type: str = Path(..., pattern=FW_TYPE_REGEX),
+    version: str = Path(..., pattern=SEMVER_REGEX),
     token=Depends(ProtectedAny(scopes=[Scopes.MANTARRAY__FIRMWARE__EDIT])),
 ):
     bind_threadlocal(fw_type=fw_type, fw_version=version)
@@ -301,7 +303,7 @@ async def upload_firmware_file(
 async def update_firmware_info(
     request: Request,
     details: ChannelFirmwareUpdateRequest,
-    version: str = Path(..., regex=SEMVER_REGEX),
+    version: str = Path(..., pattern=SEMVER_REGEX),
     token=Depends(ProtectedAny(scopes=[Scopes.MANTARRAY__FIRMWARE__EDIT])),
 ):
     bind_threadlocal(fw_version=version)
@@ -322,8 +324,8 @@ async def update_firmware_info(
 @app.post("/software/{controller}/{version}")
 async def add_software_version(
     request: Request,
-    controller: str = Path(..., regex=SW_TYPE_REGEX),
-    version: str = Path(..., regex=SEMVER_REGEX),
+    controller: str = Path(..., pattern=SW_TYPE_REGEX),
+    version: str = Path(..., pattern=SEMVER_REGEX),
     token=Depends(ProtectedAny(scopes=[Scopes.MANTARRAY__SOFTWARE__EDIT])),
 ):
     bind_threadlocal(controller_type=controller, sw_version=version)

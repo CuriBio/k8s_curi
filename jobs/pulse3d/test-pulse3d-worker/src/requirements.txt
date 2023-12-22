@@ -1,6 +1,6 @@
 asyncpg==0.27.0
-boto3==1.26.135
-botocore==1.29.135
+boto3==1.28.6
+botocore==1.31.6
 Cython==0.29.23
 fastparquet==2023.4.0
 h5py==3.8.0
@@ -13,6 +13,6 @@ python-dateutil==2.8.2
 scipy==1.9.3
 six==1.16.0
 s3transfer==0.6.1
-typing-extensions==4.5.0
+typing-extensions==4.9.0
 urllib3==1.26.9
 structlog==23.2.0
