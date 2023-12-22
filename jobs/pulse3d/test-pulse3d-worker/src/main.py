@@ -37,7 +37,7 @@ structlog.configure(
     processors=[
         merge_contextvars,
         structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M.%S"),
-        structlog.processors.dict_tracebacks,
+        structlog.processors.format_exc_info,
         structlog.processors.JSONRenderer(),
     ]
 )

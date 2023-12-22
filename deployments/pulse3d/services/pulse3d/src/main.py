@@ -35,9 +35,10 @@ from pulse3D.metrics.constants import TwitchMetrics, DefaultMetricsParams
 from pulse3D.rendering.utils import get_metric_display_title
 from semver import VersionInfo
 from stream_zip import ZIP_64, stream_zip
-from structlog.threadlocal import bind_threadlocal, clear_threadlocal
+from starlette_context import context, request_cycle_context
+from structlog.contextvars import bind_contextvars, clear_contextvars
 from utils.db import AsyncpgPoolDep
-from utils.logging import setup_logger
+from utils.logging import setup_logger, bind_context_to_logger
 from utils.s3 import S3Error, generate_presigned_post, generate_presigned_url, upload_file_to_s3
 from uvicorn.protocols.utils import get_path_with_query_string
 
@@ -84,7 +85,7 @@ app.add_middleware(
 async def db_session_middleware(request: Request, call_next) -> Response:
     request.state.pgpool = await asyncpg_pool()
     # clear previous request variables
-    clear_threadlocal()
+    clear_contextvars()
     # get request details for logging
     if (client_ip := request.headers.get("X-Forwarded-For")) is None:
         client_ip = f"{request.client.host}:{request.client.port}"
@@ -95,18 +96,20 @@ async def db_session_middleware(request: Request, call_next) -> Response:
     start_time = time.perf_counter_ns()
 
     # bind details to logger
-    bind_threadlocal(url=str(request.url), method=http_method, client_ip=client_ip)
+    bind_contextvars(url=str(request.url), method=http_method, client_ip=client_ip)
 
-    response = await call_next(request)
+    with request_cycle_context({}):
+        response = await call_next(request)
 
-    process_time = time.perf_counter_ns() - start_time
-    status_code = response.status_code
+        process_time = time.perf_counter_ns() - start_time
+        status_code = response.status_code
 
-    logger.info(
-        f"""{client_ip} - "{http_method} {url} HTTP/{http_version}" {status_code}""",
-        status_code=status_code,
-        duration=process_time / 10**9,
-    )
+        logger.info(
+            f"""{client_ip} - "{http_method} {url} HTTP/{http_version}" {status_code}""",
+            status_code=status_code,
+            duration=process_time / 10**9,
+            **context,
+        )
 
     return response
 
@@ -127,7 +130,9 @@ async def get_info_of_uploads(
         account_type = token.account_type
         is_user = account_type == "user"
 
-        bind_threadlocal(user_id=token.userid, customer_id=token.customer_id, upload_ids=upload_ids)
+        bind_context_to_logger(
+            {"user_id": token.userid, "customer_id": token.customer_id, "upload_ids": upload_ids}
+        )
 
         # give advanced privileges to access all uploads under customer_id
         # TODO update this to product specific when landing page is specced out more
@@ -168,8 +173,13 @@ async def create_recording_upload(
         upload_type = details.upload_type if details.upload_type != "pulse3d" else "mantarray"
         check_prohibited_product(token.scopes, upload_type)
 
-        bind_threadlocal(
-            user_id=user_id, customer_id=customer_id, upload_id=str(upload_id), upload_type=upload_type
+        bind_context_to_logger(
+            {
+                "user_id": user_id,
+                "customer_id": customer_id,
+                "upload_id": str(upload_id),
+                "upload_type": upload_type,
+            }
         )
 
         upload_params = {
@@ -221,7 +231,9 @@ async def soft_delete_uploads(
     try:
         account_id = str(uuid.UUID(token.account_id))
 
-        bind_threadlocal(user_id=token.userid, customer_id=token.customer_id, upload_ids=upload_ids)
+        bind_context_to_logger(
+            {"user_id": token.userid, "customer_id": token.customer_id, "upload_ids": upload_ids}
+        )
 
         async with request.state.pgpool.acquire() as con:
             await delete_uploads(
@@ -247,7 +259,9 @@ async def download_zip_files(
     account_id = str(uuid.UUID(token.account_id))
     account_type = token.account_type
 
-    bind_threadlocal(user_id=token.userid, customer_id=token.customer_id, upload_ids=upload_ids)
+    bind_context_to_logger(
+        {"user_id": token.userid, "customer_id": token.customer_id, "upload_ids": upload_ids}
+    )
 
     # give advanced privileges to access all uploads under customer_id
     if Scopes.MANTARRAY__RW_ALL_DATA in token.scopes:
@@ -291,7 +305,7 @@ async def create_log_upload(
         customer_id = str(uuid.UUID(token.customer_id))
         s3_key = f"{customer_id}/{user_id}"
 
-        bind_threadlocal(customer_id=customer_id, user_id=user_id)
+        bind_context_to_logger({"customer_id": customer_id, "user_id": user_id})
 
         params = _generate_presigned_post(details, MANTARRAY_LOGS_BUCKET, s3_key)
         return UploadResponse(params=params)
@@ -327,7 +341,9 @@ async def get_info_of_jobs(
         account_type = token.account_type
         is_user = account_type == "user"
 
-        bind_threadlocal(user_id=token.userid, customer_id=token.customer_id, job_ids=job_ids)
+        bind_context_to_logger(
+            {"user_id": token.userid, "customer_id": token.customer_id, "job_ids": job_ids}
+        )
 
         async with request.state.pgpool.acquire() as con:
             jobs = await _get_jobs(con, token, job_ids)
@@ -405,7 +421,7 @@ async def create_new_job(
         user_scopes = token.scopes
         upload_id = details.upload_id
 
-        bind_threadlocal(user_id=user_id, customer_id=customer_id, upload_id=str(upload_id))
+        bind_context_to_logger({"user_id": user_id, "customer_id": customer_id, "upload_id": str(upload_id)})
 
         logger.info(f"Creating job for upload {upload_id} with user ID: {user_id}")
 
@@ -425,7 +441,7 @@ async def create_new_job(
             VersionInfo.parse(details.previous_version) if details.previous_version else None
         )
 
-        bind_threadlocal(version=details.version)
+        bind_context_to_logger({"version": details.version})
 
         pulse3d_semver = VersionInfo.parse(details.version)
         use_noise_based_peak_finding = pulse3d_semver >= "0.33.2"
@@ -556,7 +572,7 @@ async def create_new_job(
                     # add_to_results=False,
                 )
 
-            bind_threadlocal(job_id=str(job_id))
+            bind_context_to_logger({"job_id": str(job_id)})
 
             # check customer quota after job
             usage_quota = await check_customer_quota(con, customer_id, upload_type)
@@ -639,7 +655,9 @@ async def soft_delete_jobs(
     try:
         account_id = str(uuid.UUID(token.account_id))
 
-        bind_threadlocal(user_id=token.userid, customer_id=token.customer_id, job_ids=job_ids)
+        bind_context_to_logger(
+            {"user_id": token.userid, "customer_id": token.customer_id, "job_ids": job_ids}
+        )
 
         async with request.state.pgpool.acquire() as con:
             await delete_jobs(
@@ -662,7 +680,7 @@ async def download_analyses(
     # need to convert UUIDs to str to avoid issues with DB
     job_ids = [str(job_id) for job_id in job_ids]
 
-    bind_threadlocal(user_id=token.userid, customer_id=token.customer_id, job_ids=job_ids)
+    bind_context_to_logger({"user_id": token.userid, "customer_id": token.customer_id, "job_ids": job_ids})
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -735,7 +753,9 @@ async def get_interactive_waveform_data(
     upload_id = str(upload_id)
     job_id = str(job_id)
 
-    bind_threadlocal(user_id=token.userid, customer_id=token.customer_id, upload_id=upload_id, job_id=job_id)
+    bind_context_to_logger(
+        {"customer_id": token.customer_id, "user_id": token.userid, "upload_id": upload_id, "job_id": job_id}
+    )
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -823,7 +843,7 @@ async def get_usage_quota(
     try:
         customer_id = str(uuid.UUID(token.customer_id))
 
-        bind_threadlocal(customer_id=customer_id)
+        bind_context_to_logger({"customer_id": customer_id})
 
         async with request.state.pgpool.acquire() as con:
             usage_quota = await check_customer_quota(con, customer_id, service)
@@ -841,7 +861,7 @@ async def save_analysis_presets(
     try:
         user_id = str(uuid.UUID(token.userid))
         customer_id = str(uuid.UUID(token.customer_id))
-        bind_threadlocal(customer_id=customer_id, user_id=user_id)
+        bind_context_to_logger({"customer_id": customer_id, "user_id": user_id})
 
         async with request.state.pgpool.acquire() as con:
             return await create_analysis_preset(con, user_id, details)
@@ -856,7 +876,7 @@ async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(tag=
     try:
         user_id = str(uuid.UUID(token.userid))
         customer_id = str(uuid.UUID(token.customer_id))
-        bind_threadlocal(customer_id=customer_id, user_id=user_id)
+        bind_context_to_logger({"customer_id": customer_id, "user_id": user_id})
 
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():
