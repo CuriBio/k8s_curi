@@ -11,9 +11,8 @@ from time import sleep
 structlog.configure(
     processors=[
         merge_contextvars,
-        structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M.%S"),
-        structlog.processors.dict_tracebacks,
+        structlog.processors.format_exc_info,
         structlog.processors.JSONRenderer(),
     ]
 )
