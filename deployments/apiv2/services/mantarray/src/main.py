@@ -5,8 +5,9 @@ from fastapi import Depends, FastAPI, Path, Request, status, HTTPException, Resp
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import semver
+from starlette_context import context, request_cycle_context
 import structlog
-from structlog.threadlocal import bind_threadlocal, clear_threadlocal
+from structlog.contextvars import bind_contextvars, clear_contextvars
 from uvicorn.protocols.utils import get_path_with_query_string
 
 from auth import ProtectedAny, Scopes
@@ -23,7 +24,7 @@ from models.models import (
     LatestVersionsResponse,
 )
 from utils.db import AsyncpgPoolDep
-from utils.logging import setup_logger
+from utils.logging import setup_logger, bind_context_to_logger
 from utils.s3 import generate_presigned_post
 
 setup_logger()
@@ -47,7 +48,7 @@ asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 async def db_session_middleware(request: Request, call_next) -> Response:
     request.state.pgpool = await asyncpg_pool()
     # clear previous request variables
-    clear_threadlocal()
+    clear_contextvars()
     # get request details for logging
     if (client_ip := request.headers.get("X-Forwarded-For")) is None:
         client_ip = f"{request.client.host}:{request.client.port}"
@@ -58,18 +59,20 @@ async def db_session_middleware(request: Request, call_next) -> Response:
     start_time = time.perf_counter_ns()
 
     # bind details to logger
-    bind_threadlocal(url=str(request.url), method=http_method, client_ip=client_ip)
+    bind_contextvars(url=str(request.url), method=http_method, client_ip=client_ip)
 
-    response = await call_next(request)
+    with request_cycle_context({}):
+        response = await call_next(request)
 
-    process_time = time.perf_counter_ns() - start_time
-    status_code = response.status_code
+        process_time = time.perf_counter_ns() - start_time
+        status_code = response.status_code
 
-    logger.info(
-        f"""{client_ip} - "{http_method} {url} HTTP/{http_version}" {status_code}""",
-        status_code=status_code,
-        duration=process_time / 10**9,
-    )
+        logger.info(
+            f"""{client_ip} - "{http_method} {url} HTTP/{http_version}" {status_code}""",
+            status_code=status_code,
+            duration=process_time / 10**9,
+            **context,
+        )
 
     return response
 
@@ -108,8 +111,12 @@ async def add_serial_number(
     token=Depends(ProtectedAny(scopes=[Scopes.MANTARRAY__SERIAL_NUMBER__EDIT])),
 ):
     try:
-        bind_threadlocal(
-            user_id=token.userid, customer_id=token.customer_id, serial_number=details.serial_number
+        bind_context_to_logger(
+            {
+                "user_id": token.userid,
+                "customer_id": token.customer_id,
+                "serial_number": details.serial_number,
+            }
         )
 
         async with request.state.pgpool.acquire() as con:
@@ -128,7 +135,9 @@ async def delete_serial_number(
     token=Depends(ProtectedAny(scopes=[Scopes.MANTARRAY__SERIAL_NUMBER__EDIT])),
 ):
     try:
-        bind_threadlocal(user_id=token.userid, customer_id=token.customer_id, serial_number=serial_number)
+        bind_context_to_logger(
+            {"user_id": token.userid, "customer_id": token.customer_id, "serial_number": serial_number}
+        )
 
         async with request.state.pgpool.acquire() as con:
             await con.execute("DELETE FROM MAUnits WHERE serial_number=$1", serial_number)
@@ -182,7 +191,7 @@ async def get_latest_versions(request: Request, serial_number: str, prod: bool):
 
 async def _get_latest_versions(request: Request, serial_number: str, prod: bool):
     """Get the latest SW, main FW, and channel FW versions compatible with the MA instrument with the given serial number."""
-    bind_threadlocal(serial_number=serial_number, is_prod_controller=prod)
+    bind_context_to_logger({"serial_number": serial_number, "is_prod_controller": prod})
 
     query = (
         "SELECT m.min_ma_controller_version, m.min_sting_controller_version, m.version AS main_fw_version, c.version AS channel_fw_version "
@@ -233,7 +242,7 @@ async def get_firmware_download_url(
     token=Depends(ProtectedAny(scopes=[Scopes.MANTARRAY__FIRMWARE__GET])),
 ):
     try:
-        bind_threadlocal(fw_type=fw_type, fw_version=version)
+        bind_context_to_logger({"fw_type": fw_type, "fw_version": version})
 
         url = get_fw_download_url(version, fw_type)
         return JSONResponse({"presigned_url": url})
@@ -251,7 +260,7 @@ async def upload_firmware_file(
     version: str = Path(..., regex=SEMVER_REGEX),
     token=Depends(ProtectedAny(scopes=[Scopes.MANTARRAY__FIRMWARE__EDIT])),
 ):
-    bind_threadlocal(fw_type=fw_type, fw_version=version)
+    bind_context_to_logger({"fw_type": fw_type, "fw_version": version})
 
     async with request.state.pgpool.acquire() as con:
         if fw_type == "main":
@@ -304,7 +313,7 @@ async def update_firmware_info(
     version: str = Path(..., regex=SEMVER_REGEX),
     token=Depends(ProtectedAny(scopes=[Scopes.MANTARRAY__FIRMWARE__EDIT])),
 ):
-    bind_threadlocal(fw_version=version)
+    bind_context_to_logger({"fw_version": version})
 
     # currently the only thing that needs to be updated through this route is the main FW version tied to a channel FW version
     try:
@@ -326,7 +335,7 @@ async def add_software_version(
     version: str = Path(..., regex=SEMVER_REGEX),
     token=Depends(ProtectedAny(scopes=[Scopes.MANTARRAY__SOFTWARE__EDIT])),
 ):
-    bind_threadlocal(controller_type=controller, sw_version=version)
+    bind_context_to_logger({"controller_type": controller, "sw_version": version})
 
     if controller == "mantarray":
         query = "INSERT INTO ma_controllers (version) VALUES ($1)"
@@ -336,6 +345,7 @@ async def add_software_version(
     try:
         async with request.state.pgpool.acquire() as con:
             await con.execute(query, version)
+
     except UniqueViolationError:
         pass  # TODO comment
     except Exception:
