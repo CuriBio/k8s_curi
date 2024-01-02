@@ -476,7 +476,6 @@ async def create_new_job(
             params.append("prominence_factors")
 
         details_dict = dict(details)
-
         analysis_params = {param: details_dict[param] for param in params}
 
         if details.peaks_valleys:
