@@ -5,7 +5,10 @@ repo_root=$(shell git rev-parse --show-toplevel)
 .PHONY: build buildx push tag apply
 build:
 	cd ${repo_root} && \
-	docker build -t pulse3d_api . -f ${repo_root}/deployments/pulse3d/services/pulse3d/Dockerfile
+	docker build -t pulse3d_api . -f ${repo_root}/deployments/pulse3d/services/pulse3d/Dockerfile \
+		--build-arg="CODE_ARTIFACT_ACCOUNT_ID=${CODE_ARTIFACT_ACCOUNT_ID}" \
+		--build-arg="CODE_ARTIFACT_ACCESS_KEY=${CODE_ARTIFACT_ACCESS_KEY}" \
+		--build-arg="CODE_ARTIFACT_ACCESS_KEY_ID=${CODE_ARTIFACT_ACCESS_KEY_ID}"
 
 buildx:
 	cd ${repo_root} && \

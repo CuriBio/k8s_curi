@@ -5,10 +5,6 @@ COPY ./jobs/pulse3d/test-pulse3d-worker/src/requirements.txt ./
 COPY ./core/lib/jobs ./lib/jobs
 COPY ./core/lib/utils ./lib/utils
 
-
-ARG ACCOUNT_ID
-ENV AWS_ACCOUNT_ID=$ACCOUNT_ID
-
 # Following args are required for pushing to the test cluster, you need to add and export modl access keys to get pulse3d repo
 ARG CODE_ARTIFACT_ACCOUNT_ID
 ARG CODE_ARTIFACT_ACCESS_KEY

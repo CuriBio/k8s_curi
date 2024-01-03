@@ -5,16 +5,13 @@ COPY ./core/lib/auth ./lib/auth
 COPY ./core/lib/utils ./lib/utils
 COPY ./core/lib/jobs ./lib/jobs
 
-ARG ACCOUNT_ID
-ENV AWS_ACCOUNT_ID=$ACCOUNT_ID
+ARG CODE_ARTIFACT_ACCOUNT_ID
+ARG CODE_ARTIFACT_ACCESS_KEY
+ARG CODE_ARTIFACT_ACCESS_KEY_ID
+ENV AWS_ACCOUNT_ID=$CODE_ARTIFACT_ACCOUNT_ID
+ENV AWS_SECRET_ACCESS_KEY=$CODE_ARTIFACT_ACCESS_KEY
+ENV AWS_ACCESS_KEY_ID=$CODE_ARTIFACT_ACCESS_KEY_ID
 
-# Following args are required for pushing to the test cluster, you need to add and export modl access keys to get pulse3d repo
-ARG ACCESS_KEY
-ARG ACCESS_KEY_ID
-ENV AWS_SECRET_ACCESS_KEY=$ACCESS_KEY
-ENV AWS_ACCESS_KEY_ID=$ACCESS_KEY_ID
-
-# required for docker compose
 RUN pip install awscli
 
 RUN python -m venv --copies /app/venv && \

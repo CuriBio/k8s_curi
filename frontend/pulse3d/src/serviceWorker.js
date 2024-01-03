@@ -4,6 +4,7 @@
 
 import jwtDecode from "jwt-decode";
 import { Mutex } from "async-mutex";
+const AdmZip = require("adm-zip");
 
 /* Global state of SW */
 const refreshMutex = new Mutex();
@@ -299,14 +300,25 @@ const getWaveformDataFromS3 = async (res) => {
     const timeForceRes = await fetch(response.time_force_url);
     const peaksValleysRes = await fetch(response.peaks_valleys_url);
 
+    const timeForceBuf = response.time_force_url.includes(".zip")
+      ? await _unzip(timeForceRes)
+      : await timeForceRes.arrayBuffer();
+
     return {
       peaksValleysData: convertLargeArrToJson(new Uint8Array(await peaksValleysRes.arrayBuffer())),
-      timeForceData: convertLargeArrToJson(new Uint8Array(await timeForceRes.arrayBuffer())),
+      timeForceData: convertLargeArrToJson(new Uint8Array(timeForceBuf)),
       amplitudeLabel: response.amplitude_label,
     };
   } catch (e) {
     console.log("Error grabbing waveform data: " + e);
   }
+};
+
+const _unzip = async (res) => {
+  const zip = new AdmZip(await res.arrayBuffer());
+  const buf = zip.readFile("tissue_waveforms.parquet");
+  console.log("BUFFER", buf);
+  return buf;
 };
 
 /* Event listeners of SW */
@@ -348,10 +360,11 @@ self.addEventListener("fetch", async (e) => {
         // Go to the cache first
         const cachedResponse = await cache.match(e.request.url);
         // For now, only return cached responses for waveform data requests
-        if (cachedResponse && isRequest(destURL, "/waveform-data")) {
-          console.log(`Returning cached response for ${destURL}`);
-          return cachedResponse;
-        }
+        // TODO uncomment
+        // if (cachedResponse && isRequest(destURL, "/waveform-data")) {
+        //   console.log(`Returning cached response for ${destURL}`);
+        //   return cachedResponse;
+        // }
         // Otherwise, hit the network
         let response = await interceptResponse(e.request, destURL);
 

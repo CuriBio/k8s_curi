@@ -16,6 +16,7 @@ from mantarray_magnet_finding.exceptions import UnableToConvergeError
 from pulse3D import metrics
 from pulse3D import peak_finding as peak_finder
 from pulse3D import rendering as renderer
+from pulse3D.constants import PACKAGE_VERSION as PULSE3D_VERSION
 from pulse3D.data_loader import (
     MantarrayBeta1Metadata,
     MantarrayBeta2Metadata,
@@ -44,8 +45,6 @@ structlog.configure(
 
 logger = structlog.get_logger()
 
-PULSE3D_VERSION = "v1.0.0rc13"
-
 
 def _get_existing_metadata(metadata_dict: dict[str, Any]) -> BaseMetadata:
     is_beta_2 = metadata_dict["file_format_version"] >= VersionInfo.parse("1.0.0")
@@ -59,7 +58,7 @@ def _get_existing_metadata(metadata_dict: dict[str, Any]) -> BaseMetadata:
 
 
 # needs to be prefixed so that the queue processor doesn't pick it up
-@get_item(queue=f"test-pulse3d-{PULSE3D_VERSION}")
+@get_item(queue=f"pulse3d-v{PULSE3D_VERSION}")
 async def process_item(con, item):
     # keeping initial log without bound variables
     logger.info(f"Processing item: {item}")

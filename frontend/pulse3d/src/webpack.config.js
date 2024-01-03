@@ -7,6 +7,14 @@ const mode = process.env.NODE_ENV || "development";
 console.log(`Building service worker in ${mode} mode\n`);
 
 module.exports = {
+  resolve: {
+    fallback: {
+      crypto: false,
+      fs: false,
+      path: false,
+      zlib: false,
+    },
+  },
   entry: {
     bundle: path.join(__dirname, "./serviceWorker.js"),
   },

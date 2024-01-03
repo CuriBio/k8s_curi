@@ -57,6 +57,8 @@ const loadCsvInputToArray = (commaSeparatedInputs) => {
 const getPeaksValleysFromTable = async (table) => {
   const columns = table.schema.fields.map(({ name }) => name);
 
+  console.log("!!!", columns);
+
   const parseFn = columns.includes("time") ? _getPeaksValleysFromTable : _getPeaksValleysFromLegacyTable;
   const peaksValleyObj = parseFn(table, columns);
 
