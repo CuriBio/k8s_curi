@@ -19,9 +19,7 @@ export const useWaveformData = (url) => {
 
       if (response.status !== 200) setError(true);
       else {
-        console.log("!!! 1");
         const { peaksValleysData, amplitudeLabel, timeForceData } = await response.json();
-        console.log("!!! 2");
 
         const featuresForWells = await parseParquetData(peaksValleysData, getPeaksValleysFromTable);
         const coordinates = await parseParquetData(timeForceData, getWaveformCoordsFromTable);
