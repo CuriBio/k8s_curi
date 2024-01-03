@@ -54,7 +54,7 @@ const ButtonContainer = styled.div`
 
 const getDefaultAccountInfo = (type) => {
   const info = {
-    customer: {
+    admin: {
       email: "",
       scopes: [],
     },

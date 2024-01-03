@@ -203,8 +203,8 @@ export default function ControlPanel() {
   }
 
   if (isCuriAdmin) {
-    // if the curi admin acccount is logged in, allow them to add new customers
-    adminButtons[1].options.push("Customer");
+    // if the curi admin acccount is logged in, allow them to add new admins
+    adminButtons[1].options.push("Admin");
   }
 
   useEffect(() => {

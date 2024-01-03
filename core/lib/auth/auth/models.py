@@ -4,7 +4,7 @@ from .scopes import ScopeConverter, Scopes
 
 
 class AccountTypes(StrEnum):
-    CUSTOMER = auto()
+    ADMIN = auto()
     USER = auto()
 
 
@@ -18,7 +18,7 @@ class JWTMeta(ScopeConverter):
 
 
 class JWTDetails(BaseModel):
-    """How we'll identify users and customers"""
+    """How we'll identify users and admins"""
 
     customer_id: str
     userid: str | None  # None for admin accounts
@@ -26,7 +26,7 @@ class JWTDetails(BaseModel):
 
     @property
     def account_id(self):
-        return self.customer_id if self.account_type == AccountTypes.CUSTOMER else self.userid
+        return self.customer_id if self.account_type == AccountTypes.ADMIN else self.userid
 
 
 class JWTPayload(JWTMeta, JWTDetails):
