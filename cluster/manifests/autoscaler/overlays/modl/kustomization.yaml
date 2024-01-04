@@ -16,7 +16,7 @@ patches:
       namespace: kube-system
   - patch: |-
       - op: add
-        path: /spec/template/spec/containers/0/command/8
+        path: /spec/template/spec/containers/0/command/9
         value: --node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/modl-v2
     target:
       kind: Deployment

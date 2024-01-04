@@ -142,6 +142,7 @@ spec:
             - --expander=least-waste
             - --balance-similar-node-groups
             - --skip-nodes-with-system-pods=false
+            - --scale-down-unneeded-time=5m0s
           volumeMounts:
             - name: ssl-certs
               mountPath: /etc/ssl/certs/ca-certificates.crt
