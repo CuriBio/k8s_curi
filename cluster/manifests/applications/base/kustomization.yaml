@@ -5,3 +5,4 @@ namespace: argocd
 resources:
   - argo-cd.yaml
   - secrets.yaml
+  - cluster-autoscaler.yaml
