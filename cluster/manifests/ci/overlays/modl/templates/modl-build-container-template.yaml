@@ -147,10 +147,6 @@ spec:
         command: [/kaniko/executor]
         workingDir: /tmp/git/k8s_curi
         env:
-          - name: AWS_EC2_METADATA_DISABLED
-            value: "true"
-          - name: AWS_SDK_LOAD_CONFIG
-            value: "true"
           - name: AWS_ACCESS_KEY_ID
             valueFrom:
               secretKeyRef:
