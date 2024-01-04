@@ -14,6 +14,8 @@ ENV AWS_ACCESS_KEY_ID=$CODE_ARTIFACT_ACCESS_KEY_ID
 
 RUN pip install awscli
 
+RUN bash -c "echo $AWS_ACCOUNT_ID"
+
 RUN python -m venv --copies /app/venv && \
     . /app/venv/bin/activate && \
     export CODEARTIFACT_AUTH_TOKEN=$(aws codeartifact get-authorization-token --domain curibio --domain-owner $AWS_ACCOUNT_ID --region us-east-2 --query authorizationToken --output text) && \
