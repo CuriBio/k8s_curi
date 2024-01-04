@@ -900,28 +900,29 @@ async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(tag=
 def _create_features_df(timepoints, features, peak_valley_diff):
     ia_features = _create_legacy_features_df(features, peak_valley_diff)
 
-    wells = {c.split("__")[0] for c in ia_features.columns}
+    wells = {c.split("__")[0] for c in ia_features.select(pl.exclude("time")).columns}
 
     formatted_features = create_empty_df(timepoints, wells)
 
-    for well in ia_features.select(pl.exclude("time")).columns:
+    for well in wells:
         peaks = ia_features[f"{well}__peaks"].cast(int).drop_nulls()
         valleys = ia_features[f"{well}__valleys"].cast(int).drop_nulls()
 
-        formatted_features = mark_features(formatted_features, peaks, FeatureMarkers.PEAKS, well)
-        formatted_features = mark_features(formatted_features, valleys, FeatureMarkers.VALLEYS, well)
+        formatted_features = mark_features(formatted_features, peaks, FeatureMarkers.PEAK, well)
+        formatted_features = mark_features(formatted_features, valleys, FeatureMarkers.VALLEY, well)
 
     return formatted_features
 
 
 def _create_legacy_features_df(features, peak_valley_diff):
-    peak_valleys_dict = dict()
+    df = pl.DataFrame()
 
     # format peaks and valleys to simple df
     for well, peaks_valleys in features.items():
         for feature_idx, feature_name in enumerate(["peaks", "valleys"]):
-            peak_valleys_dict[f"{well}__{feature_name}"] = (
-                pl.Series(peaks_valleys[feature_idx]) + peak_valley_diff
+            well_idxs_of_feature = (
+                pl.DataFrame({f"{well}__{feature_name}": peaks_valleys[feature_idx]}) + peak_valley_diff
             )
+            df = pl.concat([df, well_idxs_of_feature], how="horizontal")
 
-    return pl.DataFrame(peak_valleys_dict)
+    return df
