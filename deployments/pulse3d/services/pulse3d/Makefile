@@ -12,7 +12,10 @@ build:
 
 buildx:
 	cd ${repo_root} && \
-	docker buildx build -t pulse3d_api . --platform linux/amd64 --load -f ${repo_root}/deployments/pulse3d/services/pulse3d/Dockerfile
+	docker buildx build -t pulse3d_api . --platform linux/amd64 --load -f ${repo_root}/deployments/pulse3d/services/pulse3d/Dockerfile \
+		--build-arg="CODE_ARTIFACT_ACCOUNT_ID=${CODE_ARTIFACT_ACCOUNT_ID}" \
+		--build-arg="CODE_ARTIFACT_ACCESS_KEY=${CODE_ARTIFACT_ACCESS_KEY}" \
+		--build-arg="CODE_ARTIFACT_ACCESS_KEY_ID=${CODE_ARTIFACT_ACCESS_KEY_ID}"
 
 tag:
 	docker tag pulse3d_api:latest $(ecr_repo):0.9.1

@@ -568,7 +568,7 @@ async def create_new_job(
                     meta={**job_meta, "version": "1.0.0rc13"},
                     customer_id=customer_id,
                     job_type=upload_type,
-                    # add_to_results=False,
+                    add_to_results=False,
                 )
 
             bind_context_to_logger({"job_id": str(job_id)})
