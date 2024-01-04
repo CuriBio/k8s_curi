@@ -739,7 +739,7 @@ async def update_accounts(
                     # decode and validate current reset token
                     current_token = decode_token(row["reset_token"])
                     # make sure the given token and the current token in the DB are the same
-                    assert token == current_token, "test"
+                    assert token == current_token
                 except (InvalidTokenError, AssertionError):
                     return UnableToUpdateAccountResponse(message="Link has expired")
 

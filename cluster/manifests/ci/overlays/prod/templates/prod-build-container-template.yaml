@@ -163,8 +163,8 @@ spec:
           - --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
           - --build-arg
           - CODE_ARTIFACT_ACCOUNT_ID=245339368379
-          - CODE_ARTIFACT_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-          - CODE_ARTIFACT_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+          - CODE_ARTIFACT_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY)
+          - CODE_ARTIFACT_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID)
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
@@ -365,8 +365,8 @@ spec:
           - --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
           - --build-arg
           - CODE_ARTIFACT_ACCOUNT_ID=245339368379
-          - CODE_ARTIFACT_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-          - CODE_ARTIFACT_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+          - CODE_ARTIFACT_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY)
+          - CODE_ARTIFACT_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID)
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
