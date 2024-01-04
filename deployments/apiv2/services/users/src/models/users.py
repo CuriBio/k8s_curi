@@ -19,7 +19,7 @@ PASSWORD_REGEX = r"""(
     $)"""
 
 
-class CustomerLogin(BaseModel):
+class AdminLogin(BaseModel):
     email: EmailStr
     password: SecretStr
     service: str | None = Field(
@@ -58,7 +58,7 @@ class PasswordModel(BaseModel):
         return v
 
 
-class CustomerCreate(ScopeConverter):
+class AdminCreate(ScopeConverter):
     email: EmailStr
     scopes: list[Scopes]
 
@@ -93,7 +93,7 @@ class UserProfile(BaseModel):
     scopes: list[Scopes]
 
 
-class CustomerProfile(BaseModel):
+class AdminProfile(BaseModel):
     email: EmailStr
     user_id: str
     scopes: list[Scopes]
@@ -123,7 +123,7 @@ class LoginResponse(BaseModel):
     tokens: AuthTokens
     usage_quota: UsageQuota | None = Field(default=None)
     user_scopes: dict[Scopes, Scopes | None] | None = Field(default=None)
-    customer_scopes: dict[Scopes, Scopes | None] | None = Field(default=None)
+    admin_scopes: dict[Scopes, Scopes | None] | None = Field(default=None)
 
 
 class PreferencesUpdate(BaseModel):

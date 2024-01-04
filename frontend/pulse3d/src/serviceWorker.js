@@ -120,11 +120,6 @@ const getValueFromToken = async (name) => {
 
   let value = jwtDecode(cachedTokens.access)[name];
 
-  if (name === "account_type" && value === "customer") {
-    // token types are 'user' and 'customer', but FE uses 'user' and 'admin'
-    value = "admin";
-  }
-
   return value;
 };
 
@@ -438,7 +433,7 @@ self.onmessage = async ({ data, source }) => {
       },
       usageQuota: await getUsageQuota(),
       userScopes: await getAvailableScopes("user_scopes"),
-      customerScopes: await getAvailableScopes("customer_scopes"),
+      adminScopes: await getAvailableScopes("admin_scopes"),
       preferences: await getUserPreferences(),
     };
   } else if (msgType === "stayAlive") {

@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 import pytest
 from random import choice, randint
 
-from auth import create_token, Scopes
+from auth import create_token, Scopes, AccountTypes
 from src import main
 from src.models.models import FirmwareUploadResponse, LatestVersionsResponse
 
@@ -24,7 +24,11 @@ def random_software_type():
 
 def get_token(*, scopes):
     return create_token(
-        userid=uuid.uuid4(), customer_id=uuid.uuid4(), scopes=scopes, account_type="user", refresh=False
+        userid=uuid.uuid4(),
+        customer_id=uuid.uuid4(),
+        scopes=scopes,
+        account_type=AccountTypes.USER,
+        refresh=False,
     ).token
 
 
