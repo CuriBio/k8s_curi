@@ -114,7 +114,7 @@ module "eks_cluster_v2" {
   vpc_id           = module.vpc.vpc_id
   node_groups = {
     services = {
-      desired_size = 3
+      desired_size = 1
       min_size     = 1
       max_size     = 3
 
@@ -130,8 +130,8 @@ module "eks_cluster_v2" {
     },
 
     workers = {
-      desired_size = 6
-      min_size     = 1
+      desired_size = 3
+      min_size     = 0
       max_size     = 6
 
       instance_types = ["c6a.large"]
@@ -145,7 +145,7 @@ module "eks_cluster_v2" {
       }
     },
     argo = {
-      desired_size = 3
+      desired_size = 1
       min_size     = 1
       max_size     = 3
 
