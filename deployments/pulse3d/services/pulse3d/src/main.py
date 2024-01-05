@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 import json
 import os
 import tempfile
@@ -7,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 import boto3
-import pandas as pd
+import polars as pl
 import structlog
 from auth import ScopeTags, Scopes, ProtectedAny, check_prohibited_product, ProhibitedProductError
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
@@ -23,18 +24,15 @@ from jobs import (
     get_jobs,
     get_uploads,
 )
-from pulse3D.constants import (
-    AMPLITUDE_UUID,
-    CALCULATED_METRIC_DISPLAY_NAMES,
-    DATA_TYPE_TO_AMPLITUDE_LABEL,
-    DATA_TYPE_TO_UNIT_LABEL,
-    DEFAULT_AMPLITUDE_LABEL,
-    DEFAULT_BASELINE_WIDTHS,
-    DEFAULT_NB_WIDTH_FACTORS,
-    DEFAULT_PROMINENCE_FACTORS,
-    DEFAULT_UNIT_LABEL,
-    DEFAULT_WIDTH_FACTORS,
+from pulse3D.constants import DataTypes
+from pulse3D.peak_finding.constants import (
+    DefaultLegacyPeakFindingParams,
+    DefaultNoiseBasedPeakFindingParams,
+    FeatureMarkers,
 )
+from pulse3D.peak_finding.utils import create_empty_df, mark_features
+from pulse3D.metrics.constants import TwitchMetrics, DefaultMetricsParams
+from pulse3D.rendering.utils import get_metric_display_title
 from semver import VersionInfo
 from stream_zip import ZIP_64, stream_zip
 from starlette_context import context, request_cycle_context
@@ -62,8 +60,17 @@ from models.types import TupleParam
 setup_logger()
 logger = structlog.stdlib.get_logger("api.access")
 
-app = FastAPI(openapi_url=None)
+
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await asyncpg_pool()
+    yield
+
+
+app = FastAPI(openapi_url=None, lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -105,11 +112,6 @@ async def db_session_middleware(request: Request, call_next) -> Response:
         )
 
     return response
-
-
-@app.on_event("startup")
-async def startup():
-    await asyncpg_pool()
 
 
 # TODO define response model
@@ -447,11 +449,8 @@ async def create_new_job(
         # TODO see if any of this pertains to deprecated pulse3d versions and can be removed
         # Luci (12/14/2022) PlateRecording.to_dataframe() was updated in 0.28.3 to include 0.0 timepoint so this accounts for the index difference between versions
         peak_valley_diff = 0
-        if previous_semver_version is not None and previous_semver_version != pulse3d_semver:
-            if previous_semver_version < "0.28.3" and pulse3d_semver >= "0.28.3":
-                peak_valley_diff += 1
-            elif previous_semver_version >= "0.28.3" and pulse3d_semver < "0.28.3":
-                peak_valley_diff -= 1
+        if previous_semver_version is not None and previous_semver_version < "0.28.3":
+            peak_valley_diff = 1
 
         if pulse3d_semver >= "0.30.1":
             # Tanner (2/7/23): these params added in earlier versions but there are bugs with using this param in re-analysis prior to 0.30.1
@@ -477,7 +476,6 @@ async def create_new_job(
             params.append("prominence_factors")
 
         details_dict = dict(details)
-
         analysis_params = {param: details_dict[param] for param in params}
 
         if details.peaks_valleys:
@@ -485,12 +483,14 @@ async def create_new_job(
 
         # convert these params into a format compatible with pulse3D
         for param, default_values in (
-            ("prominence_factors", DEFAULT_PROMINENCE_FACTORS),
+            ("prominence_factors", DefaultLegacyPeakFindingParams.PROMINENCE_FACTORS.value),
             (
                 "width_factors",
-                DEFAULT_NB_WIDTH_FACTORS if use_noise_based_peak_finding else DEFAULT_WIDTH_FACTORS,
+                DefaultNoiseBasedPeakFindingParams.WIDTH_FACTORS.value
+                if use_noise_based_peak_finding
+                else DefaultLegacyPeakFindingParams.WIDTH_FACTORS.value,
             ),
-            ("baseline_widths_to_use", DEFAULT_BASELINE_WIDTHS),
+            ("baseline_widths_to_use", DefaultMetricsParams.BASELINE_WIDTHS.value),
         ):
             if param in analysis_params:
                 analysis_params[param] = _format_tuple_param(analysis_params[param], default_values)
@@ -536,21 +536,40 @@ async def create_new_job(
             if usage_quota["jobs_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
+            # TODO remove this once done testing rc versions of pulse3d rewrite
+            version = details.version
+            if version == "1.0.0":
+                version = "1.0.0rc13"
+
+            job_meta = {"analysis_params": analysis_params, "version": version}
             # if a name is present, then add to metadata of job
-            job_meta = {"analysis_params": analysis_params, "version": details.version}
             if details.name_override and pulse3d_semver >= "0.32.2":
-                job_meta.update({"name_override": details.name_override})
+                job_meta["name_override"] = details.name_override
 
             # finally create job
             job_id = await create_job(
                 con=con,
                 upload_id=upload_id,
-                queue=f"pulse3d-v{details.version}",
+                queue=f"pulse3d-v{version}",
                 priority=priority,
                 meta=job_meta,
                 customer_id=customer_id,
                 job_type=upload_type,
             )
+
+            # if most recent pulse3d version, kick off job with pulse3d rewrite to compare outputs of both versions
+            rewrite_job_id = None
+            if pulse3d_semver == "0.34.4":
+                rewrite_job_id = await create_job(
+                    con=con,
+                    upload_id=upload_id,
+                    queue="pulse3d-v1.0.0rc13",
+                    priority=priority,
+                    meta={**job_meta, "version": "1.0.0rc13"},
+                    customer_id=customer_id,
+                    job_type=upload_type,
+                    add_to_results=False,
+                )
 
             bind_context_to_logger({"job_id": str(job_id)})
 
@@ -567,31 +586,23 @@ async def create_new_job(
                 # only added during interactive analysis
                 with tempfile.TemporaryDirectory() as tmpdir:
                     pv_parquet_path = os.path.join(tmpdir, "peaks_valleys.parquet")
-                    peak_valleys_dict = dict()
 
-                    # format peaks and valleys to simple df
-                    for well, peaks_valleys in details.peaks_valleys.items():
-                        for feature_idx, feature_name in enumerate(["peaks", "valleys"]):
-                            peak_valleys_dict[f"{well}__{feature_name}"] = (
-                                pd.Series(peaks_valleys[feature_idx]) + peak_valley_diff
-                            )
-
+                    if pulse3d_semver >= "1.0.0":
+                        features_df = _create_features_df(
+                            details.timepoints, details.peaks_valleys, peak_valley_diff
+                        )
+                    else:
+                        features_df = _create_legacy_features_df(details.peaks_valleys, peak_valley_diff)
                     # write peaks and valleys to parquet file in temporary directory
-                    pd.DataFrame(peak_valleys_dict).to_parquet(pv_parquet_path)
+                    features_df.write_parquet(pv_parquet_path)
                     # upload to s3 under upload id and job id for pulse3d-worker to use
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
-            else:
-                # Luci (12/13/23): if not interactive analysis, kick off second job to test pulse3d rewrite. IA is not setup to work yet.
-                await create_job(
-                    con=con,
-                    upload_id=upload_id,
-                    queue="test-pulse3d-v1.0.0rc9",
-                    priority=priority,
-                    meta=job_meta,
-                    customer_id=customer_id,
-                    job_type=upload_type,
-                    add_to_results=False,
-                )
+
+                    if rewrite_job_id:
+                        rewrite_key = f"uploads/{customer_id}/{original_upload_user}/{upload_id}/{rewrite_job_id}/peaks_valleys.parquet"
+                        upload_file_to_s3(
+                            bucket=PULSE3D_UPLOADS_BUCKET, key=rewrite_key, file=pv_parquet_path
+                        )
 
         return JobResponse(
             id=job_id,
@@ -766,35 +777,43 @@ async def get_interactive_waveform_data(
                 )
 
         # Get presigned url for time force data
-        parquet_filename = f"{os.path.splitext(selected_job['filename'])[0]}.parquet"
-        parquet_key = (
-            f"{selected_job['prefix']}/time_force_data/{pulse3d_version}/{parquet_filename}"
-            if pulse3d_version is not None
-            else f"{selected_job['prefix']}/time_force_data/{parquet_filename}"
-        )
+        force_v_time_filename = os.path.splitext(selected_job["filename"])[0]
+        if pulse3d_version is None:
+            force_v_time_key = f"{selected_job['prefix']}/time_force_data/{force_v_time_filename}.parquet"
+        else:
+            # TODO remove this split once we're done with RC versions
+            file_ext = ".zip" if VersionInfo.parse(pulse3d_version.split("rc")[0]) >= "1.0.0" else ".parquet"
+            force_v_time_key = f"{selected_job['prefix']}/time_force_data/{pulse3d_version}/{force_v_time_filename}{file_ext}"
 
-        logger.info(f"Generating presigned URL for {parquet_filename}")
-        time_force_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, parquet_key)
+        logger.info(f"Generating presigned URL for {force_v_time_key}")
+        try:
+            time_force_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, force_v_time_key)
+        except ValueError:
+            message = f"Force v Time Parquet file was not found in S3 under key {force_v_time_key}"
+            logger.exception(message)
+            return GenericErrorResponse(error="MissingDataError", message=message)
 
         # Get presigned url for peaks and valleys
         logger.info("Generating presigned URL for peaks and valleys")
         pv_parquet_key = f"{selected_job['prefix']}/{job_id}/peaks_valleys.parquet"
-        peaks_valleys_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, pv_parquet_key)
+        try:
+            peaks_valleys_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, pv_parquet_key)
+        except ValueError:
+            message = f"Peaks/Valleys Parquet file was not found in S3 under key {pv_parquet_key}"
+            logger.exception(message)
+            return GenericErrorResponse(error="MissingDataError", message=message)
 
-        data_type = analysis_params.get("data_type")
-        if not data_type:
+        data_type_str: str | None = analysis_params.get("data_type")
+        if data_type_str:
+            data_type = DataTypes[data_type_str.upper()]
+        else:
             # if data type is not present, is present and is None, or some other falsey value, set to Force as default
-            data_type = "Force"
+            data_type = DataTypes.FORCE
 
         return WaveformDataResponse(
             time_force_url=time_force_url,
             peaks_valleys_url=peaks_valleys_url,
-            amplitude_label=_get_full_amplitude_label(data_type),
-        )
-    # ValueError gets raised when no object is found in s3 that matches given key
-    except ValueError:
-        return GenericErrorResponse(
-            error="MissingDataError", message="Parquet file was not found in S3. Reanalysis required."
+            amplitude_label=get_metric_display_title(TwitchMetrics.AMPLITUDE, data_type),
         )
     except S3Error:
         logger.exception("Error from s3")
@@ -802,13 +821,6 @@ async def get_interactive_waveform_data(
     except Exception:
         logger.exception("Failed to get interactive waveform data")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-def _get_full_amplitude_label(data_type: str) -> str:
-    return CALCULATED_METRIC_DISPLAY_NAMES[AMPLITUDE_UUID].format(
-        amplitude=DATA_TYPE_TO_AMPLITUDE_LABEL.get(data_type.lower(), DEFAULT_AMPLITUDE_LABEL),
-        unit=DATA_TYPE_TO_UNIT_LABEL.get(data_type.lower(), DEFAULT_UNIT_LABEL),
-    )
 
 
 @app.get("/versions")
@@ -883,3 +895,34 @@ async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(tag=
     except Exception:
         logger.exception("Failed to get analysis presets for user")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _create_features_df(timepoints, features, peak_valley_diff):
+    ia_features = _create_legacy_features_df(features, peak_valley_diff)
+
+    wells = {c.split("__")[0] for c in ia_features.select(pl.exclude("time")).columns}
+
+    formatted_features = create_empty_df(timepoints, wells)
+
+    for well in wells:
+        peaks = ia_features[f"{well}__peaks"].cast(int).drop_nulls()
+        valleys = ia_features[f"{well}__valleys"].cast(int).drop_nulls()
+
+        formatted_features = mark_features(formatted_features, peaks, FeatureMarkers.PEAK, well)
+        formatted_features = mark_features(formatted_features, valleys, FeatureMarkers.VALLEY, well)
+
+    return formatted_features
+
+
+def _create_legacy_features_df(features, peak_valley_diff):
+    df = pl.DataFrame()
+
+    # format peaks and valleys to simple df
+    for well, peaks_valleys in features.items():
+        for feature_idx, feature_name in enumerate(["peaks", "valleys"]):
+            well_idxs_of_feature = (
+                pl.DataFrame({f"{well}__{feature_name}": peaks_valleys[feature_idx]}) + peak_valley_diff
+            )
+            df = pl.concat([df, well_idxs_of_feature], how="horizontal")
+
+    return df

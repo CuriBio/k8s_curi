@@ -4,6 +4,8 @@
 
 import jwtDecode from "jwt-decode";
 import { Mutex } from "async-mutex";
+const AdmZip = require("adm-zip");
+const arrayBufferToBuffer = require("arraybuffer-to-buffer");
 
 /* Global state of SW */
 const refreshMutex = new Mutex();
@@ -288,20 +290,57 @@ const convertLargeArrToJson = (arr) => {
 };
 
 const getWaveformDataFromS3 = async (res) => {
+  let data = {};
+
+  let response;
   try {
-    const response = await res.json();
-
-    const timeForceRes = await fetch(response.time_force_url);
-    const peaksValleysRes = await fetch(response.peaks_valleys_url);
-
-    return {
-      peaksValleysData: convertLargeArrToJson(new Uint8Array(await peaksValleysRes.arrayBuffer())),
-      timeForceData: convertLargeArrToJson(new Uint8Array(await timeForceRes.arrayBuffer())),
-      amplitudeLabel: response.amplitude_label,
-    };
+    response = await res.json();
   } catch (e) {
-    console.log("Error grabbing waveform data: " + e);
+    console.log("Error getting response JSON: " + e);
+    return data;
   }
+
+  let timeForceRes;
+  try {
+    timeForceRes = await fetch(response.time_force_url);
+  } catch (e) {
+    console.log("Error retrieving waveform data: " + e);
+    return data;
+  }
+
+  try {
+    const timeForceBuf = response.time_force_url.includes(".zip")
+      ? await _unzip(timeForceRes)
+      : await timeForceRes.arrayBuffer();
+
+    data.timeForceData = convertLargeArrToJson(new Uint8Array(timeForceBuf));
+  } catch (e) {
+    console.log("Error processing waveform data: " + e);
+    return data;
+  }
+
+  let peaksValleysRes;
+  try {
+    peaksValleysRes = await fetch(response.peaks_valleys_url);
+  } catch (e) {
+    console.log("Error retrieving peaks/valleys: " + e);
+    return data;
+  }
+
+  try {
+    data.peaksValleysData = convertLargeArrToJson(new Uint8Array(await peaksValleysRes.arrayBuffer()));
+  } catch (e) {
+    console.log("Error processing peaks/valleys: " + e);
+    return data;
+  }
+
+  return data;
+};
+
+const _unzip = async (res) => {
+  const zip = new AdmZip(arrayBufferToBuffer(await res.arrayBuffer()));
+  const buf = zip.readFile("tissue_waveforms.parquet");
+  return buf;
 };
 
 /* Event listeners of SW */

@@ -5,8 +5,22 @@ COPY ./core/lib/auth ./lib/auth
 COPY ./core/lib/utils ./lib/utils
 COPY ./core/lib/jobs ./lib/jobs
 
-RUN python -m venv --copies /app/venv
-RUN . /app/venv/bin/activate && pip install -r ./requirements.txt && pip install ./lib/auth && pip install ./lib/utils && pip install ./lib/jobs
+ARG CODE_ARTIFACT_ACCOUNT_ID
+ARG CODE_ARTIFACT_ACCESS_KEY
+ARG CODE_ARTIFACT_ACCESS_KEY_ID
+ENV AWS_ACCOUNT_ID=$CODE_ARTIFACT_ACCOUNT_ID
+ENV AWS_SECRET_ACCESS_KEY=$CODE_ARTIFACT_ACCESS_KEY
+ENV AWS_ACCESS_KEY_ID=$CODE_ARTIFACT_ACCESS_KEY_ID
+
+RUN pip install awscli
+
+RUN python -m venv --copies /app/venv && \
+    . /app/venv/bin/activate && \
+    export CODEARTIFACT_AUTH_TOKEN=$(aws codeartifact get-authorization-token --domain curibio --domain-owner $AWS_ACCOUNT_ID --region us-east-2 --query authorizationToken --output text) && \
+    pip install -r ./requirements.txt --extra-index-url=https://aws:$CODEARTIFACT_AUTH_TOKEN@curibio-$AWS_ACCOUNT_ID.d.codeartifact.us-east-2.amazonaws.com/pypi/pulse3d/simple/ && \
+    pip install ./lib/auth && \
+    pip install ./lib/utils && \
+    pip install ./lib/jobs
 
 
 FROM python:3.11-slim as prod

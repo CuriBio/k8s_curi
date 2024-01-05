@@ -81,6 +81,26 @@
         "arn:aws:s3:::modl-mantarray-logs",
         "arn:aws:s3:::modl-mantarray-logs/*"
       ]
+    },
+    {
+      "Action": [
+          "codeartifact:Describe*",
+          "codeartifact:Get*",
+          "codeartifact:List*",
+          "codeartifact:ReadFromRepository"
+      ],
+      "Effect": "Allow",
+      "Resource": ["arn:aws:codeartifact:us-east-2:725604423866:domain/curibio"]
+    },
+    {
+        "Effect": "Allow",
+        "Action": "sts:GetServiceBearerToken",
+        "Resource": "*",
+        "Condition": {
+            "StringEquals": {
+                "sts:AWSServiceName": "codeartifact.amazonaws.com"
+            }
+        }
     }
   ]
 }

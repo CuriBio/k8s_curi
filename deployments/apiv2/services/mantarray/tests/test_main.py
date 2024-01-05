@@ -152,11 +152,14 @@ def test_versions__get__success(is_prod, mocked_asyncpg_con, mocker):
     test_serial_number = "MA2022001000"
     response = test_client.get(f"/versions/{test_serial_number}/{is_prod}")
     assert response.status_code == 200
-    assert response.json() == LatestVersionsResponse(
-        ma_sw=test_latest_versions["min_ma_controller_version"],
-        sting_sw=test_latest_versions["min_sting_controller_version"],
-        main_fw=test_latest_versions["main_fw_version"],
-        channel_fw=test_latest_versions["channel_fw_version"],
+    assert (
+        response.json()
+        == LatestVersionsResponse(
+            ma_sw=test_latest_versions["min_ma_controller_version"],
+            sting_sw=test_latest_versions["min_sting_controller_version"],
+            main_fw=test_latest_versions["main_fw_version"],
+            channel_fw=test_latest_versions["channel_fw_version"],
+        ).model_dump()
     )
 
     expected_query = (
@@ -232,7 +235,7 @@ def test_firmware_info__get__success(mocked_asyncpg_con):
 
     response = test_client.get("/firmware/info", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 200
-    assert response.json() == expected_response
+    assert response.json() == expected_response.model_dump()
 
 
 def test_firmware__get__success(mocker):
@@ -304,7 +307,7 @@ def test_firmware__post__main_fw__success(
         },
     )
     assert response.status_code == 200
-    assert response.json() == FirmwareUploadResponse(params=mocked_presigned_post.return_value)
+    assert response.json() == FirmwareUploadResponse(params=mocked_presigned_post.return_value).model_dump()
 
     mocked_asyncpg_con.execute.assert_called_with(
         "INSERT INTO ma_main_firmware (version, min_ma_controller_version, min_sting_controller_version) VALUES ($1, $2, $3)",
@@ -337,7 +340,7 @@ def test_firmware__post__channel_fw__success(mocker, mocked_asyncpg_con):
         },
     )
     assert response.status_code == 200
-    assert response.json() == FirmwareUploadResponse(params=mocked_presigned_post.return_value)
+    assert response.json() == FirmwareUploadResponse(params=mocked_presigned_post.return_value).model_dump()
 
     mocked_asyncpg_con.execute.assert_called_with(
         "INSERT INTO ma_channel_firmware (version, main_fw_version, hw_version) VALUES ($1, $2, $3)",

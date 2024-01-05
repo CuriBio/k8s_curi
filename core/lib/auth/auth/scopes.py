@@ -1,5 +1,5 @@
 from enum import StrEnum, auto
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 from typing import Self
 
 
@@ -90,7 +90,7 @@ class Scopes(StrEnum):
 
 
 class ScopeConverter(BaseModel):
-    @validator("scopes", check_fields=False)
+    @field_validator("scopes", check_fields=False)
     def convert_scopes(cls, scopes):
         if scopes is None:
             return None

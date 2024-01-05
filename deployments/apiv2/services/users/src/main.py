@@ -1,6 +1,7 @@
 import json
 import time
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime
 
 from argon2 import PasswordHasher
@@ -61,7 +62,14 @@ logger = structlog.stdlib.get_logger("api.access")
 
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
-app = FastAPI(openapi_url=None)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await asyncpg_pool()
+    yield
+
+
+app = FastAPI(openapi_url=None, lifespan=lifespan)
 
 MAX_FAILED_LOGIN_ATTEMPTS = 10
 TEMPLATES = Jinja2Templates(directory="templates")
@@ -106,11 +114,6 @@ async def db_session_middleware(request: Request, call_next) -> Response:
         )
 
     return response
-
-
-@app.on_event("startup")
-async def startup():
-    await asyncpg_pool()
 
 
 @app.post("/login/admin", response_model=LoginResponse)

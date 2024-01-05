@@ -1,8 +1,8 @@
 import re
 from typing import Any
 from uuid import UUID
-from pydantic import BaseModel, EmailStr, SecretStr
-from pydantic import constr, validator
+from pydantic import BaseModel, EmailStr, SecretStr, Field
+from pydantic import constr, field_validator
 from auth import AuthTokens, Scopes, ScopeConverter
 
 USERNAME_MIN_LEN = 3
@@ -22,24 +22,26 @@ PASSWORD_REGEX = r"""(
 class AdminLogin(BaseModel):
     email: EmailStr
     password: SecretStr
-    service: str | None  # TODO decide how to check usage for multiple products for an admin login
-    client_type: str | None
+    service: str | None = Field(
+        default=None
+    )  # TODO decide how to check usage for multiple products for a customer login
+    client_type: str | None = Field(default=None)
 
 
 class UserLogin(BaseModel):
-    customer_id: UUID | str
+    customer_id: UUID | str = Field(union_mode="left_to_right")
     username: str
     password: SecretStr
-    service: str | None  # TODO remove after this key is removed from MA login request
-    client_type: str | None
+    service: str | None = Field(default=None)  # TODO remove after this key is removed from MA login request
+    client_type: str | None = Field(default=None)
 
 
 class PasswordModel(BaseModel):
     password1: SecretStr
     password2: SecretStr
-    verify: bool | None
+    verify: bool | None = Field(default=None)
 
-    @validator("password1")
+    @field_validator("password1")
     def password_requirements(cls, v):
         valid = re.compile(PASSWORD_REGEX, re.VERBOSE)
 
@@ -48,9 +50,9 @@ class PasswordModel(BaseModel):
         ), "Password must contain at least one uppercase, one lowercase, one number, one special character, and be at least ten characters long"
         return v
 
-    @validator("password2")
+    @field_validator("password2")
     def passwords_match(cls, v, values, **kwargs):
-        if pw1 := values.get("password1"):
+        if pw1 := values.data.get("password1"):
             assert v.get_secret_value() == pw1.get_secret_value(), "Passwords do not match"
 
         return v
@@ -66,7 +68,7 @@ class UserCreate(ScopeConverter):
     username: str
     scopes: list[Scopes]
 
-    @validator("username")
+    @field_validator("username")
     def username_alphanumeric(cls, v):
         assert len(v) >= USERNAME_MIN_LEN, "Username does not meet min length"
         assert len(v) <= USERNAME_MAX_LEN, "Username exceeds max length"
@@ -85,7 +87,7 @@ class UserCreate(ScopeConverter):
 
 
 class UserProfile(BaseModel):
-    username: constr(min_length=USERNAME_MIN_LEN, max_length=USERNAME_MAX_LEN, regex=USERNAME_REGEX_STR)
+    username: constr(min_length=USERNAME_MIN_LEN, max_length=USERNAME_MAX_LEN, pattern=USERNAME_REGEX_STR)
     email: EmailStr
     user_id: str
     scopes: list[Scopes]
@@ -99,7 +101,7 @@ class AdminProfile(BaseModel):
 
 class AccountUpdateAction(BaseModel):
     action_type: str
-    new_alias: str | None
+    new_alias: str | None = Field(default=None)
 
 
 class UserScopesUpdate(ScopeConverter):
@@ -119,9 +121,9 @@ class UsageQuota(BaseModel):
 
 class LoginResponse(BaseModel):
     tokens: AuthTokens
-    usage_quota: UsageQuota | None
-    user_scopes: dict[Scopes, Scopes | None] | None
-    admin_scopes: dict[Scopes, Scopes | None] | None
+    usage_quota: UsageQuota | None = Field(default=None)
+    user_scopes: dict[Scopes, Scopes | None] | None = Field(default=None)
+    admin_scopes: dict[Scopes, Scopes | None] | None = Field(default=None)
 
 
 class PreferencesUpdate(BaseModel):

@@ -12,6 +12,9 @@ from src import main
 import numpy as np
 import tempfile
 
+from pulse3D.constants import DataTypes
+from pulse3D.rendering.utils import get_metric_display_title
+from pulse3D.metrics.constants import TwitchMetrics
 from labware_domain_models import LabwareDefinition
 from src.models.models import GenericErrorResponse, WaveformDataResponse
 
@@ -238,8 +241,9 @@ def test_uploads__post_if_customer_quota_has_been_reached(mocked_asyncpg_con, mo
 
     response = test_client.post("/uploads", **kwargs)
     assert response.status_code == 200
-    assert response.json() == GenericErrorResponse(
-        message=mocked_usage_check.return_value, error="UsageError"
+    assert (
+        response.json()
+        == GenericErrorResponse(message=mocked_usage_check.return_value, error="UsageError").model_dump()
     )
     mocked_create_upload.assert_not_called()
 
@@ -586,8 +590,11 @@ def test_jobs__post__returns_unauthorized_error_if_user_ids_dont_match(mocked_as
     }
     response = test_client.post("/jobs", **kwargs)
     assert response.status_code == 200
-    assert response.json() == GenericErrorResponse(
-        message="User does not have authorization to start this job.", error="AuthorizationError"
+    assert (
+        response.json()
+        == GenericErrorResponse(
+            message="User does not have authorization to start this job.", error="AuthorizationError"
+        ).model_dump()
     )
 
 
@@ -740,8 +747,9 @@ def test_jobs__post__returns_error_dict_if_quota_has_been_reached(mocker, mocked
     }
     response = test_client.post("/jobs", **kwargs)
     assert response.status_code == 200
-    assert response.json() == GenericErrorResponse(
-        message=mocked_usage_check.return_value, error="UsageError"
+    assert (
+        response.json()
+        == GenericErrorResponse(message=mocked_usage_check.return_value, error="UsageError").model_dump()
     )
     spied_create_job.assert_not_called()
 
@@ -904,7 +912,7 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
         "headers": {"Authorization": f"Bearer {access_token}"},
     }
     response = test_client.post("/jobs", **kwargs)
-    assert response.status_code == 200
+    assert response.status_code == 200, response.json()
 
     expected_analysis_param_keys = [
         "baseline_widths_to_use",
@@ -1303,14 +1311,14 @@ def test_waveform_data__get__getting_job_metadata_from_db_errors(mocker):
 
 
 @pytest.mark.parametrize("pulse3d_version", [None, "1.2.3"])
-@pytest.mark.parametrize("data_type", [None, "", "Force", "calcium"])
+@pytest.mark.parametrize("data_type", [None, ""] + list(DataTypes))
 def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version, data_type):
     test_inclusive_df = pd.DataFrame()
     mocker.patch.object(pd, "read_parquet", return_value=test_inclusive_df, autospec=True)
 
     test_user_id = uuid.uuid4()
     expected_presigned_url = "test-url.s3"
-    expected_analysis_params = {
+    test_analysis_params = {
         param: None
         for param in (
             "normalize_y_axis",
@@ -1325,18 +1333,17 @@ def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version, d
         )
     }
 
-    # intentionally only handling None case here
-    if data_type is not None:
-        expected_analysis_params["data_type"] = data_type
-        expected_data_type = data_type.title()
-    # intentionally handling all falsey cases here
-    if not data_type:
-        expected_data_type = "Force"
+    if data_type:
+        expected_data_type = data_type
+        data_type = data_type.lower()
+    else:
+        expected_data_type = DataTypes.FORCE
+    test_analysis_params["data_type"] = data_type
 
     test_jobs = [
         {
             "user_id": test_user_id,
-            "job_meta": json.dumps({"version": pulse3d_version, "analysis_params": expected_analysis_params}),
+            "job_meta": json.dumps({"version": pulse3d_version, "analysis_params": test_analysis_params}),
             "filename": "test-recording.zip",
             "prefix": "/path/to/s3/object",
         }
@@ -1355,10 +1362,13 @@ def test_waveform_data__get__time_force_parquet_found(mocker, pulse3d_version, d
     )
 
     assert response.status_code == 200
-    assert response.json() == WaveformDataResponse(
-        time_force_url=expected_presigned_url,
-        peaks_valleys_url=expected_presigned_url,
-        amplitude_label=main._get_full_amplitude_label(expected_data_type),
+    assert (
+        response.json()
+        == WaveformDataResponse(
+            time_force_url=expected_presigned_url,
+            peaks_valleys_url=expected_presigned_url,
+            amplitude_label=get_metric_display_title(TwitchMetrics.AMPLITUDE, expected_data_type),
+        ).model_dump()
     )
 
 
@@ -1406,8 +1416,11 @@ def test_waveform_data__get__no_time_force_parquet_found(mocker, pulse3d_version
     )
 
     assert response.status_code == 200
-    assert response.json() == GenericErrorResponse(
-        message="Parquet file was not found in S3. Reanalysis required.", error="MissingDataError"
+    assert (
+        response.json()
+        == GenericErrorResponse(
+            message="Parquet file was not found in S3. Reanalysis required.", error="MissingDataError"
+        ).model_dump()
     )
 
 
