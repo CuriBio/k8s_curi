@@ -2,25 +2,36 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-- ../../base
-- argo-workflows.yaml
-- argo-events.yaml
-- ci.yaml
+  - ../../base
+  - argo-workflows.yaml
+  - argo-events.yaml
+  - ci.yaml
 
 patches:
-- patch: |-
-    - op: replace
-      path: /spec/source/targetRevision
-      value: modl-qc
-  target:
-    kind: Application
-    name: argo-cd
-    namespace: argocd
-- patch: |-
-    - op: replace
-      path: /spec/source/targetRevision
-      value: modl-qc
-  target:
-    kind: Application
-    name: sealed-secrets
-    namespace: argocd
+  - patch: |-
+      - op: replace
+        path: /spec/source/targetRevision
+        value: modl-qc
+    target:
+      kind: Application
+      name: argo-cd
+      namespace: argocd
+  - patch: |-
+      - op: replace
+        path: /spec/source/targetRevision
+        value: modl-qc
+    target:
+      kind: Application
+      name: sealed-secrets
+      namespace: argocd
+  - patch: |-
+      - op: replace
+        path: /spec/source/path
+        value: cluster/manifests/autoscaler/overlays/modl
+      - op: replace
+        path: /spec/source/targetRevision
+        value: modl-qc
+    target:
+      kind: Application
+      name: cluster-autoscaler
+      namespace: kube-system
