@@ -221,6 +221,12 @@ module "eks" {
   custom_oidc_thumbprints        = [data.external.thumbprint.result.thumbprint]
 
   eks_managed_node_groups = var.node_groups
+  eks_managed_node_group_defaults = {
+    tags = {
+      "k8s.io/cluster-autoscaler/${var.cluster_name}" = "owned"
+      "k8s.io/cluster-autoscaler/enabled" = "True"
+    }
+  }
 }
 
 data "aws_iam_policy" "ebs_csi_policy" {
