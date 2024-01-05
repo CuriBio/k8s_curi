@@ -3,9 +3,7 @@ kind: Kustomization
 
 namespace: argocd
 resources:
-- apiv2-deployment.yaml
-- pulse3d-deployment.yaml
-- pulse3d-jobs.yaml
-- jobs-operator.yaml
-- grafana.yaml
-- grafana-loki.yaml
+  - apiv2-deployment.yaml
+  - pulse3d-deployment.yaml
+  - pulse3d-jobs.yaml
+  - jobs-operator.yaml
