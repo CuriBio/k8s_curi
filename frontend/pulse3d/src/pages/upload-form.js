@@ -325,6 +325,7 @@ export default function UploadForm() {
     }
     setCheckedParams(newCheckedParams);
   };
+
   const formatTupleParams = (firstParam, secondParam) => {
     // convert factors that aren't specified to null
     if (firstParam === "") {
@@ -333,8 +334,8 @@ export default function UploadForm() {
     if (secondParam === "") {
       secondParam = null;
     }
-
     let factors = [firstParam, secondParam];
+
     if (factors.every((v) => !v)) {
       // if both factors are null, return null instead of an array
       return null;
@@ -373,6 +374,8 @@ export default function UploadForm() {
       wellGroups,
       stimWaveformFormat,
       dataType,
+      minPeakWidth,
+      maxPeakWidth,
     } = analysisParams;
 
     const version =
@@ -441,9 +444,9 @@ export default function UploadForm() {
         }
       }
       if (requestBody.width_factors !== null) {
-        requestBody.width_factors = requestBody.width_factors.map((width) => {
-          width !== null ? width / 1000 : null;
-        });
+        requestBody.width_factors = requestBody.width_factors.map((width) =>
+          width !== null ? width / 1000 : null
+        );
       }
     } else {
       requestBody.prominence_factors = formatTupleParams(prominenceFactorPeaks, prominenceFactorValleys);

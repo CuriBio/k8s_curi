@@ -1,8 +1,8 @@
 import styled from "styled-components";
 import { useEffect, useState, useContext } from "react";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
-import FormInput from "../basicWidgets/FormInput";
-import ModalWidget from "../basicWidgets/ModalWidget";
+import FormInput from "@/components/basicWidgets/FormInput";
+import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import ScopeWidget from "./ScopeWidget";
 import { AuthContext } from "@/pages/_app";
 
@@ -52,16 +52,19 @@ const ButtonContainer = styled.div`
   flex-direction: row;
 `;
 
-const accountInfo = {
-  customer: {
-    email: "",
-    scope: [],
-  },
-  user: {
-    email: "",
-    username: "",
-    scope: [],
-  },
+const getDefaultAccountInfo = (type) => {
+  const info = {
+    admin: {
+      email: "",
+      scopes: [],
+    },
+    user: {
+      email: "",
+      username: "",
+      scopes: [],
+    },
+  };
+  return info[type];
 };
 
 export default function NewAccountForm({ type }) {
@@ -69,7 +72,7 @@ export default function NewAccountForm({ type }) {
 
   const { availableScopes } = useContext(AuthContext);
 
-  const [newAccountInfo, setNewAccountInfo] = useState(accountInfo[type]);
+  const [newAccountInfo, setNewAccountInfo] = useState(getDefaultAccountInfo(type));
   const [accountTitle, setAccountTitle] = useState(type);
   const [errorMsg, setErrorMsg] = useState(" ");
   const [inProgress, setInProgress] = useState(false);
@@ -77,14 +80,14 @@ export default function NewAccountForm({ type }) {
 
   const resetForm = () => {
     setErrorMsg(""); // reset to show user something happened
-    setNewAccountInfo(accountInfo[type]);
+    setNewAccountInfo(getDefaultAccountInfo(type));
   };
 
   useEffect(() => resetForm(), []);
   useEffect(() => {
     if (type) {
       setAccountTitle(type.charAt(0).toUpperCase() + type.slice(1));
-      setNewAccountInfo(accountInfo[type]);
+      setNewAccountInfo(getDefaultAccountInfo(type));
     }
   }, [type]);
 
@@ -92,7 +95,7 @@ export default function NewAccountForm({ type }) {
     setErrorMsg(""); // reset to show user something happened
     setInProgress(true);
 
-    if (Object.values(newAccountInfo).includes("") || newAccountInfo.scope.length === 0)
+    if (Object.values(newAccountInfo).includes("") || newAccountInfo.scopes.length === 0)
       setErrorMsg("* All fields are required");
     // this state gets passed to web worker to attempt login request
     else {
@@ -129,8 +132,8 @@ export default function NewAccountForm({ type }) {
     if (errorMsg) setErrorMsg(`* ${errorMsg}`);
   };
 
-  const handleSelectedScopes = (scope) => {
-    setNewAccountInfo({ ...newAccountInfo, scope });
+  const handleSelectedScopes = (scopes) => {
+    setNewAccountInfo({ ...newAccountInfo, scopes });
   };
 
   return (
@@ -175,10 +178,9 @@ export default function NewAccountForm({ type }) {
           />
         )}
         <ScopeWidget
-          selectedScopes={newAccountInfo.scope}
+          selectedScopes={newAccountInfo.scopes}
           setSelectedScopes={handleSelectedScopes}
           availableScopes={availableScopes[type]}
-          isForUser={isForUser}
         />
         <ErrorText id="userError" role="errorMsg">
           {errorMsg}

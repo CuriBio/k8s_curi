@@ -146,10 +146,24 @@ spec:
         image: gcr.io/kaniko-project/executor:v1.8.0-debug
         command: [/kaniko/executor]
         workingDir: /tmp/git/k8s_curi
+        env:
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: aws-credentials
+                key: aws_access_key_id
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: aws-credentials
+                key: aws_secret_access_key
         args:
           - --no-push
           - --context=/tmp/git/k8s_curi/
           - --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
+          - --build-arg=CODE_ARTIFACT_ACCOUNT_ID=725604423866
+          - --build-arg=CODE_ARTIFACT_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY)
+          - --build-arg=CODE_ARTIFACT_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID)
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
@@ -334,10 +348,23 @@ spec:
             value: "true"
           - name: AWS_SDK_LOAD_CONFIG
             value: "true"
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: aws-credentials
+                key: aws_access_key_id
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: aws-credentials
+                key: aws_secret_access_key
         args:
           - --destination=725604423866.dkr.ecr.us-east-2.amazonaws.com/{{inputs.parameters.service}}:{{inputs.parameters.version}}
           - --context=/tmp/git/k8s_curi/
           - --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
+          - --build-arg=CODE_ARTIFACT_ACCOUNT_ID=725604423866
+          - --build-arg=CODE_ARTIFACT_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY)
+          - --build-arg=CODE_ARTIFACT_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID)
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
@@ -437,3 +464,39 @@ spec:
             echo "Update needed"
             alembic upgrade head
           fi
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: upload-service
+  namespace: argo
+spec:
+  serviceAccountName: argo-workflows-sa
+  templates:
+    - name: upload-ui
+      nodeSelector:
+        group: argo
+      script:
+        image: node:16.17.0
+        env:
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: aws-credentials
+                key: aws_access_key_id
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: aws-credentials
+                key: aws_secret_access_key
+        workingDir: /tmp/git/k8s_curi
+        volumeMounts:
+          - name: workdir
+            mountPath: /tmp/git
+        command: ["sh"]
+        source: |
+          apt-get update && \
+          apt-get install -y python3 python3-pip python3-boto3 awscli
+
+          cd ./frontend/pulse3d/src/ && npm i && npm run export:modl
+          cd .. && python3 upload_fe_s3.py modl

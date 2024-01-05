@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import FormInput from "../basicWidgets/FormInput";
+import FormInput from "@/components/basicWidgets/FormInput";
 
 const InputContainer = styled.div(
   ({ user }) => `

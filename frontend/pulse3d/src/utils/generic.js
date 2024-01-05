@@ -56,7 +56,45 @@ const loadCsvInputToArray = (commaSeparatedInputs) => {
 
 const getPeaksValleysFromTable = async (table) => {
   const columns = table.schema.fields.map(({ name }) => name);
-  //  columns are A1__peaks, A1__valleys, ....
+
+  const parseFn = columns.includes("time") ? _getPeaksValleysFromTable : _getPeaksValleysFromLegacyTable;
+  const peaksValleyObj = parseFn(table, columns);
+
+  return peaksValleyObj;
+};
+
+const _getPeaksValleysFromTable = (table, columns) => {
+  // for current format of tables, columns are time, <well>
+  const wellNames = new Set(columns.filter((col) => col != "time"));
+
+  // convert bigint values which cannot be converted to JSON
+  const columnData = table.data[0].children.map(({ values }) => {
+    return Array.from(values).map((val) => (typeof val === "bigint" ? parseInt(val) : val));
+  });
+
+  const peaksValleysObj = {};
+  for (const well of wellNames) {
+    const columnIdx = columns.indexOf(well);
+    if (columnIdx === -1) continue;
+
+    const peakIdxs = [];
+    const valleyIdxs = [];
+    columnData[columnIdx].map((featureMarker, idx) => {
+      if (featureMarker === 1) {
+        peakIdxs.push(idx);
+      } else if (featureMarker === 2) {
+        valleyIdxs.push(idx);
+      }
+    });
+
+    peaksValleysObj[well] = [peakIdxs, valleyIdxs];
+  }
+
+  return peaksValleysObj;
+};
+
+const _getPeaksValleysFromLegacyTable = (table, columns) => {
+  // for legacy format of tables, columns are <well>__peaks, <well>__valleys
   const wellNames = new Set(columns.map((name) => name.split("__")[0]));
 
   // filter out null values (0) and some values get randomly parsed to bigint values which cannot be converted to JSON
@@ -82,12 +120,18 @@ const getWaveformCoordsFromTable = async (table) => {
   const columns = table.schema.fields.map(({ name }) => name);
   const wellNames = columns.filter(
     (name) =>
-      !name.includes("__raw") && !name.includes("__stim") && !name.includes("Time") && !name.includes("level")
+      !name.includes("__raw") &&
+      !name.includes("__stim") &&
+      !name.includes("Time") &&
+      !name.includes("level") &&
+      name !== "time"
   );
   const columnData = table.data[0].children.map(({ values }) => Array.from(values));
   // occassionally recordings end in a bunch of NaN/0 values if stim data is present so they need to be filtered out here
   // leaving time index aat 0 because it's meant to be 0
   const time = columnData[0].filter((val, i) => val !== 0 || (val === 0 && i === 0));
+
+  const convertTimeUnits = !columns.includes("time");
 
   const coordinatesObj = {};
   for (const well of wellNames) {
@@ -99,7 +143,7 @@ const getWaveformCoordsFromTable = async (table) => {
       const minForce = Math.min(...wellForce);
       wellForce = wellForce.map((val) => val - minForce);
 
-      coordinatesObj[well] = time.map((time, i) => [time / 1e6, wellForce[i]]);
+      coordinatesObj[well] = time.map((time, i) => [convertTimeUnits ? time / 1e6 : time, wellForce[i]]);
     }
   }
 

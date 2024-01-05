@@ -2,7 +2,7 @@ import Image from "next/image";
 import styled from "styled-components";
 import DropDownMenu from "@/components/basicWidgets/ButtonDropDown";
 import { useRouter } from "next/router";
-import UsageProgressWidget from "../basicWidgets/UsageProgressWidget";
+import UsageProgressWidget from "../account/UsageProgressWidget";
 import NavigateBeforeIcon from "@mui/icons-material/NavigateBefore";
 import { styled as muiStyled } from "@mui/material/styles";
 import { AuthContext } from "@/pages/_app";

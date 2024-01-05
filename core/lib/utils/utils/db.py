@@ -1,12 +1,11 @@
 import asyncio
-from typing import Optional
 
 import asyncpg
 
 
 class AsyncpgPoolDep:
     def __init__(self, dsn: str, min_size: int = 1, max_size: int = 10):
-        self._pool: Optional[asyncpg.pool.Pool] = None
+        self._pool: asyncpg.pool.Pool | None = None
         self._lock = asyncio.Lock()
         self._dsn = dsn
         self._min = min_size
@@ -19,10 +18,6 @@ class AsyncpgPoolDep:
         async with self._lock:
             if self._pool is not None:
                 return self._pool
-            self._pool = await asyncpg.create_pool(
-                self._dsn,
-                min_size=self._min,
-                max_size=self._max,
-            )
+            self._pool = await asyncpg.create_pool(self._dsn, min_size=self._min, max_size=self._max)
 
         return self._pool

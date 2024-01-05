@@ -52,7 +52,7 @@ const ProductDescLabel = styled.div`
 
 export default function Login() {
   const router = useRouter();
-  const { accountScope, setProductPage, setUsageQuota } = useContext(AuthContext);
+  const { accountScope, setProductPage, setUsageQuota, setPreferences } = useContext(AuthContext);
 
   const [products, setProducts] = useState({
     mantarray: {
@@ -86,18 +86,15 @@ export default function Login() {
     // TODO come up with a better way to match account scopes and all products
     if (accountScope) {
       const productStates = JSON.parse(JSON.stringify(products));
-      const productTiers = ["paid", "free"];
 
       for (const product of Object.keys(products)) {
-        // example: nautilus:paid -> "nautilus" === product and "paid" in ["paid", "free"]
-        const isProductAvailable = accountScope.some(
-          (scope) => scope.split(":")[0] == product && productTiers.includes(scope.split(":")[1])
-        );
+        const isProductAvailable = accountScope.some((scope) => scope.includes(product));
 
         productStates[product].state = isProductAvailable ? "default" : "disabled";
       }
 
       setProducts(productStates);
+      getPreferences();
     }
   }, [accountScope]);
 
@@ -105,6 +102,15 @@ export default function Login() {
     // reset usage quota each time the home page is navigated too so that the previous product usage doesn't affect navigating to a different product
     setUsageQuota();
   }, []);
+
+  const getPreferences = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/preferences`);
+      res && setPreferences(await res.json());
+    } catch (e) {
+      console.log("ERROR getting user preferences");
+    }
+  };
 
   const mouseEnter = ({ target }) => {
     const productType = target.id.split("-")[0];

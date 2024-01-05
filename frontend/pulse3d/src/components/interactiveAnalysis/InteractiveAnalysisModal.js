@@ -1,11 +1,11 @@
 import styled from "styled-components";
 import { useEffect, useState, useContext } from "react";
-import DropDownWidget from "../basicWidgets/DropDownWidget";
+import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import WaveformGraph from "./InteractiveWaveformGraph";
 import { deepCopy } from "@/utils/generic";
-import CircularSpinner from "../basicWidgets/CircularSpinner";
-import ButtonWidget from "../basicWidgets/ButtonWidget";
-import ModalWidget from "../basicWidgets/ModalWidget";
+import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
+import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
+import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import { UploadsContext } from "@/components/layouts/DashboardLayout";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
@@ -575,7 +575,8 @@ export default function InteractiveWaveformModal({
       // won't be present for older recordings or if no replacement was ever given
       if ("nameOverride" in selectedJob) setNameOverride(selectedJob.nameOverride);
 
-      if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.3")) {
+      // TODO remove the split once we're done with RC versions
+      if (!semverGte(selectedJob.analysisParams.pulse3d_version.split("rc")[0], "0.28.3")) {
         setModalLabels(constantModalLabels.oldPulse3dVersion);
         setModalOpen("pulse3dWarning");
       }
@@ -632,7 +633,8 @@ export default function InteractiveWaveformModal({
         filteredFeatures[well] = [peaks, valleys];
       }
 
-      const prevPulse3dVersion = selectedJob.analysisParams.pulse3d_version;
+      // TODO remove the split once we're done with RC versions
+      const prevPulse3dVersion = selectedJob.analysisParams.pulse3d_version.split("rc")[0];
       const { start: startTime, end: endTime } = customAnalysisSettings.windowedAnalysisBounds;
 
       // reassign new peaks and valleys if different
@@ -646,9 +648,15 @@ export default function InteractiveWaveformModal({
         previous_version: prevPulse3dVersion,
       };
 
-      // only add for versions greater than 0.32.2
+      // only add for versions 0.32.2 and above
       if (semverGte(prevPulse3dVersion, "0.32.2")) {
         requestBody.name_override = nameOverride === "" ? null : nameOverride;
+      }
+
+      // only add for versions 1.0.0 and above
+      if (semverGte(filteredVersions[pulse3dVersionIdx], "1.0.0")) {
+        // timepoints should be the same on each well, so just grab them from the first one present
+        requestBody.timepoints = waveformData[Object.keys(waveformData)[0]].map((coords) => coords[0]);
       }
 
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {

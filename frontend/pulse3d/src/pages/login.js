@@ -93,7 +93,7 @@ export default function Login() {
       try {
         let loginURL = `${process.env.NEXT_PUBLIC_USERS_URL}/login`;
         if (loginType === "Admin") {
-          loginURL += "/customer";
+          loginURL += "/admin";
         }
 
         const res = await fetch(loginURL, {
