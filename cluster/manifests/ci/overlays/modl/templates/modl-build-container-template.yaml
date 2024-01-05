@@ -147,12 +147,12 @@ spec:
         command: [/kaniko/executor]
         workingDir: /tmp/git/k8s_curi
         env:
-          - name: AWS_ACCESS_KEY_ID
+          - name: CODE_ARTIFACT_ACCESS_KEY_ID
             valueFrom:
               secretKeyRef:
                 name: aws-credentials
                 key: aws_access_key_id
-          - name: AWS_SECRET_ACCESS_KEY
+          - name: CODE_ARTIFACT_ACCESS_KEY
             valueFrom:
               secretKeyRef:
                 name: aws-credentials
@@ -162,8 +162,8 @@ spec:
           - --context=/tmp/git/k8s_curi/
           - --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
           - --build-arg=CODE_ARTIFACT_ACCOUNT_ID=725604423866
-          - --build-arg=CODE_ARTIFACT_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY)
-          - --build-arg=CODE_ARTIFACT_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID)
+          - --build-arg=CODE_ARTIFACT_ACCESS_KEY=$(CODE_ARTIFACT_ACCESS_KEY)
+          - --build-arg=CODE_ARTIFACT_ACCESS_KEY_ID=$(CODE_ARTIFACT_ACCESS_KEY_ID)
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
@@ -348,12 +348,12 @@ spec:
             value: "true"
           - name: AWS_SDK_LOAD_CONFIG
             value: "true"
-          - name: AWS_ACCESS_KEY_ID
+          - name: CODE_ARTIFACT_ACCESS_KEY_ID
             valueFrom:
               secretKeyRef:
                 name: aws-credentials
                 key: aws_access_key_id
-          - name: AWS_SECRET_ACCESS_KEY
+          - name: CODE_ARTIFACT_ACCESS_KEY
             valueFrom:
               secretKeyRef:
                 name: aws-credentials
@@ -363,8 +363,8 @@ spec:
           - --context=/tmp/git/k8s_curi/
           - --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
           - --build-arg=CODE_ARTIFACT_ACCOUNT_ID=725604423866
-          - --build-arg=CODE_ARTIFACT_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY)
-          - --build-arg=CODE_ARTIFACT_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID)
+          - --build-arg=CODE_ARTIFACT_ACCESS_KEY=$(CODE_ARTIFACT_ACCESS_KEY)
+          - --build-arg=CODE_ARTIFACT_ACCESS_KEY_ID=$(CODE_ARTIFACT_ACCESS_KEY_ID)
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
