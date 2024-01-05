@@ -6,10 +6,10 @@ setup(
     description="CuriBio auth utils",
     packages=find_packages(include=["auth"]),
     install_requires=[
-        "pydantic==1.10.7",
+        "pydantic==2.5.2",
         "starlette==0.27.0",
-        "fastapi==0.95.2",
+        "fastapi==0.105.0",
         "pyjwt==2.3.0",
-        "immutabledict==2.2.3",
+        "immutabledict==3.0.0",
     ],
 )
