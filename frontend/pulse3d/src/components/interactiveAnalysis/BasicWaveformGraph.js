@@ -107,13 +107,15 @@ export default function BasicWaveformGraph({ well, featureIndices, waveformData,
       .attr("indexToReplace", (d) => peaks.indexOf(d)) // keep track of index in peaks array to splice later
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
-        return "translate(" + x(waveformData[d][0]) + "," + (y(waveformData[d][1]) - 7) + ") rotate(180)";
+        return (
+          "translate(" + x(dataWithinWindow[d][0]) + "," + (y(dataWithinWindow[d][1]) - 7) + ") rotate(180)"
+        );
       })
       .style("fill", "var(--curi-peaks)")
       .attr("stroke", "var(--curi-peaks)")
       .style("display", (d) => {
         // only display them inside windowed analysis times
-        const xTime = waveformData[d][0];
+        const xTime = dataWithinWindow[d][0];
         return xTime > xMax || xTime < xMin ? "none" : null;
       });
 
@@ -127,13 +129,13 @@ export default function BasicWaveformGraph({ well, featureIndices, waveformData,
       .attr("indexToReplace", (d) => valleys.indexOf(d)) // keep track of index in valleys array to splice later
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
-        return "translate(" + x(waveformData[d][0]) + "," + (y(waveformData[d][1]) + 7) + ")";
+        return "translate(" + x(dataWithinWindow[d][0]) + "," + (y(dataWithinWindow[d][1]) + 7) + ")";
       })
       .style("fill", "var(--curi-valleys)")
       .attr("stroke", "var(--curi-valleys)")
       .style("display", (d) => {
         // only display them inside windowed analysis times
-        const xTime = waveformData[d][0];
+        const xTime = dataWithinWindow[d][0];
         return xTime > xMax || xTime < xMin ? "none" : null;
       });
 

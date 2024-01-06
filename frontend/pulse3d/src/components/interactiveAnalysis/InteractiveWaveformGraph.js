@@ -522,6 +522,7 @@ export default function WaveformGraph({
       customAnalysisSettingsUpdaters.moveFeature(`${featureType}s`, indexToChange, newSelectedIndex);
     }
 
+    // TODO fix this for windowed data
     // graph all the peak markers
     svg
       .selectAll("#waveformGraph")

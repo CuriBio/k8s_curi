@@ -122,10 +122,14 @@ export default function JobPreviewModal({
   }, [getErrorState, getLoadingState]);
 
   const getTimepointRange = async (coordinates) => {
-    const { start_time } = analysisParams;
-    const min = start_time || Math.min(...coordinates.map((coords) => coords[0]));
+    const { start_time, end_time } = analysisParams;
+
+    const minTimeInData = Math.min(...coordinates.map((coords) => coords[0]));
+    const maxTimeInData = Math.max(...coordinates.map((coords) => coords[0]));
+
+    const min = start_time || minTimeInData;
     // because it's a snapshot, you only need 10 seconds
-    const max = min + 10;
+    const max = Math.min(min + 10, end_time || maxTimeInData);
 
     setTimepointRange({ min, max });
   };
