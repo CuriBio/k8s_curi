@@ -43,6 +43,8 @@ patches:
       kind: Application
       name: grafana-loki
       namespace: argocd
+  - patch: |-
+      - op: replace
         path: /spec/source/path
         value: cluster/manifests/autoscaler/overlays/modl
       - op: replace
