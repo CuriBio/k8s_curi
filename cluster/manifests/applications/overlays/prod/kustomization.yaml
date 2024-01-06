@@ -22,3 +22,11 @@ patches:
       kind: Application
       name: cluster-autoscaler
       namespace: kube-system
+  - patch: |-
+      - op: replace
+        path: /spec/sources/1/helm/valueFiles/0
+        value: $values/cluster/manifests/grafana-loki/overlays/prod/values.yaml
+    target:
+      kind: Application
+      name: grafana-loki
+      namespace: argocd

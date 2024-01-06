@@ -3,11 +3,3 @@ kind: Kustomization
 
 resources:
   - ../../base
-# patches:
-#   - patch: |-
-#       - op: replace
-#         path: /spec/sources/0/targetRevision
-#         value: modl-qc
-#     target:
-#       kind: Application
-#       name: grafana
