@@ -1,6 +1,6 @@
 import styled from "styled-components";
 import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
-import { isArrayOfNumbers, loadCsvInputToArray, isArrayOfWellNames } from "@/utils/generic";
+import { isArrayOfNumbers, loadCsvInputToArray, isArrayOfWellNames, isInt } from "@/utils/generic";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import { useState, useContext, useEffect } from "react";
 import semverGte from "semver/functions/gte";
@@ -601,7 +601,8 @@ export default function AnalysisParamForm({
       "peakToBase",
       "stiffnessFactor",
     ]) {
-      if (paramName in newParams) validatePositiveNumber(updatedParams, paramName, false);
+      const allowFloat = !["baseToPeak", "peakToBase"].includes(paramName);
+      if (paramName in newParams) validatePositiveNumber(updatedParams, paramName, false, allowFloat);
     }
 
     if (newParams.normalizeYAxis === false) {
@@ -618,12 +619,12 @@ export default function AnalysisParamForm({
     return value === null || value === "" || value >= minValue;
   };
 
-  const validatePositiveNumber = (updatedParams, paramName, allowZero = true) => {
+  const validatePositiveNumber = (updatedParams, paramName, allowZero = true, allowFloat = true) => {
     const newValue = updatedParams[paramName];
 
     let errorMsg = "";
-    if (!checkPositiveNumberEntry(newValue, allowZero)) {
-      errorMsg = allowZero ? "*Must be a positive number" : "*Must be a positive, non-zero number";
+    if (!checkPositiveNumberEntry(newValue, allowZero) || (!allowFloat && !isInt(newValue))) {
+      errorMsg = `*Must be a positive ${allowZero ? "" : ", non-zero"} ${allowFloat ? "number" : "integer"}`;
     }
     setParamErrors({ ...paramErrors, [paramName]: errorMsg });
   };
@@ -642,17 +643,17 @@ export default function AnalysisParamForm({
       } catch (e) {
         setParamErrors({
           ...paramErrors,
-          twitchWidths: "*Must be comma-separated, positive numbers",
+          twitchWidths: "*Must be comma-separated, positive integers",
         });
         return;
       }
-      // make sure it's an array of positive numbers
-      if (isArrayOfNumbers(twitchWidthArr, true)) {
+      // make sure it's an array of positive integers
+      if (isArrayOfNumbers(twitchWidthArr, true, false)) {
         formattedTwitchWidths = Array.from(new Set(twitchWidthArr));
       } else {
         setParamErrors({
           ...paramErrors,
-          twitchWidths: "*Must be comma-separated, positive numbers",
+          twitchWidths: "*Must be comma-separated, positive integers",
         });
         return;
       }

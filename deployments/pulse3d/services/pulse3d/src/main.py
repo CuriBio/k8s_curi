@@ -492,8 +492,11 @@ async def create_new_job(
             ),
             ("baseline_widths_to_use", DefaultMetricsParams.BASELINE_WIDTHS.value),
         ):
+            allow_float = param != "baseline_widths_to_use"
             if param in analysis_params:
-                analysis_params[param] = _format_tuple_param(analysis_params[param], default_values)
+                analysis_params[param] = _format_tuple_param(
+                    analysis_params[param], default_values, allow_float
+                )
 
         logger.info(f"Using v{details.version} with params: {analysis_params}")
 
@@ -619,7 +622,9 @@ async def create_new_job(
 
 
 def _format_tuple_param(
-    options: TupleParam | None, default_values: int | tuple[int, ...]
+    options: TupleParam | None,
+    default_values: int | float | tuple[int, ...] | tuple[float, ...],
+    allow_float=True,
 ) -> TupleParam | None:
     if options is None or all(op is None for op in options):
         return None
@@ -627,11 +632,16 @@ def _format_tuple_param(
     if isinstance(default_values, int):
         default_values = (default_values,) * len(options)
 
+    def get_val(num: int | float | None, default_value: int | float) -> int | float:
+        if num is None:
+            return default_value
+        if allow_float:
+            return num
+        return int(num)
+
     # set any unspecified values to the default value
-    # pulse3d does not like float values
     formatted_options = tuple(
-        (int(option) if option is not None else default_value)
-        for option, default_value in zip(options, default_values)
+        get_val(option, default_value) for option, default_value in zip(options, default_values)
     )
 
     return formatted_options

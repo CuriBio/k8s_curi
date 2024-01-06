@@ -20,10 +20,14 @@ const arrayValidator = (arr, validator_fn) => {
   return Array.isArray(arr) && validator_fn(arr);
 };
 
-const isArrayOfNumbers = (arr, positive = false) => {
+const isInt = (value) => {
+  Number.isInteger(Number(value));
+};
+
+const isArrayOfNumbers = (arr, positive = false, allowFloat = true) => {
   return arrayValidator(arr, () => {
     for (const n of arr) {
-      if (typeof n !== "number" || (positive && n < 0)) {
+      if (typeof n !== "number" || (positive && n < 0) || (!allowFloat && !isInt(n))) {
         return false;
       }
     }
