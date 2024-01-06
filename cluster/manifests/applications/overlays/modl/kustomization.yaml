@@ -43,3 +43,12 @@ patches:
       kind: Application
       name: grafana-loki
       namespace: argocd
+        path: /spec/source/path
+        value: cluster/manifests/autoscaler/overlays/modl
+      - op: replace
+        path: /spec/source/targetRevision
+        value: modl-qc
+    target:
+      kind: Application
+      name: cluster-autoscaler
+      namespace: kube-system
