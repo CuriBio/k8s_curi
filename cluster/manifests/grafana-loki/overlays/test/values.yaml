@@ -47,3 +47,7 @@ loki:
     table_manager:
       retention_deletes_enabled: true
       retention_period: 720h
+    query_range:
+      split_queries_by_interval: 24h
+    frontend:
+      max_outstanding_per_tenant: 1024
