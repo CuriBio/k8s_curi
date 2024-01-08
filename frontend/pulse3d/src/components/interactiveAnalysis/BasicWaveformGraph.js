@@ -18,6 +18,14 @@ const WellNameLabel = styled.div`
   padding-left: 40px;
 `;
 
+const applyWindow = (data, xMin, xMax) => {
+  const halfWindowedData = data.filter((coords) => coords[0] <= xMax);
+  const windowEndIdx = halfWindowedData.length - 1;
+  const dataWithinWindow = halfWindowedData.filter((coords) => coords[0] >= xMin);
+  const windowStartIdx = halfWindowedData.length - dataWithinWindow.length;
+  return { dataWithinWindow, windowStartIdx, windowEndIdx };
+};
+
 export default function BasicWaveformGraph({ well, featureIndices, waveformData, timepointRange }) {
   useEffect(() => {
     if (featureIndices) {
@@ -37,10 +45,15 @@ export default function BasicWaveformGraph({ well, featureIndices, waveformData,
         SET UP SVG GRAPH AND VARIABLES
       -------------------------------------- */
 
-    // add .15 extra to y max and y min to auto scale the graph a little outside of true max and mins
-    const dataWithinWindow = waveformData.filter((coords) => coords[0] >= xMin && coords[0] <= xMax);
+    const { dataWithinWindow, windowEndIdx } = applyWindow(waveformData, xMin, xMax);
+
+    // don't need to take the start idx into consideration here
+    const peaksWithinWindow = peaks.filter((idx) => idx <= windowEndIdx);
+    const valleysWithinWindow = valleys.filter((idx) => idx <= windowEndIdx);
+
     const yMax = d3.max(dataWithinWindow, (d) => d[1]);
     const yMin = d3.min(dataWithinWindow, (d) => d[1]);
+    // add .15 extra to y max and y min to auto scale the graph a little outside of true max and mins
     const yRange = yMax * 0.15;
     // nautilus/optical files seem to have really high y values that get cut off if left margin isn't large enough
     const leftMargin = yMax > 100000 ? 70 : 40;
@@ -100,11 +113,11 @@ export default function BasicWaveformGraph({ well, featureIndices, waveformData,
     // graph all the peak markers
     svg
       .selectAll(`#waveformGraph${well}`)
-      .data(peaks)
+      .data(peaksWithinWindow)
       .enter()
       .append("path")
       .attr("id", "peak")
-      .attr("indexToReplace", (d) => peaks.indexOf(d)) // keep track of index in peaks array to splice later
+      .attr("indexToReplace", (d) => peaksWithinWindow.indexOf(d)) // keep track of index in peaks array to splice later
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
         return (
@@ -122,11 +135,11 @@ export default function BasicWaveformGraph({ well, featureIndices, waveformData,
     // graph all the valley markers
     svg
       .selectAll(`#waveformGraph${well}`)
-      .data(valleys)
+      .data(valleysWithinWindow)
       .enter()
       .append("path")
       .attr("id", "valley")
-      .attr("indexToReplace", (d) => valleys.indexOf(d)) // keep track of index in valleys array to splice later
+      .attr("indexToReplace", (d) => valleysWithinWindow.indexOf(d)) // keep track of index in valleys array to splice later
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
         return "translate(" + x(dataWithinWindow[d][0]) + "," + (y(dataWithinWindow[d][1]) + 7) + ")";
