@@ -27,6 +27,7 @@ from pulse3D.data_loader import (
 from pulse3D.peak_finding import LoadedDataWithFeatures
 from pulse3D.pre_analysis import PreAnalyzedData, process
 from pulse3D.rendering import OutputFormats
+from pulse3D.utils.plate import Plate
 from semver import VersionInfo
 from structlog.contextvars import bind_contextvars, clear_contextvars, merge_contextvars
 from utils.s3 import upload_file_to_s3
@@ -217,9 +218,15 @@ async def process_item(con, item):
 
             if interactive_analysis:
                 try:
+                    features_df = pl.read_parquet(features_filepath)
+                    # make sure cols are in correct order
+                    plate = Plate(windowed_pre_analyzed_data.metadata.total_well_count)
+                    wells = [c for c in features_df.columns if c != "time"]
+                    sorted_wells = sorted(wells, key=lambda well_name: plate.name_to_idx(well_name))
+                    features_df = features_df.select("time", sorted_wells)
+
                     data_with_features = LoadedDataWithFeatures(
-                        **asdict(windowed_pre_analyzed_data),
-                        tissue_features=pl.read_parquet(features_filepath),
+                        **asdict(windowed_pre_analyzed_data), tissue_features=features_df
                     )
                 except Exception:
                     logger.exception("Loading features from IA failed")
