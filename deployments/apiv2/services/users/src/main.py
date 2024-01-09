@@ -333,12 +333,16 @@ async def _verify_password(con, account_type, pw, select_query_result) -> None:
 
 
 async def _update_failed_login_attempts(con, account_type: str, id: str, count: int) -> None:
+    account_type_table = f"{account_type if account_type == 'user' else 'customer'}s"
+
     if count == MAX_FAILED_LOGIN_ATTEMPTS:
         # if max failed attempts is reached, then deactivate the account and increment count
-        update_query = f"UPDATE {account_type}s SET suspended='t', failed_login_attempts=failed_login_attempts+1 where id=$1"
+        update_query = f"UPDATE {account_type_table} SET suspended='t', failed_login_attempts=failed_login_attempts+1 where id=$1"
     else:
         # else increment failed attempts
-        update_query = f"UPDATE {account_type}s SET failed_login_attempts=failed_login_attempts+1 where id=$1"
+        update_query = (
+            f"UPDATE {account_type_table} SET failed_login_attempts=failed_login_attempts+1 where id=$1"
+        )
 
     await con.execute(update_query, id)
 
