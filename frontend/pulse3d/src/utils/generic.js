@@ -204,4 +204,5 @@ export {
   getTableFromParquet,
   formatDateTime,
   applyWindow,
+  isInt,
 };
