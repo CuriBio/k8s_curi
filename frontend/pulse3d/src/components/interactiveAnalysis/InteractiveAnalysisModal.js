@@ -654,8 +654,8 @@ export default function InteractiveWaveformModal({
         ...selectedJob.analysisParams,
         upload_id: selectedJob.uploadId,
         peaks_valleys: filteredFeatures,
-        start_time: startTime === timepointRange.min ? null : startTime,
-        end_time: endTime === timepointRange.max ? null : endTime,
+        start_time: startTime,
+        end_time: endTime,
         version: filteredVersions[pulse3dVersionIdx],
         previous_version: prevPulse3dVersion,
       };

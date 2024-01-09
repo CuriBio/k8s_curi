@@ -574,13 +574,16 @@ export default function AnalysisParamForm({
       validateWellNames(updatedParams);
     }
 
+    let updatedParamErrors = { ...paramErrors };
     for (const [minName, maxName] of [
       ["startTime", "endTime"],
       ["minPeakWidth", "maxPeakWidth"],
     ]) {
       if (minName in newParams || maxName in newParams) {
         // need to validate start and end time together
-        validateMinMax(updatedParams, minName, maxName);
+        const allowFloat = minName === "startTime";
+        const newParamErrors = validateMinMax(updatedParams, minName, maxName, allowFloat);
+        updatedParamErrors = { ...updatedParamErrors, ...newParamErrors };
       }
     }
 
@@ -602,8 +605,12 @@ export default function AnalysisParamForm({
       "stiffnessFactor",
     ]) {
       const allowFloat = !["baseToPeak", "peakToBase"].includes(paramName);
-      if (paramName in newParams) validatePositiveNumber(updatedParams, paramName, false, allowFloat);
+      if (paramName in newParams) {
+        const newParamErrors = validatePositiveNumber(updatedParams, paramName, false, allowFloat);
+        updatedParamErrors = { ...updatedParamErrors, ...newParamErrors };
+      }
     }
+    setParamErrors(updatedParamErrors);
 
     if (newParams.normalizeYAxis === false) {
       // if not normalizing y-axis, then clear the entered value.
@@ -624,9 +631,9 @@ export default function AnalysisParamForm({
 
     let errorMsg = "";
     if (!checkPositiveNumberEntry(newValue, allowZero) || (!allowFloat && !isInt(newValue))) {
-      errorMsg = `*Must be a positive ${allowZero ? "" : ", non-zero"} ${allowFloat ? "number" : "integer"}`;
+      errorMsg = `*Must be a positive${allowZero ? "" : ", non-zero"} ${allowFloat ? "number" : "integer"}`;
     }
-    setParamErrors({ ...paramErrors, [paramName]: errorMsg });
+    return { [paramName]: errorMsg };
   };
 
   const validateTwitchWidths = (updatedParams) => {
@@ -696,28 +703,21 @@ export default function AnalysisParamForm({
     setParamErrors({ ...paramErrors, presetName: errorMessage });
   };
 
-  const validateMinMax = (updatedParams, minName, maxName) => {
+  const validateMinMax = (updatedParams, minName, maxName, allowFloat) => {
     const minValue = updatedParams[minName];
     const maxValue = updatedParams[maxName];
 
-    const updatedParamErrors = { ...paramErrors };
-
+    let updatedParamErrors = { ...paramErrors };
     for (const [boundName, boundValue] of [
       [minName, minValue],
       [maxName, maxValue],
     ]) {
-      let error = "";
       // only perform this check if something has actually been entered
       if (boundValue) {
         const allowZero = boundName === minName;
-        if (!checkPositiveNumberEntry(boundValue, allowZero)) {
-          error = "*Must be a positive number";
-        } else {
-          updatedParams[boundName] = boundValue;
-        }
+        const newParamErrors = validatePositiveNumber(updatedParams, boundName, allowZero, allowFloat);
+        updatedParamErrors = { ...updatedParamErrors, ...newParamErrors };
       }
-
-      updatedParamErrors[boundName] = error;
     }
 
     if (
@@ -740,7 +740,7 @@ export default function AnalysisParamForm({
       updatedParamErrors[maxName] = `*Must be greater than ${errorLabel}`;
     }
 
-    setParamErrors(updatedParamErrors);
+    return updatedParamErrors;
   };
 
   return (

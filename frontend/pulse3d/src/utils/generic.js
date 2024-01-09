@@ -21,7 +21,7 @@ const arrayValidator = (arr, validator_fn) => {
 };
 
 const isInt = (value) => {
-  Number.isInteger(Number(value));
+  return Number.isInteger(Number(value));
 };
 
 const isArrayOfNumbers = (arr, positive = false, allowFloat = true) => {
