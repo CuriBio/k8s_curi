@@ -647,7 +647,6 @@ export default function InteractiveWaveformModal({
 
       // TODO remove the split once we're done with RC versions
       const prevPulse3dVersion = selectedJob.analysisParams.pulse3d_version.split("rc")[0];
-      // TODO adjust feature indices if window applied and analysis version is >= 1.0.0 and make sure that the start/end times are correct
       const { start: startTime, end: endTime } = customAnalysisSettings.windowedAnalysisBounds;
 
       // reassign new peaks and valleys if different
@@ -823,8 +822,6 @@ export default function InteractiveWaveformModal({
           // Can only filter if the data for this well has actually been loaded,
           // which is not guaranteed to be the case with the staggered loading of data for each well
           if (!wellCoords || idx === -1) return true;
-
-          // if (idx >= wellCoords.length) return false;
 
           const [featureMarkerX, featureMarkerY] = wellCoords[idx];
           const isFeatureWithinWindow = featureMarkerX >= start && featureMarkerX <= end;

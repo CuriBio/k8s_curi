@@ -55,8 +55,6 @@ export default function BasicWaveformGraph({
         SET UP SVG GRAPH AND VARIABLES
       -------------------------------------- */
 
-    console.log("###", timepointRange);
-
     const { dataWithinWindow } = applyWindow(waveformData, xMin, xMax);
 
     const waveformForFeatures = semverGte(pulse3dSemver, "1.0.0") ? dataWithinWindow : waveformData;
@@ -67,7 +65,6 @@ export default function BasicWaveformGraph({
     const valleysWithinWindow = semverGte(pulse3dSemver, "1.0.0")
       ? valleys.filter((idx) => idx < dataWithinWindow.length)
       : valleys;
-    console.log("$$$", dataWithinWindow.length, "---", peaksWithinWindow, valleysWithinWindow);
 
     const yMax = d3.max(dataWithinWindow, (d) => d[1]);
     const yMin = d3.min(dataWithinWindow, (d) => d[1]);

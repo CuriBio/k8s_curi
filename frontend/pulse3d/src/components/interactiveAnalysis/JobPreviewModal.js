@@ -130,7 +130,6 @@ export default function JobPreviewModal({
     const min = start_time || minTimeInData;
     // because it's a snapshot, you only need 10 seconds
     const max = Math.min(min + 10, end_time || maxTimeInData);
-    console.log("!!!", start_time, minTimeInData, "---", end_time, maxTimeInData, "---", min, max);
 
     setTimepointRange({ min, max });
   };

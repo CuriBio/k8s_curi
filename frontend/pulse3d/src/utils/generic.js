@@ -118,8 +118,6 @@ const _getPeaksValleysFromLegacyTable = (table, columns) => {
     }
   }
 
-  console.log("peaksValleysObj", peaksValleysObj);
-
   return peaksValleysObj;
 };
 
