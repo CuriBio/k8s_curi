@@ -210,6 +210,7 @@ async def process_item(con, item):
                         tissue_data = tissue_data.filter(filter_fn(time_sec))
                         if stim_data is not None:
                             stim_data = stim_data.filter(filter_fn(time_sec))
+                        logger.info(f"Applied window {window.replace('_', ' ')} to waveform DF(s)")
 
                 windowed_pre_analyzed_data.tissue_waveforms = tissue_data
                 windowed_pre_analyzed_data.stim_waveforms = stim_data
@@ -223,11 +224,21 @@ async def process_item(con, item):
                     plate = Plate(windowed_pre_analyzed_data.metadata.total_well_count)
                     wells = [c for c in features_df.columns if c != "time"]
                     sorted_wells = sorted(wells, key=lambda well_name: plate.name_to_idx(well_name))
-                    features_df = features_df.select("time", sorted_wells)
+                    features_df = features_df.select("time", *sorted_wells)
+
+                    for window, filter_fn in (
+                        ("start_time", lambda x: pl.col("time") >= x),
+                        ("end_time", lambda x: pl.col("time") <= x),
+                    ):
+                        if (time_sec := analysis_params.get(window)) is not None:
+                            features_df = features_df.filter(filter_fn(time_sec))
+                            logger.info(f"Applied window {window.replace('_', ' ')} to features DF")
 
                     data_with_features = LoadedDataWithFeatures(
                         **asdict(windowed_pre_analyzed_data), tissue_features=features_df
                     )
+
+                    logger.info("Loaded features from IA")
                 except Exception:
                     logger.exception("Loading features from IA failed")
                     raise
@@ -255,16 +266,16 @@ async def process_item(con, item):
                     logger.exception("PeakDetector failed")
                     raise
 
-            if not interactive_analysis:
-                try:
-                    data_with_features.tissue_features.write_parquet(features_filepath)
-                    upload_file_to_s3(
-                        bucket=PULSE3D_UPLOADS_BUCKET, key=features_parquet_key, file=features_filepath
-                    )
-                    logger.info(f"Uploaded features to {PULSE3D_UPLOADS_BUCKET}/{features_parquet_key}")
-                except Exception:
-                    logger.exception("Upload failed")
-                    raise
+            # Windowing is applied here in the worker, not by IA (just sets the bounds), so always upload the parquet file in case a change is made here
+            try:
+                data_with_features.tissue_features.write_parquet(features_filepath)
+                upload_file_to_s3(
+                    bucket=PULSE3D_UPLOADS_BUCKET, key=features_parquet_key, file=features_filepath
+                )
+                logger.info(f"Uploaded features to {PULSE3D_UPLOADS_BUCKET}/{features_parquet_key}")
+            except Exception:
+                logger.exception("Upload failed")
+                raise
 
             try:
                 # TODO sync these values

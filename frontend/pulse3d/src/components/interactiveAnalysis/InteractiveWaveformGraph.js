@@ -6,6 +6,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
 import MenuItem from "@mui/material/MenuItem";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
+import semverGte from "semver/functions/gte";
 
 const Container = styled.div`
   width: 1260px;
@@ -202,6 +203,7 @@ export default function WaveformGraph({
   customAnalysisSettingsUpdaters,
   changelogActions,
   yAxisLabel,
+  prevPulse3dVersion,
 }) {
   const {
     windowedAnalysisBounds: { start: startTime, end: endTime },
@@ -266,9 +268,7 @@ export default function WaveformGraph({
     const x = d3.scaleLinear().range([0, dynamicWidth]).domain([xMin, xMax]);
 
     const { dataWithinWindow } = applyWindow(waveformData, xMin, xMax);
-
-    // const peaksWithinWindow = peaks.filter((idx) => idx >= windowStartIdx && idx <= windowEndIdx);
-    // const valleysWithinWindow = valleys.filter((idx) => idx >= windowStartIdx && idx <= windowEndIdx);
+    const waveformForFeatures = semverGte(prevPulse3dVersion, "1.0.0") ? dataWithinWindow : waveformData;
 
     const yMax = d3.max(dataWithinWindow, (d) => d[1]);
     const yMin = d3.min(dataWithinWindow, (d) => d[1]);
@@ -364,7 +364,7 @@ export default function WaveformGraph({
 
     if (selectedMarkerToMove) {
       const features = selectedMarkerToMove.type === "peak" ? peaks : valleys;
-      const coords = dataWithinWindow[features[selectedMarkerToMove.idx]];
+      const coords = waveformForFeatures[features[selectedMarkerToMove.idx]];
 
       focusText
         .html("[ " + coords[0].toFixed(2) + ", " + coords[1].toFixed(2) + " ]")
@@ -454,7 +454,7 @@ export default function WaveformGraph({
       -------------------------------------- */
     svg
       .append("path")
-      .data([dataWithinWindow.map((x) => [x[0] * xZoomFactor, x[1] * yZoomFactor])])
+      .data([waveformForFeatures.map((x) => [x[0] * xZoomFactor, x[1] * yZoomFactor])])
       .attr("fill", "none")
       .attr("stroke", "var(--curi-waveform)")
       .attr("stroke-width", 2)
@@ -500,24 +500,24 @@ export default function WaveformGraph({
         To force circle to stay along data line, find index of x-coordinate in datapoints to then grab corresponding y-coordinate
         If this is skipped, user will be able to drag circle anywhere on graph, unrelated to data line.
       */
-      const draggedIdx = getClosestIndex(dataWithinWindow, d[0]);
+      const draggedIdx = getClosestIndex(waveformForFeatures, d[0]);
       // assigns circle node new x and y coordinates based off drag event
       if (featureType === "peak") {
         d3.select(this).attr(
           "transform",
-          "translate(" + x(d[0]) + "," + (y(dataWithinWindow[draggedIdx][1]) - 7) + ") rotate(180)"
+          "translate(" + x(d[0]) + "," + (y(waveformForFeatures[draggedIdx][1]) - 7) + ") rotate(180)"
         );
       } else {
         d3.select(this).attr(
           "transform",
-          "translate(" + x(d[0]) + "," + (y(dataWithinWindow[draggedIdx][1]) + 7) + ")"
+          "translate(" + x(d[0]) + "," + (y(waveformForFeatures[draggedIdx][1]) + 7) + ")"
         );
       }
       // update the focus text with current x and y data points as user drags marker
       focusText
-        .html("[ " + d[0].toFixed(2) + ", " + dataWithinWindow[draggedIdx][1].toFixed(2) + " ]")
+        .html("[ " + d[0].toFixed(2) + ", " + waveformForFeatures[draggedIdx][1].toFixed(2) + " ]")
         .attr("x", x(d[0]) + 15)
-        .attr("y", y(dataWithinWindow[draggedIdx][1]) - 20)
+        .attr("y", y(waveformForFeatures[draggedIdx][1]) - 20)
         .style("opacity", 1);
     }
 
@@ -530,7 +530,7 @@ export default function WaveformGraph({
       const features = featureType === "peak" ? peaks : valleys;
       // indexToReplace is the index of the selected peak or valley in the peaks/valley state arrays that need to be changed
       const indexToChange = features[d3.select(this).attr("indexToReplace")];
-      const newSelectedIndex = getClosestIndex(dataWithinWindow, x.invert(d.x));
+      const newSelectedIndex = getClosestIndex(waveformForFeatures, x.invert(d.x));
 
       customAnalysisSettingsUpdaters.moveFeature(`${featureType}s`, indexToChange, newSelectedIndex);
     }
@@ -546,7 +546,11 @@ export default function WaveformGraph({
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
         return (
-          "translate(" + x(dataWithinWindow[d][0]) + "," + (y(dataWithinWindow[d][1]) - 7) + ") rotate(180)"
+          "translate(" +
+          x(waveformForFeatures[d][0]) +
+          "," +
+          (y(waveformForFeatures[d][1]) - 7) +
+          ") rotate(180)"
         );
       })
       .style("fill", (d) => {
@@ -558,7 +562,7 @@ export default function WaveformGraph({
       .style("cursor", "pointer")
       .style("display", (d) => {
         // only display them inside windowed analysis times
-        const xTime = dataWithinWindow[d][0];
+        const xTime = waveformForFeatures[d][0];
         return xTime > xMax || xTime < xMin ? "none" : null;
       })
       .on("contextmenu", (e, i) => {
@@ -584,7 +588,7 @@ export default function WaveformGraph({
       .attr("indexToReplace", (d) => valleys.indexOf(d)) // keep track of index in valleys array to splice later
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
-        return "translate(" + x(dataWithinWindow[d][0]) + "," + (y(dataWithinWindow[d][1]) + 7) + ")";
+        return "translate(" + x(waveformForFeatures[d][0]) + "," + (y(waveformForFeatures[d][1]) + 7) + ")";
       })
       .style("fill", (d) => {
         return duplicateIndices.valleys.includes(d) ? "var(--curi-error-markers)" : "var(--curi-valleys)";
@@ -595,7 +599,7 @@ export default function WaveformGraph({
       .style("cursor", "pointer")
       .style("display", (d) => {
         // only display them inside windowed analysis times
-        const xTime = dataWithinWindow[d][0];
+        const xTime = waveformForFeatures[d][0];
         return xTime > xMax || xTime < xMin ? "none" : null;
       })
       .on("contextmenu", (e, i) => {
@@ -656,7 +660,7 @@ export default function WaveformGraph({
         const id = d3.select(this).attr("id");
 
         const elementName = id.includes("peak") ? "#peakLine" : "#valleyLine";
-        // need to invert to make calculation compatible with dataWithinWindow
+        // need to invert to make calculation compatible with waveformForFeatures
         const yId = id.includes("1") ? "y1" : "y2";
         const newY = y.invert(d3.select(elementName).attr(yId));
 

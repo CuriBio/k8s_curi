@@ -103,9 +103,10 @@ const _getPeaksValleysFromLegacyTable = (table, columns) => {
 
   // filter out null values (0) and some values get randomly parsed to bigint values which cannot be converted to JSON
   const columnData = table.data[0].children.map(({ values }) => {
-    return Array.from(values)
-      .filter((idx) => idx !== 0)
+    const res = Array.from(values)
+      .filter((idx) => idx !== 0 && idx !== 0n)
       .map((val) => (typeof val === "bigint" ? parseInt(val) : val));
+    return res;
   });
 
   const peaksValleysObj = {};
@@ -116,6 +117,8 @@ const _getPeaksValleysFromLegacyTable = (table, columns) => {
       peaksValleysObj[well] = [columnData[peaksIdx], columnData[valleysIdx]];
     }
   }
+
+  console.log("peaksValleysObj", peaksValleysObj);
 
   return peaksValleysObj;
 };
@@ -132,7 +135,7 @@ const getWaveformCoordsFromTable = async (table) => {
   );
   const columnData = table.data[0].children.map(({ values }) => Array.from(values));
   // occassionally recordings end in a bunch of NaN/0 values if stim data is present so they need to be filtered out here
-  // leaving time index aat 0 because it's meant to be 0
+  // leaving time index at 0 because it's meant to be 0
   const time = columnData[0].filter((val, i) => val !== 0 || (val === 0 && i === 0));
 
   const convertTimeUnits = !columns.includes("time");

@@ -1,6 +1,7 @@
 import styled from "styled-components";
 import { useEffect } from "react";
 import * as d3 from "d3";
+import semverGte from "semver/functions/gte";
 
 const Container = styled.div`
   background-color: white;
@@ -26,7 +27,13 @@ const applyWindow = (data, xMin, xMax) => {
   return { dataWithinWindow, windowStartIdx, windowEndIdx };
 };
 
-export default function BasicWaveformGraph({ well, featureIndices, waveformData, timepointRange }) {
+export default function BasicWaveformGraph({
+  well,
+  featureIndices,
+  waveformData,
+  timepointRange,
+  pulse3dVersion,
+}) {
   useEffect(() => {
     if (featureIndices) {
       // always remove existing graph before plotting new graph
@@ -34,6 +41,9 @@ export default function BasicWaveformGraph({ well, featureIndices, waveformData,
       createGraph();
     }
   }, [waveformData, featureIndices]);
+
+  // TODO remove this once we're done with RC versions
+  const pulse3dSemver = pulse3dVersion.split("rc")[0];
 
   /* NOTE!! The order of the variables and function calls in this function are important to functionality.
      could eventually try to break this up, but it's more sensitive in react than vue */
@@ -45,11 +55,19 @@ export default function BasicWaveformGraph({ well, featureIndices, waveformData,
         SET UP SVG GRAPH AND VARIABLES
       -------------------------------------- */
 
-    const { dataWithinWindow, windowEndIdx } = applyWindow(waveformData, xMin, xMax);
+    console.log("###", timepointRange);
 
-    // don't need to take the start idx into consideration here
-    const peaksWithinWindow = peaks.filter((idx) => idx <= windowEndIdx);
-    const valleysWithinWindow = valleys.filter((idx) => idx <= windowEndIdx);
+    const { dataWithinWindow } = applyWindow(waveformData, xMin, xMax);
+
+    const waveformForFeatures = semverGte(pulse3dSemver, "1.0.0") ? dataWithinWindow : waveformData;
+
+    const peaksWithinWindow = semverGte(pulse3dSemver, "1.0.0")
+      ? peaks.filter((idx) => idx < dataWithinWindow.length)
+      : peaks;
+    const valleysWithinWindow = semverGte(pulse3dSemver, "1.0.0")
+      ? valleys.filter((idx) => idx < dataWithinWindow.length)
+      : valleys;
+    console.log("$$$", dataWithinWindow.length, "---", peaksWithinWindow, valleysWithinWindow);
 
     const yMax = d3.max(dataWithinWindow, (d) => d[1]);
     const yMin = d3.min(dataWithinWindow, (d) => d[1]);
@@ -117,18 +135,22 @@ export default function BasicWaveformGraph({ well, featureIndices, waveformData,
       .enter()
       .append("path")
       .attr("id", "peak")
-      .attr("indexToReplace", (d) => peaksWithinWindow.indexOf(d)) // keep track of index in peaks array to splice later
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
+        console.log("idx", d);
         return (
-          "translate(" + x(dataWithinWindow[d][0]) + "," + (y(dataWithinWindow[d][1]) - 7) + ") rotate(180)"
+          "translate(" +
+          x(waveformForFeatures[d][0]) +
+          "," +
+          (y(waveformForFeatures[d][1]) - 7) +
+          ") rotate(180)"
         );
       })
       .style("fill", "var(--curi-peaks)")
       .attr("stroke", "var(--curi-peaks)")
       .style("display", (d) => {
         // only display them inside windowed analysis times
-        const xTime = dataWithinWindow[d][0];
+        const xTime = waveformForFeatures[d][0];
         return xTime > xMax || xTime < xMin ? "none" : null;
       });
 
@@ -139,16 +161,15 @@ export default function BasicWaveformGraph({ well, featureIndices, waveformData,
       .enter()
       .append("path")
       .attr("id", "valley")
-      .attr("indexToReplace", (d) => valleysWithinWindow.indexOf(d)) // keep track of index in valleys array to splice later
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
-        return "translate(" + x(dataWithinWindow[d][0]) + "," + (y(dataWithinWindow[d][1]) + 7) + ")";
+        return "translate(" + x(waveformForFeatures[d][0]) + "," + (y(waveformForFeatures[d][1]) + 7) + ")";
       })
       .style("fill", "var(--curi-valleys)")
       .attr("stroke", "var(--curi-valleys)")
       .style("display", (d) => {
         // only display them inside windowed analysis times
-        const xTime = dataWithinWindow[d][0];
+        const xTime = waveformForFeatures[d][0];
         return xTime > xMax || xTime < xMin ? "none" : null;
       });
 
