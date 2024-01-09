@@ -20,6 +20,8 @@ spec:
       helm:
         values: |
           nodeSelector: { group: argo }
+          serviceAccount:
+            create: true
   syncPolicy:
     automated:
       prune: true
