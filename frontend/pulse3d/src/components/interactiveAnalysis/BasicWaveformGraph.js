@@ -2,6 +2,7 @@ import styled from "styled-components";
 import { useEffect } from "react";
 import * as d3 from "d3";
 import semverGte from "semver/functions/gte";
+import { applyWindow } from "@/utils/generic";
 
 const Container = styled.div`
   background-color: white;
@@ -18,14 +19,6 @@ const WellNameLabel = styled.div`
   width: 100%;
   padding-left: 40px;
 `;
-
-const applyWindow = (data, xMin, xMax) => {
-  const halfWindowedData = data.filter((coords) => coords[0] <= xMax);
-  const windowEndIdx = halfWindowedData.length - 1;
-  const dataWithinWindow = halfWindowedData.filter((coords) => coords[0] >= xMin);
-  const windowStartIdx = halfWindowedData.length - dataWithinWindow.length;
-  return { dataWithinWindow, windowStartIdx, windowEndIdx };
-};
 
 export default function BasicWaveformGraph({
   well,
@@ -134,7 +127,6 @@ export default function BasicWaveformGraph({
       .attr("id", "peak")
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
-        console.log("idx", d);
         return (
           "translate(" +
           x(waveformForFeatures[d][0]) +

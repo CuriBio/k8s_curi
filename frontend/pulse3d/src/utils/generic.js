@@ -185,6 +185,14 @@ const formatDateTime = (datetime) => {
   }
 };
 
+const applyWindow = (data, xMin, xMax) => {
+  const halfWindowedData = data.filter((coords) => coords[0] <= xMax);
+  const windowEndIdx = halfWindowedData.length - 1;
+  const dataWithinWindow = halfWindowedData.filter((coords) => coords[0] >= xMin);
+  const windowStartIdx = halfWindowedData.length - dataWithinWindow.length;
+  return { dataWithinWindow, windowStartIdx, windowEndIdx };
+};
+
 export {
   deepCopy,
   hexToBase64,
@@ -195,4 +203,5 @@ export {
   getWaveformCoordsFromTable,
   getTableFromParquet,
   formatDateTime,
+  applyWindow,
 };

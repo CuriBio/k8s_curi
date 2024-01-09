@@ -7,6 +7,7 @@ import Tooltip from "@mui/material/Tooltip";
 import MenuItem from "@mui/material/MenuItem";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import semverGte from "semver/functions/gte";
+import { applyWindow } from "@/utils/generic";
 
 const Container = styled.div`
   width: 1260px;
@@ -187,14 +188,6 @@ const contextMenuItems = {
 const NoFeaturesAlert = styled.div`
   color: red;
 `;
-
-const applyWindow = (data, xMin, xMax) => {
-  const halfWindowedData = data.filter((coords) => coords[0] <= xMax);
-  const windowEndIdx = halfWindowedData.length - 1;
-  const dataWithinWindow = halfWindowedData.filter((coords) => coords[0] >= xMin);
-  const windowStartIdx = halfWindowedData.length - dataWithinWindow.length;
-  return { dataWithinWindow, windowStartIdx, windowEndIdx };
-};
 
 export default function WaveformGraph({
   timepointRange,
