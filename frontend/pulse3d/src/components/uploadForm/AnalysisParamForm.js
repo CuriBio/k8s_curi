@@ -475,9 +475,8 @@ export default function AnalysisParamForm({
     analysisPresetName,
   },
 }) {
-  const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails, dataTypeDetails } = useContext(
-    UploadsContext
-  );
+  const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails, dataTypeDetails } =
+    useContext(UploadsContext);
   const { preferences, productPage } = useContext(AuthContext);
 
   const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
@@ -563,10 +562,15 @@ export default function AnalysisParamForm({
   const getDropdownInitialSelection = (param, optionsArr) => {
     let optionIndex = optionsArr.indexOf(analysisParams[param]);
 
-    if (param == "selectedPulse3dVersion") {
-      if (productPage in preferences && "version" in preferences[productPage] && pulse3dVersions.length > 0) {
-        optionIndex = optionsArr.indexOf(preferences[productPage].version);
-      }
+    // set iniitial p3d version to user preference if available, account for it to now always be set
+    // additionally, need to wait for pulse3dVersions to be fetched and set
+    if (
+      param == "selectedPulse3dVersion" &&
+      productPage in preferences &&
+      "version" in preferences[productPage] &&
+      pulse3dVersions.length > 0
+    ) {
+      optionIndex = optionsArr.indexOf(preferences[productPage].version);
     }
 
     return optionIndex === -1 ? 0 : optionIndex;
