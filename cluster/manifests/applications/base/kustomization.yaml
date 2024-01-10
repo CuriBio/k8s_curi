@@ -10,8 +10,9 @@ resources:
   - cluster-autoscaler.yaml
 
 configMapGenerator:
-  - name: login-attempts
+  - name: grafana-dashboards
     files:
       - login-attempts.json
+      - login-attempts-2.json
 generatorOptions:
   disableNameSuffixHash: true
