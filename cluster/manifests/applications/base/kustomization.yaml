@@ -8,3 +8,4 @@ resources:
   - grafana.yaml
   - grafana-loki.yaml
   - cluster-autoscaler.yaml
+  # - login-attempts.yaml

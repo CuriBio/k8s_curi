@@ -24,8 +24,7 @@
   "panels": [
     {
       "datasource": {
-        "type": "loki",
-        "uid": "d0575736-dea9-4f82-8a97-0133301f2399"
+        "type": "loki"
       },
       "fieldConfig": {
         "defaults": {
@@ -73,8 +72,7 @@
       "targets": [
         {
           "datasource": {
-            "type": "loki",
-            "uid": "d0575736-dea9-4f82-8a97-0133301f2399"
+            "type": "loki"
           },
           "editorMode": "builder",
           "expr": "sum by(customer_id, user_id) (count by(customer_id, user_id) (rate({container=\"users\"} |= `user_id` | json | status_code = `200` | method = `POST` [$__interval])))",
@@ -87,8 +85,7 @@
     },
     {
       "datasource": {
-        "type": "loki",
-        "uid": "d0575736-dea9-4f82-8a97-0133301f2399"
+        "type": "loki"
       },
       "fieldConfig": {
         "defaults": {
@@ -136,8 +133,7 @@
       "targets": [
         {
           "datasource": {
-            "type": "loki",
-            "uid": "d0575736-dea9-4f82-8a97-0133301f2399"
+            "type": "loki"
           },
           "editorMode": "builder",
           "expr": "sum by(customer_id, user_id) (count by(customer_id, user_id) (rate({container=\"users\"} |= `user_id` | json | status_code = `401` | method = `POST` [$__interval])))",
@@ -150,8 +146,7 @@
     },
     {
       "datasource": {
-        "type": "loki",
-        "uid": "d0575736-dea9-4f82-8a97-0133301f2399"
+        "type": "loki"
       },
       "fieldConfig": {
         "defaults": {
@@ -199,8 +194,7 @@
       "targets": [
         {
           "datasource": {
-            "type": "loki",
-            "uid": "d0575736-dea9-4f82-8a97-0133301f2399"
+            "type": "loki"
           },
           "editorMode": "builder",
           "expr": "sum by(customer_id) (count by(customer_id) (rate({container=\"users\"} != `user_id` | json | status_code = `200` | method = `POST` [$__interval])))",
@@ -213,8 +207,7 @@
     },
     {
       "datasource": {
-        "type": "loki",
-        "uid": "d0575736-dea9-4f82-8a97-0133301f2399"
+        "type": "loki"
       },
       "fieldConfig": {
         "defaults": {
@@ -262,8 +255,7 @@
       "targets": [
         {
           "datasource": {
-            "type": "loki",
-            "uid": "d0575736-dea9-4f82-8a97-0133301f2399"
+            "type": "loki"
           },
           "editorMode": "builder",
           "expr": "sum by(customer_id) (count by(customer_id) (rate({container=\"users\"} != `user_id` | json | status_code = `401` | method = `POST` [$__interval])))",
