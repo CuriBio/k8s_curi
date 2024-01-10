@@ -293,7 +293,7 @@ data:
       "version": 1,
       "weekStart": ""
     }
-  login-attempts-2.json: |-
+  login-attempts-2.json: |
     {
       "annotations": {
         "list": [
