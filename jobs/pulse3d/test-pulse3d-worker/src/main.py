@@ -355,9 +355,10 @@ async def process_item(con, item):
 
                 job_metadata |= {
                     "plate_barcode": pre_analyzed_data.metadata.plate_barcode,
-                    "stim_barcode": pre_analyzed_data.metadata.stim_barcode,
                     "recording_length_ms": pre_analyzed_data.metadata.full_recording_length,
                 }
+                if pre_analyzed_data.metadata.instrument_type == InstrumentTypes.MANTARRAY:
+                    job_metadata["stim_barcode"] = pre_analyzed_data.metadata.stim_barcode
 
                 logger.info("Inserted metadata into db")
             except Exception:
