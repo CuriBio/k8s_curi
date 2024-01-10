@@ -557,15 +557,27 @@ export default function InteractiveWaveformModal({
       customAnalysisSettings = getDefaultCustomAnalysisSettings(Object.keys(waveformData));
       setCustomAnalysisSettings(customAnalysisSettings);
 
-      // original data is set and never changed to hold original state in case of reset
-      originalAnalysisData = { featuresForWells: featureIndices, coordinates: waveformData };
-      setOriginalAnalysisData(originalAnalysisData);
-
       const { start_time, end_time } = selectedJob.analysisParams;
       const newTimepointRange = {
         min: start_time || Math.min(...waveformData[Object.keys(waveformData)[0]].map((coords) => coords[0])),
         max: end_time || Math.max(...waveformData[Object.keys(waveformData)[0]].map((coords) => coords[0])),
       };
+
+      const windowedWaveformData = {};
+      for (const well of Object.keys(waveformData)) {
+        windowedWaveformData[well] = waveformData[well];
+        if (semverGte(selectedJob.analysisParams.pulse3d_version.split("rc")[0], "1.0.0")) {
+          windowedWaveformData[well] = windowedWaveformData[well].filter(
+            (coords) => coords[0] >= newTimepointRange.min && coords[0] <= newTimepointRange.max
+          );
+        }
+      }
+
+      // original data is set and never changed to hold original state in case of reset
+      originalAnalysisData = { featuresForWells: featureIndices, coordinates: windowedWaveformData };
+
+      setOriginalAnalysisData(originalAnalysisData);
+
       setTimepointRange(newTimepointRange);
       customAnalysisSettingsInitializers.windowBounds({
         start: newTimepointRange.min,
@@ -642,8 +654,8 @@ export default function InteractiveWaveformModal({
         ...selectedJob.analysisParams,
         upload_id: selectedJob.uploadId,
         peaks_valleys: filteredFeatures,
-        start_time: startTime === timepointRange.min ? null : startTime,
-        end_time: endTime === timepointRange.max ? null : endTime,
+        start_time: startTime,
+        end_time: endTime,
         version: filteredVersions[pulse3dVersionIdx],
         previous_version: prevPulse3dVersion,
       };
@@ -956,6 +968,7 @@ export default function InteractiveWaveformModal({
               open: () => setOpenChangelog(true),
             }}
             yAxisLabel={yAxisLabel}
+            prevPulse3dVersion={selectedJob.analysisParams.pulse3d_version.split("rc")[0]}
           />
         )}
       </GraphContainer>

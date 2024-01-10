@@ -1,6 +1,6 @@
 import styled from "styled-components";
 import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
-import { isArrayOfNumbers, loadCsvInputToArray, isArrayOfWellNames } from "@/utils/generic";
+import { isArrayOfNumbers, loadCsvInputToArray, isArrayOfWellNames, isInt } from "@/utils/generic";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import { useState, useContext, useEffect } from "react";
 import semverGte from "semver/functions/gte";
@@ -574,13 +574,16 @@ export default function AnalysisParamForm({
       validateWellNames(updatedParams);
     }
 
+    let updatedParamErrors = { ...paramErrors };
     for (const [minName, maxName] of [
       ["startTime", "endTime"],
       ["minPeakWidth", "maxPeakWidth"],
     ]) {
       if (minName in newParams || maxName in newParams) {
         // need to validate start and end time together
-        validateMinMax(updatedParams, minName, maxName);
+        const allowFloat = minName === "startTime";
+        const newParamErrors = validateMinMax(updatedParams, minName, maxName, allowFloat);
+        updatedParamErrors = { ...updatedParamErrors, ...newParamErrors };
       }
     }
 
@@ -601,8 +604,13 @@ export default function AnalysisParamForm({
       "peakToBase",
       "stiffnessFactor",
     ]) {
-      if (paramName in newParams) validatePositiveNumber(updatedParams, paramName, false);
+      const allowFloat = !["baseToPeak", "peakToBase"].includes(paramName);
+      if (paramName in newParams) {
+        const newParamErrors = validatePositiveNumber(updatedParams, paramName, false, allowFloat);
+        updatedParamErrors = { ...updatedParamErrors, ...newParamErrors };
+      }
     }
+    setParamErrors(updatedParamErrors);
 
     if (newParams.normalizeYAxis === false) {
       // if not normalizing y-axis, then clear the entered value.
@@ -618,14 +626,14 @@ export default function AnalysisParamForm({
     return value === null || value === "" || value >= minValue;
   };
 
-  const validatePositiveNumber = (updatedParams, paramName, allowZero = true) => {
+  const validatePositiveNumber = (updatedParams, paramName, allowZero = true, allowFloat = true) => {
     const newValue = updatedParams[paramName];
 
     let errorMsg = "";
-    if (!checkPositiveNumberEntry(newValue, allowZero)) {
-      errorMsg = allowZero ? "*Must be a positive number" : "*Must be a positive, non-zero number";
+    if (!checkPositiveNumberEntry(newValue, allowZero) || (!allowFloat && !isInt(newValue))) {
+      errorMsg = `*Must be a positive${allowZero ? "" : ", non-zero"} ${allowFloat ? "number" : "integer"}`;
     }
-    setParamErrors({ ...paramErrors, [paramName]: errorMsg });
+    return { [paramName]: errorMsg };
   };
 
   const validateTwitchWidths = (updatedParams) => {
@@ -642,17 +650,17 @@ export default function AnalysisParamForm({
       } catch (e) {
         setParamErrors({
           ...paramErrors,
-          twitchWidths: "*Must be comma-separated, positive numbers",
+          twitchWidths: "*Must be comma-separated, positive integers",
         });
         return;
       }
-      // make sure it's an array of positive numbers
-      if (isArrayOfNumbers(twitchWidthArr, true)) {
+      // make sure it's an array of positive integers
+      if (isArrayOfNumbers(twitchWidthArr, true, false)) {
         formattedTwitchWidths = Array.from(new Set(twitchWidthArr));
       } else {
         setParamErrors({
           ...paramErrors,
-          twitchWidths: "*Must be comma-separated, positive numbers",
+          twitchWidths: "*Must be comma-separated, positive integers",
         });
         return;
       }
@@ -695,28 +703,21 @@ export default function AnalysisParamForm({
     setParamErrors({ ...paramErrors, presetName: errorMessage });
   };
 
-  const validateMinMax = (updatedParams, minName, maxName) => {
+  const validateMinMax = (updatedParams, minName, maxName, allowFloat) => {
     const minValue = updatedParams[minName];
     const maxValue = updatedParams[maxName];
 
-    const updatedParamErrors = { ...paramErrors };
-
+    let updatedParamErrors = { ...paramErrors };
     for (const [boundName, boundValue] of [
       [minName, minValue],
       [maxName, maxValue],
     ]) {
-      let error = "";
       // only perform this check if something has actually been entered
       if (boundValue) {
         const allowZero = boundName === minName;
-        if (!checkPositiveNumberEntry(boundValue, allowZero)) {
-          error = "*Must be a positive number";
-        } else {
-          updatedParams[boundName] = boundValue;
-        }
+        const newParamErrors = validatePositiveNumber(updatedParams, boundName, allowZero, allowFloat);
+        updatedParamErrors = { ...updatedParamErrors, ...newParamErrors };
       }
-
-      updatedParamErrors[boundName] = error;
     }
 
     if (
@@ -739,7 +740,7 @@ export default function AnalysisParamForm({
       updatedParamErrors[maxName] = `*Must be greater than ${errorLabel}`;
     }
 
-    setParamErrors(updatedParamErrors);
+    return updatedParamErrors;
   };
 
   return (
