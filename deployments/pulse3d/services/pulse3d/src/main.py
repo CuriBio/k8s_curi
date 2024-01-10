@@ -629,7 +629,7 @@ def _format_tuple_param(
     if options is None or all(op is None for op in options):
         return None
 
-    if isinstance(default_values, int):
+    if isinstance(default_values, (int, float)):
         default_values = (default_values,) * len(options)
 
     def get_val(num: int | float | None, default_value: int | float) -> int | float:
