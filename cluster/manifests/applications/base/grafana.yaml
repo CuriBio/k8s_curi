@@ -32,10 +32,8 @@ spec:
                 editable: true
                 options:
                   path: /var/lib/grafana/dashboards/default
-          dashboards:
-            default:
-              login-attempts:
-                file: dashboards/login-attempts.json
+          dashboardsConfigMaps:
+            default: "grafana-dashboards"
   syncPolicy:
     automated:
       prune: true
