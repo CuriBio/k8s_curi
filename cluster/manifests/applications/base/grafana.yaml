@@ -35,8 +35,10 @@ spec:
           dashboards:
             default:
               login-attempts:
-                url: https://raw.githubusercontent.com/CuriBio/k8s_curi/grafana-dashboards/cluster/manifests/applications/base/login-attempts.json
-                token: ''
+                file: login-attempts.json
+              # login-attempts:
+              #   url: https://raw.githubusercontent.com/CuriBio/k8s_curi/grafana-dashboards/cluster/manifests/applications/base/login-attempts.json
+              #   token: ''
           # dashboardsConfigMaps:
           #   default: "grafana-dashboards"
           datasources:
