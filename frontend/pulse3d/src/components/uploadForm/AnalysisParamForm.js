@@ -11,6 +11,7 @@ import AnalysisParamContainer from "@/components/uploadForm/AnalysisParamContain
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
 import FormInput from "@/components/basicWidgets/FormInput";
+import { AuthContext } from "@/pages/_app";
 
 const Container = styled.div`
   padding: 1rem;
@@ -474,9 +475,9 @@ export default function AnalysisParamForm({
     analysisPresetName,
   },
 }) {
-  const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails, dataTypeDetails } = useContext(
-    UploadsContext
-  );
+  const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails, dataTypeDetails } =
+    useContext(UploadsContext);
+  const { preferences, productPage } = useContext(AuthContext);
 
   const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
   const [disableStimProtocols, setDisableStimProtocols] = useState(false);
@@ -559,7 +560,14 @@ export default function AnalysisParamForm({
   };
 
   const getDropdownInitialSelection = (param, optionsArr) => {
-    const optionIndex = optionsArr.indexOf(analysisParams[param]);
+    let optionIndex = optionsArr.indexOf(analysisParams[param]);
+
+    if (param == "selectedPulse3dVersion") {
+      if (productPage in preferences && "version" in preferences[productPage] && pulse3dVersions.length > 0) {
+        optionIndex = optionsArr.indexOf(preferences[productPage].version);
+      }
+    }
+
     return optionIndex === -1 ? 0 : optionIndex;
   };
 
