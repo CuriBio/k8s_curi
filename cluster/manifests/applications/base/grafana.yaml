@@ -41,7 +41,6 @@ spec:
           #       token: ''
           dashboardsConfigMaps:
             test: "grafana-dashboards"
-            test-2: "grafana-dashboards-2"
           datasources:
             datasources.yaml:
               apiVersion: 1
