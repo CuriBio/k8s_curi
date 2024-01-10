@@ -475,8 +475,9 @@ export default function AnalysisParamForm({
     analysisPresetName,
   },
 }) {
-  const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails, dataTypeDetails } =
-    useContext(UploadsContext);
+  const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails, dataTypeDetails } = useContext(
+    UploadsContext
+  );
   const { preferences, productPage } = useContext(AuthContext);
 
   const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
