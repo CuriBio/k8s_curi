@@ -10,12 +10,14 @@ resources:
 patches:
   - patch: |-
       - op: replace
-        path: /spec/sources/1/helm/valueFiles/0
-        value: $values/cluster/manifests/grafana-loki/overlays/prod/values.yaml
+        path: /spec/sources/0/path
+        value: cluster/manifests/grafana/overlays/prod
     target:
       kind: Application
-      name: grafana-loki
+      name: grafana
       namespace: argocd
+  - patch: |-
+      - op: replace
         path: /spec/source/path
         value: cluster/manifests/autoscaler/overlays/prod
     target:

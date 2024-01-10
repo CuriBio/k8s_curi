@@ -28,6 +28,9 @@ patches:
       - op: replace
         path: /spec/sources/0/targetRevision
         value: modl-qc
+      - op: replace
+        path: /spec/sources/0/path
+        value: cluster/manifests/grafana/overlays/modl
     target:
       kind: Application
       name: grafana
