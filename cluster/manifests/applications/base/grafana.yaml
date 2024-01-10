@@ -32,8 +32,13 @@ spec:
                 editable: true
                 options:
                   path: /var/lib/grafana/dashboards
-          dashboardsConfigMaps:
-            default: "grafana-dashboards"
+          dashboards:
+            default:
+              login-attempts:
+                url: https://raw.githubusercontent.com/CuriBio/k8s_curi/grafana-dashboards/cluster/manifests/applications/base/login-attempts.json
+                token: ''
+          # dashboardsConfigMaps:
+          #   default: "grafana-dashboards"
           datasources:
             datasources.yaml:
               apiVersion: 1
