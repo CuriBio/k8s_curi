@@ -253,7 +253,7 @@ export default function InteractiveWaveformModal({
     `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}`
   );
 
-  const { usageQuota } = useContext(AuthContext);
+  const { usageQuota, productPage, preferences } = useContext(AuthContext);
   const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
 
   const [loadStatus, setLoadStatus] = useState(LOAD_STATUSES.NOT_LOADED);
@@ -727,6 +727,12 @@ export default function InteractiveWaveformModal({
     setPulse3dVersionIdx(idx);
   };
 
+  const getInitialP3dVersion = () => {
+    return productPage in preferences && "version" in preferences[productPage] && filteredVersions.length > 0
+      ? filteredVersions.indexOf(preferences[productPage].version)
+      : 0;
+  };
+
   const handleRunAnalysis = () => {
     const wellsWithDups = [];
     Object.keys(customAnalysisSettings).map((well) => {
@@ -1024,7 +1030,7 @@ export default function InteractiveWaveformModal({
               label="Select"
               reset={pulse3dVersionIdx === 0}
               handleSelection={handleVersionSelect}
-              initialSelected={0}
+              initialSelected={getInitialP3dVersion()}
               disabled={filteredVersions.length === 0}
             />
           </div>
