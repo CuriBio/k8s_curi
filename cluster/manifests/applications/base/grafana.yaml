@@ -31,9 +31,18 @@ spec:
                 disableDeletion: false
                 editable: true
                 options:
-                  path: /var/lib/grafana/dashboards/default
+                  path: /var/lib/grafana/dashboards
           dashboardsConfigMaps:
             default: "grafana-dashboards"
+          datasources:
+            datasources.yaml:
+              apiVersion: 1
+              datasources:
+              - name: Loki
+                type: loki
+                url: http://grafana-loki:3100
+                access: proxy
+                isDefault: true
   syncPolicy:
     automated:
       prune: true
