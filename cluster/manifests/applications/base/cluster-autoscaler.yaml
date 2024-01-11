@@ -10,7 +10,7 @@ spec:
   source:
     path: cluster/manifests/autoscaler/overlays/test
     repoURL: https://github.com/CuriBio/k8s_curi.git
-    targetRevision: modl-qc
+    targetRevision: HEAD
   destination:
     server: https://kubernetes.default.svc
     namespace: argo

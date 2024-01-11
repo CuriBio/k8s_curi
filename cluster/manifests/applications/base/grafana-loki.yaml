@@ -9,7 +9,7 @@ spec:
   project: cluster
   sources:
     - repoURL: https://github.com/CuriBio/k8s_curi.git
-      targetRevision: grafana-dashboards
+      targetRevision: HEAD
       ref: values
     - repoURL: https://grafana.github.io/helm-charts
       chart: loki-stack
