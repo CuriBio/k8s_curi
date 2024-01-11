@@ -19,6 +19,12 @@ spec:
       targetRevision: ^6.0.0
       helm:
         values: |
+          env:
+          - name: GRAFANA_PASS_RO
+            valueFrom:
+              secretKeyRef:
+                name: grafana-creds
+                key: grafana_pass_ro
           nodeSelector: { group: argo }
           dashboardProviders:
             dashboardproviders.yaml:
@@ -43,6 +49,21 @@ spec:
                 url: http://grafana-loki:3100
                 access: proxy
                 isDefault: true
+              - name: Postgres
+                type: postgres
+                host: psql-rds.default
+                user: grafana_ro
+                secureJsonData:
+                  password: $GRAFANA_PASS_RO
+                jsonData:
+                  database: curibio
+                  sslmode: 'disable' # disable/require/verify-ca/verify-full
+                  maxOpenConns: 100 # Grafana v5.4+
+                  maxIdleConns: 100 # Grafana v5.4+
+                  maxIdleConnsAuto: true # Grafana v9.5.1+
+                  connMaxLifetime: 14400 # Grafana v5.4+
+                  postgresVersion: 903 # 903=9.3, 904=9.4, 905=9.5, 906=9.6, 1000=10
+                  timescaledb: false
   syncPolicy:
     automated:
       prune: true
