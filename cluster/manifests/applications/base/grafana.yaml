@@ -20,7 +20,7 @@ spec:
       helm:
         values: |
           envValueFrom:
-          - GRAFANA_PASS_RO:
+            GRAFANA_PASS_RO:
               secretKeyRef:
                 name: grafana-creds
                 key: grafana_pass_ro
