@@ -19,6 +19,7 @@ config.set_section_option(section, "TABLE_USER_PASS", os.environ.get("TABLE_USER
 config.set_section_option(section, "TABLE_USER_PASS_RO", os.environ.get("TABLE_USER_PASS_RO"))
 config.set_section_option(section, "MANTARRAY_USER_PASS", os.environ.get("MANTARRAY_USER_PASS"))
 config.set_section_option(section, "MANTARRAY_USER_PASS_RO", os.environ.get("MANTARRAY_USER_PASS_RO"))
+config.set_section_option(section, "GRAFANA_PASS_RO", os.environ.get("GRAFANA_PASS_RO"))
 config.set_section_option(
     section, "PULSE3D_QUEUE_PROCESSOR_RO_PASS", os.environ.get("PULSE3D_QUEUE_PROCESSOR_RO_PASS")
 )

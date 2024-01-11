@@ -1,0 +1,15 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  creationTimestamp: null
+  name: grafana-creds
+  namespace: argocd
+spec:
+  encryptedData:
+    grafana_pass_ro: AgAegYl9cXCNOXLPVkU91HXZVYRQ+0E0lmgm/6fXgTvo64c7T9mOPuZB9N++fOwDXu+y9BzL8L96AdzOxAOk3WWFTayEm/PXM1bge+qQzgWY5RfyEnHb9zTT7Ob04we0NbeM7rcfuijtW3gLvjyDyNG44YD6zJJKZEcEoXUNrY3Z6Wx97dxCDKuA5vUeztdlnBV6+cFDDEM1j3ocheV9DzHMvnXiFOb6NjHzpVvkP3JhFRWJG7DhXRQjaWqUdbip8bzuOHx4EdIYAt5Dzp6qaG1IswyCwZs001t6MsGvCEgnQ8uw625/ReI6HIRcrfBVt41Fz3wfTksccF9G9XO92glWpovCrBtx0ayUMPIkTBr/rOjrJMLBX91E2VtAkajkR4cLwMiEV44nJ3v1KIBrOJ+zwhUmbhuSrEE34DlEPtk7YuniPiNk1pEIc8Xm4WcM2WPTPIcWbFg0TxURsIzuYOlbKcrZZXZLbMejHC4rN7jx+A8i7L6GyFvLUaIVnmxr6yQtpohMjWnd4htsI/5k1yMy5bLrnIvIaqNq77XshSGvcOFpzTAE3xOtjq7kEcE+BpkCqUoL4W2JJ26o435cu+Bi1JRcbkVykT5fm1BCmamcjNfR+LOE/0Mh73oVr/9wEG7VN23ycdxwQyclEn04ot6oSAQ+pq/nlU7CdWU/IuTFCBNOMBdL7uXeVjW1M4kUqb/3cuo7MZ9kMyBG3XWPLgXeEok8DI/A81w=
+  template:
+    metadata:
+      creationTimestamp: null
+      name: grafana-creds
+      namespace: argocd

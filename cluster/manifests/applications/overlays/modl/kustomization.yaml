@@ -26,6 +26,28 @@ patches:
       namespace: argocd
   - patch: |-
       - op: replace
+        path: /spec/sources/0/targetRevision
+        value: modl-qc
+      - op: replace
+        path: /spec/sources/0/path
+        value: cluster/manifests/grafana/overlays/modl
+    target:
+      kind: Application
+      name: grafana
+      namespace: argocd
+  - patch: |-
+      - op: replace
+        path: /spec/sources/1/helm/valueFiles/0
+        value: $values/cluster/manifests/grafana-loki/overlays/modl/values.yaml
+      - op: replace
+        path: /spec/sources/0/targetRevision
+        value: modl-qc
+    target:
+      kind: Application
+      name: grafana-loki
+      namespace: argocd
+  - patch: |-
+      - op: replace
         path: /spec/source/path
         value: cluster/manifests/autoscaler/overlays/modl
       - op: replace
