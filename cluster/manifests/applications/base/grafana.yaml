@@ -50,7 +50,7 @@ spec:
                 isDefault: true
               - name: Postgres
                 type: postgres
-                host: psql-rds.default
+                url: psql-rds.default
                 user: grafana_ro
                 secureJsonData:
                   password: $GRAFANA_PASS_RO
