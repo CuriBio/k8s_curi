@@ -7,6 +7,5 @@ configMapGenerator:
   - name: grafana-dashboards
     files:
       - dashboards/login-attempts.json
-      - dashboards/login-attempts-2.json
 generatorOptions:
   disableNameSuffixHash: true
