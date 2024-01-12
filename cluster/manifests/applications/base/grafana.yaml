@@ -12,7 +12,7 @@ spec:
   project: cluster
   sources:
     - repoURL: https://github.com/CuriBio/k8s_curi.git
-      targetRevision: HEAD
+      targetRevision: RC-01-18-24
       path: cluster/manifests/grafana/overlays/test
     - repoURL: https://grafana.github.io/helm-charts
       chart: grafana
