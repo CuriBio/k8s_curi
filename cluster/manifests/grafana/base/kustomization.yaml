@@ -7,7 +7,7 @@ configMapGenerator:
   - name: grafana-dashboards
     files:
       - dashboards/login-attempts.json
-      - dashboards/user-jobs.json
+      - dashboards/p3d-jobs.json
 
 generatorOptions:
   disableNameSuffixHash: true
