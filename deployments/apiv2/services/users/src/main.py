@@ -651,8 +651,8 @@ async def _create_account_email(
             raise Exception(f"Scope {scope} is not allowed in an email token")
 
         account_type = AccountTypes.USER if "user" in scope else AccountTypes.ADMIN
-
-        query = f"UPDATE {account_type}s SET reset_token=$1 WHERE id=$2"
+        table = "users" if "user" in scope else "customers"
+        query = f"UPDATE {table} SET reset_token=$1 WHERE id=$2"
 
         # create email verification token, exp 24 hours
         jwt_token = create_token(
