@@ -8,3 +8,7 @@ class RegistrationError(Exception):
 
 class EmailRegistrationError(Exception):
     pass
+
+
+class UnableToUpdateAccountError(Exception):
+    pass

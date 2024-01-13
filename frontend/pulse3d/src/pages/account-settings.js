@@ -8,6 +8,7 @@ import AnalysisParamContainer from "@/components/uploadForm/AnalysisParamContain
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import { UploadsContext } from "@/components/layouts/DashboardLayout";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
+import PasswordForm from "@/components/account/PasswordForm";
 
 const BackgroundContainer = styled.div`
   width: 90%;
@@ -43,9 +44,27 @@ const Header = styled.h2`
   line-height: 3;
 `;
 
+const ErrorText = styled.span`
+  color: red;
+  font-style: italic;
+  text-align: left;
+  position: relative;
+  width: 80%;
+  padding-top: 2%;
+`;
+
 const SubsectionContainer = styled.div`
   margin-left: 50px;
   margin-right: 50px;
+`;
+
+const PasswordContainer = styled.div`
+  margin-bottom: 17px;
+  padding: 0 15%;
+  position: relative;
+  width: 100%;
+  justify-content: center;
+  display: flex;
 `;
 
 const SubSectionBody = styled.div`
@@ -76,6 +95,8 @@ const ButtonContainer = styled.div`
   padding-right: 45px;
 `;
 
+const isEmpty = (str) => str === undefined || str.length === 0;
+
 export default function AccountSettings() {
   const { accountType, usageQuota, accountId, productPage, preferences } = useContext(AuthContext);
   const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
@@ -86,6 +107,8 @@ export default function AccountSettings() {
   const [pulse3dVersionOptions, setPulse3dVersionOptions] = useState([]);
   const [userPreferences, setUserPreferences] = useState({ version: 0 });
   const [inProgress, setInProgress] = useState(false);
+  const [errorMsg, setErrorMsg] = useState();
+  const [passwords, setPasswords] = useState({ password1: "", password2: "" });
 
   const isAdminAccount = accountType === "admin";
 
@@ -147,9 +170,62 @@ export default function AccountSettings() {
     }
   };
 
+  const onChangePassword = ({ target }) => {
+    setPasswords({ ...passwords, [target.id]: target.value });
+  };
+
+  const saveNewPassword = async () => {
+    try {
+      setInProgress(true);
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/${accountId}`, {
+        method: "PUT",
+        body: JSON.stringify({ passwords, action_type: "set_password" }),
+      });
+
+      setInProgress(false);
+    } catch (e) {
+      console.log("ERROR updating user preferences");
+    }
+  };
+
   return (
     <BackgroundContainer>
       <Header>Account Settings</Header>
+      <SubsectionContainer>
+        <Subheader>Change Password</Subheader>
+        <SubSectionBody>
+          <PasswordContainer>
+            <PasswordForm
+              password1={passwords.password1}
+              password2={passwords.password2}
+              onChangePassword={onChangePassword}
+              setErrorMsg={setErrorMsg}
+            >
+              <ErrorText role="errorMsg">{errorMsg}</ErrorText>
+            </PasswordForm>
+          </PasswordContainer>
+
+          <ButtonContainer>
+            <ButtonWidget
+              width="150px"
+              height="40px"
+              position="relative"
+              borderRadius="3px"
+              label="Save"
+              backgroundColor={
+                inProgress ||
+                !(isEmpty(errorMsg) && !isEmpty(passwords.password1) && !isEmpty(passwords.password2))
+                  ? "var(--dark-gray)"
+                  : "var(--dark-blue)"
+              }
+              inProgress={inProgress}
+              disabled={inProgress}
+              clickFn={saveNewPassword}
+            />
+          </ButtonContainer>
+        </SubSectionBody>
+      </SubsectionContainer>
       {!isAdminAccount && (
         <SubsectionContainer>
           <Subheader>Preferences</Subheader>
@@ -171,8 +247,8 @@ export default function AccountSettings() {
             </AnalysisParamContainer>
             <ButtonContainer>
               <ButtonWidget
-                width="200px"
-                height="50px"
+                width="150px"
+                height="40px"
                 position="relative"
                 borderRadius="3px"
                 label="Save"
