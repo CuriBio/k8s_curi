@@ -75,6 +75,8 @@ export default function PasswordForm({ onChangePassword, setErrorMsg, password1,
       // else set the border to none if user isn't inputting anything
       setPassword1Border("none");
       setErrorMsg("");
+
+      if (password2.length === 0) setPassword2Border("none");
     }
 
     return isValid;

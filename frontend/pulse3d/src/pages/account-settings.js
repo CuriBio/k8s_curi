@@ -106,7 +106,7 @@ export default function AccountSettings() {
   const [daysLeft, setDaysLeft] = useState(0);
   const [pulse3dVersionOptions, setPulse3dVersionOptions] = useState([]);
   const [userPreferences, setUserPreferences] = useState({ version: 0 });
-  const [inProgress, setInProgress] = useState(false);
+  const [inProgress, setInProgress] = useState({ password: false, preferences: false });
   const [errorMsg, setErrorMsg] = useState();
   const [passwords, setPasswords] = useState({ password1: "", password2: "" });
 
@@ -154,7 +154,7 @@ export default function AccountSettings() {
 
   const savePreferences = async () => {
     try {
-      setInProgress(true);
+      setInProgress({ ...inProgress, preferences: true });
 
       await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/preferences`, {
         method: "PUT",
@@ -164,7 +164,7 @@ export default function AccountSettings() {
         }),
       });
 
-      setInProgress(false);
+      setInProgress({ ...inProgress, preferences: false });
     } catch (e) {
       console.log("ERROR updating user preferences");
     }
@@ -176,16 +176,29 @@ export default function AccountSettings() {
 
   const saveNewPassword = async () => {
     try {
-      setInProgress(true);
+      setInProgress({ ...inProgress, password: true });
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/${accountId}`, {
         method: "PUT",
         body: JSON.stringify({ passwords, action_type: "set_password" }),
       });
 
-      setInProgress(false);
+      const resBody = await res.json();
+
+      if (res.status === 200) {
+        if (!resBody) {
+          setPasswords({ password1: "", password2: "" });
+        } else if (resBody.message.includes("Cannot set password to any of the previous")) {
+          setErrorMsg(`*${resBody.message}`);
+        }
+      } else {
+        setErrorMsg("*Internal error. Please try again later.");
+      }
+
+      setInProgress({ ...inProgress, password: false });
     } catch (e) {
-      console.log("ERROR updating user preferences");
+      console.log(e);
+      setPasswords({ password1: "", password2: "" });
     }
   };
 
@@ -214,13 +227,13 @@ export default function AccountSettings() {
               borderRadius="3px"
               label="Save"
               backgroundColor={
-                inProgress ||
+                inProgress.password ||
                 !(isEmpty(errorMsg) && !isEmpty(passwords.password1) && !isEmpty(passwords.password2))
                   ? "var(--dark-gray)"
                   : "var(--dark-blue)"
               }
-              inProgress={inProgress}
-              disabled={inProgress}
+              inProgress={inProgress.password}
+              disabled={inProgress.password}
               clickFn={saveNewPassword}
             />
           </ButtonContainer>
@@ -252,9 +265,9 @@ export default function AccountSettings() {
                 position="relative"
                 borderRadius="3px"
                 label="Save"
-                backgroundColor={inProgress ? "var(--dark-gray)" : "var(--dark-blue)"}
-                inProgress={inProgress}
-                disabled={inProgress}
+                backgroundColor={inProgress.preferences ? "var(--dark-gray)" : "var(--dark-blue)"}
+                inProgress={inProgress.preferences}
+                disabled={inProgress.preferences}
                 clickFn={savePreferences}
               />
             </ButtonContainer>
