@@ -650,8 +650,15 @@ async def _create_account_email(
         if ScopeTags.ACCOUNT not in scope.tags:
             raise Exception(f"Scope {scope} is not allowed in an email token")
 
-        account_type = AccountTypes.USER if "user" in scope else AccountTypes.ADMIN
-        table = "users" if "user" in scope else "customers"
+        if "user" in scope:
+            account_type = AccountTypes.USER
+            account_id = user_id
+            table = "users"
+        else:
+            account_type = AccountTypes.ADMIN
+            account_id = customer_id
+            table = "customers"
+
         query = f"UPDATE {table} SET reset_token=$1 WHERE id=$2"
 
         # create email verification token, exp 24 hours
@@ -674,7 +681,7 @@ async def _create_account_email(
 
         # add token to users table after no exception is raised
         # The token  has to be created with id being returned from insert query so it's updated separately
-        await con.execute(query, jwt_token.token, user_id)
+        await con.execute(query, jwt_token.token, account_id)
 
         # send email with reset token
         await _send_account_email(username=name, email=email, url=url, subject=subject, template=template)
@@ -1028,7 +1035,7 @@ async def update_user(
                     async with request.state.pgpool.acquire() as con:
                         async with con.transaction():
                             select_query = "SELECT previous_passwords FROM customers WHERE id=$1"
-                            update_query = "UPDATE customers SET reset_token=NULL, password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) WHERE id=$2"
+                            update_query = "UPDATE customers SET password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) WHERE id=$2"
                             query_params = [account_id]
                             # query for previous passwords
                             row = await con.fetchrow(select_query, *query_params)
