@@ -131,9 +131,8 @@ const modalObjs = {
 
 export default function ControlPanel() {
   const router = useRouter();
-  const { accountType, usageQuota, accountScope, isCuriAdmin, preferences, productPage } = useContext(
-    AuthContext
-  );
+  const { accountType, usageQuota, accountScope, isCuriAdmin, preferences, productPage } =
+    useContext(AuthContext);
   const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
   const [selected, setSelected] = useState(router.pathname.replace("-", " ").replace("/", ""));
   const [expanded, setExpanded] = useState(null);
@@ -271,8 +270,9 @@ export default function ControlPanel() {
     const selectedVersionMeta = metaPulse3dVersions.find(
       (m) => preferences[productPage].version === m.version
     );
+
     // deprecated versions are filtered out in DashboardLayout
-    if (!selectedVersionMeta) {
+    if (!selectedVersionMeta || selectedVersionMeta.state === "deprecated") {
       setDeprecationModalState(true);
     }
   };
