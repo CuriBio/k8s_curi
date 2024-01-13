@@ -272,7 +272,7 @@ export default function ControlPanel() {
       (m) => preferences[productPage].version === m.version
     );
     // deprecated versions are filtered out in DashboardLayout
-    if (!selectedVersionMeta) {
+    if (!selectedVersionMeta || selectedVersionMeta.state === "deprecated") {
       setDeprecationModalState(true);
     }
   };
