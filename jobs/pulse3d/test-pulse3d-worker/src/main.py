@@ -220,6 +220,7 @@ async def process_item(con, item):
             if interactive_analysis:
                 try:
                     features_df = pl.read_parquet(features_filepath)
+                    # TODO use the new fn in the p3d codebase to do this
                     # make sure cols are in correct order
                     plate = Plate(windowed_pre_analyzed_data.metadata.total_well_count)
                     wells = [c for c in features_df.columns if c != "time"]
