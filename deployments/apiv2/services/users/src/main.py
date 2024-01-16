@@ -361,7 +361,7 @@ async def _update_password(con, pw, previous_passwords, update_query, query_para
             # passwords match, return msg indicating that this is the case
             raise UnableToUpdateAccountError()
 
-    await con.execute(update_query, *[phash, *query_params])
+    await con.execute(update_query, phash, *query_params)
 
 
 @app.post("/refresh", response_model=AuthTokens, status_code=status.HTTP_201_CREATED)
