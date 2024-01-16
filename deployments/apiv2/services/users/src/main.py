@@ -633,9 +633,16 @@ async def _create_account_email(
         if ScopeTags.ACCOUNT not in scope.tags:
             raise Exception(f"Scope {scope} is not allowed in an email token")
 
-        account_type = AccountTypes.USER if "user" in scope else AccountTypes.ADMIN
+        if "user" in scope:
+            account_type = AccountTypes.USER
+            account_id = user_id
+            table = "users"
+        else:
+            account_type = AccountTypes.ADMIN
+            account_id = customer_id
+            table = "customers"
 
-        query = f"UPDATE {account_type}s SET reset_token=$1 WHERE id=$2"
+        query = f"UPDATE {table} SET reset_token=$1 WHERE id=$2"
 
         # create email verification token, exp 24 hours
         jwt_token = create_token(
@@ -657,7 +664,7 @@ async def _create_account_email(
 
         # add token to users table after no exception is raised
         # The token  has to be created with id being returned from insert query so it's updated separately
-        await con.execute(query, jwt_token.token, user_id)
+        await con.execute(query, jwt_token.token, account_id)
 
         # send email with reset token
         await _send_account_email(username=name, email=email, url=url, subject=subject, template=template)
