@@ -2,10 +2,10 @@ from calendar import timegm
 from datetime import datetime, timezone, timedelta
 from uuid import UUID
 import logging
-
+from hashlib import sha256
 
 from pydantic import BaseModel
-from fastapi import HTTPException, Depends, status
+from fastapi import HTTPException, Depends, status, Cookie
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
 
@@ -39,13 +39,27 @@ class ProtectedAny:
         else:
             raise ValueError("Either a list of scopes or a scope tag must be provided")
 
-    async def __call__(self, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    async def __call__(
+        self,
+        fingerprint: str | None = Cookie(None),
+        credentials: HTTPAuthorizationCredentials = Depends(security),
+    ):
+        # allowing fingerprint to be None to prevent 422 errors, handle ourselves instead to return 401
+        # if there is no fingerprint, it means no cookie was sent in request and needs to be rejected immediately
+        if fingerprint is None:
+            raise Exception()
+
         token = credentials.credentials
 
         try:
             payload = decode_token(token)
-            payload_scopes = set(payload.scopes)
 
+            # the JWT fingerprint must match that found in the cookie, otherwise reject
+            print("LUC: ", payload.fingerprint, sha256(fingerprint.encode()).hexdigest())
+            if payload.fingerprint != sha256(fingerprint.encode()).hexdigest():
+                raise Exception()
+
+            payload_scopes = set(payload.scopes)
             # make sure that the access token has the required scope
             if not self.scopes & payload_scopes:
                 # TODO raise a specific exeption here so that other errors result in a 500?
@@ -74,6 +88,7 @@ def create_token(
     customer_id: UUID,
     scopes: list[Scopes],
     account_type: AccountTypes,
+    fingerprint: str | None,  # TODO handle None cases
     refresh: bool = False,
 ):
     # make sure tokens have at least 1 scope
@@ -129,11 +144,17 @@ def create_token(
     else:
         exp_dur = ACCESS_TOKEN_EXPIRE_MINUTES  # 5min
 
+    if (fingerprint_hash := fingerprint) is not None:
+        # TODO make this a separate util?
+        fingerprint_hash = sha256(fingerprint.encode()).hexdigest()
+
     now = datetime.now(tz=timezone.utc)
     iat = timegm(now.utctimetuple())
     exp = timegm((now + timedelta(minutes=exp_dur)).utctimetuple())
     jwt_meta = JWTMeta(aud=JWT_AUDIENCE, scopes=scopes, iat=iat, exp=exp, refresh=refresh)
-    jwt_details = JWTDetails(customer_id=customer_id.hex, userid=userid, account_type=account_type)
+    jwt_details = JWTDetails(
+        customer_id=customer_id.hex, userid=userid, account_type=account_type, fingerprint=fingerprint_hash
+    )
     jwt_payload = JWTPayload(**jwt_meta.model_dump(), **jwt_details.model_dump())
 
     jwt_token = jwt.encode(payload=jwt_payload.model_dump(), key=str(JWT_SECRET_KEY), algorithm=JWT_ALGORITHM)
@@ -154,16 +175,26 @@ async def get_account_scopes(db_con, account_id, is_admin_account):
 
 
 # TODO make sure all calls to this use AccountTypes
-async def create_new_tokens(db_con, userid, customer_id, scopes, account_type):
+async def create_new_tokens(db_con, userid, customer_id, scopes, account_type, fingerprint=None):
     refresh_scope = [Scopes.REFRESH]
 
     # create new tokens
     access = create_token(
-        userid=userid, customer_id=customer_id, scopes=scopes, account_type=account_type, refresh=False
+        userid=userid,
+        customer_id=customer_id,
+        scopes=scopes,
+        account_type=account_type,
+        fingerprint=fingerprint,
+        refresh=False,
     )
     # refresh token does not need any scope, so just set it to refresh
     refresh = create_token(
-        userid=userid, customer_id=customer_id, scopes=refresh_scope, account_type=account_type, refresh=True
+        userid=userid,
+        customer_id=customer_id,
+        scopes=refresh_scope,
+        account_type=account_type,
+        fingerprint=fingerprint,
+        refresh=True,
     )
 
     # TODO should probably split this part out into its own function

@@ -3,7 +3,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
-
+from typing import Annotated
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
@@ -198,7 +198,7 @@ async def login_admin(request: Request, details: AdminLogin):
 
 
 @app.post("/login", response_model=LoginResponse)
-async def login_user(request: Request, details: UserLogin):
+async def login_user(request: Request, details: UserLogin, response: Response):
     """Login a user account.
 
     Logging in consists of validating the given credentials and, if valid,
@@ -272,10 +272,17 @@ async def login_user(request: Request, details: UserLogin):
                 str(customer_id),
             )
 
-            tokens = await create_new_tokens(con, user_id, customer_id, scopes, account_type)
+            user_fingerprint = str(uuid.uuid4())
+
+            tokens = await create_new_tokens(
+                con, user_id, customer_id, scopes, account_type, user_fingerprint
+            )
+            # set max age ???
+            response.set_cookie(
+                key="fingerprint", value=user_fingerprint, httponly=True, samesite="Strict", secure=True
+            )
 
             return LoginResponse(tokens=tokens, usage_quota=usage_quota)
-
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     except Exception:
