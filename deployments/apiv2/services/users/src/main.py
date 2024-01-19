@@ -3,7 +3,6 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Annotated
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
@@ -274,7 +273,7 @@ async def login_user(request: Request, details: UserLogin, response: Response):
 
             user_fingerprint = str(uuid.uuid4())
 
-            tokens = await create_new_tokens(
+            tokens, user_fingerprint = await create_new_tokens(
                 con, user_id, customer_id, scopes, account_type, user_fingerprint
             )
             # set max age ???
@@ -417,8 +416,8 @@ async def refresh(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.RE
             # con is passed to this function, so it must be inside this async with block
             user_id = None if is_admin_account else account_id
             customer_id = account_id if is_admin_account else row["customer_id"]
-            return await create_new_tokens(con, user_id, customer_id, scopes, account_type)
 
+            return await create_new_tokens(con, user_id, customer_id, scopes, account_type)
     except HTTPException:
         raise
     except Exception:

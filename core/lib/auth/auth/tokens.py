@@ -55,7 +55,6 @@ class ProtectedAny:
             payload = decode_token(token)
 
             # the JWT fingerprint must match that found in the cookie, otherwise reject
-            print("LUC: ", payload.fingerprint, sha256(fingerprint.encode()).hexdigest())
             if payload.fingerprint != sha256(fingerprint.encode()).hexdigest():
                 raise Exception()
 
@@ -88,7 +87,7 @@ def create_token(
     customer_id: UUID,
     scopes: list[Scopes],
     account_type: AccountTypes,
-    fingerprint: str | None,  # TODO handle None cases
+    fingerprint: str,
     refresh: bool = False,
 ):
     # make sure tokens have at least 1 scope
@@ -175,7 +174,7 @@ async def get_account_scopes(db_con, account_id, is_admin_account):
 
 
 # TODO make sure all calls to this use AccountTypes
-async def create_new_tokens(db_con, userid, customer_id, scopes, account_type, fingerprint=None):
+async def create_new_tokens(db_con, userid, customer_id, scopes, account_type, fingerprint):
     refresh_scope = [Scopes.REFRESH]
 
     # create new tokens

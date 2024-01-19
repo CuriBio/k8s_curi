@@ -14,6 +14,9 @@ let ClientSource = null;
 let reloadNeeded = false;
 
 const cacheName = "swCache";
+const dbName = "swDB";
+const storeName = "userInfo";
+let db;
 
 const MANTARRAY_URL = new URLSearchParams(location.search).get("mantarray_url");
 const USERS_URL = new URLSearchParams(location.search).get("users_url");
@@ -59,6 +62,72 @@ const isRequest = (url, pathname) => {
 };
 
 /* SETTERS */
+
+const setStorage = async (item, key) => {
+  const objectStore = db.transaction(storeName, "readwrite").objectStore(storeName);
+
+  let updateRequest = objectStore.put({ [key]: item }, key);
+
+  updateRequest.onsuccess = function () {
+    // Record updated successfully
+    console.log(`Successfully updated record for ${key}`);
+  };
+
+  updateRequest.onerror = function (e) {
+    // Record updated successfully
+    console.log(`Error updating record for ${key}: ${e.target.errorCode}`);
+  };
+};
+
+const getStorage = (name, _) => {
+  let objectStore = db.transaction(storeName, "readonly").objectStore(storeName);
+  let result;
+
+  let getRequest = objectStore.get(name);
+  console.log(getRequest);
+
+  getRequest.onsuccess = function (event) {
+    result = event.target.result;
+    // Access the retrieved data
+  };
+
+  getRequest.onerror = function (event) {
+    console.log("ERR: ", event);
+    // Access the retrieved data
+  };
+
+  console.log("RES: ", result);
+  return result;
+};
+
+const openDB = async (callback, key, value = null) => {
+  // ask to open the db
+  const openRequest = indexedDB.open(dbName, 1);
+
+  openRequest.onerror = function (event) {
+    console.log("Error opening indexedDB" + event.target.errorCode);
+  };
+
+  // upgrade needed is called when there is a new version of you db schema that has been defined
+  openRequest.onupgradeneeded = function (event) {
+    db = event.target.result;
+
+    if (!db.objectStoreNames.contains(storeName)) {
+      // if there's no store of 'storeName' create a new object store
+      db.createObjectStore(storeName, { keyPath: "id" });
+    }
+
+    console.log("Successfully upgraded database and added object store");
+  };
+
+  openRequest.onsuccess = async function (event) {
+    db = event.target.result;
+    if (callback) {
+      await callback(value, key);
+    }
+  };
+};
+
 const setTokens = async ({ refresh }, res) => {
   const swCache = await caches.open(cacheName);
   await swCache.put("tokens", res.clone());
@@ -83,8 +152,8 @@ const cacheResponse = async (res, name) => {
 
 /* GETTERS */
 const getAuthTokens = async () => {
-  const swCache = await caches.open(cacheName);
-  const authTokensRes = await swCache.match("tokens");
+  const authTokensRes = await openDB(getStorage, "tokens");
+  console.log(authTokensRes);
   const tokens = { access: null, refresh: null };
 
   if (authTokensRes) {
@@ -252,7 +321,8 @@ const interceptResponse = async (req, url) => {
       // sending usage at login, is separate from auth check request because it's not needed as often
       await cacheResponse(responseClone, "usage");
       // set tokens if login was successful
-      await setTokens(data.tokens, responseClone);
+      await openDB(setStorage, "tokens", data.tokens);
+      // await setTokens(data.tokens, responseClone);
       await cacheResponse(responseClone, "availableScopes");
 
       // remove tokens after
