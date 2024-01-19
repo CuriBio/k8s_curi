@@ -40,6 +40,17 @@ let logoutTimer = null;
 
 const clearAccountInfo = async () => {
   await caches.delete(cacheName);
+  var req = indexedDB.deleteDatabase(dbName);
+  req.onsuccess = function () {
+    console.log("Deleted database successfully");
+  };
+  req.onerror = function () {
+    console.log("Couldn't delete database");
+  };
+  req.onblocked = function () {
+    console.log("Couldn't delete database due to the operation being blocked");
+  };
+
   clearTimeout(logoutTimer);
 
   // TODO change all console.log to console.debug and figure out how to enable debug logging
@@ -63,10 +74,10 @@ const isRequest = (url, pathname) => {
 
 /* SETTERS */
 
-const setStorage = async (item, key) => {
+const setItem = async (key, item) => {
   const objectStore = db.transaction(storeName, "readwrite").objectStore(storeName);
-
-  let updateRequest = objectStore.put({ [key]: item }, key);
+  console.log(key, item);
+  const updateRequest = objectStore.put({ id: key, value: item });
 
   updateRequest.onsuccess = function () {
     // Record updated successfully
@@ -79,58 +90,53 @@ const setStorage = async (item, key) => {
   };
 };
 
-const getStorage = (name, _) => {
-  let objectStore = db.transaction(storeName, "readonly").objectStore(storeName);
-  let result;
+const getItem = async (key) => {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storeName, "readonly");
+    const objectStore = transaction.objectStore(storeName);
+    const getRequest = objectStore.get(key);
 
-  let getRequest = objectStore.get(name);
-  console.log(getRequest);
-
-  getRequest.onsuccess = function (event) {
-    result = event.target.result;
-    // Access the retrieved data
-  };
-
-  getRequest.onerror = function (event) {
-    console.log("ERR: ", event);
-    // Access the retrieved data
-  };
-
-  console.log("RES: ", result);
-  return result;
+    getRequest.onsuccess = () => {
+      resolve(getRequest.result ? getRequest.result.value : null);
+    };
+    getRequest.onerror = function () {
+      reject();
+    };
+  });
 };
 
-const openDB = async (callback, key, value = null) => {
-  // ask to open the db
-  const openRequest = indexedDB.open(dbName, 1);
+const openDB = async (callback, key, value) => {
+  return new Promise((resolve, reject) => {
+    // ask to open the db
+    const openRequest = indexedDB.open(dbName);
 
-  openRequest.onerror = function (event) {
-    console.log("Error opening indexedDB" + event.target.errorCode);
-  };
+    openRequest.onerror = function (event) {
+      console.log("Error opening indexedDB: " + event.target.errorCode);
+      reject();
+    };
 
-  // upgrade needed is called when there is a new version of you db schema that has been defined
-  openRequest.onupgradeneeded = function (event) {
-    db = event.target.result;
+    // upgrade needed is called when there is a new version of you db schema that has been defined
+    openRequest.onupgradeneeded = function (event) {
+      db = event.target.result;
 
-    if (!db.objectStoreNames.contains(storeName)) {
-      // if there's no store of 'storeName' create a new object store
-      db.createObjectStore(storeName, { keyPath: "id" });
-    }
+      if (!db.objectStoreNames.contains(storeName)) {
+        // if there's no store of 'storeName' create a new object store
+        db.createObjectStore(storeName, { keyPath: "id" });
+      }
+      console.log("Successfully upgraded database and added object store");
+    };
 
-    console.log("Successfully upgraded database and added object store");
-  };
-
-  openRequest.onsuccess = async function (event) {
-    db = event.target.result;
-    if (callback) {
-      await callback(value, key);
-    }
-  };
+    openRequest.onsuccess = async function (event) {
+      db = event.target.result;
+      let res = callback ? await callback(key, value) : null;
+      db.close();
+      resolve(res);
+    };
+  });
 };
 
-const setTokens = async ({ refresh }, res) => {
-  const swCache = await caches.open(cacheName);
-  await swCache.put("tokens", res.clone());
+const setTokens = async (tokens) => {
+  await openDB(setItem, "tokens", tokens);
 
   // clear old logout timer if one already exists
   if (logoutTimer) {
@@ -138,82 +144,41 @@ const setTokens = async ({ refresh }, res) => {
   }
 
   // set up new logout timer
-  const expTime = new Date(jwtDecode(refresh.token).exp * 1000);
+  const expTime = new Date(jwtDecode(tokens.refresh.token).exp * 1000);
   const currentTime = new Date().getTime();
   const millisBeforeLogOut = expTime - currentTime;
 
   logoutTimer = setTimeout(tokensExpiredLogout, millisBeforeLogOut);
 };
 
-const cacheResponse = async (res, name) => {
-  const swCache = await caches.open(cacheName);
-  await swCache.put(name, res.clone());
-};
-
 /* GETTERS */
 const getAuthTokens = async () => {
-  const authTokensRes = await openDB(getStorage, "tokens");
-  console.log(authTokensRes);
   const tokens = { access: null, refresh: null };
 
-  if (authTokensRes) {
-    const cachedTokens = await authTokensRes.json();
-    // refresh request returns {access: {token: ...}, refresh: {token: ...}}
-    // login request returns {tokens: {access: {token: ...}, refresh: {token: ...}}, usage_quota: {...}}
-    tokens.access = cachedTokens.tokens ? cachedTokens.tokens.access.token : cachedTokens.access.token;
-    tokens.refresh = cachedTokens.tokens ? cachedTokens.tokens.refresh.token : cachedTokens.refresh.token;
+  if (db) {
+    const storedTokens = await openDB(getItem, "tokens");
+
+    if (storedTokens) {
+      // refresh request returns {access: {token: ...}, refresh: {token: ...}}
+      // login request returns {tokens: {access: {token: ...}, refresh: {token: ...}}, usage_quota: {...}}
+      tokens.access = storedTokens.tokens ? storedTokens.tokens.access.token : storedTokens.access.token;
+      tokens.refresh = storedTokens.tokens ? storedTokens.tokens.refresh.token : storedTokens.refresh.token;
+    }
   }
 
   return tokens;
 };
 
-const getAvailableScopes = async (type) => {
-  const swCache = await caches.open(cacheName);
-  const cachedLoginResponse = await swCache.match("availableScopes");
-  let scopes = [];
-
-  if (cachedLoginResponse) {
-    const responseBody = await cachedLoginResponse.json();
-    scopes = responseBody[type];
-  }
-
-  return scopes;
-};
-
 const getValueFromToken = async (name) => {
-  const cachedTokens = await getAuthTokens();
-
-  if (!cachedTokens.access) {
+  const storedTokens = await getAuthTokens();
+  console.log(name, storedTokens);
+  if (!storedTokens.access) {
     return null;
   }
 
-  let value = jwtDecode(cachedTokens.access)[name];
+  let value = jwtDecode(storedTokens.access)[name];
 
   return value;
-};
-
-const getUsageQuota = async () => {
-  const swCache = await caches.open(cacheName);
-  const usageRes = await swCache.match("usage");
-  let usage = null;
-
-  if (usageRes) {
-    const body = await usageRes.json();
-    // set the usage error to SW state to send in auth check, will return a 200 status
-    if (body.error && body.error === "UsageError") {
-      usage = body.message;
-    } else {
-      usage = body.usage_quota;
-    }
-  }
-
-  return usage;
-};
-
-const getUserPreferences = async () => {
-  const swCache = await caches.open(cacheName);
-  const res = await swCache.match("preferences");
-  return res ? await res.json() : {};
 };
 
 /* Request intercept functions */
@@ -224,12 +189,12 @@ const modifyRequest = async (req, url) => {
     "Content-Type": "application/json",
   });
 
-  const cachedTokens = await getAuthTokens();
-  if (!isRequest(url, "/login") && cachedTokens.access !== null) {
+  const storedTokens = await getAuthTokens();
+  if (!isRequest(url, "/login") && storedTokens.access !== null) {
     // login request does not require the Authorization header,
     // and if there are no tokens that should mean that no account is logged in
     // and the request should fail with 403
-    headers.append("Authorization", `Bearer ${cachedTokens.access}`);
+    headers.append("Authorization", `Bearer ${storedTokens.access}`);
   }
 
   // apply new headers. Make sure to clone the original request obj if consuming the body by calling json()
@@ -249,12 +214,12 @@ const handleRefreshRequest = async () => {
   let res = null;
 
   try {
-    const cachedTokens = await getAuthTokens();
+    const storedTokens = await getAuthTokens();
 
     res = await fetch(`${USERS_URL}/refresh`, {
       method: "POST",
       body: JSON.stringify({}),
-      headers: { Authorization: `Bearer ${cachedTokens.refresh}` },
+      headers: { Authorization: `Bearer ${storedTokens.refresh}` },
     });
   } catch (e) {
     console.log("ERROR in refresh req:", e.message);
@@ -310,20 +275,20 @@ const requestWithRefresh = async (req, url) => {
 
 const interceptResponse = async (req, url) => {
   if (isRequest(url, "/login")) {
+    // indexedDB.deleteDatabase(dbName);
     const modifiedReq = await modifyRequest(req, url);
     const response = await fetch(modifiedReq);
-
-    const responseClone = response.clone();
     let data = await response.json();
 
     if (response.status === 200) {
+      let usage = data.error && data.error === "UsageError" ? data.message : data.usage_quota;
       // these three need to remain independent cache items even though they use the same response because they get updated from different requests later
       // sending usage at login, is separate from auth check request because it's not needed as often
-      await cacheResponse(responseClone, "usage");
       // set tokens if login was successful
-      await openDB(setStorage, "tokens", data.tokens);
-      // await setTokens(data.tokens, responseClone);
-      await cacheResponse(responseClone, "availableScopes");
+      await setTokens(data.tokens);
+      await openDB(setItem, "usage", usage);
+      await openDB(setItem, "userScopes", data.user_scopes);
+      await openDB(setItem, "adminScopes", data.admin_scopes);
 
       // remove tokens after
       data = {};
@@ -337,12 +302,20 @@ const interceptResponse = async (req, url) => {
     });
   } else {
     const response = await requestWithRefresh(req, url);
-
+    const responseClone = response.clone();
     // these URLs will return usage_error in the body with a 200 response
     if (USAGE_URLS.includes(url.pathname) && req.method === "POST" && response.status == 200) {
-      await cacheResponse(response.clone(), "usage");
+      const data = await responseClone.json();
+      if (data.error && data.error === "UsageError") {
+        usage = data.message;
+      } else {
+        usage = data.usage_quota;
+      }
+
+      await openDB(setItem, "usage", usage);
     } else if (isRequest(url, "/preferences") && response.status == 200) {
-      await cacheResponse(response.clone(), "preferences");
+      const data = await responseClone.json();
+      await openDB(setItem, "preferences", data);
     } else if (isRequest(url, "/logout")) {
       // just clear account info if user purposefully logs out
       clearAccountInfo();
@@ -492,22 +465,22 @@ self.onmessage = async ({ data, source }) => {
     reloadNeeded = false;
   } else if (msgType === "authCheck") {
     console.log("Returning authentication check");
-    const cachedTokens = await getAuthTokens();
+    const storedTokens = await getAuthTokens();
     const accountType = await getValueFromToken("account_type");
     const accountId = await getValueFromToken(accountType === "user" ? "userid" : "customer_id");
 
     msgInfo = {
       isLoggedIn:
-        cachedTokens.access !== null && Date.now() < new Date((await getValueFromToken("exp")) * 1000),
+        storedTokens.access !== null && Date.now() < new Date((await getValueFromToken("exp")) * 1000),
       accountInfo: {
         accountType,
         accountId,
         accountScope: await getValueFromToken("scopes"),
       },
-      usageQuota: await getUsageQuota(),
-      userScopes: await getAvailableScopes("user_scopes"),
-      adminScopes: await getAvailableScopes("admin_scopes"),
-      preferences: await getUserPreferences(),
+      usageQuota: await openDB(getItem, "usage"),
+      userScopes: await openDB(getItem, "userScopes"),
+      adminScopes: await openDB(getItem, "adminScopes"),
+      preferences: (await openDB(getItem, "preferences")) || {},
     };
   } else if (msgType === "stayAlive") {
     // TODO should have this do something else so that there isn't a log msg produced every 20 seconds
