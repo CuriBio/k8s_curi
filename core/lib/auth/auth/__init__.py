@@ -19,6 +19,8 @@ from .tokens import (
     create_token,
     decode_token,
     AuthTokens,
-    create_new_tokens,
+    get_user_authorization,
     get_account_scopes,
 )
+
+from .settings import COOKIE_MAX_AGE_SECONDS

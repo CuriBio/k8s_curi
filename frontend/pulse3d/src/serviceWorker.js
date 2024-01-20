@@ -76,32 +76,24 @@ const isRequest = (url, pathname) => {
 
 const setItem = async (key, item) => {
   const objectStore = db.transaction(storeName, "readwrite").objectStore(storeName);
-  console.log(key, item);
   const updateRequest = objectStore.put({ id: key, value: item });
 
-  updateRequest.onsuccess = function () {
-    // Record updated successfully
-    console.log(`Successfully updated record for ${key}`);
-  };
-
-  updateRequest.onerror = function (e) {
-    // Record updated successfully
-    console.log(`Error updating record for ${key}: ${e.target.errorCode}`);
-  };
+  updateRequest.onerror = (e) => console.log(`Error updating record for ${key}: ${e.target.errorCode}`);
+  // need to close transaction/db connection otherwise db deletion on logout is blocked
+  db.close();
 };
 
 const getItem = async (key) => {
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(storeName, "readonly");
-    const objectStore = transaction.objectStore(storeName);
+    const objectStore = db.transaction(storeName, "readonly").objectStore(storeName);
     const getRequest = objectStore.get(key);
 
-    getRequest.onsuccess = () => {
-      resolve(getRequest.result ? getRequest.result.value : null);
-    };
-    getRequest.onerror = function () {
-      reject();
-    };
+    getRequest.onsuccess = () => resolve(getRequest.result ? getRequest.result.value : null);
+    // TODO could handle this error better, even if item doesn't exist, onsuccess gets called
+    getRequest.onerror = (e) => console.log(`Error getting record for ${key}: ${e.target.errorCode}`);
+
+    // need to close transaction/db connection otherwise db deletion on logout is blocked
+    db.close();
   });
 };
 
@@ -129,7 +121,6 @@ const openDB = async (callback, key, value) => {
     openRequest.onsuccess = async function (event) {
       db = event.target.result;
       let res = callback ? await callback(key, value) : null;
-      db.close();
       resolve(res);
     };
   });
@@ -159,10 +150,8 @@ const getAuthTokens = async () => {
     const storedTokens = await openDB(getItem, "tokens");
 
     if (storedTokens) {
-      // refresh request returns {access: {token: ...}, refresh: {token: ...}}
-      // login request returns {tokens: {access: {token: ...}, refresh: {token: ...}}, usage_quota: {...}}
-      tokens.access = storedTokens.tokens ? storedTokens.tokens.access.token : storedTokens.access.token;
-      tokens.refresh = storedTokens.tokens ? storedTokens.tokens.refresh.token : storedTokens.refresh.token;
+      tokens.access = storedTokens.access.token;
+      tokens.refresh = storedTokens.refresh.token;
     }
   }
 
@@ -171,7 +160,7 @@ const getAuthTokens = async () => {
 
 const getValueFromToken = async (name) => {
   const storedTokens = await getAuthTokens();
-  console.log(name, storedTokens);
+
   if (!storedTokens.access) {
     return null;
   }
@@ -203,7 +192,7 @@ const modifyRequest = async (req, url) => {
     headers,
     body: !["GET", "DELETE"].includes(req.method) ? JSON.stringify(await req.clone().json()) : null,
     method: req.method,
-    credentials: "include",
+    credentials: "include", // required to send cookie
   });
 
   return modifiedReq;
@@ -220,6 +209,7 @@ const handleRefreshRequest = async () => {
       method: "POST",
       body: JSON.stringify({}),
       headers: { Authorization: `Bearer ${storedTokens.refresh}` },
+      credentials: "include", // required to send cookie
     });
   } catch (e) {
     console.log("ERROR in refresh req:", e.message);
@@ -229,9 +219,8 @@ const handleRefreshRequest = async () => {
   // set new tokens if refresh was successful
   // tokens should get cleared later if refresh failed
   if (res.status === 201) {
-    const resClone = res.clone();
     const newTokens = await res.json();
-    await setTokens(newTokens, resClone);
+    await setTokens(newTokens);
   }
 
   return res.status;
@@ -281,7 +270,7 @@ const interceptResponse = async (req, url) => {
     let data = await response.json();
 
     if (response.status === 200) {
-      let usage = data.error && data.error === "UsageError" ? data.message : data.usage_quota;
+      const usage = data.error && data.error === "UsageError" ? data.message : data.usage_quota;
       // these three need to remain independent cache items even though they use the same response because they get updated from different requests later
       // sending usage at login, is separate from auth check request because it's not needed as often
       // set tokens if login was successful
@@ -306,12 +295,7 @@ const interceptResponse = async (req, url) => {
     // these URLs will return usage_error in the body with a 200 response
     if (USAGE_URLS.includes(url.pathname) && req.method === "POST" && response.status == 200) {
       const data = await responseClone.json();
-      if (data.error && data.error === "UsageError") {
-        usage = data.message;
-      } else {
-        usage = data.usage_quota;
-      }
-
+      const usage = data.error && data.error === "UsageError" ? data.message : data.usage_quota;
       await openDB(setItem, "usage", usage);
     } else if (isRequest(url, "/preferences") && response.status == 200) {
       const data = await responseClone.json();

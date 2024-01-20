@@ -131,7 +131,7 @@ def test_login__user__success(send_client_type, use_alias, mocked_asyncpg_con, m
         "customer_id": test_customer_id,
     }
     mocked_asyncpg_con.fetch.return_value = [{"scope": test_scope.value}]
-    spied_create_token = mocker.spy(main, "create_new_tokens")
+    spied_create_token = mocker.spy(main, "get_user_authorization")
 
     expected_access_token = create_token(
         userid=test_user_id,
@@ -287,7 +287,7 @@ def test_login__admin__success(send_client_type, mocked_asyncpg_con, mocker):
         "suspended": False,
     }
     mocked_asyncpg_con.fetch.return_value = [{"scope": admin_scope.value}]
-    spied_create_token = mocker.spy(main, "create_new_tokens")
+    spied_create_token = mocker.spy(main, "get_user_authorization")
 
     expected_access_token = create_token(
         userid=None,

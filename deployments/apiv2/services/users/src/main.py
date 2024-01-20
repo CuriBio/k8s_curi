@@ -32,8 +32,9 @@ from auth import (
     ProhibitedScopeError,
     AuthTokens,
     get_account_scopes,
-    create_new_tokens,
+    get_user_authorization,
     AccountTypes,
+    COOKIE_MAX_AGE_SECONDS,
 )
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
@@ -116,7 +117,7 @@ async def db_session_middleware(request: Request, call_next) -> Response:
 
 
 @app.post("/login/admin", response_model=LoginResponse)
-async def login_admin(request: Request, details: AdminLogin):
+async def login_admin(request: Request, response: Response, details: AdminLogin):
     """Login an admin account.
 
     Logging in consists of validating the given credentials and, if valid,
@@ -176,7 +177,16 @@ async def login_admin(request: Request, details: AdminLogin):
                 email,
             )
 
-            tokens = await create_new_tokens(con, None, customer_id, scopes, account_type)
+            tokens, fingerprint = await get_user_authorization(con, None, customer_id, scopes, account_type)
+
+            response.set_cookie(
+                key="fingerprint",
+                value=fingerprint,
+                httponly=True,
+                samesite="Strict",
+                secure=True,
+                max_age=COOKIE_MAX_AGE_SECONDS,
+            )
 
             # TODO fix tests for this?
             return LoginResponse(
@@ -271,14 +281,17 @@ async def login_user(request: Request, details: UserLogin, response: Response):
                 str(customer_id),
             )
 
-            user_fingerprint = str(uuid.uuid4())
-
-            tokens, user_fingerprint = await create_new_tokens(
-                con, user_id, customer_id, scopes, account_type, user_fingerprint
+            tokens, fingerprint = await get_user_authorization(
+                con, user_id, customer_id, scopes, account_type
             )
-            # set max age ???
+
             response.set_cookie(
-                key="fingerprint", value=user_fingerprint, httponly=True, samesite="Strict", secure=True
+                key="fingerprint",
+                value=fingerprint,
+                httponly=True,
+                samesite="Strict",
+                secure=True,
+                max_age=COOKIE_MAX_AGE_SECONDS,
             )
 
             return LoginResponse(tokens=tokens, usage_quota=usage_quota)
@@ -371,7 +384,7 @@ async def _update_password(con, pw, previous_passwords, update_query, query_para
 
 
 @app.post("/refresh", response_model=AuthTokens, status_code=status.HTTP_201_CREATED)
-async def refresh(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.REFRESH]))):
+async def refresh(request: Request, response: Response, token=Depends(ProtectedAny(scopes=[Scopes.REFRESH]))):
     """Create a new access token and refresh token.
 
     The refresh token given in the request is first decoded and validated itself,
@@ -417,7 +430,21 @@ async def refresh(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.RE
             user_id = None if is_admin_account else account_id
             customer_id = account_id if is_admin_account else row["customer_id"]
 
-            return await create_new_tokens(con, user_id, customer_id, scopes, account_type)
+            tokens, fingerprint = await get_user_authorization(
+                con, user_id, customer_id, scopes, account_type
+            )
+
+            response.set_cookie(
+                key="fingerprint",
+                value=fingerprint,
+                httponly=True,
+                samesite="Strict",
+                secure=True,
+                max_age=COOKIE_MAX_AGE_SECONDS,
+            )
+
+            return tokens
+
     except HTTPException:
         raise
     except Exception:

@@ -1,6 +1,6 @@
 from calendar import timegm
 from datetime import datetime, timezone, timedelta
-from uuid import UUID
+from uuid import UUID, uuid4
 import logging
 from hashlib import sha256
 
@@ -44,21 +44,22 @@ class ProtectedAny:
         fingerprint: str | None = Cookie(None),
         credentials: HTTPAuthorizationCredentials = Depends(security),
     ):
-        # allowing fingerprint to be None to prevent 422 errors, handle ourselves instead to return 401
-        # if there is no fingerprint, it means no cookie was sent in request and needs to be rejected immediately
-        if fingerprint is None:
-            raise Exception()
-
         token = credentials.credentials
 
         try:
             payload = decode_token(token)
+            payload_scopes = set(payload.scopes)
 
+            # allowing fingerprint to be None to prevent 422 errors, handle ourselves instead to return 401
+            # if there is no fingerprint, it means no cookie was sent in request and needs to be rejected immediately
+            # no cookie will be sent with account scopes for verifying accounts and sending emails
+            account_scopes = [s for s in payload_scopes if ScopeTags.ACCOUNT in s.tags]
+            if fingerprint is None and len(account_scopes) == 0:
+                raise Exception("Required cookie not present with request")
             # the JWT fingerprint must match that found in the cookie, otherwise reject
             if payload.fingerprint != sha256(fingerprint.encode()).hexdigest():
-                raise Exception()
+                raise Exception("Fingerprints do not match")
 
-            payload_scopes = set(payload.scopes)
             # make sure that the access token has the required scope
             if not self.scopes & payload_scopes:
                 # TODO raise a specific exeption here so that other errors result in a 500?
@@ -174,9 +175,9 @@ async def get_account_scopes(db_con, account_id, is_admin_account):
 
 
 # TODO make sure all calls to this use AccountTypes
-async def create_new_tokens(db_con, userid, customer_id, scopes, account_type, fingerprint):
+async def get_user_authorization(db_con, userid, customer_id, scopes, account_type) -> tuple[AuthTokens, str]:
     refresh_scope = [Scopes.REFRESH]
-
+    fingerprint = str(uuid4())
     # create new tokens
     access = create_token(
         userid=userid,
@@ -208,4 +209,4 @@ async def create_new_tokens(db_con, userid, customer_id, scopes, account_type, f
     await db_con.execute(update_query, refresh.token, account_id)
 
     # return token model
-    return AuthTokens(access=access, refresh=refresh)
+    return AuthTokens(access=access, refresh=refresh), fingerprint
