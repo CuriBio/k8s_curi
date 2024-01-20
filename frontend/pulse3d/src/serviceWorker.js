@@ -84,13 +84,17 @@ const setItem = async (key, item) => {
 };
 
 const getItem = async (key) => {
+  // returning a promise to get the value inside onsuccess handler
   return new Promise((resolve, reject) => {
     const objectStore = db.transaction(storeName, "readonly").objectStore(storeName);
     const getRequest = objectStore.get(key);
 
     getRequest.onsuccess = () => resolve(getRequest.result ? getRequest.result.value : null);
     // TODO could handle this error better, even if item doesn't exist, onsuccess gets called
-    getRequest.onerror = (e) => console.log(`Error getting record for ${key}: ${e.target.errorCode}`);
+    getRequest.onerror = (e) => {
+      console.log(`Error getting record for ${key}: ${e.target.errorCode}`);
+      reject();
+    };
 
     // need to close transaction/db connection otherwise db deletion on logout is blocked
     db.close();
@@ -115,6 +119,7 @@ const openDB = async (callback, key, value) => {
         // if there's no store of 'storeName' create a new object store
         db.createObjectStore(storeName, { keyPath: "id" });
       }
+
       console.log("Successfully upgraded database and added object store");
     };
 

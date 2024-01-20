@@ -54,10 +54,11 @@ class ProtectedAny:
             # if there is no fingerprint, it means no cookie was sent in request and needs to be rejected immediately
             # no cookie will be sent with account scopes for verifying accounts and sending emails
             account_scopes = [s for s in payload_scopes if ScopeTags.ACCOUNT in s.tags]
-            if fingerprint is None and len(account_scopes) == 0:
+
+            if fingerprint is None and not account_scopes:
                 raise Exception("Required cookie not present with request")
             # the JWT fingerprint must match that found in the cookie, otherwise reject
-            if payload.fingerprint != sha256(fingerprint.encode()).hexdigest():
+            if fingerprint is not None and payload.fingerprint != sha256(fingerprint.encode()).hexdigest():
                 raise Exception("Fingerprints do not match")
 
             # make sure that the access token has the required scope
@@ -88,7 +89,7 @@ def create_token(
     customer_id: UUID,
     scopes: list[Scopes],
     account_type: AccountTypes,
-    fingerprint: str,
+    fingerprint: str = "",  # has to empty string for encoding
     refresh: bool = False,
 ):
     # make sure tokens have at least 1 scope
@@ -108,6 +109,13 @@ def create_token(
     account_scopes = [s for s in scopes if ScopeTags.ACCOUNT in s.tags]
     if account_scopes and len(scopes) != 1:
         raise ValueError("If an account scope is present, it must be the only scope present")
+
+    if not account_scopes and not fingerprint:
+        raise ValueError("Fingerprint required for token type")
+
+    if fingerprint:
+        # TODO make this a separate util?
+        fingerprint = sha256(fingerprint.encode()).hexdigest()
 
     # make sure no invalid scopes or fields based on account type
     if account_type == AccountTypes.USER:
@@ -144,16 +152,12 @@ def create_token(
     else:
         exp_dur = ACCESS_TOKEN_EXPIRE_MINUTES  # 5min
 
-    if (fingerprint_hash := fingerprint) is not None:
-        # TODO make this a separate util?
-        fingerprint_hash = sha256(fingerprint.encode()).hexdigest()
-
     now = datetime.now(tz=timezone.utc)
     iat = timegm(now.utctimetuple())
     exp = timegm((now + timedelta(minutes=exp_dur)).utctimetuple())
     jwt_meta = JWTMeta(aud=JWT_AUDIENCE, scopes=scopes, iat=iat, exp=exp, refresh=refresh)
     jwt_details = JWTDetails(
-        customer_id=customer_id.hex, userid=userid, account_type=account_type, fingerprint=fingerprint_hash
+        customer_id=customer_id.hex, userid=userid, account_type=account_type, fingerprint=fingerprint
     )
     jwt_payload = JWTPayload(**jwt_meta.model_dump(), **jwt_details.model_dump())
 
