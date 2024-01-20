@@ -25,9 +25,8 @@ from pulse3D.data_loader import (
     BaseMetadata,
 )
 from pulse3D.peak_finding import LoadedDataWithFeatures
-from pulse3D.pre_analysis import PreAnalyzedData, process
+from pulse3D.pre_analysis import PreAnalyzedData, process, sort_wells_in_df
 from pulse3D.rendering import OutputFormats
-from pulse3D.utils.plate import Plate
 from semver import VersionInfo
 from structlog.contextvars import bind_contextvars, clear_contextvars, merge_contextvars
 from utils.s3 import upload_file_to_s3
@@ -100,6 +99,9 @@ async def process_item(con, item):
             logger.exception("Fetching upload details failed")
             raise
 
+        # remove params that were not given as these already have default values
+        analysis_params = {k: v for k, v in metadata["analysis_params"].items() if v is not None}
+
         with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
             zipped_analysis_filename = f"{os.path.splitext(upload_filename)[0]}.zip"
             zipped_analysis_key = f"{prefix}/time_force_data/{PULSE3D_VERSION}/{zipped_analysis_filename}"
@@ -150,12 +152,21 @@ async def process_item(con, item):
                     metadata=existing_metadata,
                 )
 
-                re_analysis = True
+                pre_analysis_param_names = ["normalization_method"]
+                pre_analysis_params = {
+                    k: v for k, v in analysis_params.items() if k in pre_analysis_param_names
+                }
+                re_analysis = all(v == existing_metadata.get(k) for k, v in pre_analysis_params)
+
+                if re_analysis:
+                    logger.info(
+                        "No pre-analysis params have changed, so able to use existing pre-analysis result"
+                    )
+                else:
+                    logger.info("One or more pre-analysis params have changed, so must re-run pre-analysis")
+
             except Exception:  # TODO catch only boto3 errors here
                 logger.info(f"No existing data found for recording {zipped_analysis_filename}")
-
-            # remove params that were not given as these already have default values
-            analysis_params = {k: v for k, v in metadata["analysis_params"].items() if v is not None}
 
             if not re_analysis:
                 try:
@@ -167,7 +178,7 @@ async def process_item(con, item):
 
                 try:
                     logger.info("Starting preanalysis")
-                    pre_analyzed_data = process(loaded_data)
+                    pre_analyzed_data = process(loaded_data, **pre_analysis_params)
                 except UnableToConvergeError:
                     raise Exception("Unable to converge due to low quality of data")
                 except Exception:
@@ -220,12 +231,9 @@ async def process_item(con, item):
             if interactive_analysis:
                 try:
                     features_df = pl.read_parquet(features_filepath)
-                    # TODO use the new fn in the p3d codebase to do this
-                    # make sure cols are in correct order
-                    plate = Plate(windowed_pre_analyzed_data.metadata.total_well_count)
-                    wells = [c for c in features_df.columns if c != "time"]
-                    sorted_wells = sorted(wells, key=lambda well_name: plate.name_to_idx(well_name))
-                    features_df = features_df.select("time", *sorted_wells)
+                    features_df = sort_wells_in_df(
+                        features_df, windowed_pre_analyzed_data.metadata.total_well_count
+                    )
 
                     for window, filter_fn in (
                         ("start_time", lambda x: pl.col("time") >= x),
