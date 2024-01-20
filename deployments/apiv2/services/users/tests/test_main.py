@@ -6,6 +6,7 @@ import uuid
 from argon2 import PasswordHasher
 from asyncpg.exceptions import UniqueViolationError
 from fastapi.testclient import TestClient
+from fastapi import Cookie
 from freezegun import freeze_time
 import pytest
 
@@ -19,6 +20,7 @@ from auth import (
     get_assignable_admin_scopes,
     get_scope_dependencies,
     AccountTypes,
+    ProtectedAny,
 )
 from auth.settings import REFRESH_TOKEN_EXPIRE_MINUTES
 from src import main
@@ -37,6 +39,16 @@ TEST_PASSWORD = "Testpw123!"
 
 ACCOUNT_SCOPES = tuple(s for s in Scopes if ScopeTags.ACCOUNT in s.tags)
 
+TEST_FINGERPRINT = str(uuid.uuid4)
+TEST_COOKIE = {"fingerprint": TEST_FINGERPRINT}
+
+
+async def override_dependency():
+    return {"q": q, "skip": 5, "limit": 10}
+
+
+main.app.dependency_overrides[ProtectedAny] = override_dependency
+
 
 def get_token(*, userid=None, customer_id=None, scopes=None, account_type=None, refresh=False):
     if not account_type:
@@ -54,7 +66,12 @@ def get_token(*, userid=None, customer_id=None, scopes=None, account_type=None, 
             )
 
     return create_token(
-        userid=userid, customer_id=customer_id, scopes=scopes, account_type=account_type, refresh=refresh
+        userid=userid,
+        customer_id=customer_id,
+        scopes=scopes,
+        account_type=account_type,
+        refresh=refresh,
+        fingerprint=TEST_FINGERPRINT,
     ).token
 
 
@@ -138,13 +155,16 @@ def test_login__user__success(send_client_type, use_alias, mocked_asyncpg_con, m
         customer_id=test_customer_id,
         scopes=[test_scope],
         account_type=AccountTypes.USER,
+        fingerprint=TEST_FINGERPRINT,
         refresh=False,
     )
+
     expected_refresh_token = create_token(
         userid=test_user_id,
         customer_id=test_customer_id,
         scopes=[Scopes.REFRESH],
         account_type=AccountTypes.USER,
+        fingerprint=TEST_FINGERPRINT,
         refresh=True,
     )
 
@@ -987,7 +1007,7 @@ def test_user_id__put__successful_reactivation(mocked_asyncpg_con):
     response = test_client.put(
         f"/{test_user_id}",
         json={"action_type": "reactivate"},
-        headers={"Authorization": f"Bearer {access_token}"},
+        headers={"Authorization": f"Bearer {access_token}", "fingerprint": Cookie(TEST_COOKIE)},
     )
     assert response.status_code == 200
 
