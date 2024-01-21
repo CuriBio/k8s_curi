@@ -38,19 +38,23 @@ console.log = function () {
 
 let logoutTimer = null;
 
-const clearAccountInfo = async () => {
-  await caches.delete(cacheName);
-  var req = indexedDB.deleteDatabase(dbName);
-  req.onsuccess = function () {
+const deleteUserDatabase = () => {
+  const deletionReq = indexedDB.deleteDatabase(dbName);
+
+  deletionReq.onsuccess = function () {
     console.log("Deleted database successfully");
   };
-  req.onerror = function () {
+  deletionReq.onerror = function () {
     console.log("Couldn't delete database");
   };
-  req.onblocked = function () {
+  deletionReq.onblocked = function () {
     console.log("Couldn't delete database due to the operation being blocked");
   };
+};
 
+const clearAccountInfo = async () => {
+  await caches.delete(cacheName);
+  deleteUserDatabase();
   clearTimeout(logoutTimer);
 
   // TODO change all console.log to console.debug and figure out how to enable debug logging
@@ -269,7 +273,6 @@ const requestWithRefresh = async (req, url) => {
 
 const interceptResponse = async (req, url) => {
   if (isRequest(url, "/login")) {
-    // indexedDB.deleteDatabase(dbName);
     const modifiedReq = await modifyRequest(req, url);
     const response = await fetch(modifiedReq);
     let data = await response.json();
@@ -387,14 +390,17 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   // delete any previous cache from previous sessions
   event.waitUntil(
-    caches.keys().then(function (cacheNames) {
-      return Promise.all(
-        cacheNames.map(function (cacheName) {
-          console.log("Deleting cache for: ", cacheName);
-          return caches.delete(cacheName);
-        })
-      );
-    })
+    caches
+      .keys()
+      .then(function (cacheNames) {
+        return Promise.all(
+          cacheNames.map(function (cacheName) {
+            console.log("Deleting cache for: ", cacheName);
+            return caches.delete(cacheName);
+          })
+        );
+      })
+      .then(() => deleteUserDatabase())
   );
   console.log("Service worker ready!");
 });
