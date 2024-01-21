@@ -43,13 +43,6 @@ TEST_FINGERPRINT = str(uuid.uuid4)
 TEST_COOKIE = {"fingerprint": TEST_FINGERPRINT}
 
 
-async def override_dependency():
-    return {"q": q, "skip": 5, "limit": 10}
-
-
-main.app.dependency_overrides[ProtectedAny] = override_dependency
-
-
 def get_token(*, userid=None, customer_id=None, scopes=None, account_type=None, refresh=False):
     if not account_type:
         account_type = choice(list(AccountTypes))
