@@ -89,7 +89,7 @@ def create_token(
     customer_id: UUID,
     scopes: list[Scopes],
     account_type: AccountTypes,
-    fingerprint: str = "",  # has to empty string for encoding
+    fingerprint: str | None = None,  # will be None account tokens
     refresh: bool = False,
 ):
     # make sure tokens have at least 1 scope
@@ -110,10 +110,10 @@ def create_token(
     if account_scopes and len(scopes) != 1:
         raise ValueError("If an account scope is present, it must be the only scope present")
 
-    if not account_scopes and not fingerprint:
+    if not account_scopes and fingerprint is None:
         raise ValueError("Fingerprint required for token type")
 
-    if fingerprint:
+    if fingerprint is not None:
         # TODO make this a separate util?
         fingerprint = sha256(fingerprint.encode()).hexdigest()
 

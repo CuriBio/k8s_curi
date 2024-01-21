@@ -23,7 +23,7 @@ class JWTDetails(BaseModel):
     customer_id: str
     userid: str | None  # None for admin accounts
     account_type: AccountTypes
-    fingerprint: str
+    fingerprint: str | None
 
     @property
     def account_id(self):
