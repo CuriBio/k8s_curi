@@ -28,6 +28,9 @@ test_client = TestClient(main.app)
 P3D_READ_SCOPES = [s for s in Scopes if ScopeTags.PULSE3D_READ in s.tags]
 P3D_WRITE_SCOPES = [s for s in Scopes if ScopeTags.PULSE3D_WRITE in s.tags]
 
+TEST_FINGERPRINT = str(uuid.uuid4)
+TEST_COOKIE = ["fingerprint", TEST_FINGERPRINT]
+
 
 def random_semver(*, max_version="99.99.99"):
     version_components = max_version.split(".")
@@ -62,7 +65,12 @@ def get_token(scopes, account_type=AccountTypes.USER, userid=None, customer_id=N
     if not customer_id:
         customer_id = uuid.uuid4()
     return create_token(
-        userid=userid, customer_id=customer_id, scopes=scopes, account_type=account_type, refresh=False
+        userid=userid,
+        customer_id=customer_id,
+        scopes=scopes,
+        account_type=account_type,
+        fingerprint=TEST_FINGERPRINT,
+        refresh=False,
     ).token
 
 
