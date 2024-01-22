@@ -49,7 +49,7 @@ logger = structlog.get_logger()
 def _get_existing_metadata(metadata_dict: dict[str, Any]) -> BaseMetadata:
     is_beta_2 = metadata_dict["file_format_version"] >= VersionInfo.parse("1.0.0")
 
-    if metadata_dict["instrument_type"] == InstrumentTypes.NAUTILUS:
+    if metadata_dict["instrument_type"] == InstrumentTypes.NAUTILAI:
         return BaseMetadata(**metadata_dict)
     elif is_beta_2:
         return MantarrayBeta2Metadata(**metadata_dict)
@@ -102,14 +102,19 @@ async def process_item(con, item):
         # remove params that were not given as these already have default values
         analysis_params = {k: v for k, v in metadata["analysis_params"].items() if v is not None}
 
+        pre_analysis_params = {k: v for k, v in analysis_params.items() if k in ["normalization_method"]}
+
         with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
             zipped_analysis_filename = f"{os.path.splitext(upload_filename)[0]}.zip"
             zipped_analysis_key = f"{prefix}/time_force_data/{PULSE3D_VERSION}/{zipped_analysis_filename}"
-            zipped_analysis_path = os.path.join(tmpdir, zipped_analysis_filename)
 
-            stim_waveforms_path = os.path.join(tmpdir, "stim_waveforms.parquet")
-            tissue_waveforms_path = os.path.join(tmpdir, "tissue_waveforms.parquet")
-            metadata_path = os.path.join(tmpdir, "metadata.json")
+            pre_analysis_dir = os.path.join(tmpdir, "pre-analysis")
+            os.mkdir(pre_analysis_dir)
+
+            zipped_analysis_path = os.path.join(pre_analysis_dir, zipped_analysis_filename)
+            stim_waveforms_path = os.path.join(pre_analysis_dir, "stim_waveforms.parquet")
+            tissue_waveforms_path = os.path.join(pre_analysis_dir, "tissue_waveforms.parquet")
+            metadata_path = os.path.join(pre_analysis_dir, "metadata.json")
 
             features_parquet_key = f"{prefix}/{job_id}/peaks_valleys.parquet"
             features_filepath = os.path.join(tmpdir, "peaks_valleys.parquet")
@@ -133,56 +138,56 @@ async def process_item(con, item):
 
             try:
                 s3_client.download_file(PULSE3D_UPLOADS_BUCKET, zipped_analysis_key, zipped_analysis_path)
-                logger.info(f"Downloaded existing preanalyed data to {zipped_analysis_path}")
-
-                with ZipFile(zipped_analysis_path) as z:
-                    z.extractall(tmpdir)
-
-                tissue_waveforms = pl.read_parquet(tissue_waveforms_path)
-                stim_waveforms = (
-                    pl.read_parquet(stim_waveforms_path) if os.path.exists(stim_waveforms_path) else None
-                )
-
-                metadata_dict = json.load(open(metadata_path))
-                existing_metadata = _get_existing_metadata(metadata_dict)
-
-                pre_analyzed_data = PreAnalyzedData(
-                    tissue_waveforms=tissue_waveforms,
-                    stim_waveforms=stim_waveforms,
-                    metadata=existing_metadata,
-                )
-
-                pre_analysis_param_names = ["normalization_method"]
-                pre_analysis_params = {
-                    k: v for k, v in analysis_params.items() if k in pre_analysis_param_names
-                }
-                re_analysis = all(v == existing_metadata.get(k) for k, v in pre_analysis_params)
-
-                if re_analysis:
-                    logger.info(
-                        "No pre-analysis params have changed, so able to use existing pre-analysis result"
-                    )
-                else:
-                    logger.info("One or more pre-analysis params have changed, so must re-run pre-analysis")
-
-            except Exception:  # TODO catch only boto3 errors here
+                logger.info(f"Downloaded existing pre-analysis data to {zipped_analysis_path}")
+            except Exception:
                 logger.info(f"No existing data found for recording {zipped_analysis_filename}")
+            else:
+                try:
+                    with ZipFile(zipped_analysis_path) as z:
+                        z.extractall(pre_analysis_dir)
+
+                    tissue_waveforms = pl.read_parquet(tissue_waveforms_path)
+                    stim_waveforms = (
+                        pl.read_parquet(stim_waveforms_path) if os.path.exists(stim_waveforms_path) else None
+                    )
+
+                    metadata_dict = json.load(open(metadata_path))
+                    existing_metadata = _get_existing_metadata(metadata_dict)
+
+                    pre_analyzed_data = PreAnalyzedData(
+                        tissue_waveforms=tissue_waveforms,
+                        stim_waveforms=stim_waveforms,
+                        metadata=existing_metadata,
+                    )
+
+                    re_analysis = all(v == existing_metadata.get(k) for k, v in pre_analysis_params.items())
+
+                    if re_analysis:
+                        logger.info(
+                            "No pre-analysis params have changed, so able to use existing pre-analysis data"
+                        )
+                    else:
+                        logger.info(
+                            "One or more pre-analysis params have changed, so must re-run pre-analysis"
+                        )
+                except Exception:
+                    logger.exception("Error loading existing pre-analysis data")
 
             if not re_analysis:
                 try:
-                    logger.info("Starting dataloader")
+                    logger.info("Starting DataLoader")
                     loaded_data = from_file(recording_path)
                 except Exception:
                     logger.exception("DataLoader failed")
                     raise
 
                 try:
-                    logger.info("Starting preanalysis")
+                    logger.info("Starting Pre-Analysis")
                     pre_analyzed_data = process(loaded_data, **pre_analysis_params)
                 except UnableToConvergeError:
                     raise Exception("Unable to converge due to low quality of data")
                 except Exception:
-                    logger.exception("PreAnalysis failed")
+                    logger.exception("Pre-Analysis failed")
                     raise
 
                 try:
@@ -202,7 +207,7 @@ async def process_item(con, item):
                         z.write(metadata_path, "metadata.json")
 
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=zipped_analysis_key, file=zipfile)
-                    logger.info("Uploaded preanalyzed data to S3")
+                    logger.info("Uploaded pre-analyzed data to S3")
                 except Exception:
                     logger.exception("Upload failed")
                     raise

@@ -36,7 +36,7 @@ class JobRequest(BaseModel):
     name_override: str | None = Field(default=None)
 
     normalize_y_axis: bool | None = Field(default=None)
-    max_y: NautilaiNormalizationMethods | None = Field(default=None)
+    max_y: Number | None = Field(default=None)
 
     # metrics
     well_groups: dict[str, list[str]] | None = Field(default=None)
@@ -69,7 +69,7 @@ class JobRequest(BaseModel):
     inverted_post_magnet_wells: list[str] | None = Field(default=None)
     # nautilai params
     data_type: str | None = Field(default=None)
-    normalization_method: Number | None = Field(default=None)
+    normalization_method: NautilaiNormalizationMethods | None = Field(default=None)
 
 
 class SavePresetRequest(BaseModel):
