@@ -8,6 +8,8 @@ APP_NAME = config("APP_NAME", cast=str, default="CuriBio/Auth")
 VERSION = "0.10.0"
 
 DASHBOARD_URL = config("DASHBOARD_URL", cast=str, default="https://dashboard.curibio-test.com")
+DOMAIN = DASHBOARD_URL.split("dashboard.")[1] if "dashboard" in DASHBOARD_URL else "localhost"
+
 CURIBIO_EMAIL = config("CURIBIO_EMAIL", cast=str)
 CURIBIO_EMAIL_PASSWORD = config("CURIBIO_EMAIL_PASSWORD", cast=str)
 

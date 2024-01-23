@@ -6,7 +6,6 @@ config = Config(".env")
 VERSION = "0.9.0"
 
 DASHBOARD_URL = config("DASHBOARD_URL", cast=str, default="https://dashboard.curibio-test.com")
-DOMAIN = DASHBOARD_URL.split("dashboard.")[1] if "dashboard" in DASHBOARD_URL else "localhost"
 
 CLUSTER_NAME = config("CLUSTER_NAME", cast=str, default="test")
 POSTGRES_USER = config("POSTGRES_USER", cast=str)
