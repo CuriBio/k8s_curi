@@ -461,6 +461,8 @@ async def create_new_job(
             params.append("stim_waveform_format")
         if pulse3d_semver >= "0.34.2":
             params.append("data_type")
+        if pulse3d_semver >= "1.0.0":
+            params.append("normalization_method")
 
         if use_noise_based_peak_finding:
             params += [
@@ -542,7 +544,7 @@ async def create_new_job(
             # TODO remove this once done testing rc versions of pulse3d rewrite
             version = details.version
             if version == "1.0.0":
-                version = "1.0.0rc14"
+                version = "1.0.0rc15"
 
             job_meta = {"analysis_params": analysis_params, "version": version}
             # if a name is present, then add to metadata of job
@@ -566,9 +568,9 @@ async def create_new_job(
                 rewrite_job_id = await create_job(
                     con=con,
                     upload_id=upload_id,
-                    queue="pulse3d-v1.0.0rc14",
+                    queue="pulse3d-v1.0.0rc15",
                     priority=priority,
-                    meta={**job_meta, "version": "1.0.0rc14"},
+                    meta={**job_meta, "version": "1.0.0rc15"},
                     customer_id=customer_id,
                     job_type=upload_type,
                     add_to_results=False,
@@ -813,7 +815,7 @@ async def get_interactive_waveform_data(
             logger.exception(message)
             return GenericErrorResponse(error="MissingDataError", message=message)
 
-        data_type_str: str | None = analysis_params.get("data_type")
+        data_type_str: str | None = parsed_meta.get("data_type")
         if data_type_str:
             data_type = DataTypes[data_type_str.upper()]
         else:
@@ -823,7 +825,11 @@ async def get_interactive_waveform_data(
         return WaveformDataResponse(
             time_force_url=time_force_url,
             peaks_valleys_url=peaks_valleys_url,
-            amplitude_label=get_metric_display_title(TwitchMetrics.AMPLITUDE, data_type),
+            amplitude_label=get_metric_display_title(
+                TwitchMetrics.AMPLITUDE,
+                data_type,
+                normalization_method=analysis_params.get("normalization_method"),
+            ),
         )
     except S3Error:
         logger.exception("Error from s3")
