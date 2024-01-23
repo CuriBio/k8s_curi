@@ -37,7 +37,7 @@ from auth import (
     COOKIE_MAX_AGE_SECONDS,
 )
 from jobs import check_customer_quota
-from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
+from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL, DOMAIN
 from models.errors import LoginError, RegistrationError, EmailRegistrationError, UnableToUpdateAccountError
 from models.users import (
     AdminLogin,
@@ -185,6 +185,7 @@ async def login_admin(request: Request, response: Response, details: AdminLogin)
                 httponly=True,
                 samesite="Strict",
                 secure=True,
+                domain=DOMAIN,
                 max_age=COOKIE_MAX_AGE_SECONDS,
             )
 
@@ -291,6 +292,7 @@ async def login_user(request: Request, details: UserLogin, response: Response):
                 httponly=True,
                 samesite="Strict",
                 secure=True,
+                domain=DOMAIN,
                 max_age=COOKIE_MAX_AGE_SECONDS,
             )
 
@@ -440,6 +442,7 @@ async def refresh(request: Request, response: Response, token=Depends(ProtectedA
                 httponly=True,
                 samesite="Strict",
                 secure=True,
+                domain=DOMAIN,
                 max_age=COOKIE_MAX_AGE_SECONDS,
             )
 
