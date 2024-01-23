@@ -815,7 +815,7 @@ async def get_interactive_waveform_data(
             logger.exception(message)
             return GenericErrorResponse(error="MissingDataError", message=message)
 
-        data_type_str: str | None = analysis_params.get("data_type")
+        data_type_str: str | None = parsed_meta.get("data_type")
         if data_type_str:
             data_type = DataTypes[data_type_str.upper()]
         else:
@@ -825,7 +825,11 @@ async def get_interactive_waveform_data(
         return WaveformDataResponse(
             time_force_url=time_force_url,
             peaks_valleys_url=peaks_valleys_url,
-            amplitude_label=get_metric_display_title(TwitchMetrics.AMPLITUDE, data_type),
+            amplitude_label=get_metric_display_title(
+                TwitchMetrics.AMPLITUDE,
+                data_type,
+                normalization_method=analysis_params.get("normalization_method"),
+            ),
         )
     except S3Error:
         logger.exception("Error from s3")

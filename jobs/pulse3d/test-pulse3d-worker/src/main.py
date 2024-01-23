@@ -20,6 +20,7 @@ from pulse3D.constants import PACKAGE_VERSION as PULSE3D_VERSION
 from pulse3D.data_loader import (
     MantarrayBeta1Metadata,
     MantarrayBeta2Metadata,
+    NautilaiMetadata,
     from_file,
     InstrumentTypes,
     BaseMetadata,
@@ -47,14 +48,15 @@ logger = structlog.get_logger()
 
 
 def _get_existing_metadata(metadata_dict: dict[str, Any]) -> BaseMetadata:
-    is_beta_2 = metadata_dict["file_format_version"] >= VersionInfo.parse("1.0.0")
-
-    if metadata_dict["instrument_type"] == InstrumentTypes.NAUTILAI:
-        return BaseMetadata(**metadata_dict)
-    elif is_beta_2:
-        return MantarrayBeta2Metadata(**metadata_dict)
+    if metadata_dict["instrument_type"] == InstrumentTypes.MANTARRAY:
+        if metadata_dict["file_format_version"] >= VersionInfo.parse("1.0.0"):
+            return MantarrayBeta2Metadata(**metadata_dict)
+        else:
+            return MantarrayBeta1Metadata(**metadata_dict)
+    elif metadata_dict["instrument_type"] == InstrumentTypes.NAUTILAI:
+        return NautilaiMetadata(**metadata_dict)
     else:
-        return MantarrayBeta1Metadata(**metadata_dict)
+        return BaseMetadata(**metadata_dict)
 
 
 # needs to be prefixed so that the queue processor doesn't pick it up
@@ -119,6 +121,7 @@ async def process_item(con, item):
             features_parquet_key = f"{prefix}/{job_id}/peaks_valleys.parquet"
             features_filepath = os.path.join(tmpdir, "peaks_valleys.parquet")
 
+            # download recording file
             try:
                 key = f"{prefix}/{upload_filename}"
                 recording_path = f"{tmpdir}/{analysis_filename}"
@@ -128,6 +131,7 @@ async def process_item(con, item):
                 logger.exception("Failed to download recording zip file")
                 raise
 
+            # download existing peak finding data
             try:
                 # attempt to download peaks and valleys from s3, will only be the case for interactive analysis jobs
                 s3_client.download_file(PULSE3D_UPLOADS_BUCKET, features_parquet_key, features_filepath)
@@ -136,6 +140,7 @@ async def process_item(con, item):
             except Exception:  # TODO catch only boto3 errors here
                 logger.info("No existing peaks and valleys found for recording")
 
+            # download existing pre-analysis data
             try:
                 s3_client.download_file(PULSE3D_UPLOADS_BUCKET, zipped_analysis_key, zipped_analysis_path)
                 logger.info(f"Downloaded existing pre-analysis data to {zipped_analysis_path}")
@@ -190,6 +195,7 @@ async def process_item(con, item):
                     logger.exception("Pre-Analysis failed")
                     raise
 
+                # upload pre-analysis data
                 try:
                     # TODO cleanup
                     zipfile = "pre_analysis_data.zip"
@@ -322,6 +328,9 @@ async def process_item(con, item):
                     if (val := analysis_params.get(arg_name)) is not None
                 }
 
+                if data_type_override := renderer_args.get("data_type"):
+                    renderer_args["data_type"] = data_type_override.lower()
+
                 logger.info("Running renderer")
                 output_filename = renderer.run(
                     metrics_output, OutputFormats.XLSX, output_format_args=renderer_args
@@ -367,9 +376,15 @@ async def process_item(con, item):
                     re_analysis,
                 )
 
+                if data_type_override := analysis_params.get("data_type"):
+                    data_type = data_type_override
+                else:
+                    data_type = pre_analyzed_data.metadata.data_type
+
                 job_metadata |= {
                     "plate_barcode": pre_analyzed_data.metadata.plate_barcode,
                     "recording_length_ms": pre_analyzed_data.metadata.full_recording_length,
+                    "data_type": data_type,
                 }
                 if pre_analyzed_data.metadata.instrument_type == InstrumentTypes.MANTARRAY:
                     job_metadata["stim_barcode"] = pre_analyzed_data.metadata.stim_barcode
