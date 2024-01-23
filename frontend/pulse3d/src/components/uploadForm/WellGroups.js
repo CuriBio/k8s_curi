@@ -50,7 +50,7 @@ const EmptyText = styled.div`
   margin: 10px;
 `;
 
-export default function AnalysisParamForm({ setAnalysisParams, analysisParams, setWellGroupErr }) {
+export default function WellGroups({ setAnalysisParams, analysisParams, setWellGroupErr }) {
   const [errorMsgs, setErrorMsgs] = useState([]);
   const [localGroups, setLocalGroups] = useState([]);
 

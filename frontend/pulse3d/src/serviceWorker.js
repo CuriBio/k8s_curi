@@ -336,6 +336,8 @@ const getWaveformDataFromS3 = async (res) => {
     return data;
   }
 
+  data.amplitudeLabel = response.amplitude_label;
+
   let timeForceRes;
   try {
     timeForceRes = await fetch(response.time_force_url);

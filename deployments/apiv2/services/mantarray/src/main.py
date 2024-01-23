@@ -99,6 +99,7 @@ async def root(request: Request):
     try:
         async with request.state.pgpool.acquire() as con:
             units = await con.fetch("SELECT * FROM MAUnits")
+        units = [dict(row) for row in units]
     except:
         logger.exception("Error getting Mantarray Units")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -230,6 +231,9 @@ async def get_all_fw_sw_compatibility(
         async with request.state.pgpool.acquire() as con:
             main_fw_info = await con.fetch("SELECT * FROM ma_main_firmware")
             channel_fw_info = await con.fetch("SELECT * FROM ma_channel_firmware")
+
+        main_fw_info = [dict(row) for row in main_fw_info]
+        channel_fw_info = [dict(row) for row in channel_fw_info]
 
         return FirmwareInfoResponse(main_fw_info=main_fw_info, channel_fw_info=channel_fw_info)
     except Exception:
