@@ -23,13 +23,13 @@ DEFAULT_BASELINE_WIDTHS = (10, 90)
 DEFAULT_PROMINENCE_FACTORS = (6, 6)
 DEFAULT_WIDTH_FACTORS = (7, 7)
 
-test_client = TestClient(main.app)
 
 P3D_READ_SCOPES = [s for s in Scopes if ScopeTags.PULSE3D_READ in s.tags]
 P3D_WRITE_SCOPES = [s for s in Scopes if ScopeTags.PULSE3D_WRITE in s.tags]
-
 TEST_FINGERPRINT = str(uuid.uuid4)
-TEST_COOKIE = ["fingerprint", TEST_FINGERPRINT]
+
+test_client = TestClient(main.app)
+test_client.cookies.set(name="fingerprint", value=TEST_FINGERPRINT)
 
 
 def random_semver(*, max_version="99.99.99"):
@@ -1251,9 +1251,20 @@ def test_uploads_download__post__correctly_handles_multiple_file_downloads(
     test_token_scope, test_upload_ids, mocked_asyncpg_con, mocker
 ):
     test_account_id = uuid.uuid4()
-    account_type = AccountTypes.ADMIN if ScopeTags.ADMIN in test_token_scope[0].tags else AccountTypes.USER
+
+    if ScopeTags.ADMIN in test_token_scope[0].tags:
+        account_type = AccountTypes.ADMIN
+        test_user_id = None
+        test_customer_id = test_account_id
+        scope = Scopes.MANTARRAY__ADMIN
+    else:
+        account_type = AccountTypes.USER
+        test_user_id = test_account_id
+        test_customer_id = uuid.uuid4()
+        scope = Scopes.MANTARRAY__BASE
+
     access_token = get_token(
-        scopes=[Scopes.MANTARRAY__BASE], account_type=account_type, userid=test_account_id
+        scopes=[scope], account_type=account_type, userid=test_user_id, customer_id=test_customer_id
     )
 
     test_upload_rows = [
@@ -1423,12 +1434,15 @@ def test_waveform_data__get__no_time_force_parquet_found(mocker, pulse3d_version
         f"/jobs/waveform-data?upload_id={test_upload_id}&job_id={test_job_id}", **kwargs
     )
 
+    expected_msg = (
+        f"Force v Time Parquet file was not found in S3 under key /path/to/s3/object/time_force_data/{pulse3d_version}/test-recording.zip"
+        if pulse3d_version is not None
+        else "Force v Time Parquet file was not found in S3 under key /path/to/s3/object/time_force_data/test-recording.parquet"
+    )
+
     assert response.status_code == 200
     assert (
-        response.json()
-        == GenericErrorResponse(
-            message="Parquet file was not found in S3. Reanalysis required.", error="MissingDataError"
-        ).model_dump()
+        response.json() == GenericErrorResponse(message=expected_msg, error="MissingDataError").model_dump()
     )
 
 

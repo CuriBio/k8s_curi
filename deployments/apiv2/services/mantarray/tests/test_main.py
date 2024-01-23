@@ -7,10 +7,10 @@ from auth import create_token, Scopes, AccountTypes
 from src import main
 from src.models.models import FirmwareUploadResponse, LatestVersionsResponse
 
-test_client = TestClient(main.app)
-
 TEST_FINGERPRINT = str(uuid.uuid4)
-TEST_COOKIE = ["fingerprint", TEST_FINGERPRINT]
+
+test_client = TestClient(main.app)
+test_client.cookies.set(name="fingerprint", value=TEST_FINGERPRINT)
 
 
 def random_semver():
@@ -78,7 +78,7 @@ def test_routes_with_auth__invalid_scope_given(test_method, test_route):
     access_token = get_token(scopes=[Scopes.NAUTILUS__BASE])
 
     response = getattr(test_client, test_method.lower())(
-        test_route, headers={"Authorization": f"Bearer {access_token}"}, cookies=[TEST_COOKIE]
+        test_route, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 401
 
@@ -106,7 +106,6 @@ def test_serial_number__post__success(mocked_asyncpg_con):
         "/serial-number",
         headers={"Authorization": f"Bearer {access_token}"},
         json={"serial_number": test_serial_number, "hw_version": test_hw_version},
-        cookies=[TEST_COOKIE],
     )
     assert response.status_code == 201
 
@@ -121,9 +120,7 @@ def test_serial_number__delete__success(mocked_asyncpg_con):
     test_serial_number = "serial_number"
 
     response = test_client.delete(
-        f"/serial-number/{test_serial_number}",
-        headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
+        f"/serial-number/{test_serial_number}", headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 204
 
@@ -240,9 +237,7 @@ def test_firmware_info__get__success(mocked_asyncpg_con):
 
     mocked_asyncpg_con.fetch.side_effect = fetch_se
 
-    response = test_client.get(
-        "/firmware/info", headers={"Authorization": f"Bearer {access_token}"}, cookies=[TEST_COOKIE]
-    )
+    response = test_client.get("/firmware/info", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 200
     assert response.json() == expected_response.model_dump()
 
@@ -260,7 +255,6 @@ def test_firmware__get__success(mocker):
     response = test_client.get(
         f"/firmware/{test_firmware_type}/{test_firmware_version}",
         headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
     )
     assert response.status_code == 200
     assert response.json() == {"presigned_url": expected_url}
@@ -279,7 +273,6 @@ def test_firmware__get__bad_path_params(bad_param_type):
     response = test_client.get(
         f"/firmware/{test_params['firmware_type']}/{test_params['firmware_version']}",
         headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
     )
     assert response.status_code == 422, test_params
 
@@ -316,7 +309,6 @@ def test_firmware__post__main_fw__success(
             "is_compatible_with_current_sting_sw": is_compatible_with_current_sting_sw,
             "md5s": "any",
         },
-        cookies=[TEST_COOKIE],
     )
     assert response.status_code == 200
     assert response.json() == FirmwareUploadResponse(params=mocked_presigned_post.return_value).model_dump()
@@ -350,7 +342,6 @@ def test_firmware__post__channel_fw__success(mocker, mocked_asyncpg_con):
             "hw_version": test_hw_version,
             "md5s": "any",
         },
-        cookies=[TEST_COOKIE],
     )
     assert response.status_code == 200
     assert response.json() == FirmwareUploadResponse(params=mocked_presigned_post.return_value).model_dump()
@@ -374,7 +365,6 @@ def test_firmware__put__success(mocked_asyncpg_con):
         f"/firmware/channel/{test_fw_version}",
         headers={"Authorization": f"Bearer {access_token}"},
         json={"main_fw_version": test_main_fw_version},
-        cookies=[TEST_COOKIE],
     )
     assert response.status_code == 200
 
@@ -394,9 +384,7 @@ def test_software__post__success(test_sw_type, expected_table_name, mocked_async
     test_version = random_semver()
 
     response = test_client.post(
-        f"/software/{test_sw_type}/{test_version}",
-        headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
+        f"/software/{test_sw_type}/{test_version}", headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 200
 

@@ -30,15 +30,12 @@ from src.models.users import (
     UnableToUpdateAccountResponse,
 )
 
-test_client = TestClient(main.app)
-
-
+TEST_FINGERPRINT = str(uuid.uuid4)
 TEST_PASSWORD = "Testpw123!"
-
 ACCOUNT_SCOPES = tuple(s for s in Scopes if ScopeTags.ACCOUNT in s.tags)
 
-TEST_FINGERPRINT = str(uuid.uuid4)
-TEST_COOKIE = ["fingerprint", TEST_FINGERPRINT]
+test_client = TestClient(main.app)
+test_client.cookies.set(name="fingerprint", value=TEST_FINGERPRINT)
 
 
 def get_token(*, userid=None, customer_id=None, scopes=None, account_type=None, refresh=False):
@@ -437,12 +434,9 @@ def test_register__user__success(special_char, mocked_asyncpg_con, mocker):
     access_token = get_token(customer_id=test_customer_id, account_type=AccountTypes.ADMIN)
 
     mocked_asyncpg_con.fetchval.return_value = test_user_id
-
+    test_client.cookies.set(name="fingerprint", value=TEST_FINGERPRINT)
     response = test_client.post(
-        "/register/user",
-        json=registration_details,
-        headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
+        "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
 
     assert response.json() == {
@@ -482,10 +476,7 @@ def test_register__user__invalid_token_scope_assigned(test_admin_scope, test_use
     registration_details = {"email": "user@example.com", "username": "username", "scopes": [test_user_scope]}
     access_token = get_token(scopes=[test_admin_scope], account_type=AccountTypes.ADMIN)
     response = test_client.post(
-        "/register/user",
-        json=registration_details,
-        headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
+        "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 400
 
@@ -508,10 +499,7 @@ def test_register__user__invalid_username_length(length, err_msg):
     access_token = get_token(customer_id=test_customer_id, account_type=AccountTypes.ADMIN)
 
     response = test_client.post(
-        "/register/user",
-        json=registration_details,
-        headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
+        "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
     assert response.json()["detail"][-1]["msg"].endswith(err_msg)
@@ -528,10 +516,7 @@ def test_register__user__with_invalid_char_in_username(special_char):
     access_token = get_token(account_type=AccountTypes.ADMIN)
 
     response = test_client.post(
-        "/register/user",
-        json=registration_details,
-        headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
+        "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
     assert response.json()["detail"][-1]["msg"].endswith(
@@ -550,10 +535,7 @@ def test_register__user__with_invalid_first_char(bad_first_char):
     access_token = get_token(account_type=AccountTypes.ADMIN)
 
     response = test_client.post(
-        "/register/user",
-        json=registration_details,
-        headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
+        "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
     assert response.json()["detail"][-1]["msg"].endswith("Username must start with a letter")
@@ -570,10 +552,7 @@ def test_register__user__with_invalid_final_char(bad_final_char):
     access_token = get_token(account_type=AccountTypes.ADMIN)
 
     response = test_client.post(
-        "/register/user",
-        json=registration_details,
-        headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
+        "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
     assert response.json()["detail"][-1]["msg"].endswith("Username must end with a letter or number")
@@ -590,10 +569,7 @@ def test_register__user__with_consecutive_special_chars(special_char):
     access_token = get_token(scopes=[Scopes.MANTARRAY__ADMIN], account_type=AccountTypes.ADMIN)
 
     response = test_client.post(
-        "/register/user",
-        json=registration_details,
-        headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
+        "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
     assert response.json()["detail"][-1]["msg"].endswith(
@@ -625,10 +601,7 @@ def test_register__user__unique_constraint_violations(
     mocked_asyncpg_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)
 
     response = test_client.post(
-        "/register/user",
-        json=registration_details,
-        headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
+        "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 400
     assert response.json() == {"detail": expected_error_message}
@@ -638,10 +611,7 @@ def test_register__user__invalid_token_scope_given():
     registration_details = {"email": "user@new.com", "password1": "pw", "password2": "pw"}
     access_token = get_token(scopes=[Scopes.MANTARRAY__BASE], account_type=AccountTypes.USER)
     response = test_client.post(
-        "/register/user",
-        json=registration_details,
-        headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
+        "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 401
 
@@ -666,10 +636,7 @@ def test_register__admin__success(mocked_asyncpg_con, spied_pw_hasher, mocker):
     mocked_asyncpg_con.fetchval.return_value = test_user_id
 
     response = test_client.post(
-        "/register/admin",
-        json=registration_details,
-        headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
+        "/register/admin", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 201
     assert response.json() == {
@@ -700,10 +667,7 @@ def test_register__admin__invalid_token_scope_assigned(test_admin_scope):
     }
     access_token = get_token(scopes=[Scopes.CURI__ADMIN], account_type=AccountTypes.ADMIN)
     response = test_client.post(
-        "/register/admin",
-        json=registration_details,
-        headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
+        "/register/admin", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 400
 
@@ -733,10 +697,7 @@ def test_register__admin__unique_constraint_violations(
     mocked_asyncpg_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)
 
     response = test_client.post(
-        "/register/admin",
-        json=registration_details,
-        headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
+        "/register/admin", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 400
     assert response.json() == {"detail": expected_error_message}
@@ -751,10 +712,7 @@ def test_register__admin__invalid_token_scope_given():
     }
     access_token = get_token(scopes=[Scopes.NAUTILUS__ADMIN], account_type=AccountTypes.ADMIN)
     response = test_client.post(
-        "/register/admin",
-        json=registration_details,
-        headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
+        "/register/admin", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 401
 
@@ -810,9 +768,7 @@ def test_refresh__success(account_type, mocked_asyncpg_con, mocker):
 
     mocked_asyncpg_con.fetch.return_value = [{"scope": test_scope_in_db.value}]
 
-    response = test_client.post(
-        "/refresh", headers={"Authorization": f"Bearer {old_refresh_token}"}, cookies=[TEST_COOKIE]
-    )
+    response = test_client.post("/refresh", headers={"Authorization": f"Bearer {old_refresh_token}"})
     assert response.status_code == 201
     assert response.json() == AuthTokens(access=new_access_token, refresh=new_refresh_token).model_dump()
 
@@ -838,17 +794,13 @@ def test_refresh__expired_refresh_token_in_db(mocked_asyncpg_con):
         mocked_asyncpg_con.fetchval.return_value = old_refresh_token
 
     with freeze_time(test_time + timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES, seconds=1)):
-        response = test_client.post(
-            "/refresh", headers={"Authorization": f"Bearer {old_refresh_token}"}, cookies=[TEST_COOKIE]
-        )
+        response = test_client.post("/refresh", headers={"Authorization": f"Bearer {old_refresh_token}"})
         assert response.status_code == 401
 
 
 def test_refresh__wrong_token_type_given():
     access_token = get_token(refresh=False)
-    response = test_client.post(
-        "/refresh", headers={"Authorization": f"Bearer {access_token}"}, cookies=[TEST_COOKIE]
-    )
+    response = test_client.post("/refresh", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 401
 
 
@@ -858,9 +810,7 @@ def test_logout__success(account_type, mocked_asyncpg_con):
     test_customer_id = uuid.uuid4()
     access_token = get_token(userid=test_user_id, customer_id=test_customer_id, account_type=account_type)
 
-    response = test_client.post(
-        "/logout", headers={"Authorization": f"Bearer {access_token}"}, cookies=[TEST_COOKIE]
-    )
+    response = test_client.post("/logout", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 204
 
     expected_account_id = test_user_id if account_type == AccountTypes.USER else test_customer_id
@@ -890,9 +840,7 @@ def test_account_id__get__no_id(mocked_asyncpg_con):
         for i in range(num_users_found)
     ]
 
-    response = test_client.get(
-        "/", headers={"Authorization": f"Bearer {access_token}"}, cookies=[TEST_COOKIE]
-    )
+    response = test_client.get("/", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 200
 
     # convert IDs to a string since fastapi does this automatically
@@ -923,9 +871,7 @@ def test_account_id__get__id_given__admin_retrieving_self(mocked_asyncpg_con):
         "alias": "test_alias",
     }
 
-    response = test_client.get(
-        f"/{test_customer_id}", headers={"Authorization": f"Bearer {access_token}"}, cookies=[TEST_COOKIE]
-    )
+    response = test_client.get(f"/{test_customer_id}", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 200
 
     # convert ID to a string since fastapi does this automatically
@@ -953,9 +899,7 @@ def test_account_id__get__id_given__admin_retrieving_user__success(mocked_asyncp
         "suspended": choice([True, False]),
     }
 
-    response = test_client.get(
-        f"/{test_user_id}", headers={"Authorization": f"Bearer {access_token}"}, cookies=[TEST_COOKIE]
-    )
+    response = test_client.get(f"/{test_user_id}", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 200
 
     # convert ID to a string since fastapi does this automatically
@@ -978,9 +922,7 @@ def test_account_id__get__id_given__admin_retrieving_user__user_not_found(mocked
 
     mocked_asyncpg_con.fetchrow.return_value = None
 
-    response = test_client.get(
-        f"/{test_user_id}", headers={"Authorization": f"Bearer {access_token}"}, cookies=[TEST_COOKIE]
-    )
+    response = test_client.get(f"/{test_user_id}", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 400
 
 
@@ -1000,9 +942,7 @@ def test_account_id__get__id_given__user_retrieving_self(mocked_asyncpg_con):
         "suspended": choice([True, False]),
     }
 
-    response = test_client.get(
-        f"/{test_user_id}", headers={"Authorization": f"Bearer {access_token}"}, cookies=[TEST_COOKIE]
-    )
+    response = test_client.get(f"/{test_user_id}", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 200
 
     # convert ID to a string since fastapi does this automatically
@@ -1020,9 +960,7 @@ def test_account_id__get__id_given__user_retrieving_self(mocked_asyncpg_con):
 def test_account_id__get__id_given__user_attempting_to_retrieve_another_id(mocked_asyncpg_con):
     access_token = get_token(account_type=AccountTypes.USER)
 
-    response = test_client.get(
-        f"/{uuid.uuid4()}", headers={"Authorization": f"Bearer {access_token}"}, cookies=[TEST_COOKIE]
-    )
+    response = test_client.get(f"/{uuid.uuid4()}", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 400
 
 
@@ -1031,9 +969,7 @@ def test_account_id__get__id_given__user_not_found(mocked_asyncpg_con):
 
     mocked_asyncpg_con.fetchrow.return_value = None
 
-    response = test_client.get(
-        f"/{uuid.uuid4()}", headers={"Authorization": f"Bearer {access_token}"}, cookies=[TEST_COOKIE]
-    )
+    response = test_client.get(f"/{uuid.uuid4()}", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 400
 
 
@@ -1048,7 +984,6 @@ def test_account_id__put__successful_user_deletion(mocked_asyncpg_con):
         f"/{test_user_id}",
         json={"action_type": "delete"},
         headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
     )
     assert response.status_code == 200
 
@@ -1070,7 +1005,6 @@ def test_user_id__put__successful_deactivation(mocked_asyncpg_con):
         f"/{test_user_id}",
         json={"action_type": "deactivate"},
         headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
     )
     assert response.status_code == 200
 
@@ -1089,7 +1023,6 @@ def test_user_id__put__successful_reactivation(mocked_asyncpg_con):
         f"/{test_user_id}",
         json={"action_type": "reactivate"},
         headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
     )
     assert response.status_code == 200
 
@@ -1110,7 +1043,6 @@ def test_account_id__put__successful_customer_alias_update(mocked_asyncpg_con):
         f"/{test_customer_id}",
         json={"action_type": "set_alias", "new_alias": test_alias},
         headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
     )
     assert response.status_code == 200
 
@@ -1127,7 +1059,6 @@ def test_account_id__put__admin_edit_self_with_mismatched_account_ids(mocked_asy
         # arbitrarily choosing set_alias here
         json={"action_type": "set_alias", "new_alias": "test_alias"},
         headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
     )
     assert response.status_code == 400
 
@@ -1140,10 +1071,7 @@ def test_account_id__put__user_edit_self_with_mismatched_account_ids(mocked_asyn
     other_id = uuid.uuid4()
 
     response = test_client.put(
-        f"/{other_id}",
-        json={"action_type": "any"},
-        headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
+        f"/{other_id}", json={"action_type": "any"}, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 400
 
@@ -1154,10 +1082,7 @@ def test_account_id__put__invalid_action_type_given():
     access_token = get_token(account_type=AccountTypes.ADMIN)
 
     response = test_client.put(
-        f"/{uuid.uuid4()}",
-        json={"action_type": "bad"},
-        headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
+        f"/{uuid.uuid4()}", json={"action_type": "bad"}, headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 400
 
@@ -1165,9 +1090,7 @@ def test_account_id__put__invalid_action_type_given():
 def test_account_id__put__no_action_type_given():
     access_token = get_token(account_type=AccountTypes.ADMIN)
 
-    response = test_client.put(
-        f"/{uuid.uuid4()}", headers={"Authorization": f"Bearer {access_token}"}, cookies=[TEST_COOKIE]
-    )
+    response = test_client.put(f"/{uuid.uuid4()}", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 422
 
 
@@ -1176,7 +1099,7 @@ def test_account_id__bad_user_id_given(method):
     access_token = get_token(account_type=AccountTypes.ADMIN)
 
     response = getattr(test_client, method.lower())(
-        "/not_a_uuid", headers={"Authorization": f"Bearer {access_token}"}, cookies=[TEST_COOKIE]
+        "/not_a_uuid", headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 422
 
@@ -1194,7 +1117,6 @@ def test_account__put__user_account_is_already_verified(test_token_scope, mocked
         "/account",
         json={"password1": "Test_password1", "password2": "Test_password1", "verify": True},
         headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
     )
 
     assert (
@@ -1218,7 +1140,6 @@ def test_account__put__link_has_already_been_used(test_token_scope, mocked_async
         "/account",
         json={"password1": "Test_password1", "password2": "Test_password1", "verify": False},
         headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
     )
 
     assert response.json() == UnableToUpdateAccountResponse(message="Link has already been used").model_dump()
@@ -1247,7 +1168,6 @@ def test_account__put__repeat_password(test_token_scope, mocked_asyncpg_con):
         "/account",
         json={"password1": test_password, "password2": test_password, "verify": False},
         headers={"Authorization": f"Bearer {access_token}"},
-        cookies=[TEST_COOKIE],
     )
 
     assert (
