@@ -1,20 +1,22 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: grafana
+  name: grafana-loki
   namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
 spec:
   project: cluster
   sources:
-    - repoURL: https://grafana.github.io/helm-charts
-      chart: grafana
-      targetRevision: "^6.0.0"
-      helm:
-        valueFiles:
-          - $values/cluster/manifests/grafana
     - repoURL: https://github.com/CuriBio/k8s_curi.git
       targetRevision: HEAD
       ref: values
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: loki-stack
+      targetRevision: ^2.9.0
+      helm:
+        valueFiles:
+          - $values/cluster/manifests/grafana-loki
   destination:
     server: "https://kubernetes.default.svc"
     namespace: argocd

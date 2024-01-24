@@ -560,10 +560,12 @@ export default function AnalysisParamForm({
     Overlayed: "overlayed",
   };
 
+  const nautilaiNormalizationMethods = ["None", "F/Fmin", "∆F/Fmin"];
+
   const getDropdownInitialSelection = (param, optionsArr) => {
     let optionIndex = optionsArr.indexOf(analysisParams[param]);
 
-    // set iniitial p3d version to user preference if available, account for it to now always be set
+    // set initial p3d version to user preference if available, account for it to now always be set
     // additionally, need to wait for pulse3dVersions to be fetched and set
     if (
       param == "selectedPulse3dVersion" &&
@@ -895,6 +897,31 @@ export default function AnalysisParamForm({
             />
           </InputErrorContainer>
         </AnalysisParamContainer>
+        {pulse3dVersionGte("1.0.0") && (
+          // TODO only show this for nautilai analyses
+          <AnalysisParamContainer
+            label="Normalization Method"
+            name="normalizationMethod"
+            tooltipText="Select the normalization method of data (Nautilai only)"
+          >
+            <DropDownContainer>
+              <DropDownWidget
+                options={nautilaiNormalizationMethods}
+                reset={!checkedParams}
+                initialSelected={getDropdownInitialSelection(
+                  "normalizationMethod",
+                  nautilaiNormalizationMethods
+                )}
+                handleSelection={(idx) => {
+                  updateParams({
+                    normalizationMethod: nautilaiNormalizationMethods[idx],
+                  });
+                }}
+              />
+            </DropDownContainer>
+          </AnalysisParamContainer>
+        )}
+        {/* TODO only show this for MA analyses */}
         <AnalysisParamContainer
           label="Disable Y-Axis Normalization"
           name="normalizeYAxis"
@@ -911,6 +938,7 @@ export default function AnalysisParamForm({
             />
           </InputErrorContainer>
         </AnalysisParamContainer>
+        {/* TODO only show this for MA analyses */}
         <AnalysisParamContainer
           label="Y-Axis Range (µN)"
           name="maxY"

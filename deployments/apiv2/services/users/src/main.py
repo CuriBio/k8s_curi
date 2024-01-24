@@ -38,7 +38,7 @@ from auth import (
 )
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
-from models.errors import LoginError, RegistrationError, EmailRegistrationError
+from models.errors import LoginError, RegistrationError, EmailRegistrationError, UnableToUpdateAccountError
 from models.users import (
     AdminLogin,
     UserLogin,
@@ -345,6 +345,23 @@ async def _update_failed_login_attempts(con, account_type: str, id: str, count: 
         )
 
     await con.execute(update_query, id)
+
+
+async def _update_password(con, pw, previous_passwords, update_query, query_params):
+    ph = PasswordHasher()
+    phash = ph.hash(pw)
+    # make sure new password does not match any previous passwords on file
+    for prev_pw in previous_passwords:
+        try:
+            ph.verify(prev_pw, pw)
+        except VerifyMismatchError:
+            # passwords don't match, nothing else to do
+            continue
+        else:
+            # passwords match, return msg indicating that this is the case
+            raise UnableToUpdateAccountError()
+
+    await con.execute(update_query, phash, *query_params)
 
 
 @app.post("/refresh", response_model=AuthTokens, status_code=status.HTTP_201_CREATED)
@@ -719,8 +736,6 @@ async def update_accounts(
         is_user = not is_admin
 
         pw = details.password1.get_secret_value()
-        ph = PasswordHasher()
-        phash = ph.hash(pw)
 
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():
@@ -754,31 +769,21 @@ async def update_accounts(
                 except (InvalidTokenError, AssertionError):
                     return UnableToUpdateAccountResponse(message="Link has expired")
 
-                # make sure new password does not match any previous passwords on file
-                for prev_pw in row["previous_passwords"]:
-                    try:
-                        ph.verify(prev_pw, pw)
-                    except VerifyMismatchError:
-                        # passwords don't match, nothing else to do
-                        continue
-                    else:
-                        # passwords match, return msg indicating that this is the case
-                        return UnableToUpdateAccountResponse(
-                            message="Cannot set password to any of the previous 5 passwords"
-                        )
-
                 # Update the password of the account, and if it is a user also set the account as verified
-                query = (
+                update_query = (
                     "UPDATE customers SET reset_token=NULL, password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) WHERE id=$2"
                     if is_admin
                     else "UPDATE users SET verified='t', reset_token=NULL, password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) WHERE id=$2 AND customer_id=$3"
                 )
-                query_params = [phash, account_id]
+                query_params = [account_id]
 
                 if is_user:
                     query_params.append(customer_id)
 
-                await con.execute(query, *query_params)
+                await _update_password(con, pw, row["previous_passwords"], update_query, query_params)
+
+    except UnableToUpdateAccountError:
+        return UnableToUpdateAccountResponse(message="Cannot set password to any of the previous 5 passwords")
     except HTTPException:
         raise
     except Exception:
@@ -990,77 +995,114 @@ async def update_user(
     There are three classes of actions that can be taken:
         - an admin account updating one of its user accounts
         - an admin account updating itself
-        - a user account updating itself (not yet available)
+        - a user account updating itself
 
     The action to take on the user should be passed in the body of PUT request as action_type:
         - deactivate (admin->user): set suspended field to true
         - delete (admin->user): set deleted_at field to current time
         - set_alias (admin->self): set the alias field to the given value
+        - set_password (admin->self, user->self): change user/admin password
     """
     self_id = uuid.UUID(hex=token.account_id)
     action = details.action_type
 
     is_admin_account = token.account_type == AccountTypes.ADMIN
+    is_user_account = token.account_type == AccountTypes.USER
     is_self_edit = self_id == account_id
 
     # TODO also need to check scope below once user self edit actions are added?
-
-    if is_admin_account:
-        bind_context_to_logger({"user_id": str(account_id), "customer_id": str(self_id), "action": action})
-
-        if is_self_edit:
-            if action == "set_alias":
-                if details.new_alias is None:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST, detail="Alias must be provided"
-                    )
-
-                # if an empty string, need to convert to None for asyncpg
-                new_alias = details.new_alias if details.new_alias else None
-
-                update_query = "UPDATE customers SET alias=LOWER($1) WHERE id=$2"
-                query_args = (new_alias, self_id)
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid admin-edit-self action: {action}",
-                )
-        else:
-            if action == "deactivate":
-                update_query = "UPDATE users SET suspended='t' WHERE id=$1 AND customer_id=$2"
-                query_args = (account_id, self_id)
-            elif action == "reactivate":
-                # when reactivated, failed login attempts should be set back to 0.
-                update_query = (
-                    "UPDATE users SET suspended='f', failed_login_attempts=0 WHERE id=$1 AND customer_id=$2"
-                )
-                query_args = (account_id, self_id)
-            elif action == "delete":
-                update_query = "UPDATE users SET deleted_at=$1 WHERE id=$2 AND customer_id=$3"
-                query_args = (datetime.now(), account_id, self_id)
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid admin-edit-user action: {action}",
-                )
-    else:
-        # TODO unit test this else branch
-        bind_context_to_logger({"user_id": str(self_id), "customer_id": token.customer_id, "action": action})
-
-        if not is_self_edit:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User accounts cannot edit details of other accounts",
+    try:
+        if is_admin_account:
+            bind_context_to_logger(
+                {"user_id": str(account_id), "customer_id": str(self_id), "action": action}
             )
 
-        # Tanner (7/25/23): there are currently no actions a user account can take on itself
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid user-edit-self action: {action}"
-        )
+            if is_self_edit:
+                if action == "set_alias":
+                    if details.new_alias is None:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST, detail="Alias must be provided"
+                        )
 
-    try:
+                    # if an empty string, need to convert to None for asyncpg
+                    new_alias = details.new_alias if details.new_alias else None
+
+                    update_query = "UPDATE customers SET alias=LOWER($1) WHERE id=$2"
+                    query_args = (new_alias, self_id)
+                elif action == "set_password":
+                    pw = details.passwords.password1.get_secret_value()
+
+                    async with request.state.pgpool.acquire() as con:
+                        async with con.transaction():
+                            select_query = "SELECT previous_passwords FROM customers WHERE id=$1"
+                            update_query = "UPDATE customers SET password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) WHERE id=$2"
+                            query_params = [account_id]
+                            # query for previous passwords
+                            row = await con.fetchrow(select_query, *query_params)
+                            # returning so last update does not get executed
+                            return await _update_password(
+                                con, pw, row["previous_passwords"], update_query, query_params
+                            )
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Invalid admin-edit-self action: {action}",
+                    )
+            else:
+                if action == "deactivate":
+                    update_query = "UPDATE users SET suspended='t' WHERE id=$1 AND customer_id=$2"
+                    query_args = (account_id, self_id)
+                elif action == "reactivate":
+                    # when reactivated, failed login attempts should be set back to 0.
+                    update_query = "UPDATE users SET suspended='f', failed_login_attempts=0 WHERE id=$1 AND customer_id=$2"
+                    query_args = (account_id, self_id)
+                elif action == "delete":
+                    update_query = "UPDATE users SET deleted_at=$1 WHERE id=$2 AND customer_id=$3"
+                    query_args = (datetime.now(), account_id, self_id)
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Invalid admin-edit-user action: {action}",
+                    )
+
+        elif is_user_account:
+            # TODO unit test this else branch
+            bind_context_to_logger(
+                {"user_id": str(self_id), "customer_id": token.customer_id, "action": action}
+            )
+
+            if is_self_edit:
+                if action == "set_password":
+                    customer_id = uuid.UUID(hex=token.customer_id)
+                    pw = details.passwords.password1.get_secret_value()
+
+                    async with request.state.pgpool.acquire() as con:
+                        async with con.transaction():
+                            select_query = (
+                                "SELECT previous_passwords FROM users WHERE id=$1 AND customer_id=$2"
+                            )
+                            update_query = "UPDATE users SET password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) WHERE id=$2 AND customer_id=$3"
+                            query_params = [account_id, customer_id]
+                            # query for previous passwords
+                            row = await con.fetchrow(select_query, *query_params)
+                            # returning so last update does not get executed
+                            return await _update_password(
+                                con, pw, row["previous_passwords"], update_query, query_params
+                            )
+
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="User accounts cannot edit details of other accounts",
+                )
+
         async with request.state.pgpool.acquire() as con:
             await con.execute(update_query, *query_args)
+
+    except UnableToUpdateAccountError:
+        return UnableToUpdateAccountResponse(message="Cannot set password to any of the previous 5 passwords")
+    except HTTPException:
+        raise
     except Exception:
         logger.exception(f"PUT /{account_id}: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

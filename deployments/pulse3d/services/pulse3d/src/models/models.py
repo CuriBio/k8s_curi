@@ -2,6 +2,8 @@ from pydantic import BaseModel, Field
 from typing import Any
 import uuid
 
+from pulse3D.data_loader.metadata import NautilaiNormalizationMethods
+
 from .types import Number, TupleParam
 
 
@@ -33,24 +35,13 @@ class JobRequest(BaseModel):
 
     name_override: str | None = Field(default=None)
 
-    data_type: str | None = Field(default=None)
-
-    well_groups: dict[str, list[str]] | None = Field(default=None)
-
     normalize_y_axis: bool | None = Field(default=None)
     max_y: Number | None = Field(default=None)
 
-    stim_waveform_format: str | None = Field(default=None)
-    include_stim_protocols: bool | None = Field(default=None)
-
-    stiffness_factor: int | None = Field(default=None)
-    inverted_post_magnet_wells: list[str] | None = Field(default=None)
-
+    # metrics
+    well_groups: dict[str, list[str]] | None = Field(default=None)
     baseline_widths_to_use: TupleParam | None = Field(default=None)
     twitch_widths: list[int] | None = Field(default=None)
-    peaks_valleys: dict[str, list[list[Number]]] | None = Field(default=None)
-    timepoints: list[Number] | None = Field(default=None)  # not used for pulse3d versions < 1.0.0
-
     start_time: Number | None = Field(default=None)
     end_time: Number | None = Field(default=None)
 
@@ -66,6 +57,19 @@ class JobRequest(BaseModel):
     valley_search_duration: Number | None = Field(default=None)
     upslope_duration: Number | None = Field(default=None)
     upslope_noise_allowance_duration: Number | None = Field(default=None)
+
+    # IA params
+    peaks_valleys: dict[str, list[list[Number]]] | None = Field(default=None)
+    timepoints: list[Number] | None = Field(default=None)  # not used for pulse3d versions < 1.0.0
+
+    # MA params
+    stim_waveform_format: str | None = Field(default=None)
+    include_stim_protocols: bool | None = Field(default=None)
+    stiffness_factor: int | None = Field(default=None)
+    inverted_post_magnet_wells: list[str] | None = Field(default=None)
+    # nautilai params
+    data_type: str | None = Field(default=None)
+    normalization_method: NautilaiNormalizationMethods | None = Field(default=None)
 
 
 class SavePresetRequest(BaseModel):

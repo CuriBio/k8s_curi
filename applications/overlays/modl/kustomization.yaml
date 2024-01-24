@@ -3,72 +3,50 @@ kind: Kustomization
 
 namespace: argocd
 resources:
-- ../../base
+  - ../../base
 
 patches:
-- patch: |-
-    - op: replace
-      path: /spec/source/path
-      value: "deployments/apiv2/manifests/overlays/modl"
-    - op: replace
-      path: /spec/source/targetRevision
-      value: modl-qc
-  target:
-    kind: Application
-    name: apiv2-deployment
-    namespace: apiv2
-- patch: |-
-    - op: replace
-      path: /spec/source/path
-      value: "deployments/pulse3d/manifests/overlays/modl"
-    - op: replace
-      path: /spec/source/targetRevision
-      value: modl-qc
-  target:
-    kind: Application
-    name: pulse3d-deployment
-    namespace: pulse3d
-- patch: |-
-    - op: replace
-      path: /spec/source/path
-      value: "jobs/pulse3d/manifests/overlays/modl"
-    - op: replace
-      path: /spec/source/targetRevision
-      value: modl-qc
-  target:
-    kind: Application
-    name: pulse3d-jobs
-    namespace: pulse3d
-- patch: |-
-    - op: replace
-      path: /spec/source/path
-      value: "jobs/jobs-operator/manifests/overlays/modl"
-    - op: replace
-      path: /spec/source/targetRevision
-      value: modl-qc
-  target:
-    kind: Application
-    name: jobs-operator
-    namespace: kopf
-- patch: |-
-    - op: replace
-      path: /spec/source/path
-      value: "cluster/manifests/grafana/overlays/modl"
-    - op: replace
-      path: /spec/source/targetRevision
-      value: modl-qc
-  target:
-    kind: Application
-    name: grafana
-    namespace: argocd
-- patch: |-
-    - op: replace
-      path: /spec/source/path
-      value: "cluster/manifests/grafana-loki/overlays/modl"
-    - op: replace
-      path: /spec/source/targetRevision
-      value: modl-qc
-  target:
-    kind: Application
-    name: grafana-loki
-    namespace: argocd
+  - patch: |-
+      - op: replace
+        path: /spec/source/path
+        value: "deployments/apiv2/manifests/overlays/modl"
+      - op: replace
+        path: /spec/source/targetRevision
+        value: modl-qc
+    target:
+      kind: Application
+      name: apiv2-deployment
+      namespace: apiv2
+  - patch: |-
+      - op: replace
+        path: /spec/source/path
+        value: "deployments/pulse3d/manifests/overlays/modl"
+      - op: replace
+        path: /spec/source/targetRevision
+        value: modl-qc
+    target:
+      kind: Application
+      name: pulse3d-deployment
+      namespace: pulse3d
+  - patch: |-
+      - op: replace
+        path: /spec/source/path
+        value: "jobs/pulse3d/manifests/overlays/modl"
+      - op: replace
+        path: /spec/source/targetRevision
+        value: modl-qc
+    target:
+      kind: Application
+      name: pulse3d-jobs
+      namespace: pulse3d
+  - patch: |-
+      - op: replace
+        path: /spec/source/path
+        value: "jobs/jobs-operator/manifests/overlays/modl"
+      - op: replace
+        path: /spec/source/targetRevision
+        value: modl-qc
+    target:
+      kind: Application
+      name: jobs-operator
+      namespace: kopf

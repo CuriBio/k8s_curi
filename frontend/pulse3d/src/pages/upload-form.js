@@ -120,6 +120,7 @@ export default function UploadForm() {
 
   const getDefaultAnalysisParams = () => {
     return {
+      normalizationMethod: "",
       normalizeYAxis: "",
       baseToPeak: "",
       peakToBase: "",
@@ -376,6 +377,7 @@ export default function UploadForm() {
       dataType,
       minPeakWidth,
       maxPeakWidth,
+      normalizationMethod,
     } = analysisParams;
 
     const version =
@@ -451,6 +453,10 @@ export default function UploadForm() {
     } else {
       requestBody.prominence_factors = formatTupleParams(prominenceFactorPeaks, prominenceFactorValleys);
       requestBody.width_factors = formatTupleParams(widthFactorPeaks, widthFactorValleys);
+    }
+
+    if (semverGte(version, "1.0.0")) {
+      requestBody.normalization_method = normalizationMethod === "None" ? null : normalizationMethod;
     }
 
     return requestBody;

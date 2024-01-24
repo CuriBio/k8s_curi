@@ -5,4 +5,6 @@ namespace: argocd
 resources:
   - argo-cd.yaml
   - secrets.yaml
+  - grafana.yaml
+  - grafana-loki.yaml
   - cluster-autoscaler.yaml
