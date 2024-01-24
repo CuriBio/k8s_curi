@@ -70,8 +70,8 @@ def test_routes_with_auth__bad_access_token_given(test_method, test_route):
 
 @pytest.mark.parametrize("test_method,test_route", ROUTES_WITH_AUTH)
 def test_routes_with_auth__invalid_scope_given(test_method, test_route):
-    # using nautilus scope here since it will never be valid for any route in the mantarray svc
-    access_token = get_token(scopes=[Scopes.NAUTILUS__BASE])
+    # using nautilai scope here since it will never be valid for any route in the mantarray svc
+    access_token = get_token(scopes=[Scopes.NAUTILAI__BASE])
 
     response = getattr(test_client, test_method.lower())(
         test_route, headers={"Authorization": f"Bearer {access_token}"}

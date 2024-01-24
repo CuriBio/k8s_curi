@@ -14,7 +14,7 @@ class ProhibitedProductError(Exception):
 class ScopeTags(StrEnum):
     INTERNAL = auto()  # TODO rename this to production?
     MANTARRAY = auto()
-    NAUTILUS = auto()
+    NAUTILAI = auto()
     ADMIN = auto()
     PULSE3D_READ = auto()
     PULSE3D_WRITE = auto()
@@ -75,12 +75,12 @@ class Scopes(StrEnum):
         MANTARRAY__SERIAL_NUMBER__LIST,
         [ScopeTags.MANTARRAY, ScopeTags.INTERNAL],
     )
-    NAUTILUS__ADMIN = auto(), None, [ScopeTags.NAUTILUS, ScopeTags.PULSE3D_READ, ScopeTags.ADMIN]
-    NAUTILUS__BASE = auto(), None, [ScopeTags.NAUTILUS, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE]
-    NAUTILUS__RW_ALL_DATA = (
+    NAUTILAI__ADMIN = auto(), None, [ScopeTags.NAUTILAI, ScopeTags.PULSE3D_READ, ScopeTags.ADMIN]
+    NAUTILAI__BASE = auto(), None, [ScopeTags.NAUTILAI, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE]
+    NAUTILAI__RW_ALL_DATA = (
         auto(),
-        NAUTILUS__BASE,
-        [ScopeTags.NAUTILUS, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE],
+        NAUTILAI__BASE,
+        [ScopeTags.NAUTILAI, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE],
     )
     REFRESH = auto(), None, [ScopeTags.UNASSIGNABLE]
     USER__VERIFY = auto(), None, [ScopeTags.ACCOUNT, ScopeTags.UNASSIGNABLE]
@@ -106,7 +106,7 @@ def convert_scope_str(scope_str: str) -> Scopes:
 def get_product_tags_of_admin(admin_scopes) -> set[Scopes]:
     return {tag for s in admin_scopes for tag in s.tags if ScopeTags.ADMIN in s.tags} & {
         ScopeTags.MANTARRAY,
-        ScopeTags.NAUTILUS,
+        ScopeTags.NAUTILAI,
     }
 
 
