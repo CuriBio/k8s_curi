@@ -501,15 +501,19 @@ export default function AnalysisParamForm({
       setPulse3dVersionEOLDateWarning(warning);
       setDeprecationNotice(selectedVersionMetadata.state === "deprecated");
     }
+
     updateParams({
       selectedPulse3dVersion: pulse3dFilteredFileVersions[idx],
     });
   };
 
   useEffect(() => {
-    // set back to index of zero, this gets handled after a file is uploaded and if an xlsx file is present, the pulse3d versions will be in a different order.
+    // set back to initial version index, this gets handled after a file is uploaded and if an xlsx file is present, the pulse3d versions will be in a different order.
     updateParams({
-      selectedPulse3dVersion: pulse3dFilteredFileVersions[0],
+      selectedPulse3dVersion:
+        pulse3dFilteredFileVersions[
+          getDropdownInitialSelection("selectedPulse3dVersion", pulse3dFilteredFileVersions)
+        ],
     });
 
     const options = pulse3dFilteredFileVersions.map((version) => {
@@ -547,6 +551,7 @@ export default function AnalysisParamForm({
 
   const pulse3dVersionGte = (version) => {
     const { selectedPulse3dVersion } = analysisParams;
+    console.log(selectedPulse3dVersion, version);
     return selectedPulse3dVersion && semverGte(selectedPulse3dVersion, version);
   };
 
@@ -581,7 +586,7 @@ export default function AnalysisParamForm({
 
   const updateParams = (newParams) => {
     const updatedParams = { ...analysisParams, ...newParams };
-
+    console.log(updatedParams, newParams);
     if ("twitchWidths" in newParams) {
       validateTwitchWidths(updatedParams);
     }
