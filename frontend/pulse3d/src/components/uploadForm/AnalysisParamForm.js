@@ -551,7 +551,6 @@ export default function AnalysisParamForm({
 
   const pulse3dVersionGte = (version) => {
     const { selectedPulse3dVersion } = analysisParams;
-    console.log(selectedPulse3dVersion, version);
     return selectedPulse3dVersion && semverGte(selectedPulse3dVersion, version);
   };
 
@@ -586,7 +585,7 @@ export default function AnalysisParamForm({
 
   const updateParams = (newParams) => {
     const updatedParams = { ...analysisParams, ...newParams };
-    console.log(updatedParams, newParams);
+
     if ("twitchWidths" in newParams) {
       validateTwitchWidths(updatedParams);
     }
