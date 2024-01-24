@@ -97,7 +97,7 @@ resource "aws_s3_bucket_acl" "main_firmware_bucket" {
 
 
 resource "aws_s3_bucket_cors_configuration" "main_firmware_bucket" {
-  bucket = aws_s3_bucket.pulse3d_uploads_bucket.bucket
+  bucket = aws_s3_bucket.main_firmware_bucket.bucket
 
   cors_rule {
     allowed_headers = ["*"]
@@ -161,7 +161,7 @@ resource "aws_s3_bucket_acl" "channel_firmware_bucket" {
 }
 
 resource "aws_s3_bucket_cors_configuration" "channel_firmware_bucket" {
-  bucket = aws_s3_bucket.pulse3d_uploads_bucket.bucket
+  bucket = aws_s3_bucket.channel_firmware_bucket.bucket
 
   cors_rule {
     allowed_headers = ["*"]
