@@ -474,6 +474,7 @@ export default function AnalysisParamForm({
     setAnalysisPresetName,
     analysisPresetName,
   },
+  isPulse3dPreferenceSet,
 }) {
   const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails, dataTypeDetails } = useContext(
     UploadsContext
@@ -571,12 +572,7 @@ export default function AnalysisParamForm({
 
     // set initial p3d version to user preference if available, account for it to now always be set
     // additionally, need to wait for pulse3dVersions to be fetched and set
-    if (
-      param == "selectedPulse3dVersion" &&
-      productPage in preferences &&
-      "version" in preferences[productPage] &&
-      pulse3dVersions.length > 0
-    ) {
+    if (param == "selectedPulse3dVersion" && isPulse3dPreferenceSet()) {
       optionIndex = optionsArr.indexOf(preferences[productPage].version);
     }
 
