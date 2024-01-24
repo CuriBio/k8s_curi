@@ -95,6 +95,19 @@ resource "aws_s3_bucket_acl" "main_firmware_bucket" {
   acl    = "private"
 }
 
+
+resource "aws_s3_bucket_cors_configuration" "main_firmware_bucket" {
+  bucket = aws_s3_bucket.pulse3d_uploads_bucket.bucket
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["POST"]
+    allowed_origins = var.cluster_name == "prod" ? ["https://dashboard.curibio.com"] : ["https://dashboard.curibio-test.com", "https://dashboard.curibio-modl.com", "http://localhost:3000"]
+
+  }
+}
+
+
 resource "aws_s3_bucket" "channel_firmware_bucket" {
   bucket = "${var.cluster_name}-channel-firmware"
 }
@@ -145,6 +158,17 @@ resource "aws_s3_bucket_acl" "channel_firmware_bucket" {
 
   bucket = aws_s3_bucket.channel_firmware_bucket.id
   acl    = "private"
+}
+
+resource "aws_s3_bucket_cors_configuration" "channel_firmware_bucket" {
+  bucket = aws_s3_bucket.pulse3d_uploads_bucket.bucket
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["POST"]
+    allowed_origins = var.cluster_name == "prod" ? ["https://dashboard.curibio.com"] : ["https://dashboard.curibio-test.com", "https://dashboard.curibio-modl.com", "http://localhost:3000"]
+
+  }
 }
 
 resource "aws_s3_bucket" "logs_bucket" {
