@@ -120,7 +120,7 @@ export default function UploadForm() {
 
   const getDefaultAnalysisParams = () => {
     return {
-      normalizationMethod: "",
+      normalizationMethod: null,
       normalizeYAxis: "",
       baseToPeak: "",
       peakToBase: "",
