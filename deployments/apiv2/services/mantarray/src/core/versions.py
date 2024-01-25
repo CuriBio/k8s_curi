@@ -28,29 +28,44 @@ def get_latest_compatible_versions(all_compatible_versions: list[dict[str, str]]
     return labelled_items[highest_cfw]
 
 
-def get_required_sw_version_range(main_fw_version: str, main_fw_compatibility: list[dict[str, str]]):
+def get_required_sw_version_range(
+    main_fw_version: str,
+    main_fw_compatibility: list[dict[str, str]],
+    ma_sw_versions: list[dict[str, str]],
+    sting_sw_versions: list[dict[str, str]],
+    remove_internal: bool,
+):
     mfw_to_ma_sw = {d["main_fw_version"]: d["min_ma_controller_version"] for d in main_fw_compatibility}
     mfw_to_sting_sw = {d["main_fw_version"]: d["min_sting_controller_version"] for d in main_fw_compatibility}
 
-    version_bounds = {}
-    for sw_type, mapping in {"sw": mfw_to_ma_sw, "sting_sw": mfw_to_sting_sw}.items():
-        min_sw_version = mapping[main_fw_version]
+    ma_sw_version_state = {d["version"]: d["state"] for d in ma_sw_versions}
+    sting_sw_version_state = {d["version"]: d["state"] for d in sting_sw_versions}
 
-        all_sw_versions = _filter_and_sort_semvers(mapping.values())
+    version_bounds = {}
+    for sw_type, fw_mapping, sw_version_state in [
+        ("sw", mfw_to_ma_sw, ma_sw_version_state),
+        ("sting_sw", mfw_to_sting_sw, sting_sw_version_state),
+    ]:
+        min_sw_version_for_fw = fw_mapping[main_fw_version]
+        min_sw_versions = _filter_and_sort_semvers(fw_mapping.values())
+
+        all_sw_versions = _filter_and_sort_semvers(
+            sw_version_state.keys(), lambda sw: not remove_internal or sw_version_state[str(sw)] == "external"
+        )
 
         try:
             min_sw_version_of_next_main_fw = _filter_and_sort_semvers(
-                all_sw_versions, lambda sw: sw > min_sw_version
+                min_sw_versions, lambda sw: sw > min_sw_version_for_fw
             )[0]
         except IndexError:
-            # given main FW version is the latest version and thus the max SW version should be whatever the current max SW version is
-            max_sw_version = all_sw_versions[-1]
+            # given main FW version is the latest version and thus the max SW version should be the current max SW version released on prod
+            max_sw_version_for_fw = all_sw_versions[-1]
         else:
             # there exists a subsequent main FW version and the max SW version should be whichever SW version immediately precedes the min version tied to this subsequent FW version
-            max_sw_version = _get_previous_sw_version(all_sw_versions, min_sw_version_of_next_main_fw)
+            max_sw_version_for_fw = _get_previous_sw_version(all_sw_versions, min_sw_version_of_next_main_fw)
 
         version_bounds.update(
-            {f"min_{sw_type}": f"{min_sw_version}-pre.0", f"max_{sw_type}": f"{max_sw_version}"}
+            {f"min_{sw_type}": f"{min_sw_version_for_fw}-pre.0", f"max_{sw_type}": f"{max_sw_version_for_fw}"}
         )
 
     return version_bounds
