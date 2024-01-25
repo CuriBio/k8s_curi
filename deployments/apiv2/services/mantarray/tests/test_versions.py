@@ -9,9 +9,15 @@ def _random_semver():
     return f"{randint(0,1000)}.{randint(0,1000)}.{randint(0,1000)}"
 
 
-def _shuffled_copy(items: list):
-    items_copy = items.copy()
-    shuffle(items_copy)
+def _shuffled_copy(items: list | dict):
+    if isinstance(items, list):
+        items_copy = items.copy()
+        shuffle(items_copy)
+    elif isinstance(items, dict):
+        keys = list(items.keys())
+        shuffle(keys)
+        items_copy = {k: items[k] for k in keys}
+
     return items_copy
 
 
@@ -20,11 +26,15 @@ def _get_test_main_fw_compatibility(include_channel_fw=False):
     ma_channel_fw_versions = ["1.1.0", "2.1.0", "3.1.0", "11.1.0"]
     ma_main_fw_versions = ["1.0.0", "2.0.0", "3.0.0", "11.0.0"]
 
-    ma_sw_versions = ["1.0.1", "1.1.1", "2.0.1", "2.1.1", "3.0.1", "3.1.1", "11.0.1"]
-    min_ma_sw_versions = [v for i, v in enumerate(ma_sw_versions) if i % 2 == 0]
+    ma_sw_versions = [
+        {"version": v, "state": "external" if i % 2 == 0 else "internal"}
+        for i, v in enumerate(["1.0.1", "1.1.1", "2.0.1", "2.1.1", "3.0.1", "3.1.1", "11.0.1", "11.1.1"])
+    ]
+    min_ma_sw_versions = [d["version"] for d in ma_sw_versions if d["state"] == "external"]
 
-    sting_sw_versions = ["1" + ma_sw for ma_sw in ma_sw_versions]
-    min_sting_sw_versions = [v for i, v in enumerate(sting_sw_versions) if i % 2 == 0]
+    sting_sw_versions = [{"version": "1" + d["version"], "state": d["state"]} for d in ma_sw_versions]
+    # sting_sw_versions = [{"1" + v: state for v, state in ma_sw_versions.items()}]
+    min_sting_sw_versions = [d["version"] for d in sting_sw_versions if d["state"] == "external"]
 
     main_fw_compatibility = [
         {
@@ -80,7 +90,8 @@ def test_get_previous_sw_version__returns_error_when_a_previous_version_does_not
         versions._get_previous_sw_version(["1.0.11", "1.1.0", "1.1.1", "11.0.0"], "1.0.11")
 
 
-def test_get_required_sw_version_range__returns_min_software_version_correctly(mocker):
+@pytest.mark.parametrize("remove_internal", [True, False])
+def test_get_required_sw_version_range__returns_min_software_version_correctly(mocker, remove_internal):
     main_fw_compatibility, ma_sw_versions, sting_sw_versions = _get_test_main_fw_compatibility()
 
     test_idx = randint(0, len(main_fw_compatibility) - 1)
@@ -94,16 +105,24 @@ def test_get_required_sw_version_range__returns_min_software_version_correctly(m
         _shuffled_copy(main_fw_compatibility),
         _shuffled_copy(ma_sw_versions),
         _shuffled_copy(sting_sw_versions),
+        remove_internal,
     )
     assert version_bounds["min_sw"] == f"{expected_versions['min_ma_controller_version']}-pre.0"
     assert version_bounds["min_sting_sw"] == f"{expected_versions['min_sting_controller_version']}-pre.0"
 
 
-def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_one_exists(mocker):
+@pytest.mark.parametrize("remove_internal", [True, False])
+def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_one_exists(
+    mocker, remove_internal
+):
     main_fw_compatibility, ma_sw_versions, sting_sw_versions = _get_test_main_fw_compatibility()
 
     # last element will not have a max sw version
     test_idx = randint(0, len(main_fw_compatibility) - 2)
+
+    expected_sw_idx = test_idx * 2
+    if not remove_internal:
+        expected_sw_idx += 1
 
     spied_get_prev = mocker.spy(versions, "_get_previous_sw_version")
 
@@ -112,9 +131,10 @@ def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_o
         _shuffled_copy(main_fw_compatibility),
         _shuffled_copy(ma_sw_versions),
         _shuffled_copy(sting_sw_versions),
+        remove_internal,
     )
-    assert version_bounds["max_sw"] == ma_sw_versions[test_idx * 2 + 1]
-    assert version_bounds["max_sting_sw"] == sting_sw_versions[test_idx * 2 + 1]
+    assert version_bounds["max_sw"] == ma_sw_versions[expected_sw_idx]["version"]
+    assert version_bounds["max_sting_sw"] == sting_sw_versions[expected_sw_idx]["version"]
 
     assert spied_get_prev.call_args_list == [
         mocker.call(mocker.ANY, main_fw_compatibility[test_idx + 1]["min_ma_controller_version"]),
@@ -122,8 +142,9 @@ def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_o
     ]
 
 
+@pytest.mark.parametrize("remove_internal", [True, False])
 def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_next_main_fw_has_same_sw_version(
-    mocker,
+    mocker, remove_internal
 ):
     main_fw_compatibility, ma_sw_versions, sting_sw_versions = _get_test_main_fw_compatibility()
 
@@ -134,6 +155,10 @@ def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_n
         for key in ("min_ma_controller_version", "min_sting_controller_version")
     }
 
+    expected_sw_idx = test_idx * 2 + 2
+    if not remove_internal:
+        expected_sw_idx += 1
+
     spied_get_prev = mocker.spy(versions, "_get_previous_sw_version")
 
     version_bounds = versions.get_required_sw_version_range(
@@ -141,9 +166,10 @@ def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_n
         _shuffled_copy(main_fw_compatibility),
         _shuffled_copy(ma_sw_versions),
         _shuffled_copy(sting_sw_versions),
+        remove_internal,
     )
-    assert version_bounds["max_sw"] == ma_sw_versions[test_idx * 2 + 3]
-    assert version_bounds["max_sting_sw"] == sting_sw_versions[test_idx * 2 + 3]
+    assert version_bounds["max_sw"] == ma_sw_versions[expected_sw_idx]["version"]
+    assert version_bounds["max_sting_sw"] == sting_sw_versions[expected_sw_idx]["version"]
 
     assert spied_get_prev.call_args_list == [
         mocker.call(mocker.ANY, main_fw_compatibility[test_idx + 2]["min_ma_controller_version"]),
@@ -151,22 +177,28 @@ def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_n
     ]
 
 
-def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_one_does_not_exist(mocker):
+@pytest.mark.parametrize("remove_internal", [True, False])
+def test_get_required_sw_version_range__returns_max_sw_version_correctly__when_one_does_not_exist(
+    mocker, remove_internal
+):
     main_fw_compatibility, ma_sw_versions, sting_sw_versions = _get_test_main_fw_compatibility()
 
     # only the final element will not have a max sw version
-    expected_versions = main_fw_compatibility[-1]
+    test_fw_version = main_fw_compatibility[-1]["main_fw_version"]
+
+    expected_final_idx = -2 if remove_internal else -1
 
     spied_get_prev = mocker.patch.object(versions, "_get_previous_sw_version")
 
     version_bounds = versions.get_required_sw_version_range(
-        expected_versions["main_fw_version"],
+        test_fw_version,
         _shuffled_copy(main_fw_compatibility),
         _shuffled_copy(ma_sw_versions),
         _shuffled_copy(sting_sw_versions),
+        remove_internal,
     )
-    assert version_bounds["max_sw"] == ma_sw_versions[-1]
-    assert version_bounds["max_sting_sw"] == sting_sw_versions[-1]
+    assert version_bounds["max_sw"] == ma_sw_versions[expected_final_idx]["version"]
+    assert version_bounds["max_sting_sw"] == sting_sw_versions[expected_final_idx]["version"]
 
     spied_get_prev.assert_not_called()
 

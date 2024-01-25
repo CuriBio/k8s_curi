@@ -149,8 +149,11 @@ async def delete_serial_number(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.get("/software-range/{main_fw_version}")
-async def get_software_for_main_fw(request: Request, main_fw_version: str = Path(..., pattern=SEMVER_REGEX)):
+@app.get("/software-range/{main_fw_version}/{prod}")
+async def get_software_for_main_fw(
+    request: Request, prod: bool, main_fw_version: str = Path(..., pattern=SEMVER_REGEX)
+):
+    # TODO add param to see if this is unstable or prod
     """Get the max/min SW version compatible with the given main firmware version."""
     try:
         async with request.state.pgpool.acquire() as con:
@@ -158,14 +161,11 @@ async def get_software_for_main_fw(request: Request, main_fw_version: str = Path
                 "SELECT version AS main_fw_version, min_ma_controller_version, min_sting_controller_version "
                 "FROM ma_main_firmware"
             )
-            ma_sw_versions = await con.fetch("SELECT version FROM ma_controllers")
-            sting_sw_versions = await con.fetch("SELECT version FROM sting_controllers")
-
-        ma_sw_versions = [row["version"] for row in ma_sw_versions]
-        sting_sw_versions = [row["version"] for row in sting_sw_versions]
+            ma_sw_versions = await con.fetch("SELECT version, state FROM ma_controllers")
+            sting_sw_versions = await con.fetch("SELECT version, state FROM sting_controllers")
 
         max_min_version_dict = get_required_sw_version_range(
-            main_fw_version, main_fw_compatibility, ma_sw_versions, sting_sw_versions
+            main_fw_version, main_fw_compatibility, ma_sw_versions, sting_sw_versions, prod
         )
         return JSONResponse(max_min_version_dict)
     except Exception:

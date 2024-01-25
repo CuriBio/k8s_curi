@@ -125,13 +125,14 @@ def test_serial_number__delete__success(mocked_asyncpg_con):
     )
 
 
-def test_software_range__get__success(mocker):
+@pytest.mark.parametrize("is_prod", [True, False])
+def test_software_range__get__success(is_prod, mocker):
     mocked_get_required = mocker.patch.object(main, "get_required_sw_version_range", autospec=True)
     mocked_get_required.return_value = expected_max_min = {"min_sw": "1.1.1", "max_sw": "2.2.2"}
 
     test_main_fw_version = random_semver()
 
-    response = test_client.get(f"/software-range/{test_main_fw_version}")
+    response = test_client.get(f"/software-range/{test_main_fw_version}/{is_prod}")
     assert response.status_code == 200
     assert response.json() == expected_max_min
 
