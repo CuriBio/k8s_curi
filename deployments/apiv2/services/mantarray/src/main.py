@@ -149,11 +149,22 @@ async def delete_serial_number(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+# TODO Tanner (1/25/24): this is kept here to support backwards compatibility with older controller versions. It can be removed once all users upgrade to the controller versions released after the date of this note
+@app.get("/software-range/{main_fw_version}")
+async def get_prod_software_for_main_fw(
+    request: Request, main_fw_version: str = Path(..., pattern=SEMVER_REGEX)
+):
+    return await _get_software_range(request, main_fw_version, True)
+
+
 @app.get("/software-range/{main_fw_version}/{prod}")
 async def get_software_for_main_fw(
     request: Request, prod: bool, main_fw_version: str = Path(..., pattern=SEMVER_REGEX)
 ):
-    # TODO add param to see if this is unstable or prod
+    return await _get_software_range(request, main_fw_version, prod)
+
+
+async def _get_software_range(request: Request, main_fw_version: str, prod: bool):
     """Get the max/min SW version compatible with the given main firmware version."""
     try:
         async with request.state.pgpool.acquire() as con:
@@ -174,7 +185,7 @@ async def get_software_for_main_fw(
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"message": err_msg})
 
 
-# TODO Tanner (11/20/23): this is kept here to support backwards compatibility with older controller versions. It can be removed once all users upgrade to the controller versions released after the date of this note
+# TODO Tanner (1/25/24): this is kept here to support backwards compatibility with older controller versions. It can be removed once all users upgrade to the controller versions released after the date of this note
 @app.get("/versions/{serial_number}")
 async def get_latest_prod_versions(request: Request, serial_number: str):
     latest_versions = await _get_latest_versions(request, serial_number, True)
