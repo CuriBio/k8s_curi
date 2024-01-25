@@ -158,7 +158,15 @@ async def get_software_for_main_fw(request: Request, main_fw_version: str = Path
                 "SELECT version AS main_fw_version, min_ma_controller_version, min_sting_controller_version "
                 "FROM ma_main_firmware"
             )
-        max_min_version_dict = get_required_sw_version_range(main_fw_version, main_fw_compatibility)
+            ma_sw_versions = await con.fetch("SELECT version FROM ma_controllers")
+            sting_sw_versions = await con.fetch("SELECT version FROM sting_controllers")
+
+        ma_sw_versions = [row["version"] for row in ma_sw_versions]
+        sting_sw_versions = [row["version"] for row in sting_sw_versions]
+
+        max_min_version_dict = get_required_sw_version_range(
+            main_fw_version, main_fw_compatibility, ma_sw_versions, sting_sw_versions
+        )
         return JSONResponse(max_min_version_dict)
     except Exception:
         err_msg = f"Error getting the required SW version for main FW v{main_fw_version}"
