@@ -49,7 +49,6 @@ def get_required_sw_version_range(
         min_sw_version_for_fw = fw_mapping[main_fw_version]
         min_sw_versions = _filter_and_sort_semvers(fw_mapping.values())
 
-        # TODO add 'state' column to SW versions and filter them accordingly
         all_sw_versions = _filter_and_sort_semvers(
             sw_version_state.keys(), lambda sw: not remove_internal or sw_version_state[str(sw)] == "external"
         )
