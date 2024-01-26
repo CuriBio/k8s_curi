@@ -831,6 +831,36 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(tag=ScopeTa
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@app.get("/customers")
+async def get_all_customers(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.CURI__ADMIN]))):
+    """Get info for all the customer accounts.
+
+    List of customers returned will be sorted with all active customer showing up first, then all the suspended (deactivated) customer.
+    """
+    customer_id = uuid.UUID(hex=token.customer_id)
+
+    bind_context_to_logger({"customer_id": str(customer_id), "user_id": None})
+
+    query = (
+        "SELECT c.id, c.email, c.last_login, c.suspended, c.usage_restrictions, array_agg(s.scope) as scopes "
+        "FROM customers c "
+        "INNER JOIN account_scopes s ON c.id=s.customer_id "
+        "WHERE s.user_id IS NULL AND c.id!=$1"  # don't return curi customer account
+        "GROUP BY c.id, c.email, c.last_login, c.suspended, c.usage_restrictions "
+        "ORDER BY c.suspended"
+    )
+
+    try:
+        async with request.state.pgpool.acquire() as con:
+            result = await con.fetch(query, customer_id)
+
+        return [dict(row) for row in result]
+
+    except Exception:
+        logger.exception("GET /: Unexpected error")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 @app.put("/scopes/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def update_user_scopes(
     request: Request,

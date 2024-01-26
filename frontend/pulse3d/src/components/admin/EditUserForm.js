@@ -15,7 +15,7 @@ const BodyContainer = styled.div`
 
 export default function EditUserForm({ userData, openEditModal, setOpenEditModal, resetTable }) {
   const [selectedScopes, setSelectedScopes] = useState([]);
-  const [buttons, setButtons] = useState(["Close", "Save"]);
+  const [buttons, setButtons] = useState(["Cancel", "Save"]);
   const [labels, setLabels] = useState([]);
 
   const { availableScopes } = useContext(AuthContext);
