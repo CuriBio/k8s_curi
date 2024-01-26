@@ -150,6 +150,9 @@ def test_versions__get__success(is_prod, mocked_asyncpg_con, mocker):
         main, "get_latest_compatible_versions", autospec=True, return_value=test_latest_versions
     )
 
+    mocked_fetch_returns = [mocker.MagicMock()] * 2
+    mocked_asyncpg_con.fetch.side_effect = mocked_fetch_returns
+
     test_serial_number = "MA2022001000"
     response = test_client.get(f"/versions/{test_serial_number}/{is_prod}")
     assert response.status_code == 200
@@ -171,10 +174,11 @@ def test_versions__get__success(is_prod, mocked_asyncpg_con, mocker):
         "WHERE u.serial_number=$1 "
     )
     if is_prod:
-        expected_query += "AND m.state='external' AND c.state='external'"
+        expected_query += "AND c.state='external'"
 
-    mocked_asyncpg_con.fetch.assert_called_once_with(expected_query, test_serial_number)
-    mocked_get_latest.assert_called_once_with(mocked_asyncpg_con.fetch.return_value)
+    mocked_asyncpg_con.fetch.assert_any_call(expected_query, test_serial_number)
+    mocked_asyncpg_con.fetch.assert_any_call("SELECT version, state FROM ma_main_firmware")
+    mocked_get_latest.assert_called_once_with(*mocked_fetch_returns, is_prod)
 
 
 def test_versions__get__no_prod__success(mocked_asyncpg_con, mocker):
@@ -188,6 +192,9 @@ def test_versions__get__no_prod__success(mocked_asyncpg_con, mocker):
     mocked_get_latest = mocker.patch.object(
         main, "get_latest_compatible_versions", autospec=True, return_value=test_latest_versions
     )
+
+    mocked_fetch_returns = [mocker.MagicMock()] * 2
+    mocked_asyncpg_con.fetch.side_effect = mocked_fetch_returns
 
     test_serial_number = "MA2022001000"
     response = test_client.get(f"/versions/{test_serial_number}")
@@ -205,10 +212,11 @@ def test_versions__get__no_prod__success(mocked_asyncpg_con, mocker):
         "FROM ma_channel_firmware AS c "
         "JOIN ma_main_firmware AS m ON c.main_fw_version=m.version "
         "JOIN maunits AS u ON c.hw_version=u.hw_version "
-        "WHERE u.serial_number=$1 AND m.state='external' AND c.state='external'"
+        "WHERE u.serial_number=$1 AND c.state='external'"
     )
-    mocked_asyncpg_con.fetch.assert_called_once_with(expected_query, test_serial_number)
-    mocked_get_latest.assert_called_once_with(mocked_asyncpg_con.fetch.return_value)
+    mocked_asyncpg_con.fetch.assert_any_call(expected_query, test_serial_number)
+    mocked_asyncpg_con.fetch.assert_any_call("SELECT version, state FROM ma_main_firmware")
+    mocked_get_latest.assert_called_once_with(*mocked_fetch_returns, True)
 
 
 def test_versions__get__serial_number_not_found_in_db(mocked_asyncpg_con):
