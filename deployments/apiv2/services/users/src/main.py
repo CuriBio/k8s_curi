@@ -861,6 +861,7 @@ async def get_all_customers(request: Request, token=Depends(ProtectedAny(scopes=
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+# TODO could be added to PUT /{account_id}
 @app.put("/scopes/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def update_user_scopes(
     request: Request,
@@ -1009,6 +1010,73 @@ async def get_user(
         raise
     except Exception:
         logger.exception(f"GET /{account_id}: Unexpected error")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.put("/customers/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def update_customer(
+    request: Request,
+    details: AccountUpdateAction,
+    account_id: uuid.UUID,
+    token=Depends(ProtectedAny(scopes=[Scopes.CURI__ADMIN])),
+):
+    """Update a customer account's information in the database, restricted use for Curi Admin.
+
+    The action to take on the user should be passed in the body of PUT request as action_type:
+        - deactivate (admin->user): set suspended field to true
+        - reactivate (admin->self): set the alias field to the given value
+        - set_password (admin->self, user->self): change user/admin password
+    """
+    self_id = uuid.UUID(hex=token.account_id)
+    action = details.action_type
+    update_query = None
+
+    try:
+        bind_context_to_logger(
+            {
+                "user_id": None,
+                "customer_id": str(self_id),
+                "action": action,
+                "target_customer": str(account_id),
+            }
+        )
+
+        if action == "deactivate":
+            update_query = "UPDATE customers SET suspended='t' WHERE id=$1"
+            query_args = (account_id,)
+        elif action == "reactivate":
+            # when reactivated, failed login attempts should be set back to 0.
+            update_query = "UPDATE customers SET suspended='f', failed_login_attempts=0 WHERE id=$1"
+            query_args = (account_id,)
+        elif action == "edit":
+            update_query = "UPDATE customers SET usage_restrictions=$1 WHERE id=$2"
+            query_args = (json.dumps(details.usage), account_id)
+
+            async with request.state.pgpool.acquire() as con:
+                async with con.transaction():
+                    # remove original scopes
+                    await con.execute(
+                        "DELETE FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL", account_id
+                    )
+                    # insert selected products
+                    for product in details.products:
+                        await con.execute(
+                            f"INSERT INTO account_scopes VALUES ($1, NULL, '{product}:admin')", account_id
+                        )
+
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid curi-edit-admin action: {action}"
+            )
+
+        if update_query is not None:
+            async with request.state.pgpool.acquire() as con:
+                await con.execute(update_query, *query_args)
+
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception(f"PUT /{account_id}: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
