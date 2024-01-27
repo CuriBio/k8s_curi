@@ -215,7 +215,7 @@ async def _get_latest_versions(request: Request, serial_number: str, prod: bool)
     """Get the latest SW, main FW, and channel FW versions compatible with the MA instrument with the given serial number."""
     bind_context_to_logger({"serial_number": serial_number, "is_prod_controller": prod})
 
-    query = (
+    compat_query = (
         "SELECT m.min_ma_controller_version, m.min_sting_controller_version, m.version AS main_fw_version, c.version AS channel_fw_version "
         "FROM ma_channel_firmware AS c "
         "JOIN ma_main_firmware AS m ON c.main_fw_version=m.version "
@@ -223,17 +223,22 @@ async def _get_latest_versions(request: Request, serial_number: str, prod: bool)
         "WHERE u.serial_number=$1 "
     )
     if prod:
-        query += "AND m.state='external' AND c.state='external'"
+        compat_query += "AND c.state='external'"
 
     async with request.state.pgpool.acquire() as con:
         try:
-            all_compatible_versions = await con.fetch(query, serial_number)
+            all_compatible_versions = await con.fetch(compat_query, serial_number)
         except Exception:
             logger.exception(f"Serial Number {serial_number} not found")
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
 
+        all_main_fw_versions = await con.fetch("SELECT version, state FROM ma_main_firmware")
+
+    all_compatible_versions = [dict(row) for row in all_compatible_versions]
+    all_main_fw_versions = [dict(row) for row in all_main_fw_versions]
+
     try:
-        latest_versions = get_latest_compatible_versions(all_compatible_versions)
+        latest_versions = get_latest_compatible_versions(all_compatible_versions, all_main_fw_versions, prod)
     except Exception:
         err_msg = f"Error determining latest FW + SW versions for {serial_number}"
         logger.exception(err_msg)
@@ -290,11 +295,11 @@ async def upload_firmware_file(
     async with request.state.pgpool.acquire() as con:
         if fw_type == "main":
             min_ma_controller_version = _get_min_compatible_sw_version(
-                await con.fetch("SELECT version FROM ma_controllers"),
+                await con.fetch("SELECT version, state FROM ma_controllers"),
                 details.is_compatible_with_current_ma_sw,
             )
             min_sting_controller_version = _get_min_compatible_sw_version(
-                await con.fetch("SELECT version FROM sting_controllers"),
+                await con.fetch("SELECT version, state FROM sting_controllers"),
                 details.is_compatible_with_current_sting_sw,
             )
 
@@ -383,10 +388,14 @@ async def add_software_version(
 
 
 def _get_min_compatible_sw_version(sw_version_rows, is_compatible):
-    max_sw_version = sorted([semver.Version.parse(row["version"]) for row in sw_version_rows])[-1]
+    max_sw_version_on_prod_channel = sorted(
+        [semver.Version.parse(row["version"]) for row in sw_version_rows if row["state"] == "external"]
+    )[-1]
 
-    # just bump the patch version
-    if not is_compatible:
-        max_sw_version = max_sw_version.bump_patch()
+    if is_compatible:
+        min_compatible_sw_version = max_sw_version_on_prod_channel
+    else:
+        # just bump the patch version
+        min_compatible_sw_version = max_sw_version_on_prod_channel.bump_patch()
 
-    return str(max_sw_version)
+    return str(min_compatible_sw_version)

@@ -224,9 +224,15 @@ module "eks" {
   eks_managed_node_group_defaults = {
     tags = {
       "k8s.io/cluster-autoscaler/${var.cluster_name}" = "owned"
-      "k8s.io/cluster-autoscaler/enabled" = "True"
+      "k8s.io/cluster-autoscaler/enabled"             = "True"
     }
   }
+
+  kms_key_administrators = [
+    "arn:aws:iam::725604423866:user/jason",
+    "arn:aws:iam::725604423866:user/tanner",
+    "arn:aws:iam::725604423866:user/luci",
+  ]
 }
 
 data "aws_iam_policy" "ebs_csi_policy" {
@@ -307,14 +313,14 @@ resource "aws_iam_policy" "eks_cluster_autoscaler" {
   policy = jsonencode({
     Statement = [{
       Action = [
-                "autoscaling:DescribeAutoScalingGroups",
-                "autoscaling:DescribeAutoScalingInstances",
-                "autoscaling:DescribeLaunchConfigurations",
-                "autoscaling:DescribeTags",
-                "autoscaling:SetDesiredCapacity",
-                "autoscaling:TerminateInstanceInAutoScalingGroup",
-                "ec2:DescribeLaunchTemplateVersions"
-            ]
+        "autoscaling:DescribeAutoScalingGroups",
+        "autoscaling:DescribeAutoScalingInstances",
+        "autoscaling:DescribeLaunchConfigurations",
+        "autoscaling:DescribeTags",
+        "autoscaling:SetDesiredCapacity",
+        "autoscaling:TerminateInstanceInAutoScalingGroup",
+        "ec2:DescribeLaunchTemplateVersions"
+      ]
       Effect   = "Allow"
       Resource = "*"
     }]
