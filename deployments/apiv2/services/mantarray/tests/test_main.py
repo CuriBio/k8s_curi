@@ -150,7 +150,7 @@ def test_versions__get__success(is_prod, mocked_asyncpg_con, mocker):
         main, "get_latest_compatible_versions", autospec=True, return_value=test_latest_versions
     )
 
-    mocked_fetch_returns = [mocker.MagicMock()] * 2
+    mocked_fetch_returns = [[{}, {}]] * 2
     mocked_asyncpg_con.fetch.side_effect = mocked_fetch_returns
 
     test_serial_number = "MA2022001000"
@@ -193,7 +193,7 @@ def test_versions__get__no_prod__success(mocked_asyncpg_con, mocker):
         main, "get_latest_compatible_versions", autospec=True, return_value=test_latest_versions
     )
 
-    mocked_fetch_returns = [mocker.MagicMock()] * 2
+    mocked_fetch_returns = [[{}, {}]] * 2
     mocked_asyncpg_con.fetch.side_effect = mocked_fetch_returns
 
     test_serial_number = "MA2022001000"
@@ -293,10 +293,18 @@ def test_firmware__post__main_fw__success(
     test_fw_version = random_semver()
 
     def fetch_se(query):
-        if query == "SELECT version FROM ma_controllers":
-            return [{"version": v} for v in ("1.1.0", "11.1.0", "11.11.0", "1.11.0")]
-        if query == "SELECT version FROM sting_controllers":
-            return [{"version": v} for v in ("1.1.2", "11.1.2", "11.11.2", "1.11.2")]
+        versions = None
+
+        if query == "SELECT version, state FROM ma_controllers":
+            versions = ("1.1.0", "11.1.0", "11.11.0", "1.11.0")
+        elif query == "SELECT version, state FROM sting_controllers":
+            versions = ("1.1.2", "11.1.2", "11.11.2", "1.11.2")
+
+        if versions:
+            return [
+                {"version": v, "state": "internal" if v == versions[-1] else "external"} for v in versions
+            ]
+
         return None
 
     mocked_asyncpg_con.fetch.side_effect = fetch_se

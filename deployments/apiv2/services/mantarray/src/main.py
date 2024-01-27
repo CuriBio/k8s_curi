@@ -295,11 +295,11 @@ async def upload_firmware_file(
     async with request.state.pgpool.acquire() as con:
         if fw_type == "main":
             min_ma_controller_version = _get_min_compatible_sw_version(
-                await con.fetch("SELECT version FROM ma_controllers"),
+                await con.fetch("SELECT version, state FROM ma_controllers"),
                 details.is_compatible_with_current_ma_sw,
             )
             min_sting_controller_version = _get_min_compatible_sw_version(
-                await con.fetch("SELECT version FROM sting_controllers"),
+                await con.fetch("SELECT version, state FROM sting_controllers"),
                 details.is_compatible_with_current_sting_sw,
             )
 
@@ -388,10 +388,14 @@ async def add_software_version(
 
 
 def _get_min_compatible_sw_version(sw_version_rows, is_compatible):
-    max_sw_version = sorted([semver.Version.parse(row["version"]) for row in sw_version_rows])[-1]
+    max_sw_version_on_prod_channel = sorted(
+        [semver.Version.parse(row["version"]) for row in sw_version_rows if row["state"] == "external"]
+    )[-1]
 
-    # just bump the patch version
-    if not is_compatible:
-        max_sw_version = max_sw_version.bump_patch()
+    if is_compatible:
+        min_compatible_sw_version = max_sw_version_on_prod_channel
+    else:
+        # just bump the patch version
+        min_compatible_sw_version = max_sw_version_on_prod_channel.bump_patch()
 
-    return str(max_sw_version)
+    return str(min_compatible_sw_version)
