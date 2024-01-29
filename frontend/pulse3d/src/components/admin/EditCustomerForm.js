@@ -63,6 +63,15 @@ const UsageInputContainer = styled.div`
   maxheight: 200px;
 `;
 
+const ErrorMsg = styled.span`
+  color: red;
+  font-style: italic;
+  text-align: left;
+  position: relative;
+  width: 85%;
+  padding-top: 2%;
+`;
+
 export default function EditCustomerForm({ customerData, openEditModal, setOpenEditModal, resetTable }) {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [productOptions, setProductOptions] = useState([]);
@@ -70,9 +79,9 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
   const [labels, setLabels] = useState([]);
   const [usage, setUsage] = useState({});
   const [unlimited, setUnlimited] = useState([]);
+  const [errorMsg, setErrorMsg] = useState([]);
 
   useEffect(() => {
-    console.log("here");
     if (customerData) {
       // get available products to choose from
       const parsedCustomerUsage = JSON.parse(customerData.usage);
@@ -100,6 +109,20 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
         for (const product in usage) {
           if (unlimited.includes(product)) {
             usage[product].jobs = -1;
+          }
+
+          const exp = usage[product].expiration_date;
+          if (exp) {
+            // check if valid date, also check number of values because new Date('<single int>') has weird behaviors. Enforce xxxx-xx-xx
+            if (new Date(exp).toString() === "Invalid Date" || exp.split("-").length !== 3) {
+              setLabels([]);
+              return setErrorMsg("*Invalid date format");
+            } else if (new Date(exp) <= new Date()) {
+              setLabels([]);
+              return setErrorMsg("*Expiration date must be greater than today");
+            } else {
+              setErrorMsg();
+            }
           }
         }
 
@@ -200,7 +223,7 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
                         unlimited
                       </UsageInputContainer>
                       <UsageInputContainer>
-                        <UsageLabel>Expiration (mm-dd-yyyy):</UsageLabel>
+                        <UsageLabel>Expiration (yyyy-mm-dd):</UsageLabel>
                         <FormInput
                           name="expiration"
                           placeholder={"none"}
@@ -215,6 +238,7 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
                   )
               )}
             </UsageContainer>
+            <ErrorMsg>{errorMsg}</ErrorMsg>
           </BodyContainer>
         </>
       )}

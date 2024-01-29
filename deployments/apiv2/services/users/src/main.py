@@ -1070,8 +1070,6 @@ async def update_customer(
                         product_diff = set(details.products) - set(existing_products)
                         scope_query = "INSERT INTO account_scopes VALUES ($1, NULL, '$2:admin')"
 
-                    print(product_diff)
-
                     for p in product_diff:
                         await con.execute(scope_query, account_id, p)
         else:
