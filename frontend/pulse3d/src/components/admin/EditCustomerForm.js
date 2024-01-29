@@ -72,6 +72,7 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
   const [unlimited, setUnlimited] = useState([]);
 
   useEffect(() => {
+    console.log("here");
     if (customerData) {
       // get available products to choose from
       const parsedCustomerUsage = JSON.parse(customerData.usage);
@@ -88,6 +89,8 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
         (p) => parsedCustomerUsage[p].jobs === -1
       );
       setUnlimited(unlimitedProds);
+      setLabels([]);
+      setButtons(["Cancel", "Save"]);
     }
   }, [customerData]);
 

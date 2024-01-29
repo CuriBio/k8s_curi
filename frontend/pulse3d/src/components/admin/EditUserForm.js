@@ -26,6 +26,8 @@ export default function EditUserForm({ userData, openEditModal, setOpenEditModal
         Object.keys(availableScopes.user).includes(scope)
       );
       setSelectedScopes(existingScopes);
+      setLabels([]);
+      setButtons(["Cancel", "Save"]);
     }
   }, [userData, availableScopes]);
 

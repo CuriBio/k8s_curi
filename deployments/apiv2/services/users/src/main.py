@@ -1023,9 +1023,9 @@ async def update_customer(
     """Update a customer account's information in the database, restricted use for Curi Admin.
 
     The action to take on the user should be passed in the body of PUT request as action_type:
-        - deactivate (admin->user): set suspended field to true
-        - reactivate (admin->self): set the alias field to the given value
-        - set_password (admin->self, user->self): change user/admin password
+        - deactivate: set suspended field to true
+        - reactivate: set sespended field to false and set login attempts to 0
+        - edit: set usage restrictions in customers and update account scopes for customer, remove from users if present
     """
     self_id = uuid.UUID(hex=token.account_id)
     action = details.action_type
@@ -1054,16 +1054,26 @@ async def update_customer(
 
             async with request.state.pgpool.acquire() as con:
                 async with con.transaction():
-                    # remove original scopes
-                    await con.execute(
-                        "DELETE FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL", account_id
+                    # get current customer scopes
+                    rows = await con.fetch(
+                        "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL",
+                        account_id,
                     )
-                    # insert selected products
-                    for product in details.products:
-                        await con.execute(
-                            f"INSERT INTO account_scopes VALUES ($1, NULL, '{product}:admin')", account_id
-                        )
 
+                    # get product name from admin scopes
+                    existing_products = [dict(p)["scope"].split(":")[0] for p in rows]
+                    # if a product scope is being removed from an admin account, then remove all customer and user entries from account_scopes
+                    if len(product_diff := set(existing_products) - set(details.products)) > 0:
+                        scope_query = "DELETE FROM account_scopes WHERE customer_id=$1 AND scope LIKE '$2%'"
+                    # else a product scope is being added to an admin, then insert new entry for customer only
+                    else:
+                        product_diff = set(details.products) - set(existing_products)
+                        scope_query = "INSERT INTO account_scopes VALUES ($1, NULL, '$2:admin')"
+
+                    print(product_diff)
+
+                    for p in product_diff:
+                        await con.execute(scope_query, account_id, p)
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid curi-edit-admin action: {action}"
