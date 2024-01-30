@@ -62,7 +62,7 @@ export default function Customers() {
             suspended,
           })
         );
-        console.log(customers);
+
         setCustomerData([...customers]);
         setIsLoading(false);
       }
