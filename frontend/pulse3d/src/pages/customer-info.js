@@ -39,7 +39,11 @@ export default function Customers() {
   }, []);
 
   useEffect(() => {
-    if (resetDropdown) setResetDropdown(false);
+    if (resetDropdown) {
+      setResetDropdown(false);
+      // need to wait 1.5 seconds for the request to process, otherwise the /customers route returns with customer with information that has not been updated
+      setTimeout(() => getAllCustomers(), [1500]);
+    }
   }, [resetDropdown]);
 
   const getAllCustomers = async () => {
@@ -57,7 +61,7 @@ export default function Customers() {
             suspended,
           })
         );
-
+        console.log(customers);
         setCustomerData([...customers]);
         setIsLoading(false);
       }
@@ -168,12 +172,13 @@ export default function Customers() {
 
   // Need to return in the order they need to be sorted
   const getStatusValue = (row) => {
-    return row.suspended ? "B" : "A";
+    // set value so that filtering works as expected
+    return row.suspended ? "inactive" : "active";
   };
 
   // based on sorted value, return visible div to show user
   const getStatusDiv = (c) => {
-    return c.getValue() === "A" ? (
+    return c.getValue() === "active" ? (
       <div style={{ color: "var(--teal-green)" }}>active</div>
     ) : (
       <div style={{ color: "red" }}>inactive</div>
@@ -185,8 +190,6 @@ export default function Customers() {
     setOpenErrorModal(false);
     setOpenEditModal(false);
     setRowSelection({});
-
-    await getAllCustomers();
   };
 
   const sendUserActionPutRequest = async (actionToPreform, customers) => {
