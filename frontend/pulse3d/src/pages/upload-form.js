@@ -116,11 +116,27 @@ const isReanalysisPage = (router) => {
 };
 
 export default function UploadForm() {
+  const { usageQuota, preferences, productPage } = useContext(AuthContext);
+
   const { uploads, pulse3dVersions, defaultUploadForReanalysis } = useContext(UploadsContext);
+
+  const isPulse3dPreferenceSet = () => {
+    return (
+      preferences &&
+      productPage in preferences &&
+      "version" in preferences[productPage] &&
+      pulse3dVersions.length > 0
+    );
+  };
+
+  const getDefaultPulse3dVersion = () => {
+    const defaultVersion = isPulse3dPreferenceSet() ? preferences[productPage].version : pulse3dVersions[0];
+    return defaultVersion || "";
+  };
 
   const getDefaultAnalysisParams = () => {
     return {
-      normalizationMethod: "",
+      normalizationMethod: null,
       normalizeYAxis: "",
       baseToPeak: "",
       peakToBase: "",
@@ -129,7 +145,7 @@ export default function UploadForm() {
       startTime: "",
       endTime: "",
       stiffnessFactor: null,
-      selectedPulse3dVersion: pulse3dVersions[0] || "", // Tanner (9/15/22): The pulse3d version technically isn't a param, but it lives in the same part of the form as the params
+      selectedPulse3dVersion: getDefaultPulse3dVersion(), // Tanner (9/15/22): The pulse3d version technically isn't a param, but it lives in the same part of the form as the params
       wellsWithFlippedWaveforms: "",
       showStimSheet: "",
       wellGroups: {},
@@ -155,7 +171,6 @@ export default function UploadForm() {
   };
 
   const router = useRouter();
-  const { usageQuota, productPage } = useContext(AuthContext);
 
   const [files, setFiles] = useState(defaultUploadForReanalysis ? [defaultUploadForReanalysis] : []);
   const [formattedUploads, setFormattedUploads] = useState([]);
@@ -766,6 +781,7 @@ export default function UploadForm() {
             setAnalysisPresetName,
             analysisPresetName,
           }}
+          isPulse3dPreferenceSet={isPulse3dPreferenceSet}
         />
         <ButtonContainer>
           {uploadSuccess && <SuccessText>Upload Successful!</SuccessText>}

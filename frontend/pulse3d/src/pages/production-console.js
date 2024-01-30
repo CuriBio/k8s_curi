@@ -343,9 +343,7 @@ function FirmwareUpload({ fwInfo, refreshTables }) {
         body: formData,
       });
 
-      if (uploadPostRes.status === 204) {
-        await postNewJob(uploadId, filename);
-      } else {
+      if (uploadPostRes.status !== 204) {
         console.log("ERROR uploading file to s3:  ", await uploadPostRes.json());
         return UPLOAD_STATES.FAILED;
       }
