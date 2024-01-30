@@ -1,6 +1,7 @@
 from enum import StrEnum, auto
-from pydantic import BaseModel, field_validator
 from typing import Self
+
+from pydantic import BaseModel, field_validator
 
 
 class ProhibitedScopeError(Exception):
@@ -52,31 +53,64 @@ class Scopes(StrEnum):
         auto(),
         None,
         # TODO does this scope really need to be tagged with ScopeTags.PULSE3D_READ? Or should the root account just be assigned every admin scope
-        [ScopeTags.INTERNAL, ScopeTags.ADMIN, ScopeTags.PULSE3D_READ, ScopeTags.UNASSIGNABLE],
+        [
+            ScopeTags.INTERNAL,
+            ScopeTags.ADMIN,
+            ScopeTags.PULSE3D_READ,
+            ScopeTags.UNASSIGNABLE,
+        ],
     )
-    MANTARRAY__ADMIN = auto(), None, [ScopeTags.MANTARRAY, ScopeTags.ADMIN, ScopeTags.PULSE3D_READ]
-    MANTARRAY__BASE = auto(), None, [ScopeTags.MANTARRAY, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE]
+    MANTARRAY__ADMIN = (
+        auto(),
+        None,
+        [ScopeTags.MANTARRAY, ScopeTags.ADMIN, ScopeTags.PULSE3D_READ],
+    )
+    MANTARRAY__BASE = (
+        auto(),
+        None,
+        [ScopeTags.MANTARRAY, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE],
+    )
     MANTARRAY__RW_ALL_DATA = (
         auto(),
         MANTARRAY__BASE,
         [ScopeTags.MANTARRAY, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE],
     )
     MANTARRAY__FIRMWARE__GET = auto(), MANTARRAY__BASE, [ScopeTags.MANTARRAY]
-    MANTARRAY__FIRMWARE__LIST = auto(), MANTARRAY__BASE, [ScopeTags.MANTARRAY, ScopeTags.INTERNAL]
-    MANTARRAY__FIRMWARE__EDIT = auto(), MANTARRAY__FIRMWARE__LIST, [ScopeTags.MANTARRAY, ScopeTags.INTERNAL]
+    MANTARRAY__FIRMWARE__LIST = (
+        auto(),
+        MANTARRAY__BASE,
+        [ScopeTags.MANTARRAY, ScopeTags.INTERNAL],
+    )
+    MANTARRAY__FIRMWARE__EDIT = (
+        auto(),
+        MANTARRAY__FIRMWARE__LIST,
+        [ScopeTags.MANTARRAY, ScopeTags.INTERNAL],
+    )
     MANTARRAY__SOFTWARE__EDIT = (
         auto(),
         None,
         [ScopeTags.MANTARRAY, ScopeTags.INTERNAL, ScopeTags.UNASSIGNABLE],
     )
-    MANTARRAY__SERIAL_NUMBER__LIST = auto(), MANTARRAY__BASE, [ScopeTags.MANTARRAY, ScopeTags.INTERNAL]
+    MANTARRAY__SERIAL_NUMBER__LIST = (
+        auto(),
+        MANTARRAY__BASE,
+        [ScopeTags.MANTARRAY, ScopeTags.INTERNAL],
+    )
     MANTARRAY__SERIAL_NUMBER__EDIT = (
         auto(),
         MANTARRAY__SERIAL_NUMBER__LIST,
         [ScopeTags.MANTARRAY, ScopeTags.INTERNAL],
     )
-    NAUTILAI__ADMIN = auto(), None, [ScopeTags.NAUTILAI, ScopeTags.PULSE3D_READ, ScopeTags.ADMIN]
-    NAUTILAI__BASE = auto(), None, [ScopeTags.NAUTILAI, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE]
+    NAUTILAI__ADMIN = (
+        auto(),
+        None,
+        [ScopeTags.NAUTILAI, ScopeTags.PULSE3D_READ, ScopeTags.ADMIN],
+    )
+    NAUTILAI__BASE = (
+        auto(),
+        None,
+        [ScopeTags.NAUTILAI, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE],
+    )
     NAUTILAI__RW_ALL_DATA = (
         auto(),
         NAUTILAI__BASE,
@@ -107,7 +141,9 @@ _PRODUCT_SCOPE_TAGS = frozenset({ScopeTags.MANTARRAY, ScopeTags.NAUTILAI})
 
 # TODO add testing for these
 def get_product_tags_of_admin(admin_scopes: list[Scopes]) -> set[Scopes]:
-    return {tag for s in admin_scopes for tag in s.tags if ScopeTags.ADMIN in s.tags} & _PRODUCT_SCOPE_TAGS
+    return {
+        tag for s in admin_scopes for tag in s.tags if ScopeTags.ADMIN in s.tags
+    } & _PRODUCT_SCOPE_TAGS
 
 
 def get_product_tags_of_user(user_scopes: list[Scopes]) -> set[Scopes]:
@@ -151,23 +187,37 @@ def get_assignable_admin_scopes(admin_scopes: list[Scopes]) -> list[Scopes]:
     if Scopes.CURI__ADMIN not in admin_scopes:
         return []
 
-    return [s for s in Scopes if ScopeTags.ADMIN in s.tags and ScopeTags.INTERNAL not in s.tags]
+    return [
+        s
+        for s in Scopes
+        if ScopeTags.ADMIN in s.tags and ScopeTags.INTERNAL not in s.tags
+    ]
 
 
 def get_scope_dependencies(scopes: list[Scopes]) -> dict[Scopes, Scopes]:
     return {s: s.required for s in scopes}
 
 
-def check_prohibited_user_scopes(user_scopes: list[Scopes], admin_scopes: list[Scopes]) -> None:
+def check_prohibited_user_scopes(
+    user_scopes: list[Scopes], admin_scopes: list[Scopes]
+) -> None:
     assignable_scopes = get_assignable_user_scopes(admin_scopes)
     if prohibited_scopes := set(user_scopes) - set(assignable_scopes):
-        raise ProhibitedScopeError(f"Attempting to assign prohibited scope(s): {prohibited_scopes}")
+        raise ProhibitedScopeError(
+            f"Attempting to assign prohibited scope(s): {prohibited_scopes}"
+        )
 
 
-def check_prohibited_admin_scopes(other_admin_scopes: list[Scopes], root_admin_scopes: list[Scopes]) -> None:
+def check_prohibited_admin_scopes(
+    other_admin_scopes: list[Scopes], root_admin_scopes: list[Scopes]
+) -> None:
     assignable_scopes = get_assignable_admin_scopes(root_admin_scopes)
     if prohibited_scopes := set(other_admin_scopes) - set(assignable_scopes):
-        raise ProhibitedScopeError(f"Attempting to assign prohibited scope(s): {prohibited_scopes}")
+        raise ProhibitedScopeError(
+            f"Attempting to assign prohibited scope(s): {prohibited_scopes}"
+        )
     # Tanner (12/14/23): for good measure, double check that the root scope is not present
     if Scopes.CURI__ADMIN in other_admin_scopes:
-        raise ProhibitedScopeError(f"Attempting to assign prohibited scope(s): {Scopes.CURI__ADMIN}")
+        raise ProhibitedScopeError(
+            f"Attempting to assign prohibited scope(s): {Scopes.CURI__ADMIN}"
+        )
