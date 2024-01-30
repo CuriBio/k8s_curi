@@ -804,7 +804,7 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(tag=ScopeTa
     query = (
         "SELECT u.id, u.name, u.email, u.created_at, u.last_login, u.verified, u.suspended, u.reset_token, array_agg(s.scope) as scopes "
         "FROM users u "
-        "INNER JOIN account_scopes s ON u.id=s.user_id "
+        "LEFT JOIN account_scopes s ON u.id=s.user_id "
         "WHERE u.customer_id=$1 AND u.deleted_at IS NULL "
         "GROUP BY u.id, u.name, u.email, u.created_at, u.last_login, u.verified, u.suspended, u.reset_token "
         "ORDER BY u.suspended"
@@ -831,6 +831,37 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(tag=ScopeTa
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@app.get("/customers")
+async def get_all_customers(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.CURI__ADMIN]))):
+    """Get info for all the customer accounts.
+
+    List of customers returned will be sorted with all active customer showing up first, then all the suspended (deactivated) customer.
+    """
+    customer_id = uuid.UUID(hex=token.customer_id)
+
+    bind_context_to_logger({"customer_id": str(customer_id), "user_id": None})
+
+    query = (
+        "SELECT c.id, c.email, c.last_login, c.suspended, c.usage_restrictions, array_agg(s.scope) as scopes "
+        "FROM customers c "
+        "LEFT JOIN account_scopes s ON c.id=s.customer_id "
+        "WHERE s.user_id IS NULL AND c.id!=$1"  # don't return curi customer account
+        "GROUP BY c.id, c.email, c.last_login, c.suspended, c.usage_restrictions "
+        "ORDER BY c.suspended"
+    )
+
+    try:
+        async with request.state.pgpool.acquire() as con:
+            result = await con.fetch(query, customer_id)
+
+        return [dict(row) for row in result]
+
+    except Exception:
+        logger.exception("GET /: Unexpected error")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# TODO could be added to PUT /{account_id}
 @app.put("/scopes/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def update_user_scopes(
     request: Request,
@@ -979,6 +1010,83 @@ async def get_user(
         raise
     except Exception:
         logger.exception(f"GET /{account_id}: Unexpected error")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.put("/customers/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def update_customer(
+    request: Request,
+    details: AccountUpdateAction,
+    account_id: uuid.UUID,
+    token=Depends(ProtectedAny(scopes=[Scopes.CURI__ADMIN])),
+):
+    """Update a customer account's information in the database, restricted use for Curi Admin.
+
+    The action to take on the user should be passed in the body of PUT request as action_type:
+        - deactivate: set suspended field to true
+        - reactivate: set sespended field to false and set login attempts to 0
+        - edit: set usage restrictions in customers and update account scopes for customer, remove from users if present
+    """
+    self_id = uuid.UUID(hex=token.account_id)
+    action = details.action_type
+    update_query = None
+
+    try:
+        bind_context_to_logger(
+            {
+                "user_id": None,
+                "customer_id": str(self_id),
+                "action": action,
+                "target_customer": str(account_id),
+            }
+        )
+
+        if action == "deactivate":
+            update_query = "UPDATE customers SET suspended='t' WHERE id=$1"
+            query_args = (account_id,)
+        elif action == "reactivate":
+            # when reactivated, failed login attempts should be set back to 0.
+            update_query = "UPDATE customers SET suspended='f', failed_login_attempts=0 WHERE id=$1"
+            query_args = (account_id,)
+        elif action == "edit":
+            update_query = "UPDATE customers SET usage_restrictions=$1 WHERE id=$2"
+            query_args = (json.dumps(details.usage), account_id)
+
+            async with request.state.pgpool.acquire() as con:
+                async with con.transaction():
+                    # get current customer scopes
+                    rows = await con.fetch(
+                        "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL",
+                        account_id,
+                    )
+
+                    # get product name from admin scopes
+                    existing_products = [dict(p)["scope"].split(":")[0] for p in rows]
+                    # if a product scope is being removed from an admin account, then remove all customer and user entries from account_scopes
+                    if len(product_diff := set(existing_products) - set(details.products)) > 0:
+                        scope_query = "DELETE FROM account_scopes WHERE customer_id=$1 AND scope LIKE $2"
+                        suffix = "%"
+                    # else a product scope is being added to an admin, then insert new entry for customer only
+                    else:
+                        product_diff = set(details.products) - set(existing_products)
+                        scope_query = "INSERT INTO account_scopes VALUES ($1, NULL, $2)"
+                        suffix = ":admin"
+
+                    for p in product_diff:
+                        await con.execute(scope_query, account_id, f"{p}{suffix}")
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid curi-edit-admin action: {action}"
+            )
+
+        if update_query is not None:
+            async with request.state.pgpool.acquire() as con:
+                await con.execute(update_query, *query_args)
+
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception(f"PUT /{account_id}: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
