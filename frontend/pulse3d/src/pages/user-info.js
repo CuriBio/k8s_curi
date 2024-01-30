@@ -100,7 +100,7 @@ export default function Users() {
             id,
             lastLogin: last_login,
             name,
-            scopes,
+            scopes: scopes.length > 0 && scopes[0] == null ? [] : scopes,
             suspended,
             verified,
             resetToken: reset_token,

@@ -804,7 +804,7 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(tag=ScopeTa
     query = (
         "SELECT u.id, u.name, u.email, u.created_at, u.last_login, u.verified, u.suspended, u.reset_token, array_agg(s.scope) as scopes "
         "FROM users u "
-        "INNER JOIN account_scopes s ON u.id=s.user_id "
+        "LEFT JOIN account_scopes s ON u.id=s.user_id "
         "WHERE u.customer_id=$1 AND u.deleted_at IS NULL "
         "GROUP BY u.id, u.name, u.email, u.created_at, u.last_login, u.verified, u.suspended, u.reset_token "
         "ORDER BY u.suspended"
@@ -844,7 +844,7 @@ async def get_all_customers(request: Request, token=Depends(ProtectedAny(scopes=
     query = (
         "SELECT c.id, c.email, c.last_login, c.suspended, c.usage_restrictions, array_agg(s.scope) as scopes "
         "FROM customers c "
-        "INNER JOIN account_scopes s ON c.id=s.customer_id "
+        "LEFT JOIN account_scopes s ON c.id=s.customer_id "
         "WHERE s.user_id IS NULL AND c.id!=$1"  # don't return curi customer account
         "GROUP BY c.id, c.email, c.last_login, c.suspended, c.usage_restrictions "
         "ORDER BY c.suspended"
@@ -1064,14 +1064,16 @@ async def update_customer(
                     existing_products = [dict(p)["scope"].split(":")[0] for p in rows]
                     # if a product scope is being removed from an admin account, then remove all customer and user entries from account_scopes
                     if len(product_diff := set(existing_products) - set(details.products)) > 0:
-                        scope_query = "DELETE FROM account_scopes WHERE customer_id=$1 AND scope LIKE '$2%'"
+                        scope_query = "DELETE FROM account_scopes WHERE customer_id=$1 AND scope LIKE $2"
+                        suffix = "%"
                     # else a product scope is being added to an admin, then insert new entry for customer only
                     else:
                         product_diff = set(details.products) - set(existing_products)
-                        scope_query = "INSERT INTO account_scopes VALUES ($1, NULL, '$2:admin')"
+                        scope_query = "INSERT INTO account_scopes VALUES ($1, NULL, $2)"
+                        suffix = ":admin"
 
                     for p in product_diff:
-                        await con.execute(scope_query, account_id, p)
+                        await con.execute(scope_query, account_id, f"{p}{suffix}")
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid curi-edit-admin action: {action}"

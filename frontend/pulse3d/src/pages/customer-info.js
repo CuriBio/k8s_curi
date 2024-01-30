@@ -2,20 +2,12 @@ import DashboardLayout from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
 import { useEffect, useMemo, useState } from "react";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
-import { Tooltip } from "@mui/material";
 import Table from "@/components/table/Table";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
-import PasswordForm from "@/components/account/PasswordForm";
 import EditCustomerForm from "@/components/admin/EditCustomerForm";
-import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 import { formatDateTime } from "@/utils/generic";
 
 import { Box } from "@mui/material";
-
-// These can be overridden on a col-by-col basis by setting a value in an  obj in the columns array above
-const TooltipText = styled.span`
-  font-size: 15px;
-`;
 
 const TableContainer = styled.div`
   margin: 3% 3% 3% 3%;
@@ -33,20 +25,10 @@ const DropDownContainer = styled.div`
   margin: 15px 20px;
 `;
 
-const ErrorText = styled.span`
-  color: red;
-  font-style: italic;
-  text-align: left;
-  position: relative;
-  width: 85%;
-  padding-top: 2%;
-`;
-
 export default function Customers() {
   const [customerData, setCustomerData] = useState([]);
   const [resetDropdown, setResetDropdown] = useState(false);
   const [openEditModal, setOpenEditModal] = useState(false);
-  const [errorMsg, setErrorMsg] = useState();
   const [openErrorModal, setOpenErrorModal] = useState(false);
   const [rowSelection, setRowSelection] = useState({});
   const [isLoading, setIsLoading] = useState(true);
@@ -70,7 +52,7 @@ export default function Customers() {
             email,
             id,
             lastLogin,
-            scopes,
+            scopes: scopes.length > 0 && scopes[0] == null ? [] : scopes,
             usage,
             suspended,
           })
@@ -203,7 +185,6 @@ export default function Customers() {
     setOpenErrorModal(false);
     setOpenEditModal(false);
     setRowSelection({});
-    setErrorMsg();
 
     await getAllCustomers();
   };
@@ -235,7 +216,7 @@ export default function Customers() {
         // if delete, deactivate, or reactive
         await sendUserActionPutRequest(dropdownOptions[option].toLowerCase(), checkedCustomers);
         // update table state
-        await resetTable();
+        resetTable();
       } else {
         // else edit customer
         setOpenEditModal(checkedCustomers[0]);

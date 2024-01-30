@@ -5,7 +5,7 @@ config = Config(".env")
 
 APP_NAME = config("APP_NAME", cast=str, default="CuriBio/Auth")
 # version used to tag the docker image
-VERSION = "0.9.2"
+VERSION = "0.9.3"
 
 DASHBOARD_URL = config("DASHBOARD_URL", cast=str, default="https://dashboard.curibio-test.com")
 CURIBIO_EMAIL = config("CURIBIO_EMAIL", cast=str)
