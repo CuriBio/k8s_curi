@@ -35,6 +35,7 @@ from auth import (
     get_account_scopes,
     create_new_tokens,
     AccountTypes,
+    get_product_tags_of_admin,
 )
 from jobs import check_customer_quota
 from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
@@ -1061,7 +1062,9 @@ async def update_customer(
                     )
 
                     # get product name from admin scopes
-                    existing_products = [dict(p)["scope"].split(":")[0] for p in rows]
+                    existing_products = get_product_tags_of_admin(
+                        [convert_scope_str(row["scope"]) for row in rows]
+                    )
                     # if a product scope is being removed from an admin account, then remove all customer and user entries from account_scopes
                     if len(product_diff := set(existing_products) - set(details.products)) > 0:
                         scope_query = "DELETE FROM account_scopes WHERE customer_id=$1 AND scope LIKE $2"
