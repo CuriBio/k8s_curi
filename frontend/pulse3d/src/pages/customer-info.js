@@ -41,8 +41,9 @@ export default function Customers() {
   useEffect(() => {
     if (resetDropdown) {
       setResetDropdown(false);
-      // need to wait 1.5 seconds for the request to process, otherwise the /customers route returns with customer with information that has not been updated
-      setTimeout(() => getAllCustomers(), [1500]);
+      // need to wait 2 seconds for the request to process, otherwise the /customers route returns with customer with information that has not been updated
+      // less than two seconds doesn't work for multiple users at the same time
+      setTimeout(() => getAllCustomers(), [2000]);
     }
   }, [resetDropdown]);
 
@@ -117,7 +118,7 @@ export default function Customers() {
         accessorFn: (row) => row,
         header: "Usage Restrictions",
         id: "usage",
-        filterVariant: "autocomplete",
+        enableColumnFilter: false, // removing for now because it depends on the returned value for accessorFn which is an object, there are workarounds if needed
         size: 300,
         minSize: 130,
         Cell: ({ cell }) => getUsageDiv(cell),
