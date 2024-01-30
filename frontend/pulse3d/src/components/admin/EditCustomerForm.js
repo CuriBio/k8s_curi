@@ -98,6 +98,7 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
         (p) => parsedCustomerUsage[p].jobs === -1
       );
       setUnlimited(unlimitedProds);
+
       // ensure the modal resets if error messages were showing
       setLabels([]);
       setButtons(["Cancel", "Save"]);
@@ -115,10 +116,12 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
           const exp = usage[product].expiration_date;
           if (exp) {
             // check if valid date, also check number of values because new Date('<single int>') has weird behaviors. Enforce xxxx-xx-xx
+            // reset labels so the buttons disabled state returns to false and return so request isn't sent
             if (new Date(exp).toString() === "Invalid Date" || exp.split("-").length !== 3) {
               setLabels([]);
               return setErrorMsg("*Invalid date format");
             } else if (new Date(exp) <= new Date()) {
+              setLabels([]);
               setLabels([]);
               return setErrorMsg("*Expiration date must be greater than today");
             } else {
