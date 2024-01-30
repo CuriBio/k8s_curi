@@ -1,7 +1,7 @@
 """update upload types
 
 Revision ID: 0c8fe377c814
-Revises: 2acde568c771
+Revises: abc8d3935c1b
 Create Date: 2024-01-24 13:35:03.951300
 
 """
@@ -10,7 +10,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "0c8fe377c814"
-down_revision = "2acde568c771"
+down_revision = "abc8d3935c1b"
 branch_labels = None
 depends_on = None
 
