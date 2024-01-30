@@ -98,6 +98,7 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
         (p) => parsedCustomerUsage[p].jobs === -1
       );
       setUnlimited(unlimitedProds);
+      // ensure the modal resets if error messages were showing
       setLabels([]);
       setButtons(["Cancel", "Save"]);
     }

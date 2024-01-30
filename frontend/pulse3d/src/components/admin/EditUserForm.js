@@ -26,6 +26,7 @@ export default function EditUserForm({ userData, openEditModal, setOpenEditModal
         Object.keys(availableScopes.user).includes(scope)
       );
       setSelectedScopes(existingScopes);
+      // ensure the modal resets if error messages were showing
       setLabels([]);
       setButtons(["Cancel", "Save"]);
     }
