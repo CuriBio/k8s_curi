@@ -544,7 +544,7 @@ async def create_new_job(
             # TODO remove this once done testing rc versions of pulse3d rewrite
             version = details.version
             if version == "1.0.0":
-                version = "1.0.0rc17"
+                version = "1.0.0rc18"
 
             job_meta = {"analysis_params": analysis_params, "version": version}
             # if a name is present, then add to metadata of job
@@ -568,9 +568,9 @@ async def create_new_job(
                 rewrite_job_id = await create_job(
                     con=con,
                     upload_id=upload_id,
-                    queue="pulse3d-v1.0.0rc17",
+                    queue="pulse3d-v1.0.0rc18",
                     priority=priority,
-                    meta={**job_meta, "version": "1.0.0rc17"},
+                    meta={**job_meta, "version": "1.0.0rc18"},
                     customer_id=customer_id,
                     job_type=upload_type,
                     add_to_results=False,

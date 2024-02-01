@@ -17,13 +17,13 @@ buildx:
 		--build-arg="CODE_ARTIFACT_ACCESS_KEY_ID=${CODE_ARTIFACT_ACCESS_KEY_ID}"
 
 tag:
-	docker tag pulse3d-worker:latest $(ecr_repo):1.0.0rc17
+	docker tag pulse3d-worker:latest $(ecr_repo):1.0.0rc18
 
 login:
 	aws ecr get-login-password --region us-east-2 | docker login --password-stdin --username AWS $(ecr_repo)
 
 push:
-	docker push $(ecr_repo):1.0.0rc17
+	docker push $(ecr_repo):1.0.0rc18
 
 apply:
 	kubectl apply -f ./manifests/
