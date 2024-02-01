@@ -181,7 +181,9 @@ async def process_item(con, item):
         # remove params that were not given as these already have default values
         analysis_params = {k: v for k, v in metadata["analysis_params"].items() if v is not None}
 
-        pre_analysis_params = {k: v for k, v in analysis_params.items() if k in ["normalization_method"]}
+        pre_analysis_params = {
+            k: v for k, v in analysis_params.items() if k in ["normalization_method", "post_stiffness_factor"]
+        }
 
         with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
             file_info = _create_file_info(tmpdir, prefix, str(job_id))
