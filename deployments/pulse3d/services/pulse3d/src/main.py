@@ -789,19 +789,22 @@ async def get_interactive_waveform_data(
                 )
 
         # Get presigned url for time force data
-        force_v_time_filename = os.path.splitext(selected_job["filename"])[0]
+        pre_analysis_filename = os.path.splitext(selected_job["filename"])[0]
         if pulse3d_version is None:
-            force_v_time_key = f"{selected_job['prefix']}/time_force_data/{force_v_time_filename}.parquet"
+            pre_analysis_s3_key = f"{selected_job['prefix']}/time_force_data/{pre_analysis_filename}.parquet"
+        elif VersionInfo.parse(pulse3d_version.split("rc")[0]) < "1.0.0":
+            # TODO remove the split above once we're done with RC versions? Will make IA not work for any jobs run with an rc version, but that might be ok
+            pre_analysis_s3_key = (
+                f"{selected_job['prefix']}/time_force_data/{pulse3d_version}/{pre_analysis_filename}.parquet"
+            )
         else:
-            # TODO remove this split once we're done with RC versions
-            file_ext = ".zip" if VersionInfo.parse(pulse3d_version.split("rc")[0]) >= "1.0.0" else ".parquet"
-            force_v_time_key = f"{selected_job['prefix']}/time_force_data/{pulse3d_version}/{force_v_time_filename}{file_ext}"
+            pre_analysis_s3_key = f"{selected_job['prefix']}/{job_id}/pre-analysis.zip"
 
-        logger.info(f"Generating presigned URL for {force_v_time_key}")
+        logger.info(f"Generating presigned URL for {pre_analysis_s3_key}")
         try:
-            time_force_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, force_v_time_key)
+            time_force_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, pre_analysis_s3_key)
         except ValueError:
-            message = f"Force v Time Parquet file was not found in S3 under key {force_v_time_key}"
+            message = f"Pre-analysis file was not found in S3 under key {pre_analysis_s3_key}"
             logger.exception(message)
             return GenericErrorResponse(error="MissingDataError", message=message)
 

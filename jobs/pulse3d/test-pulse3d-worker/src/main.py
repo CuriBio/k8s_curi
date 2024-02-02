@@ -174,6 +174,7 @@ async def process_item(con, item):
                 if (name_override := metadata.get("name_override"))
                 else upload_filename
             )
+            analysis_name = os.path.splitext(analysis_filename)[0]
         except Exception:
             logger.exception("Fetching upload details failed")
             raise
@@ -405,6 +406,7 @@ async def process_item(con, item):
                     )
                     if (val := analysis_params.get(arg_name)) is not None
                 }
+                renderer_args["output_file_name"] = analysis_name
 
                 if data_type_override := renderer_args.get("data_type"):
                     renderer_args["data_type"] = data_type_override.lower()
