@@ -182,8 +182,11 @@ async def process_item(con, item):
         analysis_params = {k: v for k, v in metadata["analysis_params"].items() if v is not None}
 
         pre_analysis_params = {
-            k: v for k, v in analysis_params.items() if k in ["normalization_method", "post_stiffness_factor"]
+            k: v for k, v in analysis_params.items() if k in ["normalization_method", "stiffness_factor"]
         }
+        # need to rename this param
+        if post_stiffness_factor := pre_analysis_params.pop("stiffness_factor", None):
+            pre_analysis_params["post_stiffness_factor"] = post_stiffness_factor
 
         with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
             file_info = _create_file_info(tmpdir, prefix, str(job_id))
@@ -228,7 +231,7 @@ async def process_item(con, item):
                     with ZipFile(file_info["pre_process"]["file_path"]) as z:
                         z.extractall(file_info["pre_process"]["dir"])
 
-                    pre_process_tissue_data = pl.read_parquet(
+                    pre_process_tissue_waveforms = pl.read_parquet(
                         os.path.join(file_info["pre_process"]["dir"], file_info["zip_contents"]["tissue"])
                     )
                     pre_process_stim_waveforms_path = os.path.join(
@@ -241,12 +244,16 @@ async def process_item(con, item):
                     )
 
                     pre_process_metadata_dict = json.load(
-                        open(file_info["pre_process"]["dir"], file_info["zip_contents"]["metadata"])
+                        open(
+                            os.path.join(
+                                file_info["pre_process"]["dir"], file_info["zip_contents"]["metadata"]
+                            )
+                        )
                     )
                     pre_process_metadata = _get_existing_metadata(pre_process_metadata_dict)
 
-                    pre_analyzed_data = PreProcessedData(
-                        tissue_data=pre_process_tissue_data,
+                    pre_processed_data = PreProcessedData(
+                        tissue_waveforms=pre_process_tissue_waveforms,
                         stim_waveforms=pre_process_stim_waveforms,
                         metadata=pre_process_metadata,
                     )
@@ -288,21 +295,21 @@ async def process_item(con, item):
             try:
                 # copy so that windowed data isn't written to S3 and used on following recordings
                 windowed_pre_analyzed_data = deepcopy(pre_analyzed_data)
-                tissue_data = windowed_pre_analyzed_data.tissue_waveforms
-                stim_data = windowed_pre_analyzed_data.stim_waveforms
+                tissue_waveforms = windowed_pre_analyzed_data.tissue_waveforms
+                stim_waveforms = windowed_pre_analyzed_data.stim_waveforms
 
                 for window, filter_fn in (
                     ("start_time", lambda x: pl.col("time") >= x),
                     ("end_time", lambda x: pl.col("time") <= x),
                 ):
                     if (time_sec := analysis_params.get(window)) is not None:
-                        tissue_data = tissue_data.filter(filter_fn(time_sec))
-                        if stim_data is not None:
-                            stim_data = stim_data.filter(filter_fn(time_sec))
+                        tissue_waveforms = tissue_waveforms.filter(filter_fn(time_sec))
+                        if stim_waveforms is not None:
+                            stim_waveforms = stim_waveforms.filter(filter_fn(time_sec))
                         logger.info(f"Applied window {window.replace('_', ' ')} to waveform DF(s)")
 
-                windowed_pre_analyzed_data.tissue_waveforms = tissue_data
-                windowed_pre_analyzed_data.stim_waveforms = stim_data
+                windowed_pre_analyzed_data.tissue_waveforms = tissue_waveforms
+                windowed_pre_analyzed_data.stim_waveforms = stim_waveforms
             except Exception:
                 logger.exception("Error windowing data")
 
