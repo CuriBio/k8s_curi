@@ -26,7 +26,7 @@ from pulse3D.data_loader import (
     BaseMetadata,
 )
 from pulse3D.peak_finding import LoadedDataWithFeatures
-from pulse3D.pre_analysis import PreAnalyzedData, process, sort_wells_in_df
+from pulse3D.pre_analysis import PreProcessedData, pre_process, process, sort_wells_in_df
 from pulse3D.rendering import OutputFormats
 from semver import VersionInfo
 from structlog.contextvars import bind_contextvars, clear_contextvars, merge_contextvars
@@ -57,6 +57,83 @@ def _get_existing_metadata(metadata_dict: dict[str, Any]) -> BaseMetadata:
         return NautilaiMetadata(**metadata_dict)
     else:
         return BaseMetadata(**metadata_dict)
+
+
+# TODO could use a better data structure for this
+def _create_file_info(base_dir: str, upload_prefix: str, job_id: str) -> dict[str, Any]:
+    pre_process_dir = os.path.join(base_dir, "pre-process")
+    os.mkdir(pre_process_dir)
+    pre_process_filename = "pre-process.zip"
+    pre_process_file_s3_key = f"{upload_prefix}/pre-process/{PULSE3D_VERSION}/{pre_process_filename}"
+    pre_process_file_path = os.path.join(pre_process_dir, pre_process_filename)
+
+    pre_analysis_dir = os.path.join(base_dir, "pre-analysis")
+    os.mkdir(pre_analysis_dir)
+    pre_analysis_filename = "pre-analysis.zip"
+    pre_analysis_file_s3_key = f"{upload_prefix}/{job_id}/{pre_analysis_filename}"
+    pre_analysis_file_path = os.path.join(pre_analysis_dir, pre_analysis_filename)
+
+    peak_finding_dir = os.path.join(base_dir, "peak_finding")
+    os.mkdir(peak_finding_dir)
+    peak_finding_filename = "peaks_valleys.parquet"
+    peak_finding_s3_key = f"{upload_prefix}/{job_id}/{peak_finding_filename}"
+    peak_finding_file_path = os.path.join(base_dir, peak_finding_filename)
+
+    return {
+        "zip_contents": {
+            "tissue": "tissue_waveforms.parquet",
+            "stim": "stim_waveforms.parquet",
+            "metadata": "metadata.json",
+        },
+        "pre_process": {
+            "dir": pre_process_dir,
+            "filename": pre_process_filename,
+            "file_path": pre_process_file_path,
+            "s3_key": pre_process_file_s3_key,
+        },
+        "pre_analysis": {
+            "dir": pre_analysis_dir,
+            "filename": pre_analysis_filename,
+            "file_path": pre_analysis_file_path,
+            "s3_key": pre_analysis_file_s3_key,
+        },
+        "peak_finding": {
+            "dir": peak_finding_dir,
+            "filename": peak_finding_filename,
+            "file_path": peak_finding_file_path,
+            "s3_key": peak_finding_s3_key,
+        },
+    }
+
+
+def _upload_pre_zip(data_container, file_info, pre_step_name) -> None:
+    try:
+        zipfile_path = file_info[pre_step_name]["file_path"]
+        with ZipFile(zipfile_path, "w") as z:
+            for data_type in ("tissue", "stim"):
+                df = getattr(data_container, f"{data_type}_waveforms")
+                if df is None:  # stim_waveforms can be None
+                    continue
+
+                file_path = os.path.join(
+                    file_info[pre_step_name]["dir"], file_info["zip_contents"][data_type]
+                )
+                df.write_parquet(file_path)
+                z.write(file_path, file_info["zip_contents"][data_type])
+
+            metadata_path = os.path.join(
+                file_info[pre_step_name]["dir"], file_info["zip_contents"]["metadata"]
+            )
+            with open(metadata_path, "w") as f:
+                f.write(data_container.metadata.model_dump_json())
+            z.write(metadata_path, "metadata.json")
+
+        s3_key = file_info[pre_step_name]["s3_key"]
+        upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=s3_key, file=zipfile_path)
+        logger.info(f"Uploaded {pre_step_name} data to S3 under key: {s3_key}")
+    except Exception:
+        logger.exception(f"Uploading {pre_step_name} data to S3 failed")
+        raise
 
 
 # needs to be prefixed so that the queue processor doesn't pick it up
@@ -97,6 +174,7 @@ async def process_item(con, item):
                 if (name_override := metadata.get("name_override"))
                 else upload_filename
             )
+            analysis_name = os.path.splitext(analysis_filename)[0]
         except Exception:
             logger.exception("Fetching upload details failed")
             raise
@@ -104,22 +182,15 @@ async def process_item(con, item):
         # remove params that were not given as these already have default values
         analysis_params = {k: v for k, v in metadata["analysis_params"].items() if v is not None}
 
-        pre_analysis_params = {k: v for k, v in analysis_params.items() if k in ["normalization_method"]}
+        pre_analysis_params = {
+            k: v for k, v in analysis_params.items() if k in ["normalization_method", "stiffness_factor"]
+        }
+        # need to rename this param
+        if post_stiffness_factor := pre_analysis_params.pop("stiffness_factor", None):
+            pre_analysis_params["post_stiffness_factor"] = post_stiffness_factor
 
         with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
-            zipped_analysis_filename = f"{os.path.splitext(upload_filename)[0]}.zip"
-            zipped_analysis_key = f"{prefix}/time_force_data/{PULSE3D_VERSION}/{zipped_analysis_filename}"
-
-            pre_analysis_dir = os.path.join(tmpdir, "pre-analysis")
-            os.mkdir(pre_analysis_dir)
-
-            zipped_analysis_path = os.path.join(pre_analysis_dir, zipped_analysis_filename)
-            stim_waveforms_path = os.path.join(pre_analysis_dir, "stim_waveforms.parquet")
-            tissue_waveforms_path = os.path.join(pre_analysis_dir, "tissue_waveforms.parquet")
-            metadata_path = os.path.join(pre_analysis_dir, "metadata.json")
-
-            features_parquet_key = f"{prefix}/{job_id}/peaks_valleys.parquet"
-            features_filepath = os.path.join(tmpdir, "peaks_valleys.parquet")
+            file_info = _create_file_info(tmpdir, prefix, str(job_id))
 
             # download recording file
             try:
@@ -133,50 +204,64 @@ async def process_item(con, item):
 
             # download existing peak finding data
             try:
-                # attempt to download peaks and valleys from s3, will only be the case for interactive analysis jobs
-                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, features_parquet_key, features_filepath)
+                # attempt to download existing peak finding data from s3, will only exist for interactive analysis jobs
+                s3_client.download_file(
+                    PULSE3D_UPLOADS_BUCKET,
+                    file_info["peak_finding"]["s3_key"],
+                    file_info["peak_finding"]["file_path"],
+                )
                 interactive_analysis = True
-                logger.info(f"Downloaded peaks and valleys to {features_filepath}")
+                logger.info(f"Downloaded peaks and valleys to {file_info['peak_finding']['file_path']}")
             except Exception:  # TODO catch only boto3 errors here
                 logger.info("No existing peaks and valleys found for recording")
 
-            # download existing pre-analysis data
+            # download existing pre-process data
             try:
-                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, zipped_analysis_key, zipped_analysis_path)
-                logger.info(f"Downloaded existing pre-analysis data to {zipped_analysis_path}")
+                s3_client.download_file(
+                    PULSE3D_UPLOADS_BUCKET,
+                    file_info["pre_process"]["s3_key"],
+                    file_info["pre_process"]["file_path"],
+                )
+                logger.info(
+                    f"Downloaded existing pre-process data to {file_info['pre_process']['file_path']}"
+                )
             except Exception:
-                logger.info(f"No existing data found for recording {zipped_analysis_filename}")
+                logger.info(f"No existing pre-process data found for recording {upload_filename}")
             else:
                 try:
-                    with ZipFile(zipped_analysis_path) as z:
-                        z.extractall(pre_analysis_dir)
+                    with ZipFile(file_info["pre_process"]["file_path"]) as z:
+                        z.extractall(file_info["pre_process"]["dir"])
 
-                    tissue_waveforms = pl.read_parquet(tissue_waveforms_path)
-                    stim_waveforms = (
-                        pl.read_parquet(stim_waveforms_path) if os.path.exists(stim_waveforms_path) else None
+                    pre_process_tissue_waveforms = pl.read_parquet(
+                        os.path.join(file_info["pre_process"]["dir"], file_info["zip_contents"]["tissue"])
+                    )
+                    pre_process_stim_waveforms_path = os.path.join(
+                        file_info["pre_process"]["dir"], file_info["zip_contents"]["stim"]
+                    )
+                    pre_process_stim_waveforms = (
+                        pl.read_parquet(pre_process_stim_waveforms_path)
+                        if os.path.exists(pre_process_stim_waveforms_path)
+                        else None
                     )
 
-                    metadata_dict = json.load(open(metadata_path))
-                    existing_metadata = _get_existing_metadata(metadata_dict)
+                    pre_process_metadata_dict = json.load(
+                        open(
+                            os.path.join(
+                                file_info["pre_process"]["dir"], file_info["zip_contents"]["metadata"]
+                            )
+                        )
+                    )
+                    pre_process_metadata = _get_existing_metadata(pre_process_metadata_dict)
 
-                    pre_analyzed_data = PreAnalyzedData(
-                        tissue_waveforms=tissue_waveforms,
-                        stim_waveforms=stim_waveforms,
-                        metadata=existing_metadata,
+                    pre_processed_data = PreProcessedData(
+                        tissue_waveforms=pre_process_tissue_waveforms,
+                        stim_waveforms=pre_process_stim_waveforms,
+                        metadata=pre_process_metadata,
                     )
 
-                    re_analysis = all(v == existing_metadata.get(k) for k, v in pre_analysis_params.items())
-
-                    if re_analysis:
-                        logger.info(
-                            "No pre-analysis params have changed, so able to use existing pre-analysis data"
-                        )
-                    else:
-                        logger.info(
-                            "One or more pre-analysis params have changed, so must re-run pre-analysis"
-                        )
+                    re_analysis = True
                 except Exception:
-                    logger.exception("Error loading existing pre-analysis data")
+                    logger.exception("Error loading existing pre-process data")
 
             if not re_analysis:
                 try:
@@ -187,61 +272,51 @@ async def process_item(con, item):
                     raise
 
                 try:
-                    logger.info("Starting Pre-Analysis")
-                    pre_analyzed_data = process(loaded_data, **pre_analysis_params)
+                    logger.info("Starting Pre-Processing")
+                    pre_processed_data = pre_process(loaded_data)
                 except UnableToConvergeError:
                     raise Exception("Unable to converge due to low quality of data")
                 except Exception:
-                    logger.exception("Pre-Analysis failed")
+                    logger.exception("Pre-Processing failed")
                     raise
 
-                # upload pre-analysis data
-                try:
-                    # TODO cleanup
-                    zipfile = "pre_analysis_data.zip"
-                    with ZipFile(zipfile, "w") as z:
-                        for field in ("tissue_waveforms", "stim_waveforms"):
-                            df = getattr(pre_analyzed_data, field)
-                            if df is not None:  # stim_waveforms can be None
-                                parquet_filepath = os.path.join(tmpdir, f"{field}.parquet")
-                                df.write_parquet(parquet_filepath)
-                                z.write(parquet_filepath, f"{field}.parquet")
+                # upload pre-processed data
+                _upload_pre_zip(pre_processed_data, file_info, "pre_process")
 
-                        with open(metadata_path, "w") as f:
-                            f.write(pre_analyzed_data.metadata.model_dump_json())
+            try:
+                logger.info("Starting Pre-Analysis")
+                pre_analyzed_data = process(pre_processed_data, **pre_analysis_params)
+            except Exception:
+                logger.exception("Pre-Analysis failed")
+                raise
 
-                        z.write(metadata_path, "metadata.json")
-
-                    upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=zipped_analysis_key, file=zipfile)
-                    logger.info("Uploaded pre-analyzed data to S3")
-                except Exception:
-                    logger.exception("Upload failed")
-                    raise
+            # upload pre-analysis data
+            _upload_pre_zip(pre_analyzed_data, file_info, "pre_analysis")
 
             try:
                 # copy so that windowed data isn't written to S3 and used on following recordings
                 windowed_pre_analyzed_data = deepcopy(pre_analyzed_data)
-                tissue_data = windowed_pre_analyzed_data.tissue_waveforms
-                stim_data = windowed_pre_analyzed_data.stim_waveforms
+                tissue_waveforms = windowed_pre_analyzed_data.tissue_waveforms
+                stim_waveforms = windowed_pre_analyzed_data.stim_waveforms
 
                 for window, filter_fn in (
                     ("start_time", lambda x: pl.col("time") >= x),
                     ("end_time", lambda x: pl.col("time") <= x),
                 ):
                     if (time_sec := analysis_params.get(window)) is not None:
-                        tissue_data = tissue_data.filter(filter_fn(time_sec))
-                        if stim_data is not None:
-                            stim_data = stim_data.filter(filter_fn(time_sec))
+                        tissue_waveforms = tissue_waveforms.filter(filter_fn(time_sec))
+                        if stim_waveforms is not None:
+                            stim_waveforms = stim_waveforms.filter(filter_fn(time_sec))
                         logger.info(f"Applied window {window.replace('_', ' ')} to waveform DF(s)")
 
-                windowed_pre_analyzed_data.tissue_waveforms = tissue_data
-                windowed_pre_analyzed_data.stim_waveforms = stim_data
+                windowed_pre_analyzed_data.tissue_waveforms = tissue_waveforms
+                windowed_pre_analyzed_data.stim_waveforms = stim_waveforms
             except Exception:
-                logger.exception("Error windowing tissue data")
+                logger.exception("Error windowing data")
 
             if interactive_analysis:
                 try:
-                    features_df = pl.read_parquet(features_filepath)
+                    features_df = pl.read_parquet(file_info["peak_finding"]["file_path"])
                     features_df = sort_wells_in_df(
                         features_df, windowed_pre_analyzed_data.metadata.total_well_count
                     )
@@ -278,7 +353,7 @@ async def process_item(con, item):
                         )
                         if (val := analysis_params.get(param)) is not None
                     }
-                    logger.info("Running peak detector")
+                    logger.info("Running PeakDetector")
                     data_with_features = peak_finder.run(
                         windowed_pre_analyzed_data, alg_args=peak_detector_args
                     )
@@ -288,11 +363,15 @@ async def process_item(con, item):
 
             # Windowing is applied here in the worker, not by IA (just sets the bounds), so always upload the parquet file in case a change is made here
             try:
-                data_with_features.tissue_features.write_parquet(features_filepath)
+                data_with_features.tissue_features.write_parquet(file_info["peak_finding"]["file_path"])
                 upload_file_to_s3(
-                    bucket=PULSE3D_UPLOADS_BUCKET, key=features_parquet_key, file=features_filepath
+                    bucket=PULSE3D_UPLOADS_BUCKET,
+                    key=file_info["peak_finding"]["s3_key"],
+                    file=file_info["peak_finding"]["file_path"],
                 )
-                logger.info(f"Uploaded features to {PULSE3D_UPLOADS_BUCKET}/{features_parquet_key}")
+                logger.info(
+                    f"Uploaded features to {PULSE3D_UPLOADS_BUCKET}/{file_info['peak_finding']['s3_key']}"
+                )
             except Exception:
                 logger.exception("Upload failed")
                 raise
@@ -327,6 +406,7 @@ async def process_item(con, item):
                     )
                     if (val := analysis_params.get(arg_name)) is not None
                 }
+                renderer_args["output_file_name"] = analysis_name
 
                 if data_type_override := renderer_args.get("data_type"):
                     renderer_args["data_type"] = data_type_override.lower()
