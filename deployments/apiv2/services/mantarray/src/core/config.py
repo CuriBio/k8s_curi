@@ -3,7 +3,7 @@ from starlette.datastructures import Secret
 
 config = Config(".env")
 # version used to tag the docker image
-VERSION = "0.6.5"
+VERSION = "0.8.1"
 
 DASHBOARD_URL = config("DASHBOARD_URL", cast=str, default="https://dashboard.curibio-test.com")
 

@@ -1,6 +1,6 @@
 import styled from "styled-components";
 import { loadCsvInputToArray, isArrayOfWellNames } from "../../utils/generic";
-import FormInput from "../basicWidgets/FormInput";
+import FormInput from "@/components/basicWidgets/FormInput";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import RemoveCircleOutlineIcon from "@mui/icons-material/RemoveCircleOutline";
 import Tooltip from "@mui/material/Tooltip";
@@ -50,7 +50,7 @@ const EmptyText = styled.div`
   margin: 10px;
 `;
 
-export default function AnalysisParamForm({ setAnalysisParams, analysisParams, setWellGroupErr }) {
+export default function WellGroups({ setAnalysisParams, analysisParams, setWellGroupErr }) {
   const [errorMsgs, setErrorMsgs] = useState([]);
   const [localGroups, setLocalGroups] = useState([]);
 

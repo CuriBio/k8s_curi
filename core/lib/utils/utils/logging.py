@@ -1,8 +1,11 @@
 import logging
 import sys
+from typing import Any
 
 import structlog
 from structlog.types import EventDict, Processor
+from starlette_context import context
+from structlog.contextvars import bind_contextvars
 
 # https://github.com/hynek/structlog/issues/35#issuecomment-591321744
 # def rename_event_key(_, __, event_dict: EventDict) -> EventDict:
@@ -27,10 +30,9 @@ def drop_color_message_key(_, __, event_dict: EventDict) -> EventDict:
 
 def setup_logger():
     shared_processors: list[Processor] = [
-        structlog.threadlocal.merge_threadlocal,
+        structlog.contextvars.merge_contextvars,
         drop_color_message_key,
         structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M.%S"),
-        structlog.processors.dict_tracebacks,
         structlog.processors.format_exc_info,
     ]
 
@@ -86,3 +88,11 @@ def setup_logger():
         root_logger.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
 
     sys.excepthook = handle_exception
+
+
+def bind_context_to_logger(var_dict: dict[str, Any]) -> None:
+    # bind to contextvars for local route use
+    bind_contextvars(**var_dict)
+    # doesn't like update with context |= {} syntax
+    # bind to context for middleware use
+    context.update(var_dict)

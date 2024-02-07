@@ -47,3 +47,11 @@ loki:
     table_manager:
       retention_deletes_enabled: true
       retention_period: 720h
+    query_range:
+      split_queries_by_interval: 0
+      parallelise_shardable_queries: false
+    querier:
+      max_concurrent: 2048
+    frontend:
+      max_outstanding_per_tenant: 4096
+      compress_responses: true

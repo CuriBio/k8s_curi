@@ -116,10 +116,27 @@ const isReanalysisPage = (router) => {
 };
 
 export default function UploadForm() {
+  const { usageQuota, preferences, productPage } = useContext(AuthContext);
+
   const { uploads, pulse3dVersions, defaultUploadForReanalysis } = useContext(UploadsContext);
+
+  const isPulse3dPreferenceSet = () => {
+    return (
+      preferences &&
+      productPage in preferences &&
+      "version" in preferences[productPage] &&
+      pulse3dVersions.length > 0
+    );
+  };
+
+  const getDefaultPulse3dVersion = () => {
+    const defaultVersion = isPulse3dPreferenceSet() ? preferences[productPage].version : pulse3dVersions[0];
+    return defaultVersion || "";
+  };
 
   const getDefaultAnalysisParams = () => {
     return {
+      normalizationMethod: null,
       normalizeYAxis: "",
       baseToPeak: "",
       peakToBase: "",
@@ -128,7 +145,7 @@ export default function UploadForm() {
       startTime: "",
       endTime: "",
       stiffnessFactor: null,
-      selectedPulse3dVersion: pulse3dVersions[0] || "", // Tanner (9/15/22): The pulse3d version technically isn't a param, but it lives in the same part of the form as the params
+      selectedPulse3dVersion: getDefaultPulse3dVersion(), // Tanner (9/15/22): The pulse3d version technically isn't a param, but it lives in the same part of the form as the params
       wellsWithFlippedWaveforms: "",
       showStimSheet: "",
       wellGroups: {},
@@ -154,7 +171,6 @@ export default function UploadForm() {
   };
 
   const router = useRouter();
-  const { usageQuota, productPage } = useContext(AuthContext);
 
   const [files, setFiles] = useState(defaultUploadForReanalysis ? [defaultUploadForReanalysis] : []);
   const [formattedUploads, setFormattedUploads] = useState([]);
@@ -325,6 +341,7 @@ export default function UploadForm() {
     }
     setCheckedParams(newCheckedParams);
   };
+
   const formatTupleParams = (firstParam, secondParam) => {
     // convert factors that aren't specified to null
     if (firstParam === "") {
@@ -333,8 +350,8 @@ export default function UploadForm() {
     if (secondParam === "") {
       secondParam = null;
     }
-
     let factors = [firstParam, secondParam];
+
     if (factors.every((v) => !v)) {
       // if both factors are null, return null instead of an array
       return null;
@@ -373,6 +390,9 @@ export default function UploadForm() {
       wellGroups,
       stimWaveformFormat,
       dataType,
+      minPeakWidth,
+      maxPeakWidth,
+      normalizationMethod,
     } = analysisParams;
 
     const version =
@@ -441,13 +461,17 @@ export default function UploadForm() {
         }
       }
       if (requestBody.width_factors !== null) {
-        requestBody.width_factors = requestBody.width_factors.map((width) => {
-          width !== null ? width / 1000 : null;
-        });
+        requestBody.width_factors = requestBody.width_factors.map((width) =>
+          width !== null ? width / 1000 : null
+        );
       }
     } else {
       requestBody.prominence_factors = formatTupleParams(prominenceFactorPeaks, prominenceFactorValleys);
       requestBody.width_factors = formatTupleParams(widthFactorPeaks, widthFactorValleys);
+    }
+
+    if (semverGte(version, "1.0.0")) {
+      requestBody.normalization_method = normalizationMethod === "None" ? null : normalizationMethod;
     }
 
     return requestBody;
@@ -757,6 +781,7 @@ export default function UploadForm() {
             setAnalysisPresetName,
             analysisPresetName,
           }}
+          isPulse3dPreferenceSet={isPulse3dPreferenceSet}
         />
         <ButtonContainer>
           {uploadSuccess && <SuccessText>Upload Successful!</SuccessText>}

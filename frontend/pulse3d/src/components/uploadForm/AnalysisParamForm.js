@@ -1,6 +1,6 @@
 import styled from "styled-components";
 import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
-import { isArrayOfNumbers, loadCsvInputToArray, isArrayOfWellNames } from "@/utils/generic";
+import { isArrayOfNumbers, loadCsvInputToArray, isArrayOfWellNames, isInt } from "@/utils/generic";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import { useState, useContext, useEffect } from "react";
 import semverGte from "semver/functions/gte";
@@ -11,6 +11,7 @@ import AnalysisParamContainer from "@/components/uploadForm/AnalysisParamContain
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
 import FormInput from "@/components/basicWidgets/FormInput";
+import { AuthContext } from "@/pages/_app";
 
 const Container = styled.div`
   padding: 1rem;
@@ -473,10 +474,12 @@ export default function AnalysisParamForm({
     setAnalysisPresetName,
     analysisPresetName,
   },
+  isPulse3dPreferenceSet,
 }) {
   const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails, dataTypeDetails } = useContext(
     UploadsContext
   );
+  const { preferences, productPage } = useContext(AuthContext);
 
   const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
   const [disableStimProtocols, setDisableStimProtocols] = useState(false);
@@ -499,24 +502,26 @@ export default function AnalysisParamForm({
       setPulse3dVersionEOLDateWarning(warning);
       setDeprecationNotice(selectedVersionMetadata.state === "deprecated");
     }
+
     updateParams({
       selectedPulse3dVersion: pulse3dFilteredFileVersions[idx],
     });
   };
 
   useEffect(() => {
-    // set back to index of zero, this gets handled after a file is uploaded and if an xlsx file is present, the pulse3d versions will be in a different order.
+    // set back to initial version index, this gets handled after a file is uploaded and if an xlsx file is present, the pulse3d versions will be in a different order.
     updateParams({
-      selectedPulse3dVersion: pulse3dFilteredFileVersions[0],
+      selectedPulse3dVersion:
+        pulse3dFilteredFileVersions[
+          getDropdownInitialSelection("selectedPulse3dVersion", pulse3dFilteredFileVersions)
+        ],
     });
 
     const options = pulse3dFilteredFileVersions.map((version) => {
       const selectedVersionMeta = metaPulse3dVersions.filter((meta) => meta.version === version);
-      if (selectedVersionMeta[0] && ["testing", "deprecated"].includes(selectedVersionMeta[0].state)) {
-        return version + `  [ ${selectedVersionMeta[0].state} ]`;
-      } else {
-        return version;
-      }
+      return selectedVersionMeta[0] && ["testing", "deprecated"].includes(selectedVersionMeta[0].state)
+        ? version + `  [ ${selectedVersionMeta[0].state} ]`
+        : version;
     });
 
     setPulse3dVersionOptions([...options]);
@@ -560,8 +565,17 @@ export default function AnalysisParamForm({
     Overlayed: "overlayed",
   };
 
+  const nautilaiNormalizationMethods = ["None", "F/Fmin", "∆F/Fmin"];
+
   const getDropdownInitialSelection = (param, optionsArr) => {
-    const optionIndex = optionsArr.indexOf(analysisParams[param]);
+    let optionIndex = optionsArr.indexOf(analysisParams[param]);
+
+    // set initial p3d version to user preference if available, account for it to now always be set
+    // additionally, need to wait for pulse3dVersions to be fetched and set
+    if (param == "selectedPulse3dVersion" && isPulse3dPreferenceSet()) {
+      optionIndex = optionsArr.indexOf(preferences[productPage].version);
+    }
+
     return optionIndex === -1 ? 0 : optionIndex;
   };
 
@@ -576,13 +590,16 @@ export default function AnalysisParamForm({
       validateWellNames(updatedParams);
     }
 
+    let updatedParamErrors = { ...paramErrors };
     for (const [minName, maxName] of [
       ["startTime", "endTime"],
       ["minPeakWidth", "maxPeakWidth"],
     ]) {
       if (minName in newParams || maxName in newParams) {
         // need to validate start and end time together
-        validateMinMax(updatedParams, minName, maxName);
+        const allowFloat = minName === "startTime";
+        const newParamErrors = validateMinMax(updatedParams, minName, maxName, allowFloat);
+        updatedParamErrors = { ...updatedParamErrors, ...newParamErrors };
       }
     }
 
@@ -603,8 +620,13 @@ export default function AnalysisParamForm({
       "peakToBase",
       "stiffnessFactor",
     ]) {
-      if (paramName in newParams) validatePositiveNumber(updatedParams, paramName, false);
+      const allowFloat = !["baseToPeak", "peakToBase"].includes(paramName);
+      if (paramName in newParams) {
+        const newParamErrors = validatePositiveNumber(updatedParams, paramName, false, allowFloat);
+        updatedParamErrors = { ...updatedParamErrors, ...newParamErrors };
+      }
     }
+    setParamErrors(updatedParamErrors);
 
     if (newParams.normalizeYAxis === false) {
       // if not normalizing y-axis, then clear the entered value.
@@ -620,14 +642,14 @@ export default function AnalysisParamForm({
     return value === null || value === "" || value >= minValue;
   };
 
-  const validatePositiveNumber = (updatedParams, paramName, allowZero = true) => {
+  const validatePositiveNumber = (updatedParams, paramName, allowZero = true, allowFloat = true) => {
     const newValue = updatedParams[paramName];
 
     let errorMsg = "";
-    if (!checkPositiveNumberEntry(newValue, allowZero)) {
-      errorMsg = allowZero ? "*Must be a positive number" : "*Must be a positive, non-zero number";
+    if (!checkPositiveNumberEntry(newValue, allowZero) || (!allowFloat && !isInt(newValue))) {
+      errorMsg = `*Must be a positive${allowZero ? "" : ", non-zero"} ${allowFloat ? "number" : "integer"}`;
     }
-    setParamErrors({ ...paramErrors, [paramName]: errorMsg });
+    return { [paramName]: errorMsg };
   };
 
   const validateTwitchWidths = (updatedParams) => {
@@ -644,17 +666,17 @@ export default function AnalysisParamForm({
       } catch (e) {
         setParamErrors({
           ...paramErrors,
-          twitchWidths: "*Must be comma-separated, positive numbers",
+          twitchWidths: "*Must be comma-separated, positive integers",
         });
         return;
       }
-      // make sure it's an array of positive numbers
-      if (isArrayOfNumbers(twitchWidthArr, true)) {
+      // make sure it's an array of positive integers
+      if (isArrayOfNumbers(twitchWidthArr, true, false)) {
         formattedTwitchWidths = Array.from(new Set(twitchWidthArr));
       } else {
         setParamErrors({
           ...paramErrors,
-          twitchWidths: "*Must be comma-separated, positive numbers",
+          twitchWidths: "*Must be comma-separated, positive integers",
         });
         return;
       }
@@ -697,28 +719,21 @@ export default function AnalysisParamForm({
     setParamErrors({ ...paramErrors, presetName: errorMessage });
   };
 
-  const validateMinMax = (updatedParams, minName, maxName) => {
+  const validateMinMax = (updatedParams, minName, maxName, allowFloat) => {
     const minValue = updatedParams[minName];
     const maxValue = updatedParams[maxName];
 
-    const updatedParamErrors = { ...paramErrors };
-
+    let updatedParamErrors = { ...paramErrors };
     for (const [boundName, boundValue] of [
       [minName, minValue],
       [maxName, maxValue],
     ]) {
-      let error = "";
       // only perform this check if something has actually been entered
       if (boundValue) {
         const allowZero = boundName === minName;
-        if (!checkPositiveNumberEntry(boundValue, allowZero)) {
-          error = "*Must be a positive number";
-        } else {
-          updatedParams[boundName] = boundValue;
-        }
+        const newParamErrors = validatePositiveNumber(updatedParams, boundName, allowZero, allowFloat);
+        updatedParamErrors = { ...updatedParamErrors, ...newParamErrors };
       }
-
-      updatedParamErrors[boundName] = error;
     }
 
     if (
@@ -731,9 +746,17 @@ export default function AnalysisParamForm({
       // bounds do not conflict with each other
       Number(updatedParams[minName]) >= Number(updatedParams[maxName])
     ) {
-      updatedParamErrors[maxName] = "*Must be greater than Start Time";
+      const errorLabel =
+        minName[0].toUpperCase() +
+        minName
+          .slice(1)
+          .split(/(?=[A-Z])/)
+          .join(" ");
+
+      updatedParamErrors[maxName] = `*Must be greater than ${errorLabel}`;
     }
-    setParamErrors(updatedParamErrors);
+
+    return updatedParamErrors;
   };
 
   return (
@@ -874,6 +897,31 @@ export default function AnalysisParamForm({
             />
           </InputErrorContainer>
         </AnalysisParamContainer>
+        {pulse3dVersionGte("1.0.0") && (
+          // TODO only show this for nautilai analyses
+          <AnalysisParamContainer
+            label="Normalization Method"
+            name="normalizationMethod"
+            tooltipText="Select the normalization method of data (Nautilai only)"
+          >
+            <DropDownContainer>
+              <DropDownWidget
+                options={nautilaiNormalizationMethods}
+                reset={!checkedParams}
+                initialSelected={getDropdownInitialSelection(
+                  "normalizationMethod",
+                  nautilaiNormalizationMethods
+                )}
+                handleSelection={(idx) => {
+                  updateParams({
+                    normalizationMethod: nautilaiNormalizationMethods[idx],
+                  });
+                }}
+              />
+            </DropDownContainer>
+          </AnalysisParamContainer>
+        )}
+        {/* TODO only show this for MA analyses */}
         <AnalysisParamContainer
           label="Disable Y-Axis Normalization"
           name="normalizeYAxis"
@@ -890,6 +938,7 @@ export default function AnalysisParamForm({
             />
           </InputErrorContainer>
         </AnalysisParamContainer>
+        {/* TODO only show this for MA analyses */}
         <AnalysisParamContainer
           label="Y-Axis Range (µN)"
           name="maxY"

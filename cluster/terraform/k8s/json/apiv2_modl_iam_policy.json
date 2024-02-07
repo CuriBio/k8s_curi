@@ -3,7 +3,7 @@
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": ["s3:GetObject", "s3:ListBucket", "s3:ListObjects"],
+      "Action": ["s3:GetObject", "s3:ListBucket", "s3:ListObjects", "s3:PutObject"],
       "Resource": [
         "arn:aws:s3:::modl-channel-firmware",
         "arn:aws:s3:::modl-main-firmware",

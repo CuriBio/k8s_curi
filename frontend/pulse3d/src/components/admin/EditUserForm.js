@@ -15,7 +15,6 @@ const BodyContainer = styled.div`
 
 export default function EditUserForm({ userData, openEditModal, setOpenEditModal, resetTable }) {
   const [selectedScopes, setSelectedScopes] = useState([]);
-  const [existingScopes, setExistingScopes] = useState([]);
   const [buttons, setButtons] = useState(["Close", "Save"]);
   const [labels, setLabels] = useState([]);
 
@@ -23,20 +22,10 @@ export default function EditUserForm({ userData, openEditModal, setOpenEditModal
 
   useEffect(() => {
     if (userData && availableScopes.user) {
-      const scopeList = Object.entries(availableScopes.user).map(([product, addScopes]) => [
-        product,
-        addScopes,
-      ]);
-
-      const flattenedScopes = scopeList.flat(2);
-
-      let displayedScopes = userData.scopes.map((s) => {
-        if (flattenedScopes.includes(s)) return s;
-        else return s.split(":")[0];
-      });
-
-      displayedScopes = [...new Set(displayedScopes)];
-      setExistingScopes(displayedScopes);
+      const existingScopes = userData.scopes.filter((scope) =>
+        Object.keys(availableScopes.user).includes(scope)
+      );
+      setSelectedScopes(existingScopes);
     }
   }, [userData, availableScopes]);
 
@@ -78,9 +67,7 @@ export default function EditUserForm({ userData, openEditModal, setOpenEditModal
           <ScopeWidget
             selectedScopes={selectedScopes}
             setSelectedScopes={setSelectedScopes}
-            initialChecked={existingScopes}
             availableScopes={availableScopes.user}
-            isForUser={true}
           />
         </BodyContainer>
       )}

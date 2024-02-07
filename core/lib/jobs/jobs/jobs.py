@@ -2,7 +2,7 @@ from datetime import datetime
 from functools import wraps
 import json
 import time
-from typing import Dict, Any
+from typing import Any
 
 
 class EmptyQueue(Exception):
@@ -68,7 +68,7 @@ def get_item(*, queue):
 
 
 async def get_uploads(*, con, account_type, account_id, upload_ids=None):
-    """Query DB for info of upload(s) belonging to the customer or user account.
+    """Query DB for info of upload(s) belonging to the admin or user account.
 
     If no uploads specified, will return info of all the user's uploads
 
@@ -136,7 +136,7 @@ async def delete_uploads(*, con, account_type, account_id, upload_ids):
 
 
 async def get_jobs(*, con, account_type, account_id, job_ids=None):
-    """Query DB for info of job(s) belonging to the customer or user account.
+    """Query DB for info of job(s) belonging to the admin or user account.
 
     If no jobs specified, will return info of all jobs created by the user
     or all jobs across all users under to the given customer ID
@@ -168,7 +168,7 @@ async def get_jobs(*, con, account_type, account_id, job_ids=None):
         return [dict(row) async for row in con.cursor(query, *query_params)]
 
 
-async def create_job(*, con, upload_id, queue, priority, meta, customer_id, job_type):
+async def create_job(*, con, upload_id, queue, priority, meta, customer_id, job_type, add_to_results=True):
     # the WITH clause in this query is necessary to make sure the given upload_id actually exists
     enqueue_job_query = (
         "WITH row AS (SELECT id FROM uploads WHERE id=$1) "
@@ -194,8 +194,10 @@ async def create_job(*, con, upload_id, queue, priority, meta, customer_id, job_
         cols = ", ".join(list(data))
         places = _get_placeholders_str(len(data))
 
-        # insert job info result table with 'pending' status
-        await con.execute(f"INSERT INTO jobs_result ({cols}) VALUES ({places})", *data.values())
+        # Luci (12/13/23): pulse3d rewrite duplicate jobs should not be added to results table while testing
+        if add_to_results:
+            # insert job info result table with 'pending' status
+            await con.execute(f"INSERT INTO jobs_result ({cols}) VALUES ({places})", *data.values())
 
     return job_id
 
@@ -232,15 +234,15 @@ def _get_placeholders_str(num_placeholders, start=1):
     return ", ".join(f"${i}" for i in range(start, start + num_placeholders))
 
 
-async def get_customer_quota(con, customer_id, service) -> Dict[str, Any]:
+async def get_customer_quota(con, customer_id, service) -> dict[str, Any]:
     """Query DB and return usage limit and current usage.
     Returns:
         - Dictionary with account limits and account usage
     """
-    # get service specific usage restrictions for the customer account
+    # get service specific usage restrictions for the admin account
     # uploads limit, jobs limit, end date of plan
     usage_limit_query = "SELECT usage_restrictions->$1 AS usage FROM customers WHERE id=$2"
-    # collects number of all jobs in customer account and return number of credits consumed
+    # collects number of all jobs in admin account and return number of credits consumed
     # upload with 1 - 2 jobs  = 1 credit , upload with 3+ jobs = 1 credit for each upload with over 2 jobs
     current_usage_query = "SELECT COUNT(*) AS total_uploads, SUM(jobs_count) AS total_jobs FROM ( SELECT ( CASE WHEN (COUNT(*) <= 2 AND COUNT(*) > 0) THEN 1 ELSE GREATEST(COUNT(*) - 1, 0) END ) AS jobs_count FROM jobs_result WHERE customer_id=$1 and type=$2 GROUP BY upload_id) dt"
 
@@ -261,7 +263,7 @@ async def get_customer_quota(con, customer_id, service) -> Dict[str, Any]:
     return {"limits": usage_limit_dict, "current": current_usage_dict}
 
 
-async def check_customer_quota(con, customer_id, service) -> Dict[str, Any]:
+async def check_customer_quota(con, customer_id, service) -> dict[str, Any]:
     """Query DB for service-specific customer account usage.
 
     Will be called for all account tiers, unlimited has a value of -1.

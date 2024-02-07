@@ -1,6 +1,8 @@
 import styled from "styled-components";
 import { useEffect } from "react";
 import * as d3 from "d3";
+import semverGte from "semver/functions/gte";
+import { applyWindow } from "@/utils/generic";
 
 const Container = styled.div`
   background-color: white;
@@ -18,7 +20,13 @@ const WellNameLabel = styled.div`
   padding-left: 40px;
 `;
 
-export default function BasicWaveformGraph({ well, featureIndices, waveformData, timepointRange }) {
+export default function BasicWaveformGraph({
+  well,
+  featureIndices,
+  waveformData,
+  timepointRange,
+  pulse3dVersion,
+}) {
   useEffect(() => {
     if (featureIndices) {
       // always remove existing graph before plotting new graph
@@ -26,6 +34,9 @@ export default function BasicWaveformGraph({ well, featureIndices, waveformData,
       createGraph();
     }
   }, [waveformData, featureIndices]);
+
+  // TODO remove this once we're done with RC versions
+  const pulse3dSemver = pulse3dVersion.split("rc")[0];
 
   /* NOTE!! The order of the variables and function calls in this function are important to functionality.
      could eventually try to break this up, but it's more sensitive in react than vue */
@@ -37,10 +48,20 @@ export default function BasicWaveformGraph({ well, featureIndices, waveformData,
         SET UP SVG GRAPH AND VARIABLES
       -------------------------------------- */
 
-    // add .15 extra to y max and y min to auto scale the graph a little outside of true max and mins
-    const dataWithinWindow = waveformData.filter((coords) => coords[0] >= xMin && coords[0] <= xMax);
+    const { dataWithinWindow } = applyWindow(waveformData, xMin, xMax);
+
+    const waveformForFeatures = semverGte(pulse3dSemver, "1.0.0") ? dataWithinWindow : waveformData;
+
+    const peaksWithinWindow = semverGte(pulse3dSemver, "1.0.0")
+      ? peaks.filter((idx) => idx < dataWithinWindow.length)
+      : peaks;
+    const valleysWithinWindow = semverGte(pulse3dSemver, "1.0.0")
+      ? valleys.filter((idx) => idx < dataWithinWindow.length)
+      : valleys;
+
     const yMax = d3.max(dataWithinWindow, (d) => d[1]);
     const yMin = d3.min(dataWithinWindow, (d) => d[1]);
+    // add .15 extra to y max and y min to auto scale the graph a little outside of true max and mins
     const yRange = yMax * 0.15;
     // nautilus/optical files seem to have really high y values that get cut off if left margin isn't large enough
     const leftMargin = yMax > 100000 ? 70 : 40;
@@ -100,40 +121,44 @@ export default function BasicWaveformGraph({ well, featureIndices, waveformData,
     // graph all the peak markers
     svg
       .selectAll(`#waveformGraph${well}`)
-      .data(peaks)
+      .data(peaksWithinWindow)
       .enter()
       .append("path")
       .attr("id", "peak")
-      .attr("indexToReplace", (d) => peaks.indexOf(d)) // keep track of index in peaks array to splice later
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
-        return "translate(" + x(waveformData[d][0]) + "," + (y(waveformData[d][1]) - 7) + ") rotate(180)";
+        return (
+          "translate(" +
+          x(waveformForFeatures[d][0]) +
+          "," +
+          (y(waveformForFeatures[d][1]) - 7) +
+          ") rotate(180)"
+        );
       })
       .style("fill", "var(--curi-peaks)")
       .attr("stroke", "var(--curi-peaks)")
       .style("display", (d) => {
         // only display them inside windowed analysis times
-        const xTime = waveformData[d][0];
+        const xTime = waveformForFeatures[d][0];
         return xTime > xMax || xTime < xMin ? "none" : null;
       });
 
     // graph all the valley markers
     svg
       .selectAll(`#waveformGraph${well}`)
-      .data(valleys)
+      .data(valleysWithinWindow)
       .enter()
       .append("path")
       .attr("id", "valley")
-      .attr("indexToReplace", (d) => valleys.indexOf(d)) // keep track of index in valleys array to splice later
       .attr("d", d3.symbol().type(d3.symbolTriangle).size(50))
       .attr("transform", (d) => {
-        return "translate(" + x(waveformData[d][0]) + "," + (y(waveformData[d][1]) + 7) + ")";
+        return "translate(" + x(waveformForFeatures[d][0]) + "," + (y(waveformForFeatures[d][1]) + 7) + ")";
       })
       .style("fill", "var(--curi-valleys)")
       .attr("stroke", "var(--curi-valleys)")
       .style("display", (d) => {
         // only display them inside windowed analysis times
-        const xTime = waveformData[d][0];
+        const xTime = waveformForFeatures[d][0];
         return xTime > xMax || xTime < xMin ? "none" : null;
       });
 

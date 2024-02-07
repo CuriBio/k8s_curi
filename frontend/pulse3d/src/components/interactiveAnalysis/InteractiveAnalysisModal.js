@@ -1,11 +1,11 @@
 import styled from "styled-components";
 import { useEffect, useState, useContext } from "react";
-import DropDownWidget from "../basicWidgets/DropDownWidget";
+import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import WaveformGraph from "./InteractiveWaveformGraph";
 import { deepCopy } from "@/utils/generic";
-import CircularSpinner from "../basicWidgets/CircularSpinner";
-import ButtonWidget from "../basicWidgets/ButtonWidget";
-import ModalWidget from "../basicWidgets/ModalWidget";
+import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
+import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
+import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import { UploadsContext } from "@/components/layouts/DashboardLayout";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
@@ -253,7 +253,7 @@ export default function InteractiveWaveformModal({
     `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}`
   );
 
-  const { usageQuota } = useContext(AuthContext);
+  const { usageQuota, productPage, preferences } = useContext(AuthContext);
   const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
 
   const [loadStatus, setLoadStatus] = useState(LOAD_STATUSES.NOT_LOADED);
@@ -557,15 +557,27 @@ export default function InteractiveWaveformModal({
       customAnalysisSettings = getDefaultCustomAnalysisSettings(Object.keys(waveformData));
       setCustomAnalysisSettings(customAnalysisSettings);
 
-      // original data is set and never changed to hold original state in case of reset
-      originalAnalysisData = { featuresForWells: featureIndices, coordinates: waveformData };
-      setOriginalAnalysisData(originalAnalysisData);
-
       const { start_time, end_time } = selectedJob.analysisParams;
       const newTimepointRange = {
         min: start_time || Math.min(...waveformData[Object.keys(waveformData)[0]].map((coords) => coords[0])),
         max: end_time || Math.max(...waveformData[Object.keys(waveformData)[0]].map((coords) => coords[0])),
       };
+
+      const windowedWaveformData = {};
+      for (const well of Object.keys(waveformData)) {
+        windowedWaveformData[well] = waveformData[well];
+        if (semverGte(selectedJob.analysisParams.pulse3d_version.split("rc")[0], "1.0.0")) {
+          windowedWaveformData[well] = windowedWaveformData[well].filter(
+            (coords) => coords[0] >= newTimepointRange.min && coords[0] <= newTimepointRange.max
+          );
+        }
+      }
+
+      // original data is set and never changed to hold original state in case of reset
+      originalAnalysisData = { featuresForWells: featureIndices, coordinates: windowedWaveformData };
+
+      setOriginalAnalysisData(originalAnalysisData);
+
       setTimepointRange(newTimepointRange);
       customAnalysisSettingsInitializers.windowBounds({
         start: newTimepointRange.min,
@@ -575,7 +587,8 @@ export default function InteractiveWaveformModal({
       // won't be present for older recordings or if no replacement was ever given
       if ("nameOverride" in selectedJob) setNameOverride(selectedJob.nameOverride);
 
-      if (!semverGte(selectedJob.analysisParams.pulse3d_version, "0.28.3")) {
+      // TODO remove the split once we're done with RC versions
+      if (!semverGte(selectedJob.analysisParams.pulse3d_version.split("rc")[0], "0.28.3")) {
         setModalLabels(constantModalLabels.oldPulse3dVersion);
         setModalOpen("pulse3dWarning");
       }
@@ -632,7 +645,8 @@ export default function InteractiveWaveformModal({
         filteredFeatures[well] = [peaks, valleys];
       }
 
-      const prevPulse3dVersion = selectedJob.analysisParams.pulse3d_version;
+      // TODO remove the split once we're done with RC versions
+      const prevPulse3dVersion = selectedJob.analysisParams.pulse3d_version.split("rc")[0];
       const { start: startTime, end: endTime } = customAnalysisSettings.windowedAnalysisBounds;
 
       // reassign new peaks and valleys if different
@@ -640,15 +654,21 @@ export default function InteractiveWaveformModal({
         ...selectedJob.analysisParams,
         upload_id: selectedJob.uploadId,
         peaks_valleys: filteredFeatures,
-        start_time: startTime === timepointRange.min ? null : startTime,
-        end_time: endTime === timepointRange.max ? null : endTime,
+        start_time: startTime,
+        end_time: endTime,
         version: filteredVersions[pulse3dVersionIdx],
         previous_version: prevPulse3dVersion,
       };
 
-      // only add for versions greater than 0.32.2
+      // only add for versions 0.32.2 and above
       if (semverGte(prevPulse3dVersion, "0.32.2")) {
         requestBody.name_override = nameOverride === "" ? null : nameOverride;
+      }
+
+      // only add for versions 1.0.0 and above
+      if (semverGte(filteredVersions[pulse3dVersionIdx], "1.0.0")) {
+        // timepoints should be the same on each well, so just grab them from the first one present
+        requestBody.timepoints = waveformData[Object.keys(waveformData)[0]].map((coords) => coords[0]);
       }
 
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
@@ -705,6 +725,12 @@ export default function InteractiveWaveformModal({
 
     setDeprecationNotice(selectedVersionMetadata.state === "deprecated");
     setPulse3dVersionIdx(idx);
+  };
+
+  const getInitialP3dVersion = () => {
+    return productPage in preferences && "version" in preferences[productPage] && filteredVersions.length > 0
+      ? filteredVersions.indexOf(preferences[productPage].version)
+      : 0;
   };
 
   const handleRunAnalysis = () => {
@@ -948,6 +974,7 @@ export default function InteractiveWaveformModal({
               open: () => setOpenChangelog(true),
             }}
             yAxisLabel={yAxisLabel}
+            prevPulse3dVersion={selectedJob.analysisParams.pulse3d_version.split("rc")[0]}
           />
         )}
       </GraphContainer>
@@ -1003,7 +1030,7 @@ export default function InteractiveWaveformModal({
               label="Select"
               reset={pulse3dVersionIdx === 0}
               handleSelection={handleVersionSelect}
-              initialSelected={0}
+              initialSelected={getInitialP3dVersion()}
               disabled={filteredVersions.length === 0}
             />
           </div>

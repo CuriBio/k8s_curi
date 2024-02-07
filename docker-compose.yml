@@ -46,6 +46,10 @@ services:
   pulse3d:
     build:
       context: .
+      args:
+        - CODE_ARTIFACT_ACCOUNT_ID=${CODE_ARTIFACT_ACCOUNT_ID}
+        - CODE_ARTIFACT_ACCESS_KEY=${CODE_ARTIFACT_ACCESS_KEY}
+        - CODE_ARTIFACT_ACCESS_KEY_ID=${CODE_ARTIFACT_ACCESS_KEY_ID}
       dockerfile: ./deployments/pulse3d/services/pulse3d/Dockerfile
     environment:
       - POSTGRES_SERVER=host.docker.internal
@@ -61,7 +65,7 @@ services:
       - ~/.aws/:/home/main_user/.aws:ro
     ports:
       - "8000:8000"
-    platform: "linux/amd64"
+    # platform: "linux/amd64"
     depends_on:
       - psql-proxy
   psql-proxy:

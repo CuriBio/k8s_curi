@@ -1,0 +1,69 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  destination:
+    namespace: argocd
+    server: https://kubernetes.default.svc
+  project: cluster
+  sources:
+    - repoURL: https://github.com/CuriBio/k8s_curi.git
+      targetRevision: HEAD
+      path: cluster/manifests/grafana/overlays/test
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: grafana
+      targetRevision: ^6.0.0
+      helm:
+        values: |
+          envValueFrom:
+            GRAFANA_PASS_RO:
+              secretKeyRef:
+                name: grafana-creds
+                key: grafana_pass_ro
+          nodeSelector: { group: argo }
+          dashboardProviders:
+            dashboardproviders.yaml:
+              apiVersion: 1
+              providers:
+              - name: 'default'
+                orgId: 1
+                folder: ''
+                type: file
+                disableDeletion: false
+                editable: true
+                options:
+                  path: /var/lib/grafana/dashboards
+          dashboardsConfigMaps:
+            default: "grafana-dashboards"
+          datasources:
+            datasources.yaml:
+              apiVersion: 1
+              datasources:
+              - name: Loki
+                type: loki
+                url: http://grafana-loki:3100
+                access: proxy
+                isDefault: true
+              - name: Postgres
+                type: postgres
+                url: psql-rds.default
+                user: grafana_ro
+                secureJsonData:
+                  password: $GRAFANA_PASS_RO
+                jsonData:
+                  database: curibio
+                  sslmode: 'disable' # disable/require/verify-ca/verify-full
+                  maxOpenConns: 100 # Grafana v5.4+
+                  maxIdleConns: 100 # Grafana v5.4+
+                  maxIdleConnsAuto: true # Grafana v9.5.1+
+                  connMaxLifetime: 14400 # Grafana v5.4+
+                  postgresVersion: 903 # 903=9.3, 904=9.4, 905=9.5, 906=9.6, 1000=10
+                  timescaledb: false
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

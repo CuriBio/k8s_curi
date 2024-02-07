@@ -1,4 +1,4 @@
-import CircularProgressWithLabel from "./CircularProgressWithLabel";
+import CircularProgressWithLabel from "@/components/basicWidgets/CircularProgressWithLabel";
 import styled from "styled-components";
 
 const Container = styled.div`
@@ -25,6 +25,10 @@ const InnerContainer2 = styled.div`
   width: 33%;
   padding-left: 2%;
   padding-right: 2%;
+`;
+
+const Header = styled.h1`
+  font-size: 25px;
 `;
 
 export default function UsageWidget({
@@ -58,7 +62,7 @@ export default function UsageWidget({
 
   return (
     <Container>
-      <h1>{subscriptionName} Plan</h1>
+      <Header>{subscriptionName} Plan</Header>
       <InnerContainer1>
         <InnerContainer2>
           <p>{expirationMessage}</p>

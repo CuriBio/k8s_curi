@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import FormInput from "../basicWidgets/FormInput";
+import FormInput from "@/components/basicWidgets/FormInput";
 import Tooltip from "@mui/material/Tooltip";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useEffect, useState } from "react";
@@ -33,10 +33,10 @@ export default function PasswordForm({ onChangePassword, setErrorMsg, password1,
   const [password2Border, setPassword2Border] = useState("none");
   const [password1Border, setPassword1Border] = useState("none");
 
-  const checkPasswordsMatch = () => {
+  const checkPasswordsMatch = (isValid) => {
     // only update this state once initial password passes requirements to prevent multiple error messages
     // preference for password requirement error message over not matching
-    if (password1Border.includes("green")) {
+    if (isValid) {
       if (password2.length > 0) {
         // if a user has started to enter values in the password confirmation input
         // if the two passwords match, change border to green
@@ -57,11 +57,12 @@ export default function PasswordForm({ onChangePassword, setErrorMsg, password1,
   };
 
   const validatePassword = () => {
+    let isValid = false;
     // this removes all borders/error messages once a user has backspaced to an empty input field
     if (password1.length > 0) {
       // min 10 chars, one number, one uppercase, one lowercase, one special character
       const reqRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*()~`|<>,.+=_"':;?/\\\[\]\{\}-]).{10,}/;
-      const isValid = reqRegex.test(password1);
+      isValid = reqRegex.test(password1);
 
       if (isValid) {
         setPassword1Border("3px solid green");
@@ -74,12 +75,16 @@ export default function PasswordForm({ onChangePassword, setErrorMsg, password1,
       // else set the border to none if user isn't inputting anything
       setPassword1Border("none");
       setErrorMsg("");
+
+      if (password2.length === 0) setPassword2Border("none");
     }
+
+    return isValid;
   };
 
   useEffect(() => {
-    validatePassword();
-    checkPasswordsMatch();
+    const isValid = validatePassword();
+    checkPasswordsMatch(isValid);
   }, [password1, password2]);
 
   return (

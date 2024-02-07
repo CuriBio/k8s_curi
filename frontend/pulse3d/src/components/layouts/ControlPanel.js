@@ -9,6 +9,8 @@ import MuiAccordionSummary from "@mui/material/AccordionSummary";
 import MuiAccordionDetails from "@mui/material/AccordionDetails";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import { styled as muiStyled } from "@mui/material/styles";
+import VersionWidget from "@/components/basicWidgets/VersionWidget";
+import { UploadsContext } from "@/components/layouts/DashboardLayout";
 
 const Container = styled.div`
   height: inherit;
@@ -98,6 +100,14 @@ const Accordion = muiStyled(MuiAccordion)`
   box-shadow: none;
 `;
 
+const VersionContainer = styled.div`
+  width: 100%;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  height: 100px;
+`;
+
 const modalObjs = {
   jobsReached: {
     header: "Warning!",
@@ -113,15 +123,24 @@ const modalObjs = {
       "Users will only be allowed to perform re-analysis on existing files.",
     ],
   },
+  deprecationWarning: {
+    header: "Action Required!",
+    messages: ["Your preferred Pulse3D version is now deprecated.", "Please select another version:"],
+  },
 };
 
 export default function ControlPanel() {
   const router = useRouter();
+  const { accountType, usageQuota, accountScope, isCuriAdmin, preferences, productPage } = useContext(
+    AuthContext
+  );
+  const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
   const [selected, setSelected] = useState(router.pathname.replace("-", " ").replace("/", ""));
   const [expanded, setExpanded] = useState(null);
-  const { accountType, usageQuota, accountScope, isCuriAdmin } = useContext(AuthContext);
   const [modalState, setModalState] = useState(false);
   const [modalLabels, setModalLabels] = useState({ header: "", messages: [] });
+  const [deprecationModalState, setDeprecationModalState] = useState(false);
+  const [selectedP3dVersion, setSelectedP3dVersion] = useState(0);
 
   const userButtons = [
     { label: "Uploads", disabled: false, page: "/uploads", options: [] },
@@ -161,7 +180,12 @@ export default function ControlPanel() {
 
   const panelButtons = accountType === "admin" ? adminButtons : userButtons;
   const productionConsoleOptions = [];
-  const mantarrayProductionScopes = ["mantarray:serial_number:edit", "mantarray:firmware:edit"];
+  const mantarrayProductionScopes = [
+    "mantarray:serial_number:list",
+    "mantarray:serial_number:edit",
+    "mantarray:firmware:edit",
+    "mantarray:firmware:list",
+  ];
 
   if (accountScope) {
     // will have other pages that will be conditionally available depending on scope in the future
@@ -179,8 +203,8 @@ export default function ControlPanel() {
   }
 
   if (isCuriAdmin) {
-    // if the curi admin acccount is logged in, allow them to add new customers
-    adminButtons[1].options.push("Customer");
+    // if the curi admin acccount is logged in, allow them to add new admins
+    adminButtons[1].options.push("Admin");
   }
 
   useEffect(() => {
@@ -197,6 +221,12 @@ export default function ControlPanel() {
       setExpanded(options.length > 0 ? label : null);
     }
   }, [router]);
+
+  useEffect(() => {
+    if (productPage in preferences && "version" in preferences[productPage] && pulse3dVersions.length > 0) {
+      checkVersionDeprecation();
+    }
+  }, [pulse3dVersions]);
 
   useEffect(() => {
     if (usageQuota) {
@@ -221,6 +251,32 @@ export default function ControlPanel() {
       }
     }
   }, [usageQuota]);
+
+  const handleDeprecationClose = async (_) => {
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/preferences`, {
+        method: "PUT",
+        body: JSON.stringify({
+          product: productPage,
+          changes: { version: pulse3dVersions[selectedP3dVersion] },
+        }),
+      });
+      setDeprecationModalState(false);
+    } catch (e) {
+      console.log("ERROR updating user preferences");
+    }
+  };
+
+  const checkVersionDeprecation = () => {
+    const selectedVersionMeta = metaPulse3dVersions.find(
+      (m) => preferences[productPage].version === m.version
+    );
+
+    // deprecated versions are filtered out in DashboardLayout
+    if (!selectedVersionMeta || selectedVersionMeta.state === "deprecated") {
+      setDeprecationModalState(true);
+    }
+  };
 
   return (
     <>
@@ -289,6 +345,20 @@ export default function ControlPanel() {
         closeModal={() => setModalState(false)}
         header={modalLabels.header}
       />
+      <ModalWidget
+        open={deprecationModalState}
+        labels={modalObjs.deprecationWarning.messages}
+        closeModal={handleDeprecationClose}
+        buttons={["Save"]}
+        header={modalObjs.deprecationWarning.header}
+      >
+        <VersionContainer>
+          <VersionWidget
+            selectedP3dVersion={selectedP3dVersion}
+            setSelectedP3dVersion={setSelectedP3dVersion}
+          />
+        </VersionContainer>
+      </ModalWidget>
     </>
   );
 }

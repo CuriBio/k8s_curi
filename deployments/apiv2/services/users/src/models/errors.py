@@ -10,5 +10,5 @@ class EmailRegistrationError(Exception):
     pass
 
 
-class UnknownScopeError(Exception):
+class UnableToUpdateAccountError(Exception):
     pass
