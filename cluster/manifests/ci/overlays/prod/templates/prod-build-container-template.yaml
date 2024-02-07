@@ -247,6 +247,11 @@ spec:
               secretKeyRef:
                 name: db-migrations
                 key: pulse3d_queue_processor_ro
+          - name: GRAFANA_PASS_RO
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: grafana_pass_ro
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
@@ -452,6 +457,11 @@ spec:
               secretKeyRef:
                 name: db-migrations
                 key: pulse3d_queue_processor_ro
+          - name: GRAFANA_PASS_RO
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: grafana_pass_ro
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
