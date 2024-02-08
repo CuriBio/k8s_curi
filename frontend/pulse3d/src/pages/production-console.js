@@ -126,6 +126,13 @@ const TableHeader = styled.div`
   padding-bottom: 10px;
 `;
 
+const FormLabel = styled(TableHeader)`
+  margin-right: 50px;
+  justify-content: center;
+  height: 20;
+  text-align: right;
+`;
+
 const serNumScopes = ["mantarray:serial_number:edit", "mantarray:serial_number:list"];
 const fwScopes = ["mantarray:firmware:edit", "mantarray:firmware:list"];
 
@@ -378,17 +385,13 @@ function FirmwareUpload({ fwInfo, refreshTables, lastestSwInfo }) {
         />
       </FileUploaderContainer>
       <FileUploadOptionContainer>
-        <TableHeader
+        <FormLabel
           style={{
             width: "100px",
-            marginRight: "50px",
-            justifyContent: "center",
-            height: 20,
-            textAlign: "right",
           }}
         >
           Firmware Version
-        </TableHeader>
+        </FormLabel>
         <InputContainer>
           <FormInput
             name="uploadFwVersion"
@@ -417,17 +420,13 @@ function FirmwareUpload({ fwInfo, refreshTables, lastestSwInfo }) {
       {uploadOptions.fwType === "Main" && (
         <>
           <FileUploadOptionContainer>
-            <TableHeader
+            <FormLabel
               style={{
                 width: "400px",
-                marginRight: "50px",
-                justifyContent: "center",
-                height: 20,
-                textAlign: "right",
               }}
             >
               Is compatible with current MA SW version ({lastestSwInfo.mantarray})?
-            </TableHeader>
+            </FormLabel>
             <InputContainer>
               <DropDownWidget
                 options={["False", "True"]}
@@ -437,17 +436,13 @@ function FirmwareUpload({ fwInfo, refreshTables, lastestSwInfo }) {
             </InputContainer>
           </FileUploadOptionContainer>
           <FileUploadOptionContainer>
-            <TableHeader
+            <FormLabel
               style={{
                 width: "400px",
-                marginRight: "50px",
-                justifyContent: "center",
-                height: 20,
-                textAlign: "right",
               }}
             >
               Is compatible with current Stingray SW version ({lastestSwInfo.stingray})?
-            </TableHeader>
+            </FormLabel>
             <InputContainer>
               <DropDownWidget
                 options={["False", "True"]}
