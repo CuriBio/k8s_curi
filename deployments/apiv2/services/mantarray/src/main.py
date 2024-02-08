@@ -255,11 +255,22 @@ async def get_all_fw_sw_compatibility(
         async with request.state.pgpool.acquire() as con:
             main_fw_info = await con.fetch("SELECT * FROM ma_main_firmware")
             channel_fw_info = await con.fetch("SELECT * FROM ma_channel_firmware")
+            latest_ma_version = _get_min_compatible_sw_version(
+                await con.fetch("SELECT version, state FROM ma_controllers"), True
+            )
+            latest_sting_version = _get_min_compatible_sw_version(
+                await con.fetch("SELECT version, state FROM sting_controllers"), True
+            )
 
         main_fw_info = [dict(row) for row in main_fw_info]
         channel_fw_info = [dict(row) for row in channel_fw_info]
 
-        return FirmwareInfoResponse(main_fw_info=main_fw_info, channel_fw_info=channel_fw_info)
+        return FirmwareInfoResponse(
+            main_fw_info=main_fw_info,
+            channel_fw_info=channel_fw_info,
+            latest_ma_version=latest_ma_version,
+            latest_sting_version=latest_sting_version,
+        )
     except Exception:
         logger.exception("Error getting FW/SW compatibility")
         raise
