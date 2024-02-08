@@ -411,6 +411,9 @@ async def process_item(con, item):
                 if data_type_override := renderer_args.get("data_type"):
                     renderer_args["data_type"] = data_type_override.lower()
 
+                if metrics_output.instrument_type == InstrumentTypes.NAUTILAI:
+                    renderer_args["normalize_y_axis"] = False
+
                 logger.info("Running renderer")
                 output_filename = renderer.run(
                     metrics_output, OutputFormats.XLSX, output_format_args=renderer_args
