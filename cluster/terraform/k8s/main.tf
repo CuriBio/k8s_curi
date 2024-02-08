@@ -228,11 +228,7 @@ module "eks" {
     }
   }
 
-  kms_key_administrators = [
-    "arn:aws:iam::725604423866:user/jason",
-    "arn:aws:iam::725604423866:user/tanner",
-    "arn:aws:iam::725604423866:user/luci",
-  ]
+  kms_key_administrators = [for x in var.cluster_users : x["userarn"]]
 }
 
 data "aws_iam_policy" "ebs_csi_policy" {
