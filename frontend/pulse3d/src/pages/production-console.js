@@ -52,6 +52,7 @@ const FileUploadOptionContainer = styled.div`
   text-wrap: nowrap;
   margin-bottom: 50px;
   justify-content: center;
+  align-items: center;
 `;
 
 const SuccessText = styled.span`
@@ -136,11 +137,16 @@ function FirmwareSection({ accountScope }) {
   const canEditFw = accountScope.includes("mantarray:firmware:edit");
 
   const [fwInfo, setFwInfo] = useState({ main: [], channel: [] });
+  const [lastestSwInfo, setLastestSwInfo] = useState({ mantarray: null, stingray: null });
 
   const getFwInfo = async () => {
     const getFwInfoRes = await fetch(`${process.env.NEXT_PUBLIC_MANTARRAY_URL}/firmware/info`);
     const getFwInfoResJson = await getFwInfoRes.json();
     setFwInfo({ main: getFwInfoResJson.main_fw_info, channel: getFwInfoResJson.channel_fw_info });
+    setLastestSwInfo({
+      mantarray: getFwInfoResJson.latest_ma_version,
+      stingray: getFwInfoResJson.latest_sting_version,
+    });
   };
 
   // when component first loads, get FW info
@@ -150,7 +156,9 @@ function FirmwareSection({ accountScope }) {
 
   return (
     <>
-      {canEditFw && <FirmwareUpload fwInfo={fwInfo} refreshTables={getFwInfo} />}
+      {canEditFw && (
+        <FirmwareUpload fwInfo={fwInfo} lastestSwInfo={lastestSwInfo} refreshTables={getFwInfo} />
+      )}
       {canViewFwTables && <FirmwareTables fwInfo={fwInfo} canEdit={canEditFw} getFwInfo={getFwInfo} />}
     </>
   );
@@ -165,7 +173,7 @@ const UPLOAD_STATES = {
 
 const dropZoneText = "CLICK HERE or DROP";
 
-function FirmwareUpload({ fwInfo, refreshTables }) {
+function FirmwareUpload({ fwInfo, refreshTables, lastestSwInfo }) {
   const [file, setFile] = useState();
   const [resetDragDrop, setResetDragDrop] = useState(false);
   const [resetInputWidgets, setResetInputWidgets] = useState(false);
@@ -403,7 +411,7 @@ function FirmwareUpload({ fwInfo, refreshTables }) {
         <>
           <FileUploadOptionContainer>
             <TableHeader style={{ width: "400px", marginRight: "50px", justifyContent: "center" }}>
-              Is Compatible with Current MA SW Version?
+              Is compatible with current MA SW version ({lastestSwInfo.mantarray})?
             </TableHeader>
             <InputContainer>
               <DropDownWidget
@@ -415,7 +423,7 @@ function FirmwareUpload({ fwInfo, refreshTables }) {
           </FileUploadOptionContainer>
           <FileUploadOptionContainer>
             <TableHeader style={{ width: "400px", marginRight: "50px", justifyContent: "center" }}>
-              Is Compatible with Current Stingray SW Version?
+              Is compatible with current Stingray SW version ({lastestSwInfo.stingray})?
             </TableHeader>
             <InputContainer>
               <DropDownWidget
