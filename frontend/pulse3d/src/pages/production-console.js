@@ -124,7 +124,6 @@ const TableContainer = styled.div`
 
 const TableHeader = styled.div`
   padding-bottom: 10px;
-  padding-left: 10px;
 `;
 
 const serNumScopes = ["mantarray:serial_number:edit", "mantarray:serial_number:list"];
@@ -379,7 +378,15 @@ function FirmwareUpload({ fwInfo, refreshTables, lastestSwInfo }) {
         />
       </FileUploaderContainer>
       <FileUploadOptionContainer>
-        <TableHeader style={{ width: "100px", marginRight: "50px", justifyContent: "center" }}>
+        <TableHeader
+          style={{
+            width: "100px",
+            marginRight: "50px",
+            justifyContent: "center",
+            height: 20,
+            textAlign: "right",
+          }}
+        >
           Firmware Version
         </TableHeader>
         <InputContainer>
@@ -396,7 +403,7 @@ function FirmwareUpload({ fwInfo, refreshTables, lastestSwInfo }) {
         </InputContainer>
       </FileUploadOptionContainer>
       <FileUploadOptionContainer>
-        <TableHeader style={{ width: "100px", marginRight: "50px", justifyContent: "center" }}>
+        <TableHeader style={{ width: "100px", marginRight: "50px", justifyContent: "center", height: 20 }}>
           Firmware Type
         </TableHeader>
         <InputContainer>
@@ -410,7 +417,15 @@ function FirmwareUpload({ fwInfo, refreshTables, lastestSwInfo }) {
       {uploadOptions.fwType === "Main" && (
         <>
           <FileUploadOptionContainer>
-            <TableHeader style={{ width: "400px", marginRight: "50px", justifyContent: "center" }}>
+            <TableHeader
+              style={{
+                width: "400px",
+                marginRight: "50px",
+                justifyContent: "center",
+                height: 20,
+                textAlign: "right",
+              }}
+            >
               Is compatible with current MA SW version ({lastestSwInfo.mantarray})?
             </TableHeader>
             <InputContainer>
@@ -422,7 +437,15 @@ function FirmwareUpload({ fwInfo, refreshTables, lastestSwInfo }) {
             </InputContainer>
           </FileUploadOptionContainer>
           <FileUploadOptionContainer>
-            <TableHeader style={{ width: "400px", marginRight: "50px", justifyContent: "center" }}>
+            <TableHeader
+              style={{
+                width: "400px",
+                marginRight: "50px",
+                justifyContent: "center",
+                height: 20,
+                textAlign: "right",
+              }}
+            >
               Is compatible with current Stingray SW version ({lastestSwInfo.stingray})?
             </TableHeader>
             <InputContainer>
