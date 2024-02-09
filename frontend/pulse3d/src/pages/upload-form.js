@@ -537,7 +537,7 @@ export default function UploadForm() {
 
     let badFilesUpdate = await asyncFilter(files, async (file) => {
       // if the file is falsey then it is invalid and there is nothing more to do
-      if (!file) {
+      if (!file?.name) {
         return true;
       }
 
@@ -565,7 +565,7 @@ export default function UploadForm() {
             isValidUpload = false;
             // If multiple file types in the same zip, it is an invalid file. The zip must contain exactly one of the supported file types
           } else {
-            let zipContainsValidNumFiles, fileCount, fileType;
+            let zipContainsValidNumFiles;
             if (numH5InFile > 0) {
               zipContainsValidNumFiles = numH5InFile === 24 || numH5InFile === 48;
               minPulse3dVersionForUpload = getMinPulse3dVersionFromUpload(numH5InFile, "h5");
@@ -580,10 +580,10 @@ export default function UploadForm() {
 
             isValidUpload = onlyOneDir && zipContainsValidNumFiles;
           }
-        } else if (file.type.includes("xlsx")) {
+        } else if (file.name.endsWith("xlsx")) {
           isValidUpload = true;
           minPulse3dVersionForUpload = getMinPulse3dVersionFromUpload(1, "xlsx");
-        } else if (file.type.includes("parquet")) {
+        } else if (file.name.endsWith("parquet")) {
           isValidUpload = true;
           minPulse3dVersionForUpload = getMinPulse3dVersionFromUpload(1, "parquet");
         } else {
