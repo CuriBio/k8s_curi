@@ -392,6 +392,7 @@ async def process_item(con, item):
                 if data_type_override := renderer_args.get("data_type"):
                     renderer_args["data_type"] = data_type_override.lower()
 
+                # nautilai's processing handles normalization differently than mantarray's
                 if metrics_output.metadata.instrument_type == InstrumentTypes.NAUTILAI:
                     renderer_args["normalize_y_axis"] = False
 
