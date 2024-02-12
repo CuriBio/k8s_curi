@@ -83,7 +83,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT customer_id, user_id, count(*) AS total_uploads, type FROM uploads WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}'::date AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'::date GROUP BY 1, 2, 4 ORDER BY user_id, customer_id;",
+          "rawSql": "SELECT customer_id, user_id, count(*) AS total_uploads, type FROM uploads WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}'::date AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'::date GROUP BY 1, 2, 4 ORDER BY customer_id, user_id;",
           "refId": "A",
           "sql": {
             "columns": [
