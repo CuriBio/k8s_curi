@@ -5,7 +5,7 @@ fastapi==0.105.0
 h11==0.12.0
 httpx==0.24.0
 idna==3.3
-pulse3d==1.0.0rc20
+pulse3d==1.0.0rc22
 pydantic==2.5.2
 sniffio==1.2.0
 starlette==0.27.0
@@ -13,7 +13,7 @@ typing-extensions==4.9.0
 uvicorn[standard]==0.22.0
 stream-zip==0.0.48
 fastparquet==2023.4.0
-pyarrow==12.0.0
+pyarrow==15.0.0
 semver==3.0.1
 structlog==23.2.0
 starlette-context==0.3.6

@@ -465,7 +465,7 @@ export default function AnalysisParamForm({
   analysisParams,
   setWellGroupErr,
   reanalysis,
-  xlsxFilePresent,
+  minPulse3dVersionAllowed,
   userPresetOpts: {
     userPresets,
     setSelectedPresetIdx,
@@ -541,14 +541,11 @@ export default function AnalysisParamForm({
 
   useEffect(() => {
     const filteredOptions = pulse3dVersions.filter((version) => {
-      if (!xlsxFilePresent) return true;
-
-      const minVersion = xlsxFilePresent <= 24 ? "0.32.2" : "0.33.13";
-      return semverGte(version, minVersion);
+      return semverGte(version, minPulse3dVersionAllowed);
     });
 
     setPulse3dFilteredFileVersions([...filteredOptions]);
-  }, [pulse3dVersions, xlsxFilePresent]);
+  }, [pulse3dVersions, minPulse3dVersionAllowed]);
 
   const pulse3dVersionGte = (version) => {
     const { selectedPulse3dVersion } = analysisParams;

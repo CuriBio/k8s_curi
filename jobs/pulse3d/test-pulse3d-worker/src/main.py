@@ -17,18 +17,11 @@ from pulse3D import metrics
 from pulse3D import peak_finding as peak_finder
 from pulse3D import rendering as renderer
 from pulse3D.constants import PACKAGE_VERSION as PULSE3D_VERSION
-from pulse3D.data_loader import (
-    MantarrayBeta1Metadata,
-    MantarrayBeta2Metadata,
-    NautilaiMetadata,
-    from_file,
-    InstrumentTypes,
-    BaseMetadata,
-)
+from pulse3D.data_loader import from_file, InstrumentTypes
+from pulse3D.data_loader.utils import get_metadata_cls
 from pulse3D.peak_finding import LoadedDataWithFeatures
 from pulse3D.pre_analysis import PreProcessedData, pre_process, process, sort_wells_in_df
 from pulse3D.rendering import OutputFormats
-from semver import VersionInfo
 from structlog.contextvars import bind_contextvars, clear_contextvars, merge_contextvars
 from utils.s3 import upload_file_to_s3
 
@@ -45,18 +38,6 @@ structlog.configure(
 )
 
 logger = structlog.get_logger()
-
-
-def _get_existing_metadata(metadata_dict: dict[str, Any]) -> BaseMetadata:
-    if metadata_dict["instrument_type"] == InstrumentTypes.MANTARRAY:
-        if metadata_dict["file_format_version"] >= VersionInfo.parse("1.0.0"):
-            return MantarrayBeta2Metadata(**metadata_dict)
-        else:
-            return MantarrayBeta1Metadata(**metadata_dict)
-    elif metadata_dict["instrument_type"] == InstrumentTypes.NAUTILAI:
-        return NautilaiMetadata(**metadata_dict)
-    else:
-        return BaseMetadata(**metadata_dict)
 
 
 # TODO could use a better data structure for this
@@ -251,7 +232,7 @@ async def process_item(con, item):
                             )
                         )
                     )
-                    pre_process_metadata = _get_existing_metadata(pre_process_metadata_dict)
+                    pre_process_metadata = get_metadata_cls(pre_process_metadata_dict)
 
                     pre_processed_data = PreProcessedData(
                         tissue_waveforms=pre_process_tissue_waveforms,
@@ -411,7 +392,8 @@ async def process_item(con, item):
                 if data_type_override := renderer_args.get("data_type"):
                     renderer_args["data_type"] = data_type_override.lower()
 
-                if metrics_output.instrument_type == InstrumentTypes.NAUTILAI:
+                # nautilai's processing handles normalization differently than mantarray's
+                if metrics_output.metadata.instrument_type == InstrumentTypes.NAUTILAI:
                     renderer_args["normalize_y_axis"] = False
 
                 logger.info("Running renderer")
