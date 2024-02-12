@@ -474,6 +474,7 @@ export default function AnalysisParamForm({
     setAnalysisPresetName,
     analysisPresetName,
   },
+  isPulse3dPreferenceSet,
 }) {
   const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails, dataTypeDetails } = useContext(
     UploadsContext
@@ -501,15 +502,19 @@ export default function AnalysisParamForm({
       setPulse3dVersionEOLDateWarning(warning);
       setDeprecationNotice(selectedVersionMetadata.state === "deprecated");
     }
+
     updateParams({
       selectedPulse3dVersion: pulse3dFilteredFileVersions[idx],
     });
   };
 
   useEffect(() => {
-    // set back to index of zero, this gets handled after a file is uploaded and if an xlsx file is present, the pulse3d versions will be in a different order.
+    // set back to initial version index, this gets handled after a file is uploaded and if an xlsx file is present, the pulse3d versions will be in a different order.
     updateParams({
-      selectedPulse3dVersion: pulse3dFilteredFileVersions[0],
+      selectedPulse3dVersion:
+        pulse3dFilteredFileVersions[
+          getDropdownInitialSelection("selectedPulse3dVersion", pulse3dFilteredFileVersions)
+        ],
     });
 
     const options = pulse3dFilteredFileVersions.map((version) => {
@@ -567,12 +572,7 @@ export default function AnalysisParamForm({
 
     // set initial p3d version to user preference if available, account for it to now always be set
     // additionally, need to wait for pulse3dVersions to be fetched and set
-    if (
-      param == "selectedPulse3dVersion" &&
-      productPage in preferences &&
-      "version" in preferences[productPage] &&
-      pulse3dVersions.length > 0
-    ) {
+    if (param == "selectedPulse3dVersion" && isPulse3dPreferenceSet()) {
       optionIndex = optionsArr.indexOf(preferences[productPage].version);
     }
 

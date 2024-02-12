@@ -103,6 +103,8 @@ class AccountUpdateAction(BaseModel):
     action_type: str
     new_alias: str | None = Field(default=None)
     passwords: PasswordModel | None = Field(default=None)
+    usage: dict[str, Any] | None = Field(default=None)
+    products: list[str] | None = Field(default=None)
 
 
 class UserScopesUpdate(ScopeConverter):

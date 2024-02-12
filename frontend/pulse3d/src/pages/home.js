@@ -60,8 +60,8 @@ export default function Login() {
       description: "3D Tissue Contractility Analysis",
       state: "disabled",
     },
-    nautilus: {
-      name: "Nautilus",
+    nautilai: {
+      name: "Nautilai",
       description: "2D & 3D Calcium & Voltage Analysis",
       state: "disabled",
     },
@@ -140,7 +140,7 @@ export default function Login() {
   return (
     <BackgroundContainer>
       {[
-        ["mantarray", "nautilus"],
+        ["mantarray", "nautilai"],
         ["pulse2d", "phenolearn", "analysis tools"],
       ].map((row, idx) => {
         return (

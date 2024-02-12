@@ -4,6 +4,7 @@
 /node_modules
 /.pnp
 .pnp.js
+/public/serviceWorker.js.LICENSE.txt
 
 # testing
 /coverage
@@ -30,3 +31,4 @@ yarn-error.log*
 
 # vercel
 .vercel
+

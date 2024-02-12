@@ -52,6 +52,7 @@ const FileUploadOptionContainer = styled.div`
   text-wrap: nowrap;
   margin-bottom: 50px;
   justify-content: center;
+  align-items: center;
 `;
 
 const SuccessText = styled.span`
@@ -123,7 +124,13 @@ const TableContainer = styled.div`
 
 const TableHeader = styled.div`
   padding-bottom: 10px;
-  padding-left: 10px;
+`;
+
+const FormLabel = styled(TableHeader)`
+  margin-right: 50px;
+  justify-content: center;
+  height: 20;
+  text-align: right;
 `;
 
 const serNumScopes = ["mantarray:serial_number:edit", "mantarray:serial_number:list"];
@@ -136,11 +143,16 @@ function FirmwareSection({ accountScope }) {
   const canEditFw = accountScope.includes("mantarray:firmware:edit");
 
   const [fwInfo, setFwInfo] = useState({ main: [], channel: [] });
+  const [lastestSwInfo, setLastestSwInfo] = useState({ mantarray: null, stingray: null });
 
   const getFwInfo = async () => {
     const getFwInfoRes = await fetch(`${process.env.NEXT_PUBLIC_MANTARRAY_URL}/firmware/info`);
     const getFwInfoResJson = await getFwInfoRes.json();
     setFwInfo({ main: getFwInfoResJson.main_fw_info, channel: getFwInfoResJson.channel_fw_info });
+    setLastestSwInfo({
+      mantarray: getFwInfoResJson.latest_ma_version,
+      stingray: getFwInfoResJson.latest_sting_version,
+    });
   };
 
   // when component first loads, get FW info
@@ -150,7 +162,9 @@ function FirmwareSection({ accountScope }) {
 
   return (
     <>
-      {canEditFw && <FirmwareUpload fwInfo={fwInfo} refreshTables={getFwInfo} />}
+      {canEditFw && (
+        <FirmwareUpload fwInfo={fwInfo} lastestSwInfo={lastestSwInfo} refreshTables={getFwInfo} />
+      )}
       {canViewFwTables && <FirmwareTables fwInfo={fwInfo} canEdit={canEditFw} getFwInfo={getFwInfo} />}
     </>
   );
@@ -165,7 +179,7 @@ const UPLOAD_STATES = {
 
 const dropZoneText = "CLICK HERE or DROP";
 
-function FirmwareUpload({ fwInfo, refreshTables }) {
+function FirmwareUpload({ fwInfo, refreshTables, lastestSwInfo }) {
   const [file, setFile] = useState();
   const [resetDragDrop, setResetDragDrop] = useState(false);
   const [resetInputWidgets, setResetInputWidgets] = useState(false);
@@ -343,9 +357,7 @@ function FirmwareUpload({ fwInfo, refreshTables }) {
         body: formData,
       });
 
-      if (uploadPostRes.status === 204) {
-        await postNewJob(uploadId, filename);
-      } else {
+      if (uploadPostRes.status !== 204) {
         console.log("ERROR uploading file to s3:  ", await uploadPostRes.json());
         return UPLOAD_STATES.FAILED;
       }
@@ -373,9 +385,13 @@ function FirmwareUpload({ fwInfo, refreshTables }) {
         />
       </FileUploaderContainer>
       <FileUploadOptionContainer>
-        <TableHeader style={{ width: "100px", marginRight: "50px", justifyContent: "center" }}>
+        <FormLabel
+          style={{
+            width: "100px",
+          }}
+        >
           Firmware Version
-        </TableHeader>
+        </FormLabel>
         <InputContainer>
           <FormInput
             name="uploadFwVersion"
@@ -390,7 +406,7 @@ function FirmwareUpload({ fwInfo, refreshTables }) {
         </InputContainer>
       </FileUploadOptionContainer>
       <FileUploadOptionContainer>
-        <TableHeader style={{ width: "100px", marginRight: "50px", justifyContent: "center" }}>
+        <TableHeader style={{ width: "100px", marginRight: "50px", justifyContent: "center", height: 20 }}>
           Firmware Type
         </TableHeader>
         <InputContainer>
@@ -404,9 +420,13 @@ function FirmwareUpload({ fwInfo, refreshTables }) {
       {uploadOptions.fwType === "Main" && (
         <>
           <FileUploadOptionContainer>
-            <TableHeader style={{ width: "400px", marginRight: "50px", justifyContent: "center" }}>
-              Is Compatible with Current MA SW Version?
-            </TableHeader>
+            <FormLabel
+              style={{
+                width: "400px",
+              }}
+            >
+              Is compatible with current MA SW version ({lastestSwInfo.mantarray})?
+            </FormLabel>
             <InputContainer>
               <DropDownWidget
                 options={["False", "True"]}
@@ -416,9 +436,13 @@ function FirmwareUpload({ fwInfo, refreshTables }) {
             </InputContainer>
           </FileUploadOptionContainer>
           <FileUploadOptionContainer>
-            <TableHeader style={{ width: "400px", marginRight: "50px", justifyContent: "center" }}>
-              Is Compatible with Current Stingray SW Version?
-            </TableHeader>
+            <FormLabel
+              style={{
+                width: "400px",
+              }}
+            >
+              Is compatible with current Stingray SW version ({lastestSwInfo.stingray})?
+            </FormLabel>
             <InputContainer>
               <DropDownWidget
                 options={["False", "True"]}

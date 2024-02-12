@@ -169,7 +169,7 @@ export default function ControlPanel() {
       page: "/add-new-account",
       options: ["User"],
     },
-    { label: "Users Info", disabled: false, page: "/users-info", options: [] },
+    { label: "User Info", disabled: false, page: "/user-info", options: [] },
     {
       label: "Account Settings",
       disabled: false,
@@ -205,6 +205,12 @@ export default function ControlPanel() {
   if (isCuriAdmin) {
     // if the curi admin acccount is logged in, allow them to add new admins
     adminButtons[1].options.push("Admin");
+    adminButtons.splice(3, 0, {
+      label: "Customer Info",
+      disabled: false,
+      page: "/customer-info",
+      options: [],
+    });
   }
 
   useEffect(() => {
