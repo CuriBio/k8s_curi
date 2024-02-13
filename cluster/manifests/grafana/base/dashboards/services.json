@@ -1,222 +1,426 @@
 {
-    "annotations": {
-      "list": [
-        {
-          "builtIn": 1,
-          "datasource": {
-            "type": "grafana",
-            "uid": "-- Grafana --"
-          },
-          "enable": true,
-          "hide": true,
-          "iconColor": "rgba(0, 211, 255, 1)",
-          "name": "Annotations & Alerts",
-          "type": "dashboard"
-        }
-      ]
-    },
-    "editable": true,
-    "fiscalYearStartMonth": 0,
-    "graphTooltip": 0,
-    "links": [],
-    "liveNow": false,
-    "panels": [
+  "annotations": {
+    "list": [
       {
+        "builtIn": 1,
         "datasource": {
-          "type": "loki",
-          "uid": "P8E80F9AEF21F6940"
+          "type": "grafana",
+          "uid": "-- Grafana --"
         },
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "thresholds"
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 0,
-          "y": 0
-        },
-        "id": 1,
-        "options": {
-          "displayMode": "gradient",
-          "minVizHeight": 10,
-          "minVizWidth": 0,
-          "orientation": "auto",
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ],
-            "fields": "",
-            "values": false
-          },
-          "showUnfilled": true,
-          "valueMode": "color"
-        },
-        "pluginVersion": "10.1.5",
-        "targets": [
-          {
-            "datasource": {
-              "type": "loki",
-              "uid": "P8E80F9AEF21F6940"
-            },
-            "editorMode": "builder",
-            "expr": "sum(count_over_time({container=\"users\"} |= `status_code` | json | status_code >= 400 | status_code < 500 [$__range]))",
-            "legendFormat": "users",
-            "queryType": "range",
-            "refId": "A"
-          },
-          {
-            "datasource": {
-              "type": "loki",
-              "uid": "P8E80F9AEF21F6940"
-            },
-            "editorMode": "builder",
-            "expr": "sum(count_over_time({container=\"pulse3d\"} |= `status_code` | json | status_code >= 400 | status_code < 500 [$__range]))",
-            "hide": false,
-            "legendFormat": "p3d",
-            "queryType": "range",
-            "refId": "B"
-          },
-          {
-            "datasource": {
-              "type": "loki",
-              "uid": "P8E80F9AEF21F6940"
-            },
-            "editorMode": "builder",
-            "expr": "sum(count_over_time({container=\"mantarray\"} |= `status_code` | json | status_code >= 400 | status_code < 500 [$__range]))",
-            "hide": false,
-            "legendFormat": "mantarray",
-            "queryType": "range",
-            "refId": "C"
-          }
-        ],
-        "title": "Total 400s by service",
-        "type": "bargauge"
-      },
-      {
-        "datasource": {
-          "type": "loki",
-          "uid": "P8E80F9AEF21F6940"
-        },
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "thresholds"
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 8,
-          "y": 0
-        },
-        "id": 2,
-        "options": {
-          "displayMode": "gradient",
-          "minVizHeight": 10,
-          "minVizWidth": 0,
-          "orientation": "auto",
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ],
-            "fields": "",
-            "values": false
-          },
-          "showUnfilled": true,
-          "valueMode": "color"
-        },
-        "pluginVersion": "10.1.5",
-        "targets": [
-          {
-            "datasource": {
-              "type": "loki",
-              "uid": "P8E80F9AEF21F6940"
-            },
-            "editorMode": "builder",
-            "expr": "sum(count_over_time({container=\"users\"} |= `status_code` | json | status_code >= 500 [$__range]))",
-            "legendFormat": "users",
-            "queryType": "range",
-            "refId": "A"
-          },
-          {
-            "datasource": {
-              "type": "loki",
-              "uid": "P8E80F9AEF21F6940"
-            },
-            "editorMode": "builder",
-            "expr": "sum(count_over_time({container=\"pulse3d\"} |= `status_code` | json | status_code >= 500 [$__range]))",
-            "hide": false,
-            "legendFormat": "p3d",
-            "queryType": "range",
-            "refId": "B"
-          },
-          {
-            "datasource": {
-              "type": "loki",
-              "uid": "P8E80F9AEF21F6940"
-            },
-            "editorMode": "builder",
-            "expr": "sum(count_over_time({container=\"mantarray\"} |= `status_code` | json | status_code >= 500 [$__range]))",
-            "hide": false,
-            "legendFormat": "mantarray",
-            "queryType": "range",
-            "refId": "C"
-          }
-        ],
-        "title": "Total 500s by service",
-        "type": "bargauge"
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
       }
-    ],
-    "refresh": "",
-    "schemaVersion": 38,
-    "style": "dark",
-    "tags": [],
-    "templating": {
-      "list": []
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "P8E80F9AEF21F6940"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "displayName": "${__field.labels}",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "pluginVersion": "10.1.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "builder",
+          "expr": "sum(count_over_time({container=\"users\"} |= `status_code` | json | status_code >= 400 | status_code < 500 [$__range]))",
+          "legendFormat": "users",
+          "queryType": "range",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "builder",
+          "expr": "sum(count_over_time({container=\"pulse3d\"} |= `status_code` | json | status_code >= 400 | status_code < 500 [$__range]))",
+          "hide": false,
+          "legendFormat": "p3d",
+          "queryType": "range",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "builder",
+          "expr": "sum(count_over_time({container=\"mantarray\"} |= `status_code` | json | status_code >= 400 | status_code < 500 [$__range]))",
+          "hide": false,
+          "legendFormat": "mantarray",
+          "queryType": "range",
+          "refId": "C"
+        }
+      ],
+      "title": "Total 400s by Service",
+      "type": "bargauge"
     },
-    "time": {
-      "from": "now-7d",
-      "to": "now"
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "P8E80F9AEF21F6940"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "displayName": "${__field.labels}",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "pluginVersion": "10.1.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "builder",
+          "expr": "sum(count_over_time({container=\"users\"} |= `status_code` | json | status_code >= 500 [$__range]))",
+          "legendFormat": "users",
+          "queryType": "range",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "builder",
+          "expr": "sum(count_over_time({container=\"pulse3d\"} |= `status_code` | json | status_code >= 500 [$__range]))",
+          "hide": false,
+          "legendFormat": "p3d",
+          "queryType": "range",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "builder",
+          "expr": "sum(count_over_time({container=\"mantarray\"} |= `status_code` | json | status_code >= 500 [$__range]))",
+          "hide": false,
+          "legendFormat": "mantarray",
+          "queryType": "range",
+          "refId": "C"
+        }
+      ],
+      "title": "Total 500s by Service",
+      "type": "bargauge"
     },
-    "timepicker": {},
-    "timezone": "",
-    "title": "Service Stats",
-    "uid": "a7c0828a-dadc-467a-959c-77a320d79bbc",
-    "version": 1,
-    "weekStart": ""
-  }
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "P8E80F9AEF21F6940"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "displayName": "${__field.labels}",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "pluginVersion": "10.1.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "builder",
+          "expr": "sum(count_over_time({container=\"users\"} |= `exception` | json [$__range]))",
+          "legendFormat": "users",
+          "queryType": "range",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "builder",
+          "expr": "sum(count_over_time({container=\"pulse3d\"} |= `exception` | json [$__range]))",
+          "hide": false,
+          "legendFormat": "p3d",
+          "queryType": "range",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "builder",
+          "expr": "sum(count_over_time({container=\"mantarray\"} |= `exception` | json [$__range]))",
+          "hide": false,
+          "legendFormat": "mantarray",
+          "queryType": "range",
+          "refId": "C"
+        }
+      ],
+      "title": "Total Errors by Service",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "P8E80F9AEF21F6940"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "displayName": "${__field.labels}",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 4,
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "pluginVersion": "10.1.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "builder",
+          "expr": "sum(count_over_time({container=\"nginx-ingress\"} |~ `\" 1\\d\\d ` [$__range]))",
+          "legendFormat": "100s",
+          "queryType": "range",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "builder",
+          "expr": "sum(count_over_time({container=\"nginx-ingress\"} |~ `\" 2\\d\\d ` [$__range]))",
+          "hide": false,
+          "legendFormat": "200s",
+          "queryType": "range",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "builder",
+          "expr": "sum(count_over_time({container=\"nginx-ingress\"} |~ `\" 3\\d\\d ` [$__range]))",
+          "hide": false,
+          "legendFormat": "300s",
+          "queryType": "range",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "builder",
+          "expr": "sum(count_over_time({container=\"nginx-ingress\"} |~ `\" 4\\d\\d ` [$__range]))",
+          "hide": false,
+          "legendFormat": "400s",
+          "queryType": "range",
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "builder",
+          "expr": "sum(count_over_time({container=\"nginx-ingress\"} |~ `\" 5\\d\\d ` [$__range]))",
+          "hide": false,
+          "legendFormat": "500s",
+          "queryType": "range",
+          "refId": "E"
+        }
+      ],
+      "title": "Response Codes in nginx-ingress",
+      "type": "bargauge"
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Service Stats",
+  "uid": "a7c0828a-dadc-467a-959c-77a320d79bbc",
+  "version": 9,
+  "weekStart": ""
+}
