@@ -881,12 +881,12 @@
     "list": []
   },
   "time": {
-    "from": "now-6M",
+    "from": "now-7d",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Upload stats",
+  "title": "Pulse3D Stats",
   "uid": "caa4b0df-5a12-47e1-8ec4-832c54f7a367",
   "version": 1,
   "weekStart": ""
