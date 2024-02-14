@@ -84,7 +84,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(*) as total_uploads from uploads WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}'::date AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'::date",
+          "rawSql": "SELECT count(*) as total_uploads from uploads WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'",
           "refId": "A",
           "sql": {
             "columns": [
@@ -171,7 +171,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(*) as total_jobs from jobs_result WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}'::date AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'::date",
+          "rawSql": "SELECT count(*) AS total_jobs FROM jobs_result WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'",
           "refId": "A",
           "sql": {
             "columns": [
@@ -258,7 +258,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(*) AS total_uploads FROM uploads u JOIN customers c ON c.id=u.customer_id WHERE c.email NOT LIKE '%curibio.com' AND u.created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}'::date AND u.created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'::date",
+          "rawSql": "SELECT count(*) AS total_uploads FROM uploads u JOIN customers c ON c.id=u.customer_id WHERE c.email NOT LIKE '%curibio.com' AND u.created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND u.created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'",
           "refId": "A",
           "sql": {
             "columns": [
@@ -345,7 +345,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(*) AS total_jobs FROM jobs_result j JOIN customers c ON c.id=j.customer_id WHERE c.email NOT LIKE '%curibio.com' AND j.created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}'::date AND j.created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'::date",
+          "rawSql": "SELECT count(*) AS total_jobs FROM jobs_result j JOIN customers c ON c.id=j.customer_id WHERE c.email NOT LIKE '%curibio.com' AND j.created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND j.created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'",
           "refId": "A",
           "sql": {
             "columns": [
@@ -432,7 +432,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT meta->'version' AS p3d_version, count(*) AS total_jobs FROM jobs_result WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}'::date AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'::date GROUP BY 1 ORDER BY 1 DESC;",
+          "rawSql": "SELECT meta->'version' AS p3d_version, count(*) AS total_jobs FROM jobs_result WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1 ORDER BY 1 DESC;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -519,7 +519,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT type, count(*) AS total_uploads FROM uploads WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}'::date AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'::date GROUP BY 1;",
+          "rawSql": "SELECT type, count(*) AS total_uploads FROM uploads WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -606,7 +606,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT type, AVG(extract(epoch FROM finished_at - created_at) / 60) AS avg_minutes FROM jobs_result WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}'::date AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'::date GROUP BY type;",
+          "rawSql": "SELECT type, AVG(extract(epoch FROM finished_at - created_at) / 60) AS avg_minutes FROM jobs_result WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY type;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -781,7 +781,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT type, count(*) AS total_jobs FROM jobs_result WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}'::date AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'::date GROUP BY 1;",
+          "rawSql": "SELECT type, count(*) AS total_jobs FROM jobs_result WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -868,7 +868,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT type, AVG(extract(epoch FROM finished_at - started_at) / 60) AS avg_minutes FROM jobs_result WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}'::date AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'::date GROUP BY type;",
+          "rawSql": "SELECT type, AVG(extract(epoch FROM finished_at - started_at) / 60) AS avg_minutes FROM jobs_result WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY type;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -955,7 +955,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT j.customer_id, u.user_id, j.type, count(*) AS total_jobs FROM jobs_result j JOIN uploads u ON j.upload_id = u.id WHERE j.created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}'::date AND j.created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'::date GROUP BY 1, 2, 3 ORDER BY customer_id, user_id;",
+          "rawSql": "SELECT j.customer_id, u.user_id, j.type, count(*) AS total_jobs FROM jobs_result j JOIN uploads u ON j.upload_id = u.id WHERE j.created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND j.created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1, 2, 3 ORDER BY customer_id, user_id;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1042,7 +1042,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT customer_id, user_id, type, count(*) AS total_uploads FROM uploads WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}'::date AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'::date GROUP BY 1, 2, 3 ORDER BY customer_id, user_id;",
+          "rawSql": "SELECT customer_id, user_id, type, count(*) AS total_uploads FROM uploads WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1, 2, 3 ORDER BY customer_id, user_id;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1129,7 +1129,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT j.customer_id, u.user_id, j.type, count(*) AS total_failures FROM jobs_result j join uploads u on j.upload_id = u.id WHERE j.meta->'error' IS NOT NULL AND j.created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}'::date AND j.created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'::date GROUP BY 1, 2, 3 ORDER BY customer_id, user_id;",
+          "rawSql": "SELECT j.customer_id, u.user_id, j.type, count(*) AS total_failures FROM jobs_result j join uploads u on j.upload_id = u.id WHERE j.meta->'error' IS NOT NULL AND j.created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND j.created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1, 2, 3 ORDER BY customer_id, user_id;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1216,7 +1216,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT customer_id, upload_id, type, count(*) FROM jobs_result WHERE meta->'error' IS NOT NULL AND created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}'::date AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'::date GROUP BY 1, 2, 3 ORDER BY 4 DESC;",
+          "rawSql": "SELECT customer_id, upload_id, type, count(*) FROM jobs_result WHERE meta->'error' IS NOT NULL AND created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1, 2, 3 ORDER BY 4 DESC;",
           "refId": "A",
           "sql": {
             "columns": [
