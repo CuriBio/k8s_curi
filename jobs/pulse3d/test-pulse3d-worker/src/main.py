@@ -358,7 +358,7 @@ async def process_item(con, item):
                 raise
 
             try:
-                # TODO sync these values
+                # TODO sync these values ?
                 # twitch_widths v. widths --- baseline_widths_to_use v. baseline_widths
                 metrics_args = {
                     arg_name: val
