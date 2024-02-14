@@ -37,7 +37,9 @@ def get_item(*, queue):
                         return
 
                     await con_to_update_job_result.execute(
-                        "UPDATE jobs_result SET status='running' WHERE job_id=$1", item["id"]
+                        "UPDATE jobs_result SET status='running', started_at=$1 WHERE job_id=$2",
+                        datetime.now(),
+                        item["id"],
                     )
 
                 ts = time.time()
@@ -254,9 +256,11 @@ async def get_customer_quota(con, customer_id, service) -> dict[str, Any]:
 
     # usage query returns none if no jobs are found but 0 if no uploads are found.
     current_usage_dict = {
-        "jobs": current_usage_data.get("total_jobs", 0)
-        if current_usage_data.get("total_jobs", 0) is not None
-        else 0,
+        "jobs": (
+            current_usage_data.get("total_jobs", 0)
+            if current_usage_data.get("total_jobs", 0) is not None
+            else 0
+        ),
         "uploads": current_usage_data.get("total_uploads ", 0),
     }
 
