@@ -142,9 +142,12 @@ export default function Users() {
         minSize: 130,
         Cell: ({ cell }) => (
           <Box component="div">
-            {cell.getValue().map((s) => (
-              <li key={s}>{s}</li>
-            ))}
+            {cell
+              .getValue()
+              .sort()
+              .map((s) => (
+                <li key={s}>{s}</li>
+              ))}
           </Box>
         ),
       },
@@ -303,12 +306,12 @@ export default function Users() {
 
   const sendUserActionPutRequest = async (actionToPreform, users) => {
     try {
-      users.forEach(async ({ id }) => {
+      for (const { id } of users) {
         await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/${id}`, {
           method: "PUT",
           body: JSON.stringify({ action_type: actionToPreform }),
         });
-      });
+      }
     } catch {
       console.log("ERROR on put request to selected users");
     }
