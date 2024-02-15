@@ -1,5 +1,4 @@
 import asyncio
-from copy import deepcopy
 from dataclasses import asdict
 import json
 import os
@@ -20,7 +19,14 @@ from pulse3D.constants import PACKAGE_VERSION as PULSE3D_VERSION
 from pulse3D.data_loader import from_file, InstrumentTypes
 from pulse3D.data_loader.utils import get_metadata_cls
 from pulse3D.peak_finding import LoadedDataWithFeatures
-from pulse3D.pre_analysis import PreProcessedData, pre_process, process, sort_wells_in_df
+from pulse3D.pre_analysis import (
+    PreProcessedData,
+    pre_process,
+    process,
+    post_process,
+    sort_wells_in_df,
+    apply_window_to_df,
+)
 from pulse3D.rendering import OutputFormats
 from structlog.contextvars import bind_contextvars, clear_contextvars, merge_contextvars
 from utils.s3 import upload_file_to_s3
@@ -163,12 +169,16 @@ async def process_item(con, item):
         # remove params that were not given as these already have default values
         analysis_params = {k: v for k, v in metadata["analysis_params"].items() if v is not None}
 
-        pre_analysis_params = {
-            k: v for k, v in analysis_params.items() if k in ["normalization_method", "stiffness_factor"]
-        }
+        pre_analysis_params = {k: v for k, v in analysis_params.items() if k in ["stiffness_factor"]}
         # need to rename this param
         if post_stiffness_factor := pre_analysis_params.pop("stiffness_factor", None):
             pre_analysis_params["post_stiffness_factor"] = post_stiffness_factor
+
+        post_process_params = {
+            k: v
+            for k, v in analysis_params.items()
+            if k in ["normalization_method", "start_time", "end_time"]
+        }
 
         with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
             file_info = _create_file_info(tmpdir, prefix, str(job_id))
@@ -275,43 +285,22 @@ async def process_item(con, item):
             _upload_pre_zip(pre_analyzed_data, file_info, "pre_analysis")
 
             try:
-                # copy so that windowed data isn't written to S3 and used on following recordings
-                windowed_pre_analyzed_data = deepcopy(pre_analyzed_data)
-                tissue_waveforms = windowed_pre_analyzed_data.tissue_waveforms
-                stim_waveforms = windowed_pre_analyzed_data.stim_waveforms
-
-                for window, filter_fn in (
-                    ("start_time", lambda x: pl.col("time") >= x),
-                    ("end_time", lambda x: pl.col("time") <= x),
-                ):
-                    if (time_sec := analysis_params.get(window)) is not None:
-                        tissue_waveforms = tissue_waveforms.filter(filter_fn(time_sec))
-                        if stim_waveforms is not None:
-                            stim_waveforms = stim_waveforms.filter(filter_fn(time_sec))
-                        logger.info(f"Applied window {window.replace('_', ' ')} to waveform DF(s)")
-
-                windowed_pre_analyzed_data.tissue_waveforms = tissue_waveforms
-                windowed_pre_analyzed_data.stim_waveforms = stim_waveforms
+                # TODO
+                analyzable_data = post_process(pre_analyzed_data, **post_process_params)
             except Exception:
                 logger.exception("Error windowing data")
 
             if interactive_analysis:
                 try:
                     features_df = pl.read_parquet(file_info["peak_finding"]["file_path"])
-                    features_df = sort_wells_in_df(
-                        features_df, windowed_pre_analyzed_data.metadata.total_well_count
+
+                    features_df = sort_wells_in_df(features_df, analyzable_data.metadata.total_well_count)
+                    features_df = apply_window_to_df(
+                        features_df, df_name_to_log="features", **post_process_params
                     )
 
-                    for window, filter_fn in (
-                        ("start_time", lambda x: pl.col("time") >= x),
-                        ("end_time", lambda x: pl.col("time") <= x),
-                    ):
-                        if (time_sec := analysis_params.get(window)) is not None:
-                            features_df = features_df.filter(filter_fn(time_sec))
-                            logger.info(f"Applied window {window.replace('_', ' ')} to features DF")
-
                     data_with_features = LoadedDataWithFeatures(
-                        **asdict(windowed_pre_analyzed_data), tissue_features=features_df
+                        **asdict(analyzable_data), tissue_features=features_df
                     )
 
                     logger.info("Loaded features from IA")
@@ -335,9 +324,7 @@ async def process_item(con, item):
                         if (val := analysis_params.get(param)) is not None
                     }
                     logger.info("Running PeakDetector")
-                    data_with_features = peak_finder.run(
-                        windowed_pre_analyzed_data, alg_args=peak_detector_args
-                    )
+                    data_with_features = peak_finder.run(analyzable_data, alg_args=peak_detector_args)
                 except Exception:
                     logger.exception("PeakDetector failed")
                     raise
