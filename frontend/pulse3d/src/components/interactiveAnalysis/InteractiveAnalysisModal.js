@@ -247,14 +247,16 @@ export default function InteractiveWaveformModal({
   setOpenInteractiveAnalysis,
   numberOfJobsInUpload,
 }) {
+  const { usageQuota, productPage, preferences } = useContext(AuthContext);
+  const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
+
   // this hook gets waveform data no matter what first
   // a useEffect watching the error and loading states kicks off next step
   const { waveformData, featureIndices, getErrorState, getLoadingState, yAxisLabel } = useWaveformData(
-    `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}`
+    `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}`,
+    selectedJob.analysisParams.normalization_method,
+    productPage
   );
-
-  const { usageQuota, productPage, preferences } = useContext(AuthContext);
-  const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
 
   const [loadStatus, setLoadStatus] = useState(LOAD_STATUSES.NOT_LOADED);
   const isLoading = loadStatus !== LOAD_STATUSES.LOADED;
@@ -1005,7 +1007,7 @@ export default function InteractiveWaveformModal({
         </ParamContainer>
         <ParamContainer>
           <ParamLabel htmlFor="selectedPulse3dVersion">
-            Pulse3d Version:
+            Pulse3D Version:
             <Tooltip
               title={
                 <TooltipText>

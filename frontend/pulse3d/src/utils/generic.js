@@ -121,7 +121,7 @@ const _getPeaksValleysFromLegacyTable = (table, columns) => {
   return peaksValleysObj;
 };
 
-const getWaveformCoordsFromTable = async (table) => {
+const getWaveformCoordsFromTable = async (table, normalizationMethod, productPage) => {
   const columns = table.schema.fields.map(({ name }) => name);
   const wellNames = columns.filter(
     (name) =>
@@ -136,6 +136,10 @@ const getWaveformCoordsFromTable = async (table) => {
   // leaving time index at 0 because it's meant to be 0
   const time = columnData[0].filter((val, i) => val !== 0 || (val === 0 && i === 0));
 
+  if (productPage.toLowerCase().includes("mantarray") && !normalizationMethod) {
+    normalizationMethod = "F-Fmin";
+  }
+
   const convertTimeUnits = !columns.includes("time");
 
   const coordinatesObj = {};
@@ -143,16 +147,30 @@ const getWaveformCoordsFromTable = async (table) => {
     // some analyses may only include a few xlsx files, not all wells
     const wellForceIdx = columns.indexOf(well);
     if (wellForceIdx !== -1) {
-      let wellForce = columnData[wellForceIdx];
-
-      const minForce = Math.min(...wellForce);
-      wellForce = wellForce.map((val) => val - minForce);
-
+      const wellForce = _normalize(columnData[wellForceIdx], normalizationMethod);
       coordinatesObj[well] = time.map((time, i) => [convertTimeUnits ? time / 1e6 : time, wellForce[i]]);
     }
   }
 
   return coordinatesObj;
+};
+
+const _normalize = (wellForce, normMethod) => {
+  const minForce = Math.min(...wellForce);
+
+  let normFn;
+  if (normMethod === "F-Fmin") {
+    normFn = (val) => val - minForce;
+  } else if (normMethod === "F/Fmin") {
+    normFn = (val) => val / minForce;
+  } else if (normMethod === "∆F/Fmin") {
+    normFn = (val) => (val - minForce) / minForce;
+  } else {
+    // no normalization
+    return wellForce;
+  }
+
+  return wellForce.map(normFn);
 };
 
 const getTableFromParquet = async (buffer) => {
