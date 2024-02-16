@@ -18,6 +18,7 @@ from pulse3D import rendering as renderer
 from pulse3D.constants import PACKAGE_VERSION as PULSE3D_VERSION
 from pulse3D.data_loader import from_file, InstrumentTypes
 from pulse3D.data_loader.utils import get_metadata_cls
+from pulse3D.data_loader.metadata import NormalizationMethods
 from pulse3D.peak_finding import LoadedDataWithFeatures
 from pulse3D.pre_analysis import (
     PreProcessedData,
@@ -285,7 +286,10 @@ async def process_item(con, item):
             _upload_pre_zip(pre_analyzed_data, file_info, "pre_analysis")
 
             try:
-                # TODO
+                # mantarray always uses the same normalization
+                if pre_analyzed_data.metadata.instrument_type == InstrumentTypes.MANTARRAY:
+                    post_process_params["normalization_method"] = NormalizationMethods.F_SUB_FMIN
+
                 analyzable_data = post_process(pre_analyzed_data, **post_process_params)
             except Exception:
                 logger.exception("Error windowing data")

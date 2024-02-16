@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Any
 import uuid
 
-from pulse3D.data_loader.metadata import NautilaiNormalizationMethods
+from pulse3D.data_loader.metadata import NormalizationMethods
 
 from .types import Number, TupleParam
 
@@ -69,7 +69,7 @@ class JobRequest(BaseModel):
     inverted_post_magnet_wells: list[str] | None = Field(default=None)
     # nautilai params
     data_type: str | None = Field(default=None)
-    normalization_method: NautilaiNormalizationMethods | None = Field(default=None)
+    normalization_method: NormalizationMethods | None = Field(default=None)
 
 
 class SavePresetRequest(BaseModel):

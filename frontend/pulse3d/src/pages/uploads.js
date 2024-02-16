@@ -581,6 +581,7 @@ export default function Uploads() {
 
       const now = formatDateTime();
 
+      // TODO use product name here instead of "MA"
       if (uploads) {
         url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads/download`;
         zipFilename = `MA-recordings__${now}__${data.length}.zip`;
