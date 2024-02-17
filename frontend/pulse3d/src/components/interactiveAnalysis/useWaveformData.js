@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getPeaksValleysFromTable, getWaveformCoordsFromTable, getTableFromParquet } from "@/utils/generic";
 
-export const useWaveformData = (url) => {
+export const useWaveformData = (url, normalizationMethod, productPage) => {
   const [waveformData, setWaveformData] = useState([]);
   const [featureIndices, setFeatureIndices] = useState([]);
   const [yAxisLabel, setYAxisLabel] = useState();
@@ -22,7 +22,9 @@ export const useWaveformData = (url) => {
         const { peaksValleysData, amplitudeLabel, timeForceData } = await response.json();
 
         const featuresForWells = await parseParquetData(peaksValleysData, getPeaksValleysFromTable);
-        const coordinates = await parseParquetData(timeForceData, getWaveformCoordsFromTable);
+        const coordinates = await parseParquetData(timeForceData, (table) =>
+          getWaveformCoordsFromTable(table, normalizationMethod, productPage)
+        );
 
         setWaveformData(coordinates);
         setFeatureIndices(featuresForWells);

@@ -247,14 +247,16 @@ export default function InteractiveWaveformModal({
   setOpenInteractiveAnalysis,
   numberOfJobsInUpload,
 }) {
+  const { usageQuota, productPage, preferences } = useContext(AuthContext);
+  const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
+
   // this hook gets waveform data no matter what first
   // a useEffect watching the error and loading states kicks off next step
   const { waveformData, featureIndices, getErrorState, getLoadingState, yAxisLabel } = useWaveformData(
-    `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}`
+    `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}`,
+    selectedJob.analysisParams.normalization_method,
+    productPage
   );
-
-  const { usageQuota, productPage, preferences } = useContext(AuthContext);
-  const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
 
   const [loadStatus, setLoadStatus] = useState(LOAD_STATUSES.NOT_LOADED);
   const isLoading = loadStatus !== LOAD_STATUSES.LOADED;
@@ -280,7 +282,7 @@ export default function InteractiveWaveformModal({
     originalAnalysisData.coordinates && originalAnalysisData.coordinates[selectedWell]
       ? originalAnalysisData.coordinates[selectedWell]
       : [];
-  const [baseData, setBaseData] = useState({}); // same originalAnalysisData.featuresForWells but can have dups removed
+  const [baseData, setBaseData] = useState({}); // same as originalAnalysisData.featuresForWells but can have dups removed
   const [timepointRange, setTimepointRange] = useState({
     // This is a copy of the max/min timepoints of the data. Windowed analysis start/stop times are set in customAnalysisSettings.windowedAnalysisBounds
     // Must be stored in its own state and not tied directly to the recording data because it will be set to the start/stop times of the job if
@@ -667,8 +669,9 @@ export default function InteractiveWaveformModal({
 
       // only add for versions 1.0.0 and above
       if (semverGte(filteredVersions[pulse3dVersionIdx], "1.0.0")) {
+        const { coordinates } = originalAnalysisData;
         // timepoints should be the same on each well, so just grab them from the first one present
-        requestBody.timepoints = waveformData[Object.keys(waveformData)[0]].map((coords) => coords[0]);
+        requestBody.timepoints = coordinates[Object.keys(coordinates)[0]].map((coords) => coords[0]);
       }
 
       const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
@@ -1004,7 +1007,7 @@ export default function InteractiveWaveformModal({
         </ParamContainer>
         <ParamContainer>
           <ParamLabel htmlFor="selectedPulse3dVersion">
-            Pulse3d Version:
+            Pulse3D Version:
             <Tooltip
               title={
                 <TooltipText>

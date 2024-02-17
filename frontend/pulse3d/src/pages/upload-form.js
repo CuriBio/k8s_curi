@@ -147,7 +147,6 @@ export default function UploadForm() {
 
   const getDefaultAnalysisParams = () => {
     return {
-      normalizationMethod: null,
       normalizeYAxis: "",
       baseToPeak: "",
       peakToBase: "",
@@ -162,7 +161,10 @@ export default function UploadForm() {
       wellGroups: {},
       stimWaveformFormat: "",
       nameOverride: "",
+      // nautilai params
+      normalizationMethod: null,
       dataType: null,
+      detrend: null,
       // original advanced params
       prominenceFactorPeaks: "",
       prominenceFactorValleys: "",
@@ -483,6 +485,7 @@ export default function UploadForm() {
 
     if (semverGte(version, "1.0.0")) {
       requestBody.normalization_method = normalizationMethod === "None" ? null : normalizationMethod;
+      requestBody.detrend = analysisParams.detrend;
     }
 
     return requestBody;
