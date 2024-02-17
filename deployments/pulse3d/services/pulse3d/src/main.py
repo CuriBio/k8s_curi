@@ -463,6 +463,7 @@ async def create_new_job(
             params.append("data_type")
         if pulse3d_semver >= "1.0.0":
             params.append("normalization_method")
+            params.append("detrend")
 
         if use_noise_based_peak_finding:
             params += [

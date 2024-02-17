@@ -170,7 +170,9 @@ async def process_item(con, item):
         # remove params that were not given as these already have default values
         analysis_params = {k: v for k, v in metadata["analysis_params"].items() if v is not None}
 
-        pre_analysis_params = {k: v for k, v in analysis_params.items() if k in ["stiffness_factor"]}
+        pre_analysis_params = {
+            k: v for k, v in analysis_params.items() if k in ["stiffness_factor", "detrend"]
+        }
         # need to rename this param
         if post_stiffness_factor := pre_analysis_params.pop("stiffness_factor", None):
             pre_analysis_params["post_stiffness_factor"] = post_stiffness_factor
