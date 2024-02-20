@@ -70,8 +70,8 @@ def test_routes_with_auth__bad_access_token_given(test_method, test_route):
 
 @pytest.mark.parametrize("test_method,test_route", ROUTES_WITH_AUTH)
 def test_routes_with_auth__invalid_scope_given(test_method, test_route):
-    # using nautilus scope here since it will never be valid for any route in the mantarray svc
-    access_token = get_token(scopes=[Scopes.NAUTILUS__BASE])
+    # using nautilai scope here since it will never be valid for any route in the mantarray svc
+    access_token = get_token(scopes=[Scopes.NAUTILAI__BASE])
 
     response = getattr(test_client, test_method.lower())(
         test_route, headers={"Authorization": f"Bearer {access_token}"}
@@ -230,7 +230,10 @@ def test_firmware_info__get__success(mocked_asyncpg_con):
     access_token = get_token(scopes=[Scopes.MANTARRAY__FIRMWARE__LIST])
 
     expected_response = main.FirmwareInfoResponse(
-        main_fw_info=[{"main": "1.1.1"}], channel_fw_info=[{"channel": "2.2.2"}]
+        main_fw_info=[{"main": "1.1.1"}],
+        channel_fw_info=[{"channel": "2.2.2"}],
+        latest_ma_version="4.4.4",
+        latest_sting_version="3.3.3",
     )
 
     def fetch_se(query):
@@ -238,6 +241,18 @@ def test_firmware_info__get__success(mocked_asyncpg_con):
             return expected_response.main_fw_info
         if query == "SELECT * FROM ma_channel_firmware":
             return expected_response.channel_fw_info
+        if query == "SELECT version, state FROM ma_controllers":
+            return [
+                {"version": "1.1.1", "state": "external"},
+                {"version": "4.4.4", "state": "external"},
+                {"version": "5.5.5", "state": "internal"},
+            ]
+        if query == "SELECT version, state FROM sting_controllers":
+            return [
+                {"version": "1.1.1", "state": "external"},
+                {"version": "3.3.3", "state": "external"},
+                {"version": "5.5.5", "state": "internal"},
+            ]
         return None
 
     mocked_asyncpg_con.fetch.side_effect = fetch_se

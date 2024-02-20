@@ -100,7 +100,7 @@ export default function Users() {
             id,
             lastLogin: last_login,
             name,
-            scopes,
+            scopes: scopes.length > 0 && scopes[0] == null ? [] : scopes,
             suspended,
             verified,
             resetToken: reset_token,
@@ -142,9 +142,12 @@ export default function Users() {
         minSize: 130,
         Cell: ({ cell }) => (
           <Box component="div">
-            {cell.getValue().map((s) => (
-              <li key={s}>{s}</li>
-            ))}
+            {cell
+              .getValue()
+              .sort()
+              .map((s) => (
+                <li key={s}>{s}</li>
+              ))}
           </Box>
         ),
       },
@@ -185,19 +188,19 @@ export default function Users() {
   const getStatusValue = (row) => {
     // if user is verified and not suspended
     if (!row.suspended && row.verified) {
-      return "C";
+      return "active";
       // else if user is not verified
     } else if (!row.verified && !row.suspended) {
       // if a user has an active resetToken and is not verified, then allow for a reset
       if (row.resetToken) {
-        return "A";
+        return "needs verification";
         // else the link has been expired and user requires a new verification link to be sent
       } else {
-        return "B";
+        return "needs verification - expired";
       }
     } else {
       // else a user is suspended or inactive
-      return "D";
+      return "suspended";
     }
   };
 
@@ -206,17 +209,17 @@ export default function Users() {
     // TODO clean this up
     const v = c.getValue();
     // if user is verified and not suspended
-    if (v === "C") {
+    if (v === "active") {
       return <div style={{ color: "var(--teal-green)" }}>active</div>;
       // if a user has an active resetToken and is not verified, then allow for a reset
-    } else if (v === "A") {
+    } else if (v === "needs verification") {
       return (
         <ActiveVerifyLink onClick={() => handleVerifyModal(c.row.original.resetToken)}>
           needs verification
         </ActiveVerifyLink>
       );
       // else the link has been expired and user requires a new verification link to be sent
-    } else if (v === "B") {
+    } else if (v === "needs verification - expired") {
       return (
         <Tooltip title={<TooltipText>{"Verification link has expired, please send a new one."}</TooltipText>}>
           <div>
@@ -303,12 +306,12 @@ export default function Users() {
 
   const sendUserActionPutRequest = async (actionToPreform, users) => {
     try {
-      users.forEach(async ({ id }) => {
+      for (const { id } of users) {
         await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/${id}`, {
           method: "PUT",
           body: JSON.stringify({ action_type: actionToPreform }),
         });
-      });
+      }
     } catch {
       console.log("ERROR on put request to selected users");
     }

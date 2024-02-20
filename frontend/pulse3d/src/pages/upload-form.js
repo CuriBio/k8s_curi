@@ -115,6 +115,17 @@ const isReanalysisPage = (router) => {
   );
 };
 
+const getMinPulse3dVersionFromUpload = (fileCount, fileType) => {
+  if (fileType == "h5") {
+    return "0.0.0";
+  } else if (fileType == "parquet") {
+    return "1.0.0";
+  } else {
+    // xlsx
+    return fileCount <= 24 ? "0.32.2" : "0.33.13";
+  }
+};
+
 export default function UploadForm() {
   const { usageQuota, preferences, productPage } = useContext(AuthContext);
 
@@ -136,7 +147,6 @@ export default function UploadForm() {
 
   const getDefaultAnalysisParams = () => {
     return {
-      normalizationMethod: null,
       normalizeYAxis: "",
       baseToPeak: "",
       peakToBase: "",
@@ -151,7 +161,10 @@ export default function UploadForm() {
       wellGroups: {},
       stimWaveformFormat: "",
       nameOverride: "",
+      // nautilai params
+      normalizationMethod: null,
       dataType: null,
+      detrend: null,
       // original advanced params
       prominenceFactorPeaks: "",
       prominenceFactorValleys: "",
@@ -191,7 +204,7 @@ export default function UploadForm() {
   const [creditUsageAlert, setCreditUsageAlert] = useState(false);
   const [alertShowed, setAlertShowed] = useState(false);
   const [reanalysis, setReanalysis] = useState(isReanalysisPage(router));
-  const [xlsxFilePresent, setXlsxFilePresent] = useState(false);
+  const [minPulse3dVersionForCurrentUploads, setMinPulse3dVersionForCurrentUploads] = useState("0.0.0");
   const [analysisPresetName, setAnalysisPresetName] = useState();
   const [userPresets, setUserPresets] = useState([]);
   const [selectedPresetIdx, setSelectedPresetIdx] = useState();
@@ -320,7 +333,7 @@ export default function UploadForm() {
     updateCheckParams(false); // this will also reset the analysis params and their error message
     setFailedUploadsMsg(failedUploadsMsg);
     setModalButtons(["Close"]);
-    setXlsxFilePresent(false);
+    setMinPulse3dVersionForCurrentUploads("0.0.0");
     // in case user added a new preset, want to grab updated list on analysis submission
     getAnalysisPresets();
     setSelectedPresetIdx();
@@ -472,6 +485,7 @@ export default function UploadForm() {
 
     if (semverGte(version, "1.0.0")) {
       requestBody.normalization_method = normalizationMethod === "None" ? null : normalizationMethod;
+      requestBody.detrend = analysisParams.detrend;
     }
 
     return requestBody;
@@ -512,57 +526,94 @@ export default function UploadForm() {
   };
 
   const checkFileContents = async () => {
+    // if reanalysis then there are no files to check
+    if (reanalysis) {
+      return;
+    }
+
     var JSZip = require("jszip");
-    let filteredFiles;
-    if (!reanalysis) {
-      const asyncFilter = async (arr, predicate) =>
-        Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
-      let xlsxInFile = false;
-      filteredFiles = await asyncFilter(files, async (file) => {
-        //only run these checks if is zip file
-        try {
-          if (file && file.type.includes("zip")) {
-            const zip = new JSZip();
-            const { files: loadedFiles } = await zip.loadAsync(file);
-            const dirs = Object.values(loadedFiles).filter(({ dir }) => dir);
-            const onlyOneDir = dirs.length === 0 || dirs.length === 1;
+    const asyncFilter = async (arr, predicate) =>
+      Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
-            const numXlxsInFile = Object.keys(loadedFiles).filter(
-              (filename) => filename.includes(".xlsx") && !filename.includes("__MACOSX")
-            ).length;
+    let minPulse3dVersionForAllUploads = "0.0.0"; // using the lowest semver possible to avoid filtering out any version
 
-            const numH5InFile = Object.keys(loadedFiles).filter(
-              (filename) => filename.includes(".h5") && !filename.includes("__MACOSX")
-            ).length;
-
-            const fileContainsValidNumFiles =
-              numH5InFile > 0 ? numH5InFile === 24 || numH5InFile === 48 : numXlxsInFile > 0;
-
-            // not setting xlsxInFile = (numXlxsInFile > 0) because it needs to remain true if ever made true
-            if (numXlxsInFile > 0) xlsxInFile = numXlxsInFile;
-
-            return !onlyOneDir || !fileContainsValidNumFiles;
-          } else {
-            // this will occur when user uploads single well xlsx data
-            // not setting xlsxInFile = (numXlxsInFile > 0) because it needs to remain true if ever made true
-            xlsxInFile = 1;
-          }
-        } catch (e) {
-          console.log(`ERROR unable to read file: ${file.filename} ${e}`);
-          failedUploadsMsg.push(file.filename);
-          return true;
-        }
-      });
-
-      setXlsxFilePresent(xlsxInFile);
-      setBadFiles([...filteredFiles]);
-
-      for (let i = 0; i < filteredFiles.length; i++) {
-        const matchingIdx = files.findIndex(({ name }) => name === filteredFiles[i].name);
-        files.splice(matchingIdx, 1);
-        setFiles([...files]);
+    let badFilesUpdate = await asyncFilter(files, async (file) => {
+      // if the file is falsey then it is invalid and there is nothing more to do
+      if (!file?.name) {
+        return true;
       }
+
+      let isValidUpload;
+      let minPulse3dVersionForUpload;
+
+      try {
+        if (file.type.includes("zip")) {
+          const zip = new JSZip();
+          const { files: loadedFiles } = await zip.loadAsync(file);
+          const dirs = Object.values(loadedFiles).filter(({ dir }) => dir);
+          const onlyOneDir = dirs.length === 0 || dirs.length === 1;
+
+          const numXlsxInFile = Object.keys(loadedFiles).filter(
+            (filename) => filename.includes(".xlsx") && !filename.includes("__MACOSX")
+          ).length;
+          const numH5InFile = Object.keys(loadedFiles).filter(
+            (filename) => filename.includes(".h5") && !filename.includes("__MACOSX")
+          ).length;
+          const numParquetInFile = Object.keys(loadedFiles).filter(
+            (filename) => filename.includes(".parquet") && !filename.includes("__MACOSX")
+          ).length;
+
+          if ([numXlsxInFile, numH5InFile, numParquetInFile].filter((count) => count > 0).length != 1) {
+            isValidUpload = false;
+            // If multiple file types in the same zip, it is an invalid file. The zip must contain exactly one of the supported file types
+          } else {
+            let zipContainsValidNumFiles;
+            if (numH5InFile > 0) {
+              zipContainsValidNumFiles = numH5InFile === 24 || numH5InFile === 48;
+              minPulse3dVersionForUpload = getMinPulse3dVersionFromUpload(numH5InFile, "h5");
+            } else if (numParquetInFile > 0) {
+              zipContainsValidNumFiles = numParquetInFile == 1;
+              minPulse3dVersionForUpload = getMinPulse3dVersionFromUpload(numParquetInFile, "parquet");
+            } else {
+              // xlsx
+              zipContainsValidNumFiles = numXlsxInFile > 0;
+              minPulse3dVersionForUpload = getMinPulse3dVersionFromUpload(numXlsxInFile, "xlsx");
+            }
+
+            isValidUpload = onlyOneDir && zipContainsValidNumFiles;
+          }
+        } else if (file.name.endsWith("xlsx")) {
+          isValidUpload = true;
+          minPulse3dVersionForUpload = getMinPulse3dVersionFromUpload(1, "xlsx");
+        } else if (file.name.endsWith("parquet")) {
+          isValidUpload = true;
+          minPulse3dVersionForUpload = getMinPulse3dVersionFromUpload(1, "parquet");
+        } else {
+          // all other file types are not valid
+          isValidUpload = false;
+        }
+      } catch (e) {
+        console.log(`ERROR unable to read file: ${file.filename} ${e}`);
+        failedUploadsMsg.push(file.filename);
+        isValidUpload = false;
+      }
+
+      // Only update the min p3d version if this file is valid
+      if (isValidUpload && semverGte(minPulse3dVersionForUpload, minPulse3dVersionForAllUploads)) {
+        minPulse3dVersionForAllUploads = minPulse3dVersionForUpload;
+      }
+
+      return !isValidUpload;
+    });
+
+    setMinPulse3dVersionForCurrentUploads(minPulse3dVersionForAllUploads);
+    setBadFiles([...badFilesUpdate]);
+
+    for (let i = 0; i < badFilesUpdate.length; i++) {
+      const matchingIdx = files.findIndex(({ name }) => name === badFilesUpdate[i].name);
+      files.splice(matchingIdx, 1);
+      setFiles([...files]);
     }
   };
 
@@ -754,6 +805,7 @@ export default function UploadForm() {
               }
               setResetDragDrop={setResetDragDrop}
               resetDragDrop={resetDragDrop}
+              fileTypes={["zip", "xlsx", "parquet"]}
             />
             {usageQuota && usageQuota.limits && parseInt(usageQuota.limits.jobs) !== -1 ? (
               <UploadCreditUsageInfo>
@@ -772,7 +824,7 @@ export default function UploadForm() {
           analysisParams={analysisParams}
           setWellGroupErr={setWellGroupErr}
           reanalysis={reanalysis}
-          xlsxFilePresent={xlsxFilePresent}
+          minPulse3dVersionAllowed={minPulse3dVersionForCurrentUploads}
           userPresetOpts={{
             userPresets,
             setSelectedPresetIdx,

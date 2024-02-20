@@ -465,7 +465,7 @@ export default function AnalysisParamForm({
   analysisParams,
   setWellGroupErr,
   reanalysis,
-  xlsxFilePresent,
+  minPulse3dVersionAllowed,
   userPresetOpts: {
     userPresets,
     setSelectedPresetIdx,
@@ -481,8 +481,6 @@ export default function AnalysisParamForm({
   );
   const { preferences, productPage } = useContext(AuthContext);
 
-  const [disableYAxisNormalization, setDisableYAxisNormalization] = useState(false);
-  const [disableStimProtocols, setDisableStimProtocols] = useState(false);
   const [deprecationNotice, setDeprecationNotice] = useState(false);
   const [pulse3dVersionEOLDateWarning, setPulse3dVersionEOLDateWarning] = useState("");
   const [pulse3dVersionOptions, setPulse3dVersionOptions] = useState([]);
@@ -528,27 +526,12 @@ export default function AnalysisParamForm({
   }, [pulse3dFilteredFileVersions, metaPulse3dVersions]);
 
   useEffect(() => {
-    // default gets set to empty string
-    setDisableYAxisNormalization(
-      analysisParams.normalizeYAxis !== "" ? !analysisParams.normalizeYAxis : false
-    );
-  }, [analysisParams.normalizeYAxis, checkedParams]);
-
-  useEffect(() => {
-    // default gets set to empty string
-    setDisableStimProtocols(analysisParams.showStimSheet !== "" ? analysisParams.showStimSheet : false);
-  }, [analysisParams.showStimSheet, checkedParams]);
-
-  useEffect(() => {
     const filteredOptions = pulse3dVersions.filter((version) => {
-      if (!xlsxFilePresent) return true;
-
-      const minVersion = xlsxFilePresent <= 24 ? "0.32.2" : "0.33.13";
-      return semverGte(version, minVersion);
+      return semverGte(version, minPulse3dVersionAllowed);
     });
 
     setPulse3dFilteredFileVersions([...filteredOptions]);
-  }, [pulse3dVersions, xlsxFilePresent]);
+  }, [pulse3dVersions, minPulse3dVersionAllowed]);
 
   const pulse3dVersionGte = (version) => {
     const { selectedPulse3dVersion } = analysisParams;
@@ -888,10 +871,10 @@ export default function AnalysisParamForm({
         >
           <InputErrorContainer>
             <CheckboxWidget
-              checkedState={checkedParams ? disableStimProtocols : false}
-              handleCheckbox={() => {
+              checkedState={checkedParams ? analysisParams.showStimSheet : false}
+              handleCheckbox={(enable) => {
                 updateParams({
-                  showStimSheet: !disableStimProtocols,
+                  showStimSheet: enable,
                 });
               }}
             />
@@ -921,6 +904,26 @@ export default function AnalysisParamForm({
             </DropDownContainer>
           </AnalysisParamContainer>
         )}
+        {pulse3dVersionGte("1.0.0") && (
+          // TODO only show this for nautilai analyses
+          <AnalysisParamContainer
+            label="Disable detrending"
+            name="detrend"
+            tooltipText="When selected, disables detrending (Nautilai only)"
+          >
+            <InputErrorContainer>
+              <CheckboxWidget
+                // defaults to null which is equivalent to true, so need to explicitly check for false here
+                checkedState={checkedParams ? analysisParams.detrend === false : false}
+                handleCheckbox={(disable) => {
+                  updateParams({
+                    detrend: !disable,
+                  });
+                }}
+              />
+            </InputErrorContainer>
+          </AnalysisParamContainer>
+        )}
         {/* TODO only show this for MA analyses */}
         <AnalysisParamContainer
           label="Disable Y-Axis Normalization"
@@ -929,7 +932,8 @@ export default function AnalysisParamForm({
         >
           <InputErrorContainer>
             <CheckboxWidget
-              checkedState={checkedParams ? disableYAxisNormalization : false}
+              // defaults to null which is equivalent to true, so need to explicitly check for false here
+              checkedState={checkedParams ? analysisParams.normalizeYAxis === false : false}
               handleCheckbox={(disable) => {
                 updateParams({
                   normalizeYAxis: !disable,
@@ -950,7 +954,7 @@ export default function AnalysisParamForm({
               maxY: e.target.value,
             });
           }}
-          disabled={disableYAxisNormalization}
+          disabled={analysisParams.normalizeYAxis === false}
           errorMsg={errorMessages.maxY}
         />
         <AnalysisParamContainer

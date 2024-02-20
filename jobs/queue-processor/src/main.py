@@ -119,7 +119,7 @@ async def create_rewrite_jobs(total_new_jobs):
     config.load_incluster_config()
     job_api = kclient.BatchV1Api()
     pod_api = kclient.CoreV1Api()
-    version = "1.0.0rc15"
+    version = "1.0.0rc27"
 
     qp_pods_list = pod_api.list_namespaced_pod(namespace=QUEUE, label_selector="app=pulse3d_qp")
     running_workers_list = job_api.list_namespaced_job(QUEUE, label_selector=f"job_version={version}")
@@ -133,14 +133,14 @@ async def create_rewrite_jobs(total_new_jobs):
 
     for _ in range(min(MAX_NUM_OF_WORKERS - num_of_active_workers, total_new_jobs)):
         worker_id = hex(random.getrandbits(40))[2:]
-        formatted_name = f"test-pulse3d-worker-v1-0-0rc15--{worker_id}"
+        formatted_name = f"test-pulse3d-worker-v1-0-0rc27--{worker_id}"
         resources = kclient.V1ResourceRequirements(requests={"memory": "1000Mi"})
 
         # Create container
         logger.info(f"Starting rewrite pulse3d worker: {formatted_name}")
         rewrite_container = kclient.V1Container(
             name=formatted_name,
-            image=f"{ECR_REPO}:1.0.0rc15",
+            image=f"{ECR_REPO}:1.0.0rc27",
             env=[POSTGRES_PASSWORD, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET],
             image_pull_policy="Always",
             resources=resources,
@@ -163,7 +163,7 @@ async def create_rewrite_jobs(total_new_jobs):
             kind="Job",
             metadata=kclient.V1ObjectMeta(
                 name=formatted_name,
-                labels={"job_version": "1.0.0rc15"},
+                labels={"job_version": "1.0.0rc27"},
                 owner_references=[
                     kclient.V1OwnerReference(
                         api_version="v1",

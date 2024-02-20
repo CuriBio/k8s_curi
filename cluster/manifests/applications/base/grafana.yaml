@@ -63,7 +63,21 @@ spec:
                   connMaxLifetime: 14400 # Grafana v5.4+
                   postgresVersion: 903 # 903=9.3, 904=9.4, 905=9.5, 906=9.6, 1000=10
                   timescaledb: false
+          persistence:
+            enabled: true
+            existingClaim: grafana-pvc
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

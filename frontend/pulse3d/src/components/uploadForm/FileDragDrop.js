@@ -46,7 +46,7 @@ export default function FileDragDrop({
   dropZoneStyle = {},
   setResetDragDrop,
   resetDragDrop,
-  fileTypes = ["zip", "xlsx"],
+  fileTypes,
   multiple = true,
 }) {
   useEffect(() => {
