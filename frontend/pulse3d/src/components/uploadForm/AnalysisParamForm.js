@@ -91,6 +91,7 @@ const Label = styled.label`
 
 const ErrorText = styled.span`
   color: red;
+
   font-style: italic;
   text-align: left;
   position: relative;

@@ -83,7 +83,7 @@ const dropZoneText = "CLICK HERE or DROP";
 const defaultUploadErrorLabel =
   "Something went wrong while attempting to start the analysis for the following file(s):";
 const defaultBadFilesLabel =
-  "The following file(s) cannot be uploaded because they either contain multiple recordings or do not have the correct number of files.";
+  "The following file(s) cannot be uploaded due to being an invalid file type, or a zip with an incorrect number of files.";
 
 const modalObj = {
   uploadsReachedDuringSession: {
@@ -113,17 +113,6 @@ const isReanalysisPage = (router) => {
   return (
     typeof router.query.id === "string" && router.query.id.toLowerCase() === "re-analyze existing upload"
   );
-};
-
-const getMinPulse3dVersionFromUpload = (fileCount, fileType) => {
-  if (fileType == "h5") {
-    return "0.0.0";
-  } else if (fileType == "parquet") {
-    return "1.0.0";
-  } else {
-    // xlsx
-    return fileCount <= 24 ? "0.32.2" : "0.33.13";
-  }
 };
 
 export default function UploadForm() {
@@ -542,8 +531,6 @@ export default function UploadForm() {
     const asyncFilter = async (arr, predicate) =>
       Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
-    let minPulse3dVersionForAllUploads = getMinPulse3dVersionFromProduct();
-
     let badFilesUpdate = await asyncFilter(files, async (file) => {
       // if the file is falsey then it is invalid and there is nothing more to do
       if (!file?.name) {
@@ -551,7 +538,6 @@ export default function UploadForm() {
       }
 
       let isValidUpload;
-      let minPulse3dVersionForUpload;
 
       try {
         if (file.type.includes("zip")) {
@@ -566,11 +552,8 @@ export default function UploadForm() {
           const numH5InFile = Object.keys(loadedFiles).filter(
             (filename) => filename.includes(".h5") && !filename.includes("__MACOSX")
           ).length;
-          const numParquetInFile = Object.keys(loadedFiles).filter(
-            (filename) => filename.includes(".parquet") && !filename.includes("__MACOSX")
-          ).length;
 
-          if ([numXlsxInFile, numH5InFile, numParquetInFile].filter((count) => count > 0).length != 1) {
+          if ([numXlsxInFile, numH5InFile].filter((count) => count > 0).length != 1) {
             isValidUpload = false;
             // If multiple file types in the same zip, it is an invalid file. The zip must contain exactly one of the supported file types
           } else {
@@ -578,26 +561,20 @@ export default function UploadForm() {
             if (numH5InFile > 0) {
               zipContainsValidNumFiles = numH5InFile === 24 || numH5InFile === 48;
               isValidUploadTypeForProduct = productPage === "mantarray";
-              minPulse3dVersionForUpload = getMinPulse3dVersionFromUpload(numH5InFile, "h5");
-            } else if (numParquetInFile > 0) {
-              zipContainsValidNumFiles = numParquetInFile == 1;
-              isValidUploadTypeForProduct = productPage === "nautilai";
-              minPulse3dVersionForUpload = getMinPulse3dVersionFromUpload(numParquetInFile, "parquet");
             } else {
               // xlsx
               zipContainsValidNumFiles = numXlsxInFile > 0;
               isValidUploadTypeForProduct = productPage === "nautilai";
-              minPulse3dVersionForUpload = getMinPulse3dVersionFromUpload(numXlsxInFile, "xlsx");
             }
 
             isValidUpload = onlyOneDir && zipContainsValidNumFiles && isValidUploadTypeForProduct;
           }
         } else if (file.name.endsWith("xlsx")) {
+          // xlsx uploads only supported for nautilai
           isValidUpload = productPage === "nautilai";
-          minPulse3dVersionForUpload = getMinPulse3dVersionFromUpload(1, "xlsx");
         } else if (file.name.endsWith("parquet")) {
+          // parquet files only currently supported for nautilai, but should be supported by other products in the future
           isValidUpload = productPage === "nautilai";
-          minPulse3dVersionForUpload = getMinPulse3dVersionFromUpload(1, "parquet");
         } else {
           // all other file types are not valid
           isValidUpload = false;
@@ -608,15 +585,9 @@ export default function UploadForm() {
         isValidUpload = false;
       }
 
-      // Only update the min p3d version if this file is valid
-      if (isValidUpload && semverGte(minPulse3dVersionForUpload, minPulse3dVersionForAllUploads)) {
-        minPulse3dVersionForAllUploads = minPulse3dVersionForUpload;
-      }
-
       return !isValidUpload;
     });
 
-    setMinPulse3dVersionForCurrentUploads(minPulse3dVersionForAllUploads);
     setBadFiles([...badFilesUpdate]);
 
     for (let i = 0; i < badFilesUpdate.length; i++) {

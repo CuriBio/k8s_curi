@@ -63,8 +63,27 @@ function Pulse({ Component, pageProps }) {
   const [isCuriAdmin, setIsCuriAdmin] = useState(false);
   const [preferences, setPreferences] = useState({});
 
-  // TODO defaulting to mantarray for admin accounts until it's decided how to handle usage for multiple products
-  const [productPage, setProductPage] = useState("mantarray");
+  const [productPage, setProductPage] = useState();
+
+  // set product page in localStorage so that it persists through page refreshes
+  useEffect(() => {
+    const { accountScope } = accountInfo;
+    if (!accountScope) {
+      return;
+    }
+
+    if (productPage) {
+      localStorage.setItem("productPage", productPage);
+    } else {
+      const storedProductPage = localStorage.getItem("productPage");
+      if (accountScope.some((scope) => scope.includes(storedProductPage))) {
+        setProductPage(storedProductPage);
+      } else {
+        localStorage.setItem("productPage", null);
+        router.replace("/home", undefined, { shallow: true });
+      }
+    }
+  }, [productPage, accountInfo]);
 
   let swInterval = null;
   // register the SW once

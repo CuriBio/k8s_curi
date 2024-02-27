@@ -9,6 +9,7 @@ import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import { UploadsContext } from "@/components/layouts/DashboardLayout";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import PasswordForm from "@/components/account/PasswordForm";
+import semverGte from "semver/functions/gte";
 
 const BackgroundContainer = styled.div`
   width: 90%;
@@ -97,6 +98,20 @@ const ButtonContainer = styled.div`
 
 const isEmpty = (str) => str === undefined || str.length === 0;
 
+const getMinP3dVersionForProduct = (productType) => {
+  switch (productType) {
+    case "nautilai":
+      return "1.0.0";
+    default:
+      return "0.0.0";
+  }
+};
+
+const filterP3dVersionsForProduct = (productType, versions) => {
+  const minVersion = getMinP3dVersionForProduct(productType);
+  return versions.filter((v) => semverGte(v, minVersion));
+};
+
 export default function AccountSettings() {
   const { accountType, usageQuota, accountId, productPage, preferences } = useContext(AuthContext);
   const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
@@ -109,6 +124,13 @@ export default function AccountSettings() {
   const [inProgress, setInProgress] = useState({ password: false, preferences: false });
   const [errorMsg, setErrorMsg] = useState();
   const [passwords, setPasswords] = useState({ password1: "", password2: "" });
+  const [filteredP3dVersions, setFilteredP3dVersions] = useState(pulse3dVersions);
+
+  useEffect(() => {
+    setFilteredP3dVersions(
+      pulse3dVersions && productPage ? filterP3dVersionsForProduct(productPage, pulse3dVersions) : []
+    );
+  }, [pulse3dVersions, productPage]);
 
   const isAdminAccount = accountType === "admin";
 
@@ -131,14 +153,14 @@ export default function AccountSettings() {
 
   useEffect(() => {
     const preferredVersion = preferences?.[productPage]?.version;
-    if (preferredVersion != null && pulse3dVersions.length > 0) {
-      setUserPreferences({ version: pulse3dVersions.indexOf(preferredVersion) });
+    if (preferredVersion != null && filteredP3dVersions.length > 0) {
+      setUserPreferences({ version: filteredP3dVersions.indexOf(preferredVersion) });
     }
-  }, [preferences, pulse3dVersions, productPage]);
+  }, [preferences, filteredP3dVersions, productPage]);
 
   useEffect(() => {
-    if (pulse3dVersions) {
-      const options = pulse3dVersions.map((version) => {
+    if (filteredP3dVersions.length > 0) {
+      const options = filteredP3dVersions.map((version) => {
         const selectedVersionMeta = metaPulse3dVersions.find((meta) => meta.version === version);
         return selectedVersionMeta && ["testing", "deprecated"].includes(selectedVersionMeta.state)
           ? version + `  [ ${selectedVersionMeta.state} ]`
@@ -147,7 +169,7 @@ export default function AccountSettings() {
 
       setPulse3dVersionOptions(options);
     }
-  }, [pulse3dVersions, metaPulse3dVersions]);
+  }, [filteredP3dVersions, metaPulse3dVersions]);
 
   const handlePulse3dVersionSelect = (idx) => {
     setUserPreferences({ ...userPreferences, version: idx });
@@ -161,7 +183,7 @@ export default function AccountSettings() {
         method: "PUT",
         body: JSON.stringify({
           product: productPage,
-          changes: { ...userPreferences, version: pulse3dVersions[userPreferences.version] },
+          changes: { ...userPreferences, version: filteredP3dVersions[userPreferences.version] },
         }),
       });
 
