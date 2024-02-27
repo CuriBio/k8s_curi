@@ -730,10 +730,9 @@ export default function InteractiveWaveformModal({
     setPulse3dVersionIdx(idx);
   };
 
-  const getInitialP3dVersion = () => {
-    return productPage in preferences && "version" in preferences[productPage] && filteredVersions.length > 0
-      ? filteredVersions.indexOf(preferences[productPage].version)
-      : 0;
+  const getInitialP3dVersionIdx = () => {
+    const preferredVersion = preferences?.[productPage]?.version;
+    return preferredVersion && filteredVersions.length > 0 ? filteredVersions.indexOf(preferredVersion) : 0;
   };
 
   const handleRunAnalysis = () => {
@@ -1033,7 +1032,7 @@ export default function InteractiveWaveformModal({
               label="Select"
               reset={pulse3dVersionIdx === 0}
               handleSelection={handleVersionSelect}
-              initialSelected={getInitialP3dVersion()}
+              initialSelected={getInitialP3dVersionIdx()}
               disabled={filteredVersions.length === 0}
             />
           </div>

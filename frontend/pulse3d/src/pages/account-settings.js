@@ -130,8 +130,9 @@ export default function AccountSettings() {
   }, [usageQuota]);
 
   useEffect(() => {
-    if (productPage in preferences && "version" in preferences[productPage] && pulse3dVersions.length > 0) {
-      setUserPreferences({ version: pulse3dVersions.indexOf(preferences[productPage].version) });
+    const preferredVersion = preferences?.[productPage]?.version;
+    if (preferredVersion != null && pulse3dVersions.length > 0) {
+      setUserPreferences({ version: pulse3dVersions.indexOf(preferredVersion) });
     }
   }, [preferences, pulse3dVersions, productPage]);
 

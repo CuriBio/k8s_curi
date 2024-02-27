@@ -779,10 +779,13 @@ export default function AnalysisParamForm({
               checkedState={savePresetChecked}
               handleCheckbox={(bool) => {
                 setSavePresetChecked(bool);
-                // want to reset this in case there was an error and doesn't block submitting analysis
-                if (!bool) validatePresetName("");
-                // when initially checked and input is blank, need to ensure it's required
-                else setParamErrors({ ...paramErrors, presetName: "*Required" });
+                if (bool) {
+                  // when initially checked and input is blank, need to ensure it's required
+                  setParamErrors({ ...paramErrors, presetName: "*Required" });
+                } else {
+                  // want to reset this in case there was an error and doesn't block submitting analysis
+                  validatePresetName("");
+                }
               }}
             />
           </InputErrorContainer>
@@ -835,7 +838,7 @@ export default function AnalysisParamForm({
             />
           </DropDownContainer>
         </AnalysisParamContainer>
-        {pulse3dVersionGte("0.30.5") && (
+        {pulse3dVersionGte("0.30.5") && productPage === "mantarray" && (
           <AnalysisParamContainer
             label="Stim Waveform Display Format"
             name="stimWaveformFormat"
@@ -864,24 +867,25 @@ export default function AnalysisParamForm({
           </AnalysisParamContainer>
         )}
 
-        <AnalysisParamContainer
-          label="Show Stimulation Protocols"
-          name="showStimSheet"
-          tooltipText="When selected, adds a sheet to output file with stimulation protocols."
-        >
-          <InputErrorContainer>
-            <CheckboxWidget
-              checkedState={checkedParams ? analysisParams.showStimSheet : false}
-              handleCheckbox={(enable) => {
-                updateParams({
-                  showStimSheet: enable,
-                });
-              }}
-            />
-          </InputErrorContainer>
-        </AnalysisParamContainer>
-        {pulse3dVersionGte("1.0.0") && (
-          // TODO only show this for nautilai analyses
+        {productPage === "mantarray" && (
+          <AnalysisParamContainer
+            label="Show Stimulation Protocols"
+            name="showStimSheet"
+            tooltipText="When selected, adds a sheet to output file with stimulation protocols."
+          >
+            <InputErrorContainer>
+              <CheckboxWidget
+                checkedState={checkedParams ? analysisParams.showStimSheet : false}
+                handleCheckbox={(enable) => {
+                  updateParams({
+                    showStimSheet: enable,
+                  });
+                }}
+              />
+            </InputErrorContainer>
+          </AnalysisParamContainer>
+        )}
+        {pulse3dVersionGte("1.0.0") && productPage === "nautilai" && (
           <AnalysisParamContainer
             label="Normalization Method"
             name="normalizationMethod"
@@ -904,8 +908,7 @@ export default function AnalysisParamForm({
             </DropDownContainer>
           </AnalysisParamContainer>
         )}
-        {pulse3dVersionGte("1.0.0") && (
-          // TODO only show this for nautilai analyses
+        {pulse3dVersionGte("1.0.0") && productPage === "nautilai" && (
           <AnalysisParamContainer
             label="Disable detrending"
             name="detrend"
@@ -924,39 +927,41 @@ export default function AnalysisParamForm({
             </InputErrorContainer>
           </AnalysisParamContainer>
         )}
-        {/* TODO only show this for MA analyses */}
-        <AnalysisParamContainer
-          label="Disable Y-Axis Normalization"
-          name="normalizeYAxis"
-          tooltipText="When selected, disables normalization of the y-axis."
-        >
-          <InputErrorContainer>
-            <CheckboxWidget
-              // defaults to null which is equivalent to true, so need to explicitly check for false here
-              checkedState={checkedParams ? analysisParams.normalizeYAxis === false : false}
-              handleCheckbox={(disable) => {
-                updateParams({
-                  normalizeYAxis: !disable,
-                });
-              }}
-            />
-          </InputErrorContainer>
-        </AnalysisParamContainer>
-        {/* TODO only show this for MA analyses */}
-        <AnalysisParamContainer
-          label="Y-Axis Range (µN)"
-          name="maxY"
-          tooltipText="Specifies the maximum y-axis bound of graphs generated in the output xlsx file."
-          placeholder={checkedParams ? "Auto" : ""}
-          value={analysisParams.maxY}
-          changeFn={(e) => {
-            updateParams({
-              maxY: e.target.value,
-            });
-          }}
-          disabled={analysisParams.normalizeYAxis === false}
-          errorMsg={errorMessages.maxY}
-        />
+        {productPage === "mantarray" && (
+          <AnalysisParamContainer
+            label="Disable Y-Axis Normalization"
+            name="normalizeYAxis"
+            tooltipText="When selected, disables normalization of the y-axis."
+          >
+            <InputErrorContainer>
+              <CheckboxWidget
+                // defaults to null which is equivalent to true, so need to explicitly check for false here
+                checkedState={checkedParams ? analysisParams.normalizeYAxis === false : false}
+                handleCheckbox={(disable) => {
+                  updateParams({
+                    normalizeYAxis: !disable,
+                  });
+                }}
+              />
+            </InputErrorContainer>
+          </AnalysisParamContainer>
+        )}
+        {productPage === "mantarray" && (
+          <AnalysisParamContainer
+            label="Y-Axis Range (µN)"
+            name="maxY"
+            tooltipText="Specifies the maximum y-axis bound of graphs generated in the output xlsx file."
+            placeholder={checkedParams ? "Auto" : ""}
+            value={analysisParams.maxY}
+            changeFn={(e) => {
+              updateParams({
+                maxY: e.target.value,
+              });
+            }}
+            disabled={analysisParams.normalizeYAxis === false}
+            errorMsg={errorMessages.maxY}
+          />
+        )}
         <AnalysisParamContainer
           label="Twitch Widths (%)"
           name="twitchWidths"
@@ -970,7 +975,7 @@ export default function AnalysisParamForm({
           }}
           errorMsg={errorMessages.twitchWidths}
         />
-        {pulse3dVersionGte("0.30.1") && (
+        {pulse3dVersionGte("0.30.1") && productPage === "mantarray" && (
           // Tanner (2/7/23): stiffnessFactor added in 0.26.0 but there are bugs with using this param in re-analysis prior to 0.30.1
           <AnalysisParamContainer
             label="Post Stiffness Factor"
@@ -996,7 +1001,7 @@ export default function AnalysisParamForm({
             </DropDownContainer>
           </AnalysisParamContainer>
         )}
-        {pulse3dVersionGte("0.34.2") && (
+        {pulse3dVersionGte("0.34.2") && productPage === "nautilai" && (
           <AnalysisParamContainer
             label="Data Type"
             name="dataType"
@@ -1018,7 +1023,7 @@ export default function AnalysisParamForm({
             </DropDownContainer>
           </AnalysisParamContainer>
         )}
-        {pulse3dVersionGte("0.30.1") && (
+        {pulse3dVersionGte("0.30.1") && productPage === "mantarray" && (
           // Tanner (2/7/23): wellsWithFlippedWaveforms added in 0.27.4 but there are bugs with using this param in re-analysis prior to 0.30.1
           <AnalysisParamContainer
             label="Wells With Flipped Waveforms"

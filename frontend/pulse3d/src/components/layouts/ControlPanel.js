@@ -229,7 +229,7 @@ export default function ControlPanel() {
   }, [router]);
 
   useEffect(() => {
-    if (productPage in preferences && "version" in preferences[productPage] && pulse3dVersions.length > 0) {
+    if (preferences?.[productPage]?.version != null && pulse3dVersions.length > 0) {
       checkVersionDeprecation();
     }
   }, [pulse3dVersions]);
