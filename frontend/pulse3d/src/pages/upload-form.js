@@ -4,13 +4,13 @@ import AnalysisParamForm from "@/components/uploadForm/AnalysisParamForm";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import FileDragDrop from "@/components/uploadForm/FileDragDrop";
 import SparkMD5 from "spark-md5";
-import { hexToBase64 } from "../utils/generic";
+import { hexToBase64, getMinP3dVersionForProduct } from "@/utils/generic";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
 import semverGte from "semver/functions/gte";
 import InputDropdownWidget from "@/components/basicWidgets/InputDropdownWidget";
-import { AuthContext } from "./_app";
+import { AuthContext } from "@/pages/_app";
 
 const Container = styled.div`
   justify-content: center;
@@ -129,15 +129,6 @@ export default function UploadForm() {
     return defaultVersion || "";
   };
 
-  const getMinPulse3dVersionFromProduct = () => {
-    switch (productPage) {
-      case "nautilai":
-        return "1.0.0";
-      default:
-        return "0.0.0";
-    }
-  };
-
   const getDefaultAnalysisParams = () => {
     return {
       normalizeYAxis: "",
@@ -198,7 +189,7 @@ export default function UploadForm() {
   const [alertShowed, setAlertShowed] = useState(false);
   const [reanalysis, setReanalysis] = useState(isReanalysisPage(router));
   const [minPulse3dVersionForCurrentUploads, setMinPulse3dVersionForCurrentUploads] = useState(
-    getMinPulse3dVersionFromProduct()
+    getMinP3dVersionForProduct(productPage)
   );
   const [analysisPresetName, setAnalysisPresetName] = useState();
   const [userPresets, setUserPresets] = useState([]);
@@ -328,7 +319,7 @@ export default function UploadForm() {
     updateCheckParams(false); // this will also reset the analysis params and their error message
     setFailedUploadsMsg(failedUploadsMsg);
     setModalButtons(["Close"]);
-    setMinPulse3dVersionForCurrentUploads(getMinPulse3dVersionFromProduct());
+    setMinPulse3dVersionForCurrentUploads(getMinP3dVersionForProduct(productPage));
     // in case user added a new preset, want to grab updated list on analysis submission
     getAnalysisPresets();
     setSelectedPresetIdx();

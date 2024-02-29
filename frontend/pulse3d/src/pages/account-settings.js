@@ -10,6 +10,7 @@ import { UploadsContext } from "@/components/layouts/DashboardLayout";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import PasswordForm from "@/components/account/PasswordForm";
 import semverGte from "semver/functions/gte";
+import { getMinP3dVersionForProduct } from "@/utils/generic";
 
 const BackgroundContainer = styled.div`
   width: 90%;
@@ -97,15 +98,6 @@ const ButtonContainer = styled.div`
 `;
 
 const isEmpty = (str) => str === undefined || str.length === 0;
-
-const getMinP3dVersionForProduct = (productType) => {
-  switch (productType) {
-    case "nautilai":
-      return "1.0.0";
-    default:
-      return "0.0.0";
-  }
-};
 
 const filterP3dVersionsForProduct = (productType, versions) => {
   const minVersion = getMinP3dVersionForProduct(productType);
