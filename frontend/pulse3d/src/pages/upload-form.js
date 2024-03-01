@@ -4,13 +4,13 @@ import AnalysisParamForm from "@/components/uploadForm/AnalysisParamForm";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import FileDragDrop from "@/components/uploadForm/FileDragDrop";
 import SparkMD5 from "spark-md5";
-import { hexToBase64 } from "../utils/generic";
+import { hexToBase64, getMinP3dVersionForProduct } from "@/utils/generic";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
 import semverGte from "semver/functions/gte";
 import InputDropdownWidget from "@/components/basicWidgets/InputDropdownWidget";
-import { AuthContext } from "./_app";
+import { AuthContext } from "@/pages/_app";
 
 const Container = styled.div`
   justify-content: center;
@@ -83,7 +83,7 @@ const dropZoneText = "CLICK HERE or DROP";
 const defaultUploadErrorLabel =
   "Something went wrong while attempting to start the analysis for the following file(s):";
 const defaultBadFilesLabel =
-  "The following file(s) cannot be uploaded because they either contain multiple recordings or do not have the correct number of files.";
+  "The following file(s) cannot be uploaded due to being an invalid file type, or a zip with an incorrect number of files.";
 
 const modalObj = {
   uploadsReachedDuringSession: {
@@ -115,29 +115,13 @@ const isReanalysisPage = (router) => {
   );
 };
 
-const getMinPulse3dVersionFromUpload = (fileCount, fileType) => {
-  if (fileType == "h5") {
-    return "0.0.0";
-  } else if (fileType == "parquet") {
-    return "1.0.0";
-  } else {
-    // xlsx
-    return fileCount <= 24 ? "0.32.2" : "0.33.13";
-  }
-};
-
 export default function UploadForm() {
   const { usageQuota, preferences, productPage } = useContext(AuthContext);
 
   const { uploads, pulse3dVersions, defaultUploadForReanalysis } = useContext(UploadsContext);
 
   const isPulse3dPreferenceSet = () => {
-    return (
-      preferences &&
-      productPage in preferences &&
-      "version" in preferences[productPage] &&
-      pulse3dVersions.length > 0
-    );
+    return preferences?.[productPage]?.version != null && pulse3dVersions.length > 0;
   };
 
   const getDefaultPulse3dVersion = () => {
@@ -204,7 +188,9 @@ export default function UploadForm() {
   const [creditUsageAlert, setCreditUsageAlert] = useState(false);
   const [alertShowed, setAlertShowed] = useState(false);
   const [reanalysis, setReanalysis] = useState(isReanalysisPage(router));
-  const [minPulse3dVersionForCurrentUploads, setMinPulse3dVersionForCurrentUploads] = useState("0.0.0");
+  const [minPulse3dVersionForCurrentUploads, setMinPulse3dVersionForCurrentUploads] = useState(
+    getMinP3dVersionForProduct(productPage)
+  );
   const [analysisPresetName, setAnalysisPresetName] = useState();
   const [userPresets, setUserPresets] = useState([]);
   const [selectedPresetIdx, setSelectedPresetIdx] = useState();
@@ -333,7 +319,7 @@ export default function UploadForm() {
     updateCheckParams(false); // this will also reset the analysis params and their error message
     setFailedUploadsMsg(failedUploadsMsg);
     setModalButtons(["Close"]);
-    setMinPulse3dVersionForCurrentUploads("0.0.0");
+    setMinPulse3dVersionForCurrentUploads(getMinP3dVersionForProduct(productPage));
     // in case user added a new preset, want to grab updated list on analysis submission
     getAnalysisPresets();
     setSelectedPresetIdx();
@@ -536,8 +522,6 @@ export default function UploadForm() {
     const asyncFilter = async (arr, predicate) =>
       Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
-    let minPulse3dVersionForAllUploads = "0.0.0"; // using the lowest semver possible to avoid filtering out any version
-
     let badFilesUpdate = await asyncFilter(files, async (file) => {
       // if the file is falsey then it is invalid and there is nothing more to do
       if (!file?.name) {
@@ -545,7 +529,6 @@ export default function UploadForm() {
       }
 
       let isValidUpload;
-      let minPulse3dVersionForUpload;
 
       try {
         if (file.type.includes("zip")) {
@@ -560,35 +543,29 @@ export default function UploadForm() {
           const numH5InFile = Object.keys(loadedFiles).filter(
             (filename) => filename.includes(".h5") && !filename.includes("__MACOSX")
           ).length;
-          const numParquetInFile = Object.keys(loadedFiles).filter(
-            (filename) => filename.includes(".parquet") && !filename.includes("__MACOSX")
-          ).length;
 
-          if ([numXlsxInFile, numH5InFile, numParquetInFile].filter((count) => count > 0).length != 1) {
+          if ([numXlsxInFile, numH5InFile].filter((count) => count > 0).length != 1) {
             isValidUpload = false;
             // If multiple file types in the same zip, it is an invalid file. The zip must contain exactly one of the supported file types
           } else {
-            let zipContainsValidNumFiles;
+            let zipContainsValidNumFiles, isValidUploadTypeForProduct;
             if (numH5InFile > 0) {
               zipContainsValidNumFiles = numH5InFile === 24 || numH5InFile === 48;
-              minPulse3dVersionForUpload = getMinPulse3dVersionFromUpload(numH5InFile, "h5");
-            } else if (numParquetInFile > 0) {
-              zipContainsValidNumFiles = numParquetInFile == 1;
-              minPulse3dVersionForUpload = getMinPulse3dVersionFromUpload(numParquetInFile, "parquet");
+              isValidUploadTypeForProduct = productPage === "mantarray";
             } else {
               // xlsx
               zipContainsValidNumFiles = numXlsxInFile > 0;
-              minPulse3dVersionForUpload = getMinPulse3dVersionFromUpload(numXlsxInFile, "xlsx");
+              isValidUploadTypeForProduct = productPage === "nautilai";
             }
 
-            isValidUpload = onlyOneDir && zipContainsValidNumFiles;
+            isValidUpload = onlyOneDir && zipContainsValidNumFiles && isValidUploadTypeForProduct;
           }
         } else if (file.name.endsWith("xlsx")) {
-          isValidUpload = true;
-          minPulse3dVersionForUpload = getMinPulse3dVersionFromUpload(1, "xlsx");
+          // xlsx uploads only supported for nautilai
+          isValidUpload = productPage === "nautilai";
         } else if (file.name.endsWith("parquet")) {
-          isValidUpload = true;
-          minPulse3dVersionForUpload = getMinPulse3dVersionFromUpload(1, "parquet");
+          // parquet files only currently supported for nautilai, but should be supported by other products in the future
+          isValidUpload = productPage === "nautilai";
         } else {
           // all other file types are not valid
           isValidUpload = false;
@@ -599,15 +576,9 @@ export default function UploadForm() {
         isValidUpload = false;
       }
 
-      // Only update the min p3d version if this file is valid
-      if (isValidUpload && semverGte(minPulse3dVersionForUpload, minPulse3dVersionForAllUploads)) {
-        minPulse3dVersionForAllUploads = minPulse3dVersionForUpload;
-      }
-
       return !isValidUpload;
     });
 
-    setMinPulse3dVersionForCurrentUploads(minPulse3dVersionForAllUploads);
     setBadFiles([...badFilesUpdate]);
 
     for (let i = 0; i < badFilesUpdate.length; i++) {

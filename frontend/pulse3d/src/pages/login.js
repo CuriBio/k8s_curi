@@ -103,9 +103,12 @@ export default function Login() {
         });
         if (res) {
           if (res.status === 200) {
-            loginType === "User"
-              ? router.push("/home") // routes to next page
-              : router.push("/uploads?checkUsage=true", "/uploads");
+            // route to next page
+            if (loginType === "User") {
+              router.push("/home");
+            } else {
+              router.push("/uploads?checkUsage=true", "/uploads");
+            }
           } else {
             let errToDisplay = "*Internal error. Please try again later.";
 

@@ -52,7 +52,7 @@ const ProductDescLabel = styled.div`
 
 export default function Login() {
   const router = useRouter();
-  const { accountScope, setProductPage, setUsageQuota, setPreferences } = useContext(AuthContext);
+  const { accountScope, updateProductPage, setUsageQuota, setPreferences } = useContext(AuthContext);
 
   const [products, setProducts] = useState({
     mantarray: {
@@ -131,7 +131,7 @@ export default function Login() {
   const handleProductNavigation = ({ target }) => {
     if (!target.id.includes("disabled")) {
       // used to poll usage for correct product
-      setProductPage(target.id.split("-")[0]);
+      updateProductPage(target.id.split("-")[0]);
       // TODO handle different nav once product differences are more specced out
       router.push("/uploads?checkUsage=true", "/uploads");
     }

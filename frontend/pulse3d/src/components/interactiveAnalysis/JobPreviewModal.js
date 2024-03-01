@@ -112,14 +112,15 @@ export default function JobPreviewModal({
   const { productPage } = useContext(AuthContext);
 
   const { waveformData, featureIndices, getErrorState, getLoadingState, yAxisLabel } = useWaveformData(
-    `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${uploadId}&job_id=${jobId}`,
+    `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${uploadId}&job_id=${jobId}&upload_type=${productPage}`,
     analysisParams.normalization_method,
     productPage
   );
 
   useEffect(() => {
-    if (getErrorState) setOpenErrorModal(true);
-    else if (!getLoadingState) {
+    if (getErrorState) {
+      setOpenErrorModal(true);
+    } else if (!getLoadingState) {
       // first well may not be A1 if optical files, so just grab first value
       getGridStyle();
       getTimepointRange(waveformData[Object.keys(waveformData)[0]]);
