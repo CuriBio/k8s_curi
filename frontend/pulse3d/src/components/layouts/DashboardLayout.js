@@ -71,7 +71,6 @@ export default function DashboardLayout({ children }) {
   }, [router.pathname]);
 
   const getUploads = async (uploadType) => {
-    console.log("getUploads", uploadType);
     try {
       let url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads`;
       if (uploadType) {

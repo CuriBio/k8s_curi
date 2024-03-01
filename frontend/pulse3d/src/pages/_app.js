@@ -70,15 +70,6 @@ function Pulse({ Component, pageProps }) {
 
   const [productPage, setProductPage] = useState();
 
-  // load page, no product set
-  //////
-  // login to user, set product
-  // refresh, product cleared, check stored product, update product from stored, validate product
-  // return to home, clear product
-  // logout, clear product
-  //////
-  // login to admin, don't set product
-
   const updateProductPage = (product) => {
     localStorage.setItem("productPage", product);
     setProductPage(product);
@@ -88,12 +79,6 @@ function Pulse({ Component, pageProps }) {
   // manually set by user to a product they do not have access to
   useEffect(() => {
     const { accountScope, accountType } = accountInfo;
-    console.log("!!!", {
-      accountScope,
-      accountType,
-      productPage,
-      storedProductPage: loadProductPage(),
-    });
 
     if (!accountType) {
       // nothing can be done yet if the account type isn't set
@@ -102,29 +87,21 @@ function Pulse({ Component, pageProps }) {
 
     if (accountType === "admin") {
       if (productPage) {
-        console.log("clearing productPage for admin");
         setProductPage(null);
       }
-      console.log("clearing storedProductPage for admin");
       localStorage.setItem("productPage", null);
     } else if (productPage) {
       // if the product page is already set for a user, nothing needs to be done
-      console.log("productPage already set for user");
       return;
     } else {
       const storedProductPage = loadProductPage();
       if (storedProductPage) {
-        // prevent access to
+        // prevent access to products not in the user's scopes
         if (accountScope.some((scope) => scope.includes(storedProductPage))) {
-          console.log("setting storedProductPage for user");
           setProductPage(storedProductPage);
         } else {
-          console.log("clearing storedProductPage for user");
           localStorage.setItem("productPage", null);
         }
-      } else {
-        // TODO delete this
-        console.log("storedProductPage not set for user");
       }
     }
   }, [productPage, accountInfo]);
@@ -193,7 +170,6 @@ function Pulse({ Component, pageProps }) {
                 (!data.productPage ||
                   !newAccountInfo.accountScope.some((scope) => scope.includes(data.productPage)))
               ) {
-                console.log(`User past home with invalid product page (${data.productPage})`);
                 router.replace("/home", undefined, {
                   shallow: true,
                 });
@@ -211,7 +187,6 @@ function Pulse({ Component, pageProps }) {
 
   // whenever the page updates, sends message to SW (if active) to check if a user is logged in
   useEffect(() => {
-    console.log("@@@", productPage, loadProductPage(), productPage || loadProductPage());
     sendSWMessage({
       msgType: "authCheck",
       routerPathname: router.pathname,
@@ -220,7 +195,6 @@ function Pulse({ Component, pageProps }) {
 
     // if on a home or login page, clear productPage
     if (["/login", "/home"].includes(router.pathname)) {
-      console.log("CLEARING");
       updateProductPage(null);
     }
 
