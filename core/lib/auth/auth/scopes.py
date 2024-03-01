@@ -115,7 +115,7 @@ def get_product_tags_of_user(user_scopes: list[Scopes]) -> set[Scopes]:
 
 
 def is_rw_all_data_user(token, service=None):
-    if token.account_type == "admin" or service is None:
+    if token.account_type == "admin":
         return False
 
     rw_all_scopes = [s for s in token.scopes if "rw_all_data" in s]

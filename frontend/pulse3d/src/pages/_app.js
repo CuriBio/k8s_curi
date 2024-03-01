@@ -53,6 +53,11 @@ const getAvailablePages = (accountInfo) => {
   return pages;
 };
 
+const loadProductPage = () => {
+  const storedProductPage = localStorage.getItem("productPage");
+  return storedProductPage === "null" ? null : storedProductPage;
+};
+
 function Pulse({ Component, pageProps }) {
   const getLayout = Component.getLayout || ((page) => page);
   const router = useRouter();
@@ -65,22 +70,61 @@ function Pulse({ Component, pageProps }) {
 
   const [productPage, setProductPage] = useState();
 
-  // set product page in localStorage so that it persists through page refreshes
+  // load page, no product set
+  //////
+  // login to user, set product
+  // refresh, product cleared, check stored product, update product from stored, validate product
+  // return to home, clear product
+  // logout, clear product
+  //////
+  // login to admin, don't set product
+
+  const updateProductPage = (product) => {
+    localStorage.setItem("productPage", product);
+    setProductPage(product);
+  };
+
+  // set product page in localStorage so that it persists through page refreshes. Check that this value is not
+  // manually set by user to a product they do not have access to
   useEffect(() => {
-    const { accountScope } = accountInfo;
-    if (!accountScope) {
+    const { accountScope, accountType } = accountInfo;
+    console.log("!!!", {
+      accountScope,
+      accountType,
+      productPage,
+      storedProductPage: loadProductPage(),
+    });
+
+    if (!accountType) {
+      // nothing can be done yet if the account type isn't set
       return;
     }
 
-    if (productPage) {
-      localStorage.setItem("productPage", productPage);
+    if (accountType === "admin") {
+      if (productPage) {
+        console.log("clearing productPage for admin");
+        setProductPage(null);
+      }
+      console.log("clearing storedProductPage for admin");
+      localStorage.setItem("productPage", null);
+    } else if (productPage) {
+      // if the product page is already set for a user, nothing needs to be done
+      console.log("productPage already set for user");
+      return;
     } else {
-      const storedProductPage = localStorage.getItem("productPage");
-      if (accountScope.some((scope) => scope.includes(storedProductPage))) {
-        setProductPage(storedProductPage);
+      const storedProductPage = loadProductPage();
+      if (storedProductPage) {
+        // prevent access to
+        if (accountScope.some((scope) => scope.includes(storedProductPage))) {
+          console.log("setting storedProductPage for user");
+          setProductPage(storedProductPage);
+        } else {
+          console.log("clearing storedProductPage for user");
+          localStorage.setItem("productPage", null);
+        }
       } else {
-        localStorage.setItem("productPage", null);
-        router.replace("/home", undefined, { shallow: true });
+        // TODO delete this
+        console.log("storedProductPage not set for user");
       }
     }
   }, [productPage, accountInfo]);
@@ -105,6 +149,7 @@ function Pulse({ Component, pageProps }) {
           sendSWMessage({
             msgType: "authCheck",
             routerPathname: router.pathname,
+            productPage: productPage || loadProductPage(),
           });
         })
         .catch((e) => console.log("SERVICE WORKER ERROR: ", e));
@@ -139,7 +184,17 @@ function Pulse({ Component, pageProps }) {
               // if logged in and on a page that shouldn't be accessed, or if on the login page, redirect to home page (currently /uploads)
               if (currentPage === "/login" || !getAvailablePages(newAccountInfo).includes(currentPage)) {
                 // TODO Tanner (8/23/22): this probably isn't the best solution for redirecting to other pages. Should look into a better way to do this
-                router.replace(accountInfo.accountType == "User" ? " /home" : "/uploads", undefined, {
+                router.replace(newAccountInfo.accountType === "user" ? "/home" : "/uploads", undefined, {
+                  shallow: true,
+                });
+              } else if (
+                currentPage !== "/home" &&
+                newAccountInfo.accountType === "user" &&
+                (!data.productPage ||
+                  !newAccountInfo.accountScope.some((scope) => scope.includes(data.productPage)))
+              ) {
+                console.log(`User past home with invalid product page (${data.productPage})`);
+                router.replace("/home", undefined, {
                   shallow: true,
                 });
               }
@@ -156,13 +211,23 @@ function Pulse({ Component, pageProps }) {
 
   // whenever the page updates, sends message to SW (if active) to check if a user is logged in
   useEffect(() => {
+    console.log("@@@", productPage, loadProductPage(), productPage || loadProductPage());
     sendSWMessage({
       msgType: "authCheck",
       routerPathname: router.pathname,
+      productPage: productPage || loadProductPage(),
     });
 
+    // if on a home or login page, clear productPage
+    if (["/login", "/home"].includes(router.pathname)) {
+      console.log("CLEARING");
+      updateProductPage(null);
+    }
+
     // start pinging SW if not on login page to keep alive
-    if (!["/login", "/account/verify", "/account/reset"].includes(router.pathname)) keepSWALive();
+    if (!["/login", "/account/verify", "/account/reset"].includes(router.pathname)) {
+      keepSWALive();
+    }
     if (["/account/verify", "/account/reset"].includes(router.pathname)) {
       // when a user gets redirected to page to reset password or verify account, it should redirect user to login and not consider them as logged in if they previously were.
       // even though this scenario is unlikely, just ensures they'll be logged out and protects against if an admin performs some of these actions while logged into an admin account previously.
@@ -208,7 +273,7 @@ function Pulse({ Component, pageProps }) {
           availableScopes,
           setAvailableScopes,
           productPage,
-          setProductPage,
+          updateProductPage,
           isCuriAdmin,
           preferences,
           setPreferences,

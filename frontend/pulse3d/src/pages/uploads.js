@@ -469,7 +469,7 @@ export default function Uploads() {
     // really helps with flow of when in progress modal closes
     await new Promise((r) => setTimeout(r, 1000));
 
-    // failed Deletions has it's own modal so prevent closure else reset
+    // failed Deletions has its own modal so prevent closure else reset
     if (!failedDeletion) {
       setModalState(false);
       resetTable();

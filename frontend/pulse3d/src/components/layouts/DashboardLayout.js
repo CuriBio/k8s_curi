@@ -1,8 +1,9 @@
 import ControlPanel from "@/components/layouts/ControlPanel";
-import { useEffect, useState, createContext } from "react";
+import { useEffect, useState, createContext, useContext } from "react";
 import styled from "styled-components";
 import { useRouter } from "next/router";
 import semverRsort from "semver/functions/rsort";
+import { AuthContext } from "@/pages/_app";
 
 const Container = styled.div`
   height: inherit;
@@ -30,6 +31,8 @@ export default function DashboardLayout({ children }) {
   const [defaultUploadForReanalysis, setDefaultUploadForReanalysis] = useState();
   const router = useRouter();
 
+  const { accountType, productPage } = useContext(AuthContext);
+
   const stiffnessFactorDetails = {
     Auto: null,
     "Cardiac (1x)": 1,
@@ -44,14 +47,21 @@ export default function DashboardLayout({ children }) {
     Voltage: "Voltage",
   };
 
+  // TODO this can probably be refactored be more efficient
   useEffect(() => {
     if (router.pathname === "/uploads" || router.pathname === "/upload-form") {
-      getUploads();
+      if (accountType === "admin") {
+        getUploads();
+      } else if (accountType === "user" && productPage) {
+        getUploads(productPage);
+      }
       getPulse3dVersions();
     }
     // reset
-    if (fetchUploads) setFetchUploads(false);
-  }, [router.pathname, fetchUploads]);
+    if (fetchUploads) {
+      setFetchUploads(false);
+    }
+  }, [router.pathname, fetchUploads, accountType, productPage]);
 
   useEffect(() => {
     // clear default upload when user leaves the re-analyze page
@@ -60,9 +70,14 @@ export default function DashboardLayout({ children }) {
     }
   }, [router.pathname]);
 
-  const getUploads = async () => {
+  const getUploads = async (uploadType) => {
+    console.log("getUploads", uploadType);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads`);
+      let url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads`;
+      if (uploadType) {
+        url += `?upload_type=${uploadType}`;
+      }
+      const response = await fetch(url);
 
       if (response && response.status === 200) {
         const uploadsArr = await response.json();

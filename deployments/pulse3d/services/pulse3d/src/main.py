@@ -16,6 +16,7 @@ from auth import (
     check_prohibited_product,
     ProhibitedProductError,
     is_rw_all_data_user,
+    get_product_tags_of_admin,
     get_product_tags_of_user,
 )
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
@@ -126,6 +127,7 @@ async def db_session_middleware(request: Request, call_next) -> Response:
 async def get_info_of_uploads(
     request: Request,
     upload_ids: list[uuid.UUID] | None = Query(None),
+    upload_type: str | None = Query(None),
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     # need to convert to UUIDs to str to avoid issues with DB
@@ -140,15 +142,23 @@ async def get_info_of_uploads(
             {"user_id": token.userid, "customer_id": token.customer_id, "upload_ids": upload_ids}
         )
 
-        async with request.state.pgpool.acquire() as con:
-            uploads = await _get_uploads(con=con, token=token, upload_ids=upload_ids)
-            if is_user:
-                # admin accounts don't matter here because they don't have the ability to delete
-                for upload in uploads:
-                    # need way on FE to tell if user owns recordings besides username since current user's username is not stored on the FE. We want to prevent users from attempting to delete files that aren't theirs before calling /delete route
-                    upload["owner"] = str(upload["user_id"]) == account_id
+        desired_upload_types = None if upload_type is None else [upload_type]
 
+        async with request.state.pgpool.acquire() as con:
+            uploads = await _get_uploads(
+                con=con, token=token, upload_ids=upload_ids, desired_upload_types=desired_upload_types
+            )
+
+        if isinstance(uploads, GenericErrorResponse):
             return uploads
+
+        if is_user:
+            # admin accounts don't matter here because they don't have the ability to delete
+            for upload in uploads:
+                # need way on FE to tell if user owns recordings besides username since current user's username is not stored on the FE. We want to prevent users from attempting to delete files that aren't theirs before calling /delete route
+                upload["owner"] = str(upload["user_id"]) == account_id
+
+        return uploads
 
     except Exception:
         logger.exception("Failed to get uploads")
@@ -261,6 +271,9 @@ async def download_zip_files(
     try:
         async with request.state.pgpool.acquire() as con:
             uploads = await _get_uploads(con=con, token=token, upload_ids=upload_ids)
+
+        if isinstance(uploads, GenericErrorResponse):
+            return uploads
 
         # get filenames and s3 keys to download
         keys = [f"{upload['prefix']}/{upload['filename']}" for upload in uploads]
@@ -504,7 +517,7 @@ async def create_new_job(
                 )
 
             if user_id != original_upload_user:
-                if is_rw_all_data_user(token):
+                if not is_rw_all_data_user(token):
                     return GenericErrorResponse(
                         message="User does not have authorization to start a job for this recording.",
                         error="AuthorizationError",
@@ -723,7 +736,7 @@ async def get_interactive_waveform_data(
         pulse3d_version = parsed_meta.get("version")
 
         if is_user and recording_owner_id != account_id:
-            if is_rw_all_data_user(token):
+            if not is_rw_all_data_user(token):
                 return GenericErrorResponse(
                     message="User does not have authorization to start interactive analysis on this recording.",
                     error="AuthorizationError",
@@ -869,25 +882,34 @@ async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(tag=
 
 
 def _get_retrieval_info(token):
-    if is_rw_all_data_user(token):
-        account_id = str(uuid.UUID(token.customer_id))
-        # catches in the else block like admins in get_uploads, just set here so it's not admin and become confusing
-        account_type = "rw_all_user"
-        # only need to set the upload types if this is a rw_all_data user in order to prevent the user from accessing
-        # data from a product they don't have the scope for this is not needed for a user accessing their own data as
-        # they should always have the scope required to do so, and not needed for an admin as they should always have
-        # access to all the data of all their users
-        upload_types = get_product_tags_of_user(token.scopes)
+    account_type = token.account_type
+    account_id = str(uuid.UUID(token.account_id))
+    if token.account_type == "user":
+        if is_rw_all_data_user(token):
+            account_id = str(uuid.UUID(token.customer_id))
+            # catches in the else block like admins in get_uploads, just set here so it's not admin and become confusing
+            account_type = "rw_all_user"
+        all_upload_types = get_product_tags_of_user(token.scopes)
     else:
-        account_id = str(uuid.UUID(token.account_id))
-        account_type = token.account_type
-        upload_types = None
+        all_upload_types = get_product_tags_of_admin(token.scopes)
 
-    return account_id, account_type, upload_types
+    return account_id, account_type, all_upload_types
 
 
-async def _get_uploads(con, token, upload_ids):
-    account_id, account_type, upload_types = _get_retrieval_info(token)
+async def _get_uploads(con, token, upload_ids, desired_upload_types=None):
+    account_id, account_type, all_upload_types = _get_retrieval_info(token)
+
+    upload_types = all_upload_types
+    if desired_upload_types:
+        upload_types &= set(desired_upload_types)
+    if not upload_types:
+        logger.error(
+            f"Account {account_type}: {account_id} attempting to access upload type(s) they don't have access to: {desired_upload_types}"
+        )
+        return GenericErrorResponse(
+            message="User does not have authorization to access uploads of these type(s).",
+            error="AuthorizationError",
+        )
 
     logger.info(f"Retrieving upload info with IDs: {upload_ids} for {account_type}: {account_id}")
 

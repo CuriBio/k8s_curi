@@ -275,7 +275,7 @@ export default function ControlPanel() {
 
   const checkVersionDeprecation = () => {
     const selectedVersionMeta = metaPulse3dVersions.find(
-      (m) => preferences[productPage].version === m.version
+      (m) => preferences?.[productPage]?.version === m.version
     );
 
     // deprecated versions are filtered out in DashboardLayout
