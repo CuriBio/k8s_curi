@@ -211,6 +211,15 @@ const applyWindow = (data, xMin, xMax) => {
   return { dataWithinWindow, windowStartIdx, windowEndIdx };
 };
 
+const getMinP3dVersionForProduct = (productType) => {
+  switch (productType) {
+    case "nautilai":
+      return "1.0.0";
+    default:
+      return "0.0.0";
+  }
+};
+
 export {
   deepCopy,
   hexToBase64,
@@ -223,4 +232,5 @@ export {
   formatDateTime,
   applyWindow,
   isInt,
+  getMinP3dVersionForProduct,
 };

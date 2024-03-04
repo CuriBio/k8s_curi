@@ -229,7 +229,7 @@ export default function ControlPanel() {
   }, [router]);
 
   useEffect(() => {
-    if (productPage in preferences && "version" in preferences[productPage] && pulse3dVersions.length > 0) {
+    if (preferences?.[productPage]?.version != null && pulse3dVersions.length > 0) {
       checkVersionDeprecation();
     }
   }, [pulse3dVersions]);
@@ -275,7 +275,7 @@ export default function ControlPanel() {
 
   const checkVersionDeprecation = () => {
     const selectedVersionMeta = metaPulse3dVersions.find(
-      (m) => preferences[productPage].version === m.version
+      (m) => preferences?.[productPage]?.version === m.version
     );
 
     // deprecated versions are filtered out in DashboardLayout
