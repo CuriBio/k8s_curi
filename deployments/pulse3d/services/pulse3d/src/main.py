@@ -556,20 +556,6 @@ async def create_new_job(
                 job_type=upload_type,
             )
 
-            # if most recent pulse3d version, kick off job with pulse3d rewrite to compare outputs of both versions
-            rewrite_job_id = None
-            if pulse3d_semver == "0.34.4":
-                rewrite_job_id = await create_job(
-                    con=con,
-                    upload_id=upload_id,
-                    queue="pulse3d-v1.0.0rc28",
-                    priority=priority,
-                    meta={**job_meta, "version": "1.0.0rc28"},
-                    customer_id=customer_id,
-                    job_type=upload_type,
-                    add_to_results=False,
-                )
-
             bind_context_to_logger({"job_id": str(job_id)})
 
             # check customer quota after job
@@ -596,12 +582,6 @@ async def create_new_job(
                     features_df.write_parquet(pv_parquet_path)
                     # upload to s3 under upload id and job id for pulse3d-worker to use
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
-
-                    if rewrite_job_id:
-                        rewrite_key = f"uploads/{customer_id}/{original_upload_user}/{upload_id}/{rewrite_job_id}/peaks_valleys.parquet"
-                        upload_file_to_s3(
-                            bucket=PULSE3D_UPLOADS_BUCKET, key=rewrite_key, file=pv_parquet_path
-                        )
 
         return JobResponse(
             id=job_id,

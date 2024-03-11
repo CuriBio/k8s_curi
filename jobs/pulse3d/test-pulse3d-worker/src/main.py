@@ -124,7 +124,6 @@ def _upload_pre_zip(data_container, file_info, pre_step_name) -> None:
         raise
 
 
-# needs to be prefixed so that the queue processor doesn't pick it up
 @get_item(queue=f"pulse3d-v{PULSE3D_VERSION}")
 async def process_item(con, item):
     # keeping initial log without bound variables
