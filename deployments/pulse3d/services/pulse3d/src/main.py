@@ -558,7 +558,7 @@ async def create_new_job(
 
             # if most recent pulse3d version, kick off job with pulse3d rewrite to compare outputs of both versions
             rewrite_job_id = None
-            if pulse3d_semver == "0.34.4":
+            if pulse3d_semver == "0.34.5":
                 rewrite_job_id = await create_job(
                     con=con,
                     upload_id=upload_id,
