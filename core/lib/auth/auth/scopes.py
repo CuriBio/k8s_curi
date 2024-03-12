@@ -14,7 +14,7 @@ class ProhibitedProductError(Exception):
 class ScopeTags(StrEnum):
     INTERNAL = auto()  # TODO rename this to production?
     MANTARRAY = auto()
-    NAUTILUS = auto()
+    NAUTILAI = auto()
     ADMIN = auto()
     PULSE3D_READ = auto()
     PULSE3D_WRITE = auto()
@@ -75,12 +75,12 @@ class Scopes(StrEnum):
         MANTARRAY__SERIAL_NUMBER__LIST,
         [ScopeTags.MANTARRAY, ScopeTags.INTERNAL],
     )
-    NAUTILUS__ADMIN = auto(), None, [ScopeTags.NAUTILUS, ScopeTags.PULSE3D_READ, ScopeTags.ADMIN]
-    NAUTILUS__BASE = auto(), None, [ScopeTags.NAUTILUS, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE]
-    NAUTILUS__RW_ALL_DATA = (
+    NAUTILAI__ADMIN = auto(), None, [ScopeTags.NAUTILAI, ScopeTags.PULSE3D_READ, ScopeTags.ADMIN]
+    NAUTILAI__BASE = auto(), None, [ScopeTags.NAUTILAI, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE]
+    NAUTILAI__RW_ALL_DATA = (
         auto(),
-        NAUTILUS__BASE,
-        [ScopeTags.NAUTILUS, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE],
+        NAUTILAI__BASE,
+        [ScopeTags.NAUTILAI, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE],
     )
     REFRESH = auto(), None, [ScopeTags.UNASSIGNABLE]
     USER__VERIFY = auto(), None, [ScopeTags.ACCOUNT, ScopeTags.UNASSIGNABLE]
@@ -102,15 +102,30 @@ def convert_scope_str(scope_str: str) -> Scopes:
     return Scopes[scope_str.upper().replace(":", "__")]
 
 
+_PRODUCT_SCOPE_TAGS = frozenset({ScopeTags.MANTARRAY, ScopeTags.NAUTILAI})
+
+
 # TODO add testing for these
-def get_product_tags_of_admin(admin_scopes) -> set[Scopes]:
-    return {tag for s in admin_scopes for tag in s.tags if ScopeTags.ADMIN in s.tags} & {
-        ScopeTags.MANTARRAY,
-        ScopeTags.NAUTILUS,
-    }
+def get_product_tags_of_admin(admin_scopes: list[Scopes]) -> set[Scopes]:
+    return {tag for s in admin_scopes for tag in s.tags if ScopeTags.ADMIN in s.tags} & _PRODUCT_SCOPE_TAGS
 
 
-def check_prohibited_product(user_scopes, product) -> None:
+def get_product_tags_of_user(user_scopes: list[Scopes]) -> set[Scopes]:
+    return {tag for s in user_scopes for tag in s.tags} & _PRODUCT_SCOPE_TAGS
+
+
+def is_rw_all_data_user(token, service=None):
+    if token.account_type == "admin":
+        return False
+
+    rw_all_scopes = [s for s in token.scopes if "rw_all_data" in s]
+    if service:
+        rw_all_scopes = [s for s in rw_all_scopes if service in s]
+
+    return bool(rw_all_scopes)
+
+
+def check_prohibited_product(user_scopes: list[Scopes], product: str) -> None:
     if not [s for s in user_scopes if product in s.tags]:
         raise ProhibitedProductError(product)
 

@@ -30,7 +30,7 @@ export const AuthContext = createContext();
 // TODO make all pages scope based?
 const allAvailablePages = {
   user: ["/home", "/uploads", "/upload-form", "/account", "/account-settings", "/metrics"],
-  admin: ["/uploads", "/add-new-account", "/users-info", "/account-settings"],
+  admin: ["/uploads", "/add-new-account", "/user-info", "/customer-info", "/account-settings"],
 };
 
 const getAvailablePages = (accountInfo) => {
@@ -53,6 +53,11 @@ const getAvailablePages = (accountInfo) => {
   return pages;
 };
 
+const loadProductPage = () => {
+  const storedProductPage = localStorage.getItem("productPage");
+  return storedProductPage === "null" ? null : storedProductPage;
+};
+
 function Pulse({ Component, pageProps }) {
   const getLayout = Component.getLayout || ((page) => page);
   const router = useRouter();
@@ -63,8 +68,43 @@ function Pulse({ Component, pageProps }) {
   const [isCuriAdmin, setIsCuriAdmin] = useState(false);
   const [preferences, setPreferences] = useState({});
 
-  // TODO defaulting to mantarray for admin accounts until it's decided how to handle usage for multiple products
-  const [productPage, setProductPage] = useState("mantarray");
+  const [productPage, setProductPage] = useState();
+
+  const updateProductPage = (product) => {
+    localStorage.setItem("productPage", product);
+    setProductPage(product);
+  };
+
+  // set product page in localStorage so that it persists through page refreshes. Check that this value is not
+  // manually set by user to a product they do not have access to
+  useEffect(() => {
+    const { accountScope, accountType } = accountInfo;
+
+    if (!accountType) {
+      // nothing can be done yet if the account type isn't set
+      return;
+    }
+
+    if (accountType === "admin") {
+      if (productPage) {
+        setProductPage(null);
+      }
+      localStorage.setItem("productPage", null);
+    } else if (productPage) {
+      // if the product page is already set for a user, nothing needs to be done
+      return;
+    } else {
+      const storedProductPage = loadProductPage();
+      if (storedProductPage) {
+        // prevent access to products not in the user's scopes
+        if (accountScope.some((scope) => scope.includes(storedProductPage))) {
+          setProductPage(storedProductPage);
+        } else {
+          localStorage.setItem("productPage", null);
+        }
+      }
+    }
+  }, [productPage, accountInfo]);
 
   let swInterval = null;
   // register the SW once
@@ -86,6 +126,7 @@ function Pulse({ Component, pageProps }) {
           sendSWMessage({
             msgType: "authCheck",
             routerPathname: router.pathname,
+            productPage: productPage || loadProductPage(),
           });
         })
         .catch((e) => console.log("SERVICE WORKER ERROR: ", e));
@@ -120,7 +161,16 @@ function Pulse({ Component, pageProps }) {
               // if logged in and on a page that shouldn't be accessed, or if on the login page, redirect to home page (currently /uploads)
               if (currentPage === "/login" || !getAvailablePages(newAccountInfo).includes(currentPage)) {
                 // TODO Tanner (8/23/22): this probably isn't the best solution for redirecting to other pages. Should look into a better way to do this
-                router.replace(accountInfo.accountType == "User" ? " /home" : "/uploads", undefined, {
+                router.replace(newAccountInfo.accountType === "user" ? "/home" : "/uploads", undefined, {
+                  shallow: true,
+                });
+              } else if (
+                currentPage !== "/home" &&
+                newAccountInfo.accountType === "user" &&
+                (!data.productPage ||
+                  !newAccountInfo.accountScope.some((scope) => scope.includes(data.productPage)))
+              ) {
+                router.replace("/home", undefined, {
                   shallow: true,
                 });
               }
@@ -140,10 +190,18 @@ function Pulse({ Component, pageProps }) {
     sendSWMessage({
       msgType: "authCheck",
       routerPathname: router.pathname,
+      productPage: productPage || loadProductPage(),
     });
 
+    // if on a home or login page, clear productPage
+    if (["/login", "/home"].includes(router.pathname)) {
+      updateProductPage(null);
+    }
+
     // start pinging SW if not on login page to keep alive
-    if (!["/login", "/account/verify", "/account/reset"].includes(router.pathname)) keepSWALive();
+    if (!["/login", "/account/verify", "/account/reset"].includes(router.pathname)) {
+      keepSWALive();
+    }
     if (["/account/verify", "/account/reset"].includes(router.pathname)) {
       // when a user gets redirected to page to reset password or verify account, it should redirect user to login and not consider them as logged in if they previously were.
       // even though this scenario is unlikely, just ensures they'll be logged out and protects against if an admin performs some of these actions while logged into an admin account previously.
@@ -189,7 +247,7 @@ function Pulse({ Component, pageProps }) {
           availableScopes,
           setAvailableScopes,
           productPage,
-          setProductPage,
+          updateProductPage,
           isCuriAdmin,
           preferences,
           setPreferences,

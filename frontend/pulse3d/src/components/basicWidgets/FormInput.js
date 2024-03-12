@@ -32,6 +32,7 @@ export default function FormInput({
   tooltipIconStyle = { fontSize: 20, margin: "0px 10px" },
   disabled = false,
   borderStyle = "none",
+  height = "35px",
 }) {
   return (
     <>
@@ -52,6 +53,8 @@ export default function FormInput({
         value={value}
         onChange={onChangeFn}
         style={{
+          height,
+          minHeight: height,
           border: borderStyle,
           boxShadow: "rgba(0, 0, 0, 0.1) 1px 1px 1px 0px, rgba(0, 0, 0, 0.12) 1px 1px 3px 2px",
         }}

@@ -10,7 +10,15 @@ from datetime import datetime
 import boto3
 import polars as pl
 import structlog
-from auth import ScopeTags, Scopes, ProtectedAny, check_prohibited_product, ProhibitedProductError
+from auth import (
+    ScopeTags,
+    ProtectedAny,
+    check_prohibited_product,
+    ProhibitedProductError,
+    is_rw_all_data_user,
+    get_product_tags_of_admin,
+    get_product_tags_of_user,
+)
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -119,6 +127,7 @@ async def db_session_middleware(request: Request, call_next) -> Response:
 async def get_info_of_uploads(
     request: Request,
     upload_ids: list[uuid.UUID] | None = Query(None),
+    upload_type: str | None = Query(None),
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     # need to convert to UUIDs to str to avoid issues with DB
@@ -127,31 +136,29 @@ async def get_info_of_uploads(
 
     try:
         account_id = str(uuid.UUID(token.account_id))
-        account_type = token.account_type
-        is_user = account_type == "user"
+        is_user = token.account_type == "user"
 
         bind_context_to_logger(
             {"user_id": token.userid, "customer_id": token.customer_id, "upload_ids": upload_ids}
         )
 
-        # give advanced privileges to access all uploads under customer_id
-        # TODO update this to product specific when landing page is specced out more
-        if Scopes.MANTARRAY__RW_ALL_DATA in token.scopes:
-            account_id = str(uuid.UUID(token.customer_id))
-            # catches in the else block like admins in get_uploads, just set here so it's not admin and become confusing
-            account_type = "rw_all_user"
+        desired_upload_types = None if upload_type is None else [upload_type]
 
         async with request.state.pgpool.acquire() as con:
-            uploads = await get_uploads(
-                con=con, account_type=account_type, account_id=account_id, upload_ids=upload_ids
+            uploads = await _get_uploads(
+                con=con, token=token, upload_ids=upload_ids, desired_upload_types=desired_upload_types
             )
-            if is_user:
-                # admin accounts don't matter here because they don't have the ability to delete
-                for upload in uploads:
-                    # need way on FE to tell if user owns recordings besides username since current user's username is not stored on the FE. We want to prevent users from attempting to delete files that aren't theirs before calling /delete route
-                    upload["owner"] = str(upload["user_id"]) == account_id
 
+        if isinstance(uploads, GenericErrorResponse):
             return uploads
+
+        if is_user:
+            # admin accounts don't matter here because they don't have the ability to delete
+            for upload in uploads:
+                # need way on FE to tell if user owns recordings besides username since current user's username is not stored on the FE. We want to prevent users from attempting to delete files that aren't theirs before calling /delete route
+                upload["owner"] = str(upload["user_id"]) == account_id
+
+        return uploads
 
     except Exception:
         logger.exception("Failed to get uploads")
@@ -256,23 +263,17 @@ async def download_zip_files(
 
     # need to convert UUIDs to str to avoid issues with DB
     upload_ids = [str(id) for id in upload_ids]
-    account_id = str(uuid.UUID(token.account_id))
-    account_type = token.account_type
 
     bind_context_to_logger(
         {"user_id": token.userid, "customer_id": token.customer_id, "upload_ids": upload_ids}
     )
 
-    # give advanced privileges to access all uploads under customer_id
-    if Scopes.MANTARRAY__RW_ALL_DATA in token.scopes:
-        account_id = str(uuid.UUID(token.customer_id))
-        account_type = "rw_all_user"
-
     try:
         async with request.state.pgpool.acquire() as con:
-            uploads = await get_uploads(
-                con=con, account_type=account_type, account_id=account_id, upload_ids=upload_ids
-            )
+            uploads = await _get_uploads(con=con, token=token, upload_ids=upload_ids)
+
+        if isinstance(uploads, GenericErrorResponse):
+            return uploads
 
         # get filenames and s3 keys to download
         keys = [f"{upload['prefix']}/{upload['filename']}" for upload in uploads]
@@ -395,22 +396,6 @@ async def get_info_of_jobs(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-async def _get_jobs(con, token, job_ids):
-    account_type = token.account_type
-    account_id = str(uuid.UUID(token.account_id))
-
-    logger.info(f"Retrieving job info with IDs: {job_ids} for {account_type}: {account_id}")
-
-    # give advanced privileges to access all uploads under customer_id
-    # TODO update this to product specific when landing page is specced out more
-    if Scopes.MANTARRAY__RW_ALL_DATA in token.scopes:
-        account_id = str(uuid.UUID(token.customer_id))
-        # catches in the else block like customers in get_uploads, just set here so it's not customer and become confusing
-        account_type = "rw_all_user"
-
-    return await get_jobs(con=con, account_type=account_type, account_id=account_id, job_ids=job_ids)
-
-
 @app.post("/jobs")
 async def create_new_job(
     request: Request, details: JobRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
@@ -463,6 +448,7 @@ async def create_new_job(
             params.append("data_type")
         if pulse3d_semver >= "1.0.0":
             params.append("normalization_method")
+            params.append("detrend")
 
         if use_noise_based_peak_finding:
             params += [
@@ -488,9 +474,11 @@ async def create_new_job(
             ("prominence_factors", DefaultLegacyPeakFindingParams.PROMINENCE_FACTORS.value),
             (
                 "width_factors",
-                DefaultNoiseBasedPeakFindingParams.WIDTH_FACTORS.value
-                if use_noise_based_peak_finding
-                else DefaultLegacyPeakFindingParams.WIDTH_FACTORS.value,
+                (
+                    DefaultNoiseBasedPeakFindingParams.WIDTH_FACTORS.value
+                    if use_noise_based_peak_finding
+                    else DefaultLegacyPeakFindingParams.WIDTH_FACTORS.value
+                ),
             ),
             ("baseline_widths_to_use", DefaultMetricsParams.BASELINE_WIDTHS.value),
         ):
@@ -528,11 +516,17 @@ async def create_new_job(
                     message="Attempted to use pulse3d version that is removed", error="pulse3dVersionError"
                 )
 
-            if Scopes.MANTARRAY__RW_ALL_DATA not in user_scopes:
-                # if users don't match and they don't have an all_data scope, then raise unauth error
-                if user_id != original_upload_user:
+            if user_id != original_upload_user:
+                if not is_rw_all_data_user(token):
                     return GenericErrorResponse(
-                        message="User does not have authorization to start this job.",
+                        message="User does not have authorization to start a job for this recording.",
+                        error="AuthorizationError",
+                    )
+                # since user has access to other user's data, need to prevent them from running
+                # jobs for upload types that they themselves don't have access to
+                if upload_type not in get_product_tags_of_user(user_scopes):
+                    return GenericErrorResponse(
+                        message=f"User does not have authorization to run jobs for {upload_type} uploads.",
                         error="AuthorizationError",
                     )
 
@@ -544,7 +538,7 @@ async def create_new_job(
             # TODO remove this once done testing rc versions of pulse3d rewrite
             version = details.version
             if version == "1.0.0":
-                version = "1.0.0rc15"
+                version = "1.0.0rc28"
 
             job_meta = {"analysis_params": analysis_params, "version": version}
             # if a name is present, then add to metadata of job
@@ -564,13 +558,13 @@ async def create_new_job(
 
             # if most recent pulse3d version, kick off job with pulse3d rewrite to compare outputs of both versions
             rewrite_job_id = None
-            if pulse3d_semver == "0.34.4":
+            if pulse3d_semver == "0.34.5":
                 rewrite_job_id = await create_job(
                     con=con,
                     upload_id=upload_id,
-                    queue="pulse3d-v1.0.0rc15",
+                    queue="pulse3d-v1.0.0rc28",
                     priority=priority,
-                    meta={**job_meta, "version": "1.0.0rc15"},
+                    meta={**job_meta, "version": "1.0.0rc28"},
                     customer_id=customer_id,
                     job_type=upload_type,
                     add_to_results=False,
@@ -621,32 +615,6 @@ async def create_new_job(
     except Exception:
         logger.exception("Failed to create job")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-def _format_tuple_param(
-    options: TupleParam | None,
-    default_values: int | float | tuple[int, ...] | tuple[float, ...],
-    allow_float=True,
-) -> TupleParam | None:
-    if options is None or all(op is None for op in options):
-        return None
-
-    if isinstance(default_values, (int, float)):
-        default_values = (default_values,) * len(options)
-
-    def get_val(num: int | float | None, default_value: int | float) -> int | float:
-        if num is None:
-            return default_value
-        if allow_float:
-            return num
-        return int(num)
-
-    # set any unspecified values to the default value
-    formatted_options = tuple(
-        get_val(option, default_value) for option, default_value in zip(options, default_values)
-    )
-
-    return formatted_options
 
 
 @app.delete("/jobs")
@@ -733,18 +701,6 @@ async def download_analyses(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def _yield_s3_objects(bucket: str, keys: list[str], filenames: list[str]):
-    # TODO consider moving this to core s3 utils if more routes need to start using it
-    try:
-        s3 = boto3.session.Session().resource("s3")
-        for idx, key in enumerate(keys):
-            obj = s3.Object(bucket_name=PULSE3D_UPLOADS_BUCKET, key=key)
-            yield filenames[idx], datetime.now(), 0o600, ZIP_64, obj.get()["Body"]
-
-    except Exception as e:
-        raise S3Error(f"Failed to access {bucket}/{key}") from e
-
-
 @app.get("/jobs/waveform-data", response_model=WaveformDataResponse | GenericErrorResponse)
 async def get_interactive_waveform_data(
     request: Request,
@@ -779,29 +735,38 @@ async def get_interactive_waveform_data(
         analysis_params = parsed_meta.get("analysis_params", {})
         pulse3d_version = parsed_meta.get("version")
 
-        if Scopes.MANTARRAY__RW_ALL_DATA not in token.scopes and is_user:
-            # only allow user to perform interactive analysis on another user's recording if special scope
-            # customer id will be checked when attempting to locate file in s3 with customer id found in token
-            if recording_owner_id != account_id:
+        if is_user and recording_owner_id != account_id:
+            if not is_rw_all_data_user(token):
                 return GenericErrorResponse(
-                    error="AuthorizationError",
                     message="User does not have authorization to start interactive analysis on this recording.",
+                    error="AuthorizationError",
+                )
+            # since user has access to other user's data, need to prevent them from running
+            # jobs for upload types that they themselves don't have access to
+            upload_type = selected_job["upload_type"]
+            if upload_type not in get_product_tags_of_user(token.scopes):
+                return GenericErrorResponse(
+                    message=f"User does not have authorization to start interactive analysis for {upload_type} uploads.",
+                    error="AuthorizationError",
                 )
 
         # Get presigned url for time force data
-        force_v_time_filename = os.path.splitext(selected_job["filename"])[0]
+        pre_analysis_filename = os.path.splitext(selected_job["filename"])[0]
         if pulse3d_version is None:
-            force_v_time_key = f"{selected_job['prefix']}/time_force_data/{force_v_time_filename}.parquet"
+            pre_analysis_s3_key = f"{selected_job['prefix']}/time_force_data/{pre_analysis_filename}.parquet"
+        elif VersionInfo.parse(pulse3d_version.split("rc")[0]) < "1.0.0":
+            # TODO remove the split above once we're done with RC versions? Will make IA not work for any jobs run with an rc version, but that might be ok
+            pre_analysis_s3_key = (
+                f"{selected_job['prefix']}/time_force_data/{pulse3d_version}/{pre_analysis_filename}.parquet"
+            )
         else:
-            # TODO remove this split once we're done with RC versions
-            file_ext = ".zip" if VersionInfo.parse(pulse3d_version.split("rc")[0]) >= "1.0.0" else ".parquet"
-            force_v_time_key = f"{selected_job['prefix']}/time_force_data/{pulse3d_version}/{force_v_time_filename}{file_ext}"
+            pre_analysis_s3_key = f"{selected_job['prefix']}/{job_id}/pre-analysis.zip"
 
-        logger.info(f"Generating presigned URL for {force_v_time_key}")
+        logger.info(f"Generating presigned URL for {pre_analysis_s3_key}")
         try:
-            time_force_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, force_v_time_key)
+            time_force_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, pre_analysis_s3_key)
         except ValueError:
-            message = f"Force v Time Parquet file was not found in S3 under key {force_v_time_key}"
+            message = f"Pre-analysis file was not found in S3 under key {pre_analysis_s3_key}"
             logger.exception(message)
             return GenericErrorResponse(error="MissingDataError", message=message)
 
@@ -913,6 +878,72 @@ async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(tag=
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+# HELPERS
+
+
+def _get_retrieval_info(token):
+    account_type = token.account_type
+    account_id = str(uuid.UUID(token.account_id))
+    if token.account_type == "user":
+        if is_rw_all_data_user(token):
+            account_id = str(uuid.UUID(token.customer_id))
+            # catches in the else block like admins in get_uploads, just set here so it's not admin and become confusing
+            account_type = "rw_all_user"
+        all_upload_types = get_product_tags_of_user(token.scopes)
+    else:
+        all_upload_types = get_product_tags_of_admin(token.scopes)
+
+    return account_id, account_type, all_upload_types
+
+
+async def _get_uploads(con, token, upload_ids, desired_upload_types=None):
+    account_id, account_type, all_upload_types = _get_retrieval_info(token)
+
+    upload_types = all_upload_types
+    if desired_upload_types:
+        upload_types &= set(desired_upload_types)
+    if not upload_types:
+        logger.error(
+            f"Account {account_type}: {account_id} attempting to access upload type(s) they don't have access to: {desired_upload_types}"
+        )
+        return GenericErrorResponse(
+            message="User does not have authorization to access uploads of these type(s).",
+            error="AuthorizationError",
+        )
+
+    logger.info(f"Retrieving upload info with IDs: {upload_ids} for {account_type}: {account_id}")
+
+    return await get_uploads(
+        con=con,
+        account_type=account_type,
+        account_id=account_id,
+        upload_ids=upload_ids,
+        upload_types=upload_types,
+    )
+
+
+async def _get_jobs(con, token, job_ids):
+    account_id, account_type, upload_types = _get_retrieval_info(token)
+
+    logger.info(f"Retrieving job info with IDs: {job_ids} for {account_type}: {account_id}")
+
+    return await get_jobs(
+        con=con, account_type=account_type, account_id=account_id, job_ids=job_ids, upload_types=upload_types
+    )
+
+
+def _yield_s3_objects(bucket: str, keys: list[str], filenames: list[str]):
+    # TODO consider moving this to core s3 utils if more routes need to start using it
+    try:
+        s3 = boto3.session.Session().resource("s3")
+        for idx, key in enumerate(keys):
+            obj = s3.Object(bucket_name=PULSE3D_UPLOADS_BUCKET, key=key)
+            yield filenames[idx], datetime.now(), 0o600, ZIP_64, obj.get()["Body"]
+
+    except Exception as e:
+        raise S3Error(f"Failed to access {bucket}/{key}") from e
+
+
 def _create_features_df(timepoints, features, peak_valley_diff):
     ia_features = _create_legacy_features_df(features, peak_valley_diff)
 
@@ -942,3 +973,29 @@ def _create_legacy_features_df(features, peak_valley_diff):
             df = pl.concat([df, well_idxs_of_feature], how="horizontal")
 
     return df
+
+
+def _format_tuple_param(
+    options: TupleParam | None,
+    default_values: int | float | tuple[int, ...] | tuple[float, ...],
+    allow_float=True,
+) -> TupleParam | None:
+    if options is None or all(op is None for op in options):
+        return None
+
+    if isinstance(default_values, (int, float)):
+        default_values = (default_values,) * len(options)
+
+    def get_val(num: int | float | None, default_value: int | float) -> int | float:
+        if num is None:
+            return default_value
+        if allow_float:
+            return num
+        return int(num)
+
+    # set any unspecified values to the default value
+    formatted_options = tuple(
+        get_val(option, default_value) for option, default_value in zip(options, default_values)
+    )
+
+    return formatted_options

@@ -37,7 +37,9 @@ def get_item(*, queue):
                         return
 
                     await con_to_update_job_result.execute(
-                        "UPDATE jobs_result SET status='running' WHERE job_id=$1", item["id"]
+                        "UPDATE jobs_result SET status='running', started_at=$1 WHERE job_id=$2",
+                        datetime.now(),
+                        item["id"],
                     )
 
                 ts = time.time()
@@ -67,7 +69,7 @@ def get_item(*, queue):
     return _outer
 
 
-async def get_uploads(*, con, account_type, account_id, upload_ids=None):
+async def get_uploads(*, con, account_type, account_id, upload_ids=None, upload_types=None):
     """Query DB for info of upload(s) belonging to the admin or user account.
 
     If no uploads specified, will return info of all the user's uploads
@@ -83,6 +85,10 @@ async def get_uploads(*, con, account_type, account_id, upload_ids=None):
             "FROM uploads JOIN users ON uploads.user_id=users.id "
             "WHERE users.customer_id=$1 AND uploads.deleted='f'"
         )
+    if upload_types:
+        places = _get_placeholders_str(len(upload_types), len(query_params) + 1)
+        query += f" AND uploads.type IN ({places})"
+        query_params.extend(upload_types)
     if upload_ids:
         places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
         query += f" AND uploads.id IN ({places})"
@@ -135,7 +141,7 @@ async def delete_uploads(*, con, account_type, account_id, upload_ids):
     await con.execute(query, *query_params)
 
 
-async def get_jobs(*, con, account_type, account_id, job_ids=None):
+async def get_jobs(*, con, account_type, account_id, job_ids=None, upload_types=None):
     """Query DB for info of job(s) belonging to the admin or user account.
 
     If no jobs specified, will return info of all jobs created by the user
@@ -148,17 +154,21 @@ async def get_jobs(*, con, account_type, account_id, job_ids=None):
     if account_type == "user":
         query = (
             "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, "
-            "u.user_id, u.meta AS user_meta, u.filename, u.prefix "
+            "u.user_id, u.meta AS user_meta, u.filename, u.prefix, u.type as upload_type "
             "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
             "WHERE u.user_id=$1 AND j.status!='deleted'"
         )
     else:
         query = (
             "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, "
-            "u.user_id, u.meta AS user_meta, users.name AS username, u.filename, u.prefix "
+            "u.user_id, u.meta AS user_meta, users.name AS username, u.filename, u.prefix, u.type as upload_type "
             "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id JOIN users ON u.user_id=users.id "
             "WHERE users.customer_id=$1 AND j.status!='deleted'"
         )
+    if upload_types:
+        places = _get_placeholders_str(len(upload_types), len(query_params) + 1)
+        query += f" AND u.type IN ({places})"
+        query_params.extend(upload_types)
     if job_ids:
         places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
         query += f" AND j.job_id IN ({places})"
@@ -254,9 +264,11 @@ async def get_customer_quota(con, customer_id, service) -> dict[str, Any]:
 
     # usage query returns none if no jobs are found but 0 if no uploads are found.
     current_usage_dict = {
-        "jobs": current_usage_data.get("total_jobs", 0)
-        if current_usage_data.get("total_jobs", 0) is not None
-        else 0,
+        "jobs": (
+            current_usage_data.get("total_jobs", 0)
+            if current_usage_data.get("total_jobs", 0) is not None
+            else 0
+        ),
         "uploads": current_usage_data.get("total_uploads ", 0),
     }
 

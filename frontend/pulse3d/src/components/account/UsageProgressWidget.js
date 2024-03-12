@@ -53,8 +53,11 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
   const [newPlanModalIsOpen, setNewPlanModalIsOpen] = useState(false);
 
   const pollUsageQuota = async () => {
+    if (!productPage) {
+      return;
+    }
+
     try {
-      // TODO once nautilus and mantarray have separate tables, replace service in url with correct product type
       const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/usage?service=${productPage}`);
       if (response && response.status === 200) {
         const newUsageQuota = await response.json();
@@ -99,14 +102,14 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
   }, []);
 
   useEffect(() => {
-    if (maxAnalyses !== -1) {
+    if (maxAnalyses !== -1 && productPage) {
       const pollingUsageQuota = setInterval(async () => {
         await pollUsageQuota();
       }, 1e4);
 
       return () => clearInterval(pollingUsageQuota);
     }
-  }, []);
+  }, [productPage]);
 
   const UpgradeButtonElement = (
     <UpgradeButton

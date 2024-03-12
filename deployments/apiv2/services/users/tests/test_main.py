@@ -443,11 +443,11 @@ def test_register__user__success(special_char, mocked_asyncpg_con, mocker):
 @pytest.mark.parametrize(
     "test_admin_scope,test_user_scope",
     [
-        (Scopes.MANTARRAY__ADMIN, Scopes.NAUTILUS__BASE),
+        (Scopes.MANTARRAY__ADMIN, Scopes.NAUTILAI__BASE),
         (Scopes.MANTARRAY__ADMIN, Scopes.MANTARRAY__FIRMWARE__EDIT),
-        (Scopes.NAUTILUS__ADMIN, Scopes.MANTARRAY__BASE),
+        (Scopes.NAUTILAI__ADMIN, Scopes.MANTARRAY__BASE),
         (Scopes.MANTARRAY__ADMIN, Scopes.CURI__ADMIN),
-        (Scopes.NAUTILUS__ADMIN, Scopes.CURI__ADMIN),
+        (Scopes.NAUTILAI__ADMIN, Scopes.CURI__ADMIN),
         (Scopes.CURI__ADMIN, Scopes.CURI__ADMIN),
     ],
 )
@@ -570,11 +570,11 @@ def test_register__user__unique_constraint_violations(
     registration_details = {
         "email": "test@email.com",
         "username": "testusername",
-        "scopes": [Scopes.MANTARRAY__BASE, Scopes.NAUTILUS__BASE],
+        "scopes": [Scopes.MANTARRAY__BASE, Scopes.NAUTILAI__BASE],
     }
 
     access_token = get_token(
-        scopes=[Scopes.MANTARRAY__ADMIN, Scopes.NAUTILUS__ADMIN], account_type=AccountTypes.ADMIN
+        scopes=[Scopes.MANTARRAY__ADMIN, Scopes.NAUTILAI__ADMIN], account_type=AccountTypes.ADMIN
     )
 
     mocked_asyncpg_con.fetchval.side_effect = UniqueViolationError(contraint_to_violate)
@@ -598,7 +598,7 @@ def test_register__user__invalid_token_scope_given():
 def test_register__admin__success(mocked_asyncpg_con, spied_pw_hasher, mocker):
     mocker.patch.object(main, "_create_account_email", autospec=True)
 
-    expected_scopes = [Scopes.MANTARRAY__ADMIN, Scopes.NAUTILUS__ADMIN]
+    expected_scopes = [Scopes.MANTARRAY__ADMIN, Scopes.NAUTILAI__ADMIN]
     registration_details = {
         "email": "tEsT@email.com",
         "password1": TEST_PASSWORD,
@@ -635,7 +635,7 @@ def test_register__admin__success(mocked_asyncpg_con, spied_pw_hasher, mocker):
 
 
 @pytest.mark.parametrize(
-    "test_admin_scope", [Scopes.CURI__ADMIN, Scopes.NAUTILUS__BASE, Scopes.MANTARRAY__BASE]
+    "test_admin_scope", [Scopes.CURI__ADMIN, Scopes.NAUTILAI__BASE, Scopes.MANTARRAY__BASE]
 )
 def test_register__admin__invalid_token_scope_assigned(test_admin_scope):
     registration_details = {
@@ -658,7 +658,7 @@ def test_register__admin__invalid_token_scope_assigned(test_admin_scope):
 def test_register__admin__unique_constraint_violations(
     contraint_to_violate, expected_error_message, mocked_asyncpg_con, spied_pw_hasher, mocker
 ):
-    test_scope = [Scopes.NAUTILUS__ADMIN]
+    test_scope = [Scopes.NAUTILAI__ADMIN]
 
     registration_details = {
         "email": "test@email.com",
@@ -689,7 +689,7 @@ def test_register__admin__invalid_token_scope_given():
         "password2": TEST_PASSWORD,
         "scopes": ["any"],
     }
-    access_token = get_token(scopes=[Scopes.NAUTILUS__ADMIN], account_type=AccountTypes.ADMIN)
+    access_token = get_token(scopes=[Scopes.NAUTILAI__ADMIN], account_type=AccountTypes.ADMIN)
     response = test_client.post(
         "/register/admin", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )

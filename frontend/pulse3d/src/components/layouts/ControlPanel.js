@@ -169,7 +169,7 @@ export default function ControlPanel() {
       page: "/add-new-account",
       options: ["User"],
     },
-    { label: "Users Info", disabled: false, page: "/users-info", options: [] },
+    { label: "User Info", disabled: false, page: "/user-info", options: [] },
     {
       label: "Account Settings",
       disabled: false,
@@ -205,6 +205,12 @@ export default function ControlPanel() {
   if (isCuriAdmin) {
     // if the curi admin acccount is logged in, allow them to add new admins
     adminButtons[1].options.push("Admin");
+    adminButtons.splice(3, 0, {
+      label: "Customer Info",
+      disabled: false,
+      page: "/customer-info",
+      options: [],
+    });
   }
 
   useEffect(() => {
@@ -223,7 +229,7 @@ export default function ControlPanel() {
   }, [router]);
 
   useEffect(() => {
-    if (productPage in preferences && "version" in preferences[productPage] && pulse3dVersions.length > 0) {
+    if (preferences?.[productPage]?.version != null && pulse3dVersions.length > 0) {
       checkVersionDeprecation();
     }
   }, [pulse3dVersions]);
@@ -269,7 +275,7 @@ export default function ControlPanel() {
 
   const checkVersionDeprecation = () => {
     const selectedVersionMeta = metaPulse3dVersions.find(
-      (m) => preferences[productPage].version === m.version
+      (m) => preferences?.[productPage]?.version === m.version
     );
 
     // deprecated versions are filtered out in DashboardLayout

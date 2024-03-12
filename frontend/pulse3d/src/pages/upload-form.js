@@ -4,13 +4,13 @@ import AnalysisParamForm from "@/components/uploadForm/AnalysisParamForm";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import FileDragDrop from "@/components/uploadForm/FileDragDrop";
 import SparkMD5 from "spark-md5";
-import { hexToBase64 } from "../utils/generic";
+import { hexToBase64, getMinP3dVersionForProduct } from "@/utils/generic";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
 import semverGte from "semver/functions/gte";
 import InputDropdownWidget from "@/components/basicWidgets/InputDropdownWidget";
-import { AuthContext } from "./_app";
+import { AuthContext } from "@/pages/_app";
 
 const Container = styled.div`
   justify-content: center;
@@ -83,7 +83,7 @@ const dropZoneText = "CLICK HERE or DROP";
 const defaultUploadErrorLabel =
   "Something went wrong while attempting to start the analysis for the following file(s):";
 const defaultBadFilesLabel =
-  "The following file(s) cannot be uploaded because they either contain multiple recordings or do not have the correct number of files.";
+  "The following file(s) cannot be uploaded due to being an invalid file type, or a zip with an incorrect number of files.";
 
 const modalObj = {
   uploadsReachedDuringSession: {
@@ -121,12 +121,7 @@ export default function UploadForm() {
   const { uploads, pulse3dVersions, defaultUploadForReanalysis } = useContext(UploadsContext);
 
   const isPulse3dPreferenceSet = () => {
-    return (
-      preferences &&
-      productPage in preferences &&
-      "version" in preferences[productPage] &&
-      pulse3dVersions.length > 0
-    );
+    return preferences?.[productPage]?.version != null && pulse3dVersions.length > 0;
   };
 
   const getDefaultPulse3dVersion = () => {
@@ -136,7 +131,6 @@ export default function UploadForm() {
 
   const getDefaultAnalysisParams = () => {
     return {
-      normalizationMethod: null,
       normalizeYAxis: "",
       baseToPeak: "",
       peakToBase: "",
@@ -151,7 +145,10 @@ export default function UploadForm() {
       wellGroups: {},
       stimWaveformFormat: "",
       nameOverride: "",
+      // nautilai params
+      normalizationMethod: null,
       dataType: null,
+      detrend: null,
       // original advanced params
       prominenceFactorPeaks: "",
       prominenceFactorValleys: "",
@@ -191,7 +188,9 @@ export default function UploadForm() {
   const [creditUsageAlert, setCreditUsageAlert] = useState(false);
   const [alertShowed, setAlertShowed] = useState(false);
   const [reanalysis, setReanalysis] = useState(isReanalysisPage(router));
-  const [xlsxFilePresent, setXlsxFilePresent] = useState(false);
+  const [minPulse3dVersionForCurrentUploads, setMinPulse3dVersionForCurrentUploads] = useState(
+    getMinP3dVersionForProduct(productPage)
+  );
   const [analysisPresetName, setAnalysisPresetName] = useState();
   const [userPresets, setUserPresets] = useState([]);
   const [selectedPresetIdx, setSelectedPresetIdx] = useState();
@@ -320,7 +319,7 @@ export default function UploadForm() {
     updateCheckParams(false); // this will also reset the analysis params and their error message
     setFailedUploadsMsg(failedUploadsMsg);
     setModalButtons(["Close"]);
-    setXlsxFilePresent(false);
+    setMinPulse3dVersionForCurrentUploads(getMinP3dVersionForProduct(productPage));
     // in case user added a new preset, want to grab updated list on analysis submission
     getAnalysisPresets();
     setSelectedPresetIdx();
@@ -472,6 +471,7 @@ export default function UploadForm() {
 
     if (semverGte(version, "1.0.0")) {
       requestBody.normalization_method = normalizationMethod === "None" ? null : normalizationMethod;
+      requestBody.detrend = analysisParams.detrend;
     }
 
     return requestBody;
@@ -512,57 +512,79 @@ export default function UploadForm() {
   };
 
   const checkFileContents = async () => {
+    // if reanalysis then there are no files to check
+    if (reanalysis) {
+      return;
+    }
+
     var JSZip = require("jszip");
-    let filteredFiles;
-    if (!reanalysis) {
-      const asyncFilter = async (arr, predicate) =>
-        Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
-      let xlsxInFile = false;
-      filteredFiles = await asyncFilter(files, async (file) => {
-        //only run these checks if is zip file
-        try {
-          if (file && file.type.includes("zip")) {
-            const zip = new JSZip();
-            const { files: loadedFiles } = await zip.loadAsync(file);
-            const dirs = Object.values(loadedFiles).filter(({ dir }) => dir);
-            const onlyOneDir = dirs.length === 0 || dirs.length === 1;
+    const asyncFilter = async (arr, predicate) =>
+      Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
-            const numXlxsInFile = Object.keys(loadedFiles).filter(
-              (filename) => filename.includes(".xlsx") && !filename.includes("__MACOSX")
-            ).length;
-
-            const numH5InFile = Object.keys(loadedFiles).filter(
-              (filename) => filename.includes(".h5") && !filename.includes("__MACOSX")
-            ).length;
-
-            const fileContainsValidNumFiles =
-              numH5InFile > 0 ? numH5InFile === 24 || numH5InFile === 48 : numXlxsInFile > 0;
-
-            // not setting xlsxInFile = (numXlxsInFile > 0) because it needs to remain true if ever made true
-            if (numXlxsInFile > 0) xlsxInFile = numXlxsInFile;
-
-            return !onlyOneDir || !fileContainsValidNumFiles;
-          } else {
-            // this will occur when user uploads single well xlsx data
-            // not setting xlsxInFile = (numXlxsInFile > 0) because it needs to remain true if ever made true
-            xlsxInFile = 1;
-          }
-        } catch (e) {
-          console.log(`ERROR unable to read file: ${file.filename} ${e}`);
-          failedUploadsMsg.push(file.filename);
-          return true;
-        }
-      });
-
-      setXlsxFilePresent(xlsxInFile);
-      setBadFiles([...filteredFiles]);
-
-      for (let i = 0; i < filteredFiles.length; i++) {
-        const matchingIdx = files.findIndex(({ name }) => name === filteredFiles[i].name);
-        files.splice(matchingIdx, 1);
-        setFiles([...files]);
+    let badFilesUpdate = await asyncFilter(files, async (file) => {
+      // if the file is falsey then it is invalid and there is nothing more to do
+      if (!file?.name) {
+        return true;
       }
+
+      let isValidUpload;
+
+      try {
+        if (file.type.includes("zip")) {
+          const zip = new JSZip();
+          const { files: loadedFiles } = await zip.loadAsync(file);
+          const dirs = Object.values(loadedFiles).filter(({ dir }) => dir);
+          const onlyOneDir = dirs.length === 0 || dirs.length === 1;
+
+          const numXlsxInFile = Object.keys(loadedFiles).filter(
+            (filename) => filename.includes(".xlsx") && !filename.includes("__MACOSX")
+          ).length;
+          const numH5InFile = Object.keys(loadedFiles).filter(
+            (filename) => filename.includes(".h5") && !filename.includes("__MACOSX")
+          ).length;
+
+          if ([numXlsxInFile, numH5InFile].filter((count) => count > 0).length != 1) {
+            isValidUpload = false;
+            // If multiple file types in the same zip, it is an invalid file. The zip must contain exactly one of the supported file types
+          } else {
+            let zipContainsValidNumFiles, isValidUploadTypeForProduct;
+            if (numH5InFile > 0) {
+              zipContainsValidNumFiles = numH5InFile === 24 || numH5InFile === 48;
+              isValidUploadTypeForProduct = productPage === "mantarray";
+            } else {
+              // xlsx
+              zipContainsValidNumFiles = numXlsxInFile > 0;
+              isValidUploadTypeForProduct = productPage === "nautilai";
+            }
+
+            isValidUpload = onlyOneDir && zipContainsValidNumFiles && isValidUploadTypeForProduct;
+          }
+        } else if (file.name.endsWith("xlsx")) {
+          // xlsx uploads only supported for nautilai
+          isValidUpload = productPage === "nautilai";
+        } else if (file.name.endsWith("parquet")) {
+          // parquet files only currently supported for nautilai, but should be supported by other products in the future
+          isValidUpload = productPage === "nautilai";
+        } else {
+          // all other file types are not valid
+          isValidUpload = false;
+        }
+      } catch (e) {
+        console.log(`ERROR unable to read file: ${file.filename} ${e}`);
+        failedUploadsMsg.push(file.filename);
+        isValidUpload = false;
+      }
+
+      return !isValidUpload;
+    });
+
+    setBadFiles([...badFilesUpdate]);
+
+    for (let i = 0; i < badFilesUpdate.length; i++) {
+      const matchingIdx = files.findIndex(({ name }) => name === badFilesUpdate[i].name);
+      files.splice(matchingIdx, 1);
+      setFiles([...files]);
     }
   };
 
@@ -754,6 +776,7 @@ export default function UploadForm() {
               }
               setResetDragDrop={setResetDragDrop}
               resetDragDrop={resetDragDrop}
+              fileTypes={["zip", "xlsx", "parquet"]}
             />
             {usageQuota && usageQuota.limits && parseInt(usageQuota.limits.jobs) !== -1 ? (
               <UploadCreditUsageInfo>
@@ -772,7 +795,7 @@ export default function UploadForm() {
           analysisParams={analysisParams}
           setWellGroupErr={setWellGroupErr}
           reanalysis={reanalysis}
-          xlsxFilePresent={xlsxFilePresent}
+          minPulse3dVersionAllowed={minPulse3dVersionForCurrentUploads}
           userPresetOpts={{
             userPresets,
             setSelectedPresetIdx,

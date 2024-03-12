@@ -330,6 +330,7 @@ async def process(con, item):
 
                     for well_file in first_recording:
                         label = well_file[PLATEMAP_LABEL_UUID]
+
                         # only add to platemap_labels if label has been assigned
                         if label != NOT_APPLICABLE_LABEL:
                             # add label to dictionary if not already present

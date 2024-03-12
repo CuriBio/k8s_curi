@@ -414,8 +414,7 @@ self.addEventListener("fetch", async (e) => {
 self.onmessage = async ({ data, source }) => {
   ClientSource = source;
 
-  const { msgType, routerPathname } = data;
-  const baseMsg = { msgType, routerPathname };
+  const { msgType } = data;
   let msgInfo = {};
 
   if (msgType === "checkReloadNeeded") {
@@ -451,7 +450,7 @@ self.onmessage = async ({ data, source }) => {
 
   if (Object.keys(msgInfo).length > 0) {
     source.postMessage({
-      ...baseMsg,
+      ...data,
       ...msgInfo,
     });
   }

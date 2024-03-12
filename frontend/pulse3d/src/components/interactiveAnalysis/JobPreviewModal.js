@@ -1,10 +1,11 @@
 import styled from "styled-components";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import BasicWaveformGraph from "@/components/interactiveAnalysis/BasicWaveformGraph";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import { useWaveformData } from "@/components/interactiveAnalysis//useWaveformData";
+import { AuthContext } from "@/pages/_app";
 
 const Container = styled.div`
   height: 100%;
@@ -107,13 +108,19 @@ export default function JobPreviewModal({
   const [timepointRange, setTimepointRange] = useState([]);
   const [openErrorModal, setOpenErrorModal] = useState(false);
   const [gridStyle, setGridStyle] = useState({});
+
+  const { productPage } = useContext(AuthContext);
+
   const { waveformData, featureIndices, getErrorState, getLoadingState, yAxisLabel } = useWaveformData(
-    `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${uploadId}&job_id=${jobId}`
+    `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${uploadId}&job_id=${jobId}&upload_type=${productPage}`,
+    analysisParams.normalization_method,
+    productPage
   );
 
   useEffect(() => {
-    if (getErrorState) setOpenErrorModal(true);
-    else if (!getLoadingState) {
+    if (getErrorState) {
+      setOpenErrorModal(true);
+    } else if (!getLoadingState) {
       // first well may not be A1 if optical files, so just grab first value
       getGridStyle();
       getTimepointRange(waveformData[Object.keys(waveformData)[0]]);

@@ -8,7 +8,7 @@ configMapGenerator:
     files:
       - dashboards/login-attempts.json
       - dashboards/p3d-jobs.json
-      - dashboards/uploads.json
+      - dashboards/services.json
 
 generatorOptions:
   disableNameSuffixHash: true

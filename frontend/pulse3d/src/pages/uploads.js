@@ -469,7 +469,7 @@ export default function Uploads() {
     // really helps with flow of when in progress modal closes
     await new Promise((r) => setTimeout(r, 1000));
 
-    // failed Deletions has it's own modal so prevent closure else reset
+    // failed Deletions has its own modal so prevent closure else reset
     if (!failedDeletion) {
       setModalState(false);
       resetTable();
@@ -575,21 +575,20 @@ export default function Uploads() {
 
   const downloadMultiFiles = async (data, uploads = false) => {
     try {
-      let url = null,
-        zipFilename = null,
-        body = null;
-
-      const now = formatDateTime();
-
+      let url, downloadType, body;
       if (uploads) {
         url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads/download`;
-        zipFilename = `MA-recordings__${now}__${data.length}.zip`;
-        body = { upload_ids: data };
+        downloadType = "recordings";
+        body = { upload_ids: data, upload_type: productPage };
       } else {
         const jobIds = data.map(({ jobId }) => jobId);
         url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/download`;
-        zipFilename = `MA-analyses__${now}__${data.length}.zip`;
-        body = { job_ids: jobIds };
+        downloadType = "analyses";
+        body = { job_ids: jobIds, upload_type: productPage };
+      }
+      let zipFilename = `${downloadType}__${formatDateTime()}__${data.length}.zip`;
+      if (productPage) {
+        zipFilename = `${productPage}-${zipFilename}`;
       }
 
       const response = await fetch(url, {

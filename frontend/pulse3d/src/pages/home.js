@@ -52,7 +52,7 @@ const ProductDescLabel = styled.div`
 
 export default function Login() {
   const router = useRouter();
-  const { accountScope, setProductPage, setUsageQuota, setPreferences } = useContext(AuthContext);
+  const { accountScope, updateProductPage, setUsageQuota, setPreferences } = useContext(AuthContext);
 
   const [products, setProducts] = useState({
     mantarray: {
@@ -60,8 +60,8 @@ export default function Login() {
       description: "3D Tissue Contractility Analysis",
       state: "disabled",
     },
-    nautilus: {
-      name: "Nautilus",
+    nautilai: {
+      name: "Nautilai",
       description: "2D & 3D Calcium & Voltage Analysis",
       state: "disabled",
     },
@@ -131,7 +131,7 @@ export default function Login() {
   const handleProductNavigation = ({ target }) => {
     if (!target.id.includes("disabled")) {
       // used to poll usage for correct product
-      setProductPage(target.id.split("-")[0]);
+      updateProductPage(target.id.split("-")[0]);
       // TODO handle different nav once product differences are more specced out
       router.push("/uploads?checkUsage=true", "/uploads");
     }
@@ -140,7 +140,7 @@ export default function Login() {
   return (
     <BackgroundContainer>
       {[
-        ["mantarray", "nautilus"],
+        ["mantarray", "nautilai"],
         ["pulse2d", "phenolearn", "analysis tools"],
       ].map((row, idx) => {
         return (
