@@ -517,11 +517,12 @@ async def create_new_job(
                 )
 
             if user_id != original_upload_user:
-                if not is_rw_all_data_user(token):
+                if not is_rw_all_data_user(token, upload_type):
                     return GenericErrorResponse(
                         message="User does not have authorization to start a job for this recording.",
                         error="AuthorizationError",
                     )
+                # TODO is this necessary? the upload type is already checked above
                 # since user has access to other user's data, need to prevent them from running
                 # jobs for upload types that they themselves don't have access to
                 if upload_type not in get_product_tags_of_user(user_scopes):
@@ -716,14 +717,15 @@ async def get_interactive_waveform_data(
         pulse3d_version = parsed_meta.get("version")
 
         if is_user and recording_owner_id != account_id:
-            if not is_rw_all_data_user(token):
+            upload_type = selected_job["upload_type"]
+            if not is_rw_all_data_user(token, upload_type):
                 return GenericErrorResponse(
                     message="User does not have authorization to start interactive analysis on this recording.",
                     error="AuthorizationError",
                 )
+            # TODO is this necessary? the upload type is already checked above
             # since user has access to other user's data, need to prevent them from running
             # jobs for upload types that they themselves don't have access to
-            upload_type = selected_job["upload_type"]
             if upload_type not in get_product_tags_of_user(token.scopes):
                 return GenericErrorResponse(
                     message=f"User does not have authorization to start interactive analysis for {upload_type} uploads.",
@@ -861,11 +863,11 @@ async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(tag=
 # HELPERS
 
 
-def _get_retrieval_info(token):
+def _get_retrieval_info(token, rw_all_data_type_check):
     account_type = token.account_type
     account_id = str(uuid.UUID(token.account_id))
     if token.account_type == "user":
-        if is_rw_all_data_user(token):
+        if is_rw_all_data_user(token, rw_all_data_type_check):
             account_id = str(uuid.UUID(token.customer_id))
             # catches in the else block like admins in get_uploads, just set here so it's not admin and become confusing
             account_type = "rw_all_user"
@@ -877,7 +879,7 @@ def _get_retrieval_info(token):
 
 
 async def _get_uploads(con, token, upload_ids, desired_upload_types=None):
-    account_id, account_type, all_upload_types = _get_retrieval_info(token)
+    account_id, account_type, all_upload_types = _get_retrieval_info(token, desired_upload_types)
 
     upload_types = all_upload_types
     if desired_upload_types:
