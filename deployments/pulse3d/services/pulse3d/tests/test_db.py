@@ -34,20 +34,6 @@ from jobs import get_uploads
             ["test_customer_id", "up1", "up2", "id1", "id2"],
         ),
         (
-            "rw_all_data_user",
-            "test_customer_id",
-            "test_user_id",
-            ["id1", "id2"],
-            ["up1", "up2"],
-            None,
-            "SELECT users.name AS username, uploads.* "
-            "FROM uploads JOIN users ON uploads.user_id=users.id "
-            "WHERE users.customer_id=$1 AND uploads.deleted='f' "
-            "AND ((uploads.user_id=$2 AND uploads.type IN ($3, $4))) "
-            "AND uploads.id IN ($5, $6)",
-            ["test_customer_id", "test_user_id", "up1", "up2", "id1", "id2"],
-        ),
-        (
             "admin",
             "test_customer_id",
             None,
@@ -67,6 +53,16 @@ from jobs import get_uploads
             None,
             None,
             ["up1", "up2"],
+            "SELECT * FROM uploads WHERE user_id=$1 AND deleted='f' AND (uploads.type IN ($2, $3))",
+            ["test_user_id", "up1", "up2"],
+        ),
+        (
+            "user",
+            None,
+            "test_user_id",
+            None,
+            ["up1", "up2"],
+            None,
             "SELECT * FROM uploads WHERE user_id=$1 AND deleted='f' AND (uploads.type IN ($2, $3))",
             ["test_user_id", "up1", "up2"],
         ),

@@ -86,6 +86,10 @@ async def get_uploads(
 
     If an upload is marked as deleted, filter it out
     """
+    # need to make sure the rw_all_data types are provided if a rw_all_data user is given
+    if account_type == "rw_all_data_user" and not rw_all_data_upload_types:
+        raise ValueError("rw_all_data_user must provide rw_all_data_upload_types")
+
     if account_type == "user":
         query = "SELECT * FROM uploads WHERE user_id=$1 AND deleted='f'"
         query_params = [user_id]
@@ -106,8 +110,9 @@ async def get_uploads(
     else:
         # have to consider the desired upload types and rw_all_data upload types together
         if not rw_all_data_upload_types:
-            rw_all_data_upload_types = []
-        if upload_types:
+            upload_types_no_id_check = upload_types
+            upload_types_with_id_check = None
+        elif upload_types:
             upload_types_no_id_check = [ut for ut in upload_types if ut in rw_all_data_upload_types]
             upload_types_with_id_check = [ut for ut in upload_types if ut not in rw_all_data_upload_types]
         else:
@@ -192,6 +197,9 @@ async def get_jobs(
 
     If a job is marked as deleted, filter it out
     """
+    # need to make sure the rw_all_data types are provided if a rw_all_data user is given
+    if account_type == "rw_all_data_user" and not rw_all_data_upload_types:
+        raise ValueError("rw_all_data_user must provide rw_all_data_upload_types")
 
     if account_type == "user":
         query = (
@@ -219,8 +227,9 @@ async def get_jobs(
     else:
         # have to consider the desired upload types and rw_all_data upload types together
         if not rw_all_data_upload_types:
-            rw_all_data_upload_types = []
-        if upload_types:
+            upload_types_no_id_check = upload_types
+            upload_types_with_id_check = None
+        elif upload_types:
             upload_types_no_id_check = [ut for ut in upload_types if ut in rw_all_data_upload_types]
             upload_types_with_id_check = [ut for ut in upload_types if ut not in rw_all_data_upload_types]
         else:
