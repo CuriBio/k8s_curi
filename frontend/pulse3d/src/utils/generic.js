@@ -214,7 +214,7 @@ const applyWindow = (data, xMin, xMax) => {
 const getMinP3dVersionForProduct = (productType) => {
   switch (productType) {
     case "nautilai":
-      return "1.0.0";
+      return "0.34.4";
     default:
       return "0.0.0";
   }
