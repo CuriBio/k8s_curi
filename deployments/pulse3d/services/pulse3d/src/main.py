@@ -681,7 +681,7 @@ async def get_interactive_waveform_data(
     job_id: uuid.UUID = Query(None),
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
 ):
-    user_id = str(uuid.UUID(token.user_id))
+    user_id = str(uuid.UUID(token.userid))
 
     if job_id is None or upload_id is None:
         raise HTTPException(
