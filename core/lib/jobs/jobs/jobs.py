@@ -69,26 +69,72 @@ def get_item(*, queue):
     return _outer
 
 
-async def get_uploads(*, con, account_type, account_id, upload_ids=None, upload_types=None):
+async def get_uploads(
+    *,
+    con,
+    account_type,
+    customer_id,
+    user_id,
+    upload_ids=None,
+    upload_types=None,
+    rw_all_data_upload_types=None,
+):
     """Query DB for info of upload(s) belonging to the admin or user account.
 
-    If no uploads specified, will return info of all the user's uploads
+    If no upload IDs specified for a user, will return info of all uploads accessible to the user.
+    If no upload IDs specified for an admin, will return info of all uploads from all users under the admin.
 
-    If an upload is marked as deleted, filter out it
+    If an upload is marked as deleted, filter it out
     """
-    query_params = [account_id]
+    # need to make sure the rw_all_data types are provided if a rw_all_data user is given
+    if account_type == "rw_all_data_user" and not rw_all_data_upload_types:
+        raise ValueError("rw_all_data_user must provide rw_all_data_upload_types")
+
     if account_type == "user":
         query = "SELECT * FROM uploads WHERE user_id=$1 AND deleted='f'"
+        query_params = [user_id]
     else:
+        # admin and rw_all_data_user
         query = (
             "SELECT users.name AS username, uploads.* "
             "FROM uploads JOIN users ON uploads.user_id=users.id "
             "WHERE users.customer_id=$1 AND uploads.deleted='f'"
         )
-    if upload_types:
-        places = _get_placeholders_str(len(upload_types), len(query_params) + 1)
-        query += f" AND uploads.type IN ({places})"
-        query_params.extend(upload_types)
+        query_params = [customer_id]
+
+    if account_type == "admin":
+        if upload_types:
+            places = _get_placeholders_str(len(upload_types), len(query_params) + 1)
+            query += f" AND uploads.type IN ({places})"
+            query_params.extend(upload_types)
+    else:
+        # have to consider the desired upload types and rw_all_data upload types together
+        if not rw_all_data_upload_types:
+            upload_types_no_id_check = upload_types
+            upload_types_with_id_check = None
+        elif upload_types:
+            upload_types_no_id_check = [ut for ut in upload_types if ut in rw_all_data_upload_types]
+            upload_types_with_id_check = [ut for ut in upload_types if ut not in rw_all_data_upload_types]
+        else:
+            upload_types_no_id_check = rw_all_data_upload_types
+            upload_types_with_id_check = None
+
+        conds = []
+        if upload_types_no_id_check:
+            places = _get_placeholders_str(len(upload_types_no_id_check), len(query_params) + 1)
+            conds.append(f"uploads.type IN ({places})")
+            query_params.extend(upload_types_no_id_check)
+        if upload_types_with_id_check:
+            cond = f"uploads.user_id=${len(query_params) + 1}"
+            query_params.append(user_id)
+            places = _get_placeholders_str(len(upload_types_with_id_check), len(query_params) + 1)
+            cond += f" AND uploads.type IN ({places})"
+            query_params.extend(upload_types_with_id_check)
+            conds.append(f"({cond})")
+
+        clause = " OR ".join(conds)
+        query += f" AND ({clause})"
+
     if upload_ids:
         places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
         query += f" AND uploads.id IN ({places})"
@@ -141,34 +187,71 @@ async def delete_uploads(*, con, account_type, account_id, upload_ids):
     await con.execute(query, *query_params)
 
 
-async def get_jobs(*, con, account_type, account_id, job_ids=None, upload_types=None):
+async def get_jobs(
+    *, con, account_type, customer_id, user_id, job_ids=None, upload_types=None, rw_all_data_upload_types=None
+):
     """Query DB for info of job(s) belonging to the admin or user account.
 
-    If no jobs specified, will return info of all jobs created by the user
-    or all jobs across all users under to the given customer ID
+    If no job IDs specified for a user, will return info of all jobs accessible to the user.
+    If no job IDs specified for an admin, will return info of all jobs from all users under the admin.
 
-    If a job is marked as deleted, filter out it
+    If a job is marked as deleted, filter it out
     """
-    query_params = [account_id]
+    # need to make sure the rw_all_data types are provided if a rw_all_data user is given
+    if account_type == "rw_all_data_user" and not rw_all_data_upload_types:
+        raise ValueError("rw_all_data_user must provide rw_all_data_upload_types")
 
     if account_type == "user":
         query = (
             "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, "
-            "u.user_id, u.meta AS user_meta, u.filename, u.prefix, u.type as upload_type "
+            "u.user_id, u.meta AS user_meta, u.filename, u.prefix, u.type AS upload_type "
             "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
             "WHERE u.user_id=$1 AND j.status!='deleted'"
         )
+        query_params = [user_id]
     else:
         query = (
             "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, "
-            "u.user_id, u.meta AS user_meta, users.name AS username, u.filename, u.prefix, u.type as upload_type "
+            "u.user_id, u.meta AS user_meta, users.name AS username, u.filename, u.prefix, u.type AS upload_type "
             "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id JOIN users ON u.user_id=users.id "
             "WHERE users.customer_id=$1 AND j.status!='deleted'"
         )
-    if upload_types:
-        places = _get_placeholders_str(len(upload_types), len(query_params) + 1)
-        query += f" AND u.type IN ({places})"
-        query_params.extend(upload_types)
+        query_params = [customer_id]
+
+    # TODO if this ends up matching get_uploads exactly, pull it out into a function
+    if account_type == "admin":
+        if upload_types:
+            places = _get_placeholders_str(len(upload_types), len(query_params) + 1)
+            query += f" AND u.type IN ({places})"
+            query_params.extend(upload_types)
+    else:
+        # have to consider the desired upload types and rw_all_data upload types together
+        if not rw_all_data_upload_types:
+            upload_types_no_id_check = upload_types
+            upload_types_with_id_check = None
+        elif upload_types:
+            upload_types_no_id_check = [ut for ut in upload_types if ut in rw_all_data_upload_types]
+            upload_types_with_id_check = [ut for ut in upload_types if ut not in rw_all_data_upload_types]
+        else:
+            upload_types_no_id_check = rw_all_data_upload_types
+            upload_types_with_id_check = None
+
+        conds = []
+        if upload_types_no_id_check:
+            places = _get_placeholders_str(len(upload_types_no_id_check), len(query_params) + 1)
+            conds.append(f"u.type IN ({places})")
+            query_params.extend(upload_types_no_id_check)
+        if upload_types_with_id_check:
+            cond = f"u.user_id=${len(query_params) + 1}"
+            query_params.append(user_id)
+            places = _get_placeholders_str(len(upload_types_with_id_check), len(query_params) + 1)
+            cond += f" AND u.type IN ({places})"
+            query_params.extend(upload_types_with_id_check)
+            conds.append(f"({cond})")
+
+        clause = " OR ".join(conds)
+        query += f" AND ({clause})"
+
     if job_ids:
         places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
         query += f" AND j.job_id IN ({places})"
