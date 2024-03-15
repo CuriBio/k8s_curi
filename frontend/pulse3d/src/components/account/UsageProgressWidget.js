@@ -58,7 +58,9 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/usage?service=${productPage}`);
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/usage?service=${productPage}`,
+      );
       if (response && response.status === 200) {
         const newUsageQuota = await response.json();
 
@@ -70,7 +72,10 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
         setActualAnalyses(newUsageQuota.current.jobs);
         setIsExpired(newUsageQuota.jobs_reached);
         setUsageQuota({
-          current: { jobs: newUsageQuota.current.jobs, uploads: newUsageQuota.current.uploads },
+          current: {
+            jobs: newUsageQuota.current.jobs,
+            uploads: newUsageQuota.current.uploads,
+          },
           jobs_reached: newUsageQuota.jobs_reached,
           limits: {
             jobs: newUsageQuota.limits.jobs,
@@ -127,7 +132,10 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
       {!isExpired && maxAnalyses !== -1 && (
         <ProgressDiv>
           <p>Usage</p>
-          <CircularProgressWithLabel value={usagePercentage} colorOfTextLabel={colorOfTextLabel} />
+          <CircularProgressWithLabel
+            value={usagePercentage}
+            colorOfTextLabel={colorOfTextLabel}
+          />
           <ProgressLabel>{`${actualAnalyses || 0}/${maxAnalyses} Analysis used`}</ProgressLabel>
           {UpgradeButtonElement}
         </ProgressDiv>
@@ -143,7 +151,9 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
       <ModalWidgetStyle>
         <ModalWidget
           open={newPlanModalIsOpen}
-          labels={["Please email Curibio at contact@curibio.com to sign up for a new plan."]}
+          labels={[
+            "Please email Curibio at contact@curibio.com to sign up for a new plan.",
+          ]}
           closeModal={() => {
             setNewPlanModalIsOpen(false);
           }}

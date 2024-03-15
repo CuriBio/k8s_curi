@@ -1,12 +1,14 @@
 import asyncio
-import asyncpg
-from kubernetes import config, client as kclient
 import json
 import os
 import random
-import structlog
-from structlog.contextvars import bind_contextvars, bound_contextvars, merge_contextvars
 from time import sleep
+
+import asyncpg
+import structlog
+from kubernetes import client as kclient
+from kubernetes import config
+from structlog.contextvars import bind_contextvars, bound_contextvars, merge_contextvars
 
 structlog.configure(
     processors=[
@@ -44,19 +46,29 @@ async def create_job(version: str, num_of_workers: int):
 
     # get pod list to get uid to use in owner_reference when spinning up new jobs
     # the pod needed is the pod this code is being executed in
-    qp_pods_list = pod_api.list_namespaced_pod(namespace=QUEUE, label_selector=f"app={QUEUE}_qp")
+    qp_pods_list = pod_api.list_namespaced_pod(
+        namespace=QUEUE, label_selector=f"app={QUEUE}_qp"
+    )
     # get existing jobs to prevent starting a job with the same count suffix
     # make sure to only get jobs of specific version
-    running_workers_list = job_api.list_namespaced_job(QUEUE, label_selector=f"job_version={version}")
+    running_workers_list = job_api.list_namespaced_job(
+        QUEUE, label_selector=f"job_version={version}"
+    )
     num_of_active_workers = len(running_workers_list.items)
 
-    logger.info(f"Checking for active {version} workers: {num_of_active_workers} found.")
-    logger.info(f"Starting {num_of_workers - num_of_active_workers} worker(s) for {QUEUE}:{version}.")
+    logger.info(
+        f"Checking for active {version} workers: {num_of_active_workers} found."
+    )
+    logger.info(
+        f"Starting {num_of_workers - num_of_active_workers} worker(s) for {QUEUE}:{version}."
+    )
 
     POSTGRES_PASSWORD = kclient.V1EnvVar(
         name="POSTGRES_PASSWORD",
         value_from=kclient.V1EnvVarSource(
-            secret_key_ref=kclient.V1SecretKeySelector(name="curibio-jobs-creds", key="curibio_jobs")
+            secret_key_ref=kclient.V1SecretKeySelector(
+                name="curibio-jobs-creds", key="curibio_jobs"
+            )
         ),
     )
 
@@ -64,7 +76,9 @@ async def create_job(version: str, num_of_workers: int):
         worker_id = hex(random.getrandbits(40))[2:]
         # names can only be alphanumeric and '-' so replacing '.' with '-'
         # Cannot start jobs with the same name so count starting at 1+existing number of jobs running in namespace with version
-        formatted_name = f"{QUEUE}-worker-v{'-'.join(version.split('.'))}--{count}--{worker_id}"
+        formatted_name = (
+            f"{QUEUE}-worker-v{'-'.join(version.split('.'))}--{count}--{worker_id}"
+        )
         logger.info(f"Starting {formatted_name}.")
         complete_ecr_repo = f"{ECR_REPO}:{version}"
 

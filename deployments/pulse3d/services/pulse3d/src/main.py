@@ -1,56 +1,33 @@
-from contextlib import asynccontextmanager
 import json
 import os
 import tempfile
 import time
 import uuid
 from collections import defaultdict
+from contextlib import asynccontextmanager
 from datetime import datetime
 
 import boto3
 import polars as pl
 import structlog
 from auth import (
-    ScopeTags,
-    ProtectedAny,
-    check_prohibited_product,
     ProhibitedProductError,
-    is_rw_all_data_user,
+    ProtectedAny,
+    ScopeTags,
+    check_prohibited_product,
     get_product_tags_of_admin,
     get_product_tags_of_user,
+    is_rw_all_data_user,
+)
+from core.config import (
+    DASHBOARD_URL,
+    DATABASE_URL,
+    MANTARRAY_LOGS_BUCKET,
+    PULSE3D_UPLOADS_BUCKET,
 )
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from jobs import (
-    check_customer_quota,
-    create_analysis_preset,
-    create_job,
-    create_upload,
-    delete_jobs,
-    delete_uploads,
-    get_jobs,
-    get_uploads,
-)
-from pulse3D.constants import DataTypes
-from pulse3D.peak_finding.constants import (
-    DefaultLegacyPeakFindingParams,
-    DefaultNoiseBasedPeakFindingParams,
-    FeatureMarkers,
-)
-from pulse3D.peak_finding.utils import create_empty_df, mark_features
-from pulse3D.metrics.constants import TwitchMetrics, DefaultMetricsParams
-from pulse3D.rendering.utils import get_metric_display_title
-from semver import VersionInfo
-from stream_zip import ZIP_64, stream_zip
-from starlette_context import context, request_cycle_context
-from structlog.contextvars import bind_contextvars, clear_contextvars
-from utils.db import AsyncpgPoolDep
-from utils.logging import setup_logger, bind_context_to_logger
-from utils.s3 import S3Error, generate_presigned_post, generate_presigned_url, upload_file_to_s3
-from uvicorn.protocols.utils import get_path_with_query_string
-
-from core.config import DASHBOARD_URL, DATABASE_URL, MANTARRAY_LOGS_BUCKET, PULSE3D_UPLOADS_BUCKET
 from models.models import (
     GenericErrorResponse,
     JobDownloadRequest,
@@ -64,6 +41,39 @@ from models.models import (
     WaveformDataResponse,
 )
 from models.types import TupleParam
+from pulse3D.constants import DataTypes
+from pulse3D.metrics.constants import DefaultMetricsParams, TwitchMetrics
+from pulse3D.peak_finding.constants import (
+    DefaultLegacyPeakFindingParams,
+    DefaultNoiseBasedPeakFindingParams,
+    FeatureMarkers,
+)
+from pulse3D.peak_finding.utils import create_empty_df, mark_features
+from pulse3D.rendering.utils import get_metric_display_title
+from semver import VersionInfo
+from starlette_context import context, request_cycle_context
+from stream_zip import ZIP_64, stream_zip
+from structlog.contextvars import bind_contextvars, clear_contextvars
+from utils.db import AsyncpgPoolDep
+from utils.logging import bind_context_to_logger, setup_logger
+from utils.s3 import (
+    S3Error,
+    generate_presigned_post,
+    generate_presigned_url,
+    upload_file_to_s3,
+)
+from uvicorn.protocols.utils import get_path_with_query_string
+
+from jobs import (
+    check_customer_quota,
+    create_analysis_preset,
+    create_job,
+    create_upload,
+    delete_jobs,
+    delete_uploads,
+    get_jobs,
+    get_uploads,
+)
 
 setup_logger()
 logger = structlog.stdlib.get_logger("api.access")
@@ -139,14 +149,21 @@ async def get_info_of_uploads(
         is_user = token.account_type == "user"
 
         bind_context_to_logger(
-            {"user_id": token.userid, "customer_id": token.customer_id, "upload_ids": upload_ids}
+            {
+                "user_id": token.userid,
+                "customer_id": token.customer_id,
+                "upload_ids": upload_ids,
+            }
         )
 
         desired_upload_types = None if upload_type is None else [upload_type]
 
         async with request.state.pgpool.acquire() as con:
             uploads = await _get_uploads(
-                con=con, token=token, upload_ids=upload_ids, desired_upload_types=desired_upload_types
+                con=con,
+                token=token,
+                upload_ids=upload_ids,
+                desired_upload_types=desired_upload_types,
             )
 
         if isinstance(uploads, GenericErrorResponse):
@@ -167,7 +184,9 @@ async def get_info_of_uploads(
 
 @app.post("/uploads", response_model=UploadResponse | GenericErrorResponse)
 async def create_recording_upload(
-    request: Request, details: UploadRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
+    request: Request,
+    details: UploadRequest,
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
 ):
     try:
         user_id = str(uuid.UUID(token.userid))
@@ -177,7 +196,9 @@ async def create_recording_upload(
         s3_key = f"uploads/{customer_id}/{user_id}/{upload_id}"
 
         # TODO Luci (09/30/2023) can remove after MA v1.2.2+, will no longer need to handle pulse3d upload types
-        upload_type = details.upload_type if details.upload_type != "pulse3d" else "mantarray"
+        upload_type = (
+            details.upload_type if details.upload_type != "pulse3d" else "mantarray"
+        )
         check_prohibited_product(token.scopes, upload_type)
 
         bind_context_to_logger(
@@ -209,7 +230,9 @@ async def create_recording_upload(
             # then the new upload row won't be committed
             async with con.transaction():
                 upload_id = await create_upload(con=con, upload_params=upload_params)
-                params = _generate_presigned_post(details, PULSE3D_UPLOADS_BUCKET, s3_key)
+                params = _generate_presigned_post(
+                    details, PULSE3D_UPLOADS_BUCKET, s3_key
+                )
                 return UploadResponse(id=upload_id, params=params)
     except ProhibitedProductError:
         logger.exception(f"User does not permission to upload {upload_type} recordings")
@@ -231,7 +254,9 @@ async def soft_delete_uploads(
 ):
     # make sure at least one upload ID was given
     if not upload_ids:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No upload IDs given")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="No upload IDs given"
+        )
     # need to convert UUIDs to str to avoid issues with DB
     upload_ids = [str(upload_id) for upload_id in upload_ids]
 
@@ -239,12 +264,19 @@ async def soft_delete_uploads(
         account_id = str(uuid.UUID(token.account_id))
 
         bind_context_to_logger(
-            {"user_id": token.userid, "customer_id": token.customer_id, "upload_ids": upload_ids}
+            {
+                "user_id": token.userid,
+                "customer_id": token.customer_id,
+                "upload_ids": upload_ids,
+            }
         )
 
         async with request.state.pgpool.acquire() as con:
             await delete_uploads(
-                con=con, account_type=token.account_type, account_id=account_id, upload_ids=upload_ids
+                con=con,
+                account_type=token.account_type,
+                account_id=account_id,
+                upload_ids=upload_ids,
             )
     except Exception:
         logger.exception("Error deleting upload")
@@ -253,19 +285,27 @@ async def soft_delete_uploads(
 
 @app.post("/uploads/download")
 async def download_zip_files(
-    request: Request, details: UploadDownloadRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
+    request: Request,
+    details: UploadDownloadRequest,
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     upload_ids = details.upload_ids
 
     # make sure at least one job ID was given
     if not upload_ids:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No upload IDs given")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="No upload IDs given"
+        )
 
     # need to convert UUIDs to str to avoid issues with DB
     upload_ids = [str(id) for id in upload_ids]
 
     bind_context_to_logger(
-        {"user_id": token.userid, "customer_id": token.customer_id, "upload_ids": upload_ids}
+        {
+            "user_id": token.userid,
+            "customer_id": token.customer_id,
+            "upload_ids": upload_ids,
+        }
     )
 
     try:
@@ -281,12 +321,17 @@ async def download_zip_files(
 
         if len(upload_ids) == 1:
             # if only one file requested, return single presigned URL
-            return {"filename": filenames[0], "url": generate_presigned_url(PULSE3D_UPLOADS_BUCKET, keys[0])}
+            return {
+                "filename": filenames[0],
+                "url": generate_presigned_url(PULSE3D_UPLOADS_BUCKET, keys[0]),
+            }
         else:
             # Grab ZIP file from in-memory, make response with correct MIME-type
             return StreamingResponse(
                 content=stream_zip(
-                    _yield_s3_objects(bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=filenames)
+                    _yield_s3_objects(
+                        bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=filenames
+                    )
                 ),
                 media_type="application/zip",
             )
@@ -299,7 +344,9 @@ async def download_zip_files(
 # TODO Tanner (4/21/22): probably want to move this to a more general svc (maybe in apiv2-dep) dedicated to uploading misc files to s3
 @app.post("/logs")
 async def create_log_upload(
-    request: Request, details: UploadRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
+    request: Request,
+    details: UploadRequest,
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
 ):
     try:
         user_id = str(uuid.UUID(token.userid))
@@ -343,7 +390,11 @@ async def get_info_of_jobs(
         is_user = account_type == "user"
 
         bind_context_to_logger(
-            {"user_id": token.userid, "customer_id": token.customer_id, "job_ids": job_ids}
+            {
+                "user_id": token.userid,
+                "customer_id": token.customer_id,
+                "job_ids": job_ids,
+            }
         )
 
         async with request.state.pgpool.acquire() as con:
@@ -371,9 +422,13 @@ async def get_info_of_jobs(
                 if obj_key:
                     logger.info(f"Generating presigned download url for {obj_key}")
                     try:
-                        job_info["url"] = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, obj_key)
+                        job_info["url"] = generate_presigned_url(
+                            PULSE3D_UPLOADS_BUCKET, obj_key
+                        )
                     except Exception:
-                        logger.exception(f"Error generating presigned url for {obj_key}")
+                        logger.exception(
+                            f"Error generating presigned url for {obj_key}"
+                        )
                         job_info["url"] = "Error creating download link"
                 else:
                     job_info["url"] = None
@@ -381,7 +436,9 @@ async def get_info_of_jobs(
             elif job_info["status"] == "error":
                 try:
                     job_info["error_info"] = json.loads(job["job_meta"])["error"]
-                except KeyError:  # protects against downgrading and updating deleted statuses to errors
+                except (
+                    KeyError
+                ):  # protects against downgrading and updating deleted statuses to errors
                     job_info["error_info"] = "Was previously deleted"
 
             response["jobs"].append(job_info)
@@ -398,7 +455,9 @@ async def get_info_of_jobs(
 
 @app.post("/jobs")
 async def create_new_job(
-    request: Request, details: JobRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
+    request: Request,
+    details: JobRequest,
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
 ):
     try:
         user_id = str(uuid.UUID(token.userid))
@@ -406,7 +465,13 @@ async def create_new_job(
         user_scopes = token.scopes
         upload_id = details.upload_id
 
-        bind_context_to_logger({"user_id": user_id, "customer_id": customer_id, "upload_id": str(upload_id)})
+        bind_context_to_logger(
+            {
+                "user_id": user_id,
+                "customer_id": customer_id,
+                "upload_id": str(upload_id),
+            }
+        )
 
         logger.info(f"Creating job for upload {upload_id} with user ID: {user_id}")
 
@@ -423,7 +488,9 @@ async def create_new_job(
         ]
 
         previous_semver_version = (
-            VersionInfo.parse(details.previous_version) if details.previous_version else None
+            VersionInfo.parse(details.previous_version)
+            if details.previous_version
+            else None
         )
 
         bind_context_to_logger({"version": details.version})
@@ -471,7 +538,10 @@ async def create_new_job(
 
         # convert these params into a format compatible with pulse3D
         for param, default_values in (
-            ("prominence_factors", DefaultLegacyPeakFindingParams.PROMINENCE_FACTORS.value),
+            (
+                "prominence_factors",
+                DefaultLegacyPeakFindingParams.PROMINENCE_FACTORS.value,
+            ),
             (
                 "width_factors",
                 (
@@ -495,7 +565,9 @@ async def create_new_job(
             # first check user_id of upload matches user_id in token
             # Luci (12/14/2022) checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
             # Luci (12/14/2022) customer id is checked already because the customer_id in the token is being used to find upload details
-            row = await con.fetchrow("SELECT user_id, type FROM uploads where id=$1", upload_id)
+            row = await con.fetchrow(
+                "SELECT user_id, type FROM uploads where id=$1", upload_id
+            )
             original_upload_user = str(row["user_id"])
             upload_type = row["type"]
 
@@ -503,7 +575,8 @@ async def create_new_job(
             # if deprecated and end of life date passed then cancel the upload
             # if end of life date is none then pulse3d version is usable
             pulse3d_version_status = await con.fetchrow(
-                "SELECT state, end_of_life_date FROM pulse3d_versions WHERE version = $1", details.version
+                "SELECT state, end_of_life_date FROM pulse3d_versions WHERE version = $1",
+                details.version,
             )
             status_name = pulse3d_version_status["state"]
             end_of_life_date = pulse3d_version_status["end_of_life_date"]
@@ -513,7 +586,8 @@ async def create_new_job(
                 and datetime.strptime(end_of_life_date, "%Y-%m-%d") > datetime.now()
             ):
                 return GenericErrorResponse(
-                    message="Attempted to use pulse3d version that is removed", error="pulse3dVersionError"
+                    message="Attempted to use pulse3d version that is removed",
+                    error="pulse3dVersionError",
                 )
 
             if user_id != original_upload_user:
@@ -563,10 +637,10 @@ async def create_new_job(
 
             # Luci (12/1/22): this happens after the job is already created to have access to the job id, hopefully this doesn't cause any issues with the job starting before the file is uploaded to s3
             if details.peaks_valleys:
-                key = (
-                    f"uploads/{customer_id}/{original_upload_user}/{upload_id}/{job_id}/peaks_valleys.parquet"
+                key = f"uploads/{customer_id}/{original_upload_user}/{upload_id}/{job_id}/peaks_valleys.parquet"
+                logger.info(
+                    f"Peaks and valleys found in job request, uploading to s3: {key}"
                 )
-                logger.info(f"Peaks and valleys found in job request, uploading to s3: {key}")
 
                 # only added during interactive analysis
                 with tempfile.TemporaryDirectory() as tmpdir:
@@ -577,11 +651,15 @@ async def create_new_job(
                             details.timepoints, details.peaks_valleys, peak_valley_diff
                         )
                     else:
-                        features_df = _create_legacy_features_df(details.peaks_valleys, peak_valley_diff)
+                        features_df = _create_legacy_features_df(
+                            details.peaks_valleys, peak_valley_diff
+                        )
                     # write peaks and valleys to parquet file in temporary directory
                     features_df.write_parquet(pv_parquet_path)
                     # upload to s3 under upload id and job id for pulse3d-worker to use
-                    upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
+                    upload_file_to_s3(
+                        bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path
+                    )
 
         return JobResponse(
             id=job_id,
@@ -606,7 +684,9 @@ async def soft_delete_jobs(
 ):
     # make sure at least one job ID was given
     if not job_ids:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No job IDs given")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="No job IDs given"
+        )
 
     # need to convert UUIDs to str to avoid issues with DB
     job_ids = [str(job_id) for job_id in job_ids]
@@ -615,12 +695,19 @@ async def soft_delete_jobs(
         account_id = str(uuid.UUID(token.account_id))
 
         bind_context_to_logger(
-            {"user_id": token.userid, "customer_id": token.customer_id, "job_ids": job_ids}
+            {
+                "user_id": token.userid,
+                "customer_id": token.customer_id,
+                "job_ids": job_ids,
+            }
         )
 
         async with request.state.pgpool.acquire() as con:
             await delete_jobs(
-                con=con, account_type=token.account_type, account_id=account_id, job_ids=job_ids
+                con=con,
+                account_type=token.account_type,
+                account_id=account_id,
+                job_ids=job_ids,
             )
     except Exception:
         logger.exception("Failed to soft delete jobs")
@@ -629,17 +716,23 @@ async def soft_delete_jobs(
 
 @app.post("/jobs/download")
 async def download_analyses(
-    request: Request, details: JobDownloadRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
+    request: Request,
+    details: JobDownloadRequest,
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     job_ids = details.job_ids
     # make sure at least one job ID was given
     if not job_ids:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No job IDs given")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="No job IDs given"
+        )
 
     # need to convert UUIDs to str to avoid issues with DB
     job_ids = [str(job_id) for job_id in job_ids]
 
-    bind_context_to_logger({"user_id": token.userid, "customer_id": token.customer_id, "job_ids": job_ids})
+    bind_context_to_logger(
+        {"user_id": token.userid, "customer_id": token.customer_id, "job_ids": job_ids}
+    )
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -671,7 +764,9 @@ async def download_analyses(
         # Grab ZIP file from in-memory, make response with correct MIME-type
         return StreamingResponse(
             content=stream_zip(
-                _yield_s3_objects(bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=unique_filenames)
+                _yield_s3_objects(
+                    bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=unique_filenames
+                )
             ),
             media_type="application/zip",
         )
@@ -681,7 +776,9 @@ async def download_analyses(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.get("/jobs/waveform-data", response_model=WaveformDataResponse | GenericErrorResponse)
+@app.get(
+    "/jobs/waveform-data", response_model=WaveformDataResponse | GenericErrorResponse
+)
 async def get_interactive_waveform_data(
     request: Request,
     upload_id: uuid.UUID = Query(None),
@@ -694,14 +791,20 @@ async def get_interactive_waveform_data(
 
     if job_id is None or upload_id is None:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Missing required ids to get job metadata."
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing required ids to get job metadata.",
         )
 
     upload_id = str(upload_id)
     job_id = str(job_id)
 
     bind_context_to_logger(
-        {"customer_id": token.customer_id, "user_id": token.userid, "upload_id": upload_id, "job_id": job_id}
+        {
+            "customer_id": token.customer_id,
+            "user_id": token.userid,
+            "upload_id": upload_id,
+            "job_id": job_id,
+        }
     )
 
     try:
@@ -736,17 +839,19 @@ async def get_interactive_waveform_data(
             pre_analysis_s3_key = f"{selected_job['prefix']}/time_force_data/{pre_analysis_filename}.parquet"
         elif VersionInfo.parse(pulse3d_version.split("rc")[0]) < "1.0.0":
             # TODO remove the split above once we're done with RC versions? Will make IA not work for any jobs run with an rc version, but that might be ok
-            pre_analysis_s3_key = (
-                f"{selected_job['prefix']}/time_force_data/{pulse3d_version}/{pre_analysis_filename}.parquet"
-            )
+            pre_analysis_s3_key = f"{selected_job['prefix']}/time_force_data/{pulse3d_version}/{pre_analysis_filename}.parquet"
         else:
             pre_analysis_s3_key = f"{selected_job['prefix']}/{job_id}/pre-analysis.zip"
 
         logger.info(f"Generating presigned URL for {pre_analysis_s3_key}")
         try:
-            time_force_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, pre_analysis_s3_key)
+            time_force_url = generate_presigned_url(
+                PULSE3D_UPLOADS_BUCKET, pre_analysis_s3_key
+            )
         except ValueError:
-            message = f"Pre-analysis file was not found in S3 under key {pre_analysis_s3_key}"
+            message = (
+                f"Pre-analysis file was not found in S3 under key {pre_analysis_s3_key}"
+            )
             logger.exception(message)
             return GenericErrorResponse(error="MissingDataError", message=message)
 
@@ -754,7 +859,9 @@ async def get_interactive_waveform_data(
         logger.info("Generating presigned URL for peaks and valleys")
         pv_parquet_key = f"{selected_job['prefix']}/{job_id}/peaks_valleys.parquet"
         try:
-            peaks_valleys_url = generate_presigned_url(PULSE3D_UPLOADS_BUCKET, pv_parquet_key)
+            peaks_valleys_url = generate_presigned_url(
+                PULSE3D_UPLOADS_BUCKET, pv_parquet_key
+            )
         except ValueError:
             message = f"Peaks/Valleys Parquet file was not found in S3 under key {pv_parquet_key}"
             logger.exception(message)
@@ -803,7 +910,9 @@ async def get_versions(request: Request):
 
 @app.get("/usage", response_model=UsageQuota)
 async def get_usage_quota(
-    request: Request, service: str = Query(None), token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
+    request: Request,
+    service: str = Query(None),
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     """Get the usage quota for the specific user"""
     try:
@@ -821,7 +930,9 @@ async def get_usage_quota(
 
 @app.post("/presets")
 async def save_analysis_presets(
-    request: Request, details: SavePresetRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
+    request: Request,
+    details: SavePresetRequest,
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
 ):
     """Save analysis parameter preset for user"""
     try:
@@ -837,7 +948,9 @@ async def save_analysis_presets(
 
 
 @app.get("/presets")
-async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))):
+async def get_analysis_presets(
+    request: Request, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
+):
     """Get analysis parameter preset for user"""
     try:
         user_id = str(uuid.UUID(token.userid))
@@ -849,7 +962,8 @@ async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(tag=
                 return [
                     dict(row)
                     async for row in con.cursor(
-                        "SELECT name, parameters FROM analysis_presets where user_id=$1", user_id
+                        "SELECT name, parameters FROM analysis_presets where user_id=$1",
+                        user_id,
                     )
                 ]
 
@@ -891,7 +1005,9 @@ async def _get_uploads(con, token, upload_ids, desired_upload_types=None):
             error="AuthorizationError",
         )
 
-    logger.info(f"Retrieving upload info with IDs: {upload_ids} for {account_type}: {account_id}")
+    logger.info(
+        f"Retrieving upload info with IDs: {upload_ids} for {account_type}: {account_id}"
+    )
 
     return await get_uploads(
         con=con,
@@ -905,10 +1021,16 @@ async def _get_uploads(con, token, upload_ids, desired_upload_types=None):
 async def _get_jobs(con, token, job_ids):
     account_id, account_type, upload_types = _get_retrieval_info(token)
 
-    logger.info(f"Retrieving job info with IDs: {job_ids} for {account_type}: {account_id}")
+    logger.info(
+        f"Retrieving job info with IDs: {job_ids} for {account_type}: {account_id}"
+    )
 
     return await get_jobs(
-        con=con, account_type=account_type, account_id=account_id, job_ids=job_ids, upload_types=upload_types
+        con=con,
+        account_type=account_type,
+        account_id=account_id,
+        job_ids=job_ids,
+        upload_types=upload_types,
     )
 
 
@@ -935,8 +1057,12 @@ def _create_features_df(timepoints, features, peak_valley_diff):
         peaks = ia_features[f"{well}__peaks"].cast(int).drop_nulls()
         valleys = ia_features[f"{well}__valleys"].cast(int).drop_nulls()
 
-        formatted_features = mark_features(formatted_features, peaks, FeatureMarkers.PEAK, well)
-        formatted_features = mark_features(formatted_features, valleys, FeatureMarkers.VALLEY, well)
+        formatted_features = mark_features(
+            formatted_features, peaks, FeatureMarkers.PEAK, well
+        )
+        formatted_features = mark_features(
+            formatted_features, valleys, FeatureMarkers.VALLEY, well
+        )
 
     return formatted_features
 
@@ -948,7 +1074,8 @@ def _create_legacy_features_df(features, peak_valley_diff):
     for well, peaks_valleys in features.items():
         for feature_idx, feature_name in enumerate(["peaks", "valleys"]):
             well_idxs_of_feature = (
-                pl.DataFrame({f"{well}__{feature_name}": peaks_valleys[feature_idx]}) + peak_valley_diff
+                pl.DataFrame({f"{well}__{feature_name}": peaks_valleys[feature_idx]})
+                + peak_valley_diff
             )
             df = pl.concat([df, well_idxs_of_feature], how="horizontal")
 
@@ -975,7 +1102,8 @@ def _format_tuple_param(
 
     # set any unspecified values to the default value
     formatted_options = tuple(
-        get_val(option, default_value) for option, default_value in zip(options, default_values)
+        get_val(option, default_value)
+        for option, default_value in zip(options, default_values)
     )
 
     return formatted_options

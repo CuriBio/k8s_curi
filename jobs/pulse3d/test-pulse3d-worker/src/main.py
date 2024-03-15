@@ -1,8 +1,8 @@
 import asyncio
-from dataclasses import asdict
 import json
 import os
 import tempfile
+from dataclasses import asdict
 from typing import Any
 from zipfile import ZipFile
 
@@ -10,30 +10,30 @@ import asyncpg
 import boto3
 import polars as pl
 import structlog
-from jobs import EmptyQueue, get_item
+from lib.db import PULSE3D_UPLOADS_BUCKET, insert_metadata_into_pg
+from lib.queries import SELECT_UPLOAD_DETAILS
 from mantarray_magnet_finding.exceptions import UnableToConvergeError
 from pulse3D import metrics
 from pulse3D import peak_finding as peak_finder
 from pulse3D import rendering as renderer
 from pulse3D.constants import PACKAGE_VERSION as PULSE3D_VERSION
-from pulse3D.data_loader import from_file, InstrumentTypes
-from pulse3D.data_loader.utils import get_metadata_cls
+from pulse3D.data_loader import InstrumentTypes, from_file
 from pulse3D.data_loader.metadata import NormalizationMethods
+from pulse3D.data_loader.utils import get_metadata_cls
 from pulse3D.peak_finding import LoadedDataWithFeatures
 from pulse3D.pre_analysis import (
     PreProcessedData,
+    apply_window_to_df,
+    post_process,
     pre_process,
     process,
-    post_process,
     sort_wells_in_df,
-    apply_window_to_df,
 )
 from pulse3D.rendering import OutputFormats
 from structlog.contextvars import bind_contextvars, clear_contextvars, merge_contextvars
 from utils.s3 import upload_file_to_s3
 
-from lib.db import PULSE3D_UPLOADS_BUCKET, insert_metadata_into_pg
-from lib.queries import SELECT_UPLOAD_DETAILS
+from jobs import EmptyQueue, get_item
 
 structlog.configure(
     processors=[
@@ -52,7 +52,9 @@ def _create_file_info(base_dir: str, upload_prefix: str, job_id: str) -> dict[st
     pre_process_dir = os.path.join(base_dir, "pre-process")
     os.mkdir(pre_process_dir)
     pre_process_filename = "pre-process.zip"
-    pre_process_file_s3_key = f"{upload_prefix}/pre-process/{PULSE3D_VERSION}/{pre_process_filename}"
+    pre_process_file_s3_key = (
+        f"{upload_prefix}/pre-process/{PULSE3D_VERSION}/{pre_process_filename}"
+    )
     pre_process_file_path = os.path.join(pre_process_dir, pre_process_filename)
 
     pre_analysis_dir = os.path.join(base_dir, "pre-analysis")
@@ -104,7 +106,8 @@ def _upload_pre_zip(data_container, file_info, pre_step_name) -> None:
                     continue
 
                 file_path = os.path.join(
-                    file_info[pre_step_name]["dir"], file_info["zip_contents"][data_type]
+                    file_info[pre_step_name]["dir"],
+                    file_info["zip_contents"][data_type],
                 )
                 df.write_parquet(file_path)
                 z.write(file_path, file_info["zip_contents"][data_type])
@@ -167,10 +170,14 @@ async def process_item(con, item):
             raise
 
         # remove params that were not given as these already have default values
-        analysis_params = {k: v for k, v in metadata["analysis_params"].items() if v is not None}
+        analysis_params = {
+            k: v for k, v in metadata["analysis_params"].items() if v is not None
+        }
 
         pre_analysis_params = {
-            k: v for k, v in analysis_params.items() if k in ["stiffness_factor", "detrend"]
+            k: v
+            for k, v in analysis_params.items()
+            if k in ["stiffness_factor", "detrend"]
         }
         # need to rename this param
         if post_stiffness_factor := pre_analysis_params.pop("stiffness_factor", None):
@@ -204,7 +211,9 @@ async def process_item(con, item):
                     file_info["peak_finding"]["file_path"],
                 )
                 interactive_analysis = True
-                logger.info(f"Downloaded peaks and valleys to {file_info['peak_finding']['file_path']}")
+                logger.info(
+                    f"Downloaded peaks and valleys to {file_info['peak_finding']['file_path']}"
+                )
             except Exception:  # TODO catch only boto3 errors here
                 logger.info("No existing peaks and valleys found for recording")
 
@@ -219,17 +228,23 @@ async def process_item(con, item):
                     f"Downloaded existing pre-process data to {file_info['pre_process']['file_path']}"
                 )
             except Exception:
-                logger.info(f"No existing pre-process data found for recording {upload_filename}")
+                logger.info(
+                    f"No existing pre-process data found for recording {upload_filename}"
+                )
             else:
                 try:
                     with ZipFile(file_info["pre_process"]["file_path"]) as z:
                         z.extractall(file_info["pre_process"]["dir"])
 
                     pre_process_tissue_waveforms = pl.read_parquet(
-                        os.path.join(file_info["pre_process"]["dir"], file_info["zip_contents"]["tissue"])
+                        os.path.join(
+                            file_info["pre_process"]["dir"],
+                            file_info["zip_contents"]["tissue"],
+                        )
                     )
                     pre_process_stim_waveforms_path = os.path.join(
-                        file_info["pre_process"]["dir"], file_info["zip_contents"]["stim"]
+                        file_info["pre_process"]["dir"],
+                        file_info["zip_contents"]["stim"],
                     )
                     pre_process_stim_waveforms = (
                         pl.read_parquet(pre_process_stim_waveforms_path)
@@ -240,7 +255,8 @@ async def process_item(con, item):
                     pre_process_metadata_dict = json.load(
                         open(
                             os.path.join(
-                                file_info["pre_process"]["dir"], file_info["zip_contents"]["metadata"]
+                                file_info["pre_process"]["dir"],
+                                file_info["zip_contents"]["metadata"],
                             )
                         )
                     )
@@ -288,8 +304,13 @@ async def process_item(con, item):
 
             try:
                 # mantarray always uses the same normalization
-                if pre_analyzed_data.metadata.instrument_type == InstrumentTypes.MANTARRAY:
-                    post_process_params["normalization_method"] = NormalizationMethods.F_SUB_FMIN
+                if (
+                    pre_analyzed_data.metadata.instrument_type
+                    == InstrumentTypes.MANTARRAY
+                ):
+                    post_process_params[
+                        "normalization_method"
+                    ] = NormalizationMethods.F_SUB_FMIN
 
                 analyzable_data = post_process(pre_analyzed_data, **post_process_params)
             except Exception:
@@ -297,9 +318,13 @@ async def process_item(con, item):
 
             if interactive_analysis:
                 try:
-                    features_df = pl.read_parquet(file_info["peak_finding"]["file_path"])
+                    features_df = pl.read_parquet(
+                        file_info["peak_finding"]["file_path"]
+                    )
 
-                    features_df = sort_wells_in_df(features_df, analyzable_data.metadata.total_well_count)
+                    features_df = sort_wells_in_df(
+                        features_df, analyzable_data.metadata.total_well_count
+                    )
                     features_df = apply_window_to_df(
                         features_df, df_name_to_log="features", **post_process_params
                     )
@@ -329,14 +354,18 @@ async def process_item(con, item):
                         if (val := analysis_params.get(param)) is not None
                     }
                     logger.info("Running PeakDetector")
-                    data_with_features = peak_finder.run(analyzable_data, alg_args=peak_detector_args)
+                    data_with_features = peak_finder.run(
+                        analyzable_data, alg_args=peak_detector_args
+                    )
                 except Exception:
                     logger.exception("PeakDetector failed")
                     raise
 
             # Windowing is applied here in the worker, not by IA (just sets the bounds), so always upload the parquet file in case a change is made here
             try:
-                data_with_features.tissue_features.write_parquet(file_info["peak_finding"]["file_path"])
+                data_with_features.tissue_features.write_parquet(
+                    file_info["peak_finding"]["file_path"]
+                )
                 upload_file_to_s3(
                     bucket=PULSE3D_UPLOADS_BUCKET,
                     key=file_info["peak_finding"]["s3_key"],
@@ -399,8 +428,12 @@ async def process_item(con, item):
             try:
                 outfile_prefix = prefix.replace("uploads/", "analyzed/test-pulse3d/")
                 outfile_key = f"{outfile_prefix}/{job_id}/{output_filename}"
-                upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=outfile_key, file=output_filename)
-                logger.info(f"Uploaded {output_filename} to {PULSE3D_UPLOADS_BUCKET}/{outfile_key}")
+                upload_file_to_s3(
+                    bucket=PULSE3D_UPLOADS_BUCKET, key=outfile_key, file=output_filename
+                )
+                logger.info(
+                    f"Uploaded {output_filename} to {PULSE3D_UPLOADS_BUCKET}/{outfile_key}"
+                )
             except Exception:
                 logger.exception("Upload failed")
                 raise
@@ -409,12 +442,18 @@ async def process_item(con, item):
                 upload_meta = json.loads(upload_details["meta"])
 
                 if "user_defined_metadata" not in upload_meta:
-                    user_defined_metadata = pre_analyzed_data.metadata.get("user_defined_metadata", {})
+                    user_defined_metadata = pre_analyzed_data.metadata.get(
+                        "user_defined_metadata", {}
+                    )
                     upload_meta["user_defined_metadata"] = user_defined_metadata
-                    logger.info(f"Inserting user-defined metadata into DB: {user_defined_metadata}")
+                    logger.info(
+                        f"Inserting user-defined metadata into DB: {user_defined_metadata}"
+                    )
 
                     await con.execute(
-                        "UPDATE uploads SET meta=$1 WHERE id=$2", json.dumps(upload_meta), upload_id
+                        "UPDATE uploads SET meta=$1 WHERE id=$2",
+                        json.dumps(upload_meta),
+                        upload_id,
                     )
                 else:
                     logger.info("Skipping insertion of user-defined metadata into DB")
@@ -443,8 +482,13 @@ async def process_item(con, item):
                     "recording_length_ms": pre_analyzed_data.metadata.full_recording_length,
                     "data_type": data_type,
                 }
-                if pre_analyzed_data.metadata.instrument_type == InstrumentTypes.MANTARRAY:
-                    job_metadata["stim_barcode"] = pre_analyzed_data.metadata.stim_barcode
+                if (
+                    pre_analyzed_data.metadata.instrument_type
+                    == InstrumentTypes.MANTARRAY
+                ):
+                    job_metadata[
+                        "stim_barcode"
+                    ] = pre_analyzed_data.metadata.stim_barcode
 
                 logger.info("Inserted metadata into db")
             except Exception:
@@ -480,7 +524,9 @@ async def main():
                 while True:
                     try:
                         logger.info("Pulling job from queue")
-                        await process_item(con=con, con_to_update_job_result=con_to_update_job_result)
+                        await process_item(
+                            con=con, con_to_update_job_result=con_to_update_job_result
+                        )
                     except EmptyQueue as e:
                         logger.info(f"No jobs in queue: {e}")
                         return

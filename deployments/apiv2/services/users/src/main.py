@@ -4,59 +4,69 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError, InvalidHash
-from asyncpg.exceptions import UniqueViolationError
-from fastapi import FastAPI, Request, Depends, HTTPException, status, Response, Query
-from fastapi.middleware.cors import CORSMiddleware
-from jwt.exceptions import InvalidTokenError
-from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
-from pydantic import EmailStr
-from starlette_context import context, request_cycle_context
 import structlog
-from structlog.contextvars import bind_contextvars, clear_contextvars
-from uvicorn.protocols.utils import get_path_with_query_string
-
+from argon2 import PasswordHasher
+from argon2.exceptions import InvalidHash, VerifyMismatchError
+from asyncpg.exceptions import UniqueViolationError
 from auth import (
+    PULSE3D_PAID_USAGE,
+    AccountTypes,
+    AuthTokens,
+    ProhibitedScopeError,
     ProtectedAny,
+    Scopes,
+    ScopeTags,
+    check_prohibited_admin_scopes,
+    check_prohibited_user_scopes,
+    convert_scope_str,
+    create_new_tokens,
     create_token,
     decode_token,
-    get_assignable_user_scopes,
-    get_assignable_admin_scopes,
-    get_scope_dependencies,
-    check_prohibited_user_scopes,
-    check_prohibited_admin_scopes,
-    convert_scope_str,
-    ScopeTags,
-    Scopes,
-    PULSE3D_PAID_USAGE,
-    ProhibitedScopeError,
-    AuthTokens,
     get_account_scopes,
-    create_new_tokens,
-    AccountTypes,
+    get_assignable_admin_scopes,
+    get_assignable_user_scopes,
     get_product_tags_of_admin,
+    get_scope_dependencies,
 )
-from jobs import check_customer_quota
-from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
-from models.errors import LoginError, RegistrationError, EmailRegistrationError, UnableToUpdateAccountError
+from core.config import (
+    CURIBIO_EMAIL,
+    CURIBIO_EMAIL_PASSWORD,
+    DASHBOARD_URL,
+    DATABASE_URL,
+)
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.templating import Jinja2Templates
+from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
+from jwt.exceptions import InvalidTokenError
+from models.errors import (
+    EmailRegistrationError,
+    LoginError,
+    RegistrationError,
+    UnableToUpdateAccountError,
+)
 from models.users import (
-    AdminLogin,
-    UserLogin,
-    AdminCreate,
-    UserCreate,
-    AdminProfile,
-    UserProfile,
     AccountUpdateAction,
+    AdminCreate,
+    AdminLogin,
+    AdminProfile,
     LoginResponse,
     PasswordModel,
-    UserScopesUpdate,
-    UnableToUpdateAccountResponse,
     PreferencesUpdate,
+    UnableToUpdateAccountResponse,
+    UserCreate,
+    UserLogin,
+    UserProfile,
+    UserScopesUpdate,
 )
+from pydantic import EmailStr
+from starlette_context import context, request_cycle_context
+from structlog.contextvars import bind_contextvars, clear_contextvars
 from utils.db import AsyncpgPoolDep
-from utils.logging import setup_logger, bind_context_to_logger
-from fastapi.templating import Jinja2Templates
+from utils.logging import bind_context_to_logger, setup_logger
+from uvicorn.protocols.utils import get_path_with_query_string
+
+from jobs import check_customer_quota
 
 setup_logger()
 logger = structlog.stdlib.get_logger("api.access")
@@ -178,7 +188,9 @@ async def login_admin(request: Request, details: AdminLogin):
                 email,
             )
 
-            tokens = await create_new_tokens(con, None, customer_id, scopes, account_type)
+            tokens = await create_new_tokens(
+                con, None, customer_id, scopes, account_type
+            )
 
             # TODO fix tests for this?
             return LoginResponse(
@@ -231,21 +243,29 @@ async def login_user(request: Request, details: UserLogin):
     client_type = details.client_type if details.client_type else "unknown"
 
     bind_context_to_logger(
-        {"customer_id": str(customer_id), "username": username, "client_type": client_type}
+        {
+            "customer_id": str(customer_id),
+            "username": username,
+            "client_type": client_type,
+        }
     )
 
     logger.info(f"User login attempt from client '{client_type}'")
 
     try:
         async with request.state.pgpool.acquire() as con:
-            select_query_result = await con.fetchrow(select_query, username, str(details.customer_id))
+            select_query_result = await con.fetchrow(
+                select_query, username, str(details.customer_id)
+            )
 
             # query will return None if username is not found
             if select_query_result is not None:
                 user_id = select_query_result.get("id")
                 customer_id = select_query_result.get("customer_id")
                 # rebind customer id with uuid incase an alias was used above
-                bind_context_to_logger({"customer_id": str(customer_id), "user_id": str(user_id)})
+                bind_context_to_logger(
+                    {"customer_id": str(customer_id), "user_id": str(user_id)}
+                )
 
             pw = details.password.get_secret_value()
 
@@ -273,7 +293,9 @@ async def login_user(request: Request, details: UserLogin):
                 str(customer_id),
             )
 
-            tokens = await create_new_tokens(con, user_id, customer_id, scopes, account_type)
+            tokens = await create_new_tokens(
+                con, user_id, customer_id, scopes, account_type
+            )
 
             return LoginResponse(tokens=tokens, usage_quota=usage_quota)
 
@@ -315,7 +337,9 @@ async def _verify_password(con, account_type, pw, select_query_result) -> None:
         )
         # update login error if this failed attempt hits limit
         raise LoginError(
-            account_locked_msg if updated_failed_attempts == MAX_FAILED_LOGIN_ATTEMPTS else failed_msg
+            account_locked_msg
+            if updated_failed_attempts == MAX_FAILED_LOGIN_ATTEMPTS
+            else failed_msg
         )
     except InvalidHash:
         """
@@ -333,7 +357,9 @@ async def _verify_password(con, account_type, pw, select_query_result) -> None:
             raise LoginError(failed_msg)
 
 
-async def _update_failed_login_attempts(con, account_type: str, id: str, count: int) -> None:
+async def _update_failed_login_attempts(
+    con, account_type: str, id: str, count: int
+) -> None:
     account_type_table = f"{account_type if account_type == 'user' else 'customer'}s"
 
     if count == MAX_FAILED_LOGIN_ATTEMPTS:
@@ -341,9 +367,7 @@ async def _update_failed_login_attempts(con, account_type: str, id: str, count: 
         update_query = f"UPDATE {account_type_table} SET suspended='t', failed_login_attempts=failed_login_attempts+1 where id=$1"
     else:
         # else increment failed attempts
-        update_query = (
-            f"UPDATE {account_type_table} SET failed_login_attempts=failed_login_attempts+1 where id=$1"
-        )
+        update_query = f"UPDATE {account_type_table} SET failed_login_attempts=failed_login_attempts+1 where id=$1"
 
     await con.execute(update_query, id)
 
@@ -366,7 +390,9 @@ async def _update_password(con, pw, previous_passwords, update_query, query_para
 
 
 @app.post("/refresh", response_model=AuthTokens, status_code=status.HTTP_201_CREATED)
-async def refresh(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.REFRESH]))):
+async def refresh(
+    request: Request, token=Depends(ProtectedAny(scopes=[Scopes.REFRESH]))
+):
     """Create a new access token and refresh token.
 
     The refresh token given in the request is first decoded and validated itself,
@@ -411,7 +437,9 @@ async def refresh(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.RE
             # con is passed to this function, so it must be inside this async with block
             user_id = None if is_admin_account else account_id
             customer_id = account_id if is_admin_account else row["customer_id"]
-            return await create_new_tokens(con, user_id, customer_id, scopes, account_type)
+            return await create_new_tokens(
+                con, user_id, customer_id, scopes, account_type
+            )
 
     except HTTPException:
         raise
@@ -434,7 +462,9 @@ async def logout(request: Request, token=Depends(ProtectedAny(scopes=list(Scopes
     account_id = uuid.UUID(hex=token.account_id)
     is_admin_account = token.account_type == AccountTypes.ADMIN
 
-    bind_context_to_logger({"customer_id": token.customer_id, "user_id": str(account_id)})
+    bind_context_to_logger(
+        {"customer_id": token.customer_id, "user_id": str(account_id)}
+    )
 
     if is_admin_account:
         update_query = "UPDATE customers SET refresh_token = NULL WHERE id=$1"
@@ -450,9 +480,13 @@ async def logout(request: Request, token=Depends(ProtectedAny(scopes=list(Scopes
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.post("/register/admin", response_model=AdminProfile, status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/register/admin", response_model=AdminProfile, status_code=status.HTTP_201_CREATED
+)
 async def register_admin(
-    request: Request, details: AdminCreate, token=Depends(ProtectedAny(scopes=[Scopes.CURI__ADMIN]))
+    request: Request,
+    details: AdminCreate,
+    token=Depends(ProtectedAny(scopes=[Scopes.CURI__ADMIN])),
 ):
     """Register an admin account for a new customer.
 
@@ -472,7 +506,9 @@ async def register_admin(
                         json.dumps(dict(PULSE3D_PAID_USAGE)),
                     )
                     new_account_id = await con.fetchval(*insert_account_query_args)
-                    bind_context_to_logger({"customer_id": str(new_account_id), "email": email})
+                    bind_context_to_logger(
+                        {"customer_id": str(new_account_id), "email": email}
+                    )
                 except UniqueViolationError as e:
                     if "customers_email_key" in str(e):
                         # Returning this message is currently ok since only the Curi root account
@@ -502,7 +538,9 @@ async def register_admin(
                     email=email,
                 )
 
-                return AdminProfile(email=email, user_id=new_account_id.hex, scopes=details.scopes)
+                return AdminProfile(
+                    email=email, user_id=new_account_id.hex, scopes=details.scopes
+                )
 
     except (RegistrationError, ProhibitedScopeError) as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -511,9 +549,13 @@ async def register_admin(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.post("/register/user", response_model=UserProfile, status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/register/user", response_model=UserProfile, status_code=status.HTTP_201_CREATED
+)
 async def register_user(
-    request: Request, details: UserCreate, token=Depends(ProtectedAny(tag=ScopeTags.ADMIN))
+    request: Request,
+    details: UserCreate,
+    token=Depends(ProtectedAny(tag=ScopeTags.ADMIN)),
 ):
     """Register a user account.
 
@@ -526,7 +568,9 @@ async def register_user(
         email = details.email.lower()
         username = details.username.lower()
 
-        bind_context_to_logger({"customer_id": str(customer_id), "username": username, "email": email})
+        bind_context_to_logger(
+            {"customer_id": str(customer_id), "username": username, "email": email}
+        )
         check_prohibited_user_scopes(user_scopes, admin_scopes)
 
         logger.info(f"Registering new user with scopes: {user_scopes}")
@@ -560,7 +604,8 @@ async def register_user(
                 # add scope for new account
                 insert_scope_query_args = (customer_id, new_account_id, user_scopes)
                 await con.execute(
-                    "INSERT INTO account_scopes VALUES ($1, $2, unnest($3::text[]))", *insert_scope_query_args
+                    "INSERT INTO account_scopes VALUES ($1, $2, unnest($3::text[]))",
+                    *insert_scope_query_args,
                 )
 
                 # only send verification emails to new users
@@ -575,7 +620,10 @@ async def register_user(
                 )
 
                 return UserProfile(
-                    username=username, email=email, user_id=new_account_id.hex, scopes=user_scopes
+                    username=username,
+                    email=email,
+                    user_id=new_account_id.hex,
+                    scopes=user_scopes,
                 )
 
     except (EmailRegistrationError, ProhibitedScopeError, RegistrationError) as e:
@@ -587,7 +635,10 @@ async def register_user(
 
 @app.get("/email", status_code=status.HTTP_204_NO_CONTENT)
 async def email_account(
-    request: Request, email: EmailStr = Query(None), type: str = Query(None), user: bool = Query(None)
+    request: Request,
+    email: EmailStr = Query(None),
+    type: str = Query(None),
+    user: bool = Query(None),
 ):
     """Send or resend account emails.
 
@@ -618,7 +669,11 @@ async def email_account(
                 username = None
 
             bind_context_to_logger(
-                {"user_id": str(user_id), "customer_id": str(customer_id), "username": username}
+                {
+                    "user_id": str(user_id),
+                    "customer_id": str(customer_id),
+                    "username": username,
+                }
             )
             scope = convert_scope_str(f"{'user' if user else 'admin'}:{type}")
 
@@ -664,7 +719,10 @@ async def _create_account_email(
 
         # create email verification token, exp 24 hours
         jwt_token = create_token(
-            userid=user_id, customer_id=customer_id, scopes=[scope], account_type=account_type
+            userid=user_id,
+            customer_id=customer_id,
+            scopes=[scope],
+            account_type=account_type,
         )
 
         url = f"{DASHBOARD_URL}/account/{type}?token={jwt_token.token}"
@@ -685,7 +743,9 @@ async def _create_account_email(
         await con.execute(query, jwt_token.token, account_id)
 
         # send email with reset token
-        await _send_account_email(username=name, email=email, url=url, subject=subject, template=template)
+        await _send_account_email(
+            username=name, email=email, url=url, subject=subject, template=template
+        )
     except Exception as e:
         raise EmailRegistrationError(e)
 
@@ -721,7 +781,9 @@ async def _send_account_email(
 
 @app.put("/account")
 async def update_accounts(
-    request: Request, details: PasswordModel, token=Depends(ProtectedAny(tag=ScopeTags.ACCOUNT))
+    request: Request,
+    details: PasswordModel,
+    token=Depends(ProtectedAny(tag=ScopeTags.ACCOUNT)),
 ):
     """Confirm and verify new user and password.
 
@@ -731,7 +793,9 @@ async def update_accounts(
         account_id = uuid.UUID(hex=token.account_id)
         customer_id = uuid.UUID(hex=token.customer_id)
 
-        bind_context_to_logger({"customer_id": token.customer_id, "user_id": token.userid})
+        bind_context_to_logger(
+            {"customer_id": token.customer_id, "user_id": token.userid}
+        )
 
         is_admin = token.account_type == AccountTypes.ADMIN
         is_user = not is_admin
@@ -756,10 +820,14 @@ async def update_accounts(
 
                 # if the token is being used to verify the user account and the account has already been verified, then return message to display to user
                 if is_user and details.verify and row["verified"]:
-                    return UnableToUpdateAccountResponse(message="Account has already been verified")
+                    return UnableToUpdateAccountResponse(
+                        message="Account has already been verified"
+                    )
                 # token in db gets replaced with NULL when it's been successfully used
                 if row["reset_token"] is None:
-                    return UnableToUpdateAccountResponse(message="Link has already been used")
+                    return UnableToUpdateAccountResponse(
+                        message="Link has already been used"
+                    )
 
                 # if there is a token present in the DB but it does not match the one provided to this route, then presumably a new one has been created and thus the one being used should be considered expired
                 try:
@@ -781,10 +849,14 @@ async def update_accounts(
                 if is_user:
                     query_params.append(customer_id)
 
-                await _update_password(con, pw, row["previous_passwords"], update_query, query_params)
+                await _update_password(
+                    con, pw, row["previous_passwords"], update_query, query_params
+                )
 
     except UnableToUpdateAccountError:
-        return UnableToUpdateAccountResponse(message="Cannot set password to any of the previous 5 passwords")
+        return UnableToUpdateAccountResponse(
+            message="Cannot set password to any of the previous 5 passwords"
+        )
     except HTTPException:
         raise
     except Exception:
@@ -793,7 +865,9 @@ async def update_accounts(
 
 
 @app.get("/")
-async def get_all_users(request: Request, token=Depends(ProtectedAny(tag=ScopeTags.ADMIN))):
+async def get_all_users(
+    request: Request, token=Depends(ProtectedAny(tag=ScopeTags.ADMIN))
+):
     """Get info for all the users under the given admin account.
 
     List of users returned will be sorted with all active users showing up first, then all the suspended (deactivated) users
@@ -833,7 +907,9 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(tag=ScopeTa
 
 
 @app.get("/customers")
-async def get_all_customers(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.CURI__ADMIN]))):
+async def get_all_customers(
+    request: Request, token=Depends(ProtectedAny(scopes=[Scopes.CURI__ADMIN]))
+):
     """Get info for all the customer accounts.
 
     List of customers returned will be sorted with all active customer showing up first, then all the suspended (deactivated) customer.
@@ -875,7 +951,9 @@ async def update_user_scopes(
     admin_scopes = token.scopes
     user_scopes = details.scopes
 
-    bind_context_to_logger({"customer_id": str(customer_id), "user_id": str(account_id)})
+    bind_context_to_logger(
+        {"customer_id": str(customer_id), "user_id": str(account_id)}
+    )
 
     try:
         check_prohibited_user_scopes(user_scopes, admin_scopes)
@@ -884,7 +962,9 @@ async def update_user_scopes(
             async with con.transaction():
                 # first delete existing scopes from database
                 await con.execute(
-                    "DELETE FROM account_scopes WHERE customer_id=$1 AND user_id=$2", customer_id, account_id
+                    "DELETE FROM account_scopes WHERE customer_id=$1 AND user_id=$2",
+                    customer_id,
+                    account_id,
                 )
                 # add new scopes
                 await con.execute(
@@ -901,7 +981,9 @@ async def update_user_scopes(
 
 
 @app.get("/preferences")
-async def get_user_preferences(request: Request, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))):
+async def get_user_preferences(
+    request: Request, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
+):
     """Get preferences for user."""
     user_id = uuid.UUID(token.userid)
     bind_context_to_logger({"customer_id": token.customer_id, "user_id": str(user_id)})
@@ -918,7 +1000,9 @@ async def get_user_preferences(request: Request, token=Depends(ProtectedAny(tag=
 
 @app.put("/preferences")
 async def update_user_preferences(
-    request: Request, details: PreferencesUpdate, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
+    request: Request,
+    details: PreferencesUpdate,
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
 ):
     """Update a user's product preferences."""
     user_id = uuid.UUID(token.userid)
@@ -934,7 +1018,9 @@ async def update_user_preferences(
     try:
         async with request.state.pgpool.acquire() as con:
             query = "UPDATE users SET preferences=jsonb_set(preferences, $1, $2) WHERE id=$3 RETURNING preferences"
-            row = await con.fetchrow(query, {details.product}, json.dumps(details.changes), user_id)
+            row = await con.fetchrow(
+                query, {details.product}, json.dumps(details.changes), user_id
+            )
             # return new preferences because service worker caches both GET and POST so return value needs to be the same format
             return json.loads(row["preferences"])
     except Exception:
@@ -949,7 +1035,9 @@ async def get_user(
     request: Request,
     account_id: uuid.UUID,
     # TODO consider changing how this is scoped
-    token=Depends(ProtectedAny(scopes=[s for s in Scopes if ScopeTags.ACCOUNT not in s.tags])),
+    token=Depends(
+        ProtectedAny(scopes=[s for s in Scopes if ScopeTags.ACCOUNT not in s.tags])
+    ),
 ):
     """Get info for the account with the given ID.
 
@@ -975,7 +1063,9 @@ async def get_user(
 
         # this is only being set in case an error is raised later
         customer_id = self_id
-        bind_context_to_logger({"user_id": str(account_id), "customer_id": str(customer_id)})
+        bind_context_to_logger(
+            {"user_id": str(account_id), "customer_id": str(customer_id)}
+        )
     else:
         if not is_self_retrieval:
             raise HTTPException(
@@ -984,7 +1074,9 @@ async def get_user(
             )
 
         customer_id = uuid.UUID(hex=token.customer_id)
-        bind_context_to_logger({"user_id": str(self_id), "customer_id": str(customer_id)})
+        bind_context_to_logger(
+            {"user_id": str(self_id), "customer_id": str(customer_id)}
+        )
 
         query = get_user_info_query
         query_args = (customer_id, account_id)
@@ -1066,7 +1158,13 @@ async def update_customer(
                         [convert_scope_str(row["scope"]) for row in rows]
                     )
                     # if a product scope is being removed from an admin account, then remove all customer and user entries from account_scopes
-                    if len(product_diff := set(existing_products) - set(details.products)) > 0:
+                    if (
+                        len(
+                            product_diff := set(existing_products)
+                            - set(details.products)
+                        )
+                        > 0
+                    ):
                         scope_query = "DELETE FROM account_scopes WHERE customer_id=$1 AND scope LIKE $2"
                         suffix = "%"
                     # else a product scope is being added to an admin, then insert new entry for customer only
@@ -1079,7 +1177,8 @@ async def update_customer(
                         await con.execute(scope_query, account_id, f"{p}{suffix}")
         else:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid curi-edit-admin action: {action}"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid curi-edit-admin action: {action}",
             )
 
         if update_query is not None:
@@ -1099,7 +1198,9 @@ async def update_user(
     details: AccountUpdateAction,
     account_id: uuid.UUID,
     # TODO consider changing how this is scoped
-    token=Depends(ProtectedAny(scopes=[s for s in Scopes if ScopeTags.ACCOUNT not in s.tags])),
+    token=Depends(
+        ProtectedAny(scopes=[s for s in Scopes if ScopeTags.ACCOUNT not in s.tags])
+    ),
 ):
     """Update an account's information in the database.
 
@@ -1125,14 +1226,19 @@ async def update_user(
     try:
         if is_admin_account:
             bind_context_to_logger(
-                {"user_id": str(account_id), "customer_id": str(self_id), "action": action}
+                {
+                    "user_id": str(account_id),
+                    "customer_id": str(self_id),
+                    "action": action,
+                }
             )
 
             if is_self_edit:
                 if action == "set_alias":
                     if details.new_alias is None:
                         raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST, detail="Alias must be provided"
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Alias must be provided",
                         )
 
                     # if an empty string, need to convert to None for asyncpg
@@ -1145,14 +1251,20 @@ async def update_user(
 
                     async with request.state.pgpool.acquire() as con:
                         async with con.transaction():
-                            select_query = "SELECT previous_passwords FROM customers WHERE id=$1"
+                            select_query = (
+                                "SELECT previous_passwords FROM customers WHERE id=$1"
+                            )
                             update_query = "UPDATE customers SET password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) WHERE id=$2"
                             query_params = [account_id]
                             # query for previous passwords
                             row = await con.fetchrow(select_query, *query_params)
                             # returning so last update does not get executed
                             return await _update_password(
-                                con, pw, row["previous_passwords"], update_query, query_params
+                                con,
+                                pw,
+                                row["previous_passwords"],
+                                update_query,
+                                query_params,
                             )
                 else:
                     raise HTTPException(
@@ -1161,14 +1273,18 @@ async def update_user(
                     )
             else:
                 if action == "deactivate":
-                    update_query = "UPDATE users SET suspended='t' WHERE id=$1 AND customer_id=$2"
+                    update_query = (
+                        "UPDATE users SET suspended='t' WHERE id=$1 AND customer_id=$2"
+                    )
                     query_args = (account_id, self_id)
                 elif action == "reactivate":
                     # when reactivated, failed login attempts should be set back to 0.
                     update_query = "UPDATE users SET suspended='f', failed_login_attempts=0 WHERE id=$1 AND customer_id=$2"
                     query_args = (account_id, self_id)
                 elif action == "delete":
-                    update_query = "UPDATE users SET deleted_at=$1 WHERE id=$2 AND customer_id=$3"
+                    update_query = (
+                        "UPDATE users SET deleted_at=$1 WHERE id=$2 AND customer_id=$3"
+                    )
                     query_args = (datetime.now(), account_id, self_id)
                 else:
                     raise HTTPException(
@@ -1179,7 +1295,11 @@ async def update_user(
         elif is_user_account:
             # TODO unit test this else branch
             bind_context_to_logger(
-                {"user_id": str(self_id), "customer_id": token.customer_id, "action": action}
+                {
+                    "user_id": str(self_id),
+                    "customer_id": token.customer_id,
+                    "action": action,
+                }
             )
 
             if is_self_edit:
@@ -1189,16 +1309,18 @@ async def update_user(
 
                     async with request.state.pgpool.acquire() as con:
                         async with con.transaction():
-                            select_query = (
-                                "SELECT previous_passwords FROM users WHERE id=$1 AND customer_id=$2"
-                            )
+                            select_query = "SELECT previous_passwords FROM users WHERE id=$1 AND customer_id=$2"
                             update_query = "UPDATE users SET password=$1, previous_passwords=array_prepend($1, previous_passwords[0:4]) WHERE id=$2 AND customer_id=$3"
                             query_params = [account_id, customer_id]
                             # query for previous passwords
                             row = await con.fetchrow(select_query, *query_params)
                             # returning so last update does not get executed
                             return await _update_password(
-                                con, pw, row["previous_passwords"], update_query, query_params
+                                con,
+                                pw,
+                                row["previous_passwords"],
+                                update_query,
+                                query_params,
                             )
 
             else:
@@ -1211,7 +1333,9 @@ async def update_user(
             await con.execute(update_query, *query_args)
 
     except UnableToUpdateAccountError:
-        return UnableToUpdateAccountResponse(message="Cannot set password to any of the previous 5 passwords")
+        return UnableToUpdateAccountResponse(
+            message="Cannot set password to any of the previous 5 passwords"
+        )
     except HTTPException:
         raise
     except Exception:
