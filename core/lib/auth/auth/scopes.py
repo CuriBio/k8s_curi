@@ -110,19 +110,11 @@ def get_product_tags_of_admin(admin_scopes: list[Scopes]) -> set[Scopes]:
     return {tag for s in admin_scopes for tag in s.tags if ScopeTags.ADMIN in s.tags} & _PRODUCT_SCOPE_TAGS
 
 
-def get_product_tags_of_user(user_scopes: list[Scopes]) -> set[Scopes]:
+def get_product_tags_of_user(user_scopes: list[Scopes], rw_all_only: bool = False) -> set[Scopes]:
+    if rw_all_only:
+        user_scopes = [s for s in user_scopes if "rw_all_data" in s]
+
     return {tag for s in user_scopes for tag in s.tags} & _PRODUCT_SCOPE_TAGS
-
-
-def is_rw_all_data_user(token, service=None):
-    if token.account_type == "admin":
-        return False
-
-    rw_all_scopes = [s for s in token.scopes if "rw_all_data" in s]
-    if service:
-        rw_all_scopes = [s for s in rw_all_scopes if service in s]
-
-    return bool(rw_all_scopes)
 
 
 def check_prohibited_product(user_scopes: list[Scopes], product: str) -> None:

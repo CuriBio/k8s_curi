@@ -6,7 +6,7 @@ import uuid
 import pandas as pd
 import pytest
 from semver import VersionInfo
-from auth import create_token, Scopes, ScopeTags, AccountTypes
+from auth import create_token, decode_token, Scopes, ScopeTags, AccountTypes
 from utils.s3 import S3Error
 from src import main
 import numpy as np
@@ -115,14 +115,11 @@ def test_uploads__get(test_token_scope, test_upload_ids, mocked_asyncpg_con, moc
     account_type = AccountTypes.ADMIN if ScopeTags.ADMIN in test_token_scope[0].tags else AccountTypes.USER
     is_admin_account = account_type == AccountTypes.ADMIN
 
-    test_account_id = uuid.uuid4()
-    test_customer_id = test_account_id if is_admin_account else uuid.uuid4()
+    test_customer_id = uuid.uuid4()
+    test_user_id = None if is_admin_account else uuid.uuid4()
 
     access_token = get_token(
-        scopes=test_token_scope,
-        account_type=account_type,
-        userid=None if is_admin_account else test_account_id,
-        customer_id=test_customer_id,
+        scopes=test_token_scope, account_type=account_type, userid=test_user_id, customer_id=test_customer_id
     )
 
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
@@ -145,13 +142,11 @@ def test_uploads__get(test_token_scope, test_upload_ids, mocked_asyncpg_con, moc
 
     if Scopes.MANTARRAY__RW_ALL_DATA in test_token_scope:
         account_type = "rw_all_user"
-        test_account_id = test_customer_id
 
     mocked_get_uploads.assert_called_once_with(
         con=mocked_asyncpg_con,
-        account_type=account_type,
-        account_id=str(test_account_id),
         upload_ids=expected_upload_ids,
+        **main._get_retrieval_info(decode_token(access_token)),
     )
 
 

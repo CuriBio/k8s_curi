@@ -1,39 +1,39 @@
 import asyncio
-import base64
-import hashlib
+from dataclasses import asdict
 import json
 import os
-import pkg_resources
 import tempfile
-import structlog
-from structlog.contextvars import bind_contextvars, clear_contextvars, merge_contextvars
+from typing import Any
+from zipfile import ZipFile
 
 import asyncpg
 import boto3
-import pandas as pd
-import numpy as np
-
-from pulse3D.constants import MICRO_TO_BASE_CONVERSION
-from pulse3D.constants import WELL_NAME_UUID
-from pulse3D.constants import PLATEMAP_LABEL_UUID
-from pulse3D.constants import DATA_TYPE_UUID
-from pulse3D.constants import NOT_APPLICABLE_LABEL
-from pulse3D.constants import USER_DEFINED_METADATA_UUID
-from pulse3D.exceptions import (
-    DuplicateWellsFoundError,
-    InvalidValleySearchDurationError,
-    TooFewPeaksDetectedError,
-)
-from pulse3D.exceptions import IncorrectOpticalFileFormatError
-from pulse3D.excel_writer import write_xlsx
-from pulse3D.nb_peak_detection import noise_based_peak_finding
-from pulse3D.plate_recording import PlateRecording
+import polars as pl
+import structlog
+from jobs import EmptyQueue, get_item
 from mantarray_magnet_finding.exceptions import UnableToConvergeError
-
-from jobs import get_item, EmptyQueue
+from pulse3D import metrics
+from pulse3D import peak_finding as peak_finder
+from pulse3D import rendering as renderer
+from pulse3D.constants import PACKAGE_VERSION as PULSE3D_VERSION
+from pulse3D.data_loader import from_file, InstrumentTypes
+from pulse3D.data_loader.utils import get_metadata_cls
+from pulse3D.data_loader.metadata import NormalizationMethods
+from pulse3D.peak_finding import LoadedDataWithFeatures
+from pulse3D.pre_analysis import (
+    PreProcessedData,
+    pre_process,
+    process,
+    post_process,
+    sort_wells_in_df,
+    apply_window_to_df,
+)
+from pulse3D.rendering import OutputFormats
+from structlog.contextvars import bind_contextvars, clear_contextvars, merge_contextvars
 from utils.s3 import upload_file_to_s3
+
+from lib.db import PULSE3D_UPLOADS_BUCKET, insert_metadata_into_pg
 from lib.queries import SELECT_UPLOAD_DETAILS
-from lib.db import insert_metadata_into_pg, PULSE3D_UPLOADS_BUCKET
 
 structlog.configure(
     processors=[
@@ -44,29 +44,88 @@ structlog.configure(
     ]
 )
 
-logger = structlog.getLogger()
-
-PULSE3D_VERSION = pkg_resources.get_distribution("pulse3D").version
+logger = structlog.get_logger()
 
 
-def _load_from_dir(recording_dir, plate_recording_args):
-    recordings = list(PlateRecording.from_directory(recording_dir, **plate_recording_args))
-    logger.info(f"{len(recordings)} recording(s) found")
-    return recordings
+# TODO could use a better data structure for this
+def _create_file_info(base_dir: str, upload_prefix: str, job_id: str) -> dict[str, Any]:
+    pre_process_dir = os.path.join(base_dir, "pre-process")
+    os.mkdir(pre_process_dir)
+    pre_process_filename = "pre-process.zip"
+    pre_process_file_s3_key = f"{upload_prefix}/pre-process/{PULSE3D_VERSION}/{pre_process_filename}"
+    pre_process_file_path = os.path.join(pre_process_dir, pre_process_filename)
+
+    pre_analysis_dir = os.path.join(base_dir, "pre-analysis")
+    os.mkdir(pre_analysis_dir)
+    pre_analysis_filename = "pre-analysis.zip"
+    pre_analysis_file_s3_key = f"{upload_prefix}/{job_id}/{pre_analysis_filename}"
+    pre_analysis_file_path = os.path.join(pre_analysis_dir, pre_analysis_filename)
+
+    peak_finding_dir = os.path.join(base_dir, "peak_finding")
+    os.mkdir(peak_finding_dir)
+    peak_finding_filename = "peaks_valleys.parquet"
+    peak_finding_s3_key = f"{upload_prefix}/{job_id}/{peak_finding_filename}"
+    peak_finding_file_path = os.path.join(base_dir, peak_finding_filename)
+
+    return {
+        "zip_contents": {
+            "tissue": "tissue_waveforms.parquet",
+            "stim": "stim_waveforms.parquet",
+            "metadata": "metadata.json",
+        },
+        "pre_process": {
+            "dir": pre_process_dir,
+            "filename": pre_process_filename,
+            "file_path": pre_process_file_path,
+            "s3_key": pre_process_file_s3_key,
+        },
+        "pre_analysis": {
+            "dir": pre_analysis_dir,
+            "filename": pre_analysis_filename,
+            "file_path": pre_analysis_file_path,
+            "s3_key": pre_analysis_file_s3_key,
+        },
+        "peak_finding": {
+            "dir": peak_finding_dir,
+            "filename": peak_finding_filename,
+            "file_path": peak_finding_file_path,
+            "s3_key": peak_finding_s3_key,
+        },
+    }
 
 
-# TODO move this to core lib
-def _is_valid_well_name(well_name):
-    return (
-        isinstance(well_name, str)
-        and len(well_name) in (2, 3)
-        and well_name[0].isalpha()
-        and well_name[1].isdigit()
-    )
+def _upload_pre_zip(data_container, file_info, pre_step_name) -> None:
+    try:
+        zipfile_path = file_info[pre_step_name]["file_path"]
+        with ZipFile(zipfile_path, "w") as z:
+            for data_type in ("tissue", "stim"):
+                df = getattr(data_container, f"{data_type}_waveforms")
+                if df is None:  # stim_waveforms can be None
+                    continue
+
+                file_path = os.path.join(
+                    file_info[pre_step_name]["dir"], file_info["zip_contents"][data_type]
+                )
+                df.write_parquet(file_path)
+                z.write(file_path, file_info["zip_contents"][data_type])
+
+            metadata_path = os.path.join(
+                file_info[pre_step_name]["dir"], file_info["zip_contents"]["metadata"]
+            )
+            with open(metadata_path, "w") as f:
+                f.write(data_container.metadata.model_dump_json())
+            z.write(metadata_path, "metadata.json")
+
+        s3_key = file_info[pre_step_name]["s3_key"]
+        upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=s3_key, file=zipfile_path)
+        logger.info(f"Uploaded {pre_step_name} data to S3 under key: {s3_key}")
+    except Exception:
+        logger.exception(f"Uploading {pre_step_name} data to S3 failed")
+        raise
 
 
 @get_item(queue=f"pulse3d-v{PULSE3D_VERSION}")
-async def process(con, item):
+async def process_item(con, item):
     # keeping initial log without bound variables
     logger.info(f"Processing item: {item}")
 
@@ -80,6 +139,9 @@ async def process(con, item):
             upload_id = item["upload_id"]
             upload_details = await con.fetchrow(SELECT_UPLOAD_DETAILS, upload_id)
 
+            re_analysis = False
+            interactive_analysis = False
+
             # bind details to logger
             bind_contextvars(
                 upload_id=str(upload_id),
@@ -92,7 +154,6 @@ async def process(con, item):
 
             prefix = upload_details["prefix"]
             metadata = json.loads(item["meta"])
-
             upload_filename = upload_details["filename"]
             # if a new name has been given in the upload form, then replace here, else use original name
             analysis_filename = (
@@ -100,111 +161,257 @@ async def process(con, item):
                 if (name_override := metadata.get("name_override"))
                 else upload_filename
             )
-
-            key = f"{prefix}/{upload_filename}"
-
+            analysis_name = os.path.splitext(analysis_filename)[0]
         except Exception:
             logger.exception("Fetching upload details failed")
             raise
 
-        with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
-            # adding prefix here representing the version of pulse3D used
-            parquet_filename = f"{os.path.splitext(upload_filename)[0]}.parquet"
-            parquet_key = f"{prefix}/time_force_data/{PULSE3D_VERSION}/{parquet_filename}"
-            parquet_path = os.path.join(tmpdir, parquet_filename)
-            # set variables for where peaks and valleys should be or where it will go in s3
-            pv_parquet_key = f"{prefix}/{job_id}/peaks_valleys.parquet"
-            pv_temp_path = os.path.join(tmpdir, "peaks_valleys.parquet")
+        # remove params that were not given as these already have default values
+        analysis_params = {k: v for k, v in metadata["analysis_params"].items() if v is not None}
 
+        pre_analysis_params = {
+            k: v for k, v in analysis_params.items() if k in ["stiffness_factor", "detrend"]
+        }
+        # need to rename this param
+        if post_stiffness_factor := pre_analysis_params.pop("stiffness_factor", None):
+            pre_analysis_params["post_stiffness_factor"] = post_stiffness_factor
+
+        post_process_params = {
+            k: v
+            for k, v in analysis_params.items()
+            if k in ["normalization_method", "start_time", "end_time"]
+        }
+
+        with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
+            file_info = _create_file_info(tmpdir, prefix, str(job_id))
+
+            # download recording file
             try:
-                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, key, f"{tmpdir}/{analysis_filename}")
-                logger.info(f"Downloaded {PULSE3D_UPLOADS_BUCKET}/{key} to {tmpdir}/{analysis_filename}")
+                key = f"{prefix}/{upload_filename}"
+                recording_path = f"{tmpdir}/{analysis_filename}"
+                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, key, recording_path)
+                logger.info(f"Downloaded recording file to {recording_path}")
             except Exception:
                 logger.exception("Failed to download recording zip file")
                 raise
 
+            # download existing peak finding data
             try:
-                # attempt to download parquet file if recording has already been analyzed
-                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, parquet_key, parquet_path)
-                re_analysis = True
-
-                logger.info(f"Downloaded {parquet_filename} to {parquet_path}")
-            except Exception:  # TODO catch only boto3 errors here
-                logger.info(f"No existing data found for recording {parquet_filename}")
-                re_analysis = False
-
-            try:
-                # attempt to download peaks and valleys from s3, will only be the case for interactive analysis jobs
-                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, pv_parquet_key, pv_temp_path)
+                # attempt to download existing peak finding data from s3, will only exist for interactive analysis jobs
+                s3_client.download_file(
+                    PULSE3D_UPLOADS_BUCKET,
+                    file_info["peak_finding"]["s3_key"],
+                    file_info["peak_finding"]["file_path"],
+                )
                 interactive_analysis = True
-
-                logger.info(f"Downloaded peaks and valleys to {pv_temp_path}")
+                logger.info(f"Downloaded peaks and valleys to {file_info['peak_finding']['file_path']}")
             except Exception:  # TODO catch only boto3 errors here
                 logger.info("No existing peaks and valleys found for recording")
-                interactive_analysis = False
+
+            # download existing pre-process data
+            try:
+                s3_client.download_file(
+                    PULSE3D_UPLOADS_BUCKET,
+                    file_info["pre_process"]["s3_key"],
+                    file_info["pre_process"]["file_path"],
+                )
+                logger.info(
+                    f"Downloaded existing pre-process data to {file_info['pre_process']['file_path']}"
+                )
+            except Exception:
+                logger.info(f"No existing pre-process data found for recording {upload_filename}")
+            else:
+                try:
+                    with ZipFile(file_info["pre_process"]["file_path"]) as z:
+                        z.extractall(file_info["pre_process"]["dir"])
+
+                    pre_process_tissue_waveforms = pl.read_parquet(
+                        os.path.join(file_info["pre_process"]["dir"], file_info["zip_contents"]["tissue"])
+                    )
+                    pre_process_stim_waveforms_path = os.path.join(
+                        file_info["pre_process"]["dir"], file_info["zip_contents"]["stim"]
+                    )
+                    pre_process_stim_waveforms = (
+                        pl.read_parquet(pre_process_stim_waveforms_path)
+                        if os.path.exists(pre_process_stim_waveforms_path)
+                        else None
+                    )
+
+                    pre_process_metadata_dict = json.load(
+                        open(
+                            os.path.join(
+                                file_info["pre_process"]["dir"], file_info["zip_contents"]["metadata"]
+                            )
+                        )
+                    )
+                    pre_process_metadata = get_metadata_cls(pre_process_metadata_dict)
+
+                    pre_processed_data = PreProcessedData(
+                        tissue_waveforms=pre_process_tissue_waveforms,
+                        stim_waveforms=pre_process_stim_waveforms,
+                        metadata=pre_process_metadata,
+                    )
+
+                    re_analysis = True
+                except Exception:
+                    logger.exception("Error loading existing pre-process data")
+
+            if not re_analysis:
+                try:
+                    logger.info("Starting DataLoader")
+                    loaded_data = from_file(recording_path)
+                except Exception:
+                    logger.exception("DataLoader failed")
+                    raise
+
+                try:
+                    logger.info("Starting Pre-Processing")
+                    pre_processed_data = pre_process(loaded_data)
+                except UnableToConvergeError:
+                    raise Exception("Unable to converge due to low quality of data")
+                except Exception:
+                    logger.exception("Pre-Processing failed")
+                    raise
+
+                # upload pre-processed data
+                _upload_pre_zip(pre_processed_data, file_info, "pre_process")
 
             try:
-                # remove params that were not given as these already have default values
-                analysis_params = {
-                    key: val for key, val in metadata["analysis_params"].items() if val is not None
-                }
-
-                # Tanner (10/7/22): popping these args out of analysis_params here since write_xlsx doesn't take them as a kwarg
-                plate_recording_args = {
-                    arg_name: analysis_params.pop(arg_name, None)
-                    for arg_name in ("stiffness_factor", "inverted_post_magnet_wells", "well_groups")
-                }
-
-                # well groups should always be added regardless of reanalysis
-                well_groups = plate_recording_args.get("well_groups")
-                use_existing_time_v_force = re_analysis and not any(plate_recording_args.values())
-
-                logger.info("Starting pulse3d analysis")
-                if use_existing_time_v_force:
-                    # if any plate recording args are provided, can't load from data frame since a re-analysis is required to recalculate the waveforms
-                    recording_df = pd.read_parquet(parquet_path)
-
-                    try:
-                        recording = PlateRecording.from_dataframe(
-                            os.path.join(tmpdir, analysis_filename),
-                            recording_df=recording_df,
-                            well_groups=well_groups,
-                        )
-                        recordings = list(recording)
-                    except:
-                        # If a user attempts to perform re-analysis on an analysis from < 0.25.2, it will fail
-                        # because the parquet file won't have the raw data columns, so need to re-analyze
-                        logger.exception(
-                            f"Previous dataframe found is not compatible with v{PULSE3D_VERSION}, performing analysis again"
-                        )
-                        recordings = _load_from_dir(tmpdir, plate_recording_args)
-                        re_analysis = False
-                else:
-                    recordings = _load_from_dir(tmpdir, plate_recording_args)
-
-                # Tanner (6/8/22): only supports analyzing one recording at a time right now. Functionality can be added whenever analyzing multiple files becomes necessary
-                first_recording = recordings[0]
-            except (DuplicateWellsFoundError, IncorrectOpticalFileFormatError):
-                # raise unique error to be shown in FE for this specific type of exception
-                logger.exception("Invalid file format")
-                raise
-            except UnableToConvergeError:
-                raise Exception("Unable to converge due to low quality of data")
+                logger.info("Starting Pre-Analysis")
+                pre_analyzed_data = process(pre_processed_data, **pre_analysis_params)
             except Exception:
-                logger.exception("PlateRecording failed")
+                logger.exception("Pre-Analysis failed")
                 raise
 
-            # if metadata is not set yet, set it here
+            # upload pre-analysis data
+            _upload_pre_zip(pre_analyzed_data, file_info, "pre_analysis")
+
+            try:
+                # mantarray always uses the same normalization
+                if pre_analyzed_data.metadata.instrument_type == InstrumentTypes.MANTARRAY:
+                    post_process_params["normalization_method"] = NormalizationMethods.F_SUB_FMIN
+
+                analyzable_data = post_process(pre_analyzed_data, **post_process_params)
+            except Exception:
+                logger.exception("Error windowing data")
+
+            if interactive_analysis:
+                try:
+                    features_df = pl.read_parquet(file_info["peak_finding"]["file_path"])
+
+                    features_df = sort_wells_in_df(features_df, analyzable_data.metadata.total_well_count)
+                    features_df = apply_window_to_df(
+                        features_df, df_name_to_log="features", **post_process_params
+                    )
+
+                    data_with_features = LoadedDataWithFeatures(
+                        **asdict(analyzable_data), tissue_features=features_df
+                    )
+
+                    logger.info("Loaded features from IA")
+                except Exception:
+                    logger.exception("Loading features from IA failed")
+                    raise
+            else:
+                try:
+                    peak_detector_args = {
+                        param: val
+                        for param in (
+                            "relative_prominence_factor",
+                            "noise_prominence_factor",
+                            "height_factor",
+                            "width_factors",
+                            "max_frequency",
+                            "valley_search_duration",
+                            "upslope_duration",
+                            "upslope_noise_allowance_duration",
+                        )
+                        if (val := analysis_params.get(param)) is not None
+                    }
+                    logger.info("Running PeakDetector")
+                    data_with_features = peak_finder.run(analyzable_data, alg_args=peak_detector_args)
+                except Exception:
+                    logger.exception("PeakDetector failed")
+                    raise
+
+            # Windowing is applied here in the worker, not by IA (just sets the bounds), so always upload the parquet file in case a change is made here
+            try:
+                data_with_features.tissue_features.write_parquet(file_info["peak_finding"]["file_path"])
+                upload_file_to_s3(
+                    bucket=PULSE3D_UPLOADS_BUCKET,
+                    key=file_info["peak_finding"]["s3_key"],
+                    file=file_info["peak_finding"]["file_path"],
+                )
+                logger.info(
+                    f"Uploaded features to {PULSE3D_UPLOADS_BUCKET}/{file_info['peak_finding']['s3_key']}"
+                )
+            except Exception:
+                logger.exception("Upload failed")
+                raise
+
+            try:
+                # TODO sync these values ?
+                # twitch_widths v. widths --- baseline_widths_to_use v. baseline_widths
+                metrics_args = {
+                    arg_name: val
+                    for arg_name, orig_name in (
+                        ("widths", "twitch_widths"),
+                        ("baseline_widths", "baseline_widths_to_use"),
+                        ("well_groups", "well_groups"),
+                    )
+                    if (val := analysis_params.get(orig_name)) is not None
+                }
+                logger.info("Running metrics")
+                metrics_output = metrics.run(data_with_features, **metrics_args)
+            except Exception:
+                logger.exception("Metrics failed")
+                raise
+
+            try:
+                renderer_args = {
+                    arg_name: val
+                    for arg_name in (
+                        "include_stim_protocols",
+                        "stim_waveform_format",
+                        "data_type",
+                        "normalize_y_axis",
+                        "max_y",
+                    )
+                    if (val := analysis_params.get(arg_name)) is not None
+                }
+                renderer_args["output_file_name"] = analysis_name
+
+                if data_type_override := renderer_args.get("data_type"):
+                    renderer_args["data_type"] = data_type_override.lower()
+
+                # nautilai's processing handles normalization differently than mantarray's
+                if metrics_output.metadata.instrument_type == InstrumentTypes.NAUTILAI:
+                    renderer_args["normalize_y_axis"] = False
+
+                logger.info("Running renderer")
+                output_filename = renderer.run(
+                    metrics_output, OutputFormats.XLSX, output_format_args=renderer_args
+                )
+            except Exception:
+                logger.exception("Renderer failed")
+                raise
+
+            try:
+                outfile_prefix = prefix.replace("uploads/", "analyzed/test-pulse3d/")
+                outfile_key = f"{outfile_prefix}/{job_id}/{output_filename}"
+                upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=outfile_key, file=output_filename)
+                logger.info(f"Uploaded {output_filename} to {PULSE3D_UPLOADS_BUCKET}/{outfile_key}")
+            except Exception:
+                logger.exception("Upload failed")
+                raise
+
             try:
                 upload_meta = json.loads(upload_details["meta"])
 
                 if "user_defined_metadata" not in upload_meta:
-                    user_defined_metadata = json.loads(
-                        first_recording.wells[0].get(USER_DEFINED_METADATA_UUID, r"{}")
-                    )
-
-                    logger.info(f"Inserting user-defined metadata into DB: {user_defined_metadata}")
+                    user_defined_metadata = pre_analyzed_data.metadata.get("user_defined_metadata", {})
                     upload_meta["user_defined_metadata"] = user_defined_metadata
+                    logger.info(f"Inserting user-defined metadata into DB: {user_defined_metadata}")
 
                     await con.execute(
                         "UPDATE uploads SET meta=$1 WHERE id=$2", json.dumps(upload_meta), upload_id
@@ -215,192 +422,34 @@ async def process(con, item):
                 # Tanner (9/28/23): not raising the exception here to avoid user-defined metadata issues stopping entire analyses
                 logger.exception("Inserting user-defined metadata into DB failed")
 
-            if use_existing_time_v_force:
-                logger.info("Skipping step to write time force data for upload")
-            else:
-                try:
-                    recording_df = first_recording.to_dataframe()
-                    recording_df.to_parquet(parquet_path)
-
-                    upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=parquet_key, file=parquet_path)
-                    logger.info(f"Uploaded time force data to {parquet_key}")
-                except Exception:
-                    logger.exception("Writing or uploading time force data failed")
-                    raise
-
             try:
-                peaks_valleys_dict = dict()
-                if not interactive_analysis:
-                    logger.info("Running peak_detector")
-                    # remove raw data columns
-                    columns = [c for c in recording_df.columns if "__raw" not in c]
-                    # this is to handle analyses run before PR.to_dataframe() where time is in seconds
-                    time = recording_df[columns[0]].tolist()
+                await insert_metadata_into_pg(
+                    con,
+                    pre_analyzed_data.metadata,
+                    upload_details["customer_id"],
+                    upload_details["user_id"],
+                    upload_id,
+                    outfile_key,
+                    re_analysis,
+                )
 
-                    peak_detector_params = (
-                        "relative_prominence_factor",
-                        "noise_prominence_factor",
-                        "height_factor",
-                        "width_factors",
-                        "start_time",
-                        "end_time",
-                        "max_frequency",
-                        "valley_search_duration",
-                        "upslope_duration",
-                        "upslope_noise_allowance_duration",
-                    )
-
-                    peak_detector_args = {
-                        param: val
-                        for param in peak_detector_params
-                        if (val := analysis_params.get(param)) is not None
-                    }
-
-                    peaks_valleys_for_df = dict()
-                    for well in columns:
-                        if not _is_valid_well_name(well):
-                            continue
-
-                        well_force = recording_df[well].dropna().tolist()
-                        interpolated_well_data = np.row_stack([time[: len(well_force)], well_force])
-                        # noise based peak finding requires times to be in seconds
-                        interpolated_well_data[0] /= MICRO_TO_BASE_CONVERSION
-
-                        try:
-                            peaks, valleys = noise_based_peak_finding(
-                                interpolated_well_data, **peak_detector_args
-                            )
-                        except (InvalidValleySearchDurationError, TooFewPeaksDetectedError):
-                            peaks = []
-                            valleys = []
-
-                        # need to initialize a dict with these values and then create the DF otherwise values will be truncated
-                        peaks_valleys_for_df[f"{well}__peaks"] = pd.Series(peaks)
-                        peaks_valleys_for_df[f"{well}__valleys"] = pd.Series(valleys)
-
-                        # write_xlsx takes in peaks_valleys: Dict[str, List[List[int]]]
-                        peaks_valleys_dict[well] = [peaks, valleys]
-                    # this df will be written to parquet and stored in s3, two columns for each well prefixed with well name
-                    peaks_valleys_df = pd.DataFrame(peaks_valleys_for_df)
+                if data_type_override := analysis_params.get("data_type"):
+                    data_type = data_type_override
                 else:
-                    logger.info("Formatting peaks and valleys")
-                    peaks_valleys_df = pd.read_parquet(pv_temp_path)
+                    data_type = pre_analyzed_data.metadata.data_type
 
-                    for well in first_recording:
-                        well_name = well[WELL_NAME_UUID]
+                job_metadata |= {
+                    "plate_barcode": pre_analyzed_data.metadata.plate_barcode,
+                    "recording_length_ms": pre_analyzed_data.metadata.full_recording_length,
+                    "data_type": data_type,
+                }
+                if pre_analyzed_data.metadata.instrument_type == InstrumentTypes.MANTARRAY:
+                    job_metadata["stim_barcode"] = pre_analyzed_data.metadata.stim_barcode
 
-                        peaks = peaks_valleys_df[f"{well_name}__peaks"].dropna().tolist()
-                        valleys = peaks_valleys_df[f"{well_name}__valleys"].dropna().tolist()
-
-                        peaks_valleys_dict[well_name] = [[int(x) for x in pv] for pv in (peaks, valleys)]
-
-                # set in analysis params to be passed to write_xlsx
-                analysis_params["peaks_valleys"] = peaks_valleys_dict
-
+                logger.info("Inserted metadata into db")
             except Exception:
-                logger.exception("Failed to get peaks and valleys for write_xlsx")
+                logger.exception("Failed to insert metadata to db")
                 raise
-
-            if not interactive_analysis:
-                try:
-                    peaks_valleys_df.to_parquet(pv_temp_path)
-
-                    upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=pv_parquet_key, file=pv_temp_path)
-                    logger.info(f"Uploaded peaks and valleys to {pv_parquet_key}")
-                except Exception:
-                    logger.exception("Writing or uploading peaks and valleys failed")
-                    raise
-            else:
-                logger.info("Skipping the writing of peaks and valleys to parquet in S3")
-
-            try:
-                outfile = write_xlsx(first_recording, output_dir=tmpdir, **analysis_params)
-                outfile_prefix = prefix.replace("uploads/", "analyzed/")
-                outfile_key = f"{outfile_prefix}/{job_id}/{outfile}"
-            except Exception:
-                logger.exception("Writing xlsx output failed")
-                raise
-
-            try:
-                analysis_params_updates = {}
-
-                # well_groups may have been sent in a dashboard reanalysis or upload, don't override here
-                if well_groups is None:
-                    platemap_labels = dict()
-
-                    for well_file in first_recording:
-                        label = well_file[PLATEMAP_LABEL_UUID]
-
-                        # only add to platemap_labels if label has been assigned
-                        if label != NOT_APPLICABLE_LABEL:
-                            # add label to dictionary if not already present
-                            if label not in platemap_labels:
-                                platemap_labels[label] = list()
-
-                            platemap_labels[label].append(well_file[WELL_NAME_UUID])
-
-                    # only change assignment if any groups were found, else it will be an empty dictionary
-                    if platemap_labels:
-                        # update new well groups
-                        analysis_params_updates.update({"well_groups": platemap_labels})
-
-                # if the data type is set in the recording metadata and no override was given, update the params
-                if (
-                    data_type_from_pr := first_recording.wells[0].get(str(DATA_TYPE_UUID))
-                ) and not analysis_params.get("data_type"):
-                    analysis_params_updates["data_type"] = data_type_from_pr
-
-                if analysis_params_updates:
-                    logger.info(f"Updating analysis params in job's metadata: {analysis_params_updates}")
-                    # get the original params that aren't missing any plate_recordings_args or anything else
-                    new_analysis_params = json.loads(item["meta"])["analysis_params"]
-                    new_analysis_params |= analysis_params_updates
-                    # add to job_metadata to get updated in jobs_result table
-                    job_metadata |= {"analysis_params": new_analysis_params}
-                else:
-                    logger.info("No updates needed for analysis params in job's metadata")
-
-            except Exception:
-                logger.exception("Error updating analysis params")
-                raise
-
-            with open(outfile, "rb") as file:
-                try:
-                    contents = file.read()
-                    md5 = hashlib.md5(contents).digest()
-                    md5s = base64.b64encode(md5).decode()
-
-                    s3_client.put_object(
-                        Body=contents, Bucket=PULSE3D_UPLOADS_BUCKET, Key=outfile_key, ContentMD5=md5s
-                    )
-
-                    logger.info(f"Uploaded {outfile} to {PULSE3D_UPLOADS_BUCKET}/{outfile_key}")
-                except Exception:
-                    logger.exception("Upload failed")
-                    raise
-
-                try:
-                    plate_barcode, stim_barcode, recording_length_ms = await insert_metadata_into_pg(
-                        con,
-                        first_recording,
-                        upload_details["customer_id"],
-                        upload_details["user_id"],
-                        upload_id,
-                        file,
-                        outfile_key,
-                        re_analysis,
-                    )
-
-                    job_metadata |= {
-                        "plate_barcode": plate_barcode,
-                        "stim_barcode": stim_barcode,
-                        "recording_length_ms": recording_length_ms,
-                    }
-
-                    logger.info(f"Inserted {outfile} metadata into db for upload {upload_id}")
-                except Exception:
-                    logger.exception("Failed to insert metadata to db")
-                    raise
 
     except Exception as e:
         job_metadata["error"] = f"{str(e)}"
@@ -431,7 +480,7 @@ async def main():
                 while True:
                     try:
                         logger.info("Pulling job from queue")
-                        await process(con=con, con_to_update_job_result=con_to_update_job_result)
+                        await process_item(con=con, con_to_update_job_result=con_to_update_job_result)
                     except EmptyQueue as e:
                         logger.info(f"No jobs in queue: {e}")
                         return
