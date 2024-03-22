@@ -389,9 +389,16 @@ async def process_item(con, item):
                     renderer_args["normalize_y_axis"] = False
 
                 logger.info("Running renderer")
-                output_filename = renderer.run(
-                    metrics_output, OutputFormats.XLSX, output_format_args=renderer_args
-                )
+
+                # TODO remove all this try/finally + chdir once renderer accepts an output dir
+                basedir = os.getcwd()
+                try:
+                    os.chdir(tmpdir)
+                    output_filename = renderer.run(
+                        metrics_output, OutputFormats.XLSX, output_format_args=renderer_args
+                    )
+                finally:
+                    os.chdir(basedir)
             except Exception:
                 logger.exception("Renderer failed")
                 raise
@@ -399,7 +406,9 @@ async def process_item(con, item):
             try:
                 outfile_prefix = prefix.replace("uploads/", "analyzed/test-pulse3d/")
                 outfile_key = f"{outfile_prefix}/{job_id}/{output_filename}"
-                upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=outfile_key, file=output_filename)
+                upload_file_to_s3(
+                    bucket=PULSE3D_UPLOADS_BUCKET, key=outfile_key, file=os.path.join(tmpdir, output_filename)
+                )
                 logger.info(f"Uploaded {output_filename} to {PULSE3D_UPLOADS_BUCKET}/{outfile_key}")
             except Exception:
                 logger.exception("Upload failed")

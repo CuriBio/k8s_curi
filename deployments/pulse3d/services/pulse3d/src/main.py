@@ -528,10 +528,7 @@ async def create_new_job(
             if usage_quota["jobs_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
-            # TODO remove this once done testing rc versions of pulse3d rewrite
             version = details.version
-            if version == "1.0.0":
-                version = "1.0.0"
 
             job_meta = {"analysis_params": analysis_params, "version": version}
             # if a name is present, then add to metadata of job
