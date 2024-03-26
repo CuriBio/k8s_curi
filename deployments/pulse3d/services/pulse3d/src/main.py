@@ -15,7 +15,6 @@ from auth import (
     ProtectedAny,
     check_prohibited_product,
     ProhibitedProductError,
-    is_rw_all_data_user,
     get_product_tags_of_admin,
     get_product_tags_of_user,
 )
@@ -403,7 +402,6 @@ async def create_new_job(
     try:
         user_id = str(uuid.UUID(token.userid))
         customer_id = str(uuid.UUID(token.customer_id))
-        user_scopes = token.scopes
         upload_id = details.upload_id
 
         bind_context_to_logger({"user_id": user_id, "customer_id": customer_id, "upload_id": str(upload_id)})
@@ -516,29 +514,21 @@ async def create_new_job(
                     message="Attempted to use pulse3d version that is removed", error="pulse3dVersionError"
                 )
 
-            if user_id != original_upload_user:
-                if not is_rw_all_data_user(token):
-                    return GenericErrorResponse(
-                        message="User does not have authorization to start a job for this recording.",
-                        error="AuthorizationError",
-                    )
-                # since user has access to other user's data, need to prevent them from running
-                # jobs for upload types that they themselves don't have access to
-                if upload_type not in get_product_tags_of_user(user_scopes):
-                    return GenericErrorResponse(
-                        message=f"User does not have authorization to run jobs for {upload_type} uploads.",
-                        error="AuthorizationError",
-                    )
+            # if the upload does not belong to this user, make sure this user has the rw_all_scope for this upload type
+            if user_id != original_upload_user and upload_type not in get_product_tags_of_user(
+                token.scopes, rw_all_only=True
+            ):
+                return GenericErrorResponse(
+                    message=f"User does not have authorization to run jobs for {upload_type} uploads of other users.",
+                    error="AuthorizationError",
+                )
 
             # second, check usage quota for customer
             usage_quota = await check_customer_quota(con, customer_id, upload_type)
             if usage_quota["jobs_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
-            # TODO remove this once done testing rc versions of pulse3d rewrite
             version = details.version
-            if version == "1.0.0":
-                version = "1.0.0rc28"
 
             job_meta = {"analysis_params": analysis_params, "version": version}
             # if a name is present, then add to metadata of job
@@ -555,20 +545,6 @@ async def create_new_job(
                 customer_id=customer_id,
                 job_type=upload_type,
             )
-
-            # if most recent pulse3d version, kick off job with pulse3d rewrite to compare outputs of both versions
-            rewrite_job_id = None
-            if pulse3d_semver == "0.34.5":
-                rewrite_job_id = await create_job(
-                    con=con,
-                    upload_id=upload_id,
-                    queue="pulse3d-v1.0.0rc28",
-                    priority=priority,
-                    meta={**job_meta, "version": "1.0.0rc28"},
-                    customer_id=customer_id,
-                    job_type=upload_type,
-                    add_to_results=False,
-                )
 
             bind_context_to_logger({"job_id": str(job_id)})
 
@@ -596,12 +572,6 @@ async def create_new_job(
                     features_df.write_parquet(pv_parquet_path)
                     # upload to s3 under upload id and job id for pulse3d-worker to use
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
-
-                    if rewrite_job_id:
-                        rewrite_key = f"uploads/{customer_id}/{original_upload_user}/{upload_id}/{rewrite_job_id}/peaks_valleys.parquet"
-                        upload_file_to_s3(
-                            bucket=PULSE3D_UPLOADS_BUCKET, key=rewrite_key, file=pv_parquet_path
-                        )
 
         return JobResponse(
             id=job_id,
@@ -708,9 +678,7 @@ async def get_interactive_waveform_data(
     job_id: uuid.UUID = Query(None),
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
 ):
-    account_id = str(uuid.UUID(token.account_id))
-    account_type = token.account_type
-    is_user = account_type == "user"
+    user_id = str(uuid.UUID(token.userid))
 
     if job_id is None or upload_id is None:
         raise HTTPException(
@@ -727,28 +695,23 @@ async def get_interactive_waveform_data(
     try:
         async with request.state.pgpool.acquire() as con:
             logger.info(f"Getting metadata for job {job_id}")
-            jobs = await _get_jobs(con, token, [job_id])
+            selected_job = (await _get_jobs(con, token, [job_id]))[0]
 
-        selected_job = jobs[0]
+        original_upload_user = str(selected_job["user_id"])
+        upload_type = selected_job["upload_type"]
+
         parsed_meta = json.loads(selected_job["job_meta"])
-        recording_owner_id = str(selected_job["user_id"])
         analysis_params = parsed_meta.get("analysis_params", {})
         pulse3d_version = parsed_meta.get("version")
 
-        if is_user and recording_owner_id != account_id:
-            if not is_rw_all_data_user(token):
-                return GenericErrorResponse(
-                    message="User does not have authorization to start interactive analysis on this recording.",
-                    error="AuthorizationError",
-                )
-            # since user has access to other user's data, need to prevent them from running
-            # jobs for upload types that they themselves don't have access to
-            upload_type = selected_job["upload_type"]
-            if upload_type not in get_product_tags_of_user(token.scopes):
-                return GenericErrorResponse(
-                    message=f"User does not have authorization to start interactive analysis for {upload_type} uploads.",
-                    error="AuthorizationError",
-                )
+        # if the upload does not belong to this user, make sure this user has the rw_all_scope for this upload type
+        if user_id != original_upload_user and upload_type not in get_product_tags_of_user(
+            token.scopes, rw_all_only=True
+        ):
+            return GenericErrorResponse(
+                message=f"User does not have authorization to interactive analysis on on {upload_type} uploads of other users.",
+                error="AuthorizationError",
+            )
 
         # Get presigned url for time force data
         pre_analysis_filename = os.path.splitext(selected_job["filename"])[0]
@@ -784,7 +747,7 @@ async def get_interactive_waveform_data(
         if data_type_str:
             data_type = DataTypes[data_type_str.upper()]
         else:
-            # if data type is not present, is present and is None, or some other falsey value, set to Force as default
+            # if data type is not present, is present and is None, or some other falsey value, set to force as default
             data_type = DataTypes.FORCE
 
         return WaveformDataResponse(
@@ -809,10 +772,9 @@ async def get_versions(request: Request):
     """Retrieve info of all the active pulse3d releases listed in the DB."""
     try:
         async with request.state.pgpool.acquire() as con:
-            # check if the pulse3d version has reached its end of life
-            # only deprected versions should have an end of life date, othere wise it is null
-            rows = await con.fetch(  # TODO should eventually sort these using a more robust method
-                "SELECT version, state, end_of_life_date FROM pulse3d_versions WHERE state != 'deprecated' OR NOW() < end_of_life_date ORDER BY created_at"
+            rows = await con.fetch(
+                "SELECT version, state, end_of_life_date FROM pulse3d_versions "
+                "WHERE state != 'deprecated' OR NOW() < end_of_life_date ORDER BY created_at"
             )
         return [dict(row) for row in rows]
 
@@ -883,53 +845,56 @@ async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(tag=
 
 def _get_retrieval_info(token):
     account_type = token.account_type
-    account_id = str(uuid.UUID(token.account_id))
+    customer_id = str(uuid.UUID(token.customer_id))
     if token.account_type == "user":
-        if is_rw_all_data_user(token):
-            account_id = str(uuid.UUID(token.customer_id))
-            # catches in the else block like admins in get_uploads, just set here so it's not admin and become confusing
-            account_type = "rw_all_user"
-        all_upload_types = get_product_tags_of_user(token.scopes)
+        user_id = str(uuid.UUID(token.userid))
+        upload_types = get_product_tags_of_user(token.scopes)
+        rw_all_data_upload_types = get_product_tags_of_user(token.scopes, True)
+        if rw_all_data_upload_types:
+            account_type = "rw_all_data_user"
     else:
-        all_upload_types = get_product_tags_of_admin(token.scopes)
+        user_id = None
+        upload_types = get_product_tags_of_admin(token.scopes)
+        rw_all_data_upload_types = None
 
-    return account_id, account_type, all_upload_types
+    return {
+        "user_id": user_id,
+        "customer_id": customer_id,
+        "account_type": account_type,
+        "upload_types": upload_types,
+        "rw_all_data_upload_types": rw_all_data_upload_types,
+    }
 
 
 async def _get_uploads(con, token, upload_ids, desired_upload_types=None):
-    account_id, account_type, all_upload_types = _get_retrieval_info(token)
+    retrieval_info = _get_retrieval_info(token)
 
-    upload_types = all_upload_types
     if desired_upload_types:
-        upload_types &= set(desired_upload_types)
-    if not upload_types:
-        logger.error(
-            f"Account {account_type}: {account_id} attempting to access upload type(s) they don't have access to: {desired_upload_types}"
-        )
-        return GenericErrorResponse(
-            message="User does not have authorization to access uploads of these type(s).",
-            error="AuthorizationError",
-        )
+        retrieval_info["upload_types"] &= set(desired_upload_types)
+        if not retrieval_info["upload_types"]:
+            logger.error(
+                f"Account {retrieval_info['account_type']}: {token.account_id} attempting to access upload type(s) they don't have access to: {desired_upload_types}"
+            )
+            return GenericErrorResponse(
+                message="Account does not have authorization to access uploads of these type(s).",
+                error="AuthorizationError",
+            )
 
-    logger.info(f"Retrieving upload info with IDs: {upload_ids} for {account_type}: {account_id}")
-
-    return await get_uploads(
-        con=con,
-        account_type=account_type,
-        account_id=account_id,
-        upload_ids=upload_ids,
-        upload_types=upload_types,
+    logger.info(
+        f"Retrieving upload info with IDs: {upload_ids} for {retrieval_info['account_type']}: {token.account_id}"
     )
+
+    return await get_uploads(con=con, upload_ids=upload_ids, **retrieval_info)
 
 
 async def _get_jobs(con, token, job_ids):
-    account_id, account_type, upload_types = _get_retrieval_info(token)
+    retrieval_info = _get_retrieval_info(token)
 
-    logger.info(f"Retrieving job info with IDs: {job_ids} for {account_type}: {account_id}")
-
-    return await get_jobs(
-        con=con, account_type=account_type, account_id=account_id, job_ids=job_ids, upload_types=upload_types
+    logger.info(
+        f"Retrieving job info with IDs: {job_ids} for {retrieval_info['account_type']}: {token.account_id}"
     )
+
+    return await get_jobs(con=con, job_ids=job_ids, **retrieval_info)
 
 
 def _yield_s3_objects(bucket: str, keys: list[str], filenames: list[str]):

@@ -14,7 +14,6 @@ from .scopes import (
     convert_scope_str,
     get_product_tags_of_admin,
     get_product_tags_of_user,
-    is_rw_all_data_user,
 )
 from .usage import PULSE3D_PAID_USAGE
 from .tokens import (

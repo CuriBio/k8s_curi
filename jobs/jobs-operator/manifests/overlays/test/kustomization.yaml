@@ -11,7 +11,7 @@ patches:
         value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/jobs-operator:0.0.3"
       - op: add
         path: /spec/template/spec/containers/0/env/0/value
-        value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/queue-processor:0.0.11"
+        value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/queue-processor:0.0.12"
     target:
       kind: Deployment
       name: operators
