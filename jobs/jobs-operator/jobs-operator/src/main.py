@@ -25,7 +25,6 @@ def create_fn(body, spec, **kwargs):
     QUEUE_PROCESSOR_IMAGE = os.getenv("QUEUE_PROCESSOR_IMAGE")
     QUEUE_VAR = kclient.V1EnvVar(name="QUEUE", value=job_queue)
     ECR_REPO = kclient.V1EnvVar(name="ECR_REPO", value=spec["ecr_repo"])
-    SECONDS_TO_POLL_DB = kclient.V1EnvVar(name="SECONDS_TO_POLL_DB", value=f"{spec['seconds_to_poll_db']}")
     MAX_NUM_OF_WORKERS = kclient.V1EnvVar(name="MAX_NUM_OF_WORKERS", value=f"{spec['max_num_of_workers']}")
     POSTGRES_USER = kclient.V1EnvVar(name="POSTGRES_USER", value=f"{job_queue}_queue_processor_ro")
 
@@ -51,7 +50,6 @@ def create_fn(body, spec, **kwargs):
             POSTGRES_PASSWORD,
             QUEUE_VAR,
             ECR_REPO,
-            SECONDS_TO_POLL_DB,
             MAX_NUM_OF_WORKERS,
             POSTGRES_USER,
             *PRODUCT_SPECIFIC_ENV_VARS,
