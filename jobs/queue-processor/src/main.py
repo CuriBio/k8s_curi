@@ -138,7 +138,7 @@ async def handle_notification(connection, pid, channel, payload):
 
 async def listen_to_queue(con):
     """Listen for notifications until the connection closes."""
-    con.add_listener("jobs_queue", handle_notification)
+    await con.add_listener("jobs_queue", handle_notification)
 
     db_con_termination_event = asyncio.Event()
 
