@@ -17,6 +17,10 @@ const PreviewText = styled.div`
   }
 `;
 
+const ErrorText = styled.div`
+  text-wrap: wrap;
+`;
+
 export default function Jobs({ row, openJobPreview, setSelectedJobs, selectedJobs }) {
   const [rowSelection, setRowSelection] = useState({});
   const [jobs, setJobs] = useState([]);
@@ -130,6 +134,7 @@ export default function Jobs({ row, openJobPreview, setSelectedJobs, selectedJob
         id: "status",
         header: "Status",
         size: 200,
+        Cell: ({ cell }) => <ErrorText>{cell.getValue()}</ErrorText>,
       },
       {
         accessorKey: "status",
