@@ -25,14 +25,15 @@ def get_item(*, queue):
                     raise EmptyQueue(queue)
 
                 if con_to_update_job_result:
+                    # if already set to running, then assume that a different worker already tried processing the job and failed
                     current_job_status = await con_to_update_job_result.fetchval(
                         "SELECT status FROM jobs_result WHERE job_id=$1", item["id"]
                     )
-
-                    # if already set to running, then assume that a different worker already tried processing the job and failed
                     if current_job_status == "running":
                         await con_to_update_job_result.execute(
-                            "UPDATE jobs_result SET status='error' WHERE job_id=$1", item["id"]
+                            "UPDATE jobs_result SET status='error', meta=$1 WHERE job_id=$2",
+                            json.dumps({"error_msg": "Ran out of time/memory"}),
+                            item["id"],
                         )
                         return
 
