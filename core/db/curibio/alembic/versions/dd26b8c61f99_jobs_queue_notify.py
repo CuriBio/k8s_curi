@@ -1,7 +1,7 @@
 """jobs_queue notify
 
 Revision ID: dd26b8c61f99
-Revises: c8d1b4377985
+Revises: 8d1f3c536b6d
 Create Date: 2024-04-01 14:45:29.146796
 
 """
@@ -11,7 +11,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "dd26b8c61f99"
-down_revision = "c8d1b4377985"
+down_revision = "8d1f3c536b6d"
 branch_labels = None
 depends_on = None
 
