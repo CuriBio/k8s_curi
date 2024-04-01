@@ -197,4 +197,4 @@ async def main():
 
 if __name__ == "__main__":
     bind_contextvars(queue=QUEUE)
-    asyncio.run(main)
+    asyncio.run(main())
