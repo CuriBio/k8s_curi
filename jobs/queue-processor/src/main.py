@@ -119,7 +119,7 @@ def manage_jobs(version: str, target_num_workers: int):
 
 
 async def process_queue(con):
-    with JOB_LOCK.acquire():
+    async with JOB_LOCK:
         records = await con.fetch(
             "SELECT meta->>'version' AS version, COUNT(*) FROM jobs_queue WHERE queue LIKE $1 GROUP BY version",
             f"{QUEUE}%",
