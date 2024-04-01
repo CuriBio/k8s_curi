@@ -33,6 +33,9 @@ PULSE3D_UPLOADS_BUCKET = kclient.V1EnvVar(
 )
 
 
+JOB_LOCK = asyncio.Lock()
+
+
 def manage_jobs(version: str, target_num_workers: int):
     # load kube config
     config.load_incluster_config()
@@ -115,25 +118,29 @@ def manage_jobs(version: str, target_num_workers: int):
         job_api.create_namespaced_job(namespace=QUEUE, body=job)
 
 
+async def process_queue(con):
+    with JOB_LOCK.acquire():
+        records = await con.fetch(
+            "SELECT meta->>'version' AS version, COUNT(*) FROM jobs_queue WHERE queue LIKE $1 GROUP BY version",
+            f"{QUEUE}%",
+        )
+
+        if not records:
+            logger.info("Queue is empty, nothing to process")
+            return
+
+        for record in records:
+            version = record["version"]
+            with bound_contextvars(version=version):
+                logger.info(f"Found {record['count']} item(s) for {version}")
+                # spin up max 5 workers, one per first five jobs in queue
+                num_of_workers = min(record["count"], MAX_NUM_OF_WORKERS)
+                manage_jobs(version, num_of_workers)
+
+
 async def handle_notification(connection, pid, channel, payload):
     logger.info("Notification received from DB")
-
-    records = await connection.fetch(
-        "SELECT meta->>'version' AS version, COUNT(*) FROM jobs_queue WHERE queue LIKE $1 GROUP BY version",
-        f"{QUEUE}%",
-    )
-
-    if not records:
-        logger.info("Queue is empty, nothing to process")
-        return
-
-    for record in records:
-        version = record["version"]
-        with bound_contextvars(version=version):
-            logger.info(f"Found {record['count']} item(s) for {version}")
-            # spin up max 5 workers, one per first five jobs in queue
-            num_of_workers = min(record["count"], MAX_NUM_OF_WORKERS)
-            manage_jobs(version, num_of_workers)
+    await process_queue(connection)
 
 
 async def listen_to_queue(con):
@@ -152,18 +159,40 @@ async def listen_to_queue(con):
     await db_con_termination_event.wait()
 
 
-async def main():
-    dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
+async def run_listener(dsn):
     while True:
         try:
             async with asyncpg.create_pool(dsn=dsn) as pool:
                 async with pool.acquire() as con:
                     await listen_to_queue(con)
         except Exception:
-            logger.exception("ERROR IN QUEUE PROCESSOR")
+            logger.exception("Error in listener")
 
         # wait 1 minute before retrying connection
         await asyncio.sleep(60)
+
+
+async def run_poller(dsn):
+    while True:
+        logger.info("Polling queue...")
+        try:
+            async with asyncpg.create_pool(dsn=dsn) as pool:
+                async with pool.acquire() as con:
+                    await process_queue(con)
+        except Exception:
+            logger.exception("Error in poller")
+
+        # wait 5 minutes before polling again
+        await asyncio.sleep(5 * 60)
+
+
+async def main():
+    dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
+
+    try:
+        await asyncio.wait({asyncio.create_task(run_listener(dsn)), asyncio.create_task(run_poller(dsn))})
+    except BaseException:
+        logger.exception("ERROR IN QUEUE PROCESSOR")
 
 
 if __name__ == "__main__":
