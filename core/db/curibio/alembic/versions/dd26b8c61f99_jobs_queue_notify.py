@@ -22,7 +22,7 @@ def upgrade():
         CREATE OR REPLACE FUNCTION notify_jobs_queue()
         RETURNS TRIGGER AS $$
         BEGIN
-            SELECT pg_notify('jobs_queue', '');
+            PERFORM pg_notify('jobs_queue', '');
         RETURN NEW;
         END;
         $$ LANGUAGE plpgsql;
