@@ -18,7 +18,7 @@ from pulse3D import rendering as renderer
 from pulse3D.constants import PACKAGE_VERSION as PULSE3D_VERSION
 from pulse3D.data_loader import from_file, InstrumentTypes
 from pulse3D.data_loader.utils import get_metadata_cls
-from pulse3D.data_loader.metadata import NormalizationMethods
+from pulse3D.data_loader.metadata import NormalizationMethods, StimInfo
 from pulse3D.peak_finding import LoadedDataWithFeatures
 from pulse3D.pre_analysis import (
     PreProcessedData,
@@ -245,6 +245,12 @@ async def process_item(con, item):
                         )
                     )
                     pre_process_metadata = get_metadata_cls(pre_process_metadata_dict)
+
+                    # TODO refactor p3d code so that this is not necessary
+                    try:
+                        pre_process_metadata.stim_info = StimInfo(**pre_process_metadata.stim_info)
+                    except Exception:
+                        pass
 
                     pre_processed_data = PreProcessedData(
                         tissue_waveforms=pre_process_tissue_waveforms,
