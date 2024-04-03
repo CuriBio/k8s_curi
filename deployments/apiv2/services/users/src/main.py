@@ -212,6 +212,7 @@ async def login_user(request: Request, details: UserLogin):
 
     # select for service specific usage restrictions of the customer
     # suspended is for deactivated accounts and verified is for new users needing to verify through email
+
     # Tanner (7/25/23): need to use separate queries since asyncpg will raise an error if the value passed in to be compared against customer_id is not a UUID
     if isinstance(customer_id, uuid.UUID):
         # if a UUID was given in the request then check against the customer ID

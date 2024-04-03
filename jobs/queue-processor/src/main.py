@@ -1,12 +1,10 @@
 import asyncio
 import asyncpg
 from kubernetes import config, client as kclient
-import json
 import os
 import random
 import structlog
 from structlog.contextvars import bind_contextvars, bound_contextvars, merge_contextvars
-from time import sleep
 
 structlog.configure(
     processors=[
@@ -19,7 +17,6 @@ structlog.configure(
 
 logger = structlog.getLogger()
 
-SECONDS_TO_POLL_DB = int(os.getenv("SECONDS_TO_POLL_DB"))
 ECR_REPO = os.getenv("ECR_REPO")
 MAX_NUM_OF_WORKERS = int(os.getenv("MAX_NUM_OF_WORKERS", default=5))
 QUEUE = os.getenv("QUEUE")
@@ -36,7 +33,10 @@ PULSE3D_UPLOADS_BUCKET = kclient.V1EnvVar(
 )
 
 
-async def create_job(version: str, num_of_workers: int):
+JOB_LOCK = asyncio.Lock()
+
+
+def manage_jobs(version: str, target_num_workers: int):
     # load kube config
     config.load_incluster_config()
     job_api = kclient.BatchV1Api()
@@ -49,9 +49,14 @@ async def create_job(version: str, num_of_workers: int):
     # make sure to only get jobs of specific version
     running_workers_list = job_api.list_namespaced_job(QUEUE, label_selector=f"job_version={version}")
     num_of_active_workers = len(running_workers_list.items)
+    logger.info(f"Found {num_of_active_workers} active v{version} workers")
 
-    logger.info(f"Checking for active {version} workers: {num_of_active_workers} found.")
-    logger.info(f"Starting {num_of_workers - num_of_active_workers} worker(s) for {QUEUE}:{version}.")
+    num_workers_to_create = target_num_workers - num_of_active_workers
+    if num_workers_to_create < 1:
+        logger.info(f"Target number ({target_num_workers}) of v{version} workers already active")
+        return
+
+    logger.info(f"Starting {num_workers_to_create} worker(s) for {QUEUE}:{version}")
 
     POSTGRES_PASSWORD = kclient.V1EnvVar(
         name="POSTGRES_PASSWORD",
@@ -60,12 +65,13 @@ async def create_job(version: str, num_of_workers: int):
         ),
     )
 
-    for count in range(num_of_active_workers + 1, num_of_workers + 1):
+    # adding 1 to get 1-based index for name of worker
+    for count in range(num_of_active_workers + 1, target_num_workers + 1):
         worker_id = hex(random.getrandbits(40))[2:]
         # names can only be alphanumeric and '-' so replacing '.' with '-'
         # Cannot start jobs with the same name so count starting at 1+existing number of jobs running in namespace with version
         formatted_name = f"{QUEUE}-worker-v{'-'.join(version.split('.'))}--{count}--{worker_id}"
-        logger.info(f"Starting {formatted_name}.")
+        logger.info(f"Starting {formatted_name}")
         complete_ecr_repo = f"{ECR_REPO}:{version}"
 
         resources = kclient.V1ResourceRequirements(requests={"memory": "1000Mi"})
@@ -112,35 +118,83 @@ async def create_job(version: str, num_of_workers: int):
         job_api.create_namespaced_job(namespace=QUEUE, body=job)
 
 
-async def get_next_queue_item():
+async def process_queue(con):
+    async with JOB_LOCK:
+        records = await con.fetch(
+            "SELECT meta->>'version' AS version, COUNT(*) FROM jobs_queue WHERE queue LIKE $1 GROUP BY version",
+            f"{QUEUE}%",
+        )
+
+        if not records:
+            logger.info("Queue is empty, nothing to process")
+            return
+
+        for record in records:
+            version = record["version"]
+            with bound_contextvars(version=version):
+                logger.info(f"Found {record['count']} item(s) for {version}")
+                # spin up max 5 workers, one per first five jobs in queue
+                num_of_workers = min(record["count"], MAX_NUM_OF_WORKERS)
+                manage_jobs(version, num_of_workers)
+
+
+async def handle_notification(connection, pid, channel, payload):
+    logger.info("Notification received from DB")
+    await process_queue(connection)
+
+
+async def listen_to_queue(con):
+    """Listen for notifications until the connection closes."""
+    await con.add_listener("jobs_queue", handle_notification)
+
+    db_con_termination_event = asyncio.Event()
+
+    def cancel_listen(connection):
+        # TODO also log some info about the connection / why it was closed?
+        logger.error("DB CONNECTION TERMINATED")
+        db_con_termination_event.set()
+
+    con.add_termination_listener(cancel_listen)
+
+    await db_con_termination_event.wait()
+
+
+async def run_listener(dsn):
+    while True:
+        try:
+            async with asyncpg.create_pool(dsn=dsn) as pool:
+                async with pool.acquire() as con:
+                    await listen_to_queue(con)
+        except Exception:
+            logger.exception("Error in listener")
+
+        # wait 1 minute before retrying connection
+        await asyncio.sleep(60)
+
+
+async def run_poller(dsn):
+    while True:
+        logger.info("Polling queue...")
+        try:
+            async with asyncpg.create_pool(dsn=dsn) as pool:
+                async with pool.acquire() as con:
+                    await process_queue(con)
+        except Exception:
+            logger.exception("Error in poller")
+
+        # wait 5 minutes before polling again
+        await asyncio.sleep(5 * 60)
+
+
+async def main():
     dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
 
-    async with asyncpg.create_pool(dsn=dsn) as pool:
-        async with pool.acquire() as con:
-            records = await con.fetch(
-                "SELECT meta->'version' AS version, COUNT(*) FROM jobs_queue WHERE queue LIKE $1 GROUP BY version",
-                f"{QUEUE}%",
-            )
-
-            if not records:
-                logger.info("Queue is empty, nothing to process.")
-
-            for record in records:
-                version = json.loads(record["version"])
-                with bound_contextvars(version=version):
-                    logger.info(f"Found {record['count']} item(s) for {version}.")
-                    # spin up max 5 workers, one per first five jobs in queue
-                    num_of_workers = min(record["count"], MAX_NUM_OF_WORKERS)
-                    await create_job(version, num_of_workers)
+    try:
+        await asyncio.wait({asyncio.create_task(run_listener(dsn)), asyncio.create_task(run_poller(dsn))})
+    except BaseException:
+        logger.exception("ERROR IN QUEUE PROCESSOR")
 
 
 if __name__ == "__main__":
     bind_contextvars(queue=QUEUE)
-
-    while True:
-        try:
-            logger.info("Checking queue for items")
-            asyncio.run(get_next_queue_item())
-            sleep(SECONDS_TO_POLL_DB)
-        except Exception as e:
-            logger.exception(f"EXCEPTION OCCURRED IN QUEUE PROCESSOR: {e}")
+    asyncio.run(main())

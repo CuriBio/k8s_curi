@@ -5,7 +5,6 @@ metadata:
   name: pulse3d-queue-processor
 spec:
   job_queue: pulse3d
-  seconds_to_poll_db: 15
   max_num_of_workers: 8
   ecr_repo: null
   product_specific:
