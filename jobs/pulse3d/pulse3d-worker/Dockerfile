@@ -20,8 +20,7 @@ RUN python -m venv --copies /app/venv && \
     export CODEARTIFACT_AUTH_TOKEN=$(aws codeartifact get-authorization-token --domain curibio --domain-owner $AWS_ACCOUNT_ID --region us-east-2 --query authorizationToken --output text) && \
     pip install -r ./requirements.txt --extra-index-url=https://aws:$CODEARTIFACT_AUTH_TOKEN@curibio-$AWS_ACCOUNT_ID.d.codeartifact.us-east-2.amazonaws.com/pypi/pulse3d/simple/ && \
     pip install ./lib/jobs && \
-    pip install ./lib/utils &&
-    pip install /Users/tannerpeterson/Documents/Github/pulse3d_rewrite/dist/pulse3d-1.0.2-py3-none-any.whl
+    pip install ./lib/utils
 
 FROM python:3.11-slim as prod
 ARG DEBIAN_FRONTEND=noninteractive
