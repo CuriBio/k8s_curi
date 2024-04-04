@@ -405,15 +405,11 @@ async def process_item(con, item):
                 if metrics_output.metadata.instrument_type == InstrumentTypes.NAUTILAI:
                     renderer_args["normalize_y_axis"] = False
 
-                # TODO remove all this try/finally + chdir once renderer accepts an output dir
-                basedir = os.getcwd()
-                try:
-                    os.chdir(tmpdir)
-                    output_filename = renderer.run(
-                        metrics_output, OutputFormats.XLSX, output_format_args=renderer_args
-                    )
-                finally:
-                    os.chdir(basedir)
+                renderer_args["output_dir"] = tmpdir
+
+                output_filename = renderer.run(
+                    metrics_output, OutputFormats.XLSX, output_format_args=renderer_args
+                )
                 logger.info("Renderer complete")
             except Exception:
                 error_msg = "Output file creation failed"
