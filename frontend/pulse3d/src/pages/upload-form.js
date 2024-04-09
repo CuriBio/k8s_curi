@@ -664,7 +664,6 @@ export default function UploadForm() {
           auto_upload: false,
         }),
       });
-
       if (uploadResponse.status !== 200) {
         // break flow if initial request returns error status code
         failedUploadsMsg.push(filename);
@@ -682,28 +681,47 @@ export default function UploadForm() {
       }
       const uploadDetails = data.params;
       const uploadId = data.id;
-      const formData = new FormData();
 
+      const formData = new FormData();
       Object.entries(uploadDetails.fields).forEach(([k, v]) => {
         formData.append(k, v);
       });
-
       formData.append("file", file);
 
-      const uploadPostRes = await fetch(uploadDetails.url, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (uploadPostRes.status === 204) {
-        await postNewJob(uploadId, filename);
-      } else {
+      let uploadPostRes;
+      try {
+        uploadPostRes = await fetch(uploadDetails.url, {
+          method: "POST",
+          body: formData,
+        });
+      } catch (e) {
+        failedUploadsMsg.push(filename);
+        console.log("ERROR uploading file to s3:  ", e);
+        await handleFailedUploadToS3(uploadId);
+        return;
+      }
+      if (uploadPostRes.status !== 204) {
         failedUploadsMsg.push(filename);
         console.log("ERROR uploading file to s3:  ", await uploadPostRes.json());
+        await handleFailedUploadToS3(uploadId);
+        return;
       }
+
+      await postNewJob(uploadId, filename);
     } catch (e) {
-      // catch all if service worker isn't working
-      console.log("ERROR posting to presigned url");
+      failedUploadsMsg.push(filename);
+      console.log("ERROR handling new file upload:  ", e);
+    }
+  };
+
+  const handleFailedUploadToS3 = async (uploadId) => {
+    const uploadsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads?upload_ids=${uploadId}`;
+
+    const uploadsResponse = await fetch(uploadsURL, {
+      method: "DELETE",
+    });
+    if (uploadsResponse.status !== 200) {
+      console.log(`ERROR deleting DB entry for failed upload with ID: ${uploadId}`);
     }
   };
 
