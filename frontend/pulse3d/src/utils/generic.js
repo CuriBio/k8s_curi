@@ -38,17 +38,25 @@ const isArrayOfNumbers = (arr, positive = false, allowFloat = true) => {
 const isArrayOfWellNames = (arr) => {
   return arrayValidator(arr, () => {
     for (const n of arr) {
-      if (typeof n !== "string" || n.length !== 2) {
-        return false;
-      }
-      const row = n[0];
-      const col = n[1];
-      if (!"ABCD".includes(row) || !"123456".includes(col)) {
+      if (!isValidWellName(n)) {
         return false;
       }
     }
     return true;
   });
+};
+
+const isValidWellName = (name) => {
+  // Tanner (4/10/24): this does not support 1536 well plates and will need to be updated when support for them is required
+  if (typeof name !== "string" || name.length < 2) {
+    return false;
+  }
+  const match = name.match(/^[A-P](?<col>\d{1,2})$/);
+  if (match) {
+    const col = parseInt(match.groups.col);
+    return 1 <= col && col <= 24;
+  }
+  return false;
 };
 
 const loadCsvInputToArray = (commaSeparatedInputs) => {
