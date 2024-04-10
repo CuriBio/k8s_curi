@@ -678,7 +678,7 @@ export default function AnalysisParamForm({
       // load into an array
       let wellNameArr = loadCsvInputToArray(newValue);
       // make sure it's an array of valid well names
-      if (isArrayOfWellNames(wellNameArr, true)) {
+      if (isArrayOfWellNames(wellNameArr)) {
         formattedWellNames = Array.from(new Set(wellNameArr));
       } else {
         setParamErrors({

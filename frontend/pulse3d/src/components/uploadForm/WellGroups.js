@@ -137,7 +137,7 @@ export default function WellGroups({ setAnalysisParams, analysisParams, setWellG
       // load into an array
       let wellNameArr = loadCsvInputToArray(wells);
       // make sure it's an array of valid well names
-      if (isArrayOfWellNames(wellNameArr, true)) {
+      if (isArrayOfWellNames(wellNameArr)) {
         formattedWellNames = Array.from(new Set(wellNameArr));
       } else {
         wellErrMsg = "*Must be comma-separated Well Names (i.e. A1, D6)";
