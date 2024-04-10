@@ -495,12 +495,12 @@ export default function UploadForm() {
         setUsageModalLabels(modalObj.jobsReachedAfterAnalysis);
         setUsageModalState(true);
       } else if (jobResponse.status !== 200 || (jobData.error && jobData.error == "AuthorizationError")) {
-        failedUploadsMsg.push(filename);
         console.log("ERROR posting new job");
+        failedUploadsMsg.push(filename);
       }
     } catch (e) {
-      failedUploadsMsg.push(filename);
       console.log("ERROR posting new job", e);
+      failedUploadsMsg.push(filename);
     }
   };
 
@@ -572,8 +572,8 @@ export default function UploadForm() {
         }
       } catch (e) {
         console.log(`ERROR unable to read file: ${file.filename} ${e}`);
-        failedUploadsMsg.push(file.filename);
         isValidUpload = false;
+        failedUploadsMsg.push(file.filename);
       }
 
       return !isValidUpload;
@@ -666,8 +666,8 @@ export default function UploadForm() {
       });
       if (uploadResponse.status !== 200) {
         // break flow if initial request returns error status code
-        failedUploadsMsg.push(filename);
         console.log("ERROR uploading file metadata to DB:  ", await uploadResponse.json());
+        failedUploadsMsg.push(filename);
         return;
       }
 
@@ -695,15 +695,15 @@ export default function UploadForm() {
           body: formData,
         });
       } catch (e) {
-        failedUploadsMsg.push(filename);
         console.log("ERROR uploading file to s3:  ", e);
         await handleFailedUploadToS3(uploadId);
+        failedUploadsMsg.push(filename);
         return;
       }
       if (uploadPostRes.status !== 204) {
-        failedUploadsMsg.push(filename);
-        console.log("ERROR uploading file to s3:  ", await uploadPostRes.json());
+        console.log(`ERROR (${uploadPostRes.status}) uploading file to s3:  `, await uploadPostRes.text());
         await handleFailedUploadToS3(uploadId);
+        failedUploadsMsg.push(filename);
         return;
       }
 
@@ -717,11 +717,18 @@ export default function UploadForm() {
   const handleFailedUploadToS3 = async (uploadId) => {
     const uploadsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads?upload_ids=${uploadId}`;
 
-    const uploadsResponse = await fetch(uploadsURL, {
-      method: "DELETE",
-    });
+    let uploadsResponse;
+    try {
+      uploadsResponse = await fetch(uploadsURL, {
+        method: "DELETE",
+      });
+    } catch (e) {
+      console.log(`ERROR deleting DB entry for failed upload with ID: ${uploadId}`, e);
+    }
     if (uploadsResponse.status !== 200) {
-      console.log(`ERROR deleting DB entry for failed upload with ID: ${uploadId}`);
+      console.log(
+        `ERROR (${uploadsResponse.status}) deleting DB entry for failed upload with ID: ${uploadId}`
+      );
     }
   };
 
