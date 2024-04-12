@@ -8,10 +8,10 @@ patches:
   - patch: |-
       - op: replace
         path: /spec/template/spec/containers/0/image
-        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/jobs-operator:0.0.3"
+        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/jobs-operator:0.1.0"
       - op: add
         path: /spec/template/spec/containers/0/env/0/value
-        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/queue-processor:0.0.12"
+        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/queue-processor:0.1.0"
     target:
       kind: Deployment
       name: operators

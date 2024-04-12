@@ -212,20 +212,22 @@ async def login_user(request: Request, details: UserLogin):
 
     # select for service specific usage restrictions of the customer
     # suspended is for deactivated accounts and verified is for new users needing to verify through email
+
     # Tanner (7/25/23): need to use separate queries since asyncpg will raise an error if the value passed in to be compared against customer_id is not a UUID
     if isinstance(customer_id, uuid.UUID):
         # if a UUID was given in the request then check against the customer ID
         select_query = (
-            "SELECT password, id, failed_login_attempts, suspended, customer_id FROM users "
-            "WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND verified='t'"
+            "SELECT u.password, u.id, u.failed_login_attempts, u.suspended AS suspended, u.customer_id, c.suspended AS customer_suspended "
+            "FROM users u JOIN customers c ON u.customer_id=c.id "
+            "WHERE u.deleted_at IS NULL AND u.name=$1 AND u.customer_id=$2 AND u.verified='t'"
         )
     else:
         # if no UUID given, the check against the customer account alias
         # TODO should make sure an alias is actually set here?
         select_query = (
-            "SELECT u.password, u.id, u.failed_login_attempts, u.suspended, u.customer_id "
-            "FROM users AS u JOIN customers AS c ON u.customer_id=c.id "
-            "WHERE u.deleted_at IS NULL AND u.name=$1 AND LOWER(c.alias)=LOWER($2) AND u.verified='t'"
+            "SELECT u.password, u.id, u.failed_login_attempts, u.suspended AS suspended, u.customer_id, c.suspended AS customer_suspended "
+            "FROM users u JOIN customers c ON u.customer_id=c.id "
+            "WHERE u.deleted_at IS NULL AND u.name=$1 AND c.alias IS NOT NULL AND LOWER(c.alias)=LOWER($2) AND u.verified='t'"
         )
 
     client_type = details.client_type if details.client_type else "unknown"
@@ -249,10 +251,13 @@ async def login_user(request: Request, details: UserLogin):
 
             pw = details.password.get_secret_value()
 
-            # verify password, else raise LoginError
+            # this will raise a LoginError if there are issues with the credentials or the user is suspended
             await _verify_password(con, account_type, pw, select_query_result)
 
-            #  get scopes from account_scopes table
+            if select_query_result["customer_suspended"]:
+                raise LoginError("The customer ID for this account has been deactivated.")
+
+            # get scopes from account_scopes table
             scopes = await get_account_scopes(con, user_id, False)
 
             # users logging into the dashboard should not have usage returned because they need to select a product from the landing page first to be given correct limits

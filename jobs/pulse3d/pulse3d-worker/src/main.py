@@ -18,7 +18,7 @@ from pulse3D import rendering as renderer
 from pulse3D.constants import PACKAGE_VERSION as PULSE3D_VERSION
 from pulse3D.data_loader import from_file, InstrumentTypes
 from pulse3D.data_loader.utils import get_metadata_cls
-from pulse3D.data_loader.metadata import NormalizationMethods, StimInfo
+from pulse3D.data_loader.metadata import NormalizationMethods
 from pulse3D.peak_finding import LoadedDataWithFeatures
 from pulse3D.pre_analysis import (
     PreProcessedData,
@@ -96,6 +96,7 @@ def _create_file_info(base_dir: str, upload_prefix: str, job_id: str) -> dict[st
 
 def _upload_pre_zip(data_container, file_info, pre_step_name) -> None:
     try:
+        logger.info(f"Uploading {pre_step_name} data to S3")
         zipfile_path = file_info[pre_step_name]["file_path"]
         with ZipFile(zipfile_path, "w") as z:
             for data_type in ("tissue", "stim"):
@@ -120,7 +121,7 @@ def _upload_pre_zip(data_container, file_info, pre_step_name) -> None:
         upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=s3_key, file=zipfile_path)
         logger.info(f"Uploaded {pre_step_name} data to S3 under key: {s3_key}")
     except Exception:
-        logger.exception(f"Uploading {pre_step_name} data to S3 failed")
+        logger.exception(f"Upload of {pre_step_name} data to S3 failed")
         raise
 
 
@@ -132,6 +133,9 @@ async def process_item(con, item):
     s3_client = boto3.client("s3")
     job_metadata = {"processed_by": PULSE3D_VERSION}
     outfile_key = None
+
+    # Tanner (3/27/24): this is specifically for human-readable error messages. The actual message in the exception is handled separately
+    error_msg = None
 
     try:
         try:
@@ -205,7 +209,7 @@ async def process_item(con, item):
                 )
                 interactive_analysis = True
                 logger.info(f"Downloaded peaks and valleys to {file_info['peak_finding']['file_path']}")
-            except Exception:  # TODO catch only boto3 errors here
+            except Exception:  # TODO catch only boto3 errors here?
                 logger.info("No existing peaks and valleys found for recording")
 
             # download existing pre-process data
@@ -246,12 +250,6 @@ async def process_item(con, item):
                     )
                     pre_process_metadata = get_metadata_cls(pre_process_metadata_dict)
 
-                    # TODO refactor p3d code so that this is not necessary
-                    try:
-                        pre_process_metadata.stim_info = StimInfo(**pre_process_metadata.stim_info)
-                    except Exception:
-                        pass
-
                     pre_processed_data = PreProcessedData(
                         tissue_waveforms=pre_process_tissue_waveforms,
                         stim_waveforms=pre_process_stim_waveforms,
@@ -268,15 +266,19 @@ async def process_item(con, item):
                     loaded_data = from_file(recording_path)
                 except Exception:
                     logger.exception("DataLoader failed")
+                    error_msg = "Loading recording data failed"
                     raise
 
                 try:
-                    logger.info("Starting Pre-Processing")
+                    logger.info("Starting Pre-Analysis pre-processing")
                     pre_processed_data = pre_process(loaded_data)
                 except UnableToConvergeError:
-                    raise Exception("Unable to converge due to low quality of data")
+                    error_msg = "Unable to converge, low quality calibration data"
+                    logger.exception(error_msg)
+                    raise
                 except Exception:
-                    logger.exception("Pre-Processing failed")
+                    error_msg = "Pre-Analysis failed (1)"
+                    logger.exception("Pre-Analysis pre-processing failed")
                     raise
 
                 # upload pre-processed data
@@ -286,6 +288,7 @@ async def process_item(con, item):
                 logger.info("Starting Pre-Analysis")
                 pre_analyzed_data = process(pre_processed_data, **pre_analysis_params)
             except Exception:
+                error_msg = "Pre-Analysis failed (2)"
                 logger.exception("Pre-Analysis failed")
                 raise
 
@@ -293,15 +296,18 @@ async def process_item(con, item):
             _upload_pre_zip(pre_analyzed_data, file_info, "pre_analysis")
 
             try:
+                logger.info("Starting Pre-Analysis post-processing")
                 # mantarray always uses the same normalization
                 if pre_analyzed_data.metadata.instrument_type == InstrumentTypes.MANTARRAY:
                     post_process_params["normalization_method"] = NormalizationMethods.F_SUB_FMIN
 
                 analyzable_data = post_process(pre_analyzed_data, **post_process_params)
             except Exception:
-                logger.exception("Error windowing data")
+                error_msg = "Pre-Analysis failed (3)"
+                logger.exception("Pre-Analysis post-processing failed")
 
             if interactive_analysis:
+                logger.info("Loading IA data")
                 try:
                     features_df = pl.read_parquet(file_info["peak_finding"]["file_path"])
 
@@ -314,12 +320,14 @@ async def process_item(con, item):
                         **asdict(analyzable_data), tissue_features=features_df
                     )
 
-                    logger.info("Loaded features from IA")
+                    logger.info("Loaded data from IA")
                 except Exception:
-                    logger.exception("Loading features from IA failed")
+                    error_msg = "Loading interactive analysis data failed"
+                    logger.exception("Loading IA data failed")
                     raise
             else:
                 try:
+                    logger.info("Running PeakDetector")
                     peak_detector_args = {
                         param: val
                         for param in (
@@ -334,13 +342,14 @@ async def process_item(con, item):
                         )
                         if (val := analysis_params.get(param)) is not None
                     }
-                    logger.info("Running PeakDetector")
                     data_with_features = peak_finder.run(analyzable_data, alg_args=peak_detector_args)
                 except Exception:
+                    error_msg = "Peak detection failed"
                     logger.exception("PeakDetector failed")
                     raise
 
             # Windowing is applied here in the worker, not by IA (just sets the bounds), so always upload the parquet file in case a change is made here
+            logger.info("Uploading peak detection results")
             try:
                 data_with_features.tissue_features.write_parquet(file_info["peak_finding"]["file_path"])
                 upload_file_to_s3(
@@ -349,15 +358,14 @@ async def process_item(con, item):
                     file=file_info["peak_finding"]["file_path"],
                 )
                 logger.info(
-                    f"Uploaded features to {PULSE3D_UPLOADS_BUCKET}/{file_info['peak_finding']['s3_key']}"
+                    f"Uploaded peak detection results to {PULSE3D_UPLOADS_BUCKET}/{file_info['peak_finding']['s3_key']}"
                 )
             except Exception:
-                logger.exception("Upload failed")
+                logger.exception("Upload of peak detection results failed")
                 raise
 
             try:
-                # TODO sync these values ?
-                # twitch_widths v. widths --- baseline_widths_to_use v. baseline_widths
+                logger.info("Creating metrics")
                 metrics_args = {
                     arg_name: val
                     for arg_name, orig_name in (
@@ -367,13 +375,16 @@ async def process_item(con, item):
                     )
                     if (val := analysis_params.get(orig_name)) is not None
                 }
-                logger.info("Running metrics")
                 metrics_output = metrics.run(data_with_features, **metrics_args)
+                logger.info("Created metrics")
             except Exception:
+                error_msg = "Metric creation failed"
                 logger.exception("Metrics failed")
                 raise
 
             try:
+                logger.info("Running renderer")
+
                 renderer_args = {
                     arg_name: val
                     for arg_name in (
@@ -394,22 +405,19 @@ async def process_item(con, item):
                 if metrics_output.metadata.instrument_type == InstrumentTypes.NAUTILAI:
                     renderer_args["normalize_y_axis"] = False
 
-                logger.info("Running renderer")
+                renderer_args["output_dir"] = tmpdir
 
-                # TODO remove all this try/finally + chdir once renderer accepts an output dir
-                basedir = os.getcwd()
-                try:
-                    os.chdir(tmpdir)
-                    output_filename = renderer.run(
-                        metrics_output, OutputFormats.XLSX, output_format_args=renderer_args
-                    )
-                finally:
-                    os.chdir(basedir)
+                output_filename = renderer.run(
+                    metrics_output, OutputFormats.XLSX, output_format_args=renderer_args
+                )
+                logger.info("Renderer complete")
             except Exception:
+                error_msg = "Output file creation failed"
                 logger.exception("Renderer failed")
                 raise
 
             try:
+                logger.info("Uploading renderer output")
                 outfile_prefix = prefix.replace("uploads/", "analyzed/test-pulse3d/")
                 outfile_key = f"{outfile_prefix}/{job_id}/{output_filename}"
                 upload_file_to_s3(
@@ -417,7 +425,7 @@ async def process_item(con, item):
                 )
                 logger.info(f"Uploaded {output_filename} to {PULSE3D_UPLOADS_BUCKET}/{outfile_key}")
             except Exception:
-                logger.exception("Upload failed")
+                logger.exception("Upload of renderer output failed")
                 raise
 
             try:
@@ -467,8 +475,11 @@ async def process_item(con, item):
                 raise
 
     except Exception as e:
-        job_metadata["error"] = f"{str(e)}"
+        job_metadata["error"] = str(e)
         result = "error"
+        # some errors do not include an error message
+        if error_msg:
+            job_metadata["error_msg"] = error_msg
     else:
         logger.info("Job complete")
         result = "finished"

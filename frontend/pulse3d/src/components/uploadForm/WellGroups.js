@@ -55,20 +55,19 @@ export default function WellGroups({ setAnalysisParams, analysisParams, setWellG
   const [localGroups, setLocalGroups] = useState([]);
 
   useEffect(() => {
+    let wellGroupsUpdate = {};
     let errExists = false;
     for (const [idx, { name, wells }] of localGroups.entries()) {
       const nameErrMsg = validateGroupName(name);
       const { wellErrMsg, formattedWellNames } = validateWellNames(wells);
       errorMsgs[idx].name = nameErrMsg;
       errorMsgs[idx].wells = wellErrMsg;
-      // else if no error messages, set to state to get sent in analysis params
-      if (errorMsgs[idx].name.length === 0 && errorMsgs[idx].wells.length === 0) {
-        analysisParams.wellGroups[name] = formattedWellNames;
-        setAnalysisParams({ ...analysisParams });
-      } else {
+      wellGroupsUpdate[name] = formattedWellNames;
+      if (errorMsgs[idx].name.length !== 0 || errorMsgs[idx].wells.length !== 0) {
         errExists = true;
       }
     }
+    setAnalysisParams({ ...analysisParams, wellGroups: wellGroupsUpdate });
     // pass error state up to parent to enable or disable submit button
     setWellGroupErr(errExists);
     setErrorMsgs([...errorMsgs]);
@@ -77,7 +76,7 @@ export default function WellGroups({ setAnalysisParams, analysisParams, setWellG
   useEffect(() => {
     // reset well groups after reset or submit buttons are selected
     const { wellGroups } = analysisParams;
-    if (Object.keys(wellGroups).length === 0) {
+    if (Object.keys(wellGroups).length === 0 && localGroups.length !== 0) {
       setLocalGroups([]);
     }
   }, [analysisParams]);
@@ -114,8 +113,6 @@ export default function WellGroups({ setAnalysisParams, analysisParams, setWellG
         wells: existingGroups[groupIdxToEdit].wells,
       };
       existingGroups.splice(groupIdxToEdit, 1, newGroup);
-    } else {
-      existingGroups[groupIdxToEdit].name = newName;
     }
 
     setLocalGroups(existingGroups);
@@ -124,10 +121,10 @@ export default function WellGroups({ setAnalysisParams, analysisParams, setWellG
   const updateWellGroups = (wells, groupIdxToEdit) => {
     const existingGroups = JSON.parse(JSON.stringify(localGroups));
     // validate names are accepted well names and return as array instead of string
-    if (groupIdxToEdit < existingGroups.length) existingGroups[groupIdxToEdit].wells = wells;
-    else {
-      existingGroups[groupIdxToEdit].wells = newName;
+    if (groupIdxToEdit < existingGroups.length) {
+      existingGroups[groupIdxToEdit].wells = wells;
     }
+
     // make sure name has been enteres first
     setLocalGroups(existingGroups);
   };
@@ -140,7 +137,7 @@ export default function WellGroups({ setAnalysisParams, analysisParams, setWellG
       // load into an array
       let wellNameArr = loadCsvInputToArray(wells);
       // make sure it's an array of valid well names
-      if (isArrayOfWellNames(wellNameArr, true)) {
+      if (isArrayOfWellNames(wellNameArr)) {
         formattedWellNames = Array.from(new Set(wellNameArr));
       } else {
         wellErrMsg = "*Must be comma-separated Well Names (i.e. A1, D6)";
