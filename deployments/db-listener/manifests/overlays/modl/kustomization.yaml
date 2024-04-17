@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: db-listener
+resources:
+  - ../../base
+  - curibio-listener-creds.yaml
+
+patches:
+  - patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/image
+        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/db-listener:0.1.0"
+    target:
+      kind: Deployment
+      name: db-listener

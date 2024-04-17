@@ -1,0 +1,38 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: db-listener
+  namespace: db-listener
+  labels:
+    app: db-listener
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: db-listener
+  template:
+    metadata:
+      labels:
+        app: db-listener
+        version: latest
+    spec:
+      nodeSelector:
+        group: services
+      containers:
+        - name: db-listener
+          env:
+            - name: POSTGRES_USER
+              value: curibio_listener
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: curibio-listener-creds
+                  key: curibio_listener
+            - name: POSTGRES_SERVER
+              value: psql-rds.default
+            - name: POSTGRES_DB
+              value: curibio
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 7000

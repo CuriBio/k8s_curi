@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: db-listener-deployment
+  namespace: db-listener
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: deployments
+  source:
+    path: deployments/db-listener/manifests/overlays/test
+    repoURL: https://github.com/CuriBio/k8s_curi.git
+    targetRevision: HEAD
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true

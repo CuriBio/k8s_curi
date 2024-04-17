@@ -50,3 +50,14 @@ patches:
       kind: Application
       name: jobs-operator
       namespace: kopf
+  - patch: |-
+      - op: replace
+        path: /spec/source/path
+        value: "deployments/db-listener/manifests/overlays/modl"
+      - op: replace
+        path: /spec/source/targetRevision
+        value: modl-qc
+    target:
+      kind: Application
+      name: db-listener-deployment
+      namespace: db-listener

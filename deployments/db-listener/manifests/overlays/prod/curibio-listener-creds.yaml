@@ -1,0 +1,14 @@
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  creationTimestamp: null
+  name: curibio-listener-creds
+  namespace: db-listener
+spec:
+  encryptedData:
+    curibio_listener: TODO
+  template:
+    metadata:
+      creationTimestamp: null
+      name: curibio-listener-creds
+      namespace: db-listener
