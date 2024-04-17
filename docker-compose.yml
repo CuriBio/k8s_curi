@@ -86,3 +86,14 @@ services:
     ports:
       - "5432:5432"
     platform: "linux/amd64"
+  apiv2-event-broker:
+    build:
+      context: .
+      dockerfile: ./deployments/apiv2/services/event-broker/Dockerfile
+    environment:
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+    volumes:
+      - ~/.aws/:/home/main_user/.aws:ro
+    ports:
+      - "9002:9002"
+    platform: "linux/amd64"
