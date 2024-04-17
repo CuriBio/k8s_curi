@@ -36,3 +36,6 @@ module "mantarray" {
   cluster_name = var.cluster_name
 }
 
+module "event_broker" {
+  source = "./event-broker"
+}

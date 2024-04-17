@@ -7,3 +7,4 @@ resources:
 - apiv2-dep.yaml
 - users-svc.yaml
 - mantarray-svc.yaml
+- event-broker-svc.yaml
