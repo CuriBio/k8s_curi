@@ -38,11 +38,3 @@ patches:
       kind: Application
       name: jobs-operator
       namespace: kopf
-  - patch: |-
-      - op: replace
-        path: /spec/source/path
-        value: "deployments/db-listener/manifests/overlays/prod"
-    target:
-      kind: Application
-      name: db-listener-deployment
-      namespace: db-listener
