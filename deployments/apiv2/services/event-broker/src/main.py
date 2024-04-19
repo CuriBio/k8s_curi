@@ -8,7 +8,6 @@ from fastapi import FastAPI, Request, Depends, status, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 import structlog
-import uvicorn
 
 from auth import ProtectedAny, Token, decode_token
 from utils.db import AsyncpgPoolDep
@@ -201,8 +200,3 @@ async def update_token(request: Request, token=Depends(ProtectedAny("TODO scopes
         await USER_MANAGER.update(token)
     except UserNotConnectedError:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
-
-
-# TODO remove this
-if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=1738)
