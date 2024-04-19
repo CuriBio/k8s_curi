@@ -75,6 +75,19 @@ spec:
             - containerPort: 9000
         - name: event-broker
           env:
+            - name: CLUSTER_NAME
+              value: test
+            - name: POSTGRES_USER
+              value: curibio_event_broker
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: curibio-event-broker-creds
+                  key: curibio_event_broker
+            - name: POSTGRES_SERVER
+              value: psql-rds.default
+            - name: POSTGRES_DB
+              value: curibio
             - name: JWT_SECRET_KEY
               valueFrom:
                 secretKeyRef:
