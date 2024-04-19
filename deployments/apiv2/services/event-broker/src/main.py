@@ -2,6 +2,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from uuid import UUID
+import json
 
 from fastapi import FastAPI, Request, Depends, status, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,6 +21,12 @@ logger = structlog.stdlib.get_logger("api.access")
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
 
 
+MESSAGE_RETRY_TIMEOUT = 15000
+
+
+# TODO split up this file into multiple files
+
+
 class UserNotConnectedError(Exception):
     pass
 
@@ -32,22 +39,22 @@ class UserInfo:
 
 
 class UserManager:
-    def __init__(self):
+    def __init__(self) -> None:
         self._users: dict[UUID, UserInfo] = {}
         self._lock = asyncio.Lock()
 
-    async def add(self, token) -> UserInfo:
+    async def add(self, token: Token) -> UserInfo:
         # TODO how to handle multiple connections for the same user?
         user_info = UserInfo(token=token, token_update_event=asyncio.Event(), queue=asyncio.PriorityQueue())
         async with self._lock:
             self._users[token.account_id] = user_info
         return user_info
 
-    async def remove(self, token):
+    async def remove(self, token: Token) -> None:
         async with self._lock:
             self._users.pop(token.account_id, None)
 
-    async def update(self, token):
+    async def update(self, token: Token) -> None:
         async with self._lock:
             try:
                 user_info = self._users[token.account_id]
@@ -58,20 +65,24 @@ class UserManager:
                 user_info.token = token
                 user_info.token_update_event.set()
 
-    async def send(self, account_id, msg):
+    async def send(self, account_id: UUID, msg: str) -> None:
         async with self._lock:
-            try:
-                await self._users[account_id].queue.put(msg)
-            except KeyError:
-                logger.error(f"No queue found for user {account_id}")
+            if user_info := self._users.get(account_id):
+                await user_info.queue.put(msg)
 
-    async def broadcast(self, msg):
+    async def broadcast_to_customer(self, customer_id: UUID, msg: str):
+        async with self._lock:
+            for user_info in self._users.values():
+                if user_info.token.customer_id == customer_id:
+                    await user_info.queue.put(msg)
+
+    async def broadcast_all(self, msg: str) -> None:
         async with self._lock:
             for user_info in self._users.values():
                 await user_info.queue.put(msg)
 
 
-QUEUE_MANAGER = UserManager()
+USER_MANAGER = UserManager()
 
 
 async def event_generator(request, user_info):
@@ -95,12 +106,33 @@ async def event_generator(request, user_info):
     except Exception:
         logger.exception(f"ERROR - {account_id=}")
 
-    await QUEUE_MANAGER.remove(user_info.token)
+    await USER_MANAGER.remove(user_info.token)
 
 
 async def handle_notification(connection, pid, channel, payload):
-    logger.info("Notification received from DB")
-    # TODO figure out who all to send the event to
+    payload = json.loads(payload)
+    info_to_log = {
+        k: payload.get(k) for k in ["type", "table", "upload_id", "job_id", "customer_id", "recipients"]
+    }
+    logger.info(f"Notification received from DB: {info_to_log}")
+
+    payload["usage_type"] = "jobs" if "job" in payload.pop("table") else "uploads"
+    payload["product"] = payload.pop("type")
+
+    # send update to anyone who has access to this upload/job
+    data_update_msg = json.dumps({"event": "data_update", "data": payload, "retry": MESSAGE_RETRY_TIMEOUT})
+    for recipient_id in payload["recipients"]:
+        await USER_MANAGER.send(UUID(recipient_id), data_update_msg)
+
+    # tell any connected user under this customer ID that the upload/job usage has increased for the given product
+    usage_update_msg = json.dumps(
+        {
+            "event": "usage_update",
+            "data": {k: payload[k] for k in ("usage_type", "product")},
+            "retry": MESSAGE_RETRY_TIMEOUT,
+        }
+    )
+    await USER_MANAGER.broadcast_to_customer(payload["customer_id"], usage_update_msg)
 
 
 async def listen_to_queue(con):
@@ -158,7 +190,7 @@ app.add_middleware(
 async def add_event_source(request: Request, token=Depends(ProtectedAny("TODO scopes"))):
     logger.info(f"User {token.account_id} connected")
 
-    user_info = await QUEUE_MANAGER.add(token)
+    user_info = await USER_MANAGER.add(token)
 
     return EventSourceResponse(event_generator(request, user_info), send_timeout=5)
 
@@ -166,7 +198,7 @@ async def add_event_source(request: Request, token=Depends(ProtectedAny("TODO sc
 @app.post("/public/token")
 async def update_token(request: Request, token=Depends(ProtectedAny("TODO scopes"))):
     try:
-        await QUEUE_MANAGER.update(token)
+        await USER_MANAGER.update(token)
     except UserNotConnectedError:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
 
