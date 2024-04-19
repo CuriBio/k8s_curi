@@ -75,8 +75,6 @@ spec:
             - containerPort: 9000
         - name: event-broker
           env:
-            - name: CLUSTER_NAME
-              value: test
             - name: POSTGRES_USER
               value: curibio_event_broker
             - name: POSTGRES_PASSWORD
