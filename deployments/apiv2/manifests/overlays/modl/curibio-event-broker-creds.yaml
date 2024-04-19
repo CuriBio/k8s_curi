@@ -1,0 +1,14 @@
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  creationTimestamp: null
+  name: curibio_event_broker
+  namespace: apiv2
+spec:
+  encryptedData:
+    curibio_event_broker: AgCD8HG0y85cfaPWXyGZDq3SE20PV5Q1bXd8shVL1HF1W1CAHHxdV1dSr6t6itAGvf82hUo4wdbowBS3lbXQ/cvWggfEK3rXPhPZf5ZaoFfkqsL5DEEZ36hqJu1v4UFOaYY+s5zysLKTWsr6NVPiOlmsA1N50LVaGqiHM87KjqE6hMpw2S1FPLgm1RnE5x3j9FrugNadizE1OyycOwfxLNmnth0jDHvpzpUm7ASdquoDa8ZBvu8da1YP82q/N7dOFIOVqEaZ1xqy4zXVTu9pzGMkiMdspXCtQ9RmW4oiRv7jDJhhVHMOKxwTjXHKdhRnPKl2O9ROY1wXn1Cn/+Gc6O+C/Z0cGgWDD/2tpZSBlhudPahKc7S5D4030m5szOTTs00sqmtDYnKEG0Y3IoZQDUzK2N/QK2WDDBd1tNsU5c3YO7k0E6j57ctCYwniXTAs8BBbRTk1ArWnHXA3QyenKX7uDJv2lBg+2p6z3/qqTTKg7m5F0F03g4k1fjP72JytXEkM4k6Rd0kD0IiXduF/cw21l7R4ScZRr72mMaFRh3i9dfi2QR9yRV7XaO1U8TJrrnjx/DHskbj5gJ6LIMrGszzyy/l6VH0riMuc9aiQdDrAxg+J2yJ9RmK4yGZ0WHK7q5py+gq5VkGKGKRJL7+Kf7HRtl2RsYlc11BQZtdb3Bq6F+qOoxXSIgKUE3o1kG4ss34uBRjKLsLvZo2zRlLTxI2+VJQ7Dcd/vg==
+  template:
+    metadata:
+      creationTimestamp: null
+      name: curibio_event_broker
+      namespace: apiv2
