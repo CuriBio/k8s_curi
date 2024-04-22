@@ -6,6 +6,7 @@ import { useEffect, createContext, useState } from "react";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import { deepCopy } from "@/utils/generic";
+import useEventSource from "@/utils/event_source";
 
 /*
   This theme is to be used with materialUI components
@@ -67,7 +68,7 @@ function Pulse({ Component, pageProps }) {
   const [availableScopes, setAvailableScopes] = useState({ admin: [], user: [] });
   const [isCuriAdmin, setIsCuriAdmin] = useState(false);
   const [preferences, setPreferences] = useState({});
-
+  const [connectEvtSource, disconnectEvtSource] = useEventSource();
   const [productPage, setProductPage] = useState();
 
   const updateProductPage = (product) => {
@@ -145,6 +146,7 @@ function Pulse({ Component, pageProps }) {
         } else if (!isAccountPage) {
           // ignore all the following messages if on the account page
           if (data.msgType === "logout") {
+            disconnectEvtSource();
             if (currentPage !== "/login") {
               // logged out due to inactivity message shouldn't show if already on the login page
               setLoggedOutAlert(true);
@@ -155,6 +157,7 @@ function Pulse({ Component, pageProps }) {
             if (data.isLoggedIn) {
               setAvailableScopes({ admin: data.adminScopes, user: data.userScopes });
               setIsCuriAdmin(newAccountInfo.accountScope.find((scope) => scope === "curi:admin"));
+              connectEvtSource();
               // the router pathname must be sent to the SW and then sent back here since for some reason this message handler can't grab the current page
               setAccountInfo(newAccountInfo);
               setPreferences(data.preferences); // will be {} is None
@@ -174,10 +177,13 @@ function Pulse({ Component, pageProps }) {
                   shallow: true,
                 });
               }
-            } else if (currentPage !== "/login") {
-              // always redirect to login page if not logged in
-              setAccountInfo(newAccountInfo);
-              router.replace("/login", undefined, { shallow: true });
+            } else {
+              disconnectEvtSource();
+              if (currentPage !== "/login") {
+                // always redirect to login page if not logged in
+                setAccountInfo(newAccountInfo);
+                router.replace("/login", undefined, { shallow: true });
+              }
             }
           }
         }

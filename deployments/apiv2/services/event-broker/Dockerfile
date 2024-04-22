@@ -21,6 +21,8 @@ ENV PATH /app/venv/bin:$PATH
 
 WORKDIR /app
 COPY --chown=main_user:main_group ./deployments/apiv2/services/event-broker/src/main.py ./
+COPY --chown=main_user:main_group ./deployments/apiv2/services/mantarray/src/core ./core
+COPY --chown=main_user:main_group ./deployments/apiv2/services/mantarray/disable_log_config.yaml ./
 
 ENV PYTHONUNBUFFERED 1
 # add security headers

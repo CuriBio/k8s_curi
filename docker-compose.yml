@@ -93,7 +93,7 @@ services:
     environment:
       - POSTGRES_SERVER=host.docker.internal
       - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${CURIBIO_JOBS_USER}
+      - POSTGRES_USER=curibio_event_broker
       - POSTGRES_PASSWORD=${EVENT_BROKER_PASS}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - AWS_PROFILE=${AWS_PROFILE}

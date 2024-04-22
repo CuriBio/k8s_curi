@@ -3,13 +3,18 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from uuid import UUID
 import json
+import time
+from typing import Any
 
-from fastapi import FastAPI, Request, Depends, status, HTTPException
+from fastapi import FastAPI, Request, Depends, status, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
+from starlette_context import context, request_cycle_context
 import structlog
+from structlog.contextvars import bind_contextvars, clear_contextvars
+from uvicorn.protocols.utils import get_path_with_query_string
 
-from auth import ProtectedAny, Token, decode_token
+from auth import ProtectedAny, Token, decode_token, ScopeTags
 from utils.db import AsyncpgPoolDep
 from utils.logging import setup_logger
 from core.config import DATABASE_URL, DASHBOARD_URL
@@ -64,12 +69,12 @@ class UserManager:
                 user_info.token = token
                 user_info.token_update_event.set()
 
-    async def send(self, account_id: UUID, msg: str) -> None:
+    async def send(self, account_id: UUID, msg: dict[str, Any]) -> None:
         async with self._lock:
             if user_info := self._users.get(account_id):
                 await user_info.queue.put(msg)
 
-    async def broadcast_to_customer(self, customer_id: UUID, msg: str):
+    async def broadcast_to_customer(self, customer_id: UUID, msg: dict[str, Any]):
         async with self._lock:
             for user_info in self._users.values():
                 if user_info.token.customer_id == customer_id:
@@ -94,8 +99,7 @@ async def event_generator(request, user_info):
                 decode_token(user_info.token)
             except Exception:
                 logger.info(f"User {account_id} token has expired, prompting update")
-                yield {"event": "token_expired"}
-                # TODO send message to client instructing it to hit the token update route
+                yield {"event": "token_expired", "data": None, "retry": MESSAGE_RETRY_TIMEOUT}
                 await asyncio.wait_for(user_info.token_update_event.wait(), timeout=60)
             yield msg
     except asyncio.CancelledError:
@@ -119,18 +123,16 @@ async def handle_notification(connection, pid, channel, payload):
     payload["product"] = payload.pop("type")
 
     # send update to anyone who has access to this upload/job
-    data_update_msg = json.dumps({"event": "data_update", "data": payload, "retry": MESSAGE_RETRY_TIMEOUT})
+    data_update_msg = {"event": "data_update", "data": payload, "retry": MESSAGE_RETRY_TIMEOUT}
     for recipient_id in payload["recipients"]:
         await USER_MANAGER.send(UUID(recipient_id), data_update_msg)
 
     # tell any connected user under this customer ID that the upload/job usage has increased for the given product
-    usage_update_msg = json.dumps(
-        {
-            "event": "usage_update",
-            "data": {k: payload[k] for k in ("usage_type", "product")},
-            "retry": MESSAGE_RETRY_TIMEOUT,
-        }
-    )
+    usage_update_msg = {
+        "event": "usage_update",
+        "data": {k: payload[k] for k in ("usage_type", "product")},
+        "retry": MESSAGE_RETRY_TIMEOUT,
+    }
     await USER_MANAGER.broadcast_to_customer(payload["customer_id"], usage_update_msg)
 
 
@@ -151,9 +153,10 @@ async def listen_to_queue(con):
 
 
 async def run_listener():
+    pgpool = await asyncpg_pool()
     while True:
         try:
-            async with asyncpg_pool.acquire() as con:
+            async with pgpool.acquire() as con:
                 await listen_to_queue(con)
         except Exception:
             logger.exception("Error in listener")
@@ -176,6 +179,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(openapi_url=None, lifespan=lifespan)
 
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[DASHBOARD_URL],
@@ -185,8 +189,39 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def middleware(request: Request, call_next) -> Response:
+    # clear previous request variables
+    clear_contextvars()
+    # get request details for logging
+    if (client_ip := request.headers.get("X-Forwarded-For")) is None:
+        client_ip = f"{request.client.host}:{request.client.port}"
+
+    url = get_path_with_query_string(request.scope)
+    http_method = request.method
+    http_version = request.scope["http_version"]
+    start_time = time.perf_counter_ns()
+
+    bind_contextvars(url=str(request.url), method=http_method, client_ip=client_ip)
+
+    with request_cycle_context({}):
+        response = await call_next(request)
+
+        process_time = time.perf_counter_ns() - start_time
+        status_code = response.status_code
+
+        logger.info(
+            f"""{client_ip} - "{http_method} {url} HTTP/{http_version}" {status_code}""",
+            status_code=status_code,
+            duration=process_time / 10**9,
+            **context,
+        )
+
+    return response
+
+
 @app.get("/public/stream")
-async def add_event_source(request: Request, token=Depends(ProtectedAny("TODO scopes"))):
+async def add_event_source(request: Request, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))):
     logger.info(f"User {token.account_id} connected")
 
     user_info = await USER_MANAGER.add(token)
@@ -195,7 +230,7 @@ async def add_event_source(request: Request, token=Depends(ProtectedAny("TODO sc
 
 
 @app.post("/public/token")
-async def update_token(request: Request, token=Depends(ProtectedAny("TODO scopes"))):
+async def update_token(request: Request, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))):
     try:
         await USER_MANAGER.update(token)
     except UserNotConnectedError:
