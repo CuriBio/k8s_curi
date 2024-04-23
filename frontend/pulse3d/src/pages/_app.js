@@ -6,7 +6,7 @@ import { useEffect, createContext, useState } from "react";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import { deepCopy } from "@/utils/generic";
-import useEventSource from "@/utils/event_source";
+import useEventSource from "@/utils/eventSource";
 
 /*
   This theme is to be used with materialUI components
