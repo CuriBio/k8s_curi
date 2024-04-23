@@ -179,27 +179,25 @@ export default function ControlPanel() {
   ];
 
   const panelButtons = accountType === "admin" ? adminButtons : userButtons;
-  const productionConsoleOptions = [];
-  const mantarrayProductionScopes = [
-    "mantarray:serial_number:list",
-    "mantarray:serial_number:edit",
-    "mantarray:firmware:edit",
-    "mantarray:firmware:list",
-  ];
 
-  if (accountScope) {
+  const productionScopes = {
+    mantarray: [
+      "mantarray:serial_number:list",
+      "mantarray:serial_number:edit",
+      "mantarray:firmware:edit",
+      "mantarray:firmware:list",
+    ],
+    // Tanner (4/4/24): currently no production scopes for nautilai
+    nautilai: [],
+  };
+
+  if (accountScope?.some((scope) => productionScopes[productPage]?.includes(scope))) {
     // will have other pages that will be conditionally available depending on scope in the future
-    if (accountScope.some((scope) => mantarrayProductionScopes.includes(scope))) {
-      productionConsoleOptions.push("Mantarray");
-    }
-
-    if (productionConsoleOptions.length > 0) {
-      panelButtons.push({
-        label: "Production Console",
-        page: "/production-console",
-        options: productionConsoleOptions,
-      });
-    }
+    panelButtons.push({
+      label: "Production Console",
+      page: "/production-console",
+      options: [],
+    });
   }
 
   if (isCuriAdmin) {

@@ -495,12 +495,12 @@ export default function UploadForm() {
         setUsageModalLabels(modalObj.jobsReachedAfterAnalysis);
         setUsageModalState(true);
       } else if (jobResponse.status !== 200 || (jobData.error && jobData.error == "AuthorizationError")) {
-        failedUploadsMsg.push(filename);
         console.log("ERROR posting new job");
+        failedUploadsMsg.push(filename);
       }
     } catch (e) {
-      failedUploadsMsg.push(filename);
       console.log("ERROR posting new job", e);
+      failedUploadsMsg.push(filename);
     }
   };
 
@@ -572,8 +572,8 @@ export default function UploadForm() {
         }
       } catch (e) {
         console.log(`ERROR unable to read file: ${file.filename} ${e}`);
-        failedUploadsMsg.push(file.filename);
         isValidUpload = false;
+        failedUploadsMsg.push(file.filename);
       }
 
       return !isValidUpload;
@@ -664,11 +664,10 @@ export default function UploadForm() {
           auto_upload: false,
         }),
       });
-
       if (uploadResponse.status !== 200) {
         // break flow if initial request returns error status code
-        failedUploadsMsg.push(filename);
         console.log("ERROR uploading file metadata to DB:  ", await uploadResponse.json());
+        failedUploadsMsg.push(filename);
         return;
       }
 
@@ -682,28 +681,54 @@ export default function UploadForm() {
       }
       const uploadDetails = data.params;
       const uploadId = data.id;
-      const formData = new FormData();
 
+      const formData = new FormData();
       Object.entries(uploadDetails.fields).forEach(([k, v]) => {
         formData.append(k, v);
       });
-
       formData.append("file", file);
 
-      const uploadPostRes = await fetch(uploadDetails.url, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (uploadPostRes.status === 204) {
-        await postNewJob(uploadId, filename);
-      } else {
+      let uploadPostRes;
+      try {
+        uploadPostRes = await fetch(uploadDetails.url, {
+          method: "POST",
+          body: formData,
+        });
+      } catch (e) {
+        console.log("ERROR uploading file to s3:  ", e);
+        await handleFailedUploadToS3(uploadId);
         failedUploadsMsg.push(filename);
-        console.log("ERROR uploading file to s3:  ", await uploadPostRes.json());
+        return;
       }
+      if (uploadPostRes.status !== 204) {
+        console.log(`ERROR (${uploadPostRes.status}) uploading file to s3:  `, await uploadPostRes.text());
+        await handleFailedUploadToS3(uploadId);
+        failedUploadsMsg.push(filename);
+        return;
+      }
+
+      await postNewJob(uploadId, filename);
     } catch (e) {
-      // catch all if service worker isn't working
-      console.log("ERROR posting to presigned url");
+      failedUploadsMsg.push(filename);
+      console.log("ERROR handling new file upload:  ", e);
+    }
+  };
+
+  const handleFailedUploadToS3 = async (uploadId) => {
+    const uploadsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads?upload_ids=${uploadId}`;
+
+    let uploadsResponse;
+    try {
+      uploadsResponse = await fetch(uploadsURL, {
+        method: "DELETE",
+      });
+    } catch (e) {
+      console.log(`ERROR deleting DB entry for failed upload with ID: ${uploadId}`, e);
+    }
+    if (uploadsResponse.status !== 200) {
+      console.log(
+        `ERROR (${uploadsResponse.status}) deleting DB entry for failed upload with ID: ${uploadId}`
+      );
     }
   };
 

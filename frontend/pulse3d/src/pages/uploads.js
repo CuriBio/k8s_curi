@@ -316,9 +316,14 @@ export default function Uploads() {
           analysisParams.pulse3d_version = parsedMeta.version;
           const metaParams = { analysisParams };
 
-          if ("name_override" in parsedMeta) metaParams.nameOverride = parsedMeta.name_override;
-          // handle specific errors to let users know
-          if ("error" in parsedMeta) {
+          if ("name_override" in parsedMeta) {
+            metaParams.nameOverride = parsedMeta.name_override;
+          }
+
+          if ("error_msg" in parsedMeta) {
+            status += `: ${parsedMeta.error_msg}`;
+          } else if ("error" in parsedMeta) {
+            // Tanner (3/27/24): this is legacy error handling, new jobs will put a tidy error message in the field above
             if (parsedMeta.error.includes("Invalid file format")) {
               status += ": Invalid file format";
             } else if (parsedMeta.error.includes("Unable to converge")) {

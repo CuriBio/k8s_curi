@@ -23,8 +23,6 @@ spec:
                   type: string
                 max_num_of_workers:
                   type: integer
-                seconds_to_poll_db:
-                  type: integer
                 product_specific:
                   type: object
                   x-kubernetes-preserve-unknown-fields: true
