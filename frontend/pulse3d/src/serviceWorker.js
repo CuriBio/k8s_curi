@@ -169,7 +169,7 @@ const modifyRequest = async (req, url) => {
   // since it typically can only be consumed once
   const modifiedReq = new Request(url, {
     headers,
-    body: !["GET", "DELETE"].includes(req.method) ? JSON.stringify(await req.clone().json()) : null,
+    body: req.body != null ? await req.clone().text() : null,
     method: req.method,
   });
 
@@ -378,9 +378,11 @@ self.addEventListener("fetch", async (e) => {
     !isRequest(destURL, "/email") && // this request doesn't depend on a token
     !isRequest(destURL, "/account") // we don't need to intercept verify request because it's handling own token
   ) {
-    // only intercept requests to pulse3d, user and mantarray APIs
+    // only intercept requests to curi k8s endpoints
     e.respondWith(
       caches.open(cacheName).then(async (cache) => {
+        // TODO should check that the request is waveform data before checking the cache
+        // TODO do we event need to cache these responses anymore?
         // Go to the cache first
         const cachedResponse = await cache.match(e.request.url);
         // For now, only return cached responses for waveform data requests
@@ -400,7 +402,9 @@ self.addEventListener("fetch", async (e) => {
             statusText: response.statusText,
           });
           // only store if successful request
-          if (response && response.status === 200) cache.put(e.request, response.clone());
+          if (response && response.status === 200) {
+            cache.put(e.request, response.clone());
+          }
         }
 
         return response;

@@ -39,13 +39,12 @@ export default function useEventSource() {
     newEvtSource.addEventListener("token_expired", async function (event) {
       console.log("token_expired");
 
-      const url = `${process.env.NEXT_PUBLIC_EVENTS_URL}/token`;
-      response = await fetch(url, {
+      await fetch(`${process.env.NEXT_PUBLIC_EVENTS_URL}/token`, {
         method: "POST",
       });
     });
 
-    // TODO try to reconnect if closed?
+    // TODO try to detect a disconnect and then reconnect
 
     setEvtSource(newEvtSource);
   };

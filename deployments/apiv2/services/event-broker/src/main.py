@@ -95,6 +95,7 @@ async def event_generator(request, user_info):
 
     id_iter = itertools.count()
 
+    yield {"event": "token_expired", "id": next(id_iter), "data": "", "retry": MESSAGE_RETRY_TIMEOUT}
     try:
         while True:
             msg = await user_info.queue.get()
@@ -103,12 +104,6 @@ async def event_generator(request, user_info):
             #     decode_token(user_info.token)
             # except Exception:
             #     logger.info(f"User {account_id} token has expired, prompting update")
-            #     yield {
-            #         "event": "token_expired",
-            #         "id": next(id_iter),
-            #         "data": "",
-            #         "retry": MESSAGE_RETRY_TIMEOUT,
-            #     }
             #     await asyncio.wait_for(user_info.token_update_event.wait(), timeout=60)
             yield msg | {"id": next(id_iter), "retry": MESSAGE_RETRY_TIMEOUT}
     except asyncio.CancelledError:
