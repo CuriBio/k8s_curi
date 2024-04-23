@@ -22,31 +22,7 @@ export default function useEventSource() {
     }
     console.log("connecting");
 
-    const newEvtSource = new EventSource(`${process.env.NEXT_PUBLIC_EVENTS_URL}/stream`);
-
-    newEvtSource.addEventListener("data_update", function (event) {
-      console.log("data_update", event.data);
-
-      // TODO handle the update
-    });
-
-    newEvtSource.addEventListener("usage_update", function (event) {
-      console.log("usage_update", event.data);
-
-      // TODO handle the update
-    });
-
-    newEvtSource.addEventListener("token_expired", async function (event) {
-      console.log("token_expired");
-
-      await fetch(`${process.env.NEXT_PUBLIC_EVENTS_URL}/token`, {
-        method: "POST",
-      });
-    });
-
-    // TODO try to detect a disconnect and then reconnect
-
-    setEvtSource(newEvtSource);
+    createEvtSource();
   };
 
   const disconnect = () => {
@@ -61,5 +37,45 @@ export default function useEventSource() {
     setEvtSource(null);
   };
 
+  const createEvtSource = () => {
+    const newEvtSource = new EventSource(`${process.env.NEXT_PUBLIC_EVENTS_URL}/stream`);
+
+    newEvtSource.addEventListener("open", (e) => {
+      console.log("OPEN");
+    });
+
+    newEvtSource.addEventListener("error", (e) => {
+      console.log("ERROR", e);
+      console.log("READY STATE", newEvtSource.readyState);
+      newEvtSource.close();
+      setTimeout(() => {
+        if (desiredConnectionStatus) {
+          createEvtSource();
+        }
+      }, 5000);
+    });
+
+    newEvtSource.addEventListener("data_update", (e) => {
+      console.log("data_update", e.data);
+
+      // TODO handle the update
+    });
+
+    newEvtSource.addEventListener("usage_update", function (e) {
+      console.log("usage_update", e.data);
+
+      // TODO handle the update
+    });
+
+    newEvtSource.addEventListener("token_expired", async function (e) {
+      console.log("token_expired");
+
+      await fetch(`${process.env.NEXT_PUBLIC_EVENTS_URL}/token`, {
+        method: "POST",
+      });
+    });
+
+    setEvtSource(newEvtSource);
+  };
   return setDesiredConnectionStatus;
 }

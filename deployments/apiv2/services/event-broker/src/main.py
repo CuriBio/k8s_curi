@@ -1,6 +1,8 @@
 import asyncio
+from calendar import timegm
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import itertools
 import json
 import time
@@ -95,16 +97,19 @@ async def event_generator(request, user_info):
 
     id_iter = itertools.count()
 
-    yield {"event": "token_expired", "id": next(id_iter), "data": "", "retry": MESSAGE_RETRY_TIMEOUT}
     try:
         while True:
             msg = await user_info.queue.get()
             # TODO fix this, can't use decode_token
-            # try:
-            #     decode_token(user_info.token)
-            # except Exception:
-            #     logger.info(f"User {account_id} token has expired, prompting update")
-            #     await asyncio.wait_for(user_info.token_update_event.wait(), timeout=60)
+            if timegm(datetime.now(tz=timezone.utc).utctimetuple()) > user_info.token.exp:
+                yield {
+                    "event": "token_expired",
+                    "id": next(id_iter),
+                    "data": "",
+                    "retry": MESSAGE_RETRY_TIMEOUT,
+                }
+                logger.info(f"User {account_id} token has expired, prompting update")
+                await asyncio.wait_for(user_info.token_update_event.wait(), timeout=60)
             yield msg | {"id": next(id_iter), "retry": MESSAGE_RETRY_TIMEOUT}
     except asyncio.CancelledError:
         logger.info(f"event generator for user {account_id} cancelled")
@@ -157,9 +162,9 @@ async def listen_to_queue(con):
 
 
 async def run_listener():
-    pgpool = await asyncpg_pool()
     while True:
         try:
+            pgpool = await asyncpg_pool()
             async with pgpool.acquire() as con:
                 await listen_to_queue(con)
         except Exception:
