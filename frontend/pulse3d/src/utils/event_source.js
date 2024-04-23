@@ -1,12 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function useEventSource() {
-  const [evtSource, setEvtSource] = useState();
+  const [evtSource, setEvtSource] = useState(null);
+  const [desiredConnectionStatus, setDesiredConnectionStatus] = useState(false);
+
+  useEffect(() => {
+    if (desiredConnectionStatus) {
+      connect();
+    } else {
+      disconnect();
+    }
+  }, [desiredConnectionStatus]);
 
   // TODO delete all the debug logging
 
   const connect = () => {
-    if (evtSource) {
+    console.log("connect:", evtSource);
+    if (evtSource != null) {
       console.log("already connected");
       return;
     }
@@ -41,7 +51,8 @@ export default function useEventSource() {
   };
 
   const disconnect = () => {
-    if (!evtSource) {
+    console.log("disconnect:", evtSource);
+    if (evtSource == null) {
       console.log("already disconnected");
       return;
     }
@@ -51,5 +62,5 @@ export default function useEventSource() {
     setEvtSource(null);
   };
 
-  return [connect, disconnect];
+  return setDesiredConnectionStatus;
 }

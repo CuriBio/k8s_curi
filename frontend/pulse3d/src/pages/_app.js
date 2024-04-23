@@ -68,7 +68,7 @@ function Pulse({ Component, pageProps }) {
   const [availableScopes, setAvailableScopes] = useState({ admin: [], user: [] });
   const [isCuriAdmin, setIsCuriAdmin] = useState(false);
   const [preferences, setPreferences] = useState({});
-  const [connectEvtSource, disconnectEvtSource] = useEventSource();
+  const setEvtSourceConnected = useEventSource();
   const [productPage, setProductPage] = useState();
 
   const updateProductPage = (product) => {
@@ -114,7 +114,7 @@ function Pulse({ Component, pageProps }) {
       // env vars need to be set here because service worker does not have access to node process
       navigator.serviceWorker
         .register(
-          `/serviceWorker.js?mantarray_url=${process.env.NEXT_PUBLIC_MANTARRAY_URL}&users_url=${process.env.NEXT_PUBLIC_USERS_URL}&pulse3d_url=${process.env.NEXT_PUBLIC_PULSE3D_URL}`,
+          `/serviceWorker.js?mantarray_url=${process.env.NEXT_PUBLIC_MANTARRAY_URL}&users_url=${process.env.NEXT_PUBLIC_USERS_URL}&pulse3d_url=${process.env.NEXT_PUBLIC_PULSE3D_URL}&events_url=${process.env.NEXT_PUBLIC_EVENTS_URL}`,
           { type: "module" }
         )
         .then(navigator.serviceWorker.ready)
@@ -146,7 +146,7 @@ function Pulse({ Component, pageProps }) {
         } else if (!isAccountPage) {
           // ignore all the following messages if on the account page
           if (data.msgType === "logout") {
-            disconnectEvtSource();
+            setEvtSourceConnected(false);
             if (currentPage !== "/login") {
               // logged out due to inactivity message shouldn't show if already on the login page
               setLoggedOutAlert(true);
@@ -157,7 +157,7 @@ function Pulse({ Component, pageProps }) {
             if (data.isLoggedIn) {
               setAvailableScopes({ admin: data.adminScopes, user: data.userScopes });
               setIsCuriAdmin(newAccountInfo.accountScope.find((scope) => scope === "curi:admin"));
-              connectEvtSource();
+              setEvtSourceConnected(true);
               // the router pathname must be sent to the SW and then sent back here since for some reason this message handler can't grab the current page
               setAccountInfo(newAccountInfo);
               setPreferences(data.preferences); // will be {} is None
@@ -178,7 +178,7 @@ function Pulse({ Component, pageProps }) {
                 });
               }
             } else {
-              disconnectEvtSource();
+              setEvtSourceConnected(false);
               if (currentPage !== "/login") {
                 // always redirect to login page if not logged in
                 setAccountInfo(newAccountInfo);

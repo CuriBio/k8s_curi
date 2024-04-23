@@ -1,10 +1,11 @@
 import asyncio
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from uuid import UUID
+import itertools
 import json
 import time
 from typing import Any
+from uuid import UUID
 
 from fastapi import FastAPI, Request, Depends, status, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +15,7 @@ import structlog
 from structlog.contextvars import bind_contextvars, clear_contextvars
 from uvicorn.protocols.utils import get_path_with_query_string
 
-from auth import ProtectedAny, Token, decode_token, ScopeTags
+from auth import ProtectedAny, Token, ScopeTags
 from utils.db import AsyncpgPoolDep
 from utils.logging import setup_logger
 from core.config import DATABASE_URL, DASHBOARD_URL
@@ -49,19 +50,19 @@ class UserManager:
 
     async def add(self, token: Token) -> UserInfo:
         # TODO how to handle multiple connections for the same user?
-        user_info = UserInfo(token=token, token_update_event=asyncio.Event(), queue=asyncio.PriorityQueue())
+        user_info = UserInfo(token=token, token_update_event=asyncio.Event(), queue=asyncio.Queue())
         async with self._lock:
-            self._users[token.account_id] = user_info
+            self._users[UUID(token.account_id)] = user_info
         return user_info
 
     async def remove(self, token: Token) -> None:
         async with self._lock:
-            self._users.pop(token.account_id, None)
+            self._users.pop(UUID(token.account_id), None)
 
     async def update(self, token: Token) -> None:
         async with self._lock:
             try:
-                user_info = self._users[token.account_id]
+                user_info = self._users[UUID(token.account_id)]
             except KeyError as e:
                 logger.error(f"User {token.account_id} is not currently connected, cannot update token")
                 raise UserNotConnectedError() from e
@@ -77,7 +78,7 @@ class UserManager:
     async def broadcast_to_customer(self, customer_id: UUID, msg: dict[str, Any]):
         async with self._lock:
             for user_info in self._users.values():
-                if user_info.token.customer_id == customer_id:
+                if UUID(user_info.token.customer_id) == customer_id:
                     await user_info.queue.put(msg)
 
     async def broadcast_all(self, msg: str) -> None:
@@ -92,16 +93,24 @@ USER_MANAGER = UserManager()
 async def event_generator(request, user_info):
     account_id = user_info.token.account_id
 
+    id_iter = itertools.count()
+
     try:
         while True:
             msg = await user_info.queue.get()
-            try:
-                decode_token(user_info.token)
-            except Exception:
-                logger.info(f"User {account_id} token has expired, prompting update")
-                yield {"event": "token_expired", "data": None, "retry": MESSAGE_RETRY_TIMEOUT}
-                await asyncio.wait_for(user_info.token_update_event.wait(), timeout=60)
-            yield msg
+            # TODO fix this, can't use decode_token
+            # try:
+            #     decode_token(user_info.token)
+            # except Exception:
+            #     logger.info(f"User {account_id} token has expired, prompting update")
+            #     yield {
+            #         "event": "token_expired",
+            #         "id": next(id_iter),
+            #         "data": "",
+            #         "retry": MESSAGE_RETRY_TIMEOUT,
+            #     }
+            #     await asyncio.wait_for(user_info.token_update_event.wait(), timeout=60)
+            yield msg | {"id": next(id_iter), "retry": MESSAGE_RETRY_TIMEOUT}
     except asyncio.CancelledError:
         logger.info(f"event generator for user {account_id} cancelled")
     except asyncio.TimeoutError:
@@ -123,17 +132,17 @@ async def handle_notification(connection, pid, channel, payload):
     payload["product"] = payload.pop("type")
 
     # send update to anyone who has access to this upload/job
-    data_update_msg = {"event": "data_update", "data": payload, "retry": MESSAGE_RETRY_TIMEOUT}
+    data_update_msg = {"event": "data_update", "data": payload}
     for recipient_id in payload["recipients"]:
         await USER_MANAGER.send(UUID(recipient_id), data_update_msg)
 
-    # tell any connected user under this customer ID that the upload/job usage has increased for the given product
-    usage_update_msg = {
-        "event": "usage_update",
-        "data": {k: payload[k] for k in ("usage_type", "product")},
-        "retry": MESSAGE_RETRY_TIMEOUT,
-    }
-    await USER_MANAGER.broadcast_to_customer(payload["customer_id"], usage_update_msg)
+    if payload["status"] == "pending":
+        # tell any connected user under this customer ID that the upload/job usage has increased for the given product
+        usage_update_msg = {
+            "event": "usage_update",
+            "data": {k: payload[k] for k in ("usage_type", "product")},
+        }
+        await USER_MANAGER.broadcast_to_customer(UUID(payload["customer_id"]), usage_update_msg)
 
 
 async def listen_to_queue(con):
