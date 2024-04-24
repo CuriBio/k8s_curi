@@ -1,9 +1,9 @@
 import ControlPanel from "@/components/layouts/ControlPanel";
-import { useEffect, useState, createContext, useContext } from "react";
+import { useEffect, useContext } from "react";
 import styled from "styled-components";
 import { useRouter } from "next/router";
 import semverRsort from "semver/functions/rsort";
-import { AuthContext } from "@/pages/_app";
+import { AuthContext, UploadsContext } from "@/pages/_app";
 
 const Container = styled.div`
   height: inherit;
@@ -21,31 +21,19 @@ const PageContainer = styled.div`
   min-height: 95vh;
 `;
 
-export const UploadsContext = createContext();
-
 export default function DashboardLayout({ children }) {
-  const [uploads, setUploads] = useState();
-  const [fetchUploads, setFetchUploads] = useState(false);
-  const [pulse3dVersions, setPulse3dVersions] = useState([]);
-  const [metaPulse3dVersions, setMetaPulse3dVersions] = useState([]);
-  const [defaultUploadForReanalysis, setDefaultUploadForReanalysis] = useState();
   const router = useRouter();
 
   const { accountType, productPage } = useContext(AuthContext);
 
-  const stiffnessFactorDetails = {
-    Auto: null,
-    "Cardiac (1x)": 1,
-    "Skeletal Muscle (12x)": 12,
-    // Tanner (11/1/22): if we need to add an option for variable stiffness in the dropdown, a new version of pulse3d will need to be released
-  };
-
-  const dataTypeDetails = {
-    Auto: null,
-    Force: "Force",
-    Calcium: "Calcium",
-    Voltage: "Voltage",
-  };
+  const {
+    fetchUploads,
+    setFetchUploads,
+    setUploads,
+    setPulse3dVersions,
+    setMetaPulse3dVersions,
+    setDefaultUploadForReanalysis,
+  } = useContext(UploadsContext);
 
   // TODO this can probably be refactored be more efficient
   useEffect(() => {
@@ -61,6 +49,7 @@ export default function DashboardLayout({ children }) {
     if (fetchUploads) {
       setFetchUploads(false);
     }
+    // TODO try only doing this if fetchUploads or product page changes
   }, [router.pathname, fetchUploads, accountType, productPage]);
 
   useEffect(() => {
@@ -111,23 +100,9 @@ export default function DashboardLayout({ children }) {
   }
 
   return (
-    <UploadsContext.Provider
-      value={{
-        uploads,
-        setUploads,
-        setFetchUploads,
-        pulse3dVersions,
-        metaPulse3dVersions,
-        stiffnessFactorDetails,
-        dataTypeDetails,
-        defaultUploadForReanalysis,
-        setDefaultUploadForReanalysis,
-      }}
-    >
-      <Container>
-        <ControlPanel />
-        <PageContainer>{children}</PageContainer>
-      </Container>
-    </UploadsContext.Provider>
+    <Container>
+      <ControlPanel />
+      <PageContainer>{children}</PageContainer>
+    </Container>
   );
 }

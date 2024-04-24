@@ -1,11 +1,11 @@
 import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
-import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
+import DashboardLayout from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
 import { useContext, useState, useEffect, useMemo } from "react";
 import InteractiveAnalysisModal from "@/components/interactiveAnalysis/InteractiveAnalysisModal";
-import { AuthContext } from "@/pages/_app";
+import { AuthContext, UploadsContext } from "@/pages/_app";
 import { useRouter } from "next/router";
 import JobPreviewModal from "@/components/interactiveAnalysis/JobPreviewModal";
 import { formatDateTime } from "@/utils/generic";
@@ -108,12 +108,16 @@ const getSelectedUploads = (u) => {
 
 export default function Uploads() {
   const router = useRouter();
-  const { accountType, usageQuota, accountScope, productPage } = useContext(AuthContext);
-  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } = useContext(
-    UploadsContext
-  );
+  const { accountType, usageQuota, accountScope, productPage, accountId } = useContext(AuthContext);
+  const {
+    uploads,
+    setFetchUploads,
+    pulse3dVersions,
+    setDefaultUploadForReanalysis,
+    jobs,
+    setJobs,
+  } = useContext(UploadsContext);
 
-  const [jobs, setJobs] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUploads, setSelectedUploads] = useState({});
@@ -128,20 +132,10 @@ export default function Uploads() {
   const [jobsInSelectedUpload, setJobsInSelectedUpload] = useState(0);
 
   useEffect(() => {
-    if (uploads) {
+    if (uploads && jobs.length == 0) {
       getAllJobs();
-
-      if (uploads.length > 0) {
-        const statusUpdateInterval = setInterval(async () => {
-          if (!["downloading", "deleting"].includes(modalState) && !openInteractiveAnalysis) {
-            await getAllJobs();
-          }
-        }, [1e4]);
-
-        return () => clearInterval(statusUpdateInterval);
-      }
     }
-  }, [uploads]);
+  }, [uploads, jobs]);
 
   useEffect(() => {
     // reset to false everytime it gets triggered
@@ -157,14 +151,15 @@ export default function Uploads() {
 
   useEffect(() => {
     if (uploads) {
-      const formattedUploads = uploads.map(({ username, id, filename, created_at, owner, auto_upload }) => {
-        // const formattedTime = formatDateTime(created_at);
+      const formattedUploads = uploads.map(({ username, id, filename, created_at, auto_upload, user_id }) => {
         const recName = filename ? filename.split(".").slice(0, -1).join(".") : null;
         const uploadJobs = jobs
           .filter(({ uploadId }) => uploadId === id)
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
         const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].createdAt : created_at;
+
+        const owner = accountId === user_id.replace(/-/g, "");
 
         return {
           username,
@@ -181,7 +176,7 @@ export default function Uploads() {
       setDisplayRows([...formattedUploads]);
       setIsLoading(false);
     }
-  }, [jobs]);
+  }, [uploads, jobs]);
 
   useEffect(() => {
     handleSelectedJobs();
@@ -307,8 +302,8 @@ export default function Uploads() {
       if (response && response.status === 200) {
         const { jobs } = await response.json();
 
-        const newJobs = jobs.map(({ id, upload_id, created_at, object_key, status, meta, owner }) => {
-          const analyzedFile = object_key ? object_key.split("/")[object_key.split("/").length - 1] : "";
+        const newJobs = jobs.map(({ id, upload_id, created_at, object_key, status, meta, user_id }) => {
+          const analyzedFile = object_key?.split("/").slice(-1) || "";
           const isChecked = Object.keys(selectedJobs).includes(id);
           const parsedMeta = JSON.parse(meta);
           const analysisParams = parsedMeta.analysis_params;
@@ -330,6 +325,8 @@ export default function Uploads() {
               status += `: ${parsedMeta.error}`;
             }
           }
+
+          const owner = accountId === user_id.replace(/-/g, "");
 
           return {
             jobId: id,

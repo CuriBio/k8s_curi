@@ -7,10 +7,10 @@ import SparkMD5 from "spark-md5";
 import { hexToBase64, getMinP3dVersionForProduct } from "@/utils/generic";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
-import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
+import DashboardLayout from "@/components/layouts/DashboardLayout";
 import semverGte from "semver/functions/gte";
 import InputDropdownWidget from "@/components/basicWidgets/InputDropdownWidget";
-import { AuthContext } from "@/pages/_app";
+import { AuthContext, UploadsContext } from "@/pages/_app";
 
 const Container = styled.div`
   justify-content: center;

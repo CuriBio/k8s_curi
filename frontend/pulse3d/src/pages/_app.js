@@ -28,10 +28,26 @@ const MUItheme = createTheme({
 
 export const AuthContext = createContext();
 
+export const UploadsContext = createContext();
+
 // TODO make all pages scope based?
 const allAvailablePages = {
   user: ["/home", "/uploads", "/upload-form", "/account", "/account-settings", "/metrics"],
   admin: ["/uploads", "/add-new-account", "/user-info", "/customer-info", "/account-settings"],
+};
+
+const stiffnessFactorDetails = {
+  Auto: null,
+  "Cardiac (1x)": 1,
+  "Skeletal Muscle (12x)": 12,
+  // Tanner (11/1/22): if we need to add an option for variable stiffness in the dropdown, a new version of pulse3d will need to be released
+};
+
+const dataTypeDetails = {
+  Auto: null,
+  Force: "Force",
+  Calcium: "Calcium",
+  Voltage: "Voltage",
 };
 
 const getAvailablePages = (accountInfo) => {
@@ -68,8 +84,57 @@ function Pulse({ Component, pageProps }) {
   const [availableScopes, setAvailableScopes] = useState({ admin: [], user: [] });
   const [isCuriAdmin, setIsCuriAdmin] = useState(false);
   const [preferences, setPreferences] = useState({});
-  const setEvtSourceConnected = useEventSource();
   const [productPage, setProductPage] = useState();
+
+  // UploadsContext
+  const [uploads, setUploads] = useState();
+  const [jobs, setJobs] = useState([]);
+  const [fetchUploads, setFetchUploads] = useState(false);
+  const [pulse3dVersions, setPulse3dVersions] = useState([]);
+  const [metaPulse3dVersions, setMetaPulse3dVersions] = useState([]);
+  const [defaultUploadForReanalysis, setDefaultUploadForReanalysis] = useState();
+
+  // TODO ignore update if it doesn't match productPage
+  const { setDesiredConnectionStatus: setEvtSourceConnected, updates } = useEventSource();
+
+  useEffect(() => {
+    console.log("UPDATES EFFECT", updates.length);
+    if (updates.length === 0) {
+      return;
+    }
+
+    const newUpdate = updates[0];
+    console.log("NEW UPDATE", newUpdate);
+    const { event, payload } = newUpdate;
+    if (payload["product"] !== productPage) {
+      return;
+    }
+
+    if (event === "data_update") {
+      if (payload.usage_type === "uploads") {
+        // currently there is nothing to update if the upload is already present, so only add new uploads
+        if (!uploads.some((upload) => upload.id == payload.id)) {
+          console.log("UPLOAD NOT FOUND, UPDATING UPLOADS");
+          setUploads([payload, ...uploads]);
+        }
+      } else if (payload.usage_type === "jobs") {
+        console.log("UPDATING JOBS");
+        for (const job of jobs) {
+          if (job.jobId === payload.job_id) {
+            console.log("JOB FOUND, UPDATING", payload.status);
+            job.status = payload.status;
+            job.analyzedFile = payload.object_key?.split("/").slice(-1) || "";
+            setJobs([...jobs]);
+            return;
+          }
+        }
+        console.log("JOB NOT FOUND");
+        setJobs([payload, ...jobs]);
+      }
+    } else if (event === "usage_update") {
+      // TODO
+    }
+  }, [updates]);
 
   const updateProductPage = (product) => {
     localStorage.setItem("productPage", product);
@@ -259,18 +324,37 @@ function Pulse({ Component, pageProps }) {
           setPreferences,
         }}
       >
-        <Layout>
-          <ModalWidget
-            open={showLoggedOutAlert}
-            closeModal={() => {
-              setLoggedOutAlert(false);
-              router.replace("/login", undefined, { shallow: true });
-            }}
-            header="Attention"
-            labels={["You have been logged out due to inactivity"]}
-          />
-          {getLayout(<Component {...pageProps} />, pageProps.data)}
-        </Layout>
+        <UploadsContext.Provider
+          value={{
+            uploads,
+            setUploads,
+            setFetchUploads,
+            pulse3dVersions,
+            metaPulse3dVersions,
+            stiffnessFactorDetails,
+            dataTypeDetails,
+            defaultUploadForReanalysis,
+            setDefaultUploadForReanalysis,
+            jobs,
+            setJobs,
+            fetchUploads,
+            setPulse3dVersions,
+            setMetaPulse3dVersions,
+          }}
+        >
+          <Layout>
+            <ModalWidget
+              open={showLoggedOutAlert}
+              closeModal={() => {
+                setLoggedOutAlert(false);
+                router.replace("/login", undefined, { shallow: true });
+              }}
+              header="Attention"
+              labels={["You have been logged out due to inactivity"]}
+            />
+            {getLayout(<Component {...pageProps} />, pageProps.data)}
+          </Layout>
+        </UploadsContext.Provider>
       </AuthContext.Provider>
     </ThemeProvider>
   );

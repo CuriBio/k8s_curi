@@ -4,14 +4,13 @@ import { isArrayOfNumbers, loadCsvInputToArray, isArrayOfWellNames, isInt } from
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import { useState, useContext, useEffect } from "react";
 import semverGte from "semver/functions/gte";
-import { UploadsContext } from "@/components/layouts/DashboardLayout";
 import WellGroups from "@/components/uploadForm/WellGroups";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import AnalysisParamContainer from "@/components/uploadForm/AnalysisParamContainer";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
 import FormInput from "@/components/basicWidgets/FormInput";
-import { AuthContext } from "@/pages/_app";
+import { AuthContext, UploadsContext } from "@/pages/_app";
 
 const Container = styled.div`
   padding: 1rem;

@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 import itertools
 import json
 import time
-from typing import Any
 from uuid import UUID
 
 from fastapi import FastAPI, Request, Depends, status, HTTPException, Response
@@ -72,12 +71,12 @@ class UserManager:
                 user_info.token = token
                 user_info.token_update_event.set()
 
-    async def send(self, account_id: UUID, msg: dict[str, Any]) -> None:
+    async def send(self, account_id: UUID, msg: dict[str, str]) -> None:
         async with self._lock:
             if user_info := self._users.get(account_id):
                 await user_info.queue.put(msg)
 
-    async def broadcast_to_customer(self, customer_id: UUID, msg: dict[str, Any]):
+    async def broadcast_to_customer(self, customer_id: UUID, msg: dict[str, str]):
         async with self._lock:
             for user_info in self._users.values():
                 if UUID(user_info.token.customer_id) == customer_id:
@@ -122,27 +121,30 @@ async def event_generator(request, user_info):
 
 
 async def handle_notification(connection, pid, channel, payload):
-    payload = json.loads(payload)
-    info_to_log = {
-        k: payload.get(k) for k in ["type", "table", "upload_id", "job_id", "customer_id", "recipients"]
-    }
-    logger.info(f"Notification received from DB: {info_to_log}")
-
-    payload["usage_type"] = "jobs" if "job" in payload.pop("table") else "uploads"
-    payload["product"] = payload.pop("type")
-
-    # send update to anyone who has access to this upload/job
-    data_update_msg = {"event": "data_update", "data": payload}
-    for recipient_id in payload["recipients"]:
-        await USER_MANAGER.send(UUID(recipient_id), data_update_msg)
-
-    if payload["status"] == "pending":
-        # tell any connected user under this customer ID that the upload/job usage has increased for the given product
-        usage_update_msg = {
-            "event": "usage_update",
-            "data": {k: payload[k] for k in ("usage_type", "product")},
+    try:
+        payload = json.loads(payload)
+        info_to_log = {
+            k: payload.get(k) for k in ["type", "table", "upload_id", "job_id", "customer_id", "recipients"]
         }
-        await USER_MANAGER.broadcast_to_customer(UUID(payload["customer_id"]), usage_update_msg)
+        logger.info(f"Notification received from DB: {info_to_log}")
+
+        payload["usage_type"] = "jobs" if "job" in payload.pop("table") else "uploads"
+        payload["product"] = payload.pop("type")
+
+        # send update to anyone who has access to this upload/job
+        data_update_msg = {"event": "data_update", "data": json.dumps(payload)}
+        for recipient_id in payload.pop("recipients"):
+            await USER_MANAGER.send(UUID(recipient_id), data_update_msg)
+
+        if payload["usage_type"] == "jobs" and payload["status"] == "pending":
+            # tell any connected user under this customer ID that the upload/job usage has increased for the given product
+            usage_update_msg = {
+                "event": "usage_update",
+                "data": json.dumps({k: payload[k] for k in ("usage_type", "product")}),
+            }
+            await USER_MANAGER.broadcast_to_customer(UUID(payload["customer_id"]), usage_update_msg)
+    except Exception:
+        logger.exception("ERROR")
 
 
 async def listen_to_queue(con):

@@ -40,7 +40,8 @@ def upgrade():
                             FROM account_scopes
                             WHERE customer_id=NEW.customer_id
                                 AND (user_id=(SELECT user_id FROM uploads WHERE id=NEW.upload_id) OR scope LIKE '%admin%' OR scope=(NEW.type::text || '\\:rw_all_data'))
-                        )
+                        ),
+                        'username', (SELECT users.name AS username FROM users JOIN uploads ON users.id=uploads.user_id WHERE uploads.id=NEW.upload_id)
                     )::jsonb
                     || row_to_json(NEW.*)::jsonb
                 )::text
@@ -76,7 +77,8 @@ def upgrade():
                             FROM account_scopes
                             WHERE customer_id=NEW.customer_id
                                 AND (user_id=NEW.user_id OR scope LIKE '%admin%' OR scope=(NEW.type::text || '\\:rw_all_data'))
-                        )
+                        ),
+                        'username', (SELECT users.name AS username FROM users WHERE id=NEW.user_id)
                     )::jsonb
                     || row_to_json(NEW.*)::jsonb
                 )::text

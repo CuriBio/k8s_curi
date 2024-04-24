@@ -6,7 +6,7 @@ import { deepCopy } from "@/utils/generic";
 import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
-import { UploadsContext } from "@/components/layouts/DashboardLayout";
+import { UploadsContext } from "@/pages/_app";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
 import semverGte from "semver/functions/gte";
