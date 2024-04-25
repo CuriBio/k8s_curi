@@ -94,50 +94,15 @@ function Pulse({ Component, pageProps }) {
   const [metaPulse3dVersions, setMetaPulse3dVersions] = useState([]);
   const [defaultUploadForReanalysis, setDefaultUploadForReanalysis] = useState();
 
-  // TODO ignore update if it doesn't match productPage
-  const { setDesiredConnectionStatus: setEvtSourceConnected, updates } = useEventSource();
-
-  useEffect(() => {
-    console.log("UPDATES EFFECT", updates.length);
-    if (updates.length === 0) {
-      return;
-    }
-
-    const newUpdate = updates[0];
-    console.log("NEW UPDATE", newUpdate);
-    const { event, payload } = newUpdate;
-    if (payload["product"] !== productPage) {
-      return;
-    }
-
-    if (event === "data_update") {
-      if (payload.usage_type === "uploads") {
-        // currently there is nothing to update if the upload is already present, so only add new uploads
-        if (!uploads.some((upload) => upload.id == payload.id)) {
-          console.log("UPLOAD NOT FOUND, UPDATING UPLOADS");
-          setUploads([payload, ...uploads]);
-        }
-      } else if (payload.usage_type === "jobs") {
-        console.log("UPDATING JOBS");
-        for (const job of jobs) {
-          if (job.jobId === payload.job_id) {
-            console.log("JOB FOUND, UPDATING", payload.status);
-            job.status = payload.status;
-            job.analyzedFile = payload.object_key?.split("/").slice(-1) || "";
-            setJobs([...jobs]);
-            return;
-          }
-        }
-        console.log("JOB NOT FOUND");
-        setJobs([payload, ...jobs]);
-      }
-    } else if (event === "usage_update") {
-      if (Object.keys(usageQuota || {}).length > 0) {
-        usageQuota.current[payload.usage_type] = payload.usage;
-        setUsageQuota({ ...usageQuota });
-      }
-    }
-  }, [updates]);
+  const { setDesiredConnectionStatus: setEvtSourceConnected } = useEventSource({
+    productPage,
+    uploads,
+    setUploads,
+    jobs,
+    setJobs,
+    usageQuota,
+    setUsageQuota,
+  });
 
   const updateProductPage = (product) => {
     localStorage.setItem("productPage", product);

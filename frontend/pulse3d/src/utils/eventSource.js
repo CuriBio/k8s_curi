@@ -1,9 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
-export default function useEventSource() {
+const getPayload = (e, listenerName) => {
+  try {
+    const payload = JSON.parse(e.data);
+    console.log("!!!", listenerName, payload);
+    return payload;
+  } catch (err) {
+    console.error(`ERROR in ${listenerName} event handler`, err);
+  }
+};
+
+export default function useEventSource(hooks) {
   const [evtSource, setEvtSource] = useState(null);
   const [desiredConnectionStatus, setDesiredConnectionStatus] = useState(false);
-  const [updates, setUpdates] = useState([]);
+
+  const hooksRef = useRef(hooks);
 
   useEffect(() => {
     if (desiredConnectionStatus) {
@@ -12,6 +23,10 @@ export default function useEventSource() {
       disconnect();
     }
   }, [desiredConnectionStatus]);
+
+  useEffect(() => {
+    hooksRef.current = hooks;
+  }, [hooks]);
 
   const connect = () => {
     if (evtSource != null) {
@@ -36,32 +51,59 @@ export default function useEventSource() {
     newEvtSource.addEventListener("error", (e) => {
       newEvtSource.close();
       setTimeout(() => {
-        if (desiredConnectionStatus) {
-          createEvtSource();
-        }
+        createEvtSource();
       }, 5000);
     });
 
     newEvtSource.addEventListener("data_update", (e) => {
-      try {
-        const payload = JSON.parse(e.data);
-        setUpdates([{ event: "data_update", payload }, ...updates]);
-      } catch (err) {
-        console.error("ERROR in data_update event handler", err);
+      const payload = getPayload(e, "data_update");
+
+      if (payload["product"] !== hooksRef.current.productPage) {
+        return;
       }
 
-      console.log("!!! data_update", e);
+      if (payload.usage_type === "uploads") {
+        console.log("UPDATE TO UPLOADS");
+
+        const { uploads, setUploads } = hooksRef.current;
+
+        // currently there is nothing to update if the upload is already present, so only add new uploads
+        if (!uploads.some((upload) => upload.id == payload.id)) {
+          console.log("UPLOAD NOT FOUND, UPDATING UPLOADS");
+          setUploads([payload, ...uploads]);
+        }
+      } else if (payload.usage_type === "jobs") {
+        console.log("UPDATE TO JOBS");
+
+        const { jobs, setJobs } = hooksRef.current;
+
+        for (const job of jobs) {
+          if (job.jobId === payload.job_id) {
+            console.log("JOB FOUND, UPDATING", payload.status);
+            job.status = payload.status;
+            job.analyzedFile = payload.object_key?.split("/").slice(-1) || "";
+            setJobs([...jobs]);
+            return;
+          }
+        }
+        console.log("JOB NOT FOUND");
+        setJobs([payload, ...jobs]);
+      }
     });
 
     newEvtSource.addEventListener("usage_update", function (e) {
-      try {
-        const payload = JSON.parse(e.data);
-        setUpdates([{ event: "usage_update", payload }, ...updates]);
-      } catch (err) {
-        console.error("ERROR in usage_update event handler", err);
+      const payload = getPayload(e, "usage_update");
+
+      if (payload["product"] !== hooksRef.current.productPage) {
+        return;
       }
 
-      console.log("!!! usage_update", e);
+      const { usageQuota, setUsageQuota } = hooksRef.current;
+
+      if (Object.keys(usageQuota || {}).length > 0) {
+        usageQuota.current[payload.usage_type] = payload.usage;
+        setUsageQuota({ ...usageQuota });
+      }
     });
 
     newEvtSource.addEventListener("token_expired", async function (e) {
@@ -72,5 +114,5 @@ export default function useEventSource() {
 
     setEvtSource(newEvtSource);
   };
-  return { setDesiredConnectionStatus, updates };
+  return { setDesiredConnectionStatus };
 }
