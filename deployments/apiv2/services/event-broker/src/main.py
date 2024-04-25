@@ -124,7 +124,18 @@ async def handle_notification(connection, pid, channel, payload):
     try:
         payload = json.loads(payload)
         info_to_log = {
-            k: payload.get(k) for k in ["type", "table", "upload_id", "job_id", "customer_id", "recipients"]
+            k: payload.get(k)
+            for k in [
+                "user_id",
+                "type",
+                "table",
+                "status",
+                "upload_id",
+                "job_id",
+                "customer_id",
+                "recipients",
+                "usage",
+            ]
         }
         logger.info(f"Notification received from DB: {info_to_log}")
 
@@ -136,13 +147,12 @@ async def handle_notification(connection, pid, channel, payload):
         for recipient_id in payload.pop("recipients"):
             await USER_MANAGER.send(UUID(recipient_id), data_update_msg)
 
-        if payload["usage_type"] == "jobs" and payload["status"] == "pending":
-            # tell any connected user under this customer ID that the upload/job usage has increased for the given product
-            usage_update_msg = {
-                "event": "usage_update",
-                "data": json.dumps({k: payload[k] for k in ("usage_type", "product")}),
-            }
-            await USER_MANAGER.broadcast_to_customer(UUID(payload["customer_id"]), usage_update_msg)
+        # send the new job or upload count to any connected user under this customer ID
+        usage_update_msg = {
+            "event": "usage_update",
+            "data": json.dumps({k: payload[k] for k in ("usage_type", "product", "usage")}),
+        }
+        await USER_MANAGER.broadcast_to_customer(UUID(payload["customer_id"]), usage_update_msg)
     except Exception:
         logger.exception("ERROR")
 

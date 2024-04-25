@@ -43,15 +43,25 @@ export default function useEventSource() {
     });
 
     newEvtSource.addEventListener("data_update", (e) => {
-      const payload = JSON.parse(e.data);
+      try {
+        const payload = JSON.parse(e.data);
+        setUpdates([{ event: "data_update", payload }, ...updates]);
+      } catch (err) {
+        console.error("ERROR in data_update event handler", err);
+      }
 
-      setUpdates([{ event: "data_update", payload }, ...updates]);
+      console.log("!!! data_update", e);
     });
 
     newEvtSource.addEventListener("usage_update", function (e) {
-      const payload = JSON.parse(e.data);
+      try {
+        const payload = JSON.parse(e.data);
+        setUpdates([{ event: "usage_update", payload }, ...updates]);
+      } catch (err) {
+        console.error("ERROR in usage_update event handler", err);
+      }
 
-      setUpdates([{ event: "usage_update", payload }, ...updates]);
+      console.log("!!! usage_update", e);
     });
 
     newEvtSource.addEventListener("token_expired", async function (e) {

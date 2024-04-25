@@ -132,7 +132,10 @@ function Pulse({ Component, pageProps }) {
         setJobs([payload, ...jobs]);
       }
     } else if (event === "usage_update") {
-      // TODO
+      if (Object.keys(usageQuota || {}).length > 0) {
+        usageQuota.current[payload.usage_type] = payload.usage;
+        setUsageQuota({ ...usageQuota });
+      }
     }
   }, [updates]);
 
