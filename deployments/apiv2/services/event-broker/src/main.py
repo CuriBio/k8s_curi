@@ -139,7 +139,11 @@ async def handle_notification(connection, pid, channel, payload):
         }
         logger.info(f"Notification received from DB: {info_to_log}")
 
-        payload["usage_type"] = "jobs" if "job" in payload.pop("table") else "uploads"
+        if "job" in payload.pop("table"):
+            payload["usage_type"] = "jobs"
+            payload["id"] = payload.pop("job_id")
+        else:
+            payload["usage_type"] = "uploads"
         payload["product"] = payload.pop("type")
 
         # send update to anyone who has access to this upload/job

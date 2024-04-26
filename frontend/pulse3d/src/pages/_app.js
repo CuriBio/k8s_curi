@@ -101,6 +101,7 @@ function Pulse({ Component, pageProps }) {
     setJobs,
     usageQuota,
     setUsageQuota,
+    accountId: accountInfo.accountId,
   });
 
   const updateProductPage = (product) => {

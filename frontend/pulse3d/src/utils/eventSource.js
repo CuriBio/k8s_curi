@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { formatJob } from "@/utils/generic";
 
 const getPayload = (e, listenerName) => {
   try {
@@ -78,7 +79,7 @@ export default function useEventSource(hooks) {
         const { jobs, setJobs } = hooksRef.current;
 
         for (const job of jobs) {
-          if (job.jobId === payload.job_id) {
+          if (job.jobId === payload.id) {
             console.log("JOB FOUND, UPDATING", payload.status);
             job.status = payload.status;
             job.analyzedFile = payload.object_key?.split("/").slice(-1) || "";
@@ -87,7 +88,8 @@ export default function useEventSource(hooks) {
           }
         }
         console.log("JOB NOT FOUND");
-        setJobs([payload, ...jobs]);
+
+        setJobs([formatJob(payload, {}, hooksRef.current.accountId), ...jobs]);
       }
     });
 

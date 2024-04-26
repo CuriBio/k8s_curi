@@ -32,6 +32,7 @@ def upgrade():
     op.execute(f"CREATE USER curibio_event_broker WITH PASSWORD '{event_broker_pass}'")
     op.execute("GRANT SELECT ON TABLE account_scopes TO curibio_jobs")
 
+    # TODO these functions should be cleaned up so there aren't so many subqueries
     op.execute(
         f"""
         CREATE OR REPLACE FUNCTION jobs_result_notify_events()
@@ -43,6 +44,7 @@ def upgrade():
                     json_build_object(
                         'table', 'jobs_result',
                         'username', (SELECT users.name AS username FROM users JOIN uploads ON users.id=uploads.user_id WHERE uploads.id=NEW.upload_id),
+                        'user_id', (SELECT users.id FROM users JOIN uploads ON users.id=uploads.user_id WHERE uploads.id=NEW.upload_id),
                         'recipients', ARRAY(
                             SELECT DISTINCT CASE WHEN user_id IS NULL THEN customer_id ELSE user_id END
                             FROM account_scopes
