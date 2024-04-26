@@ -27,30 +27,27 @@ export default function DashboardLayout({ children }) {
   const { accountType, productPage } = useContext(AuthContext);
 
   const {
-    fetchUploads,
-    setFetchUploads,
+    uploads,
     setUploads,
     setPulse3dVersions,
     setMetaPulse3dVersions,
     setDefaultUploadForReanalysis,
   } = useContext(UploadsContext);
 
-  // TODO this can probably be refactored be more efficient
   useEffect(() => {
-    if (router.pathname === "/uploads" || router.pathname === "/upload-form") {
-      if (accountType === "admin") {
-        getUploads();
-      } else if (accountType === "user" && productPage) {
-        getUploads(productPage);
-      }
-      getPulse3dVersions();
+    if (uploads?.length > 0) {
+      return;
     }
-    // reset
-    if (fetchUploads) {
-      setFetchUploads(false);
+    if (accountType === "admin") {
+      getUploads();
+    } else if (accountType === "user" && productPage) {
+      getUploads(productPage);
     }
-    // TODO try only doing this if fetchUploads or product page changes
-  }, [router.pathname, fetchUploads, accountType, productPage]);
+  }, [productPage, accountType, uploads]);
+
+  useEffect(() => {
+    getPulse3dVersions();
+  }, []);
 
   useEffect(() => {
     // clear default upload when user leaves the re-analyze page

@@ -89,7 +89,6 @@ function Pulse({ Component, pageProps }) {
   // UploadsContext
   const [uploads, setUploads] = useState();
   const [jobs, setJobs] = useState([]);
-  const [fetchUploads, setFetchUploads] = useState(false);
   const [pulse3dVersions, setPulse3dVersions] = useState([]);
   const [metaPulse3dVersions, setMetaPulse3dVersions] = useState([]);
   const [defaultUploadForReanalysis, setDefaultUploadForReanalysis] = useState();
@@ -235,6 +234,7 @@ function Pulse({ Component, pageProps }) {
     // if on a home or login page, clear productPage
     if (["/login", "/home"].includes(router.pathname)) {
       updateProductPage(null);
+      setUploads(null);
     }
 
     // start pinging SW if not on login page to keep alive
@@ -296,7 +296,6 @@ function Pulse({ Component, pageProps }) {
           value={{
             uploads,
             setUploads,
-            setFetchUploads,
             pulse3dVersions,
             metaPulse3dVersions,
             stiffnessFactorDetails,
@@ -305,7 +304,6 @@ function Pulse({ Component, pageProps }) {
             setDefaultUploadForReanalysis,
             jobs,
             setJobs,
-            fetchUploads,
             setPulse3dVersions,
             setMetaPulse3dVersions,
           }}

@@ -109,14 +109,9 @@ const getSelectedUploads = (u) => {
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota, accountScope, productPage, accountId } = useContext(AuthContext);
-  const {
-    uploads,
-    setFetchUploads,
-    pulse3dVersions,
-    setDefaultUploadForReanalysis,
-    jobs,
-    setJobs,
-  } = useContext(UploadsContext);
+  const { uploads, pulse3dVersions, setDefaultUploadForReanalysis, jobs, setJobs } = useContext(
+    UploadsContext
+  );
 
   const [displayRows, setDisplayRows] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -292,8 +287,6 @@ export default function Uploads() {
     setResetDropdown(true);
     setSelectedUploads({});
     setSelectedJobs({});
-    setFetchUploads(true);
-    await getAllJobs();
   };
 
   const getAllJobs = async () => {
