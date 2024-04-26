@@ -109,9 +109,7 @@ const getSelectedUploads = (u) => {
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota, accountScope, productPage, accountId } = useContext(AuthContext);
-  const { uploads, pulse3dVersions, setDefaultUploadForReanalysis, jobs, setJobs } = useContext(
-    UploadsContext
-  );
+  const { uploads, setUploads, setDefaultUploadForReanalysis, jobs, setJobs } = useContext(UploadsContext);
 
   const [displayRows, setDisplayRows] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -308,8 +306,14 @@ export default function Uploads() {
 
   const removeDeletedUploads = (deletedUploads) => {
     const deletedIds = deletedUploads.map(({ id }) => id);
-    const filteredRows = displayRows.filter(({ id }) => !deletedIds.includes(id));
-    setDisplayRows([...filteredRows]);
+    const filteredUploads = uploads.filter(({ id }) => !deletedIds.includes(id));
+    setUploads([...filteredUploads]);
+  };
+
+  const removeDeletedJobs = (deletedJobs) => {
+    const deletedIds = deletedJobs.map(({ jobId }) => jobId);
+    const filteredJobs = jobs.filter(({ jobId }) => !deletedIds.includes(jobId));
+    setJobs([...filteredJobs]);
   };
 
   const handleDeletions = async () => {
@@ -373,6 +377,8 @@ export default function Uploads() {
         setModalButtons(["Close"]);
         setModalLabels(modalObjs.failedDeletion);
         setModalState("generic");
+      } else {
+        removeDeletedJobs(jobsToDelete);
       }
 
       return failedDeletion;
