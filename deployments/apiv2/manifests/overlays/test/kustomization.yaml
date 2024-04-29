@@ -8,6 +8,7 @@ resources:
   - curibio-users-creds.yaml
   - curibio-mantarray-creds.yaml
   - curibio-email-creds.yaml
+  - curibio-event-broker-creds.yaml
 
 patches:
   - patch: |-
