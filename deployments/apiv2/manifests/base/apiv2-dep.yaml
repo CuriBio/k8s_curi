@@ -100,7 +100,7 @@ kind: Ingress
 metadata:
   name: apiv2-ingress
   annotations:
-    nginx.org/rewrites: serviceName=mantarray rewrite=/; serviceName=users rewrite=/; serviceName=event-broker rewrite=/public
+    nginx.org/rewrites: serviceName=mantarray rewrite=/; serviceName=users rewrite=/; serviceName=event-broker rewrite=/public/
 status:
   loadBalancer: {}
 spec:
