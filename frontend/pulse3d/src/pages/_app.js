@@ -102,6 +102,7 @@ function Pulse({ Component, pageProps }) {
     usageQuota,
     setUsageQuota,
     accountId: accountInfo.accountId,
+    accountType: accountInfo.accountType,
   });
 
   const updateProductPage = (product) => {

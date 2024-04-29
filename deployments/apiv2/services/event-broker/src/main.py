@@ -61,11 +61,12 @@ class UserManager:
             self._users.pop(UUID(token.account_id), None)
 
     async def update(self, token: Token) -> None:
+        account_id = UUID(token.account_id)
         async with self._lock:
             try:
-                user_info = self._users[UUID(token.account_id)]
+                user_info = self._users[account_id]
             except KeyError as e:
-                logger.error(f"User {token.account_id} is not currently connected, cannot update token")
+                logger.error(f"User {account_id} is not currently connected, cannot update token")
                 raise UserNotConnectedError() from e
             else:
                 user_info.token = token
@@ -92,7 +93,7 @@ USER_MANAGER = UserManager()
 
 
 async def event_generator(request, user_info):
-    account_id = user_info.token.account_id
+    account_id = UUID(user_info.token.account_id)
 
     id_iter = itertools.count()
 

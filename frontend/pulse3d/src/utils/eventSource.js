@@ -4,7 +4,6 @@ import { formatJob } from "@/utils/generic";
 const getPayload = (e, listenerName) => {
   try {
     const payload = JSON.parse(e.data);
-    console.log("!!!", listenerName, payload);
     return payload;
   } catch (err) {
     console.error(`ERROR in ${listenerName} event handler`, err);
@@ -59,35 +58,28 @@ export default function useEventSource(hooks) {
     newEvtSource.addEventListener("data_update", (e) => {
       const payload = getPayload(e, "data_update");
 
-      if (payload["product"] !== hooksRef.current.productPage) {
+      if (hooksRef.current.accountType !== "admin" && payload["product"] !== hooksRef.current.productPage) {
         return;
       }
 
       if (payload.usage_type === "uploads") {
-        console.log("UPDATE TO UPLOADS");
-
         const { uploads, setUploads } = hooksRef.current;
 
         // currently there is nothing to update if the upload is already present, so only add new uploads
         if (!uploads.some((upload) => upload.id == payload.id)) {
-          console.log("UPLOAD NOT FOUND, UPDATING UPLOADS");
           setUploads([payload, ...uploads]);
         }
       } else if (payload.usage_type === "jobs") {
-        console.log("UPDATE TO JOBS");
-
         const { jobs, setJobs } = hooksRef.current;
 
-        for (const job of jobs) {
+        for (const [i, job] of jobs.entries()) {
           if (job.jobId === payload.id) {
-            console.log("JOB FOUND, UPDATING", payload.status);
-            job.status = payload.status;
-            job.analyzedFile = payload.object_key?.split("/").slice(-1) || "";
+            jobs[i] = formatJob(payload, {}, hooksRef.current.accountId);
+            jobs[i].checked = job.checked;
             setJobs([...jobs]);
             return;
           }
         }
-        console.log("JOB NOT FOUND");
 
         setJobs([formatJob(payload, {}, hooksRef.current.accountId), ...jobs]);
       }
@@ -96,7 +88,7 @@ export default function useEventSource(hooks) {
     newEvtSource.addEventListener("usage_update", function (e) {
       const payload = getPayload(e, "usage_update");
 
-      if (payload["product"] !== hooksRef.current.productPage) {
+      if (hooksRef.current.accountType !== "admin" && payload["product"] !== hooksRef.current.productPage) {
         return;
       }
 
