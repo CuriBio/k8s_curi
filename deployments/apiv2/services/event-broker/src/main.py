@@ -112,7 +112,7 @@ async def event_generator(request, user_info):
                 await asyncio.wait_for(user_info.token_update_event.wait(), timeout=60)
             yield msg | {"id": next(id_iter), "retry": MESSAGE_RETRY_TIMEOUT}
     except asyncio.CancelledError:
-        logger.info(f"event generator for user {account_id} cancelled")
+        logger.info(f"Event generator for user {account_id} cancelled")
     except asyncio.TimeoutError:
         logger.info(f"User {account_id} failed to update token before timeout, event generator exiting")
     except Exception:
@@ -248,7 +248,7 @@ async def middleware(request: Request, call_next) -> Response:
 
 @app.get("/public/stream")
 async def add_event_source(request: Request, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))):
-    logger.info(f"User {token.account_id} connected")
+    logger.info(f"User {UUID(token.account_id)} connected")
 
     user_info = await USER_MANAGER.add(token)
 
