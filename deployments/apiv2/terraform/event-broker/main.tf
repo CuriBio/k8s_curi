@@ -1,5 +1,5 @@
 resource "aws_ecr_repository" "event_broker_ecr_repo" {
-  name                 = "event_broker"
+  name                 = "event-broker"
   image_tag_mutability = "MUTABLE"
 
   image_scanning_configuration {
