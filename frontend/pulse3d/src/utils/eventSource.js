@@ -6,7 +6,7 @@ const getPayload = (e, listenerName) => {
     const payload = JSON.parse(e.data);
     return payload;
   } catch (err) {
-    console.error(`ERROR in ${listenerName} event handler`, err);
+    console.error(`ERROR parsing data of ${listenerName} event`, err);
   }
 };
 
