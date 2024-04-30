@@ -5,6 +5,7 @@ import LoginForm from "@/components/account/LoginForm";
 import FormInput from "@/components/basicWidgets/FormInput";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
+
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
   position: relative;
@@ -100,7 +101,10 @@ export default function Login() {
 
         const res = await fetch(loginURL, {
           method: "POST",
-          body: JSON.stringify({ ...userData, client_type: "dashboard" }),
+          body: JSON.stringify({
+            ...userData,
+            client_type: `dashboard:${process.env.NEXT_PUBLIC_FE_VERSION}`,
+          }),
           mode: "no-cors",
         });
         if (res) {
