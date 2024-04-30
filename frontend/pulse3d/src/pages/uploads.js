@@ -302,52 +302,68 @@ export default function Uploads() {
   };
 
   const getAllJobs = async () => {
+    let jobsRes = [];
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?download=False`);
       if (response && response.status === 200) {
-        const { jobs } = await response.json();
-
-        const newJobs = jobs.map(({ id, upload_id, created_at, object_key, status, meta, owner }) => {
-          const analyzedFile = object_key ? object_key.split("/")[object_key.split("/").length - 1] : "";
-          const isChecked = Object.keys(selectedJobs).includes(id);
-          const parsedMeta = JSON.parse(meta);
-          const analysisParams = parsedMeta.analysis_params;
-          // add pulse3d version used on job to be displayed with other analysis params
-          analysisParams.pulse3d_version = parsedMeta.version;
-          const metaParams = { analysisParams };
-
-          if ("name_override" in parsedMeta) {
-            metaParams.nameOverride = parsedMeta.name_override;
-          }
-
-          if ("error_msg" in parsedMeta) {
-            status += `: ${parsedMeta.error_msg}`;
-          } else if ("error" in parsedMeta) {
-            // Tanner (3/27/24): this is legacy error handling, new jobs will put a tidy error message in the field above
-            if (parsedMeta.error.includes("Invalid file format")) {
-              status += ": Invalid file format";
-            } else if (parsedMeta.error.includes("Unable to converge")) {
-              status += `: ${parsedMeta.error}`;
-            }
-          }
-
-          return {
-            jobId: id,
-            uploadId: upload_id,
-            analyzedFile,
-            createdAt: created_at,
-            status,
-            version: pulse3dVersions[0], // tag with latest version for now
-            checked: isChecked,
-            owner,
-            ...metaParams,
-          };
-        });
-
-        setJobs([...newJobs]);
+        jobsRes = (await response.json()).jobs;
       }
     } catch (e) {
-      console.log("ERROR fetching jobs in /uploads");
+      console.log("ERROR fetching jobs in /uploads", e);
+    }
+
+    try {
+      const newJobs = jobsRes
+        .map(({ id, upload_id, created_at, object_key, status, meta, owner }) => {
+          try {
+            const analyzedFile = object_key ? object_key.split("/")[object_key.split("/").length - 1] : "";
+            const isChecked = Object.keys(selectedJobs).includes(id);
+            const parsedMeta = JSON.parse(meta);
+            // Tanner (4/30/24): if jobs are missing analysis params for some reason, need to set to an empty object otherwise errors will occur
+            const analysisParams = parsedMeta.analysis_params || {};
+            // add pulse3d version used on job to be displayed with other analysis params
+            if ("version" in parsedMeta) {
+              analysisParams.pulse3d_version = parsedMeta.version;
+            }
+
+            const metaParams = { analysisParams };
+
+            if ("name_override" in parsedMeta) {
+              metaParams.nameOverride = parsedMeta.name_override;
+            }
+
+            if ("error_msg" in parsedMeta) {
+              status += `: ${parsedMeta.error_msg}`;
+            } else if ("error" in parsedMeta) {
+              // Tanner (3/27/24): this is legacy error handling, new jobs will put a tidy error message in the field above
+              if (parsedMeta.error.includes("Invalid file format")) {
+                status += ": Invalid file format";
+              } else if (parsedMeta.error.includes("Unable to converge")) {
+                status += `: ${parsedMeta.error}`;
+              }
+            }
+
+            return {
+              jobId: id,
+              uploadId: upload_id,
+              analyzedFile,
+              createdAt: created_at,
+              status,
+              version: pulse3dVersions[0], // tag with latest version for now
+              checked: isChecked,
+              owner,
+              ...metaParams,
+            };
+          } catch (e) {
+            console.log(`ERROR handling job ${id}`, e);
+            return null;
+          }
+        })
+        .filter((j) => j !== null);
+
+      setJobs([...newJobs]);
+    } catch (e) {
+      console.log("ERROR processing jobs", e);
     }
   };
 
