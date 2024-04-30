@@ -427,8 +427,7 @@ self.onmessage = async ({ data, source }) => {
     const accountId = await getValueFromToken(accountType === "user" ? "userid" : "customer_id");
 
     msgInfo = {
-      isLoggedIn:
-        cachedTokens.access !== null && Date.now() < new Date((await getValueFromToken("exp")) * 1000),
+      isLoggedIn: cachedTokens.access !== null,
       accountInfo: {
         accountType,
         accountId,
