@@ -86,7 +86,9 @@ export default function Login() {
     setInProgress(true);
     setErrorMsg(""); // reset to show user something happened
 
-    if (Object.values(userData).includes("")) {
+    const values = Object.values(userData);
+
+    if (values.length === 0 || Object.values(userData).some((v) => v == null || v === "")) {
       setErrorMsg("*All fields are required");
       // this state gets passed to web worker to attempt login request
     } else {
@@ -190,7 +192,9 @@ export default function Login() {
     <BackgroundContainer>
       <ModalContainer
         onKeyDown={(e) => {
-          e.key === "Enter" ? submitForm() : null;
+          if (e.key === "Enter") {
+            submitForm();
+          }
         }}
       >
         <ButtonContainer>
@@ -211,12 +215,7 @@ export default function Login() {
             );
           })}
         </ButtonContainer>
-        <LoginForm
-          userData={userData}
-          setUserData={setUserData}
-          loginType={loginType}
-          submitForm={submitForm}
-        >
+        <LoginForm userData={userData} setUserData={setUserData} loginType={loginType}>
           <ErrorText id="loginError" role="errorMsg">
             {errorMsg}
           </ErrorText>
