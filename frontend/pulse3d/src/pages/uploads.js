@@ -288,19 +288,26 @@ export default function Uploads() {
   };
 
   const getAllJobs = async () => {
+    let jobsRes = [];
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?download=False`);
       if (response && response.status === 200) {
-        const { jobs } = await response.json();
-
-        const newJobs = jobs.map((job) => {
-          return formatJob(job, selectedJobs, accountId);
-        });
-
-        setJobs([...newJobs]);
+        jobsRes = (await response.json()).jobs;
       }
     } catch (e) {
-      console.log("ERROR fetching jobs in /uploads");
+      console.log("ERROR fetching jobs in /uploads", e);
+    }
+
+    try {
+      const newJobs = jobsRes
+        .map((job) => {
+          return formatJob(job, selectedJobs, accountId);
+        })
+        .filter((j) => j !== null);
+
+      setJobs([...newJobs]);
+    } catch (e) {
+      console.log("ERROR processing jobs", e);
     }
   };
 
