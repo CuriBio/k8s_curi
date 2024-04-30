@@ -31,7 +31,7 @@ def get_item(*, queue):
                     )
                     if current_job_status == "running":
                         await con_to_update_job_result.execute(
-                            "UPDATE jobs_result SET status='error', meta=$1 WHERE job_id=$2",
+                            "UPDATE jobs_result SET status='error', meta=meta||$1::jsonb, finished_at=NOW() WHERE job_id=$2",
                             json.dumps({"error_msg": "Ran out of time/memory"}),
                             item["id"],
                         )
