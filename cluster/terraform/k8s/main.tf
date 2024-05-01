@@ -315,7 +315,8 @@ resource "aws_iam_policy" "eks_cluster_autoscaler" {
         "autoscaling:DescribeTags",
         "autoscaling:SetDesiredCapacity",
         "autoscaling:TerminateInstanceInAutoScalingGroup",
-        "ec2:DescribeLaunchTemplateVersions"
+        "ec2:DescribeLaunchTemplateVersions",
+        "eks:DescribeNodegroup"
       ]
       Effect   = "Allow"
       Resource = "*"
