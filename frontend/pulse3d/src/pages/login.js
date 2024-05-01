@@ -5,6 +5,7 @@ import LoginForm from "@/components/account/LoginForm";
 import FormInput from "@/components/basicWidgets/FormInput";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
+
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
   position: relative;
@@ -86,7 +87,9 @@ export default function Login() {
     setInProgress(true);
     setErrorMsg(""); // reset to show user something happened
 
-    if (Object.values(userData).includes("")) {
+    const values = Object.values(userData);
+
+    if (values.length === 0 || Object.values(userData).some((v) => v == null || v === "")) {
       setErrorMsg("*All fields are required");
       // this state gets passed to web worker to attempt login request
     } else {
@@ -98,7 +101,10 @@ export default function Login() {
 
         const res = await fetch(loginURL, {
           method: "POST",
-          body: JSON.stringify({ ...userData, client_type: "dashboard" }),
+          body: JSON.stringify({
+            ...userData,
+            client_type: `dashboard:${process.env.NEXT_PUBLIC_FE_VERSION}`,
+          }),
           mode: "no-cors",
         });
         if (res) {
@@ -190,7 +196,9 @@ export default function Login() {
     <BackgroundContainer>
       <ModalContainer
         onKeyDown={(e) => {
-          e.key === "Enter" ? submitForm() : null;
+          if (e.key === "Enter") {
+            submitForm();
+          }
         }}
       >
         <ButtonContainer>
@@ -211,12 +219,7 @@ export default function Login() {
             );
           })}
         </ButtonContainer>
-        <LoginForm
-          userData={userData}
-          setUserData={setUserData}
-          loginType={loginType}
-          submitForm={submitForm}
-        >
+        <LoginForm userData={userData} setUserData={setUserData} loginType={loginType}>
           <ErrorText id="loginError" role="errorMsg">
             {errorMsg}
           </ErrorText>

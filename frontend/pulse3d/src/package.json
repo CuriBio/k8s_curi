@@ -7,9 +7,9 @@
     "dev": "npm run build-sw && next dev",
     "build": "NODE_ENV=production npm run build-sw && next build",
     "build-sw": "npm run _ce && webpack",
-    "export:prod": "echo 'NEXT_PUBLIC_PULSE3D_URL=https://pulse3d.curibio.com\nNEXT_PUBLIC_USERS_URL=https://apiv2.curibio.com/users\nNEXT_PUBLIC_MANTARRAY_URL=https://apiv2.curibio.com/mantarray\nNEXT_PUBLIC_CLUSTER=prod' > .env.production && npm run build && next export",
-    "export:modl": "echo 'NEXT_PUBLIC_PULSE3D_URL=https://pulse3d.curibio-modl.com\nNEXT_PUBLIC_USERS_URL=https://apiv2.curibio-modl.com/users\nNEXT_PUBLIC_MANTARRAY_URL=https://apiv2.curibio-modl.com/mantarray\nNEXT_PUBLIC_CLUSTER=modl' > .env.production && npm run build && next export",
-    "export:test": "echo 'NEXT_PUBLIC_PULSE3D_URL=https://pulse3d.curibio-test.com\nNEXT_PUBLIC_USERS_URL=https://apiv2.curibio-test.com/users\nNEXT_PUBLIC_MANTARRAY_URL=https://apiv2.curibio-test.com/mantarray\nNEXT_PUBLIC_CLUSTER=test' > .env.production && npm run build && next export",
+    "export:prod": "echo 'NEXT_PUBLIC_PULSE3D_URL=https://pulse3d.curibio.com\nNEXT_PUBLIC_USERS_URL=https://apiv2.curibio.com/users\nNEXT_PUBLIC_MANTARRAY_URL=https://apiv2.curibio.com/mantarray\nNEXT_PUBLIC_CLUSTER=prod\nNEXT_PUBLIC_FE_VERSION=$npm_package_version' > .env.production && npm run build && next export",
+    "export:modl": "echo 'NEXT_PUBLIC_PULSE3D_URL=https://pulse3d.curibio-modl.com\nNEXT_PUBLIC_USERS_URL=https://apiv2.curibio-modl.com/users\nNEXT_PUBLIC_MANTARRAY_URL=https://apiv2.curibio-modl.com/mantarray\nNEXT_PUBLIC_CLUSTER=modl\nNEXT_PUBLIC_FE_VERSION=$npm_package_version' > .env.production && npm run build && next export",
+    "export:test": "echo 'NEXT_PUBLIC_PULSE3D_URL=https://pulse3d.curibio-test.com\nNEXT_PUBLIC_USERS_URL=https://apiv2.curibio-test.com/users\nNEXT_PUBLIC_MANTARRAY_URL=https://apiv2.curibio-test.com/mantarray\nNEXT_PUBLIC_CLUSTER=test\nNEXT_PUBLIC_FE_VERSION=$npm_package_version' > .env.production && npm run build && next export",
     "start": "npm run _ce && next start",
     "lint": "next lint",
     "test:unit": "npm run _ce && jest --watchAll --coverage"
