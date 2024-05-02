@@ -40,13 +40,21 @@ const Header = styled.h2`
   line-height: 3;
 `;
 
+const SuccessText = styled.span`
+  color: green;
+  text-align: left;
+  position: relative;
+  padding-top: 1%;
+  padding-right: 2%;
+`;
+
 const ErrorText = styled.span`
   color: red;
   font-style: italic;
   text-align: left;
   position: relative;
-  width: 80%;
-  padding-top: 2%;
+  padding-top: 1%;
+  padding-right: 2%;
 `;
 
 const SubsectionContainer = styled.div`
@@ -99,6 +107,7 @@ export default function AccountSettings() {
   const [jobsLimit, setJobsLimit] = useState(-1);
   const [currentJobUsage, setCurrentJobUsage] = useState(0);
   const [endDate, setEndDate] = useState(null);
+  const [passwordUpdateSuccess, setPasswordUpdateSuccess] = useState(false);
   const [daysLeft, setDaysLeft] = useState(0);
   const [inProgress, setInProgress] = useState({ password: false });
   const [errorMsg, setErrorMsg] = useState();
@@ -124,10 +133,12 @@ export default function AccountSettings() {
   }, [usageQuota]);
 
   const onChangePassword = ({ target }) => {
+    setPasswordUpdateSuccess(false);
     setPasswords({ ...passwords, [target.id]: target.value });
   };
 
   const saveNewPassword = async () => {
+    let newErrorMsg = null;
     try {
       setInProgress({ ...inProgress, password: true });
 
@@ -136,22 +147,27 @@ export default function AccountSettings() {
         body: JSON.stringify({ passwords, action_type: "set_password" }),
       });
 
-      const resBody = await res.json();
-
+      // TODO this route probably shouldn't return a 200 if there is an error
       if (res.status === 200) {
-        if (!resBody) {
-          setPasswords({ password1: "", password2: "" });
-        } else if (resBody.message.includes("Cannot set password to any of the previous")) {
-          setErrorMsg(`*${resBody.message}`);
+        const resBody = await res.json();
+        if (resBody?.message) {
+          newErrorMsg = `*${resBody.message}`;
         }
       } else {
-        setErrorMsg("*Internal error. Please try again later.");
+        newErrorMsg = "*Internal error. Please try again later.";
       }
-
-      setInProgress({ ...inProgress, password: false });
     } catch (e) {
-      console.log(e);
+      console.log("ERROR updating password", e);
+      newErrorMsg = "Error";
+    }
+
+    setInProgress({ ...inProgress, password: false });
+
+    if (newErrorMsg) {
+      setErrorMsg(newErrorMsg);
+    } else {
       setPasswords({ password1: "", password2: "" });
+      setPasswordUpdateSuccess(true);
     }
   };
 
@@ -167,12 +183,11 @@ export default function AccountSettings() {
               password2={passwords.password2}
               onChangePassword={onChangePassword}
               setErrorMsg={setErrorMsg}
-            >
-              <ErrorText role="errorMsg">{errorMsg}</ErrorText>
-            </PasswordForm>
+            ></PasswordForm>
           </PasswordContainer>
-
           <ButtonContainer>
+            {passwordUpdateSuccess && <SuccessText>Update Successful!</SuccessText>}
+            {errorMsg && <ErrorText role="errorMsg">{errorMsg}</ErrorText>}
             <ButtonWidget
               width="150px"
               height="40px"
