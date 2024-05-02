@@ -41,6 +41,23 @@ const ButtonContainer = styled.div`
   padding-right: 45px;
 `;
 
+const SuccessText = styled.span`
+  color: green;
+  text-align: left;
+  position: relative;
+  padding-top: 1%;
+  padding-right: 2%;
+`;
+
+const ErrorText = styled.span`
+  color: red;
+  font-style: italic;
+  text-align: left;
+  position: relative;
+  padding-top: 1%;
+  padding-right: 2%;
+`;
+
 const filterP3dVersionsForProduct = (productType, versions) => {
   const minVersion = getMinP3dVersionForProduct(productType);
   return versions.filter((v) => semverGte(v, minVersion));
@@ -51,6 +68,8 @@ export default function UserPreferences({ pulse3dVersions, metaPulse3dVersions, 
   const [userPreferences, setUserPreferences] = useState({});
   const [filteredP3dVersions, setFilteredP3dVersions] = useState([]);
   const [inProgress, setInProgress] = useState(false);
+  const [updateSuccess, setUpdateSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState();
 
   useEffect(() => {
     setFilteredP3dVersions(
@@ -77,16 +96,18 @@ export default function UserPreferences({ pulse3dVersions, metaPulse3dVersions, 
   }, [filteredP3dVersions, metaPulse3dVersions]);
 
   const handlePulse3dVersionSelect = (idx) => {
+    setUpdateSuccess(false);
     setUserPreferences({ ...userPreferences, version: pulse3dVersionOptions[idx] });
   };
 
   const savePreferences = async () => {
+    let newErrorMsg = null;
     try {
       setInProgress(true);
 
       const newP3dVersion = userPreferences.version === "Latest" ? null : userPreferences.version;
 
-      await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/preferences`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/preferences`, {
         method: "PUT",
         body: JSON.stringify({
           product: productPage,
@@ -94,10 +115,17 @@ export default function UserPreferences({ pulse3dVersions, metaPulse3dVersions, 
         }),
       });
 
-      setInProgress(false);
+      if (res.status !== 200) {
+        newErrorMsg = "Error";
+      }
     } catch (e) {
-      console.log("ERROR updating user preferences");
+      console.log("ERROR updating user preferences", e);
+      newErrorMsg = "Error";
     }
+
+    setInProgress(false);
+    setErrorMsg(newErrorMsg);
+    setUpdateSuccess(newErrorMsg === null);
   };
   return (
     <>
@@ -119,6 +147,8 @@ export default function UserPreferences({ pulse3dVersions, metaPulse3dVersions, 
           </DropDownContainer>
         </AnalysisParamContainer>
         <ButtonContainer>
+          {updateSuccess && <SuccessText>Update Successful!</SuccessText>}
+          {errorMsg && <ErrorText role="errorMsg">{errorMsg}</ErrorText>}
           <ButtonWidget
             width="150px"
             height="40px"
