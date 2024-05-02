@@ -469,6 +469,7 @@ export default function AnalysisParamForm({
   minPulse3dVersionAllowed,
   userPresetOpts: {
     userPresets,
+    selectedPresetIdx,
     setSelectedPresetIdx,
     savePresetChecked,
     setSavePresetChecked,
@@ -764,7 +765,12 @@ export default function AnalysisParamForm({
               options={userPresets.map(({ name }) => name)}
               reset={!checkedParams}
               disabled={userPresets.length === 0} // disable if no presets have been saved
-              handleSelection={(idx) => setSelectedPresetIdx(idx)}
+              handleSelection={(idx) => {
+                setSelectedPresetIdx(idx);
+                if (savePresetChecked) {
+                  validatePresetName(userPresets?.[idx]?.name || "");
+                }
+              }}
               boxShadow="none"
             />
           </PresetDropdownContainer>
@@ -780,14 +786,19 @@ export default function AnalysisParamForm({
           <InputErrorContainer>
             <CheckboxWidget
               checkedState={savePresetChecked}
-              handleCheckbox={(bool) => {
-                setSavePresetChecked(bool);
-                if (bool) {
-                  // when initially checked and input is blank, need to ensure it's required
-                  setParamErrors({ ...paramErrors, presetName: "*Required" });
+              handleCheckbox={(checked) => {
+                setSavePresetChecked(checked);
+                if (checked) {
+                  const selectedPresetName = userPresets[selectedPresetIdx]?.name;
+                  if (selectedPresetName != null) {
+                    validatePresetName(selectedPresetName);
+                  } else {
+                    // when initially checked and input is blank, need to ensure it's required
+                    setParamErrors({ ...paramErrors, presetName: "*Required" });
+                  }
                 } else {
                   // want to reset this in case there was an error and doesn't block submitting analysis
-                  validatePresetName("");
+                  validatePresetName(null);
                 }
               }}
             />

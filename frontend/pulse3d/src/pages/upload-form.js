@@ -121,7 +121,7 @@ export default function UploadForm() {
   const { uploads, pulse3dVersions, defaultUploadForReanalysis } = useContext(UploadsContext);
 
   const isPulse3dPreferenceSet = () => {
-    return preferences?.[productPage]?.version !== undefined && pulse3dVersions.length > 0;
+    return preferences?.[productPage]?.version != null && pulse3dVersions.length > 0;
   };
 
   const getDefaultPulse3dVersion = () => {
@@ -330,6 +330,7 @@ export default function UploadForm() {
     setAnalysisParams(getDefaultAnalysisParams());
     setAnalysisPresetName("");
     setSavePresetChecked(false);
+    setSelectedPresetIdx();
   };
 
   const updateCheckParams = (newCheckedParams) => {
@@ -606,7 +607,9 @@ export default function UploadForm() {
 
       try {
         // just logging error occurred, doesn't block rest of analysis
-        if (savePresetChecked) await saveAnalysisPreset();
+        if (savePresetChecked) {
+          await saveAnalysisPreset();
+        }
       } catch (e) {
         console.log("ERROR saving analysis preset");
       }
@@ -823,6 +826,7 @@ export default function UploadForm() {
           minPulse3dVersionAllowed={minPulse3dVersionForCurrentUploads}
           userPresetOpts={{
             userPresets,
+            selectedPresetIdx,
             setSelectedPresetIdx,
             savePresetChecked,
             setSavePresetChecked,
