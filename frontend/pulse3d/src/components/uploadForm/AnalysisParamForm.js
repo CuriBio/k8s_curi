@@ -481,7 +481,7 @@ export default function AnalysisParamForm({
     UploadsContext
   );
   const { preferences, productPage } = useContext(AuthContext);
-
+  const [isOverwritingExistingPreset, setIsOverwritingExistingPreset] = useState(false);
   const [deprecationNotice, setDeprecationNotice] = useState(false);
   const [pulse3dVersionEOLDateWarning, setPulse3dVersionEOLDateWarning] = useState("");
   const [pulse3dVersionOptions, setPulse3dVersionOptions] = useState([]);
@@ -694,10 +694,12 @@ export default function AnalysisParamForm({
 
   const validatePresetName = (input) => {
     const nameFound = userPresets.map(({ name }) => name).find((name) => name === input);
+    setIsOverwritingExistingPreset(nameFound);
 
     let errorMessage = "";
-    if (nameFound) errorMessage = "*Name already exists";
-    else if (input === "" && savePresetChecked) errorMessage = "*Required";
+    if (input === "" && savePresetChecked) {
+      errorMessage = "*Required";
+    }
 
     setAnalysisPresetName(input);
     setParamErrors({ ...paramErrors, presetName: errorMessage });
@@ -801,6 +803,7 @@ export default function AnalysisParamForm({
               validatePresetName(e.target.value);
             }}
             errorMsg={errorMessages.presetName}
+            warningMsg={isOverwritingExistingPreset ? "*Overwriting existing preset" : null}
           />
         )}
         <LineSeparator />

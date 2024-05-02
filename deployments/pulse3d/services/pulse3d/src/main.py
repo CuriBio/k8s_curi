@@ -812,7 +812,7 @@ async def save_analysis_presets(
         bind_context_to_logger({"customer_id": customer_id, "user_id": user_id})
 
         async with request.state.pgpool.acquire() as con:
-            return await create_analysis_preset(con, user_id, details)
+            await create_analysis_preset(con, user_id, details)
     except Exception:
         logger.exception("Failed to save analysis preset for user")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
