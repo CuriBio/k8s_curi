@@ -121,7 +121,7 @@ export default function UploadForm() {
   const { uploads, pulse3dVersions, defaultUploadForReanalysis } = useContext(UploadsContext);
 
   const isPulse3dPreferenceSet = () => {
-    return preferences?.[productPage]?.version != null && pulse3dVersions.length > 0;
+    return preferences?.[productPage]?.version !== undefined && pulse3dVersions.length > 0;
   };
 
   const getDefaultPulse3dVersion = () => {

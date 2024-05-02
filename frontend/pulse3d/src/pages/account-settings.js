@@ -11,6 +11,7 @@ import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import PasswordForm from "@/components/account/PasswordForm";
 import semverGte from "semver/functions/gte";
 import { getMinP3dVersionForProduct } from "@/utils/generic";
+import UserPreferences from "@/components/account/UserPreferences";
 
 const BackgroundContainer = styled.div`
   width: 90%;
@@ -28,13 +29,6 @@ const BackgroundContainer = styled.div`
   padding-bottom: 3%;
 `;
 
-const DropDownContainer = styled.div`
-  width: 57%;
-  height: 89%;
-  background: white;
-  border-radius: 5px;
-`;
-
 const Header = styled.h2`
   position: relative;
   text-align: center;
@@ -46,13 +40,21 @@ const Header = styled.h2`
   line-height: 3;
 `;
 
+const SuccessText = styled.span`
+  color: green;
+  text-align: left;
+  position: relative;
+  padding-top: 1%;
+  padding-right: 2%;
+`;
+
 const ErrorText = styled.span`
   color: red;
   font-style: italic;
   text-align: left;
   position: relative;
-  width: 80%;
-  padding-top: 2%;
+  padding-top: 1%;
+  padding-right: 2%;
 `;
 
 const SubsectionContainer = styled.div`
@@ -99,30 +101,17 @@ const ButtonContainer = styled.div`
 
 const isEmpty = (str) => str === undefined || str.length === 0;
 
-const filterP3dVersionsForProduct = (productType, versions) => {
-  const minVersion = getMinP3dVersionForProduct(productType);
-  return versions.filter((v) => semverGte(v, minVersion));
-};
-
 export default function AccountSettings() {
   const { accountType, usageQuota, accountId, productPage, preferences } = useContext(AuthContext);
   const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
   const [jobsLimit, setJobsLimit] = useState(-1);
   const [currentJobUsage, setCurrentJobUsage] = useState(0);
   const [endDate, setEndDate] = useState(null);
+  const [passwordUpdateSuccess, setPasswordUpdateSuccess] = useState(false);
   const [daysLeft, setDaysLeft] = useState(0);
-  const [pulse3dVersionOptions, setPulse3dVersionOptions] = useState([]);
-  const [userPreferences, setUserPreferences] = useState({ version: 0 });
-  const [inProgress, setInProgress] = useState({ password: false, preferences: false });
+  const [inProgress, setInProgress] = useState({ password: false });
   const [errorMsg, setErrorMsg] = useState();
   const [passwords, setPasswords] = useState({ password1: "", password2: "" });
-  const [filteredP3dVersions, setFilteredP3dVersions] = useState(pulse3dVersions);
-
-  useEffect(() => {
-    setFilteredP3dVersions(
-      pulse3dVersions && productPage ? filterP3dVersionsForProduct(productPage, pulse3dVersions) : []
-    );
-  }, [pulse3dVersions, productPage]);
 
   const isAdminAccount = accountType === "admin";
 
@@ -143,53 +132,13 @@ export default function AccountSettings() {
     }
   }, [usageQuota]);
 
-  useEffect(() => {
-    const preferredVersion = preferences?.[productPage]?.version;
-    if (preferredVersion != null && filteredP3dVersions.length > 0) {
-      setUserPreferences({ version: filteredP3dVersions.indexOf(preferredVersion) });
-    }
-  }, [preferences, filteredP3dVersions, productPage]);
-
-  useEffect(() => {
-    if (filteredP3dVersions.length > 0) {
-      const options = filteredP3dVersions.map((version) => {
-        const selectedVersionMeta = metaPulse3dVersions.find((meta) => meta.version === version);
-        return selectedVersionMeta && ["testing", "deprecated"].includes(selectedVersionMeta.state)
-          ? version + `  [ ${selectedVersionMeta.state} ]`
-          : version;
-      });
-
-      setPulse3dVersionOptions(options);
-    }
-  }, [filteredP3dVersions, metaPulse3dVersions]);
-
-  const handlePulse3dVersionSelect = (idx) => {
-    setUserPreferences({ ...userPreferences, version: idx });
-  };
-
-  const savePreferences = async () => {
-    try {
-      setInProgress({ ...inProgress, preferences: true });
-
-      await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/preferences`, {
-        method: "PUT",
-        body: JSON.stringify({
-          product: productPage,
-          changes: { ...userPreferences, version: filteredP3dVersions[userPreferences.version] },
-        }),
-      });
-
-      setInProgress({ ...inProgress, preferences: false });
-    } catch (e) {
-      console.log("ERROR updating user preferences");
-    }
-  };
-
   const onChangePassword = ({ target }) => {
+    setPasswordUpdateSuccess(false);
     setPasswords({ ...passwords, [target.id]: target.value });
   };
 
   const saveNewPassword = async () => {
+    let newErrorMsg = null;
     try {
       setInProgress({ ...inProgress, password: true });
 
@@ -198,22 +147,27 @@ export default function AccountSettings() {
         body: JSON.stringify({ passwords, action_type: "set_password" }),
       });
 
-      const resBody = await res.json();
-
+      // TODO this route probably shouldn't return a 200 if there is an error
       if (res.status === 200) {
-        if (!resBody) {
-          setPasswords({ password1: "", password2: "" });
-        } else if (resBody.message.includes("Cannot set password to any of the previous")) {
-          setErrorMsg(`*${resBody.message}`);
+        const resBody = await res.json();
+        if (resBody?.message) {
+          newErrorMsg = `*${resBody.message}`;
         }
       } else {
-        setErrorMsg("*Internal error. Please try again later.");
+        newErrorMsg = "*Internal error. Please try again later.";
       }
-
-      setInProgress({ ...inProgress, password: false });
     } catch (e) {
-      console.log(e);
+      console.log("ERROR updating password", e);
+      newErrorMsg = "Error";
+    }
+
+    setInProgress({ ...inProgress, password: false });
+
+    if (newErrorMsg) {
+      setErrorMsg(newErrorMsg);
+    } else {
       setPasswords({ password1: "", password2: "" });
+      setPasswordUpdateSuccess(true);
     }
   };
 
@@ -229,12 +183,11 @@ export default function AccountSettings() {
               password2={passwords.password2}
               onChangePassword={onChangePassword}
               setErrorMsg={setErrorMsg}
-            >
-              <ErrorText role="errorMsg">{errorMsg}</ErrorText>
-            </PasswordForm>
+            ></PasswordForm>
           </PasswordContainer>
-
           <ButtonContainer>
+            {passwordUpdateSuccess && <SuccessText>Update Successful!</SuccessText>}
+            {errorMsg && <ErrorText role="errorMsg">{errorMsg}</ErrorText>}
             <ButtonWidget
               width="150px"
               height="40px"
@@ -256,37 +209,12 @@ export default function AccountSettings() {
       </SubsectionContainer>
       {!isAdminAccount && (
         <SubsectionContainer>
-          <Subheader>Preferences</Subheader>
-          <SubSectionBody>
-            <AnalysisParamContainer
-              label="Pulse3D Version"
-              name="selectedPulse3dVersion"
-              tooltipText="Specifies which version of the Pulse3D analysis software to use."
-              additionalLabelStyle={{ lineHeight: 1.5 }}
-              iconStyle={{ fontSize: 20, margin: "2px 10px" }}
-            >
-              <DropDownContainer>
-                <DropDownWidget
-                  options={pulse3dVersionOptions}
-                  handleSelection={handlePulse3dVersionSelect}
-                  initialSelected={userPreferences.version}
-                />
-              </DropDownContainer>
-            </AnalysisParamContainer>
-            <ButtonContainer>
-              <ButtonWidget
-                width="150px"
-                height="40px"
-                position="relative"
-                borderRadius="3px"
-                label="Save"
-                backgroundColor={inProgress.preferences ? "var(--dark-gray)" : "var(--dark-blue)"}
-                inProgress={inProgress.preferences}
-                disabled={inProgress.preferences}
-                clickFn={savePreferences}
-              />
-            </ButtonContainer>
-          </SubSectionBody>
+          <UserPreferences
+            pulse3dVersions={pulse3dVersions}
+            metaPulse3dVersions={metaPulse3dVersions}
+            productPage={productPage}
+            preferences={preferences}
+          />
         </SubsectionContainer>
       )}
       <SubsectionContainer>
