@@ -1172,7 +1172,6 @@ export default function AnalysisParamForm({
           }
           if (success) {
             userPresets.splice(presetDeletionIdx, 1);
-            console.log("NEW", userPresets);
             setUserPresets([...userPresets]);
           }
           setPresetDeletionIdx(-1);
