@@ -32,6 +32,15 @@ const ErrorText = styled.span`
   font-size: 13px;
 `;
 
+const WarningText = styled.span`
+  color: darkorange;
+  font-style: italic;
+  text-align: left;
+  position: relative;
+  width: 150%;
+  font-size: 13px;
+`;
+
 const InputErrorContainer = styled.div`
   display: flex;
   flex-direction: column;
@@ -55,6 +64,7 @@ export default function AnalysisParamContainer({
   value,
   changeFn,
   errorMsg,
+  warningMsg,
   children,
   disabled = false,
 }) {
@@ -76,9 +86,16 @@ export default function AnalysisParamContainer({
             onChangeFn={changeFn}
             disabled={disabled}
           >
-            <ErrorText id={`${name}Error`} role="errorMsg">
-              {errorMsg}
-            </ErrorText>
+            {errorMsg && (
+              <ErrorText id={`${name}Error`} role="errorMsg">
+                {errorMsg}
+              </ErrorText>
+            )}
+            {(!errorMsg || errorMsg === "") && warningMsg && (
+              <WarningText id={`${name}Warning`} role="warningMsg">
+                {warningMsg}
+              </WarningText>
+            )}
           </FormInput>
         </InputErrorContainer>
       )}
