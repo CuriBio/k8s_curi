@@ -469,6 +469,7 @@ export default function AnalysisParamForm({
   minPulse3dVersionAllowed,
   userPresetOpts: {
     userPresets,
+    setUserPresets,
     selectedPresetIdx,
     setSelectedPresetIdx,
     savePresetChecked,
@@ -487,6 +488,7 @@ export default function AnalysisParamForm({
   const [pulse3dVersionEOLDateWarning, setPulse3dVersionEOLDateWarning] = useState("");
   const [pulse3dVersionOptions, setPulse3dVersionOptions] = useState([]);
   const [pulse3dFilteredFileVersions, setPulse3dFilteredFileVersions] = useState([]);
+  const [presetDeletionIdx, setPresetDeletionIdx] = useState(-1);
 
   const handlePulse3dVersionSelect = (idx) => {
     const selectedVersionMetadata = metaPulse3dVersions.find(
@@ -770,6 +772,9 @@ export default function AnalysisParamForm({
                 if (savePresetChecked) {
                   validatePresetName(userPresets?.[idx]?.name || "");
                 }
+              }}
+              handleDeletion={(idx) => {
+                setPresetDeletionIdx(idx);
               }}
               boxShadow="none"
             />
@@ -1143,6 +1148,37 @@ export default function AnalysisParamForm({
           </OriginalAdvAnalysisContainer>
         )}
       </InputContainerTwo>
+      <ModalWidget
+        open={presetDeletionIdx !== -1}
+        labels={[
+          "Are you sure you want to delete this preset?",
+          userPresets?.[presetDeletionIdx]?.name || "",
+        ]}
+        buttons={["Cancel", "Delete"]}
+        closeModal={async (idx) => {
+          let success = true;
+
+          const presetName = userPresets?.[presetDeletionIdx]?.name;
+          if (idx === 1) {
+            try {
+              const res = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets/${presetName}`, {
+                method: "DELETE",
+              });
+              success = res.status === 200;
+            } catch (e) {
+              console.log("ERROR delete analysis param preset", e);
+              success = false;
+            }
+          }
+          if (success) {
+            userPresets.splice(presetDeletionIdx, 1);
+            console.log("NEW", userPresets);
+            setUserPresets([...userPresets]);
+          }
+          setPresetDeletionIdx(-1);
+        }}
+        header={"Warning!"}
+      />
       <ModalWidget
         open={deprecationNotice}
         labels={[pulse3dVersionEOLDateWarning]}

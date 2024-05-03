@@ -826,6 +826,7 @@ export default function UploadForm() {
           minPulse3dVersionAllowed={minPulse3dVersionForCurrentUploads}
           userPresetOpts={{
             userPresets,
+            setUserPresets,
             selectedPresetIdx,
             setSelectedPresetIdx,
             savePresetChecked,

@@ -827,16 +827,30 @@ async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(tag=
         bind_context_to_logger({"customer_id": customer_id, "user_id": user_id})
 
         async with request.state.pgpool.acquire() as con:
-            async with con.transaction():
-                return [
-                    dict(row)
-                    async for row in con.cursor(
-                        "SELECT name, parameters FROM analysis_presets where user_id=$1", user_id
-                    )
-                ]
+            return await con.fetch("SELECT name, parameters FROM analysis_presets where user_id=$1", user_id)
 
     except Exception:
         logger.exception("Failed to get analysis presets for user")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.delete("/presets/{preset_name}")
+async def delete_analysis_preset(
+    request: Request, preset_name: str, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
+):
+    """Delete analysis parameter preset for user"""
+    try:
+        user_id = str(uuid.UUID(token.userid))
+        customer_id = str(uuid.UUID(token.customer_id))
+        bind_context_to_logger({"customer_id": customer_id, "user_id": user_id})
+
+        async with request.state.pgpool.acquire() as con:
+            await con.execute(
+                "DELETE FROM analysis_presets WHERE user_id=$1 AND name=$2", user_id, preset_name
+            )
+
+    except Exception:
+        logger.exception(f"Failed to delete analysis preset {preset_name} for user")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
