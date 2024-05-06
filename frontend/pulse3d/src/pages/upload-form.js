@@ -76,7 +76,19 @@ const DropDownContainer = styled.div`
   position: relative;
   height: 17%;
   align-items: center;
-  margin-top: 2rem;
+  margin-top: 20px;
+`;
+
+const RemoveButton = styled.button`
+  border: none;
+  background-color: var(--dark-grey);
+  font-style: italic;
+
+  &:hover {
+    color: var(--teal-green);
+    text-decoration: underline;
+    cursor: pointer;
+  }
 `;
 
 const dropZoneText = "CLICK HERE or DROP";
@@ -169,7 +181,7 @@ export default function UploadForm() {
 
   const router = useRouter();
 
-  const [files, setFiles] = useState(defaultUploadForReanalysis ? [defaultUploadForReanalysis] : []);
+  const [files, setFiles] = useState(defaultUploadForReanalysis || []);
   const [formattedUploads, setFormattedUploads] = useState([]);
   const [isButtonDisabled, setIsButtonDisabled] = useState(true);
   const [paramErrors, setParamErrors] = useState({});
@@ -739,12 +751,12 @@ export default function UploadForm() {
     setAlertShowed(false);
 
     let nameOverride = "";
-    if (idx === -1) {
-      setFiles([]); // must be an array
-    } else {
+    if (idx !== -1) {
       const newSelection = uploads[idx];
-      setFiles([newSelection]);
-      nameOverride = removeFileExt(newSelection.filename).join(".");
+      const newFiles = [...files, newSelection];
+      setFiles(newFiles);
+
+      nameOverride = newFiles.length === 1 ? removeFileExt(newSelection.filename) : "";
     }
 
     setAnalysisParams({
@@ -757,7 +769,7 @@ export default function UploadForm() {
     const filenameNoExt = filename.split(".");
     filenameNoExt.pop();
 
-    return filenameNoExt;
+    return filenameNoExt.join(".");
   };
 
   const saveAnalysisPreset = async () => {
@@ -783,17 +795,55 @@ export default function UploadForm() {
       <Uploads>
         <Header>Run Analysis</Header>
         {reanalysis ? (
-          <DropDownContainer>
-            <InputDropdownWidget
-              label="Select Recording"
-              options={formattedUploads}
-              initialOption={defaultUploadForReanalysis ? defaultUploadForReanalysis.filename : null}
-              handleSelection={handleDropDownSelect}
-              reset={files.length === 0}
-              width={500}
-              disabled={inProgress}
-            />
-          </DropDownContainer>
+          <div
+            style={{
+              width: "50%",
+              border: "2px solid var(--dark-gray)",
+              "border-radius": "5px",
+              "margin-top": "2rem",
+              "background-color": "var(--light-gray)",
+            }}
+          >
+            <DropDownContainer>
+              <div style={{ "background-color": "white" }}>
+                <InputDropdownWidget
+                  label="Select Recording"
+                  options={formattedUploads}
+                  handleSelection={handleDropDownSelect}
+                  reset={files.length === 0}
+                  width={500}
+                  disabled={inProgress}
+                />
+              </div>
+            </DropDownContainer>
+            <div style={{ "text-align": "center", "margin-top": "10px", "font-size": "18px" }}>
+              <b>Selected Files:</b>
+            </div>
+            {files?.length > 0 ? (
+              <ul>
+                {files.map((f, idx) => {
+                  return (
+                    <li key={`reanalysis-file-${idx}`}>
+                      <div style={{ display: "flex", "flex-direction": "col" }}>
+                        <div style={{ width: "80%" }}>{f.filename}</div>
+                        <RemoveButton
+                          onClick={(e) => {
+                            e.preventDefault();
+                            files.splice(idx, 1);
+                            setFiles([...files]);
+                          }}
+                        >
+                          Remove
+                        </RemoveButton>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <div style={{ textAlign: "center", marginBlock: "16px" }}>None</div>
+            )}
+          </div>
         ) : (
           <>
             <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
@@ -806,11 +856,11 @@ export default function UploadForm() {
               resetDragDrop={resetDragDrop}
               fileTypes={["zip", "xlsx", "parquet"]}
             />
-            {usageQuota && usageQuota.limits && parseInt(usageQuota.limits.jobs) !== -1 ? (
+            {usageQuota && usageQuota.limits && parseInt(usageQuota.limits.jobs) !== -1 && (
               <UploadCreditUsageInfo>
                 Analysis will run on each successfully uploaded file, consuming 1 analysis credit each.
               </UploadCreditUsageInfo>
-            ) : null}
+            )}
           </>
         )}
         <AnalysisParamForm
