@@ -648,7 +648,7 @@ export default function Uploads() {
       jobsList.length === 0 && getSelectedUploads(selectedUploads).length === 0
     );
 
-    return [...multiTargetOptions, isSingleTargetSelected(jobsList), isSingleUploadSelected()];
+    return [...multiTargetOptions, isSingleTargetSelected(jobsList), areUploadsSelected()];
   };
 
   const isSingleTargetSelected = (jobsList) => {
@@ -661,9 +661,9 @@ export default function Uploads() {
     );
   };
 
-  const isSingleUploadSelected = () => {
+  const areUploadsSelected = () => {
     if (uploads) {
-      return getSelectedUploads(selectedUploads).length != 1 || (usageQuota && usageQuota.jobs_reached);
+      return getSelectedUploads(selectedUploads).length === 0 || (usageQuota && usageQuota.jobs_reached);
     }
   };
 
@@ -676,11 +676,7 @@ export default function Uploads() {
     const checkedRows = t.getSelectedRowModel().rows;
 
     const handleDropdownSelection = (option) => {
-      if (option === 1) {
-        setModalButtons(["Close", "Confirm"]);
-        setModalLabels(modalObjs.delete);
-        setModalState("generic");
-      } else if (option === 0) {
+      if (option === 0) {
         // if download, check that no job contains an error status
         const jobsList = getJobsList(selectedJobs);
         const failedJobs = jobs.filter(({ jobId, status }) => jobsList.includes(jobId) && status === "error");
@@ -692,6 +688,10 @@ export default function Uploads() {
           setModalLabels(modalObjs.containsFailedJob);
           setModalState("generic");
         }
+      } else if (option === 1) {
+        setModalButtons(["Close", "Confirm"]);
+        setModalLabels(modalObjs.delete);
+        setModalState("generic");
       } else if (option === 2) {
         const jobsList = getJobsList(selectedJobs);
         const jobDetails = jobs.find(({ jobId }) => jobId == jobsList[0]);
@@ -702,9 +702,9 @@ export default function Uploads() {
 
         setOpenInteractiveAnalysis(true);
       } else if (option === 3) {
-        // Open Re-analyze tab with name of file pre-selected
-        const selectedUpload = uploads.find((upload) => upload.id == checkedRows[0].id);
-        setDefaultUploadForReanalysis(selectedUpload);
+        // Open Re-analyze tab with name of the selected files
+        const selectedUploads = uploads.filter((upload) => checkedRows.some((row) => upload.id === row.id));
+        setDefaultUploadForReanalysis(selectedUploads);
         router.push("/upload-form?id=re-analyze+existing+upload");
       }
     };
@@ -764,7 +764,7 @@ export default function Uploads() {
                 : "You must select one successful job to enable interactive analysis.",
               usageQuota && usageQuota.jobs_reached
                 ? "Re-analysis is disabled because customer limit has been reached."
-                : "You must select one upload to enable re-analysis.",
+                : "You must select uploads to enable re-analysis.",
             ]}
             handleSelection={handleDropdownSelection}
             handleSubSelection={handleDownloadSubSelection}
