@@ -369,26 +369,35 @@ async def update_firmware_info(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.post("/software/{controller}/{version}")
+@app.post("/software/{controller}/{version}/{is_prod}")
 async def add_software_version(
     request: Request,
     controller: str = Path(..., pattern=SW_TYPE_REGEX),
     version: str = Path(..., pattern=SEMVER_REGEX),
+    is_prod: bool = False,
     token=Depends(ProtectedAny(scopes=[Scopes.MANTARRAY__SOFTWARE__EDIT])),
 ):
     bind_context_to_logger({"controller_type": controller, "sw_version": version})
 
+    state = "external" if is_prod else "internal"
+
     if controller == "mantarray":
-        query = "INSERT INTO ma_controllers (version) VALUES ($1)"
+        query = "INSERT INTO ma_controllers (version, state) VALUES ($1, $2)"
     else:
-        query = "INSERT INTO sting_controllers (version) VALUES ($1)"
+        query = "INSERT INTO sting_controllers (version, state) VALUES ($1, $2)"
 
     try:
         async with request.state.pgpool.acquire() as con:
-            await con.execute(query, version)
+            await con.execute(query, version, state)
 
     except UniqueViolationError:
-        pass  # TODO comment
+        if is_prod:
+            if controller == "mantarray":
+                query = "UPDATE ma_controllers SET state='external' WHERE version=$1"
+            else:
+                query = "UPDATE sting_controllers SET state='external' WHERE version=$1"
+            async with request.state.pgpool.acquire() as con:
+                await con.execute(query, version)
     except Exception:
         err_msg = f"Error adding {controller} controller v{version} to DB"
         logger.exception(err_msg)
