@@ -369,17 +369,17 @@ async def update_firmware_info(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.post("/software/{controller}/{version}/{is_prod}")
+@app.post("/software/{controller}/{version}/{prod}")
 async def add_software_version(
     request: Request,
+    prod: bool,
     controller: str = Path(..., pattern=SW_TYPE_REGEX),
     version: str = Path(..., pattern=SEMVER_REGEX),
-    is_prod: bool = False,
     token=Depends(ProtectedAny(scopes=[Scopes.MANTARRAY__SOFTWARE__EDIT])),
 ):
     bind_context_to_logger({"controller_type": controller, "sw_version": version})
 
-    state = "external" if is_prod else "internal"
+    state = "external" if prod else "internal"
 
     if controller == "mantarray":
         query = "INSERT INTO ma_controllers (version, state) VALUES ($1, $2)"
@@ -391,7 +391,7 @@ async def add_software_version(
             await con.execute(query, version, state)
 
     except UniqueViolationError:
-        if is_prod:
+        if prod:
             if controller == "mantarray":
                 query = "UPDATE ma_controllers SET state='external' WHERE version=$1"
             else:
