@@ -1,14 +1,14 @@
 import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
-import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
+import DashboardLayout from "@/components/layouts/DashboardLayout";
 import styled from "styled-components";
 import { useContext, useState, useEffect, useMemo } from "react";
 import InteractiveAnalysisModal from "@/components/interactiveAnalysis/InteractiveAnalysisModal";
-import { AuthContext } from "@/pages/_app";
+import { AuthContext, UploadsContext } from "@/pages/_app";
 import { useRouter } from "next/router";
 import JobPreviewModal from "@/components/interactiveAnalysis/JobPreviewModal";
-import { formatDateTime } from "@/utils/generic";
+import { formatDateTime, formatJob } from "@/utils/generic";
 import Table from "@/components/table/Table";
 import { Box } from "@mui/material";
 import Jobs from "@/components/table/Jobs";
@@ -108,12 +108,9 @@ const getSelectedUploads = (u) => {
 
 export default function Uploads() {
   const router = useRouter();
-  const { accountType, usageQuota, accountScope, productPage } = useContext(AuthContext);
-  const { uploads, setFetchUploads, pulse3dVersions, setDefaultUploadForReanalysis } = useContext(
-    UploadsContext
-  );
+  const { accountType, usageQuota, accountScope, productPage, accountId } = useContext(AuthContext);
+  const { uploads, setUploads, setDefaultUploadForReanalysis, jobs, setJobs } = useContext(UploadsContext);
 
-  const [jobs, setJobs] = useState([]);
   const [displayRows, setDisplayRows] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUploads, setSelectedUploads] = useState({});
@@ -128,20 +125,10 @@ export default function Uploads() {
   const [jobsInSelectedUpload, setJobsInSelectedUpload] = useState(0);
 
   useEffect(() => {
-    if (uploads) {
+    if (uploads && jobs.length == 0) {
       getAllJobs();
-
-      if (uploads.length > 0) {
-        const statusUpdateInterval = setInterval(async () => {
-          if (!["downloading", "deleting"].includes(modalState) && !openInteractiveAnalysis) {
-            await getAllJobs();
-          }
-        }, [1e4]);
-
-        return () => clearInterval(statusUpdateInterval);
-      }
     }
-  }, [uploads]);
+  }, [uploads, jobs]);
 
   useEffect(() => {
     // reset to false everytime it gets triggered
@@ -157,14 +144,15 @@ export default function Uploads() {
 
   useEffect(() => {
     if (uploads) {
-      const formattedUploads = uploads.map(({ username, id, filename, created_at, owner, auto_upload }) => {
-        // const formattedTime = formatDateTime(created_at);
+      const formattedUploads = uploads.map(({ username, id, filename, created_at, auto_upload, user_id }) => {
         const recName = filename ? filename.split(".").slice(0, -1).join(".") : null;
         const uploadJobs = jobs
           .filter(({ uploadId }) => uploadId === id)
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
         const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].createdAt : created_at;
+
+        const owner = accountId === user_id.replace(/-/g, "");
 
         return {
           username,
@@ -181,7 +169,7 @@ export default function Uploads() {
       setDisplayRows([...formattedUploads]);
       setIsLoading(false);
     }
-  }, [jobs]);
+  }, [uploads, jobs]);
 
   useEffect(() => {
     handleSelectedJobs();
@@ -297,8 +285,6 @@ export default function Uploads() {
     setResetDropdown(true);
     setSelectedUploads({});
     setSelectedJobs({});
-    setFetchUploads(true);
-    await getAllJobs();
   };
 
   const getAllJobs = async () => {
@@ -314,50 +300,8 @@ export default function Uploads() {
 
     try {
       const newJobs = jobsRes
-        .map(({ id, upload_id, created_at, object_key, status, meta, owner }) => {
-          try {
-            const analyzedFile = object_key ? object_key.split("/")[object_key.split("/").length - 1] : "";
-            const isChecked = Object.keys(selectedJobs).includes(id);
-            const parsedMeta = JSON.parse(meta);
-            // Tanner (4/30/24): if jobs are missing analysis params for some reason, need to set to an empty object otherwise errors will occur
-            const analysisParams = parsedMeta.analysis_params || {};
-            // add pulse3d version used on job to be displayed with other analysis params
-            if ("version" in parsedMeta) {
-              analysisParams.pulse3d_version = parsedMeta.version;
-            }
-
-            const metaParams = { analysisParams };
-
-            if ("name_override" in parsedMeta) {
-              metaParams.nameOverride = parsedMeta.name_override;
-            }
-
-            if ("error_msg" in parsedMeta) {
-              status += `: ${parsedMeta.error_msg}`;
-            } else if ("error" in parsedMeta) {
-              // Tanner (3/27/24): this is legacy error handling, new jobs will put a tidy error message in the field above
-              if (parsedMeta.error.includes("Invalid file format")) {
-                status += ": Invalid file format";
-              } else if (parsedMeta.error.includes("Unable to converge")) {
-                status += `: ${parsedMeta.error}`;
-              }
-            }
-
-            return {
-              jobId: id,
-              uploadId: upload_id,
-              analyzedFile,
-              createdAt: created_at,
-              status,
-              version: pulse3dVersions[0], // tag with latest version for now
-              checked: isChecked,
-              owner,
-              ...metaParams,
-            };
-          } catch (e) {
-            console.log(`ERROR handling job ${id}`, e);
-            return null;
-          }
+        .map((job) => {
+          return formatJob(job, selectedJobs, accountId);
         })
         .filter((j) => j !== null);
 
@@ -369,8 +313,14 @@ export default function Uploads() {
 
   const removeDeletedUploads = (deletedUploads) => {
     const deletedIds = deletedUploads.map(({ id }) => id);
-    const filteredRows = displayRows.filter(({ id }) => !deletedIds.includes(id));
-    setDisplayRows([...filteredRows]);
+    const filteredUploads = uploads.filter(({ id }) => !deletedIds.includes(id));
+    setUploads([...filteredUploads]);
+  };
+
+  const removeDeletedJobs = (deletedJobs) => {
+    const deletedIds = deletedJobs.map(({ jobId }) => jobId);
+    const filteredJobs = jobs.filter(({ jobId }) => !deletedIds.includes(jobId));
+    setJobs([...filteredJobs]);
   };
 
   const handleDeletions = async () => {
@@ -434,6 +384,8 @@ export default function Uploads() {
         setModalButtons(["Close"]);
         setModalLabels(modalObjs.failedDeletion);
         setModalState("generic");
+      } else {
+        removeDeletedJobs(jobsToDelete);
       }
 
       return failedDeletion;

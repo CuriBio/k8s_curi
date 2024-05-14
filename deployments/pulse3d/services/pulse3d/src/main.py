@@ -134,9 +134,6 @@ async def get_info_of_uploads(
         upload_ids = [str(upload_id) for upload_id in upload_ids]
 
     try:
-        account_id = str(uuid.UUID(token.account_id))
-        is_user = token.account_type == "user"
-
         bind_context_to_logger(
             {"user_id": token.userid, "customer_id": token.customer_id, "upload_ids": upload_ids}
         )
@@ -150,12 +147,6 @@ async def get_info_of_uploads(
 
         if isinstance(uploads, GenericErrorResponse):
             return uploads
-
-        if is_user:
-            # admin accounts don't matter here because they don't have the ability to delete
-            for upload in uploads:
-                # need way on FE to tell if user owns recordings besides username since current user's username is not stored on the FE. We want to prevent users from attempting to delete files that aren't theirs before calling /delete route
-                upload["owner"] = str(upload["user_id"]) == account_id
 
         return uploads
 
@@ -337,10 +328,6 @@ async def get_info_of_jobs(
         job_ids = [str(job_id) for job_id in job_ids]
 
     try:
-        account_id = str(uuid.UUID(token.account_id))
-        account_type = token.account_type
-        is_user = account_type == "user"
-
         bind_context_to_logger(
             {"user_id": token.userid, "customer_id": token.customer_id, "job_ids": job_ids}
         )
@@ -358,12 +345,8 @@ async def get_info_of_jobs(
                 "object_key": obj_key,
                 "created_at": job["created_at"],
                 "meta": job["job_meta"],
+                "user_id": job["user_id"],
             }
-
-            if is_user:
-                # admin accounts don't have the ability to delete so doesn't need this key:value  # TODO is this comment still necessary?
-                # need way on FE to tell if user owns recordings besides username since current user's username is not stored on the FE. We want to prevent users from attempting to delete files that aren't theirs before calling /delete route
-                job_info["owner"] = str(job["user_id"]) == account_id
 
             if job_info["status"] == "finished" and download:
                 # This is in case any current users uploaded files before object_key was dropped from uploads table and added to jobs_result

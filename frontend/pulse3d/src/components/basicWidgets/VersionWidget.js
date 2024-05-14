@@ -1,4 +1,4 @@
-import { UploadsContext } from "@/components/layouts/DashboardLayout";
+import { UploadsContext } from "@/pages/_app";
 import { useContext, useEffect, useState } from "react";
 import styled from "styled-components";
 import AnalysisParamContainer from "@/components/uploadForm/AnalysisParamContainer";

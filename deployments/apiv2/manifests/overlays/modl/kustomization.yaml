@@ -8,6 +8,7 @@ resources:
   - curibio-users-creds.yaml
   - curibio-mantarray-creds.yaml
   - curibio-email-creds.yaml
+  - curibio-event-broker-creds.yaml
 
 patches:
   - patch: |-
@@ -34,6 +35,17 @@ patches:
         value: modl
       - op: add
         path: /spec/template/spec/containers/1/env/0
+        value:
+          name: DASHBOARD_URL
+          value: https://dashboard.curibio-modl.com
+      - op: add
+        path: /spec/template/spec/containers/2/image
+        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/event-broker:0.1.0"
+      - op: replace
+        path: /spec/template/spec/containers/2/env/0/value
+        value: modl
+      - op: add
+        path: /spec/template/spec/containers/2/env/0
         value:
           name: DASHBOARD_URL
           value: https://dashboard.curibio-modl.com

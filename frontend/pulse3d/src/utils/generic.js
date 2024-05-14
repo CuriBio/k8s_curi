@@ -228,6 +228,53 @@ const getMinP3dVersionForProduct = (productType) => {
   }
 };
 
+const formatJob = (job, selectedJobs, accountId) => {
+  try {
+    const { id, upload_id, created_at, object_key, status, meta, user_id } = job;
+    const analyzedFile = object_key?.split("/").slice(-1) || "";
+    const isChecked = Object.keys(selectedJobs).includes(id);
+    const parsedMeta = typeof meta === "string" ? JSON.parse(meta) : meta;
+    // Tanner (4/30/24): if jobs are missing analysis params for some reason, need to set to an empty object otherwise errors will occur
+    const analysisParams = parsedMeta.analysis_params || {};
+    // add pulse3d version used on job to be displayed with other analysis params
+    if ("version" in parsedMeta) {
+      analysisParams.pulse3d_version = parsedMeta.version;
+    }
+    const metaParams = { analysisParams };
+
+    if ("name_override" in parsedMeta) {
+      metaParams.nameOverride = parsedMeta.name_override;
+    }
+
+    if ("error_msg" in parsedMeta) {
+      status += `: ${parsedMeta.error_msg}`;
+    } else if ("error" in parsedMeta) {
+      // Tanner (3/27/24): this is legacy error handling, new jobs will put a tidy error message in the field above
+      if (parsedMeta.error.includes("Invalid file format")) {
+        status += ": Invalid file format";
+      } else if (parsedMeta.error.includes("Unable to converge")) {
+        status += `: ${parsedMeta.error}`;
+      }
+    }
+
+    const owner = accountId === user_id.replace(/-/g, "");
+
+    return {
+      jobId: id,
+      uploadId: upload_id,
+      analyzedFile,
+      createdAt: created_at,
+      status,
+      checked: isChecked,
+      owner,
+      ...metaParams,
+    };
+  } catch (e) {
+    console.log(`ERROR formatting job ${id}`, e);
+    return null;
+  }
+};
+
 export {
   deepCopy,
   hexToBase64,
@@ -241,4 +288,5 @@ export {
   applyWindow,
   isInt,
   getMinP3dVersionForProduct,
+  formatJob,
 };

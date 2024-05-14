@@ -384,8 +384,6 @@ def test_jobs__get__jobs_found(download, test_token_scope, test_job_ids, mocked_
         job["id"] = job.pop("job_id")
         job["meta"] = job.pop("job_meta")
         job.pop("user_id")
-        if account_type != AccountTypes.ADMIN:
-            job["owner"] = True
 
     # if all jobs are retrieved successfully, this should be the only key in the response dict
     assert list(response.json()) == ["jobs"]
@@ -451,7 +449,6 @@ def test_jobs__get__error_with_creating_presigned_url_for_single_file(mocked_asy
         # rename keys
         job["id"] = job.pop("job_id")
         job["meta"] = job.pop("job_meta")
-        job["owner"] = True
         job.pop("user_id")
 
     assert list(response.json()) == ["jobs"]
