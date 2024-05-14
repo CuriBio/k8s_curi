@@ -277,6 +277,12 @@ export default function UploadForm() {
   }, []);
 
   useEffect(() => {
+    if (productPage) {
+      setMinPulse3dVersionForCurrentUploads(getMinP3dVersionForProduct(productPage));
+    }
+  }, [productPage]);
+
+  useEffect(() => {
     const newAnalysisStatus = isReanalysisPage(router);
     // only perform these updates if the page actually changed
     if (reanalysis !== newAnalysisStatus) {
@@ -799,13 +805,13 @@ export default function UploadForm() {
             style={{
               width: "50%",
               border: "2px solid var(--dark-gray)",
-              "border-radius": "5px",
-              "margin-top": "2rem",
-              "background-color": "var(--light-gray)",
+              borderRadius: "5px",
+              marginTop: "2rem",
+              backgroundColor: "var(--light-gray)",
             }}
           >
             <DropDownContainer>
-              <div style={{ "background-color": "white" }}>
+              <div style={{ backgroundColor: "white" }}>
                 <InputDropdownWidget
                   label="Select Recording"
                   options={formattedUploads}
@@ -816,7 +822,7 @@ export default function UploadForm() {
                 />
               </div>
             </DropDownContainer>
-            <div style={{ "text-align": "center", "margin-top": "10px", "font-size": "18px" }}>
+            <div style={{ textAlign: "center", marginTop: "10px", fontSize: "18px" }}>
               <b>Selected Files:</b>
             </div>
             {files?.length > 0 ? (
@@ -824,7 +830,7 @@ export default function UploadForm() {
                 {files.map((f, idx) => {
                   return (
                     <li key={`reanalysis-file-${idx}`}>
-                      <div style={{ display: "flex", "flex-direction": "col" }}>
+                      <div style={{ display: "flex", flexDirection: "col" }}>
                         <div style={{ width: "80%" }}>{f.filename}</div>
                         <RemoveButton
                           onClick={(e) => {
