@@ -1,7 +1,7 @@
 """unique user_id and name on analysis_presets
 
 Revision ID: de4ec59b138a
-Revises: 848fb69a8766
+Revises: 469ffbbe144b
 Create Date: 2024-05-02 16:22:08.798063
 
 """
@@ -11,7 +11,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "de4ec59b138a"
-down_revision = "848fb69a8766"
+down_revision = "469ffbbe144b"
 branch_labels = None
 depends_on = None
 

@@ -8,7 +8,7 @@ import InteractiveAnalysisModal from "@/components/interactiveAnalysis/Interacti
 import { AuthContext, UploadsContext } from "@/pages/_app";
 import { useRouter } from "next/router";
 import JobPreviewModal from "@/components/interactiveAnalysis/JobPreviewModal";
-import { formatDateTime, formatJob } from "@/utils/generic";
+import { formatDateTime } from "@/utils/generic";
 import Table from "@/components/table/Table";
 import { Box } from "@mui/material";
 import Jobs from "@/components/table/Jobs";
@@ -123,12 +123,6 @@ export default function Uploads() {
   const [openJobPreview, setOpenJobPreview] = useState(false);
   const [selectedAnalysis, setSelectedAnalysis] = useState();
   const [jobsInSelectedUpload, setJobsInSelectedUpload] = useState(0);
-
-  useEffect(() => {
-    if (uploads && jobs.length == 0) {
-      getAllJobs();
-    }
-  }, [uploads, jobs]);
 
   useEffect(() => {
     // reset to false everytime it gets triggered
@@ -285,30 +279,6 @@ export default function Uploads() {
     setResetDropdown(true);
     setSelectedUploads({});
     setSelectedJobs({});
-  };
-
-  const getAllJobs = async () => {
-    let jobsRes = [];
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?download=False`);
-      if (response && response.status === 200) {
-        jobsRes = (await response.json()).jobs;
-      }
-    } catch (e) {
-      console.log("ERROR fetching jobs in /uploads", e);
-    }
-
-    try {
-      const newJobs = jobsRes
-        .map((job) => {
-          return formatJob(job, selectedJobs, accountId);
-        })
-        .filter((j) => j !== null);
-
-      setJobs([...newJobs]);
-    } catch (e) {
-      console.log("ERROR processing jobs", e);
-    }
   };
 
   const removeDeletedUploads = (deletedUploads) => {
