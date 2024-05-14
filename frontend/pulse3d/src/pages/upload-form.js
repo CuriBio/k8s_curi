@@ -158,7 +158,7 @@ export default function UploadForm() {
       stimWaveformFormat: "",
       nameOverride: "",
       // nautilai params
-      normalizationMethod: null,
+      normalizationMethod: productPage === "nautilai" ? "∆F/Fmin" : null,
       dataType: null,
       detrend: null,
       // original advanced params
