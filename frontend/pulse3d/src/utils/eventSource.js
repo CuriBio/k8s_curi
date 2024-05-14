@@ -58,7 +58,10 @@ export default function useEventSource(hooks) {
     newEvtSource.addEventListener("data_update", (e) => {
       const payload = getPayload(e, "data_update");
 
-      if (hooksRef.current.accountType !== "admin" && payload["product"] !== hooksRef.current.productPage) {
+      if (
+        (hooksRef.current.accountType !== "admin" && payload["product"] !== hooksRef.current.productPage) ||
+        hooksRef.current.jobs.length === 0
+      ) {
         return;
       }
 
