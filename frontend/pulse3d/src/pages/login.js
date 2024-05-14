@@ -5,6 +5,7 @@ import LoginForm from "@/components/account/LoginForm";
 import FormInput from "@/components/basicWidgets/FormInput";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
+import { PublicClientApplication } from "@azure/msal-browser"
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
   position: relative;
@@ -138,6 +139,59 @@ export default function Login() {
     setInProgress(false);
   };
 
+  const submitSSO = async () => {
+    try {
+      const msalConfig = {
+        auth: {
+          clientId: "53e78591-2667-4e74-9f75-adefc1a2fe20",
+          authority: "https://login.microsoftonline.com/common",
+        },
+      };
+
+      const myMSALObj = new PublicClientApplication(msalConfig);
+      await myMSALObj.initialize()
+
+      const response = await myMSALObj.loginPopup({redirectUri: "/"})
+      const result = await handleResponse(response)
+      return result
+    } catch (e) {
+        console.log("*SSO error - submitSSO: " + e);
+        setErrorMsg("*SSO error. Please try again later.");
+    }
+  };
+
+  async function handleResponse(response) {
+    if (response !== null) {
+      try {
+        let ssoURL = `${process.env.NEXT_PUBLIC_USERS_URL}/sso`;
+
+        const res = await fetch(ssoURL, {
+          method: "POST",
+          body: JSON.stringify(response.idToken),  // send as header?
+          mode: "no-cors",
+        });
+
+        if (res) {
+          if (res.status === 200) {
+            router.push("/home");
+          } else {
+            console.log("*SSO error - handleResponse: status not OK");
+            setErrorMsg("*SSO error. Please try again later.");
+          }
+        } else {
+          console.log("*SSO error - handleResponse: no response");
+          setErrorMsg("*SSO error. Please try again later.");
+        }
+      } catch (e) {
+        console.log("*SSO error - handleResponse: " + e);
+        setErrorMsg("*SSO error. Please try again later.");
+      }
+    } else {
+      console.log("*SSO error - handleResponse: response is null");
+      setErrorMsg("*SSO error. Please try again later.")
+    }
+  }
+
   const onForgetPassword = () => {
     setDisplayForgotPW(true);
   };
@@ -227,6 +281,11 @@ export default function Login() {
           clickFn={submitForm}
           inProgress={inProgress}
           backgroundColor={inProgress ? "var(--teal-green)" : "var(--dark-blue)"}
+        />
+        <ButtonWidget
+          label={"Sign in with Microsoft"}
+          clickFn={submitSSO}
+          backgroundColor={"#000000"}
         />
       </ModalContainer>
       <ModalWidget

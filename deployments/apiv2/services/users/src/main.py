@@ -9,6 +9,7 @@ from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Response, Query
 from fastapi.middleware.cors import CORSMiddleware
+from jwt import decode
 from jwt.exceptions import InvalidTokenError
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import EmailStr
@@ -115,6 +116,59 @@ async def db_session_middleware(request: Request, call_next) -> Response:
         )
 
     return response
+
+
+@app.post("/sso", response_model=LoginResponse)
+async def sso(request: Request):
+    req_json = await request.json()
+    id_token = decode(req_json, options={"verify_signature": False})  # TODO verify
+    email = id_token.get("preferred_username", "")
+    account_type = "user"
+
+    select_query = (
+        "SELECT u.password, u.id, u.failed_login_attempts, u.suspended AS suspended, u.customer_id, c.suspended AS customer_suspended "
+        "FROM users u JOIN customers c ON u.customer_id=c.id "
+        "WHERE u.deleted_at IS NULL AND u.email=$1"
+    )
+
+    logger.info(f"SSO attempt from client 'dashboard'")
+
+    try:
+        async with request.state.pgpool.acquire() as con:
+            select_query_result = await con.fetchrow(select_query, email)
+
+            # query will return None if email is not found
+            if select_query_result is None:
+                raise LoginError("Invalid credentials. Account will be locked after 10 failed attempts.")
+
+            if select_query_result["customer_suspended"]:
+                raise LoginError("The customer ID for this account has been deactivated.")
+
+            user_id = select_query_result.get("id")
+            customer_id = select_query_result.get("customer_id")
+            bind_context_to_logger({"customer_id": str(customer_id), "user_id": str(email), "client_type": "dashboard"})
+
+            # get scopes from account_scopes table
+            scopes = await get_account_scopes(con, user_id, False)
+            usage_quota = None
+
+            # if login was successful, then update last_login column value to now
+            await con.execute(
+                "UPDATE users SET last_login=$1, failed_login_attempts=0 "
+                "WHERE deleted_at IS NULL AND email=$2 AND customer_id=$3 AND verified='t'",
+                datetime.now(),
+                email,
+                str(customer_id),
+            )
+
+            tokens = await create_new_tokens(con, user_id, customer_id, scopes, account_type)
+
+            return LoginResponse(tokens=tokens, usage_quota=usage_quota)
+    except LoginError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+    except Exception:
+        logger.exception("GET /getAToken: Unexpected error")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @app.post("/login/admin", response_model=LoginResponse)
