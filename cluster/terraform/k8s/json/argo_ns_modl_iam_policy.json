@@ -16,6 +16,7 @@
         "ecr:ListTagsForResource",
         "ecr:CreateRepository",
         "ecr:GetLifecyclePolicy",
+        "ecr:PutLifecyclePolicy",
         "s3:GetBucketOwnershipControls",
         "acm:ListCertificates"
       ],
