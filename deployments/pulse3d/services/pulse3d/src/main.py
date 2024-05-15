@@ -125,18 +125,34 @@ async def db_session_middleware(request: Request, call_next) -> Response:
 @app.get("/uploads")
 async def get_info_of_uploads(
     request: Request,
-    upload_ids: list[uuid.UUID] | None = Query(None),
     upload_type: str | None = Query(None),
+    sort_field: str | None = Query(None),
+    sort_direction: str | None = Query(None),
+    skip: int = Query(0),
+    limit: int = Query(300),
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
-    # need to convert to UUIDs to str to avoid issues with DB
-    if upload_ids:
-        upload_ids = [str(upload_id) for upload_id in upload_ids]
+    if token.account_type == "user" and not upload_type:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+
+    if sort_field and sort_direction not in ("asc", "desc"):
+        sort_direction = "asc"
+
+    filters = {
+        filter_name: request.query_params[filter_name]
+        for filter_name in (
+            "name_filter",
+            "upload_id_filter",
+            "date_created_min_filter",
+            "date_created_max_filter",
+            "last_analyzed_min_filter",
+            "last_analyzed_max_filter",
+        )
+        if filter_name in request.query_params
+    }
 
     try:
-        bind_context_to_logger(
-            {"user_id": token.userid, "customer_id": token.customer_id, "upload_ids": upload_ids}
-        )
+        bind_context_to_logger({"user_id": token.userid, "customer_id": token.customer_id})
 
         desired_upload_types = None if upload_type is None else [upload_type]
 
@@ -259,6 +275,7 @@ async def download_zip_files(
     )
 
     try:
+        # TODO make a new function to get download info
         async with request.state.pgpool.acquire() as con:
             uploads = await _get_uploads(con=con, token=token, upload_ids=upload_ids)
 
@@ -845,43 +862,22 @@ def _get_retrieval_info(token):
     customer_id = str(uuid.UUID(token.customer_id))
     if token.account_type == "user":
         user_id = str(uuid.UUID(token.userid))
-        upload_types = get_product_tags_of_user(token.scopes)
-        rw_all_data_upload_types = get_product_tags_of_user(token.scopes, True)
-        if rw_all_data_upload_types:
+        if get_product_tags_of_user(token.scopes, True):
             account_type = "rw_all_data_user"
     else:
         user_id = None
-        upload_types = get_product_tags_of_admin(token.scopes)
-        rw_all_data_upload_types = None
 
-    return {
-        "user_id": user_id,
-        "customer_id": customer_id,
-        "account_type": account_type,
-        "upload_types": upload_types,
-        "rw_all_data_upload_types": rw_all_data_upload_types,
-    }
+    return {"user_id": user_id, "customer_id": customer_id, "account_type": account_type}
 
 
-async def _get_uploads(con, token, upload_ids, desired_upload_types=None):
-    retrieval_info = _get_retrieval_info(token)
-
-    if desired_upload_types:
-        retrieval_info["upload_types"] &= set(desired_upload_types)
-        if not retrieval_info["upload_types"]:
-            logger.error(
-                f"Account {retrieval_info['account_type']}: {token.account_id} attempting to access upload type(s) they don't have access to: {desired_upload_types}"
-            )
-            return GenericErrorResponse(
-                message="Account does not have authorization to access uploads of these type(s).",
-                error="AuthorizationError",
-            )
+async def _get_uploads(con, token, **retrieval_info):
+    retrieval_info |= _get_retrieval_info(token)
 
     logger.info(
-        f"Retrieving upload info with IDs: {upload_ids} for {retrieval_info['account_type']}: {token.account_id}"
+        f"Retrieving {retrieval_info['upload_type'] or 'all'} uploads for {retrieval_info['account_type']}: {token.account_id}"
     )
 
-    return await get_uploads(con=con, upload_ids=upload_ids, **retrieval_info)
+    return await get_uploads(con=con, **retrieval_info)
 
 
 async def _get_jobs(con, token, job_ids):
