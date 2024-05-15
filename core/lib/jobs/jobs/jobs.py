@@ -31,7 +31,7 @@ def get_item(*, queue):
                     )
                     if current_job_status == "running":
                         await con_to_update_job_result.execute(
-                            "UPDATE jobs_result SET status='error', meta=$1 WHERE job_id=$2",
+                            "UPDATE jobs_result SET status='error', meta=meta||$1::jsonb, finished_at=NOW() WHERE job_id=$2",
                             json.dumps({"error_msg": "Ran out of time/memory"}),
                             item["id"],
                         )
@@ -336,22 +336,23 @@ async def get_customer_quota(con, customer_id, service) -> dict[str, Any]:
     usage_limit_query = "SELECT usage_restrictions->$1 AS usage FROM customers WHERE id=$2"
     # collects number of all jobs in admin account and return number of credits consumed
     # upload with 1 - 2 jobs  = 1 credit , upload with 3+ jobs = 1 credit for each upload with over 2 jobs
-    current_usage_query = "SELECT COUNT(*) AS total_uploads, SUM(jobs_count) AS total_jobs FROM ( SELECT ( CASE WHEN (COUNT(*) <= 2 AND COUNT(*) > 0) THEN 1 ELSE GREATEST(COUNT(*) - 1, 0) END ) AS jobs_count FROM jobs_result WHERE customer_id=$1 and type=$2 GROUP BY upload_id) dt"
+    current_usage_query = (
+        "SELECT COUNT(*) AS total_uploads, SUM(jobs_count) AS total_jobs "
+        "FROM ( SELECT ( CASE WHEN (COUNT(*) <= 2 AND COUNT(*) > 0) THEN 1 ELSE GREATEST(COUNT(*) - 1, 0) END ) AS jobs_count FROM jobs_result WHERE customer_id=$1 and type=$2 GROUP BY upload_id) dt"
+    )
 
-    async with con.transaction():
-        usage_limit_json = await con.fetchrow(usage_limit_query, service, customer_id)
-        current_usage_data = await con.fetchrow(current_usage_query, customer_id, service)
+    usage_limit_json = await con.fetchrow(usage_limit_query, service, customer_id)
+    current_usage_data = await con.fetchrow(current_usage_query, customer_id, service)
 
     usage_limit_dict = json.loads(usage_limit_json["usage"])
 
-    # usage query returns none if no jobs are found but 0 if no uploads are found.
+    # usage query returns none if no jobs are found but 0 if no uploads are found
+    current_job_usage = int(current_usage_data.get("total_jobs", 0))
+    if current_job_usage is None:
+        current_job_usage = 0
     current_usage_dict = {
-        "jobs": (
-            current_usage_data.get("total_jobs", 0)
-            if current_usage_data.get("total_jobs", 0) is not None
-            else 0
-        ),
-        "uploads": current_usage_data.get("total_uploads ", 0),
+        "jobs": current_job_usage,
+        "uploads": int(current_usage_data.get("total_uploads", 0)),
     }
 
     return {"limits": usage_limit_dict, "current": current_usage_dict}
@@ -366,13 +367,13 @@ async def check_customer_quota(con, customer_id, service) -> dict[str, Any]:
         - Dictionary also contains data about max usage and end date.
     """
     usage_info = await get_customer_quota(con, customer_id, service)
-    # check current date has not passed end date
-    is_expired = (
-        datetime.strptime(usage_info["limits"]["expiration_date"], "%Y-%m-%d") < datetime.utcnow()
-        if usage_info["limits"]["expiration_date"]
-        else False
-    )
-    # return boolean values if reached, -1 means infinite uploads/jobs allowed for paid account
+
+    is_expired = False
+    # if there is an expiration date, check if we have passed it
+    if expiration_date := usage_info["limits"]["expiration_date"]:
+        is_expired = datetime.strptime(expiration_date, "%Y-%m-%d") < datetime.utcnow()
+
+    # -1 means unlimited uploads/jobs allowed
     uploads_reached = {
         f"{key}_reached": (
             int(usage_info["current"][key]) >= int(usage_info["limits"][key])
@@ -381,16 +382,15 @@ async def check_customer_quota(con, customer_id, service) -> dict[str, Any]:
         or is_expired
         for key in ("uploads", "jobs")
     }
-    uploads_reached.update(usage_info)
-    return uploads_reached
+    return uploads_reached | usage_info
 
 
 async def create_analysis_preset(con, user_id, details):
     query = (
-        "WITH row AS (SELECT id AS user_id FROM users WHERE id=$1) "
         "INSERT INTO analysis_presets (user_id, name, parameters) "
-        "SELECT user_id, $2, $3 FROM row "
-        "RETURNING id"
+        "VALUES ($1, $2, $3) "
+        "ON CONFLICT ON CONSTRAINT unique_name_per_user DO "
+        "UPDATE SET parameters=$3 WHERE analysis_presets.user_id=$1 AND analysis_presets.name=$2"
     )
 
     return await con.fetchval(query, user_id, details.name, json.dumps(details.analysis_params))

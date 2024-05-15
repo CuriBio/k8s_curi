@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import styled from "styled-components";
 import FormInput from "@/components/basicWidgets/FormInput";
 import semverValid from "semver/functions/valid";
+import ModalWidget from "@/components/basicWidgets/ModalWidget";
 
 const SubContainer = styled.div`
   width: 60%;
@@ -49,10 +50,20 @@ const DisabledActionText = styled.div`
   color: gray;
 `;
 
+const StatusMsgText = styled.div`
+  width: 60%;
+`;
+
+const getDefaultStatusInfo = () => {
+  return { msg: null, type: null };
+};
+
 export default function SerialNumberTable() {
   const [entries, setEntries] = useState([]);
   const [addingEntry, setAddingEntry] = useState(false);
   const [newEntry, setNewEntry] = useState({});
+  const [statusInfo, setStatusInfo] = useState(getDefaultStatusInfo());
+  const [entryToDelete, setEntryToDelete] = useState();
 
   const entryIsValid = Boolean(newEntry.serialNumber) && semverValid(newEntry.hardwareVersion);
   const SaveButtonText = entryIsValid ? ActionText : DisabledActionText;
@@ -75,11 +86,22 @@ export default function SerialNumberTable() {
   }, []);
 
   const deleteEntry = async (serialNumber) => {
-    await fetch(`${process.env.NEXT_PUBLIC_MANTARRAY_URL}/serial-number/${serialNumber}`, {
-      method: "DELETE",
-    });
-    // update serial numbers after prev request
-    await getSerialNumbers();
+    let success = true;
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_MANTARRAY_URL}/serial-number/${serialNumber}`, {
+        method: "DELETE",
+      });
+      success = res.status === 204;
+    } catch (e) {
+      console.log("ERROR deleting serial number", e);
+      success = false;
+    }
+    if (success) {
+      setEntries(entries.filter((entry) => entry.serialNumber !== serialNumber));
+      setStatusInfo({ msg: `Successfully deleted ${serialNumber}`, type: "green" });
+    } else {
+      setStatusInfo({ msg: `Error deleting ${serialNumber}`, type: "red" });
+    }
   };
 
   const finishEntry = async (save) => {
@@ -88,12 +110,26 @@ export default function SerialNumberTable() {
         // If entry is invalid then don't do anything
         return;
       }
-      await fetch(`${process.env.NEXT_PUBLIC_MANTARRAY_URL}/serial-number`, {
-        method: "POST",
-        body: JSON.stringify({ serial_number: newEntry.serialNumber, hw_version: newEntry.hardwareVersion }),
-      });
-      // update serial numbers after prev request
-      await getSerialNumbers();
+      let success = true;
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_MANTARRAY_URL}/serial-number`, {
+          method: "POST",
+          body: JSON.stringify({
+            serial_number: newEntry.serialNumber,
+            hw_version: newEntry.hardwareVersion,
+          }),
+        });
+        success = res.status === 201;
+      } catch (e) {
+        console.log("ERROR adding new serial number", e);
+        success = false;
+      }
+      if (success) {
+        setEntries([...entries, newEntry]);
+        setStatusInfo({ msg: `Successfully added ${newEntry.serialNumber}`, type: "green" });
+      } else {
+        setStatusInfo({ msg: `Error adding ${newEntry.serialNumber}`, type: "red" });
+      }
     }
     setAddingEntry(false);
     setNewEntry({});
@@ -107,7 +143,10 @@ export default function SerialNumberTable() {
         <SubRow>
           <ActionText
             style={{ textAlign: "right", paddingRight: "20px" }}
-            onClick={() => deleteEntry(serialNumber)}
+            onClick={() => {
+              setEntryToDelete(serialNumber);
+              setStatusInfo(getDefaultStatusInfo());
+            }}
           >
             Delete
           </ActionText>
@@ -159,7 +198,13 @@ export default function SerialNumberTable() {
         </>
       ) : (
         <SubRow>
-          <ActionText style={{ paddingLeft: "20px" }} onClick={() => setAddingEntry(true)}>
+          <ActionText
+            style={{ paddingLeft: "20px" }}
+            onClick={() => {
+              setAddingEntry(true);
+              setStatusInfo(getDefaultStatusInfo());
+            }}
+          >
             Add Serial Number
           </ActionText>
         </SubRow>
@@ -175,6 +220,19 @@ export default function SerialNumberTable() {
         <Header />
       </SubHeader>
       {rows}
+      {statusInfo.msg && <StatusMsgText style={{ color: statusInfo.type }}>{statusInfo.msg}</StatusMsgText>}
+      <ModalWidget
+        open={entryToDelete != null}
+        labels={[`Are you sure you want to delete ${entryToDelete}?`]}
+        buttons={["Cancel", "Delete"]}
+        closeModal={(idx) => {
+          if (idx === 1) {
+            deleteEntry(entryToDelete);
+          }
+          setEntryToDelete(null);
+        }}
+        header={"Warning!"}
+      />
     </>
   );
 }

@@ -20,7 +20,6 @@ spec:
         group: services
       containers:
         - name: users
-          image: 077346344852.dkr.ecr.us-east-2.amazonaws.com/users:0.3.3
           env:
             - name: POSTGRES_USER
               value: curibio_users
@@ -74,13 +73,34 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 9000
+        - name: event-broker
+          env:
+            - name: POSTGRES_USER
+              value: curibio_event_broker
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: curibio-event-broker-creds
+                  key: curibio_event_broker
+            - name: POSTGRES_SERVER
+              value: psql-rds.default
+            - name: POSTGRES_DB
+              value: curibio
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: curibio-jwt-secret
+                  key: jwt-secret
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 9002
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: apiv2-ingress
   annotations:
-    nginx.org/rewrites: serviceName=mantarray rewrite=/; serviceName=users rewrite=/
+    nginx.org/rewrites: serviceName=mantarray rewrite=/; serviceName=users rewrite=/; serviceName=event-broker rewrite=/public/
 status:
   loadBalancer: {}
 spec:
@@ -101,5 +121,12 @@ spec:
             backend:
               service:
                 name: mantarray
+                port:
+                  number: 80
+          - path: /events/
+            pathType: Prefix
+            backend:
+              service:
+                name: event-broker
                 port:
                   number: 80

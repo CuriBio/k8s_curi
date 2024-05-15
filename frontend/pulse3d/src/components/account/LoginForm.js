@@ -1,5 +1,6 @@
 import styled from "styled-components";
 import FormInput from "@/components/basicWidgets/FormInput";
+import { useEffect } from "react";
 
 const InputContainer = styled.div(
   ({ user }) => `
@@ -14,7 +15,15 @@ const InputContainer = styled.div(
 `
 );
 
-export default function LoginForm({ children, setUserData, userData, loginType, submitForm }) {
+export default function LoginForm({ children, setUserData, userData, loginType }) {
+  useEffect(() => {
+    if (loginType === "Admin") {
+      setUserData({ email: "", password: "" });
+    } else {
+      setUserData({ customer_id: "", username: "", password: "" });
+    }
+  }, [loginType]);
+
   return (
     <InputContainer user={loginType === "User"}>
       {loginType === "User" ? (
@@ -73,7 +82,6 @@ export default function LoginForm({ children, setUserData, userData, loginType, 
           });
         }}
       />
-
       {children}
     </InputContainer>
   );
