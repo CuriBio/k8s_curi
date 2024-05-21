@@ -1,17 +1,18 @@
 """addLoginTypeToCustomersAndUsers
 
 Revision ID: 86bd61c49403
-Revises: 848fb69a8766
+Revises: 7a11f7e9da9b
 Create Date: 2024-05-21 10:51:30.168752
 
 """
+
 from alembic import op
 import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '86bd61c49403'
-down_revision = '848fb69a8766'
+revision = "86bd61c49403"
+down_revision = "7a11f7e9da9b"
 branch_labels = None
 depends_on = None
 login_types = ("password", "sso_microsoft")
@@ -29,7 +30,7 @@ def upgrade():
                 sa.Enum(*login_types, name="LoginType"),
                 server_default=login_types[0],
                 nullable=False,
-            )
+            ),
         )
 
 
