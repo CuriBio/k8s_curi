@@ -252,6 +252,11 @@ spec:
               secretKeyRef:
                 name: db-migrations
                 key: grafana_pass_ro
+          - name: EVENT_BROKER_PASS
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: events_user_pass
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
@@ -462,6 +467,11 @@ spec:
               secretKeyRef:
                 name: db-migrations
                 key: grafana_pass_ro
+          - name: EVENT_BROKER_PASS
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: events_user_pass
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
