@@ -3,6 +3,7 @@ from functools import wraps
 import json
 import time
 from typing import Any
+from uuid import UUID
 
 
 class EmptyQueue(Exception):
@@ -68,6 +69,125 @@ def get_item(*, queue):
         return _inner
 
     return _outer
+
+
+async def get_uploads_info_for_admin(
+    con,
+    customer_id: UUID,
+    sort_field: str | None,
+    sort_direction: str | None,
+    skip: int,
+    limit: int,
+    **filters,
+):
+    query = (
+        "SELECT users.name AS username, uploads.* "
+        "FROM uploads JOIN users ON uploads.user_id=users.id "
+        "WHERE users.customer_id=$1 AND uploads.deleted='f'"
+    )
+    query_params = [customer_id]
+
+    query, query_params = _add_upload_sorting_filtering_conds(
+        query, query_params, sort_field, sort_direction, skip, limit, **filters
+    )
+
+    async with con.transaction():
+        uploads = [dict(row) async for row in con.cursor(query, *query_params)]
+
+    return uploads
+
+
+async def get_uploads_info_for_rw_all_data_user(
+    con,
+    customer_id: UUID,
+    upload_type: str,
+    sort_field: str | None,
+    sort_direction: str | None,
+    skip: int,
+    limit: int,
+    **filters,
+):
+    query = (
+        "SELECT users.name AS username, uploads.* "
+        "FROM uploads JOIN users ON uploads.user_id=users.id "
+        "WHERE users.customer_id=$1 AND uploads.type=$2 AND uploads.deleted='f'"
+    )
+    query_params = [customer_id, upload_type]
+
+    query, query_params = _add_upload_sorting_filtering_conds(
+        query, query_params, sort_field, sort_direction, skip, limit, **filters
+    )
+
+    async with con.transaction():
+        uploads = [dict(row) async for row in con.cursor(query, *query_params)]
+
+    return uploads
+
+
+async def get_uploads_info_for_base_user(
+    con,
+    user_id: UUID,
+    upload_type: str,
+    sort_field: str | None,
+    sort_direction: str | None,
+    skip: int,
+    limit: int,
+    **filters,
+):
+    query = "SELECT * FROM uploads WHERE user_id=$1 AND type=$2 AND deleted='f'"
+    query_params = [user_id, upload_type]
+
+    query, query_params = _add_upload_sorting_filtering_conds(
+        query, query_params, sort_field, sort_direction, skip, limit, **filters
+    )
+
+    async with con.transaction():
+        uploads = [dict(row) async for row in con.cursor(query, *query_params)]
+
+    return uploads
+
+
+def _add_upload_sorting_filtering_conds(
+    query, query_params, sort_field, sort_direction, skip, limit, **filters
+):
+    query_params = query_params.copy()
+
+    next_placeholder_count = len(query_params) + 1
+
+    conds = ""
+    for filter_name, filter_value in filters.items():
+        placeholder = f"${next_placeholder_count}"
+        match filter_name:
+            case "filename":
+                new_cond = f"filename LIKE '%{placeholder}%"
+            case "id":
+                new_cond = f"id LIKE '%{placeholder}%"
+            case "created_at_min":
+                new_cond = f"created_at > '{placeholder}'"
+            case "created_at_max":
+                new_cond = f"created_at < '{placeholder}'"
+            case "last_analyzed_min":
+                new_cond = f"last_analyzed > '{placeholder}'"
+            case "last_analyzed_max":
+                new_cond = f"last_analyzed < '{placeholder}'"
+            case _:
+                continue
+
+        query_params.append(filter_value)
+        conds += f" AND {new_cond}"
+        next_placeholder_count += 1
+    if conds:
+        query += conds
+
+    if sort_field in ("filename", "id", "created_at", "last_analyzed", "auto_upload"):
+        if sort_direction not in ("ASC", "DESC"):
+            sort_direction = "DESC"
+        query += f" ORDER BY {sort_field} {sort_field}"
+
+    query += f" LIMIT ${len(query_params) + 1} OFFSET ${len(query_params) + 2}"
+    query_params += [limit, skip]
+
+    return query, query_params
 
 
 async def get_uploads(
