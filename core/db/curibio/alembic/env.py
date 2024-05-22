@@ -23,6 +23,7 @@ config.set_section_option(section, "GRAFANA_PASS_RO", os.environ.get("GRAFANA_PA
 config.set_section_option(
     section, "PULSE3D_QUEUE_PROCESSOR_RO_PASS", os.environ.get("PULSE3D_QUEUE_PROCESSOR_RO_PASS")
 )
+config.set_section_option(section, "EVENT_BROKER_PASS", os.environ.get("EVENT_BROKER_PASS"))
 
 
 # Interpret the config file for Python logging.

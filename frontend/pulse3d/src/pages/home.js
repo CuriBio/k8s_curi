@@ -52,7 +52,9 @@ const ProductDescLabel = styled.div`
 
 export default function Login() {
   const router = useRouter();
-  const { accountScope, updateProductPage, setUsageQuota, setPreferences } = useContext(AuthContext);
+  const { accountScope, updateProductPage, setUsageQuota, preferences, setPreferences } = useContext(
+    AuthContext
+  );
 
   const [products, setProducts] = useState({
     mantarray: {
@@ -94,19 +96,25 @@ export default function Login() {
       }
 
       setProducts(productStates);
-      getPreferences();
+
+      console.log(preferences);
+      if (preferences == null || Object.keys(preferences).length === 0) {
+        getPreferences();
+      }
     }
   }, [accountScope]);
 
   useEffect(() => {
-    // reset usage quota each time the home page is navigated too so that the previous product usage doesn't affect navigating to a different product
+    // reset usage quota each time the home page is navigated to so that the previous product usage doesn't affect navigating to a different product
     setUsageQuota();
   }, []);
 
   const getPreferences = async () => {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/preferences`);
-      res && setPreferences(await res.json());
+      if (res) {
+        setPreferences(await res.json());
+      }
     } catch (e) {
       console.log("ERROR getting user preferences");
     }

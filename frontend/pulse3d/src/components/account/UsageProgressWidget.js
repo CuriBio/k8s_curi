@@ -46,13 +46,9 @@ const UpgradeButton = styled.div`
 export default function UsageProgressWidget({ colorOfTextLabel }) {
   const { usageQuota, setUsageQuota, productPage } = useContext(AuthContext);
 
-  const [maxAnalyses, setMaxAnalyses] = useState(0);
-  const [actualAnalyses, setActualAnalyses] = useState();
-  const [usagePercentage, setUsagePercentage] = useState(0);
-  const [isExpired, setIsExpired] = useState();
   const [newPlanModalIsOpen, setNewPlanModalIsOpen] = useState(false);
 
-  const pollUsageQuota = async () => {
+  const getUsageQuota = async () => {
     if (!productPage) {
       return;
     }
@@ -60,26 +56,7 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/usage?service=${productPage}`);
       if (response && response.status === 200) {
-        const newUsageQuota = await response.json();
-
-        const limit = parseInt(newUsageQuota.limits.jobs);
-        const actual = parseInt(newUsageQuota.current.jobs);
-        const newUsagePercentage = Math.round((actual / limit) * 100);
-
-        setUsagePercentage(newUsagePercentage > 100 ? 100 : newUsagePercentage);
-        setActualAnalyses(newUsageQuota.current.jobs);
-        setIsExpired(newUsageQuota.jobs_reached);
-        setUsageQuota({
-          current: { jobs: newUsageQuota.current.jobs, uploads: newUsageQuota.current.uploads },
-          jobs_reached: newUsageQuota.jobs_reached,
-          limits: {
-            jobs: newUsageQuota.limits.jobs,
-            uploads: newUsageQuota.limits.uploads,
-            expiration_date: newUsageQuota.limits.expiration_date,
-          },
-          uploads_reached: newUsageQuota.uploads_reached,
-        });
-        setMaxAnalyses(limit);
+        setUsageQuota(await response.json());
       }
     } catch (e) {
       console.log("ERROR fetching usage quota in /usage");
@@ -87,29 +64,15 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
   };
 
   useEffect(() => {
-    if (usageQuota && usageQuota.limits && usageQuota.current) {
-      const limit = parseInt(usageQuota.limits.jobs);
-      const actual = parseInt(usageQuota.current.jobs);
-
-      setMaxAnalyses(limit);
-      setActualAnalyses(actual);
-
-      const usagePercentage = Math.round((actual / limit) * 100);
-      setUsagePercentage(usagePercentage > 100 ? 100 : usagePercentage);
-      setIsExpired(usageQuota.jobs_reached);
-    }
-    pollUsageQuota();
-  }, []);
-
-  useEffect(() => {
-    if (maxAnalyses !== -1 && productPage) {
-      const pollingUsageQuota = setInterval(async () => {
-        await pollUsageQuota();
-      }, 1e4);
-
-      return () => clearInterval(pollingUsageQuota);
+    if (productPage && Object.keys(usageQuota || {}).length === 0) {
+      getUsageQuota();
     }
   }, [productPage]);
+
+  const maxJobs = parseInt(usageQuota?.limits.jobs || 0);
+  const currentNumJobs = parseInt(usageQuota?.current.jobs || 0);
+  const usagePercentage = Math.min(Math.round((currentNumJobs / maxJobs) * 100), 100) || 0;
+  const isExpired = usageQuota?.jobs_reached || false;
 
   const UpgradeButtonElement = (
     <UpgradeButton
@@ -123,12 +86,12 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
 
   return (
     <>
-      {maxAnalyses === -1 && <ProgressDiv>Unlimited Access</ProgressDiv>}
-      {!isExpired && maxAnalyses !== -1 && (
+      {maxJobs === -1 && <ProgressDiv>Unlimited Access</ProgressDiv>}
+      {!isExpired && maxJobs !== -1 && (
         <ProgressDiv>
           <p>Usage</p>
           <CircularProgressWithLabel value={usagePercentage} colorOfTextLabel={colorOfTextLabel} />
-          <ProgressLabel>{`${actualAnalyses || 0}/${maxAnalyses} Analysis used`}</ProgressLabel>
+          <ProgressLabel>{`${currentNumJobs}/${maxJobs} analyses used`}</ProgressLabel>
           {UpgradeButtonElement}
         </ProgressDiv>
       )}

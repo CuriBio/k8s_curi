@@ -82,8 +82,8 @@ def create_token(
 
     # TODO remove this once all calls use AccountTypes enum
     # make sure account type is valid
-    if account_type not in ("user", "admin"):
-        raise ValueError(f"Valid account types are 'user' and 'admin', not '{account_type}'")
+    if account_type not in list(AccountTypes):
+        raise ValueError(f"Valid account types are {list(AccountTypes)}, not '{account_type}'")
 
     # TODO remove this after testing?
     if not customer_id:

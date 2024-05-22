@@ -7,10 +7,10 @@ import SparkMD5 from "spark-md5";
 import { hexToBase64, getMinP3dVersionForProduct } from "@/utils/generic";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
-import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
+import DashboardLayout from "@/components/layouts/DashboardLayout";
 import semverGte from "semver/functions/gte";
 import InputDropdownWidget from "@/components/basicWidgets/InputDropdownWidget";
-import { AuthContext } from "@/pages/_app";
+import { AuthContext, UploadsContext } from "@/pages/_app";
 
 const Container = styled.div`
   justify-content: center;
@@ -158,7 +158,7 @@ export default function UploadForm() {
       stimWaveformFormat: "",
       nameOverride: "",
       // nautilai params
-      normalizationMethod: null,
+      normalizationMethod: productPage === "nautilai" ? "∆F/Fmin" : null,
       dataType: null,
       detrend: null,
       // original advanced params
@@ -275,6 +275,12 @@ export default function UploadForm() {
     // this gets called again in resetState when an analysis is submitted
     getAnalysisPresets();
   }, []);
+
+  useEffect(() => {
+    if (productPage) {
+      setMinPulse3dVersionForCurrentUploads(getMinP3dVersionForProduct(productPage));
+    }
+  }, [productPage]);
 
   useEffect(() => {
     const newAnalysisStatus = isReanalysisPage(router);
@@ -799,13 +805,13 @@ export default function UploadForm() {
             style={{
               width: "50%",
               border: "2px solid var(--dark-gray)",
-              "border-radius": "5px",
-              "margin-top": "2rem",
-              "background-color": "var(--light-gray)",
+              borderRadius: "5px",
+              marginTop: "2rem",
+              backgroundColor: "var(--light-gray)",
             }}
           >
             <DropDownContainer>
-              <div style={{ "background-color": "white" }}>
+              <div style={{ backgroundColor: "white" }}>
                 <InputDropdownWidget
                   label="Select Recording"
                   options={formattedUploads}
@@ -816,7 +822,7 @@ export default function UploadForm() {
                 />
               </div>
             </DropDownContainer>
-            <div style={{ "text-align": "center", "margin-top": "10px", "font-size": "18px" }}>
+            <div style={{ textAlign: "center", marginTop: "10px", fontSize: "18px" }}>
               <b>Selected Files:</b>
             </div>
             {files?.length > 0 ? (
@@ -824,7 +830,7 @@ export default function UploadForm() {
                 {files.map((f, idx) => {
                   return (
                     <li key={`reanalysis-file-${idx}`}>
-                      <div style={{ display: "flex", "flex-direction": "col" }}>
+                      <div style={{ display: "flex", flexDirection: "col" }}>
                         <div style={{ width: "80%" }}>{f.filename}</div>
                         <RemoveButton
                           onClick={(e) => {
