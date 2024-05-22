@@ -28,13 +28,18 @@ from jobs import (
     create_upload,
     delete_jobs,
     delete_uploads,
-    get_jobs,
     get_uploads_info_for_base_user,
     get_uploads_info_for_rw_all_data_user,
     get_uploads_info_for_admin,
     get_uploads_download_info_for_base_user,
     get_uploads_download_info_for_rw_all_data_user,
     get_uploads_download_info_for_admin,
+    get_jobs_info_for_base_user,
+    get_jobs_info_for_rw_all_data_user,
+    get_jobs_info_for_admin,
+    get_jobs_download_info_for_base_user,
+    get_jobs_download_info_for_rw_all_data_user,
+    get_jobs_download_info_for_admin,
 )
 from pulse3D.constants import DataTypes
 from pulse3D.peak_finding.constants import (
@@ -139,9 +144,6 @@ async def get_uploads_info(
 ):
     if token.account_type == "user" and upload_type not in get_product_tags_of_user(token):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
-
-    if sort_field and sort_direction not in ("asc", "desc"):
-        sort_direction = "asc"
 
     filters = {
         filter_name: request.query_params[filter_name]
@@ -266,6 +268,9 @@ async def soft_delete_uploads(
 async def download_uploads(
     request: Request, details: UploadDownloadRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
 ):
+    if token.account_type == "user" and details.upload_type not in get_product_tags_of_user(token):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+
     # make sure at least one job ID was given
     if not details.upload_ids:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No upload IDs given")
@@ -335,14 +340,34 @@ async def create_log_upload(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def _generate_presigned_post(details, bucket, s3_key):
-    s3_key += f"/{details.filename}"
-    logger.info(f"Generating presigned upload url for {bucket}/{s3_key}")
-    params = generate_presigned_post(bucket=bucket, key=s3_key, md5s=details.md5s)
-    return params
+# TODO this can be renamed back to /jobs once the current GET /jobs is deleted
+@app.get("/jobs/v2")
+async def get_jobs_info(
+    request: Request,
+    upload_ids: list[uuid.UUID],
+    upload_type: str | None = Query(None),
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
+):
+    if token.account_type == "user" and upload_type not in get_product_tags_of_user(token):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+
+    # need to convert UUIDs to str to avoid issues with DB
+    if upload_ids:
+        upload_ids = [str(upload_id) for upload_id in upload_ids]
+
+    try:
+        bind_context_to_logger(
+            {"user_id": token.userid, "customer_id": token.customer_id, "upload_ids": upload_ids}
+        )
+
+        async with request.state.pgpool.acquire() as con:
+            return await _get_jobs_info(con, token, upload_ids=upload_ids, upload_type=upload_type)
+    except Exception:
+        logger.exception("Failed to get jobs")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# TODO create response model
+# TODO (5/22/24): delete this once all MA controller users upgrade to whichever version is released following this date
 @app.get("/jobs")
 async def get_info_of_jobs(
     request: Request,
@@ -360,7 +385,7 @@ async def get_info_of_jobs(
         )
 
         async with request.state.pgpool.acquire() as con:
-            jobs = await _get_jobs(con, token, job_ids)
+            jobs = await _get_jobs_info(con, token, job_ids=job_ids)  # TODO
 
         response = {"jobs": []}
         for job in jobs:
@@ -631,6 +656,9 @@ async def soft_delete_jobs(
 async def download_analyses(
     request: Request, details: JobDownloadRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
 ):
+    if token.account_type == "user" and details.upload_type not in get_product_tags_of_user(token):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+
     job_ids = details.job_ids
     # make sure at least one job ID was given
     if not job_ids:
@@ -643,7 +671,7 @@ async def download_analyses(
 
     try:
         async with request.state.pgpool.acquire() as con:
-            jobs = await _get_jobs(con, token, job_ids)
+            jobs = await _get_jobs_download(con, token, upload_type=details.upload_type, job_ids=job_ids)
 
         num_times_repeated = defaultdict(lambda: 0)
 
@@ -651,9 +679,6 @@ async def download_analyses(
         keys = list()
 
         for job in jobs:
-            if job["status"] != "finished":
-                continue
-
             obj_key = job["object_key"]
             keys.append(obj_key)
 
@@ -910,7 +935,7 @@ async def _get_uploads_download(
     match retrieval_info.pop("account_type"):
         case "user":
             return await get_uploads_download_info_for_base_user(
-                con, user_id=retrieval_info["user_id"], upload_type=upload_type, uploads_ids=upload_ids
+                con, user_id=retrieval_info["user_id"], upload_type=upload_type, upload_ids=upload_ids
             )
         case "rw_all_data_user":
             return await get_uploads_download_info_for_rw_all_data_user(
@@ -922,14 +947,53 @@ async def _get_uploads_download(
             )
 
 
-async def _get_jobs(con, token, job_ids):
-    retrieval_info = _get_retrieval_info(token)
+async def _get_jobs_info(con, token, upload_ids: list[str], upload_type: str | None):
+    retrieval_info = _get_retrieval_info(token, upload_type)
 
     logger.info(
-        f"Retrieving job info with IDs: {job_ids} for {retrieval_info['account_type']}: {token.account_id}"
+        f"Retrieving job info for upload IDs: {upload_ids} for {retrieval_info['account_type']}: {token.account_id}"
     )
 
-    return await get_jobs(con=con, job_ids=job_ids, **retrieval_info)
+    match retrieval_info.pop("account_type"):
+        case "user":
+            return await get_jobs_info_for_base_user(
+                con, user_id=retrieval_info["user_id"], upload_type=upload_type, upload_ids=upload_ids
+            )
+        case "rw_all_data_user":
+            return await get_jobs_info_for_rw_all_data_user(
+                con, customer_id=retrieval_info["customer_id"], upload_type=upload_type, upload_ids=upload_ids
+            )
+        case "admin":
+            return await get_jobs_info_for_admin(
+                con, customer_id=retrieval_info["customer_id"], upload_ids=upload_ids
+            )
+
+
+async def _get_jobs_download(con, token, job_ids: list[str], upload_type: str | None):
+    retrieval_info = _get_retrieval_info(token, upload_type)
+
+    logger.info(f"Downloading job IDs: {job_ids} for {retrieval_info['account_type']}: {token.account_id}")
+
+    match retrieval_info.pop("account_type"):
+        case "user":
+            return await get_jobs_download_info_for_base_user(
+                con, user_id=retrieval_info["user_id"], upload_type=upload_type, job_ids=job_ids
+            )
+        case "rw_all_data_user":
+            return await get_jobs_download_info_for_rw_all_data_user(
+                con, customer_id=retrieval_info["customer_id"], upload_type=upload_type, job_ids=job_ids
+            )
+        case "admin":
+            return await get_jobs_download_info_for_admin(
+                con, customer_id=retrieval_info["customer_id"], job_ids=job_ids
+            )
+
+
+def _generate_presigned_post(details, bucket, s3_key):
+    s3_key += f"/{details.filename}"
+    logger.info(f"Generating presigned upload url for {bucket}/{s3_key}")
+    params = generate_presigned_post(bucket=bucket, key=s3_key, md5s=details.md5s)
+    return params
 
 
 def _yield_s3_objects(bucket: str, keys: list[str], filenames: list[str]):
