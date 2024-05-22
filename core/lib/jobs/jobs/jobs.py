@@ -81,11 +81,11 @@ async def get_uploads_info_for_admin(
     **filters,
 ):
     query = (
-        "SELECT users.name AS username, uploads.*, j.created_at AS last_analyzed "
+        "SELECT users.name AS username, uploads.*, j.last_analyzed "
         "FROM uploads "
         "JOIN users ON uploads.user_id=users.id "
-        "JOIN jobs_result j ON uploads.id=j.upload_id "
-        "WHERE users.customer_id=$1 AND uploads.deleted='f' AND j.status!='deleted'"
+        "JOIN (SELECT upload_id, max(created_at) AS last_analyzed FROM jobs_result WHERE status!='deleted' GROUP BY upload_id) j ON uploads.id=j.upload_id "
+        "WHERE users.customer_id=$1 AND uploads.deleted='f'"
     )
     query_params = [customer_id]
 
@@ -110,11 +110,11 @@ async def get_uploads_info_for_rw_all_data_user(
     **filters,
 ):
     query = (
-        "SELECT users.name AS username, uploads.*, j.created_at AS last_analyzed "
+        "SELECT users.name AS username, uploads.*, j.last_analyzed "
         "FROM uploads "
         "JOIN users ON uploads.user_id=users.id "
-        "JOIN jobs_result j ON uploads.id=j.upload_id "
-        "WHERE users.customer_id=$1 AND uploads.type=$2 AND uploads.deleted='f' AND j.status!='deleted'"
+        "JOIN (SELECT upload_id, max(created_at) AS last_analyzed FROM jobs_result WHERE status!='deleted' GROUP BY upload_id) j ON uploads.id=j.upload_id "
+        "WHERE users.customer_id=$1 AND uploads.type=$2 AND uploads.deleted='f'"
     )
     query_params = [customer_id, upload_type]
 
@@ -139,9 +139,10 @@ async def get_uploads_info_for_base_user(
     **filters,
 ):
     query = (
-        "SELECT uploads.*, j.created_at AS last_analyzed "
-        "FROM uploads JOIN jobs_result j ON uploads.id.j.upload_id "
-        "WHERE user_id=$1 AND uploads.type=$2 AND uploads.deleted='f' AND j.status!='deleted'"
+        "SELECT uploads.*, j.last_analyzed "
+        "FROM uploads "
+        "JOIN (SELECT upload_id, max(created_at) AS last_analyzed FROM jobs_result WHERE status!='deleted' GROUP BY upload_id) j ON uploads.id=j.upload_id "
+        "WHERE user_id=$1 AND uploads.type=$2 AND uploads.deleted='f'"
     )
     query_params = [user_id, upload_type]
 
