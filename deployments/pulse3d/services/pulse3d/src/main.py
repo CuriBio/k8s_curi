@@ -6,6 +6,7 @@ import time
 import uuid
 from collections import defaultdict
 from datetime import datetime
+from typing import Any
 
 import boto3
 import polars as pl
@@ -15,7 +16,6 @@ from auth import (
     ProtectedAny,
     check_prohibited_product,
     ProhibitedProductError,
-    get_product_tags_of_admin,
     get_product_tags_of_user,
 )
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
@@ -29,7 +29,12 @@ from jobs import (
     delete_jobs,
     delete_uploads,
     get_jobs,
-    get_uploads,
+    get_uploads_info_for_base_user,
+    get_uploads_info_for_rw_all_data_user,
+    get_uploads_info_for_admin,
+    get_uploads_download_info_for_base_user,
+    get_uploads_download_info_for_rw_all_data_user,
+    get_uploads_download_info_for_admin,
 )
 from pulse3D.constants import DataTypes
 from pulse3D.peak_finding.constants import (
@@ -123,7 +128,7 @@ async def db_session_middleware(request: Request, call_next) -> Response:
 
 # TODO define response model
 @app.get("/uploads")
-async def get_info_of_uploads(
+async def get_uploads_info(
     request: Request,
     upload_type: str | None = Query(None),
     sort_field: str | None = Query(None),
@@ -132,7 +137,7 @@ async def get_info_of_uploads(
     limit: int = Query(300),
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
-    if token.account_type == "user" and not upload_type:
+    if token.account_type == "user" and upload_type not in get_product_tags_of_user(token):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
 
     if sort_field and sort_direction not in ("asc", "desc"):
@@ -154,17 +159,17 @@ async def get_info_of_uploads(
     try:
         bind_context_to_logger({"user_id": token.userid, "customer_id": token.customer_id})
 
-        desired_upload_types = None if upload_type is None else [upload_type]
-
         async with request.state.pgpool.acquire() as con:
-            uploads = await _get_uploads(
-                con=con, token=token, upload_ids=upload_ids, desired_upload_types=desired_upload_types
+            return await _get_uploads(
+                con=con,
+                token=token,
+                upload_type=upload_type,
+                sort_field=sort_field,
+                sort_direction=sort_direction,
+                skip=skip,
+                limit=limit,
+                **filters,
             )
-
-        if isinstance(uploads, GenericErrorResponse):
-            return uploads
-
-        return uploads
 
     except Exception:
         logger.exception("Failed to get uploads")
@@ -258,26 +263,31 @@ async def soft_delete_uploads(
 
 
 @app.post("/uploads/download")
-async def download_zip_files(
+async def download_uploads(
     request: Request, details: UploadDownloadRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
 ):
-    upload_ids = details.upload_ids
-
     # make sure at least one job ID was given
-    if not upload_ids:
+    if not details.upload_ids:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No upload IDs given")
 
     # need to convert UUIDs to str to avoid issues with DB
-    upload_ids = [str(id) for id in upload_ids]
+    upload_ids = [str(id) for id in details.upload_ids]
 
     bind_context_to_logger(
-        {"user_id": token.userid, "customer_id": token.customer_id, "upload_ids": upload_ids}
+        {
+            "user_id": token.userid,
+            "customer_id": token.customer_id,
+            "upload_ids": upload_ids,
+            "upload_type": details.upload_type,
+        }
     )
 
     try:
         # TODO make a new function to get download info
         async with request.state.pgpool.acquire() as con:
-            uploads = await _get_uploads(con=con, token=token, upload_ids=upload_ids)
+            uploads = await _get_uploads_download(
+                con=con, token=token, upload_ids=upload_ids, upload_type=details.upload_type
+            )
 
         if isinstance(uploads, GenericErrorResponse):
             return uploads
@@ -857,12 +867,12 @@ async def delete_analysis_preset(
 # HELPERS
 
 
-def _get_retrieval_info(token):
+def _get_retrieval_info(token, upload_type: str | None):
     account_type = token.account_type
     customer_id = str(uuid.UUID(token.customer_id))
     if token.account_type == "user":
         user_id = str(uuid.UUID(token.userid))
-        if get_product_tags_of_user(token.scopes, True):
+        if upload_type in get_product_tags_of_user(token.scopes, rw_all_only=True):
             account_type = "rw_all_data_user"
     else:
         user_id = None
@@ -871,13 +881,45 @@ def _get_retrieval_info(token):
 
 
 async def _get_uploads(con, token, **retrieval_info):
-    retrieval_info |= _get_retrieval_info(token)
+    retrieval_info |= _get_retrieval_info(token, retrieval_info["upload_type"])
 
+    upload_type_msg = "" if not retrieval_info["upload_type"] else f"{retrieval_info['upload_type']} "
     logger.info(
-        f"Retrieving {retrieval_info['upload_type'] or 'all'} uploads for {retrieval_info['account_type']}: {token.account_id}"
+        f"Retrieving {upload_type_msg}uploads for {retrieval_info['account_type']}: {token.account_id}"
     )
 
-    return await get_uploads(con=con, **retrieval_info)
+    match retrieval_info.pop("account_type"):
+        case "user":
+            return await get_uploads_info_for_base_user(con, **retrieval_info)
+        case "rw_all_data_user":
+            return await get_uploads_info_for_rw_all_data_user(con, **retrieval_info)
+        case "admin":
+            return await get_uploads_info_for_admin(con, **retrieval_info)
+
+
+async def _get_uploads_download(
+    con, token, upload_ids: list[str], upload_type: str | None
+) -> list[dict[str, Any]]:  # type: ignore
+    retrieval_info = _get_retrieval_info(token, upload_type)
+
+    upload_type_msg = "" if not upload_type else f"{upload_type} "
+    logger.info(
+        f"Downloading {upload_type_msg}uploads for {retrieval_info['account_type']}: {token.account_id}"
+    )
+
+    match retrieval_info.pop("account_type"):
+        case "user":
+            return await get_uploads_download_info_for_base_user(
+                con, user_id=retrieval_info["user_id"], upload_type=upload_type, uploads_ids=upload_ids
+            )
+        case "rw_all_data_user":
+            return await get_uploads_download_info_for_rw_all_data_user(
+                con, customer_id=retrieval_info["customer_id"], upload_type=upload_type, upload_ids=upload_ids
+            )
+        case "admin":
+            return await get_uploads_download_info_for_admin(
+                con, customer_id=retrieval_info["customer_id"], upload_ids=upload_ids
+            )
 
 
 async def _get_jobs(con, token, job_ids):

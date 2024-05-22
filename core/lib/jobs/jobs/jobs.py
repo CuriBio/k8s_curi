@@ -81,8 +81,10 @@ async def get_uploads_info_for_admin(
     **filters,
 ):
     query = (
-        "SELECT users.name AS username, uploads.* "
-        "FROM uploads JOIN users ON uploads.user_id=users.id "
+        "SELECT users.name AS username, uploads.*, j.created_at AS last_analyzed "
+        "FROM uploads "
+        "JOIN users ON uploads.user_id=users.id "
+        "JOIN jobs_result j ON uploads.id=j.upload_id "
         "WHERE users.customer_id=$1 AND uploads.deleted='f'"
     )
     query_params = [customer_id]
@@ -108,8 +110,10 @@ async def get_uploads_info_for_rw_all_data_user(
     **filters,
 ):
     query = (
-        "SELECT users.name AS username, uploads.* "
-        "FROM uploads JOIN users ON uploads.user_id=users.id "
+        "SELECT users.name AS username, uploads.*, j.created_at AS last_analyzed "
+        "FROM uploads "
+        "JOIN users ON uploads.user_id=users.id "
+        "JOIN jobs_result j ON uploads.id=j.upload_id "
         "WHERE users.customer_id=$1 AND uploads.type=$2 AND uploads.deleted='f'"
     )
     query_params = [customer_id, upload_type]
@@ -134,7 +138,11 @@ async def get_uploads_info_for_base_user(
     limit: int,
     **filters,
 ):
-    query = "SELECT * FROM uploads WHERE user_id=$1 AND type=$2 AND deleted='f'"
+    query = (
+        "SELECT uploads.*, j.created_at AS last_analyzed "
+        "FROM uploads JOIN jobs_result j ON uploads.id.j.upload_id "
+        "WHERE user_id=$1 AND type=$2 AND deleted='f'"
+    )
     query_params = [user_id, upload_type]
 
     query, query_params = _add_upload_sorting_filtering_conds(
@@ -159,17 +167,19 @@ def _add_upload_sorting_filtering_conds(
         placeholder = f"${next_placeholder_count}"
         match filter_name:
             case "filename":
-                new_cond = f"filename LIKE '%{placeholder}%"
+                new_cond = f"uploads.filename LIKE {placeholder}"
+                filter_value = f"%{filter_value}%"
             case "id":
-                new_cond = f"id LIKE '%{placeholder}%"
+                new_cond = f"uploads.id LIKE {placeholder}"
+                filter_value = f"%{filter_value}%"
             case "created_at_min":
-                new_cond = f"created_at > '{placeholder}'"
+                new_cond = f"uploads.created_at > {placeholder}"
             case "created_at_max":
-                new_cond = f"created_at < '{placeholder}'"
+                new_cond = f"uploads.created_at < {placeholder}"
             case "last_analyzed_min":
-                new_cond = f"last_analyzed > '{placeholder}'"
+                new_cond = f"last_analyzed > {placeholder}"
             case "last_analyzed_max":
-                new_cond = f"last_analyzed < '{placeholder}'"
+                new_cond = f"last_analyzed < {placeholder}"
             case _:
                 continue
 
@@ -180,6 +190,8 @@ def _add_upload_sorting_filtering_conds(
         query += conds
 
     if sort_field in ("filename", "id", "created_at", "last_analyzed", "auto_upload"):
+        if sort_field != "last_analyzed":
+            sort_field = f"uploads.{sort_field}"
         if sort_direction not in ("ASC", "DESC"):
             sort_direction = "DESC"
         query += f" ORDER BY {sort_field} {sort_field}"
@@ -190,76 +202,39 @@ def _add_upload_sorting_filtering_conds(
     return query, query_params
 
 
-async def get_uploads(
-    *,
-    con,
-    account_type,
-    customer_id,
-    user_id,
-    upload_ids=None,
-    upload_types=None,
-    rw_all_data_upload_types=None,
+async def get_uploads_download_info_for_admin(con, customer_id: UUID, upload_ids: list[UUID]):
+    query_params = [customer_id]
+    places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
+    query = f"SELECT filename, prefix FROM uploads WHERE customer_id=$1 AND id IN ({places})"
+    query_params += upload_ids
+
+    async with con.transaction():
+        uploads = [dict(row) async for row in con.cursor(query, *query_params)]
+
+    return uploads
+
+
+async def get_uploads_download_info_for_rw_all_data_user(
+    con, customer_id: UUID, upload_type: str, upload_ids: list[UUID]
 ):
-    """Query DB for info of upload(s) belonging to the admin or user account.
+    query_params = [customer_id, upload_type]
+    places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
+    query = f"SELECT filename, prefix FROM uploads WHERE customer_id=$1 AND type=$2 AND id IN ({places})"
+    query_params += upload_ids
 
-    If no upload IDs specified for a user, will return info of all uploads accessible to the user.
-    If no upload IDs specified for an admin, will return info of all uploads from all users under the admin.
+    async with con.transaction():
+        uploads = [dict(row) async for row in con.cursor(query, *query_params)]
 
-    If an upload is marked as deleted, filter it out
-    """
-    # need to make sure the rw_all_data types are provided if a rw_all_data user is given
-    if account_type == "rw_all_data_user" and not rw_all_data_upload_types:
-        raise ValueError("rw_all_data_user must provide rw_all_data_upload_types")
+    return uploads
 
-    if account_type == "user":
-        query = "SELECT * FROM uploads WHERE user_id=$1 AND deleted='f'"
-        query_params = [user_id]
-    else:
-        # admin and rw_all_data_user
-        query = (
-            "SELECT users.name AS username, uploads.* "
-            "FROM uploads JOIN users ON uploads.user_id=users.id "
-            "WHERE users.customer_id=$1 AND uploads.deleted='f'"
-        )
-        query_params = [customer_id]
 
-    if account_type == "admin":
-        if upload_types:
-            places = _get_placeholders_str(len(upload_types), len(query_params) + 1)
-            query += f" AND uploads.type IN ({places})"
-            query_params.extend(upload_types)
-    else:
-        # have to consider the desired upload types and rw_all_data upload types together
-        if not rw_all_data_upload_types:
-            upload_types_no_id_check = upload_types
-            upload_types_with_id_check = None
-        elif upload_types:
-            upload_types_no_id_check = [ut for ut in upload_types if ut in rw_all_data_upload_types]
-            upload_types_with_id_check = [ut for ut in upload_types if ut not in rw_all_data_upload_types]
-        else:
-            upload_types_no_id_check = rw_all_data_upload_types
-            upload_types_with_id_check = None
-
-        conds = []
-        if upload_types_no_id_check:
-            places = _get_placeholders_str(len(upload_types_no_id_check), len(query_params) + 1)
-            conds.append(f"uploads.type IN ({places})")
-            query_params.extend(upload_types_no_id_check)
-        if upload_types_with_id_check:
-            cond = f"uploads.user_id=${len(query_params) + 1}"
-            query_params.append(user_id)
-            places = _get_placeholders_str(len(upload_types_with_id_check), len(query_params) + 1)
-            cond += f" AND uploads.type IN ({places})"
-            query_params.extend(upload_types_with_id_check)
-            conds.append(f"({cond})")
-
-        clause = " OR ".join(conds)
-        query += f" AND ({clause})"
-
-    if upload_ids:
-        places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
-        query += f" AND uploads.id IN ({places})"
-        query_params.extend(upload_ids)
+async def get_uploads_download_info_for_base_user(
+    con, user_id: UUID, upload_type: str, upload_ids: list[UUID]
+):
+    query_params = [user_id, upload_type]
+    places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
+    query = f"SELECT filename, prefix FROM uploads WHERE user_id=$1 AND type=$2 AND id IN ({places})"
+    query_params += upload_ids
 
     async with con.transaction():
         uploads = [dict(row) async for row in con.cursor(query, *query_params)]

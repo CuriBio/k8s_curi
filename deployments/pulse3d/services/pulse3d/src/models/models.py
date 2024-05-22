@@ -107,6 +107,7 @@ class JobDownloadRequest(BaseModel):
 
 
 class UploadDownloadRequest(BaseModel):
+    upload_type: str | None
     upload_ids: list[uuid.UUID]
 
 
