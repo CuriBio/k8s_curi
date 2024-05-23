@@ -53,6 +53,7 @@ from models.users import (
     UserScopesUpdate,
     UnableToUpdateAccountResponse,
     PreferencesUpdate,
+    LoginType,
 )
 from utils.db import AsyncpgPoolDep
 from utils.logging import setup_logger, bind_context_to_logger
@@ -72,7 +73,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(openapi_url=None, lifespan=lifespan)
 
-LOGIN_TYPES = ["password", "sso_microsoft"]
 MAX_FAILED_LOGIN_ATTEMPTS = 10
 TEMPLATES = Jinja2Templates(directory="templates")
 
@@ -466,12 +466,9 @@ async def register_admin(
     """
     try:
         email = details.email.lower()
-        login_type = details.login_type if details.login_type else LOGIN_TYPES[0]
+        login_type = details.login_type
 
         check_prohibited_admin_scopes(details.scopes, token.scopes)
-
-        if login_type not in LOGIN_TYPES:
-            raise RegistrationError("Invalid Login Type")
 
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():
@@ -503,7 +500,7 @@ async def register_admin(
                 )
 
                 # only send verification emails to new users
-                if login_type == LOGIN_TYPES[0]:  # Username / Password path
+                if login_type == LoginType.PASSWORD:  # Username / Password path
                     await _create_account_email(
                         con=con,
                         type="verify",

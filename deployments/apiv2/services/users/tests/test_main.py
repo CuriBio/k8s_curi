@@ -699,8 +699,7 @@ def test_register__admin__login_type_invalid(mocked_asyncpg_con, spied_pw_hasher
     response = test_client.post(
         "/register/admin", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
     )
-    assert response.status_code == 400
-    assert response.json() == {"detail": "Invalid Login Type"}
+    assert response.status_code == 422  # sso_google is not a valid login_type
 
 
 @pytest.mark.parametrize(

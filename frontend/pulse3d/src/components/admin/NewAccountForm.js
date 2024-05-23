@@ -67,7 +67,7 @@ const ButtonContainer = styled.div`
   flex-direction: row;
 `;
 
-const LoginTypes = {
+const LoginType = {
   "password": "Username / Password",
   "sso_microsoft": "Microsoft SSO"
 }
@@ -77,7 +77,7 @@ const getDefaultAccountInfo = (type) => {
     admin: {
       email: "",
       scopes: [],
-      login_type: Object.keys(LoginTypes)[0]
+      login_type: Object.keys(LoginType)[0]
     },
     user: {
       email: "",
@@ -209,12 +209,12 @@ export default function NewAccountForm({ type }) {
             <DropDownContainer>
               <DropDownWidget
                 label="Choose a Login Type"
-                options={Object.values(LoginTypes)}
+                options={Object.values(LoginType)}
                 initialSelected={0}
                 height={35}
                 handleSelection={(i) => {
                   setNewAccountInfo(prevState => {
-                    return {...prevState, login_type: Object.keys(LoginTypes)[i]}
+                    return {...prevState, login_type: Object.keys(LoginType)[i]}
                   });
                 }}
               />
