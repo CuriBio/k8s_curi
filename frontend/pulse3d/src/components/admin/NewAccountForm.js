@@ -1,6 +1,7 @@
 import styled from "styled-components";
 import { useEffect, useState, useContext } from "react";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
+import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import FormInput from "@/components/basicWidgets/FormInput";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import ScopeWidget from "./ScopeWidget";
@@ -27,6 +28,11 @@ const ModalContainer = styled.div`
     0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
 
+const DropDownContainer = styled.div`
+  width: 80%;
+  height: 35px;
+`;
+
 const ErrorText = styled.span`
   color: red;
   font-style: italic;
@@ -47,16 +53,31 @@ const Header = styled.h2`
   line-height: 3;
 `;
 
+const Label = styled.div`
+  position: relative;
+  width: 80%;
+  height: 35px;
+  min-height: 35px;
+  padding: 5px;
+  line-height: 2;
+`
+
 const ButtonContainer = styled.div`
   display: flex;
   flex-direction: row;
 `;
+
+const LoginTypes = {
+  "password": "Username / Password",
+  "sso_microsoft": "Microsoft SSO"
+}
 
 const getDefaultAccountInfo = (type) => {
   const info = {
     admin: {
       email: "",
       scopes: [],
+      login_type: Object.keys(LoginTypes)[0]
     },
     user: {
       email: "",
@@ -182,6 +203,24 @@ export default function NewAccountForm({ type }) {
           setSelectedScopes={handleSelectedScopes}
           availableScopes={availableScopes[type]}
         />
+        {!isForUser && (
+          <>
+            <Label>Login Type</Label>
+            <DropDownContainer>
+              <DropDownWidget
+                label="Choose a Login Type"
+                options={Object.values(LoginTypes)}
+                initialSelected={0}
+                height={35}
+                handleSelection={(i) => {
+                  setNewAccountInfo(prevState => {
+                    return {...prevState, login_type: Object.keys(LoginTypes)[i]}
+                  });
+                }}
+              />
+            </DropDownContainer>
+          </>
+        )}
         <ErrorText id="userError" role="errorMsg">
           {errorMsg}
         </ErrorText>

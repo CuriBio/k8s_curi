@@ -61,6 +61,7 @@ class PasswordModel(BaseModel):
 class AdminCreate(ScopeConverter):
     email: EmailStr
     scopes: list[Scopes]
+    login_type: str | None = Field(default=None)
 
 
 class UserCreate(ScopeConverter):
