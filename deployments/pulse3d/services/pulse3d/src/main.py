@@ -40,6 +40,8 @@ from jobs import (
     get_jobs_download_info_for_base_user,
     get_jobs_download_info_for_rw_all_data_user,
     get_jobs_download_info_for_admin,
+    get_job_waveform_data_for_base_user,
+    get_job_waveform_data_for_rw_all_data_user,
 )
 from pulse3D.constants import DataTypes
 from pulse3D.peak_finding.constants import (
@@ -371,13 +373,12 @@ async def get_jobs_info(
 @app.get("/jobs")
 async def get_info_of_jobs(
     request: Request,
-    job_ids: list[uuid.UUID] | None = Query(None),
+    job_ids: list[uuid.UUID],
     download: bool = Query(True),
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     # need to convert UUIDs to str to avoid issues with DB
-    if job_ids:
-        job_ids = [str(job_id) for job_id in job_ids]
+    job_id = str(job_ids[0])
 
     try:
         bind_context_to_logger(
@@ -385,7 +386,7 @@ async def get_info_of_jobs(
         )
 
         async with request.state.pgpool.acquire() as con:
-            jobs = await _get_jobs_info(con, token, job_ids=job_ids)  # TODO
+            jobs = await _get_jobs_info(con, token, job_id=job_id)
 
         response = {"jobs": []}
         for job in jobs:
@@ -707,46 +708,39 @@ async def download_analyses(
 
 
 @app.get("/jobs/waveform-data", response_model=WaveformDataResponse | GenericErrorResponse)
-async def get_interactive_waveform_data(
+async def get_job_waveform_data(
     request: Request,
+    upload_type: str,
     upload_id: uuid.UUID = Query(None),
     job_id: uuid.UUID = Query(None),
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
 ):
-    user_id = str(uuid.UUID(token.userid))
-
     if job_id is None or upload_id is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Missing required ids to get job metadata."
         )
 
-    upload_id = str(upload_id)
-    job_id = str(job_id)
+    upload_id = str(upload_id)  # type: ignore
+    job_id = str(job_id)  # type: ignore
 
     bind_context_to_logger(
         {"customer_id": token.customer_id, "user_id": token.userid, "upload_id": upload_id, "job_id": job_id}
     )
 
     try:
+        logger.info(f"Getting metadata for job {job_id}")
         async with request.state.pgpool.acquire() as con:
-            logger.info(f"Getting metadata for job {job_id}")
-            selected_job = (await _get_jobs(con, token, [job_id]))[0]
+            selected_job = await _get_job_waveform_data(con, token, job_id=job_id, upload_type=upload_type)  # type: ignore
 
-        original_upload_user = str(selected_job["user_id"])
-        upload_type = selected_job["upload_type"]
+        if not selected_job:
+            return GenericErrorResponse(
+                message="Job not found or not authorized to run Interactive Analysis on this file",
+                error="AuthorizationError",
+            )
 
         parsed_meta = json.loads(selected_job["job_meta"])
         analysis_params = parsed_meta.get("analysis_params", {})
         pulse3d_version = parsed_meta.get("version")
-
-        # if the upload does not belong to this user, make sure this user has the rw_all_scope for this upload type
-        if user_id != original_upload_user and upload_type not in get_product_tags_of_user(
-            token.scopes, rw_all_only=True
-        ):
-            return GenericErrorResponse(
-                message=f"User does not have authorization to interactive analysis on on {upload_type} uploads of other users.",
-                error="AuthorizationError",
-            )
 
         # Get presigned url for time force data
         pre_analysis_filename = os.path.splitext(selected_job["filename"])[0]
@@ -969,7 +963,7 @@ async def _get_jobs_info(con, token, upload_ids: list[str], upload_type: str | N
             )
 
 
-async def _get_jobs_download(con, token, job_ids: list[str], upload_type: str | None):
+async def _get_jobs_download(con, token, job_ids: list[str], upload_type: str | None) -> list[dict[str, Any]]:  # type: ignore
     retrieval_info = _get_retrieval_info(token, upload_type)
 
     logger.info(f"Downloading job IDs: {job_ids} for {retrieval_info['account_type']}: {token.account_id}")
@@ -986,6 +980,24 @@ async def _get_jobs_download(con, token, job_ids: list[str], upload_type: str | 
         case "admin":
             return await get_jobs_download_info_for_admin(
                 con, customer_id=retrieval_info["customer_id"], job_ids=job_ids
+            )
+
+
+async def _get_job_waveform_data(con, token, job_id: str, upload_type: str) -> dict[str, Any] | None:  # type: ignore
+    retrieval_info = _get_retrieval_info(token, upload_type)
+
+    logger.info(
+        f"Retrieving waveform data of job: {job_id} for {retrieval_info['account_type']}: {token.account_id}"
+    )
+
+    match retrieval_info.pop("account_type"):
+        case "user":
+            return await get_job_waveform_data_for_base_user(
+                con, user_id=retrieval_info["user_id"], upload_type=upload_type, job_id=job_id
+            )
+        case "rw_all_data_user":
+            return await get_job_waveform_data_for_rw_all_data_user(
+                con, customer_id=retrieval_info["customer_id"], upload_type=upload_type, job_id=job_id
             )
 
 

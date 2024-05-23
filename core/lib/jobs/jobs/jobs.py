@@ -339,7 +339,7 @@ async def get_jobs_download_info_for_admin(con, customer_id: str, job_ids: list[
     places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
     query = (
         "SELECT object_key FROM jobs_result j JOIN uploads u ON j.upload_id=u.id "
-        f"WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.id IN ({places})"
+        f"WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND j.job_id IN ({places})"
     )
     query_params += job_ids
 
@@ -356,7 +356,7 @@ async def get_jobs_download_info_for_rw_all_data_user(
     places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
     query = (
         "SELECT object_key FROM jobs_result j JOIN uploads u ON j.upload_id=u.id "
-        f"WHERE j.customer_id=$1 AND u.type=$2 AND j.status!='deleted' AND u.deleted='f' AND u.id IN ({places})"
+        f"WHERE j.customer_id=$1 AND u.type=$2 AND j.status!='deleted' AND u.deleted='f' AND j.job_id IN ({places})"
     )
     query_params += job_ids
 
@@ -371,7 +371,7 @@ async def get_jobs_download_info_for_base_user(con, user_id: str, job_ids: list[
     places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
     query = (
         "SELECT object_key FROM jobs_result j JOIN uploads u ON j.upload_id=u.id "
-        f"WHERE u.user_id=$1 AND u.type=$2 AND j.status!='deleted' AND u.deleted='f' AND u.id IN ({places})"
+        f"WHERE u.user_id=$1 AND u.type=$2 AND j.status!='deleted' AND u.deleted='f' AND j.job_id IN ({places})"
     )
     query_params += job_ids
 
@@ -381,6 +381,29 @@ async def get_jobs_download_info_for_base_user(con, user_id: str, job_ids: list[
     return jobs
 
 
+async def get_job_waveform_data_for_rw_all_data_user(con, customer_id: str, job_id: str, upload_type: str):
+    query_params = [customer_id, upload_type, job_id]
+    query = (
+        "SELECT u.prefix, u.filename, j.meta AS job_meta FROM jobs_result j JOIN uploads u ON j.upload_id=u.id "
+        "WHERE j.customer_id=$1 AND u.type=$2 AND j.status!='deleted' AND u.deleted='f' AND j.job_id=$3"
+    )
+
+    async with con.transaction():
+        return await con.fetchrow(query, *query_params)
+
+
+async def get_job_waveform_data_for_base_user(con, user_id: str, job_id: str, upload_type: str):
+    query_params = [user_id, upload_type, job_id]
+    query = (
+        "SELECT u.prefix, u.filename, j.meta AS job_meta FROM jobs_result j JOIN uploads u ON j.upload_id=u.id "
+        "WHERE u.user_id=$1 AND u.type=$2 AND j.status!='deleted' AND u.deleted='f' AND j.job_id=$3"
+    )
+
+    async with con.transaction():
+        return await con.fetchrow(query, *query_params)
+
+
+# TODO delete this
 async def get_jobs(
     *, con, account_type, customer_id, user_id, job_ids=None, upload_types=None, rw_all_data_upload_types=None
 ):
