@@ -53,6 +53,7 @@ from models.users import (
     UserScopesUpdate,
     UnableToUpdateAccountResponse,
     PreferencesUpdate,
+    LoginType,
 )
 from utils.db import AsyncpgPoolDep
 from utils.logging import setup_logger, bind_context_to_logger
@@ -465,6 +466,7 @@ async def register_admin(
     """
     try:
         email = details.email.lower()
+        login_type = details.login_type
 
         check_prohibited_admin_scopes(details.scopes, token.scopes)
 
@@ -472,9 +474,10 @@ async def register_admin(
             async with con.transaction():
                 try:
                     insert_account_query_args = (
-                        "INSERT INTO customers (email, usage_restrictions) VALUES ($1, $2) RETURNING id",
+                        "INSERT INTO customers (email, usage_restrictions, login_type) VALUES ($1, $2, $3) RETURNING id",
                         email,
                         json.dumps(dict(PULSE3D_PAID_USAGE)),
+                        login_type
                     )
                     new_account_id = await con.fetchval(*insert_account_query_args)
                     bind_context_to_logger({"customer_id": str(new_account_id), "email": email})
@@ -497,15 +500,24 @@ async def register_admin(
                 )
 
                 # only send verification emails to new users
-                await _create_account_email(
-                    con=con,
-                    type="verify",
-                    user_id=None,
-                    customer_id=new_account_id,
-                    scope=Scopes.ADMIN__VERIFY,
-                    name=None,
-                    email=email,
-                )
+                if login_type == LoginType.PASSWORD:  # Username / Password path
+                    await _create_account_email(
+                        con=con,
+                        type="verify",
+                        user_id=None,
+                        customer_id=new_account_id,
+                        scope=Scopes.ADMIN__VERIFY,
+                        name=None,
+                        email=email,
+                    )
+                else:  # SSO path
+                    await _send_account_email(
+                        username="Admin",
+                        email=email,
+                        url=f"{DASHBOARD_URL}",
+                        subject="Your Admin account has been created",
+                        template="registration_sso.html"
+                    )
 
                 return AdminProfile(email=email, user_id=new_account_id.hex, scopes=details.scopes)
 

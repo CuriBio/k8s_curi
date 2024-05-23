@@ -625,13 +625,81 @@ def test_register__admin__success(mocked_asyncpg_con, spied_pw_hasher, mocker):
     }
 
     mocked_asyncpg_con.fetchval.assert_called_once_with(
-        "INSERT INTO customers (email, usage_restrictions) VALUES ($1, $2) RETURNING id",
+        "INSERT INTO customers (email, usage_restrictions, login_type) VALUES ($1, $2, $3) RETURNING id",
         registration_details["email"].lower(),
         json.dumps(dict(PULSE3D_PAID_USAGE)),
+        "password"
     )
     mocked_asyncpg_con.execute.assert_called_once_with(
         "INSERT INTO account_scopes VALUES ($1, NULL, unnest($2::text[]))", test_user_id, expected_scopes
     )
+
+
+def test_register__admin__login_type_sso_microsoft_success(mocked_asyncpg_con, spied_pw_hasher, mocker):
+    mocker.patch.object(main, "_send_account_email", autospec=True)
+
+    expected_scopes = [Scopes.MANTARRAY__ADMIN, Scopes.NAUTILAI__ADMIN]
+    registration_details = {
+        "email": "tEsT@email.com",
+        "password1": TEST_PASSWORD,
+        "password2": TEST_PASSWORD,
+        "scopes": expected_scopes,
+        "login_type": "sso_microsoft"
+    }
+
+    test_user_id = uuid.uuid4()
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(
+        customer_id=test_customer_id, scopes=[Scopes.CURI__ADMIN], account_type=AccountTypes.ADMIN
+    )
+
+    mocked_asyncpg_con.fetchval.return_value = test_user_id
+
+    response = test_client.post(
+        "/register/admin", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert response.status_code == 201
+    assert response.json() == {
+        "email": registration_details["email"].lower(),
+        "user_id": test_user_id.hex,
+        "scopes": expected_scopes,
+    }
+
+    mocked_asyncpg_con.fetchval.assert_called_once_with(
+        "INSERT INTO customers (email, usage_restrictions, login_type) VALUES ($1, $2, $3) RETURNING id",
+        registration_details["email"].lower(),
+        json.dumps(dict(PULSE3D_PAID_USAGE)),
+        "sso_microsoft"
+    )
+    mocked_asyncpg_con.execute.assert_called_once_with(
+        "INSERT INTO account_scopes VALUES ($1, NULL, unnest($2::text[]))", test_user_id, expected_scopes
+    )
+
+
+def test_register__admin__login_type_invalid(mocked_asyncpg_con, spied_pw_hasher, mocker):
+    mocker.patch.object(main, "_send_account_email", autospec=True)
+
+    expected_scopes = [Scopes.MANTARRAY__ADMIN, Scopes.NAUTILAI__ADMIN]
+    registration_details = {
+        "email": "tEsT@email.com",
+        "password1": TEST_PASSWORD,
+        "password2": TEST_PASSWORD,
+        "scopes": expected_scopes,
+        "login_type": "sso_google"
+    }
+
+    test_user_id = uuid.uuid4()
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(
+        customer_id=test_customer_id, scopes=[Scopes.CURI__ADMIN], account_type=AccountTypes.ADMIN
+    )
+
+    mocked_asyncpg_con.fetchval.return_value = test_user_id
+
+    response = test_client.post(
+        "/register/admin", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert response.status_code == 422  # sso_google is not a valid login_type
 
 
 @pytest.mark.parametrize(

@@ -1,4 +1,5 @@
 import re
+from enum import StrEnum, auto
 from typing import Any
 from uuid import UUID
 from pydantic import BaseModel, EmailStr, SecretStr, Field
@@ -17,6 +18,11 @@ PASSWORD_REGEX = r"""(
     (?=.*[0-9])
     .{10,}
     $)"""
+
+
+class LoginType(StrEnum):
+    PASSWORD = auto()
+    SSO_MICROSOFT = auto()
 
 
 class AdminLogin(BaseModel):
@@ -61,6 +67,7 @@ class PasswordModel(BaseModel):
 class AdminCreate(ScopeConverter):
     email: EmailStr
     scopes: list[Scopes]
+    login_type: LoginType = Field(default=LoginType.PASSWORD)
 
 
 class UserCreate(ScopeConverter):
