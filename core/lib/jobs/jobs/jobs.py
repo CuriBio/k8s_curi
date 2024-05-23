@@ -334,6 +334,21 @@ async def get_jobs_info_for_base_user(con, user_id: str, upload_ids: list[str], 
     return jobs
 
 
+async def get_legacy_jobs_info_for_user(con, user_id: str, job_ids: list[str]):
+    query_params = [user_id]
+    places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
+    query = (
+        "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, "
+        "u.user_id, u.meta AS user_meta, u.filename, u.prefix, u.type AS upload_type "
+        "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
+        f"WHERE u.user_id=$1 AND j.status!='deleted' AND j.job_id IN ({places})"
+    )
+    async with con.transaction():
+        jobs = [dict(row) async for row in con.cursor(query, *query_params)]
+
+    return jobs
+
+
 async def get_jobs_download_info_for_admin(con, customer_id: str, job_ids: list[str]):
     query_params = [customer_id]
     places = _get_placeholders_str(len(job_ids), len(query_params) + 1)

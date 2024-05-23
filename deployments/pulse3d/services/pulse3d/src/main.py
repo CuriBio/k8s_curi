@@ -42,6 +42,7 @@ from jobs import (
     get_jobs_download_info_for_admin,
     get_job_waveform_data_for_base_user,
     get_job_waveform_data_for_rw_all_data_user,
+    get_legacy_jobs_info_for_user,
 )
 from pulse3D.constants import DataTypes
 from pulse3D.peak_finding.constants import (
@@ -378,7 +379,7 @@ async def get_info_of_jobs(
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     # need to convert UUIDs to str to avoid issues with DB
-    job_id = str(job_ids[0])
+    job_ids = [str(job_id) for job_id in job_ids]
 
     try:
         bind_context_to_logger(
@@ -386,7 +387,7 @@ async def get_info_of_jobs(
         )
 
         async with request.state.pgpool.acquire() as con:
-            jobs = await _get_jobs_info(con, token, job_id=job_id)
+            jobs = await _get_legacy_jobs_info(con, token, job_ids=job_ids)
 
         response = {"jobs": []}
         for job in jobs:
@@ -961,6 +962,20 @@ async def _get_jobs_info(con, token, upload_ids: list[str], upload_type: str | N
             return await get_jobs_info_for_admin(
                 con, customer_id=retrieval_info["customer_id"], upload_ids=upload_ids
             )
+
+
+async def _get_legacy_jobs_info(con, token, job_id: str):
+    retrieval_info = _get_retrieval_info(token, upload_type=None)
+
+    logger.info(
+        f"Retrieving legacy job info for job ID: {job_id} for {retrieval_info['account_type']}: {token.account_id}"
+    )
+
+    match retrieval_info.pop("account_type"):
+        case "user" | "rw_all_data_user":
+            return await get_legacy_jobs_info_for_user(con, user_id=retrieval_info["user_id"], job_id=job_id)
+        case _:
+            return []
 
 
 async def _get_jobs_download(con, token, job_ids: list[str], upload_type: str | None) -> list[dict[str, Any]]:  # type: ignore

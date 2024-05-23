@@ -103,6 +103,7 @@ class WaveformDataResponse(BaseModel):
 
 
 class JobDownloadRequest(BaseModel):
+    upload_type: str | None
     job_ids: list[uuid.UUID]
 
 
