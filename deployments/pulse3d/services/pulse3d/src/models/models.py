@@ -15,6 +15,11 @@ class UploadRequest(BaseModel):
     auto_upload: bool | None = Field(default=True)
 
 
+class GetJobsRequest(BaseModel):
+    upload_ids: list[uuid.UUID]
+    upload_type: str | None
+
+
 class UsageQuota(BaseModel):
     current: dict[str, Any]
     limits: dict[str, Any]

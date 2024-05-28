@@ -58,16 +58,49 @@ export default function DashboardLayout({ children }) {
     }
   }, [router.pathname]);
 
-  const getUploadsAndJobs = async (uploadType) => {
+  const getUploadsAndJobs = async (
+    uploadType,
+    filters,
+    sortField = "last_analyzed",
+    sortDirection = "DESC",
+    skip = 0,
+    limit = 300
+  ) => {
+    let uploadsArr = [];
     try {
       let url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads`;
+      let queryParams = [];
+
       if (uploadType) {
-        url += `?upload_type=${uploadType}`;
+        queryParams.push(`upload_type=${uploadType}`);
       }
+      if (sortField) {
+        queryParams.push(`sort_field=${sortField}`);
+        if (!["ASC", "DESC"].includes(sortDirection)) {
+          sortDirection = "DESC";
+        }
+        queryParams.push(`sort_direction=${sortDirection}`);
+      }
+      if (skip != null) {
+        queryParams.push(`skip=${skip}`);
+      }
+      if (limit != null) {
+        queryParams.push(`limit=${limit}`);
+      }
+      if (filters && Object.keys(filters).length > 0) {
+        for ([filterName, filterValue] of Object.entries(filters)) {
+          queryParams.push(`${filterName}=${filterValue}`);
+        }
+      }
+      if (queryParams.length > 0) {
+        url += "?" + queryParams.join("&");
+      }
+
       const response = await fetch(url);
 
       if (response && response.status === 200) {
-        const uploadsArr = await response.json();
+        uploadsArr = await response.json();
+        console.log(uploadsArr);
         setUploads([...uploadsArr]);
       }
     } catch (e) {
@@ -75,11 +108,21 @@ export default function DashboardLayout({ children }) {
       return;
     }
 
+    if (uploadsArr.length === 0) {
+      return;
+    }
+
+    const uploadIds = uploadsArr.map(({ id }) => id);
+
     let jobsRes = [];
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?download=False`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/v2`, {
+        method: "POST",
+        body: JSON.stringify({ upload_ids: uploadIds, upload_type: uploadType }),
+      });
+
       if (response && response.status === 200) {
-        jobsRes = (await response.json()).jobs;
+        jobsRes = await response.json();
       }
     } catch (e) {
       console.log("ERROR fetching jobs", e);

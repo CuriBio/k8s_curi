@@ -84,7 +84,7 @@ async def get_uploads_info_for_admin(
         "SELECT users.name AS username, uploads.*, j.last_analyzed "
         "FROM uploads "
         "JOIN users ON uploads.user_id=users.id "
-        "JOIN (SELECT upload_id, max(created_at) AS last_analyzed FROM jobs_result WHERE status!='deleted' GROUP BY upload_id) j ON uploads.id=j.upload_id "
+        "JOIN (SELECT upload_id, max(created_at) AS last_analyzed FROM jobs_result WHERE status!='deleted' GROUP BY upload_id) AS j ON uploads.id=j.upload_id "
         "WHERE users.customer_id=$1 AND uploads.deleted='f'"
     )
     query_params = [customer_id]
@@ -113,7 +113,7 @@ async def get_uploads_info_for_rw_all_data_user(
         "SELECT users.name AS username, uploads.*, j.last_analyzed "
         "FROM uploads "
         "JOIN users ON uploads.user_id=users.id "
-        "JOIN (SELECT upload_id, max(created_at) AS last_analyzed FROM jobs_result WHERE status!='deleted' GROUP BY upload_id) j ON uploads.id=j.upload_id "
+        "JOIN (SELECT upload_id, max(created_at) AS last_analyzed FROM jobs_result WHERE status!='deleted' GROUP BY upload_id) AS j ON uploads.id=j.upload_id "
         "WHERE users.customer_id=$1 AND uploads.type=$2 AND uploads.deleted='f'"
     )
     query_params = [customer_id, upload_type]
@@ -141,7 +141,7 @@ async def get_uploads_info_for_base_user(
     query = (
         "SELECT uploads.*, j.last_analyzed "
         "FROM uploads "
-        "JOIN (SELECT upload_id, max(created_at) AS last_analyzed FROM jobs_result WHERE status!='deleted' GROUP BY upload_id) j ON uploads.id=j.upload_id "
+        "JOIN (SELECT upload_id, max(created_at) AS last_analyzed FROM jobs_result WHERE status!='deleted' GROUP BY upload_id) AS j ON uploads.id=j.upload_id "
         "WHERE user_id=$1 AND uploads.type=$2 AND uploads.deleted='f'"
     )
     query_params = [user_id, upload_type]
@@ -178,9 +178,9 @@ def _add_upload_sorting_filtering_conds(
             case "created_at_max":
                 new_cond = f"uploads.created_at < {placeholder}"
             case "last_analyzed_min":
-                new_cond = f"last_analyzed > {placeholder}"
+                new_cond = f"j.last_analyzed > {placeholder}"
             case "last_analyzed_max":
-                new_cond = f"last_analyzed < {placeholder}"
+                new_cond = f"j.last_analyzed < {placeholder}"
             case _:
                 continue
 
@@ -191,12 +191,14 @@ def _add_upload_sorting_filtering_conds(
         query += conds
 
     if sort_field in ("filename", "id", "created_at", "last_analyzed", "auto_upload"):
-        if sort_field != "last_analyzed":
+        if sort_field == "last_analyzed":
+            sort_field = f"j.{sort_field}"
+        else:
             sort_field = f"uploads.{sort_field}"
         if sort_direction not in ("ASC", "DESC"):
             sort_direction = "DESC"
         sort_direction = sort_direction.upper()
-        query += f" ORDER BY {sort_field} {sort_field}"
+        query += f" ORDER BY {sort_field} {sort_direction}"
 
     query += f" LIMIT ${len(query_params) + 1} OFFSET ${len(query_params) + 2}"
     query_params += [limit, skip]
@@ -288,8 +290,8 @@ async def get_jobs_info_for_admin(con, customer_id: str, upload_ids: list[str]):
     places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
     query = (
         "SELECT j.job_id AS id, j.upload_id, j.status, j.created_at, j.object_key, j.meta, "
-        "u.user_id, u.type AS upload_type"
-        "FROM jobs_result j JOIN uploads u ON j.upload_id=u.id "
+        "u.user_id, u.type AS upload_type "
+        "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         f"WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.id IN ({places})"
     )
     query_params += upload_ids
@@ -305,9 +307,9 @@ async def get_jobs_info_for_rw_all_data_user(con, customer_id: str, upload_ids: 
     places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
     query = (
         "SELECT j.job_id AS id, j.upload_id, j.status, j.created_at, j.object_key, j.meta, "
-        "u.user_id, u.type AS upload_type"
-        "FROM jobs_result j JOIN uploads u ON j.upload_id=u.id "
-        f"WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND upload_type=$2 AND u.id IN ({places})"
+        "u.user_id, u.type AS upload_type "
+        "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
+        f"WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.type=$2 AND u.id IN ({places})"
     )
     query_params += upload_ids
 
@@ -322,9 +324,9 @@ async def get_jobs_info_for_base_user(con, user_id: str, upload_ids: list[str], 
     places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
     query = (
         "SELECT j.job_id AS id, j.upload_id, j.status, j.created_at, j.object_key, j.meta, "
-        "u.user_id, u.type AS upload_type"
-        "FROM jobs_result j JOIN uploads u ON j.upload_id=u.id "
-        f"WHERE u.user_id=$1 AND j.status!='deleted' AND u.deleted='f' AND upload_type=$2 AND u.id IN ({places})"
+        "u.user_id, u.type AS upload_type "
+        "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
+        f"WHERE u.user_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.type=$2 AND u.id IN ({places})"
     )
     query_params += upload_ids
 
@@ -353,7 +355,7 @@ async def get_jobs_download_info_for_admin(con, customer_id: str, job_ids: list[
     query_params = [customer_id]
     places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
     query = (
-        "SELECT object_key FROM jobs_result j JOIN uploads u ON j.upload_id=u.id "
+        "SELECT object_key FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         f"WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND j.job_id IN ({places})"
     )
     query_params += job_ids
@@ -370,7 +372,7 @@ async def get_jobs_download_info_for_rw_all_data_user(
     query_params = [customer_id, upload_type]
     places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
     query = (
-        "SELECT object_key FROM jobs_result j JOIN uploads u ON j.upload_id=u.id "
+        "SELECT object_key FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         f"WHERE j.customer_id=$1 AND u.type=$2 AND j.status!='deleted' AND u.deleted='f' AND j.job_id IN ({places})"
     )
     query_params += job_ids
@@ -385,7 +387,7 @@ async def get_jobs_download_info_for_base_user(con, user_id: str, job_ids: list[
     query_params = [user_id, upload_type]
     places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
     query = (
-        "SELECT object_key FROM jobs_result j JOIN uploads u ON j.upload_id=u.id "
+        "SELECT object_key FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         f"WHERE u.user_id=$1 AND u.type=$2 AND j.status!='deleted' AND u.deleted='f' AND j.job_id IN ({places})"
     )
     query_params += job_ids
@@ -399,7 +401,7 @@ async def get_jobs_download_info_for_base_user(con, user_id: str, job_ids: list[
 async def get_job_waveform_data_for_rw_all_data_user(con, customer_id: str, job_id: str, upload_type: str):
     query_params = [customer_id, upload_type, job_id]
     query = (
-        "SELECT u.prefix, u.filename, j.meta AS job_meta FROM jobs_result j JOIN uploads u ON j.upload_id=u.id "
+        "SELECT u.prefix, u.filename, j.meta AS job_meta FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         "WHERE j.customer_id=$1 AND u.type=$2 AND j.status!='deleted' AND u.deleted='f' AND j.job_id=$3"
     )
 
@@ -410,87 +412,12 @@ async def get_job_waveform_data_for_rw_all_data_user(con, customer_id: str, job_
 async def get_job_waveform_data_for_base_user(con, user_id: str, job_id: str, upload_type: str):
     query_params = [user_id, upload_type, job_id]
     query = (
-        "SELECT u.prefix, u.filename, j.meta AS job_meta FROM jobs_result j JOIN uploads u ON j.upload_id=u.id "
+        "SELECT u.prefix, u.filename, j.meta AS job_meta FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         "WHERE u.user_id=$1 AND u.type=$2 AND j.status!='deleted' AND u.deleted='f' AND j.job_id=$3"
     )
 
     async with con.transaction():
         return await con.fetchrow(query, *query_params)
-
-
-# TODO delete this
-async def get_jobs(
-    *, con, account_type, customer_id, user_id, job_ids=None, upload_types=None, rw_all_data_upload_types=None
-):
-    """Query DB for info of job(s) belonging to the admin or user account.
-
-    If no job IDs specified for a user, will return info of all jobs accessible to the user.
-    If no job IDs specified for an admin, will return info of all jobs from all users under the admin.
-
-    If a job is marked as deleted, filter it out
-    """
-    # need to make sure the rw_all_data types are provided if a rw_all_data user is given
-    if account_type == "rw_all_data_user" and not rw_all_data_upload_types:
-        raise ValueError("rw_all_data_user must provide rw_all_data_upload_types")
-
-    if account_type == "user":
-        query = (
-            "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, "
-            "u.user_id, u.meta AS user_meta, u.filename, u.prefix, u.type AS upload_type "
-            "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
-            "WHERE u.user_id=$1 AND j.status!='deleted'"
-        )
-        query_params = [user_id]
-    else:
-        query = (
-            "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, "
-            "u.user_id, u.meta AS user_meta, users.name AS username, u.filename, u.prefix, u.type AS upload_type "
-            "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id JOIN users ON u.user_id=users.id "
-            "WHERE users.customer_id=$1 AND j.status!='deleted'"
-        )
-        query_params = [customer_id]
-
-    # TODO if this ends up matching get_uploads exactly, pull it out into a function
-    if account_type == "admin":
-        if upload_types:
-            places = _get_placeholders_str(len(upload_types), len(query_params) + 1)
-            query += f" AND u.type IN ({places})"
-            query_params.extend(upload_types)
-    else:
-        # have to consider the desired upload types and rw_all_data upload types together
-        if not rw_all_data_upload_types:
-            upload_types_no_id_check = upload_types
-            upload_types_with_id_check = None
-        elif upload_types:
-            upload_types_no_id_check = [ut for ut in upload_types if ut in rw_all_data_upload_types]
-            upload_types_with_id_check = [ut for ut in upload_types if ut not in rw_all_data_upload_types]
-        else:
-            upload_types_no_id_check = rw_all_data_upload_types
-            upload_types_with_id_check = None
-
-        conds = []
-        if upload_types_no_id_check:
-            places = _get_placeholders_str(len(upload_types_no_id_check), len(query_params) + 1)
-            conds.append(f"u.type IN ({places})")
-            query_params.extend(upload_types_no_id_check)
-        if upload_types_with_id_check:
-            cond = f"u.user_id=${len(query_params) + 1}"
-            query_params.append(user_id)
-            places = _get_placeholders_str(len(upload_types_with_id_check), len(query_params) + 1)
-            cond += f" AND u.type IN ({places})"
-            query_params.extend(upload_types_with_id_check)
-            conds.append(f"({cond})")
-
-        clause = " OR ".join(conds)
-        query += f" AND ({clause})"
-
-    if job_ids:
-        places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
-        query += f" AND j.job_id IN ({places})"
-        query_params.extend(job_ids)
-
-    async with con.transaction():
-        return [dict(row) async for row in con.cursor(query, *query_params)]
 
 
 async def create_job(*, con, upload_id, queue, priority, meta, customer_id, job_type):

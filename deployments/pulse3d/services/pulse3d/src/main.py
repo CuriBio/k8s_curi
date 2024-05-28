@@ -67,6 +67,7 @@ from models.models import (
     GenericErrorResponse,
     JobDownloadRequest,
     JobRequest,
+    GetJobsRequest,
     JobResponse,
     SavePresetRequest,
     UploadDownloadRequest,
@@ -145,7 +146,7 @@ async def get_uploads_info(
     limit: int = Query(300),
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
-    if token.account_type == "user" and upload_type not in get_product_tags_of_user(token):
+    if token.account_type == "user" and upload_type not in get_product_tags_of_user(token.scopes):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
 
     filters = {
@@ -271,7 +272,7 @@ async def soft_delete_uploads(
 async def download_uploads(
     request: Request, details: UploadDownloadRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
 ):
-    if token.account_type == "user" and details.upload_type not in get_product_tags_of_user(token):
+    if token.account_type == "user" and details.upload_type not in get_product_tags_of_user(token.scopes):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
 
     # make sure at least one job ID was given
@@ -344,27 +345,21 @@ async def create_log_upload(
 
 
 # TODO this can be renamed back to /jobs once the current GET /jobs is deleted
-@app.get("/jobs/v2")
+@app.post("/jobs/v2")
 async def get_jobs_info(
-    request: Request,
-    upload_ids: list[uuid.UUID],
-    upload_type: str | None = Query(None),
-    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
+    request: Request, details: GetJobsRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
 ):
-    if token.account_type == "user" and upload_type not in get_product_tags_of_user(token):
+    if token.account_type == "user" and details.upload_type not in get_product_tags_of_user(token.scopes):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
 
     # need to convert UUIDs to str to avoid issues with DB
-    if upload_ids:
-        upload_ids = [str(upload_id) for upload_id in upload_ids]
+    upload_ids = [str(upload_id) for upload_id in details.upload_ids]
 
     try:
-        bind_context_to_logger(
-            {"user_id": token.userid, "customer_id": token.customer_id, "upload_ids": upload_ids}
-        )
+        bind_context_to_logger({"user_id": token.userid, "customer_id": token.customer_id})
 
         async with request.state.pgpool.acquire() as con:
-            return await _get_jobs_info(con, token, upload_ids=upload_ids, upload_type=upload_type)
+            return await _get_jobs_info(con, token, upload_ids=upload_ids, upload_type=details.upload_type)
     except Exception:
         logger.exception("Failed to get jobs")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -945,9 +940,7 @@ async def _get_uploads_download(
 async def _get_jobs_info(con, token, upload_ids: list[str], upload_type: str | None):
     retrieval_info = _get_retrieval_info(token, upload_type)
 
-    logger.info(
-        f"Retrieving job info for upload IDs: {upload_ids} for {retrieval_info['account_type']}: {token.account_id}"
-    )
+    logger.info(f"Retrieving job info for {retrieval_info['account_type']}: {token.account_id}")
 
     match retrieval_info.pop("account_type"):
         case "user":
