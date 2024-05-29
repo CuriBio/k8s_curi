@@ -106,10 +106,28 @@ const getSelectedUploads = (u) => {
   return Object.keys(u).filter((x) => u[x]);
 };
 
+const getSortField = (sortColId) => {
+  if (sortColId === "username") {
+    return "username";
+  } else if (sortColId === "name") {
+    return "filename";
+  } else if (sortColId === "id") {
+    return "id";
+  } else if (sortColId === "createdAt") {
+    return "created_at";
+  } else if (sortColId === "autoUpload") {
+    return "auto_upload";
+  } else {
+    return "last_analyzed";
+  }
+};
+
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota, accountScope, productPage, accountId } = useContext(AuthContext);
-  const { uploads, setUploads, setDefaultUploadForReanalysis, jobs, setJobs } = useContext(UploadsContext);
+  const { uploads, setUploads, setDefaultUploadForReanalysis, jobs, setJobs, getUploadsAndJobs } = useContext(
+    UploadsContext
+  );
 
   const [displayRows, setDisplayRows] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -123,10 +141,13 @@ export default function Uploads() {
   const [openJobPreview, setOpenJobPreview] = useState(false);
   const [selectedAnalysis, setSelectedAnalysis] = useState();
   const [jobsInSelectedUpload, setJobsInSelectedUpload] = useState(0);
+  const [tableState, setTableState] = useState({ sorting: [] });
 
   useEffect(() => {
     // reset to false everytime it gets triggered
-    if (resetDropdown) setResetDropdown(false);
+    if (resetDropdown) {
+      setResetDropdown(false);
+    }
   }, [resetDropdown]);
 
   useEffect(() => {
@@ -172,6 +193,19 @@ export default function Uploads() {
   useEffect(() => {
     handleSelectedUploads();
   }, [selectedUploads]);
+
+  useEffect(() => {
+    if (!uploads) {
+      return;
+    }
+    let sortField, sortDirection;
+    if (tableState.sorting.length > 0) {
+      const sortInfo = tableState.sorting[0];
+      sortField = getSortField(sortInfo.id);
+      sortDirection = sortInfo.desc ? "DESC" : "ASC";
+    }
+    getUploadsAndJobs(productPage, /* TODO filters */ {}, sortField, sortDirection);
+  }, [tableState]);
 
   const columns = useMemo(
     () => [
@@ -273,6 +307,10 @@ export default function Uploads() {
         setSelectedJobs({ ...selectedJobsCopy });
       }
     }
+  };
+
+  const updateTableState = (newState) => {
+    setTableState({ ...tableState, ...newState });
   };
 
   const resetTable = async () => {
@@ -734,6 +772,16 @@ export default function Uploads() {
             )}
             enableExpanding={true}
             isLoading={isLoading}
+            manualSorting={true}
+            onSortingChange={(newSorting) => {
+              const sorting = newSorting();
+              // Tanner (5/28/24): have to do this manually since the MRT component doesn't seem to handle this correctly
+              if (sorting[0].id === tableState.sorting[0]?.id) {
+                sorting[0].desc = !tableState.sorting[0].desc;
+              }
+              updateTableState({ sorting });
+            }}
+            state={tableState}
           />
         </TableContainer>
       )}

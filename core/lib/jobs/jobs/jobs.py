@@ -70,7 +70,6 @@ def get_item(*, queue):
     return _outer
 
 
-# TODO somehow need to make sure there are not duplicates of upload IDs
 async def get_uploads_info_for_admin(
     con,
     customer_id: str,
@@ -190,9 +189,12 @@ def _add_upload_sorting_filtering_conds(
     if conds:
         query += conds
 
-    if sort_field in ("filename", "id", "created_at", "last_analyzed", "auto_upload"):
+    # TODO add owner as sort option
+    if sort_field in ("filename", "id", "created_at", "last_analyzed", "auto_upload", "username"):
         if sort_field == "last_analyzed":
             sort_field = f"j.{sort_field}"
+        elif sort_field == "username":
+            sort_field = "users.name"
         else:
             sort_field = f"uploads.{sort_field}"
         if sort_direction not in ("ASC", "DESC"):
