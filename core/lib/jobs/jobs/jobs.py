@@ -189,7 +189,6 @@ def _add_upload_sorting_filtering_conds(
     if conds:
         query += conds
 
-    # TODO add owner as sort option
     if sort_field in ("filename", "id", "created_at", "last_analyzed", "auto_upload", "username"):
         if sort_field == "last_analyzed":
             sort_field = f"j.{sort_field}"

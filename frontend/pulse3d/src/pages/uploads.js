@@ -141,7 +141,10 @@ export default function Uploads() {
   const [openJobPreview, setOpenJobPreview] = useState(false);
   const [selectedAnalysis, setSelectedAnalysis] = useState();
   const [jobsInSelectedUpload, setJobsInSelectedUpload] = useState(0);
-  const [tableState, setTableState] = useState({ sorting: [] });
+  const [tableState, setTableState] = useState({
+    sorting: [{ id: "lastAnalyzed", desc: true }],
+    columnFilters: [],
+  });
 
   useEffect(() => {
     // reset to false everytime it gets triggered
@@ -753,7 +756,6 @@ export default function Uploads() {
           <Table
             columns={columns}
             rowData={displayRows}
-            defaultSortColumn={"lastAnalyzed"}
             rowSelection={selectedUploads}
             setRowSelection={setSelectedUploads}
             toolbarFn={actionsFn}
@@ -774,12 +776,27 @@ export default function Uploads() {
             isLoading={isLoading}
             manualSorting={true}
             onSortingChange={(newSorting) => {
+              if (isLoading) {
+                return;
+              }
+              // TODO try cleaning this up
+              console.log("###");
               const sorting = newSorting();
               // Tanner (5/28/24): have to do this manually since the MRT component doesn't seem to handle this correctly
               if (sorting[0].id === tableState.sorting[0]?.id) {
                 sorting[0].desc = !tableState.sorting[0].desc;
               }
               updateTableState({ sorting });
+            }}
+            manualFiltering={true}
+            onColumnFiltersChange={(updateFn) => {
+              if (isLoading) {
+                return;
+              }
+              let { columnFilters } = tableState;
+              columnFilters = updateFn(columnFilters);
+              console.log("!!!", columnFilters);
+              updateTableState({ columnFilters });
             }}
             state={tableState}
           />
