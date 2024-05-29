@@ -779,8 +779,6 @@ export default function Uploads() {
               if (isLoading) {
                 return;
               }
-              // TODO try cleaning this up
-              console.log("###");
               const sorting = newSorting();
               // Tanner (5/28/24): have to do this manually since the MRT component doesn't seem to handle this correctly
               if (sorting[0].id === tableState.sorting[0]?.id) {
@@ -795,7 +793,7 @@ export default function Uploads() {
               }
               let { columnFilters } = tableState;
               columnFilters = updateFn(columnFilters);
-              console.log("!!!", columnFilters);
+              console.log("!!!", columnFilters); // TODO remove this
               updateTableState({ columnFilters });
             }}
             state={tableState}

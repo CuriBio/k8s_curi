@@ -55,6 +55,14 @@ export default function Table({
   let opts = {
     columns,
     data: rowData,
+    initialState: {
+      sorting: [
+        {
+          id: defaultSortColumn,
+          desc: true,
+        },
+      ],
+    },
     enableColumnFilterModes: false,
     enableColumnResizing: true,
     enableRowSelection,
@@ -113,12 +121,6 @@ export default function Table({
       density: "compact",
       columnVisibility,
       showColumnFilters,
-      sorting: [
-        {
-          id: defaultSortColumn,
-          desc: true,
-        },
-      ],
       ...state,
     }, // rowSelection can be {[id]: true, [id2]: false, [id3]: true, ... }
     enableExpanding,
@@ -127,7 +129,11 @@ export default function Table({
   };
 
   if (manualSorting) {
-    opts = { ...opts, manualSorting, onSortingChange };
+    opts = {
+      ...opts,
+      manualSorting,
+      onSortingChange,
+    };
   }
   if (manualFiltering) {
     opts = { ...opts, manualFiltering, onColumnFiltersChange };
