@@ -106,7 +106,7 @@ const getSelectedUploads = (u) => {
   return Object.keys(u).filter((x) => u[x]);
 };
 
-const getSortField = (sortColId) => {
+const getSortFilterName = (sortColId) => {
   if (sortColId === "username") {
     return "username";
   } else if (sortColId === "name") {
@@ -204,10 +204,28 @@ export default function Uploads() {
     let sortField, sortDirection;
     if (tableState.sorting.length > 0) {
       const sortInfo = tableState.sorting[0];
-      sortField = getSortField(sortInfo.id);
+      sortField = getSortFilterName(sortInfo.id);
       sortDirection = sortInfo.desc ? "DESC" : "ASC";
     }
-    getUploadsAndJobs(productPage, /* TODO filters */ {}, sortField, sortDirection);
+    const filters = {};
+    for (const filt of tableState.columnFilters) {
+      console.log("###", filt);
+      const filterName = getSortFilterName(filt.id);
+      const filterValue = filt.value;
+      if (filterValue instanceof Array) {
+        const min = filterValue[0];
+        if (min?.toISOString) {
+          filters[filterName + "_min"] = min.toISOString().slice(0, 10);
+        }
+        const max = filterValue[1];
+        if (max?.toISOString) {
+          filters[filterName + "_max"] = max.toISOString().slice(0, 10);
+        }
+      } else {
+        filters[filterName] = filt.value;
+      }
+    }
+    getUploadsAndJobs(productPage, filters, sortField, sortDirection);
   }, [tableState]);
 
   const columns = useMemo(
@@ -793,7 +811,6 @@ export default function Uploads() {
               }
               let { columnFilters } = tableState;
               columnFilters = updateFn(columnFilters);
-              console.log("!!!", columnFilters); // TODO remove this
               updateTableState({ columnFilters });
             }}
             state={tableState}

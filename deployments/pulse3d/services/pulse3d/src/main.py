@@ -152,12 +152,13 @@ async def get_uploads_info(
     filters = {
         filter_name: request.query_params[filter_name]
         for filter_name in (
-            "name_filter",
-            "upload_id_filter",
-            "date_created_min_filter",
-            "date_created_max_filter",
-            "last_analyzed_min_filter",
-            "last_analyzed_max_filter",
+            "filename",
+            "id",
+            "created_at_min",
+            "created_at_max",
+            "last_analyzed_min",
+            "last_analyzed_max",
+            "username",
         )
         if filter_name in request.query_params
     }

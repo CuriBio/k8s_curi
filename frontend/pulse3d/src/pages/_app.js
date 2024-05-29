@@ -307,7 +307,7 @@ function Pulse({ Component, pageProps }) {
         queryParams.push(`limit=${limit}`);
       }
       if (filters && Object.keys(filters).length > 0) {
-        for ([filterName, filterValue] of Object.entries(filters)) {
+        for (const [filterName, filterValue] of Object.entries(filters)) {
           queryParams.push(`${filterName}=${filterValue}`);
         }
       }

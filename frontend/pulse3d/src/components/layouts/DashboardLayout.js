@@ -43,7 +43,7 @@ export default function DashboardLayout({ children }) {
     } else if (accountType === "user" && productPage) {
       getUploadsAndJobs(productPage);
     }
-  }, [productPage, accountType, uploads]);
+  }, [productPage, accountType]);
 
   useEffect(() => {
     getPulse3dVersions();

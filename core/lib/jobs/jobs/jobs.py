@@ -166,20 +166,23 @@ def _add_upload_sorting_filtering_conds(
     for filter_name, filter_value in filters.items():
         placeholder = f"${next_placeholder_count}"
         match filter_name:
+            case "username":
+                new_cond = f"users.name LIKE {placeholder}"
+                filter_value = f"%{filter_value}%"
             case "filename":
-                new_cond = f"uploads.filename LIKE {placeholder}"
+                new_cond = f"LOWER(uploads.filename) LIKE LOWER({placeholder})"
                 filter_value = f"%{filter_value}%"
             case "id":
-                new_cond = f"uploads.id LIKE {placeholder}"
+                new_cond = f"uploads.id::text LIKE {placeholder}"
                 filter_value = f"%{filter_value}%"
             case "created_at_min":
-                new_cond = f"uploads.created_at > {placeholder}"
+                new_cond = f"uploads.created_at >= to_date({placeholder}, 'YYYY-MM-DD')"
             case "created_at_max":
-                new_cond = f"uploads.created_at < {placeholder}"
+                new_cond = f"uploads.created_at <= to_date({placeholder}, 'YYYY-MM-DD')"
             case "last_analyzed_min":
-                new_cond = f"j.last_analyzed > {placeholder}"
+                new_cond = f"j.last_analyzed >= to_date({placeholder}, 'YYYY-MM-DD')"
             case "last_analyzed_max":
-                new_cond = f"j.last_analyzed < {placeholder}"
+                new_cond = f"j.last_analyzed <= to_date({placeholder}, 'YYYY-MM-DD')"
             case _:
                 continue
 
