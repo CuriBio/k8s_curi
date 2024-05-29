@@ -47,6 +47,10 @@ spec:
                 secretKeyRef:
                   name: curibio-email-creds
                   key: curibio-email-password
+            - name: MICROSOFT_SSO_KEYS_URI
+              value: https://login.microsoftonline.com/common/discovery/v2.0/keys
+            - name: MICROSOFT_SSO_JWT_ALGORITHM
+              value: RS256
           imagePullPolicy: Always
           ports:
             - containerPort: 9001

@@ -42,6 +42,11 @@ class UserLogin(BaseModel):
     client_type: str | None = Field(default=None)
 
 
+class SSOLogin(BaseModel):
+    id_token: str
+    client_type: str | None = Field(default=None)
+
+
 class PasswordModel(BaseModel):
     password1: SecretStr
     password2: SecretStr
