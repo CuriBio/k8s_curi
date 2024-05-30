@@ -42,6 +42,7 @@ from jobs import (
     get_jobs_download_info_for_admin,
     get_job_waveform_data_for_base_user,
     get_job_waveform_data_for_rw_all_data_user,
+    get_job_waveform_data_for_admin_user,
     get_legacy_jobs_info_for_user,
 )
 from pulse3D.constants import DataTypes
@@ -370,12 +371,12 @@ async def get_jobs_info(
 @app.get("/jobs")
 async def get_info_of_jobs(
     request: Request,
-    job_ids: list[uuid.UUID],
+    job_ids: list[uuid.UUID] = Query(),
     download: bool = Query(True),
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     # need to convert UUIDs to str to avoid issues with DB
-    job_ids = [str(job_id) for job_id in job_ids]
+    job_ids = [str(job_id) for job_id in job_ids]  # type: ignore
 
     try:
         bind_context_to_logger(
@@ -383,7 +384,7 @@ async def get_info_of_jobs(
         )
 
         async with request.state.pgpool.acquire() as con:
-            jobs = await _get_legacy_jobs_info(con, token, job_ids=job_ids)
+            jobs = await _get_legacy_jobs_info(con, token, job_ids=job_ids)  # type: ignore
 
         response = {"jobs": []}
         for job in jobs:
@@ -716,7 +717,7 @@ async def get_job_waveform_data(
     request: Request,
     upload_type: str = Query(),
     job_id: uuid.UUID = Query(),
-    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
     if job_id is None:
         raise HTTPException(
@@ -961,16 +962,16 @@ async def _get_jobs_info(con, token, upload_ids: list[str], upload_type: str | N
             )
 
 
-async def _get_legacy_jobs_info(con, token, job_id: str):
+async def _get_legacy_jobs_info(con, token, job_ids: list[str]):
     retrieval_info = _get_retrieval_info(token, upload_type=None)
 
-    logger.info(
-        f"Retrieving legacy job info for job ID: {job_id} for {retrieval_info['account_type']}: {token.account_id}"
-    )
+    logger.info(f"Retrieving legacy job info for {retrieval_info['account_type']}: {token.account_id}")
 
     match retrieval_info.pop("account_type"):
         case "user" | "rw_all_data_user":
-            return await get_legacy_jobs_info_for_user(con, user_id=retrieval_info["user_id"], job_id=job_id)
+            return await get_legacy_jobs_info_for_user(
+                con, user_id=retrieval_info["user_id"], job_ids=job_ids
+            )
         case _:
             return []
 
@@ -1010,6 +1011,10 @@ async def _get_job_waveform_data(con, token, job_id: str, upload_type: str) -> d
         case "rw_all_data_user":
             return await get_job_waveform_data_for_rw_all_data_user(
                 con, customer_id=retrieval_info["customer_id"], upload_type=upload_type, job_id=job_id
+            )
+        case "admin":
+            return await get_job_waveform_data_for_admin_user(
+                con, customer_id=retrieval_info["customer_id"], job_id=job_id
             )
 
 

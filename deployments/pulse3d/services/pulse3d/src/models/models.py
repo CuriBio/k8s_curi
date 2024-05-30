@@ -17,7 +17,7 @@ class UploadRequest(BaseModel):
 
 class GetJobsRequest(BaseModel):
     upload_ids: list[uuid.UUID]
-    upload_type: str | None
+    upload_type: str | None = Field(default=None)
 
 
 class UsageQuota(BaseModel):

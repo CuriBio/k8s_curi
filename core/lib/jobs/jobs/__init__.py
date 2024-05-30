@@ -21,6 +21,7 @@ from .jobs import (
     get_jobs_download_info_for_admin,
     get_job_waveform_data_for_base_user,
     get_job_waveform_data_for_rw_all_data_user,
+    get_job_waveform_data_for_admin_user,
     get_legacy_jobs_info_for_user,
 )
 
@@ -45,6 +46,7 @@ __all__ = [
     "get_jobs_download_info_for_base_user",
     "get_jobs_download_info_for_rw_all_data_user",
     "get_jobs_download_info_for_admin",
+    "get_job_waveform_data_for_admin_user",
     "get_job_waveform_data_for_base_user",
     "get_job_waveform_data_for_rw_all_data_user",
     "get_legacy_jobs_info_for_user",

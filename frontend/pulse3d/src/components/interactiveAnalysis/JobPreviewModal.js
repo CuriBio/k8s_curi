@@ -106,12 +106,12 @@ export default function JobPreviewModal({ selectedAnalysis: { jobId, analysisPar
   const [openErrorModal, setOpenErrorModal] = useState(false);
   const [gridStyle, setGridStyle] = useState({});
 
-  const { productPage } = useContext(AuthContext);
+  const { productPage, accountType } = useContext(AuthContext);
 
   const { waveformData, featureIndices, getErrorState, getLoadingState, yAxisLabel } = useWaveformData(
     `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?job_id=${jobId}&upload_type=${productPage}`,
     analysisParams.normalization_method,
-    productPage
+    accountType === "admin" ? "mantarray" : productPage // TODO need to figure out how to handle this for admins
   );
 
   useEffect(() => {

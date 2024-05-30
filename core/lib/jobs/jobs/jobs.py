@@ -349,6 +349,7 @@ async def get_legacy_jobs_info_for_user(con, user_id: str, job_ids: list[str]):
         "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         f"WHERE u.user_id=$1 AND j.status!='deleted' AND j.job_id IN ({places})"
     )
+    query_params += job_ids
     async with con.transaction():
         jobs = [dict(row) async for row in con.cursor(query, *query_params)]
 
@@ -400,6 +401,17 @@ async def get_jobs_download_info_for_base_user(con, user_id: str, job_ids: list[
         jobs = [dict(row) async for row in con.cursor(query, *query_params)]
 
     return jobs
+
+
+async def get_job_waveform_data_for_admin_user(con, customer_id: str, job_id: str):
+    query_params = [customer_id, job_id]
+    query = (
+        "SELECT u.prefix, u.filename, j.meta AS job_meta FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
+        "WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND j.job_id=$2"
+    )
+
+    async with con.transaction():
+        return await con.fetchrow(query, *query_params)
 
 
 async def get_job_waveform_data_for_rw_all_data_user(con, customer_id: str, job_id: str, upload_type: str):
