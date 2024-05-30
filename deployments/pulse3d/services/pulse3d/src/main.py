@@ -294,7 +294,6 @@ async def download_uploads(
     )
 
     try:
-        # TODO make a new function to get download info
         async with request.state.pgpool.acquire() as con:
             uploads = await _get_uploads_download(
                 con=con, token=token, upload_ids=upload_ids, upload_type=details.upload_type
@@ -346,7 +345,7 @@ async def create_log_upload(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# TODO not sure what to call this since POST /jobs already exists. This needs to be a post route since get routes can't have a body
+# TODO Tanner (5/30/24): not sure what to call this since POST /jobs already exists. This needs to be a post route since get routes can't have a body
 @app.post("/jobs/info")
 async def get_jobs_info(
     request: Request, details: GetJobsRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
@@ -367,7 +366,7 @@ async def get_jobs_info(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# TODO (5/22/24): delete this once all MA controller users upgrade to whichever version is released following this date
+# TODO (5/30/24): delete this once all MA controller users upgrade to whichever controller version is released following this date
 @app.get("/jobs")
 async def get_info_of_jobs(
     request: Request,
