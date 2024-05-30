@@ -33,7 +33,7 @@ export default function useEventSource(hooks) {
       return;
     }
 
-    createEvtSource();
+    createEvtSource(5000);
   };
 
   const disconnect = () => {
@@ -45,7 +45,7 @@ export default function useEventSource(hooks) {
     setEvtSource(null);
   };
 
-  const createEvtSource = () => {
+  const createEvtSource = (timeout) => {
     const newEvtSource = new EventSource(`${process.env.NEXT_PUBLIC_EVENTS_URL}/stream`);
 
     newEvtSource.addEventListener("error", (e) => {
@@ -53,9 +53,10 @@ export default function useEventSource(hooks) {
 
       setTimeout(() => {
         if (hooksRef.current.desiredConnectionStatus) {
-          createEvtSource();
+          const newTimeout = Math.min(timeout * 2, 60e3);
+          createEvtSource(newTimeout);
         }
-      }, 5000);
+      }, timeout);
     });
 
     newEvtSource.addEventListener("data_update", (e) => {
