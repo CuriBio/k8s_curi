@@ -14,7 +14,7 @@ export default function useEventSource(hooks) {
   const [evtSource, setEvtSource] = useState(null);
   const [desiredConnectionStatus, setDesiredConnectionStatus] = useState(false);
 
-  const hooksRef = useRef(hooks);
+  const hooksRef = useRef({ ...hooks, desiredConnectionStatus });
 
   useEffect(() => {
     if (desiredConnectionStatus) {
@@ -25,8 +25,8 @@ export default function useEventSource(hooks) {
   }, [desiredConnectionStatus]);
 
   useEffect(() => {
-    hooksRef.current = hooks;
-  }, [hooks]);
+    hooksRef.current = { ...hooks, desiredConnectionStatus };
+  }, [hooks, desiredConnectionStatus]);
 
   const connect = () => {
     if (evtSource != null) {
@@ -50,8 +50,11 @@ export default function useEventSource(hooks) {
 
     newEvtSource.addEventListener("error", (e) => {
       newEvtSource.close();
+
       setTimeout(() => {
-        createEvtSource();
+        if (hooksRef.current.desiredConnectionStatus) {
+          createEvtSource();
+        }
       }, 5000);
     });
 

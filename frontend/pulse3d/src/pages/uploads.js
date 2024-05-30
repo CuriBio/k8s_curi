@@ -209,7 +209,6 @@ export default function Uploads() {
     }
     const filters = {};
     for (const filt of tableState.columnFilters) {
-      console.log("###", filt);
       const filterName = getSortFilterName(filt.id);
       const filterValue = filt.value;
       if (filterValue instanceof Array) {
