@@ -334,7 +334,7 @@ function Pulse({ Component, pageProps }) {
 
     let jobsRes = [];
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/v2`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/info`, {
         method: "POST",
         body: JSON.stringify({ upload_ids: uploadIds, upload_type: uploadType }),
       });

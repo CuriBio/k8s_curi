@@ -537,19 +537,22 @@ export default function Uploads() {
         name = null;
 
       if (jobId) {
-        const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?job_ids=${jobId}`;
-        response = await fetch(url);
+        const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/download`;
+        response = await fetch(url, {
+          method: "POST",
+          body: JSON.stringify({ job_ids: [jobId], upload_type: productPage }),
+        });
 
         if (response.status === 200) {
-          const { jobs } = await response.json();
-          presignedUrl = jobs[0].url;
-          name = jobs[0].id;
+          const job = await response.json();
+          presignedUrl = job.url;
+          name = job.id;
         }
       } else {
         const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads/download`;
         response = await fetch(url, {
           method: "POST",
-          body: JSON.stringify({ upload_ids: [uploadId] }),
+          body: JSON.stringify({ upload_ids: [uploadId], upload_type: productPage }),
         });
 
         if (response.status === 200) {

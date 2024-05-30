@@ -253,7 +253,7 @@ export default function InteractiveWaveformModal({
   // this hook gets waveform data no matter what first
   // a useEffect watching the error and loading states kicks off next step
   const { waveformData, featureIndices, getErrorState, getLoadingState, yAxisLabel } = useWaveformData(
-    `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}`,
+    `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?job_id=${selectedJob.jobId}&upload_type=${productPage}`,
     selectedJob.analysisParams.normalization_method,
     productPage
   );

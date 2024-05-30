@@ -108,12 +108,12 @@ class WaveformDataResponse(BaseModel):
 
 
 class JobDownloadRequest(BaseModel):
-    upload_type: str | None
+    upload_type: str | None = Field(default=None)
     job_ids: list[uuid.UUID]
 
 
 class UploadDownloadRequest(BaseModel):
-    upload_type: str | None
+    upload_type: str | None = Field(default=None)
     upload_ids: list[uuid.UUID]
 
 

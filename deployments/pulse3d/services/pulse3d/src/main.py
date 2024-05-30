@@ -345,8 +345,8 @@ async def create_log_upload(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# TODO this can be renamed back to /jobs once the current GET /jobs is deleted
-@app.post("/jobs/v2")
+# TODO not sure what to call this since POST /jobs already exists. This needs to be a post route since get routes can't have a body
+@app.post("/jobs/info")
 async def get_jobs_info(
     request: Request, details: GetJobsRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
 ):
@@ -654,7 +654,7 @@ async def soft_delete_jobs(
 async def download_analyses(
     request: Request, details: JobDownloadRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
 ):
-    if token.account_type == "user" and details.upload_type not in get_product_tags_of_user(token):
+    if token.account_type == "user" and details.upload_type not in get_product_tags_of_user(token.scopes):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
 
     job_ids = details.job_ids
@@ -665,7 +665,7 @@ async def download_analyses(
     # need to convert UUIDs to str to avoid issues with DB
     job_ids = [str(job_id) for job_id in job_ids]
 
-    bind_context_to_logger({"user_id": token.userid, "customer_id": token.customer_id, "job_ids": job_ids})
+    bind_context_to_logger({"user_id": token.userid, "customer_id": token.customer_id})
 
     try:
         async with request.state.pgpool.acquire() as con:
@@ -691,38 +691,41 @@ async def download_analyses(
 
             unique_filenames.append(filename)
 
-        # Grab ZIP file from in-memory, make response with correct MIME-type
-        return StreamingResponse(
-            content=stream_zip(
-                _yield_s3_objects(bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=unique_filenames)
-            ),
-            media_type="application/zip",
-        )
+        if len(jobs) == 1:
+            # if only one file requested, return single presigned URL
+            return {
+                "id": jobs[0]["id"],
+                "url": generate_presigned_url(PULSE3D_UPLOADS_BUCKET, jobs[0]["object_key"]),
+            }
+        else:
+            # Grab ZIP file from in-memory, make response with correct MIME-type
+            return StreamingResponse(
+                content=stream_zip(
+                    _yield_s3_objects(bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=unique_filenames)
+                ),
+                media_type="application/zip",
+            )
 
     except Exception:
-        logger.exception("Failed to download analyses")
+        logger.exception("Failed to download jobs")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @app.get("/jobs/waveform-data", response_model=WaveformDataResponse | GenericErrorResponse)
 async def get_job_waveform_data(
     request: Request,
-    upload_type: str,
-    upload_id: uuid.UUID = Query(None),
-    job_id: uuid.UUID = Query(None),
+    upload_type: str = Query(),
+    job_id: uuid.UUID = Query(),
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
 ):
-    if job_id is None or upload_id is None:
+    if job_id is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Missing required ids to get job metadata."
         )
 
-    upload_id = str(upload_id)  # type: ignore
     job_id = str(job_id)  # type: ignore
 
-    bind_context_to_logger(
-        {"customer_id": token.customer_id, "user_id": token.userid, "upload_id": upload_id, "job_id": job_id}
-    )
+    bind_context_to_logger({"customer_id": token.customer_id, "user_id": token.userid, "job_id": job_id})
 
     try:
         logger.info(f"Getting metadata for job {job_id}")
