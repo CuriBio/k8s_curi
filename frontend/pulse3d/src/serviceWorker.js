@@ -158,8 +158,8 @@ const modifyRequest = async (req, url) => {
   });
 
   const cachedTokens = await getAuthTokens();
-  if (!isRequest(url, "/login") && cachedTokens.access !== null) {
-    // login request does not require the Authorization header,
+  if (!isRequest(url, "/login") && !isRequest(url, "/sso") && cachedTokens.access !== null) {
+    // login and sso requests do not require the Authorization header,
     // and if there are no tokens that should mean that no account is logged in
     // and the request should fail with 403
     headers.append("Authorization", `Bearer ${cachedTokens.access}`);
@@ -241,7 +241,7 @@ const requestWithRefresh = async (req, url) => {
 };
 
 const interceptResponse = async (req, url) => {
-  if (isRequest(url, "/login")) {
+  if (isRequest(url, "/login") || isRequest(url, "/sso")) {
     const modifiedReq = await modifyRequest(req, url);
     const response = await fetch(modifiedReq);
 

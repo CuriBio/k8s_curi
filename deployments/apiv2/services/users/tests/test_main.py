@@ -317,8 +317,9 @@ def test_login__admin__success(send_client_type, mocked_asyncpg_con, mocker):
     )
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
-        "SELECT password, id, failed_login_attempts, suspended FROM customers WHERE deleted_at IS NULL AND email=$1",
+        "SELECT password, id, failed_login_attempts, suspended FROM customers WHERE deleted_at IS NULL AND email=$1 AND login_type=$2",
         login_details["email"].lower(),
+        "password"
     )
     mocked_asyncpg_con.fetch.assert_called_once_with(
         "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL", test_customer_id
@@ -389,6 +390,107 @@ def test_login__admin__returns_invalid_creds_if_account_is_suspended(mocked_asyn
     assert response.status_code == 401
     assert response.json() == {
         "detail": "Invalid credentials. Account will be locked after 10 failed attempts."
+    }
+
+
+@freeze_time()
+@pytest.mark.parametrize("send_client_type", [True, False])
+def test_sso__admin__success(send_client_type, mocked_asyncpg_con, mocker):
+    mocker.patch.object(
+        main,
+        "_decode_and_verify_jwt",
+        return_value={"email": "TEST@email.com"},
+    )
+
+    mocked_usage_check = mocker.patch.object(
+        main,
+        "check_customer_quota",
+        return_value={
+            "current": {"uploads": "0", "jobs": "0"},
+            "jobs_reached": False,
+            "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
+            "uploads_reached": False,
+        },
+        autospec=True,
+    )
+
+    sso_details = {"id_token": "sometoken"}
+    if send_client_type:
+        sso_details["client_type"] = "dashboard"
+
+    test_customer_id = uuid.uuid4()
+    admin_scope = Scopes.MANTARRAY__ADMIN
+
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "id": test_customer_id,
+        "suspended": False,
+    }
+    mocked_asyncpg_con.fetch.return_value = [{"scope": admin_scope.value}]
+    spied_create_token = mocker.spy(main, "create_new_tokens")
+
+    expected_access_token = create_token(
+        userid=None,
+        customer_id=test_customer_id,
+        scopes=[admin_scope],
+        account_type=AccountTypes.ADMIN,
+        refresh=False,
+    )
+    expected_refresh_token = create_token(
+        userid=None,
+        customer_id=test_customer_id,
+        scopes=[Scopes.REFRESH],
+        account_type=AccountTypes.ADMIN,
+        refresh=True,
+    )
+
+    response = test_client.post("/sso/admin", json=sso_details)
+    assert response.status_code == 200
+    assert (
+        response.json()
+        == LoginResponse(
+            tokens=AuthTokens(access=expected_access_token, refresh=expected_refresh_token),
+            usage_quota=mocked_usage_check.return_value,
+            user_scopes=get_scope_dependencies(get_assignable_user_scopes([admin_scope])),
+            admin_scopes=get_scope_dependencies(get_assignable_admin_scopes([admin_scope])),
+        ).model_dump()
+    )
+
+    mocked_asyncpg_con.fetchrow.assert_called_once_with(
+        "SELECT id, suspended FROM customers WHERE deleted_at IS NULL AND email=$1 AND login_type!=$2",
+        "TEST@email.com",
+        "password"
+    )
+    mocked_asyncpg_con.fetch.assert_called_once_with(
+        "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL", test_customer_id
+    )
+    mocked_asyncpg_con.execute.assert_called_with(
+        "UPDATE customers SET refresh_token=$1 WHERE id=$2", expected_refresh_token.token, test_customer_id
+    )
+
+    assert spied_create_token.call_count == 1
+
+
+def test_sso__admin__no_matching_record_in_db(mocked_asyncpg_con, mocker):
+    sso_details = {"id_token": "sometoken"}
+    mocker.patch.object(main, "_decode_and_verify_jwt", return_value={"email": "TEST@email.com"})
+    mocked_asyncpg_con.fetchrow.return_value = None
+
+    response = test_client.post("/sso/admin", json=sso_details)
+    assert response.status_code == 401
+    assert response.json() == {
+        "detail": "Invalid credentials."
+    }
+
+
+def test_sso__admin__returns_invalid_creds_if_account_is_suspended(mocked_asyncpg_con, mocker):
+    sso_details = {"id_token": "sometoken"}
+    mocker.patch.object(main, "_decode_and_verify_jwt", return_value={"email": "TEST@email.com"})
+    mocked_asyncpg_con.fetchrow.return_value = {"id": uuid.uuid4(), "suspended": True}
+
+    response = test_client.post("/sso/admin", json=sso_details)
+    assert response.status_code == 401
+    assert response.json() == {
+        "detail": "Account has been suspended."
     }
 
 

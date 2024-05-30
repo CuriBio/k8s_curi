@@ -9,6 +9,7 @@ from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Response, Query
 from fastapi.middleware.cors import CORSMiddleware
+from jwt import decode, PyJWKClient
 from jwt.exceptions import InvalidTokenError
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import EmailStr
@@ -38,11 +39,20 @@ from auth import (
     get_product_tags_of_admin,
 )
 from jobs import check_customer_quota
-from core.config import DATABASE_URL, CURIBIO_EMAIL, CURIBIO_EMAIL_PASSWORD, DASHBOARD_URL
+from core.config import (
+    DATABASE_URL,
+    CURIBIO_EMAIL,
+    CURIBIO_EMAIL_PASSWORD,
+    DASHBOARD_URL,
+    MICROSOFT_SSO_KEYS_URI,
+    MICROSOFT_SSO_APP_ID,
+    MICROSOFT_SSO_JWT_ALGORITHM
+)
 from models.errors import LoginError, RegistrationError, EmailRegistrationError, UnableToUpdateAccountError
 from models.users import (
     AdminLogin,
     UserLogin,
+    SSOLogin,
     AdminCreate,
     UserCreate,
     AdminProfile,
@@ -118,6 +128,51 @@ async def db_session_middleware(request: Request, call_next) -> Response:
     return response
 
 
+@app.post("/sso/admin", response_model=LoginResponse)
+async def sso_admin(request: Request, details: SSOLogin):
+    """SSO for an admin account.
+
+    Logging in consists of validating the given credentials and, if valid,
+    returning a JWT with the appropriate privileges.
+    """
+    id_token = await _decode_and_verify_jwt(details.id_token)
+    email = id_token.get("email")
+    client_type = details.client_type if details.client_type else "unknown"
+
+    bind_context_to_logger({"client_type": client_type, "email": email})
+
+    logger.info(f"Admin SSO attempt from client '{client_type}'")
+
+    try:
+        async with request.state.pgpool.acquire() as con:
+            select_query_result = await con.fetchrow(
+                "SELECT id, suspended "
+                "FROM customers WHERE deleted_at IS NULL AND email=$1 AND login_type!=$2",
+                email,
+                LoginType.PASSWORD
+            )
+
+            if select_query_result is None:
+                raise LoginError("Invalid credentials.")
+
+            if select_query_result["suspended"]:
+                raise LoginError("Account has been suspended.")
+
+            customer_id = select_query_result.get("id")
+            bind_context_to_logger({"customer_id": str(customer_id)})
+
+            login_response = await _build_admin_login_or_sso_response(con, customer_id, email)
+            return login_response
+    except LoginError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+    except Exception:
+        logger.exception("POST /sso/admin: Unexpected error")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal error. Please try again later.",
+        )
+
+
 @app.post("/login/admin", response_model=LoginResponse)
 async def login_admin(request: Request, details: AdminLogin):
     """Login an admin account.
@@ -141,11 +196,13 @@ async def login_admin(request: Request, details: AdminLogin):
         async with request.state.pgpool.acquire() as con:
             select_query_result = await con.fetchrow(
                 "SELECT password, id, failed_login_attempts, suspended "
-                "FROM customers WHERE deleted_at IS NULL AND email=$1",
+                "FROM customers WHERE deleted_at IS NULL AND email=$1 AND login_type=$2",
                 email,
+                LoginType.PASSWORD
             )
 
             # query will return None if customer email is not found
+            # or if login_type is not "password"
             if select_query_result is None:
                 customer_id = None
             else:
@@ -158,36 +215,9 @@ async def login_admin(request: Request, details: AdminLogin):
             pw = details.password.get_secret_value()
             # verify password, else raise LoginError
             await _verify_password(con, account_type, pw, select_query_result)
-            # get scopes from account_scopes table
-            scopes = await get_account_scopes(con, customer_id, True)
 
-            # TODO split this part out into a new route
-            # get list of scopes that the admin can assign to its users
-            avail_user_scopes = get_assignable_user_scopes(scopes)
-            user_scope_dependencies = get_scope_dependencies(avail_user_scopes)
-            avail_admin_scopes = get_assignable_admin_scopes(scopes)
-            admin_scope_dependencies = get_scope_dependencies(avail_admin_scopes)
-
-            # TODO decide how to show admin accounts usage data for multiple products, defaulting to mantarray now
-            # check usage for customer
-            usage_quota = await check_customer_quota(con, str(customer_id), "mantarray")
-
-            # if login was successful, then update last_login column value to now
-            await con.execute(
-                "UPDATE customers SET last_login=$1, failed_login_attempts=0 WHERE deleted_at IS NULL AND email=$2",
-                datetime.now(),
-                email,
-            )
-
-            tokens = await create_new_tokens(con, None, customer_id, scopes, account_type)
-
-            # TODO fix tests for this?
-            return LoginResponse(
-                tokens=tokens,
-                usage_quota=usage_quota,
-                user_scopes=user_scope_dependencies,
-                admin_scopes=admin_scope_dependencies,
-            )
+            login_response = await _build_admin_login_or_sso_response(con, customer_id, email)
+            return login_response
 
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
@@ -288,6 +318,46 @@ async def login_user(request: Request, details: UserLogin):
     except Exception:
         logger.exception("POST /login: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+async def _build_admin_login_or_sso_response(con, customer_id, email):
+    # get scopes from account_scopes table
+    scopes = await get_account_scopes(con, customer_id, True)
+
+    # TODO split this part out into a new route
+    # get list of scopes that the admin can assign to its users
+    avail_user_scopes = get_assignable_user_scopes(scopes)
+    user_scope_dependencies = get_scope_dependencies(avail_user_scopes)
+    avail_admin_scopes = get_assignable_admin_scopes(scopes)
+    admin_scope_dependencies = get_scope_dependencies(avail_admin_scopes)
+
+    # TODO decide how to show admin accounts usage data for multiple products, defaulting to mantarray now
+    # check usage for customer
+    usage_quota = await check_customer_quota(con, str(customer_id), "mantarray")
+
+    # if login was successful, then update last_login column value to now
+    await con.execute(
+        "UPDATE customers SET last_login=$1, failed_login_attempts=0 WHERE deleted_at IS NULL AND email=$2",
+        datetime.now(),
+        email,
+    )
+
+    tokens = await create_new_tokens(con, None, customer_id, scopes, AccountTypes.ADMIN)
+
+    # TODO fix tests for this?
+    return LoginResponse(
+        tokens=tokens,
+        usage_quota=usage_quota,
+        user_scopes=user_scope_dependencies,
+        admin_scopes=admin_scope_dependencies,
+    )
+
+
+async def _decode_and_verify_jwt(token):
+    client = PyJWKClient(MICROSOFT_SSO_KEYS_URI)
+    signing_key = client.get_signing_key_from_jwt(token)
+    payload = decode(token, signing_key.key, algorithms=[MICROSOFT_SSO_JWT_ALGORITHM], audience=MICROSOFT_SSO_APP_ID)
+    return payload
 
 
 async def _verify_password(con, account_type, pw, select_query_result) -> None:
