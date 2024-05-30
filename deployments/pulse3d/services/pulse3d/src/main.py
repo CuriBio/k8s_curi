@@ -134,9 +134,6 @@ async def get_info_of_uploads(
         upload_ids = [str(upload_id) for upload_id in upload_ids]
 
     try:
-        account_id = str(uuid.UUID(token.account_id))
-        is_user = token.account_type == "user"
-
         bind_context_to_logger(
             {"user_id": token.userid, "customer_id": token.customer_id, "upload_ids": upload_ids}
         )
@@ -150,12 +147,6 @@ async def get_info_of_uploads(
 
         if isinstance(uploads, GenericErrorResponse):
             return uploads
-
-        if is_user:
-            # admin accounts don't matter here because they don't have the ability to delete
-            for upload in uploads:
-                # need way on FE to tell if user owns recordings besides username since current user's username is not stored on the FE. We want to prevent users from attempting to delete files that aren't theirs before calling /delete route
-                upload["owner"] = str(upload["user_id"]) == account_id
 
         return uploads
 
@@ -337,10 +328,6 @@ async def get_info_of_jobs(
         job_ids = [str(job_id) for job_id in job_ids]
 
     try:
-        account_id = str(uuid.UUID(token.account_id))
-        account_type = token.account_type
-        is_user = account_type == "user"
-
         bind_context_to_logger(
             {"user_id": token.userid, "customer_id": token.customer_id, "job_ids": job_ids}
         )
@@ -358,12 +345,8 @@ async def get_info_of_jobs(
                 "object_key": obj_key,
                 "created_at": job["created_at"],
                 "meta": job["job_meta"],
+                "user_id": job["user_id"],
             }
-
-            if is_user:
-                # admin accounts don't have the ability to delete so doesn't need this key:value  # TODO is this comment still necessary?
-                # need way on FE to tell if user owns recordings besides username since current user's username is not stored on the FE. We want to prevent users from attempting to delete files that aren't theirs before calling /delete route
-                job_info["owner"] = str(job["user_id"]) == account_id
 
             if job_info["status"] == "finished" and download:
                 # This is in case any current users uploaded files before object_key was dropped from uploads table and added to jobs_result
@@ -812,7 +795,7 @@ async def save_analysis_presets(
         bind_context_to_logger({"customer_id": customer_id, "user_id": user_id})
 
         async with request.state.pgpool.acquire() as con:
-            return await create_analysis_preset(con, user_id, details)
+            await create_analysis_preset(con, user_id, details)
     except Exception:
         logger.exception("Failed to save analysis preset for user")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -827,16 +810,30 @@ async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(tag=
         bind_context_to_logger({"customer_id": customer_id, "user_id": user_id})
 
         async with request.state.pgpool.acquire() as con:
-            async with con.transaction():
-                return [
-                    dict(row)
-                    async for row in con.cursor(
-                        "SELECT name, parameters FROM analysis_presets where user_id=$1", user_id
-                    )
-                ]
+            return await con.fetch("SELECT name, parameters FROM analysis_presets where user_id=$1", user_id)
 
     except Exception:
         logger.exception("Failed to get analysis presets for user")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.delete("/presets/{preset_name}")
+async def delete_analysis_preset(
+    request: Request, preset_name: str, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
+):
+    """Delete analysis parameter preset for user"""
+    try:
+        user_id = str(uuid.UUID(token.userid))
+        customer_id = str(uuid.UUID(token.customer_id))
+        bind_context_to_logger({"customer_id": customer_id, "user_id": user_id})
+
+        async with request.state.pgpool.acquire() as con:
+            await con.execute(
+                "DELETE FROM analysis_presets WHERE user_id=$1 AND name=$2", user_id, preset_name
+            )
+
+    except Exception:
+        logger.exception(f"Failed to delete analysis preset {preset_name} for user")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

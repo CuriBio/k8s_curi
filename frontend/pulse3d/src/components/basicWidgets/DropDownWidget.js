@@ -38,6 +38,23 @@ const ListItem = muiStyled(MenuItem)`
   }
 `;
 
+const ListText = styled.div`
+  width: 97%;
+  overflow: hidden;
+`;
+
+const DeleteButton = styled.button`
+  border: none;
+  background-color: var(--dark-grey);
+  font-style: italic;
+
+  &:hover {
+    color: var(--teal-green);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+`;
+
 const AccordionTab = muiStyled(AccordionSummary)`
   font-size: 15px;
   &.MuiAccordionSummary-root.Mui-expanded {
@@ -76,6 +93,7 @@ export default function DropDownWidget({
   label,
   error = "",
   handleSelection,
+  handleDeletion = null,
   reset,
   disabled = false,
   disableOptions = Array(options.length).fill(false),
@@ -219,9 +237,10 @@ export default function DropDownWidget({
 
         {options.map((item, idx) => {
           // if parent option item is disabled, just return disabled list item with tooltip
-          if (disableOptions[idx]) return getDisabledListItem(optionsTooltipText, idx, item);
-          // else if the parent option has sub menu with more options
-          else if (subOptions[item] && subOptions[item].length > 0)
+          if (disableOptions[idx]) {
+            return getDisabledListItem(optionsTooltipText, idx, item);
+          } else if (subOptions[item] && subOptions[item].length > 0) {
+            // if the parent option has sub menu with more options
             return (
               <Accordion key={idx} value={idx} onClick={() => setSelected(idx)}>
                 <AccordionTab
@@ -260,12 +279,24 @@ export default function DropDownWidget({
                 </AccordionDetails>
               </Accordion>
             );
-          else
+          } else {
             return (
               <ListItem key={idx} value={idx}>
-                {item}
+                <ListText>{item}</ListText>
+                {handleDeletion != null && (
+                  <DeleteButton
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDeletion(idx);
+                    }}
+                  >
+                    Delete
+                  </DeleteButton>
+                )}
               </ListItem>
             );
+          }
         })}
       </Select>
       <ErrorText>{errorMsg}</ErrorText>

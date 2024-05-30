@@ -4,14 +4,13 @@ import { isArrayOfNumbers, loadCsvInputToArray, isArrayOfWellNames, isInt } from
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import { useState, useContext, useEffect } from "react";
 import semverGte from "semver/functions/gte";
-import { UploadsContext } from "@/components/layouts/DashboardLayout";
 import WellGroups from "@/components/uploadForm/WellGroups";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import AnalysisParamContainer from "@/components/uploadForm/AnalysisParamContainer";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
 import FormInput from "@/components/basicWidgets/FormInput";
-import { AuthContext } from "@/pages/_app";
+import { AuthContext, UploadsContext } from "@/pages/_app";
 
 const Container = styled.div`
   padding: 1rem;
@@ -469,6 +468,8 @@ export default function AnalysisParamForm({
   minPulse3dVersionAllowed,
   userPresetOpts: {
     userPresets,
+    setUserPresets,
+    selectedPresetIdx,
     setSelectedPresetIdx,
     savePresetChecked,
     setSavePresetChecked,
@@ -481,11 +482,12 @@ export default function AnalysisParamForm({
     UploadsContext
   );
   const { preferences, productPage } = useContext(AuthContext);
-
+  const [isOverwritingExistingPreset, setIsOverwritingExistingPreset] = useState(false);
   const [deprecationNotice, setDeprecationNotice] = useState(false);
   const [pulse3dVersionEOLDateWarning, setPulse3dVersionEOLDateWarning] = useState("");
   const [pulse3dVersionOptions, setPulse3dVersionOptions] = useState([]);
   const [pulse3dFilteredFileVersions, setPulse3dFilteredFileVersions] = useState([]);
+  const [presetDeletionIdx, setPresetDeletionIdx] = useState(-1);
 
   const handlePulse3dVersionSelect = (idx) => {
     const selectedVersionMetadata = metaPulse3dVersions.find(
@@ -694,10 +696,12 @@ export default function AnalysisParamForm({
 
   const validatePresetName = (input) => {
     const nameFound = userPresets.map(({ name }) => name).find((name) => name === input);
+    setIsOverwritingExistingPreset(nameFound);
 
     let errorMessage = "";
-    if (nameFound) errorMessage = "*Name already exists";
-    else if (input === "" && savePresetChecked) errorMessage = "*Required";
+    if (input === "" && savePresetChecked) {
+      errorMessage = "*Required";
+    }
 
     setAnalysisPresetName(input);
     setParamErrors({ ...paramErrors, presetName: errorMessage });
@@ -762,7 +766,15 @@ export default function AnalysisParamForm({
               options={userPresets.map(({ name }) => name)}
               reset={!checkedParams}
               disabled={userPresets.length === 0} // disable if no presets have been saved
-              handleSelection={(idx) => setSelectedPresetIdx(idx)}
+              handleSelection={(idx) => {
+                setSelectedPresetIdx(idx);
+                if (savePresetChecked) {
+                  validatePresetName(userPresets?.[idx]?.name || "");
+                }
+              }}
+              handleDeletion={(idx) => {
+                setPresetDeletionIdx(idx);
+              }}
               boxShadow="none"
             />
           </PresetDropdownContainer>
@@ -778,14 +790,19 @@ export default function AnalysisParamForm({
           <InputErrorContainer>
             <CheckboxWidget
               checkedState={savePresetChecked}
-              handleCheckbox={(bool) => {
-                setSavePresetChecked(bool);
-                if (bool) {
-                  // when initially checked and input is blank, need to ensure it's required
-                  setParamErrors({ ...paramErrors, presetName: "*Required" });
+              handleCheckbox={(checked) => {
+                setSavePresetChecked(checked);
+                if (checked) {
+                  const selectedPresetName = userPresets[selectedPresetIdx]?.name;
+                  if (selectedPresetName != null) {
+                    validatePresetName(selectedPresetName);
+                  } else {
+                    // when initially checked and input is blank, need to ensure it's required
+                    setParamErrors({ ...paramErrors, presetName: "*Required" });
+                  }
                 } else {
                   // want to reset this in case there was an error and doesn't block submitting analysis
-                  validatePresetName("");
+                  validatePresetName(null);
                 }
               }}
             />
@@ -801,6 +818,7 @@ export default function AnalysisParamForm({
               validatePresetName(e.target.value);
             }}
             errorMsg={errorMessages.presetName}
+            warningMsg={isOverwritingExistingPreset ? "*Overwriting existing preset" : null}
           />
         )}
         <LineSeparator />
@@ -1129,6 +1147,36 @@ export default function AnalysisParamForm({
           </OriginalAdvAnalysisContainer>
         )}
       </InputContainerTwo>
+      <ModalWidget
+        open={presetDeletionIdx !== -1}
+        labels={[
+          "Are you sure you want to delete this preset?",
+          userPresets?.[presetDeletionIdx]?.name || "",
+        ]}
+        buttons={["Cancel", "Delete"]}
+        closeModal={async (idx) => {
+          let success = true;
+
+          const presetName = userPresets?.[presetDeletionIdx]?.name;
+          if (idx === 1) {
+            try {
+              const res = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets/${presetName}`, {
+                method: "DELETE",
+              });
+              success = res.status === 200;
+            } catch (e) {
+              console.log("ERROR delete analysis param preset", e);
+              success = false;
+            }
+          }
+          if (success) {
+            userPresets.splice(presetDeletionIdx, 1);
+            setUserPresets([...userPresets]);
+          }
+          setPresetDeletionIdx(-1);
+        }}
+        header={"Warning!"}
+      />
       <ModalWidget
         open={deprecationNotice}
         labels={[pulse3dVersionEOLDateWarning]}

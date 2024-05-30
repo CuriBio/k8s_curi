@@ -91,4 +91,4 @@ async def insert_metadata_into_pg(con, metadata, customer_id, user_id, upload_id
             except Exception as e:
                 raise Exception(f"in mantarray_session_log_files: {repr(e)}")
 
-    logger.info("DB complete")
+    logger.info("Insertion of metadata into DB complete")

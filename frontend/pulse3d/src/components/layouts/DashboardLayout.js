@@ -1,9 +1,10 @@
 import ControlPanel from "@/components/layouts/ControlPanel";
-import { useEffect, useState, createContext, useContext } from "react";
+import { useEffect, useContext } from "react";
 import styled from "styled-components";
 import { useRouter } from "next/router";
 import semverRsort from "semver/functions/rsort";
-import { AuthContext } from "@/pages/_app";
+import { AuthContext, UploadsContext } from "@/pages/_app";
+import { formatJob } from "@/utils/generic";
 
 const Container = styled.div`
   height: inherit;
@@ -21,47 +22,34 @@ const PageContainer = styled.div`
   min-height: 95vh;
 `;
 
-export const UploadsContext = createContext();
-
 export default function DashboardLayout({ children }) {
-  const [uploads, setUploads] = useState();
-  const [fetchUploads, setFetchUploads] = useState(false);
-  const [pulse3dVersions, setPulse3dVersions] = useState([]);
-  const [metaPulse3dVersions, setMetaPulse3dVersions] = useState([]);
-  const [defaultUploadForReanalysis, setDefaultUploadForReanalysis] = useState();
   const router = useRouter();
 
-  const { accountType, productPage } = useContext(AuthContext);
+  const { accountType, accountId, productPage } = useContext(AuthContext);
 
-  const stiffnessFactorDetails = {
-    Auto: null,
-    "Cardiac (1x)": 1,
-    "Skeletal Muscle (12x)": 12,
-    // Tanner (11/1/22): if we need to add an option for variable stiffness in the dropdown, a new version of pulse3d will need to be released
-  };
+  const {
+    uploads,
+    setUploads,
+    setJobs,
+    setPulse3dVersions,
+    setMetaPulse3dVersions,
+    setDefaultUploadForReanalysis,
+  } = useContext(UploadsContext);
 
-  const dataTypeDetails = {
-    Auto: null,
-    Force: "Force",
-    Calcium: "Calcium",
-    Voltage: "Voltage",
-  };
-
-  // TODO this can probably be refactored be more efficient
   useEffect(() => {
-    if (router.pathname === "/uploads" || router.pathname === "/upload-form") {
-      if (accountType === "admin") {
-        getUploads();
-      } else if (accountType === "user" && productPage) {
-        getUploads(productPage);
-      }
-      getPulse3dVersions();
+    if (uploads?.length > 0) {
+      return;
     }
-    // reset
-    if (fetchUploads) {
-      setFetchUploads(false);
+    if (accountType === "admin") {
+      getUploadsAndJobs();
+    } else if (accountType === "user" && productPage) {
+      getUploadsAndJobs(productPage);
     }
-  }, [router.pathname, fetchUploads, accountType, productPage]);
+  }, [productPage, accountType, uploads]);
+
+  useEffect(() => {
+    getPulse3dVersions();
+  }, []);
 
   useEffect(() => {
     // clear default upload when user leaves the re-analyze page
@@ -70,7 +58,7 @@ export default function DashboardLayout({ children }) {
     }
   }, [router.pathname]);
 
-  const getUploads = async (uploadType) => {
+  const getUploadsAndJobs = async (uploadType) => {
     try {
       let url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads`;
       if (uploadType) {
@@ -83,7 +71,32 @@ export default function DashboardLayout({ children }) {
         setUploads([...uploadsArr]);
       }
     } catch (e) {
-      console.log("ERROR getting uploads for user");
+      console.log("ERROR getting uploads for user", e);
+      return;
+    }
+
+    let jobsRes = [];
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?download=False`);
+      if (response && response.status === 200) {
+        jobsRes = (await response.json()).jobs;
+      }
+    } catch (e) {
+      console.log("ERROR fetching jobs", e);
+      return;
+    }
+
+    try {
+      const newJobs = jobsRes
+        .map((job) => {
+          return formatJob(job, {}, accountId);
+        })
+        .filter((j) => j !== null);
+
+      setJobs([...newJobs]);
+    } catch (e) {
+      console.log("ERROR processing jobs", e);
+      return;
     }
   };
 
@@ -111,23 +124,9 @@ export default function DashboardLayout({ children }) {
   }
 
   return (
-    <UploadsContext.Provider
-      value={{
-        uploads,
-        setUploads,
-        setFetchUploads,
-        pulse3dVersions,
-        metaPulse3dVersions,
-        stiffnessFactorDetails,
-        dataTypeDetails,
-        defaultUploadForReanalysis,
-        setDefaultUploadForReanalysis,
-      }}
-    >
-      <Container>
-        <ControlPanel />
-        <PageContainer>{children}</PageContainer>
-      </Container>
-    </UploadsContext.Provider>
+    <Container>
+      <ControlPanel />
+      <PageContainer>{children}</PageContainer>
+    </Container>
   );
 }

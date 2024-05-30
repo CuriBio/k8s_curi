@@ -10,7 +10,7 @@ import MuiAccordionDetails from "@mui/material/AccordionDetails";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import { styled as muiStyled } from "@mui/material/styles";
 import VersionWidget from "@/components/basicWidgets/VersionWidget";
-import { UploadsContext } from "@/components/layouts/DashboardLayout";
+import { UploadsContext } from "@/pages/_app";
 
 const Container = styled.div`
   height: inherit;

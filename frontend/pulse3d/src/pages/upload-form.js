@@ -7,10 +7,10 @@ import SparkMD5 from "spark-md5";
 import { hexToBase64, getMinP3dVersionForProduct } from "@/utils/generic";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
-import DashboardLayout, { UploadsContext } from "@/components/layouts/DashboardLayout";
+import DashboardLayout from "@/components/layouts/DashboardLayout";
 import semverGte from "semver/functions/gte";
 import InputDropdownWidget from "@/components/basicWidgets/InputDropdownWidget";
-import { AuthContext } from "@/pages/_app";
+import { AuthContext, UploadsContext } from "@/pages/_app";
 
 const Container = styled.div`
   justify-content: center;
@@ -76,7 +76,19 @@ const DropDownContainer = styled.div`
   position: relative;
   height: 17%;
   align-items: center;
-  margin-top: 2rem;
+  margin-top: 20px;
+`;
+
+const RemoveButton = styled.button`
+  border: none;
+  background-color: var(--dark-grey);
+  font-style: italic;
+
+  &:hover {
+    color: var(--teal-green);
+    text-decoration: underline;
+    cursor: pointer;
+  }
 `;
 
 const dropZoneText = "CLICK HERE or DROP";
@@ -146,7 +158,7 @@ export default function UploadForm() {
       stimWaveformFormat: "",
       nameOverride: "",
       // nautilai params
-      normalizationMethod: null,
+      normalizationMethod: productPage === "nautilai" ? "∆F/Fmin" : null,
       dataType: null,
       detrend: null,
       // original advanced params
@@ -169,7 +181,7 @@ export default function UploadForm() {
 
   const router = useRouter();
 
-  const [files, setFiles] = useState(defaultUploadForReanalysis ? [defaultUploadForReanalysis] : []);
+  const [files, setFiles] = useState(defaultUploadForReanalysis || []);
   const [formattedUploads, setFormattedUploads] = useState([]);
   const [isButtonDisabled, setIsButtonDisabled] = useState(true);
   const [paramErrors, setParamErrors] = useState({});
@@ -265,6 +277,12 @@ export default function UploadForm() {
   }, []);
 
   useEffect(() => {
+    if (productPage) {
+      setMinPulse3dVersionForCurrentUploads(getMinP3dVersionForProduct(productPage));
+    }
+  }, [productPage]);
+
+  useEffect(() => {
     const newAnalysisStatus = isReanalysisPage(router);
     // only perform these updates if the page actually changed
     if (reanalysis !== newAnalysisStatus) {
@@ -330,6 +348,7 @@ export default function UploadForm() {
     setAnalysisParams(getDefaultAnalysisParams());
     setAnalysisPresetName("");
     setSavePresetChecked(false);
+    setSelectedPresetIdx();
   };
 
   const updateCheckParams = (newCheckedParams) => {
@@ -606,7 +625,9 @@ export default function UploadForm() {
 
       try {
         // just logging error occurred, doesn't block rest of analysis
-        if (savePresetChecked) await saveAnalysisPreset();
+        if (savePresetChecked) {
+          await saveAnalysisPreset();
+        }
       } catch (e) {
         console.log("ERROR saving analysis preset");
       }
@@ -736,12 +757,12 @@ export default function UploadForm() {
     setAlertShowed(false);
 
     let nameOverride = "";
-    if (idx === -1) {
-      setFiles([]); // must be an array
-    } else {
+    if (idx !== -1) {
       const newSelection = uploads[idx];
-      setFiles([newSelection]);
-      nameOverride = removeFileExt(newSelection.filename).join(".");
+      const newFiles = [...files, newSelection];
+      setFiles(newFiles);
+
+      nameOverride = newFiles.length === 1 ? removeFileExt(newSelection.filename) : "";
     }
 
     setAnalysisParams({
@@ -754,7 +775,7 @@ export default function UploadForm() {
     const filenameNoExt = filename.split(".");
     filenameNoExt.pop();
 
-    return filenameNoExt;
+    return filenameNoExt.join(".");
   };
 
   const saveAnalysisPreset = async () => {
@@ -780,17 +801,55 @@ export default function UploadForm() {
       <Uploads>
         <Header>Run Analysis</Header>
         {reanalysis ? (
-          <DropDownContainer>
-            <InputDropdownWidget
-              label="Select Recording"
-              options={formattedUploads}
-              initialOption={defaultUploadForReanalysis ? defaultUploadForReanalysis.filename : null}
-              handleSelection={handleDropDownSelect}
-              reset={files.length === 0}
-              width={500}
-              disabled={inProgress}
-            />
-          </DropDownContainer>
+          <div
+            style={{
+              width: "50%",
+              border: "2px solid var(--dark-gray)",
+              borderRadius: "5px",
+              marginTop: "2rem",
+              backgroundColor: "var(--light-gray)",
+            }}
+          >
+            <DropDownContainer>
+              <div style={{ backgroundColor: "white" }}>
+                <InputDropdownWidget
+                  label="Select Recording"
+                  options={formattedUploads}
+                  handleSelection={handleDropDownSelect}
+                  reset={files.length === 0}
+                  width={500}
+                  disabled={inProgress}
+                />
+              </div>
+            </DropDownContainer>
+            <div style={{ textAlign: "center", marginTop: "10px", fontSize: "18px" }}>
+              <b>Selected Files:</b>
+            </div>
+            {files?.length > 0 ? (
+              <ul>
+                {files.map((f, idx) => {
+                  return (
+                    <li key={`reanalysis-file-${idx}`}>
+                      <div style={{ display: "flex", flexDirection: "col" }}>
+                        <div style={{ width: "80%" }}>{f.filename}</div>
+                        <RemoveButton
+                          onClick={(e) => {
+                            e.preventDefault();
+                            files.splice(idx, 1);
+                            setFiles([...files]);
+                          }}
+                        >
+                          Remove
+                        </RemoveButton>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <div style={{ textAlign: "center", marginBlock: "16px" }}>None</div>
+            )}
+          </div>
         ) : (
           <>
             <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
@@ -803,11 +862,11 @@ export default function UploadForm() {
               resetDragDrop={resetDragDrop}
               fileTypes={["zip", "xlsx", "parquet"]}
             />
-            {usageQuota && usageQuota.limits && parseInt(usageQuota.limits.jobs) !== -1 ? (
+            {usageQuota && usageQuota.limits && parseInt(usageQuota.limits.jobs) !== -1 && (
               <UploadCreditUsageInfo>
                 Analysis will run on each successfully uploaded file, consuming 1 analysis credit each.
               </UploadCreditUsageInfo>
-            ) : null}
+            )}
           </>
         )}
         <AnalysisParamForm
@@ -823,6 +882,8 @@ export default function UploadForm() {
           minPulse3dVersionAllowed={minPulse3dVersionForCurrentUploads}
           userPresetOpts={{
             userPresets,
+            setUserPresets,
+            selectedPresetIdx,
             setSelectedPresetIdx,
             savePresetChecked,
             setSavePresetChecked,
