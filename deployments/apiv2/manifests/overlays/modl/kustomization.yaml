@@ -28,7 +28,7 @@ patches:
           name: DASHBOARD_URL
           value: https://dashboard.curibio-modl.com
       - op: add
-        path: /spec/template/spec/containers/0/env/0  # should this be /spec/template/spec/containers/0/env/1 ??
+        path: /spec/template/spec/containers/0/env/0
         value:
           name: MICROSOFT_SSO_APP_ID
           value: "e32a941e-eb86-4588-823a-1b3fbab61565"
