@@ -618,17 +618,22 @@ async def register_user(
 
         logger.info(f"Registering new user with scopes: {user_scopes}")
 
-        # suspended and verified get set to False by default
-        insert_account_query_args = (
-            "INSERT INTO users (name, email, customer_id) VALUES ($1, $2, $3) RETURNING id",
-            username,
-            email,
-            customer_id,
-        )
-
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():
                 try:
+                    select_customer_login_type_query = ("SELECT login_type FROM customers WHERE id=$1", customer_id)
+                    customer_login_type = await con.fetchval(*select_customer_login_type_query)
+
+                    # suspended and verified get set to False by default
+                    # for SSO, we interpret verified as email-verified and we still set it to False since it's moot
+                    insert_account_query_args = (
+                        "INSERT INTO users (name, email, customer_id, login_type) VALUES ($1, $2, $3, $4) RETURNING id",
+                        username,
+                        email,
+                        customer_id,
+                        customer_login_type
+                    )
+
                     new_account_id = await con.fetchval(*insert_account_query_args)
                     bind_context_to_logger({"user_id": str(new_account_id)})
                 except UniqueViolationError as e:
@@ -651,15 +656,24 @@ async def register_user(
                 )
 
                 # only send verification emails to new users
-                await _create_account_email(
-                    con=con,
-                    type="verify",
-                    user_id=new_account_id,
-                    customer_id=customer_id,
-                    scope=Scopes.USER__VERIFY,
-                    name=username,
-                    email=email,
-                )
+                if customer_login_type == LoginType.PASSWORD:  # Username / Password path
+                    await _create_account_email(
+                        con=con,
+                        type="verify",
+                        user_id=new_account_id,
+                        customer_id=customer_id,
+                        scope=Scopes.USER__VERIFY,
+                        name=username,
+                        email=email,
+                    )
+                else:  # SSO path
+                    await _send_account_email(
+                        username=username,
+                        email=email,
+                        url=f"{DASHBOARD_URL}",
+                        subject="Your User account has been created",
+                        template="registration_sso.html"
+                    )
 
                 return UserProfile(
                     username=username, email=email, user_id=new_account_id.hex, scopes=user_scopes
