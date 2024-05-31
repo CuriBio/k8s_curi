@@ -1,4 +1,5 @@
-FROM alpine:latest
+# Tanner (5/23/24): pinning to 3.19 until this issue is resolved https://github.com/alpinelinux/docker-alpine/issues/396
+FROM alpine:3.19
 RUN apk add --no-cache --update curl python3 py3-pip aws-cli
 
 # currently not switching to non-root user for this image

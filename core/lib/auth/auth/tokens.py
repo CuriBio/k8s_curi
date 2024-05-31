@@ -49,12 +49,12 @@ class ProtectedAny:
             # make sure that the access token has the required scope
             if not self.scopes & payload_scopes:
                 # TODO raise a specific exeption here so that other errors result in a 500?
-                raise Exception()
+                raise Exception("Required scope(s) not present")
 
             return payload
 
-        except Exception as e:
-            logger.exception(f"Authentication error: {str(e)}")
+        except Exception:
+            logger.exception("Authentication error")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="No authenticated user",

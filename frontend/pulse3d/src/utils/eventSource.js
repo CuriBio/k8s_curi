@@ -14,7 +14,7 @@ export default function useEventSource(hooks) {
   const [evtSource, setEvtSource] = useState(null);
   const [desiredConnectionStatus, setDesiredConnectionStatus] = useState(false);
 
-  const hooksRef = useRef(hooks);
+  const hooksRef = useRef({ ...hooks, desiredConnectionStatus });
 
   useEffect(() => {
     if (desiredConnectionStatus) {
@@ -25,15 +25,15 @@ export default function useEventSource(hooks) {
   }, [desiredConnectionStatus]);
 
   useEffect(() => {
-    hooksRef.current = hooks;
-  }, [hooks]);
+    hooksRef.current = { ...hooks, desiredConnectionStatus };
+  }, [hooks, desiredConnectionStatus]);
 
   const connect = () => {
     if (evtSource != null) {
       return;
     }
 
-    createEvtSource();
+    createEvtSource(5000);
   };
 
   const disconnect = () => {
@@ -45,14 +45,18 @@ export default function useEventSource(hooks) {
     setEvtSource(null);
   };
 
-  const createEvtSource = () => {
+  const createEvtSource = (timeout) => {
     const newEvtSource = new EventSource(`${process.env.NEXT_PUBLIC_EVENTS_URL}/stream`);
 
     newEvtSource.addEventListener("error", (e) => {
       newEvtSource.close();
+
       setTimeout(() => {
-        createEvtSource();
-      }, 5000);
+        if (hooksRef.current.desiredConnectionStatus) {
+          const newTimeout = Math.min(timeout * 2, 60e3);
+          createEvtSource(newTimeout);
+        }
+      }, timeout);
     });
 
     newEvtSource.addEventListener("data_update", (e) => {

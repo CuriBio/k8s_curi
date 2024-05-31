@@ -7,6 +7,7 @@ import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import { deepCopy } from "@/utils/generic";
 import useEventSource from "@/utils/eventSource";
+import { formatJob } from "@/utils/generic";
 
 /*
   This theme is to be used with materialUI components
@@ -276,6 +277,90 @@ function Pulse({ Component, pageProps }) {
     }
   };
 
+  const getUploadsAndJobs = async (
+    uploadType,
+    filters,
+    sortField = "last_analyzed",
+    sortDirection = "DESC",
+    skip = 0,
+    limit = 300
+  ) => {
+    let uploadsArr = [];
+    try {
+      let url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads`;
+      let queryParams = [];
+
+      if (uploadType) {
+        queryParams.push(`upload_type=${uploadType}`);
+      }
+      if (sortField) {
+        queryParams.push(`sort_field=${sortField}`);
+        if (!["ASC", "DESC"].includes(sortDirection)) {
+          sortDirection = "DESC";
+        }
+        queryParams.push(`sort_direction=${sortDirection}`);
+      }
+      if (skip != null) {
+        queryParams.push(`skip=${skip}`);
+      }
+      if (limit != null) {
+        queryParams.push(`limit=${limit}`);
+      }
+      if (filters && Object.keys(filters).length > 0) {
+        for (const [filterName, filterValue] of Object.entries(filters)) {
+          queryParams.push(`${filterName}=${filterValue}`);
+        }
+      }
+      if (queryParams.length > 0) {
+        url += "?" + queryParams.join("&");
+      }
+
+      const response = await fetch(url);
+
+      if (response && response.status === 200) {
+        uploadsArr = await response.json();
+        setUploads([...uploadsArr]);
+      }
+    } catch (e) {
+      console.log("ERROR getting uploads for user", e);
+      return;
+    }
+
+    if (uploadsArr.length === 0) {
+      return;
+    }
+
+    const uploadIds = uploadsArr.map(({ id }) => id);
+
+    let jobsRes = [];
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/info`, {
+        method: "POST",
+        body: JSON.stringify({ upload_ids: uploadIds, upload_type: uploadType }),
+      });
+
+      if (response && response.status === 200) {
+        jobsRes = await response.json();
+      }
+    } catch (e) {
+      console.log("ERROR fetching jobs", e);
+      return;
+    }
+
+    try {
+      const newJobs = jobsRes
+        .map((job) => {
+          return formatJob(job, {}, accountInfo.accountId);
+        })
+        .filter((j) => j !== null);
+
+      setJobs([...newJobs]);
+    } catch (e) {
+      console.log("ERROR processing jobs", e);
+      return;
+    }
+  };
+
   return (
     <ThemeProvider theme={MUItheme}>
       <AuthContext.Provider
@@ -298,14 +383,15 @@ function Pulse({ Component, pageProps }) {
           value={{
             uploads,
             setUploads,
+            jobs,
+            setJobs,
+            getUploadsAndJobs,
             pulse3dVersions,
             metaPulse3dVersions,
             stiffnessFactorDetails,
             dataTypeDetails,
             defaultUploadForReanalysis,
             setDefaultUploadForReanalysis,
-            jobs,
-            setJobs,
             setPulse3dVersions,
             setMetaPulse3dVersions,
           }}
