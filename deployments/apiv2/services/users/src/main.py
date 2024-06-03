@@ -173,6 +173,60 @@ async def sso_admin(request: Request, details: SSOLogin):
         )
 
 
+@app.post("/sso", response_model=LoginResponse)
+async def sso_user(request: Request, details: SSOLogin):
+    """SSO for a user account.
+
+    Logging in consists of validating the given credentials and, if valid,
+    returning a JWT with the appropriate privileges.
+    """
+    id_token = await _decode_and_verify_jwt(details.id_token)
+    email = id_token.get("email")
+    client_type = details.client_type if details.client_type else "unknown"
+
+    bind_context_to_logger({"client_type": client_type, "email": email})
+
+    logger.info(f"User SSO attempt from client '{client_type}'")
+
+    try:
+        async with request.state.pgpool.acquire() as con:
+            select_query_result = await con.fetchrow(
+                "SELECT u.id, u.suspended AS suspended, u.customer_id, c.suspended AS customer_suspended "
+                "FROM users u JOIN customers c ON u.customer_id=c.id "
+                "WHERE u.deleted_at IS NULL AND u.email=$1 AND u.login_type!=$2",
+                email,
+                LoginType.PASSWORD
+            )
+
+            if select_query_result is None:
+                raise LoginError("Invalid credentials.")
+
+            if select_query_result["suspended"]:
+                raise LoginError("Account has been suspended.")
+
+            if select_query_result["customer_suspended"]:
+                raise LoginError("The customer ID for this account has been deactivated.")
+
+            user_id = select_query_result.get("id")
+            customer_id = select_query_result.get("customer_id")
+            bind_context_to_logger({"customer_id": str(customer_id), "user_id": str(user_id)})
+
+            # get scopes from account_scopes table
+            scopes = await get_account_scopes(con, user_id, False)
+
+            # if login was successful, then update last_login column value to now
+            await con.execute(
+                "UPDATE users SET last_login=$1 WHERE deleted_at IS NULL AND id=$2", datetime.now(), str(user_id),
+            )
+
+            tokens = await create_new_tokens(con, user_id, customer_id, scopes, AccountTypes.USER)
+            return LoginResponse(tokens=tokens, usage_quota=None)
+    except LoginError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+    except Exception:
+        logger.exception("POST /sso: Unexpected error")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 @app.post("/login/admin", response_model=LoginResponse)
 async def login_admin(request: Request, details: AdminLogin):
     """Login an admin account.
@@ -250,7 +304,7 @@ async def login_user(request: Request, details: UserLogin):
         select_query = (
             "SELECT u.password, u.id, u.failed_login_attempts, u.suspended AS suspended, u.customer_id, c.suspended AS customer_suspended "
             "FROM users u JOIN customers c ON u.customer_id=c.id "
-            "WHERE u.deleted_at IS NULL AND u.name=$1 AND u.customer_id=$2 AND u.verified='t'"
+            "WHERE u.deleted_at IS NULL AND u.name=$1 AND u.customer_id=$2 AND u.verified='t' AND u.login_type=$3"
         )
     else:
         # if no UUID given, the check against the customer account alias
@@ -258,7 +312,7 @@ async def login_user(request: Request, details: UserLogin):
         select_query = (
             "SELECT u.password, u.id, u.failed_login_attempts, u.suspended AS suspended, u.customer_id, c.suspended AS customer_suspended "
             "FROM users u JOIN customers c ON u.customer_id=c.id "
-            "WHERE u.deleted_at IS NULL AND u.name=$1 AND c.alias IS NOT NULL AND LOWER(c.alias)=LOWER($2) AND u.verified='t'"
+            "WHERE u.deleted_at IS NULL AND u.name=$1 AND c.alias IS NOT NULL AND LOWER(c.alias)=LOWER($2) AND u.verified='t' AND u.login_type=$3"
         )
 
     client_type = details.client_type if details.client_type else "unknown"
@@ -271,9 +325,10 @@ async def login_user(request: Request, details: UserLogin):
 
     try:
         async with request.state.pgpool.acquire() as con:
-            select_query_result = await con.fetchrow(select_query, username, str(details.customer_id))
+            select_query_result = await con.fetchrow(select_query, username, str(details.customer_id), LoginType.PASSWORD)
 
             # query will return None if username is not found
+            # or if login_type is not "password"
             if select_query_result is not None:
                 user_id = select_query_result.get("id")
                 customer_id = select_query_result.get("customer_id")

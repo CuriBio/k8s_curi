@@ -310,13 +310,11 @@ export default function Login() {
           backgroundColor={inProgress ? "var(--teal-green)" : "var(--dark-blue)"}
         />
       </ModalContainer>
-      {loginType === "Admin" &&
-        <ButtonWidget
-          label={"Sign in with Microsoft"}
-          clickFn={submitMicrosoftSSO}
-          backgroundColor={"#2F2F2F"}
-        />
-      }
+      <ButtonWidget
+        label={"Sign in with Microsoft"}
+        clickFn={submitMicrosoftSSO}
+        backgroundColor={"#2F2F2F"}
+      />
       <ModalWidget
         open={displayForgotPW}
         width={500}
