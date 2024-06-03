@@ -514,7 +514,7 @@ def test_register__user__success(special_char, mocked_asyncpg_con, mocker):
     test_customer_id = uuid.uuid4()
     access_token = get_token(customer_id=test_customer_id, account_type=AccountTypes.ADMIN)
 
-    mocked_asyncpg_con.fetchval.return_value = test_user_id
+    mocked_asyncpg_con.fetchval.side_effect = ["password", test_user_id]
 
     response = test_client.post(
         "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
@@ -528,12 +528,69 @@ def test_register__user__success(special_char, mocked_asyncpg_con, mocker):
     }
     assert response.status_code == 201
 
-    mocked_asyncpg_con.fetchval.assert_called_once_with(
-        "INSERT INTO users (name, email, customer_id) VALUES ($1, $2, $3) RETURNING id",
-        registration_details["username"].lower(),
-        registration_details["email"].lower(),
+    mocked_asyncpg_con.fetchval.assert_has_calls([
+        mocker.call(
+            "SELECT login_type FROM customers WHERE id=$1",
+            test_customer_id
+        ),
+        mocker.call(
+            "INSERT INTO users (name, email, customer_id, login_type) VALUES ($1, $2, $3, $4) RETURNING id",
+            registration_details["username"].lower(),
+            registration_details["email"].lower(),
+            test_customer_id,
+            "password"
+        )
+    ])
+    mocked_asyncpg_con.execute.assert_called_once_with(
+        "INSERT INTO account_scopes VALUES ($1, $2, unnest($3::text[]))",
         test_customer_id,
+        test_user_id,
+        expected_scopes,
     )
+
+
+def test_register__user__sso__success(mocked_asyncpg_con, mocker):
+    mocker.patch.object(main, "_send_account_email", autospec=True)
+
+    expected_scopes = [Scopes.MANTARRAY__RW_ALL_DATA, Scopes.MANTARRAY__FIRMWARE__GET]
+
+    registration_details = {
+        "email": "USEr@example.com",
+        "username": "TestUseRName",
+        "scopes": expected_scopes,
+    }
+
+    test_user_id = uuid.uuid4()
+    test_customer_id = uuid.uuid4()
+    access_token = get_token(customer_id=test_customer_id, account_type=AccountTypes.ADMIN)
+
+    mocked_asyncpg_con.fetchval.side_effect = ["sso_microsoft", test_user_id]
+
+    response = test_client.post(
+        "/register/user", json=registration_details, headers={"Authorization": f"Bearer {access_token}"}
+    )
+
+    assert response.json() == {
+        "username": registration_details["username"].lower(),
+        "email": registration_details["email"].lower(),
+        "user_id": test_user_id.hex,
+        "scopes": expected_scopes,
+    }
+    assert response.status_code == 201
+
+    mocked_asyncpg_con.fetchval.assert_has_calls([
+        mocker.call(
+            "SELECT login_type FROM customers WHERE id=$1",
+            test_customer_id
+        ),
+        mocker.call(
+            "INSERT INTO users (name, email, customer_id, login_type) VALUES ($1, $2, $3, $4) RETURNING id",
+            registration_details["username"].lower(),
+            registration_details["email"].lower(),
+            test_customer_id,
+            "sso_microsoft"
+        )
+    ])
     mocked_asyncpg_con.execute.assert_called_once_with(
         "INSERT INTO account_scopes VALUES ($1, $2, unnest($3::text[]))",
         test_customer_id,
