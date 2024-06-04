@@ -129,6 +129,7 @@ def test_login__user__success(send_client_type, use_alias, mocked_asyncpg_con, m
         "failed_login_attempts": 0,
         "suspended": False,
         "customer_id": test_customer_id,
+        "customer_suspended": False
     }
     mocked_asyncpg_con.fetch.return_value = [{"scope": test_scope.value}]
     spied_create_token = mocker.spy(main, "create_new_tokens")
@@ -161,13 +162,18 @@ def test_login__user__success(send_client_type, use_alias, mocked_asyncpg_con, m
     )
 
     expected_query = (
-        "SELECT u.password, u.id, u.failed_login_attempts, u.suspended, u.customer_id FROM users AS u JOIN customers AS c ON u.customer_id=c.id WHERE u.deleted_at IS NULL AND u.name=$1 AND LOWER(c.alias)=LOWER($2) AND u.verified='t'"
+        "SELECT u.password, u.id, u.failed_login_attempts, u.suspended AS suspended, u.customer_id, c.suspended AS customer_suspended "
+        "FROM users u JOIN customers c ON u.customer_id=c.id "
+        "WHERE u.deleted_at IS NULL AND u.name=$1 AND c.alias IS NOT NULL AND LOWER(c.alias)=LOWER($2) "
+        "AND u.verified='t' AND u.login_type=$3"
         if use_alias
-        else "SELECT password, id, failed_login_attempts, suspended, customer_id FROM users WHERE deleted_at IS NULL AND name=$1 AND customer_id=$2 AND verified='t'"
+        else "SELECT u.password, u.id, u.failed_login_attempts, u.suspended AS suspended, u.customer_id, c.suspended AS customer_suspended "
+             "FROM users u JOIN customers c ON u.customer_id=c.id "
+             "WHERE u.deleted_at IS NULL AND u.name=$1 AND u.customer_id=$2 AND u.verified='t' AND u.login_type=$3"
     )
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
-        expected_query, login_details["username"].lower(), login_details["customer_id"]
+        expected_query, login_details["username"].lower(), login_details["customer_id"], "password"
     )
     mocked_asyncpg_con.fetch.assert_called_once_with(
         "SELECT scope FROM account_scopes WHERE user_id=$1", test_user_id
@@ -390,6 +396,121 @@ def test_login__admin__returns_invalid_creds_if_account_is_suspended(mocked_asyn
     assert response.status_code == 401
     assert response.json() == {
         "detail": "Invalid credentials. Account will be locked after 10 failed attempts."
+    }
+
+
+@freeze_time()
+@pytest.mark.parametrize("send_client_type", [True, False])
+def test_sso__user__success(send_client_type, mocked_asyncpg_con, mocker):
+    email = "TEST3@email.com"
+    mocker.patch.object(main, "_decode_and_verify_jwt", return_value={"email": email})
+
+    sso_details = {"id_token": "sometoken"}
+    if send_client_type:
+        sso_details["client_type"] = "dashboard"
+
+    test_customer_id = uuid.uuid4()
+    test_user_id = uuid.uuid4()
+    test_scope = Scopes.MANTARRAY__BASE
+
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "id": test_user_id,
+        "suspended": False,
+        "customer_id": test_customer_id,
+        "customer_suspended": False
+    }
+    mocked_asyncpg_con.fetch.return_value = [{"scope": test_scope.value}]
+    spied_create_token = mocker.spy(main, "create_new_tokens")
+
+    expected_access_token = create_token(
+        userid=test_user_id,
+        customer_id=test_customer_id,
+        scopes=[test_scope],
+        account_type=AccountTypes.USER,
+        refresh=False,
+    )
+    expected_refresh_token = create_token(
+        userid=test_user_id,
+        customer_id=test_customer_id,
+        scopes=[Scopes.REFRESH],
+        account_type=AccountTypes.USER,
+        refresh=True,
+    )
+
+    response = test_client.post("/sso", json=sso_details)
+    assert response.status_code == 200
+
+    assert (
+        response.json()
+        == LoginResponse(
+            tokens=AuthTokens(access=expected_access_token, refresh=expected_refresh_token),
+            usage_quota=None,
+            user_scopes=None,
+        ).model_dump()
+    )
+
+    expected_query = (
+        "SELECT u.id, u.suspended AS suspended, u.customer_id, c.suspended AS customer_suspended "
+        "FROM users u JOIN customers c ON u.customer_id=c.id "
+        "WHERE u.deleted_at IS NULL AND u.email=$1 AND u.login_type!=$2"
+    )
+
+    mocked_asyncpg_con.fetchrow.assert_called_once_with(
+        expected_query, email, "password"
+    )
+    mocked_asyncpg_con.fetch.assert_called_once_with(
+        "SELECT scope FROM account_scopes WHERE user_id=$1", test_user_id
+    )
+    mocked_asyncpg_con.execute.assert_called_with(
+        "UPDATE users SET refresh_token=$1 WHERE id=$2", expected_refresh_token.token, test_user_id
+    )
+
+    assert spied_create_token.call_count == 1
+
+
+def test_sso__user__no_matching_record_in_db(mocked_asyncpg_con, mocker):
+    sso_details = {"id_token": "sometoken"}
+    mocker.patch.object(main, "_decode_and_verify_jwt", return_value={"email": "TEST4@email.com"})
+    mocked_asyncpg_con.fetchrow.return_value = None
+
+    response = test_client.post("/sso", json=sso_details)
+    assert response.status_code == 401
+    assert response.json() == {
+        "detail": "Invalid credentials."
+    }
+
+
+def test_sso__user__returns_invalid_creds_if_account_is_suspended(mocked_asyncpg_con, mocker):
+    sso_details = {"id_token": "sometoken"}
+    mocker.patch.object(main, "_decode_and_verify_jwt", return_value={"email": "TEST4@email.com"})
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "id": uuid.uuid4(),
+        "suspended": True,
+        "customer_id": uuid.uuid4(),
+        "customer_suspended": False
+    }
+
+    response = test_client.post("/sso", json=sso_details)
+    assert response.status_code == 401
+    assert response.json() == {
+        "detail": "Account has been suspended."
+    }
+
+
+def test_sso__user__returns_invalid_creds_if_customer_account_is_suspended(mocked_asyncpg_con, mocker):
+    sso_details = {"id_token": "sometoken"}
+    mocker.patch.object(main, "_decode_and_verify_jwt", return_value={"email": "TEST4@email.com"})
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "id": uuid.uuid4(),
+        "suspended": False,
+        "customer_id": uuid.uuid4(),
+        "customer_suspended": True
+    }
+
+    response = test_client.post("/sso", json=sso_details)
+    assert response.status_code == 401
+    assert response.json() == {
+        "detail": "The customer ID for this account has been deactivated."
     }
 
 
