@@ -91,13 +91,23 @@ const getDefaultAccountInfo = (type) => {
 export default function NewAccountForm({ type }) {
   const isForUser = type === "user";
 
-  const { availableScopes } = useContext(AuthContext);
+  const { loginType: customerLoginType, availableScopes } = useContext(AuthContext);
 
   const [newAccountInfo, setNewAccountInfo] = useState(getDefaultAccountInfo(type));
   const [accountTitle, setAccountTitle] = useState(type);
   const [errorMsg, setErrorMsg] = useState(" ");
   const [inProgress, setInProgress] = useState(false);
   const [userCreatedVisible, setUserCreatedVisible] = useState(false);
+  const [userCreatedMsg, setUserCreatedMsg] = useState(" ");
+
+  const getUserCreatedMsg = () => {
+    if ((isForUser && customerLoginType === Object.keys(LoginType)[0]) ||
+        (!isForUser && newAccountInfo.login_type === Object.keys(LoginType)[0])) {
+      return "Please have them check their inbox for a verification email to begin accessing their account. Link will expire after 24 hours."
+    }
+
+    return "Please have them check their inbox for an email to begin accessing their account."
+  }
 
   const resetForm = () => {
     setErrorMsg(""); // reset to show user something happened
@@ -127,6 +137,7 @@ export default function NewAccountForm({ type }) {
 
       if (res) {
         if (res.status === 201) {
+          setUserCreatedMsg(getUserCreatedMsg())
           setUserCreatedVisible(true);
           resetForm();
         } else if (res.status === 422) {
@@ -165,7 +176,7 @@ export default function NewAccountForm({ type }) {
         header="Success"
         labels={[
           `${accountTitle} was created successfully!`,
-          "Please have them check their inbox for a verification email to begin accessing their account. Link will expire after 24 hours.",
+          userCreatedMsg,
         ]}
       />
       <Header>{`New ${accountTitle} Details`}</Header>
