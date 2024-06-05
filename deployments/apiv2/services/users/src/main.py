@@ -36,6 +36,7 @@ from auth import (
     get_account_scopes,
     create_new_tokens,
     AccountTypes,
+    LoginType,
     get_product_tags_of_admin,
 )
 from jobs import check_customer_quota
@@ -63,7 +64,6 @@ from models.users import (
     UserScopesUpdate,
     UnableToUpdateAccountResponse,
     PreferencesUpdate,
-    LoginType,
 )
 from utils.db import AsyncpgPoolDep
 from utils.logging import setup_logger, bind_context_to_logger
@@ -161,7 +161,7 @@ async def sso_admin(request: Request, details: SSOLogin):
             customer_id = select_query_result.get("id")
             bind_context_to_logger({"customer_id": str(customer_id)})
 
-            login_response = await _build_admin_login_or_sso_response(con, customer_id, email)
+            login_response = await _build_admin_login_or_sso_response(con, customer_id, email, LoginType.SSO_MICROSOFT)
             return login_response
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
@@ -219,7 +219,9 @@ async def sso_user(request: Request, details: SSOLogin):
                 "UPDATE users SET last_login=$1 WHERE deleted_at IS NULL AND id=$2", datetime.now(), str(user_id),
             )
 
-            tokens = await create_new_tokens(con, user_id, customer_id, scopes, AccountTypes.USER)
+            tokens = await create_new_tokens(
+                con, user_id, customer_id, scopes, AccountTypes.USER, LoginType.SSO_MICROSOFT
+            )
             return LoginResponse(tokens=tokens, usage_quota=None)
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
@@ -270,7 +272,7 @@ async def login_admin(request: Request, details: AdminLogin):
             # verify password, else raise LoginError
             await _verify_password(con, account_type, pw, select_query_result)
 
-            login_response = await _build_admin_login_or_sso_response(con, customer_id, email)
+            login_response = await _build_admin_login_or_sso_response(con, customer_id, email, LoginType.PASSWORD)
             return login_response
 
     except LoginError as e:
@@ -364,7 +366,7 @@ async def login_user(request: Request, details: UserLogin):
                 str(customer_id),
             )
 
-            tokens = await create_new_tokens(con, user_id, customer_id, scopes, account_type)
+            tokens = await create_new_tokens(con, user_id, customer_id, scopes, account_type, LoginType.PASSWORD)
 
             return LoginResponse(tokens=tokens, usage_quota=usage_quota)
 
@@ -375,7 +377,7 @@ async def login_user(request: Request, details: UserLogin):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-async def _build_admin_login_or_sso_response(con, customer_id, email):
+async def _build_admin_login_or_sso_response(con, customer_id, email, login_type: LoginType):
     # get scopes from account_scopes table
     scopes = await get_account_scopes(con, customer_id, True)
 
@@ -397,7 +399,7 @@ async def _build_admin_login_or_sso_response(con, customer_id, email):
         email,
     )
 
-    tokens = await create_new_tokens(con, None, customer_id, scopes, AccountTypes.ADMIN)
+    tokens = await create_new_tokens(con, None, customer_id, scopes, AccountTypes.ADMIN, login_type)
 
     # TODO fix tests for this?
     return LoginResponse(
@@ -512,6 +514,7 @@ async def refresh(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.RE
     """
     account_id = uuid.UUID(hex=token.account_id)
     account_type = token.account_type
+    login_type = token.login_type
     is_admin_account = account_type == AccountTypes.ADMIN
 
     bind_context_to_logger({"customer_id": token.customer_id, "user_id": token.userid})
@@ -542,7 +545,7 @@ async def refresh(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.RE
             # con is passed to this function, so it must be inside this async with block
             user_id = None if is_admin_account else account_id
             customer_id = account_id if is_admin_account else row["customer_id"]
-            return await create_new_tokens(con, user_id, customer_id, scopes, account_type)
+            return await create_new_tokens(con, user_id, customer_id, scopes, account_type, login_type)
 
     except HTTPException:
         raise

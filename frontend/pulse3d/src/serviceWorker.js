@@ -427,12 +427,14 @@ self.onmessage = async ({ data, source }) => {
   } else if (msgType === "authCheck") {
     console.log("Returning authentication check");
     const cachedTokens = await getAuthTokens();
+    const loginType = await getValueFromToken("login_type");
     const accountType = await getValueFromToken("account_type");
     const accountId = await getValueFromToken(accountType === "user" ? "userid" : "customer_id");
 
     msgInfo = {
       isLoggedIn: cachedTokens.access !== null,
       accountInfo: {
+        loginType,
         accountType,
         accountId,
         accountScope: await getValueFromToken("scopes"),

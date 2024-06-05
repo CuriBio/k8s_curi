@@ -9,7 +9,7 @@ from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
 
-from .models import AccountTypes, JWTMeta, JWTDetails, JWTPayload, Token
+from .models import AccountTypes, JWTMeta, JWTDetails, JWTPayload, LoginType, Token
 from .settings import (
     JWT_SECRET_KEY,
     JWT_AUDIENCE,
@@ -74,6 +74,7 @@ def create_token(
     customer_id: UUID,
     scopes: list[Scopes],
     account_type: AccountTypes,
+    login_type: LoginType = LoginType.PASSWORD,
     refresh: bool = False,
 ):
     # make sure tokens have at least 1 scope
@@ -133,7 +134,9 @@ def create_token(
     iat = timegm(now.utctimetuple())
     exp = timegm((now + timedelta(minutes=exp_dur)).utctimetuple())
     jwt_meta = JWTMeta(aud=JWT_AUDIENCE, scopes=scopes, iat=iat, exp=exp, refresh=refresh)
-    jwt_details = JWTDetails(customer_id=customer_id.hex, userid=userid, account_type=account_type)
+    jwt_details = JWTDetails(
+        customer_id=customer_id.hex, userid=userid, account_type=account_type, login_type=login_type
+    )
     jwt_payload = JWTPayload(**jwt_meta.model_dump(), **jwt_details.model_dump())
 
     jwt_token = jwt.encode(payload=jwt_payload.model_dump(), key=str(JWT_SECRET_KEY), algorithm=JWT_ALGORITHM)
@@ -154,16 +157,33 @@ async def get_account_scopes(db_con, account_id, is_admin_account):
 
 
 # TODO make sure all calls to this use AccountTypes
-async def create_new_tokens(db_con, userid, customer_id, scopes, account_type):
+async def create_new_tokens(
+    db_con,
+    userid,
+    customer_id,
+    scopes,
+    account_type,
+    login_type: LoginType = LoginType.PASSWORD
+):
     refresh_scope = [Scopes.REFRESH]
 
     # create new tokens
     access = create_token(
-        userid=userid, customer_id=customer_id, scopes=scopes, account_type=account_type, refresh=False
+        userid=userid,
+        customer_id=customer_id,
+        scopes=scopes,
+        account_type=account_type,
+        login_type=login_type,
+        refresh=False
     )
     # refresh token does not need any scope, so just set it to refresh
     refresh = create_token(
-        userid=userid, customer_id=customer_id, scopes=refresh_scope, account_type=account_type, refresh=True
+        userid=userid,
+        customer_id=customer_id,
+        scopes=refresh_scope,
+        account_type=account_type,
+        login_type=login_type,
+        refresh=True
     )
 
     # TODO should probably split this part out into its own function
