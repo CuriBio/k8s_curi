@@ -19,6 +19,7 @@ from auth import (
     get_assignable_admin_scopes,
     get_scope_dependencies,
     AccountTypes,
+    LoginType,
 )
 from auth.settings import REFRESH_TOKEN_EXPIRE_MINUTES
 from src import main
@@ -427,6 +428,7 @@ def test_sso__user__success(send_client_type, mocked_asyncpg_con, mocker):
         customer_id=test_customer_id,
         scopes=[test_scope],
         account_type=AccountTypes.USER,
+        login_type=LoginType.SSO_MICROSOFT,
         refresh=False,
     )
     expected_refresh_token = create_token(
@@ -434,6 +436,7 @@ def test_sso__user__success(send_client_type, mocked_asyncpg_con, mocker):
         customer_id=test_customer_id,
         scopes=[Scopes.REFRESH],
         account_type=AccountTypes.USER,
+        login_type=LoginType.SSO_MICROSOFT,
         refresh=True,
     )
 
@@ -554,6 +557,7 @@ def test_sso__admin__success(send_client_type, mocked_asyncpg_con, mocker):
         customer_id=test_customer_id,
         scopes=[admin_scope],
         account_type=AccountTypes.ADMIN,
+        login_type=LoginType.SSO_MICROSOFT,
         refresh=False,
     )
     expected_refresh_token = create_token(
@@ -561,6 +565,7 @@ def test_sso__admin__success(send_client_type, mocked_asyncpg_con, mocker):
         customer_id=test_customer_id,
         scopes=[Scopes.REFRESH],
         account_type=AccountTypes.ADMIN,
+        login_type=LoginType.SSO_MICROSOFT,
         refresh=True,
     )
 
