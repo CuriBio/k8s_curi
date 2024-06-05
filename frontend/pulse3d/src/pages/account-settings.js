@@ -4,13 +4,9 @@ import { AuthContext } from "@/pages/_app";
 import styled from "styled-components";
 import UsageWidgetFull from "@/components/account/UsageWidgetFull";
 import AdminAccountOptions from "@/components/account/AdminAccountOptions";
-import AnalysisParamContainer from "@/components/uploadForm/AnalysisParamContainer";
-import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import { UploadsContext } from "@/pages/_app";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import PasswordForm from "@/components/account/PasswordForm";
-import semverGte from "semver/functions/gte";
-import { getMinP3dVersionForProduct } from "@/utils/generic";
 import UserPreferences from "@/components/account/UserPreferences";
 
 const BackgroundContainer = styled.div`
