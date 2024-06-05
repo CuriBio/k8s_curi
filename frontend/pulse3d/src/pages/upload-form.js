@@ -271,14 +271,9 @@ export default function UploadForm() {
   }, [files]);
 
   useEffect(() => {
-    // grab list of user presets on initial load
-    // this gets called again in resetState when an analysis is submitted
-    getAnalysisPresets();
-  }, []);
-
-  useEffect(() => {
     if (productPage) {
       setMinPulse3dVersionForCurrentUploads(getMinP3dVersionForProduct(productPage));
+      getAnalysisPresets();
     }
   }, [productPage]);
 
@@ -323,7 +318,9 @@ export default function UploadForm() {
 
   const getAnalysisPresets = async () => {
     try {
-      const presetResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets`);
+      const presetResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets?upload_type=${productPage}`
+      );
       const savedPresets = await presetResponse.json();
       setUserPresets(savedPresets);
     } catch (e) {
@@ -781,7 +778,11 @@ export default function UploadForm() {
   const saveAnalysisPreset = async () => {
     await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets`, {
       method: "POST",
-      body: JSON.stringify({ name: analysisPresetName, analysis_params: analysisParams }),
+      body: JSON.stringify({
+        name: analysisPresetName,
+        analysis_params: analysisParams,
+        upload_type: productPage,
+      }),
     });
   };
 
