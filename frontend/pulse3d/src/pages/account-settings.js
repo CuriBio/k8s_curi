@@ -98,7 +98,7 @@ const ButtonContainer = styled.div`
 const isEmpty = (str) => str === undefined || str.length === 0;
 
 export default function AccountSettings() {
-  const { accountType, usageQuota, accountId, productPage, preferences } = useContext(AuthContext);
+  const { accountType, loginType, usageQuota, accountId, productPage, preferences } = useContext(AuthContext);
   const { pulse3dVersions, metaPulse3dVersions } = useContext(UploadsContext);
   const [jobsLimit, setJobsLimit] = useState(-1);
   const [currentJobUsage, setCurrentJobUsage] = useState(0);
@@ -110,6 +110,7 @@ export default function AccountSettings() {
   const [passwords, setPasswords] = useState({ password1: "", password2: "" });
 
   const isAdminAccount = accountType === "admin";
+  const isPasswordAccount = loginType === "password"
 
   useEffect(() => {
     if (usageQuota && usageQuota.limits && usageQuota.current) {
@@ -170,39 +171,41 @@ export default function AccountSettings() {
   return (
     <BackgroundContainer>
       <Header>Account Settings</Header>
-      <SubsectionContainer>
-        <Subheader>Change Password</Subheader>
-        <SubSectionBody>
-          <PasswordContainer>
-            <PasswordForm
-              password1={passwords.password1}
-              password2={passwords.password2}
-              onChangePassword={onChangePassword}
-              setErrorMsg={setErrorMsg}
-            ></PasswordForm>
-          </PasswordContainer>
-          <ButtonContainer>
-            {passwordUpdateSuccess && <SuccessText>Update Successful!</SuccessText>}
-            {errorMsg && <ErrorText role="errorMsg">{errorMsg}</ErrorText>}
-            <ButtonWidget
-              width="150px"
-              height="40px"
-              position="relative"
-              borderRadius="3px"
-              label="Save"
-              backgroundColor={
-                inProgress.password ||
-                !(isEmpty(errorMsg) && !isEmpty(passwords.password1) && !isEmpty(passwords.password2))
-                  ? "var(--dark-gray)"
-                  : "var(--dark-blue)"
-              }
-              inProgress={inProgress.password}
-              disabled={inProgress.password}
-              clickFn={saveNewPassword}
-            />
-          </ButtonContainer>
-        </SubSectionBody>
-      </SubsectionContainer>
+      {isPasswordAccount && (
+        <SubsectionContainer>
+          <Subheader>Change Password</Subheader>
+          <SubSectionBody>
+            <PasswordContainer>
+              <PasswordForm
+                password1={passwords.password1}
+                password2={passwords.password2}
+                onChangePassword={onChangePassword}
+                setErrorMsg={setErrorMsg}
+              ></PasswordForm>
+            </PasswordContainer>
+            <ButtonContainer>
+              {passwordUpdateSuccess && <SuccessText>Update Successful!</SuccessText>}
+              {errorMsg && <ErrorText role="errorMsg">{errorMsg}</ErrorText>}
+              <ButtonWidget
+                width="150px"
+                height="40px"
+                position="relative"
+                borderRadius="3px"
+                label="Save"
+                backgroundColor={
+                  inProgress.password ||
+                  !(isEmpty(errorMsg) && !isEmpty(passwords.password1) && !isEmpty(passwords.password2))
+                    ? "var(--dark-gray)"
+                    : "var(--dark-blue)"
+                }
+                inProgress={inProgress.password}
+                disabled={inProgress.password}
+                clickFn={saveNewPassword}
+              />
+            </ButtonContainer>
+          </SubSectionBody>
+        </SubsectionContainer>
+      )}
       {!isAdminAccount && (
         <SubsectionContainer>
           <UserPreferences

@@ -682,14 +682,16 @@ async def register_user(
                     select_customer_login_type_query = ("SELECT login_type FROM customers WHERE id=$1", customer_id)
                     customer_login_type = await con.fetchval(*select_customer_login_type_query)
 
-                    # suspended and verified get set to False by default
-                    # for SSO, we interpret verified as email-verified and we still set it to False since it's moot
+                    # suspended gets set to False by default
+                    # verified gets set to False for password users and to True for SSO users
                     insert_account_query_args = (
-                        "INSERT INTO users (name, email, customer_id, login_type) VALUES ($1, $2, $3, $4) RETURNING id",
+                        "INSERT INTO users (name, email, customer_id, login_type, verified) "
+                        "VALUES ($1, $2, $3, $4, $5) RETURNING id",
                         username,
                         email,
                         customer_id,
-                        customer_login_type
+                        customer_login_type,
+                        customer_login_type != LoginType.PASSWORD
                     )
 
                     new_account_id = await con.fetchval(*insert_account_query_args)

@@ -660,11 +660,13 @@ def test_register__user__success(special_char, mocked_asyncpg_con, mocker):
             test_customer_id
         ),
         mocker.call(
-            "INSERT INTO users (name, email, customer_id, login_type) VALUES ($1, $2, $3, $4) RETURNING id",
+            "INSERT INTO users (name, email, customer_id, login_type, verified) "
+            "VALUES ($1, $2, $3, $4, $5) RETURNING id",
             registration_details["username"].lower(),
             registration_details["email"].lower(),
             test_customer_id,
-            "password"
+            "password",
+            False
         )
     ])
     mocked_asyncpg_con.execute.assert_called_once_with(
@@ -710,11 +712,13 @@ def test_register__user__sso__success(mocked_asyncpg_con, mocker):
             test_customer_id
         ),
         mocker.call(
-            "INSERT INTO users (name, email, customer_id, login_type) VALUES ($1, $2, $3, $4) RETURNING id",
+            "INSERT INTO users (name, email, customer_id, login_type, verified) "
+            "VALUES ($1, $2, $3, $4, $5) RETURNING id",
             registration_details["username"].lower(),
             registration_details["email"].lower(),
             test_customer_id,
-            "sso_microsoft"
+            "sso_microsoft",
+            True
         )
     ])
     mocked_asyncpg_con.execute.assert_called_once_with(
