@@ -405,6 +405,13 @@ async def process_item(con, item):
                 if metrics_output.metadata.instrument_type == InstrumentTypes.NAUTILAI:
                     renderer_args["normalize_y_axis"] = False
 
+                renderer_args["custom_analysis_params"] = {
+                    arg_name: val
+                    for arg_name, val in analysis_params.items()
+                    if val is not None
+                    and arg_name not in ("start_time", "end_time", "stiffness_factor", "data_type")
+                }
+
                 renderer_args["output_dir"] = tmpdir
 
                 output_filename = renderer.run(
