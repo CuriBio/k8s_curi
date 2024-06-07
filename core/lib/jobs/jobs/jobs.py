@@ -562,10 +562,12 @@ async def check_customer_quota(con, customer_id, service) -> dict[str, Any]:
 async def create_analysis_preset(con, user_id, details):
     # TODO update this
     query = (
-        "INSERT INTO analysis_presets (user_id, name, parameters) "
-        "VALUES ($1, $2, $3) "
-        "ON CONFLICT ON CONSTRAINT unique_name_per_user DO "
-        "UPDATE SET parameters=$3 WHERE analysis_presets.user_id=$1 AND analysis_presets.name=$2"
+        "INSERT INTO analysis_presets (user_id, name, parameters, type) "
+        "VALUES ($1, $2, $3, $4) "
+        "ON CONFLICT ON CONSTRAINT unique_name_type_per_user DO "
+        "UPDATE SET parameters=$3 WHERE analysis_presets.user_id=$1 AND analysis_presets.name=$2 AND analysis_presets.type=$4"
     )
 
-    return await con.fetchval(query, user_id, details.name, json.dumps(details.analysis_params))
+    return await con.fetchval(
+        query, user_id, details.name, json.dumps(details.analysis_params), details.upload_type
+    )
