@@ -110,7 +110,7 @@ export default function AccountSettings() {
   const [passwords, setPasswords] = useState({ password1: "", password2: "" });
 
   const isAdminAccount = accountType === "admin";
-  const isPasswordAccount = loginType === "password"
+  const isPasswordAccount = loginType === "password";
 
   useEffect(() => {
     if (usageQuota && usageQuota.limits && usageQuota.current) {
