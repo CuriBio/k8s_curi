@@ -424,25 +424,43 @@ export default function UploadForm() {
     }
 
     for (const [name, value] of [
-      ["normalize_y_axis", normalizeYAxis],
       ["twitch_widths", twitchWidths],
       ["start_time", startTime],
       ["end_time", endTime],
-      ["max_y", maxY],
-      ["include_stim_protocols", showStimSheet],
     ]) {
       requestBody[name] = getNullIfEmpty(value);
     }
 
+    for (const [name, value] of [
+      ["normalize_y_axis", normalizeYAxis],
+      ["max_y", maxY],
+      ["include_stim_protocols", showStimSheet],
+    ]) {
+      if (productPage === "mantarray") {
+        requestBody[name] = getNullIfEmpty(value);
+      } else {
+        requestBody[name] = null;
+      }
+    }
+
     if (semverGte(version, "0.30.1")) {
-      requestBody.stiffness_factor = getNullIfEmpty(stiffnessFactor);
-      requestBody.inverted_post_magnet_wells = getNullIfEmpty(wellsWithFlippedWaveforms);
+      if (productPage === "mantarray") {
+        requestBody.stiffness_factor = getNullIfEmpty(stiffnessFactor);
+        requestBody.inverted_post_magnet_wells = getNullIfEmpty(wellsWithFlippedWaveforms);
+      } else {
+        requestBody.stiffness_factor = null;
+        requestBody.inverted_post_magnet_wells = null;
+      }
     }
     if (semverGte(version, "0.30.3")) {
       requestBody.well_groups = Object.keys(wellGroups).length === 0 ? null : wellGroups;
     }
     if (semverGte(version, "0.30.5")) {
-      requestBody.stim_waveform_format = getNullIfEmpty(stimWaveformFormat);
+      if (productPage === "mantarray") {
+        requestBody.stim_waveform_format = getNullIfEmpty(stimWaveformFormat);
+      } else {
+        requestBody.stim_waveform_format = null;
+      }
     }
     if (semverGte(version, "0.32.2")) {
       // don't add name if it's the original filename or if it's empty
@@ -452,7 +470,11 @@ export default function UploadForm() {
       requestBody.name_override = useOriginalName ? null : analysisParams.nameOverride;
     }
     if (semverGte(version, "0.34.2")) {
-      requestBody.data_type = getNullIfEmpty(dataType);
+      if (productPage === "nautilai") {
+        requestBody.data_type = getNullIfEmpty(dataType);
+      } else {
+        requestBody.data_type = null;
+      }
     }
 
     if (semverGte(version, "0.33.2")) {
@@ -486,8 +508,13 @@ export default function UploadForm() {
     }
 
     if (semverGte(version, "1.0.0")) {
-      requestBody.normalization_method = normalizationMethod === "None" ? null : normalizationMethod;
-      requestBody.detrend = analysisParams.detrend;
+      if (productPage === "nautilai") {
+        requestBody.normalization_method = normalizationMethod === "None" ? null : normalizationMethod;
+        requestBody.detrend = analysisParams.detrend;
+      } else {
+        requestBody.normalization_method = null;
+        requestBody.detrend = null;
+      }
     }
 
     return requestBody;

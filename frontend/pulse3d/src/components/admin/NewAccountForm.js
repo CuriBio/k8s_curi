@@ -60,7 +60,7 @@ const Label = styled.div`
   min-height: 35px;
   padding: 5px;
   line-height: 2;
-`
+`;
 
 const ButtonContainer = styled.div`
   display: flex;
@@ -68,16 +68,16 @@ const ButtonContainer = styled.div`
 `;
 
 const LoginType = {
-  "password": "Username / Password",
-  "sso_microsoft": "Microsoft SSO"
-}
+  password: "Username / Password",
+  sso_microsoft: "Microsoft SSO",
+};
 
 const getDefaultAccountInfo = (type) => {
   const info = {
     admin: {
       email: "",
       scopes: [],
-      login_type: Object.keys(LoginType)[0]
+      login_type: Object.keys(LoginType)[0],
     },
     user: {
       email: "",
@@ -101,13 +101,15 @@ export default function NewAccountForm({ type }) {
   const [userCreatedMsg, setUserCreatedMsg] = useState(" ");
 
   const getUserCreatedMsg = () => {
-    if ((isForUser && customerLoginType === Object.keys(LoginType)[0]) ||
-        (!isForUser && newAccountInfo.login_type === Object.keys(LoginType)[0])) {
-      return "Please have them check their inbox for a verification email to begin accessing their account. Link will expire after 24 hours."
+    if (
+      (isForUser && customerLoginType === Object.keys(LoginType)[0]) ||
+      (!isForUser && newAccountInfo.login_type === Object.keys(LoginType)[0])
+    ) {
+      return "Please have them check their inbox for a verification email to begin accessing their account. Link will expire after 24 hours.";
     }
 
-    return "Please have them check their inbox for an email to begin accessing their account."
-  }
+    return "Please have them check their inbox for an email to begin accessing their account.";
+  };
 
   const resetForm = () => {
     setErrorMsg(""); // reset to show user something happened
@@ -137,7 +139,7 @@ export default function NewAccountForm({ type }) {
 
       if (res) {
         if (res.status === 201) {
-          setUserCreatedMsg(getUserCreatedMsg())
+          setUserCreatedMsg(getUserCreatedMsg());
           setUserCreatedVisible(true);
           resetForm();
         } else if (res.status === 422) {
@@ -174,10 +176,7 @@ export default function NewAccountForm({ type }) {
         open={userCreatedVisible}
         closeModal={() => setUserCreatedVisible(false)}
         header="Success"
-        labels={[
-          `${accountTitle} was created successfully!`,
-          userCreatedMsg,
-        ]}
+        labels={[`${accountTitle} was created successfully!`, userCreatedMsg]}
       />
       <Header>{`New ${accountTitle} Details`}</Header>
       <InputContainer>
@@ -224,8 +223,8 @@ export default function NewAccountForm({ type }) {
                 initialSelected={0}
                 height={35}
                 handleSelection={(i) => {
-                  setNewAccountInfo(prevState => {
-                    return {...prevState, login_type: Object.keys(LoginType)[i]}
+                  setNewAccountInfo((prevState) => {
+                    return { ...prevState, login_type: Object.keys(LoginType)[i] };
                   });
                 }}
               />

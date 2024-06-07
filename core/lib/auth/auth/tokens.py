@@ -158,12 +158,7 @@ async def get_account_scopes(db_con, account_id, is_admin_account):
 
 # TODO make sure all calls to this use AccountTypes
 async def create_new_tokens(
-    db_con,
-    userid,
-    customer_id,
-    scopes,
-    account_type,
-    login_type: LoginType = LoginType.PASSWORD
+    db_con, userid, customer_id, scopes, account_type, login_type: LoginType = LoginType.PASSWORD
 ):
     refresh_scope = [Scopes.REFRESH]
 
@@ -174,7 +169,7 @@ async def create_new_tokens(
         scopes=scopes,
         account_type=account_type,
         login_type=login_type,
-        refresh=False
+        refresh=False,
     )
     # refresh token does not need any scope, so just set it to refresh
     refresh = create_token(
@@ -183,7 +178,7 @@ async def create_new_tokens(
         scopes=refresh_scope,
         account_type=account_type,
         login_type=login_type,
-        refresh=True
+        refresh=True,
     )
 
     # TODO should probably split this part out into its own function
