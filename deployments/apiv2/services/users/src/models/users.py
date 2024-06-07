@@ -1,10 +1,9 @@
 import re
-from enum import StrEnum, auto
 from typing import Any
 from uuid import UUID
 from pydantic import BaseModel, EmailStr, SecretStr, Field
 from pydantic import constr, field_validator
-from auth import AuthTokens, Scopes, ScopeConverter
+from auth import AuthTokens, Scopes, ScopeConverter, LoginType
 
 USERNAME_MIN_LEN = 3
 USERNAME_MAX_LEN = 32
@@ -18,11 +17,6 @@ PASSWORD_REGEX = r"""(
     (?=.*[0-9])
     .{10,}
     $)"""
-
-
-class LoginType(StrEnum):
-    PASSWORD = auto()
-    SSO_MICROSOFT = auto()
 
 
 class AdminLogin(BaseModel):
