@@ -558,8 +558,12 @@ export default function AnalysisParamForm({
 
     // set initial p3d version to user preference if available, account for it to now always be set
     // additionally, need to wait for pulse3dVersions to be fetched and set
-    if (param == "selectedPulse3dVersion" && isPulse3dPreferenceSet()) {
-      optionIndex = optionsArr.indexOf(preferences?.[productPage]?.version);
+    if (param == "selectedPulse3dVersion") {
+      if (isPulse3dPreferenceSet()) {
+        optionIndex = optionsArr.indexOf(preferences?.[productPage]?.version);
+      } else {
+        optionIndex = 0;
+      }
     }
 
     return optionIndex === -1 ? 0 : optionIndex;

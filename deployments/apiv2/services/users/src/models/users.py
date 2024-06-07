@@ -1,4 +1,5 @@
 import re
+from enum import StrEnum, auto
 from typing import Any
 from uuid import UUID
 from pydantic import BaseModel, EmailStr, SecretStr, Field
@@ -19,6 +20,11 @@ PASSWORD_REGEX = r"""(
     $)"""
 
 
+class LoginType(StrEnum):
+    PASSWORD = auto()
+    SSO_MICROSOFT = auto()
+
+
 class AdminLogin(BaseModel):
     email: EmailStr
     password: SecretStr
@@ -33,6 +39,11 @@ class UserLogin(BaseModel):
     username: str
     password: SecretStr
     service: str | None = Field(default=None)  # TODO remove after this key is removed from MA login request
+    client_type: str | None = Field(default=None)
+
+
+class SSOLogin(BaseModel):
+    id_token: str
     client_type: str | None = Field(default=None)
 
 
@@ -61,6 +72,7 @@ class PasswordModel(BaseModel):
 class AdminCreate(ScopeConverter):
     email: EmailStr
     scopes: list[Scopes]
+    login_type: LoginType = Field(default=LoginType.PASSWORD)
 
 
 class UserCreate(ScopeConverter):

@@ -8,6 +8,11 @@ class AccountTypes(StrEnum):
     USER = auto()
 
 
+class LoginType(StrEnum):
+    PASSWORD = auto()
+    SSO_MICROSOFT = auto()
+
+
 class JWTMeta(ScopeConverter):
     iss: str = "curibio.com"
     aud: str
@@ -23,6 +28,7 @@ class JWTDetails(BaseModel):
     customer_id: str
     userid: str | None  # None for admin accounts
     account_type: AccountTypes
+    login_type: LoginType = LoginType.PASSWORD
 
     @property
     def account_id(self):

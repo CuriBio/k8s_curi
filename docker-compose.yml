@@ -15,6 +15,9 @@ services:
       - CURIBIO_EMAIL=${CURIBIO_EMAIL}
       - CURIBIO_EMAIL_PASSWORD=${CURIBIO_EMAIL_PASSWORD}
       - DASHBOARD_URL=http://localhost:3000
+      - MICROSOFT_SSO_APP_ID=${MICROSOFT_SSO_APP_ID}
+      - MICROSOFT_SSO_KEYS_URI=${MICROSOFT_SSO_KEYS_URI}
+      - MICROSOFT_SSO_JWT_ALGORITHM=${MICROSOFT_SSO_JWT_ALGORITHM}
     volumes:
       - ~/.aws/:/home/main_user/.aws:ro
     ports:
