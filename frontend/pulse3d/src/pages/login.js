@@ -5,7 +5,7 @@ import LoginForm from "@/components/account/LoginForm";
 import FormInput from "@/components/basicWidgets/FormInput";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
-import { PublicClientApplication } from "@azure/msal-browser"
+import { PublicClientApplication } from "@azure/msal-browser";
 
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
@@ -150,47 +150,47 @@ export default function Login() {
 
   const submitMicrosoftSSO = async () => {
     try {
-      const loginRequest = {scopes: ["email"]};
+      const loginRequest = { scopes: ["email"] };
       const msalConfig = {
         auth: {
           clientId: `${process.env.NEXT_PUBLIC_MICROSOFT_SSO_APP_ID}`,
-          authority: `${process.env.NEXT_PUBLIC_MICROSOFT_SSO_AUTHORITY_URI}`
+          authority: `${process.env.NEXT_PUBLIC_MICROSOFT_SSO_AUTHORITY_URI}`,
         },
       };
 
       const msalPCA = new PublicClientApplication(msalConfig);
-      await msalPCA.initialize()
+      await msalPCA.initialize();
 
       const response = await msalPCA.loginPopup({
         ...loginRequest,
         redirectUri: "/",
-      })
-      await handleMicrosoftSSOResponse(response)
+      });
+      await handleMicrosoftSSOResponse(response);
     } catch (e) {
-        console.log("*submitMicrosoftSSO error: " + e);
-        setErrorMsg("*SSO error. Please try again later.");
+      console.log("*submitMicrosoftSSO error: " + e);
+      setErrorMsg("*SSO error. Please try again later.");
     }
   };
 
   async function handleMicrosoftSSOResponse(response) {
     if (response !== null) {
       if (response.idToken) {
-        await submitIdToken(response.idToken)
-        return
+        await submitIdToken(response.idToken);
+        return;
       } else {
         console.log("handleMicrosoftSSOResponse error: response has no idToken");
       }
     } else {
       console.log("handleMicrosoftSSOResponse error: response is null");
     }
-    setErrorMsg("*SSO error. Please try again later.")
+    setErrorMsg("*SSO error. Please try again later.");
   }
 
   async function submitIdToken(idToken) {
     try {
       let ssoURL = `${process.env.NEXT_PUBLIC_USERS_URL}/sso`;
       if (loginType === "Admin") {
-          ssoURL += "/admin";
+        ssoURL += "/admin";
       }
 
       const res = await fetch(ssoURL, {
@@ -209,7 +209,7 @@ export default function Login() {
           } else {
             router.push("/uploads?checkUsage=true", "/uploads");
           }
-          return
+          return;
         } else {
           console.log("submitIdToken error: response status not OK");
         }

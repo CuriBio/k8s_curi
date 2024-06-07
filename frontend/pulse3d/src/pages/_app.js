@@ -365,6 +365,7 @@ function Pulse({ Component, pageProps }) {
     <ThemeProvider theme={MUItheme}>
       <AuthContext.Provider
         value={{
+          loginType: accountInfo.loginType,
           accountType: accountInfo.accountType,
           accountId: accountInfo.accountId,
           accountScope: accountInfo.accountScope,
