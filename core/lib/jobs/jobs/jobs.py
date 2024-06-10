@@ -560,7 +560,6 @@ async def check_customer_quota(con, customer_id, service) -> dict[str, Any]:
 
 
 async def create_analysis_preset(con, user_id, details):
-    # TODO update this
     query = (
         "INSERT INTO analysis_presets (user_id, name, parameters, type) "
         "VALUES ($1, $2, $3, $4) "
