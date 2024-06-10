@@ -47,7 +47,7 @@ from core.config import (
     DASHBOARD_URL,
     MICROSOFT_SSO_KEYS_URI,
     MICROSOFT_SSO_APP_ID,
-    MICROSOFT_SSO_JWT_ALGORITHM
+    MICROSOFT_SSO_JWT_ALGORITHM,
 )
 from models.errors import LoginError, RegistrationError, EmailRegistrationError, UnableToUpdateAccountError
 from models.users import (
@@ -149,7 +149,7 @@ async def sso_admin(request: Request, details: SSOLogin):
                 "SELECT id, suspended "
                 "FROM customers WHERE deleted_at IS NULL AND email=$1 AND login_type!=$2",
                 email,
-                LoginType.PASSWORD
+                LoginType.PASSWORD,
             )
 
             if select_query_result is None:
@@ -161,7 +161,9 @@ async def sso_admin(request: Request, details: SSOLogin):
             customer_id = select_query_result.get("id")
             bind_context_to_logger({"customer_id": str(customer_id)})
 
-            login_response = await _build_admin_login_or_sso_response(con, customer_id, email, LoginType.SSO_MICROSOFT)
+            login_response = await _build_admin_login_or_sso_response(
+                con, customer_id, email, LoginType.SSO_MICROSOFT
+            )
             return login_response
     except LoginError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
@@ -195,7 +197,7 @@ async def sso_user(request: Request, details: SSOLogin):
                 "FROM users u JOIN customers c ON u.customer_id=c.id "
                 "WHERE u.deleted_at IS NULL AND u.email=$1 AND u.login_type!=$2",
                 email,
-                LoginType.PASSWORD
+                LoginType.PASSWORD,
             )
 
             if select_query_result is None:
@@ -216,7 +218,9 @@ async def sso_user(request: Request, details: SSOLogin):
 
             # if login was successful, then update last_login column value to now
             await con.execute(
-                "UPDATE users SET last_login=$1 WHERE deleted_at IS NULL AND id=$2", datetime.now(), str(user_id),
+                "UPDATE users SET last_login=$1 WHERE deleted_at IS NULL AND id=$2",
+                datetime.now(),
+                str(user_id),
             )
 
             tokens = await create_new_tokens(
@@ -228,6 +232,7 @@ async def sso_user(request: Request, details: SSOLogin):
     except Exception:
         logger.exception("POST /sso: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @app.post("/login/admin", response_model=LoginResponse)
 async def login_admin(request: Request, details: AdminLogin):
@@ -254,7 +259,7 @@ async def login_admin(request: Request, details: AdminLogin):
                 "SELECT password, id, failed_login_attempts, suspended "
                 "FROM customers WHERE deleted_at IS NULL AND email=$1 AND login_type=$2",
                 email,
-                LoginType.PASSWORD
+                LoginType.PASSWORD,
             )
 
             # query will return None if customer email is not found
@@ -272,7 +277,9 @@ async def login_admin(request: Request, details: AdminLogin):
             # verify password, else raise LoginError
             await _verify_password(con, account_type, pw, select_query_result)
 
-            login_response = await _build_admin_login_or_sso_response(con, customer_id, email, LoginType.PASSWORD)
+            login_response = await _build_admin_login_or_sso_response(
+                con, customer_id, email, LoginType.PASSWORD
+            )
             return login_response
 
     except LoginError as e:
@@ -327,7 +334,9 @@ async def login_user(request: Request, details: UserLogin):
 
     try:
         async with request.state.pgpool.acquire() as con:
-            select_query_result = await con.fetchrow(select_query, username, str(details.customer_id), LoginType.PASSWORD)
+            select_query_result = await con.fetchrow(
+                select_query, username, str(details.customer_id), LoginType.PASSWORD
+            )
 
             # query will return None if username is not found
             # or if login_type is not "password"
@@ -366,7 +375,9 @@ async def login_user(request: Request, details: UserLogin):
                 str(customer_id),
             )
 
-            tokens = await create_new_tokens(con, user_id, customer_id, scopes, account_type, LoginType.PASSWORD)
+            tokens = await create_new_tokens(
+                con, user_id, customer_id, scopes, account_type, LoginType.PASSWORD
+            )
 
             return LoginResponse(tokens=tokens, usage_quota=usage_quota)
 
@@ -413,7 +424,9 @@ async def _build_admin_login_or_sso_response(con, customer_id, email, login_type
 async def _decode_and_verify_jwt(token):
     client = PyJWKClient(MICROSOFT_SSO_KEYS_URI)
     signing_key = client.get_signing_key_from_jwt(token)
-    payload = decode(token, signing_key.key, algorithms=[MICROSOFT_SSO_JWT_ALGORITHM], audience=MICROSOFT_SSO_APP_ID)
+    payload = decode(
+        token, signing_key.key, algorithms=[MICROSOFT_SSO_JWT_ALGORITHM], audience=MICROSOFT_SSO_APP_ID
+    )
     return payload
 
 
@@ -605,7 +618,7 @@ async def register_admin(
                         "INSERT INTO customers (email, usage_restrictions, login_type) VALUES ($1, $2, $3) RETURNING id",
                         email,
                         json.dumps(dict(PULSE3D_PAID_USAGE)),
-                        login_type
+                        login_type,
                     )
                     new_account_id = await con.fetchval(*insert_account_query_args)
                     bind_context_to_logger({"customer_id": str(new_account_id), "email": email})
@@ -644,7 +657,7 @@ async def register_admin(
                         email=email,
                         url=f"{DASHBOARD_URL}",
                         subject="Your Admin account has been created",
-                        template="registration_sso.html"
+                        template="registration_sso.html",
                     )
 
                 return AdminProfile(email=email, user_id=new_account_id.hex, scopes=details.scopes)
@@ -679,7 +692,10 @@ async def register_user(
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():
                 try:
-                    select_customer_login_type_query = ("SELECT login_type FROM customers WHERE id=$1", customer_id)
+                    select_customer_login_type_query = (
+                        "SELECT login_type FROM customers WHERE id=$1",
+                        customer_id,
+                    )
                     customer_login_type = await con.fetchval(*select_customer_login_type_query)
 
                     # suspended gets set to False by default
@@ -691,7 +707,7 @@ async def register_user(
                         email,
                         customer_id,
                         customer_login_type,
-                        customer_login_type != LoginType.PASSWORD
+                        customer_login_type != LoginType.PASSWORD,
                     )
 
                     new_account_id = await con.fetchval(*insert_account_query_args)
@@ -732,7 +748,7 @@ async def register_user(
                         email=email,
                         url=f"{DASHBOARD_URL}",
                         subject="Your User account has been created",
-                        template="registration_sso.html"
+                        template="registration_sso.html",
                     )
 
                 return UserProfile(
