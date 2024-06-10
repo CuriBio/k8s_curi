@@ -132,12 +132,8 @@ export default function UploadForm() {
 
   const { uploads, pulse3dVersions, defaultUploadForReanalysis } = useContext(UploadsContext);
 
-  const isPulse3dPreferenceSet = () => {
-    return preferences?.[productPage]?.version != null && pulse3dVersions.length > 0;
-  };
-
   const getDefaultPulse3dVersion = () => {
-    const defaultVersion = isPulse3dPreferenceSet() ? preferences[productPage].version : pulse3dVersions[0];
+    const defaultVersion = preferences?.[productPage]?.version || pulse3dVersions[0];
     return defaultVersion || "";
   };
 
@@ -257,18 +253,21 @@ export default function UploadForm() {
 
   useEffect(() => {
     // resets upload status when user makes changes
-    if (
-      (files.length > 0 && files[0] instanceof File) ||
-      JSON.stringify(analysisParams) != JSON.stringify(getDefaultAnalysisParams())
-    ) {
+    if (files.length > 0 || checkedParams) {
       setUploadSuccess(false);
     }
-  }, [files, analysisParams]);
+  }, [files, checkedParams]);
 
   useEffect(() => {
     // check for incorrect files and let user know
     checkFileContents();
   }, [files]);
+
+  useEffect(() => {
+    if (productPage && preferences) {
+      setAnalysisParams(getDefaultAnalysisParams());
+    }
+  }, [productPage, preferences]);
 
   useEffect(() => {
     if (productPage) {
@@ -306,7 +305,7 @@ export default function UploadForm() {
         if (param in currentParams && presetParams[param] !== currentParams[param]) {
           currentParams[param] = presetParams[param];
           // protect against deprecated pulse3d versions
-          if (param == "selectedPulse3dVersion" && !pulse3dVersions.includes(presetParams[param])) {
+          if (param === "selectedPulse3dVersion" && !pulse3dVersions.includes(presetParams[param])) {
             currentParams[param] = pulse3dVersions[0];
           }
         }
@@ -918,7 +917,6 @@ export default function UploadForm() {
             setAnalysisPresetName,
             analysisPresetName,
           }}
-          isPulse3dPreferenceSet={isPulse3dPreferenceSet}
         />
         <ButtonContainer>
           {uploadSuccess && <SuccessText>Upload Successful!</SuccessText>}

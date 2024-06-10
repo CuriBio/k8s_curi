@@ -17,15 +17,15 @@ depends_on = None
 
 
 def upgrade():
-    op.execute("ALTER TABLE analysis_presets ADD COLUMN type UploadType")
+    op.execute('ALTER TABLE analysis_presets ADD COLUMN "type" "UploadType"')
     op.execute("UPDATE analysis_presets SET type='mantarray'")
-    op.execute("ALTER TABLE analysis_presets ALTER COLUMN type SET NOT NULL")
+    op.execute('ALTER TABLE analysis_presets ALTER COLUMN "type" SET NOT NULL')
     op.execute("ALTER TABLE analysis_presets DROP CONSTRAINT unique_name_per_user")
     op.execute(
-        "ALTER TABLE analysis_presets ADD CONSTRAINT unique_name_type_per_user UNIQUE (user_id, name, type)"
+        'ALTER TABLE analysis_presets ADD CONSTRAINT unique_name_type_per_user UNIQUE (user_id, name, "type")'
     )
     op.execute(
-        "INSERT INTO analysis_presets (user_id, name, type) SELECT user_id, name, 'nautilai' FROM analysis_presets"
+        """INSERT INTO analysis_presets (user_id, name, parameters, "type") SELECT user_id, name, parameters, 'nautilai' FROM analysis_presets"""
     )
 
 
@@ -34,4 +34,4 @@ def downgrade():
     op.execute("DELETE FROM analysis_presets WHERE type='nautilai'")
     op.execute("ALTER TABLE analysis_presets DROP CONSTRAINT unique_name_type_per_user")
     op.execute("ALTER TABLE analysis_presets ADD CONSTRAINT unique_name_per_user UNIQUE (user_id, name)")
-    op.execute("ALTER TABLE analysis_presets DROP COLUMN type")
+    op.execute('ALTER TABLE analysis_presets DROP COLUMN "type"')
