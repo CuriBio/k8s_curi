@@ -521,7 +521,7 @@ async def get_customer_quota(con, customer_id, service) -> dict[str, Any]:
     usage_limit_dict = json.loads(usage_limit_json["usage"])
 
     # usage query returns none if no jobs are found but 0 if no uploads are found
-    current_job_usage = int(current_usage_data.get("total_jobs", 0))
+    current_job_usage = current_usage_data.get("total_jobs", 0)
     if current_job_usage is None:
         current_job_usage = 0
     current_usage_dict = {
