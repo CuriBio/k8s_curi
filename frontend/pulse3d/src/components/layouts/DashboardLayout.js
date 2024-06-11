@@ -4,7 +4,6 @@ import styled from "styled-components";
 import { useRouter } from "next/router";
 import semverRsort from "semver/functions/rsort";
 import { AuthContext, UploadsContext } from "@/pages/_app";
-import { formatJob } from "@/utils/generic";
 
 const Container = styled.div`
   height: inherit;
@@ -25,12 +24,11 @@ const PageContainer = styled.div`
 export default function DashboardLayout({ children }) {
   const router = useRouter();
 
-  const { accountType, accountId, productPage } = useContext(AuthContext);
+  const { accountType, productPage } = useContext(AuthContext);
 
   const {
     uploads,
-    setUploads,
-    setJobs,
+    getUploadsAndJobs,
     setPulse3dVersions,
     setMetaPulse3dVersions,
     setDefaultUploadForReanalysis,
@@ -45,7 +43,7 @@ export default function DashboardLayout({ children }) {
     } else if (accountType === "user" && productPage) {
       getUploadsAndJobs(productPage);
     }
-  }, [productPage, accountType, uploads]);
+  }, [productPage, accountType]);
 
   useEffect(() => {
     getPulse3dVersions();
@@ -57,48 +55,6 @@ export default function DashboardLayout({ children }) {
       setDefaultUploadForReanalysis(null);
     }
   }, [router.pathname]);
-
-  const getUploadsAndJobs = async (uploadType) => {
-    try {
-      let url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads`;
-      if (uploadType) {
-        url += `?upload_type=${uploadType}`;
-      }
-      const response = await fetch(url);
-
-      if (response && response.status === 200) {
-        const uploadsArr = await response.json();
-        setUploads([...uploadsArr]);
-      }
-    } catch (e) {
-      console.log("ERROR getting uploads for user", e);
-      return;
-    }
-
-    let jobsRes = [];
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?download=False`);
-      if (response && response.status === 200) {
-        jobsRes = (await response.json()).jobs;
-      }
-    } catch (e) {
-      console.log("ERROR fetching jobs", e);
-      return;
-    }
-
-    try {
-      const newJobs = jobsRes
-        .map((job) => {
-          return formatJob(job, {}, accountId);
-        })
-        .filter((j) => j !== null);
-
-      setJobs([...newJobs]);
-    } catch (e) {
-      console.log("ERROR processing jobs", e);
-      return;
-    }
-  };
 
   // when page loads, get all available pulse3d versions
   async function getPulse3dVersions() {

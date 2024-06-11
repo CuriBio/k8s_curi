@@ -39,7 +39,7 @@ const ListItem = muiStyled(MenuItem)`
 `;
 
 const ListText = styled.div`
-  width: 97%;
+  width: 100%;
   overflow: hidden;
 `;
 
