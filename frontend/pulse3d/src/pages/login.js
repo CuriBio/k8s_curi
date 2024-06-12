@@ -323,7 +323,7 @@ export default function Login() {
         labels={
           emailSent
             ? [
-                "If there's an account associated with that email, we've sent a link to reset the password.",
+                "If there's a password-based account associated with that email, we've sent a link to reset the password.",
                 "Please check your inbox.",
               ]
             : []
