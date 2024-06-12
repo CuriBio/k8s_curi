@@ -740,7 +740,7 @@ export default function WaveformGraph({
       "var(--curi-peaks)"
     );
     // remove peaks line if no peaks are found
-    if (!thresholdEndpoints.peaks.y1 || !thresholdEndpoints.peaks.y2) {
+    if (thresholdEndpoints.peaks.y1 == null || !thresholdEndpoints.peaks.y2 == null) {
       peakThresholdLine.attr("display", "none");
       peaksY1.attr("display", "none");
       peaksY2.attr("display", "none");
@@ -773,7 +773,7 @@ export default function WaveformGraph({
       "var(--curi-valleys)"
     );
     // remove valleys line if no valleys are found
-    if (!thresholdEndpoints.valleys.y1 || !thresholdEndpoints.valleys.y2) {
+    if (thresholdEndpoints.valleys.y1 == null || thresholdEndpoints.valleys.y2 == null) {
       valleyThresholdLine.attr("display", "none");
       valleysY1.attr("display", "none");
       valleysY2.attr("display", "none");
