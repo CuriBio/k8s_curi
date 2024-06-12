@@ -774,14 +774,14 @@ async def email_account(
     try:
         async with request.state.pgpool.acquire() as con:
             query = (
-                "SELECT id, customer_id, name FROM users WHERE email=$1"
+                "SELECT id, customer_id, name FROM users WHERE email=$1 AND login_type=$2"
                 if user
-                else "SELECT id FROM customers WHERE email=$1"
+                else "SELECT id FROM customers WHERE email=$1 AND login_type=$2"
             )
 
-            row = await con.fetchrow(query, email)
+            row = await con.fetchrow(query, email, LoginType.PASSWORD)
 
-            # send email if found, otherwise return 204, doesn't need to raise an exception
+            # send email if found and password-based user, otherwise return 204, doesn't need to raise an exception
             if row is None:
                 return
 
