@@ -130,11 +130,11 @@ module "eks_cluster_v2" {
     },
 
     workers = {
-      desired_size = 1
-      min_size     = 0
-      max_size     = 6
+      desired_size = 2
+      min_size     = 2
+      max_size     = 10
 
-      instance_types = ["c6a.large"]
+      instance_types = ["c6a.xlarge"]
       subnet_ids     = [module.vpc.private_subnets[0], module.vpc.private_subnets[1]]
 
       labels = {

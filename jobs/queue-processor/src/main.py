@@ -74,7 +74,7 @@ def manage_jobs(version: str, target_num_workers: int):
         logger.info(f"Starting {formatted_name}")
         complete_ecr_repo = f"{ECR_REPO}:{version}"
 
-        resources = kclient.V1ResourceRequirements(requests={"memory": "1000Mi"})
+        resources = kclient.V1ResourceRequirements(requests={"memory": "4000Mi"})
         # Create container
         container = kclient.V1Container(
             name=formatted_name,
