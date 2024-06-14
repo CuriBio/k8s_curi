@@ -608,6 +608,18 @@ async def register_admin(
     try:
         email = details.email.lower()
         login_type = details.login_type
+        sso_organization = details.sso_organization
+        sso_admin_org_id = details.sso_admin_org_id
+
+        if login_type == LoginType.PASSWORD and (
+            sso_organization is not None or sso_admin_org_id is not None
+        ):
+            raise RegistrationError(
+                "Password-based accounts should not send sso_organization or sso_admin_org_id"
+            )
+
+        if login_type != LoginType.PASSWORD and (sso_organization is None or sso_admin_org_id is None):
+            raise RegistrationError("SSO accounts require sso_organization and sso_admin_org_id")
 
         check_prohibited_admin_scopes(details.scopes, token.scopes)
 
@@ -615,10 +627,13 @@ async def register_admin(
             async with con.transaction():
                 try:
                     insert_account_query_args = (
-                        "INSERT INTO customers (email, usage_restrictions, login_type) VALUES ($1, $2, $3) RETURNING id",
+                        "INSERT INTO customers (email, usage_restrictions, login_type, sso_organization, sso_admin_org_id) "
+                        "VALUES ($1, $2, $3, $4, $5) RETURNING id",
                         email,
                         json.dumps(dict(PULSE3D_PAID_USAGE)),
                         login_type,
+                        sso_organization,
+                        sso_admin_org_id,
                     )
                     new_account_id = await con.fetchval(*insert_account_query_args)
                     bind_context_to_logger({"customer_id": str(new_account_id), "email": email})

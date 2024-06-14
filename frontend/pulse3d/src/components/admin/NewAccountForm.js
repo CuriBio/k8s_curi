@@ -77,7 +77,7 @@ const getDefaultAccountInfo = (type) => {
     admin: {
       email: "",
       scopes: [],
-      login_type: Object.keys(LoginType)[0],
+      login_type: 0,
     },
     user: {
       email: "",
@@ -103,7 +103,7 @@ export default function NewAccountForm({ type }) {
   const getUserCreatedMsg = () => {
     if (
       (isForUser && customerLoginType === Object.keys(LoginType)[0]) ||
-      (!isForUser && newAccountInfo.login_type === Object.keys(LoginType)[0])
+      (!isForUser && newAccountInfo.login_type === 0)
     ) {
       return "Please have them check their inbox for a verification email to begin accessing their account. Link will expire after 24 hours.";
     }
@@ -134,7 +134,12 @@ export default function NewAccountForm({ type }) {
     else {
       const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/register/${type}`, {
         method: "POST",
-        body: JSON.stringify(newAccountInfo),
+        body: JSON.stringify({
+          ...newAccountInfo,
+          ...("login_type" in newAccountInfo
+            ? { login_type: Object.keys(LoginType)[newAccountInfo.login_type] }
+            : {}),
+        }),
       });
 
       if (res) {
@@ -220,15 +225,52 @@ export default function NewAccountForm({ type }) {
               <DropDownWidget
                 label="Choose a Login Type"
                 options={Object.values(LoginType)}
-                initialSelected={0}
+                initialSelected={newAccountInfo.login_type}
                 height={35}
                 handleSelection={(i) => {
                   setNewAccountInfo((prevState) => {
-                    return { ...prevState, login_type: Object.keys(LoginType)[i] };
+                    if (i === 0) {
+                      delete prevState.sso_organization;
+                      delete prevState.sso_admin_org_id;
+                    } else {
+                      prevState.sso_organization = "";
+                      prevState.sso_admin_org_id = "";
+                    }
+                    return { ...prevState, login_type: i };
                   });
                 }}
               />
             </DropDownContainer>
+          </>
+        )}
+        {!isForUser && newAccountInfo.login_type !== 0 && (
+          <>
+            <FormInput
+              name="sso_organization"
+              label="SSO Organization"
+              placeholder="The admin's SSO organization, e.g. a Microsoft Azure Tenant ID"
+              value={newAccountInfo.sso_organization}
+              onChangeFn={(e) => {
+                setErrorMsg("");
+                setNewAccountInfo({
+                  ...newAccountInfo,
+                  sso_organization: e.target.value,
+                });
+              }}
+            />
+            <FormInput
+              name="sso_admin_org_id"
+              label="Admin SSO Organization ID"
+              placeholder="The admin's id in their SSO organization, e.g. a Microsoft Azure Object ID"
+              value={newAccountInfo.sso_admin_org_id}
+              onChangeFn={(e) => {
+                setErrorMsg("");
+                setNewAccountInfo({
+                  ...newAccountInfo,
+                  sso_admin_org_id: e.target.value,
+                });
+              }}
+            />
           </>
         )}
         <ErrorText id="userError" role="errorMsg">

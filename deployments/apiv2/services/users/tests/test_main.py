@@ -893,10 +893,13 @@ def test_register__admin__success(mocked_asyncpg_con, spied_pw_hasher, mocker):
     }
 
     mocked_asyncpg_con.fetchval.assert_called_once_with(
-        "INSERT INTO customers (email, usage_restrictions, login_type) VALUES ($1, $2, $3) RETURNING id",
+        "INSERT INTO customers (email, usage_restrictions, login_type, sso_organization, sso_admin_org_id) "
+        "VALUES ($1, $2, $3, $4, $5) RETURNING id",
         registration_details["email"].lower(),
         json.dumps(dict(PULSE3D_PAID_USAGE)),
         "password",
+        None,
+        None,
     )
     mocked_asyncpg_con.execute.assert_called_once_with(
         "INSERT INTO account_scopes VALUES ($1, NULL, unnest($2::text[]))", test_user_id, expected_scopes
@@ -909,10 +912,10 @@ def test_register__admin__login_type_sso_microsoft_success(mocked_asyncpg_con, s
     expected_scopes = [Scopes.MANTARRAY__ADMIN, Scopes.NAUTILAI__ADMIN]
     registration_details = {
         "email": "tEsT@email.com",
-        "password1": TEST_PASSWORD,
-        "password2": TEST_PASSWORD,
         "scopes": expected_scopes,
         "login_type": "sso_microsoft",
+        "sso_organization": "some-organization",
+        "sso_admin_org_id": "some-admin-org-id",
     }
 
     test_user_id = uuid.uuid4()
@@ -934,10 +937,13 @@ def test_register__admin__login_type_sso_microsoft_success(mocked_asyncpg_con, s
     }
 
     mocked_asyncpg_con.fetchval.assert_called_once_with(
-        "INSERT INTO customers (email, usage_restrictions, login_type) VALUES ($1, $2, $3) RETURNING id",
+        "INSERT INTO customers (email, usage_restrictions, login_type, sso_organization, sso_admin_org_id) "
+        "VALUES ($1, $2, $3, $4, $5) RETURNING id",
         registration_details["email"].lower(),
         json.dumps(dict(PULSE3D_PAID_USAGE)),
         "sso_microsoft",
+        "some-organization",
+        "some-admin-org-id",
     )
     mocked_asyncpg_con.execute.assert_called_once_with(
         "INSERT INTO account_scopes VALUES ($1, NULL, unnest($2::text[]))", test_user_id, expected_scopes

@@ -67,6 +67,8 @@ class AdminCreate(ScopeConverter):
     email: EmailStr
     scopes: list[Scopes]
     login_type: LoginType = Field(default=LoginType.PASSWORD)
+    sso_organization: str | None = Field(default=None)
+    sso_admin_org_id: str | None = Field(default=None)
 
 
 class UserCreate(ScopeConverter):
