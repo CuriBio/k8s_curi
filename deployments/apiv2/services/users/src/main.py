@@ -137,9 +137,11 @@ async def sso_admin(request: Request, details: SSOLogin):
     """
     id_token = await _decode_and_verify_jwt(details.id_token)
     email = id_token.get("email")
+    tid = id_token.get("tid")
+    oid = id_token.get("oid")
     client_type = details.client_type if details.client_type else "unknown"
 
-    bind_context_to_logger({"client_type": client_type, "email": email})
+    bind_context_to_logger({"client_type": client_type, "email": email, "tid": tid, "oid": oid})
 
     logger.info(f"Admin SSO attempt from client '{client_type}'")
 
@@ -147,9 +149,13 @@ async def sso_admin(request: Request, details: SSOLogin):
         async with request.state.pgpool.acquire() as con:
             select_query_result = await con.fetchrow(
                 "SELECT id, suspended "
-                "FROM customers WHERE deleted_at IS NULL AND email=$1 AND login_type!=$2",
+                "FROM customers "
+                "WHERE deleted_at IS NULL AND email=$1 AND login_type!=$2 "
+                "AND sso_organization=$3 AND sso_admin_org_id=$4",
                 email,
                 LoginType.PASSWORD,
+                tid,
+                oid,
             )
 
             if select_query_result is None:
