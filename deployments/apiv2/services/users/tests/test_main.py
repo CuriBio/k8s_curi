@@ -512,7 +512,10 @@ def test_sso__user__returns_invalid_creds_if_customer_account_is_suspended(mocke
 @freeze_time()
 @pytest.mark.parametrize("send_client_type", [True, False])
 def test_sso__admin__success(send_client_type, mocked_asyncpg_con, mocker):
-    mocker.patch.object(main, "_decode_and_verify_jwt", return_value={"email": "TEST@email.com"})
+    email = "TEST@email.com"
+    tid = "testtid"
+    oid = "testoid"
+    mocker.patch.object(main, "_decode_and_verify_jwt", return_value={"email": email, "tid": tid, "oid": oid})
 
     mocked_usage_check = mocker.patch.object(
         main,
@@ -567,9 +570,12 @@ def test_sso__admin__success(send_client_type, mocked_asyncpg_con, mocker):
     )
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
-        "SELECT id, suspended FROM customers WHERE deleted_at IS NULL AND email=$1 AND login_type!=$2",
-        "TEST@email.com",
+        "SELECT id, suspended FROM customers WHERE deleted_at IS NULL AND "
+        "email=$1 AND login_type!=$2 AND sso_organization=$3 AND sso_admin_org_id=$4",
+        email,
         "password",
+        tid,
+        oid,
     )
     mocked_asyncpg_con.fetch.assert_called_once_with(
         "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL", test_customer_id
