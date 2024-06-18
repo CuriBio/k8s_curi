@@ -359,12 +359,14 @@ export default function WaveformGraph({
       const features = selectedMarkerToMove.type === "peak" ? peaks : valleys;
       const coords = waveformForFeatures[features[selectedMarkerToMove.idx]];
 
-      focusText
-        .html("[ " + coords[0].toFixed(2) + ", " + coords[1].toFixed(2) + " ]")
-        .attr("x", x(coords[0]) + 15)
-        .attr("y", y(coords[1]) - 20)
-        .style("opacity", 1)
-        .style("z-index", 5);
+      if (coords != null) {
+        focusText
+          .html("[ " + coords[0].toFixed(2) + ", " + coords[1].toFixed(2) + " ]")
+          .attr("x", x(coords[0]) + 15)
+          .attr("y", y(coords[1]) - 20)
+          .style("opacity", 1)
+          .style("z-index", 5);
+      }
     }
 
     /* --------------------------------------
@@ -943,22 +945,28 @@ export default function WaveformGraph({
                   <li>
                     Move:
                     <br />
-                    Click and drag markers along the waveform line. Or right click to use arrow keys.
+                    {`Drag markers along the waveform line, or right click a marker and select "Move" to use arrow keys.`}
                   </li>
                   <li>
                     Add:
                     <br />
-                    Right-click along waveform line for placemenet.
+                    Right-click along waveform line for placement options.
                   </li>
                   <li>
                     Delete:
                     <br />
-                    Right-click directly on marker.
+                    {`Right-click on a marker and select "Delete".`}
+                  </li>
+                  <li>
+                    Filter:
+                    <br />
+                    Drag the purple/orange horizontal lines to filter peaks/valleys respectively. The
+                    endpoints can be adjusted independently as well to create a sloped line.
                   </li>
                   <li>
                     Window:
                     <br />
-                    Drag orange and green horizontal lines to filter minimum peaks and maximum valleys.
+                    Drag vertical black bar to set the analysis window. The window itself can be dragged too.
                   </li>
                 </TooltipText>
               }
@@ -1003,11 +1011,11 @@ export default function WaveformGraph({
                 <tr>
                   <td>
                     <Triangle type="peak" direction="top" />
-                    Peaks
+                    Peak
                   </td>
                   <td>
                     <LineColor type="peak" />
-                    Peak Detection Limit
+                    Peak Limit
                   </td>
                   <td>
                     <LineAdjuster type="peak" />
@@ -1015,11 +1023,11 @@ export default function WaveformGraph({
                   </td>
                   <td>
                     <Triangle type="valley" direction="bottom" />
-                    Valleys
+                    Valley
                   </td>
                   <td>
                     <LineColor type="valley" />
-                    Valley Limiter
+                    Valley Limit
                   </td>
                   <td>
                     <LineAdjuster type="valley" />
@@ -1030,7 +1038,7 @@ export default function WaveformGraph({
                       <Triangle type="error" direction="top" />
                       <Triangle type="error" direction="bottom" />
                     </ToRowComponent>
-                    Duplicate Valley or Peak
+                    Duplicate Peak or Valley
                   </td>
                 </tr>
               </tbody>

@@ -988,7 +988,7 @@ export default function InteractiveWaveformModal({
               title={
                 <TooltipText>
                   {
-                    "Automatically remove duplicate peaks and valleys from all wells and can only be performed when no other changes have been made."
+                    "Automatically remove duplicate peaks/valleys from all wells. Can only be performed when no other changes have been made."
                   }
                 </TooltipText>
               }
