@@ -190,20 +190,24 @@ async def sso_user(request: Request, details: SSOLogin):
     """
     id_token = await _decode_and_verify_jwt(details.id_token)
     email = id_token.get("email")
+    tid = id_token.get("tid")
+    oid = id_token.get("oid")
     client_type = details.client_type if details.client_type else "unknown"
 
-    bind_context_to_logger({"client_type": client_type, "email": email})
+    bind_context_to_logger({"client_type": client_type, "email": email, "tid": tid, "oid": oid})
 
     logger.info(f"User SSO attempt from client '{client_type}'")
 
     try:
         async with request.state.pgpool.acquire() as con:
             select_query_result = await con.fetchrow(
-                "SELECT u.id, u.suspended AS suspended, u.customer_id, c.suspended AS customer_suspended "
+                "SELECT u.id, u.suspended AS suspended, u.customer_id, c.suspended AS customer_suspended, "
+                "u.verified, u.sso_user_org_id "
                 "FROM users u JOIN customers c ON u.customer_id=c.id "
-                "WHERE u.deleted_at IS NULL AND u.email=$1 AND u.login_type!=$2",
+                "WHERE u.deleted_at IS NULL AND u.email=$1 AND u.login_type!=$2 AND c.sso_organization=$3",
                 email,
                 LoginType.PASSWORD,
+                tid,
             )
 
             if select_query_result is None:
@@ -217,17 +221,35 @@ async def sso_user(request: Request, details: SSOLogin):
 
             user_id = select_query_result.get("id")
             customer_id = select_query_result.get("customer_id")
+            sso_user_org_id = select_query_result.get("sso_user_org_id")
             bind_context_to_logger({"customer_id": str(customer_id), "user_id": str(user_id)})
+
+            if select_query_result["verified"]:
+                if oid is not None and oid == sso_user_org_id:
+                    # if sso was successful, then update last_login column value to now
+                    await con.execute(
+                        "UPDATE users SET last_login=$1 WHERE deleted_at IS NULL AND id=$2",
+                        datetime.now(),
+                        str(user_id),
+                    )
+                else:
+                    raise LoginError("User organization id mismatch.")
+            else:
+                if sso_user_org_id is None and oid is not None:
+                    # first sso attempt.  initialize the user's sso_user_org_id with the one in the incoming token
+                    await con.execute(
+                        "UPDATE users SET last_login=$1, sso_user_org_id=$2, verified='t' "
+                        "WHERE deleted_at IS NULL AND id=$3",
+                        datetime.now(),
+                        str(oid),
+                        str(user_id),
+                    )
+                else:
+                    # user already has a sso_user_org_id value in the DB, or incoming token has no oid
+                    raise LoginError("Bad user organization id state.")
 
             # get scopes from account_scopes table
             scopes = await get_account_scopes(con, user_id, False)
-
-            # if login was successful, then update last_login column value to now
-            await con.execute(
-                "UPDATE users SET last_login=$1 WHERE deleted_at IS NULL AND id=$2",
-                datetime.now(),
-                str(user_id),
-            )
 
             tokens = await create_new_tokens(
                 con, user_id, customer_id, scopes, AccountTypes.USER, LoginType.SSO_MICROSOFT
@@ -719,16 +741,14 @@ async def register_user(
                     )
                     customer_login_type = await con.fetchval(*select_customer_login_type_query)
 
-                    # suspended gets set to False by default
-                    # verified gets set to False for password users and to True for SSO users
+                    # suspended and verified get set to False by default
                     insert_account_query_args = (
-                        "INSERT INTO users (name, email, customer_id, login_type, verified) "
-                        "VALUES ($1, $2, $3, $4, $5) RETURNING id",
+                        "INSERT INTO users (name, email, customer_id, login_type) "
+                        "VALUES ($1, $2, $3, $4) RETURNING id",
                         username,
                         email,
                         customer_id,
                         customer_login_type,
-                        customer_login_type != LoginType.PASSWORD,
                     )
 
                     new_account_id = await con.fetchval(*insert_account_query_args)
