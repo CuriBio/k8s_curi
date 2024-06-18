@@ -118,7 +118,7 @@ const ContextMenuContainer = styled.div`
 const ChangelogLabel = styled.div`
   font-size: 16px;
   font-style: italic;
-  right: 600px;
+  right: 500px;
   position: relative;
   &:hover {
     color: var(--teal-green);
@@ -975,18 +975,27 @@ export default function WaveformGraph({
             </Tooltip>
           </HowTo>
           <ButtonWidget
+            label="Remove Duplicates"
+            width="180px"
+            height="30px"
+            fontSize={15}
+            borderRadius="5px"
+            clickFn={customAnalysisSettingsUpdaters.removeDupsForWell}
+          />
+          <ButtonWidget
             label="Undo"
             width="80px"
             height="30px"
             fontSize={15}
             borderRadius="5px"
+            left="5px"
             clickFn={changelogActions.undo}
           />
           <ButtonWidget
             label="Reset"
             width="80px"
             height="30px"
-            left="5px"
+            left="10px"
             fontSize={15}
             borderRadius="5px"
             clickFn={changelogActions.reset}
@@ -995,7 +1004,7 @@ export default function WaveformGraph({
             label="Save"
             width="80px"
             height="30px"
-            left="10px"
+            left="15px"
             fontSize={15}
             borderRadius="5px"
             clickFn={changelogActions.save}
