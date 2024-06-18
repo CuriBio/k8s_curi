@@ -402,9 +402,11 @@ def test_login__admin__returns_invalid_creds_if_account_is_suspended(mocked_asyn
 
 @freeze_time()
 @pytest.mark.parametrize("send_client_type", [True, False])
-def test_sso__user__success(send_client_type, mocked_asyncpg_con, mocker):
+def test_sso__user__sign_in_success(send_client_type, mocked_asyncpg_con, mocker):
     email = "TEST3@email.com"
-    mocker.patch.object(main, "_decode_and_verify_jwt", return_value={"email": email})
+    tid = "testtid"
+    oid = "testoid"
+    mocker.patch.object(main, "_decode_and_verify_jwt", return_value={"email": email, "tid": tid, "oid": oid})
 
     sso_details = {"id_token": "sometoken"}
     if send_client_type:
@@ -419,6 +421,8 @@ def test_sso__user__success(send_client_type, mocked_asyncpg_con, mocker):
         "suspended": False,
         "customer_id": test_customer_id,
         "customer_suspended": False,
+        "verified": True,
+        "sso_user_org_id": oid,
     }
     mocked_asyncpg_con.fetch.return_value = [{"scope": test_scope.value}]
     spied_create_token = mocker.spy(main, "create_new_tokens")
@@ -453,12 +457,13 @@ def test_sso__user__success(send_client_type, mocked_asyncpg_con, mocker):
     )
 
     expected_query = (
-        "SELECT u.id, u.suspended AS suspended, u.customer_id, c.suspended AS customer_suspended "
+        "SELECT u.id, u.suspended AS suspended, u.customer_id, c.suspended AS customer_suspended, "
+        "u.verified, u.sso_user_org_id "
         "FROM users u JOIN customers c ON u.customer_id=c.id "
-        "WHERE u.deleted_at IS NULL AND u.email=$1 AND u.login_type!=$2"
+        "WHERE u.deleted_at IS NULL AND u.email=$1 AND u.login_type!=$2 AND c.sso_organization=$3"
     )
 
-    mocked_asyncpg_con.fetchrow.assert_called_once_with(expected_query, email, "password")
+    mocked_asyncpg_con.fetchrow.assert_called_once_with(expected_query, email, "password", tid)
     mocked_asyncpg_con.fetch.assert_called_once_with(
         "SELECT scope FROM account_scopes WHERE user_id=$1", test_user_id
     )
@@ -467,6 +472,120 @@ def test_sso__user__success(send_client_type, mocked_asyncpg_con, mocker):
     )
 
     assert spied_create_token.call_count == 1
+
+
+def test_sso__user__sign_in_organization_mismatch(mocked_asyncpg_con, mocker):
+    email = "TEST3@email.com"
+    tid = "testtid"
+    oid = "testoid"
+    mocker.patch.object(main, "_decode_and_verify_jwt", return_value={"email": email, "tid": tid, "oid": oid})
+
+    sso_details = {"id_token": "sometoken"}
+
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "id": uuid.uuid4(),
+        "suspended": False,
+        "customer_id": uuid.uuid4(),
+        "customer_suspended": False,
+        "verified": True,
+        "sso_user_org_id": "not-oid",
+    }
+
+    response = test_client.post("/sso", json=sso_details)
+    assert response.status_code == 401
+    assert response.json() == {"detail": "User organization id mismatch."}
+
+
+def test_sso__user__sign_up_success(mocked_asyncpg_con, mocker):
+    email = "TEST3@email.com"
+    tid = "testtid"
+    oid = "testoid"
+    mocker.patch.object(main, "_decode_and_verify_jwt", return_value={"email": email, "tid": tid, "oid": oid})
+
+    sso_details = {"id_token": "sometoken"}
+
+    test_customer_id = uuid.uuid4()
+    test_user_id = uuid.uuid4()
+    test_scope = Scopes.MANTARRAY__BASE
+
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "id": test_user_id,
+        "suspended": False,
+        "customer_id": test_customer_id,
+        "customer_suspended": False,
+        "verified": False,
+        "sso_user_org_id": None,
+    }
+    mocked_asyncpg_con.fetch.return_value = [{"scope": test_scope.value}]
+    spied_create_token = mocker.spy(main, "create_new_tokens")
+
+    expected_access_token = create_token(
+        userid=test_user_id,
+        customer_id=test_customer_id,
+        scopes=[test_scope],
+        account_type=AccountTypes.USER,
+        login_type=LoginType.SSO_MICROSOFT,
+        refresh=False,
+    )
+    expected_refresh_token = create_token(
+        userid=test_user_id,
+        customer_id=test_customer_id,
+        scopes=[Scopes.REFRESH],
+        account_type=AccountTypes.USER,
+        login_type=LoginType.SSO_MICROSOFT,
+        refresh=True,
+    )
+
+    response = test_client.post("/sso", json=sso_details)
+    assert response.status_code == 200
+
+    assert (
+        response.json()
+        == LoginResponse(
+            tokens=AuthTokens(access=expected_access_token, refresh=expected_refresh_token),
+            usage_quota=None,
+            user_scopes=None,
+        ).model_dump()
+    )
+
+    expected_query = (
+        "SELECT u.id, u.suspended AS suspended, u.customer_id, c.suspended AS customer_suspended, "
+        "u.verified, u.sso_user_org_id "
+        "FROM users u JOIN customers c ON u.customer_id=c.id "
+        "WHERE u.deleted_at IS NULL AND u.email=$1 AND u.login_type!=$2 AND c.sso_organization=$3"
+    )
+
+    mocked_asyncpg_con.fetchrow.assert_called_once_with(expected_query, email, "password", tid)
+    mocked_asyncpg_con.fetch.assert_called_once_with(
+        "SELECT scope FROM account_scopes WHERE user_id=$1", test_user_id
+    )
+    mocked_asyncpg_con.execute.assert_called_with(
+        "UPDATE users SET refresh_token=$1 WHERE id=$2", expected_refresh_token.token, test_user_id
+    )
+
+    assert spied_create_token.call_count == 1
+
+
+def test_sso__user__sign_up_bad_organization_state(mocked_asyncpg_con, mocker):
+    email = "TEST3@email.com"
+    tid = "testtid"
+    oid = "testoid"
+    mocker.patch.object(main, "_decode_and_verify_jwt", return_value={"email": email, "tid": tid, "oid": oid})
+
+    sso_details = {"id_token": "sometoken"}
+
+    mocked_asyncpg_con.fetchrow.return_value = {
+        "id": uuid.uuid4(),
+        "suspended": False,
+        "customer_id": uuid.uuid4(),
+        "customer_suspended": False,
+        "verified": False,
+        "sso_user_org_id": "some-other-org-somehow",
+    }
+
+    response = test_client.post("/sso", json=sso_details)
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Bad user organization id state."}
 
 
 def test_sso__user__no_matching_record_in_db(mocked_asyncpg_con, mocker):
@@ -645,13 +764,12 @@ def test_register__user__success(special_char, mocked_asyncpg_con, mocker):
         [
             mocker.call("SELECT login_type FROM customers WHERE id=$1", test_customer_id),
             mocker.call(
-                "INSERT INTO users (name, email, customer_id, login_type, verified) "
-                "VALUES ($1, $2, $3, $4, $5) RETURNING id",
+                "INSERT INTO users (name, email, customer_id, login_type) "
+                "VALUES ($1, $2, $3, $4) RETURNING id",
                 registration_details["username"].lower(),
                 registration_details["email"].lower(),
                 test_customer_id,
                 "password",
-                False,
             ),
         ]
     )
@@ -696,13 +814,12 @@ def test_register__user__sso__success(mocked_asyncpg_con, mocker):
         [
             mocker.call("SELECT login_type FROM customers WHERE id=$1", test_customer_id),
             mocker.call(
-                "INSERT INTO users (name, email, customer_id, login_type, verified) "
-                "VALUES ($1, $2, $3, $4, $5) RETURNING id",
+                "INSERT INTO users (name, email, customer_id, login_type) "
+                "VALUES ($1, $2, $3, $4) RETURNING id",
                 registration_details["username"].lower(),
                 registration_details["email"].lower(),
                 test_customer_id,
                 "sso_microsoft",
-                True,
             ),
         ]
     )
