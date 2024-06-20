@@ -1021,11 +1021,13 @@ async def get_all_users(request: Request, token=Depends(ProtectedAny(tag=ScopeTa
     bind_context_to_logger({"customer_id": str(customer_id), "user_id": None})
 
     query = (
-        "SELECT u.id, u.name, u.email, u.created_at, u.last_login, u.verified, u.suspended, u.reset_token, array_agg(s.scope) as scopes "
+        "SELECT u.id, u.name, u.email, u.created_at, u.last_login, u.verified, "
+        "u.suspended, u.login_type, u.reset_token, array_agg(s.scope) as scopes "
         "FROM users u "
         "LEFT JOIN account_scopes s ON u.id=s.user_id "
         "WHERE u.customer_id=$1 AND u.deleted_at IS NULL "
-        "GROUP BY u.id, u.name, u.email, u.created_at, u.last_login, u.verified, u.suspended, u.reset_token "
+        "GROUP BY u.id, u.name, u.email, u.created_at, u.last_login, u.verified, "
+        "u.suspended, u.login_type, u.reset_token "
         "ORDER BY u.suspended"
     )
 
