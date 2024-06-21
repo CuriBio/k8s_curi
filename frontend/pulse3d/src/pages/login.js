@@ -3,9 +3,15 @@ import { useState } from "react";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import LoginForm from "@/components/account/LoginForm";
 import FormInput from "@/components/basicWidgets/FormInput";
+import Image from "next/image";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import { PublicClientApplication } from "@azure/msal-browser";
+
+// required for static export, default loader errors on build
+const imageLoader = ({ src }) => {
+  return src;
+};
 
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
@@ -66,6 +72,15 @@ const ModalInputContainer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
+`;
+
+const ImageButtonContainer = styled.div`
+  position: relative;
+  width: 250px;
+  height: 50px;
+  &:hover {
+    cursor: pointer;
+  }
 `;
 
 export default function Login() {
@@ -310,11 +325,15 @@ export default function Login() {
           backgroundColor={inProgress ? "var(--teal-green)" : "var(--dark-blue)"}
         />
       </ModalContainer>
-      <ButtonWidget
-        label={"Sign in with Microsoft"}
-        clickFn={submitMicrosoftSSO}
-        backgroundColor={"#2F2F2F"}
-      />
+      <ImageButtonContainer>
+        <Image
+          src={"/ms-symbollockup_signin_dark.svg"}
+          alt={"Sign in with Microsoft"}
+          loader={imageLoader}
+          layout={"fill"}
+          onClick={submitMicrosoftSSO}
+        />
+      </ImageButtonContainer>
       <ModalWidget
         open={displayForgotPW}
         width={500}
