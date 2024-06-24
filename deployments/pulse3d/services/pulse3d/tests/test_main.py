@@ -6,7 +6,7 @@ import uuid
 import pandas as pd
 import pytest
 from semver import VersionInfo
-from auth import create_token, decode_token, Scopes, ScopeTags, AccountTypes
+from auth import create_token, Scopes, ScopeTags, AccountTypes
 from utils.s3 import S3Error
 from src import main
 import numpy as np

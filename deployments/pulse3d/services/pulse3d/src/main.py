@@ -848,7 +848,9 @@ async def save_analysis_presets(
 
 
 @app.get("/presets")
-async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))):
+async def get_analysis_presets(
+    request: Request, upload_type: str = Query(), token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
+):
     """Get analysis parameter preset for user"""
     try:
         user_id = str(uuid.UUID(token.userid))
@@ -856,7 +858,11 @@ async def get_analysis_presets(request: Request, token=Depends(ProtectedAny(tag=
         bind_context_to_logger({"customer_id": customer_id, "user_id": user_id})
 
         async with request.state.pgpool.acquire() as con:
-            return await con.fetch("SELECT name, parameters FROM analysis_presets where user_id=$1", user_id)
+            return await con.fetch(
+                "SELECT name, parameters FROM analysis_presets WHERE user_id=$1 AND type=$2",
+                user_id,
+                upload_type,
+            )
 
     except Exception:
         logger.exception("Failed to get analysis presets for user")

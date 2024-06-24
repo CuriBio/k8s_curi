@@ -81,6 +81,7 @@ class JobRequest(BaseModel):
 class SavePresetRequest(BaseModel):
     name: str
     analysis_params: dict[str, Any]
+    upload_type: str
 
 
 class JobResponse(BaseModel):

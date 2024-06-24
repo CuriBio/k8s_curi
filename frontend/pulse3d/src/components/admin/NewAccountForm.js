@@ -60,7 +60,7 @@ const Label = styled.div`
   min-height: 35px;
   padding: 5px;
   line-height: 2;
-`
+`;
 
 const ButtonContainer = styled.div`
   display: flex;
@@ -68,16 +68,16 @@ const ButtonContainer = styled.div`
 `;
 
 const LoginType = {
-  "password": "Username / Password",
-  "sso_microsoft": "Microsoft SSO"
-}
+  password: "Username / Password",
+  sso_microsoft: "Microsoft SSO",
+};
 
 const getDefaultAccountInfo = (type) => {
   const info = {
     admin: {
       email: "",
       scopes: [],
-      login_type: Object.keys(LoginType)[0]
+      login_type: 0,
     },
     user: {
       email: "",
@@ -101,13 +101,15 @@ export default function NewAccountForm({ type }) {
   const [userCreatedMsg, setUserCreatedMsg] = useState(" ");
 
   const getUserCreatedMsg = () => {
-    if ((isForUser && customerLoginType === Object.keys(LoginType)[0]) ||
-        (!isForUser && newAccountInfo.login_type === Object.keys(LoginType)[0])) {
-      return "Please have them check their inbox for a verification email to begin accessing their account. Link will expire after 24 hours."
+    if (
+      (isForUser && customerLoginType === Object.keys(LoginType)[0]) ||
+      (!isForUser && newAccountInfo.login_type === 0)
+    ) {
+      return "Please have them check their inbox for a verification email to begin accessing their account. Link will expire after 24 hours.";
     }
 
-    return "Please have them check their inbox for an email to begin accessing their account."
-  }
+    return "Please have them check their inbox for an email to begin accessing their account.";
+  };
 
   const resetForm = () => {
     setErrorMsg(""); // reset to show user something happened
@@ -132,12 +134,17 @@ export default function NewAccountForm({ type }) {
     else {
       const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/register/${type}`, {
         method: "POST",
-        body: JSON.stringify(newAccountInfo),
+        body: JSON.stringify({
+          ...newAccountInfo,
+          ...("login_type" in newAccountInfo
+            ? { login_type: Object.keys(LoginType)[newAccountInfo.login_type] }
+            : {}),
+        }),
       });
 
       if (res) {
         if (res.status === 201) {
-          setUserCreatedMsg(getUserCreatedMsg())
+          setUserCreatedMsg(getUserCreatedMsg());
           setUserCreatedVisible(true);
           resetForm();
         } else if (res.status === 422) {
@@ -174,10 +181,7 @@ export default function NewAccountForm({ type }) {
         open={userCreatedVisible}
         closeModal={() => setUserCreatedVisible(false)}
         header="Success"
-        labels={[
-          `${accountTitle} was created successfully!`,
-          userCreatedMsg,
-        ]}
+        labels={[`${accountTitle} was created successfully!`, userCreatedMsg]}
       />
       <Header>{`New ${accountTitle} Details`}</Header>
       <InputContainer>
@@ -221,15 +225,52 @@ export default function NewAccountForm({ type }) {
               <DropDownWidget
                 label="Choose a Login Type"
                 options={Object.values(LoginType)}
-                initialSelected={0}
+                initialSelected={newAccountInfo.login_type}
                 height={35}
                 handleSelection={(i) => {
-                  setNewAccountInfo(prevState => {
-                    return {...prevState, login_type: Object.keys(LoginType)[i]}
+                  setNewAccountInfo((prevState) => {
+                    if (i === 0) {
+                      delete prevState.sso_organization;
+                      delete prevState.sso_admin_org_id;
+                    } else {
+                      prevState.sso_organization = "";
+                      prevState.sso_admin_org_id = "";
+                    }
+                    return { ...prevState, login_type: i };
                   });
                 }}
               />
             </DropDownContainer>
+          </>
+        )}
+        {!isForUser && newAccountInfo.login_type !== 0 && (
+          <>
+            <FormInput
+              name="sso_organization"
+              label="SSO Organization"
+              placeholder="The admin's SSO organization, e.g. a Microsoft Azure Tenant ID"
+              value={newAccountInfo.sso_organization}
+              onChangeFn={(e) => {
+                setErrorMsg("");
+                setNewAccountInfo({
+                  ...newAccountInfo,
+                  sso_organization: e.target.value,
+                });
+              }}
+            />
+            <FormInput
+              name="sso_admin_org_id"
+              label="Admin SSO Organization ID"
+              placeholder="The admin's id in their SSO organization, e.g. a Microsoft Azure Object ID"
+              value={newAccountInfo.sso_admin_org_id}
+              onChangeFn={(e) => {
+                setErrorMsg("");
+                setNewAccountInfo({
+                  ...newAccountInfo,
+                  sso_admin_org_id: e.target.value,
+                });
+              }}
+            />
           </>
         )}
         <ErrorText id="userError" role="errorMsg">
