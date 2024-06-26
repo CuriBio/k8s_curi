@@ -189,13 +189,17 @@ const getTableFromParquet = async (buffer) => {
   return apache.tableFromIPC(parquetData);
 };
 
-const formatDateTime = (datetime) => {
-  if (datetime)
-    return new Date(datetime + "Z").toLocaleDateString(undefined, {
+const formatDateTime = (datetime, includeSeconds) => {
+  if (datetime) {
+    const format = {
       hour: "numeric",
       minute: "numeric",
-    });
-  else {
+    };
+    if (includeSeconds) {
+      format.second = "numeric";
+    }
+    return new Date(datetime + "Z").toLocaleDateString(undefined, format);
+  } else {
     const now = new Date();
     const datetime =
       now.getFullYear() +

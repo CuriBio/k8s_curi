@@ -108,7 +108,7 @@ export default function Jobs({ row, openJobPreview, setSelectedJobs, selectedJob
   const columns = useMemo(
     () => [
       {
-        accessorFn: (row) => (row.analyzedFile ? row.analyzedFile : "None"),
+        accessorFn: (row) => row.analyzedFile || "None",
         id: "analyzedFile",
         header: "Analyzed Filename",
         size: 300,
@@ -119,7 +119,7 @@ export default function Jobs({ row, openJobPreview, setSelectedJobs, selectedJob
         id: "createdAt",
         sortingFn: "datetime",
         size: 200,
-        Cell: ({ cell }) => formatDateTime(cell.getValue()),
+        Cell: ({ cell }) => formatDateTime(cell.getValue(), true),
       },
       {
         accessorKey: "analysisParams", //accessorKey used to define `data` column. `id` gets set to accessorKey automatically
