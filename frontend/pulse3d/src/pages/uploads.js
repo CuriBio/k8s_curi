@@ -540,7 +540,11 @@ export default function Uploads() {
         const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/download`;
         response = await fetch(url, {
           method: "POST",
-          body: JSON.stringify({ job_ids: [jobId], upload_type: productPage }),
+          body: JSON.stringify({
+            job_ids: [jobId],
+            upload_type: productPage,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          }),
         });
 
         if (response.status === 200) {
@@ -588,7 +592,11 @@ export default function Uploads() {
         const jobIds = data.map(({ jobId }) => jobId);
         url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/download`;
         downloadType = "analyses";
-        body = { job_ids: jobIds, upload_type: productPage };
+        body = {
+          job_ids: jobIds,
+          upload_type: productPage,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        };
       }
       let zipFilename = `${downloadType}__${formatDateTime()}__${data.length}.zip`;
       if (productPage) {

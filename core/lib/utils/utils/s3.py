@@ -12,7 +12,9 @@ class S3Error(Exception):
     """Raise instead of a ClientError"""
 
 
-def generate_presigned_url(bucket: str, key: str, exp: int = 3600) -> Any:
+def generate_presigned_url(
+    bucket: str, key: str, filename_override: str | None = None, exp: int = 3600
+) -> Any:
     s3 = boto3.resource("s3")
     s3_client = boto3.client("s3", config=Config(signature_version="s3v4"))
 
@@ -23,11 +25,13 @@ def generate_presigned_url(bucket: str, key: str, exp: int = 3600) -> Any:
         # there's probably a better error type that could be raised here
         raise ValueError(f"{key} not found in {bucket}")
 
+    params = {"Bucket": bucket, "Key": key}
+    if filename_override:
+        params["ResponseContentDisposition"] = f"attachment; filename = {filename_override}"
+
     # generate presigned url, if exists
     try:
-        url = s3_client.generate_presigned_url(
-            "get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=exp
-        )
+        url = s3_client.generate_presigned_url("get_object", Params=params, ExpiresIn=exp)
     except ClientError as e:
         raise S3Error(f"Failed to generate presigned url for {bucket}/{key}: {repr(e)}")
 
