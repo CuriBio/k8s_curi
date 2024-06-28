@@ -148,23 +148,20 @@ export default function Customers() {
           .map(([product, restrictions]) => (
             <div key={product}>
               {product}:
-              {Object.keys(restrictions)
-                // filter out uploads key
-                .filter((label) => label !== "uploads")
-                .map((label) => {
-                  // swap jobs key for analyses for viewing
-                  const displayLabel = label.split("_")[0] === "jobs" ? "analyses" : label.split("_")[0];
-                  // swap -1 for unlimited
-                  const displayValue = [null, -1].includes(restrictions[label])
-                    ? "unlimited"
-                    : restrictions[label];
-                  // return in form of 'analyses: <val>'
-                  return (
-                    <ul key={label} style={{ margin: "3px" }}>
-                      {displayLabel}: {displayValue}
-                    </ul>
-                  );
-                })}
+              {Object.keys(restrictions).map((label) => {
+                // swap jobs key for analyses for viewing
+                const displayLabel = label.split("_")[0] === "jobs" ? "analyses" : label.split("_")[0];
+                // swap -1 for unlimited
+                const displayValue = [null, -1].includes(restrictions[label])
+                  ? "unlimited"
+                  : restrictions[label];
+                // return in form of 'analyses: <val>'
+                return (
+                  <ul key={label} style={{ margin: "3px" }}>
+                    {displayLabel}: {displayValue}
+                  </ul>
+                );
+              })}
             </div>
           ))}
       </div>
