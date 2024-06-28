@@ -1314,7 +1314,7 @@ async def update_customer(
     except HTTPException:
         raise
     except Exception:
-        logger.exception(f"PUT /customer/{account_id}: Unexpected error")
+        logger.exception(f"PUT /customers/{account_id}: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
