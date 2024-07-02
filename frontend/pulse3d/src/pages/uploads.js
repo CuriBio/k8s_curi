@@ -10,7 +10,8 @@ import { useRouter } from "next/router";
 import JobPreviewModal from "@/components/interactiveAnalysis/JobPreviewModal";
 import { formatDateTime } from "@/utils/generic";
 import Table from "@/components/table/Table";
-import { Box } from "@mui/material";
+import { Box, IconButton } from "@mui/material";
+import Tooltip from "@mui/material/Tooltip";
 import Jobs from "@/components/table/Jobs";
 
 const TableContainer = styled.div`
@@ -19,6 +20,15 @@ const TableContainer = styled.div`
   white-space: nowrap;
   box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
     0px 3px 14px 2px rgb(0 0 0 / 12%);
+`;
+
+const TooltipText = styled.span`
+  font-size: 15px;
+`;
+
+const SmallerIconButton = styled(IconButton)`
+  width: 24px;
+  height: 24px;
 `;
 
 const ModalSpinnerContainer = styled.div`
@@ -120,6 +130,14 @@ const getSortFilterName = (sortColId) => {
   } else {
     return "last_analyzed";
   }
+};
+
+const getUploadIDElement = (c) => {
+  return (
+    <Tooltip title={<TooltipText>{c.getValue()}</TooltipText>}>
+      {c.getValue().slice(0, 8)}...{c.getValue().slice(-8)}
+    </Tooltip>
+  );
 };
 
 export default function Uploads() {
@@ -250,8 +268,9 @@ export default function Uploads() {
         filterVariant: "autocomplete",
         id: "id",
         header: "Upload ID",
-        size: 320,
+        size: 190,
         minSize: 130,
+        Cell: ({ cell }) => getUploadIDElement(cell),
       },
       {
         accessorFn: (row) => new Date(row.createdAt),
@@ -259,8 +278,11 @@ export default function Uploads() {
         id: "createdAt",
         filterVariant: "date-range",
         sortingFn: "datetime",
-        size: 275,
+        size: 340,
         minSize: 275,
+        muiFilterDatePickerProps: {
+          slots: { clearButton: SmallerIconButton, openPickerButton: SmallerIconButton },
+        },
         Cell: ({ cell }) => formatDateTime(cell.getValue()),
       },
       {
@@ -269,8 +291,11 @@ export default function Uploads() {
         id: "lastAnalyzed",
         filterVariant: "date-range",
         sortingFn: "datetime",
-        size: 275,
+        size: 340,
         minSize: 275,
+        muiFilterDatePickerProps: {
+          slots: { clearButton: SmallerIconButton, openPickerButton: SmallerIconButton },
+        },
         Cell: ({ cell }) => formatDateTime(cell.getValue()),
       },
       {
