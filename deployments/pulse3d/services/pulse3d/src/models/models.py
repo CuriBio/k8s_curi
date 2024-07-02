@@ -15,6 +15,11 @@ class UploadRequest(BaseModel):
     auto_upload: bool | None = Field(default=True)
 
 
+class GetJobsRequest(BaseModel):
+    upload_ids: list[uuid.UUID]
+    upload_type: str | None = Field(default=None)
+
+
 class UsageQuota(BaseModel):
     current: dict[str, Any]
     limits: dict[str, Any]
@@ -76,6 +81,7 @@ class JobRequest(BaseModel):
 class SavePresetRequest(BaseModel):
     name: str
     analysis_params: dict[str, Any]
+    upload_type: str
 
 
 class JobResponse(BaseModel):
@@ -103,10 +109,12 @@ class WaveformDataResponse(BaseModel):
 
 
 class JobDownloadRequest(BaseModel):
+    upload_type: str | None = Field(default=None)
     job_ids: list[uuid.UUID]
 
 
 class UploadDownloadRequest(BaseModel):
+    upload_type: str | None = Field(default=None)
     upload_ids: list[uuid.UUID]
 
 

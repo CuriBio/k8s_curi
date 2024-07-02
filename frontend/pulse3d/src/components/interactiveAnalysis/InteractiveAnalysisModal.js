@@ -253,7 +253,7 @@ export default function InteractiveWaveformModal({
   // this hook gets waveform data no matter what first
   // a useEffect watching the error and loading states kicks off next step
   const { waveformData, featureIndices, getErrorState, getLoadingState, yAxisLabel } = useWaveformData(
-    `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${selectedJob.uploadId}&job_id=${selectedJob.jobId}`,
+    `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?job_id=${selectedJob.jobId}&upload_type=${productPage}`,
     selectedJob.analysisParams.normalization_method,
     productPage
   );
@@ -474,6 +474,20 @@ export default function InteractiveWaveformModal({
 
       handleChangeForCurrentWell(ACTIONS.ADD, wellSettings, changelogMsg);
     },
+    removeDupsForWell: () => {
+      const wellSettings = customAnalysisSettings[selectedWell];
+      wellSettings.allFeatureIndices.peaks = removeDups(
+        wellSettings.allFeatureIndices.peaks,
+        wellSettings.duplicateFeatureIndices.peaks
+      );
+      wellSettings.allFeatureIndices.valleys = removeDups(
+        wellSettings.allFeatureIndices.valleys,
+        wellSettings.duplicateFeatureIndices.valleys
+      );
+      const changelogMsg = "Remove duplicates";
+
+      handleChangeForCurrentWell(ACTIONS.ADD, wellSettings, changelogMsg);
+    },
   };
 
   // One-time setup for component.
@@ -537,7 +551,7 @@ export default function InteractiveWaveformModal({
 
   // update customAnalysisSettingsForWell whenever customAnalysisSettings or the currently selected well changes
   useEffect(() => {
-    if (selectedWell in customAnalysisSettings)
+    if (selectedWell in customAnalysisSettings) {
       setCustomAnalysisSettingsForWell(
         // Tanner (6/1/23): Copying just to be safe
         deepCopy({
@@ -547,6 +561,7 @@ export default function InteractiveWaveformModal({
           thresholdEndpoints: customAnalysisSettings[selectedWell].thresholdEndpoints,
         })
       );
+    }
   }, [customAnalysisSettings, selectedWell]);
 
   const handleWaveformData = async () => {
@@ -983,12 +998,12 @@ export default function InteractiveWaveformModal({
       <OuterParamContainer>
         <ParamContainer>
           <ParamLabel htmlFor="removeDupFeatures">
-            Remove Duplicate Peaks/Valleys:
+            Remove Initial Duplicate Peaks/Valleys:
             <Tooltip
               title={
                 <TooltipText>
                   {
-                    "Automatically remove duplicate peaks and valleys from all wells and can only be performed when no other changes have been made."
+                    "Automatically remove duplicate peaks/valleys from all wells. Can only be performed when no other changes have been made."
                   }
                 </TooltipText>
               }

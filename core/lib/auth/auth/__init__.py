@@ -1,4 +1,4 @@
-from .models import Token, AccountTypes
+from .models import Token, AccountTypes, LoginType
 from .scopes import (
     Scopes,
     ScopeTags,

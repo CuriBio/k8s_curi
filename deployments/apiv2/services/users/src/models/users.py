@@ -3,7 +3,7 @@ from typing import Any
 from uuid import UUID
 from pydantic import BaseModel, EmailStr, SecretStr, Field
 from pydantic import constr, field_validator
-from auth import AuthTokens, Scopes, ScopeConverter
+from auth import AuthTokens, Scopes, ScopeConverter, LoginType
 
 USERNAME_MIN_LEN = 3
 USERNAME_MAX_LEN = 32
@@ -36,6 +36,11 @@ class UserLogin(BaseModel):
     client_type: str | None = Field(default=None)
 
 
+class SSOLogin(BaseModel):
+    id_token: str
+    client_type: str | None = Field(default=None)
+
+
 class PasswordModel(BaseModel):
     password1: SecretStr
     password2: SecretStr
@@ -61,6 +66,9 @@ class PasswordModel(BaseModel):
 class AdminCreate(ScopeConverter):
     email: EmailStr
     scopes: list[Scopes]
+    login_type: LoginType = Field(default=LoginType.PASSWORD)
+    sso_organization: str | None = Field(default=None)
+    sso_admin_org_id: str | None = Field(default=None)
 
 
 class UserCreate(ScopeConverter):

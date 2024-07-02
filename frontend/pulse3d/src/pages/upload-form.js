@@ -132,12 +132,8 @@ export default function UploadForm() {
 
   const { uploads, pulse3dVersions, defaultUploadForReanalysis } = useContext(UploadsContext);
 
-  const isPulse3dPreferenceSet = () => {
-    return preferences?.[productPage]?.version != null && pulse3dVersions.length > 0;
-  };
-
   const getDefaultPulse3dVersion = () => {
-    const defaultVersion = isPulse3dPreferenceSet() ? preferences[productPage].version : pulse3dVersions[0];
+    const defaultVersion = preferences?.[productPage]?.version || pulse3dVersions[0];
     return defaultVersion || "";
   };
 
@@ -257,13 +253,10 @@ export default function UploadForm() {
 
   useEffect(() => {
     // resets upload status when user makes changes
-    if (
-      (files.length > 0 && files[0] instanceof File) ||
-      JSON.stringify(analysisParams) != JSON.stringify(getDefaultAnalysisParams())
-    ) {
+    if (files.length > 0 || checkedParams) {
       setUploadSuccess(false);
     }
-  }, [files, analysisParams]);
+  }, [files, checkedParams]);
 
   useEffect(() => {
     // check for incorrect files and let user know
@@ -271,14 +264,15 @@ export default function UploadForm() {
   }, [files]);
 
   useEffect(() => {
-    // grab list of user presets on initial load
-    // this gets called again in resetState when an analysis is submitted
-    getAnalysisPresets();
-  }, []);
+    if (productPage && preferences) {
+      setAnalysisParams(getDefaultAnalysisParams());
+    }
+  }, [productPage, preferences]);
 
   useEffect(() => {
     if (productPage) {
       setMinPulse3dVersionForCurrentUploads(getMinP3dVersionForProduct(productPage));
+      getAnalysisPresets();
     }
   }, [productPage]);
 
@@ -311,7 +305,7 @@ export default function UploadForm() {
         if (param in currentParams && presetParams[param] !== currentParams[param]) {
           currentParams[param] = presetParams[param];
           // protect against deprecated pulse3d versions
-          if (param == "selectedPulse3dVersion" && !pulse3dVersions.includes(presetParams[param])) {
+          if (param === "selectedPulse3dVersion" && !pulse3dVersions.includes(presetParams[param])) {
             currentParams[param] = pulse3dVersions[0];
           }
         }
@@ -323,7 +317,9 @@ export default function UploadForm() {
 
   const getAnalysisPresets = async () => {
     try {
-      const presetResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets`);
+      const presetResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets?upload_type=${productPage}`
+      );
       const savedPresets = await presetResponse.json();
       setUserPresets(savedPresets);
     } catch (e) {
@@ -427,25 +423,43 @@ export default function UploadForm() {
     }
 
     for (const [name, value] of [
-      ["normalize_y_axis", normalizeYAxis],
       ["twitch_widths", twitchWidths],
       ["start_time", startTime],
       ["end_time", endTime],
-      ["max_y", maxY],
-      ["include_stim_protocols", showStimSheet],
     ]) {
       requestBody[name] = getNullIfEmpty(value);
     }
 
+    for (const [name, value] of [
+      ["normalize_y_axis", normalizeYAxis],
+      ["max_y", maxY],
+      ["include_stim_protocols", showStimSheet],
+    ]) {
+      if (productPage === "mantarray") {
+        requestBody[name] = getNullIfEmpty(value);
+      } else {
+        requestBody[name] = null;
+      }
+    }
+
     if (semverGte(version, "0.30.1")) {
-      requestBody.stiffness_factor = getNullIfEmpty(stiffnessFactor);
-      requestBody.inverted_post_magnet_wells = getNullIfEmpty(wellsWithFlippedWaveforms);
+      if (productPage === "mantarray") {
+        requestBody.stiffness_factor = getNullIfEmpty(stiffnessFactor);
+        requestBody.inverted_post_magnet_wells = getNullIfEmpty(wellsWithFlippedWaveforms);
+      } else {
+        requestBody.stiffness_factor = null;
+        requestBody.inverted_post_magnet_wells = null;
+      }
     }
     if (semverGte(version, "0.30.3")) {
       requestBody.well_groups = Object.keys(wellGroups).length === 0 ? null : wellGroups;
     }
     if (semverGte(version, "0.30.5")) {
-      requestBody.stim_waveform_format = getNullIfEmpty(stimWaveformFormat);
+      if (productPage === "mantarray") {
+        requestBody.stim_waveform_format = getNullIfEmpty(stimWaveformFormat);
+      } else {
+        requestBody.stim_waveform_format = null;
+      }
     }
     if (semverGte(version, "0.32.2")) {
       // don't add name if it's the original filename or if it's empty
@@ -455,7 +469,11 @@ export default function UploadForm() {
       requestBody.name_override = useOriginalName ? null : analysisParams.nameOverride;
     }
     if (semverGte(version, "0.34.2")) {
-      requestBody.data_type = getNullIfEmpty(dataType);
+      if (productPage === "nautilai") {
+        requestBody.data_type = getNullIfEmpty(dataType);
+      } else {
+        requestBody.data_type = null;
+      }
     }
 
     if (semverGte(version, "0.33.2")) {
@@ -489,8 +507,13 @@ export default function UploadForm() {
     }
 
     if (semverGte(version, "1.0.0")) {
-      requestBody.normalization_method = normalizationMethod === "None" ? null : normalizationMethod;
-      requestBody.detrend = analysisParams.detrend;
+      if (productPage === "nautilai") {
+        requestBody.normalization_method = normalizationMethod === "None" ? null : normalizationMethod;
+        requestBody.detrend = analysisParams.detrend;
+      } else {
+        requestBody.normalization_method = null;
+        requestBody.detrend = null;
+      }
     }
 
     return requestBody;
@@ -781,7 +804,11 @@ export default function UploadForm() {
   const saveAnalysisPreset = async () => {
     await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets`, {
       method: "POST",
-      body: JSON.stringify({ name: analysisPresetName, analysis_params: analysisParams }),
+      body: JSON.stringify({
+        name: analysisPresetName,
+        analysis_params: analysisParams,
+        upload_type: productPage,
+      }),
     });
   };
 
@@ -890,7 +917,6 @@ export default function UploadForm() {
             setAnalysisPresetName,
             analysisPresetName,
           }}
-          isPulse3dPreferenceSet={isPulse3dPreferenceSet}
         />
         <ButtonContainer>
           {uploadSuccess && <SuccessText>Upload Successful!</SuccessText>}

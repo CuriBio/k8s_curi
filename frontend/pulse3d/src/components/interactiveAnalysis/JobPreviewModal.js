@@ -100,21 +100,18 @@ const errorModalLabels = {
   buttons: ["Close"],
 };
 
-export default function JobPreviewModal({
-  selectedAnalysis: { jobId, uploadId, analysisParams },
-  setOpenJobPreview,
-}) {
+export default function JobPreviewModal({ selectedAnalysis: { jobId, analysisParams }, setOpenJobPreview }) {
   const [isLoading, setIsLoading] = useState(true);
   const [timepointRange, setTimepointRange] = useState([]);
   const [openErrorModal, setOpenErrorModal] = useState(false);
   const [gridStyle, setGridStyle] = useState({});
 
-  const { productPage } = useContext(AuthContext);
+  const { productPage, accountType } = useContext(AuthContext);
 
   const { waveformData, featureIndices, getErrorState, getLoadingState, yAxisLabel } = useWaveformData(
-    `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?upload_id=${uploadId}&job_id=${jobId}&upload_type=${productPage}`,
+    `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/waveform-data?job_id=${jobId}&upload_type=${productPage}`,
     analysisParams.normalization_method,
-    productPage
+    accountType === "admin" ? "mantarray" : productPage // TODO need to figure out how to handle this for admins
   );
 
   useEffect(() => {

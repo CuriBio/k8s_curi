@@ -22,6 +22,10 @@ def random_software_type():
     return choice(["mantarray", "stingray"])
 
 
+def random_bool():
+    return choice([True, False])
+
+
 def get_token(*, scopes):
     return create_token(
         userid=uuid.uuid4(),
@@ -39,7 +43,7 @@ ROUTES_WITH_AUTH = (
     ("GET", f"/firmware/{random_firmware_type()}/{random_semver()}"),
     ("POST", f"/firmware/{random_firmware_type()}/{random_semver()}"),
     ("PUT", f"/firmware/channel/{random_semver()}"),
-    ("POST", f"/software/{random_software_type()}/{random_semver()}"),
+    ("POST", f"/software/{random_software_type()}/{random_semver()}/{random_bool()}"),
 )
 
 
@@ -412,10 +416,11 @@ def test_software__post__success(test_sw_type, expected_table_name, mocked_async
     test_version = random_semver()
 
     response = test_client.post(
-        f"/software/{test_sw_type}/{test_version}", headers={"Authorization": f"Bearer {access_token}"}
+        f"/software/{test_sw_type}/{test_version}/{False}",
+        headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 200
 
     mocked_asyncpg_con.execute.assert_called_once_with(
-        f"INSERT INTO {expected_table_name} (version) VALUES ($1)", test_version
+        f"INSERT INTO {expected_table_name} (version, state) VALUES ($1, $2)", test_version, "internal"
     )
