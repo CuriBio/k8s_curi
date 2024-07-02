@@ -13,7 +13,8 @@ ENV AWS_ACCOUNT_ID=$CODE_ARTIFACT_ACCOUNT_ID
 ENV AWS_SECRET_ACCESS_KEY=$CODE_ARTIFACT_ACCESS_KEY
 ENV AWS_ACCESS_KEY_ID=$CODE_ARTIFACT_ACCESS_KEY_ID
 
-RUN pip install awscli
+RUN apt update
+RUN apt install awscli --yes
 
 RUN python -m venv --copies /app/venv && \
     . /app/venv/bin/activate && \

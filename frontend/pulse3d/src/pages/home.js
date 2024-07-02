@@ -97,7 +97,6 @@ export default function Login() {
 
       setProducts(productStates);
 
-      console.log(preferences);
       if (preferences == null || Object.keys(preferences).length === 0) {
         getPreferences();
       }

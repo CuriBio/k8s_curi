@@ -9,6 +9,8 @@ core/db/**/.env*
 build/
 *.egg-info
 .pytest_cache
+.idea
+.run
 .vscode
 **/public/serviceWorker.js
 **.coverage

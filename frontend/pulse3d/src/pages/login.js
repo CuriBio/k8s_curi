@@ -3,13 +3,23 @@ import { useState } from "react";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import LoginForm from "@/components/account/LoginForm";
 import FormInput from "@/components/basicWidgets/FormInput";
+import Image from "next/image";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
+import { PublicClientApplication } from "@azure/msal-browser";
+
+// required for static export, default loader errors on build
+const imageLoader = ({ src }) => {
+  return src;
+};
 
 // TODO eventually need to find a better to way to handle some of these globally to use across app
 const BackgroundContainer = styled.div`
   position: relative;
   display: flex;
+  flex-direction: column;
+  top: 45px;
+  gap: 10px;
   justify-content: center;
   align-items: center;
   height: 100%;
@@ -62,6 +72,15 @@ const ModalInputContainer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
+`;
+
+const ImageButtonContainer = styled.div`
+  position: relative;
+  width: 250px;
+  height: 50px;
+  &:hover {
+    cursor: pointer;
+  }
 `;
 
 export default function Login() {
@@ -143,6 +162,80 @@ export default function Login() {
     }
     setInProgress(false);
   };
+
+  const submitMicrosoftSSO = async () => {
+    try {
+      const loginRequest = { scopes: ["email"] };
+      const msalConfig = {
+        auth: {
+          clientId: `${process.env.NEXT_PUBLIC_MICROSOFT_SSO_APP_ID}`,
+          authority: `${process.env.NEXT_PUBLIC_MICROSOFT_SSO_AUTHORITY_URI}`,
+        },
+      };
+
+      const msalPCA = new PublicClientApplication(msalConfig);
+      await msalPCA.initialize();
+
+      const response = await msalPCA.loginPopup({
+        ...loginRequest,
+        redirectUri: "/",
+      });
+      await handleMicrosoftSSOResponse(response);
+    } catch (e) {
+      console.log("*submitMicrosoftSSO error: " + e);
+      setErrorMsg("*SSO error. Please try again later.");
+    }
+  };
+
+  async function handleMicrosoftSSOResponse(response) {
+    if (response !== null) {
+      if (response.idToken) {
+        await submitIdToken(response.idToken);
+        return;
+      } else {
+        console.log("handleMicrosoftSSOResponse error: response has no idToken");
+      }
+    } else {
+      console.log("handleMicrosoftSSOResponse error: response is null");
+    }
+    setErrorMsg("*SSO error. Please try again later.");
+  }
+
+  async function submitIdToken(idToken) {
+    try {
+      let ssoURL = `${process.env.NEXT_PUBLIC_USERS_URL}/sso`;
+      if (loginType === "Admin") {
+        ssoURL += "/admin";
+      }
+
+      const res = await fetch(ssoURL, {
+        method: "POST",
+        body: JSON.stringify({
+          id_token: idToken,
+          client_type: `dashboard:${process.env.NEXT_PUBLIC_FE_VERSION}`,
+        }),
+        mode: "no-cors",
+      });
+
+      if (res) {
+        if (res.status === 200) {
+          if (loginType === "User") {
+            router.push("/home");
+          } else {
+            router.push("/uploads?checkUsage=true", "/uploads");
+          }
+          return;
+        } else {
+          console.log("submitIdToken error: response status not OK");
+        }
+      } else {
+        console.log("submitIdToken error: no response");
+      }
+    } catch (e) {
+      console.log("submitIdToken error: " + e);
+    }
+    setErrorMsg("*SSO error. Please try again later.");
+  }
 
   const onForgetPassword = () => {
     setDisplayForgotPW(true);
@@ -232,6 +325,15 @@ export default function Login() {
           backgroundColor={inProgress ? "var(--teal-green)" : "var(--dark-blue)"}
         />
       </ModalContainer>
+      <ImageButtonContainer>
+        <Image
+          src={"/ms-symbollockup_signin_dark.svg"}
+          alt={"Sign in with Microsoft"}
+          loader={imageLoader}
+          layout={"fill"}
+          onClick={submitMicrosoftSSO}
+        />
+      </ImageButtonContainer>
       <ModalWidget
         open={displayForgotPW}
         width={500}
@@ -240,7 +342,7 @@ export default function Login() {
         labels={
           emailSent
             ? [
-                "If there's an account associated with that email, we've sent a link to reset the password.",
+                "If there's a password-based account associated with that email, we've sent a link to reset the password.",
                 "Please check your inbox.",
               ]
             : []

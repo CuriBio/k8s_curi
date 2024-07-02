@@ -94,7 +94,18 @@ export default function Users() {
       if (response && response.status === 200) {
         const usersJson = await response.json();
         const formatedUserJson = usersJson.map(
-          ({ created_at, email, id, last_login, name, scopes, suspended, verified, reset_token }) => ({
+          ({
+            created_at,
+            email,
+            id,
+            last_login,
+            name,
+            scopes,
+            suspended,
+            verified,
+            login_type,
+            reset_token,
+          }) => ({
             createdAt: created_at,
             email,
             id,
@@ -103,6 +114,7 @@ export default function Users() {
             scopes: scopes.length > 0 && scopes[0] == null ? [] : scopes,
             suspended,
             verified,
+            loginType: login_type,
             resetToken: reset_token,
           })
         );
@@ -191,8 +203,10 @@ export default function Users() {
       return "active";
       // else if user is not verified
     } else if (!row.verified && !row.suspended) {
-      // if a user has an active resetToken and is not verified, then allow for a reset
-      if (row.resetToken) {
+      if (row.loginType !== "password") {
+        return "needs sso sign-up";
+        // if a user has an active resetToken and is not verified, then allow for a reset
+      } else if (row.resetToken) {
         return "needs verification";
         // else the link has been expired and user requires a new verification link to be sent
       } else {
@@ -212,6 +226,8 @@ export default function Users() {
     if (v === "active") {
       return <div style={{ color: "var(--teal-green)" }}>active</div>;
       // if a user has an active resetToken and is not verified, then allow for a reset
+    } else if (v === "needs sso sign-up") {
+      return <div style={{ color: "orange" }}>needs sso sign-up</div>;
     } else if (v === "needs verification") {
       return (
         <ActiveVerifyLink onClick={() => handleVerifyModal(c.row.original.resetToken)}>
@@ -327,8 +343,9 @@ export default function Users() {
     const reactivateState = checkedUsers.length === 0 || checkedUsers.some((user) => !user.suspended);
     const resendState =
       checkedUsers.length !== 1 ||
-      (checkedUsers.length === 1 && checkedUsers[0].verified) ||
-      (checkedUsers.length === 1 && !checkedUsers[0].verified && checkedUsers[0].resetToken);
+      checkedUsers[0].verified ||
+      checkedUsers[0].loginType !== "password" ||
+      checkedUsers[0].resetToken;
     const editState = checkedUsers.length !== 1;
 
     const handleDropdownSelection = async (option) => {

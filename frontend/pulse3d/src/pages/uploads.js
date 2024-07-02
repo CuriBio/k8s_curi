@@ -106,10 +106,28 @@ const getSelectedUploads = (u) => {
   return Object.keys(u).filter((x) => u[x]);
 };
 
+const getSortFilterName = (sortColId) => {
+  if (sortColId === "username") {
+    return "username";
+  } else if (sortColId === "name") {
+    return "filename";
+  } else if (sortColId === "id") {
+    return "id";
+  } else if (sortColId === "createdAt") {
+    return "created_at";
+  } else if (sortColId === "autoUpload") {
+    return "auto_upload";
+  } else {
+    return "last_analyzed";
+  }
+};
+
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota, accountScope, productPage, accountId } = useContext(AuthContext);
-  const { uploads, setUploads, setDefaultUploadForReanalysis, jobs, setJobs } = useContext(UploadsContext);
+  const { uploads, setUploads, setDefaultUploadForReanalysis, jobs, setJobs, getUploadsAndJobs } = useContext(
+    UploadsContext
+  );
 
   const [displayRows, setDisplayRows] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -123,10 +141,16 @@ export default function Uploads() {
   const [openJobPreview, setOpenJobPreview] = useState(false);
   const [selectedAnalysis, setSelectedAnalysis] = useState();
   const [jobsInSelectedUpload, setJobsInSelectedUpload] = useState(0);
+  const [tableState, setTableState] = useState({
+    sorting: [{ id: "lastAnalyzed", desc: true }],
+    columnFilters: [],
+  });
 
   useEffect(() => {
     // reset to false everytime it gets triggered
-    if (resetDropdown) setResetDropdown(false);
+    if (resetDropdown) {
+      setResetDropdown(false);
+    }
   }, [resetDropdown]);
 
   useEffect(() => {
@@ -172,6 +196,36 @@ export default function Uploads() {
   useEffect(() => {
     handleSelectedUploads();
   }, [selectedUploads]);
+
+  useEffect(() => {
+    if (!uploads) {
+      return;
+    }
+    let sortField, sortDirection;
+    if (tableState.sorting.length > 0) {
+      const sortInfo = tableState.sorting[0];
+      sortField = getSortFilterName(sortInfo.id);
+      sortDirection = sortInfo.desc ? "DESC" : "ASC";
+    }
+    const filters = {};
+    for (const filt of tableState.columnFilters) {
+      const filterName = getSortFilterName(filt.id);
+      const filterValue = filt.value;
+      if (filterValue instanceof Array) {
+        const min = filterValue[0];
+        if (min?.toISOString) {
+          filters[filterName + "_min"] = min.toISOString().slice(0, 10);
+        }
+        const max = filterValue[1];
+        if (max?.toISOString) {
+          filters[filterName + "_max"] = max.toISOString().slice(0, 10);
+        }
+      } else {
+        filters[filterName] = filt.value;
+      }
+    }
+    getUploadsAndJobs(productPage, filters, sortField, sortDirection);
+  }, [tableState]);
 
   const columns = useMemo(
     () => [
@@ -273,6 +327,10 @@ export default function Uploads() {
         setSelectedJobs({ ...selectedJobsCopy });
       }
     }
+  };
+
+  const updateTableState = (newState) => {
+    setTableState({ ...tableState, ...newState });
   };
 
   const resetTable = async () => {
@@ -479,19 +537,22 @@ export default function Uploads() {
         name = null;
 
       if (jobId) {
-        const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?job_ids=${jobId}`;
-        response = await fetch(url);
+        const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs/download`;
+        response = await fetch(url, {
+          method: "POST",
+          body: JSON.stringify({ job_ids: [jobId], upload_type: productPage }),
+        });
 
         if (response.status === 200) {
-          const { jobs } = await response.json();
-          presignedUrl = jobs[0].url;
-          name = jobs[0].id;
+          const job = await response.json();
+          presignedUrl = job.url;
+          name = job.id;
         }
       } else {
         const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads/download`;
         response = await fetch(url, {
           method: "POST",
-          body: JSON.stringify({ upload_ids: [uploadId] }),
+          body: JSON.stringify({ upload_ids: [uploadId], upload_type: productPage }),
         });
 
         if (response.status === 200) {
@@ -715,7 +776,6 @@ export default function Uploads() {
           <Table
             columns={columns}
             rowData={displayRows}
-            defaultSortColumn={"lastAnalyzed"}
             rowSelection={selectedUploads}
             setRowSelection={setSelectedUploads}
             toolbarFn={actionsFn}
@@ -734,6 +794,28 @@ export default function Uploads() {
             )}
             enableExpanding={true}
             isLoading={isLoading}
+            manualSorting={true}
+            onSortingChange={(newSorting) => {
+              if (isLoading) {
+                return;
+              }
+              const sorting = newSorting();
+              // Tanner (5/28/24): have to do this manually since the MRT component doesn't seem to handle this correctly
+              if (sorting[0].id === tableState.sorting[0]?.id) {
+                sorting[0].desc = !tableState.sorting[0].desc;
+              }
+              updateTableState({ sorting });
+            }}
+            manualFiltering={true}
+            onColumnFiltersChange={(updateFn) => {
+              if (isLoading) {
+                return;
+              }
+              let { columnFilters } = tableState;
+              columnFilters = updateFn(columnFilters);
+              updateTableState({ columnFilters });
+            }}
+            state={tableState}
           />
         </TableContainer>
       )}

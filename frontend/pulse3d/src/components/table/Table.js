@@ -46,10 +46,23 @@ export default function Table({
   enableRowSelection = true,
   showColumnFilters = true,
   columnVisibility = {},
+  state = {},
+  manualSorting = false,
+  onSortingChange = null,
+  manualFiltering = false,
+  onColumnFiltersChange = null,
 }) {
-  const table = useMaterialReactTable({
+  let opts = {
     columns,
     data: rowData,
+    initialState: {
+      sorting: [
+        {
+          id: defaultSortColumn,
+          desc: true,
+        },
+      ],
+    },
     enableColumnFilterModes: false,
     enableColumnResizing: true,
     enableRowSelection,
@@ -58,15 +71,6 @@ export default function Table({
     enablePagination,
     enableSelectAll,
     selectAllMode: "all",
-    initialState: {
-      showColumnFilters,
-      sorting: [
-        {
-          id: defaultSortColumn,
-          desc: true,
-        },
-      ],
-    },
     muiTableProps: {
       sx: {
         cursor: "default",
@@ -111,11 +115,31 @@ export default function Table({
     onRowSelectionChange: setRowSelection, // returns {[id]: true, [id2]: true, ...}
     renderDetailPanel: subTableFn ? ({ row }) => subTableFn(row) : null,
     renderTopToolbar: toolbarFn ? ({ table }) => toolbarFn(table) : null,
-    state: { rowSelection, isLoading, density: "compact", columnVisibility }, // rowSelection can be {[id]: true, [id2]: false, [id3]: true, ... }
+    state: {
+      rowSelection,
+      isLoading,
+      density: "compact",
+      columnVisibility,
+      showColumnFilters,
+      ...state,
+    }, // rowSelection can be {[id]: true, [id2]: false, [id3]: true, ... }
     enableExpanding,
     muiCircularProgressProps: { size: 100 },
     getRowId: getRowId,
-  });
+  };
+
+  if (manualSorting) {
+    opts = {
+      ...opts,
+      manualSorting,
+      onSortingChange,
+    };
+  }
+  if (manualFiltering) {
+    opts = { ...opts, manualFiltering, onColumnFiltersChange };
+  }
+
+  const table = useMaterialReactTable(opts);
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>

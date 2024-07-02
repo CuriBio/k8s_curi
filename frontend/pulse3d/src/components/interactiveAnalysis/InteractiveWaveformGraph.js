@@ -118,7 +118,7 @@ const ContextMenuContainer = styled.div`
 const ChangelogLabel = styled.div`
   font-size: 16px;
   font-style: italic;
-  right: 600px;
+  right: 500px;
   position: relative;
   &:hover {
     color: var(--teal-green);
@@ -359,12 +359,14 @@ export default function WaveformGraph({
       const features = selectedMarkerToMove.type === "peak" ? peaks : valleys;
       const coords = waveformForFeatures[features[selectedMarkerToMove.idx]];
 
-      focusText
-        .html("[ " + coords[0].toFixed(2) + ", " + coords[1].toFixed(2) + " ]")
-        .attr("x", x(coords[0]) + 15)
-        .attr("y", y(coords[1]) - 20)
-        .style("opacity", 1)
-        .style("z-index", 5);
+      if (coords != null) {
+        focusText
+          .html("[ " + coords[0].toFixed(2) + ", " + coords[1].toFixed(2) + " ]")
+          .attr("x", x(coords[0]) + 15)
+          .attr("y", y(coords[1]) - 20)
+          .style("opacity", 1)
+          .style("z-index", 5);
+      }
     }
 
     /* --------------------------------------
@@ -740,7 +742,7 @@ export default function WaveformGraph({
       "var(--curi-peaks)"
     );
     // remove peaks line if no peaks are found
-    if (!thresholdEndpoints.peaks.y1 || !thresholdEndpoints.peaks.y2) {
+    if (thresholdEndpoints.peaks.y1 == null || !thresholdEndpoints.peaks.y2 == null) {
       peakThresholdLine.attr("display", "none");
       peaksY1.attr("display", "none");
       peaksY2.attr("display", "none");
@@ -773,7 +775,7 @@ export default function WaveformGraph({
       "var(--curi-valleys)"
     );
     // remove valleys line if no valleys are found
-    if (!thresholdEndpoints.valleys.y1 || !thresholdEndpoints.valleys.y2) {
+    if (thresholdEndpoints.valleys.y1 == null || thresholdEndpoints.valleys.y2 == null) {
       valleyThresholdLine.attr("display", "none");
       valleysY1.attr("display", "none");
       valleysY2.attr("display", "none");
@@ -943,22 +945,28 @@ export default function WaveformGraph({
                   <li>
                     Move:
                     <br />
-                    Click and drag markers along the waveform line. Or right click to use arrow keys.
+                    {`Drag markers along the waveform line, or right click a marker and select "Move" to use arrow keys.`}
                   </li>
                   <li>
                     Add:
                     <br />
-                    Right-click along waveform line for placemenet.
+                    Right-click along waveform line for placement options.
                   </li>
                   <li>
                     Delete:
                     <br />
-                    Right-click directly on marker.
+                    {`Right-click on a marker and select "Delete".`}
+                  </li>
+                  <li>
+                    Filter:
+                    <br />
+                    Drag the purple/orange horizontal lines to filter peaks/valleys respectively. The
+                    endpoints can be adjusted independently as well to create a sloped line.
                   </li>
                   <li>
                     Window:
                     <br />
-                    Drag orange and green horizontal lines to filter minimum peaks and maximum valleys.
+                    Drag vertical black bar to set the analysis window. The window itself can be dragged too.
                   </li>
                 </TooltipText>
               }
@@ -967,18 +975,27 @@ export default function WaveformGraph({
             </Tooltip>
           </HowTo>
           <ButtonWidget
+            label="Remove Duplicates"
+            width="180px"
+            height="30px"
+            fontSize={15}
+            borderRadius="5px"
+            clickFn={customAnalysisSettingsUpdaters.removeDupsForWell}
+          />
+          <ButtonWidget
             label="Undo"
             width="80px"
             height="30px"
             fontSize={15}
             borderRadius="5px"
+            left="5px"
             clickFn={changelogActions.undo}
           />
           <ButtonWidget
             label="Reset"
             width="80px"
             height="30px"
-            left="5px"
+            left="10px"
             fontSize={15}
             borderRadius="5px"
             clickFn={changelogActions.reset}
@@ -987,7 +1004,7 @@ export default function WaveformGraph({
             label="Save"
             width="80px"
             height="30px"
-            left="10px"
+            left="15px"
             fontSize={15}
             borderRadius="5px"
             clickFn={changelogActions.save}
@@ -1003,11 +1020,11 @@ export default function WaveformGraph({
                 <tr>
                   <td>
                     <Triangle type="peak" direction="top" />
-                    Peaks
+                    Peak
                   </td>
                   <td>
                     <LineColor type="peak" />
-                    Peak Detection Limit
+                    Peak Limit
                   </td>
                   <td>
                     <LineAdjuster type="peak" />
@@ -1015,11 +1032,11 @@ export default function WaveformGraph({
                   </td>
                   <td>
                     <Triangle type="valley" direction="bottom" />
-                    Valleys
+                    Valley
                   </td>
                   <td>
                     <LineColor type="valley" />
-                    Valley Limiter
+                    Valley Limit
                   </td>
                   <td>
                     <LineAdjuster type="valley" />
@@ -1030,7 +1047,7 @@ export default function WaveformGraph({
                       <Triangle type="error" direction="top" />
                       <Triangle type="error" direction="bottom" />
                     </ToRowComponent>
-                    Duplicate Valley or Peak
+                    Duplicate Peak or Valley
                   </td>
                 </tr>
               </tbody>

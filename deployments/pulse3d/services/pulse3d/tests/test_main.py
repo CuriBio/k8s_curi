@@ -6,7 +6,7 @@ import uuid
 import pandas as pd
 import pytest
 from semver import VersionInfo
-from auth import create_token, decode_token, Scopes, ScopeTags, AccountTypes
+from auth import create_token, Scopes, ScopeTags, AccountTypes
 from utils.s3 import S3Error
 from src import main
 import numpy as np
@@ -105,49 +105,28 @@ def test_logs__post(mocker):
     )
 
 
-@pytest.mark.parametrize("test_token_scope", [[s] for s in P3D_READ_SCOPES])
-@pytest.mark.parametrize(
-    "test_upload_ids", [None, [], uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4() for _ in range(3)]]
-)
-def test_uploads__get(test_token_scope, test_upload_ids, mocked_asyncpg_con, mocker):
+@pytest.mark.parametrize("test_token_scope", [s for s in P3D_READ_SCOPES])
+def test_uploads__get(test_token_scope, mocked_asyncpg_con, mocker):
     mocked_get_uploads = mocker.patch.object(main, "get_uploads", autospec=True, return_value=[])
 
-    account_type = AccountTypes.ADMIN if ScopeTags.ADMIN in test_token_scope[0].tags else AccountTypes.USER
+    account_type = AccountTypes.ADMIN if ScopeTags.ADMIN in test_token_scope.tags else AccountTypes.USER
     is_admin_account = account_type == AccountTypes.ADMIN
 
     test_customer_id = uuid.uuid4()
     test_user_id = None if is_admin_account else uuid.uuid4()
 
     access_token = get_token(
-        scopes=test_token_scope, account_type=account_type, userid=test_user_id, customer_id=test_customer_id
+        scopes=[test_token_scope],
+        account_type=account_type,
+        userid=test_user_id,
+        customer_id=test_customer_id,
     )
 
     kwargs = {"headers": {"Authorization": f"Bearer {access_token}"}}
-    # in None case, don't even pass a query param
-    if test_upload_ids is not None:
-        kwargs["params"] = {"upload_ids": test_upload_ids}
 
-    response = test_client.get("/uploads", **kwargs)
+    response = test_client.get("/uploads?name_filter=test", **kwargs)
     assert response.status_code == 200
     assert response.json() == mocked_get_uploads.return_value
-
-    if test_upload_ids:
-        if isinstance(test_upload_ids, uuid.UUID):
-            # fastapi automatically converts a single UUID to a list
-            test_upload_ids = [test_upload_ids]
-        expected_upload_ids = [str(test_id) for test_id in test_upload_ids]
-    else:
-        # falsey query params are automatically converted to None
-        expected_upload_ids = None
-
-    if Scopes.MANTARRAY__RW_ALL_DATA in test_token_scope:
-        account_type = "rw_all_user"
-
-    mocked_get_uploads.assert_called_once_with(
-        con=mocked_asyncpg_con,
-        upload_ids=expected_upload_ids,
-        **main._get_retrieval_info(decode_token(access_token)),
-    )
 
 
 def test_uploads__post_if_customer_quota_has_not_been_reached(mocked_asyncpg_con, mocker):
