@@ -135,7 +135,9 @@ const getSortFilterName = (sortColId) => {
 const getUploadIDElement = (c) => {
   return (
     <Tooltip title={<TooltipText>{c.getValue()}</TooltipText>}>
-      {c.getValue().slice(0, 8)}...{c.getValue().slice(-8)}
+      <div>
+        {c.getValue().slice(0, 8)}...{c.getValue().slice(-8)}
+      </div>
     </Tooltip>
   );
 };
@@ -275,6 +277,11 @@ export default function Uploads() {
       {
         accessorFn: (row) => new Date(row.createdAt),
         header: "Date Created",
+        Header: ({ column }) => (
+          <Tooltip title={<TooltipText>{"Filtering is based on UTC timestamp"}</TooltipText>}>
+            <div>{column.columnDef.header}</div>
+          </Tooltip>
+        ),
         id: "createdAt",
         filterVariant: "date-range",
         sortingFn: "datetime",
@@ -288,6 +295,11 @@ export default function Uploads() {
       {
         accessorFn: (row) => new Date(row.lastAnalyzed),
         header: "Last Analyzed",
+        Header: ({ column }) => (
+          <Tooltip title={<TooltipText>{"Filtering is based on UTC timestamp"}</TooltipText>}>
+            <div>{column.columnDef.header}</div>
+          </Tooltip>
+        ),
         id: "lastAnalyzed",
         filterVariant: "date-range",
         sortingFn: "datetime",
