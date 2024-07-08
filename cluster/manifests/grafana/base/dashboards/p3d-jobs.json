@@ -29,6 +29,242 @@
       "fieldConfig": {
         "defaults": {
           "color": {
+            "mode": "palette-classic-by-name"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisGridShow": true,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 83,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 15,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "orientation": "vertical",
+        "showValue": "never",
+        "stacking": "normal",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "month_created\\customer_id",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "10.1.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "P44368ADAD746BC27"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT to_char(date_trunc('month', created_at), 'YY/MM') AS month_created, customer_id, count(*) FROM uploads WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY month_created, customer_id ORDER BY month_created, customer_id;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          },
+          "table": "jobs_result"
+        }
+      ],
+      "title": "Uploads per month per customer",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "customer_id",
+            "rowField": "month_created",
+            "valueField": "count"
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "P44368ADAD746BC27"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic-by-name"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisGridShow": true,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 83,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 16,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "orientation": "vertical",
+        "showValue": "never",
+        "stacking": "normal",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "month_created\\customer_id",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "10.1.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "P44368ADAD746BC27"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT to_char(date_trunc('month', created_at), 'YY/MM') AS month_created, customer_id, count(*) FROM jobs_result WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY month_created, customer_id ORDER BY month_created, customer_id;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          },
+          "table": "jobs_result"
+        }
+      ],
+      "title": "Analyses per month per customer",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "customer_id",
+            "rowField": "month_created",
+            "valueField": "count"
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "P44368ADAD746BC27"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
             "mode": "thresholds"
           },
           "custom": {
@@ -59,7 +295,7 @@
         "h": 4,
         "w": 4,
         "x": 0,
-        "y": 0
+        "y": 11
       },
       "id": 1,
       "options": {
@@ -146,7 +382,7 @@
         "h": 4,
         "w": 4,
         "x": 4,
-        "y": 0
+        "y": 11
       },
       "id": 2,
       "options": {
@@ -233,7 +469,7 @@
         "h": 4,
         "w": 6,
         "x": 8,
-        "y": 0
+        "y": 11
       },
       "id": 3,
       "options": {
@@ -320,7 +556,7 @@
         "h": 4,
         "w": 5,
         "x": 14,
-        "y": 0
+        "y": 11
       },
       "id": 4,
       "options": {
@@ -407,7 +643,7 @@
         "h": 14,
         "w": 5,
         "x": 19,
-        "y": 0
+        "y": 11
       },
       "id": 10,
       "options": {
@@ -494,7 +730,7 @@
         "h": 5,
         "w": 8,
         "x": 0,
-        "y": 4
+        "y": 15
       },
       "id": 6,
       "options": {
@@ -581,7 +817,7 @@
         "h": 5,
         "w": 6,
         "x": 8,
-        "y": 4
+        "y": 15
       },
       "id": 11,
       "options": {
@@ -669,7 +905,7 @@
         "h": 10,
         "w": 5,
         "x": 14,
-        "y": 4
+        "y": 15
       },
       "id": 13,
       "options": {
@@ -756,7 +992,7 @@
         "h": 5,
         "w": 8,
         "x": 0,
-        "y": 9
+        "y": 20
       },
       "id": 8,
       "options": {
@@ -843,7 +1079,7 @@
         "h": 5,
         "w": 6,
         "x": 8,
-        "y": 9
+        "y": 20
       },
       "id": 12,
       "options": {
@@ -930,7 +1166,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 14
+        "y": 25
       },
       "id": 7,
       "options": {
@@ -1017,7 +1253,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 14
+        "y": 25
       },
       "id": 5,
       "options": {
@@ -1104,7 +1340,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 22
+        "y": 33
       },
       "id": 9,
       "options": {
@@ -1191,7 +1427,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 22
+        "y": 33
       },
       "id": 14,
       "options": {
@@ -1256,6 +1492,6 @@
   "timezone": "",
   "title": "Pulse3D Stats",
   "uid": "caa4b0df-5a12-47e1-8ec4-832c54f7a367",
-  "version": 23,
+  "version": 3,
   "weekStart": ""
 }
