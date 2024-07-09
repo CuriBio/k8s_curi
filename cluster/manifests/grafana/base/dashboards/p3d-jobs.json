@@ -91,7 +91,7 @@
           "sort": "none"
         },
         "xField": "month_created\\customer_id",
-        "xTickLabelRotation": 0,
+        "xTickLabelRotation": 45,
         "xTickLabelSpacing": 0
       },
       "pluginVersion": "10.1.5",
@@ -209,7 +209,7 @@
           "sort": "none"
         },
         "xField": "month_created\\customer_id",
-        "xTickLabelRotation": 0,
+        "xTickLabelRotation": 45,
         "xTickLabelSpacing": 0
       },
       "pluginVersion": "10.1.5",
@@ -262,6 +262,149 @@
         "type": "postgres",
         "uid": "P44368ADAD746BC27"
       },
+      "description": "Customers are considered active in a given month if they ran at least 1 analysis. Deactivated users are not removed",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "dark-red",
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisGridShow": true,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 72,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "total_inactive"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "semi-dark-orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "total_active"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "semi-dark-green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 11
+      },
+      "id": 18,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "orientation": "vertical",
+        "showValue": "never",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "month",
+        "xTickLabelRotation": 45,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "10.1.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "P44368ADAD746BC27"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "select total_active_per_month.month, total_active, (sum(num_registrations) over(order by coalesce(total_active_per_month.month, total_registrations_per_month.month))) - total_active as total_inactive from ( select to_char(date_trunc('month', created_at), 'YY/MM') as month, count(*) as num_registrations from customers group by month order by month desc) total_registrations_per_month full outer join (select to_char(date_trunc('month', created_at), 'YY/MM') as month, count(distinct customer_id) as total_active from jobs_result group by month order by month) total_active_per_month ON total_registrations_per_month.month=total_active_per_month.month;\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          },
+          "table": "jobs_result"
+        }
+      ],
+      "title": "Monthly active vs. inactive customers",
+      "transformations": [],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "P44368ADAD746BC27"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -295,7 +438,7 @@
         "h": 4,
         "w": 4,
         "x": 0,
-        "y": 11
+        "y": 20
       },
       "id": 1,
       "options": {
@@ -382,7 +525,7 @@
         "h": 4,
         "w": 4,
         "x": 4,
-        "y": 11
+        "y": 20
       },
       "id": 2,
       "options": {
@@ -469,7 +612,7 @@
         "h": 4,
         "w": 6,
         "x": 8,
-        "y": 11
+        "y": 20
       },
       "id": 3,
       "options": {
@@ -556,7 +699,7 @@
         "h": 4,
         "w": 5,
         "x": 14,
-        "y": 11
+        "y": 20
       },
       "id": 4,
       "options": {
@@ -643,7 +786,7 @@
         "h": 14,
         "w": 5,
         "x": 19,
-        "y": 11
+        "y": 20
       },
       "id": 10,
       "options": {
@@ -730,7 +873,7 @@
         "h": 5,
         "w": 8,
         "x": 0,
-        "y": 15
+        "y": 24
       },
       "id": 6,
       "options": {
@@ -817,7 +960,7 @@
         "h": 5,
         "w": 6,
         "x": 8,
-        "y": 15
+        "y": 24
       },
       "id": 11,
       "options": {
@@ -905,7 +1048,7 @@
         "h": 10,
         "w": 5,
         "x": 14,
-        "y": 15
+        "y": 24
       },
       "id": 13,
       "options": {
@@ -992,7 +1135,7 @@
         "h": 5,
         "w": 8,
         "x": 0,
-        "y": 20
+        "y": 29
       },
       "id": 8,
       "options": {
@@ -1079,7 +1222,7 @@
         "h": 5,
         "w": 6,
         "x": 8,
-        "y": 20
+        "y": 29
       },
       "id": 12,
       "options": {
@@ -1166,7 +1309,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 25
+        "y": 34
       },
       "id": 7,
       "options": {
@@ -1253,7 +1396,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 25
+        "y": 34
       },
       "id": 5,
       "options": {
@@ -1340,7 +1483,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 33
+        "y": 42
       },
       "id": 9,
       "options": {
@@ -1427,7 +1570,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 33
+        "y": 42
       },
       "id": 14,
       "options": {
