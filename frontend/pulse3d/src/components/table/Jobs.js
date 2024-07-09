@@ -1,5 +1,6 @@
 import styled from "styled-components";
 import { formatDateTime } from "@/utils/generic";
+import { getShortUUIDWithTooltip } from "@/utils/jsx";
 import { useState, useMemo, useEffect } from "react";
 import Table from "./Table";
 
@@ -114,6 +115,13 @@ export default function Jobs({ row, openJobPreview, setSelectedJobs, selectedJob
         size: 300,
       },
       {
+        accessorKey: "jobId",
+        id: "jobId",
+        header: "Job ID",
+        size: 130,
+        Cell: ({ cell }) => getShortUUIDWithTooltip(cell.getValue(), 4),
+      },
+      {
         accessorFn: (row) => new Date(row.createdAt),
         header: "Date Created",
         id: "createdAt",
@@ -125,7 +133,7 @@ export default function Jobs({ row, openJobPreview, setSelectedJobs, selectedJob
         accessorKey: "analysisParams", //accessorKey used to define `data` column. `id` gets set to accessorKey automatically
         id: "analysisParams",
         header: "Analysis Parameters",
-        size: 300,
+        size: 260,
         Cell: ({ cell }) => getAnalysisParamsStr(cell.getValue()),
       },
       {
