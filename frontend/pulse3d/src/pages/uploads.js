@@ -9,6 +9,7 @@ import { AuthContext, UploadsContext } from "@/pages/_app";
 import { useRouter } from "next/router";
 import JobPreviewModal from "@/components/interactiveAnalysis/JobPreviewModal";
 import { formatDateTime } from "@/utils/generic";
+import { getShortUUIDWithTooltip } from "@/utils/jsx";
 import Table from "@/components/table/Table";
 import { Box, IconButton } from "@mui/material";
 import Tooltip from "@mui/material/Tooltip";
@@ -130,16 +131,6 @@ const getSortFilterName = (sortColId) => {
   } else {
     return "last_analyzed";
   }
-};
-
-const getUploadIDElement = (c) => {
-  return (
-    <Tooltip title={<TooltipText>{c.getValue()}</TooltipText>}>
-      <div>
-        {c.getValue().slice(0, 8)}...{c.getValue().slice(-8)}
-      </div>
-    </Tooltip>
-  );
 };
 
 export default function Uploads() {
@@ -272,7 +263,7 @@ export default function Uploads() {
         header: "Upload ID",
         size: 190,
         minSize: 130,
-        Cell: ({ cell }) => getUploadIDElement(cell),
+        Cell: ({ cell }) => getShortUUIDWithTooltip(cell.getValue()),
       },
       {
         accessorFn: (row) => new Date(row.createdAt),
