@@ -111,6 +111,7 @@ class WaveformDataResponse(BaseModel):
 class JobDownloadRequest(BaseModel):
     upload_type: str | None = Field(default=None)
     job_ids: list[uuid.UUID]
+    timezone: str | None = Field(default=None)
 
 
 class UploadDownloadRequest(BaseModel):

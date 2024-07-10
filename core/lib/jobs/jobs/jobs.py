@@ -176,13 +176,13 @@ def _add_upload_sorting_filtering_conds(
                 new_cond = f"uploads.id::text LIKE {placeholder}"
                 filter_value = f"%{filter_value}%"
             case "created_at_min":
-                new_cond = f"uploads.created_at >= to_date({placeholder}, 'YYYY-MM-DD')"
+                new_cond = f"uploads.created_at::date >= to_date({placeholder}, 'YYYY-MM-DD')"
             case "created_at_max":
-                new_cond = f"uploads.created_at <= to_date({placeholder}, 'YYYY-MM-DD')"
+                new_cond = f"uploads.created_at::date <= to_date({placeholder}, 'YYYY-MM-DD')"
             case "last_analyzed_min":
-                new_cond = f"j.last_analyzed >= to_date({placeholder}, 'YYYY-MM-DD')"
+                new_cond = f"j.last_analyzed::date >= to_date({placeholder}, 'YYYY-MM-DD')"
             case "last_analyzed_max":
-                new_cond = f"j.last_analyzed <= to_date({placeholder}, 'YYYY-MM-DD')"
+                new_cond = f"j.last_analyzed::date <= to_date({placeholder}, 'YYYY-MM-DD')"
             case _:
                 continue
 
@@ -360,7 +360,7 @@ async def get_jobs_download_info_for_admin(con, customer_id: str, job_ids: list[
     query_params = [customer_id]
     places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
     query = (
-        "SELECT object_key, j.id FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
+        "SELECT object_key, j.id, j.created_at FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         f"WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND j.job_id IN ({places})"
     )
     query_params += job_ids
@@ -377,7 +377,7 @@ async def get_jobs_download_info_for_rw_all_data_user(
     query_params = [customer_id, upload_type]
     places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
     query = (
-        "SELECT object_key, j.id FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
+        "SELECT object_key, j.id, j.created_at FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         f"WHERE j.customer_id=$1 AND u.type=$2 AND j.status!='deleted' AND u.deleted='f' AND j.job_id IN ({places})"
     )
     query_params += job_ids
@@ -392,7 +392,7 @@ async def get_jobs_download_info_for_base_user(con, user_id: str, job_ids: list[
     query_params = [user_id, upload_type]
     places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
     query = (
-        "SELECT object_key, j.id FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
+        "SELECT object_key, j.id, j.created_at FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         f"WHERE u.user_id=$1 AND u.type=$2 AND j.status!='deleted' AND u.deleted='f' AND j.job_id IN ({places})"
     )
     query_params += job_ids

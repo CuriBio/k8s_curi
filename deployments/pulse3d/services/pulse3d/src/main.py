@@ -7,6 +7,7 @@ import uuid
 from collections import defaultdict
 from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import boto3
 import polars as pl
@@ -673,7 +674,7 @@ async def download_analyses(
 
         num_times_repeated = defaultdict(lambda: 0)
 
-        unique_filenames = list()
+        filename_overrides = list()
         keys = list()
 
         for job in jobs:
@@ -682,26 +683,37 @@ async def download_analyses(
 
             filename = os.path.basename(obj_key)
 
-            if filename in unique_filenames:
-                num_times_repeated[filename] += 1
-                duplicate_num = num_times_repeated[filename]
-                # add duplicate num to differentiate duplicate filenames
-                root, ext = os.path.splitext(filename)
-                filename = f"{root}_({duplicate_num}){ext}"
+            filename_override = filename
+            if details.timezone:
+                try:
+                    timestamp = job["created_at"]
+                    timestamp = timestamp.astimezone(ZoneInfo(details.timezone)).strftime("%Y-%m-%d_%H-%M-%S")
+                    filename_override = _add_timestamp_to_filename(obj_key.split("/")[-1], timestamp)
+                except Exception:
+                    logger.exception("Error creating timestamp for filename of job download")
 
-            unique_filenames.append(filename)
+            if filename_override in filename_overrides:
+                num_times_repeated[filename_override] += 1
+                duplicate_num = num_times_repeated[filename_override]
+                # add duplicate num to differentiate duplicate filenames
+                root, ext = os.path.splitext(filename_override)
+                filename_override = f"{root}_({duplicate_num}){ext}"
+
+            filename_overrides.append(filename_override)
 
         if len(jobs) == 1:
             # if only one file requested, return single presigned URL
             return {
                 "id": jobs[0]["id"],
-                "url": generate_presigned_url(PULSE3D_UPLOADS_BUCKET, jobs[0]["object_key"]),
+                "url": generate_presigned_url(
+                    PULSE3D_UPLOADS_BUCKET, keys[0], filename_override=filename_overrides[0]
+                ),
             }
         else:
             # Grab ZIP file from in-memory, make response with correct MIME-type
             return StreamingResponse(
                 content=stream_zip(
-                    _yield_s3_objects(bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=unique_filenames)
+                    _yield_s3_objects(bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=filename_overrides)
                 ),
                 media_type="application/zip",
             )
@@ -709,6 +721,11 @@ async def download_analyses(
     except Exception:
         logger.exception("Failed to download jobs")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _add_timestamp_to_filename(filename: str, timestamp: str) -> str:
+    name, ext = os.path.splitext(filename)
+    return f"{name}__{timestamp}{ext}"
 
 
 @app.get("/jobs/waveform-data", response_model=WaveformDataResponse | GenericErrorResponse)
@@ -1032,6 +1049,7 @@ def _generate_presigned_post(details, bucket, s3_key):
 
 def _yield_s3_objects(bucket: str, keys: list[str], filenames: list[str]):
     # TODO consider moving this to core s3 utils if more routes need to start using it
+    key = None
     try:
         s3 = boto3.session.Session().resource("s3")
         for idx, key in enumerate(keys):

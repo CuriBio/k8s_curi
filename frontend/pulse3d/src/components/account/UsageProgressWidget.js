@@ -84,25 +84,33 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
     </UpgradeButton>
   );
 
-  return (
-    <>
-      {maxJobs === -1 && <ProgressDiv>Unlimited Access</ProgressDiv>}
-      {!isExpired && maxJobs !== -1 && (
-        <ProgressDiv>
-          <p>Usage</p>
-          <CircularProgressWithLabel value={usagePercentage} colorOfTextLabel={colorOfTextLabel} />
-          <ProgressLabel>{`${currentNumJobs}/${maxJobs} analyses used`}</ProgressLabel>
-          {UpgradeButtonElement}
-        </ProgressDiv>
-      )}
-      {isExpired && (
+  const getDisplay = () => {
+    if (isExpired) {
+      return (
         <ExpiredDiv>
           <DropDownStyleContainer>
             Plan Has Expired
             {UpgradeButtonElement}
           </DropDownStyleContainer>
         </ExpiredDiv>
-      )}
+      );
+    } else if (maxJobs === -1) {
+      return <ProgressDiv>Unlimited Access</ProgressDiv>;
+    } else {
+      return (
+        <ProgressDiv>
+          <p>Usage</p>
+          <CircularProgressWithLabel value={usagePercentage} colorOfTextLabel={colorOfTextLabel} />
+          <ProgressLabel>{`${currentNumJobs}/${maxJobs} analyses used`}</ProgressLabel>
+          {UpgradeButtonElement}
+        </ProgressDiv>
+      );
+    }
+  };
+
+  return (
+    <>
+      {getDisplay()}
       <ModalWidgetStyle>
         <ModalWidget
           open={newPlanModalIsOpen}
