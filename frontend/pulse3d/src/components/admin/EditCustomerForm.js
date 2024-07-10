@@ -232,7 +232,7 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
                     <div key={product}>
                       <ProductLabel>{capitalize(product)}</ProductLabel>
                       <UsageInputContainer style={{ width: "335px" }}>
-                        <UsageLabel>Analyses:</UsageLabel>
+                        <UsageLabel>Uploads:</UsageLabel>
                         <FormInput
                           name="num_uploads"
                           placeholder={"10000"}
