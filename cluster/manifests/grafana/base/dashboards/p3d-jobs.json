@@ -262,7 +262,7 @@
         "type": "postgres",
         "uid": "P44368ADAD746BC27"
       },
-      "description": "Customers are considered active in a given month if they ran at least 1 analysis. Deactivated users are not removed",
+      "description": "Customers are considered active in a given month if they ran at least 1 analysis. Deactivated customers are not removed from the inactive count.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -405,7 +405,7 @@
         "type": "postgres",
         "uid": "P44368ADAD746BC27"
       },
-      "description": "Customers are considered active in a given month if they ran at least 1 analysis. Deactivated users are not removed",
+      "description": "Customers are considered active in a given month if they ran at least 1 analysis. Deactivated customers are not removed from the inactive count.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -912,7 +912,7 @@
         "type": "postgres",
         "uid": "P44368ADAD746BC27"
       },
-      "description": "Customers are considered active in a given month if they ran at least 1 analysis. Deactivated users are not removed",
+      "description": "Customers are considered active in a given month if they ran at least 1 analysis. Deactivated customers are not removed from the inactive count.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1055,7 +1055,7 @@
         "type": "postgres",
         "uid": "P44368ADAD746BC27"
       },
-      "description": "Customers are considered active in a given month if they ran at least 1 analysis. Deactivated users are not removed",
+      "description": "Customers are considered active in a given month if they ran at least 1 analysis. Deactivated customers are not removed from the inactive count.",
       "fieldConfig": {
         "defaults": {
           "color": {
