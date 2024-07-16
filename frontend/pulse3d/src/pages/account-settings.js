@@ -220,7 +220,7 @@ export default function AccountSettings() {
         <Subheader>Usage Details</Subheader>
         <SubSectionBody>
           <UsageWidgetFull
-            metricName="Analysis"
+            metricName={currentJobUsage === 1 ? "Analysis" : "Analyses"}
             limitUsage={jobsLimit}
             actualUsage={currentJobUsage}
             daysLeft={daysLeft}

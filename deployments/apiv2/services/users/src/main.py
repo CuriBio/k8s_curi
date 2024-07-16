@@ -1246,11 +1246,12 @@ async def update_customer(
     The action to take on the user should be passed in the body of PUT request as action_type:
         - deactivate: set suspended field to true
         - reactivate: set sespended field to false and set login attempts to 0
-        - edit: set usage restrictions in customers and update account scopes for customer, remove from users if present
+        - edit:
+            - update usage restrictions
+            - update account scopes for customer (if removing a scope, it will remove the dependent scopes from users under that customer as well)
     """
     self_id = uuid.UUID(hex=token.account_id)
     action = details.action_type
-    update_query = None
 
     try:
         bind_context_to_logger(
@@ -1262,59 +1263,63 @@ async def update_customer(
             }
         )
 
-        if action == "deactivate":
-            update_query = "UPDATE customers SET suspended='t' WHERE id=$1"
-            query_args = (account_id,)
-        elif action == "reactivate":
-            # when reactivated, failed login attempts should be set back to 0.
-            update_query = "UPDATE customers SET suspended='f', failed_login_attempts=0 WHERE id=$1"
-            query_args = (account_id,)
-        elif action == "edit":
-            update_query = "UPDATE customers SET usage_restrictions=$1 WHERE id=$2"
-            query_args = (json.dumps(details.usage), account_id)
-
-            async with request.state.pgpool.acquire() as con:
-                async with con.transaction():
-                    # get current customer scopes
-                    rows = await con.fetch(
-                        "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL",
-                        account_id,
+        async with request.state.pgpool.acquire() as con:
+            async with con.transaction():
+                if action == "deactivate":
+                    await con.execute("UPDATE customers SET suspended='t' WHERE id=$1", account_id)
+                elif action == "reactivate":
+                    # when reactivated, failed login attempts should be set back to 0.
+                    await con.execute(
+                        "UPDATE customers SET suspended='f', failed_login_attempts=0 WHERE id=$1", account_id
                     )
+                elif action == "edit":
+                    # handle usage restrictions updates
+                    if (usage_restrictions_update := details.usage) is not None:
+                        await con.execute(
+                            "UPDATE customers SET usage_restrictions=$1 WHERE id=$2",
+                            json.dumps(usage_restrictions_update),
+                            account_id,
+                        )
 
-                    # get product name from admin scopes
-                    existing_products = get_product_tags_of_admin(
-                        [convert_scope_str(row["scope"]) for row in rows]
+                    # handle product scope updates
+                    if (products_update := details.products) is not None:
+                        # get current customer scopes
+                        rows = await con.fetch(
+                            "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL",
+                            account_id,
+                        )
+
+                        # get product name from admin scopes
+                        existing_products = get_product_tags_of_admin(
+                            [convert_scope_str(row["scope"]) for row in rows]
+                        )
+                        # if a product scope is being removed from an admin account, then remove all customer and user entries from account_scopes
+                        if len(product_diff := set(existing_products) - set(products_update)) > 0:
+                            scope_query = "DELETE FROM account_scopes WHERE customer_id=$1 AND scope LIKE $2"
+                            suffix = "%"
+                        # else a product scope is being added to an admin, then insert new entry for customer only
+                        else:
+                            product_diff = set(products_update) - set(existing_products)
+                            scope_query = "INSERT INTO account_scopes VALUES ($1, NULL, $2)"
+                            suffix = ":admin"
+
+                        for product in product_diff:
+                            await con.execute(scope_query, account_id, f"{product}{suffix}")
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Invalid curi-edit-admin action: {action}",
                     )
-                    # if a product scope is being removed from an admin account, then remove all customer and user entries from account_scopes
-                    if len(product_diff := set(existing_products) - set(details.products)) > 0:
-                        scope_query = "DELETE FROM account_scopes WHERE customer_id=$1 AND scope LIKE $2"
-                        suffix = "%"
-                    # else a product scope is being added to an admin, then insert new entry for customer only
-                    else:
-                        product_diff = set(details.products) - set(existing_products)
-                        scope_query = "INSERT INTO account_scopes VALUES ($1, NULL, $2)"
-                        suffix = ":admin"
-
-                    for p in product_diff:
-                        await con.execute(scope_query, account_id, f"{p}{suffix}")
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid curi-edit-admin action: {action}"
-            )
-
-        if update_query is not None:
-            async with request.state.pgpool.acquire() as con:
-                await con.execute(update_query, *query_args)
 
     except HTTPException:
         raise
     except Exception:
-        logger.exception(f"PUT /{account_id}: Unexpected error")
+        logger.exception(f"PUT /customers/{account_id}: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @app.put("/{account_id}")
-async def update_user(
+async def update_account(
     request: Request,
     details: AccountUpdateAction,
     account_id: uuid.UUID,

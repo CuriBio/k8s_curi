@@ -78,61 +78,87 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
   const [buttons, setButtons] = useState(["Cancel", "Save"]);
   const [labels, setLabels] = useState([]);
   const [usage, setUsage] = useState({});
-  const [unlimited, setUnlimited] = useState([]);
+  const [unlimitedUploads, setUnlimitedUploads] = useState([]);
+  const [unlimitedAnalyses, setUnlimitedAnalyses] = useState([]);
   const [errorMsg, setErrorMsg] = useState([]);
 
   useEffect(() => {
-    if (customerData) {
-      // get available products to choose from
-      const parsedCustomerUsage = JSON.parse(customerData.usage);
-      setProductOptions(Object.keys(parsedCustomerUsage));
-
-      // set current customer products
-      setSelectedProducts(customerData.scopes.map((s) => s.split(":")[0]));
-
-      // set current usage
-      setUsage(parsedCustomerUsage);
-
-      // handle unlimited analyses
-      const unlimitedProds = Object.keys(parsedCustomerUsage).filter(
-        (p) => parsedCustomerUsage[p].jobs === -1
-      );
-      setUnlimited(unlimitedProds);
-
-      // ensure the modal resets if error messages were showing
-      setLabels([]);
-      setButtons(["Cancel", "Save"]);
+    if (!customerData) {
+      return;
     }
+    // get available products to choose from
+    const parsedCustomerUsage = JSON.parse(customerData.usage);
+    setProductOptions(Object.keys(parsedCustomerUsage));
+
+    // set current customer products
+    setSelectedProducts(customerData.scopes.map((s) => s.split(":")[0]));
+
+    // set current usage
+    setUsage(parsedCustomerUsage);
+
+    // handle unlimited uploads
+    const currentUnlimitedUploads = Object.keys(parsedCustomerUsage).filter(
+      (p) => parsedCustomerUsage[p].uploads === -1
+    );
+    setUnlimitedUploads(currentUnlimitedUploads);
+
+    // handle unlimited analyses
+    const currentUnlimitedAnalyses = Object.keys(parsedCustomerUsage).filter(
+      (p) => parsedCustomerUsage[p].jobs === -1
+    );
+    setUnlimitedAnalyses(currentUnlimitedAnalyses);
+
+    // ensure the modal resets if error messages were showing
+    setLabels([]);
+    setButtons(["Cancel", "Save"]);
   }, [customerData]);
 
   const handleButtonSelection = async (idx) => {
     if (idx === 1) {
       try {
-        for (const product in usage) {
-          if (unlimited.includes(product)) {
-            usage[product].jobs = -1;
-          }
-
-          const exp = usage[product].expiration_date;
+        const usageCopy = JSON.parse(JSON.stringify(usage));
+        for (const product in usageCopy) {
+          const exp = usageCopy[product].expiration_date;
           if (exp) {
             // check if valid date, also check number of values because new Date('<single int>') has weird behaviors. Enforce xxxx-xx-xx
             // reset labels so the buttons disabled state returns to false and return so request isn't sent
             if (new Date(exp).toString() === "Invalid Date" || exp.split("-").length !== 3) {
               setLabels([]);
-              return setErrorMsg("*Invalid date format");
-            } else if (new Date(exp) <= new Date()) {
-              setLabels([]);
-              setLabels([]);
-              return setErrorMsg("*Expiration date must be greater than today");
+              setErrorMsg("*Invalid date format");
+              return;
             } else {
               setErrorMsg();
             }
+          } else {
+            usageCopy[product].expiration_date = null;
+          }
+
+          if (unlimitedUploads.includes(product)) {
+            usageCopy[product].uploads = -1;
+            setErrorMsg();
+          } else if (usageCopy[product].uploads < 0) {
+            setLabels([]);
+            setErrorMsg("*Upload limit must be >= 0");
+            return;
+          } else {
+            setErrorMsg();
+          }
+
+          if (unlimitedAnalyses.includes(product)) {
+            usageCopy[product].jobs = -1;
+            setErrorMsg();
+          } else if (usageCopy[product].jobs < 0) {
+            setLabels([]);
+            setErrorMsg("*Analysis limit must be >= 0");
+            return;
+          } else {
+            setErrorMsg();
           }
         }
 
         const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/customers/${customerData.id}`, {
           method: "PUT",
-          body: JSON.stringify({ usage, products: selectedProducts, action_type: "edit" }),
+          body: JSON.stringify({ usage: usageCopy, products: selectedProducts, action_type: "edit" }),
         });
 
         if (res.status === 204) {
@@ -206,12 +232,33 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
                     <div key={product}>
                       <ProductLabel>{capitalize(product)}</ProductLabel>
                       <UsageInputContainer style={{ width: "335px" }}>
+                        <UsageLabel>Uploads:</UsageLabel>
+                        <FormInput
+                          name="num_uploads"
+                          placeholder={"10000"}
+                          value={unlimitedUploads.includes(product) ? "" : usage[product].uploads}
+                          disabled={unlimitedUploads.includes(product)}
+                          height="25px"
+                          onChangeFn={(e) => {
+                            updateUsageSettings(e.target.value, product, "uploads");
+                          }}
+                        />
+                        <CheckboxWidget
+                          size={"sm"}
+                          checkedState={unlimitedUploads.includes(product)}
+                          handleCheckbox={(state) =>
+                            handleCheckedState(product, state, setUnlimitedUploads, unlimitedUploads)
+                          }
+                        />{" "}
+                        unlimited
+                      </UsageInputContainer>
+                      <UsageInputContainer style={{ width: "335px" }}>
                         <UsageLabel>Analyses:</UsageLabel>
                         <FormInput
                           name="num_analyses"
                           placeholder={"10000"}
-                          value={unlimited.includes(product) ? "" : usage[product].jobs}
-                          disabled={unlimited.includes(product)}
+                          value={unlimitedAnalyses.includes(product) ? "" : usage[product].jobs}
+                          disabled={unlimitedAnalyses.includes(product)}
                           height="25px"
                           onChangeFn={(e) => {
                             updateUsageSettings(e.target.value, product, "jobs");
@@ -219,9 +266,9 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
                         />
                         <CheckboxWidget
                           size={"sm"}
-                          checkedState={unlimited.includes(product)}
+                          checkedState={unlimitedAnalyses.includes(product)}
                           handleCheckbox={(state) =>
-                            handleCheckedState(product, state, setUnlimited, unlimited)
+                            handleCheckedState(product, state, setUnlimitedAnalyses, unlimitedAnalyses)
                           }
                         />{" "}
                         unlimited

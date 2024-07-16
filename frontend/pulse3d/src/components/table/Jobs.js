@@ -1,5 +1,6 @@
 import styled from "styled-components";
 import { formatDateTime } from "@/utils/generic";
+import { getShortUUIDWithTooltip } from "@/utils/jsx";
 import { useState, useMemo, useEffect } from "react";
 import Table from "./Table";
 
@@ -108,10 +109,17 @@ export default function Jobs({ row, openJobPreview, setSelectedJobs, selectedJob
   const columns = useMemo(
     () => [
       {
-        accessorFn: (row) => (row.analyzedFile ? row.analyzedFile : "None"),
+        accessorFn: (row) => row.analyzedFile || "None",
         id: "analyzedFile",
         header: "Analyzed Filename",
         size: 300,
+      },
+      {
+        accessorKey: "jobId",
+        id: "jobId",
+        header: "Job ID",
+        size: 130,
+        Cell: ({ cell }) => getShortUUIDWithTooltip(cell.getValue(), 4),
       },
       {
         accessorFn: (row) => new Date(row.createdAt),
@@ -119,13 +127,13 @@ export default function Jobs({ row, openJobPreview, setSelectedJobs, selectedJob
         id: "createdAt",
         sortingFn: "datetime",
         size: 200,
-        Cell: ({ cell }) => formatDateTime(cell.getValue()),
+        Cell: ({ cell }) => formatDateTime(cell.getValue(), true),
       },
       {
         accessorKey: "analysisParams", //accessorKey used to define `data` column. `id` gets set to accessorKey automatically
         id: "analysisParams",
         header: "Analysis Parameters",
-        size: 300,
+        size: 260,
         Cell: ({ cell }) => getAnalysisParamsStr(cell.getValue()),
       },
       {
