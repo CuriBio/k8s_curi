@@ -222,14 +222,28 @@ export default function Uploads() {
     for (const filt of tableState.columnFilters) {
       const filterName = getSortFilterName(filt.id);
       const filterValue = filt.value;
+      // assuming that an array indicates the filter type is a datetime
       if (filterValue instanceof Array) {
+        const formatDate = (date) => {
+          if (!date?.toISOString) {
+            return null;
+          }
+          try {
+            return date.toISOString().slice(0, 10);
+          } catch {
+            return null;
+          }
+        };
+
         const min = filterValue[0];
-        if (min?.toISOString) {
-          filters[filterName + "_min"] = min.toISOString().slice(0, 10);
+        const formattedMin = formatDate(min);
+        if (formattedMin) {
+          filters[filterName + "_min"] = formattedMin;
         }
         const max = filterValue[1];
-        if (max?.toISOString) {
-          filters[filterName + "_max"] = max.toISOString().slice(0, 10);
+        const formattedMax = formatDate(max);
+        if (formattedMax) {
+          filters[filterName + "_max"] = formattedMax;
         }
       } else {
         filters[filterName] = filt.value;
