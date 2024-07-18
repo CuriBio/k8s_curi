@@ -225,11 +225,14 @@ export default function Uploads() {
       if (filterValue instanceof Array) {
         const min = filterValue[0];
         if (min?.toISOString) {
-          filters[filterName + "_min"] = min.toISOString().slice(0, 10);
+          filters[filterName + "_min"] = min.toISOString();
         }
         const max = filterValue[1];
         if (max?.toISOString) {
-          filters[filterName + "_max"] = max.toISOString().slice(0, 10);
+          let adjustedMax = new Date(max);
+          adjustedMax.setDate(adjustedMax.getDate() + 1);
+          adjustedMax.setMilliseconds(adjustedMax.getMilliseconds() - 1);
+          filters[filterName + "_max"] = adjustedMax.toISOString();
         }
       } else {
         filters[filterName] = filt.value;
