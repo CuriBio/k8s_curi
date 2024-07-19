@@ -1008,7 +1008,7 @@ export default function InteractiveWaveformModal({
           }}
         />
         <WellDropdownLabel>Current Well:</WellDropdownLabel>
-        <div style={{ width: "70px" }}>
+        <div style={{ width: "80px" }}>
           <DropDownWidget
             options={Object.keys(waveformData)}
             handleSelection={handleWellSelection}
