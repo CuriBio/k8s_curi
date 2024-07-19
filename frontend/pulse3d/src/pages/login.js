@@ -6,7 +6,7 @@ import FormInput from "@/components/basicWidgets/FormInput";
 import Image from "next/image";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
-import { PublicClientApplication } from "@azure/msal-browser";
+import { BrowserAuthError, BrowserAuthErrorCodes, PublicClientApplication } from "@azure/msal-browser";
 
 // required for static export, default loader errors on build
 const imageLoader = ({ src }) => {
@@ -183,7 +183,11 @@ export default function Login() {
       await handleMicrosoftSSOResponse(response);
     } catch (e) {
       console.log("*submitMicrosoftSSO error: " + e);
-      setErrorMsg("*SSO error. Please try again later.");
+      if (e instanceof BrowserAuthError && e.errorCode === BrowserAuthErrorCodes.interactionInProgress) {
+        setErrorMsg("*Please complete SSO in the pop-up window");
+      } else {
+        setErrorMsg("*SSO error. Please try again later.");
+      }
     }
   };
 

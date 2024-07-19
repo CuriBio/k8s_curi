@@ -80,7 +80,7 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
   const [usage, setUsage] = useState({});
   const [unlimitedUploads, setUnlimitedUploads] = useState([]);
   const [unlimitedAnalyses, setUnlimitedAnalyses] = useState([]);
-  const [errorMsg, setErrorMsg] = useState([]);
+  const [errorMsg, setErrorMsg] = useState();
 
   useEffect(() => {
     if (!customerData) {
@@ -111,10 +111,16 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
     // ensure the modal resets if error messages were showing
     setLabels([]);
     setButtons(["Cancel", "Save"]);
+    setErrorMsg();
   }, [customerData]);
 
   const handleButtonSelection = async (idx) => {
-    if (idx === 1) {
+    if (idx === 0) {
+      // cancel
+      setOpenEditModal(false);
+      resetTable();
+    } else {
+      // save
       try {
         const usageCopy = JSON.parse(JSON.stringify(usage));
         for (const product in usageCopy) {
@@ -171,9 +177,6 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
         setButtons(["Close"]);
         setLabels(["An error occurred while updating user.", "Please try again later."]);
       }
-    } else {
-      setOpenEditModal(false);
-      resetTable();
     }
   };
 

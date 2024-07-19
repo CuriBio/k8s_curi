@@ -176,13 +176,13 @@ def _add_upload_sorting_filtering_conds(
                 new_cond = f"uploads.id::text LIKE {placeholder}"
                 filter_value = f"%{filter_value}%"
             case "created_at_min":
-                new_cond = f"uploads.created_at::date >= to_date({placeholder}, 'YYYY-MM-DD')"
+                new_cond = f"uploads.created_at >= to_timestamp({placeholder}, 'YYYY-MM-DD\"T\"HH:MI:SS.MSZ')"
             case "created_at_max":
-                new_cond = f"uploads.created_at::date <= to_date({placeholder}, 'YYYY-MM-DD')"
+                new_cond = f"uploads.created_at <= to_timestamp({placeholder}, 'YYYY-MM-DD\"T\"HH:MI:SS.MSZ')"
             case "last_analyzed_min":
-                new_cond = f"j.last_analyzed::date >= to_date({placeholder}, 'YYYY-MM-DD')"
+                new_cond = f"j.last_analyzed >= to_timestamp({placeholder}, 'YYYY-MM-DD\"T\"HH:MI:SS.MSZ')"
             case "last_analyzed_max":
-                new_cond = f"j.last_analyzed::date <= to_date({placeholder}, 'YYYY-MM-DD')"
+                new_cond = f"j.last_analyzed <= to_timestamp({placeholder}, 'YYYY-MM-DD\"T\"HH:MI:SS.MSZ')"
             case _:
                 continue
 

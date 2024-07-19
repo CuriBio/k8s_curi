@@ -224,12 +224,17 @@ export default function Uploads() {
       const filterValue = filt.value;
       // assuming that an array indicates the filter type is a datetime
       if (filterValue instanceof Array) {
-        const formatDate = (date) => {
+        const formatDate = (date, max = false) => {
           if (!date?.toISOString) {
             return null;
           }
           try {
-            return date.toISOString().slice(0, 10);
+            date = new Date(date);
+            if (max) {
+              date.setDate(date.getDate() + 1);
+              date.setMilliseconds(date.getMilliseconds() - 1);
+            }
+            return date.toISOString();
           } catch {
             return null;
           }
@@ -241,7 +246,7 @@ export default function Uploads() {
           filters[filterName + "_min"] = formattedMin;
         }
         const max = filterValue[1];
-        const formattedMax = formatDate(max);
+        const formattedMax = formatDate(max, true);
         if (formattedMax) {
           filters[filterName + "_max"] = formattedMax;
         }
