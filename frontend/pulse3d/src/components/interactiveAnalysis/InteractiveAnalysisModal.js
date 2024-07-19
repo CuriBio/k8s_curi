@@ -14,6 +14,7 @@ import FormInput from "@/components/basicWidgets/FormInput";
 import { AuthContext } from "@/pages/_app";
 import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
 import { useWaveformData } from "@/components/interactiveAnalysis/useWaveformData";
+import { NavigateBefore, NavigateNext } from "@mui/icons-material";
 
 const Container = styled.div`
   height: 100%;
@@ -36,14 +37,14 @@ const WellDropdownContainer = styled.div`
   display: flex;
   flex-direction: row;
   align-items: center;
-  width: 200px;
+  justify-content: space-evenly;
+  width: 400px;
 `;
 
 const WellDropdownLabel = styled.span`
   line-height: 2;
   font-size: 20px;
   white-space: nowrap;
-  padding-right: 15px;
   cursor: default;
 `;
 
@@ -240,6 +241,22 @@ const formatFloat = (n) => {
 
 const formatCoords = ([x, y]) => {
   return `[ ${formatFloat(x)}, ${formatFloat(y)} ]`;
+};
+
+const navigateWellLabel = (well, prev) => {
+  if (!well) {
+    return "-";
+  }
+  const justifyDir = prev ? "left" : "right";
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: justifyDir }}>
+      {prev && <NavigateBefore />}
+      <div style={{ width: "35px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {well}
+      </div>
+      {!prev && <NavigateNext />}
+    </div>
+  );
 };
 
 export default function InteractiveWaveformModal({
@@ -651,6 +668,17 @@ export default function InteractiveWaveformModal({
     }
   };
 
+  const nextWell = (() => {
+    const wellNames = Object.keys(waveformData);
+    const currentIdx = wellNames.indexOf(selectedWell);
+    return wellNames[currentIdx + 1];
+  })();
+  const prevWell = (() => {
+    const wellNames = Object.keys(waveformData);
+    const currentIdx = wellNames.indexOf(selectedWell);
+    return wellNames[currentIdx - 1];
+  })();
+
   const postNewJob = async () => {
     try {
       setUploadInProgress(true);
@@ -963,13 +991,47 @@ export default function InteractiveWaveformModal({
     <Container>
       <HeaderContainer>Interactive Waveform Analysis</HeaderContainer>
       <WellDropdownContainer>
-        <WellDropdownLabel>Select Well:</WellDropdownLabel>
-        <DropDownWidget
-          options={Object.keys(waveformData)}
-          handleSelection={handleWellSelection}
-          disabled={isLoading}
-          reset={selectedWell === Object.keys(waveformData)[0]}
-          initialSelected={0}
+        <ButtonWidget
+          width="80px"
+          height="40px"
+          fontSize={"15px"}
+          position="relative"
+          borderRadius="3px"
+          label={navigateWellLabel(prevWell, true)}
+          backgroundColor={prevWell ? "var(--dark-blue)" : "var(--dark-gray)"}
+          disabled={!prevWell}
+          clickFn={() => {
+            if (!prevWell) {
+              return;
+            }
+            setSelectedWell(prevWell);
+          }}
+        />
+        <WellDropdownLabel>Current Well:</WellDropdownLabel>
+        <div style={{ width: "70px" }}>
+          <DropDownWidget
+            options={Object.keys(waveformData)}
+            handleSelection={handleWellSelection}
+            disabled={isLoading}
+            reset={selectedWell === Object.keys(waveformData)[0]}
+            initialSelected={Object.keys(waveformData).indexOf(selectedWell) || 0}
+          />
+        </div>
+        <ButtonWidget
+          width="80px"
+          height="40px"
+          fontSize={"15px"}
+          position="relative"
+          borderRadius="3px"
+          label={navigateWellLabel(nextWell, false)}
+          backgroundColor={nextWell ? "var(--dark-blue)" : "var(--dark-gray)"}
+          disabled={!nextWell}
+          clickFn={() => {
+            if (!nextWell) {
+              return;
+            }
+            setSelectedWell(nextWell);
+          }}
         />
       </WellDropdownContainer>
 
