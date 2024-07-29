@@ -439,19 +439,21 @@ async def process_item(con, item):
             try:
                 upload_meta = json.loads(upload_details["meta"])
 
-                if "user_defined_metadata" not in upload_meta:
-                    user_defined_metadata = pre_analyzed_data.metadata.get("user_defined_metadata", {})
-                    upload_meta["user_defined_metadata"] = user_defined_metadata
-                    logger.info(f"Inserting user-defined metadata into DB: {user_defined_metadata}")
-
+                pre_analysis_meta_res = dict(pre_analyzed_data.metadata)
+                new_meta = {
+                    k: pre_analysis_meta_res[k] for k in (pre_analysis_meta_res.keys() - upload_meta.keys())
+                }
+                if new_meta:
+                    logger.info(f"Adding metadata to upload in DB: {new_meta}")
+                    upload_meta |= new_meta
                     await con.execute(
                         "UPDATE uploads SET meta=$1 WHERE id=$2", json.dumps(upload_meta), upload_id
                     )
                 else:
-                    logger.info("Skipping insertion of user-defined metadata into DB")
+                    logger.info("No upload metadata to update in DB")
             except Exception:
-                # Tanner (9/28/23): not raising the exception here to avoid user-defined metadata issues stopping entire analyses
-                logger.exception("Inserting user-defined metadata into DB failed")
+                # Tanner (7/29/24): don't raise the exception, no reason this should cause the whole analysis to fail
+                logger.exception("Updating metadata of upload in DB failed")
 
             try:
                 await insert_metadata_into_pg(
