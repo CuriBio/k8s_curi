@@ -212,6 +212,8 @@ async def process_item(con, item):
             except Exception:  # TODO catch only boto3 errors here?
                 logger.info("No existing peaks and valleys found for recording")
 
+            pre_processed_data = None
+
             # download existing pre-process data
             try:
                 s3_client.download_file(
@@ -283,6 +285,9 @@ async def process_item(con, item):
 
                 # upload pre-processed data
                 _upload_pre_zip(pre_processed_data, file_info, "pre_process")
+
+            if pre_processed_data is None:
+                raise Exception("Something went wrong, pre-processed data was never set")
 
             try:
                 logger.info("Starting Pre-Analysis")
@@ -439,9 +444,10 @@ async def process_item(con, item):
             try:
                 upload_meta = json.loads(upload_details["meta"])
 
-                pre_analysis_meta_res = dict(pre_analyzed_data.metadata)
+                # letting pydantic convert to JSON will handle serialization of all data types, so do that and then load into a dict
+                pre_process_meta_res = json.loads(pre_processed_data.metadata.model_dump_json())
                 new_meta = {
-                    k: pre_analysis_meta_res[k] for k in (pre_analysis_meta_res.keys() - upload_meta.keys())
+                    k: pre_process_meta_res[k] for k in (pre_process_meta_res.keys() - upload_meta.keys())
                 }
                 if new_meta:
                     logger.info(f"Adding metadata to upload in DB: {new_meta}")
@@ -458,7 +464,7 @@ async def process_item(con, item):
             try:
                 await insert_metadata_into_pg(
                     con,
-                    pre_analyzed_data.metadata,
+                    pre_processed_data.metadata,
                     upload_details["customer_id"],
                     upload_details["user_id"],
                     upload_id,
@@ -479,7 +485,6 @@ async def process_item(con, item):
                 if pre_analyzed_data.metadata.instrument_type == InstrumentTypes.MANTARRAY:
                     job_metadata["stim_barcode"] = pre_analyzed_data.metadata.stim_barcode
 
-                logger.info("Inserted metadata into db")
             except Exception:
                 logger.exception("Failed to insert metadata to db")
                 raise
