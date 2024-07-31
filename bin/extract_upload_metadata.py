@@ -3,15 +3,24 @@ import boto3
 import json
 import logging
 import os
+import sys
 import tempfile
 
 import asyncpg
-import pulse3D
+from pulse3D import data_loader
 
-PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-pulse3d-uploads")
-BATCH_SIZE = 100
+PULSE3D_UPLOADS_BUCKET = os.getenv("TEST_UPLOADS_BUCKET", "test-pulse3d-uploads")
+BATCH_SIZE = 10
 
 DRY_RUN = True
+
+
+logging.basicConfig(
+    format="[%(asctime)s.%(msecs)03d] [%(levelname)s] %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+    stream=sys.stdout,
+)
 
 
 logger = logging.getLogger()
@@ -29,13 +38,13 @@ class DummyCon:
 
     async def fetch(self, *args):
         if self._transaction:
-            self._transaction.statements.append(("fetch --", *args))
+            self._transaction.statements.append(("FETCH:", *args))
         # need to actually run this
         return await self._con.fetch(*args)
 
     async def execute(self, *args):
         if self._transaction:
-            self._transaction.statements.append(("execute --", *args))
+            self._transaction.statements.append(("EXECUTE:", *args))
 
     def transaction(self):
         self._transaction = DummyTransaction()
@@ -47,12 +56,13 @@ class DummyTransaction:
         self.statements = []
 
     async def __aenter__(self):
-        self.statements = ["BEGIN"]
+        self.statements = [("BEGIN",)]
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        self.statements.append("COMMIT")
-        pretty_statements = json.dumps(self.statements, indent=4)
+        self.statements.append(("COMMIT",))
+        statements_str = [tuple(str(item) for item in statement) for statement in self.statements]
+        pretty_statements = json.dumps(statements_str, indent=4)
         logger.info(f"DRY RUN:\n{pretty_statements}")
 
 
@@ -76,7 +86,6 @@ async def main():
                 while update_inc := await run(con, offset, BATCH_SIZE):
                     update_count += update_inc
                     offset += BATCH_SIZE
-                    await asyncio.sleep(1)
 
     finally:
         logger.info(f"updated {update_count} uploads")
@@ -84,11 +93,12 @@ async def main():
 
 
 async def run(con, offset, limit):
-    uploads = await con.fetch("SELECT * FROM uploads ORDER BY created_at OFFSET $1 LIMIT $2", offset, limit)
-
     update_count = 0
 
     async with con.transaction():
+        uploads = await con.fetch(
+            "SELECT * FROM uploads ORDER BY created_at DESC OFFSET $1 LIMIT $2", offset, limit
+        )
         for upload_details in uploads:
             upload_id = upload_details["id"]
             try:
@@ -128,7 +138,7 @@ async def process_upload(upload_details, con):
 
         logger.info("running data loader")
         try:
-            loaded_data = pulse3D.data_loader.from_file(recording_path)
+            loaded_data = data_loader.from_file(recording_path)
         except Exception:
             logger.info("failed to load data")
             raise
