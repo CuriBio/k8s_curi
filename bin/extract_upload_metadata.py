@@ -32,10 +32,6 @@ logger = logging.getLogger()
 s3_client = boto3.client("s3")
 
 
-class MetadataAlreadySet(Exception):
-    pass
-
-
 class DummyCon:
     def __init__(self, con):
         self._con = con
@@ -98,19 +94,21 @@ async def main():
 
 
 async def run(con, offset, limit):
+    logger.info(f"processing uploads {offset}-{offset+limit}")
     update_count = 0
 
     async with con.transaction():
         uploads = await con.fetch(
-            "SELECT * FROM uploads ORDER BY created_at DESC OFFSET $1 LIMIT $2", offset, limit
+            "SELECT id, prefix, filename FROM uploads "
+            "WHERE meta->>'recording_name' IS NULL "  # assume that if recording_name is not set then the metadata needs to be updated
+            "ORDER BY created_at DESC OFFSET $1 LIMIT $2",
+            offset,
+            limit,
         )
         for upload_details in uploads:
             upload_id = upload_details["id"]
             try:
                 await process_upload(upload_details, con)
-            except MetadataAlreadySet:
-                upload_meta = upload_details["meta"]
-                logger.info(f"skipping upload {upload_id} with meta: {upload_meta}")
             except Exception:
                 logger.exception(f"failed to update upload {upload_id}")
             else:
@@ -120,13 +118,6 @@ async def run(con, offset, limit):
 
 
 async def process_upload(upload_details, con):
-    upload_meta = json.loads(upload_details["meta"])
-
-    # jobs that do not have their metadata set will have either 0 keys or only 'user_defined_metadata',
-    # so just check to see how many keys are present
-    if len(upload_meta) > 1:
-        raise MetadataAlreadySet()
-
     prefix = upload_details["prefix"]
     upload_filename = upload_details["filename"]
 
