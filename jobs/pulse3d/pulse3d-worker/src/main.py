@@ -212,6 +212,8 @@ async def process_item(con, item):
             except Exception:  # TODO catch only boto3 errors here?
                 logger.info("No existing peaks and valleys found for recording")
 
+            pre_processed_data = None
+
             # download existing pre-process data
             try:
                 s3_client.download_file(
@@ -283,6 +285,9 @@ async def process_item(con, item):
 
                 # upload pre-processed data
                 _upload_pre_zip(pre_processed_data, file_info, "pre_process")
+
+            if pre_processed_data is None:
+                raise Exception("Something went wrong, pre-processed data was never set")
 
             try:
                 logger.info("Starting Pre-Analysis")
@@ -439,24 +444,27 @@ async def process_item(con, item):
             try:
                 upload_meta = json.loads(upload_details["meta"])
 
-                if "user_defined_metadata" not in upload_meta:
-                    user_defined_metadata = pre_analyzed_data.metadata.get("user_defined_metadata", {})
-                    upload_meta["user_defined_metadata"] = user_defined_metadata
-                    logger.info(f"Inserting user-defined metadata into DB: {user_defined_metadata}")
-
+                # letting pydantic convert to JSON will handle serialization of all data types, so do that and then load into a dict
+                pre_process_meta_res = json.loads(pre_processed_data.metadata.model_dump_json())
+                new_meta = {
+                    k: pre_process_meta_res[k] for k in (pre_process_meta_res.keys() - upload_meta.keys())
+                }
+                if new_meta:
+                    logger.info(f"Adding metadata to upload in DB: {new_meta}")
+                    upload_meta |= new_meta
                     await con.execute(
                         "UPDATE uploads SET meta=$1 WHERE id=$2", json.dumps(upload_meta), upload_id
                     )
                 else:
-                    logger.info("Skipping insertion of user-defined metadata into DB")
+                    logger.info("No upload metadata to update in DB")
             except Exception:
-                # Tanner (9/28/23): not raising the exception here to avoid user-defined metadata issues stopping entire analyses
-                logger.exception("Inserting user-defined metadata into DB failed")
+                # Tanner (7/29/24): don't raise the exception, no reason this should cause the whole analysis to fail
+                logger.exception("Updating metadata of upload in DB failed")
 
             try:
                 await insert_metadata_into_pg(
                     con,
-                    pre_analyzed_data.metadata,
+                    pre_processed_data.metadata,
                     upload_details["customer_id"],
                     upload_details["user_id"],
                     upload_id,
@@ -477,7 +485,6 @@ async def process_item(con, item):
                 if pre_analyzed_data.metadata.instrument_type == InstrumentTypes.MANTARRAY:
                     job_metadata["stim_barcode"] = pre_analyzed_data.metadata.stim_barcode
 
-                logger.info("Inserted metadata into db")
             except Exception:
                 logger.exception("Failed to insert metadata to db")
                 raise
