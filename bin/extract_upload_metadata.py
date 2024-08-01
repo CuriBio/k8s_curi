@@ -1,3 +1,8 @@
+"""
+Check uploads table in DB for rows which do not have metadata set. Use pulse3D to extract the metadata from
+the recording files and update the rows.
+"""
+
 import asyncio
 import boto3
 import json
