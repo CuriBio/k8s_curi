@@ -5,7 +5,6 @@ the recording files and update the rows.
 
 import asyncio
 import boto3
-import json
 import logging
 import os
 import sys
@@ -15,9 +14,9 @@ import asyncpg
 from pulse3D import data_loader
 
 PULSE3D_UPLOADS_BUCKET = os.getenv("TEST_UPLOADS_BUCKET", "test-pulse3d-uploads")
-BATCH_SIZE = 10
+FETCH_SIZE = 1000
 
-DRY_RUN = True
+DRY_RUN = False
 
 
 logging.basicConfig(
@@ -38,37 +37,17 @@ class DummyCon:
         self._transaction = None
 
     async def fetch(self, *args):
-        if self._transaction:
-            self._transaction.statements.append(("FETCH:", *args))
+        logger.info(f"FETCH: {args}")
         # need to actually run this
         return await self._con.fetch(*args)
 
     async def execute(self, *args):
-        if self._transaction:
-            self._transaction.statements.append(("EXECUTE:", *args))
-
-    def transaction(self):
-        self._transaction = DummyTransaction()
-        return self._transaction
-
-
-class DummyTransaction:
-    def __init__(self):
-        self.statements = []
-
-    async def __aenter__(self):
-        self.statements = [("BEGIN",)]
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        self.statements.append(("COMMIT",))
-        statements_str = [tuple(str(item) for item in statement) for statement in self.statements]
-        pretty_statements = json.dumps(statements_str, indent=4)
-        logger.info(f"DRY RUN:\n{pretty_statements}")
+        logger.info(f"EXECUTE: {args}")
 
 
 async def main():
     update_count = 0
+    total_uploads_to_process = 0
     try:
         logger.info("START")
 
@@ -81,40 +60,48 @@ async def main():
 
         async with asyncpg.create_pool(dsn=dsn) as pool:
             async with pool.acquire() as con:
+                total_uploads_to_process = await con.fetchval(
+                    "SELECT count(*) FROM uploads WHERE meta->>'recording_name' IS NULL"
+                )
+
                 if DRY_RUN:
                     con = DummyCon(con)
-                offset = 0
-                while update_inc := await run(con, offset, BATCH_SIZE):
-                    update_count += update_inc
-                    offset += BATCH_SIZE
 
+                offset = 0
+                more_uploads = True
+                while more_uploads:
+                    logger.info(
+                        f"processing uploads {offset}-{offset+FETCH_SIZE} / {total_uploads_to_process}"
+                    )
+                    update_inc, more_uploads = await run(con, offset, FETCH_SIZE)
+                    update_count += update_inc
+                    offset += FETCH_SIZE
     finally:
-        logger.info(f"updated {update_count} uploads")
+        logger.info(f"updated {update_count}/{total_uploads_to_process} uploads")
         logger.info("DONE")
 
 
 async def run(con, offset, limit):
-    logger.info(f"processing uploads {offset}-{offset+limit}")
     update_count = 0
 
-    async with con.transaction():
-        uploads = await con.fetch(
-            "SELECT id, prefix, filename FROM uploads "
-            "WHERE meta->>'recording_name' IS NULL "  # assume that if recording_name is not set then the metadata needs to be updated
-            "ORDER BY created_at DESC OFFSET $1 LIMIT $2",
-            offset,
-            limit,
-        )
-        for upload_details in uploads:
-            upload_id = upload_details["id"]
-            try:
-                await process_upload(upload_details, con)
-            except Exception:
-                logger.exception(f"failed to update upload {upload_id}")
-            else:
-                update_count += 1
+    uploads = await con.fetch(
+        "SELECT id, prefix, filename FROM uploads "
+        "WHERE meta->>'recording_name' IS NULL "  # assume that if recording_name is not set then the metadata needs to be updated
+        "ORDER BY created_at DESC OFFSET $1 LIMIT $2",
+        offset,
+        limit,
+    )
+    if len(uploads) == 0:
+        return 0, False
+    for upload_details in uploads:
+        try:
+            await process_upload(upload_details, con)
+        except Exception:
+            logger.exception(f"failed to update upload {upload_details['id']}")
+        else:
+            update_count += 1
 
-    return update_count
+    return update_count, True
 
 
 async def process_upload(upload_details, con):
@@ -122,7 +109,7 @@ async def process_upload(upload_details, con):
     upload_filename = upload_details["filename"]
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        logger.info("downloading recording")
+        logger.info(f"downloading recording for ID: {upload_details['id']}")
         try:
             key = f"{prefix}/{upload_filename}"
             recording_path = f"{tmpdir}/{upload_filename}"
