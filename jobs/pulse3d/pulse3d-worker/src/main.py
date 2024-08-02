@@ -482,7 +482,7 @@ async def process_item(con, item):
 
             try:
                 logger.info("Uploading renderer output")
-                outfile_prefix = prefix.replace("uploads/", "analyzed/test-pulse3d/")
+                outfile_prefix = prefix.replace("uploads/", "analyzed/")
                 outfile_key = f"{outfile_prefix}/{job_id}/{output_filename}"
                 upload_file_to_s3(
                     bucket=PULSE3D_UPLOADS_BUCKET, key=outfile_key, file=os.path.join(tmpdir, output_filename)
