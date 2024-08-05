@@ -11,6 +11,7 @@ import os
 import sys
 import tempfile
 from typing import Any
+from zipfile import ZipFile
 
 import asyncpg
 import boto3
@@ -143,8 +144,8 @@ def _create_file_info(
 
 
 async def process_job(con, job_info) -> str:
+    job_id = job_info["job_id"]
     try:
-        job_id = job_info["job_id"]
         logger.info("getting S3 prefix")
         try:
             prefix = await con.fetchval("select prefix from uploads where id=$1", job_info["upload_id"])
@@ -196,7 +197,10 @@ async def process_job(con, job_info) -> str:
 
             logger.info("loading pre-analysis parquet")
             try:
-                analyzable_data = pl.read_parquet(
+                with ZipFile(file_info["pre_analysis"]["file_path"]) as z:
+                    z.extractall(file_info["pre_analysis"]["dir"])
+
+                pre_analysis_tissue_waveforms = pl.read_parquet(
                     os.path.join(file_info["pre_analysis"]["dir"], file_info["zip_contents"]["tissue"])
                 )
                 metadata_dict = json.load(
@@ -225,13 +229,16 @@ async def process_job(con, job_info) -> str:
             try:
                 features_df = pl.read_parquet(file_info["peak_finding"]["file_path"])
 
-                features_df = sort_wells_in_df(features_df, analyzable_data.metadata.total_well_count)
+                features_df = sort_wells_in_df(features_df, loaded_metadata.total_well_count)
                 features_df = apply_window_to_df(
                     features_df, df_name_to_log="features", **post_process_params
                 )
 
                 data_with_features = LoadedDataWithFeatures(
-                    metadata=loaded_metadata, tissue_waveforms=analyzable_data, tissue_features=features_df
+                    metadata=loaded_metadata,
+                    tissue_waveforms=pre_analysis_tissue_waveforms,
+                    stim_waveforms=None,
+                    tissue_features=features_df,
                 )
             except:
                 logger.error("failed loading peak finding data")
@@ -287,8 +294,10 @@ async def process_job(con, job_info) -> str:
                 logger.error("upload of aggregate metrics failed")
                 raise
         return "success"
+    except KeyboardInterrupt:
+        raise
     except:
-        logger.exception("TODO")
+        logger.exception(f"failed processing job: {job_id}")
         return "failed"
 
 
