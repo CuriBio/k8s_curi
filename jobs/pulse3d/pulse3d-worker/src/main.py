@@ -67,6 +67,15 @@ def _create_file_info(base_dir: str, upload_prefix: str, job_id: str) -> dict[st
     peak_finding_s3_key = f"{upload_prefix}/{job_id}/{peak_finding_filename}"
     peak_finding_file_path = os.path.join(base_dir, peak_finding_filename)
 
+    metrics_dir = os.path.join(base_dir, "metrics")
+    os.mkdir(metrics_dir)
+    per_twitch_metrics_filename = "per_twitch_metrics.parquet"
+    per_twitch_metrics_s3_key = f"{upload_prefix}/{job_id}/{per_twitch_metrics_filename}"
+    per_twitch_metrics_file_path = os.path.join(base_dir, per_twitch_metrics_filename)
+    aggregate_metrics_filename = "aggregate_metrics.parquet"
+    aggregate_metrics_s3_key = f"{upload_prefix}/{job_id}/{aggregate_metrics_filename}"
+    aggregate_metrics_file_path = os.path.join(base_dir, aggregate_metrics_filename)
+
     return {
         "zip_contents": {
             "tissue": "tissue_waveforms.parquet",
@@ -90,6 +99,18 @@ def _create_file_info(base_dir: str, upload_prefix: str, job_id: str) -> dict[st
             "filename": peak_finding_filename,
             "file_path": peak_finding_file_path,
             "s3_key": peak_finding_s3_key,
+        },
+        "per_twitch_metrics": {
+            "dir": metrics_dir,
+            "filename": per_twitch_metrics_filename,
+            "file_path": per_twitch_metrics_file_path,
+            "s3_key": per_twitch_metrics_s3_key,
+        },
+        "aggregate_metrics": {
+            "dir": metrics_dir,
+            "filename": aggregate_metrics_filename,
+            "file_path": aggregate_metrics_file_path,
+            "s3_key": aggregate_metrics_s3_key,
         },
     }
 
@@ -387,6 +408,36 @@ async def process_item(con, item):
                 logger.exception("Metrics failed")
                 raise
 
+            # Upload metrics
+            logger.info("Uploading per-twitch metrics")
+            try:
+                metrics_output.per_twitch_metrics.write_parquet(file_info["per_twitch_metrics"]["file_path"])
+                upload_file_to_s3(
+                    bucket=PULSE3D_UPLOADS_BUCKET,
+                    key=file_info["per_twitch_metrics"]["s3_key"],
+                    file=file_info["per_twitch_metrics"]["file_path"],
+                )
+                logger.info(
+                    f"Uploaded per-twitch metrics to {PULSE3D_UPLOADS_BUCKET}/{file_info['per_twitch_metrics']['s3_key']}"
+                )
+            except Exception:
+                logger.exception("Upload of per-twitch metrics failed")
+                raise
+            logger.info("Uploading aggregate metrics")
+            try:
+                metrics_output.aggregate_metrics.write_parquet(file_info["aggregate_metrics"]["file_path"])
+                upload_file_to_s3(
+                    bucket=PULSE3D_UPLOADS_BUCKET,
+                    key=file_info["aggregate_metrics"]["s3_key"],
+                    file=file_info["aggregate_metrics"]["file_path"],
+                )
+                logger.info(
+                    f"Uploaded aggregate metrics to {PULSE3D_UPLOADS_BUCKET}/{file_info['aggregate_metrics']['s3_key']}"
+                )
+            except Exception:
+                logger.exception("Upload of aggregate metrics failed")
+                raise
+
             try:
                 logger.info("Running renderer")
 
@@ -431,7 +482,7 @@ async def process_item(con, item):
 
             try:
                 logger.info("Uploading renderer output")
-                outfile_prefix = prefix.replace("uploads/", "analyzed/test-pulse3d/")
+                outfile_prefix = prefix.replace("uploads/", "analyzed/")
                 outfile_key = f"{outfile_prefix}/{job_id}/{output_filename}"
                 upload_file_to_s3(
                     bucket=PULSE3D_UPLOADS_BUCKET, key=outfile_key, file=os.path.join(tmpdir, output_filename)
