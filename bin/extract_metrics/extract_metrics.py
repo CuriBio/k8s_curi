@@ -93,7 +93,7 @@ async def main():
                     res = await process_job(con, job_info)
                     job_counts[res] += 1
     finally:
-        logger.info(f"result: {job_counts}")
+        logger.info(f"---------- result: {job_counts} ----------")
         logger.info("DONE")
 
 
@@ -168,7 +168,7 @@ def _create_file_info(
 
 async def process_job(con, job_info) -> str:
     job_id = job_info["job_id"]
-    logger.info(f"processing job: {job_id}")
+    logger.info(f"---------- processing job: {job_id} ----------")
     try:
         logger.info("getting S3 prefix")
         try:
