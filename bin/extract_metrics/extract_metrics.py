@@ -1,14 +1,15 @@
 """
-Check uploads table in DB for rows which do not have metadata set. Use pulse3D to extract the metadata from
-the recording files and update the rows.
+Check all jobs run with versions >= 1.0.0 and < 1.0.8 for metrics outputs in S3.
+If not found, use existing p3d output and analysis params to create and upload metrics output.
 """
 
 import asyncio
+from dataclasses import asdict
 import datetime
 import json
 import logging
+import logging.config
 import os
-import sys
 import tempfile
 from typing import Any
 from zipfile import ZipFile
@@ -18,8 +19,11 @@ import boto3
 import polars as pl
 from pulse3D import metrics
 from pulse3D.data_loader.utils import get_metadata_cls
+from pulse3D.data_loader import InstrumentTypes
 from pulse3D.peak_finding import LoadedDataWithFeatures
-from pulse3D.pre_analysis import sort_wells_in_df, apply_window_to_df
+from pulse3D.data_loader.metadata import NormalizationMethods
+from pulse3D.pre_analysis import sort_wells_in_df, apply_window_to_df, PreAnalyzedData, post_process
+import structlog
 from utils.s3 import upload_file_to_s3
 
 PULSE3D_UPLOADS_BUCKET = os.getenv("TEST_UPLOADS_BUCKET")
@@ -28,22 +32,38 @@ DRY_RUN = True
 
 s3_client = boto3.client("s3")
 
-
-logging.basicConfig(
-    format="[%(asctime)s.%(msecs)03d] [%(levelname)s] %(message)s",
-    level=logging.INFO,
-    datefmt="%Y-%m-%d %H:%M:%S",
-    handlers=[
-        logging.FileHandler(
-            os.path.join(
-                "logs", f"extract_metadata__{datetime.datetime.utcnow().strftime('%Y_%m_%d__%H_%M_%S')}.log"
-            )
-        ),
-        logging.StreamHandler(sys.stdout),
-    ],
+logging.config.dictConfig(
+    {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "handlers": {
+            "default": {"level": "INFO", "class": "logging.StreamHandler"},
+            "file": {
+                "level": "INFO",
+                "class": "logging.handlers.WatchedFileHandler",
+                "filename": os.path.join(
+                    "logs",
+                    f"extract_metadata__{datetime.datetime.utcnow().strftime('%Y_%m_%d__%H_%M_%S')}.log",
+                ),
+            },
+        },
+        "loggers": {"": {"handlers": ["default", "file"], "level": "INFO", "propagate": True}},
+    }
 )
-
-logger = logging.getLogger()
+structlog.configure(
+    processors=[
+        structlog.processors.StackInfoRenderer(),
+        structlog.dev.set_exc_info,
+        structlog.processors.format_exc_info,
+        structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S.%f"),
+        structlog.stdlib.add_log_level,
+        structlog.dev.ConsoleRenderer(colors=False),
+    ],
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    wrapper_class=structlog.stdlib.BoundLogger,
+    cache_logger_on_first_use=True,
+)
+logger = structlog.get_logger()
 
 
 async def main():
@@ -145,6 +165,7 @@ def _create_file_info(
 
 async def process_job(con, job_info) -> str:
     job_id = job_info["job_id"]
+    logger.info(f"processing job: {job_id}")
     try:
         logger.info("getting S3 prefix")
         try:
@@ -195,7 +216,7 @@ async def process_job(con, job_info) -> str:
                 logger.error("failed downloading pre-analysis data")
                 raise
 
-            logger.info("loading pre-analysis parquet")
+            logger.info("loading pre-analysis data")
             try:
                 with ZipFile(file_info["pre_analysis"]["file_path"]) as z:
                     z.extractall(file_info["pre_analysis"]["dir"])
@@ -209,8 +230,24 @@ async def process_job(con, job_info) -> str:
                     )
                 )
                 loaded_metadata = get_metadata_cls(metadata_dict)
+                pre_analyzed_data = PreAnalyzedData(
+                    metadata=loaded_metadata,
+                    tissue_waveforms=pre_analysis_tissue_waveforms,
+                    stim_waveforms=None,
+                )
             except Exception:
-                logger.error("failed loading pre-analysis parquet")
+                logger.error("failed loading pre-analysis data")
+                raise
+
+            logger.info("running pre-analysis post-processing")
+            try:
+                # mantarray always uses the same normalization
+                if pre_analyzed_data.metadata.instrument_type == InstrumentTypes.MANTARRAY:
+                    post_process_params["normalization_method"] = NormalizationMethods.F_SUB_FMIN
+
+                analyzable_data = post_process(pre_analyzed_data, **post_process_params)
+            except Exception:
+                logger.error("failed running pre-analysis post-processing")
                 raise
 
             logger.info("downloading peak finding data")
@@ -235,10 +272,7 @@ async def process_job(con, job_info) -> str:
                 )
 
                 data_with_features = LoadedDataWithFeatures(
-                    metadata=loaded_metadata,
-                    tissue_waveforms=pre_analysis_tissue_waveforms,
-                    stim_waveforms=None,
-                    tissue_features=features_df,
+                    **asdict(analyzable_data), tissue_features=features_df
                 )
             except:
                 logger.error("failed loading peak finding data")
