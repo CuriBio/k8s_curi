@@ -1,5 +1,6 @@
 """
-Check all jobs run with versions >= 1.0.0 and < 1.0.8 for metrics outputs in S3.
+Check all jobs run with versions >= 1.0.0 for metrics outputs in S3.
+Jobs run with versions >= 1.0.8 and higher will have this done by the p3d worker.
 If not found, use existing p3d output and analysis params to create and upload metrics output.
 """
 
@@ -32,6 +33,8 @@ DRY_RUN = True
 
 s3_client = boto3.client("s3")
 
+# Have to do this complicated setup in order to get structlog to write to both stdout and a file
+# https://www.structlog.org/en/stable/standard-library.html#rendering-using-structlog-based-formatters-within-logging
 logging.config.dictConfig(
     {
         "version": 1,
