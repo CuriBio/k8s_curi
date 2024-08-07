@@ -120,17 +120,17 @@ async def main():
                 if DRY_RUN:
                     con = DummyCon(con)
 
-                more_uploads = True
-                while more_uploads:
-                    total_processed = update_count + failure_count
+                total_processed = 0
+                while total_processed < total_uploads_to_process:
                     logger.info(
                         f"processing uploads {total_processed}-{total_processed+BATCH_SIZE} / {total_uploads_to_process}"
                     )
                     # offset by the failure count since successful jobs will not show up in the query, and thus do not
                     # need to be taken into consideration when determining the offset
-                    update_inc, failed_inc, more_uploads = await run(con, failure_count, BATCH_SIZE)
+                    update_inc, failed_inc = await run(con, failure_count, BATCH_SIZE)
                     update_count += update_inc
                     failure_count += failed_inc
+                    total_processed = update_count + failure_count
     finally:
         logger.info(f"result: {total_uploads_to_process=}, {update_count=}, {failure_count=}")
         logger.info("DONE")
@@ -147,8 +147,6 @@ async def run(con, offset, limit):
         offset,
         limit,
     )
-    if len(uploads) == 0:
-        return 0, 0, False
 
     async with con.transaction():
         for upload_details in uploads:
@@ -160,7 +158,7 @@ async def run(con, offset, limit):
             else:
                 update_count += 1
 
-    return update_count, failure_count, True
+    return update_count, failure_count
 
 
 async def process_upload(upload_details, con):
