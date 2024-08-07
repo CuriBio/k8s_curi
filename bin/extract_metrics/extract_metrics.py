@@ -46,7 +46,7 @@ logging.config.dictConfig(
                 "class": "logging.handlers.WatchedFileHandler",
                 "filename": os.path.join(
                     "logs",
-                    f"extract_metadata__{datetime.datetime.utcnow().strftime('%Y_%m_%d__%H_%M_%S')}.log",
+                    f"extract_metrics__{datetime.datetime.utcnow().strftime('%Y_%m_%d__%H_%M_%S')}.log",
                 ),
             },
         },
