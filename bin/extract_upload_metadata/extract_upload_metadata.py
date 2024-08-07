@@ -6,6 +6,7 @@ the recording files and update the rows.
 import asyncio
 import boto3
 import datetime
+import json
 import logging
 import logging.config
 import os
@@ -16,9 +17,9 @@ from pulse3D import data_loader
 import structlog
 
 PULSE3D_UPLOADS_BUCKET = os.getenv("TEST_UPLOADS_BUCKET")
-BATCH_SIZE = 100
+BATCH_SIZE = 10
 
-DRY_RUN = True
+DRY_RUN = False
 
 s3_client = boto3.client("s3")
 
@@ -35,7 +36,7 @@ logging.config.dictConfig(
                 "class": "logging.handlers.WatchedFileHandler",
                 "filename": os.path.join(
                     "logs",
-                    f"extract_metadata__{datetime.datetime.utcnow().strftime('%Y_%m_%d__%H_%M_%S')}.log",
+                    f"extract_upload_metadata__{datetime.datetime.utcnow().strftime('%Y_%m_%d__%H_%M_%S')}.log",
                 ),
             },
         },
@@ -64,19 +65,40 @@ class DummyCon:
         self._transaction = None
 
     async def fetch(self, *args):
-        logger.info(f"FETCH: {args}")
+        if self._transaction:
+            self._transaction.statements.append(("FETCH:", *[str(a) for a in args]))
         # need to actually run this
         return await self._con.fetch(*args)
 
     async def execute(self, *args):
-        logger.info(f"EXECUTE: {args}")
+        if self._transaction:
+            self._transaction.statements.append(("EXECUTE:", *[str(a) for a in args]))
+
+    def transaction(self):
+        self._transaction = DummyTransaction()
+        return self._transaction
+
+
+class DummyTransaction:
+    def __init__(self):
+        self.statements = []
+
+    async def __aenter__(self):
+        self.statements = [("BEGIN",)]
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        self.statements.append(("COMMIT",))
+        pretty_statements = json.dumps(self.statements, indent=4)
+        logger.info(f"DRY RUN:\n{pretty_statements}")
 
 
 async def main():
+    logger.info("START")
     update_count = 0
+    failure_count = 0
     total_uploads_to_process = 0
     try:
-        logger.info("START")
 
         DB_PASS = os.getenv("POSTGRES_PASSWORD")
         DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
@@ -91,25 +113,32 @@ async def main():
                     "SELECT count(*) FROM uploads WHERE meta->>'recording_name' IS NULL"
                 )
 
+                if total_uploads_to_process == 0:
+                    logger.info("no uploads to process")
+                    return
+
                 if DRY_RUN:
                     con = DummyCon(con)
 
-                offset = 0
                 more_uploads = True
                 while more_uploads:
+                    total_processed = update_count + failure_count
                     logger.info(
-                        f"processing uploads {offset}-{offset+BATCH_SIZE} / {total_uploads_to_process}"
+                        f"processing uploads {total_processed}-{total_processed+BATCH_SIZE} / {total_uploads_to_process}"
                     )
-                    update_inc, more_uploads = await run(con, offset, BATCH_SIZE)
+                    # offset by the failure count since successful jobs will not show up in the query, and thus do not
+                    # need to be taken into consideration when determining the offset
+                    update_inc, failed_inc, more_uploads = await run(con, failure_count, BATCH_SIZE)
                     update_count += update_inc
-                    offset += BATCH_SIZE
+                    failure_count += failed_inc
     finally:
-        logger.info(f"updated {update_count}/{total_uploads_to_process} uploads")
+        logger.info(f"result: {total_uploads_to_process=}, {update_count=}, {failure_count=}")
         logger.info("DONE")
 
 
 async def run(con, offset, limit):
     update_count = 0
+    failure_count = 0
 
     uploads = await con.fetch(
         "SELECT id, prefix, filename FROM uploads "
@@ -119,16 +148,19 @@ async def run(con, offset, limit):
         limit,
     )
     if len(uploads) == 0:
-        return 0, False
-    for upload_details in uploads:
-        try:
-            await process_upload(upload_details, con)
-        except Exception:
-            logger.exception(f"failed to update upload {upload_details['id']}")
-        else:
-            update_count += 1
+        return 0, 0, False
 
-    return update_count, True
+    async with con.transaction():
+        for upload_details in uploads:
+            try:
+                await process_upload(upload_details, con)
+            except Exception:
+                logger.exception(f"failed to update upload {upload_details['id']}")
+                failure_count += 1
+            else:
+                update_count += 1
+
+    return update_count, failure_count, True
 
 
 async def process_upload(upload_details, con):
