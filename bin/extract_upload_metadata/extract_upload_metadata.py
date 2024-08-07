@@ -5,30 +5,57 @@ the recording files and update the rows.
 
 import asyncio
 import boto3
+import datetime
 import logging
+import logging.config
 import os
-import sys
 import tempfile
 
 import asyncpg
 from pulse3D import data_loader
+import structlog
 
-PULSE3D_UPLOADS_BUCKET = os.getenv("TEST_UPLOADS_BUCKET", "test-pulse3d-uploads")
-FETCH_SIZE = 1000
+PULSE3D_UPLOADS_BUCKET = os.getenv("TEST_UPLOADS_BUCKET")
+BATCH_SIZE = 100
 
-DRY_RUN = False
+DRY_RUN = True
 
-
-logging.basicConfig(
-    format="[%(asctime)s.%(msecs)03d] [%(levelname)s] %(message)s",
-    level=logging.INFO,
-    datefmt="%Y-%m-%d %H:%M:%S",
-    stream=sys.stdout,
-)
-
-
-logger = logging.getLogger()
 s3_client = boto3.client("s3")
+
+# Have to do this complicated setup in order to get structlog to write to both stdout and a file
+# https://www.structlog.org/en/stable/standard-library.html#rendering-using-structlog-based-formatters-within-logging
+logging.config.dictConfig(
+    {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "handlers": {
+            "default": {"level": "INFO", "class": "logging.StreamHandler"},
+            "file": {
+                "level": "INFO",
+                "class": "logging.handlers.WatchedFileHandler",
+                "filename": os.path.join(
+                    "logs",
+                    f"extract_metadata__{datetime.datetime.utcnow().strftime('%Y_%m_%d__%H_%M_%S')}.log",
+                ),
+            },
+        },
+        "loggers": {"": {"handlers": ["default", "file"], "level": "INFO", "propagate": True}},
+    }
+)
+structlog.configure(
+    processors=[
+        structlog.processors.StackInfoRenderer(),
+        structlog.dev.set_exc_info,
+        structlog.processors.format_exc_info,
+        structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S.%f"),
+        structlog.stdlib.add_log_level,
+        structlog.dev.ConsoleRenderer(colors=False),
+    ],
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    wrapper_class=structlog.stdlib.BoundLogger,
+    cache_logger_on_first_use=True,
+)
+logger = structlog.get_logger()
 
 
 class DummyCon:
@@ -71,11 +98,11 @@ async def main():
                 more_uploads = True
                 while more_uploads:
                     logger.info(
-                        f"processing uploads {offset}-{offset+FETCH_SIZE} / {total_uploads_to_process}"
+                        f"processing uploads {offset}-{offset+BATCH_SIZE} / {total_uploads_to_process}"
                     )
-                    update_inc, more_uploads = await run(con, offset, FETCH_SIZE)
+                    update_inc, more_uploads = await run(con, offset, BATCH_SIZE)
                     update_count += update_inc
-                    offset += FETCH_SIZE
+                    offset += BATCH_SIZE
     finally:
         logger.info(f"updated {update_count}/{total_uploads_to_process} uploads")
         logger.info("DONE")
