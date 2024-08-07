@@ -19,7 +19,7 @@ import structlog
 PULSE3D_UPLOADS_BUCKET = os.getenv("TEST_UPLOADS_BUCKET")
 BATCH_SIZE = 10
 
-DRY_RUN = False
+DRY_RUN = True
 
 s3_client = boto3.client("s3")
 
