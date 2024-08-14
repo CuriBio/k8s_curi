@@ -11,4 +11,3 @@ spec:
     pulse3d_uploads_bucket: null
     mantarray_logs_bucket: null
 ---
-# Future other products i.e. Nautilus, Pulse2D
