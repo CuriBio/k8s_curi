@@ -1,12 +1,15 @@
 import asyncio
+from functools import wraps
+import json
 import os
 import tempfile
+import time
 from typing import Any
 from zipfile import ZipFile
 
 import asyncpg
 import boto3
-from jobs import EmptyQueue, get_item
+from jobs import EmptyQueue
 import structlog
 from structlog.contextvars import bind_contextvars, clear_contextvars, merge_contextvars
 from utils.s3 import upload_file_to_s3
@@ -66,7 +69,71 @@ def _create_file_info(
     }
 
 
-@get_item(queue=f"hermes-v{HERMES_VERSION}")
+# TODO move this into core lib
+def get_secondary_item(*, queue):
+    query = (
+        "DELETE FROM jobs_queue "
+        "WHERE id = (SELECT id FROM jobs_queue WHERE queue=$1 ORDER BY priority DESC, created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1) "
+        "RETURNING id, upload_id, created_at, meta"
+    )
+
+    def _outer(fn):
+        @wraps(fn)
+        async def _inner(*, con, con_to_update_job_result=None):
+            async with con.transaction():
+                item = await con.fetchrow(query, queue)
+                if not item:
+                    raise EmptyQueue(queue)
+
+                # if con_to_update_job_result:
+                #     # if already set to running, then assume that a different worker already tried processing the job and failed
+                #     current_job_status = await con_to_update_job_result.fetchval(
+                #         "SELECT status FROM jobs_result WHERE job_id=$1", item["id"]
+                #     )
+                #     if current_job_status == "running":
+                #         await con_to_update_job_result.execute(
+                #             "UPDATE jobs_result SET status='error', meta=meta||$1::jsonb, finished_at=NOW() WHERE job_id=$2",
+                #             json.dumps({"error_msg": "Ran out of time/memory"}),
+                #             item["id"],
+                #         )
+                #         return
+                #
+                #     await con_to_update_job_result.execute(
+                #         "UPDATE jobs_result SET status='running', started_at=$1 WHERE job_id=$2",
+                #         datetime.now(),
+                #         item["id"],
+                #     )
+
+                ts = time.time()
+                status, new_meta, object_key = await fn(con, item)
+                runtime = time.time() - ts
+
+                # update metadata
+                meta = json.loads(item["meta"])
+                meta.update(new_meta)
+
+                print(f"RESULT: {status=}, {runtime=}, {object_key=}, {meta=}")
+
+                # data = {
+                #     "status": status,
+                #     "runtime": runtime,
+                #     "finished_at": datetime.now(),
+                #     "meta": json.dumps(meta),
+                #     "object_key": object_key,
+                # }
+                # set_clause = ", ".join(f"{key} = ${i}" for i, key in enumerate(data, 1))
+                # await con.execute(
+                #     f"UPDATE jobs_result SET {set_clause} WHERE job_id=${len(data) + 1}",
+                #     *data.values(),
+                #     item["id"],
+                # )
+
+        return _inner
+
+    return _outer
+
+
+@get_secondary_item(queue=f"hermes-v{HERMES_VERSION}")
 async def process_item(con, item):
     # keeping initial log without bound variables
     logger.info(f"Processing item: {item}")
@@ -82,15 +149,6 @@ async def process_item(con, item):
     outfile_key = None
 
     try:
-        # TODO should platemaps be files or stored in metadata?
-        # meta = {
-        #     "sources": ["job_id_1", ...],
-        #     "platemaps": {"pm1": {...}, ...},
-        #     "platemap_assignments": {"job_id_1": "pm1", ...}
-        #     "analysis_params": {"experiment start": ..., "local tz offset hrs": ..., ?}
-        #     "output_name": "name"
-        # }
-
         submission_metadata = item["meta"]
         sources = submission_metadata["sources"]
         platemaps = submission_metadata["platemaps"]
