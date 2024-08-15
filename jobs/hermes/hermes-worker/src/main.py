@@ -18,8 +18,9 @@ from utils.s3 import upload_file_to_s3
 from hermes import HERMES_VERSION, load_from_dir, longitudinal_aggregator, render
 
 
-# TODO change this back to test
-PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "modl-pulse3d-uploads")
+# insert into jobs_queue (sources, queue, priority, meta) values ('{"fe941b4b-46ec-42af-beb5-0a77f5ee4c1f", "16d2900f-a71a-4e9e-833e-daf5ed39fa15"}', 'hermes-v0.1.0rc0', 1, '{"platemaps": { "001": { "A1": "Control", "B1": "Control", "C1": "Control", "D1": "Control", "A2": "AAV6", "B2": "AAV6", "C2": "AAV6", "D2": "AAV6", "A3": "AAV9", "B3": "AAV9", "C3": "AAV9", "D3": "AAV9", "A4": "AAVMyo1", "B4": "AAVMyo1", "C4": "AAVMyo1", "D4": "AAVMyo1", "A5": "MyoAAV3a", "B5": "MyoAAV3a", "C5": "MyoAAV3a", "D5": "MyoAAV3a", "A6": "MyoAAV4a", "B6": "MyoAAV4a", "C6": "MyoAAV4a", "D6": "MyoAAV4a" } }, "platemap_assignments": { "fe941b4b-46ec-42af-beb5-0a77f5ee4c1f": "001", "16d2900f-a71a-4e9e-833e-daf5ed39fa15": "001" }, "analysis_params": { "experiment_start_time_utc": "2024-07-19 00:00:00", "local_tz_offset_hours": -7 }, "output_name": "test_output"}'::jsonb);
+
+PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-pulse3d-uploads")
 
 
 structlog.configure(
