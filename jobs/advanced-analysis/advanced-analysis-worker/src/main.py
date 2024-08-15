@@ -15,10 +15,10 @@ import structlog
 from structlog.contextvars import bind_contextvars, clear_contextvars, merge_contextvars
 from utils.s3 import upload_file_to_s3
 
-from hermes import HERMES_VERSION, load_from_dir, longitudinal_aggregator, render
+from advanced_analysis import ADVANCED_ANALYSIS_VERSION, load_from_dir, longitudinal_aggregator, render
 
 
-# insert into jobs_queue (sources, queue, priority, meta) values ('{"fe941b4b-46ec-42af-beb5-0a77f5ee4c1f", "16d2900f-a71a-4e9e-833e-daf5ed39fa15"}', 'hermes-v0.1.0rc0', 1, '{"platemaps": { "001": { "A1": "Control", "B1": "Control", "C1": "Control", "D1": "Control", "A2": "AAV6", "B2": "AAV6", "C2": "AAV6", "D2": "AAV6", "A3": "AAV9", "B3": "AAV9", "C3": "AAV9", "D3": "AAV9", "A4": "AAVMyo1", "B4": "AAVMyo1", "C4": "AAVMyo1", "D4": "AAVMyo1", "A5": "MyoAAV3a", "B5": "MyoAAV3a", "C5": "MyoAAV3a", "D5": "MyoAAV3a", "A6": "MyoAAV4a", "B6": "MyoAAV4a", "C6": "MyoAAV4a", "D6": "MyoAAV4a" } }, "platemap_assignments": { "fe941b4b-46ec-42af-beb5-0a77f5ee4c1f": "001", "16d2900f-a71a-4e9e-833e-daf5ed39fa15": "001" }, "analysis_params": { "experiment_start_time_utc": "2024-07-19 00:00:00", "local_tz_offset_hours": -7 }, "output_name": "test_output"}'::jsonb);
+# insert into jobs_queue (sources, queue, priority, meta) values ('{"fe941b4b-46ec-42af-beb5-0a77f5ee4c1f", "16d2900f-a71a-4e9e-833e-daf5ed39fa15"}', 'advanced-analysis-v0.1.0rc0', 1, '{"platemaps": { "001": { "A1": "Control", "B1": "Control", "C1": "Control", "D1": "Control", "A2": "AAV6", "B2": "AAV6", "C2": "AAV6", "D2": "AAV6", "A3": "AAV9", "B3": "AAV9", "C3": "AAV9", "D3": "AAV9", "A4": "AAVMyo1", "B4": "AAVMyo1", "C4": "AAVMyo1", "D4": "AAVMyo1", "A5": "MyoAAV3a", "B5": "MyoAAV3a", "C5": "MyoAAV3a", "D5": "MyoAAV3a", "A6": "MyoAAV4a", "B6": "MyoAAV4a", "C6": "MyoAAV4a", "D6": "MyoAAV4a" } }, "platemap_assignments": { "fe941b4b-46ec-42af-beb5-0a77f5ee4c1f": "001", "16d2900f-a71a-4e9e-833e-daf5ed39fa15": "001" }, "analysis_params": { "experiment_start_time_utc": "2024-07-19 00:00:00", "local_tz_offset_hours": -7 }, "output_name": "test_output"}'::jsonb);
 
 PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-pulse3d-uploads")
 
@@ -38,7 +38,7 @@ logger = structlog.get_logger()
 def _create_file_info(
     inputs_dir: str, downloads_dir: str, upload_prefix: str, source_id: str, analysis_name: str
 ) -> dict[str, Any]:
-    # input dir is the dir passed to hermes. It should only contain ready to load files (i.e. no zips)
+    # input dir is the dir advanced analysis will load data from. It should only contain ready to load files (i.e. no zips)
     input_dir = os.path.join(inputs_dir, analysis_name)
     os.mkdir(input_dir)
     # download dir is used for processing downloads like zip files.
@@ -137,7 +137,7 @@ def get_secondary_item(*, queue):
     return _outer
 
 
-@get_secondary_item(queue=f"hermes-v{HERMES_VERSION}")
+@get_secondary_item(queue=f"advanced-analysis-v{ADVANCED_ANALYSIS_VERSION}")
 async def process_item(con, item):
     # keeping initial log without bound variables
     logger.info(f"Processing item: {item}")
@@ -159,9 +159,9 @@ async def process_item(con, item):
             sources = submission_metadata["sources"]
             platemaps = submission_metadata["platemaps"]
             platemap_assignments = submission_metadata["platemap_assignments"]
-            hermes_analysis_params = submission_metadata["analysis_params"]
-            hermes_analysis_params["experiment_start_time_utc"] = datetime.datetime.strptime(
-                hermes_analysis_params["experiment_start_time_utc"], "%Y-%m-%d %H:%M:%S"
+            advanced_analysis_params = submission_metadata["analysis_params"]
+            advanced_analysis_params["experiment_start_time_utc"] = datetime.datetime.strptime(
+                advanced_analysis_params["experiment_start_time_utc"], "%Y-%m-%d %H:%M:%S"
             )
             output_name = submission_metadata["output_name"]
         except:
@@ -258,8 +258,8 @@ async def process_item(con, item):
             try:
                 combined_container = longitudinal_aggregator(
                     input_containers,
-                    hermes_analysis_params["experiment_start_time_utc"],
-                    hermes_analysis_params["local_tz_offset_hours"],
+                    advanced_analysis_params["experiment_start_time_utc"],
+                    advanced_analysis_params["local_tz_offset_hours"],
                 )
             except:
                 logger.exception("Failed running longitudinal aggregation")
@@ -296,7 +296,7 @@ async def process_item(con, item):
 
 async def main():
     try:
-        logger.info(f"Hermes Worker v{HERMES_VERSION} started")
+        logger.info(f"Hermes Worker v{ADVANCED_ANALYSIS_VERSION} started")
 
         DB_PASS = os.getenv("POSTGRES_PASSWORD")
         DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
@@ -318,7 +318,7 @@ async def main():
                         logger.exception("Processing queue item failed")
                         return
     finally:
-        logger.info(f"Hermes Worker v{HERMES_VERSION} terminating")
+        logger.info(f"Hermes Worker v{ADVANCED_ANALYSIS_VERSION} terminating")
 
 
 if __name__ == "__main__":

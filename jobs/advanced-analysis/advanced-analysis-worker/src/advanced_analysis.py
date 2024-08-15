@@ -12,7 +12,7 @@ from immutabledict import immutabledict
 import polars as pl
 from xlsxwriter import Workbook
 
-HERMES_VERSION = "0.1.0rc0"
+ADVANCED_ANALYSIS_VERSION = "0.1.0rc0"
 
 # TODO add logging
 
@@ -32,7 +32,7 @@ class CombinedContainer:
     combined_p3d_metadata: pl.DataFrame
     ungrouped_aggs: pl.DataFrame
     group_aggs: pl.DataFrame
-    hermes_analysis_metadata: dict[str, Any]
+    advanced_analysis_metadata: dict[str, Any]
 
 
 # TODO The following could be shared with Pulse3D
@@ -206,15 +206,15 @@ class InconsistentP3dAnalysisParamsError(Exception):
 
 
 def longitudinal_aggregator(containers, experiment_start_utc, local_tz_offset_hours):
-    hermes_analysis_metadata = _get_hermes_analysis_metadata(containers)
+    advanced_analysis_metadata = _get_advanced_analysis_metadata(containers)
     metadata_df = _create_p3d_metadata_df(containers, experiment_start_utc, local_tz_offset_hours)
     ungrouped_aggs = _create_ungrouped_aggs(containers)
     group_aggs = _create_group_aggs(ungrouped_aggs)
-    return CombinedContainer(metadata_df, ungrouped_aggs, group_aggs, hermes_analysis_metadata)
+    return CombinedContainer(metadata_df, ungrouped_aggs, group_aggs, advanced_analysis_metadata)
 
 
 # TODO should make a pydantic model or dataclass for the return type
-def _get_hermes_analysis_metadata(containers: list[SingleAnalysisContainer]) -> dict[str, Any]:
+def _get_advanced_analysis_metadata(containers: list[SingleAnalysisContainer]) -> dict[str, Any]:
     data_types = list({container.p3d_analysis_metadata["data_type"] for container in containers})
     if len(data_types) > 1:
         raise InconsistentP3dAnalysisParamsError(f"Multiple data types found: {data_types}")
@@ -358,8 +358,8 @@ def render(combined_container: CombinedContainer, output_name: str, output_dir: 
     }
     with Workbook(output_path, workbook_options) as wb:
         _metadata_sheet(wb, combined_container.combined_p3d_metadata)
-        _mean_sheet(wb, combined_container.group_aggs, combined_container.hermes_analysis_metadata)
-        _ungrouped_sheet(wb, combined_container.ungrouped_aggs, combined_container.hermes_analysis_metadata)
+        _mean_sheet(wb, combined_container.group_aggs, combined_container.advanced_analysis_metadata)
+        _ungrouped_sheet(wb, combined_container.ungrouped_aggs, combined_container.advanced_analysis_metadata)
 
 
 def _metadata_sheet(wb: Workbook, metadata: pl.DataFrame) -> None:
@@ -381,9 +381,9 @@ def _metadata_sheet(wb: Workbook, metadata: pl.DataFrame) -> None:
     display_metadata.write_excel(wb, "Metadata")
 
 
-def _mean_sheet(wb: Workbook, group_aggs: pl.DataFrame, hermes_analysis_metadata: dict[str, Any]) -> None:
-    data_type = hermes_analysis_metadata["data_type"]
-    normalization_method = hermes_analysis_metadata["normalization_method"]
+def _mean_sheet(wb: Workbook, group_aggs: pl.DataFrame, advanced_analysis_metadata: dict[str, Any]) -> None:
+    data_type = advanced_analysis_metadata["data_type"]
+    normalization_method = advanced_analysis_metadata["normalization_method"]
 
     column = "group"
     values = ("mean", "std", "count")
@@ -418,10 +418,10 @@ def _mean_sheet(wb: Workbook, group_aggs: pl.DataFrame, hermes_analysis_metadata
 
 
 def _ungrouped_sheet(
-    wb: Workbook, ungrouped_aggs: pl.DataFrame, hermes_analysis_metadata: dict[str, Any]
+    wb: Workbook, ungrouped_aggs: pl.DataFrame, advanced_analysis_metadata: dict[str, Any]
 ) -> None:
-    data_type = hermes_analysis_metadata["data_type"]
-    normalization_method = hermes_analysis_metadata["normalization_method"]
+    data_type = advanced_analysis_metadata["data_type"]
+    normalization_method = advanced_analysis_metadata["normalization_method"]
     formatted_ungrouped_aggs = (
         ungrouped_aggs.with_columns(
             pl.concat_list("group", "platemap_name", "well").list.join("_").alias("pivot_col")

@@ -1,4 +1,4 @@
-"""update jobs_queue for hermes
+"""update jobs_queue for advanced analysis
 
 Revision ID: 4d9f2cabaced
 Revises: 9566734eccae

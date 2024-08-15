@@ -1,11 +1,11 @@
 FROM python:3.11-slim as venv
 
 WORKDIR /app
-COPY ./jobs/hermes/hermes-worker/src/requirements.txt ./
+COPY ./jobs/advanced-analysis/advanced-analysis-worker/src/requirements.txt ./
 COPY ./core/lib/jobs ./lib/jobs
 COPY ./core/lib/utils ./lib/utils
 
-# Following args are required for pushing to the test cluster, you need to add and export modl access keys to get hermes repo
+# Following args are required for pushing to the test cluster, you need to add and export modl access keys to get advanced analysis repo
 ARG CODE_ARTIFACT_ACCOUNT_ID
 ARG CODE_ARTIFACT_ACCESS_KEY
 ARG CODE_ARTIFACT_ACCESS_KEY_ID
@@ -33,7 +33,7 @@ COPY --from=venv --chown=main_user:main_group /app/venv /app/venv/
 ENV PATH /app/venv/bin:$PATH
 
 WORKDIR /app
-COPY --chown=main_user:main_group ./jobs/hermes/hermes-worker/src/main.py ./
+COPY --chown=main_user:main_group ./jobs/advanced-analysis/advanced-analysis-worker/src/main.py ./
 
 ENV PYTHONUNBUFFERED 1
 CMD ["python", "main.py"]

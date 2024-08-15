@@ -27,8 +27,8 @@ variable "region" {
   default = "us-east-2"
 }
 
-resource "aws_ecr_repository" "hermes_worker_ecr" {
-  name                 = "hermes-worker"
+resource "aws_ecr_repository" "advanced_analysis_worker_ecr" {
+  name                 = "advanced-analysis-worker"
   image_tag_mutability = "MUTABLE"
 
   image_scanning_configuration {
@@ -36,8 +36,8 @@ resource "aws_ecr_repository" "hermes_worker_ecr" {
   }
 }
 
-resource "aws_ecr_lifecycle_policy" "hermes_worker_ecr_lifecycle_policy" {
-  repository = aws_ecr_repository.hermes_worker_ecr.name
+resource "aws_ecr_lifecycle_policy" "advanced_analysis_worker_ecr_lifecycle_policy" {
+  repository = aws_ecr_repository.advanced_analysis_worker_ecr.name
 
   policy = <<EOF
 {

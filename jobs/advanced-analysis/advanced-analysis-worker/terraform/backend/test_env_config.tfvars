@@ -1,5 +1,5 @@
 bucket               = "curi-eks-test-cluster-tf-state"
-key                  = "jobs/hermes/hermes-worker.tfstate"
+key                  = "jobs/advanced-analysis/advanced-analysis-worker.tfstate"
 region               = "us-east-2"
 dynamodb_table       = ""
 workspace_key_prefix = "env"
