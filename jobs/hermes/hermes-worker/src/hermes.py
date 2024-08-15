@@ -186,7 +186,7 @@ def load_from_dir(
                 name=analysis_name,
                 agg_metrics=agg_metrics,
                 recording_metadata=recording_metadata,
-                p3d_analysis_metadata=source_info["analysis_meta"],
+                p3d_analysis_metadata=source_info["p3d_analysis_metadata"],
                 platemap_name=platemap_name,
                 platemap=platemaps[platemap_name],
             )
@@ -229,10 +229,11 @@ def _get_hermes_analysis_metadata(containers: list[SingleAnalysisContainer]) -> 
             f"Multiple normalization methods found: {normalization_methods}"
         )
 
-    return {
-        "data_type": DataTypes[data_types[0].upper()],
-        "normalization_method": NormalizationMethods[normalization_methods[0]],
-    }
+    normalization_method = normalization_methods[0]
+    if normalization_method is not None:
+        normalization_method = NormalizationMethods[normalization_method]
+
+    return {"data_type": DataTypes[data_types[0].upper()], "normalization_method": normalization_method}
 
 
 def _create_p3d_metadata_df(
@@ -248,7 +249,7 @@ def _create_p3d_metadata_df(
             container.recording_metadata["utc_beginning_recording"]
         )
         day = (utc_beginning_recording - experiment_start_utc).days
-        analysis_meta = (
+        p3d_analysis_meta = (
             container.recording_metadata
             | {
                 "filename": container.p3d_analysis_metadata["filename"],
@@ -265,12 +266,16 @@ def _create_p3d_metadata_df(
                 container.recording_metadata["full_recording_length"],
             )
         )
-        analysis_meta = {
-            display_name: _get_meta_display_name(analysis_meta[stored_name])
+        p3d_analysis_meta = {
+            display_name: _get_meta_display_name(p3d_analysis_meta[stored_name])
             for stored_name, display_name in MetadataDisplayNames.__members__.items()
         }
         metadata_df = pl.DataFrame(
-            {"analysis_name": container.name, "key": analysis_meta.keys(), "val": analysis_meta.values()}
+            {
+                "analysis_name": container.name,
+                "key": p3d_analysis_meta.keys(),
+                "val": p3d_analysis_meta.values(),
+            }
         )
         combined_metadata_df = combined_metadata_df.vstack(metadata_df)
 

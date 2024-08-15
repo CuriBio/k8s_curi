@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 from functools import wraps
 import json
 import os
@@ -17,7 +18,8 @@ from utils.s3 import upload_file_to_s3
 from hermes import HERMES_VERSION, load_from_dir, longitudinal_aggregator, render
 
 
-PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-pulse3d-uploads")
+# TODO change this back to test
+PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "modl-pulse3d-uploads")
 
 
 structlog.configure(
@@ -33,10 +35,10 @@ logger = structlog.get_logger()
 
 
 def _create_file_info(
-    inputs_dir: str, downloads_dir: str, upload_prefix: str, source_id: str
+    inputs_dir: str, downloads_dir: str, upload_prefix: str, source_id: str, analysis_name: str
 ) -> dict[str, Any]:
     # input dir is the dir passed to hermes. It should only contain ready to load files (i.e. no zips)
-    input_dir = os.path.join(downloads_dir, source_id)
+    input_dir = os.path.join(inputs_dir, analysis_name)
     os.mkdir(input_dir)
     # download dir is used for processing downloads like zip files.
     download_dir = os.path.join(downloads_dir, source_id)
@@ -51,7 +53,7 @@ def _create_file_info(
     aggregate_metrics_filename = "aggregate_metrics.parquet"
     aggregate_metrics_s3_key = f"{upload_prefix}/{source_id}/{aggregate_metrics_filename}"
     # no processing required for a parquet file, so put it straight into the inputs dir
-    aggregate_metrics_file_path = os.path.join(inputs_dir, aggregate_metrics_filename)
+    aggregate_metrics_file_path = os.path.join(input_dir, aggregate_metrics_filename)
 
     return {
         "input_dir": input_dir,
@@ -112,7 +114,8 @@ def get_secondary_item(*, queue):
                 meta = json.loads(item["meta"])
                 meta.update(new_meta)
 
-                print(f"RESULT: {status=}, {runtime=}, {object_key=}, {meta=}")
+                # TODO delete this
+                print(f"RESULT: {status=}, {runtime=}, {object_key=}, {meta=}")  # allow-print
 
                 # data = {
                 #     "status": status,
@@ -139,7 +142,7 @@ async def process_item(con, item):
     logger.info(f"Processing item: {item}")
 
     # TODO what else should be bound?
-    bind_contextvars(job_id=item["job_id"])
+    bind_contextvars(job_id=item["id"])
 
     s3_client = boto3.client("s3")
 
@@ -149,12 +152,20 @@ async def process_item(con, item):
     outfile_key = None
 
     try:
-        submission_metadata = item["meta"]
-        sources = submission_metadata["sources"]
-        platemaps = submission_metadata["platemaps"]
-        platemap_assignments = submission_metadata["platemap_assignments"]
-        hermes_analysis_params = submission_metadata["analysis_params"]
-        output_name = submission_metadata["output_name"]
+        logger.info("Processing submission metadata")
+        try:
+            submission_metadata = json.loads(item["meta"])
+            sources = submission_metadata["sources"]
+            platemaps = submission_metadata["platemaps"]
+            platemap_assignments = submission_metadata["platemap_assignments"]
+            hermes_analysis_params = submission_metadata["analysis_params"]
+            hermes_analysis_params["experiment_start_time_utc"] = datetime.datetime.strptime(
+                hermes_analysis_params["experiment_start_time_utc"], "%Y-%m-%d %H:%M:%S"
+            )
+            output_name = submission_metadata["output_name"]
+        except:
+            logger.exception("Error processing submission metadata")
+            raise
 
         sources_info = {}
 
@@ -169,7 +180,7 @@ async def process_item(con, item):
             for source_id in sources:
                 logger.info(f"Fetching source details for ID: {source_id}")
                 try:
-                    fetched_source_info = await con.fetch(
+                    fetched_source_info = await con.fetchrow(
                         "SELECT j.meta, j.object_key, j.finished_at, up.prefix "
                         "FROM jobs_result j JOIN uploads up ON j.upload_id=up.id "
                         "WHERE job_id=$1",
@@ -179,32 +190,34 @@ async def process_item(con, item):
                     logger.exception(f"Error fetching source details for ID: {source_id}")
                     raise
 
-                logger.info(f"Processing source details for ID: {source_id}")
+                logger.info(f"Processing source info for ID: {source_id}")
                 source_info = {}
                 try:
                     fetched_source_info = dict(fetched_source_info)
+                    fetched_source_info_meta = json.loads(fetched_source_info["meta"])
+                    logger.debug("Found %s", str(fetched_source_info))
                     analysis_filename = fetched_source_info["object_key"].split("/")[-1]
                     analysis_name = os.path.splitext(analysis_filename)[0]
-                    source_info["analysis_meta"] = {
+                    source_info["p3d_analysis_metadata"] = {
                         "filename": analysis_filename,
-                        "version": fetched_source_info["meta"]["version"],
-                        "data_type": fetched_source_info["meta"]["data_type"],
-                        "analysis_params": fetched_source_info["meta"]["analysis_params"],
+                        "version": fetched_source_info_meta["version"],
+                        "data_type": fetched_source_info_meta["data_type"],
+                        "analysis_params": fetched_source_info_meta["analysis_params"],
                         "file_creation_timestamp": fetched_source_info["finished_at"],
                     }
                     source_info["platemap_name"] = platemap_assignments[source_id]
                     source_info["inputs"] = _create_file_info(
-                        inputs_dir, downloads_dir, fetched_source_info["prefix"], source_id
+                        inputs_dir, downloads_dir, fetched_source_info["prefix"], source_id, analysis_name
                     )
                 except:
-                    logger.exception(f"Error processing source details for ID: {source_id}")
+                    logger.exception(f"Error processing source info for ID: {source_id}")
                     raise
 
                 sources_info[analysis_name] = source_info
 
                 logger.info(f"Downloading pre-analysis data for ID: {source_id}")
                 try:
-                    pre_analysis_info = source_info[source_id]["inputs"]["pre_analysis"]
+                    pre_analysis_info = source_info["inputs"]["pre_analysis"]
                     s3_client.download_file(
                         PULSE3D_UPLOADS_BUCKET, pre_analysis_info["s3_key"], pre_analysis_info["file_path"]
                     )
@@ -222,7 +235,7 @@ async def process_item(con, item):
                     raise
                 logger.info(f"Downloading aggregate metrics for ID: {source_id}")
                 try:
-                    aggregate_metrics_info = source_info[source_id]["inputs"]["aggregate_metrics"]
+                    aggregate_metrics_info = source_info["inputs"]["aggregate_metrics"]
                     s3_client.download_file(
                         PULSE3D_UPLOADS_BUCKET,
                         aggregate_metrics_info["s3_key"],
@@ -253,6 +266,8 @@ async def process_item(con, item):
 
             logger.info("Running renderer")
             try:
+                # TODO delete this
+                outputs_dir = "./test_output/"
                 render(combined_container, output_name, output_dir=outputs_dir)
             except:
                 error_msg = "Output file creation failed"
