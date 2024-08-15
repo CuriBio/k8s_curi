@@ -1,4 +1,4 @@
-"""hermes job table
+"""advanced analysis table
 
 Revision ID: 582a11bd1477
 Revises: 4d9f2cabaced
@@ -17,14 +17,14 @@ depends_on = None
 
 
 def upgrade():
-    op.execute("""CREATE TYPE "SecondaryJobType" AS ENUM ('longitudinal', 'overlay')""")
+    op.execute("""CREATE TYPE "AdvancedAnalysisType" AS ENUM ('longitudinal', 'overlay')""")
     op.execute(
         """
-        CREATE TABLE secondary_jobs_result (
+        CREATE TABLE advanced_analysis_result (
             id          uuid PRIMARY KEY,
             user_id     uuid NOT NULL,
             customer_id uuid NOT NULL,
-            type        "SecondaryJobType" NOT NULL,
+            type        "AdvancedAnalysisType" NOT NULL,
             status      "JobStatus" NOT NULL,
             sources     uuid[] NOT NULL,
             meta        jsonb DEFAULT '{}'::jsonb,
@@ -33,13 +33,13 @@ def upgrade():
             runtime     double precision,
             s3_prefix   text,
             name        text,
-            CONSTRAINT fk_secondary_jobs_result_customers FOREIGN KEY (customer_id) REFERENCES customers(id),
-            CONSTRAINT fk_secondary_jobs_result_users FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            CONSTRAINT fk_advanced_analysis_result_customers FOREIGN KEY (customer_id) REFERENCES customers(id),
+            CONSTRAINT fk_advanced_analysis_result_users FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
         """
     )
 
 
 def downgrade():
-    op.execute("DROP TABLE secondary_jobs_result")
-    op.execute('DROP TYPE "SecondaryJobType"')
+    op.execute("DROP TABLE advanced_analysis_result")
+    op.execute('DROP TYPE "AdvancedAnalysisType"')
