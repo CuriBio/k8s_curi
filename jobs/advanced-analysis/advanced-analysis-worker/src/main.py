@@ -18,8 +18,6 @@ from utils.s3 import upload_file_to_s3
 from advanced_analysis import ADVANCED_ANALYSIS_VERSION, load_from_dir, longitudinal_aggregator, render
 
 
-# insert into jobs_queue (sources, queue, priority, meta) values ('{"fe941b4b-46ec-42af-beb5-0a77f5ee4c1f", "16d2900f-a71a-4e9e-833e-daf5ed39fa15"}', 'advanced-analysis-v0.1.0rc0', 1, '{"platemaps": { "001": { "A1": "Control", "B1": "Control", "C1": "Control", "D1": "Control", "A2": "AAV6", "B2": "AAV6", "C2": "AAV6", "D2": "AAV6", "A3": "AAV9", "B3": "AAV9", "C3": "AAV9", "D3": "AAV9", "A4": "AAVMyo1", "B4": "AAVMyo1", "C4": "AAVMyo1", "D4": "AAVMyo1", "A5": "MyoAAV3a", "B5": "MyoAAV3a", "C5": "MyoAAV3a", "D5": "MyoAAV3a", "A6": "MyoAAV4a", "B6": "MyoAAV4a", "C6": "MyoAAV4a", "D6": "MyoAAV4a" } }, "platemap_assignments": { "fe941b4b-46ec-42af-beb5-0a77f5ee4c1f": "001", "16d2900f-a71a-4e9e-833e-daf5ed39fa15": "001" }, "analysis_params": { "experiment_start_time_utc": "2024-07-19 00:00:00", "local_tz_offset_hours": -7 }, "output_name": "test_output"}'::jsonb);
-
 PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-pulse3d-uploads")
 
 
@@ -77,7 +75,7 @@ def get_secondary_item(*, queue):
     query = (
         "DELETE FROM jobs_queue "
         "WHERE id = (SELECT id FROM jobs_queue WHERE queue=$1 ORDER BY priority DESC, created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1) "
-        "RETURNING id, upload_id, created_at, meta"
+        "RETURNING id, sources, created_at, meta"
     )
 
     def _outer(fn):
@@ -156,9 +154,13 @@ async def process_item(con, item):
         logger.info("Processing submission metadata")
         try:
             submission_metadata = json.loads(item["meta"])
-            sources = submission_metadata["sources"]
+            sources = [str(source_id) for source_id in item["sources"]]
             platemaps = submission_metadata["platemaps"]
-            platemap_assignments = submission_metadata["platemap_assignments"]
+            platemap_assignments = {
+                source_id: platemap_name
+                for platemap_name in submission_metadata["platemap_assignments"]
+                for source_id in submission_metadata["platemap_assignments"][platemap_name]
+            }
             advanced_analysis_params = submission_metadata["analysis_params"]
             advanced_analysis_params["experiment_start_time_utc"] = datetime.datetime.strptime(
                 advanced_analysis_params["experiment_start_time_utc"], "%Y-%m-%d %H:%M:%S"

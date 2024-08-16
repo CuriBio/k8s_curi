@@ -23,7 +23,6 @@ class SingleAnalysisContainer:
     agg_metrics: pl.DataFrame
     recording_metadata: dict[str, Any]
     p3d_analysis_metadata: dict[str, Any]
-    platemap_name: str
     platemap: dict[str, Any]
 
 
@@ -170,7 +169,7 @@ class NoDataLoadedError(Exception):
 
 
 def load_from_dir(
-    inputs_dir_path: str, sources_info: dict[str, dict[str, Any]], platemaps: dict[str, dict[str, str]]
+    inputs_dir_path: str, sources_info: dict[str, dict[str, Any]], platemaps: list[dict[str, Any]]
 ) -> list[SingleAnalysisContainer]:
     input_containers = []
     for analysis_name in os.listdir(inputs_dir_path):
@@ -180,15 +179,13 @@ def load_from_dir(
             os.path.join(inputs_dir_path, analysis_name, "aggregate_metrics.parquet")
         )
         source_info = sources_info[analysis_name]
-        platemap_name = source_info["platemap_name"]
         input_containers.append(
             SingleAnalysisContainer(
                 name=analysis_name,
                 agg_metrics=agg_metrics,
                 recording_metadata=recording_metadata,
                 p3d_analysis_metadata=source_info["p3d_analysis_metadata"],
-                platemap_name=platemap_name,
-                platemap=platemaps[platemap_name],
+                platemap=next(pm for pm in platemaps if pm["map_name"] == source_info["platemap_name"]),
             )
         )
 
@@ -289,6 +286,8 @@ def _create_ungrouped_aggs(containers: list[SingleAnalysisContainer]) -> pl.Data
     combined_df = pl.DataFrame()
 
     for container in containers:
+        labels = container.platemap["labels"]
+        formatted_labels = {well: label["name"] for label in labels for well in label["wells"]}
         formatted_agg = (
             container.agg_metrics.filter(pl.col("group").str.ends_with("_group").not_())
             .select(
@@ -300,10 +299,10 @@ def _create_ungrouped_aggs(containers: list[SingleAnalysisContainer]) -> pl.Data
             .join(
                 pl.DataFrame(
                     {
-                        "well": container.platemap.keys(),
-                        "group": container.platemap.values(),
+                        "well": formatted_labels.keys(),
+                        "group": formatted_labels.values(),
                         "day": container.p3d_analysis_metadata["day"],
-                        "platemap_name": container.platemap_name,
+                        "platemap_name": container.platemap["map_name"],
                     }
                 ),
                 on="well",
