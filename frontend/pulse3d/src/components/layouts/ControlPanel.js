@@ -203,12 +203,22 @@ export default function ControlPanel() {
   if (isCuriAdmin) {
     // if the curi admin acccount is logged in, allow them to add new admins
     adminButtons[1].options.push("Admin");
-    adminButtons.splice(3, 0, {
-      label: "Customer Info",
-      disabled: false,
-      page: "/customer-info",
-      options: [],
-    });
+    adminButtons.splice(
+      3,
+      0,
+      {
+        label: "Customer Info",
+        disabled: false,
+        page: "/customer-info",
+        options: [],
+      },
+      {
+        label: "Notifications (WIP)",
+        disabled: false,
+        page: "/notifications-management",
+        options: [],
+      }
+    );
   }
 
   useEffect(() => {
