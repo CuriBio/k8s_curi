@@ -4,6 +4,6 @@ kind: Kustomization
 namespace: advanced-analysis
 resources:
 - job-runner.yaml
-- rbac.yaml
+# - rbac.yaml
 # TODO move this to deployment ?
 - namespace.yaml
