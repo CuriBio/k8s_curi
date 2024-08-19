@@ -7,3 +7,4 @@ resources:
   - pulse3d-deployment.yaml
   - pulse3d-jobs.yaml
   - jobs-operator.yaml
+  - advanced-analysis-jobs.yaml
