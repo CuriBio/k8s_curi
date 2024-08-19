@@ -344,12 +344,12 @@ def _get_window_info(analysis_params: dict[str, Any], full_recording_length: Num
 # RENDERER
 
 
-def render(combined_container: CombinedContainer, output_name: str, output_dir: str | None = None) -> None:
+def render(combined_container: CombinedContainer, output_name: str, output_dir: str | None = None) -> str:
+    output_name += ".xlsx"
     if output_dir:
         output_path = os.path.join(output_dir, output_name)
     else:
         output_path = output_name
-    output_path += ".xlsx"
 
     workbook_options = {
         "nan_inf_to_errors": True,  # required so the NaN rows do not cause errors
@@ -359,6 +359,8 @@ def render(combined_container: CombinedContainer, output_name: str, output_dir: 
         _metadata_sheet(wb, combined_container.combined_p3d_metadata)
         _mean_sheet(wb, combined_container.group_aggs, combined_container.advanced_analysis_metadata)
         _ungrouped_sheet(wb, combined_container.ungrouped_aggs, combined_container.advanced_analysis_metadata)
+
+    return output_name
 
 
 def _metadata_sheet(wb: Workbook, metadata: pl.DataFrame) -> None:

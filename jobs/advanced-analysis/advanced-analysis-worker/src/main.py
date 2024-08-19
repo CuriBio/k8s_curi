@@ -71,7 +71,7 @@ def _create_file_info(
 
 
 # TODO move this into core lib
-def get_secondary_item(*, queue):
+def get_advanced_item(*, queue):
     query = (
         "DELETE FROM jobs_queue "
         "WHERE id = (SELECT id FROM jobs_queue WHERE queue=$1 ORDER BY priority DESC, created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1) "
@@ -86,24 +86,24 @@ def get_secondary_item(*, queue):
                 if not item:
                     raise EmptyQueue(queue)
 
-                # if con_to_update_job_result:
-                #     # if already set to running, then assume that a different worker already tried processing the job and failed
-                #     current_job_status = await con_to_update_job_result.fetchval(
-                #         "SELECT status FROM jobs_result WHERE job_id=$1", item["id"]
-                #     )
-                #     if current_job_status == "running":
-                #         await con_to_update_job_result.execute(
-                #             "UPDATE jobs_result SET status='error', meta=meta||$1::jsonb, finished_at=NOW() WHERE job_id=$2",
-                #             json.dumps({"error_msg": "Ran out of time/memory"}),
-                #             item["id"],
-                #         )
-                #         return
-                #
-                #     await con_to_update_job_result.execute(
-                #         "UPDATE jobs_result SET status='running', started_at=$1 WHERE job_id=$2",
-                #         datetime.now(),
-                #         item["id"],
-                #     )
+                if con_to_update_job_result:
+                    # if already set to running, then assume that a different worker already tried processing the job and failed
+                    current_job_status = await con_to_update_job_result.fetchval(
+                        "SELECT status FROM advanced_analysis_result WHERE id=$1", item["id"]
+                    )
+                    if current_job_status == "running":
+                        await con_to_update_job_result.execute(
+                            "UPDATE advanced_analysis_result SET status='error', meta=meta||$1::jsonb, finished_at=NOW() WHERE id=$2",
+                            json.dumps({"error_msg": "Ran out of time/memory"}),
+                            item["id"],
+                        )
+                        return
+
+                    await con_to_update_job_result.execute(
+                        "UPDATE advanced_analysis_result SET status='running', started_at=$1 WHERE id=$2",
+                        datetime.datetime.now(),
+                        item["id"],
+                    )
 
                 ts = time.time()
                 status, new_meta, object_key = await fn(con, item)
@@ -113,35 +113,35 @@ def get_secondary_item(*, queue):
                 meta = json.loads(item["meta"])
                 meta.update(new_meta)
 
-                # TODO delete this
-                print(f"RESULT: {status=}, {runtime=}, {object_key=}, {meta=}")  # allow-print
-
-                # data = {
-                #     "status": status,
-                #     "runtime": runtime,
-                #     "finished_at": datetime.now(),
-                #     "meta": json.dumps(meta),
-                #     "object_key": object_key,
-                # }
-                # set_clause = ", ".join(f"{key} = ${i}" for i, key in enumerate(data, 1))
-                # await con.execute(
-                #     f"UPDATE jobs_result SET {set_clause} WHERE job_id=${len(data) + 1}",
-                #     *data.values(),
-                #     item["id"],
-                # )
+                data = {
+                    "status": status,
+                    "runtime": runtime,
+                    "finished_at": datetime.datetime.now(),
+                    "meta": json.dumps(meta),
+                    "s3_prefix": os.path.dirname(object_key),
+                    "name": os.path.basename(object_key),
+                }
+                set_clause = ", ".join(f"{key} = ${i}" for i, key in enumerate(data, 1))
+                await con.execute(
+                    f"UPDATE advanced_analysis_result SET {set_clause} WHERE id=${len(data) + 1}",
+                    *data.values(),
+                    item["id"],
+                )
 
         return _inner
 
     return _outer
 
 
-@get_secondary_item(queue=f"advanced-analysis-v{ADVANCED_ANALYSIS_VERSION}")
+@get_advanced_item(queue=f"advanced-analysis-v{ADVANCED_ANALYSIS_VERSION}")
 async def process_item(con, item):
     # keeping initial log without bound variables
     logger.info(f"Processing item: {item}")
 
+    job_id = item["id"]
+
     # TODO what else should be bound?
-    bind_contextvars(job_id=item["id"])
+    bind_contextvars(job_id=job_id)
 
     s3_client = boto3.client("s3")
 
@@ -253,6 +253,7 @@ async def process_item(con, item):
                 # TODO eventually platemaps will be stored in S3 and should be downloaded from there
                 input_containers = load_from_dir(inputs_dir, sources_info, platemaps)
             except:
+                error_msg = "Loading input data failed"
                 logger.exception("Failed loading source files")
                 raise
 
@@ -264,22 +265,39 @@ async def process_item(con, item):
                     advanced_analysis_params["local_tz_offset_hours"],
                 )
             except:
+                error_msg = "Longitudinal aggregation failed"
                 logger.exception("Failed running longitudinal aggregation")
                 raise
 
             logger.info("Running renderer")
             try:
-                # TODO delete this
-                outputs_dir = "./test_output/"
-                render(combined_container, output_name, output_dir=outputs_dir)
+                outfile_name = render(combined_container, output_name, output_dir=outputs_dir)
             except:
                 error_msg = "Output file creation failed"
                 logger.exception("Failed running renderer")
                 raise
 
-            # TODO upload renderer output
-            upload_file_to_s3
-            outfile_key = "TODO"
+            logger.info("Retrieving customer and user IDs from DB")
+            try:
+                customer_id, user_id = await con.fetchrow(
+                    "SELECT customer_id, user_id FROM advanced_analysis_result WHERE id=$1", job_id
+                )
+            except:
+                logger.exception("Failed retrieving customer and user IDs from DB")
+                raise
+
+            logger.info("Uploading renderer output")
+            try:
+                outfile_prefix = f"advanced-analysis/{customer_id}/{user_id}/{job_id}"
+                outfile_key = f"{outfile_prefix}/{outfile_name}"
+                upload_file_to_s3(
+                    bucket=PULSE3D_UPLOADS_BUCKET,
+                    key=outfile_key,
+                    file=os.path.join(outputs_dir, outfile_name),
+                )
+            except:
+                logger.exception("Failed uploading renderer output")
+                raise
 
     except Exception as e:
         job_metadata["error"] = str(e)
@@ -298,7 +316,7 @@ async def process_item(con, item):
 
 async def main():
     try:
-        logger.info(f"Hermes Worker v{ADVANCED_ANALYSIS_VERSION} started")
+        logger.info(f"Advanced Analysis Worker v{ADVANCED_ANALYSIS_VERSION} started")
 
         DB_PASS = os.getenv("POSTGRES_PASSWORD")
         DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
@@ -320,7 +338,7 @@ async def main():
                         logger.exception("Processing queue item failed")
                         return
     finally:
-        logger.info(f"Hermes Worker v{ADVANCED_ANALYSIS_VERSION} terminating")
+        logger.info(f"Advanced Analysis Worker v{ADVANCED_ANALYSIS_VERSION} terminating")
 
 
 if __name__ == "__main__":
