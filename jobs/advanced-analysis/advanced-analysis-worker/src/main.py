@@ -254,7 +254,7 @@ async def main():
         logger.info(f"Advanced Analysis Worker v{ADVANCED_ANALYSIS_VERSION} started")
 
         DB_PASS = os.getenv("POSTGRES_PASSWORD")
-        DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
+        DB_USER = os.getenv("POSTGRES_USER", default="curibio_advanced_analysis")
         DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
         DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
 

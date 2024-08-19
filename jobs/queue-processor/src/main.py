@@ -22,8 +22,14 @@ logger = structlog.getLogger()
 ECR_REPO = os.getenv("ECR_REPO")
 MAX_NUM_OF_WORKERS = int(os.getenv("MAX_NUM_OF_WORKERS", default=5))
 QUEUE = os.getenv("QUEUE")
-DB_PASS = os.getenv("POSTGRES_PASSWORD")
-DB_USER = os.getenv("POSTGRES_USER")
+MIN_MEMORY_MIB = f"{os.getenv('MIN_MEMORY_MIB')}Mi"
+
+WORKER_DB_CRED_NAME = os.getenv("WORKER_DB_CRED_NAME")
+WORKER_DB_CRED_KEY = os.getenv("WORKER_DB_CRED_KEY")
+WORKER_DB_USER = os.getenv("WORKER_DB_USER")
+
+QP_DB_PASS = os.getenv("POSTGRES_PASSWORD")
+QP_DB_USER = os.getenv("POSTGRES_USER")
 DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
 DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
 
@@ -63,9 +69,10 @@ def manage_jobs(version: str, target_num_workers: int):
     POSTGRES_PASSWORD = kclient.V1EnvVar(
         name="POSTGRES_PASSWORD",
         value_from=kclient.V1EnvVarSource(
-            secret_key_ref=kclient.V1SecretKeySelector(name="curibio-jobs-creds", key="curibio_jobs")
+            secret_key_ref=kclient.V1SecretKeySelector(name=WORKER_DB_CRED_NAME, key=WORKER_DB_CRED_KEY)
         ),
     )
+    POSTGRES_USER = kclient.V1EnvVar(name="POSTGRES_USER", value=WORKER_DB_USER)
 
     # adding 1 to get 1-based index for name of worker
     for count in range(num_of_active_workers + 1, target_num_workers + 1):
@@ -76,12 +83,12 @@ def manage_jobs(version: str, target_num_workers: int):
         logger.info(f"Starting {formatted_name}")
         complete_ecr_repo = f"{ECR_REPO}:{version}"
 
-        resources = kclient.V1ResourceRequirements(requests={"memory": "4000Mi"})
+        resources = kclient.V1ResourceRequirements(requests={"memory": MIN_MEMORY_MIB})
         # Create container
         container = kclient.V1Container(
             name=formatted_name,
             image=complete_ecr_repo,
-            env=[POSTGRES_PASSWORD, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET],
+            env=[POSTGRES_USER, POSTGRES_PASSWORD, PULSE3D_UPLOADS_BUCKET, MANTARRAY_LOGS_BUCKET],
             image_pull_policy="Always",
             resources=resources,
         )
@@ -189,15 +196,10 @@ async def run_poller(dsn):
 
 
 async def main():
-    dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
+    dsn = f"postgresql://{QP_DB_USER}:{QP_DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
 
     try:
-        await asyncio.wait(
-            {
-                asyncio.create_task(run_listener(dsn)),
-                asyncio.create_task(run_poller(dsn)),
-            }
-        )
+        await asyncio.wait({asyncio.create_task(run_listener(dsn)), asyncio.create_task(run_poller(dsn))})
     except BaseException:
         logger.exception("ERROR IN QUEUE PROCESSOR")
 
