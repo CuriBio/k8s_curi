@@ -22,11 +22,11 @@ logger = structlog.getLogger()
 ECR_REPO = os.getenv("ECR_REPO")
 MAX_NUM_OF_WORKERS = int(os.getenv("MAX_NUM_OF_WORKERS", default=5))
 QUEUE = os.getenv("QUEUE")
-MIN_MEMORY_MIB = f"{os.getenv('MIN_MEMORY_MIB')}Mi"
+MIN_MEMORY_MIB = f"{os.getenv('min_memory_mib')}Mi"
 
-WORKER_DB_CRED_NAME = os.getenv("WORKER_DB_CRED_NAME")
-WORKER_DB_CRED_KEY = os.getenv("WORKER_DB_CRED_KEY")
-WORKER_DB_USER = os.getenv("WORKER_DB_USER")
+WORKER_DB_CRED_NAME = os.getenv("worker_db_cred_name")
+WORKER_DB_CRED_KEY = os.getenv("worker_db_cred_key")
+WORKER_DB_USER = os.getenv("worker_db_user")
 
 QP_DB_PASS = os.getenv("POSTGRES_PASSWORD")
 QP_DB_USER = os.getenv("POSTGRES_USER")
