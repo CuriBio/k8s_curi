@@ -2,4 +2,3 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: advanced-analysis
-# TODO move this to deployment
