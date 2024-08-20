@@ -53,6 +53,14 @@ patches:
   - patch: |-
       - op: replace
         path: /spec/source/path
+        value: "deployments/advanced-analysis/manifests/overlays/modl"
+    target:
+      kind: Application
+      name: advanced-analysis-deployment
+      namespace: advanced-analysis
+  - patch: |-
+      - op: replace
+        path: /spec/source/path
         value: "jobs/advanced-analysis/manifests/overlays/modl"
       - op: replace
         path: /spec/source/targetRevision

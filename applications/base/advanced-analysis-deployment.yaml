@@ -1,0 +1,20 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: advanced-analysis-deployment
+  namespace: advanced-analysis
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: deployments
+  source:
+    path: deployments/advanced-analysis/manifests/overlays/test
+    repoURL: https://github.com/CuriBio/k8s_curi.git
+    targetRevision: HEAD
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
