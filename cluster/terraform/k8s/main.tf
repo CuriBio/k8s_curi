@@ -104,6 +104,39 @@ resource "aws_iam_role" "pulse3d_pods" {
   assume_role_policy = data.aws_iam_policy_document.pulse3d_pods.json
 }
 
+//////
+
+data "aws_iam_policy_document" "advanced_analysis_pods" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+      effect  = "Allow"
+
+      condition {
+        test     = "StringEquals"
+          variable = "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}:sub"
+          values   = ["system:serviceaccount:advanced-analysis:default"]
+      }
+
+    principals {
+      identifiers = [module.eks.oidc_provider_arn]
+        type        = "Federated"
+    }
+  }
+}
+
+resource "aws_iam_role" "advanced_analysis_pods" {
+  name = "${var.cluster_name}-advanced-analysis-pods-iam-role01"
+
+  assume_role_policy = data.aws_iam_policy_document.advanced_analysis_pods.json
+}
+
+resource "aws_iam_role_policy" "advanced_analysis_pod_iam_role_policy" {
+  name = "${var.cluster_name}-advanced-analysis-pods-iam-role01"
+  role = aws_iam_role.advanced_analysis_pods.id
+
+  policy = file("${path.module}/json/advanced_analysis_${var.cluster_env}_iam_policy.json")
+}
+
 resource "aws_iam_role_policy" "apiv2_pod_iam_role_policy" {
   name = "${var.cluster_name}-apiv2-pods-iam-role01"
   role = aws_iam_role.apiv2_pods.id
