@@ -67,6 +67,15 @@ def _create_file_info(base_dir: str, upload_prefix: str, job_id: str) -> dict[st
     peak_finding_s3_key = f"{upload_prefix}/{job_id}/{peak_finding_filename}"
     peak_finding_file_path = os.path.join(base_dir, peak_finding_filename)
 
+    metrics_dir = os.path.join(base_dir, "metrics")
+    os.mkdir(metrics_dir)
+    per_twitch_metrics_filename = "per_twitch_metrics.parquet"
+    per_twitch_metrics_s3_key = f"{upload_prefix}/{job_id}/{per_twitch_metrics_filename}"
+    per_twitch_metrics_file_path = os.path.join(base_dir, per_twitch_metrics_filename)
+    aggregate_metrics_filename = "aggregate_metrics.parquet"
+    aggregate_metrics_s3_key = f"{upload_prefix}/{job_id}/{aggregate_metrics_filename}"
+    aggregate_metrics_file_path = os.path.join(base_dir, aggregate_metrics_filename)
+
     return {
         "zip_contents": {
             "tissue": "tissue_waveforms.parquet",
@@ -90,6 +99,18 @@ def _create_file_info(base_dir: str, upload_prefix: str, job_id: str) -> dict[st
             "filename": peak_finding_filename,
             "file_path": peak_finding_file_path,
             "s3_key": peak_finding_s3_key,
+        },
+        "per_twitch_metrics": {
+            "dir": metrics_dir,
+            "filename": per_twitch_metrics_filename,
+            "file_path": per_twitch_metrics_file_path,
+            "s3_key": per_twitch_metrics_s3_key,
+        },
+        "aggregate_metrics": {
+            "dir": metrics_dir,
+            "filename": aggregate_metrics_filename,
+            "file_path": aggregate_metrics_file_path,
+            "s3_key": aggregate_metrics_s3_key,
         },
     }
 
@@ -212,6 +233,8 @@ async def process_item(con, item):
             except Exception:  # TODO catch only boto3 errors here?
                 logger.info("No existing peaks and valleys found for recording")
 
+            pre_processed_data = None
+
             # download existing pre-process data
             try:
                 s3_client.download_file(
@@ -283,6 +306,9 @@ async def process_item(con, item):
 
                 # upload pre-processed data
                 _upload_pre_zip(pre_processed_data, file_info, "pre_process")
+
+            if pre_processed_data is None:
+                raise Exception("Something went wrong, pre-processed data was never set")
 
             try:
                 logger.info("Starting Pre-Analysis")
@@ -382,6 +408,36 @@ async def process_item(con, item):
                 logger.exception("Metrics failed")
                 raise
 
+            # Upload metrics
+            logger.info("Uploading per-twitch metrics")
+            try:
+                metrics_output.per_twitch_metrics.write_parquet(file_info["per_twitch_metrics"]["file_path"])
+                upload_file_to_s3(
+                    bucket=PULSE3D_UPLOADS_BUCKET,
+                    key=file_info["per_twitch_metrics"]["s3_key"],
+                    file=file_info["per_twitch_metrics"]["file_path"],
+                )
+                logger.info(
+                    f"Uploaded per-twitch metrics to {PULSE3D_UPLOADS_BUCKET}/{file_info['per_twitch_metrics']['s3_key']}"
+                )
+            except Exception:
+                logger.exception("Upload of per-twitch metrics failed")
+                raise
+            logger.info("Uploading aggregate metrics")
+            try:
+                metrics_output.aggregate_metrics.write_parquet(file_info["aggregate_metrics"]["file_path"])
+                upload_file_to_s3(
+                    bucket=PULSE3D_UPLOADS_BUCKET,
+                    key=file_info["aggregate_metrics"]["s3_key"],
+                    file=file_info["aggregate_metrics"]["file_path"],
+                )
+                logger.info(
+                    f"Uploaded aggregate metrics to {PULSE3D_UPLOADS_BUCKET}/{file_info['aggregate_metrics']['s3_key']}"
+                )
+            except Exception:
+                logger.exception("Upload of aggregate metrics failed")
+                raise
+
             try:
                 logger.info("Running renderer")
 
@@ -426,7 +482,7 @@ async def process_item(con, item):
 
             try:
                 logger.info("Uploading renderer output")
-                outfile_prefix = prefix.replace("uploads/", "analyzed/test-pulse3d/")
+                outfile_prefix = prefix.replace("uploads/", "analyzed/")
                 outfile_key = f"{outfile_prefix}/{job_id}/{output_filename}"
                 upload_file_to_s3(
                     bucket=PULSE3D_UPLOADS_BUCKET, key=outfile_key, file=os.path.join(tmpdir, output_filename)
@@ -439,24 +495,27 @@ async def process_item(con, item):
             try:
                 upload_meta = json.loads(upload_details["meta"])
 
-                if "user_defined_metadata" not in upload_meta:
-                    user_defined_metadata = pre_analyzed_data.metadata.get("user_defined_metadata", {})
-                    upload_meta["user_defined_metadata"] = user_defined_metadata
-                    logger.info(f"Inserting user-defined metadata into DB: {user_defined_metadata}")
-
+                # letting pydantic convert to JSON will handle serialization of all data types, so do that and then load into a dict
+                pre_process_meta_res = json.loads(pre_processed_data.metadata.model_dump_json())
+                new_meta = {
+                    k: pre_process_meta_res[k] for k in (pre_process_meta_res.keys() - upload_meta.keys())
+                }
+                if new_meta:
+                    logger.info(f"Adding metadata to upload in DB: {new_meta}")
+                    upload_meta |= new_meta
                     await con.execute(
                         "UPDATE uploads SET meta=$1 WHERE id=$2", json.dumps(upload_meta), upload_id
                     )
                 else:
-                    logger.info("Skipping insertion of user-defined metadata into DB")
+                    logger.info("No upload metadata to update in DB")
             except Exception:
-                # Tanner (9/28/23): not raising the exception here to avoid user-defined metadata issues stopping entire analyses
-                logger.exception("Inserting user-defined metadata into DB failed")
+                # Tanner (7/29/24): don't raise the exception, no reason this should cause the whole analysis to fail
+                logger.exception("Updating metadata of upload in DB failed")
 
             try:
                 await insert_metadata_into_pg(
                     con,
-                    pre_analyzed_data.metadata,
+                    pre_processed_data.metadata,
                     upload_details["customer_id"],
                     upload_details["user_id"],
                     upload_id,
@@ -477,7 +536,6 @@ async def process_item(con, item):
                 if pre_analyzed_data.metadata.instrument_type == InstrumentTypes.MANTARRAY:
                     job_metadata["stim_barcode"] = pre_analyzed_data.metadata.stim_barcode
 
-                logger.info("Inserted metadata into db")
             except Exception:
                 logger.exception("Failed to insert metadata to db")
                 raise

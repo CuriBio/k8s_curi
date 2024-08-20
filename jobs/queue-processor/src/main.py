@@ -46,22 +46,16 @@ def manage_jobs(version: str, target_num_workers: int):
 
     # get pod list to get uid to use in owner_reference when spinning up new jobs
     # the pod needed is the pod this code is being executed in
-    qp_pods_list = pod_api.list_namespaced_pod(
-        namespace=QUEUE, label_selector=f"app={QUEUE}_qp"
-    )
+    qp_pods_list = pod_api.list_namespaced_pod(namespace=QUEUE, label_selector=f"app={QUEUE}_qp")
     # get existing jobs to prevent starting a job with the same count suffix
     # make sure to only get jobs of specific version
-    running_workers_list = job_api.list_namespaced_job(
-        QUEUE, label_selector=f"job_version={version}"
-    )
+    running_workers_list = job_api.list_namespaced_job(QUEUE, label_selector=f"job_version={version}")
     num_of_active_workers = len(running_workers_list.items)
     logger.info(f"Found {num_of_active_workers} active v{version} workers")
 
     num_workers_to_create = target_num_workers - num_of_active_workers
     if num_workers_to_create < 1:
-        logger.info(
-            f"Target number ({target_num_workers}) of v{version} workers already active"
-        )
+        logger.info(f"Target number ({target_num_workers}) of v{version} workers already active")
         return
 
     logger.info(f"Starting {num_workers_to_create} worker(s) for {QUEUE}:{version}")
@@ -69,9 +63,7 @@ def manage_jobs(version: str, target_num_workers: int):
     POSTGRES_PASSWORD = kclient.V1EnvVar(
         name="POSTGRES_PASSWORD",
         value_from=kclient.V1EnvVarSource(
-            secret_key_ref=kclient.V1SecretKeySelector(
-                name="curibio-jobs-creds", key="curibio_jobs"
-            )
+            secret_key_ref=kclient.V1SecretKeySelector(name="curibio-jobs-creds", key="curibio_jobs")
         ),
     )
 
@@ -80,9 +72,7 @@ def manage_jobs(version: str, target_num_workers: int):
         worker_id = hex(random.getrandbits(40))[2:]
         # names can only be alphanumeric and '-' so replacing '.' with '-'
         # Cannot start jobs with the same name so count starting at 1+existing number of jobs running in namespace with version
-        formatted_name = (
-            f"{QUEUE}-worker-v{'-'.join(version.split('.'))}--{count}--{worker_id}"
-        )
+        formatted_name = f"{QUEUE}-worker-v{'-'.join(version.split('.'))}--{count}--{worker_id}"
         logger.info(f"Starting {formatted_name}")
         complete_ecr_repo = f"{ECR_REPO}:{version}"
 

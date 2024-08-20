@@ -85,7 +85,7 @@ const ImageButtonContainer = styled.div`
 
 export default function Login() {
   const router = useRouter();
-  const [errorMsg, setErrorMsg] = useState();
+  const [errorMsg, setErrorMsg] = useState({});
   const [emailErrorMsg, setEmailErrorMsg] = useState();
   const [loginType, setLoginType] = useState("User");
   const [userData, setUserData] = useState({});
@@ -104,12 +104,12 @@ export default function Login() {
 
   const submitForm = async () => {
     setInProgress(true);
-    setErrorMsg(""); // reset to show user something happened
+    setErrorMsg({ login: "" }); // reset to show user something happened
 
     const values = Object.values(userData);
 
     if (values.length === 0 || Object.values(userData).some((v) => v == null || v === "")) {
-      setErrorMsg("*All fields are required");
+      setErrorMsg({ login: "*All fields are required" });
       // this state gets passed to web worker to attempt login request
     } else {
       try {
@@ -152,12 +152,12 @@ export default function Login() {
               }
             }
 
-            setErrorMsg(errToDisplay);
+            setErrorMsg({ login: errToDisplay });
           }
         }
       } catch (e) {
         console.log("ERROR logging in");
-        setErrorMsg("*Internal error. Please try again later.");
+        setErrorMsg({ login: "*Internal error. Please try again later." });
       }
     }
     setInProgress(false);
@@ -184,9 +184,9 @@ export default function Login() {
     } catch (e) {
       console.log("*submitMicrosoftSSO error: " + e);
       if (e instanceof BrowserAuthError && e.errorCode === BrowserAuthErrorCodes.interactionInProgress) {
-        setErrorMsg("*Please complete SSO in the pop-up window");
+        setErrorMsg({ sso: "*Please complete SSO in the pop-up window" });
       } else {
-        setErrorMsg("*SSO error. Please try again later.");
+        setErrorMsg({ sso: "*SSO error. Please try again later." });
       }
     }
   };
@@ -202,7 +202,7 @@ export default function Login() {
     } else {
       console.log("handleMicrosoftSSOResponse error: response is null");
     }
-    setErrorMsg("*SSO error. Please try again later.");
+    setErrorMsg({ sso: "*SSO error. Please try again later." });
   }
 
   async function submitIdToken(idToken) {
@@ -238,7 +238,7 @@ export default function Login() {
     } catch (e) {
       console.log("submitIdToken error: " + e);
     }
-    setErrorMsg("*SSO error. Please try again later.");
+    setErrorMsg({ sso: "*SSO error. Please try again later." });
   }
 
   const onForgetPassword = () => {
@@ -308,7 +308,7 @@ export default function Login() {
                 isSelected={isSelected}
                 backgroundColor={isSelected ? "var(--teal-green)" : "var(--dark-blue)"}
                 clickFn={() => {
-                  setErrorMsg("");
+                  setErrorMsg({ login: "" });
                   setUserData({});
                   setLoginType(type);
                 }}
@@ -318,7 +318,7 @@ export default function Login() {
         </ButtonContainer>
         <LoginForm userData={userData} setUserData={setUserData} loginType={loginType}>
           <ErrorText id="loginError" role="errorMsg">
-            {errorMsg}
+            {errorMsg.login}
           </ErrorText>
         </LoginForm>
         <ForgotPWLabel onClick={onForgetPassword}>Forgot Password?</ForgotPWLabel>
@@ -334,9 +334,13 @@ export default function Login() {
           src={"/ms-symbollockup_signin_dark.svg"}
           alt={"Sign in with Microsoft"}
           loader={imageLoader}
-          layout={"fill"}
+          width={250}
+          height={50}
           onClick={submitMicrosoftSSO}
         />
+        <ErrorText id="ssoError" role="errorMsg">
+          {errorMsg.sso}
+        </ErrorText>
       </ImageButtonContainer>
       <ModalWidget
         open={displayForgotPW}
