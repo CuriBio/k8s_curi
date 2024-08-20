@@ -12,13 +12,13 @@ buildx:
 	docker buildx build -t jobs-operator . --platform linux/amd64 --load -f ${repo_root}/jobs/jobs-operator/jobs-operator/Dockerfile
 
 tag:
-	docker tag jobs-operator:latest $(ecr_repo):0.1.0
+	docker tag jobs-operator:latest $(ecr_repo):0.2.0
 
 login:
 	aws ecr get-login-password --region us-east-2 | docker login --password-stdin --username AWS $(ecr_repo)
 
 push:
-	docker push $(ecr_repo):0.1.0
+	docker push $(ecr_repo):0.2.0
 
 apply:
 	kubectl apply -f ./manifests/

@@ -8,7 +8,7 @@ patches:
   - patch: |-
       - op: replace
         path: /spec/template/spec/containers/0/image
-        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/jobs-operator:0.1.0"
+        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/jobs-operator:0.2.0"
       - op: add
         path: /spec/template/spec/containers/0/env/0/value
         value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/queue-processor:0.2.0"
