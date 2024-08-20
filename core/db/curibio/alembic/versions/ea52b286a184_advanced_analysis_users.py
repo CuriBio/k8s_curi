@@ -27,6 +27,7 @@ def upgrade():
         raise Exception("Missing required value for ADVANCED_ANALYSIS_QUEUE_PROCESSOR_RO_PASS")
 
     op.execute(f"CREATE USER curibio_advanced_analysis WITH PASSWORD '{advanced_analysis_user_pass}'")
+    op.execute("GRANT ALL PRIVILEGES ON TABLE jobs_queue TO curibio_advanced_analysis")
     op.execute("GRANT ALL PRIVILEGES ON TABLE advanced_analysis_result TO curibio_advanced_analysis")
     op.execute("GRANT SELECT ON TABLE jobs_result TO curibio_advanced_analysis")
     op.execute("GRANT SELECT ON TABLE uploads TO curibio_advanced_analysis")
@@ -36,6 +37,7 @@ def upgrade():
 
 
 def downgrade():
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE jobs_queue FROM curibio_advanced_analysis")
     op.execute("REVOKE ALL PRIVILEGES ON TABLE advanced_analysis_result FROM curibio_advanced_analysis")
     op.execute("REVOKE ALL PRIVILEGES ON TABLE jobs_result FROM curibio_advanced_analysis")
     op.execute("REVOKE ALL PRIVILEGES ON TABLE uploads FROM curibio_advanced_analysis")
