@@ -140,9 +140,13 @@ async def handle_notification(connection, pid, channel, payload):
         }
         logger.info(f"Notification received from DB: {info_to_log}")
 
-        if "job" in payload.pop("table"):
+        table = payload.pop("table")
+        if table == "jobs_result":
             payload["usage_type"] = "jobs"
             payload["id"] = payload.pop("job_id")
+            payload["meta"] = await connection.fetchval(
+                "SELECT meta FROM jobs_result WHERE job_id=$1", payload["id"]
+            )
         else:
             payload["usage_type"] = "uploads"
         payload["product"] = payload.pop("type")

@@ -88,7 +88,10 @@ export default function useEventSource(hooks) {
           }
         }
 
-        setJobs([formatJob(payload, {}, hooksRef.current.accountId), ...jobs]);
+        const formattedJob = formatJob(payload, {}, hooksRef.current.accountId);
+        if (formattedJob !== null) {
+          setJobs([formattedJob, ...jobs]);
+        }
       }
     });
 
