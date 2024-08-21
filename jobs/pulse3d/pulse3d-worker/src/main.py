@@ -558,7 +558,7 @@ async def process_item(con, item):
 
 async def main():
     try:
-        logger.info(f"Worker v{PULSE3D_VERSION} started")
+        logger.info(f"Pulse3D Worker v{PULSE3D_VERSION} started")
 
         DB_PASS = os.getenv("POSTGRES_PASSWORD")
         DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
@@ -580,7 +580,7 @@ async def main():
                         logger.exception("Processing queue item failed")
                         return
     finally:
-        logger.info(f"Worker v{PULSE3D_VERSION} terminating")
+        logger.info(f"Pulse3D Worker v{PULSE3D_VERSION} terminating")
 
 
 if __name__ == "__main__":

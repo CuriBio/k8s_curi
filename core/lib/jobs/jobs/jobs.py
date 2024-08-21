@@ -1,6 +1,7 @@
 from datetime import datetime
 from functools import wraps
 import json
+import os
 import time
 from typing import Any
 
@@ -61,6 +62,68 @@ def get_item(*, queue):
                 set_clause = ", ".join(f"{key} = ${i}" for i, key in enumerate(data, 1))
                 await con.execute(
                     f"UPDATE jobs_result SET {set_clause} WHERE job_id=${len(data) + 1}",
+                    *data.values(),
+                    item["id"],
+                )
+
+        return _inner
+
+    return _outer
+
+
+def get_advanced_item(*, queue):
+    query = (
+        "DELETE FROM jobs_queue "
+        "WHERE id = (SELECT id FROM jobs_queue WHERE queue=$1 ORDER BY priority DESC, created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1) "
+        "RETURNING id, sources, created_at, meta"
+    )
+
+    def _outer(fn):
+        @wraps(fn)
+        async def _inner(*, con, con_to_update_job_result=None):
+            async with con.transaction():
+                item = await con.fetchrow(query, queue)
+                if not item:
+                    raise EmptyQueue(queue)
+
+                if con_to_update_job_result:
+                    # if already set to running, then assume that a different worker already tried processing the job and failed
+                    current_job_status = await con_to_update_job_result.fetchval(
+                        "SELECT status FROM advanced_analysis_result WHERE id=$1", item["id"]
+                    )
+                    if current_job_status == "running":
+                        await con_to_update_job_result.execute(
+                            "UPDATE advanced_analysis_result SET status='error', meta=meta||$1::jsonb, finished_at=NOW() WHERE id=$2",
+                            json.dumps({"error_msg": "Ran out of time/memory"}),
+                            item["id"],
+                        )
+                        return
+
+                    await con_to_update_job_result.execute(
+                        "UPDATE advanced_analysis_result SET status='running', started_at=$1 WHERE id=$2",
+                        datetime.now(),
+                        item["id"],
+                    )
+
+                ts = time.time()
+                status, new_meta, object_key = await fn(con, item)
+                runtime = time.time() - ts
+
+                # update metadata
+                meta = json.loads(item["meta"])
+                meta.update(new_meta)
+
+                data = {
+                    "status": status,
+                    "runtime": runtime,
+                    "finished_at": datetime.now(),
+                    "meta": json.dumps(meta),
+                    "s3_prefix": os.path.dirname(object_key),
+                    "name": os.path.basename(object_key),
+                }
+                set_clause = ", ".join(f"{key} = ${i}" for i, key in enumerate(data, 1))
+                await con.execute(
+                    f"UPDATE advanced_analysis_result SET {set_clause} WHERE id=${len(data) + 1}",
                     *data.values(),
                     item["id"],
                 )
