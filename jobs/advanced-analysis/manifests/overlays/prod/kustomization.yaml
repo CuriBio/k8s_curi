@@ -4,7 +4,7 @@ kind: Kustomization
 namespace: advanced-analysis
 resources:
   - ../../base
-  - advanced-analysis-creds.yaml
+  - advanced-analysis-queue-processor-creds.yaml
 
 patchesStrategicMerge:
   - prod-job-runner.yaml

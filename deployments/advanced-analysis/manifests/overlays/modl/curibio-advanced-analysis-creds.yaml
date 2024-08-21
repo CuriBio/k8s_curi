@@ -1,0 +1,15 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  creationTimestamp: null
+  name: curibio-advanced-analysis-creds
+  namespace: advanced-analysis
+spec:
+  encryptedData:
+    curibio_advanced_analysis: AgBrfAaGvweiUEE10PmENkLRHGejI7HDTppx+ONeJvA4i1YMKIZVB7XJBrGmKsA9E3wxWpt2DL27j73RjTUJC5UN+kXIND/N1m4x3Qi/gCFw5m8DjakGVGzdxDiCUy3eE0okLySD9mU/UbYjUrdkJuOFiCm3E1o7nXGnjJJ50f1+tsrYDTcR8oX2LhEJkOZgqf6STjS6fefPVVbKu3xU1IOwL3u/bNQCwpxnUnTX/zMKapUEjwAxKn8z8AZFYyDuu31kQfZlJ802Fccvor65sb2yZ5sURKpbdn7LaMPP1oUbmQ+6eLGZu/Bvxklqgh97IS4MgbvTwg0iauA6scIjjB5qpZdk2ora3nlUk6uNJSdHRkDQ8170BBpIAdtsV22ZPbk6brWFeg4yKc3XKgBUL4OLDHGqdNQ2FJacTXq3ZjWX+q7xWHR2dS/KQe2kP2T1CzSk6D/2gVbjRhjEgcqz8uWMnUot+VZAqoi8iqqjLVpPo/eedyvNHhyMaGHsAuXTlGfwTFgJInaw0t4clD1FizC7EGjSutjQtMn3Z9qSKG2AjTfTp+aNlluaQnSGeYWOVCwYrH/8mbt6uYJ5Kf6NepumuFPdrpty47NfZtik/GuxmjGLD39TpCDpWaBuFkrrEfPXndC8fwDf8/nR04ziYyvnLN8Oz718mO4lz4QnaDmphTCREEenPRPL1+5m3hwEyyKIbZRDfAgvrdiVSI48bgHeshdajm/F9NBu
+  template:
+    metadata:
+      creationTimestamp: null
+      name: curibio-advanced-analysis-creds
+      namespace: advanced-analysis
