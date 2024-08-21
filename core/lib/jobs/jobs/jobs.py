@@ -113,13 +113,19 @@ def get_advanced_item(*, queue):
                 meta = json.loads(item["meta"])
                 meta.update(new_meta)
 
+                s3_prefix = None
+                name = None
+                if object_key is not None:
+                    s3_prefix = os.path.dirname(object_key)
+                    name = os.path.basename(object_key)
+
                 data = {
                     "status": status,
                     "runtime": runtime,
                     "finished_at": datetime.now(),
                     "meta": json.dumps(meta),
-                    "s3_prefix": os.path.dirname(object_key),
-                    "name": os.path.basename(object_key),
+                    "s3_prefix": s3_prefix,
+                    "name": name,
                 }
                 set_clause = ", ".join(f"{key} = ${i}" for i, key in enumerate(data, 1))
                 await con.execute(
