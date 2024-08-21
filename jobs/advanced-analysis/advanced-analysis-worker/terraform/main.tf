@@ -29,7 +29,7 @@ variable "region" {
 
 resource "aws_ecr_repository" "advanced_analysis_worker_ecr" {
   name                 = "advanced-analysis-worker"
-  image_tag_mutability = "MUTABLE"
+  image_tag_mutability = "IMMUTABLE"
 
   image_scanning_configuration {
     scan_on_push = true
