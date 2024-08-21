@@ -237,7 +237,7 @@ const formatJob = (job, selectedJobs, accountId) => {
     const { id, upload_id, created_at, object_key, status, meta, user_id } = job;
     const analyzedFile = object_key?.split("/").slice(-1) || "";
     const isChecked = Object.keys(selectedJobs).includes(id);
-    const parsedMeta = typeof meta === "string" ? JSON.parse(meta) : meta;
+    const parsedMeta = (typeof meta === "string" ? JSON.parse(meta) : meta) || {};
     // Tanner (4/30/24): if jobs are missing analysis params for some reason, need to set to an empty object otherwise errors will occur
     const analysisParams = parsedMeta.analysis_params || {};
     // add pulse3d version used on job to be displayed with other analysis params
@@ -274,7 +274,7 @@ const formatJob = (job, selectedJobs, accountId) => {
       ...metaParams,
     };
   } catch (e) {
-    console.log(`ERROR formatting job ${id}`, e);
+    console.log(`ERROR formatting job ${job?.id}`, e);
     return null;
   }
 };

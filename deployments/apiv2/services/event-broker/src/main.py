@@ -121,50 +121,60 @@ async def event_generator(request, user_info):
     await USER_MANAGER.remove(user_info.token)
 
 
-async def handle_notification(connection, pid, channel, payload):
-    try:
-        payload = json.loads(payload)
-        info_to_log = {
-            k: payload.get(k)
-            for k in [
-                "user_id",
-                "type",
-                "table",
-                "status",
-                "upload_id",
-                "job_id",
-                "customer_id",
-                "recipients",
-                "usage",
-            ]
-        }
-        logger.info(f"Notification received from DB: {info_to_log}")
+def create_notification_handler(con_pool):
+    # Tanner (8/21/24): cannot use the connection attached to this notification as it will cause issues,
+    # need to grab a new connection from the pool instead.
+    async def handle_notification(connection, pid, channel, payload):
+        try:
+            payload = json.loads(payload)
+            info_to_log = {
+                k: payload.get(k)
+                for k in [
+                    "user_id",
+                    "type",
+                    "table",
+                    "status",
+                    "upload_id",
+                    "job_id",
+                    "customer_id",
+                    "recipients",
+                    "usage",
+                ]
+            }
+            logger.info(f"Notification received from DB: {info_to_log}")
 
-        if "job" in payload.pop("table"):
-            payload["usage_type"] = "jobs"
-            payload["id"] = payload.pop("job_id")
-        else:
-            payload["usage_type"] = "uploads"
-        payload["product"] = payload.pop("type")
+            table = payload.pop("table")
+            if table == "jobs_result":
+                payload["usage_type"] = "jobs"
+                payload["id"] = payload.pop("job_id")
+                async with con_pool.acquire() as con:
+                    payload["meta"] = await con.fetchval(
+                        "SELECT meta FROM jobs_result WHERE job_id=$1", payload["id"]
+                    )
+            else:
+                payload["usage_type"] = "uploads"
+            payload["product"] = payload.pop("type")
 
-        # send update to anyone who has access to this upload/job
-        data_update_msg = {"event": "data_update", "data": json.dumps(payload)}
-        for recipient_id in payload.pop("recipients"):
-            await USER_MANAGER.send(UUID(recipient_id), data_update_msg)
+            # send update to anyone who has access to this upload/job
+            data_update_msg = {"event": "data_update", "data": json.dumps(payload)}
+            for recipient_id in payload.pop("recipients"):
+                await USER_MANAGER.send(UUID(recipient_id), data_update_msg)
 
-        # send the new job or upload count to any connected user under this customer ID
-        usage_update_msg = {
-            "event": "usage_update",
-            "data": json.dumps({k: payload[k] for k in ("usage_type", "product", "usage")}),
-        }
-        await USER_MANAGER.broadcast_to_customer(UUID(payload["customer_id"]), usage_update_msg)
-    except Exception:
-        logger.exception("ERROR")
+            # send the new job or upload count to any connected user under this customer ID
+            usage_update_msg = {
+                "event": "usage_update",
+                "data": json.dumps({k: payload[k] for k in ("usage_type", "product", "usage")}),
+            }
+            await USER_MANAGER.broadcast_to_customer(UUID(payload["customer_id"]), usage_update_msg)
+        except Exception:
+            logger.exception("Error in handling notification")
+
+    return handle_notification
 
 
-async def listen_to_queue(con):
+async def listen_to_queue(con, con_pool):
     """Listen for notifications until the connection closes."""
-    await con.add_listener("events", handle_notification)
+    await con.add_listener("events", create_notification_handler(con_pool))
 
     db_con_termination_event = asyncio.Event()
 
@@ -183,7 +193,7 @@ async def run_listener():
         try:
             pgpool = await asyncpg_pool()
             async with pgpool.acquire() as con:
-                await listen_to_queue(con)
+                await listen_to_queue(con, pgpool)
         except Exception:
             logger.exception("Error in listener")
 
