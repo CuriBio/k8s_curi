@@ -1,6 +1,6 @@
 resource "aws_ecr_repository" "advanced_analysis_ecr_repo" {
   name                 = "advanced_analysis_api"
-  image_tag_mutability = "MUTABLE"
+  image_tag_mutability = "IMMUTABLE"
 
   image_scanning_configuration {
     scan_on_push = true

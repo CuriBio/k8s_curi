@@ -104,8 +104,6 @@ resource "aws_iam_role" "pulse3d_pods" {
   assume_role_policy = data.aws_iam_policy_document.pulse3d_pods.json
 }
 
-//////
-
 data "aws_iam_policy_document" "advanced_analysis_pods" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
