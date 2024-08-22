@@ -1035,7 +1035,7 @@ export default function AnalysisParamForm({
             </DropDownContainer>
           </AnalysisParamContainer>
         )}
-        {pulse3dVersionGte("0.30.1") && productPage === "mantarray" && (
+        {pulse3dVersionGte("0.30.1") && !pulse3dVersionGte("1.0.0") && productPage === "mantarray" && (
           // Tanner (2/7/23): wellsWithFlippedWaveforms added in 0.27.4 but there are bugs with using this param in re-analysis prior to 0.30.1
           <AnalysisParamContainer
             label="Wells With Flipped Waveforms"
