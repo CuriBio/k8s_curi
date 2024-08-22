@@ -12,7 +12,7 @@ from immutabledict import immutabledict
 import polars as pl
 from xlsxwriter import Workbook
 
-ADVANCED_ANALYSIS_VERSION = "0.1.0rc0"
+ADVANCED_ANALYSIS_VERSION = "0.1.0rc1"
 
 # TODO add logging
 
