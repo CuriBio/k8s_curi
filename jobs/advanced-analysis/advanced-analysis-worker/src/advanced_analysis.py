@@ -169,7 +169,7 @@ class NoDataLoadedError(Exception):
 
 
 def load_from_dir(
-    inputs_dir_path: str, sources_info: dict[str, dict[str, Any]], platemaps: list[dict[str, Any]]
+    inputs_dir_path: str, sources_info: dict[str, dict[str, Any]]
 ) -> list[SingleAnalysisContainer]:
     input_containers = []
     for analysis_name in os.listdir(inputs_dir_path):
@@ -185,7 +185,7 @@ def load_from_dir(
                 agg_metrics=agg_metrics,
                 recording_metadata=recording_metadata,
                 p3d_analysis_metadata=source_info["p3d_analysis_metadata"],
-                platemap=next(pm for pm in platemaps if pm["map_name"] == source_info["platemap_name"]),
+                platemap=source_info["platemap"],
             )
         )
 
