@@ -1119,7 +1119,7 @@ export default function AnalysisParamForm({
           }}
           errorMsg={errorMessages.endTime}
         />
-        <SectionLabel>Advanced Analysis</SectionLabel>
+        <SectionLabel>Peak Detection</SectionLabel>
         {useNoiseBasedPeakFinding() ? (
           <NoiseBasedAdvAnalysisContainer>
             <NoiseBasedPeakFindingAdvAnalysisParams
