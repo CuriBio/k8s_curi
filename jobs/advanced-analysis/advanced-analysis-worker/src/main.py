@@ -87,18 +87,23 @@ def _determine_platemap_for_source(
     source_id: str,
     analysis_name: str,
     platemap_overrides: dict[str, dict[str, Any]],
-    p3d_job_meta: dict[Any, Any],
-    upload_meta: dict[Any, Any],
+    p3d_job_meta: str,
+    upload_meta: str,
 ):
     if pm_override := platemap_overrides.get(source_id):
-        return pm_override
+        logger.info(f"Using platemap override for {source_id}")
+        return pm_override | {"map_name": pm_override["map_name"] + " (Advanced Analysis Override)"}
 
+    p3d_job_meta = json.loads(p3d_job_meta)
     if p3d_well_groups_override := p3d_job_meta.get("analysis_params", {}).get("well_groups"):
+        logger.info(f"Using platemap from pulse3d job metadata for {source_id}")
         platemap_name = f"{analysis_name} (Pulse3D Override)"
         return _well_groups_to_platemap(platemap_name, p3d_well_groups_override)
 
+    upload_meta = json.loads(upload_meta)
     if original_recording_platemap_labels := upload_meta.get("platemap_labels"):
-        platemap_name = upload_meta.get("platemap_name", f"{analysis_name} (Original Set in Recording)")
+        logger.info(f"Using platemap from upload metadata for {source_id}")
+        platemap_name = upload_meta.get("platemap_name", analysis_name) + " (Original Set in Recording)"
         return _well_groups_to_platemap(platemap_name, original_recording_platemap_labels)
 
     raise PlateMapNotSetError()
