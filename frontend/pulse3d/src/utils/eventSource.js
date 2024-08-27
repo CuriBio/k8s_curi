@@ -7,6 +7,7 @@ const getPayload = (e, listenerName) => {
     return payload;
   } catch (err) {
     console.error(`ERROR parsing data of ${listenerName} event`, err);
+    return null;
   }
 };
 
@@ -61,9 +62,12 @@ export default function useEventSource(hooks) {
 
     newEvtSource.addEventListener("data_update", (e) => {
       const payload = getPayload(e, "data_update");
+      if (payload == null) {
+        return;
+      }
 
       if (
-        (hooksRef.current.accountType !== "admin" && payload["product"] !== hooksRef.current.productPage) ||
+        (hooksRef.current.accountType !== "admin" && payload.product !== hooksRef.current.productPage) ||
         hooksRef.current.jobs.length === 0
       ) {
         return;
@@ -88,7 +92,10 @@ export default function useEventSource(hooks) {
           }
         }
 
-        setJobs([formatJob(payload, {}, hooksRef.current.accountId), ...jobs]);
+        const formattedJob = formatJob(payload, {}, hooksRef.current.accountId);
+        if (formattedJob != null) {
+          setJobs([formattedJob, ...jobs]);
+        }
       }
     });
 
