@@ -1,7 +1,7 @@
 """update jobs_queue for advanced analysis
 
 Revision ID: 4d9f2cabaced
-Revises: 9566734eccae
+Revises: 73f5610ab1fa
 Create Date: 2024-08-15 10:06:13.552256
 
 """
@@ -11,7 +11,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "4d9f2cabaced"
-down_revision = "9566734eccae"
+down_revision = "73f5610ab1fa"
 branch_labels = None
 depends_on = None
 
