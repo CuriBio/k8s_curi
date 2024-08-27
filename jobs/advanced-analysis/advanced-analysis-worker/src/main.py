@@ -31,6 +31,10 @@ structlog.configure(
 logger = structlog.get_logger()
 
 
+class PlateMapNotSetError(Exception):
+    pass
+
+
 def _create_file_info(
     inputs_dir: str, downloads_dir: str, upload_prefix: str, source_id: str, analysis_name: str
 ) -> dict[str, Any]:
@@ -68,6 +72,53 @@ def _create_file_info(
     }
 
 
+def _format_platemap_override_info(
+    platemaps: list[dict[str, Any]], platemap_assignments: dict[str, list[Any]]
+) -> dict[str, dict[str, Any]]:
+    platemap_keys = {platemap["map_name"]: platemap for platemap in platemaps}
+    return {
+        source_id: platemap_keys[platemap_name]
+        for platemap_name, source_ids in platemap_assignments.items()
+        for source_id in source_ids
+    }
+
+
+def _determine_platemap_for_source(
+    source_id: str,
+    analysis_name: str,
+    platemap_overrides: dict[str, dict[str, Any]],
+    p3d_job_meta: str,
+    upload_meta: str,
+):
+    if pm_override := platemap_overrides.get(source_id):
+        logger.info(f"Using platemap override for {source_id}")
+        return pm_override | {"map_name": pm_override["map_name"] + " (Advanced Analysis Override)"}
+
+    p3d_job_meta = json.loads(p3d_job_meta)
+    if p3d_well_groups_override := p3d_job_meta.get("analysis_params", {}).get("well_groups"):
+        logger.info(f"Using platemap from pulse3d job metadata for {source_id}")
+        platemap_name = f"{analysis_name} (Pulse3D Override)"
+        return _well_groups_to_platemap(platemap_name, p3d_well_groups_override)
+
+    upload_meta = json.loads(upload_meta)
+    if original_recording_platemap_labels := upload_meta.get("platemap_labels"):
+        logger.info(f"Using platemap from upload metadata for {source_id}")
+        platemap_name = upload_meta.get("platemap_name", analysis_name) + " (Original Set in Recording)"
+        return _well_groups_to_platemap(platemap_name, original_recording_platemap_labels)
+
+    raise PlateMapNotSetError()
+
+
+def _well_groups_to_platemap(platemap_name, well_groups):
+    return {
+        "map_name": platemap_name,
+        "labels": [
+            {"name": group_name, "wells": wells_in_group}
+            for group_name, wells_in_group in well_groups.items()
+        ],
+    }
+
+
 @get_advanced_item(queue=f"advanced-analysis-v{ADVANCED_ANALYSIS_VERSION}")
 async def process_item(con, item):
     # keeping initial log without bound variables
@@ -90,12 +141,10 @@ async def process_item(con, item):
         try:
             submission_metadata = json.loads(item["meta"])
             sources = [str(source_id) for source_id in item["sources"]]
-            platemaps = submission_metadata["platemaps"]
-            platemap_assignments = {
-                source_id: platemap_name
-                for platemap_name in submission_metadata["platemap_assignments"]
-                for source_id in submission_metadata["platemap_assignments"][platemap_name]
-            }
+            platemap_overrides = _format_platemap_override_info(
+                submission_metadata["platemap_overrides"]["platemaps"],
+                submission_metadata["platemap_overrides"]["assignments"],
+            )
             advanced_analysis_params = submission_metadata["analysis_params"]
             advanced_analysis_params["experiment_start_time_utc"] = datetime.datetime.strptime(
                 advanced_analysis_params["experiment_start_time_utc"], "%Y-%m-%d %H:%M:%S"
@@ -119,7 +168,7 @@ async def process_item(con, item):
                 logger.info(f"Fetching source details for ID: {source_id}")
                 try:
                     fetched_source_info = await con.fetchrow(
-                        "SELECT j.meta, j.object_key, j.finished_at, up.prefix "
+                        "SELECT j.meta as p3d_job_meta, j.object_key, j.finished_at, up.meta as upload_meta, up.prefix "
                         "FROM jobs_result j JOIN uploads up ON j.upload_id=up.id "
                         "WHERE job_id=$1",
                         source_id,
@@ -132,7 +181,7 @@ async def process_item(con, item):
                 source_info = {}
                 try:
                     fetched_source_info = dict(fetched_source_info)
-                    fetched_source_info_meta = json.loads(fetched_source_info["meta"])
+                    fetched_source_info_meta = json.loads(fetched_source_info["p3d_job_meta"])
                     logger.debug("Found %s", str(fetched_source_info))
                     analysis_filename = fetched_source_info["object_key"].split("/")[-1]
                     analysis_name = os.path.splitext(analysis_filename)[0]
@@ -143,10 +192,20 @@ async def process_item(con, item):
                         "analysis_params": fetched_source_info_meta["analysis_params"],
                         "file_creation_timestamp": fetched_source_info["finished_at"],
                     }
-                    source_info["platemap_name"] = platemap_assignments[source_id]
-                    source_info["inputs"] = _create_file_info(
+                    source_info["platemap"] = _determine_platemap_for_source(
+                        source_id,
+                        analysis_name,
+                        platemap_overrides,
+                        fetched_source_info["p3d_job_meta"],
+                        fetched_source_info["upload_meta"],
+                    )
+                    source_file_info = _create_file_info(
                         inputs_dir, downloads_dir, fetched_source_info["prefix"], source_id, analysis_name
                     )
+                except PlateMapNotSetError:
+                    error_msg = f"PlateMap not set for {source_id}"
+                    logger.exception(error_msg)
+                    raise
                 except:
                     logger.exception(f"Error processing source info for ID: {source_id}")
                     raise
@@ -155,7 +214,7 @@ async def process_item(con, item):
 
                 logger.info(f"Downloading pre-analysis data for ID: {source_id}")
                 try:
-                    pre_analysis_info = source_info["inputs"]["pre_analysis"]
+                    pre_analysis_info = source_file_info["pre_analysis"]
                     s3_client.download_file(
                         PULSE3D_UPLOADS_BUCKET, pre_analysis_info["s3_key"], pre_analysis_info["file_path"]
                     )
@@ -165,7 +224,7 @@ async def process_item(con, item):
                 logger.info(f"Moving metadata from pre-analysis zip to input dir for ID: {source_id}")
                 try:
                     with ZipFile(pre_analysis_info["file_path"]) as z:
-                        z.extract("metadata.json", path=source_info["inputs"]["input_dir"])
+                        z.extract("metadata.json", path=source_file_info["input_dir"])
                 except:
                     logger.exception(
                         f"Error moving metadata from pre-analysis zip to input dir for ID: {source_id}"
@@ -173,7 +232,7 @@ async def process_item(con, item):
                     raise
                 logger.info(f"Downloading aggregate metrics for ID: {source_id}")
                 try:
-                    aggregate_metrics_info = source_info["inputs"]["aggregate_metrics"]
+                    aggregate_metrics_info = source_file_info["aggregate_metrics"]
                     s3_client.download_file(
                         PULSE3D_UPLOADS_BUCKET,
                         aggregate_metrics_info["s3_key"],
@@ -185,8 +244,7 @@ async def process_item(con, item):
 
             logger.info("Loading source files")
             try:
-                # TODO eventually platemaps will be stored in S3 and should be downloaded from there
-                input_containers = load_from_dir(inputs_dir, sources_info, platemaps)
+                input_containers = load_from_dir(inputs_dir, sources_info)
             except:
                 error_msg = "Loading input data failed"
                 logger.exception("Failed loading source files")

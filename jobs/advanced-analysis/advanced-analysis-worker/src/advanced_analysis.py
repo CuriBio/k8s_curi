@@ -12,7 +12,7 @@ from immutabledict import immutabledict
 import polars as pl
 from xlsxwriter import Workbook
 
-ADVANCED_ANALYSIS_VERSION = "0.1.0rc0"
+ADVANCED_ANALYSIS_VERSION = "0.1.0rc1"
 
 # TODO add logging
 
@@ -169,7 +169,7 @@ class NoDataLoadedError(Exception):
 
 
 def load_from_dir(
-    inputs_dir_path: str, sources_info: dict[str, dict[str, Any]], platemaps: list[dict[str, Any]]
+    inputs_dir_path: str, sources_info: dict[str, dict[str, Any]]
 ) -> list[SingleAnalysisContainer]:
     input_containers = []
     for analysis_name in os.listdir(inputs_dir_path):
@@ -185,7 +185,7 @@ def load_from_dir(
                 agg_metrics=agg_metrics,
                 recording_metadata=recording_metadata,
                 p3d_analysis_metadata=source_info["p3d_analysis_metadata"],
-                platemap=next(pm for pm in platemaps if pm["map_name"] == source_info["platemap_name"]),
+                platemap=source_info["platemap"],
             )
         )
 
@@ -251,6 +251,7 @@ def _create_p3d_metadata_df(
             | {
                 "filename": container.p3d_analysis_metadata["filename"],
                 "pulse3D_version": container.p3d_analysis_metadata["version"],
+                "platemap_name": container.platemap["map_name"],
                 "file_creation_timestamp": container.p3d_analysis_metadata["file_creation_timestamp"],
                 "day": day,
                 "local_tz_beginning_recording": utc_beginning_recording
@@ -355,6 +356,7 @@ def render(combined_container: CombinedContainer, output_name: str, output_dir: 
         "nan_inf_to_errors": True,  # required so the NaN rows do not cause errors
         "strings_to_numbers": True,  # required so that numbers that are stored as strings will be converted to numbers in the xlsx sheet
     }
+
     with Workbook(output_path, workbook_options) as wb:
         _metadata_sheet(wb, combined_container.combined_p3d_metadata)
         _mean_sheet(wb, combined_container.group_aggs, combined_container.advanced_analysis_metadata)
