@@ -4,7 +4,7 @@ from .jobs import create_job
 from .jobs import create_upload
 from .jobs import delete_jobs
 from .jobs import delete_uploads
-from .jobs import check_customer_quota
+from .jobs import check_customer_pulse3d_usage
 from .jobs import create_analysis_preset
 from .jobs import (
     get_uploads_info_for_base_user,
@@ -33,7 +33,7 @@ __all__ = [
     "create_upload",
     "delete_jobs",
     "delete_uploads",
-    "check_customer_quota",
+    "check_customer_pulse3d_usage",
     "create_analysis_preset",
     "get_uploads_info_for_base_user",
     "get_uploads_info_for_rw_all_data_user",

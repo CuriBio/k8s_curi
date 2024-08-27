@@ -1,12 +1,13 @@
 FROM python:3.11-alpine as venv
 
 WORKDIR /app
-COPY ./deployments/apiv2/services/event-broker/src/requirements.txt ./
+COPY ./deployments/apiv2/services/advanced-analysis/src/requirements.txt ./
 COPY ./core/lib/auth ./lib/auth
 COPY ./core/lib/utils ./lib/utils
+COPY ./core/lib/jobs ./lib/jobs
 
 RUN python -m venv --copies /app/venv
-RUN . /app/venv/bin/activate && pip install -r ./requirements.txt && pip install ./lib/auth && pip install ./lib/utils
+RUN . /app/venv/bin/activate && pip install -r ./requirements.txt && pip install ./lib/auth && pip install ./lib/utils && pip install ./lib/jobs
 
 
 FROM python:3.11-alpine as prod
@@ -19,9 +20,9 @@ COPY --chown=main_user:main_group --from=venv /app/venv /app/venv/
 ENV PATH /app/venv/bin:$PATH
 
 WORKDIR /app
-COPY --chown=main_user:main_group ./deployments/apiv2/services/event-broker/src/main.py ./
-COPY --chown=main_user:main_group ./deployments/apiv2/services/event-broker/src/core ./core
-COPY --chown=main_user:main_group ./deployments/apiv2/services/event-broker/disable_log_config.yaml ./
+COPY --chown=main_user:main_group ./deployments/apiv2/services/advanced-analysis/src/main.py ./
+COPY --chown=main_user:main_group ./deployments/apiv2/services/advanced-analysis/src/core ./core
+COPY --chown=main_user:main_group ./deployments/apiv2/services/advanced-analysis/disable_log_config.yaml ./
 
 ENV PYTHONUNBUFFERED 1
 # add security headers

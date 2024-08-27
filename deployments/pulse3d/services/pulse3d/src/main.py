@@ -23,7 +23,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, s
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from jobs import (
-    check_customer_quota,
+    check_customer_pulse3d_usage,
     create_analysis_preset,
     create_job,
     create_upload,
@@ -221,7 +221,7 @@ async def create_recording_upload(
         }
 
         async with request.state.pgpool.acquire() as con:
-            usage_quota = await check_customer_quota(con, customer_id, upload_type)
+            usage_quota = await check_customer_pulse3d_usage(con, customer_id, upload_type)
             if usage_quota["uploads_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
@@ -558,7 +558,7 @@ async def create_new_job(
                 )
 
             # second, check usage quota for customer
-            usage_quota = await check_customer_quota(con, customer_id, upload_type)
+            usage_quota = await check_customer_pulse3d_usage(con, customer_id, upload_type)
             if usage_quota["jobs_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
@@ -583,7 +583,7 @@ async def create_new_job(
             bind_context_to_logger({"job_id": str(job_id)})
 
             # check customer quota after job
-            usage_quota = await check_customer_quota(con, customer_id, upload_type)
+            usage_quota = await check_customer_pulse3d_usage(con, customer_id, upload_type)
 
             # Luci (12/1/22): this happens after the job is already created to have access to the job id, hopefully this doesn't cause any issues with the job starting before the file is uploaded to s3
             if details.peaks_valleys:
@@ -833,17 +833,17 @@ async def get_versions(request: Request):
 async def get_usage_quota(
     request: Request, service: str = Query(None), token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
 ):
-    """Get the usage quota for the specific user"""
+    """Get the usage quota for the specific customer"""
     try:
         customer_id = str(uuid.UUID(token.customer_id))
 
         bind_context_to_logger({"customer_id": customer_id})
 
         async with request.state.pgpool.acquire() as con:
-            usage_quota = await check_customer_quota(con, customer_id, service)
+            usage_quota = await check_customer_pulse3d_usage(con, customer_id, service)
             return usage_quota
     except Exception:
-        logger.exception("Failed to fetch quota usage")
+        logger.exception("Failed to fetch usage quota")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

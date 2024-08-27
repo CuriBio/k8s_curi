@@ -569,12 +569,12 @@ def _get_placeholders_str(num_placeholders, start=1):
     return ", ".join(f"${i}" for i in range(start, start + num_placeholders))
 
 
-async def get_customer_quota(con, customer_id, service) -> dict[str, Any]:
+async def get_customer_pulse3d_usage(con, customer_id, upload_type) -> dict[str, Any]:
     """Query DB and return usage limit and current usage.
     Returns:
         - Dictionary with account limits and account usage
     """
-    # get service specific usage restrictions for the admin account
+    # get upload-type specific usage restrictions for the admin account
     # uploads limit, jobs limit, end date of plan
     usage_limit_query = "SELECT usage_restrictions->$1 AS usage FROM customers WHERE id=$2"
     # collects number of all jobs in admin account and return number of credits consumed
@@ -584,8 +584,8 @@ async def get_customer_quota(con, customer_id, service) -> dict[str, Any]:
         "FROM ( SELECT ( CASE WHEN (COUNT(*) <= 2 AND COUNT(*) > 0) THEN 1 ELSE GREATEST(COUNT(*) - 1, 0) END ) AS jobs_count FROM jobs_result WHERE customer_id=$1 and type=$2 GROUP BY upload_id) dt"
     )
 
-    usage_limit_json = await con.fetchrow(usage_limit_query, service, customer_id)
-    current_usage_data = await con.fetchrow(current_usage_query, customer_id, service)
+    usage_limit_json = await con.fetchrow(usage_limit_query, upload_type, customer_id)
+    current_usage_data = await con.fetchrow(current_usage_query, customer_id, upload_type)
 
     usage_limit_dict = json.loads(usage_limit_json["usage"])
 
@@ -601,15 +601,15 @@ async def get_customer_quota(con, customer_id, service) -> dict[str, Any]:
     return {"limits": usage_limit_dict, "current": current_usage_dict}
 
 
-async def check_customer_quota(con, customer_id, service) -> dict[str, Any]:
-    """Query DB for service-specific customer account usage.
+async def check_customer_pulse3d_usage(con, customer_id, upload_type) -> dict[str, Any]:
+    """Query DB for upload-type-specific customer account usage.
 
     Will be called for all account tiers, unlimited has a value of -1.
     Returns:
         - Dictionary containing boolean values for if uploads or job quotas have been reached
         - Dictionary also contains data about max usage and end date.
     """
-    usage_info = await get_customer_quota(con, customer_id, service)
+    usage_info = await get_customer_pulse3d_usage(con, customer_id, upload_type)
 
     is_expired = False
     # if there is an expiration date, check if we have passed it
@@ -639,3 +639,14 @@ async def create_analysis_preset(con, user_id, details):
     return await con.fetchval(
         query, user_id, details.name, json.dumps(details.analysis_params), details.upload_type
     )
+
+
+async def check_customer_advanced_analysis_usage(con, customer_id):
+    # usage_limit_json = await con.fetchval(
+    #     "SELECT usage_restrictions->'advanced_analysis' FROM customers WHERE id=$1", customer_id
+    # )
+    # current_usage_query = await con.fetchval(
+    #     "SELECT COUNT(*) FROM advanced_analysis_result WHERE customer_id=$1"
+    # )
+    # TODO
+    raise NotImplementedError()

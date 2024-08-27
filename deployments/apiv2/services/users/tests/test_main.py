@@ -100,7 +100,7 @@ def test_routes_requiring_auth_without_tokens(method, route):
 def test_login__user__success(send_client_type, use_alias, mocked_asyncpg_con, mocker):
     mocker.patch.object(
         main,
-        "check_customer_quota",
+        "check_customer_pulse3d_usage",
         return_value={
             "current": {"uploads": "0", "jobs": "0"},
             "jobs_reached": False,
@@ -269,7 +269,7 @@ def test_login__user__returns_invalid_creds_if_account_is_suspended(mocked_async
 def test_login__admin__success(send_client_type, mocked_asyncpg_con, mocker):
     mocked_usage_check = mocker.patch.object(
         main,
-        "check_customer_quota",
+        "check_customer_pulse3d_usage",
         return_value={
             "current": {"uploads": "0", "jobs": "0"},
             "jobs_reached": False,
@@ -638,7 +638,7 @@ def test_sso__admin__success(send_client_type, mocked_asyncpg_con, mocker):
 
     mocked_usage_check = mocker.patch.object(
         main,
-        "check_customer_quota",
+        "check_customer_pulse3d_usage",
         return_value={
             "current": {"uploads": "0", "jobs": "0"},
             "jobs_reached": False,

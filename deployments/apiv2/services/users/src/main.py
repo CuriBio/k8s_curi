@@ -40,7 +40,7 @@ from auth import (
     LoginType,
     get_product_tags_of_admin,
 )
-from jobs import check_customer_quota
+from jobs import check_customer_pulse3d_usage
 from core.config import (
     DATABASE_URL,
     CURIBIO_EMAIL,
@@ -392,7 +392,7 @@ async def login_user(request: Request, details: UserLogin):
             if (service := details.service) is not None:
                 # TODO Luci (09/30/23): remove after all users upgrade to MA controller v1.2.2+, handling for pulse3d login types will no longer be needed
                 service = service if service != "pulse3d" else "mantarray"
-                usage_quota = await check_customer_quota(con, str(customer_id), service)
+                usage_quota = await check_customer_pulse3d_usage(con, str(customer_id), service)
 
             # if login was successful, then update last_login column value to now
             # Tanner (7/25/23): using the customer ID returned from the select query since the customer ID field passed in with the request may contain an alias
@@ -430,7 +430,7 @@ async def _build_admin_login_or_sso_response(con, customer_id, email, login_type
 
     # TODO decide how to show admin accounts usage data for multiple products, defaulting to mantarray now
     # check usage for customer
-    usage_quota = await check_customer_quota(con, str(customer_id), "mantarray")
+    usage_quota = await check_customer_pulse3d_usage(con, str(customer_id), "mantarray")
 
     # if login was successful, then update last_login column value to now
     await con.execute(
