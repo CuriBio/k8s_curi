@@ -24,6 +24,12 @@ from .jobs import (
     get_job_waveform_data_for_admin_user,
     get_legacy_jobs_info_for_user,
     get_advanced_item,
+    get_advanced_analyses_for_admin,
+    get_advanced_analyses_for_base_user,
+    create_advanced_analysis_job,
+    delete_advanced_analyses,
+    get_advanced_analyses_download_info_for_base_user,
+    get_advanced_analyses_download_info_for_admin,
 )
 
 __all__ = [
@@ -52,4 +58,10 @@ __all__ = [
     "get_job_waveform_data_for_rw_all_data_user",
     "get_legacy_jobs_info_for_user",
     "get_advanced_item",
+    "get_advanced_analyses_for_admin",
+    "get_advanced_analyses_for_base_user",
+    "create_advanced_analysis_job",
+    "delete_advanced_analyses",
+    "get_advanced_analyses_download_info_for_base_user",
+    "get_advanced_analyses_download_info_for_admin",
 ]

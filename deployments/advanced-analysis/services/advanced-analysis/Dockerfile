@@ -22,6 +22,7 @@ ENV PATH /app/venv/bin:$PATH
 WORKDIR /app
 COPY --chown=main_user:main_group ./deployments/apiv2/services/advanced-analysis/src/main.py ./
 COPY --chown=main_user:main_group ./deployments/apiv2/services/advanced-analysis/src/core ./core
+COPY --chown=main_user:main_group ./deployments/pulse3d/services/advanced-analysis/src/models/ ./models
 COPY --chown=main_user:main_group ./deployments/apiv2/services/advanced-analysis/disable_log_config.yaml ./
 
 ENV PYTHONUNBUFFERED 1

@@ -1,15 +1,14 @@
 from contextlib import asynccontextmanager
+from collections import defaultdict
+from datetime import datetime
 import json
 import os
 import tempfile
 import time
-import uuid
-from collections import defaultdict
-from datetime import datetime
 from typing import Any
+import uuid
 from zoneinfo import ZoneInfo
 
-import boto3
 import polars as pl
 import structlog
 from auth import (
@@ -56,12 +55,18 @@ from pulse3D.peak_finding.utils import create_empty_df, mark_features
 from pulse3D.metrics.constants import TwitchMetrics, DefaultMetricsParams
 from pulse3D.rendering.utils import get_metric_display_title
 from semver import VersionInfo
-from stream_zip import ZIP_64, stream_zip
+from stream_zip import stream_zip
 from starlette_context import context, request_cycle_context
 from structlog.contextvars import bind_contextvars, clear_contextvars
 from utils.db import AsyncpgPoolDep
 from utils.logging import setup_logger, bind_context_to_logger
-from utils.s3 import S3Error, generate_presigned_post, generate_presigned_url, upload_file_to_s3
+from utils.s3 import (
+    S3Error,
+    generate_presigned_post,
+    generate_presigned_url,
+    upload_file_to_s3,
+    yield_s3_objects,
+)
 from uvicorn.protocols.utils import get_path_with_query_string
 
 from core.config import DASHBOARD_URL, DATABASE_URL, MANTARRAY_LOGS_BUCKET, PULSE3D_UPLOADS_BUCKET
@@ -232,7 +237,7 @@ async def create_recording_upload(
                 params = _generate_presigned_post(details, PULSE3D_UPLOADS_BUCKET, s3_key)
                 return UploadResponse(id=upload_id, params=params)
     except ProhibitedProductError:
-        logger.exception(f"User does not permission to upload {upload_type} recordings")
+        logger.exception(f"User does not have permission to upload {upload_type} recordings")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
     except S3Error:
         logger.exception("Error creating recording")
@@ -314,7 +319,7 @@ async def download_uploads(
             # Grab ZIP file from in-memory, make response with correct MIME-type
             return StreamingResponse(
                 content=stream_zip(
-                    _yield_s3_objects(bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=filenames)
+                    yield_s3_objects(bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=filenames)
                 ),
                 media_type="application/zip",
             )
@@ -535,7 +540,7 @@ async def create_new_job(
             # if deprecated and end of life date passed then cancel the upload
             # if end of life date is none then pulse3d version is usable
             pulse3d_version_status = await con.fetchrow(
-                "SELECT state, end_of_life_date FROM pulse3d_versions WHERE version = $1", details.version
+                "SELECT state, end_of_life_date FROM pulse3d_versions WHERE version=$1", details.version
             )
             status_name = pulse3d_version_status["state"]
             end_of_life_date = pulse3d_version_status["end_of_life_date"]
@@ -625,8 +630,7 @@ async def create_new_job(
 async def soft_delete_jobs(
     request: Request,
     job_ids: list[uuid.UUID] = Query(None),
-    # TODO should this be ScopeTags.PULSE3D_WRITE?
-    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
 ):
     # make sure at least one job ID was given
     if not job_ids:
@@ -690,7 +694,9 @@ async def download_analyses(
                     timestamp = timestamp.astimezone(ZoneInfo(details.timezone)).strftime("%Y-%m-%d_%H-%M-%S")
                     filename_override = _add_timestamp_to_filename(obj_key.split("/")[-1], timestamp)
                 except Exception:
-                    logger.exception("Error creating timestamp for filename of job download")
+                    logger.exception(
+                        f"Error appending local timestamp download name: {filename=}, timezone={details.timezone} utc_timestamp={job.get('created_at')}"
+                    )
 
             if filename_override in filename_overrides:
                 num_times_repeated[filename_override] += 1
@@ -713,7 +719,7 @@ async def download_analyses(
             # Grab ZIP file from in-memory, make response with correct MIME-type
             return StreamingResponse(
                 content=stream_zip(
-                    _yield_s3_objects(bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=filename_overrides)
+                    yield_s3_objects(bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=filename_overrides)
                 ),
                 media_type="application/zip",
             )
@@ -1045,19 +1051,6 @@ def _generate_presigned_post(details, bucket, s3_key):
     logger.info(f"Generating presigned upload url for {bucket}/{s3_key}")
     params = generate_presigned_post(bucket=bucket, key=s3_key, md5s=details.md5s)
     return params
-
-
-def _yield_s3_objects(bucket: str, keys: list[str], filenames: list[str]):
-    # TODO consider moving this to core s3 utils if more routes need to start using it
-    key = None
-    try:
-        s3 = boto3.session.Session().resource("s3")
-        for idx, key in enumerate(keys):
-            obj = s3.Object(bucket_name=PULSE3D_UPLOADS_BUCKET, key=key)
-            yield filenames[idx], datetime.now(), 0o600, ZIP_64, obj.get()["Body"]
-
-    except Exception as e:
-        raise S3Error(f"Failed to access {bucket}/{key}") from e
 
 
 def _create_features_df(timepoints, features, peak_valley_diff):

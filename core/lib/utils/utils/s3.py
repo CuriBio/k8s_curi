@@ -1,11 +1,13 @@
 import hashlib
 import base64
+from datetime import datetime
 import os
 from typing import Any
 
 import boto3
 from botocore.exceptions import ClientError
 from botocore.client import Config
+from stream_zip import ZIP_64
 
 
 class S3Error(Exception):
@@ -151,3 +153,16 @@ def download_directory_from_s3(bucket, key, file_path) -> None:
             bucket.download_file(obj.key, target_dir)
     except Exception as e:
         raise S3Error(f"Failed to download directory {bucket}/{key}: {repr(e)}")
+
+
+def yield_s3_objects(bucket: str, keys: list[str], filenames: list[str]):
+    # TODO consider moving this to core s3 utils if more routes need to start using it
+    key = None
+    try:
+        s3 = boto3.session.Session().resource("s3")
+        for idx, key in enumerate(keys):
+            obj = s3.Object(bucket_name=bucket, key=key)
+            yield filenames[idx], datetime.now(), 0o600, ZIP_64, obj.get()["Body"]
+
+    except Exception as e:
+        raise S3Error(f"Failed to access {bucket}/{key}") from e

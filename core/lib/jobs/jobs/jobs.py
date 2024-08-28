@@ -650,3 +650,155 @@ async def check_customer_advanced_analysis_usage(con, customer_id):
     # )
     # TODO
     raise NotImplementedError()
+
+
+async def get_advanced_analyses_for_admin(
+    con,
+    customer_id: str,
+    sort_field: str | None,
+    sort_direction: str | None,
+    skip: int,
+    limit: int,
+    **filters,
+):
+    query = (
+        "SELECT id, type, status, sources, meta, created_at, name "
+        "FROM advanced_analysis_result "
+        "WHERE customer_id=$1 AND status!='deleted'"
+    )
+    query_params = [customer_id]
+
+    query, query_params = _add_advanced_analysis_sorting_filtering_conds(
+        query, query_params, sort_field, sort_direction, skip, limit, **filters
+    )
+
+    async with con.transaction():
+        advanced_analyses = [dict(row) async for row in con.cursor(query, *query_params)]
+
+    return advanced_analyses
+
+
+async def get_advanced_analyses_for_base_user(
+    con, user_id: str, sort_field: str | None, sort_direction: str | None, skip: int, limit: int, **filters
+):
+    query = (
+        "SELECT id, type, status, sources, meta, created_at, name "
+        "FROM advanced_analysis_result "
+        "WHERE user_id=$1 AND status!='deleted'"
+    )
+    query_params = [user_id]
+
+    query, query_params = _add_advanced_analysis_sorting_filtering_conds(
+        query, query_params, sort_field, sort_direction, skip, limit, **filters
+    )
+
+    async with con.transaction():
+        advanced_analyses = [dict(row) async for row in con.cursor(query, *query_params)]
+
+    return advanced_analyses
+
+
+def _add_advanced_analysis_sorting_filtering_conds(
+    query, query_params, sort_field, sort_direction, skip, limit, **filters
+):
+    query_params = query_params.copy()
+
+    next_placeholder_count = len(query_params) + 1
+
+    conds = ""
+    for filter_name, filter_value in filters.items():
+        placeholder = f"${next_placeholder_count}"
+        match filter_name:
+            case "name":
+                new_cond = f"LOWER(name) LIKE LOWER({placeholder})"
+                filter_value = f"%{filter_value}%"
+            case "id":
+                new_cond = f"id::text LIKE {placeholder}"
+                filter_value = f"%{filter_value}%"
+            case "type":
+                new_cond = f"type = LOWER({placeholder})"
+            case "created_at_min":
+                new_cond = f"created_at >= to_timestamp({placeholder}, 'YYYY-MM-DD\"T\"HH:MI:SS.MSZ')"
+            case "created_at_max":
+                new_cond = f"created_at <= to_timestamp({placeholder}, 'YYYY-MM-DD\"T\"HH:MI:SS.MSZ')"
+            case _:
+                continue
+
+        query_params.append(filter_value)
+        conds += f" AND {new_cond}"
+        next_placeholder_count += 1
+    if conds:
+        query += conds
+
+    if sort_field in ("name", "id", "created_at", "type"):
+        if sort_direction not in ("ASC", "DESC"):
+            sort_direction = "DESC"
+        sort_direction = sort_direction.upper()
+        query += f" ORDER BY {sort_field} {sort_direction}"
+
+    query += f" LIMIT ${len(query_params) + 1} OFFSET ${len(query_params) + 2}"
+    query_params += [limit, skip]
+
+    return query, query_params
+
+
+async def create_advanced_analysis_job(
+    *, con, sources, queue, priority, meta, user_id, customer_id, job_type
+):
+    # the WITH clause in this query is necessary to make sure the given upload_id actually exists
+    enqueue_job_query = (
+        "INSERT INTO jobs_queue (sources, queue, priority, meta) VALUES ($1, $2, $3, $4) RETURNING id"
+    )
+    async with con.transaction():
+        # add job to queue
+        job_id = await con.fetchval(enqueue_job_query, sources, queue, priority, json.dumps(meta))
+
+        data = {
+            "id": job_id,
+            "user_id": user_id,
+            "customer_id": customer_id,
+            "type": job_type,
+            "status": "pending",
+            "sources": sources,
+            "meta": json.dumps(meta),
+        }
+
+        cols = ", ".join(list(data))
+        places = _get_placeholders_str(len(data))
+
+        # add job to the result table
+        await con.execute(f"INSERT INTO advanced_analysis_result ({cols}) VALUES ({places})", *data.values())
+
+    return job_id
+
+
+async def delete_advanced_analyses(*, con, user_id, job_ids):
+    await con.execute(
+        "UPDATE advanced_analysis_result SET status='deleted' " "WHERE user_id=$1 AND job_id=ANY($2::uuid[])",
+        user_id,
+        job_ids,
+    )
+
+
+async def get_advanced_analyses_download_info_for_base_user(*, con, user_id, job_ids):
+    query = (
+        "SELECT id, object_key, created_at FROM advanced_analysis_result "
+        "WHERE user_id=$1 AND status!='deleted' AND job_id=ANY($2::uuid[])"
+    )
+
+    async with con.transaction():
+        jobs = [dict(row) async for row in con.cursor(query, user_id, job_ids)]
+
+    return jobs
+
+
+async def get_advanced_analyses_download_info_for_admin(*, con, customer_id, job_ids):
+    query = (
+        "SELECT id, object_key, created_at FROM advanced_analysis_result "
+        "WHERE customer_id=$1 AND status!='deleted' AND job_id=ANY($2::uuid[])"
+    )
+
+    async with con.transaction():
+        jobs = [dict(row) async for row in con.cursor(query, customer_id, job_ids)]
+
+    return jobs
