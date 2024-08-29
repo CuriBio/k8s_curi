@@ -13,7 +13,7 @@ from auth import (
     create_token,
     Scopes,
     ScopeTags,
-    PULSE3D_PAID_USAGE,
+    DEFAULT_USAGE_LIMITS,
     AuthTokens,
     get_assignable_user_scopes,
     get_assignable_admin_scopes,
@@ -1019,7 +1019,7 @@ def test_register__admin__success(mocked_asyncpg_con, spied_pw_hasher, mocker):
         "INSERT INTO customers (email, usage_restrictions, login_type, sso_organization, sso_admin_org_id) "
         "VALUES ($1, $2, $3, $4, $5) RETURNING id",
         registration_details["email"].lower(),
-        json.dumps(dict(PULSE3D_PAID_USAGE)),
+        json.dumps(dict(DEFAULT_USAGE_LIMITS)),
         "password",
         None,
         None,
@@ -1063,7 +1063,7 @@ def test_register__admin__login_type_sso_microsoft_success(mocked_asyncpg_con, s
         "INSERT INTO customers (email, usage_restrictions, login_type, sso_organization, sso_admin_org_id) "
         "VALUES ($1, $2, $3, $4, $5) RETURNING id",
         registration_details["email"].lower(),
-        json.dumps(dict(PULSE3D_PAID_USAGE)),
+        json.dumps(dict(DEFAULT_USAGE_LIMITS)),
         "sso_microsoft",
         "some-organization",
         "some-admin-org-id",

@@ -31,7 +31,7 @@ from auth import (
     convert_scope_str,
     ScopeTags,
     Scopes,
-    PULSE3D_PAID_USAGE,
+    DEFAULT_USAGE_LIMITS,
     ProhibitedScopeError,
     AuthTokens,
     get_account_scopes,
@@ -659,7 +659,7 @@ async def register_admin(
                         "INSERT INTO customers (email, usage_restrictions, login_type, sso_organization, sso_admin_org_id) "
                         "VALUES ($1, $2, $3, $4, $5) RETURNING id",
                         email,
-                        json.dumps(dict(PULSE3D_PAID_USAGE)),
+                        json.dumps(dict(DEFAULT_USAGE_LIMITS)),
                         login_type,
                         sso_organization,
                         sso_admin_org_id,
