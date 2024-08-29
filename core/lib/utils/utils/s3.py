@@ -156,7 +156,6 @@ def download_directory_from_s3(bucket, key, file_path) -> None:
 
 
 def yield_s3_objects(bucket: str, keys: list[str], filenames: list[str]):
-    # TODO consider moving this to core s3 utils if more routes need to start using it
     key = None
     try:
         s3 = boto3.session.Session().resource("s3")
