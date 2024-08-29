@@ -642,14 +642,27 @@ async def create_analysis_preset(con, user_id, details):
 
 
 async def check_customer_advanced_analysis_usage(con, customer_id):
-    # usage_limit_json = await con.fetchval(
-    #     "SELECT usage_restrictions->'advanced_analysis' FROM customers WHERE id=$1", customer_id
-    # )
-    # current_usage_query = await con.fetchval(
-    #     "SELECT COUNT(*) FROM advanced_analysis_result WHERE customer_id=$1"
-    # )
-    # TODO
-    raise NotImplementedError()
+    usage_limits_json = await con.fetchval(
+        "SELECT usage_restrictions->'advanced_analysis' FROM customers WHERE id=$1", customer_id
+    )
+    current_job_count = await con.fetchval(
+        "SELECT COUNT(*) FROM advanced_analysis_result WHERE customer_id=$1", customer_id
+    )
+
+    usage_limits = json.loads(usage_limits_json)
+
+    is_expired = False
+    # if there is an expiration date, check if we have passed it
+    if expiration_date := usage_limits["expiration_date"]:
+        is_expired = datetime.strptime(expiration_date, "%Y-%m-%d") < datetime.utcnow()
+
+    jobs_count_reached = False
+    if (job_limit := usage_limits["jobs"]) != -1:
+        jobs_count_reached = current_job_count >= job_limit
+
+    usage_limits["jobs_limit"] = usage_limits.pop("jobs")
+
+    return usage_limits | {"jobs_count": current_job_count, "limit_reached": is_expired or jobs_count_reached}
 
 
 async def get_advanced_analyses_for_admin(

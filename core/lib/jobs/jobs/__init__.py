@@ -30,6 +30,7 @@ from .jobs import (
     delete_advanced_analyses,
     get_advanced_analyses_download_info_for_base_user,
     get_advanced_analyses_download_info_for_admin,
+    check_customer_advanced_analysis_usage,
 )
 
 __all__ = [
@@ -64,4 +65,5 @@ __all__ = [
     "delete_advanced_analyses",
     "get_advanced_analyses_download_info_for_base_user",
     "get_advanced_analyses_download_info_for_admin",
+    "check_customer_advanced_analysis_usage",
 ]

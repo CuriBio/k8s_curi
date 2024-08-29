@@ -37,4 +37,6 @@ GetAdvancedAnalysesResponse = list[_AdvancedAnalysisJobInfo]
 
 
 class GetAdvancedAnalysisUsageResponse(BaseModel):
-    "TODO"
+    jobs_limit: int
+    jobs_count: int
+    expiration_date: datetime

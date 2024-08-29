@@ -126,34 +126,32 @@ def create_notification_handler(con_pool):
     # need to grab a new connection from the pool instead.
     async def handle_notification(connection, pid, channel, payload):
         try:
-            payload = json.loads(payload)
-            info_to_log = {
-                k: payload.get(k)
-                for k in [
-                    "user_id",
-                    "type",
-                    "table",
-                    "status",
-                    "upload_id",
-                    "job_id",
-                    "customer_id",
-                    "recipients",
-                    "usage",
-                ]
-            }
-            logger.info(f"Notification received from DB: {info_to_log}")
+            logger.info(f"Notification received from DB: {payload}")
 
+            payload = json.loads(payload)
             table = payload.pop("table")
-            if table == "jobs_result":
-                payload["usage_type"] = "jobs"
-                payload["id"] = payload.pop("job_id")
-                async with con_pool.acquire() as con:
-                    payload["meta"] = await con.fetchval(
-                        "SELECT meta FROM jobs_result WHERE job_id=$1", payload["id"]
-                    )
-            else:
-                payload["usage_type"] = "uploads"
-            payload["product"] = payload.pop("type")
+            match table:
+                case "jobs_result":
+                    payload["product"] = payload.pop("type")
+                    payload["usage_type"] = "jobs"
+                    payload["id"] = payload.pop("job_id")
+                    async with con_pool.acquire() as con:
+                        payload["meta"] = await con.fetchval(
+                            "SELECT meta FROM jobs_result WHERE job_id=$1", payload["id"]
+                        )
+                case "uploads":
+                    payload["product"] = payload.pop("type")
+                    payload["usage_type"] = "uploads"
+                case "advanced_analysis_result":
+                    payload["product"] = "advanced_analysis"
+                    payload["usage_type"] = "advanced_analysis"
+                    async with con_pool.acquire() as con:
+                        payload["meta"] = await con.fetchval(
+                            "SELECT meta FROM advanced_analysis_result WHERE id=$1", payload["id"]
+                        )
+                case invalid_table:
+                    logger.error(f"Handling for {invalid_table} table notifications not supported")
+                    return
 
             # send update to anyone who has access to this upload/job
             data_update_msg = {"event": "data_update", "data": json.dumps(payload)}

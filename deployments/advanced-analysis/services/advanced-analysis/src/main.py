@@ -186,7 +186,12 @@ async def create_new_advanced_analysis(
 
         priority = 10  # TODO make this a constant and share with p3d svc?
         async with request.state.pgpool.acquire() as con:
-            # TODO check usage
+            usage = await check_customer_advanced_analysis_usage(con, customer_id)
+            if usage["limit_reached"]:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Usage limit reached and/or plan has expired",
+                )
             await _validate_sources(con, user_id, details.sources)
             await _validate_advanced_analysis_version(con, details.version)
             await create_advanced_analysis_job(
@@ -371,4 +376,4 @@ async def _get_advanced_analyses_download_info(con, token, job_ids) -> list[dict
                 con, customer_id=str(token.customer_id), job_ids=job_ids
             )
         case invalid_account_type:
-            raise Exception(f"Invalid account type: {invalid_account_type}")  # noqa: F821
+            raise Exception(f"Invalid account type: {invalid_account_type}")
