@@ -19,14 +19,14 @@ depends_on = None
 def upgrade():
     op.execute(
         """
-CREATE TABLE advanced_analysis_versions (
-    version          varchar(15) PRIMARY KEY,
-    created_at       TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at       TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
-    state            "WorkerState" NOT NULL DEFAULT 'testing'::"WorkerState",
-    end_of_life_date DATE DEFAULT null,
-    CONSTRAINT deprecated_version_must_have_end_of_life_date CHECK(state != 'deprecated' OR end_of_life_date IS NOT NULL)
-)
+        CREATE TABLE advanced_analysis_versions (
+            version          varchar(15) PRIMARY KEY,
+            created_at       TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+            updated_at       TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+            state            "WorkerState" NOT NULL DEFAULT 'testing'::"WorkerState",
+            end_of_life_date DATE DEFAULT null,
+            CONSTRAINT deprecated_version_must_have_end_of_life_date CHECK(state != 'deprecated' OR end_of_life_date IS NOT NULL)
+        )
         """
     )
     op.execute(
