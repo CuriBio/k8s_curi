@@ -52,15 +52,15 @@ def upgrade():
     op.execute(
         """
         CREATE TRIGGER trig_advanced_analysis_result_notify_events
-        AFTER INSERT OR UPDATE ON jobs_result
+        AFTER INSERT OR UPDATE ON advanced_analysis_result
         FOR EACH ROW
-        EXECUTE PROCEDURE jobs_result_notify_events();
+        EXECUTE PROCEDURE advanced_analysis_result_notify_events();
         """
     )
 
 
 def downgrade():
-    op.execute("REVOKE ALL PRIVILEGES ON TABLE advanced_analysis_versions FROM curibio_event_broker")
-
-    op.execute("DROP TRIGGER trig_advanced_analysis_result_notify_events ON jobs_result CASCADE")
+    op.execute("DROP TRIGGER trig_advanced_analysis_result_notify_events ON advanced_analysis_result CASCADE")
     op.execute("DROP FUNCTION advanced_analysis_result_notify_events CASCADE")
+
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE advanced_analysis_versions FROM curibio_event_broker")
