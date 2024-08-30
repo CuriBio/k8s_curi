@@ -43,7 +43,7 @@ spec:
               value: test-pulse3d-uploads
           imagePullPolicy: Always
           ports:
-            - containerPort: 8000
+            - containerPort: 8100
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
