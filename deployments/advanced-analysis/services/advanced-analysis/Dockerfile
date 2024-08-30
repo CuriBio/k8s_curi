@@ -27,4 +27,4 @@ COPY --chown=main_user:main_group ./deployments/apiv2/services/advanced-analysis
 
 ENV PYTHONUNBUFFERED 1
 # add security headers
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9002", "--reload", "--log-config", "disable_log_config.yaml", "--header", "X-Content-Type-Options:nosniff", "--header", "Strict-Transport-Security:max-age=31536000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8100", "--reload", "--log-config", "disable_log_config.yaml", "--header", "X-Content-Type-Options:nosniff", "--header", "Strict-Transport-Security:max-age=31536000"]

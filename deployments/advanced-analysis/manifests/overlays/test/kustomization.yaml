@@ -5,3 +5,4 @@ namespace: advanced-analysis
 resources:
   - ../../base
   - curibio-advanced-analysis-creds.yaml
+  - curibio-jwt-secret.yaml

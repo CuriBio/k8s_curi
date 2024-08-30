@@ -1,0 +1,66 @@
+
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: advanced-analysis
+  namespace: advanced-analysis
+  labels:
+    app: advanced-analysis
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: advanced-analysis
+  template:
+    metadata:
+      labels:
+        app: advanced-analysis
+        version: latest
+    spec:
+      nodeSelector:
+        group: services
+      containers:
+        - name: advanced-analysis
+          env:
+            - name: POSTGRES_USER
+              value: curibio_jobs
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: curibio-advanced-analysis-creds
+                  key: curibio_advanced_analysis
+            - name: POSTGRES_SERVER
+              value: psql-rds.default
+            - name: POSTGRES_DB
+              value: curibio
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: curibio-jwt-secret
+                  key: jwt-secret
+            - name: UPLOADS_BUCKET_ENV
+              value: test-pulse3d-uploads
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: advanced-analysis-ingress
+status:
+  loadBalancer: {}
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: advanced-analysis.curibio-test.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: advanced-analysis
+                port:
+                  number: 80
