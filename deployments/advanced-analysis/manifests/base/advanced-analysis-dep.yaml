@@ -24,7 +24,7 @@ spec:
         - name: advanced-analysis
           env:
             - name: POSTGRES_USER
-              value: curibio_jobs
+              value: curibio_advanced_analysis
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
