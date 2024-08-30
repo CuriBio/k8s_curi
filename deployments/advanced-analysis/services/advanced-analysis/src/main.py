@@ -62,6 +62,7 @@ app.add_middleware(
 
 @app.middleware("http")
 async def middleware(request: Request, call_next) -> Response:
+    request.state.pgpool = await asyncpg_pool()
     # clear previous request variables
     clear_contextvars()
     # get request details for logging
@@ -133,7 +134,6 @@ async def get_advanced_analyses(
     limit: int = Query(300),
     token=Depends(ProtectedAny(tag=ScopeTags.ADVANCED_ANALYSIS_READ)),
 ):
-
     try:
         bind_context_to_logger({"user_id": token.userid, "customer_id": token.customer_id})
 
