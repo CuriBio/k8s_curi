@@ -4,7 +4,7 @@ import FormInput from "@/components/basicWidgets/FormInput";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import CheckboxList from "@/components/basicWidgets/CheckboxList";
 import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
-import { capitalize } from "@mui/material";
+import { productTitle } from "@/utils/generic";
 
 const BodyContainer = styled.div`
   position: relative;
@@ -71,13 +71,6 @@ const ErrorMsg = styled.span`
   width: 85%;
   padding-top: 2%;
 `;
-
-const title = (s) => {
-  return s
-    .split("_")
-    .map((s) => capitalize(s))
-    .join(" ");
-};
 
 const untitle = (s) => {
   return s.replace(" ", "_").toLowerCase();
@@ -234,8 +227,8 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
               height="100px"
               width="100%"
               disabled={[false, false]}
-              options={productOptions.map((p) => title(p))}
-              checkedItems={selectedProducts.map((p) => title(p))}
+              options={productOptions.map((p) => productTitle(p))}
+              checkedItems={selectedProducts.map((p) => productTitle(p))}
               setCheckedItems={(item, state) =>
                 handleCheckedState(item, state, setSelectedProducts, selectedProducts)
               }
@@ -246,7 +239,7 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
                 (product) =>
                   selectedProducts.includes(product) && (
                     <div key={product}>
-                      <ProductLabel>{title(product)}</ProductLabel>
+                      <ProductLabel>{productTitle(product)}</ProductLabel>
                       {product !== "advanced_analysis" && (
                         <UsageInputContainer style={{ width: "335px" }}>
                           <UsageLabel>Uploads:</UsageLabel>

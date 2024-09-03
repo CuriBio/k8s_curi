@@ -1,4 +1,5 @@
 import * as apache from "apache-arrow";
+import { capitalize } from "@mui/material";
 
 const deepCopy = (obj) => {
   return JSON.parse(JSON.stringify(obj));
@@ -279,6 +280,13 @@ const formatJob = (job, selectedJobs, accountId) => {
   }
 };
 
+const productTitle = (s) => {
+  return s
+    .split("_")
+    .map((s) => capitalize(s))
+    .join(" ");
+};
+
 export {
   deepCopy,
   hexToBase64,
@@ -293,4 +301,5 @@ export {
   isInt,
   getMinP3dVersionForProduct,
   formatJob,
+  productTitle,
 };

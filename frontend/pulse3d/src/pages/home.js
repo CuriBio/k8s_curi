@@ -77,7 +77,7 @@ export default function Login() {
       description: "AI/ML Platform",
       state: "disabled",
     },
-    "analysis tools": {
+    advanced_analysis: {
       name: "Advanced Analysis Tools",
       description: "",
       state: "disabled",
@@ -136,11 +136,18 @@ export default function Login() {
   };
 
   const handleProductNavigation = ({ target }) => {
-    if (!target.id.includes("disabled")) {
-      // used to poll usage for correct product
-      updateProductPage(target.id.split("-")[0]);
-      // TODO handle different nav once product differences are more specced out
+    const [product, state] = target.id.split("-");
+    console.log(product, state);
+    if (state === "disabled") {
+      return;
+    }
+
+    updateProductPage(product);
+
+    if (product in ["mantarray", "nautilai"]) {
       router.push("/uploads?checkUsage=true", "/uploads");
+    } else if (product === "advanced_analysis") {
+      router.push("/advanced_analyses?checkUsage=true", "/advanced_analyses");
     }
   };
 
@@ -148,7 +155,7 @@ export default function Login() {
     <BackgroundContainer>
       {[
         ["mantarray", "nautilai"],
-        ["pulse2d", "phenolearn", "analysis tools"],
+        ["pulse2d", "phenolearn", "advanced_analysis"],
       ].map((row, idx) => {
         return (
           <RowContainer key={idx}>

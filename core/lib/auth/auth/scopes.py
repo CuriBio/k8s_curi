@@ -22,6 +22,7 @@ class ScopeTags(StrEnum):
     ADMIN = auto()
     PULSE3D_READ = auto()
     PULSE3D_WRITE = auto()
+    ADVANCED_ANALYSIS = auto()
     ADVANCED_ANALYSIS_READ = auto()
     ADVANCED_ANALYSIS_WRITE = auto()
     ACCOUNT = (
@@ -88,11 +89,15 @@ class Scopes(StrEnum):
         NAUTILAI__BASE,
         [ScopeTags.NAUTILAI, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE],
     )
-    ADVANCED_ANALYSIS__ADMIN = auto(), None, [ScopeTags.ADVANCED_ANALYSIS_READ, ScopeTags.ADMIN]
+    ADVANCED_ANALYSIS__ADMIN = (
+        auto(),
+        None,
+        [ScopeTags.ADVANCED_ANALYSIS, ScopeTags.ADVANCED_ANALYSIS_READ, ScopeTags.ADMIN],
+    )
     ADVANCED_ANALYSIS__BASE = (
         auto(),
         None,
-        [ScopeTags.ADVANCED_ANALYSIS_READ, ScopeTags.ADVANCED_ANALYSIS_WRITE],
+        [ScopeTags.ADVANCED_ANALYSIS, ScopeTags.ADVANCED_ANALYSIS_READ, ScopeTags.ADVANCED_ANALYSIS_WRITE],
     )
     REFRESH = auto(), None, [ScopeTags.UNASSIGNABLE]
     USER__VERIFY = auto(), None, [ScopeTags.ACCOUNT, ScopeTags.UNASSIGNABLE]
@@ -114,15 +119,15 @@ def convert_scope_str(scope_str: str) -> Scopes:
     return Scopes[scope_str.upper().replace(":", "__")]
 
 
-_PRODUCT_SCOPE_TAGS = frozenset({ScopeTags.MANTARRAY, ScopeTags.NAUTILAI})
+_PRODUCT_SCOPE_TAGS = frozenset({ScopeTags.MANTARRAY, ScopeTags.NAUTILAI, ScopeTags.ADVANCED_ANALYSIS})
 
 
 # TODO add testing for these
-def get_product_tags_of_admin(admin_scopes: list[Scopes]) -> set[Scopes]:
+def get_product_tags_of_admin(admin_scopes: list[Scopes]) -> set[ScopeTags]:
     return {tag for s in admin_scopes for tag in s.tags if ScopeTags.ADMIN in s.tags} & _PRODUCT_SCOPE_TAGS
 
 
-def get_product_tags_of_user(user_scopes: list[Scopes], rw_all_only: bool = False) -> set[Scopes]:
+def get_product_tags_of_user(user_scopes: list[Scopes], rw_all_only: bool = False) -> set[ScopeTags]:
     if rw_all_only:
         user_scopes = [s for s in user_scopes if "rw_all_data" in s]
 

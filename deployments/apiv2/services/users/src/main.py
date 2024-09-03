@@ -1286,7 +1286,6 @@ async def update_customer(
 
                     # handle product scope updates
                     if (updated_products := details.products) is not None:
-                        # TODO validate the new products?
                         # get product name from admin scopes
                         current_products = get_product_tags_of_admin(
                             await get_account_scopes(con, account_id, True)
@@ -1301,19 +1300,18 @@ async def update_customer(
                                 )
                         # if a product scope is being added to an admin, then insert new entry for admin only
                         if products_added := set(updated_products) - set(current_products):
+                            # TODO validate the new products?
                             for product in products_added:
                                 await con.execute(
                                     "INSERT INTO account_scopes VALUES ($1, NULL, $2)",
                                     account_id,
                                     f"{product}:admin",
                                 )
-
                 else:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Invalid curi-edit-admin action: {action}",
                     )
-
     except HTTPException:
         raise
     except Exception:
