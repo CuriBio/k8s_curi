@@ -33,7 +33,16 @@ export const UploadsContext = createContext();
 
 // TODO make all pages scope based?
 const allAvailablePages = {
-  user: ["/home", "/uploads", "/upload-form", "/account", "/account-settings", "/metrics"],
+  user: [
+    "/home",
+    "/uploads",
+    "/upload-form",
+    "/account",
+    "/account-settings",
+    "/metrics",
+    "/advanced-analyses",
+    "/advanced-analysis-form",
+  ],
   admin: [
     "/uploads",
     "/add-new-account",
@@ -156,7 +165,7 @@ function Pulse({ Component, pageProps }) {
       // env vars need to be set here because service worker does not have access to node process
       navigator.serviceWorker
         .register(
-          `/serviceWorker.js?mantarray_url=${process.env.NEXT_PUBLIC_MANTARRAY_URL}&users_url=${process.env.NEXT_PUBLIC_USERS_URL}&pulse3d_url=${process.env.NEXT_PUBLIC_PULSE3D_URL}&events_url=${process.env.NEXT_PUBLIC_EVENTS_URL}`,
+          `/serviceWorker.js?mantarray_url=${process.env.NEXT_PUBLIC_MANTARRAY_URL}&users_url=${process.env.NEXT_PUBLIC_USERS_URL}&pulse3d_url=${process.env.NEXT_PUBLIC_PULSE3D_URL}&events_url=${process.env.NEXT_PUBLIC_EVENTS_URL}&advanced_analysis_url=${process.env.NEXT_PUBLIC_ADVANCED_ANALYSIS_URL}`,
           { type: "module" }
         )
         .then(navigator.serviceWorker.ready)

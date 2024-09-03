@@ -19,6 +19,7 @@ const MANTARRAY_URL = new URLSearchParams(location.search).get("mantarray_url");
 const USERS_URL = new URLSearchParams(location.search).get("users_url");
 const PULSE3D_URL = new URLSearchParams(location.search).get("pulse3d_url");
 const EVENTS_URL = new URLSearchParams(location.search).get("events_url");
+const ADVANCED_ANALYSIS_URL = new URLSearchParams(location.search).get("advanced_analysis_url");
 
 const USAGE_ENDPOINTS = ["/login", "/uploads", "/jobs"];
 
@@ -374,7 +375,9 @@ self.addEventListener("fetch", async (e) => {
   let destURL = new URL(e.request.url);
 
   if (
-    [USERS_URL, PULSE3D_URL, MANTARRAY_URL, EVENTS_URL].some((url) => e.request.url.includes(url)) &&
+    [USERS_URL, PULSE3D_URL, MANTARRAY_URL, EVENTS_URL, ADVANCED_ANALYSIS_URL].some((url) =>
+      e.request.url.includes(url)
+    ) &&
     !isRequest(destURL, "/email") && // this request doesn't depend on a token
     !isRequest(destURL, "/account") // we don't need to intercept verify request because it's handling own token
   ) {

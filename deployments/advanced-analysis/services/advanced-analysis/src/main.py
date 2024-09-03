@@ -187,7 +187,7 @@ async def create_new_advanced_analysis(
         priority = 10  # TODO make this a constant and share with p3d svc?
         async with request.state.pgpool.acquire() as con:
             usage = await check_customer_advanced_analysis_usage(con, customer_id)
-            if usage["limit_reached"]:
+            if usage["jobs_reached"]:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Usage limit reached and/or plan has expired",

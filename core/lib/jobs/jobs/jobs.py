@@ -660,9 +660,11 @@ async def check_customer_advanced_analysis_usage(con, customer_id):
     if (job_limit := usage_limits["jobs"]) != -1:
         jobs_count_reached = current_job_count >= job_limit
 
-    usage_limits["jobs_limit"] = usage_limits.pop("jobs")
-
-    return usage_limits | {"jobs_count": current_job_count, "limit_reached": is_expired or jobs_count_reached}
+    return {
+        "limits": usage_limits,
+        "current": {"jobs": current_job_count},
+        "jobs_reached": is_expired or jobs_count_reached,
+    }
 
 
 async def get_advanced_analyses_for_admin(

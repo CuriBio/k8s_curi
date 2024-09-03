@@ -36,7 +36,15 @@ class _AdvancedAnalysisJobInfo(BaseModel):
 GetAdvancedAnalysesResponse = list[_AdvancedAnalysisJobInfo]
 
 
+class _Limits(BaseModel):
+    jobs: int
+    expiration_date: datetime | None
+
+
+class _Current(BaseModel):
+    jobs: int
+
+
 class GetAdvancedAnalysisUsageResponse(BaseModel):
-    jobs_limit: int
-    jobs_count: int
-    expiration_date: datetime
+    limits: _Limits
+    current: _Current

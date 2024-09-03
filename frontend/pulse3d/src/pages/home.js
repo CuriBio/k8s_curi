@@ -137,17 +137,16 @@ export default function Login() {
 
   const handleProductNavigation = ({ target }) => {
     const [product, state] = target.id.split("-");
-    console.log(product, state);
     if (state === "disabled") {
       return;
     }
 
     updateProductPage(product);
 
-    if (product in ["mantarray", "nautilai"]) {
+    if (["mantarray", "nautilai"].includes(product)) {
       router.push("/uploads?checkUsage=true", "/uploads");
     } else if (product === "advanced_analysis") {
-      router.push("/advanced_analyses?checkUsage=true", "/advanced_analyses");
+      router.push("/advanced-analyses?checkUsage=true", "/advanced-analyses");
     }
   };
 

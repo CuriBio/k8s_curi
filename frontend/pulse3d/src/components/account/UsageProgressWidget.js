@@ -43,6 +43,14 @@ const UpgradeButton = styled.div`
   }
 `;
 
+const getUsageEndpoint = (productPage) => {
+  if (["mantarray", "nautilai"].includes(productPage)) {
+    return `${process.env.NEXT_PUBLIC_PULSE3D_URL}/usage?service=${productPage}`;
+  } else if (productPage === "advanced_analysis") {
+    return `${process.env.NEXT_PUBLIC_ADVANCED_ANALYSIS_URL}/usage`;
+  }
+};
+
 export default function UsageProgressWidget({ colorOfTextLabel }) {
   const { usageQuota, setUsageQuota, productPage } = useContext(AuthContext);
 
@@ -54,7 +62,8 @@ export default function UsageProgressWidget({ colorOfTextLabel }) {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/usage?service=${productPage}`);
+      const url = getUsageEndpoint(productPage);
+      const response = await fetch(url);
       if (response && response.status === 200) {
         setUsageQuota(await response.json());
       }

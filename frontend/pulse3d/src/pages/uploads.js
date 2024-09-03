@@ -12,7 +12,6 @@ import { formatDateTime } from "@/utils/generic";
 import { getShortUUIDWithTooltip } from "@/utils/jsx";
 import Table from "@/components/table/Table";
 import { Box, IconButton } from "@mui/material";
-import Tooltip from "@mui/material/Tooltip";
 import Jobs from "@/components/table/Jobs";
 
 const TableContainer = styled.div`
@@ -21,10 +20,6 @@ const TableContainer = styled.div`
   white-space: nowrap;
   box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
     0px 3px 14px 2px rgb(0 0 0 / 12%);
-`;
-
-const TooltipText = styled.span`
-  font-size: 15px;
 `;
 
 const SmallerIconButton = styled(IconButton)`
