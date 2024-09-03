@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import structlog
 from auth import (
+    Scopes,
     ScopeTags,
     ProtectedAny,
     check_prohibited_product,
@@ -76,6 +77,7 @@ from models.models import (
     JobRequest,
     GetJobsRequest,
     JobResponse,
+    SaveNotificationRequest,
     SavePresetRequest,
     UploadDownloadRequest,
     UploadRequest,
@@ -909,6 +911,23 @@ async def delete_analysis_preset(
 
     except Exception:
         logger.exception(f"Failed to delete analysis preset {preset_name} for user")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.post("/notifications")
+async def save_notification(
+    request: Request,
+    details: SaveNotificationRequest,
+    token=Depends(ProtectedAny(scopes=[Scopes.CURI__ADMIN])),
+):
+    """Save notification"""
+    try:
+        customer_id = str(uuid.UUID(token.customer_id))
+        bind_context_to_logger({"customer_id": customer_id})
+        logger.info(f"{details=}")
+        # TODO add service layer
+    except Exception:
+        logger.exception("Failed to save notification")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

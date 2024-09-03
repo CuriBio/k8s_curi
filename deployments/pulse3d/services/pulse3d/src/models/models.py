@@ -1,3 +1,4 @@
+from enum import auto, StrEnum
 from pydantic import BaseModel, Field
 from typing import Any
 import uuid
@@ -5,6 +6,18 @@ import uuid
 from pulse3D.data_loader.metadata import NormalizationMethods
 
 from .types import Number, TupleParam
+
+
+class NotificationType(StrEnum):
+    CUSTOMERS_AND_USERS = auto()
+    CUSTOMERS = auto()
+    USERS = auto()
+
+
+class SaveNotificationRequest(BaseModel):
+    subject: str
+    body: str
+    notification_type: NotificationType = NotificationType.CUSTOMERS_AND_USERS
 
 
 class UploadRequest(BaseModel):
