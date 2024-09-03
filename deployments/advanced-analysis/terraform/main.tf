@@ -28,6 +28,5 @@ variable "region" {
 }
 
 module "advanced_analysis" {
-  source       = "./advanced_analysis"
-  cluster_name = var.cluster_name
+  source       = "./advanced-analysis"
 }

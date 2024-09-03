@@ -109,3 +109,24 @@ services:
     depends_on:
       - psql-proxy
     platform: "linux/amd64"
+  advanced-analysis:
+    build:
+      context: .
+      dockerfile: ./deployments/advanced-analysis/services/advanced-analysis/Dockerfile
+    environment:
+      - POSTGRES_SERVER=host.docker.internal
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=curibio_advanced_analysis
+      - POSTGRES_PASSWORD=${ADVANCED_ANALYSIS_PASS}
+      - UPLOADS_BUCKET_ENV=${TEST_UPLOADS_BUCKET}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - AWS_PROFILE=${AWS_PROFILE}
+      - AWS_REGION=us-east-2
+      - DASHBOARD_URL=http://localhost:3000
+    volumes:
+      - ~/.aws/:/home/main_user/.aws:ro
+    ports:
+      - "8100:8100"
+    depends_on:
+      - psql-proxy
+    platform: "linux/amd64"

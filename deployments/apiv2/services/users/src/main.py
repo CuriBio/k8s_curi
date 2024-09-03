@@ -25,12 +25,13 @@ from auth import (
     get_assignable_user_scopes,
     get_assignable_admin_scopes,
     get_scope_dependencies,
+    validate_scope_dependencies,
     check_prohibited_user_scopes,
     check_prohibited_admin_scopes,
     convert_scope_str,
     ScopeTags,
     Scopes,
-    PULSE3D_PAID_USAGE,
+    DEFAULT_USAGE_LIMITS,
     ProhibitedScopeError,
     AuthTokens,
     get_account_scopes,
@@ -39,7 +40,7 @@ from auth import (
     LoginType,
     get_product_tags_of_admin,
 )
-from jobs import check_customer_quota
+from jobs import check_customer_pulse3d_usage
 from core.config import (
     DATABASE_URL,
     CURIBIO_EMAIL,
@@ -391,7 +392,7 @@ async def login_user(request: Request, details: UserLogin):
             if (service := details.service) is not None:
                 # TODO Luci (09/30/23): remove after all users upgrade to MA controller v1.2.2+, handling for pulse3d login types will no longer be needed
                 service = service if service != "pulse3d" else "mantarray"
-                usage_quota = await check_customer_quota(con, str(customer_id), service)
+                usage_quota = await check_customer_pulse3d_usage(con, str(customer_id), service)
 
             # if login was successful, then update last_login column value to now
             # Tanner (7/25/23): using the customer ID returned from the select query since the customer ID field passed in with the request may contain an alias
@@ -429,7 +430,7 @@ async def _build_admin_login_or_sso_response(con, customer_id, email, login_type
 
     # TODO decide how to show admin accounts usage data for multiple products, defaulting to mantarray now
     # check usage for customer
-    usage_quota = await check_customer_quota(con, str(customer_id), "mantarray")
+    usage_quota = await check_customer_pulse3d_usage(con, str(customer_id), "mantarray")
 
     # if login was successful, then update last_login column value to now
     await con.execute(
@@ -658,7 +659,7 @@ async def register_admin(
                         "INSERT INTO customers (email, usage_restrictions, login_type, sso_organization, sso_admin_org_id) "
                         "VALUES ($1, $2, $3, $4, $5) RETURNING id",
                         email,
-                        json.dumps(dict(PULSE3D_PAID_USAGE)),
+                        json.dumps(dict(DEFAULT_USAGE_LIMITS)),
                         login_type,
                         sso_organization,
                         sso_admin_org_id,
@@ -1093,25 +1094,26 @@ async def update_user_scopes(
     """Update a user's scopes in the database."""
     customer_id = uuid.UUID(hex=token.customer_id)
     admin_scopes = token.scopes
-    user_scopes = details.scopes
+    updated_user_scopes = details.scopes
 
     bind_context_to_logger({"customer_id": str(customer_id), "user_id": str(account_id)})
 
     try:
-        check_prohibited_user_scopes(user_scopes, admin_scopes)
+        check_prohibited_user_scopes(updated_user_scopes, admin_scopes)
+        validate_scope_dependencies(updated_user_scopes)
 
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():
-                # first delete existing scopes from database
+                # The update will include all scopes that should be assigned after this operation, so first
+                # delete existing scopes from database and then insert the updated scopes
                 await con.execute(
                     "DELETE FROM account_scopes WHERE customer_id=$1 AND user_id=$2", customer_id, account_id
                 )
-                # add new scopes
                 await con.execute(
                     "INSERT INTO account_scopes VALUES ($1, $2, unnest($3::text[]))",
                     customer_id,
                     account_id,
-                    user_scopes,
+                    updated_user_scopes,
                 )
     except ProhibitedScopeError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -1283,15 +1285,9 @@ async def update_customer(
 
                     # handle product scope updates
                     if (products_update := details.products) is not None:
-                        # get current customer scopes
-                        rows = await con.fetch(
-                            "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL",
-                            account_id,
-                        )
-
                         # get product name from admin scopes
                         existing_products = get_product_tags_of_admin(
-                            [convert_scope_str(row["scope"]) for row in rows]
+                            await get_account_scopes(con, account_id, True)
                         )
                         # if a product scope is being removed from an admin account, then remove all customer and user entries from account_scopes
                         if len(product_diff := set(existing_products) - set(products_update)) > 0:

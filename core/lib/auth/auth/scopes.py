@@ -11,6 +11,10 @@ class ProhibitedProductError(Exception):
     pass
 
 
+class MissingScopeDependencyError(Exception):
+    pass
+
+
 class ScopeTags(StrEnum):
     INTERNAL = auto()  # TODO rename this to production?
     MANTARRAY = auto()
@@ -18,6 +22,8 @@ class ScopeTags(StrEnum):
     ADMIN = auto()
     PULSE3D_READ = auto()
     PULSE3D_WRITE = auto()
+    ADVANCED_ANALYSIS_READ = auto()
+    ADVANCED_ANALYSIS_WRITE = auto()
     ACCOUNT = (
         # TODO might want to come up with a better name for this since there are other account related things and this could become confusing.
         # maybe EMAIL since these tokens are currently only used in emails?
@@ -81,6 +87,12 @@ class Scopes(StrEnum):
         auto(),
         NAUTILAI__BASE,
         [ScopeTags.NAUTILAI, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE],
+    )
+    ADVANCED_ANALYSIS__ADMIN = auto(), None, [ScopeTags.ADVANCED_ANALYSIS_READ, ScopeTags.ADMIN]
+    ADVANCED_ANALYSIS__BASE = (
+        auto(),
+        None,
+        [ScopeTags.ADVANCED_ANALYSIS_READ, ScopeTags.ADVANCED_ANALYSIS_WRITE],
     )
     REFRESH = auto(), None, [ScopeTags.UNASSIGNABLE]
     USER__VERIFY = auto(), None, [ScopeTags.ACCOUNT, ScopeTags.UNASSIGNABLE]
@@ -146,8 +158,18 @@ def get_assignable_admin_scopes(admin_scopes: list[Scopes]) -> list[Scopes]:
     return [s for s in Scopes if ScopeTags.ADMIN in s.tags and ScopeTags.INTERNAL not in s.tags]
 
 
-def get_scope_dependencies(scopes: list[Scopes]) -> dict[Scopes, Scopes]:
+def get_scope_dependencies(scopes: list[Scopes]) -> dict[Scopes, Scopes | None]:
     return {s: s.required for s in scopes}
+
+
+def validate_scope_dependencies(scopes: list[Scopes]) -> None:
+    scope_dependencies = get_scope_dependencies(scopes)
+    if missing_scope_deps := {
+        scope: required
+        for scope, required in scope_dependencies.items()
+        if required is not None and required not in scope_dependencies
+    }:
+        raise MissingScopeDependencyError(str(missing_scope_deps))
 
 
 def check_prohibited_user_scopes(user_scopes: list[Scopes], admin_scopes: list[Scopes]) -> None:

@@ -14,8 +14,9 @@ from .scopes import (
     convert_scope_str,
     get_product_tags_of_admin,
     get_product_tags_of_user,
+    validate_scope_dependencies,
 )
-from .usage import PULSE3D_PAID_USAGE
+from .usage import DEFAULT_USAGE_LIMITS
 from .tokens import (
     ProtectedAny,
     create_token,
