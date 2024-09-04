@@ -27,10 +27,13 @@ class PostAdvancedAnalysesDownloadRequest(BaseModel):
 
 
 class _AdvancedAnalysisJobInfo(BaseModel):
-    name: str
     id: uuid.UUID
-    created_at: datetime
+    name: str
     type: str
+    created_at: datetime
+    sources: list[uuid.UUID]
+    meta: str
+    status: str
 
 
 GetAdvancedAnalysesResponse = list[_AdvancedAnalysisJobInfo]

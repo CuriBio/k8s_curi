@@ -37,7 +37,7 @@ export default function DashboardLayout({ children }) {
   const { advancedAnalysisJobs, getAdvancedAnalysisJobs } = useContext(AdvancedAnalysisContext);
 
   const getUploadsAndJobsIfEmpty = (productPage) => {
-    if (uploads?.length === 0) {
+    if ((uploads || []).length === 0) {
       getUploadsAndJobs(productPage);
     }
   };
