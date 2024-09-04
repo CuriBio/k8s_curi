@@ -28,8 +28,8 @@ const MUItheme = createTheme({
 });
 
 export const AuthContext = createContext();
-
 export const UploadsContext = createContext();
+export const AdvancedAnalysisContext = createContext();
 
 // TODO make all pages scope based?
 const allAvailablePages = {
@@ -109,6 +109,9 @@ function Pulse({ Component, pageProps }) {
   const [pulse3dVersions, setPulse3dVersions] = useState([]);
   const [metaPulse3dVersions, setMetaPulse3dVersions] = useState([]);
   const [defaultUploadForReanalysis, setDefaultUploadForReanalysis] = useState();
+
+  // AdvancedAnalysisContext
+  const [advancedAnalysisJobs, setAdvancedAnalysisJobs] = useState([]);
 
   const { setDesiredConnectionStatus: setEvtSourceConnected } = useEventSource({
     productPage,
@@ -377,6 +380,51 @@ function Pulse({ Component, pageProps }) {
     }
   };
 
+  const getAdvancedAnalysisJobs = async (
+    filters,
+    sortField = "created_at",
+    sortDirection = "DESC",
+    skip = 0,
+    limit = 300
+  ) => {
+    try {
+      let url = `${process.env.NEXT_PUBLIC_ADVANCED_ANALYSIS_URL}/advanced-analyses`;
+      let queryParams = [];
+
+      if (sortField) {
+        queryParams.push(`sort_field=${sortField}`);
+        if (!["ASC", "DESC"].includes(sortDirection)) {
+          sortDirection = "DESC";
+        }
+        queryParams.push(`sort_direction=${sortDirection}`);
+      }
+      if (skip != null) {
+        queryParams.push(`skip=${skip}`);
+      }
+      if (limit != null) {
+        queryParams.push(`limit=${limit}`);
+      }
+      if (filters && Object.keys(filters).length > 0) {
+        for (const [filterName, filterValue] of Object.entries(filters)) {
+          queryParams.push(`${filterName}=${filterValue}`);
+        }
+      }
+      if (queryParams.length > 0) {
+        url += "?" + queryParams.join("&");
+      }
+
+      const response = await fetch(url);
+
+      if (response && response.status === 200) {
+        const jobs = await response.json();
+        setAdvancedAnalysisJobs(jobs);
+      }
+    } catch (e) {
+      console.log("ERROR getting advanced analyses for user", e);
+      return;
+    }
+  };
+
   return (
     <ThemeProvider theme={MUItheme}>
       <AuthContext.Provider
@@ -413,18 +461,20 @@ function Pulse({ Component, pageProps }) {
             setMetaPulse3dVersions,
           }}
         >
-          <Layout>
-            <ModalWidget
-              open={showLoggedOutAlert}
-              closeModal={() => {
-                setLoggedOutAlert(false);
-                router.replace("/login", undefined, { shallow: true });
-              }}
-              header="Attention"
-              labels={["You have been logged out due to inactivity"]}
-            />
-            {getLayout(<Component {...pageProps} />, pageProps.data)}
-          </Layout>
+          <AdvancedAnalysisContext.Provider value={{ advancedAnalysisJobs, getAdvancedAnalysisJobs }}>
+            <Layout>
+              <ModalWidget
+                open={showLoggedOutAlert}
+                closeModal={() => {
+                  setLoggedOutAlert(false);
+                  router.replace("/login", undefined, { shallow: true });
+                }}
+                header="Attention"
+                labels={["You have been logged out due to inactivity"]}
+              />
+              {getLayout(<Component {...pageProps} />, pageProps.data)}
+            </Layout>
+          </AdvancedAnalysisContext.Provider>
         </UploadsContext.Provider>
       </AuthContext.Provider>
     </ThemeProvider>

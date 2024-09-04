@@ -3,7 +3,7 @@ import { useEffect, useContext } from "react";
 import styled from "styled-components";
 import { useRouter } from "next/router";
 import semverRsort from "semver/functions/rsort";
-import { AuthContext, UploadsContext } from "@/pages/_app";
+import { AuthContext, UploadsContext, AdvancedAnalysisContext } from "@/pages/_app";
 
 const Container = styled.div`
   height: inherit;
@@ -34,14 +34,29 @@ export default function DashboardLayout({ children }) {
     setDefaultUploadForReanalysis,
   } = useContext(UploadsContext);
 
-  useEffect(() => {
-    if (uploads?.length > 0) {
-      return;
-    }
-    if (accountType === "admin") {
-      getUploadsAndJobs();
-    } else if (accountType === "user" && productPage) {
+  const { advancedAnalysisJobs, getAdvancedAnalysisJobs } = useContext(AdvancedAnalysisContext);
+
+  const getUploadsAndJobsIfEmpty = (productPage) => {
+    if (uploads?.length === 0) {
       getUploadsAndJobs(productPage);
+    }
+  };
+
+  const getAdvancedAnalysisJobsIfEmpty = () => {
+    if (advancedAnalysisJobs.length === 0) {
+      getAdvancedAnalysisJobs();
+    }
+  };
+
+  useEffect(() => {
+    if (accountType === "admin") {
+      getUploadsAndJobsIfEmpty();
+    } else if (accountType === "user") {
+      if (["mantarray", "nautilai"].includes(productPage)) {
+        getUploadsAndJobsIfEmpty(productPage);
+      } else if (productPage === "advanced_analysis") {
+        getAdvancedAnalysisJobsIfEmpty();
+      }
     }
   }, [productPage, accountType]);
 
