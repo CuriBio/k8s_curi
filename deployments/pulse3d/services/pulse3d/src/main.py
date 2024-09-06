@@ -78,6 +78,7 @@ from models.models import (
     GetJobsRequest,
     JobResponse,
     SaveNotificationRequest,
+    SaveNotificationResponse,
     SavePresetRequest,
     UploadDownloadRequest,
     UploadRequest,
@@ -86,17 +87,21 @@ from models.models import (
     WaveformDataResponse,
 )
 from models.types import TupleParam
+from repository.notification_repository import NotificationRepository
+from service.notification_service import NotificationService
 
 setup_logger()
 logger = structlog.stdlib.get_logger("api.access")
 
 
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
+notification_service: NotificationService
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await asyncpg_pool()
+    global notification_service
+    notification_service = NotificationService(NotificationRepository(await asyncpg_pool()))
     yield
 
 
@@ -914,18 +919,17 @@ async def delete_analysis_preset(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.post("/notifications")
+@app.post("/notifications", response_model=SaveNotificationResponse, status_code=status.HTTP_201_CREATED)
 async def save_notification(
-    request: Request,
-    details: SaveNotificationRequest,
+    notification: SaveNotificationRequest,
     token=Depends(ProtectedAny(scopes=[Scopes.CURI__ADMIN])),
 ):
     """Save notification"""
     try:
         customer_id = str(uuid.UUID(token.customer_id))
         bind_context_to_logger({"customer_id": customer_id})
-        logger.info(f"{details=}")
-        # TODO add service layer
+        response = await notification_service.create(notification)
+        return response
     except Exception:
         logger.exception("Failed to save notification")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

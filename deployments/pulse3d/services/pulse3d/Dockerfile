@@ -36,6 +36,8 @@ WORKDIR /app
 COPY --chown=main_user:main_group ./deployments/pulse3d/services/pulse3d/src/main.py ./
 COPY --chown=main_user:main_group ./deployments/pulse3d/services/pulse3d/src/core/ ./core
 COPY --chown=main_user:main_group ./deployments/pulse3d/services/pulse3d/src/models/ ./models
+COPY --chown=main_user:main_group ./deployments/pulse3d/services/pulse3d/src/repository/ ./repository
+COPY --chown=main_user:main_group ./deployments/pulse3d/services/pulse3d/src/service/ ./service
 COPY --chown=main_user:main_group ./deployments/pulse3d/services/pulse3d/disable_log_config.yaml ./
 
 ENV PYTHONUNBUFFERED 1
