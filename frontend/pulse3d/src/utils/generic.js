@@ -280,6 +280,18 @@ const formatJob = (job, selectedJobs, accountId) => {
   }
 };
 
+const compareStr = (s1, s2) => {
+  s1 = s1.toLowerCase();
+  s2 = s2.toLowerCase();
+  if (s1 < s2) {
+    return -1;
+  }
+  if (s1 > s2) {
+    return 1;
+  }
+  return 0;
+};
+
 const productTitle = (s) => {
   return s
     .split("_")
@@ -302,4 +314,5 @@ export {
   getMinP3dVersionForProduct,
   formatJob,
   productTitle,
+  compareStr,
 };

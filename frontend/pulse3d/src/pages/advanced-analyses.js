@@ -36,7 +36,7 @@ const DropDownContainer = styled.div`
 export default function AdvancedAnalyses() {
   const { advancedAnalysisJobs, getAdvancedAnalysisJobs } = useContext(AdvancedAnalysisContext);
 
-  const [isLoading, setIsLoading] = useState(true); // TODO
+  const [isLoading, setIsLoading] = useState(true);
   const [displayRows, setDisplayRows] = useState([]);
   const [tableState, setTableState] = useState({
     sorting: [{ id: "createdAt", desc: true }],
@@ -112,7 +112,7 @@ export default function AdvancedAnalyses() {
       {
         accessorKey: "sources",
         id: "sources",
-        header: "Source IDs",
+        header: "Input IDs",
         filterVariant: "autocomplete",
         size: 230,
         minSize: 130,

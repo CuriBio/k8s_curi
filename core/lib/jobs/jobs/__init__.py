@@ -13,9 +13,9 @@ from .jobs import (
     get_uploads_download_info_for_base_user,
     get_uploads_download_info_for_rw_all_data_user,
     get_uploads_download_info_for_admin,
-    get_jobs_info_for_base_user,
-    get_jobs_info_for_rw_all_data_user,
-    get_jobs_info_for_admin,
+    get_jobs_of_uploads_for_base_user,
+    get_jobs_of_uploads_for_rw_all_data_user,
+    get_jobs_of_uploads_for_admin,
     get_jobs_download_info_for_base_user,
     get_jobs_download_info_for_rw_all_data_user,
     get_jobs_download_info_for_admin,
@@ -31,6 +31,9 @@ from .jobs import (
     get_advanced_analyses_download_info_for_base_user,
     get_advanced_analyses_download_info_for_admin,
     check_customer_advanced_analysis_usage,
+    get_jobs_info_for_base_user,
+    get_jobs_info_for_rw_all_data_user,
+    get_jobs_info_for_admin,
 )
 
 __all__ = [
@@ -48,9 +51,9 @@ __all__ = [
     "get_uploads_download_info_for_base_user",
     "get_uploads_download_info_for_rw_all_data_user",
     "get_uploads_download_info_for_admin",
-    "get_jobs_info_for_base_user",
-    "get_jobs_info_for_rw_all_data_user",
-    "get_jobs_info_for_admin",
+    "get_jobs_of_uploads_for_base_user",
+    "get_jobs_of_uploads_for_rw_all_data_user",
+    "get_jobs_of_uploads_for_admin",
     "get_jobs_download_info_for_base_user",
     "get_jobs_download_info_for_rw_all_data_user",
     "get_jobs_download_info_for_admin",
@@ -66,4 +69,7 @@ __all__ = [
     "get_advanced_analyses_download_info_for_base_user",
     "get_advanced_analyses_download_info_for_admin",
     "check_customer_advanced_analysis_usage",
+    "get_jobs_info_for_base_user",
+    "get_jobs_info_for_rw_all_data_user",
+    "get_jobs_info_for_admin",
 ]
