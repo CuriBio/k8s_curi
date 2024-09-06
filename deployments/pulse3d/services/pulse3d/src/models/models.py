@@ -20,6 +20,10 @@ class SaveNotificationRequest(BaseModel):
     notification_type: NotificationType = NotificationType.CUSTOMERS_AND_USERS
 
 
+class SaveNotificationResponse(BaseModel):
+    id: uuid.UUID
+
+
 class UploadRequest(BaseModel):
     filename: str
     md5s: str | None = Field(default=None)  # TODO when would this be None?
