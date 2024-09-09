@@ -11,8 +11,9 @@ class PostAdvancedAnalysesRequest(BaseModel):
     version: str
     output_name: str
     sources: list[uuid.UUID]
+    job_type: str
 
-    platemap_overrides: dict[str, Any]
+    platemap_overrides: dict[str, Any]  # TODO should add a model for this
 
     # analysis params
     experiment_start_time_utc: datetime
@@ -28,7 +29,7 @@ class PostAdvancedAnalysesDownloadRequest(BaseModel):
 
 class _AdvancedAnalysisJobInfo(BaseModel):
     id: uuid.UUID
-    name: str
+    name: str | None
     type: str
     created_at: datetime
     sources: list[uuid.UUID]

@@ -175,7 +175,12 @@ async def create_new_advanced_analysis(
         logger.info(f"Details: {details.model_dump_json()}")
 
         params = ["experiment_start_time_utc", "local_tz_offset_hours"]
-        analysis_params = {param: details[param] for param in params}
+        details_dict = details.model_dump()
+        analysis_params: dict[str, Any] = {param: details_dict[param] for param in params} | {
+            "experiment_start_time_utc": details_dict["experiment_start_time_utc"].strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+        }
         job_meta = {
             "version": details.version + "rc1",  # TODO remove this once done with rc versions,
             "output_name": details.output_name,
@@ -204,7 +209,8 @@ async def create_new_advanced_analysis(
                 customer_id=customer_id,
                 job_type=details.job_type,
             )
-    except HTTPException:
+    except HTTPException as e:
+        logger.exception(f"Failed to create job: {e.detail}")
         raise
     except Exception:
         logger.exception("Failed to create job")
@@ -228,7 +234,8 @@ async def soft_delete_advanced_analysis(
 
         async with request.state.pgpool.acquire() as con:
             await delete_advanced_analyses(con=con, user_id=user_id, job_ids=job_ids)
-    except HTTPException:
+    except HTTPException as e:
+        logger.exception(f"Failed to soft delete jobs: {e.detail}")
         raise
     except Exception:
         logger.exception("Failed to soft delete jobs")
@@ -301,7 +308,8 @@ async def download_advanced_analysis(
                 ),
                 media_type="application/zip",
             )
-    except HTTPException:
+    except HTTPException as e:
+        logger.exception(f"Failed to download jobs: {e.detail}")
         raise
     except Exception:
         logger.exception("Failed to download jobs")
@@ -323,24 +331,27 @@ async def _get_advanced_analyses_info(con, token, **retrieval_info):
             )
 
 
-async def _validate_sources(con, user_id, source_job_ids):
+async def _validate_sources(con, user_id: str, source_job_ids: list[uuid.UUID]):
     source_to_owner = await _get_owners_of_sources(con, source_job_ids)
-    # right now considering any job where the user ID does not match to be disallowed
-    if invalid_sources := [source_id for source_id, owner in source_to_owner.items() if owner != user_id]:
+    # right now considering any job where the user ID does not match to be disallowed.
+    # If a scope is added that lets users create adv analaysis jobs with jobs under other users in their org,
+    # will need to update this
+    if invalid_sources := [
+        str(source_id) for source_id, owner in source_to_owner.items() if owner != user_id
+    ]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid source IDs: {invalid_sources}"
         )
 
 
-async def _get_owners_of_sources(con, source_job_ids):
+async def _get_owners_of_sources(con, source_job_ids: list[uuid.UUID]):
     rows = await con.fetch(
         "SELECT up.user_id, j.job_id FROM jobs_result j JOIN uploads up ON j.upload_id=up.id WHERE j.job_id=ANY($1::uuid[])",
         source_job_ids,
     )
     source_to_owner = {job_id: None for job_id in source_job_ids} | {
-        row["job_id"]: row["user_id"] for row in rows
+        row["job_id"]: str(row["user_id"]) for row in rows
     }
-    print("!!!", source_to_owner)  # allow-print # TODO delete this after checking that it looks good
     return source_to_owner
 
 
@@ -348,10 +359,11 @@ async def _validate_advanced_analysis_version(con, version):
     version_status = await con.fetchrow(
         "SELECT state, end_of_life_date FROM advanced_analysis_versions WHERE version=$1", version
     )
-    # TODO what happens if the version does not exist?
+    if version_status is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid version: {version}")
+
     status_name = version_status["state"]
     end_of_life_date = version_status["end_of_life_date"]
-
     if status_name == "deprecated" and (
         end_of_life_date is not None and datetime.strptime(end_of_life_date, "%Y-%m-%d") > datetime.now()
     ):

@@ -161,20 +161,20 @@ const pollP3dJobs = async (filenamePrefix, inputType, versionMajMin) => {
   }
 };
 
-const submitAdvAnalysisJob = async (analysisParams) => {
-  return; // TODO
+const submitAdvAnalysisJob = async (analysisParams, selectedP3dJobs) => {
   let requestBody;
   try {
     requestBody = JSON.stringify({
       version: "0.1.0",
       output_name: analysisParams.analysisTitle,
       sources: selectedP3dJobs.map((job) => job.id),
-      platemap_overrides: {},
+      platemap_overrides: { platemaps: [], assignments: {} },
       experiment_start_time_utc: processExperimentStartDate(analysisParams.experimentStartDate)
         .toISOString()
         .replace("T", " ")
-        .split(".")[0],
+        .split(".")[0], // TODO handle local time offset
       local_tz_offset_hours: analysisParams.localTzOffsetHours,
+      job_type: "longitudinal",
     });
   } catch (e) {
     console.log("ERROR formatting requestBody for advanced analysis job submission", e);
@@ -182,9 +182,9 @@ const submitAdvAnalysisJob = async (analysisParams) => {
   }
 
   try {
-    const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/advanced-analyses`;
+    const url = `${process.env.NEXT_PUBLIC_ADVANCED_ANALYSIS_URL}/advanced-analyses`;
     const res = await fetch(url, { method: "POST", body: requestBody });
-    if (res?.status !== 200) {
+    if (res?.status !== 201) {
       throw Error(`response status: ${res?.status}`);
     }
   } catch (e) {
@@ -301,7 +301,7 @@ export default function AdvancedAnalysisForm() {
   );
 
   const formattedJobSelection = selectedP3dJobs.map(
-    ({ filename, id, created_at: createdAt, job_meta: jobMeta, upload_meta: uploadMeta }) => {
+    ({ filename, id, created_at: createdAt, job_meta: jobMeta, upload_meta: uploadMeta, meta }) => {
       const { platemapInfo, platemapSource, version } = extractFromMetas(jobMeta, uploadMeta);
 
       return {
@@ -390,14 +390,14 @@ export default function AdvancedAnalysisForm() {
     setFormState(FORM_STATES.RESET);
   };
 
-  const handleSubmission = () => {
+  const handleSubmission = async () => {
     if (!enableSubmitBtn) {
       return;
     }
     setFormState(FORM_STATES.SUBMITTING);
 
     try {
-      submitAdvAnalysisJob(analysisParams, selectedP3dJobs);
+      await submitAdvAnalysisJob(analysisParams, selectedP3dJobs);
     } catch {
       setFormState(FORM_STATES.SUBMISSION_FAILED);
       return;

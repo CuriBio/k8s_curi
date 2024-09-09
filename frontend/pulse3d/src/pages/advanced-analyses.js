@@ -47,6 +47,7 @@ export default function AdvancedAnalyses() {
     if (advancedAnalysisJobs) {
       const formattedJobs = advancedAnalysisJobs.map(
         ({ id, name: filename, type: jobType, sources, created_at: createdAt, meta, status }) => {
+          filename = filename || meta?.output_name || "None";
           return {
             id,
             filename,
@@ -107,7 +108,7 @@ export default function AdvancedAnalyses() {
         size: 150,
         minSize: 150,
         // TODO figure out how to show metadata: Should it be in a dropdown? Should it be split into multiple cols?
-        Cell: ({ cell }) => getShortUUIDWithTooltip(cell.getValue()),
+        Cell: ({ cell }) => getShortUUIDWithTooltip(JSON.stringify(cell.getValue())),
       },
       {
         accessorKey: "sources",

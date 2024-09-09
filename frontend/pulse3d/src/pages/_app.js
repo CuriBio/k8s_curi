@@ -417,7 +417,15 @@ function Pulse({ Component, pageProps }) {
 
       if (response && response.status === 200) {
         const jobs = await response.json();
-        setAdvancedAnalysisJobs(jobs);
+        const parsedJobs = jobs.map((j) => {
+          try {
+            j.meta = JSON.parse(j.meta);
+          } catch {
+            j.meta = {};
+          }
+          return j;
+        });
+        setAdvancedAnalysisJobs(parsedJobs);
       }
     } catch (e) {
       console.log("ERROR getting advanced analyses for user", e);

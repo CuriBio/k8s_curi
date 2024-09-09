@@ -31,6 +31,8 @@ def upgrade():
     op.execute("GRANT ALL PRIVILEGES ON TABLE advanced_analysis_result TO curibio_advanced_analysis")
     op.execute("GRANT SELECT ON TABLE jobs_result TO curibio_advanced_analysis")
     op.execute("GRANT SELECT ON TABLE uploads TO curibio_advanced_analysis")
+    op.execute("GRANT SELECT ON TABLE users TO curibio_advanced_analysis")
+    op.execute("GRANT SELECT ON TABLE account_scopes TO curibio_advanced_analysis")
 
     op.execute(f"CREATE USER advanced_analysis_queue_processor_ro WITH PASSWORD '{aaqp_user_pass}'")
     op.execute("GRANT SELECT ON TABLE jobs_queue TO advanced_analysis_queue_processor_ro")
@@ -41,6 +43,8 @@ def downgrade():
     op.execute("REVOKE ALL PRIVILEGES ON TABLE advanced_analysis_result FROM curibio_advanced_analysis")
     op.execute("REVOKE ALL PRIVILEGES ON TABLE jobs_result FROM curibio_advanced_analysis")
     op.execute("REVOKE ALL PRIVILEGES ON TABLE uploads FROM curibio_advanced_analysis")
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE users FROM curibio_advanced_analysis")
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE account_scopes FROM curibio_advanced_analysis")
     op.execute("DROP USER curibio_advanced_analysis")
     op.execute("REVOKE ALL PRIVILEGES ON TABLE jobs_queue FROM advanced_analysis_queue_processor_ro")
     op.execute("DROP USER advanced_analysis_queue_processor_ro")
