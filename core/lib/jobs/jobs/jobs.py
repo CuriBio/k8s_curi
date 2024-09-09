@@ -510,8 +510,6 @@ def _add_job_sorting_filtering_conds(query, query_params, sort_field, sort_direc
         match filter_name:
             case "job_ids":
                 new_cond = f"j.job_id=ANY({placeholder}::uuid[])"
-            case "version":
-                new_cond = f"j.meta->>'version'={placeholder}"
             case "status":
                 new_cond = f"j.status={placeholder}"
             case "filename":
@@ -519,6 +517,16 @@ def _add_job_sorting_filtering_conds(query, query_params, sort_field, sort_direc
                     f"LOWER(reverse(split_part(reverse(j.object_key), '/', 1))) LIKE LOWER({placeholder})"
                 )
                 filter_value = f"{filter_value}%"
+            case "include_prerelease_versions":
+                if filter_value:
+                    # if including prerelease versions, no need to add a filter
+                    continue
+                new_cond = f"j.meta->>'version' NOT LIKE {placeholder}"
+                filter_value = "%rc%"
+            case "version_min":
+                new_cond = f"regexp_split_to_array(j.meta->>'version', '\\.')>=regexp_split_to_array({placeholder}, '\\.')"
+            case "version_max":
+                new_cond = f"regexp_split_to_array(j.meta->>'version', '\\.')<=regexp_split_to_array({placeholder}, '\\.')"
             case _:
                 continue
 

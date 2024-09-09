@@ -77,7 +77,7 @@ from models.models import (
     GenericErrorResponse,
     JobDownloadRequest,
     JobRequest,
-    GetJobsRequest,
+    GetJobsInfoRequest,
     JobResponse,
     SavePresetRequest,
     UploadDownloadRequest,
@@ -85,6 +85,7 @@ from models.models import (
     UploadResponse,
     UsageQuota,
     WaveformDataResponse,
+    GetJobsRequest,
 )
 from models.types import TupleParam
 
@@ -357,7 +358,7 @@ async def create_log_upload(
 # TODO Tanner (5/30/24): not sure what to call this since POST /jobs already exists. This needs to be a post route since get routes can't have a body
 @app.post("/jobs/info")
 async def get_jobs_info(
-    request: Request, details: GetJobsRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
+    request: Request, details: GetJobsInfoRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
 ):
     if token.account_type == "user" and details.upload_type not in get_product_tags_of_user(token.scopes):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
@@ -382,48 +383,20 @@ async def get_jobs_info(
 @app.get("/jobs")
 async def get_info_of_jobs(
     request: Request,
-    # legacy options
-    job_ids: list[uuid.UUID] | None = Query(None),
-    legacy: bool = Query(True),
-    download: bool = Query(True),
-    # new options
-    upload_type: str | None = Query(None),
-    sort_field: str | None = Query(None),
-    sort_direction: str | None = Query(None),
-    skip: int = Query(0),
-    limit: int = Query(300),
-    # token
+    model: GetJobsRequest = Depends(),
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
-    if legacy:
-        return await _legacy_get_info_of_jobs(request, job_ids, download, token)
+    if model.legacy:
+        return await _legacy_get_info_of_jobs(request, model.job_ids, model.download, token)
 
     try:
         bind_context_to_logger({"user_id": token.userid, "customer_id": token.customer_id})
 
-        if token.account_type == "user" and upload_type not in get_product_tags_of_user(token.scopes):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
-
-        filters = {
-            filter_name: request.query_params[filter_name]
-            for filter_name in ("version", "status", "filename")
-            if filter_name in request.query_params
-        }
-        # TODO can probably handle this filter the same as the others once it is removed from the function header
-        if job_ids:
-            filters["job_ids"] = job_ids
+        if token.account_type == "user" and model.upload_type not in get_product_tags_of_user(token.scopes):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid product type")
 
         async with request.state.pgpool.acquire() as con:
-            return await _get_jobs_info(
-                con,
-                token,
-                sort_field=sort_field,
-                sort_direction=sort_direction,
-                skip=skip,
-                limit=limit,
-                upload_type=upload_type,
-                **filters,
-            )
+            return await _get_jobs_info(con, token, **model.model_dump(exclude_none=True))
     except HTTPException:
         raise
     except Exception:

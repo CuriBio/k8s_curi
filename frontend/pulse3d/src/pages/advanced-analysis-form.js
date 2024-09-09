@@ -7,8 +7,9 @@ import { AuthContext } from "@/pages/_app";
 import Table from "@/components/table/Table";
 import { Box, IconButton, Tooltip } from "@mui/material";
 import { getShortUUIDWithTooltip } from "@/utils/jsx";
-import { formatDateTime } from "@/utils/generic";
+import { formatDateTime, getTzOffsetHours } from "@/utils/generic";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
+import AnalysisParamContainer from "@/components/uploadForm/AnalysisParamContainer";
 
 const OuterContainer = styled.div`
   justify-content: center;
@@ -41,6 +42,13 @@ const Header = styled.h2`
   line-height: 3;
 `;
 
+const SectionHeader = styled.div`
+  text-align: center;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  font-size: 18px;
+`;
+
 const InputSelectionContainer = styled.div`
   width: 50%;
   border: 2px solid var(--dark-gray);
@@ -71,6 +79,21 @@ const ToolBarDropDownContainer = styled.div`
   margin: 15px 20px;
 `;
 
+const LongitudinalAnalysisParamsContainer = styled.div`
+  padding: 1rem;
+  top: 12%;
+  width: 1150px;
+  position: relative;
+  display: grid;
+  border: solid;
+  justify-content: center;
+  border-color: var(--dark-gray);
+  border-width: 2px;
+  border-radius: 7px;
+  background-color: var(--light-gray);
+  grid-template-columns: 45% 55%;
+`;
+
 const ButtonContainer = styled.div`
   display: flex;
   justify-content: flex-end;
@@ -86,10 +109,20 @@ const SuccessText = styled.span`
   line-height: 3;
 `;
 
+const ErrorText = styled.span`
+  color: red;
+  font-style: italic;
+  font-size: 15px;
+  padding-right: 10px;
+  line-height: 3;
+`;
+
 const SmallerIconButton = styled(IconButton)`
   width: 24px;
   height: 24px;
 `;
+
+const MAX_NUM_INPUTS = 75;
 
 const FORM_STATES = {
   RESET: "idle",
@@ -97,29 +130,73 @@ const FORM_STATES = {
   SUBMITTING: "submitting",
   SUBMISSION_SUCCESSFUL: "submission_successful",
   SUBMISSION_FAILED: "submission_failed",
-  // TODO add other states for modals?
 };
 
-const pollP3dJobs = async (filenamePrefix, inputType) => {
+const pollP3dJobs = async (filenamePrefix, inputType, versionMajMin) => {
   try {
-    // TODO set a min and max version
-    let url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?legacy=false&upload_type=${inputType}&status=finished&filename=${filenamePrefix}&sort_field=filename&sort_direction=ASC`;
+    const query = [
+      "legacy=false",
+      `upload_type=${inputType}`,
+      "status=finished",
+      `filename=${filenamePrefix}`,
+      "sort_field=filename",
+      "sort_direction=ASC",
+      "include_prerelease_versions=false",
+      `version_min=${versionMajMin || "1.0"}.0`,
+    ];
+    if (versionMajMin) {
+      query.push(`version_max=${versionMajMin}.999`);
+    }
+    const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?${query.join("&")}`;
     const response = await fetch(url);
 
     if (response && response.status === 200) {
       const jobs = await response.json();
       return jobs;
     }
-    throw Error(`response: ${response.status}`);
+    throw Error(`response status: ${response.status}`);
   } catch (e) {
     console.log("ERROR getting p3d jobs for user", e);
     throw e;
   }
 };
 
-const getPlatemapInfoFromMetas = (jobMeta, uploadMeta) => {
+const submitAdvAnalysisJob = async (analysisParams) => {
+  return; // TODO
+  let requestBody;
+  try {
+    requestBody = JSON.stringify({
+      version: "0.1.0",
+      output_name: analysisParams.analysisTitle,
+      sources: selectedP3dJobs.map((job) => job.id),
+      platemap_overrides: {},
+      experiment_start_time_utc: processExperimentStartDate(analysisParams.experimentStartDate)
+        .toISOString()
+        .replace("T", " ")
+        .split(".")[0],
+      local_tz_offset_hours: analysisParams.localTzOffsetHours,
+    });
+  } catch (e) {
+    console.log("ERROR formatting requestBody for advanced analysis job submission", e);
+    throw e;
+  }
+
+  try {
+    const url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/advanced-analyses`;
+    const res = await fetch(url, { method: "POST", body: requestBody });
+    if (res?.status !== 200) {
+      throw Error(`response status: ${res?.status}`);
+    }
+  } catch (e) {
+    console.log("ERROR submitting advanced analysis job", e);
+    throw e;
+  }
+};
+
+const extractFromMetas = (jobMeta, uploadMeta) => {
   // check job meta
   jobMeta = JSON.parse(jobMeta);
+  const version = jobMeta?.version;
   let wellGroups = jobMeta?.analysis_params?.well_groups;
   if (wellGroups) {
     return {
@@ -128,6 +205,7 @@ const getPlatemapInfoFromMetas = (jobMeta, uploadMeta) => {
         wellGroups,
       },
       platemapSource: "Pulse3D Override",
+      version,
     };
   }
   // check upload meta
@@ -140,6 +218,7 @@ const getPlatemapInfoFromMetas = (jobMeta, uploadMeta) => {
         wellGroups: uploadMeta.platemap_labels,
       },
       platemapSource: "Recording Metadata",
+      version,
     };
   }
   // return unassigned info
@@ -149,7 +228,61 @@ const getPlatemapInfoFromMetas = (jobMeta, uploadMeta) => {
       wellGroups: {},
     },
     platemapSource: "None",
+    version,
   };
+};
+
+const processExperimentStartDate = (d) => {
+  return new Date(`${d.replace("_", " ")}:00:00`);
+};
+
+const getMajMinFromVersion = (v) => {
+  if (v == null) {
+    return null;
+  }
+  try {
+    return v.split(".").slice(0, -1).join(".");
+  } catch {
+    console.log(`ERROR invalid job version: ${v}`);
+    return null;
+  }
+};
+
+const getDefaultAnalysisParams = () => {
+  return {
+    analysisTitle: "",
+    experimentStartDate: "",
+    localTzOffsetHours: getTzOffsetHours(),
+  };
+};
+
+const getUpdatedAnalysisParamErrors = (newParams, paramErrors) => {
+  const updatedParamErrors = { ...paramErrors };
+
+  if ("analysisTitle" in newParams) {
+    const testVal = newParams.analysisTitle;
+    let errMsg = "";
+    if (testVal == null || testVal.length === 0) {
+      errMsg = "Required";
+    } else if (testVal.length > 300) {
+      // Tanner (9/5/24): picking an arbitrary max length since it seems appropriate to have one. Not sure what this max should actually be
+      errMsg = "Must be <= 300 characters";
+    }
+    updatedParamErrors.analysisTitle = errMsg;
+  }
+
+  if ("experimentStartDate" in newParams) {
+    const testVal = newParams.experimentStartDate;
+    let errMsg = "";
+    if (testVal == null || testVal.length === 0) {
+      errMsg = "Required";
+    } else if (testVal.length !== 13 || isNaN(processExperimentStartDate(testVal))) {
+      errMsg = "Invalid value/format, must be 'YYYY-MM-DD_HH'";
+    }
+    updatedParamErrors.experimentStartDate = errMsg;
+  }
+
+  return updatedParamErrors;
 };
 
 export default function AdvancedAnalysisForm() {
@@ -162,9 +295,14 @@ export default function AdvancedAnalysisForm() {
   const [pollAvailableP3dJobsTimeout, setPollAvailableP3dJobsTimeout] = useState();
   const [selectedP3dJobs, setSelectedP3dJobs] = useState([]);
 
+  const [analysisParams, setAnalysisParams] = useState(getDefaultAnalysisParams());
+  const [analysisParamErrors, setAnalysisParamErrors] = useState(
+    getUpdatedAnalysisParamErrors(getDefaultAnalysisParams(), {})
+  );
+
   const formattedJobSelection = selectedP3dJobs.map(
     ({ filename, id, created_at: createdAt, job_meta: jobMeta, upload_meta: uploadMeta }) => {
-      const { platemapInfo, platemapSource } = getPlatemapInfoFromMetas(jobMeta, uploadMeta);
+      const { platemapInfo, platemapSource, version } = extractFromMetas(jobMeta, uploadMeta);
 
       return {
         filename,
@@ -172,6 +310,7 @@ export default function AdvancedAnalysisForm() {
         createdAt,
         platemapInfo,
         platemapSource,
+        version,
       };
     }
   );
@@ -181,11 +320,23 @@ export default function AdvancedAnalysisForm() {
     (accountScope || []).some((scope) => scope.includes(p))
   );
 
+  const versionMajMin = getMajMinFromVersion(formattedJobSelection[0]?.version);
+  const inputLimitReached = selectedP3dJobs.length >= MAX_NUM_INPUTS;
   const enableSubmitBtn =
     formState === FORM_STATES.USER_EDITING &&
     inputType != null &&
     selectedP3dJobs.length >= 2 &&
-    formattedJobSelection.every((job) => job.platemapSource !== "None");
+    selectedP3dJobs.length <= MAX_NUM_INPUTS &&
+    formattedJobSelection.every((job) => job.platemapSource !== "None") &&
+    Object.values(analysisParamErrors).every((msg) => msg === "");
+
+  const updateAnalysisParams = (newParams) => {
+    setFormState(FORM_STATES.USER_EDITING);
+    const updatedParams = { ...analysisParams, ...newParams };
+    const updatedParamErrors = getUpdatedAnalysisParamErrors(newParams, analysisParamErrors);
+    setAnalysisParams(updatedParams);
+    setAnalysisParamErrors(updatedParamErrors);
+  };
 
   const handleInputTypeDropDownSelect = (idx) => {
     setFormState(FORM_STATES.USER_EDITING);
@@ -209,12 +360,34 @@ export default function AdvancedAnalysisForm() {
     if (!isJobAlreadySelected(newJob)) {
       setSelectedP3dJobs([...selectedP3dJobs, newJob]);
     }
+    if (versionMajMin === null) {
+      try {
+        const newMajMinVersion = getMajMinFromVersion(JSON.parse(newJob.job_meta).version);
+        if (newMajMinVersion === null) {
+          return;
+        }
+        // now that a version has been set, need to filter out all jobs with a different version here since the list
+        // of available jobs won't be updated until the user starts typing into the input box again, which is not required before choosing
+        // another option from the list
+        setAvailableP3dJobs(
+          availableP3dJobs.filter((j) => {
+            try {
+              const jobVersion = JSON.parse(j.job_meta).version;
+              return getMajMinFromVersion(jobVersion) === newMajMinVersion;
+            } catch {
+              return false;
+            }
+          })
+        );
+      } catch {}
+    }
   };
 
   const resetState = () => {
-    setFormState(FORM_STATES.RESET);
     setSelectedP3dJobs([]);
     setInputType();
+    updateAnalysisParams(getDefaultAnalysisParams());
+    setFormState(FORM_STATES.RESET);
   };
 
   const handleSubmission = () => {
@@ -222,7 +395,15 @@ export default function AdvancedAnalysisForm() {
       return;
     }
     setFormState(FORM_STATES.SUBMITTING);
-    // TODO
+
+    try {
+      submitAdvAnalysisJob(analysisParams, selectedP3dJobs);
+    } catch {
+      setFormState(FORM_STATES.SUBMISSION_FAILED);
+      return;
+    }
+    resetState();
+    setFormState(FORM_STATES.SUBMISSION_SUCCESSFUL);
   };
 
   const onSelectInputChange = (e, value) => {
@@ -233,9 +414,11 @@ export default function AdvancedAnalysisForm() {
     clearTimeout(pollAvailableP3dJobsTimeout);
     const newPollAvailableInputsTimeout = setTimeout(async () => {
       try {
-        const newAvailableP3dJobs = (await pollP3dJobs(value, inputType)).filter((retrievedJob) => {
-          return !isJobAlreadySelected(retrievedJob);
-        });
+        const newAvailableP3dJobs = (await pollP3dJobs(value, inputType, versionMajMin)).filter(
+          (retrievedJob) => {
+            return !isJobAlreadySelected(retrievedJob);
+          }
+        );
         setAvailableP3dJobs(newAvailableP3dJobs);
       } catch {}
       setLoadingAvailableP3dJobs(false);
@@ -259,7 +442,7 @@ export default function AdvancedAnalysisForm() {
                 label="Select Input Type"
                 options={availableInputTypes}
                 handleSelection={handleInputTypeDropDownSelect}
-                reset={formState === FORM_STATES.RESET}
+                reset={[FORM_STATES.RESET, FORM_STATES.SUBMISSION_SUCCESSFUL].includes(formState)}
                 width={500}
                 disabled={formState === FORM_STATES.SUBMITTING}
               />
@@ -270,31 +453,47 @@ export default function AdvancedAnalysisForm() {
           <DropDownContainer>
             <div style={{ backgroundColor: "white", marginBottom: "30px" }}>
               <InputDropdownWidget
-                label="Select Inputs"
+                label={inputLimitReached ? "Maximum Input Limit Reached" : "Select Inputs"}
                 options={availableP3dJobs.map((j) => `${j.filename} (${formatDateTime(j.created_at)})`)}
                 handleSelection={handleInputDropDownSelect}
-                reset={formState === FORM_STATES.RESET || availableP3dJobs.length === 0}
+                reset={
+                  [FORM_STATES.RESET, FORM_STATES.SUBMISSION_SUCCESSFUL].includes(formState) ||
+                  availableP3dJobs.length === 0 ||
+                  inputLimitReached
+                }
                 width={500}
-                disabled={formState === FORM_STATES.SUBMITTING || inputType == null}
+                disabled={formState === FORM_STATES.SUBMITTING || inputType == null || inputLimitReached}
                 onInputChange={onSelectInputChange}
                 loading={loadingAvailableP3dJobs}
               />
             </div>
           </DropDownContainer>
         </InputSelectionContainer>
-        <div style={{ textAlign: "center", marginTop: "10px", marginBottom: "10px", fontSize: "18px" }}>
-          <b>Selected Inputs:</b>
-        </div>
+        <SectionHeader>
+          <b>Selected Inputs</b>
+        </SectionHeader>
         <InputSelectionTableContainer>
           <InputSelectionTable
             formattedJobSelection={formattedJobSelection}
             removeInputsFromSelection={removeInputsFromSelection}
           />
         </InputSelectionTableContainer>
+
+        <SectionHeader style={{ marginTop: "50px" }}>
+          <b>Analysis Options</b>
+        </SectionHeader>
+        <LongitudinalAnalysisParamsContainer>
+          <LongitudinalAnalysisParams
+            analysisParams={analysisParams}
+            updateParams={updateAnalysisParams}
+            errorMessages={analysisParamErrors}
+          />
+        </LongitudinalAnalysisParamsContainer>
         <ButtonContainer>
           {formState === FORM_STATES.SUBMISSION_SUCCESSFUL && (
             <SuccessText>Submission Successful!</SuccessText>
           )}
+          {formState === FORM_STATES.SUBMISSION_FAILED && <ErrorText>Error Submitting Analysis</ErrorText>}
           <ButtonWidget
             width="200px"
             height="50px"
@@ -317,33 +516,6 @@ export default function AdvancedAnalysisForm() {
           />
         </ButtonContainer>
       </FormContainer>
-      {/* TODO
-      <ModalWidget
-        open={modalState}
-        labels={failedUploadsMsg}
-        buttons={modalButtons}
-        closeModal={handleClose}
-        header="Error Occurred"
-      />
-      <ModalWidget
-        open={usageModalState}
-        labels={usageModalLabels.messages}
-        closeModal={() => {
-          setUsageModalState(false);
-          router.replace("/uploads", undefined, { shallow: true });
-        }}
-        header={usageModalLabels.header}
-      />
-      <ModalWidget
-        open={creditUsageAlert}
-        labels={["This re-analysis will consume 1 analysis credit."]}
-        closeModal={() => {
-          setCreditUsageAlert(false);
-          setAlertShowed(true);
-        }}
-        header={"Attention!"}
-      />
-      */}
     </OuterContainer>
   );
 }
@@ -410,9 +582,10 @@ function InputSelectionTable({ formattedJobSelection, removeInputsFromSelection 
                     </div>
                   );
                 });
+          const color = name === "None" ? "red" : "black";
           return (
             <Tooltip title={<span style={{ fontSize: "15px" }}>{tooltipText}</span>}>
-              <div>{name}</div>
+              <div style={{ color }}>{name}</div>
             </Tooltip>
           );
         },
@@ -424,6 +597,11 @@ function InputSelectionTable({ formattedJobSelection, removeInputsFromSelection 
         filterVariant: "autocomplete",
         size: 200,
         minSize: 130,
+        Cell: ({ cell }) => {
+          const val = cell.getValue();
+          const color = val === "None" ? "red" : "black";
+          return <div style={{ color }}>{val}</div>;
+        },
       },
     ],
     []
@@ -472,6 +650,37 @@ function InputSelectionTable({ formattedJobSelection, removeInputsFromSelection 
   );
 }
 
-function LongitudinalAnalysisParams() {
-  // TODO
+function LongitudinalAnalysisParams({ analysisParams, updateParams, errorMessages }) {
+  return (
+    <div>
+      <AnalysisParamContainer
+        label="Analysis Title"
+        name="analysisTitle"
+        tooltipText="Specifies the name of the output file."
+        additionaErrorStyle={{ width: "150%" }}
+        placeholder="Analysis Title"
+        value={analysisParams.analysisTitle}
+        changeFn={(e) => {
+          updateParams({
+            analysisTitle: e.target.value,
+          });
+        }}
+        errorMsg={errorMessages.analysisTitle}
+      />
+      <AnalysisParamContainer
+        label="Experiment Start Date"
+        name="experimentStartDate"
+        tooltipText="Specifies the start date and hour of the experiment. This is used to determine how many days into the experiment each recording was taken."
+        additionaErrorStyle={{ width: "150%" }}
+        placeholder="YYYY-MM-DD_HH"
+        value={analysisParams.experimentStartDate}
+        changeFn={(e) => {
+          updateParams({
+            experimentStartDate: e.target.value,
+          });
+        }}
+        errorMsg={errorMessages.experimentStartDate}
+      />
+    </div>
+  );
 }

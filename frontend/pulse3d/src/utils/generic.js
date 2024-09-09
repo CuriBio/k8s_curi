@@ -299,6 +299,14 @@ const productTitle = (s) => {
     .join(" ");
 };
 
+const getTzOffsetHours = () => {
+  try {
+    return Math.floor(new Date().getTimezoneOffset() / -60);
+  } catch {
+    return 0;
+  }
+};
+
 export {
   deepCopy,
   hexToBase64,
@@ -315,4 +323,5 @@ export {
   formatJob,
   productTitle,
   compareStr,
+  getTzOffsetHours,
 };
