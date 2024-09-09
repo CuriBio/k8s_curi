@@ -47,19 +47,32 @@ const NotificationType = {
 
 export default function NotificationsManagement() {
   const [showCreateNotificationModal, setShowCreateNotificationModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
   const [subject, setSubject] = useState("");
   const [notificationType, setNotificationType] = useState(0);
   const quillRef = useRef(); // Use a ref to access the quill instance directly
 
   const saveNotification = async () => {
-    await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/notifications`, {
-      method: "POST",
-      body: JSON.stringify({
-        subject,
-        body: quillRef.current.getSemanticHTML(),
-        notification_type: Object.keys(NotificationType)[notificationType],
-      }),
-    });
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/notifications`, {
+        method: "POST",
+        body: JSON.stringify({
+          subject,
+          body: quillRef.current.getSemanticHTML(),
+          notification_type: Object.keys(NotificationType)[notificationType],
+        }),
+      });
+
+      if (res && res.status === 201) {
+        return;
+      }
+
+      console.log("ERROR - POST /notifications: unexpected response");
+    } catch (e) {
+      console.log(`ERROR - POST /notifications: ${e}`);
+    }
+
+    setShowErrorModal(true);
   };
 
   const handleCreateNotificationButtonClick = () => {
@@ -68,11 +81,7 @@ export default function NotificationsManagement() {
 
   const handleCreateNotificationModalButtons = async (idx, buttonLabel) => {
     if (buttonLabel === "Save") {
-      console.log("Subject: " + subject);
-      console.log("Body: " + quillRef.current.getSemanticHTML());
-      console.log("Notification Type: " + notificationType);
-
-      await saveNotification(); // TODO: add response handling
+      await saveNotification();
     }
 
     setShowCreateNotificationModal(false);
@@ -115,13 +124,19 @@ export default function NotificationsManagement() {
               options={Object.values(NotificationType)}
               initialSelected={0}
               height={35}
-              handleSelection={(i) => {
-                setNotificationType(i);
-              }}
+              handleSelection={setNotificationType}
             />
           </DropDownContainer>
         </ModalInputContainer>
       </ModalWidget>
+      <ModalWidget
+        open={showErrorModal}
+        closeModal={() => setShowErrorModal(false)}
+        width={500}
+        header={"Error Occurred!"}
+        labels={["Something went wrong while performing this action.", "Please try again later."]}
+        buttons={["Close"]}
+      />
     </Container>
   );
 }
