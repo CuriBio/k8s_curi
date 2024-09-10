@@ -33,15 +33,59 @@ const DropDownContainer = styled.div`
   margin: 15px 20px;
 `;
 
+const downloadJobs = async (jobIds) => {
+  try {
+    if (jobIds.length === 0) {
+      return;
+    }
+
+    const url = `${process.env.NEXT_PUBLIC_ADVANCED_ANALYSIS_URL}/advanced-analyses/download`;
+    const res = await fetch(url, {
+      method: "POST",
+      body: JSON.stringify({
+        job_ids: jobIds,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      }),
+    });
+    if (res?.status !== 200) {
+      throw Error(`response status: ${res.status}`);
+    }
+
+    let downloadUrl, downloadName;
+    if (jobIds.length === 1) {
+      // will be downloading from a presigned URL in this case
+      const downloadInfo = await res.json();
+      downloadUrl = downloadInfo.url;
+      downloadName = "download"; // name does not actually matter in this case, the filename will be whatever it is set to in S3
+    } else {
+      // will receive a stream of the zipped files in this case
+      downloadName = `advanced_analyses__${formatDateTime()}__${jobIds.length}.zip`;
+      const file = await res.blob();
+      downloadUrl = window.URL.createObjectURL(file);
+    }
+    const a = document.createElement("a");
+    document.body.appendChild(a);
+    a.setAttribute("href", downloadUrl);
+    a.setAttribute("download", downloadName);
+    a.click();
+    a.remove();
+  } catch (e) {
+    console.log("ERROR downloading jobs:", e);
+  }
+};
+
 export default function AdvancedAnalyses() {
   const { advancedAnalysisJobs, getAdvancedAnalysisJobs } = useContext(AdvancedAnalysisContext);
 
   const [isLoading, setIsLoading] = useState(true);
   const [displayRows, setDisplayRows] = useState([]);
+  const [checkedRows, setCheckedRows] = useState({});
   const [tableState, setTableState] = useState({
     sorting: [{ id: "createdAt", desc: true }],
     columnFilters: [],
   });
+
+  const checkedJobIds = Object.keys(checkedRows);
 
   useEffect(() => {
     if (advancedAnalysisJobs) {
@@ -137,25 +181,34 @@ export default function AdvancedAnalyses() {
     []
   );
 
+  const handleActionSelection = async (optionIdx) => {
+    try {
+      if (optionIdx === 0 /* Download */) {
+        await downloadJobs(checkedJobIds);
+      } else if (optionIdx === 1 /* Delete */) {
+        // TODO
+      }
+    } catch {
+      return;
+    }
+    setCheckedRows({});
+  };
+
   const actionsFn = (t) => {
-    const checkedRows = t.getSelectedRowModel().rows;
+    const checkedJobs = t.getSelectedRowModel().rows.map((row) => row.original);
     return (
       <Box sx={{ width: "100%", position: "relative", display: "flex", justifyContent: "end" }}>
         <DropDownContainer>
           <DropDownWidget
             label="Actions"
-            options={["TODO"]}
-            // subOptions={{
-            //   Download: ["Download Analyses", "Download Raw Data"],
-            // }}
-            disableOptions={"TODO"}
-            optionsTooltipText={["TODO"]}
-            handleSelection={/* TODO */ () => {}}
-            handleSubSelection={/* TODO */ () => {}}
-            reset={/* TODO */ () => {}}
-            disableSubOptions={/* TODO */ {}}
-            subOptionsTooltipText={["TODO"]}
-            setReset={/* TODO */ () => {}}
+            options={["Download", "Delete"]}
+            disableOptions={[
+              checkedJobIds.length === 0 || checkedJobs.some((j) => j.status !== "finished"),
+              true,
+            ]}
+            optionsTooltipText={["Must make a selection of only completed jobs.", "Coming soon."]}
+            handleSelection={handleActionSelection}
+            reset={checkedJobIds.length === 0}
           />
         </DropDownContainer>
       </Box>
@@ -167,10 +220,9 @@ export default function AdvancedAnalyses() {
       <Table
         columns={columns}
         rowData={displayRows}
-        rowSelection={/* TODO */ []}
-        setRowSelection={/* TODO */ () => {}}
+        rowSelection={checkedRows}
+        setRowSelection={setCheckedRows}
         toolbarFn={actionsFn}
-        // enableExpanding={true}
         isLoading={isLoading}
         manualSorting={true}
         onSortingChange={(newSorting) => {

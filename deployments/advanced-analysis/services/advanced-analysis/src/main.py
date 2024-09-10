@@ -261,16 +261,22 @@ async def download_advanced_analysis(
         async with request.state.pgpool.acquire() as con:
             jobs = await _get_advanced_analyses_download_info(con, token, job_ids=job_ids)
 
+        if not jobs:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid job ID(s)")
+
         num_times_repeated = defaultdict(lambda: 0)
 
         filename_overrides = list()
         keys = list()
 
         for job in jobs:
-            obj_key = job["object_key"]
+            s3_prefix = job["s3_prefix"]
+            filename = job["name"]
+            obj_key = f"{s3_prefix}/{filename}"
+            if not s3_prefix or not filename:
+                logger.error(f"Invalid s3 prefix and or name for job: {obj_key}")
+                continue
             keys.append(obj_key)
-
-            filename = os.path.basename(obj_key)
 
             filename_override = filename
             if details.timezone:
@@ -295,10 +301,9 @@ async def download_advanced_analysis(
         if len(jobs) == 1:
             # if only one file requested, return single presigned URL
             return {
-                "id": jobs[0]["id"],
                 "url": generate_presigned_url(
                     PULSE3D_UPLOADS_BUCKET, keys[0], filename_override=filename_overrides[0]
-                ),
+                )
             }
         else:
             # Grab ZIP file from in-memory, make response with correct MIME-type
@@ -370,6 +375,7 @@ async def _validate_advanced_analysis_version(con, version):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid version: {version}")
 
 
+# TODO move this to core/utils and share with other services that use it too
 def _add_timestamp_to_filename(filename: str, timestamp: str) -> str:
     name, ext = os.path.splitext(filename)
     return f"{name}__{timestamp}{ext}"
@@ -381,11 +387,11 @@ async def _get_advanced_analyses_download_info(con, token, job_ids) -> list[dict
     match token.account_type:
         case "user":
             return await get_advanced_analyses_download_info_for_base_user(
-                con, user_id=str(token.userid), job_ids=job_ids
+                con=con, user_id=str(token.userid), job_ids=job_ids
             )
         case "admin":
             return await get_advanced_analyses_download_info_for_admin(
-                con, customer_id=str(token.customer_id), job_ids=job_ids
+                con=con, customer_id=str(token.customer_id), job_ids=job_ids
             )
         case invalid_account_type:
             raise Exception(f"Invalid account type: {invalid_account_type}")

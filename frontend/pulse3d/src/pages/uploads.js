@@ -602,7 +602,7 @@ export default function Uploads() {
         const a = document.createElement("a");
         document.body.appendChild(a);
         a.setAttribute("href", presignedUrl);
-        a.setAttribute("download", name);
+        a.setAttribute("download", "download");
         a.click();
         a.remove();
       } else {

@@ -938,8 +938,8 @@ async def delete_advanced_analyses(*, con, user_id, job_ids):
 
 async def get_advanced_analyses_download_info_for_base_user(*, con, user_id, job_ids):
     query = (
-        "SELECT id, object_key, created_at FROM advanced_analysis_result "
-        "WHERE user_id=$1 AND status!='deleted' AND job_id=ANY($2::uuid[])"
+        "SELECT id, s3_prefix, name, created_at FROM advanced_analysis_result "
+        "WHERE user_id=$1 AND status='finished' AND id=ANY($2::uuid[])"
     )
 
     async with con.transaction():
@@ -950,8 +950,8 @@ async def get_advanced_analyses_download_info_for_base_user(*, con, user_id, job
 
 async def get_advanced_analyses_download_info_for_admin(*, con, customer_id, job_ids):
     query = (
-        "SELECT id, object_key, created_at FROM advanced_analysis_result "
-        "WHERE customer_id=$1 AND status!='deleted' AND job_id=ANY($2::uuid[])"
+        "SELECT id, s3_prefix, name, created_at FROM advanced_analysis_result "
+        "WHERE customer_id=$1 AND status='finished' AND id=ANY($2::uuid[])"
     )
 
     async with con.transaction():

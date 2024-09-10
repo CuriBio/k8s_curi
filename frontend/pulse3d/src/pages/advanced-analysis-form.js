@@ -156,7 +156,7 @@ const pollP3dJobs = async (filenamePrefix, inputType, versionMajMin) => {
     }
     throw Error(`response status: ${response.status}`);
   } catch (e) {
-    console.log("ERROR getting p3d jobs for user", e);
+    console.log("ERROR getting p3d jobs for user:", e);
     throw e;
   }
 };
@@ -177,7 +177,7 @@ const submitAdvAnalysisJob = async (analysisParams, selectedP3dJobs) => {
       job_type: "longitudinal",
     });
   } catch (e) {
-    console.log("ERROR formatting requestBody for advanced analysis job submission", e);
+    console.log("ERROR formatting requestBody for advanced analysis job submission:", e);
     throw e;
   }
 
@@ -188,7 +188,7 @@ const submitAdvAnalysisJob = async (analysisParams, selectedP3dJobs) => {
       throw Error(`response status: ${res?.status}`);
     }
   } catch (e) {
-    console.log("ERROR submitting advanced analysis job", e);
+    console.log("ERROR submitting advanced analysis job:", e);
     throw e;
   }
 };

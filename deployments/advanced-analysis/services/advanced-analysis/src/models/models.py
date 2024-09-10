@@ -22,6 +22,7 @@ class PostAdvancedAnalysesRequest(BaseModel):
 
 class PostAdvancedAnalysesDownloadRequest(BaseModel):
     job_ids: list[uuid.UUID]
+    timezone: str | None = None
 
 
 # RESPONSES
