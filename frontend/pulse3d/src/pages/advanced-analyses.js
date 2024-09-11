@@ -4,7 +4,7 @@ import Table from "@/components/table/Table";
 import { Box, IconButton } from "@mui/material";
 import { useContext, useState, useEffect, useMemo } from "react";
 import { AdvancedAnalysisContext } from "./_app";
-import { formatDateTime } from "@/utils/generic";
+import { formatAdvancedAnalysisJob, formatDateTime } from "@/utils/generic";
 import { getShortUUIDWithTooltip } from "@/utils/jsx";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 
@@ -74,8 +74,73 @@ const downloadJobs = async (jobIds) => {
   }
 };
 
+const getSortFilterName = (sortColId) => {
+  if (sortColId === "filename") {
+    return "name";
+  } else if (sortColId === "createdAt") {
+    return "created_at";
+  } else {
+    return sortColId;
+  }
+};
+
 export default function AdvancedAnalyses() {
   const { advancedAnalysisJobs, getAdvancedAnalysisJobs } = useContext(AdvancedAnalysisContext);
+
+  const reGetAdvancedAnalysisJobs = (tableState) => {
+    if (!advancedAnalysisJobs?.length) {
+      return;
+    }
+
+    const { sorting, columnFilters } = tableState;
+
+    // TODO consider pulling this into a function and sharing with uploads table
+    let sortField, sortDirection;
+    if (sorting.length > 0) {
+      const sortInfo = sorting[0];
+      sortField = getSortFilterName(sortInfo.id);
+      sortDirection = sortInfo.desc ? "DESC" : "ASC";
+    }
+
+    const filters = {};
+    for (const filt of columnFilters) {
+      const filterName = getSortFilterName(filt.id);
+      const filterValue = filt.value;
+      // assuming that an array indicates the filter type is a datetime
+      if (filterValue instanceof Array) {
+        const formatDate = (date, max = false) => {
+          if (!date?.toISOString) {
+            return null;
+          }
+          try {
+            date = new Date(date);
+            if (max) {
+              date.setDate(date.getDate() + 1);
+              date.setMilliseconds(date.getMilliseconds() - 1);
+            }
+            return date.toISOString();
+          } catch {
+            return null;
+          }
+        };
+
+        const min = filterValue[0];
+        const formattedMin = formatDate(min);
+        if (formattedMin) {
+          filters[filterName + "_min"] = formattedMin;
+        }
+        const max = filterValue[1];
+        const formattedMax = formatDate(max, true);
+        if (formattedMax) {
+          filters[filterName + "_max"] = formattedMax;
+        }
+      } else {
+        filters[filterName] = filt.value;
+      }
+    }
+
+    getAdvancedAnalysisJobs(filters, sortField, sortDirection);
+  };
 
   const [isLoading, setIsLoading] = useState(true);
   const [displayRows, setDisplayRows] = useState([]);
@@ -85,32 +150,21 @@ export default function AdvancedAnalyses() {
     columnFilters: [],
   });
 
+  console.log(tableState);
+
   const checkedJobIds = Object.keys(checkedRows);
 
   useEffect(() => {
-    if (advancedAnalysisJobs) {
-      const formattedJobs = advancedAnalysisJobs.map(
-        ({ id, name: filename, type: jobType, sources, created_at: createdAt, meta, status }) => {
-          filename = filename || meta?.output_name || "None";
-          return {
-            id,
-            filename,
-            jobType,
-            createdAt,
-            sources,
-            meta,
-            status,
-          };
-        }
-      );
-
-      setDisplayRows([...formattedJobs]);
+    if (advancedAnalysisJobs?.length > 1) {
+      setDisplayRows([...advancedAnalysisJobs]);
       setIsLoading(false);
     }
   }, [advancedAnalysisJobs]);
 
   const updateTableState = (newState) => {
-    setTableState({ ...tableState, ...newState });
+    const updatedState = { ...tableState, ...newState };
+    setTableState(updatedState);
+    reGetAdvancedAnalysisJobs(updatedState);
   };
 
   const columns = useMemo(
@@ -149,6 +203,8 @@ export default function AdvancedAnalyses() {
         accessorKey: "meta",
         id: "meta",
         header: "Metadata",
+        enableColumnFilter: false,
+        enableSorting: false,
         size: 150,
         minSize: 150,
         // TODO figure out how to show metadata: Should it be in a dropdown? Should it be split into multiple cols?
@@ -158,7 +214,8 @@ export default function AdvancedAnalyses() {
         accessorKey: "sources",
         id: "sources",
         header: "Input IDs",
-        filterVariant: "autocomplete",
+        enableColumnFilter: false,
+        enableSorting: false,
         size: 230,
         minSize: 130,
         Cell: ({ cell }) => (
@@ -174,6 +231,7 @@ export default function AdvancedAnalyses() {
           row.status == "finished" ? "Completed" : row.status[0].toUpperCase() + row.status.slice(1),
         id: "status",
         header: "Status",
+        filterVariant: "autocomplete",
         size: 200,
         Cell: ({ cell }) => <StatusText>{cell.getValue()}</StatusText>,
       },

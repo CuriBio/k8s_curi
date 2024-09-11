@@ -877,6 +877,8 @@ def _add_advanced_analysis_sorting_filtering_conds(
                 new_cond = f"created_at >= to_timestamp({placeholder}, 'YYYY-MM-DD\"T\"HH:MI:SS.MSZ')"
             case "created_at_max":
                 new_cond = f"created_at <= to_timestamp({placeholder}, 'YYYY-MM-DD\"T\"HH:MI:SS.MSZ')"
+            case "status":
+                new_cond = f"status={placeholder}"
             case _:
                 continue
 
@@ -886,7 +888,7 @@ def _add_advanced_analysis_sorting_filtering_conds(
     if conds:
         query += conds
 
-    if sort_field in ("name", "id", "created_at", "type"):
+    if sort_field in ("name", "id", "created_at", "type", "status"):
         if sort_direction not in ("ASC", "DESC"):
             sort_direction = "DESC"
         sort_direction = sort_direction.upper()

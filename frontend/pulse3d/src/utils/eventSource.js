@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { formatJob } from "@/utils/generic";
+import { formatAdvancedAnalysisJob, formatP3dJob } from "@/utils/generic";
 
 const getPayload = (e, listenerName) => {
   try {
@@ -66,11 +66,26 @@ export default function useEventSource(hooks) {
         return;
       }
 
-      if (
-        (hooksRef.current.accountType !== "admin" && payload.product !== hooksRef.current.productPage) ||
-        hooksRef.current.jobs.length === 0
-      ) {
-        return;
+      if (hooksRef.current.accountType === "admin") {
+        if (payload.product === "advanced_analysis") {
+          return; // TODO
+        }
+        if (hooksRef.current.jobs.length === 0) {
+          return;
+        }
+      } else {
+        if (payload.product !== hooksRef.current.productPage) {
+          // user account must have a product page set
+          return;
+        } else if (["mantarray", "nautilai"].includes(payload.product)) {
+          if (hooksRef.current.jobs.length === 0) {
+            return;
+          }
+        } else if (payload.product === "advanced_analysis") {
+          if (hooksRef.current.advancedAnalysisJobs.length === 0) {
+            return;
+          }
+        }
       }
 
       if (payload.usage_type === "uploads") {
@@ -82,34 +97,52 @@ export default function useEventSource(hooks) {
         }
       } else if (payload.usage_type === "jobs") {
         const { jobs, setJobs } = hooksRef.current;
-
+        // If job is present, update it in place then return
         for (const [i, job] of jobs.entries()) {
           if (job.jobId === payload.id) {
-            jobs[i] = formatJob(payload, {}, hooksRef.current.accountId);
+            jobs[i] = formatP3dJob(payload, {}, hooksRef.current.accountId);
             jobs[i].checked = job.checked;
             setJobs([...jobs]);
             return;
           }
         }
-
-        const formattedJob = formatJob(payload, {}, hooksRef.current.accountId);
+        // job is not present, so just add it
+        const formattedJob = formatP3dJob(payload, {}, hooksRef.current.accountId);
         if (formattedJob != null) {
           setJobs([formattedJob, ...jobs]);
         }
+      } else if (payload.usage_type === "advanced_analysis") {
+        const { advancedAnalysisJobs, setAdvancedAnalysisJobs } = hooksRef.current;
+        // If job is present, update it in place then return
+        const formattedJob = formatAdvancedAnalysisJob(payload);
+        for (const [i, job] of advancedAnalysisJobs.entries()) {
+          if (job.id === payload.id) {
+            // TODO does any formatting need to be applied here?
+            advancedAnalysisJobs[i] = formattedJob;
+            setAdvancedAnalysisJobs([...advancedAnalysisJobs]);
+            return;
+          }
+        }
+        // job is not present, so just add it
+        setAdvancedAnalysisJobs([formattedJob, ...advancedAnalysisJobs]);
       }
     });
 
     newEvtSource.addEventListener("usage_update", function (e) {
       const payload = getPayload(e, "usage_update");
-
-      if (hooksRef.current.accountType !== "admin" && payload["product"] !== hooksRef.current.productPage) {
+      if (payload.product !== hooksRef.current.productPage) {
         return;
       }
 
       const { usageQuota, setUsageQuota } = hooksRef.current;
 
+      let key = payload.usage_type;
+      if (payload.product === "advanced_analysis") {
+        key = "jobs";
+      }
+
       if (Object.keys(usageQuota || {}).length > 0) {
-        usageQuota.current[payload.usage_type] = payload.usage;
+        usageQuota.current[key] = payload.usage;
         setUsageQuota({ ...usageQuota });
       }
     });

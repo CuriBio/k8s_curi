@@ -5,9 +5,9 @@ import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { useEffect, createContext, useState } from "react";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
-import { deepCopy } from "@/utils/generic";
+import { deepCopy, formatAdvancedAnalysisJob } from "@/utils/generic";
 import useEventSource from "@/utils/eventSource";
-import { formatJob } from "@/utils/generic";
+import { formatP3dJob } from "@/utils/generic";
 
 /*
   This theme is to be used with materialUI components
@@ -119,6 +119,8 @@ function Pulse({ Component, pageProps }) {
     setUploads,
     jobs,
     setJobs,
+    advancedAnalysisJobs,
+    setAdvancedAnalysisJobs,
     usageQuota,
     setUsageQuota,
     accountId: accountInfo.accountId,
@@ -257,6 +259,7 @@ function Pulse({ Component, pageProps }) {
     if (["/login", "/home"].includes(router.pathname)) {
       updateProductPage(null);
       setUploads(null);
+      setAdvancedAnalysisJobs([]);
     }
 
     // start pinging SW if not on login page to keep alive
@@ -369,7 +372,7 @@ function Pulse({ Component, pageProps }) {
     try {
       const newJobs = jobsRes
         .map((job) => {
-          return formatJob(job, {}, accountInfo.accountId);
+          return formatP3dJob(job, {}, accountInfo.accountId);
         })
         .filter((j) => j !== null);
 
@@ -417,15 +420,8 @@ function Pulse({ Component, pageProps }) {
 
       if (response && response.status === 200) {
         const jobs = await response.json();
-        const parsedJobs = jobs.map((j) => {
-          try {
-            j.meta = JSON.parse(j.meta);
-          } catch {
-            j.meta = {};
-          }
-          return j;
-        });
-        setAdvancedAnalysisJobs(parsedJobs);
+        const formattedJobs = jobs.map((job) => formatAdvancedAnalysisJob(job));
+        setAdvancedAnalysisJobs(formattedJobs);
       }
     } catch (e) {
       console.log("ERROR getting advanced analyses for user", e);

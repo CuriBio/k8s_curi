@@ -233,7 +233,7 @@ const getMinP3dVersionForProduct = (productType) => {
   }
 };
 
-const formatJob = (job, selectedJobs, accountId) => {
+const formatP3dJob = (job, selectedJobs, accountId) => {
   try {
     const { id, upload_id, created_at, object_key, status, meta, user_id } = job;
     const analyzedFile = object_key?.split("/").slice(-1) || "";
@@ -280,6 +280,26 @@ const formatJob = (job, selectedJobs, accountId) => {
   }
 };
 
+const formatAdvancedAnalysisJob = (job) => {
+  const { id, name, type: jobType, sources, created_at: createdAt, meta, status } = job;
+  let parsedMeta = {};
+  try {
+    parsedMeta = JSON.parse(meta);
+  } catch {}
+
+  const filename = name || parsedMeta.output_name || "None";
+
+  return {
+    id,
+    filename,
+    jobType,
+    createdAt,
+    sources,
+    meta: parsedMeta,
+    status,
+  };
+};
+
 const compareStr = (s1, s2) => {
   s1 = s1.toLowerCase();
   s2 = s2.toLowerCase();
@@ -320,7 +340,8 @@ export {
   applyWindow,
   isInt,
   getMinP3dVersionForProduct,
-  formatJob,
+  formatP3dJob,
+  formatAdvancedAnalysisJob,
   productTitle,
   compareStr,
   getTzOffsetHours,
