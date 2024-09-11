@@ -524,9 +524,9 @@ def _add_job_sorting_filtering_conds(query, query_params, sort_field, sort_direc
                 new_cond = f"j.meta->>'version' NOT LIKE {placeholder}"
                 filter_value = "%rc%"
             case "version_min":
-                new_cond = f"regexp_split_to_array(j.meta->>'version', '\\.')>=regexp_split_to_array({placeholder}, '\\.')"
+                new_cond = f"regexp_split_to_array(j.meta->>'version', '\\.')::int[] >= regexp_split_to_array({placeholder}, '\\.')::int[]"
             case "version_max":
-                new_cond = f"regexp_split_to_array(j.meta->>'version', '\\.')<=regexp_split_to_array({placeholder}, '\\.')"
+                new_cond = f"regexp_split_to_array(j.meta->>'version', '\\.')::int[] <= regexp_split_to_array({placeholder}, '\\.')::int[]"
             case _:
                 continue
 
