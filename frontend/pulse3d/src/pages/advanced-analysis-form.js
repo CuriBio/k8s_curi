@@ -7,7 +7,7 @@ import { AuthContext } from "@/pages/_app";
 import Table from "@/components/table/Table";
 import { Box, IconButton, Tooltip } from "@mui/material";
 import { getShortUUIDWithTooltip } from "@/utils/jsx";
-import { formatDateTime, getTzOffsetHours } from "@/utils/generic";
+import { formatDateTime, getLocalTzOffsetHours } from "@/utils/generic";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import AnalysisParamContainer from "@/components/uploadForm/AnalysisParamContainer";
 
@@ -172,7 +172,7 @@ const submitAdvAnalysisJob = async (analysisParams, selectedP3dJobs) => {
       experiment_start_time_utc: processExperimentStartDate(analysisParams.experimentStartDate)
         .toISOString()
         .replace("T", " ")
-        .split(".")[0], // TODO handle local time offset
+        .split(".")[0],
       local_tz_offset_hours: analysisParams.localTzOffsetHours,
       job_type: "longitudinal",
     });
@@ -252,7 +252,7 @@ const getDefaultAnalysisParams = () => {
   return {
     analysisTitle: "",
     experimentStartDate: "",
-    localTzOffsetHours: getTzOffsetHours(),
+    localTzOffsetHours: getLocalTzOffsetHours(),
   };
 };
 

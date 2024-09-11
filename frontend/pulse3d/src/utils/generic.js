@@ -319,7 +319,7 @@ const productTitle = (s) => {
     .join(" ");
 };
 
-const getTzOffsetHours = () => {
+const getLocalTzOffsetHours = () => {
   try {
     return Math.floor(new Date().getTimezoneOffset() / -60);
   } catch {
@@ -344,5 +344,5 @@ export {
   formatAdvancedAnalysisJob,
   productTitle,
   compareStr,
-  getTzOffsetHours,
+  getLocalTzOffsetHours,
 };

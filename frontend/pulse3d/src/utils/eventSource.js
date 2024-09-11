@@ -117,7 +117,6 @@ export default function useEventSource(hooks) {
         const formattedJob = formatAdvancedAnalysisJob(payload);
         for (const [i, job] of advancedAnalysisJobs.entries()) {
           if (job.id === payload.id) {
-            // TODO does any formatting need to be applied here?
             advancedAnalysisJobs[i] = formattedJob;
             setAdvancedAnalysisJobs([...advancedAnalysisJobs]);
             return;
