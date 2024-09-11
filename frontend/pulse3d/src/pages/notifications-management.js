@@ -1,5 +1,5 @@
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
-import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
+import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import FormInput from "@/components/basicWidgets/FormInput";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import Editor from "@/components/editor/Editor";
@@ -19,12 +19,8 @@ const ButtonContainer = styled.div`
   flex-direction: row;
 `;
 
-const LabeledCheckboxContainer = styled.div`
-  display: flex;
+const DropDownContainer = styled.div`
   width: 80%;
-  padding-left: 15px;
-  flex-direction: row;
-  align-items: left;
 `;
 
 const ModalInputContainer = styled.div`
@@ -43,17 +39,41 @@ const Label = styled.label`
   line-height: 2;
 `;
 
-const CheckBoxLabel = styled.div`
-  padding: 9px 40px 0 0;
-  font-size: 14px;
-`;
+const NotificationType = {
+  customers_and_users: "Customers and Users",
+  customers: "Customers",
+  users: "Users",
+};
 
 export default function NotificationsManagement() {
   const [showCreateNotificationModal, setShowCreateNotificationModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
   const [subject, setSubject] = useState("");
-  const [customers, setCustomers] = useState(false);
-  const [users, setUsers] = useState(false);
+  const [notificationType, setNotificationType] = useState(0);
   const quillRef = useRef(); // Use a ref to access the quill instance directly
+
+  const saveNotification = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/notifications`, {
+        method: "POST",
+        body: JSON.stringify({
+          subject,
+          body: quillRef.current.getSemanticHTML(),
+          notification_type: Object.keys(NotificationType)[notificationType],
+        }),
+      });
+
+      if (res && res.status === 201) {
+        return;
+      }
+
+      console.log("ERROR - POST /notifications: unexpected response");
+    } catch (e) {
+      console.log(`ERROR - POST /notifications: ${e}`);
+    }
+
+    setShowErrorModal(true);
+  };
 
   const handleCreateNotificationButtonClick = () => {
     setShowCreateNotificationModal(true);
@@ -61,16 +81,11 @@ export default function NotificationsManagement() {
 
   const handleCreateNotificationModalButtons = async (idx, buttonLabel) => {
     if (buttonLabel === "Save") {
-      console.log("Subject: " + subject);
-      console.log("Body: " + quillRef.current.getSemanticHTML());
-      console.log("Customers: " + customers);
-      console.log("Users: " + users);
+      await saveNotification();
     }
 
     setShowCreateNotificationModal(false);
     setSubject("");
-    setCustomers(false);
-    setUsers(false);
   };
 
   return (
@@ -98,20 +113,30 @@ export default function NotificationsManagement() {
             label="Subject"
             value={subject}
             onChangeFn={(e) => {
-              setSubject(e.target.value);
+              setSubject(e.target.value.substring(0, 128));
             }}
           />
           <Label>Body</Label>
           <Editor ref={quillRef} />
-          <Label style={{ padding: "50px 5px 30px" }}>Audience</Label>
-          <LabeledCheckboxContainer>
-            <CheckboxWidget size={"sm"} checkedState={customers} handleCheckbox={setCustomers} />
-            <CheckBoxLabel>Customers</CheckBoxLabel>
-            <CheckboxWidget size={"sm"} checkedState={users} handleCheckbox={setUsers} />
-            <CheckBoxLabel>Users</CheckBoxLabel>
-          </LabeledCheckboxContainer>
+          <Label style={{ padding: "50px 5px 30px" }}>Type</Label>
+          <DropDownContainer>
+            <DropDownWidget
+              options={Object.values(NotificationType)}
+              initialSelected={0}
+              height={35}
+              handleSelection={setNotificationType}
+            />
+          </DropDownContainer>
         </ModalInputContainer>
       </ModalWidget>
+      <ModalWidget
+        open={showErrorModal}
+        closeModal={() => setShowErrorModal(false)}
+        width={500}
+        header={"Error Occurred!"}
+        labels={["Something went wrong while performing this action.", "Please try again later."]}
+        buttons={["Close"]}
+      />
     </Container>
   );
 }
