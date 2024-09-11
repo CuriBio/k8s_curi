@@ -150,8 +150,6 @@ export default function AdvancedAnalyses() {
     columnFilters: [],
   });
 
-  console.log(tableState);
-
   const checkedJobIds = Object.keys(checkedRows);
 
   useEffect(() => {
