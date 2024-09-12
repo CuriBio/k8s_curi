@@ -2,6 +2,7 @@ from enum import auto, StrEnum
 from fastapi import Query
 from pydantic import BaseModel, Field
 from typing import Any
+import datetime
 import uuid
 
 from pulse3D.data_loader.metadata import NormalizationMethods
@@ -23,6 +24,14 @@ class SaveNotificationRequest(BaseModel):
 
 class SaveNotificationResponse(BaseModel):
     id: uuid.UUID
+
+
+class NotificationResponse(BaseModel):
+    id: uuid.UUID
+    created_at: datetime.datetime
+    subject: str
+    body: str
+    notification_type: NotificationType = NotificationType.CUSTOMERS_AND_USERS
 
 
 class UploadRequest(BaseModel):

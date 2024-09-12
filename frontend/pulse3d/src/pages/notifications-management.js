@@ -4,7 +4,10 @@ import FormInput from "@/components/basicWidgets/FormInput";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import Editor from "@/components/editor/Editor";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
-import { useRef, useState } from "react";
+import Table from "@/components/table/Table";
+import { formatDateTime } from "@/utils/generic";
+import { getShortUUIDWithTooltip } from "@/utils/jsx";
+import { useEffect, useMemo, useRef, useState } from "react";
 import styled from "styled-components";
 import "quill/dist/quill.snow.css";
 
@@ -12,6 +15,12 @@ const Container = styled.div`
   justify-content: center;
   position: relative;
   padding: 3rem;
+`;
+
+const TableContainer = styled.div`
+  margin: 3% 0% 3% 0%;
+  box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 30%), 0px 8px 10px 1px rgb(0 0 0 / 20%),
+    0px 3px 14px 2px rgb(0 0 0 / 12%);
 `;
 
 const ButtonContainer = styled.div`
@@ -23,7 +32,7 @@ const DropDownContainer = styled.div`
   width: 80%;
 `;
 
-const ModalInputContainer = styled.div`
+const ModalContainer = styled.div`
   height: 500px;
   display: flex;
   flex-direction: column;
@@ -39,6 +48,16 @@ const Label = styled.label`
   line-height: 2;
 `;
 
+const StaticInfo = styled.div`
+  display: flex;
+  padding: 5px;
+  width: 80%;
+`;
+
+const StaticLabel = styled.div`
+  width: 160px;
+`;
+
 const NotificationType = {
   customers_and_users: "Customers and Users",
   customers: "Customers",
@@ -47,10 +66,75 @@ const NotificationType = {
 
 export default function NotificationsManagement() {
   const [showCreateNotificationModal, setShowCreateNotificationModal] = useState(false);
+  const [showNotificationDetailsModal, setShowNotificationDetailsModal] = useState(false);
+  const [notificationDetails, setNotificationDetails] = useState({});
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [subject, setSubject] = useState("");
   const [notificationType, setNotificationType] = useState(0);
+  const [notificationsData, setNotificationsData] = useState([]);
   const quillRef = useRef(); // Use a ref to access the quill instance directly
+
+  // gets notifications at load
+  useEffect(() => {
+    getAllNotifications();
+  }, []);
+
+  const getAllNotifications = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/notifications`);
+
+      if (response && response.status === 200) {
+        const notificationsJson = await response.json();
+        const notifications = notificationsJson.map(
+          ({ id, created_at, subject, body, notification_type }) => ({
+            id,
+            createdAt: created_at,
+            subject,
+            body,
+            notificationType: notification_type,
+          })
+        );
+
+        setNotificationsData([...notifications]);
+      }
+    } catch (e) {
+      console.log("ERROR fetching all notifications info", e);
+    }
+  };
+
+  const columns = useMemo(
+    () => [
+      {
+        accessorKey: "id",
+        header: "Notification ID",
+        size: 200,
+        minSize: 200,
+        Cell: ({ cell }) => getShortUUIDWithTooltip(cell.getValue(), 8),
+      },
+      {
+        accessorKey: "subject",
+        header: "Subject",
+        size: 580,
+        minSize: 400,
+      },
+      {
+        accessorFn: (row) => new Date(row.createdAt),
+        id: "createdAt",
+        header: "Date Created",
+        size: 200,
+        minSize: 200,
+        Cell: ({ cell }) => formatDateTime(cell.getValue()),
+      },
+      {
+        accessorKey: "notificationType",
+        header: "Notification Type",
+        size: 200,
+        minSize: 200,
+        Cell: ({ cell }) => NotificationType[cell.getValue()],
+      },
+    ],
+    []
+  );
 
   const saveNotification = async () => {
     try {
@@ -64,6 +148,7 @@ export default function NotificationsManagement() {
       });
 
       if (res && res.status === 201) {
+        await getAllNotifications();
         return;
       }
 
@@ -88,6 +173,11 @@ export default function NotificationsManagement() {
     setSubject("");
   };
 
+  const handleTableRowClick = (row) => {
+    setNotificationDetails(row.original);
+    setShowNotificationDetailsModal(true);
+  };
+
   return (
     <Container>
       <ButtonContainer>
@@ -107,7 +197,7 @@ export default function NotificationsManagement() {
         labels={[]}
         buttons={["Cancel", "Save"]}
       >
-        <ModalInputContainer>
+        <ModalContainer>
           <FormInput
             name="subject"
             label="Subject"
@@ -127,7 +217,7 @@ export default function NotificationsManagement() {
               handleSelection={setNotificationType}
             />
           </DropDownContainer>
-        </ModalInputContainer>
+        </ModalContainer>
       </ModalWidget>
       <ModalWidget
         open={showErrorModal}
@@ -137,6 +227,57 @@ export default function NotificationsManagement() {
         labels={["Something went wrong while performing this action.", "Please try again later."]}
         buttons={["Close"]}
       />
+      <TableContainer>
+        <Table
+          columns={columns}
+          rowData={notificationsData}
+          defaultSortColumn={"createdAt"}
+          rowClickFn={handleTableRowClick}
+          rowSelection={false}
+          setRowSelection={null}
+          enableRowSelection={false}
+          enablePagination={false}
+          enableTopToolbar={false}
+          enableSelectAll={false}
+          enableStickyHeader={false}
+          showColumnFilters={false}
+        />
+      </TableContainer>
+      <ModalWidget
+        width={1000}
+        open={showNotificationDetailsModal}
+        closeModal={() => setShowNotificationDetailsModal(false)}
+        header={"Notification Details"}
+        labels={[]}
+        buttons={["Close"]}
+      >
+        <ModalContainer>
+          <StaticInfo>
+            <StaticLabel>Notification ID</StaticLabel>
+            {notificationDetails.id}
+          </StaticInfo>
+          <StaticInfo>
+            <StaticLabel>Date Created</StaticLabel>
+            {formatDateTime(notificationDetails.createdAt)}
+          </StaticInfo>
+          <StaticInfo>
+            <StaticLabel>Notification Type</StaticLabel>
+            {NotificationType[notificationDetails.notificationType]}
+          </StaticInfo>
+          <StaticInfo>
+            <StaticLabel>Subject</StaticLabel>
+            {notificationDetails.subject}
+          </StaticInfo>
+          <StaticInfo>
+            <StaticLabel>Body</StaticLabel>
+          </StaticInfo>
+          <StaticInfo>
+            <div className="ql-editor">
+              <div dangerouslySetInnerHTML={{ __html: notificationDetails.body }} />
+            </div>
+          </StaticInfo>
+        </ModalContainer>
+      </ModalWidget>
     </Container>
   );
 }
