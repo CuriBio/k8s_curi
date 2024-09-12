@@ -1277,6 +1277,7 @@ async def update_customer(
                 elif action == "edit":
                     # handle usage restrictions updates
                     if (usage_restrictions_update := details.usage) is not None:
+                        # TODO validate the new usage restrictions?
                         await con.execute(
                             "UPDATE customers SET usage_restrictions=$1 WHERE id=$2",
                             json.dumps(usage_restrictions_update),
@@ -1284,29 +1285,33 @@ async def update_customer(
                         )
 
                     # handle product scope updates
-                    if (products_update := details.products) is not None:
+                    if (updated_products := details.products) is not None:
                         # get product name from admin scopes
-                        existing_products = get_product_tags_of_admin(
+                        current_products = get_product_tags_of_admin(
                             await get_account_scopes(con, account_id, True)
                         )
                         # if a product scope is being removed from an admin account, then remove all customer and user entries from account_scopes
-                        if len(product_diff := set(existing_products) - set(products_update)) > 0:
-                            scope_query = "DELETE FROM account_scopes WHERE customer_id=$1 AND scope LIKE $2"
-                            suffix = "%"
-                        # else a product scope is being added to an admin, then insert new entry for customer only
-                        else:
-                            product_diff = set(products_update) - set(existing_products)
-                            scope_query = "INSERT INTO account_scopes VALUES ($1, NULL, $2)"
-                            suffix = ":admin"
-
-                        for product in product_diff:
-                            await con.execute(scope_query, account_id, f"{product}{suffix}")
+                        if products_removed := set(current_products) - set(updated_products):
+                            for product in products_removed:
+                                await con.execute(
+                                    "DELETE FROM account_scopes WHERE customer_id=$1 AND scope LIKE $2",
+                                    account_id,
+                                    f"{product}%",
+                                )
+                        # if a product scope is being added to an admin, then insert new entry for admin only
+                        if products_added := set(updated_products) - set(current_products):
+                            # TODO validate the new products?
+                            for product in products_added:
+                                await con.execute(
+                                    "INSERT INTO account_scopes VALUES ($1, NULL, $2)",
+                                    account_id,
+                                    f"{product}:admin",
+                                )
                 else:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Invalid curi-edit-admin action: {action}",
                     )
-
     except HTTPException:
         raise
     except Exception:

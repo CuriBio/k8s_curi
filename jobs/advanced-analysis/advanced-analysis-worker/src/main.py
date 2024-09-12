@@ -293,7 +293,7 @@ async def process_item(con, item):
                 raise
 
     except Exception as e:
-        job_metadata["error"] = str(e)
+        job_metadata["error"] = repr(e)
         result = "error"
         # some errors do not include an error message
         if error_msg:

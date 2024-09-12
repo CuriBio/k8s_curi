@@ -19,6 +19,7 @@ const MANTARRAY_URL = new URLSearchParams(location.search).get("mantarray_url");
 const USERS_URL = new URLSearchParams(location.search).get("users_url");
 const PULSE3D_URL = new URLSearchParams(location.search).get("pulse3d_url");
 const EVENTS_URL = new URLSearchParams(location.search).get("events_url");
+const ADVANCED_ANALYSIS_URL = new URLSearchParams(location.search).get("advanced_analysis_url");
 
 const USAGE_ENDPOINTS = ["/login", "/uploads", "/jobs"];
 
@@ -278,6 +279,8 @@ const interceptResponse = async (req, url) => {
       // just clear account info if user purposefully logs out
       clearAccountInfo();
     } else if (response.status === 401 || response.status === 403) {
+      // TODO if 403 should make sure it's actually an auth error and not a usage/scope issue, if not done already should put a message on the token validation to indicate a 403 is due to a missing token
+      //
       // if any other request receives an unauthorized or forbidden error code, send logout ping (this fn will also clear account info)
       console.log(`Sending logout ping because ${response.status} was returned from ${url.pathname}`);
       sendLogoutMsg();
@@ -374,7 +377,9 @@ self.addEventListener("fetch", async (e) => {
   let destURL = new URL(e.request.url);
 
   if (
-    [USERS_URL, PULSE3D_URL, MANTARRAY_URL, EVENTS_URL].some((url) => e.request.url.includes(url)) &&
+    [USERS_URL, PULSE3D_URL, MANTARRAY_URL, EVENTS_URL, ADVANCED_ANALYSIS_URL].some((url) =>
+      e.request.url.includes(url)
+    ) &&
     !isRequest(destURL, "/email") && // this request doesn't depend on a token
     !isRequest(destURL, "/account") // we don't need to intercept verify request because it's handling own token
   ) {

@@ -17,7 +17,7 @@ depends_on = None
 
 
 def upgrade():
-    op.execute("GRANT SELECT ON TABLE advanced_analysis_versions TO curibio_event_broker")
+    op.execute("GRANT SELECT ON TABLE advanced_analysis_result TO curibio_event_broker")
 
     # TODO these functions should be cleaned up so there aren't so many subqueries
     op.execute(
@@ -37,7 +37,7 @@ def upgrade():
                             WHERE customer_id=NEW.customer_id
                                 AND (user_id=NEW.user_id OR scope LIKE '%admin%' OR scope='advanced_analysis\\:rw_all_data')
                         ),
-                        'usage', (SELECT COUNT(*) FROM advanced_analysis_versions WHERE customer_id=NEW.customer_id)
+                        'usage', (SELECT COUNT(*) FROM advanced_analysis_result WHERE customer_id=NEW.customer_id)
                     )::jsonb
                     || (row_to_json(NEW.*)::jsonb - 'meta')
                 )::text
@@ -63,4 +63,4 @@ def downgrade():
     op.execute("DROP TRIGGER trig_advanced_analysis_result_notify_events ON advanced_analysis_result CASCADE")
     op.execute("DROP FUNCTION advanced_analysis_result_notify_events CASCADE")
 
-    op.execute("REVOKE ALL PRIVILEGES ON TABLE advanced_analysis_versions FROM curibio_event_broker")
+    op.execute("REVOKE ALL PRIVILEGES ON TABLE advanced_analysis_result FROM curibio_event_broker")

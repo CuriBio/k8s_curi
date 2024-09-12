@@ -358,7 +358,7 @@ async def delete_uploads(*, con, account_type, account_id, upload_ids):
     await con.execute(query, *query_params)
 
 
-async def get_jobs_info_for_admin(con, customer_id: str, upload_ids: list[str]):
+async def get_jobs_of_uploads_for_admin(con, customer_id: str, upload_ids: list[str]):
     query_params = [customer_id]
     places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
     query = (
@@ -375,7 +375,9 @@ async def get_jobs_info_for_admin(con, customer_id: str, upload_ids: list[str]):
     return jobs
 
 
-async def get_jobs_info_for_rw_all_data_user(con, customer_id: str, upload_ids: list[str], upload_type: str):
+async def get_jobs_of_uploads_for_rw_all_data_user(
+    con, customer_id: str, upload_ids: list[str], upload_type: str
+):
     query_params = [customer_id, upload_type]
     places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
     query = (
@@ -392,7 +394,7 @@ async def get_jobs_info_for_rw_all_data_user(con, customer_id: str, upload_ids: 
     return jobs
 
 
-async def get_jobs_info_for_base_user(con, user_id: str, upload_ids: list[str], upload_type: str):
+async def get_jobs_of_uploads_for_base_user(con, user_id: str, upload_ids: list[str], upload_type: str):
     query_params = [user_id, upload_type]
     places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
     query = (
@@ -407,6 +409,145 @@ async def get_jobs_info_for_base_user(con, user_id: str, upload_ids: list[str], 
         jobs = [dict(row) async for row in con.cursor(query, *query_params)]
 
     return jobs
+
+
+async def get_jobs_info_for_admin(
+    con,
+    customer_id: str,
+    upload_type: str,
+    sort_field: str | None,
+    sort_direction: str | None,
+    skip: int,
+    limit: int,
+    **filters,
+):
+    query_params = [customer_id, upload_type]
+    query = (
+        "SELECT j.job_id AS id, j.status, j.created_at, j.meta AS job_meta, reverse(split_part(reverse(j.object_key), '/', 1)) AS filename, "
+        "u.meta AS upload_meta, u.user_id, u.type AS upload_type, users.name AS username "
+        "FROM jobs_result AS j "
+        "JOIN uploads AS u ON j.upload_id=u.id "
+        "JOIN users ON users.id=u.user_id "
+        "WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.type=$2"
+    )
+
+    query, query_params = _add_job_sorting_filtering_conds(
+        query, query_params, sort_field, sort_direction, skip, limit, **filters
+    )
+
+    async with con.transaction():
+        jobs = [dict(row) async for row in con.cursor(query, *query_params)]
+
+    return jobs
+
+
+async def get_jobs_info_for_rw_all_data_user(
+    con,
+    customer_id: str,
+    upload_type: str,
+    sort_field: str | None,
+    sort_direction: str | None,
+    skip: int,
+    limit: int,
+    **filters,
+):
+    query_params = [customer_id, upload_type]
+    query = (
+        "SELECT j.job_id AS id, j.status, j.created_at, j.meta AS job_meta, reverse(split_part(reverse(j.object_key), '/', 1)) AS filename, "
+        "u.meta AS upload_meta, u.user_id, u.type AS upload_type, users.name AS username "
+        "FROM jobs_result AS j "
+        "JOIN uploads AS u ON j.upload_id=u.id "
+        "JOIN users ON users.id=u.user_id "
+        "WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.type=$2"
+    )
+
+    query, query_params = _add_job_sorting_filtering_conds(
+        query, query_params, sort_field, sort_direction, skip, limit, **filters
+    )
+
+    async with con.transaction():
+        jobs = [dict(row) async for row in con.cursor(query, *query_params)]
+
+    return jobs
+
+
+async def get_jobs_info_for_base_user(
+    con,
+    user_id: str,
+    upload_type: str,
+    sort_field: str | None,
+    sort_direction: str | None,
+    skip: int,
+    limit: int,
+    **filters,
+):
+    query_params = [user_id, upload_type]
+    query = (
+        "SELECT j.job_id AS id, j.status, j.created_at, j.meta AS job_meta, reverse(split_part(reverse(j.object_key), '/', 1)) AS filename, "
+        "u.meta AS upload_meta, u.user_id, u.type AS upload_type "
+        "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
+        "WHERE u.user_id=$1 AND j.status!='deleted' AND u.deleted='f' AND j.object_key IS NOT NULL AND u.type=$2"
+    )
+
+    query, query_params = _add_job_sorting_filtering_conds(
+        query, query_params, sort_field, sort_direction, skip, limit, **filters
+    )
+
+    async with con.transaction():
+        jobs = [dict(row) async for row in con.cursor(query, *query_params)]
+
+    return jobs
+
+
+def _add_job_sorting_filtering_conds(query, query_params, sort_field, sort_direction, skip, limit, **filters):
+    query_params = query_params.copy()
+
+    next_placeholder_count = len(query_params) + 1
+
+    conds = ""
+    for filter_name, filter_value in filters.items():
+        placeholder = f"${next_placeholder_count}"
+        match filter_name:
+            case "job_ids":
+                new_cond = f"j.job_id=ANY({placeholder}::uuid[])"
+            case "status":
+                new_cond = f"j.status={placeholder}"
+            case "filename":
+                new_cond = (
+                    f"LOWER(reverse(split_part(reverse(j.object_key), '/', 1))) LIKE LOWER({placeholder})"
+                )
+                filter_value = f"{filter_value}%"
+            case "include_prerelease_versions":
+                if filter_value:
+                    # if including prerelease versions, no need to add a filter
+                    continue
+                new_cond = f"j.meta->>'version' NOT LIKE {placeholder}"
+                filter_value = "%rc%"
+            case "version_min":
+                new_cond = f"regexp_split_to_array(j.meta->>'version', '\\.')::int[] >= regexp_split_to_array({placeholder}, '\\.')::int[]"
+            case "version_max":
+                new_cond = f"regexp_split_to_array(j.meta->>'version', '\\.')::int[] <= regexp_split_to_array({placeholder}, '\\.')::int[]"
+            case _:
+                continue
+
+        query_params.append(filter_value)
+        conds += f" AND {new_cond}"
+        next_placeholder_count += 1
+    if conds:
+        query += conds
+
+    if sort_field in ("id", "created_at", "filename"):
+        if sort_field == "created_at":
+            sort_field = f"j.{sort_field}"
+        if sort_direction not in ("ASC", "DESC"):
+            sort_direction = "DESC"
+        sort_direction = sort_direction.upper()
+        query += f" ORDER BY {sort_field} {sort_direction}"
+
+    query += f" LIMIT ${len(query_params) + 1} OFFSET ${len(query_params) + 2}"
+    query_params += [limit, skip]
+
+    return query, query_params
 
 
 async def get_legacy_jobs_info_for_user(con, user_id: str, job_ids: list[str]):
@@ -660,9 +801,11 @@ async def check_customer_advanced_analysis_usage(con, customer_id):
     if (job_limit := usage_limits["jobs"]) != -1:
         jobs_count_reached = current_job_count >= job_limit
 
-    usage_limits["jobs_limit"] = usage_limits.pop("jobs")
-
-    return usage_limits | {"jobs_count": current_job_count, "limit_reached": is_expired or jobs_count_reached}
+    return {
+        "limits": usage_limits,
+        "current": {"jobs": current_job_count},
+        "jobs_reached": is_expired or jobs_count_reached,
+    }
 
 
 async def get_advanced_analyses_for_admin(
@@ -734,6 +877,8 @@ def _add_advanced_analysis_sorting_filtering_conds(
                 new_cond = f"created_at >= to_timestamp({placeholder}, 'YYYY-MM-DD\"T\"HH:MI:SS.MSZ')"
             case "created_at_max":
                 new_cond = f"created_at <= to_timestamp({placeholder}, 'YYYY-MM-DD\"T\"HH:MI:SS.MSZ')"
+            case "status":
+                new_cond = f"status={placeholder}"
             case _:
                 continue
 
@@ -743,7 +888,7 @@ def _add_advanced_analysis_sorting_filtering_conds(
     if conds:
         query += conds
 
-    if sort_field in ("name", "id", "created_at", "type"):
+    if sort_field in ("name", "id", "created_at", "type", "status"):
         if sort_direction not in ("ASC", "DESC"):
             sort_direction = "DESC"
         sort_direction = sort_direction.upper()
@@ -795,8 +940,8 @@ async def delete_advanced_analyses(*, con, user_id, job_ids):
 
 async def get_advanced_analyses_download_info_for_base_user(*, con, user_id, job_ids):
     query = (
-        "SELECT id, object_key, created_at FROM advanced_analysis_result "
-        "WHERE user_id=$1 AND status!='deleted' AND job_id=ANY($2::uuid[])"
+        "SELECT id, s3_prefix, name, created_at FROM advanced_analysis_result "
+        "WHERE user_id=$1 AND status='finished' AND id=ANY($2::uuid[])"
     )
 
     async with con.transaction():
@@ -807,8 +952,8 @@ async def get_advanced_analyses_download_info_for_base_user(*, con, user_id, job
 
 async def get_advanced_analyses_download_info_for_admin(*, con, customer_id, job_ids):
     query = (
-        "SELECT id, object_key, created_at FROM advanced_analysis_result "
-        "WHERE customer_id=$1 AND status!='deleted' AND job_id=ANY($2::uuid[])"
+        "SELECT id, s3_prefix, name, created_at FROM advanced_analysis_result "
+        "WHERE customer_id=$1 AND status='finished' AND id=ANY($2::uuid[])"
     )
 
     async with con.transaction():

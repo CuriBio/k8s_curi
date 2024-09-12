@@ -1,4 +1,5 @@
 from enum import auto, StrEnum
+from fastapi import Query
 from pydantic import BaseModel, Field
 from typing import Any
 import uuid
@@ -32,9 +33,27 @@ class UploadRequest(BaseModel):
     auto_upload: bool | None = Field(default=True)
 
 
-class GetJobsRequest(BaseModel):
+class GetJobsInfoRequest(BaseModel):
     upload_ids: list[uuid.UUID]
     upload_type: str | None = Field(default=None)
+
+
+class GetJobsRequest(BaseModel):
+    job_ids: list[uuid.UUID] | None = Field(Query(None))
+    # legacy options
+    legacy: bool = True
+    download: bool = True
+    # new options
+    upload_type: str | None = None
+    include_prerelease_versions: bool = True
+    version_min: str | None = None
+    version_max: str | None = None
+    status: str | None = None
+    filename: str | None = None
+    sort_field: str | None = None
+    sort_direction: str | None = None
+    skip: int = 0
+    limit: int = 300
 
 
 class UsageQuota(BaseModel):

@@ -35,9 +35,9 @@ from jobs import (
     get_uploads_download_info_for_base_user,
     get_uploads_download_info_for_rw_all_data_user,
     get_uploads_download_info_for_admin,
-    get_jobs_info_for_base_user,
-    get_jobs_info_for_rw_all_data_user,
-    get_jobs_info_for_admin,
+    get_jobs_of_uploads_for_base_user,
+    get_jobs_of_uploads_for_rw_all_data_user,
+    get_jobs_of_uploads_for_admin,
     get_jobs_download_info_for_base_user,
     get_jobs_download_info_for_rw_all_data_user,
     get_jobs_download_info_for_admin,
@@ -45,6 +45,9 @@ from jobs import (
     get_job_waveform_data_for_rw_all_data_user,
     get_job_waveform_data_for_admin_user,
     get_legacy_jobs_info_for_user,
+    get_jobs_info_for_base_user,
+    get_jobs_info_for_rw_all_data_user,
+    get_jobs_info_for_admin,
 )
 from pulse3D.constants import DataTypes
 from pulse3D.peak_finding.constants import (
@@ -75,7 +78,7 @@ from models.models import (
     GenericErrorResponse,
     JobDownloadRequest,
     JobRequest,
-    GetJobsRequest,
+    GetJobsInfoRequest,
     JobResponse,
     SaveNotificationRequest,
     SaveNotificationResponse,
@@ -85,6 +88,7 @@ from models.models import (
     UploadResponse,
     UsageQuota,
     WaveformDataResponse,
+    GetJobsRequest,
 )
 from models.types import TupleParam
 from repository.notification_repository import NotificationRepository
@@ -361,7 +365,7 @@ async def create_log_upload(
 # TODO Tanner (5/30/24): not sure what to call this since POST /jobs already exists. This needs to be a post route since get routes can't have a body
 @app.post("/jobs/info")
 async def get_jobs_info(
-    request: Request, details: GetJobsRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
+    request: Request, details: GetJobsInfoRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
 ):
     if token.account_type == "user" and details.upload_type not in get_product_tags_of_user(token.scopes):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
@@ -373,20 +377,43 @@ async def get_jobs_info(
         bind_context_to_logger({"user_id": token.userid, "customer_id": token.customer_id})
 
         async with request.state.pgpool.acquire() as con:
-            return await _get_jobs_info(con, token, upload_ids=upload_ids, upload_type=details.upload_type)
+            return await _get_jobs_of_uploads(
+                con, token, upload_ids=upload_ids, upload_type=details.upload_type
+            )
     except Exception:
         logger.exception("Failed to get jobs")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# TODO (5/30/24): delete this once all MA controller users upgrade to whichever controller version is released following this date
+# TODO (9/5/24): should update MA Controller so it does not depend on the legacy version of this route.
+# It can use the new version to poll the job results and /jobs/download to download the job
 @app.get("/jobs")
 async def get_info_of_jobs(
     request: Request,
-    job_ids: list[uuid.UUID] = Query(),
-    download: bool = Query(True),
+    model: GetJobsRequest = Depends(),
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
+    if model.legacy:
+        return await _legacy_get_info_of_jobs(request, model.job_ids, model.download, token)
+
+    try:
+        bind_context_to_logger({"user_id": token.userid, "customer_id": token.customer_id})
+
+        if token.account_type == "user" and model.upload_type not in get_product_tags_of_user(token.scopes):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid product type")
+
+        async with request.state.pgpool.acquire() as con:
+            return await _get_jobs_info(con, token, **model.model_dump(exclude_none=True))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to get jobs")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+async def _legacy_get_info_of_jobs(request: Request, job_ids: list[uuid.UUID] | None, download: bool, token):
+    if not job_ids:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
     # need to convert UUIDs to str to avoid issues with DB
     job_ids = [str(job_id) for job_id in job_ids]  # type: ignore
 
@@ -411,6 +438,8 @@ async def get_info_of_jobs(
                 "user_id": job["user_id"],
             }
 
+            # TODO (9/5/24): consider removing the download option here since there is a new route specifically for downloading jobs.
+            # This would require updating the MA Controller to use the new route for downloading
             if job_info["status"] == "finished" and download:
                 # This is in case any current users uploaded files before object_key was dropped from uploads table and added to jobs_result
                 if obj_key:
@@ -422,7 +451,6 @@ async def get_info_of_jobs(
                         job_info["url"] = "Error creating download link"
                 else:
                     job_info["url"] = None
-
             elif job_info["status"] == "error":
                 try:
                     job_info["error_info"] = json.loads(job["job_meta"])["error"]
@@ -437,7 +465,7 @@ async def get_info_of_jobs(
         return response
 
     except Exception:
-        logger.exception("Failed to get jobs")
+        logger.exception("Failed to get jobs (legacy)")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -921,14 +949,13 @@ async def delete_analysis_preset(
 
 @app.post("/notifications", response_model=SaveNotificationResponse, status_code=status.HTTP_201_CREATED)
 async def save_notification(
-    notification: SaveNotificationRequest,
-    token=Depends(ProtectedAny(scopes=[Scopes.CURI__ADMIN])),
+    notification: SaveNotificationRequest, token=Depends(ProtectedAny(scopes=[Scopes.CURI__ADMIN]))
 ):
     """Save notification"""
     try:
         customer_id = str(uuid.UUID(token.customer_id))
         bind_context_to_logger({"customer_id": customer_id})
-        response = await notification_service.create(notification)
+        response = await notification_service.create(notification)  # noqa: F821
         return response
     except Exception:
         logger.exception("Failed to save notification")
@@ -993,22 +1020,22 @@ async def _get_uploads_download(
             )
 
 
-async def _get_jobs_info(con, token, upload_ids: list[str], upload_type: str | None):
+async def _get_jobs_of_uploads(con, token, upload_ids: list[str], upload_type: str | None):
     retrieval_info = _get_retrieval_info(token, upload_type)
 
-    logger.info(f"Retrieving job info for {retrieval_info['account_type']}: {token.account_id}")
+    logger.info(f"Retrieving jobs of uploads for {retrieval_info['account_type']}: {token.account_id}")
 
     match retrieval_info.pop("account_type"):
         case "user":
-            return await get_jobs_info_for_base_user(
+            return await get_jobs_of_uploads_for_base_user(
                 con, user_id=retrieval_info["user_id"], upload_type=upload_type, upload_ids=upload_ids
             )
         case "rw_all_data_user":
-            return await get_jobs_info_for_rw_all_data_user(
+            return await get_jobs_of_uploads_for_rw_all_data_user(
                 con, customer_id=retrieval_info["customer_id"], upload_type=upload_type, upload_ids=upload_ids
             )
         case "admin":
-            return await get_jobs_info_for_admin(
+            return await get_jobs_of_uploads_for_admin(
                 con, customer_id=retrieval_info["customer_id"], upload_ids=upload_ids
             )
 
@@ -1025,6 +1052,20 @@ async def _get_legacy_jobs_info(con, token, job_ids: list[str]):
             )
         case _:
             return []
+
+
+async def _get_jobs_info(con, token, **retrieval_info):
+    retrieval_info |= _get_retrieval_info(token, retrieval_info["upload_type"])
+
+    logger.info(f"Retrieving jobs info for {retrieval_info['account_type']}: {token.account_id}")
+
+    match retrieval_info.pop("account_type"):
+        case "user":
+            return await get_jobs_info_for_base_user(con, **retrieval_info)
+        case "rw_all_data_user":
+            return await get_jobs_info_for_rw_all_data_user(con, **retrieval_info)
+        case "admin":
+            return await get_jobs_info_for_admin(con, **retrieval_info)
 
 
 async def _get_jobs_download(con, token, job_ids: list[str], upload_type: str | None) -> list[dict[str, Any]]:  # type: ignore

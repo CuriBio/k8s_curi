@@ -175,9 +175,14 @@ async def create_new_advanced_analysis(
         logger.info(f"Details: {details.model_dump_json()}")
 
         params = ["experiment_start_time_utc", "local_tz_offset_hours"]
-        analysis_params = {param: details[param] for param in params}
+        details_dict = details.model_dump()
+        analysis_params: dict[str, Any] = {param: details_dict[param] for param in params} | {
+            "experiment_start_time_utc": details_dict["experiment_start_time_utc"].strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+        }
         job_meta = {
-            "version": details.version + "rc1",  # TODO remove this once done with rc versions,
+            "version": details.version + "rc2",  # TODO remove this once done with rc versions,
             "output_name": details.output_name,
             "platemap_overrides": details.platemap_overrides,
             "analysis_params": analysis_params,
@@ -187,7 +192,7 @@ async def create_new_advanced_analysis(
         priority = 10  # TODO make this a constant and share with p3d svc?
         async with request.state.pgpool.acquire() as con:
             usage = await check_customer_advanced_analysis_usage(con, customer_id)
-            if usage["limit_reached"]:
+            if usage["jobs_reached"]:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Usage limit reached and/or plan has expired",
@@ -204,7 +209,8 @@ async def create_new_advanced_analysis(
                 customer_id=customer_id,
                 job_type=details.job_type,
             )
-    except HTTPException:
+    except HTTPException as e:
+        logger.exception(f"Failed to create job: {e.detail}")
         raise
     except Exception:
         logger.exception("Failed to create job")
@@ -228,7 +234,8 @@ async def soft_delete_advanced_analysis(
 
         async with request.state.pgpool.acquire() as con:
             await delete_advanced_analyses(con=con, user_id=user_id, job_ids=job_ids)
-    except HTTPException:
+    except HTTPException as e:
+        logger.exception(f"Failed to soft delete jobs: {e.detail}")
         raise
     except Exception:
         logger.exception("Failed to soft delete jobs")
@@ -254,16 +261,22 @@ async def download_advanced_analysis(
         async with request.state.pgpool.acquire() as con:
             jobs = await _get_advanced_analyses_download_info(con, token, job_ids=job_ids)
 
+        if not jobs:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid job ID(s)")
+
         num_times_repeated = defaultdict(lambda: 0)
 
         filename_overrides = list()
         keys = list()
 
         for job in jobs:
-            obj_key = job["object_key"]
+            s3_prefix = job["s3_prefix"]
+            filename = job["name"]
+            obj_key = f"{s3_prefix}/{filename}"
+            if not s3_prefix or not filename:
+                logger.error(f"Invalid s3 prefix and or name for job: {obj_key}")
+                continue
             keys.append(obj_key)
-
-            filename = os.path.basename(obj_key)
 
             filename_override = filename
             if details.timezone:
@@ -288,10 +301,9 @@ async def download_advanced_analysis(
         if len(jobs) == 1:
             # if only one file requested, return single presigned URL
             return {
-                "id": jobs[0]["id"],
                 "url": generate_presigned_url(
                     PULSE3D_UPLOADS_BUCKET, keys[0], filename_override=filename_overrides[0]
-                ),
+                )
             }
         else:
             # Grab ZIP file from in-memory, make response with correct MIME-type
@@ -301,7 +313,8 @@ async def download_advanced_analysis(
                 ),
                 media_type="application/zip",
             )
-    except HTTPException:
+    except HTTPException as e:
+        logger.exception(f"Failed to download jobs: {e.detail}")
         raise
     except Exception:
         logger.exception("Failed to download jobs")
@@ -323,24 +336,27 @@ async def _get_advanced_analyses_info(con, token, **retrieval_info):
             )
 
 
-async def _validate_sources(con, user_id, source_job_ids):
+async def _validate_sources(con, user_id: str, source_job_ids: list[uuid.UUID]):
     source_to_owner = await _get_owners_of_sources(con, source_job_ids)
-    # right now considering any job where the user ID does not match to be disallowed
-    if invalid_sources := [source_id for source_id, owner in source_to_owner.items() if owner != user_id]:
+    # right now considering any job where the user ID does not match to be disallowed.
+    # If a scope is added that lets users create adv analaysis jobs with jobs under other users in their org,
+    # will need to update this
+    if invalid_sources := [
+        str(source_id) for source_id, owner in source_to_owner.items() if owner != user_id
+    ]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid source IDs: {invalid_sources}"
         )
 
 
-async def _get_owners_of_sources(con, source_job_ids):
+async def _get_owners_of_sources(con, source_job_ids: list[uuid.UUID]):
     rows = await con.fetch(
         "SELECT up.user_id, j.job_id FROM jobs_result j JOIN uploads up ON j.upload_id=up.id WHERE j.job_id=ANY($1::uuid[])",
         source_job_ids,
     )
     source_to_owner = {job_id: None for job_id in source_job_ids} | {
-        row["job_id"]: row["user_id"] for row in rows
+        row["job_id"]: str(row["user_id"]) for row in rows
     }
-    print("!!!", source_to_owner)  # allow-print # TODO delete this after checking that it looks good
     return source_to_owner
 
 
@@ -348,16 +364,18 @@ async def _validate_advanced_analysis_version(con, version):
     version_status = await con.fetchrow(
         "SELECT state, end_of_life_date FROM advanced_analysis_versions WHERE version=$1", version
     )
-    # TODO what happens if the version does not exist?
+    if version_status is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid version: {version}")
+
     status_name = version_status["state"]
     end_of_life_date = version_status["end_of_life_date"]
-
     if status_name == "deprecated" and (
         end_of_life_date is not None and datetime.strptime(end_of_life_date, "%Y-%m-%d") > datetime.now()
     ):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid version: {version}")
 
 
+# TODO move this to core/utils and share with other services that use it too
 def _add_timestamp_to_filename(filename: str, timestamp: str) -> str:
     name, ext = os.path.splitext(filename)
     return f"{name}__{timestamp}{ext}"
@@ -369,11 +387,11 @@ async def _get_advanced_analyses_download_info(con, token, job_ids) -> list[dict
     match token.account_type:
         case "user":
             return await get_advanced_analyses_download_info_for_base_user(
-                con, user_id=str(token.userid), job_ids=job_ids
+                con=con, user_id=str(token.userid), job_ids=job_ids
             )
         case "admin":
             return await get_advanced_analyses_download_info_for_admin(
-                con, customer_id=str(token.customer_id), job_ids=job_ids
+                con=con, customer_id=str(token.customer_id), job_ids=job_ids
             )
         case invalid_account_type:
             raise Exception(f"Invalid account type: {invalid_account_type}")

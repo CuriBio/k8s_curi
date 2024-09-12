@@ -31,8 +31,26 @@ const Header = styled.h1`
   font-size: 25px;
 `;
 
+const getAdditionalInfoMsg = (productPage, isUnlimited, limitUsage) => {
+  if (isUnlimited) {
+    let productDisplay = productPage;
+    if (productDisplay === "advanced_analysis") {
+      productDisplay = "Advanced";
+    }
+    return `You have unlimited ${productDisplay} Analyses.`;
+  } else {
+    if (["mantarray", "nautilai"].includes(productPage)) {
+      return "Each upload comes with one free re-analysis. The initial analysis and all re-analyses after the first one will consume 1 analysis credit each.";
+    } else if (productPage === "advanced_analysis") {
+      const vowel = limitUsage === 1 ? "i" : "e";
+      return `You have ${limitUsage} total Advanced Analys${vowel}s.`;
+    }
+  }
+};
+
 export default function UsageWidget({
   metricName,
+  productPage,
   limitUsage,
   actualUsage,
   subscriptionEndDate,
@@ -60,9 +78,7 @@ export default function UsageWidget({
     : `${actualUsage} out of ${limitUsage} ${metricName} used`;
 
   const percentUsage = isUnlimited ? 0 : Math.min((actualUsage / limitUsage) * 100, 100);
-  const additionalInfo = isUnlimited
-    ? "You have unlimited access to Pulse3d analysis."
-    : "Each upload comes with one free re-analysis. The initial analysis and all re-analyses after the first one will consume 1 analysis credit each.";
+  const additionalInfo = getAdditionalInfoMsg(productPage, isUnlimited, limitUsage);
 
   return (
     <Container>
