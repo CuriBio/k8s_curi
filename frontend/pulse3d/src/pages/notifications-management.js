@@ -8,6 +8,7 @@ import Table from "@/components/table/Table";
 import { formatDateTime } from "@/utils/generic";
 import { getShortUUIDWithTooltip } from "@/utils/jsx";
 import { useEffect, useMemo, useRef, useState } from "react";
+import DOMPurify from "dompurify";
 import styled from "styled-components";
 import "quill/dist/quill.snow.css";
 
@@ -273,7 +274,7 @@ export default function NotificationsManagement() {
           </StaticInfo>
           <StaticInfo>
             <div className="ql-editor">
-              <div dangerouslySetInnerHTML={{ __html: notificationDetails.body }} />
+              <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(notificationDetails.body) }} />
             </div>
           </StaticInfo>
         </ModalContainer>
