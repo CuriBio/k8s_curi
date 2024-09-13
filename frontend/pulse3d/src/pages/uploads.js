@@ -8,7 +8,7 @@ import InteractiveAnalysisModal from "@/components/interactiveAnalysis/Interacti
 import { AuthContext, UploadsContext } from "@/pages/_app";
 import { useRouter } from "next/router";
 import JobPreviewModal from "@/components/interactiveAnalysis/JobPreviewModal";
-import { formatDateTime } from "@/utils/generic";
+import { deepCopy, formatDateTime } from "@/utils/generic";
 import { getShortUUIDWithTooltip } from "@/utils/jsx";
 import Table from "@/components/table/Table";
 import { Box, IconButton } from "@mui/material";
@@ -137,8 +137,26 @@ export default function Uploads() {
 
   const [displayRows, setDisplayRows] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectionInfo, setSelectionInfo] = useState({
+    /* TODO delete this
+    uploadId: {
+      info: { ... },
+      selected: true/false,
+      jobs: {
+        jobId: {
+          info: { ... },
+          selected: true/false
+        }
+        ...
+      }
+    }
+    ...
+    */
+  });
+  // TODO Remove these
   const [selectedUploads, setSelectedUploads] = useState({});
   const [selectedJobs, setSelectedJobs] = useState({});
+  //
   const [resetDropdown, setResetDropdown] = useState(false);
   const [modalState, setModalState] = useState(false);
   const [modalLabels, setModalLabels] = useState({ header: "", messages: [] });
@@ -151,6 +169,126 @@ export default function Uploads() {
     sorting: [{ id: "lastAnalyzed", desc: true }],
     columnFilters: [],
   });
+
+  // TODO consider moving this into a function and calling both of those functions only from the update fns.
+  // Will also need to put these values in useState
+  const uploadSelectionState = {};
+  const jobSelectionState = {};
+  for (const [uploadId, uploadDetails] of Object.entries(selectionInfo)) {
+    if (uploadDetails.selected) {
+      uploadSelectionState[uploadId] = true;
+    }
+    for (const [jobId, jobDetails] of Object.entries(uploadDetails.jobs)) {
+      if (jobDetails.selected) {
+        jobSelectionState[jobId] = true;
+      }
+    }
+  }
+
+  const updateUploadSelectionInfo = (newUploadSelection) => {
+    const newSelectionInfo = { ...selectionInfo };
+
+    const newUploadSelectionSet = new Set(Object.keys(newUploadSelection));
+    const uploadSelectionStateSet = new Set(Object.keys(uploadSelectionState));
+
+    const uploadsAdded = newUploadSelectionSet.difference(uploadSelectionStateSet);
+    for (const uploadIdAdded of uploadsAdded) {
+      if (!(uploadIdAdded in newSelectionInfo)) {
+        const uploadInfo = uploads.find((u) => u.id === uploadIdAdded);
+        if (!uploadInfo) {
+          continue;
+        }
+        newSelectionInfo[uploadIdAdded] = {
+          info: deepCopy(uploadInfo),
+        };
+      }
+      newSelectionInfo[uploadIdAdded].selected = true;
+      const jobSelectionInfo = {};
+      jobs.map((j) => {
+        if (j.uploadId === uploadIdAdded) {
+          jobSelectionInfo[j.jobId] = {
+            info: deepCopy(j),
+            selected: true,
+          };
+        }
+      });
+      newSelectionInfo[uploadIdAdded].jobs = jobSelectionInfo;
+    }
+
+    const uploadsRemoved = uploadSelectionStateSet.difference(newUploadSelectionSet);
+    for (const uploadIdRemoved of uploadsRemoved) {
+      delete newSelectionInfo[uploadIdRemoved];
+    }
+
+    setSelectionInfo(newSelectionInfo);
+  };
+
+  const updateJobSelectionInfo = (newJobSelection) => {
+    const newSelectionInfo = { ...selectionInfo };
+
+    const newJobSelectionSet = new Set(Object.keys(newJobSelection));
+    const jobSelectionStateSet = new Set(Object.keys(jobSelectionState));
+
+    const jobsAdded = newJobSelectionSet.difference(jobSelectionStateSet);
+    for (const jobIdAdded of jobsAdded) {
+      const jobInfo = jobs.find((j) => j.jobId === jobIdAdded);
+      if (!jobInfo) {
+        continue;
+      }
+      const uploadSelectionInfo = newSelectionInfo[jobInfo.uploadId];
+      if (uploadSelectionInfo) {
+        const jobSelectionInfo = uploadSelectionInfo.jobs[jobIdAdded];
+        if (!jobSelectionInfo) {
+          continue;
+        }
+        jobSelectionInfo.selected = true;
+        uploadSelectionInfo.selected = Object.values(uploadSelectionInfo.jobs).every((j) => j.selected);
+      } else {
+        const uploadInfo = uploads.find((u) => u.id === jobInfo.uploadId);
+        if (!uploadInfo) {
+          continue;
+        }
+        const jobSelectionInfo = {};
+        jobs.map((j) => {
+          if (j.uploadId === jobInfo.uploadId) {
+            jobSelectionInfo[j.jobId] = {
+              info: deepCopy(j),
+              selected: j.jobId === jobIdAdded,
+            };
+          }
+        });
+        newSelectionInfo[jobInfo.uploadId] = {
+          info: deepCopy(uploadInfo),
+          selected: Object.keys(jobSelectionInfo).length === 1,
+          jobs: jobSelectionInfo,
+        };
+      }
+    }
+
+    const jobsRemoved = jobSelectionStateSet.difference(newJobSelectionSet);
+    for (const jobIdRemoved of jobsRemoved) {
+      const jobInfo = jobs.find((j) => j.jobId === jobIdRemoved);
+      if (!jobInfo) {
+        continue;
+      }
+      const uploadSelectionInfo = newSelectionInfo[jobInfo.uploadId];
+      if (!uploadSelectionInfo) {
+        continue;
+      }
+      const jobSelectionInfo = uploadSelectionInfo.jobs[jobIdRemoved];
+      if (!jobSelectionInfo) {
+        continue;
+      }
+      jobSelectionInfo.selected = false;
+
+      uploadSelectionInfo.selected = false;
+      if (Object.values(uploadSelectionInfo.jobs).every((j) => !j.selected)) {
+        delete newSelectionInfo[jobInfo.uploadId];
+      }
+    }
+
+    setSelectionInfo(newSelectionInfo);
+  };
 
   useEffect(() => {
     // reset to false everytime it gets triggered
@@ -314,7 +452,7 @@ export default function Uploads() {
         enableResizing: false,
         size: 180,
         Cell: ({ cell }) =>
-          cell.getValue() !== null && <div>{cell.getValue() ? `Auto Upload` : "Manual Upload"}</div>,
+          cell.getValue() !== null && <div>{cell.getValue() ? "Auto Upload" : "Manual Upload"}</div>,
       },
     ],
     []
@@ -322,7 +460,8 @@ export default function Uploads() {
 
   const handleSelectedJobs = () => {
     for (const uploadId in selectedJobs) {
-      const uploadJobs = displayRows.find((x) => x.id === uploadId).jobs;
+      const uploadRow = displayRows.find((x) => x.id === uploadId);
+      const uploadJobs = uploadRow.jobs;
       const selected = selectedJobs[uploadId];
       const uploadIsSelected = uploadId in selectedUploads && selectedUploads[uploadId];
 
@@ -367,8 +506,7 @@ export default function Uploads() {
 
   const resetTable = async () => {
     setResetDropdown(true);
-    setSelectedUploads({});
-    setSelectedJobs({});
+    setSelectionInfo({});
   };
 
   const removeDeletedUploads = (deletedUploads) => {
@@ -816,20 +954,22 @@ export default function Uploads() {
           <Table
             columns={columns}
             rowData={displayRows}
-            rowSelection={selectedUploads}
-            setRowSelection={setSelectedUploads}
+            rowSelection={uploadSelectionState}
+            setRowSelection={(newUploadSelectionFn) =>
+              updateUploadSelectionInfo(newUploadSelectionFn(uploadSelectionState))
+            }
             toolbarFn={actionsFn}
             columnVisibility={{
               username: accountType !== "user" || accountScope.includes(`${productPage}:rw_all_data`),
             }}
             subTableFn={(row) => (
               <Jobs
-                row={row}
+                uploadRow={row}
                 openJobPreview={handleJobPreviewClick}
-                selectedUploads={selectedUploads}
-                setSelectedUploads={setSelectedUploads}
-                setSelectedJobs={setSelectedJobs}
-                selectedJobs={selectedJobs}
+                setSelectedJobs={(newJobSelectionFn) =>
+                  updateJobSelectionInfo(newJobSelectionFn(jobSelectionState))
+                }
+                selectedJobs={jobSelectionState}
               />
             )}
             enableExpanding={true}
