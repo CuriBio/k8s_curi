@@ -80,6 +80,7 @@ from models.models import (
     JobRequest,
     GetJobsInfoRequest,
     JobResponse,
+    NotificationResponse,
     SaveNotificationRequest,
     SaveNotificationResponse,
     SavePresetRequest,
@@ -944,6 +945,19 @@ async def delete_analysis_preset(
 
     except Exception:
         logger.exception(f"Failed to delete analysis preset {preset_name} for user")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.get("/notifications", response_model=list[NotificationResponse])
+async def get_all_notifications(token=Depends(ProtectedAny(scopes=[Scopes.CURI__ADMIN]))):
+    """Get info for all notifications."""
+    try:
+        customer_id = str(uuid.UUID(token.customer_id))
+        bind_context_to_logger({"customer_id": customer_id})
+        response = await notification_service.get_all()
+        return response
+    except Exception:
+        logger.exception("Failed to get all notifications")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

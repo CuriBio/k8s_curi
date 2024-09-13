@@ -1,4 +1,4 @@
-from models.models import SaveNotificationRequest, SaveNotificationResponse
+from models.models import NotificationResponse, SaveNotificationRequest, SaveNotificationResponse
 import asyncpg
 
 
@@ -17,3 +17,11 @@ class NotificationRepository:
             )
 
         return SaveNotificationResponse(id=notification_id)
+
+    async def get_all(self) -> list[NotificationResponse]:
+        query = "SELECT * FROM notifications"
+
+        async with self.pool.acquire() as con:
+            notifications = await con.fetch(query)
+
+        return [NotificationResponse(**dict(notification)) for notification in notifications]
