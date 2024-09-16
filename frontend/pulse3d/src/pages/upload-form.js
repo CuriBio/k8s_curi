@@ -656,6 +656,7 @@ export default function UploadForm() {
       }
 
       // open error modal notifying which files failed if any, otherwise display success text
+      // TODO should this be >= 1 ?
       if (failedUploadsMsg.length > 1) {
         setModalState(true);
       } else {

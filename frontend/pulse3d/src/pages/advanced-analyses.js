@@ -33,8 +33,9 @@ const DropDownContainer = styled.div`
   margin: 15px 20px;
 `;
 
-const downloadJobs = async (jobIds) => {
+const downloadJobs = async (selectedJobs) => {
   try {
+    const jobIds = selectedJobs.map(({ id }) => id);
     if (jobIds.length === 0) {
       return;
     }
@@ -144,26 +145,23 @@ export default function AdvancedAnalyses() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [displayRows, setDisplayRows] = useState([]);
-  const [checkedRows, setCheckedRows] = useState({});
+  const [selectedJobs, setSelectedJobs] = useState([]);
   const [tableState, setTableState] = useState({
     sorting: [{ id: "createdAt", desc: true }],
     columnFilters: [],
   });
 
-  const checkedJobIds = Object.keys(checkedRows);
+  const jobSelectionState = {};
+  for (const job of selectedJobs) {
+    jobSelectionState[job.id] = true;
+  }
 
   useEffect(() => {
-    if (advancedAnalysisJobs?.length > 1) {
-      setDisplayRows([...advancedAnalysisJobs]);
+    setDisplayRows([...advancedAnalysisJobs]);
+    if (advancedAnalysisJobs?.length > 0) {
       setIsLoading(false);
     }
   }, [advancedAnalysisJobs]);
-
-  const updateTableState = (newState) => {
-    const updatedState = { ...tableState, ...newState };
-    setTableState(updatedState);
-    reGetAdvancedAnalysisJobs(updatedState);
-  };
 
   const columns = useMemo(
     () => [
@@ -237,21 +235,39 @@ export default function AdvancedAnalyses() {
     []
   );
 
+  const updateTableState = (newState) => {
+    const updatedState = { ...tableState, ...newState };
+    setTableState(updatedState);
+    reGetAdvancedAnalysisJobs(updatedState);
+  };
+
+  const updateSelectedJobs = (newJobSelectionState) => {
+    const newSelectedJobs = selectedJobs.filter((j) => j.id in newJobSelectionState);
+    Object.keys(newJobSelectionState).map((newJobId) => {
+      if (newSelectedJobs.includes(newJobId)) {
+        return;
+      }
+      const jobInfo = advancedAnalysisJobs.find((j) => j.id === newJobId);
+      if (!jobInfo) {
+        return;
+      }
+      newSelectedJobs.push(jobInfo);
+    });
+    setSelectedJobs(newSelectedJobs);
+  };
+
   const handleActionSelection = async (optionIdx) => {
     try {
       if (optionIdx === 0 /* Download */) {
-        await downloadJobs(checkedJobIds);
+        await downloadJobs(selectedJobs);
       } else if (optionIdx === 1 /* Delete */) {
         // TODO
       }
-    } catch {
-      return;
-    }
-    setCheckedRows({});
+    } catch {}
+    setSelectedJobs([]);
   };
 
   const actionsFn = (t) => {
-    const checkedJobs = t.getSelectedRowModel().rows.map((row) => row.original);
     return (
       <Box sx={{ width: "100%", position: "relative", display: "flex", justifyContent: "end" }}>
         <DropDownContainer>
@@ -259,12 +275,12 @@ export default function AdvancedAnalyses() {
             label="Actions"
             options={["Download", "Delete"]}
             disableOptions={[
-              checkedJobIds.length === 0 || checkedJobs.some((j) => j.status !== "finished"),
-              true,
+              selectedJobs.length === 0 || selectedJobs.some((j) => j.status !== "finished"),
+              true, // Tanner (9/16/24): deleting is not implemented yet, so keeping it always disabled
             ]}
             optionsTooltipText={["Must make a selection of only completed jobs.", "Coming soon."]}
             handleSelection={handleActionSelection}
-            reset={checkedJobIds.length === 0}
+            reset={selectedJobs.length === 0}
           />
         </DropDownContainer>
       </Box>
@@ -276,8 +292,10 @@ export default function AdvancedAnalyses() {
       <Table
         columns={columns}
         rowData={displayRows}
-        rowSelection={checkedRows}
-        setRowSelection={setCheckedRows}
+        rowSelection={jobSelectionState}
+        setRowSelection={(newJobSelectionFn) => {
+          updateSelectedJobs(newJobSelectionFn(jobSelectionState));
+        }}
         toolbarFn={actionsFn}
         isLoading={isLoading}
         manualSorting={true}
@@ -297,7 +315,6 @@ export default function AdvancedAnalyses() {
           if (isLoading) {
             return;
           }
-          // TODO clear selection?
           let { columnFilters } = tableState;
           columnFilters = updateFn(columnFilters);
           updateTableState({ columnFilters });

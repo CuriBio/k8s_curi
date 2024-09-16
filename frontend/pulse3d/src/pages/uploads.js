@@ -587,34 +587,25 @@ export default function Uploads() {
       return failedDeletingUploads || failedDeletingJobs;
     } catch (e) {
       console.log("ERROR attempting to soft delete selected jobs and uploads:", e);
+      return true;
     }
   };
 
   const handleModalClose = async (idx) => {
+    let failed = false;
     // TODO there is probably a better way to handle this since different actions could use the same words
     if (modalButtons[idx] === "Continue") {
-      await startDeleting();
-    } else {
-      // close in progress modal
-      // also resets for any 'Close' modal button events
-      // index 0 in buttons
-      setModalState(false);
-      resetTable();
+      // set in progress
+      setModalLabels(modalObjs.empty);
+      setModalState("deleting");
+
+      failed = await handleDeletions();
+      // TODO there is probably a better way to do whatever this sleep is trying to do
+      // wait a second to remove deleted files
+      // really helps with flow of when in progress modal closes
+      await new Promise((r) => setTimeout(r, 1000));
     }
-  };
-
-  const startDeleting = async () => {
-    // set in progress
-    setModalLabels(modalObjs.empty);
-    setModalState("deleting");
-
-    const failedDeletion = await handleDeletions();
-    // wait a second to remove deleted files
-    // really helps with flow of when in progress modal closes
-    await new Promise((r) => setTimeout(r, 1000));
-
-    // failed Deletions has its own modal so prevent closure else reset
-    if (!failedDeletion) {
+    if (!failed) {
       setModalState(false);
       resetTable();
     }
@@ -784,7 +775,11 @@ export default function Uploads() {
           const { selectedUploadsInfo } = getInfoOfSelections(selectionInfo);
           setDefaultUploadForReanalysis(selectedUploadsInfo);
           router.push("/upload-form?id=re-analyze+existing+upload");
+        } else {
+          return;
         }
+
+        resetTable();
       } catch (e) {
         console.log(`ERROR handling drop down selection (${dropdownOptions[optionIdx]}):`, e);
       }
@@ -820,7 +815,7 @@ export default function Uploads() {
               setModalState("generic");
             }
           } catch (e) {
-            console.log(`ERROR fetching presigned url to download recording files: ${e}`);
+            console.log(`ERROR downloading recording files: ${e}`);
             setModalLabels(modalObjs.downloadError);
             setModalButtons(["Close"]);
             setModalState("generic");
