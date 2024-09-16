@@ -25,31 +25,30 @@ const ErrorText = styled.div`
 const getAnalysisParamsStr = (params) => {
   return (
     <div>
-      {Object.keys(params).map((param) => {
-        let paramVal;
-
-        if (params[param] !== null) {
-          if (param === "well_groups") {
-            const wellGroups = params[param];
-            return (
-              <div key={param}>
-                well groups:
-                {Object.keys(wellGroups).map((label) => (
-                  <ul key={label} style={{ margin: "3px" }}>
-                    {label}: {wellGroups[label].join(", ")}
-                  </ul>
-                ))}
-              </div>
-            );
-          } else {
-            paramVal = param === "peaks_valleys" ? "user set" : params[param];
-
-            if (param == "inverted_post_magnet_wells") {
-              param = "wells with flipped waveforms";
-            }
-
-            return <div key={param}>{`${param.replaceAll("_", " ")}: ${paramVal}`}</div>;
+      {Object.entries(params).map(([paramName, paramVal]) => {
+        if (paramVal === null) {
+          return;
+        }
+        if (paramName === "well_groups") {
+          const wellGroups = paramVal;
+          return (
+            <div key={paramName}>
+              well groups:
+              {Object.keys(wellGroups).map((label) => (
+                <ul key={label} style={{ margin: "3px" }}>
+                  {label}: {wellGroups[label].join(", ")}
+                </ul>
+              ))}
+            </div>
+          );
+        } else {
+          if (paramName === "peaks_valleys") {
+            paramVal = "user set";
+          } else if (paramName == "inverted_post_magnet_wells") {
+            paramName = "wells with flipped waveforms";
           }
+
+          return <div key={paramName}>{`${paramName.replaceAll("_", " ")}: ${paramVal}`}</div>;
         }
       })}
     </div>

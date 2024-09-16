@@ -263,8 +263,7 @@ async def create_recording_upload(
 async def soft_delete_uploads(
     request: Request,
     upload_ids: list[uuid.UUID] = Query(None),
-    # TODO should this be ScopeTags.PULSE3D_WRITE?
-    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
 ):
     # make sure at least one upload ID was given
     if not upload_ids:
@@ -954,7 +953,7 @@ async def get_all_notifications(token=Depends(ProtectedAny(scopes=[Scopes.CURI__
     try:
         customer_id = str(uuid.UUID(token.customer_id))
         bind_context_to_logger({"customer_id": customer_id})
-        response = await notification_service.get_all()
+        response = await notification_service.get_all()  # noqa: F821
         return response
     except Exception:
         logger.exception("Failed to get all notifications")
