@@ -90,7 +90,7 @@ export default function DashboardLayout({ children }) {
 
       setPulse3dVersions([...sortedExternalVersions, ...sortedTestingVersions, ...sortedDeprecatedVersions]);
     } catch (e) {
-      console.log(`ERROR getting pulse3d versions: ${e}`);
+      console.log("ERROR getting pulse3d versions:", e);
     }
   }
 

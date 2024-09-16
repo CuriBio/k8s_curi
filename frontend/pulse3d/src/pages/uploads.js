@@ -611,7 +611,7 @@ export default function Uploads() {
         setModalState("generic");
       }
     } catch (e) {
-      console.log(`ERROR downloading analyses: ${e}`);
+      console.log("ERROR downloading analyses:", e);
       setModalLabels(modalObjs.downloadError);
       setModalState("generic");
     }
@@ -710,7 +710,7 @@ export default function Uploads() {
         throw Error();
       }
     } catch (e) {
-      console.log(`ERROR during multi file download: ${e}`);
+      console.log("ERROR during multi file download:", e);
       throw Error();
     }
   };
@@ -726,7 +726,6 @@ export default function Uploads() {
 
     const handleDropdownSelection = (optionIdx) => {
       try {
-        // TODO figure out which of these should reset the table
         if (dropdownOptions[optionIdx] === "Delete") {
           setModalButtons(["Close", "Confirm"]);
           setModalLabels(modalObjs.delete);
@@ -779,7 +778,7 @@ export default function Uploads() {
               setModalState("generic");
             }
           } catch (e) {
-            console.log(`ERROR downloading recording files: ${e}`);
+            console.log("ERROR downloading recording files:", e);
             setModalLabels(modalObjs.downloadError);
             setModalButtons(["Close"]);
             setModalState("generic");
