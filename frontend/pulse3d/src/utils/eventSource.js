@@ -91,8 +91,18 @@ export default function useEventSource(hooks) {
       if (payload.usage_type === "uploads") {
         const { uploads, setUploads } = hooksRef.current;
 
-        // currently there is nothing to update if the upload is already present, so only add new uploads
-        if (!uploads.some((upload) => upload.id == payload.id)) {
+        // currently there is nothing to update if the upload is already present, so only add new uploads or delete existing uploads
+        let uploadIdx = -1;
+        uploads.map((upload, idx) => {
+          if (upload.id === payload.id && uploadIdx === -1) {
+            uploadIdx = idx;
+          }
+        });
+        const isUploadPresent = uploadIdx !== -1;
+        if (isUploadPresent && payload.deleted) {
+          uploads.splice(uploadIdx, 1);
+          setUploads([...uploads]);
+        } else if (!isUploadPresent && !payload.deleted) {
           setUploads([payload, ...uploads]);
         }
       } else if (payload.usage_type === "jobs") {
@@ -100,15 +110,21 @@ export default function useEventSource(hooks) {
         // If job is present, update it in place then return
         for (const [i, job] of jobs.entries()) {
           if (job.jobId === payload.id) {
-            jobs[i] = formatP3dJob(payload, {}, hooksRef.current.accountId);
-            jobs[i].checked = job.checked;
-            setJobs([...jobs]);
+            const formattedJob = formatP3dJob(payload, {}, hooksRef.current.accountId);
+            if (formattedJob != null) {
+              if (formattedJob.status === "deleted") {
+                jobs.splice(i, 1);
+              } else {
+                jobs[i] = formattedJob;
+              }
+              setJobs([...jobs]);
+            }
             return;
           }
         }
         // job is not present, so just add it
         const formattedJob = formatP3dJob(payload, {}, hooksRef.current.accountId);
-        if (formattedJob != null) {
+        if (formattedJob != null && formattedJob.status !== "deleted") {
           setJobs([formattedJob, ...jobs]);
         }
       } else if (payload.usage_type === "advanced_analysis") {

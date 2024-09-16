@@ -77,30 +77,9 @@ const modalObjs = {
     header: null,
     messages: [],
   },
-  containsFailedJob: {
-    header: "Warning!",
-    messages: [
-      "You are trying to download one or more analyses with an 'error' status. Please note that these will be ignored.",
-      "Would you like to continue?",
-    ],
-  },
   failedDeletion: {
     header: "Error Occurred!",
     messages: ["There was an issue while deleting the files you selected.", "Please try again later."],
-  },
-  nothingToDownload: {
-    header: "Oops..",
-    messages: [
-      "There is nothing to download.",
-      "Please make sure you are attempting to download finished analyses.",
-    ],
-  },
-  unauthorizedDelete: {
-    header: "Warning!",
-    messages: [
-      "You are not allowed to delete any files under a different user's account.",
-      "Would you like to proceed with only those listed under your own?",
-    ],
   },
 };
 
@@ -550,13 +529,6 @@ export default function Uploads() {
           method: "DELETE",
         });
         failedDeletingUploads = uploadsResponse.status !== 200;
-
-        if (!failedDeletingUploads) {
-          // remove uploads from list to show auto deletion, waiting for get uploads request is too slow
-          // will self-correct if anything is different when actual get uploads request renders
-          const filteredUploads = uploads.filter(({ id }) => !uploadIdsToDelete.includes(id));
-          setUploads([...filteredUploads]);
-        }
       }
 
       let failedDeletingJobs = false;
@@ -566,25 +538,24 @@ export default function Uploads() {
         const jobIdsToDelete = selectedJobsInfo.map(({ jobId }) => jobId);
 
         const jobsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;
-        jobIdsToDelete.map(({ jobId }) => (jobsURL += `job_ids=${jobId}&`));
+        jobIdsToDelete.map((jobId) => (jobsURL += `job_ids=${jobId}&`));
 
         const jobsResponse = await fetch(jobsURL.slice(0, -1), {
           method: "DELETE",
         });
 
         failedDeletingJobs = jobsResponse.status !== 200;
-
-        if (failedDeletingJobs) {
-          setModalButtons(["Close"]);
-          setModalLabels(modalObjs.failedDeletion);
-          setModalState("generic");
-        } else {
-          const filteredJobs = jobs.filter(({ jobId }) => !jobIdsToDelete.includes(jobId));
-          setJobs([...filteredJobs]);
-        }
       }
 
-      return failedDeletingUploads || failedDeletingJobs;
+      const failed = failedDeletingUploads || failedDeletingJobs;
+
+      if (failed) {
+        setModalButtons(["Close"]);
+        setModalLabels(modalObjs.failedDeletion);
+        setModalState("generic");
+      }
+
+      return failed;
     } catch (e) {
       console.log("ERROR attempting to soft delete selected jobs and uploads:", e);
       return true;
@@ -594,16 +565,12 @@ export default function Uploads() {
   const handleModalClose = async (idx) => {
     let failed = false;
     // TODO there is probably a better way to handle this since different actions could use the same words
-    if (modalButtons[idx] === "Continue") {
+    if (modalButtons[idx] === "Confirm") {
       // set in progress
       setModalLabels(modalObjs.empty);
       setModalState("deleting");
 
       failed = await handleDeletions();
-      // TODO there is probably a better way to do whatever this sleep is trying to do
-      // wait a second to remove deleted files
-      // really helps with flow of when in progress modal closes
-      await new Promise((r) => setTimeout(r, 1000));
     }
     if (!failed) {
       setModalState(false);
@@ -759,6 +726,7 @@ export default function Uploads() {
 
     const handleDropdownSelection = (optionIdx) => {
       try {
+        // TODO figure out which of these should reset the table
         if (dropdownOptions[optionIdx] === "Delete") {
           setModalButtons(["Close", "Confirm"]);
           setModalLabels(modalObjs.delete);
@@ -775,11 +743,7 @@ export default function Uploads() {
           const { selectedUploadsInfo } = getInfoOfSelections(selectionInfo);
           setDefaultUploadForReanalysis(selectedUploadsInfo);
           router.push("/upload-form?id=re-analyze+existing+upload");
-        } else {
-          return;
         }
-
-        resetTable();
       } catch (e) {
         console.log(`ERROR handling drop down selection (${dropdownOptions[optionIdx]}):`, e);
       }
@@ -791,8 +755,8 @@ export default function Uploads() {
           downloadAnalyses();
         } else if (subOptionIdx === 1 /* Recordings */) {
           try {
-            const { selectedUploadInfo } = getInfoOfSelections(selectionInfo);
-            const uploadIds = selectedUploadInfo.map(({ id }) => id);
+            const { selectedUploadsInfo } = getInfoOfSelections(selectionInfo);
+            const uploadIds = selectedUploadsInfo.map(({ id }) => id);
             if (uploadIds.length === 1) {
               await downloadSingleFile({ uploadId: uploadIds[0] });
               resetTable();
