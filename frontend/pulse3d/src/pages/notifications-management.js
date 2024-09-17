@@ -155,7 +155,7 @@ export default function NotificationsManagement() {
 
       console.log("ERROR - POST /notifications: unexpected response");
     } catch (e) {
-      console.log(`ERROR - POST /notifications: ${e}`);
+      console.log("ERROR - POST /notifications:", e);
     }
 
     setShowErrorModal(true);

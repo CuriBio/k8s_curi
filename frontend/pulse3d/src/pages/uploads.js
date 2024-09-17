@@ -8,7 +8,7 @@ import InteractiveAnalysisModal from "@/components/interactiveAnalysis/Interacti
 import { AuthContext, UploadsContext } from "@/pages/_app";
 import { useRouter } from "next/router";
 import JobPreviewModal from "@/components/interactiveAnalysis/JobPreviewModal";
-import { formatDateTime } from "@/utils/generic";
+import { deepCopy, formatDateTime } from "@/utils/generic";
 import { getShortUUIDWithTooltip } from "@/utils/jsx";
 import Table from "@/components/table/Table";
 import { Box, IconButton } from "@mui/material";
@@ -77,39 +77,29 @@ const modalObjs = {
     header: null,
     messages: [],
   },
-  containsFailedJob: {
-    header: "Warning!",
-    messages: [
-      "You are trying to download one or more analyses with an 'error' status. Please note that these will be ignored.",
-      "Would you like to continue?",
-    ],
-  },
   failedDeletion: {
     header: "Error Occurred!",
     messages: ["There was an issue while deleting the files you selected.", "Please try again later."],
   },
-  nothingToDownload: {
-    header: "Oops..",
-    messages: [
-      "There is nothing to download.",
-      "Please make sure you are attempting to download finished analyses.",
-    ],
-  },
-  unauthorizedDelete: {
-    header: "Warning!",
-    messages: [
-      "You are not allowed to delete any files under a different user's account.",
-      "Would you like to proceed with only those listed under your own?",
-    ],
-  },
 };
 
-const getJobsList = (j) => {
-  return Object.values(j).flat(2);
-};
+const NO_MULTI_SELECTION_MSG = "No recording uploads or analyses selected.";
+const LIMIT_REACHED_MSG = "Disabled because analysis limit has been reached.";
 
-const getSelectedUploads = (u) => {
-  return Object.keys(u).filter((x) => u[x]);
+const getInfoOfSelections = (selectionInfo) => {
+  const selectedUploadsInfo = [];
+  const selectedJobsInfo = [];
+  Object.values(selectionInfo).map((uploadDetails) => {
+    if (uploadDetails.selected) {
+      selectedUploadsInfo.push(uploadDetails.info);
+    }
+    Object.values(uploadDetails.jobs).map((jobDetails) => {
+      if (jobDetails.selected) {
+        selectedJobsInfo.push(jobDetails.info);
+      }
+    });
+  });
+  return { selectedUploadsInfo, selectedJobsInfo };
 };
 
 const getSortFilterName = (sortColId) => {
@@ -137,8 +127,22 @@ export default function Uploads() {
 
   const [displayRows, setDisplayRows] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedUploads, setSelectedUploads] = useState({});
-  const [selectedJobs, setSelectedJobs] = useState({});
+  const [selectionInfo, setSelectionInfo] = useState({
+    /* Tanner (9/13/24): keeping the structure of this object here for future reference. Can be removed if necessary
+    uploadId: {
+      info: { ... },
+      selected: true/false,
+      jobs: {
+        jobId: {
+          info: { ... },
+          selected: true/false
+        }
+        ...
+      }
+    }
+    ...
+    */
+  });
   const [resetDropdown, setResetDropdown] = useState(false);
   const [modalState, setModalState] = useState(false);
   const [modalLabels, setModalLabels] = useState({ header: "", messages: [] });
@@ -151,6 +155,82 @@ export default function Uploads() {
     sorting: [{ id: "lastAnalyzed", desc: true }],
     columnFilters: [],
   });
+
+  // TODO consider moving this into a function and calling both of those functions only from the update fns.
+  // Will also need to put these values in useState
+  const uploadSelectionState = {};
+  const jobSelectionState = {};
+  for (const [uploadId, uploadDetails] of Object.entries(selectionInfo)) {
+    if (uploadDetails.selected) {
+      uploadSelectionState[uploadId] = true;
+    }
+    for (const [jobId, jobDetails] of Object.entries(uploadDetails.jobs)) {
+      if (jobDetails.selected) {
+        jobSelectionState[jobId] = true;
+      }
+    }
+  }
+
+  const dropdownDisabledTooltips = (() => {
+    const { selectedUploadsInfo, selectedJobsInfo } = getInfoOfSelections(selectionInfo);
+    const selectedUploadCount = selectedUploadsInfo.length;
+    const selectedJobCount = selectedJobsInfo.length;
+
+    let downloadTooltip = "";
+    if (selectedUploadCount === 0 && selectedJobCount === 0) {
+      downloadTooltip = NO_MULTI_SELECTION_MSG;
+    }
+
+    let deleteTooltip = "";
+    if (selectedUploadCount === 0 && selectedJobCount === 0) {
+      deleteTooltip = NO_MULTI_SELECTION_MSG;
+    } else if (
+      selectedUploadsInfo.some((u) => accountId !== u.user_id.replace(/-/g, "")) ||
+      selectedJobsInfo.some((j) => !j.owner)
+    ) {
+      deleteTooltip = "Selection includes items owned by another user.";
+    } else if (selectedJobsInfo.some((j) => ["pending", "running"].includes(j.status))) {
+      deleteTooltip = "Selection includes analyses that are still pending or running.";
+    }
+
+    let iaTooltip = "";
+    if (usageQuota?.jobs_reached) {
+      iaTooltip = LIMIT_REACHED_MSG;
+    } else if (selectedJobCount !== 1) {
+      iaTooltip = "Must select exactly one analysis.";
+    } else if (selectedJobsInfo[0].status !== "finished") {
+      iaTooltip = "Selected analysis must have completed successfully.";
+    }
+
+    let reanalyzeTooltip = "";
+    if (usageQuota?.jobs_reached) {
+      reanalyzeTooltip = LIMIT_REACHED_MSG;
+    } else if (selectedUploadCount === 0) {
+      reanalyzeTooltip = "No recording uploads selected.";
+    }
+
+    return [downloadTooltip, deleteTooltip, iaTooltip, reanalyzeTooltip];
+  })();
+
+  const dropdownsubOptionDisabledTooltips = (() => {
+    const { selectedUploadsInfo, selectedJobsInfo } = getInfoOfSelections(selectionInfo);
+    const selectedUploadCount = selectedUploadsInfo.length;
+    const selectedJobCount = selectedJobsInfo.length;
+
+    let downloadUploadsTooltip = "";
+    if (selectedUploadCount === 0) {
+      downloadUploadsTooltip = "No recording uploads selected.";
+    }
+
+    let downloadAnalysesTooltip = "";
+    if (selectedJobCount === 0) {
+      downloadAnalysesTooltip = "No analyses selected.";
+    } else if (selectedJobsInfo.some((j) => j.status !== "finished")) {
+      downloadAnalysesTooltip = "Selection includes analyses that have not completed successfully.";
+    }
+
+    return { Download: [downloadAnalysesTooltip, downloadUploadsTooltip] };
+  })();
 
   useEffect(() => {
     // reset to false everytime it gets triggered
@@ -194,14 +274,6 @@ export default function Uploads() {
       setIsLoading(false);
     }
   }, [uploads, jobs]);
-
-  useEffect(() => {
-    handleSelectedJobs();
-  }, [selectedJobs]);
-
-  useEffect(() => {
-    handleSelectedUploads();
-  }, [selectedUploads]);
 
   useEffect(() => {
     if (!uploads) {
@@ -314,50 +386,122 @@ export default function Uploads() {
         enableResizing: false,
         size: 180,
         Cell: ({ cell }) =>
-          cell.getValue() !== null && <div>{cell.getValue() ? `Auto Upload` : "Manual Upload"}</div>,
+          cell.getValue() !== null && <div>{cell.getValue() ? "Auto Upload" : "Manual Upload"}</div>,
       },
     ],
     []
   );
 
-  const handleSelectedJobs = () => {
-    for (const uploadId in selectedJobs) {
-      const uploadJobs = displayRows.find((x) => x.id === uploadId).jobs;
-      const selected = selectedJobs[uploadId];
-      const uploadIsSelected = uploadId in selectedUploads && selectedUploads[uploadId];
+  const updateUploadSelectionInfo = (newUploadSelection) => {
+    try {
+      const newSelectionInfo = { ...selectionInfo };
 
-      if (uploadJobs.length === selected.length && uploadJobs.length !== 0 && !uploadIsSelected) {
-        // if all jobs are selected and the parent upload isn't, then auto selected the upload
-        selectedUploads[uploadId] = true;
-        setSelectedUploads({ ...selectedUploads });
-      } else if (uploadJobs.length > selected.length && uploadIsSelected) {
-        // else if the parent upload is selected, but a user unchecks a job, then auto uncheck the parent upload
-        selectedUploads[uploadId] = false;
-        setSelectedUploads({ ...selectedUploads });
+      const newUploadSelectionSet = new Set(Object.keys(newUploadSelection));
+      const uploadSelectionStateSet = new Set(Object.keys(uploadSelectionState));
+
+      const uploadsAdded = newUploadSelectionSet.difference(uploadSelectionStateSet);
+      for (const uploadIdAdded of uploadsAdded) {
+        if (!(uploadIdAdded in newSelectionInfo)) {
+          const uploadInfo = uploads.find((u) => u.id === uploadIdAdded);
+          if (!uploadInfo) {
+            continue;
+          }
+          newSelectionInfo[uploadIdAdded] = {
+            info: deepCopy(uploadInfo),
+          };
+        }
+        newSelectionInfo[uploadIdAdded].selected = true;
+        const jobSelectionInfo = {};
+        jobs.map((j) => {
+          if (j.uploadId === uploadIdAdded) {
+            jobSelectionInfo[j.jobId] = {
+              info: deepCopy(j),
+              selected: true,
+            };
+          }
+        });
+        newSelectionInfo[uploadIdAdded].jobs = jobSelectionInfo;
       }
+
+      const uploadsRemoved = uploadSelectionStateSet.difference(newUploadSelectionSet);
+      for (const uploadIdRemoved of uploadsRemoved) {
+        delete newSelectionInfo[uploadIdRemoved];
+      }
+
+      setSelectionInfo(newSelectionInfo);
+    } catch (e) {
+      console.log("ERROR updating upload selection:", e);
     }
   };
 
-  const handleSelectedUploads = () => {
-    const selectedJobsCopy = JSON.parse(JSON.stringify(selectedJobs));
+  const updateJobSelectionInfo = (newJobSelection) => {
+    try {
+      const newSelectionInfo = { ...selectionInfo };
 
-    for (const uploadId in selectedUploads) {
-      const uploadJobs = displayRows.find((x) => x.id === uploadId).jobs;
-      const uploadIsSelected = selectedUploads[uploadId];
+      const newJobSelectionSet = new Set(Object.keys(newJobSelection));
+      const jobSelectionStateSet = new Set(Object.keys(jobSelectionState));
 
-      if (uploadIsSelected) {
-        // if parent upload is selected and all the jobs aren't selected, then auto select all the jobs
-        const allSelectedJobs = uploadJobs.map(({ jobId }) => jobId);
-        selectedJobsCopy[uploadId] = allSelectedJobs;
-        setSelectedJobs({ ...selectedJobsCopy });
+      const jobsAdded = newJobSelectionSet.difference(jobSelectionStateSet);
+      for (const jobIdAdded of jobsAdded) {
+        const jobInfo = jobs.find((j) => j.jobId === jobIdAdded);
+        if (!jobInfo) {
+          continue;
+        }
+        const uploadSelectionInfo = newSelectionInfo[jobInfo.uploadId];
+        if (uploadSelectionInfo) {
+          const jobSelectionInfo = uploadSelectionInfo.jobs[jobIdAdded];
+          if (!jobSelectionInfo) {
+            continue;
+          }
+          jobSelectionInfo.selected = true;
+          uploadSelectionInfo.selected = Object.values(uploadSelectionInfo.jobs).every((j) => j.selected);
+        } else {
+          const uploadInfo = uploads.find((u) => u.id === jobInfo.uploadId);
+          if (!uploadInfo) {
+            continue;
+          }
+          const jobSelectionInfo = {};
+          jobs.map((j) => {
+            if (j.uploadId === jobInfo.uploadId) {
+              jobSelectionInfo[j.jobId] = {
+                info: deepCopy(j),
+                selected: j.jobId === jobIdAdded,
+              };
+            }
+          });
+          newSelectionInfo[jobInfo.uploadId] = {
+            info: deepCopy(uploadInfo),
+            selected: Object.keys(jobSelectionInfo).length === 1,
+            jobs: jobSelectionInfo,
+          };
+        }
       }
-    }
 
-    for (const uploadId in selectedJobsCopy) {
-      if (!Object.keys(selectedUploads).includes(uploadId)) {
-        selectedJobsCopy[uploadId] = [];
-        setSelectedJobs({ ...selectedJobsCopy });
+      const jobsRemoved = jobSelectionStateSet.difference(newJobSelectionSet);
+      for (const jobIdRemoved of jobsRemoved) {
+        const jobInfo = jobs.find((j) => j.jobId === jobIdRemoved);
+        if (!jobInfo) {
+          continue;
+        }
+        const uploadSelectionInfo = newSelectionInfo[jobInfo.uploadId];
+        if (!uploadSelectionInfo) {
+          continue;
+        }
+        const jobSelectionInfo = uploadSelectionInfo.jobs[jobIdRemoved];
+        if (!jobSelectionInfo) {
+          continue;
+        }
+        jobSelectionInfo.selected = false;
+
+        uploadSelectionInfo.selected = false;
+        if (Object.values(uploadSelectionInfo.jobs).every((j) => !j.selected)) {
+          delete newSelectionInfo[jobInfo.uploadId];
+        }
       }
+
+      setSelectionInfo(newSelectionInfo);
+    } catch (e) {
+      console.log("ERROR updating job selection:", e);
     }
   };
 
@@ -367,196 +511,108 @@ export default function Uploads() {
 
   const resetTable = async () => {
     setResetDropdown(true);
-    setSelectedUploads({});
-    setSelectedJobs({});
-  };
-
-  const removeDeletedUploads = (deletedUploads) => {
-    const deletedIds = deletedUploads.map(({ id }) => id);
-    const filteredUploads = uploads.filter(({ id }) => !deletedIds.includes(id));
-    setUploads([...filteredUploads]);
-  };
-
-  const removeDeletedJobs = (deletedJobs) => {
-    const deletedIds = deletedJobs.map(({ jobId }) => jobId);
-    const filteredJobs = jobs.filter(({ jobId }) => !deletedIds.includes(jobId));
-    setJobs([...filteredJobs]);
+    setSelectionInfo({});
   };
 
   const handleDeletions = async () => {
-    // NOTE the query that soft deletes the files will also fail even if non-owner files get sent since the user_ids will not match to what's in the database
-    //remove all pending from list
-    const jobsList = getJobsList(selectedJobs);
-    const jobsToDelete = jobs.filter(
-      ({ jobId, status, owner }) =>
-        jobsList.includes(jobId) &&
-        !["pending", "running"].includes(status) &&
-        (owner || accountType === "admin")
-    );
-    // get upload meta data
-    // check if upload is selected, check that upload has no actively running jobs, and check user is deleting own upload or it's an admin account
-    const uploadsToDelete = displayRows.filter(
-      ({ id, jobs, owner }) =>
-        getSelectedUploads(selectedUploads).includes(id) &&
-        !jobs.find(
-          ({ status, jobId }) => !jobsList.includes(jobId) || ["pending", "running"].includes(status)
-        ) &&
-        (owner || accountType === "admin")
-    );
+    const { selectedUploadsInfo, selectedJobsInfo } = getInfoOfSelections(selectionInfo);
 
     try {
-      let failedDeletion = false;
+      let failedDeletingUploads = false;
       //soft delete uploads
-      if (uploadsToDelete) {
-        const finalUploadIds = uploadsToDelete.map(({ id }) => id);
-        // filter for uploads where there are no pending jobs to prevent deleting uploads for pending jobs
-        if (finalUploadIds && finalUploadIds.length > 0) {
-          const uploadsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads?`;
-          finalUploadIds.map((id) => (uploadsURL += `upload_ids=${id}&`));
+      if (selectedUploadsInfo.length > 0) {
+        const uploadIdsToDelete = selectedUploadsInfo.map(({ id }) => id);
 
-          const uploadsResponse = await fetch(uploadsURL.slice(0, -1), {
-            method: "DELETE",
-          });
-
-          failedDeletion ||= uploadsResponse.status !== 200;
-        }
+        const uploadsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads?`;
+        uploadIdsToDelete.map((id) => (uploadsURL += `upload_ids=${id}&`));
+        const uploadsResponse = await fetch(uploadsURL.slice(0, -1), {
+          method: "DELETE",
+        });
+        failedDeletingUploads = uploadsResponse.status !== 200;
       }
 
-      // only proceed if upload successfully deleted
-      if (!failedDeletion) {
-        // remove uploads from list to show auto deletion, waiting for get uploads request is too slow
-        // will self-correct if anything is different when actual get uploads request renders
-        removeDeletedUploads(uploadsToDelete);
+      let failedDeletingJobs = false;
+      // only proceed if no issues deleting uploads
+      if (!failedDeletingUploads && selectedJobsInfo.length > 0) {
         // soft delete all jobs
-        if (jobsToDelete.length > 0) {
-          const jobsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;
-          jobsToDelete.map(({ jobId }) => (jobsURL += `job_ids=${jobId}&`));
+        const jobIdsToDelete = selectedJobsInfo.map(({ jobId }) => jobId);
 
-          const jobsResponse = await fetch(jobsURL.slice(0, -1), {
-            method: "DELETE",
-          });
+        const jobsURL = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs?`;
+        jobIdsToDelete.map((jobId) => (jobsURL += `job_ids=${jobId}&`));
 
-          failedDeletion ||= jobsResponse.status !== 200;
-        }
+        const jobsResponse = await fetch(jobsURL.slice(0, -1), {
+          method: "DELETE",
+        });
+
+        failedDeletingJobs = jobsResponse.status !== 200;
       }
 
-      if (failedDeletion) {
+      const failed = failedDeletingUploads || failedDeletingJobs;
+
+      if (failed) {
         setModalButtons(["Close"]);
         setModalLabels(modalObjs.failedDeletion);
         setModalState("generic");
-      } else {
-        removeDeletedJobs(jobsToDelete);
       }
 
-      return failedDeletion;
+      return failed;
     } catch (e) {
-      console.log(e);
-      console.log("ERROR attempting to soft delete selected jobs and uploads");
+      console.log("ERROR attempting to soft delete selected jobs and uploads:", e);
+      return true;
     }
-  };
-
-  const checkOwnerOfFiles = async () => {
-    const ownerOfUploads =
-      displayRows.filter(({ id, owner }) => id in selectedUploads && selectedUploads[id] && owner).length ==
-      getSelectedUploads(selectedUploads).length;
-
-    const alljobs = getJobsList(selectedJobs);
-    const ownerOfJobs =
-      jobs.filter(({ jobId, owner }) => alljobs.includes(jobId) && owner).length == alljobs.length;
-
-    return ownerOfJobs && ownerOfUploads;
   };
 
   const handleModalClose = async (idx) => {
-    if (modalButtons[idx] === "Continue") {
-      // this block gets hit when user chooses to continue without 'error' status analyses
-      downloadAnalyses();
-    } else if (modalButtons[idx] === "Confirm") {
-      const ownerCheck = await checkOwnerOfFiles();
-      if (!ownerCheck && accountType !== "admin") {
-        // set in progress
-        setModalLabels(modalObjs.unauthorizedDelete);
-        setModalButtons(["Close", "Proceed"]);
-        setModalState("generic");
-      } else {
-        await startDeleting();
-      }
-    } else if (modalButtons[idx] === "Proceed") {
-      await startDeleting();
-    } else {
-      // close in progress modal
-      // also resets for any 'Close' modal button events
-      // index 0 in buttons
-      setModalState(false);
-      resetTable();
+    let failed = false;
+    // TODO there is probably a better way to handle this since different actions could use the same words
+    if (modalButtons[idx] === "Confirm") {
+      // set in progress
+      setModalLabels(modalObjs.empty);
+      setModalState("deleting");
+
+      failed = await handleDeletions();
     }
-  };
-
-  const startDeleting = async () => {
-    // set in progress
-    setModalLabels(modalObjs.empty);
-    setModalState("deleting");
-
-    const failedDeletion = await handleDeletions();
-    // wait a second to remove deleted files
-    // really helps with flow of when in progress modal closes
-    await new Promise((r) => setTimeout(r, 1000));
-
-    // failed Deletions has its own modal so prevent closure else reset
-    if (!failedDeletion) {
+    if (!failed) {
       setModalState(false);
       resetTable();
     }
   };
 
   const downloadAnalyses = async () => {
-    // removes any jobs with error + pending statuses
-    const jobsList = getJobsList(selectedJobs);
-    const finishedJobs = jobs.filter(
-      ({ jobId, status }) => jobsList.includes(jobId) && status === "finished"
-    );
+    try {
+      const { selectedJobsInfo } = getInfoOfSelections(selectionInfo);
+      // remove any jobs that aren't finished just to be safe
+      const finishedJobs = selectedJobsInfo.filter(({ status }) => status === "finished");
+      const numberOfJobs = finishedJobs.length;
 
-    const numberOfJobs = finishedJobs.length;
-
-    if (numberOfJobs > 0) {
       setModalButtons(["Close"]);
 
-      /*
-          Download correct number of files,
-          else throw error to prompt error modal
-        */
-      try {
-        if (numberOfJobs === 1) {
-          await downloadSingleFile(finishedJobs[0]);
-          // table only resets on download success modal close, so this needs to be handled here
-          resetTable();
-        } else if (numberOfJobs > 1) {
-          // show active downloading modal only for multifile downloads
-          setModalLabels(modalObjs.empty);
-          setModalState("downloading");
+      // Download correct number of files, else throw error to prompt error modal
+      if (numberOfJobs === 1) {
+        await downloadSingleFile(finishedJobs[0]);
+        // table only resets on download success modal close, so this needs to be handled here
+        resetTable();
+      } else if (numberOfJobs > 1) {
+        // show active downloading modal only for multifile downloads
+        setModalLabels(modalObjs.empty);
+        setModalState("downloading");
 
-          await downloadMultiFiles(finishedJobs);
+        await downloadMultiFiles(finishedJobs);
 
-          // show successful download modal only for multifile downloads
-          setModalLabels({
-            header: "Success!",
-            messages: [
-              `The following number of analyses have been successfully downloaded: ${numberOfJobs}`,
-              "They can be found in your local downloads folder.",
-            ],
-          });
+        // show successful download modal only for multifile downloads
+        setModalLabels({
+          header: "Success!",
+          messages: [
+            `The following number of analyses have been successfully downloaded: ${numberOfJobs}`,
+            "They can be found in your local downloads folder.",
+          ],
+        });
 
-          setModalState("generic");
-        }
-      } catch (e) {
-        console.log(`ERROR fetching presigned url to download analysis: ${e}`);
-        setModalLabels(modalObjs.downloadError);
         setModalState("generic");
       }
-    } else {
-      // let user know in the off chance that the only files they selected are not finished analyzing or failed
-      setModalLabels(modalObjs.nothingToDownload);
-      setModalButtons(["Close"]);
+    } catch (e) {
+      console.log("ERROR downloading analyses:", e);
+      setModalLabels(modalObjs.downloadError);
       setModalState("generic");
     }
   };
@@ -641,7 +697,6 @@ export default function Uploads() {
       });
 
       if (response.status === 200) {
-        // TODO look at if streaming is necessary or not
         const file = await response.blob();
         const url = window.URL.createObjectURL(file);
 
@@ -655,7 +710,7 @@ export default function Uploads() {
         throw Error();
       }
     } catch (e) {
-      console.log(`ERROR during multi file download: ${e}`);
+      console.log("ERROR during multi file download:", e);
       throw Error();
     }
   };
@@ -665,108 +720,70 @@ export default function Uploads() {
     setOpenJobPreview(true);
   };
 
-  const disableOptions = () => {
-    const jobsList = getJobsList(selectedJobs);
-    const multiTargetOptions = Array(2).fill(
-      jobsList.length === 0 && getSelectedUploads(selectedUploads).length === 0
-    );
-
-    return [...multiTargetOptions, isSingleTargetSelected(jobsList), areUploadsSelected()];
-  };
-
-  const isSingleTargetSelected = (jobsList) => {
-    const selectedJobsList = jobs.filter((job) => job.jobId === jobsList[0]);
-
-    return (
-      jobsList.length !== 1 ||
-      (selectedJobsList.length > 0 && selectedJobsList[0].status !== "finished") ||
-      (usageQuota && usageQuota.jobs_reached)
-    );
-  };
-
-  const areUploadsSelected = () => {
-    if (uploads) {
-      return getSelectedUploads(selectedUploads).length === 0 || (usageQuota && usageQuota.jobs_reached);
-    }
-  };
-
   const actionsFn = (t) => {
     const dropdownOptions =
-      accountType === "admin"
-        ? ["Download", "Delete"]
-        : ["Download", "Delete", "Interactive Analysis", "Re-Analyze"];
+      accountType === "admin" ? ["Download"] : ["Download", "Delete", "Interactive Analysis", "Re-Analyze"];
 
-    const checkedRows = t.getSelectedRowModel().rows;
-
-    const handleDropdownSelection = (option) => {
-      if (option === 0) {
-        // if download, check that no job contains an error status
-        const jobsList = getJobsList(selectedJobs);
-        const failedJobs = jobs.filter(({ jobId, status }) => jobsList.includes(jobId) && status === "error");
-
-        if (failedJobs.length === 0) {
-          downloadAnalyses();
-        } else {
-          setModalButtons(["Close", "Continue"]);
-          setModalLabels(modalObjs.containsFailedJob);
+    const handleDropdownSelection = (optionIdx) => {
+      try {
+        if (dropdownOptions[optionIdx] === "Delete") {
+          setModalButtons(["Close", "Confirm"]);
+          setModalLabels(modalObjs.delete);
           setModalState("generic");
+        } else if (dropdownOptions[optionIdx] === "Interactive Analysis") {
+          const { selectedJobsInfo } = getInfoOfSelections(selectionInfo);
+          const selectedJobInfo = selectedJobsInfo[0];
+          setSelectedAnalysis(selectedJobInfo);
+          const uploadInfo = selectionInfo[selectedJobInfo.uploadId];
+          setJobsInSelectedUpload(Object.values(uploadInfo.jobs).length); // used to show credit usage if necessary
+          setOpenInteractiveAnalysis(true);
+        } else if (dropdownOptions[optionIdx] === "Re-Analyze") {
+          // Open Re-analyze tab with name of the selected files
+          const { selectedUploadsInfo } = getInfoOfSelections(selectionInfo);
+          setDefaultUploadForReanalysis(selectedUploadsInfo);
+          router.push("/upload-form?id=re-analyze+existing+upload");
         }
-      } else if (option === 1) {
-        setModalButtons(["Close", "Confirm"]);
-        setModalLabels(modalObjs.delete);
-        setModalState("generic");
-      } else if (option === 2) {
-        const jobsList = getJobsList(selectedJobs);
-        const jobDetails = jobs.find(({ jobId }) => jobId == jobsList[0]);
-        setSelectedAnalysis(jobDetails);
-
-        const jobUpload = displayRows.find(({ id }) => id === jobDetails.uploadId);
-        setJobsInSelectedUpload(jobUpload.jobs.length); // used to show credit usage if necessary
-
-        setOpenInteractiveAnalysis(true);
-      } else if (option === 3) {
-        // Open Re-analyze tab with name of the selected files
-        const selectedUploads = uploads.filter((upload) => checkedRows.some((row) => upload.id === row.id));
-        setDefaultUploadForReanalysis(selectedUploads);
-        router.push("/upload-form?id=re-analyze+existing+upload");
+      } catch (e) {
+        console.log(`ERROR handling drop down selection (${dropdownOptions[optionIdx]}):`, e);
       }
     };
 
-    const handleDownloadSubSelection = async ({ Download }) => {
-      if (Download === 1) {
-        try {
-          const uploadIds = getSelectedUploads(selectedUploads);
-          if (uploadIds.length === 1) {
-            await downloadSingleFile({ uploadId: uploadIds[0] });
-            resetTable();
-          } else if (uploadIds.length > 1) {
-            // show active downloading modal only for multifile downloads
-            setModalLabels(modalObjs.empty);
-            setModalState("downloading");
+    const handleDownloadSubSelection = async ({ optionName, subOptionIdx }) => {
+      if (optionName === "Download") {
+        if (subOptionIdx === 0 /* Analyses */) {
+          downloadAnalyses();
+        } else if (subOptionIdx === 1 /* Recordings */) {
+          try {
+            const { selectedUploadsInfo } = getInfoOfSelections(selectionInfo);
+            const uploadIds = selectedUploadsInfo.map(({ id }) => id);
+            if (uploadIds.length === 1) {
+              await downloadSingleFile({ uploadId: uploadIds[0] });
+              resetTable();
+            } else if (uploadIds.length > 1) {
+              // show active downloading modal only for multifile downloads
+              setModalLabels(modalObjs.empty);
+              setModalState("downloading");
 
-            await downloadMultiFiles(uploadIds, true);
+              await downloadMultiFiles(uploadIds, true);
 
-            // show successful download modal only for multifile downloads
-            setModalLabels({
-              header: "Success!",
-              messages: [
-                `The following number of recording files have been successfully downloaded: ${
-                  getSelectedUploads(selectedUploads).length
-                }`,
-                "They can be found in your local downloads folder.",
-              ],
-            });
+              // show successful download modal only for multifile downloads
+              setModalLabels({
+                header: "Success!",
+                messages: [
+                  `The following number of recording files have been successfully downloaded: ${uploadIds.length}`,
+                  "They can be found in your local downloads folder.",
+                ],
+              });
+              setModalButtons(["Close"]);
+              setModalState("generic");
+            }
+          } catch (e) {
+            console.log("ERROR downloading recording files:", e);
+            setModalLabels(modalObjs.downloadError);
             setModalButtons(["Close"]);
             setModalState("generic");
           }
-        } catch (e) {
-          console.log(`ERROR fetching presigned url to download recording files: ${e}`);
-          setModalLabels(modalObjs.downloadError);
-          setModalButtons(["Close"]);
-          setModalState("generic");
         }
-      } else {
-        handleDropdownSelection(Download);
       }
     };
 
@@ -779,29 +796,15 @@ export default function Uploads() {
             subOptions={{
               Download: ["Download Analyses", "Download Raw Data"],
             }}
-            disableOptions={disableOptions()}
-            optionsTooltipText={[
-              ...Array(2).fill("Must make a selection below before actions become available."),
-              usageQuota && usageQuota.jobs_reached
-                ? "Interactive analysis is disabled because customer limit has been reached."
-                : "You must select one successful job to enable interactive analysis.",
-              usageQuota && usageQuota.jobs_reached
-                ? "Re-analysis is disabled because customer limit has been reached."
-                : "You must select uploads to enable re-analysis.",
-            ]}
+            disableOptions={dropdownDisabledTooltips.map((msg) => msg !== "")}
+            optionsTooltipText={dropdownDisabledTooltips}
             handleSelection={handleDropdownSelection}
             handleSubSelection={handleDownloadSubSelection}
             reset={resetDropdown}
             disableSubOptions={{
-              Download: [
-                getJobsList(selectedJobs).length === 0,
-                getSelectedUploads(selectedUploads).length === 0,
-              ],
+              Download: dropdownsubOptionDisabledTooltips.Download.map((msg) => msg !== ""),
             }}
-            subOptionsTooltipText={[
-              "Must make a job selection before becoming available.",
-              "Must make an upload selection before becoming available.",
-            ]}
+            subOptionsTooltipText={dropdownsubOptionDisabledTooltips}
             setReset={setResetDropdown}
           />
         </DropDownContainer>
@@ -816,20 +819,22 @@ export default function Uploads() {
           <Table
             columns={columns}
             rowData={displayRows}
-            rowSelection={selectedUploads}
-            setRowSelection={setSelectedUploads}
+            rowSelection={uploadSelectionState}
+            setRowSelection={(newUploadSelectionFn) =>
+              updateUploadSelectionInfo(newUploadSelectionFn(uploadSelectionState))
+            }
             toolbarFn={actionsFn}
             columnVisibility={{
               username: accountType !== "user" || accountScope.includes(`${productPage}:rw_all_data`),
             }}
             subTableFn={(row) => (
               <Jobs
-                row={row}
+                uploadRow={row}
                 openJobPreview={handleJobPreviewClick}
-                selectedUploads={selectedUploads}
-                setSelectedUploads={setSelectedUploads}
-                setSelectedJobs={setSelectedJobs}
-                selectedJobs={selectedJobs}
+                setSelectedJobs={(newJobSelectionFn) =>
+                  updateJobSelectionInfo(newJobSelectionFn(jobSelectionState))
+                }
+                selectedJobs={jobSelectionState}
               />
             )}
             enableExpanding={true}

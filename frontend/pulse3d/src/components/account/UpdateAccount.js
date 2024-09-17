@@ -163,7 +163,7 @@ export default function UpdateAccount({ modalHeader, shortTermToken, type }) {
         throw Error();
       }
     } catch (e) {
-      console.log(`ERROR updating the password for account: ${e}`);
+      console.log("ERROR updating the password for account:", e);
       // if error, open error modal to let user know it didn't work
       setModalToDisplay(modalLabels.error);
       setOpenModal(true);
