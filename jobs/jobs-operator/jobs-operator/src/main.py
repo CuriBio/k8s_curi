@@ -26,19 +26,18 @@ def create_fn(body, spec, **kwargs):
     QUEUE_VAR = kclient.V1EnvVar(name="QUEUE", value=job_queue)
     ECR_REPO = kclient.V1EnvVar(name="ECR_REPO", value=spec["ecr_repo"])
     MAX_NUM_OF_WORKERS = kclient.V1EnvVar(name="MAX_NUM_OF_WORKERS", value=f"{spec['max_num_of_workers']}")
-    POSTGRES_USER = kclient.V1EnvVar(name="POSTGRES_USER", value=f"{job_queue}_queue_processor_ro")
 
     PRODUCT_SPECIFIC_ENV_VARS = [
-        kclient.V1EnvVar(name=var, value=value)
-        for var, value in spec["product_specific"].items()
-        if "product_specific" in spec
+        kclient.V1EnvVar(name=var, value=value) for var, value in spec.get("product_specific", {}).items()
     ]
 
+    psql_username = f"{job_queue.replace('-', '_')}_queue_processor_ro"
+    POSTGRES_USER = kclient.V1EnvVar(name="POSTGRES_USER", value=psql_username)
     POSTGRES_PASSWORD = kclient.V1EnvVar(
         name="POSTGRES_PASSWORD",
         value_from=kclient.V1EnvVarSource(
             secret_key_ref=kclient.V1SecretKeySelector(
-                name=f"{job_queue}-queue-processor-creds", key=f"{job_queue}_queue_processor_ro"
+                name=f"{job_queue}-queue-processor-creds", key=psql_username
             )
         ),
     )

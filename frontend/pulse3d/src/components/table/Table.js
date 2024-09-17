@@ -36,6 +36,7 @@ export default function Table({
   setRowSelection,
   subTableFn = null,
   toolbarFn = null,
+  rowClickFn = null,
   enablePagination = true,
   enableTopToolbar = true,
   enableExpanding = false,
@@ -79,6 +80,7 @@ export default function Table({
         },
       },
     },
+    muiTableBodyRowProps: ({ row }) => ({ onClick: rowClickFn ? () => rowClickFn(row) : null }),
     muiTablePaperProps: {
       sx: {
         background: "var(--dark-blue)",

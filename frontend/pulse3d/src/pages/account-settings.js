@@ -206,7 +206,8 @@ export default function AccountSettings() {
           </SubSectionBody>
         </SubsectionContainer>
       )}
-      {!isAdminAccount && (
+      {/* TODO add support for advanced analysis preferences */}
+      {!isAdminAccount && productPage !== "advanced_analysis" && (
         <SubsectionContainer>
           <UserPreferences
             pulse3dVersions={pulse3dVersions}
@@ -221,6 +222,7 @@ export default function AccountSettings() {
         <SubSectionBody>
           <UsageWidgetFull
             metricName={currentJobUsage === 1 ? "Analysis" : "Analyses"}
+            productPage={productPage}
             limitUsage={jobsLimit}
             actualUsage={currentJobUsage}
             daysLeft={daysLeft}

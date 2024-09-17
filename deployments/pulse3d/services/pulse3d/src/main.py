@@ -1,18 +1,18 @@
 from contextlib import asynccontextmanager
+from collections import defaultdict
+from datetime import datetime
 import json
 import os
 import tempfile
 import time
-import uuid
-from collections import defaultdict
-from datetime import datetime
 from typing import Any
+import uuid
 from zoneinfo import ZoneInfo
 
-import boto3
 import polars as pl
 import structlog
 from auth import (
+    Scopes,
     ScopeTags,
     ProtectedAny,
     check_prohibited_product,
@@ -23,7 +23,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, s
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from jobs import (
-    check_customer_quota,
+    check_customer_pulse3d_usage,
     create_analysis_preset,
     create_job,
     create_upload,
@@ -35,9 +35,9 @@ from jobs import (
     get_uploads_download_info_for_base_user,
     get_uploads_download_info_for_rw_all_data_user,
     get_uploads_download_info_for_admin,
-    get_jobs_info_for_base_user,
-    get_jobs_info_for_rw_all_data_user,
-    get_jobs_info_for_admin,
+    get_jobs_of_uploads_for_base_user,
+    get_jobs_of_uploads_for_rw_all_data_user,
+    get_jobs_of_uploads_for_admin,
     get_jobs_download_info_for_base_user,
     get_jobs_download_info_for_rw_all_data_user,
     get_jobs_download_info_for_admin,
@@ -45,6 +45,9 @@ from jobs import (
     get_job_waveform_data_for_rw_all_data_user,
     get_job_waveform_data_for_admin_user,
     get_legacy_jobs_info_for_user,
+    get_jobs_info_for_base_user,
+    get_jobs_info_for_rw_all_data_user,
+    get_jobs_info_for_admin,
 )
 from pulse3D.constants import DataTypes
 from pulse3D.peak_finding.constants import (
@@ -56,12 +59,18 @@ from pulse3D.peak_finding.utils import create_empty_df, mark_features
 from pulse3D.metrics.constants import TwitchMetrics, DefaultMetricsParams
 from pulse3D.rendering.utils import get_metric_display_title
 from semver import VersionInfo
-from stream_zip import ZIP_64, stream_zip
+from stream_zip import stream_zip
 from starlette_context import context, request_cycle_context
 from structlog.contextvars import bind_contextvars, clear_contextvars
 from utils.db import AsyncpgPoolDep
 from utils.logging import setup_logger, bind_context_to_logger
-from utils.s3 import S3Error, generate_presigned_post, generate_presigned_url, upload_file_to_s3
+from utils.s3 import (
+    S3Error,
+    generate_presigned_post,
+    generate_presigned_url,
+    upload_file_to_s3,
+    yield_s3_objects,
+)
 from uvicorn.protocols.utils import get_path_with_query_string
 
 from core.config import DASHBOARD_URL, DATABASE_URL, MANTARRAY_LOGS_BUCKET, PULSE3D_UPLOADS_BUCKET
@@ -69,27 +78,35 @@ from models.models import (
     GenericErrorResponse,
     JobDownloadRequest,
     JobRequest,
-    GetJobsRequest,
+    GetJobsInfoRequest,
     JobResponse,
+    NotificationResponse,
+    SaveNotificationRequest,
+    SaveNotificationResponse,
     SavePresetRequest,
     UploadDownloadRequest,
     UploadRequest,
     UploadResponse,
     UsageQuota,
     WaveformDataResponse,
+    GetJobsRequest,
 )
 from models.types import TupleParam
+from repository.notification_repository import NotificationRepository
+from service.notification_service import NotificationService
 
 setup_logger()
 logger = structlog.stdlib.get_logger("api.access")
 
 
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
+notification_service: NotificationService
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await asyncpg_pool()
+    global notification_service
+    notification_service = NotificationService(NotificationRepository(await asyncpg_pool()))
     yield
 
 
@@ -221,7 +238,7 @@ async def create_recording_upload(
         }
 
         async with request.state.pgpool.acquire() as con:
-            usage_quota = await check_customer_quota(con, customer_id, upload_type)
+            usage_quota = await check_customer_pulse3d_usage(con, customer_id, upload_type)
             if usage_quota["uploads_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
@@ -232,7 +249,7 @@ async def create_recording_upload(
                 params = _generate_presigned_post(details, PULSE3D_UPLOADS_BUCKET, s3_key)
                 return UploadResponse(id=upload_id, params=params)
     except ProhibitedProductError:
-        logger.exception(f"User does not permission to upload {upload_type} recordings")
+        logger.exception(f"User does not have permission to upload {upload_type} recordings")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
     except S3Error:
         logger.exception("Error creating recording")
@@ -246,8 +263,7 @@ async def create_recording_upload(
 async def soft_delete_uploads(
     request: Request,
     upload_ids: list[uuid.UUID] = Query(None),
-    # TODO should this be ScopeTags.PULSE3D_WRITE?
-    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
 ):
     # make sure at least one upload ID was given
     if not upload_ids:
@@ -314,7 +330,7 @@ async def download_uploads(
             # Grab ZIP file from in-memory, make response with correct MIME-type
             return StreamingResponse(
                 content=stream_zip(
-                    _yield_s3_objects(bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=filenames)
+                    yield_s3_objects(bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=filenames)
                 ),
                 media_type="application/zip",
             )
@@ -349,7 +365,7 @@ async def create_log_upload(
 # TODO Tanner (5/30/24): not sure what to call this since POST /jobs already exists. This needs to be a post route since get routes can't have a body
 @app.post("/jobs/info")
 async def get_jobs_info(
-    request: Request, details: GetJobsRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
+    request: Request, details: GetJobsInfoRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
 ):
     if token.account_type == "user" and details.upload_type not in get_product_tags_of_user(token.scopes):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
@@ -361,20 +377,43 @@ async def get_jobs_info(
         bind_context_to_logger({"user_id": token.userid, "customer_id": token.customer_id})
 
         async with request.state.pgpool.acquire() as con:
-            return await _get_jobs_info(con, token, upload_ids=upload_ids, upload_type=details.upload_type)
+            return await _get_jobs_of_uploads(
+                con, token, upload_ids=upload_ids, upload_type=details.upload_type
+            )
     except Exception:
         logger.exception("Failed to get jobs")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# TODO (5/30/24): delete this once all MA controller users upgrade to whichever controller version is released following this date
+# TODO (9/5/24): should update MA Controller so it does not depend on the legacy version of this route.
+# It can use the new version to poll the job results and /jobs/download to download the job
 @app.get("/jobs")
 async def get_info_of_jobs(
     request: Request,
-    job_ids: list[uuid.UUID] = Query(),
-    download: bool = Query(True),
+    model: GetJobsRequest = Depends(),
     token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
 ):
+    if model.legacy:
+        return await _legacy_get_info_of_jobs(request, model.job_ids, model.download, token)
+
+    try:
+        bind_context_to_logger({"user_id": token.userid, "customer_id": token.customer_id})
+
+        if token.account_type == "user" and model.upload_type not in get_product_tags_of_user(token.scopes):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid product type")
+
+        async with request.state.pgpool.acquire() as con:
+            return await _get_jobs_info(con, token, **model.model_dump(exclude_none=True))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to get jobs")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+async def _legacy_get_info_of_jobs(request: Request, job_ids: list[uuid.UUID] | None, download: bool, token):
+    if not job_ids:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
     # need to convert UUIDs to str to avoid issues with DB
     job_ids = [str(job_id) for job_id in job_ids]  # type: ignore
 
@@ -399,6 +438,8 @@ async def get_info_of_jobs(
                 "user_id": job["user_id"],
             }
 
+            # TODO (9/5/24): consider removing the download option here since there is a new route specifically for downloading jobs.
+            # This would require updating the MA Controller to use the new route for downloading
             if job_info["status"] == "finished" and download:
                 # This is in case any current users uploaded files before object_key was dropped from uploads table and added to jobs_result
                 if obj_key:
@@ -410,7 +451,6 @@ async def get_info_of_jobs(
                         job_info["url"] = "Error creating download link"
                 else:
                     job_info["url"] = None
-
             elif job_info["status"] == "error":
                 try:
                     job_info["error_info"] = json.loads(job["job_meta"])["error"]
@@ -425,7 +465,7 @@ async def get_info_of_jobs(
         return response
 
     except Exception:
-        logger.exception("Failed to get jobs")
+        logger.exception("Failed to get jobs (legacy)")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -535,7 +575,7 @@ async def create_new_job(
             # if deprecated and end of life date passed then cancel the upload
             # if end of life date is none then pulse3d version is usable
             pulse3d_version_status = await con.fetchrow(
-                "SELECT state, end_of_life_date FROM pulse3d_versions WHERE version = $1", details.version
+                "SELECT state, end_of_life_date FROM pulse3d_versions WHERE version=$1", details.version
             )
             status_name = pulse3d_version_status["state"]
             end_of_life_date = pulse3d_version_status["end_of_life_date"]
@@ -558,7 +598,7 @@ async def create_new_job(
                 )
 
             # second, check usage quota for customer
-            usage_quota = await check_customer_quota(con, customer_id, upload_type)
+            usage_quota = await check_customer_pulse3d_usage(con, customer_id, upload_type)
             if usage_quota["jobs_reached"]:
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
@@ -583,7 +623,7 @@ async def create_new_job(
             bind_context_to_logger({"job_id": str(job_id)})
 
             # check customer quota after job
-            usage_quota = await check_customer_quota(con, customer_id, upload_type)
+            usage_quota = await check_customer_pulse3d_usage(con, customer_id, upload_type)
 
             # Luci (12/1/22): this happens after the job is already created to have access to the job id, hopefully this doesn't cause any issues with the job starting before the file is uploaded to s3
             if details.peaks_valleys:
@@ -625,8 +665,7 @@ async def create_new_job(
 async def soft_delete_jobs(
     request: Request,
     job_ids: list[uuid.UUID] = Query(None),
-    # TODO should this be ScopeTags.PULSE3D_WRITE?
-    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ)),
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
 ):
     # make sure at least one job ID was given
     if not job_ids:
@@ -690,7 +729,9 @@ async def download_analyses(
                     timestamp = timestamp.astimezone(ZoneInfo(details.timezone)).strftime("%Y-%m-%d_%H-%M-%S")
                     filename_override = _add_timestamp_to_filename(obj_key.split("/")[-1], timestamp)
                 except Exception:
-                    logger.exception("Error creating timestamp for filename of job download")
+                    logger.exception(
+                        f"Error appending local timestamp download name: {filename=}, timezone={details.timezone} utc_timestamp={job.get('created_at')}"
+                    )
 
             if filename_override in filename_overrides:
                 num_times_repeated[filename_override] += 1
@@ -713,7 +754,7 @@ async def download_analyses(
             # Grab ZIP file from in-memory, make response with correct MIME-type
             return StreamingResponse(
                 content=stream_zip(
-                    _yield_s3_objects(bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=filename_overrides)
+                    yield_s3_objects(bucket=PULSE3D_UPLOADS_BUCKET, keys=keys, filenames=filename_overrides)
                 ),
                 media_type="application/zip",
             )
@@ -833,17 +874,17 @@ async def get_versions(request: Request):
 async def get_usage_quota(
     request: Request, service: str = Query(None), token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
 ):
-    """Get the usage quota for the specific user"""
+    """Get the usage quota for the specific customer"""
     try:
         customer_id = str(uuid.UUID(token.customer_id))
 
         bind_context_to_logger({"customer_id": customer_id})
 
         async with request.state.pgpool.acquire() as con:
-            usage_quota = await check_customer_quota(con, customer_id, service)
+            usage_quota = await check_customer_pulse3d_usage(con, customer_id, service)
             return usage_quota
     except Exception:
-        logger.exception("Failed to fetch quota usage")
+        logger.exception("Failed to fetch usage quota")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -906,6 +947,34 @@ async def delete_analysis_preset(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@app.get("/notifications", response_model=list[NotificationResponse])
+async def get_all_notifications(token=Depends(ProtectedAny(scopes=[Scopes.CURI__ADMIN]))):
+    """Get info for all notifications."""
+    try:
+        customer_id = str(uuid.UUID(token.customer_id))
+        bind_context_to_logger({"customer_id": customer_id})
+        response = await notification_service.get_all()  # noqa: F821
+        return response
+    except Exception:
+        logger.exception("Failed to get all notifications")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.post("/notifications", response_model=SaveNotificationResponse, status_code=status.HTTP_201_CREATED)
+async def save_notification(
+    notification: SaveNotificationRequest, token=Depends(ProtectedAny(scopes=[Scopes.CURI__ADMIN]))
+):
+    """Save notification"""
+    try:
+        customer_id = str(uuid.UUID(token.customer_id))
+        bind_context_to_logger({"customer_id": customer_id})
+        response = await notification_service.create(notification)  # noqa: F821
+        return response
+    except Exception:
+        logger.exception("Failed to save notification")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 # HELPERS
 
 
@@ -964,22 +1033,22 @@ async def _get_uploads_download(
             )
 
 
-async def _get_jobs_info(con, token, upload_ids: list[str], upload_type: str | None):
+async def _get_jobs_of_uploads(con, token, upload_ids: list[str], upload_type: str | None):
     retrieval_info = _get_retrieval_info(token, upload_type)
 
-    logger.info(f"Retrieving job info for {retrieval_info['account_type']}: {token.account_id}")
+    logger.info(f"Retrieving jobs of uploads for {retrieval_info['account_type']}: {token.account_id}")
 
     match retrieval_info.pop("account_type"):
         case "user":
-            return await get_jobs_info_for_base_user(
+            return await get_jobs_of_uploads_for_base_user(
                 con, user_id=retrieval_info["user_id"], upload_type=upload_type, upload_ids=upload_ids
             )
         case "rw_all_data_user":
-            return await get_jobs_info_for_rw_all_data_user(
+            return await get_jobs_of_uploads_for_rw_all_data_user(
                 con, customer_id=retrieval_info["customer_id"], upload_type=upload_type, upload_ids=upload_ids
             )
         case "admin":
-            return await get_jobs_info_for_admin(
+            return await get_jobs_of_uploads_for_admin(
                 con, customer_id=retrieval_info["customer_id"], upload_ids=upload_ids
             )
 
@@ -996,6 +1065,20 @@ async def _get_legacy_jobs_info(con, token, job_ids: list[str]):
             )
         case _:
             return []
+
+
+async def _get_jobs_info(con, token, **retrieval_info):
+    retrieval_info |= _get_retrieval_info(token, retrieval_info["upload_type"])
+
+    logger.info(f"Retrieving jobs info for {retrieval_info['account_type']}: {token.account_id}")
+
+    match retrieval_info.pop("account_type"):
+        case "user":
+            return await get_jobs_info_for_base_user(con, **retrieval_info)
+        case "rw_all_data_user":
+            return await get_jobs_info_for_rw_all_data_user(con, **retrieval_info)
+        case "admin":
+            return await get_jobs_info_for_admin(con, **retrieval_info)
 
 
 async def _get_jobs_download(con, token, job_ids: list[str], upload_type: str | None) -> list[dict[str, Any]]:  # type: ignore
@@ -1045,19 +1128,6 @@ def _generate_presigned_post(details, bucket, s3_key):
     logger.info(f"Generating presigned upload url for {bucket}/{s3_key}")
     params = generate_presigned_post(bucket=bucket, key=s3_key, md5s=details.md5s)
     return params
-
-
-def _yield_s3_objects(bucket: str, keys: list[str], filenames: list[str]):
-    # TODO consider moving this to core s3 utils if more routes need to start using it
-    key = None
-    try:
-        s3 = boto3.session.Session().resource("s3")
-        for idx, key in enumerate(keys):
-            obj = s3.Object(bucket_name=PULSE3D_UPLOADS_BUCKET, key=key)
-            yield filenames[idx], datetime.now(), 0o600, ZIP_64, obj.get()["Body"]
-
-    except Exception as e:
-        raise S3Error(f"Failed to access {bucket}/{key}") from e
 
 
 def _create_features_df(timepoints, features, peak_valley_diff):

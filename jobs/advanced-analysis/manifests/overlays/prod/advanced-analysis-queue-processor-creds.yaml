@@ -1,0 +1,15 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  creationTimestamp: null
+  name: advanced-analysis-queue-processor-creds
+  namespace: advanced-analysis
+spec:
+  encryptedData:
+    advanced_analysis_queue_processor_ro: AgAuyKTCmkBt7gOjJdAcu98z+99KGhhjFwxtlvLkPDA03WqcYt31AdlBFx6jt5Z00Jn3tqQEcvxo6WLWi9Lkwz6qoHW8fs5PjxmdRyuTT6eUU9ghjhBzY9X+5l3I9zMPielGamVUbhtfS3/1qNOfDOxLVr8L9tL/6RFSNk/rtd0/IZBLTcyIswo23U7uMGifHGLz9zB8gLx/dnzhxVyUhukycI9UvKQ5pGJh3ac76SpLbIyGxyZUo7a769XJX++yCqlQn3MZt5aXB2mEhww/FpngvF//s8caWaiAPl3m0hAMvxvlWNBXBsJWGsBoFad+ljDLvGwYDW0/aPDzuwAAVjESJJjQnciIH1VxI67WCO0/6jQw5DUEK516J6JeRYmjCmYkiqPZFH7uD2rmF9wFXXD+Mf7I6V88sPv7umC73kA8RRkapoQl3VSx3Hw8u0a3scyTqqR4cYtOL59AENEZIJzoaU+HLw/Srz2AU2uqguIaLLHYOwzGKXOVfFJRIZszQHeDI/aPJSi5PN/eiSltRRpaSPjlo2daI+BiaM067szPJ3rXe9E7VPx2mNPatu72XWirDHJssXrhzeWc+WvhCkHhSYC/Nbfs/rToJnR6blU0Sn4xzc7wJMJwLhWPHxvrE272gb2g1VXPNklmvQ2hp/XnP9Ye3NFJ2TaJa8uh29WkzOPnxIVrcbYHk6ycung2+O86tiD00dnUT4p778VXLD/7JPgvTvmOKufD
+  template:
+    metadata:
+      creationTimestamp: null
+      name: advanced-analysis-queue-processor-creds
+      namespace: advanced-analysis

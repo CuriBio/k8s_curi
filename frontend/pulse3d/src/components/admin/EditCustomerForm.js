@@ -4,7 +4,7 @@ import FormInput from "@/components/basicWidgets/FormInput";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import CheckboxList from "@/components/basicWidgets/CheckboxList";
 import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
-import { capitalize } from "@mui/material";
+import { productTitle } from "@/utils/generic";
 
 const BodyContainer = styled.div`
   position: relative;
@@ -71,6 +71,10 @@ const ErrorMsg = styled.span`
   width: 85%;
   padding-top: 2%;
 `;
+
+const untitle = (s) => {
+  return s.replace(" ", "_").toLowerCase();
+};
 
 export default function EditCustomerForm({ customerData, openEditModal, setOpenEditModal, resetTable }) {
   const [selectedProducts, setSelectedProducts] = useState([]);
@@ -139,15 +143,17 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
             usageCopy[product].expiration_date = null;
           }
 
-          if (unlimitedUploads.includes(product)) {
-            usageCopy[product].uploads = -1;
-            setErrorMsg();
-          } else if (usageCopy[product].uploads < 0) {
-            setLabels([]);
-            setErrorMsg("*Upload limit must be >= 0");
-            return;
-          } else {
-            setErrorMsg();
+          if (product !== "advanced_analysis") {
+            if (unlimitedUploads.includes(product)) {
+              usageCopy[product].uploads = -1;
+              setErrorMsg();
+            } else if (usageCopy[product].uploads < 0) {
+              setLabels([]);
+              setErrorMsg("*Upload limit must be >= 0");
+              return;
+            } else {
+              setErrorMsg();
+            }
           }
 
           if (unlimitedAnalyses.includes(product)) {
@@ -181,7 +187,7 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
   };
 
   const handleCheckedState = (product, checked, setter, state) => {
-    product = product.toLowerCase();
+    product = untitle(product);
 
     if (checked) {
       setter([...state, product]);
@@ -221,8 +227,8 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
               height="100px"
               width="100%"
               disabled={[false, false]}
-              options={productOptions.map((p) => capitalize(p))}
-              checkedItems={selectedProducts.map((p) => capitalize(p))}
+              options={productOptions.map((p) => productTitle(p))}
+              checkedItems={selectedProducts.map((p) => productTitle(p))}
               setCheckedItems={(item, state) =>
                 handleCheckedState(item, state, setSelectedProducts, selectedProducts)
               }
@@ -233,28 +239,30 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
                 (product) =>
                   selectedProducts.includes(product) && (
                     <div key={product}>
-                      <ProductLabel>{capitalize(product)}</ProductLabel>
-                      <UsageInputContainer style={{ width: "335px" }}>
-                        <UsageLabel>Uploads:</UsageLabel>
-                        <FormInput
-                          name="num_uploads"
-                          placeholder={"10000"}
-                          value={unlimitedUploads.includes(product) ? "" : usage[product].uploads}
-                          disabled={unlimitedUploads.includes(product)}
-                          height="25px"
-                          onChangeFn={(e) => {
-                            updateUsageSettings(e.target.value, product, "uploads");
-                          }}
-                        />
-                        <CheckboxWidget
-                          size={"sm"}
-                          checkedState={unlimitedUploads.includes(product)}
-                          handleCheckbox={(state) =>
-                            handleCheckedState(product, state, setUnlimitedUploads, unlimitedUploads)
-                          }
-                        />{" "}
-                        unlimited
-                      </UsageInputContainer>
+                      <ProductLabel>{productTitle(product)}</ProductLabel>
+                      {product !== "advanced_analysis" && (
+                        <UsageInputContainer style={{ width: "335px" }}>
+                          <UsageLabel>Uploads:</UsageLabel>
+                          <FormInput
+                            name="num_uploads"
+                            placeholder={"10000"}
+                            value={unlimitedUploads.includes(product) ? "" : usage[product].uploads}
+                            disabled={unlimitedUploads.includes(product)}
+                            height="25px"
+                            onChangeFn={(e) => {
+                              updateUsageSettings(e.target.value, product, "uploads");
+                            }}
+                          />
+                          <CheckboxWidget
+                            size={"sm"}
+                            checkedState={unlimitedUploads.includes(product)}
+                            handleCheckbox={(state) =>
+                              handleCheckedState(product, state, setUnlimitedUploads, unlimitedUploads)
+                            }
+                          />{" "}
+                          unlimited
+                        </UsageInputContainer>
+                      )}
                       <UsageInputContainer style={{ width: "335px" }}>
                         <UsageLabel>Analyses:</UsageLabel>
                         <FormInput

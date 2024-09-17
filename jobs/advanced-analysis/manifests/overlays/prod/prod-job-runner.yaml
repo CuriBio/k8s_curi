@@ -1,0 +1,8 @@
+apiVersion: curibio.dev/v1
+kind: JobRunner
+metadata:
+  name: advanced-analysis-queue-processor
+spec:
+  ecr_repo: 245339368379.dkr.ecr.us-east-2.amazonaws.com/advanced-analysis-worker
+  product_specific:
+    pulse3d_uploads_bucket: prod-pulse3d-uploads

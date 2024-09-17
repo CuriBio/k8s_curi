@@ -11,11 +11,15 @@ export default function InputDropdownWidget({
   reset,
   width,
   disabled = false,
+  onInputChange = null,
+  loading = false,
 }) {
   const [selected, setSelected] = useState(initialOption || null);
 
   useEffect(() => {
-    if (reset) setSelected(null);
+    if (reset) {
+      setSelected(null);
+    }
   }, [reset]);
 
   return (
@@ -30,6 +34,8 @@ export default function InputDropdownWidget({
         setSelected(newValue);
         handleSelection(options.indexOf(newValue));
       }}
+      onInputChange={onInputChange}
+      loading={loading}
       renderOption={(props, option) => (
         <Box component="li" {...props} key={props.id}>
           {option}
