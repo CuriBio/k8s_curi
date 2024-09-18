@@ -483,6 +483,16 @@ spec:
               secretKeyRef:
                 name: db-migrations
                 key: events_user_pass
+          - name: ADVANCED_ANALYSIS_QUEUE_PROCESSOR_RO_PASS
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: advanced_analysis_queue_processor_ro
+          - name: ADVANCED_ANALYSIS_PASS
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: curibio_advanced_analysis
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
