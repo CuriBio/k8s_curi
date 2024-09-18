@@ -129,7 +129,7 @@ def set_status(context, status, sha, token):
 
 
 def post_pr_comment(pr_number, comment, token):
-    comment = re.sub(r"WITH PASSWORD '\S+'", "WITH PASSWORD ****", comment)
+    comment = re.sub(r"WITH PASSWORD '.*?'", "WITH PASSWORD ****", comment, flags=re.DOTALL)
 
     req = {
         "headers": {"Authorization": f"Bearer {token.strip()}"},
