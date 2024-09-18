@@ -54,6 +54,9 @@ patches:
       - op: replace
         path: /spec/source/path
         value: "deployments/advanced-analysis/manifests/overlays/modl"
+      - op: replace
+        path: /spec/source/targetRevision
+        value: modl-qc
     target:
       kind: Application
       name: advanced-analysis-deployment
