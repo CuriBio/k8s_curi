@@ -47,8 +47,10 @@ if __name__ == "__main__":
         assert cluster in ("test", "prod", "modl")
     except IndexError:
         print("Must provide a name for the cluster: 'python upload_fe_s3.py <test/prod/modl>'")  # allow-print
+        sys.exit(1)
     except Exception:
         print("Invalid value for cluster, must be 'test', 'modl', or 'prod'")  # allow-print
+        sys.exit(1)
     else:
         bucket = "dashboard.curibio.com" if cluster == "prod" else f"dashboard.curibio-{cluster}.com"
 

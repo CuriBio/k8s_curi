@@ -6,7 +6,7 @@
       "Action": ["s3:PutObject", "s3:GetObject", "s3:ListBucket"],
       "Resource": [
         "arn:aws:s3:::prod-pulse3d-uploads",
-        "arn:aws:s3:::prod-pulse3d-uploads/*",
+        "arn:aws:s3:::prod-pulse3d-uploads/*"
       ]
     }
   ]

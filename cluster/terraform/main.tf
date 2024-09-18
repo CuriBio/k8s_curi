@@ -130,8 +130,8 @@ module "eks_cluster_v2" {
     },
 
     workers = {
-      desired_size = 2
-      min_size     = 2
+      desired_size = 0
+      min_size     = 0
       max_size     = 10
 
       instance_types = ["c6a.xlarge"]
