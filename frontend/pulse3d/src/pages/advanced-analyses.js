@@ -4,9 +4,10 @@ import Table from "@/components/table/Table";
 import { Box, IconButton } from "@mui/material";
 import { useContext, useState, useEffect, useMemo } from "react";
 import { AdvancedAnalysisContext } from "./_app";
-import { formatAdvancedAnalysisJob, formatDateTime } from "@/utils/generic";
+import { formatDateTime } from "@/utils/generic";
 import { getShortUUIDWithTooltip } from "@/utils/jsx";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
+import ModalWidget from "@/components/basicWidgets/ModalWidget";
 
 const TableContainer = styled.div`
   margin: 3% 3% 3% 3%;
@@ -33,7 +34,7 @@ const DropDownContainer = styled.div`
   margin: 15px 20px;
 `;
 
-const downloadJobs = async (selectedJobs) => {
+const downloadJobs = async (selectedJobs, onError) => {
   try {
     const jobIds = selectedJobs.map(({ id }) => id);
     if (jobIds.length === 0) {
@@ -72,6 +73,7 @@ const downloadJobs = async (selectedJobs) => {
     a.remove();
   } catch (e) {
     console.log("ERROR downloading jobs:", e);
+    onError();
   }
 };
 
@@ -83,6 +85,26 @@ const getSortFilterName = (sortColId) => {
   } else {
     return sortColId;
   }
+};
+
+const MODAL_TYPES = {
+  NONE: "none",
+  DOWNLOAD_ERROR: "error",
+};
+
+const getModalState = (modalType) => {
+  const modalInfo = { type: modalType };
+  if (modalType === MODAL_TYPES.DOWNLOAD_ERROR) {
+    modalInfo.header = "Error Occurred!";
+    modalInfo.labels = ["An error occurred while attempting to download.", "Please try again later."];
+    modalInfo.buttons = ["Close"];
+  } else {
+    modalInfo.type = MODAL_TYPES.NONE;
+    modalInfo.header = "";
+    modalInfo.labels = [];
+    modalInfo.buttons = [];
+  }
+  return modalInfo;
 };
 
 export default function AdvancedAnalyses() {
@@ -150,6 +172,7 @@ export default function AdvancedAnalyses() {
     sorting: [{ id: "createdAt", desc: true }],
     columnFilters: [],
   });
+  const [modalState, setModalState] = useState(getModalState(MODAL_TYPES.NONE));
 
   const jobSelectionState = {};
   for (const job of selectedJobs) {
@@ -235,6 +258,10 @@ export default function AdvancedAnalyses() {
     []
   );
 
+  const updateModalType = (modalType) => {
+    setModalState(getModalState(modalType));
+  };
+
   const updateTableState = (newState) => {
     const updatedState = { ...tableState, ...newState };
     setTableState(updatedState);
@@ -259,7 +286,7 @@ export default function AdvancedAnalyses() {
   const handleActionSelection = async (optionIdx) => {
     try {
       if (optionIdx === 0 /* Download */) {
-        await downloadJobs(selectedJobs);
+        await downloadJobs(selectedJobs, () => updateModalType(MODAL_TYPES.DOWNLOAD_ERROR));
       } else if (optionIdx === 1 /* Delete */) {
         // TODO
       }
@@ -287,41 +314,62 @@ export default function AdvancedAnalyses() {
     );
   };
 
+  const handleModalClose = (idx) => {
+    // there is currently nothing to do when the modal closes, but when modals than can perform actions on close are added,
+    // that behavior should be added here
+    updateModalType(MODAL_TYPES.NONE);
+  };
+
   return (
-    <TableContainer>
-      <Table
-        columns={columns}
-        rowData={displayRows}
-        rowSelection={jobSelectionState}
-        setRowSelection={(newJobSelectionFn) => {
-          updateSelectedJobs(newJobSelectionFn(jobSelectionState));
-        }}
-        toolbarFn={actionsFn}
-        isLoading={isLoading}
-        manualSorting={true}
-        onSortingChange={(newSorting) => {
-          if (isLoading) {
-            return;
-          }
-          const sorting = newSorting();
-          // Tanner (5/28/24): have to do this manually since the MRT component doesn't seem to handle this correctly
-          if (sorting[0].id === tableState.sorting[0]?.id) {
-            sorting[0].desc = !tableState.sorting[0].desc;
-          }
-          updateTableState({ sorting });
-        }}
-        manualFiltering={true}
-        onColumnFiltersChange={(updateFn) => {
-          if (isLoading) {
-            return;
-          }
-          let { columnFilters } = tableState;
-          columnFilters = updateFn(columnFilters);
-          updateTableState({ columnFilters });
-        }}
-        state={tableState}
-      />
-    </TableContainer>
+    <>
+      <TableContainer>
+        <Table
+          columns={columns}
+          rowData={displayRows}
+          rowSelection={jobSelectionState}
+          setRowSelection={(newJobSelectionFn) => {
+            updateSelectedJobs(newJobSelectionFn(jobSelectionState));
+          }}
+          toolbarFn={actionsFn}
+          isLoading={isLoading}
+          manualSorting={true}
+          onSortingChange={(newSorting) => {
+            if (isLoading) {
+              return;
+            }
+            const sorting = newSorting();
+            // Tanner (5/28/24): have to do this manually since the MRT component doesn't seem to handle this correctly
+            if (sorting[0].id === tableState.sorting[0]?.id) {
+              sorting[0].desc = !tableState.sorting[0].desc;
+            }
+            updateTableState({ sorting });
+          }}
+          manualFiltering={true}
+          onColumnFiltersChange={(updateFn) => {
+            if (isLoading) {
+              return;
+            }
+            let { columnFilters } = tableState;
+            columnFilters = updateFn(columnFilters);
+            updateTableState({ columnFilters });
+          }}
+          state={tableState}
+        />
+      </TableContainer>
+      <ModalWidget
+        open={modalState.type !== MODAL_TYPES.NONE}
+        header={modalState.header}
+        labels={modalState.labels}
+        buttons={modalState.buttons}
+        closeModal={handleModalClose}
+      >
+        {/* TODO try just using one modal like this and conditionally showing the spinner
+          <ModalSpinnerContainer>
+            <CircularSpinner size={200} color={"secondary"} />
+          </ModalSpinnerContainer>
+          */}
+      </ModalWidget>
+    </>
   );
 }
 

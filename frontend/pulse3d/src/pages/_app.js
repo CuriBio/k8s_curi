@@ -259,7 +259,7 @@ function Pulse({ Component, pageProps }) {
     if (["/login", "/home"].includes(router.pathname)) {
       updateProductPage(null);
       setUploads(null);
-      setAdvancedAnalysisJobs([]);
+      setAdvancedAnalysisJobs(null);
     }
 
     // start pinging SW if not on login page to keep alive

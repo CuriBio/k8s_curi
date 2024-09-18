@@ -71,7 +71,7 @@ const modalObjs = {
   },
   downloadError: {
     header: "Error Occurred!",
-    messages: ["An error occurred while attempting to download.", "Please try again."],
+    messages: ["An error occurred while attempting to download.", "Please try again later."],
   },
   empty: {
     header: null,
