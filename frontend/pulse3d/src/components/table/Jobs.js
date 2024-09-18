@@ -22,6 +22,14 @@ const ErrorText = styled.div`
   text-wrap: wrap;
 `;
 
+const getSortedWellListStr = (wells) => {
+  try {
+    return wells.sort().join(", ");
+  } catch {
+    return "-";
+  }
+};
+
 const getAnalysisParamsStr = (params) => {
   return (
     <div>
@@ -34,11 +42,13 @@ const getAnalysisParamsStr = (params) => {
           return (
             <div key={paramName}>
               well groups:
-              {Object.keys(wellGroups).map((label) => (
-                <ul key={label} style={{ margin: "3px" }}>
-                  {label}: {wellGroups[label].join(", ")}
-                </ul>
-              ))}
+              {Object.keys(wellGroups)
+                .sort()
+                .map((label) => (
+                  <ul key={label} style={{ margin: "3px" }}>
+                    {label}: {getSortedWellListStr(wellGroups[label])}
+                  </ul>
+                ))}
             </div>
           );
         } else {

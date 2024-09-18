@@ -121,9 +121,7 @@ const getSortFilterName = (sortColId) => {
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota, accountScope, productPage, accountId } = useContext(AuthContext);
-  const { uploads, setUploads, setDefaultUploadForReanalysis, jobs, setJobs, getUploadsAndJobs } = useContext(
-    UploadsContext
-  );
+  const { uploads, setDefaultUploadForReanalysis, jobs, getUploadsAndJobs } = useContext(UploadsContext);
 
   const [displayRows, setDisplayRows] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
