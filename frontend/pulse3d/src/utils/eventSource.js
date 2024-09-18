@@ -66,6 +66,7 @@ export default function useEventSource(hooks) {
         return;
       }
 
+      // TODO try to remove all this conditional logic here. Probably better to check usage_type and then decide what to do
       if (hooksRef.current.accountType === "admin") {
         if (payload.product === "advanced_analysis") {
           return; // TODO
@@ -81,15 +82,14 @@ export default function useEventSource(hooks) {
           if (hooksRef.current.jobs.length === 0) {
             return;
           }
-        } else if (payload.product === "advanced_analysis") {
-          if (hooksRef.current.advancedAnalysisJobs.length === 0) {
-            return;
-          }
         }
       }
 
       if (payload.usage_type === "uploads") {
         const { uploads, setUploads } = hooksRef.current;
+        if (uploads == null) {
+          return;
+        }
 
         // currently there is nothing to update if the upload is already present, so only add new uploads or delete existing uploads
         let uploadIdx = -1;
@@ -129,6 +129,10 @@ export default function useEventSource(hooks) {
         }
       } else if (payload.usage_type === "advanced_analysis") {
         const { advancedAnalysisJobs, setAdvancedAnalysisJobs } = hooksRef.current;
+        if (advancedAnalysisJobs == null) {
+          return;
+        }
+
         // If job is present, update it in place then return
         const formattedJob = formatAdvancedAnalysisJob(payload);
         for (const [i, job] of advancedAnalysisJobs.entries()) {

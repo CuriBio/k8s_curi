@@ -111,7 +111,7 @@ function Pulse({ Component, pageProps }) {
   const [defaultUploadForReanalysis, setDefaultUploadForReanalysis] = useState();
 
   // AdvancedAnalysisContext
-  const [advancedAnalysisJobs, setAdvancedAnalysisJobs] = useState([]);
+  const [advancedAnalysisJobs, setAdvancedAnalysisJobs] = useState(null);
 
   const { setDesiredConnectionStatus: setEvtSourceConnected } = useEventSource({
     productPage,

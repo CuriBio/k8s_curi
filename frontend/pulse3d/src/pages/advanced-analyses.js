@@ -89,7 +89,7 @@ export default function AdvancedAnalyses() {
   const { advancedAnalysisJobs, getAdvancedAnalysisJobs } = useContext(AdvancedAnalysisContext);
 
   const reGetAdvancedAnalysisJobs = (tableState) => {
-    if (!advancedAnalysisJobs?.length) {
+    if (advancedAnalysisJobs == null) {
       return;
     }
 
@@ -157,8 +157,8 @@ export default function AdvancedAnalyses() {
   }
 
   useEffect(() => {
-    setDisplayRows([...advancedAnalysisJobs]);
-    if (advancedAnalysisJobs?.length > 0) {
+    if (advancedAnalysisJobs != null) {
+      setDisplayRows([...advancedAnalysisJobs]);
       setIsLoading(false);
     }
   }, [advancedAnalysisJobs]);
@@ -247,7 +247,7 @@ export default function AdvancedAnalyses() {
       if (newSelectedJobs.includes(newJobId)) {
         return;
       }
-      const jobInfo = advancedAnalysisJobs.find((j) => j.id === newJobId);
+      const jobInfo = (advancedAnalysisJobs || []).find((j) => j.id === newJobId);
       if (!jobInfo) {
         return;
       }
