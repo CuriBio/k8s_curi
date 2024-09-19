@@ -50,7 +50,7 @@ const downloadJobs = async (selectedJobs, onError) => {
       }),
     });
     if (res?.status !== 200) {
-      throw Error(`response status: ${res.status}`);
+      throw Error(`response status: ${res?.status}`);
     }
 
     let downloadUrl, downloadName;
@@ -89,7 +89,7 @@ const deleteJobs = async (selectedJobs, onError) => {
       method: "DELETE",
     });
     if (res?.status !== 204) {
-      throw Error(`response status: ${res.status}`);
+      throw Error(`response status: ${res?.status}`);
     }
   } catch (e) {
     console.log("ERROR deleting jobs:", e);
@@ -413,7 +413,7 @@ export default function AdvancedAnalyses() {
         buttons={modalState.buttons}
         closeModal={handleModalClose}
       >
-        {/* TODO try just using one modal like this and conditionally showing the spinner
+        {/* TODO try just using one modal like this and conditionally showing the spinner once the spinner is required
           <ModalSpinnerContainer>
             <CircularSpinner size={200} color={"secondary"} />
           </ModalSpinnerContainer>
