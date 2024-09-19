@@ -932,7 +932,7 @@ async def create_advanced_analysis_job(
 
 async def delete_advanced_analyses(*, con, user_id, job_ids):
     await con.execute(
-        "UPDATE advanced_analysis_result SET status='deleted' " "WHERE user_id=$1 AND job_id=ANY($2::uuid[])",
+        "UPDATE advanced_analysis_result SET status='deleted' WHERE user_id=$1 AND id=ANY($2::uuid[])",
         user_id,
         job_ids,
     )

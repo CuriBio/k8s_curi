@@ -36,10 +36,10 @@ const DropDownContainer = styled.div`
 
 const downloadJobs = async (selectedJobs, onError) => {
   try {
-    const jobIds = selectedJobs.map(({ id }) => id);
-    if (jobIds.length === 0) {
+    if (selectedJobs.length === 0) {
       return;
     }
+    const jobIds = selectedJobs.map(({ id }) => id);
 
     const url = `${process.env.NEXT_PUBLIC_ADVANCED_ANALYSIS_URL}/advanced-analyses/download`;
     const res = await fetch(url, {
@@ -77,6 +77,26 @@ const downloadJobs = async (selectedJobs, onError) => {
   }
 };
 
+const deleteJobs = async (selectedJobs, onError) => {
+  try {
+    if (selectedJobs.length === 0) {
+      return;
+    }
+    const query = selectedJobs.map(({ id }) => `job_ids=${id}`).join("&");
+
+    const url = `${process.env.NEXT_PUBLIC_ADVANCED_ANALYSIS_URL}/advanced-analyses?${query}`;
+    const res = await fetch(url, {
+      method: "DELETE",
+    });
+    if (res?.status !== 204) {
+      throw Error(`response status: ${res.status}`);
+    }
+  } catch (e) {
+    console.log("ERROR deleting jobs:", e);
+    onError();
+  }
+};
+
 const getSortFilterName = (sortColId) => {
   if (sortColId === "filename") {
     return "name";
@@ -89,7 +109,9 @@ const getSortFilterName = (sortColId) => {
 
 const MODAL_TYPES = {
   NONE: "none",
-  DOWNLOAD_ERROR: "error",
+  DOWNLOAD_ERROR: "download_error",
+  DELETE_PROMPT: "delete_prompt",
+  DELETE_ERROR: "delete_error",
 };
 
 const getModalState = (modalType) => {
@@ -97,6 +119,14 @@ const getModalState = (modalType) => {
   if (modalType === MODAL_TYPES.DOWNLOAD_ERROR) {
     modalInfo.header = "Error Occurred!";
     modalInfo.labels = ["An error occurred while attempting to download.", "Please try again later."];
+    modalInfo.buttons = ["Close"];
+  } else if (modalType === MODAL_TYPES.DELETE_PROMPT) {
+    modalInfo.header = "Are you sure?";
+    modalInfo.labels = ["Please confirm the deletion.", "Be aware that this action cannot be undone."];
+    modalInfo.buttons = ["Cancel", "Confirm"];
+  } else if (modalType === MODAL_TYPES.DELETE_ERROR) {
+    modalInfo.header = "Error Occurred!";
+    modalInfo.labels = ["An error occurred while attempting to delete.", "Please try again later."];
     modalInfo.buttons = ["Close"];
   } else {
     modalInfo.type = MODAL_TYPES.NONE;
@@ -269,9 +299,11 @@ export default function AdvancedAnalyses() {
   };
 
   const updateSelectedJobs = (newJobSelectionState) => {
+    // filter out jobs that are no longer selected
     const newSelectedJobs = selectedJobs.filter((j) => j.id in newJobSelectionState);
+    // add jobs that are now selected
     Object.keys(newJobSelectionState).map((newJobId) => {
-      if (newSelectedJobs.includes(newJobId)) {
+      if (newSelectedJobs.some((j) => j.id === newJobId)) {
         return;
       }
       const jobInfo = (advancedAnalysisJobs || []).find((j) => j.id === newJobId);
@@ -280,18 +312,23 @@ export default function AdvancedAnalyses() {
       }
       newSelectedJobs.push(jobInfo);
     });
+
     setSelectedJobs(newSelectedJobs);
   };
 
   const handleActionSelection = async (optionIdx) => {
+    let clearSelection = true;
     try {
       if (optionIdx === 0 /* Download */) {
         await downloadJobs(selectedJobs, () => updateModalType(MODAL_TYPES.DOWNLOAD_ERROR));
       } else if (optionIdx === 1 /* Delete */) {
-        // TODO
+        clearSelection = false;
+        updateModalType(MODAL_TYPES.DELETE_PROMPT);
       }
     } catch {}
-    setSelectedJobs([]);
+    if (clearSelection) {
+      setSelectedJobs([]);
+    }
   };
 
   const actionsFn = (t) => {
@@ -303,9 +340,13 @@ export default function AdvancedAnalyses() {
             options={["Download", "Delete"]}
             disableOptions={[
               selectedJobs.length === 0 || selectedJobs.some((j) => j.status !== "finished"),
-              true, // Tanner (9/16/24): deleting is not implemented yet, so keeping it always disabled
+              selectedJobs.length === 0 ||
+                selectedJobs.some((j) => ["pending", "running"].includes(j.status)),
             ]}
-            optionsTooltipText={["Must make a selection of only completed jobs.", "Coming soon."]}
+            optionsTooltipText={[
+              "Must make a selection of only successfully completed jobs.",
+              "Must make a selection of only completed jobs.",
+            ]}
             handleSelection={handleActionSelection}
             reset={selectedJobs.length === 0}
           />
@@ -314,10 +355,19 @@ export default function AdvancedAnalyses() {
     );
   };
 
-  const handleModalClose = (idx) => {
-    // there is currently nothing to do when the modal closes, but when modals than can perform actions on close are added,
-    // that behavior should be added here
-    updateModalType(MODAL_TYPES.NONE);
+  const handleModalClose = async (idx) => {
+    let nextModalType = MODAL_TYPES.NONE;
+
+    if (modalState.type === MODAL_TYPES.DELETE_PROMPT) {
+      if (modalState.buttons[idx] === "Confirm") {
+        await deleteJobs(selectedJobs, () => {
+          nextModalType = MODAL_TYPES.DELETE_ERROR;
+        });
+        setSelectedJobs([]);
+      }
+    }
+
+    updateModalType(nextModalType);
   };
 
   return (

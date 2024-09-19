@@ -725,7 +725,7 @@ export default function Uploads() {
     const handleDropdownSelection = (optionIdx) => {
       try {
         if (dropdownOptions[optionIdx] === "Delete") {
-          setModalButtons(["Close", "Confirm"]);
+          setModalButtons(["Cancel", "Confirm"]);
           setModalLabels(modalObjs.delete);
           setModalState("generic");
         } else if (dropdownOptions[optionIdx] === "Interactive Analysis") {

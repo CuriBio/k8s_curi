@@ -275,29 +275,34 @@ const formatP3dJob = (job, selectedJobs, accountId) => {
       ...metaParams,
     };
   } catch (e) {
-    console.log(`ERROR formatting job ${job?.id}`, e);
+    console.log(`ERROR formatting pulse3d job ${job?.id}`, e);
     return null;
   }
 };
 
 const formatAdvancedAnalysisJob = (job) => {
-  const { id, name, type: jobType, sources, created_at: createdAt, meta, status } = job;
-  let parsedMeta = {};
   try {
-    parsedMeta = JSON.parse(meta);
-  } catch {}
+    const { id, name, type: jobType, sources, created_at: createdAt, meta, status } = job;
+    let parsedMeta = {};
+    try {
+      parsedMeta = JSON.parse(meta);
+    } catch {}
 
-  const filename = name || parsedMeta.output_name || "None";
+    const filename = name || parsedMeta.output_name || "None";
 
-  return {
-    id,
-    filename,
-    jobType,
-    createdAt,
-    sources,
-    meta: parsedMeta,
-    status,
-  };
+    return {
+      id,
+      filename,
+      jobType,
+      createdAt,
+      sources,
+      meta: parsedMeta,
+      status,
+    };
+  } catch (e) {
+    console.log(`ERROR formatting advanced analysis job ${job?.id}`, e);
+    return null;
+  }
 };
 
 const compareStr = (s1, s2) => {

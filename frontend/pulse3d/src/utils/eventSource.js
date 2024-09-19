@@ -65,6 +65,8 @@ export default function useEventSource(hooks) {
       if (payload == null) {
         return;
       }
+      // TODO race conditions can be caused by multiple updates happening at once, could probably fix this by
+      // acquiring a mutex prior to accessing hooksRef
 
       // TODO try to remove all this conditional logic here. Probably better to check usage_type and then decide what to do
       if (hooksRef.current.accountType === "admin") {
@@ -107,24 +109,25 @@ export default function useEventSource(hooks) {
         }
       } else if (payload.usage_type === "jobs") {
         const { jobs, setJobs } = hooksRef.current;
-        // If job is present, update it in place then return
+
+        const formattedJob = formatP3dJob(payload, {}, hooksRef.current.accountId);
+        if (formattedJob === null) {
+          return;
+        }
+        // if job is present, update it in place then return
         for (const [i, job] of jobs.entries()) {
           if (job.jobId === payload.id) {
-            const formattedJob = formatP3dJob(payload, {}, hooksRef.current.accountId);
-            if (formattedJob != null) {
-              if (formattedJob.status === "deleted") {
-                jobs.splice(i, 1);
-              } else {
-                jobs[i] = formattedJob;
-              }
-              setJobs([...jobs]);
+            if (formattedJob.status === "deleted") {
+              jobs.splice(i, 1);
+            } else {
+              jobs[i] = formattedJob;
             }
+            setJobs([...jobs]);
             return;
           }
         }
         // job is not present, so just add it
-        const formattedJob = formatP3dJob(payload, {}, hooksRef.current.accountId);
-        if (formattedJob != null && formattedJob.status !== "deleted") {
+        if (formattedJob.status !== "deleted") {
           setJobs([formattedJob, ...jobs]);
         }
       } else if (payload.usage_type === "advanced_analysis") {
@@ -133,17 +136,26 @@ export default function useEventSource(hooks) {
           return;
         }
 
-        // If job is present, update it in place then return
         const formattedJob = formatAdvancedAnalysisJob(payload);
+        if (formattedJob === null) {
+          return;
+        }
+        // if job is present, update it in place then return
         for (const [i, job] of advancedAnalysisJobs.entries()) {
           if (job.id === payload.id) {
-            advancedAnalysisJobs[i] = formattedJob;
+            if (formattedJob.status === "deleted") {
+              advancedAnalysisJobs.splice(i, 1);
+            } else {
+              advancedAnalysisJobs[i] = formattedJob;
+            }
             setAdvancedAnalysisJobs([...advancedAnalysisJobs]);
             return;
           }
         }
         // job is not present, so just add it
-        setAdvancedAnalysisJobs([formattedJob, ...advancedAnalysisJobs]);
+        if (formattedJob.status !== "deleted") {
+          setAdvancedAnalysisJobs([formattedJob, ...advancedAnalysisJobs]);
+        }
       }
     });
 

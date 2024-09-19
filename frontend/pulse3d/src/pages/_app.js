@@ -420,7 +420,7 @@ function Pulse({ Component, pageProps }) {
 
       if (response && response.status === 200) {
         const jobs = await response.json();
-        const formattedJobs = jobs.map((job) => formatAdvancedAnalysisJob(job));
+        const formattedJobs = jobs.map((job) => formatAdvancedAnalysisJob(job)).filter((j) => j !== null);
         setAdvancedAnalysisJobs(formattedJobs);
       }
     } catch (e) {
