@@ -7,7 +7,7 @@ import { AuthContext } from "@/pages/_app";
 import Table from "@/components/table/Table";
 import { Box, IconButton, Tooltip } from "@mui/material";
 import { getShortUUIDWithTooltip } from "@/utils/jsx";
-import { formatDateTime, getLocalTzOffsetHours } from "@/utils/generic";
+import { formatDateTime, getLocalTzOffsetHours, getSortedWellListStr } from "@/utils/generic";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import AnalysisParamContainer from "@/components/uploadForm/AnalysisParamContainer";
 
@@ -579,7 +579,7 @@ function InputSelectionTable({ formattedJobSelection, removeInputsFromSelection 
               : wellGroupsEntries.map(([label, wells], idx) => {
                   return (
                     <div key={`well-group-${idx}`}>
-                      {label}: {wells.sort().join(", ")}
+                      {label}: {getSortedWellListStr(wells)}
                     </div>
                   );
                 });

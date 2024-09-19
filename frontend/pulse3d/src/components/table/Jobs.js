@@ -1,7 +1,7 @@
 import styled from "styled-components";
-import { formatDateTime } from "@/utils/generic";
+import { formatDateTime, getSortedWellListStr } from "@/utils/generic";
 import { getShortUUIDWithTooltip } from "@/utils/jsx";
-import { useState, useMemo, useEffect } from "react";
+import { useMemo } from "react";
 import Table from "./Table";
 
 const Container = styled.div`
@@ -21,14 +21,6 @@ const PreviewText = styled.div`
 const ErrorText = styled.div`
   text-wrap: wrap;
 `;
-
-const getSortedWellListStr = (wells) => {
-  try {
-    return wells.sort().join(", ");
-  } catch {
-    return "-";
-  }
-};
 
 const getAnalysisParamsStr = (params) => {
   return (

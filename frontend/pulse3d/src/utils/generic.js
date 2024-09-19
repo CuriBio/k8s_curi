@@ -305,6 +305,14 @@ const formatAdvancedAnalysisJob = (job) => {
   }
 };
 
+const getSortedWellListStr = (wells) => {
+  try {
+    return wells.sort().join(", ");
+  } catch {
+    return wells;
+  }
+};
+
 const compareStr = (s1, s2) => {
   s1 = s1.toLowerCase();
   s2 = s2.toLowerCase();
@@ -350,4 +358,5 @@ export {
   productTitle,
   compareStr,
   getLocalTzOffsetHours,
+  getSortedWellListStr,
 };
