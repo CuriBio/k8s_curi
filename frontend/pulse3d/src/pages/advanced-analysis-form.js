@@ -210,12 +210,13 @@ const extractFromMetas = (jobMeta, uploadMeta) => {
   }
   // check upload meta
   uploadMeta = JSON.parse(uploadMeta);
-  const platemapName = uploadMeta.platemap_name;
-  if (platemapName) {
+  const platemapName = uploadMeta?.platemap_name;
+  const platemapLabels = uploadMeta?.platemap_labels;
+  if (platemapName && platemapLabels) {
     return {
       platemapInfo: {
         name: platemapName,
-        wellGroups: uploadMeta.platemap_labels,
+        wellGroups: platemapLabels,
       },
       platemapSource: "Recording Metadata",
       version,
