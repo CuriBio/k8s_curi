@@ -71,6 +71,7 @@ logger = structlog.get_logger()
 
 async def main():
     logger.info("START")
+    logger.info(f"{DRY_RUN=}")
 
     job_counts = {"total": 0, "success": 0, "failed": 0, "skipped": 0}
 

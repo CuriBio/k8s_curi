@@ -95,9 +95,12 @@ class DummyTransaction:
 
 async def main():
     logger.info("START")
+    logger.info(f"{DRY_RUN=}")
+
     update_count = 0
     failure_count = 0
     total_uploads_to_process = 0
+
     try:
 
         DB_PASS = os.getenv("POSTGRES_PASSWORD")
