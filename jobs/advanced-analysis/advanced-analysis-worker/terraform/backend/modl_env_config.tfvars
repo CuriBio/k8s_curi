@@ -1,0 +1,5 @@
+bucket               = "curi-eks-modl-cluster-tf-state"
+key                  = "jobs/advanced-analysis/advanced-analysis-worker.tfstate"
+region               = "us-east-2"
+dynamodb_table       = ""
+workspace_key_prefix = "env"

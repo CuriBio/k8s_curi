@@ -18,4 +18,3 @@ push:
 
 apply:
 	kubectl apply -f ./manifests/
-

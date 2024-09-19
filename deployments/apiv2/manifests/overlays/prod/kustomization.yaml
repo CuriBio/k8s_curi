@@ -21,7 +21,7 @@ patches:
   - patch: |-
       - op: add
         path: /spec/template/spec/containers/0/image
-        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/users:0.10.2"
+        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/users:0.10.3"
       - op: add
         path: /spec/template/spec/containers/0/env/0
         value:
@@ -45,7 +45,7 @@ patches:
           value: "https://dashboard.curibio.com"
       - op: add
         path: /spec/template/spec/containers/2/image
-        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/event-broker:0.1.0"
+        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/event-broker:0.1.2"
       - op: add
         path: /spec/template/spec/containers/2/env/0
         value:

@@ -120,7 +120,9 @@ export default function DropDownWidget({
 
   const handleDropdownChange = (e) => {
     // only trigger selection if selected option is not an accordion button because that should just open sub menu, not use as actual selection
-    if (!subOptions[options[e.target.value]]) handleChange(e.target.value);
+    if (!subOptions[options[e.target.value]]) {
+      handleChange(e.target.value);
+    }
   };
 
   useEffect(() => {
@@ -168,8 +170,8 @@ export default function DropDownWidget({
     }
   };
 
-  const handleSubChange = (option, subIdx) => {
-    handleSubSelection({ [option]: subIdx });
+  const handleSubChange = (optionName, subOptionIdx) => {
+    handleSubSelection({ optionName, subOptionIdx });
   };
 
   const getDisabledListItem = (tooltipOptions, idx, item) => {
@@ -261,7 +263,7 @@ export default function DropDownWidget({
                   {subOptions[item].map((option, idx) => {
                     // if sub menu item is disabled, return disabled list item with tooltip
                     if (disableSubOptions[item][idx]) {
-                      return getDisabledListItem(subOptionsTooltipText, idx, option);
+                      return getDisabledListItem(subOptionsTooltipText[item], idx, option);
                     } else
                       return (
                         <ListItem

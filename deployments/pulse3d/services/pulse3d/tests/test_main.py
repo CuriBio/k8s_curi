@@ -132,7 +132,7 @@ def test_uploads__get(test_token_scope, mocked_asyncpg_con, mocker):
 def test_uploads__post_if_customer_quota_has_not_been_reached(mocked_asyncpg_con, mocker):
     mocker.patch.object(
         main,
-        "check_customer_quota",
+        "check_customer_pulse3d_usage",
         return_value={
             "current": {"uploads": "0", "jobs": "0"},
             "jobs_reached": False,
@@ -195,7 +195,7 @@ def test_uploads__post_if_customer_quota_has_not_been_reached(mocked_asyncpg_con
 def test_uploads__post_if_customer_quota_has_been_reached(mocked_asyncpg_con, mocker, usage_dict):
     test_user_id = uuid.uuid4()
     mocked_usage_check = mocker.patch.object(
-        main, "check_customer_quota", return_value=usage_dict, autospec=True
+        main, "check_customer_pulse3d_usage", return_value=usage_dict, autospec=True
     )
 
     mocked_create_upload = mocker.spy(main, "create_upload")
@@ -484,7 +484,7 @@ def test_jobs__post__no_params_given(mocked_asyncpg_con, mocker):
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=expected_job_id)
     mocker.patch.object(
         main,
-        "check_customer_quota",
+        "check_customer_pulse3d_usage",
         return_value={
             "current": {"uploads": "0", "jobs": "0"},
             "jobs_reached": False,
@@ -583,7 +583,7 @@ def test_jobs__post__basic_params_given(mocker, mocked_asyncpg_con):
     }
     mocker.patch.object(
         main,
-        "check_customer_quota",
+        "check_customer_pulse3d_usage",
         return_value={
             "current": {"uploads": "0", "jobs": "0"},
             "jobs_reached": False,
@@ -660,7 +660,7 @@ def test_jobs__post__uploads_peaks_and_valleys_when_passed_into_request(mocker, 
     spied_tempdir = mocker.spy(tempfile, "TemporaryDirectory")
     mocker.patch.object(
         main,
-        "check_customer_quota",
+        "check_customer_pulse3d_usage",
         return_value={
             "current": {"uploads": "0", "jobs": "0"},
             "jobs_reached": False,
@@ -695,7 +695,7 @@ def test_jobs__post__uploads_peaks_and_valleys_when_passed_into_request(mocker, 
 def test_jobs__post__returns_error_dict_if_quota_has_been_reached(mocker, mocked_asyncpg_con, usage_dict):
     test_user_id = uuid.uuid4()
     mocked_usage_check = mocker.patch.object(
-        main, "check_customer_quota", return_value=usage_dict, autospec=True
+        main, "check_customer_pulse3d_usage", return_value=usage_dict, autospec=True
     )
     mocked_asyncpg_con.fetchrow.return_value = {
         "user_id": test_user_id,
@@ -734,7 +734,7 @@ def test_jobs__post__advanced_params_given(param_name, mocked_asyncpg_con, param
     mocked_create_job = mocker.patch.object(main, "create_job", autospec=True, return_value=uuid.uuid4())
     mocker.patch.object(
         main,
-        "check_customer_quota",
+        "check_customer_pulse3d_usage",
         return_value={
             "current": {"uploads": "0", "jobs": "0"},
             "jobs_reached": False,
@@ -795,7 +795,7 @@ def test_jobs__post__advanced_params_given(param_name, mocked_asyncpg_con, param
 def test_jobs__post__with_baseline_widths_to_use(param_tuple, mocked_asyncpg_con, mocker):
     mocker.patch.object(
         main,
-        "check_customer_quota",
+        "check_customer_pulse3d_usage",
         return_value={
             "current": {"uploads": "0", "jobs": "0"},
             "jobs_reached": False,
@@ -869,7 +869,7 @@ def test_jobs__post__omits_analysis_params_not_supported_by_the_selected_pulse3d
     }
     mocker.patch.object(
         main,
-        "check_customer_quota",
+        "check_customer_pulse3d_usage",
         return_value={
             "current": {"uploads": "0", "jobs": "0"},
             "jobs_reached": False,

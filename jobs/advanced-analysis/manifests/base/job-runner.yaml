@@ -1,0 +1,17 @@
+---
+apiVersion: curibio.dev/v1
+kind: JobRunner
+metadata:
+  name: advanced-analysis-queue-processor
+spec:
+  job_queue: advanced-analysis
+  max_num_of_workers: 8
+  ecr_repo: null
+  product_specific:
+    pulse3d_uploads_bucket: null
+    mantarray_logs_bucket: null
+    min_memory_mib: '1000'
+    worker_db_cred_name: curibio-advanced-analysis-creds
+    worker_db_cred_key: curibio_advanced_analysis
+    worker_db_user: curibio_advanced_analysis
+---

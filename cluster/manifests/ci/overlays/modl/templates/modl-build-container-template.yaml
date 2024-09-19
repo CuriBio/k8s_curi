@@ -257,11 +257,22 @@ spec:
               secretKeyRef:
                 name: db-migrations
                 key: events_user_pass
+          - name: ADVANCED_ANALYSIS_QUEUE_PROCESSOR_RO_PASS
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: advanced_analysis_queue_processor_ro
+          - name: ADVANCED_ANALYSIS_PASS
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: curibio_advanced_analysis
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
         command: ["sh"]
         source: |
+          set -e
           CURRENT_DB_REVISION=$(alembic current)
           if [[ "$CURRENT_DB_REVISION" == *"(head)"* ]]; then
             echo "Up to date"
@@ -472,6 +483,16 @@ spec:
               secretKeyRef:
                 name: db-migrations
                 key: events_user_pass
+          - name: ADVANCED_ANALYSIS_QUEUE_PROCESSOR_RO_PASS
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: advanced_analysis_queue_processor_ro
+          - name: ADVANCED_ANALYSIS_PASS
+            valueFrom:
+              secretKeyRef:
+                name: db-migrations
+                key: curibio_advanced_analysis
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
@@ -515,8 +536,12 @@ spec:
             mountPath: /tmp/git
         command: ["sh"]
         source: |
-          apt-get update && \
+          set -e
+          apt-get update
           apt-get install -y python3 python3-pip python3-boto3 awscli
 
-          cd ./frontend/pulse3d/src/ && npm i && npm run export:modl
-          cd .. && python3 upload_fe_s3.py modl
+          cd ./frontend/pulse3d/src/
+          npm i
+          npm run export:modl
+          cd ..
+          python3 upload_fe_s3.py modl

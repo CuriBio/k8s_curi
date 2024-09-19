@@ -613,7 +613,7 @@ export default function UploadForm() {
           isValidUpload = false;
         }
       } catch (e) {
-        console.log(`ERROR unable to read file: ${file.filename} ${e}`);
+        console.log(`ERROR unable to read file ${file.filename}:`, e);
         isValidUpload = false;
         failedUploadsMsg.push(file.filename);
       }

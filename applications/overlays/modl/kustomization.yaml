@@ -50,3 +50,25 @@ patches:
       kind: Application
       name: jobs-operator
       namespace: kopf
+  - patch: |-
+      - op: replace
+        path: /spec/source/path
+        value: "deployments/advanced-analysis/manifests/overlays/modl"
+      - op: replace
+        path: /spec/source/targetRevision
+        value: modl-qc
+    target:
+      kind: Application
+      name: advanced-analysis-deployment
+      namespace: advanced-analysis
+  - patch: |-
+      - op: replace
+        path: /spec/source/path
+        value: "jobs/advanced-analysis/manifests/overlays/modl"
+      - op: replace
+        path: /spec/source/targetRevision
+        value: modl-qc
+    target:
+      kind: Application
+      name: advanced-analysis-jobs
+      namespace: advanced-analysis

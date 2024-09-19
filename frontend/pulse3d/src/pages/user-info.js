@@ -273,7 +273,7 @@ export default function Users() {
           throw Error();
         }
       } catch (e) {
-        console.log(`ERROR verifying new user account: ${e}`);
+        console.log("ERROR verifying new user account:", e);
         // if error, open error modal to let user know it didn't work
         setOpenErrorModal(true);
       }
