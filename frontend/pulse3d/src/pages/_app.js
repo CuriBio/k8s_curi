@@ -111,7 +111,7 @@ function Pulse({ Component, pageProps }) {
   const [defaultUploadForReanalysis, setDefaultUploadForReanalysis] = useState();
 
   // AdvancedAnalysisContext
-  const [advancedAnalysisJobs, setAdvancedAnalysisJobs] = useState([]);
+  const [advancedAnalysisJobs, setAdvancedAnalysisJobs] = useState(null);
 
   const { setDesiredConnectionStatus: setEvtSourceConnected } = useEventSource({
     productPage,
@@ -259,7 +259,7 @@ function Pulse({ Component, pageProps }) {
     if (["/login", "/home"].includes(router.pathname)) {
       updateProductPage(null);
       setUploads(null);
-      setAdvancedAnalysisJobs([]);
+      setAdvancedAnalysisJobs(null);
     }
 
     // start pinging SW if not on login page to keep alive
@@ -420,7 +420,7 @@ function Pulse({ Component, pageProps }) {
 
       if (response && response.status === 200) {
         const jobs = await response.json();
-        const formattedJobs = jobs.map((job) => formatAdvancedAnalysisJob(job));
+        const formattedJobs = jobs.map((job) => formatAdvancedAnalysisJob(job)).filter((j) => j !== null);
         setAdvancedAnalysisJobs(formattedJobs);
       }
     } catch (e) {

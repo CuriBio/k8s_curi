@@ -4,9 +4,10 @@ import Table from "@/components/table/Table";
 import { Box, IconButton } from "@mui/material";
 import { useContext, useState, useEffect, useMemo } from "react";
 import { AdvancedAnalysisContext } from "./_app";
-import { formatAdvancedAnalysisJob, formatDateTime } from "@/utils/generic";
+import { formatDateTime } from "@/utils/generic";
 import { getShortUUIDWithTooltip } from "@/utils/jsx";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
+import ModalWidget from "@/components/basicWidgets/ModalWidget";
 
 const TableContainer = styled.div`
   margin: 3% 3% 3% 3%;
@@ -33,12 +34,12 @@ const DropDownContainer = styled.div`
   margin: 15px 20px;
 `;
 
-const downloadJobs = async (selectedJobs) => {
+const downloadJobs = async (selectedJobs, onError) => {
   try {
-    const jobIds = selectedJobs.map(({ id }) => id);
-    if (jobIds.length === 0) {
+    if (selectedJobs.length === 0) {
       return;
     }
+    const jobIds = selectedJobs.map(({ id }) => id);
 
     const url = `${process.env.NEXT_PUBLIC_ADVANCED_ANALYSIS_URL}/advanced-analyses/download`;
     const res = await fetch(url, {
@@ -49,7 +50,7 @@ const downloadJobs = async (selectedJobs) => {
       }),
     });
     if (res?.status !== 200) {
-      throw Error(`response status: ${res.status}`);
+      throw Error(`response status: ${res?.status}`);
     }
 
     let downloadUrl, downloadName;
@@ -72,6 +73,27 @@ const downloadJobs = async (selectedJobs) => {
     a.remove();
   } catch (e) {
     console.log("ERROR downloading jobs:", e);
+    onError();
+  }
+};
+
+const deleteJobs = async (selectedJobs, onError) => {
+  try {
+    if (selectedJobs.length === 0) {
+      return;
+    }
+    const query = selectedJobs.map(({ id }) => `job_ids=${id}`).join("&");
+
+    const url = `${process.env.NEXT_PUBLIC_ADVANCED_ANALYSIS_URL}/advanced-analyses?${query}`;
+    const res = await fetch(url, {
+      method: "DELETE",
+    });
+    if (res?.status !== 204) {
+      throw Error(`response status: ${res?.status}`);
+    }
+  } catch (e) {
+    console.log("ERROR deleting jobs:", e);
+    onError();
   }
 };
 
@@ -85,11 +107,41 @@ const getSortFilterName = (sortColId) => {
   }
 };
 
+const MODAL_TYPES = {
+  NONE: "none",
+  DOWNLOAD_ERROR: "download_error",
+  DELETE_PROMPT: "delete_prompt",
+  DELETE_ERROR: "delete_error",
+};
+
+const getModalState = (modalType) => {
+  const modalInfo = { type: modalType };
+  if (modalType === MODAL_TYPES.DOWNLOAD_ERROR) {
+    modalInfo.header = "Error Occurred!";
+    modalInfo.labels = ["An error occurred while attempting to download.", "Please try again later."];
+    modalInfo.buttons = ["Close"];
+  } else if (modalType === MODAL_TYPES.DELETE_PROMPT) {
+    modalInfo.header = "Are you sure?";
+    modalInfo.labels = ["Please confirm the deletion.", "Be aware that this action cannot be undone."];
+    modalInfo.buttons = ["Cancel", "Confirm"];
+  } else if (modalType === MODAL_TYPES.DELETE_ERROR) {
+    modalInfo.header = "Error Occurred!";
+    modalInfo.labels = ["An error occurred while attempting to delete.", "Please try again later."];
+    modalInfo.buttons = ["Close"];
+  } else {
+    modalInfo.type = MODAL_TYPES.NONE;
+    modalInfo.header = "";
+    modalInfo.labels = [];
+    modalInfo.buttons = [];
+  }
+  return modalInfo;
+};
+
 export default function AdvancedAnalyses() {
   const { advancedAnalysisJobs, getAdvancedAnalysisJobs } = useContext(AdvancedAnalysisContext);
 
   const reGetAdvancedAnalysisJobs = (tableState) => {
-    if (!advancedAnalysisJobs?.length) {
+    if (advancedAnalysisJobs == null) {
       return;
     }
 
@@ -150,6 +202,7 @@ export default function AdvancedAnalyses() {
     sorting: [{ id: "createdAt", desc: true }],
     columnFilters: [],
   });
+  const [modalState, setModalState] = useState(getModalState(MODAL_TYPES.NONE));
 
   const jobSelectionState = {};
   for (const job of selectedJobs) {
@@ -157,8 +210,8 @@ export default function AdvancedAnalyses() {
   }
 
   useEffect(() => {
-    setDisplayRows([...advancedAnalysisJobs]);
-    if (advancedAnalysisJobs?.length > 0) {
+    if (advancedAnalysisJobs != null) {
+      setDisplayRows([...advancedAnalysisJobs]);
       setIsLoading(false);
     }
   }, [advancedAnalysisJobs]);
@@ -235,6 +288,10 @@ export default function AdvancedAnalyses() {
     []
   );
 
+  const updateModalType = (modalType) => {
+    setModalState(getModalState(modalType));
+  };
+
   const updateTableState = (newState) => {
     const updatedState = { ...tableState, ...newState };
     setTableState(updatedState);
@@ -242,29 +299,36 @@ export default function AdvancedAnalyses() {
   };
 
   const updateSelectedJobs = (newJobSelectionState) => {
+    // filter out jobs that are no longer selected
     const newSelectedJobs = selectedJobs.filter((j) => j.id in newJobSelectionState);
+    // add jobs that are now selected
     Object.keys(newJobSelectionState).map((newJobId) => {
-      if (newSelectedJobs.includes(newJobId)) {
+      if (newSelectedJobs.some((j) => j.id === newJobId)) {
         return;
       }
-      const jobInfo = advancedAnalysisJobs.find((j) => j.id === newJobId);
+      const jobInfo = (advancedAnalysisJobs || []).find((j) => j.id === newJobId);
       if (!jobInfo) {
         return;
       }
       newSelectedJobs.push(jobInfo);
     });
+
     setSelectedJobs(newSelectedJobs);
   };
 
   const handleActionSelection = async (optionIdx) => {
+    let clearSelection = true;
     try {
       if (optionIdx === 0 /* Download */) {
-        await downloadJobs(selectedJobs);
+        await downloadJobs(selectedJobs, () => updateModalType(MODAL_TYPES.DOWNLOAD_ERROR));
       } else if (optionIdx === 1 /* Delete */) {
-        // TODO
+        clearSelection = false;
+        updateModalType(MODAL_TYPES.DELETE_PROMPT);
       }
     } catch {}
-    setSelectedJobs([]);
+    if (clearSelection) {
+      setSelectedJobs([]);
+    }
   };
 
   const actionsFn = (t) => {
@@ -276,9 +340,13 @@ export default function AdvancedAnalyses() {
             options={["Download", "Delete"]}
             disableOptions={[
               selectedJobs.length === 0 || selectedJobs.some((j) => j.status !== "finished"),
-              true, // Tanner (9/16/24): deleting is not implemented yet, so keeping it always disabled
+              selectedJobs.length === 0 ||
+                selectedJobs.some((j) => ["pending", "running"].includes(j.status)),
             ]}
-            optionsTooltipText={["Must make a selection of only completed jobs.", "Coming soon."]}
+            optionsTooltipText={[
+              "Must make a selection of only successfully completed jobs.",
+              "Must make a selection of only completed jobs.",
+            ]}
             handleSelection={handleActionSelection}
             reset={selectedJobs.length === 0}
           />
@@ -287,41 +355,71 @@ export default function AdvancedAnalyses() {
     );
   };
 
+  const handleModalClose = async (idx) => {
+    let nextModalType = MODAL_TYPES.NONE;
+
+    if (modalState.type === MODAL_TYPES.DELETE_PROMPT) {
+      if (modalState.buttons[idx] === "Confirm") {
+        await deleteJobs(selectedJobs, () => {
+          nextModalType = MODAL_TYPES.DELETE_ERROR;
+        });
+        setSelectedJobs([]);
+      }
+    }
+
+    updateModalType(nextModalType);
+  };
+
   return (
-    <TableContainer>
-      <Table
-        columns={columns}
-        rowData={displayRows}
-        rowSelection={jobSelectionState}
-        setRowSelection={(newJobSelectionFn) => {
-          updateSelectedJobs(newJobSelectionFn(jobSelectionState));
-        }}
-        toolbarFn={actionsFn}
-        isLoading={isLoading}
-        manualSorting={true}
-        onSortingChange={(newSorting) => {
-          if (isLoading) {
-            return;
-          }
-          const sorting = newSorting();
-          // Tanner (5/28/24): have to do this manually since the MRT component doesn't seem to handle this correctly
-          if (sorting[0].id === tableState.sorting[0]?.id) {
-            sorting[0].desc = !tableState.sorting[0].desc;
-          }
-          updateTableState({ sorting });
-        }}
-        manualFiltering={true}
-        onColumnFiltersChange={(updateFn) => {
-          if (isLoading) {
-            return;
-          }
-          let { columnFilters } = tableState;
-          columnFilters = updateFn(columnFilters);
-          updateTableState({ columnFilters });
-        }}
-        state={tableState}
-      />
-    </TableContainer>
+    <>
+      <TableContainer>
+        <Table
+          columns={columns}
+          rowData={displayRows}
+          rowSelection={jobSelectionState}
+          setRowSelection={(newJobSelectionFn) => {
+            updateSelectedJobs(newJobSelectionFn(jobSelectionState));
+          }}
+          toolbarFn={actionsFn}
+          isLoading={isLoading}
+          manualSorting={true}
+          onSortingChange={(newSorting) => {
+            if (isLoading) {
+              return;
+            }
+            const sorting = newSorting();
+            // Tanner (5/28/24): have to do this manually since the MRT component doesn't seem to handle this correctly
+            if (sorting[0].id === tableState.sorting[0]?.id) {
+              sorting[0].desc = !tableState.sorting[0].desc;
+            }
+            updateTableState({ sorting });
+          }}
+          manualFiltering={true}
+          onColumnFiltersChange={(updateFn) => {
+            if (isLoading) {
+              return;
+            }
+            let { columnFilters } = tableState;
+            columnFilters = updateFn(columnFilters);
+            updateTableState({ columnFilters });
+          }}
+          state={tableState}
+        />
+      </TableContainer>
+      <ModalWidget
+        open={modalState.type !== MODAL_TYPES.NONE}
+        header={modalState.header}
+        labels={modalState.labels}
+        buttons={modalState.buttons}
+        closeModal={handleModalClose}
+      >
+        {/* TODO try just using one modal like this and conditionally showing the spinner once the spinner is required
+          <ModalSpinnerContainer>
+            <CircularSpinner size={200} color={"secondary"} />
+          </ModalSpinnerContainer>
+          */}
+      </ModalWidget>
+    </>
   );
 }
 
