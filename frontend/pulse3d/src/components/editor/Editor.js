@@ -1,11 +1,6 @@
+import Quill from "quill";
 import { forwardRef, useEffect, useRef } from "react";
 import "quill/dist/quill.snow.css";
-import dynamic from "next/dynamic";
-
-const Quill = dynamic(import("quill"), {
-  ssr: false,
-  loading: () => <p>Loading...</p>,
-});
 
 // Editor is an uncontrolled React component
 // TODO make this component NOT server-side-rendered, so page refresh doesn't fail

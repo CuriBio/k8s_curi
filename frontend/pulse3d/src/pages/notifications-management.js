@@ -2,20 +2,33 @@ import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import FormInput from "@/components/basicWidgets/FormInput";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
-import Editor from "@/components/editor/Editor";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import Table from "@/components/table/Table";
 import { formatDateTime } from "@/utils/generic";
 import { getShortUUIDWithTooltip } from "@/utils/jsx";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import styled from "styled-components";
 import "quill/dist/quill.snow.css";
 import dynamic from "next/dynamic";
 
-const DOMPurify = dynamic(import("dompurify"), {
+// server-side rendering needs to be disabled for components that use client-side browser objects
+// e.g. the Quill editor uses the 'document' browser object
+const DOMPurifyDivNoSSR = dynamic(() => import("@/components/editor/DOMPurifyDiv"), {
   ssr: false,
   loading: () => {},
 });
+
+const WrappedEditorNoSSR = dynamic(() => import("@/components/editor/WrappedEditor"), {
+  ssr: false,
+});
+
+const DOMPurifyDiv = ({ rawHTML }) => {
+  return <DOMPurifyDivNoSSR rawHTML={rawHTML} />;
+};
+
+const WrappedEditor = forwardRef((props, ref) => <WrappedEditorNoSSR {...props} editorRef={ref} />);
+
+WrappedEditor.displayName = "WrappedEditor";
 
 const Container = styled.div`
   justify-content: center;
@@ -79,14 +92,6 @@ export default function NotificationsManagement() {
   const [notificationType, setNotificationType] = useState(0);
   const [notificationsData, setNotificationsData] = useState([]);
   const quillRef = useRef(); // Use a ref to access the quill instance directly
-
-  const sanitize = (input) => {
-    try {
-      return DOMPurify.sanitize(input);
-    } catch {
-      return <p>Loading...</p>;
-    }
-  };
 
   // gets notifications at load
   useEffect(() => {
@@ -221,7 +226,7 @@ export default function NotificationsManagement() {
             }}
           />
           <Label>Body</Label>
-          <Editor ref={quillRef} />
+          <WrappedEditor ref={quillRef} />
           <Label style={{ padding: "50px 5px 30px" }}>Type</Label>
           <DropDownContainer>
             <DropDownWidget
@@ -286,9 +291,7 @@ export default function NotificationsManagement() {
             <StaticLabel>Body</StaticLabel>
           </StaticInfo>
           <StaticInfo>
-            <div className="ql-editor">
-              <div dangerouslySetInnerHTML={{ __html: sanitize(notificationDetails.body) }} />
-            </div>
+            <DOMPurifyDiv rawHTML={notificationDetails.body} />
           </StaticInfo>
         </ModalContainer>
       </ModalWidget>
