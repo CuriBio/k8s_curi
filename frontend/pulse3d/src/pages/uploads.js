@@ -71,7 +71,7 @@ const modalObjs = {
   },
   downloadError: {
     header: "Error Occurred!",
-    messages: ["An error occurred while attempting to download.", "Please try again."],
+    messages: ["An error occurred while attempting to download.", "Please try again later."],
   },
   empty: {
     header: null,
@@ -121,9 +121,7 @@ const getSortFilterName = (sortColId) => {
 export default function Uploads() {
   const router = useRouter();
   const { accountType, usageQuota, accountScope, productPage, accountId } = useContext(AuthContext);
-  const { uploads, setUploads, setDefaultUploadForReanalysis, jobs, setJobs, getUploadsAndJobs } = useContext(
-    UploadsContext
-  );
+  const { uploads, setDefaultUploadForReanalysis, jobs, getUploadsAndJobs } = useContext(UploadsContext);
 
   const [displayRows, setDisplayRows] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -727,7 +725,7 @@ export default function Uploads() {
     const handleDropdownSelection = (optionIdx) => {
       try {
         if (dropdownOptions[optionIdx] === "Delete") {
-          setModalButtons(["Close", "Confirm"]);
+          setModalButtons(["Cancel", "Confirm"]);
           setModalLabels(modalObjs.delete);
           setModalState("generic");
         } else if (dropdownOptions[optionIdx] === "Interactive Analysis") {

@@ -1,7 +1,7 @@
 import styled from "styled-components";
-import { formatDateTime } from "@/utils/generic";
+import { formatDateTime, getSortedWellListStr } from "@/utils/generic";
 import { getShortUUIDWithTooltip } from "@/utils/jsx";
-import { useState, useMemo, useEffect } from "react";
+import { useMemo } from "react";
 import Table from "./Table";
 
 const Container = styled.div`
@@ -34,11 +34,13 @@ const getAnalysisParamsStr = (params) => {
           return (
             <div key={paramName}>
               well groups:
-              {Object.keys(wellGroups).map((label) => (
-                <ul key={label} style={{ margin: "3px" }}>
-                  {label}: {wellGroups[label].join(", ")}
-                </ul>
-              ))}
+              {Object.keys(wellGroups)
+                .sort()
+                .map((label) => (
+                  <ul key={label} style={{ margin: "3px" }}>
+                    {label}: {getSortedWellListStr(wellGroups[label])}
+                  </ul>
+                ))}
             </div>
           );
         } else {

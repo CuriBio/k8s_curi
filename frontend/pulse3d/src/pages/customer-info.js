@@ -97,7 +97,13 @@ export default function Customers() {
         sortingFn: "datetime",
         size: 275,
         minSize: 275,
-        Cell: ({ cell }) => formatDateTime(cell.getValue()),
+        Cell: ({ cell }) => {
+          const lastLogin = cell?.row?.original?.lastLogin;
+          if (lastLogin != null) {
+            return formatDateTime(cell.getValue());
+          }
+          return "None";
+        },
       },
       {
         accessorKey: "scopes",

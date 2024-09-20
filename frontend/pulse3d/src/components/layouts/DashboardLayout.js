@@ -43,7 +43,7 @@ export default function DashboardLayout({ children }) {
   };
 
   const getAdvancedAnalysisJobsIfEmpty = () => {
-    if (advancedAnalysisJobs.length === 0) {
+    if (advancedAnalysisJobs == null) {
       getAdvancedAnalysisJobs();
     }
   };
