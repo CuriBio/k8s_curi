@@ -87,6 +87,7 @@ export default function NotificationsManagement() {
   const [showCreateNotificationModal, setShowCreateNotificationModal] = useState(false);
   const [showNotificationDetailsModal, setShowNotificationDetailsModal] = useState(false);
   const [notificationDetails, setNotificationDetails] = useState({});
+  const [notificationDetailsTitle, setNotificationDetailsTitle] = useState("");
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [subject, setSubject] = useState("");
   const [notificationType, setNotificationType] = useState(0);
@@ -184,6 +185,17 @@ export default function NotificationsManagement() {
   };
 
   const handleCreateNotificationModalButtons = async (idx, buttonLabel) => {
+    if (buttonLabel === "Preview") {
+      setNotificationDetails({
+        subject,
+        body: quillRef.current.getSemanticHTML(),
+        notificationType: Object.keys(NotificationType)[notificationType],
+      });
+      setNotificationDetailsTitle("Notification Preview");
+      setShowNotificationDetailsModal(true);
+      return;
+    }
+
     if (buttonLabel === "Save") {
       await saveNotification();
     }
@@ -194,6 +206,7 @@ export default function NotificationsManagement() {
 
   const handleTableRowClick = (row) => {
     setNotificationDetails(row.original);
+    setNotificationDetailsTitle("Notification Details");
     setShowNotificationDetailsModal(true);
   };
 
@@ -214,7 +227,7 @@ export default function NotificationsManagement() {
         closeModal={handleCreateNotificationModalButtons}
         header={"Create Notification"}
         labels={[]}
-        buttons={["Cancel", "Save"]}
+        buttons={["Cancel", "Preview", "Save"]}
       >
         <ModalContainer>
           <FormInput
@@ -266,19 +279,23 @@ export default function NotificationsManagement() {
         width={1000}
         open={showNotificationDetailsModal}
         closeModal={() => setShowNotificationDetailsModal(false)}
-        header={"Notification Details"}
+        header={notificationDetailsTitle}
         labels={[]}
         buttons={["Close"]}
       >
         <ModalContainer>
-          <StaticInfo>
-            <StaticLabel>Notification ID</StaticLabel>
-            {notificationDetails.id}
-          </StaticInfo>
-          <StaticInfo>
-            <StaticLabel>Date Created</StaticLabel>
-            {formatDateTime(notificationDetails.createdAt)}
-          </StaticInfo>
+          {notificationDetails.id && (
+            <StaticInfo>
+              <StaticLabel>Notification ID</StaticLabel>
+              {notificationDetails.id}
+            </StaticInfo>
+          )}
+          {notificationDetails.createdAt && (
+            <StaticInfo>
+              <StaticLabel>Date Created</StaticLabel>
+              {formatDateTime(notificationDetails.createdAt)}
+            </StaticInfo>
+          )}
           <StaticInfo>
             <StaticLabel>Notification Type</StaticLabel>
             {NotificationType[notificationDetails.notificationType]}
