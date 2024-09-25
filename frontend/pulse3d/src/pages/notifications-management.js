@@ -6,29 +6,15 @@ import DashboardLayout from "@/components/layouts/DashboardLayout";
 import Table from "@/components/table/Table";
 import { formatDateTime } from "@/utils/generic";
 import { getShortUUIDWithTooltip } from "@/utils/jsx";
-import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import styled from "styled-components";
-import "quill/dist/quill.snow.css";
 import dynamic from "next/dynamic";
 
 // server-side rendering needs to be disabled for components that use client-side browser objects
-// e.g. the Quill editor uses the 'document' browser object
-const DOMPurifyDivNoSSR = dynamic(() => import("@/components/editor/DOMPurifyDiv"), {
-  ssr: false,
-  loading: () => {},
-});
-
-const WrappedEditorNoSSR = dynamic(() => import("@/components/editor/WrappedEditor"), {
+// e.g. the TinyMCE editor uses the 'window' browser object
+const BundledTinyMCEEditorNoSSR = dynamic(() => import("@/components/editor/BundledTinyMCEEditor"), {
   ssr: false,
 });
-
-const DOMPurifyDiv = ({ rawHTML }) => {
-  return <DOMPurifyDivNoSSR rawHTML={rawHTML} />;
-};
-
-const WrappedEditor = forwardRef((props, ref) => <WrappedEditorNoSSR {...props} editorRef={ref} />);
-
-WrappedEditor.displayName = "WrappedEditor";
 
 const Container = styled.div`
   justify-content: center;
@@ -92,7 +78,7 @@ export default function NotificationsManagement() {
   const [subject, setSubject] = useState("");
   const [notificationType, setNotificationType] = useState(0);
   const [notificationsData, setNotificationsData] = useState([]);
-  const quillRef = useRef(); // Use a ref to access the quill instance directly
+  const editorRef = useRef(); // Use a ref to access the editor directly
 
   // gets notifications at load
   useEffect(() => {
@@ -162,7 +148,7 @@ export default function NotificationsManagement() {
         method: "POST",
         body: JSON.stringify({
           subject,
-          body: quillRef.current.getSemanticHTML(),
+          body: editorRef.current.getContent(),
           notification_type: Object.keys(NotificationType)[notificationType],
         }),
       });
@@ -188,7 +174,7 @@ export default function NotificationsManagement() {
     if (buttonLabel === "Preview") {
       setNotificationDetails({
         subject,
-        body: quillRef.current.getSemanticHTML(),
+        body: editorRef.current.getContent(),
         notificationType: Object.keys(NotificationType)[notificationType],
       });
       setNotificationDetailsTitle("Notification Preview");
@@ -225,6 +211,7 @@ export default function NotificationsManagement() {
         width={1000}
         open={showCreateNotificationModal}
         closeModal={handleCreateNotificationModalButtons}
+        disableEnforceFocus={true}
         header={"Create Notification"}
         labels={[]}
         buttons={["Cancel", "Preview", "Save"]}
@@ -239,8 +226,8 @@ export default function NotificationsManagement() {
             }}
           />
           <Label>Body</Label>
-          <WrappedEditor ref={quillRef} />
-          <Label style={{ padding: "50px 5px 30px" }}>Type</Label>
+          <BundledTinyMCEEditorNoSSR onInit={(_evt, editor) => (editorRef.current = editor)} />
+          <Label>Type</Label>
           <DropDownContainer>
             <DropDownWidget
               options={Object.values(NotificationType)}
@@ -307,9 +294,7 @@ export default function NotificationsManagement() {
           <StaticInfo>
             <StaticLabel>Body</StaticLabel>
           </StaticInfo>
-          <StaticInfo>
-            <DOMPurifyDiv rawHTML={notificationDetails.body} />
-          </StaticInfo>
+          <BundledTinyMCEEditorNoSSR disabled={true} initialValue={notificationDetails.body} />
         </ModalContainer>
       </ModalWidget>
     </Container>
