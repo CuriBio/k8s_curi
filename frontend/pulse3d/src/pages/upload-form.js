@@ -300,6 +300,10 @@ export default function UploadForm() {
       const presetParams = JSON.parse(userPresets[selectedPresetIdx].parameters);
 
       for (const param in presetParams) {
+        // older presets may have a name override set, if so we want to ignore it
+        if (param === "nameOverride") {
+          continue;
+        }
         // checking that the param exists incase params change over time, do not directly replace assuming all values match
         // and don't update if already default value
         if (param in currentParams && presetParams[param] !== currentParams[param]) {
@@ -464,6 +468,8 @@ export default function UploadForm() {
     if (semverGte(version, "0.32.2")) {
       // don't add name if it's the original filename or if it's empty
       const useOriginalName =
+        !reanalysis ||
+        files?.length !== 1 ||
         analysisParams.nameOverride === "" ||
         analysisParams.nameOverride === removeFileExt(files[0].filename);
       requestBody.name_override = useOriginalName ? null : analysisParams.nameOverride;
@@ -778,20 +784,16 @@ export default function UploadForm() {
 
   const handleDropDownSelect = (idx) => {
     setAlertShowed(false);
-
-    let nameOverride = "";
     if (idx !== -1) {
       const newSelection = uploads[idx];
       const newFiles = [...files, newSelection];
       setFiles(newFiles);
-
-      nameOverride = newFiles.length === 1 ? removeFileExt(newSelection.filename) : "";
+      // clear nameOverride anytime user changes file selection
+      setAnalysisParams({
+        ...analysisParams,
+        nameOverride: "",
+      });
     }
-
-    setAnalysisParams({
-      ...analysisParams,
-      nameOverride: nameOverride,
-    });
   };
 
   const removeFileExt = (filename) => {
@@ -802,11 +804,14 @@ export default function UploadForm() {
   };
 
   const saveAnalysisPreset = async () => {
+    // we don't want name override to be saved in presets
+    const defaultParams = getDefaultAnalysisParams();
+    const analysisParamsToSave = { ...analysisParams, nameOverride: defaultParams.nameOverride };
     await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets`, {
       method: "POST",
       body: JSON.stringify({
         name: analysisPresetName,
-        analysis_params: analysisParams,
+        analysis_params: analysisParamsToSave,
         upload_type: productPage,
       }),
     });
@@ -864,6 +869,11 @@ export default function UploadForm() {
                             e.preventDefault();
                             files.splice(idx, 1);
                             setFiles([...files]);
+                            // clear nameOverride anytime user changes file selection
+                            setAnalysisParams({
+                              ...analysisParams,
+                              nameOverride: "",
+                            });
                           }}
                         >
                           Remove
@@ -906,6 +916,7 @@ export default function UploadForm() {
           analysisParams={analysisParams}
           setWellGroupErr={setWellGroupErr}
           reanalysis={reanalysis}
+          numFiles={files?.length}
           minPulse3dVersionAllowed={minPulse3dVersionForCurrentUploads}
           userPresetOpts={{
             userPresets,

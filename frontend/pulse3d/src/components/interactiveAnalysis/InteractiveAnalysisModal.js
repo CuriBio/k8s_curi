@@ -619,7 +619,9 @@ export default function InteractiveWaveformModal({
       });
 
       // won't be present for older recordings or if no replacement was ever given
-      if ("nameOverride" in selectedJob) setNameOverride(selectedJob.nameOverride);
+      if ("nameOverride" in selectedJob) {
+        setNameOverride(selectedJob.nameOverride);
+      }
 
       // TODO remove the split once we're done with RC versions
       if (!semverGte(selectedJob.analysisParams.pulse3d_version.split("rc")[0], "0.28.3")) {
