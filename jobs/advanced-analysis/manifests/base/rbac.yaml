@@ -1,0 +1,28 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: advanced-analysis
+  name: advanced-analysis-role-namespaced
+rules:
+  - apiGroups: [batch]
+    resources: [jobs]
+    verbs: [list, watch, create]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [list, watch]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: advanced-analysis-role-namespaced
+  namespace: advanced-analysis
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: advanced-analysis-role-namespaced
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: advanced-analysis

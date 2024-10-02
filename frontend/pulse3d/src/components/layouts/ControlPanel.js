@@ -129,6 +129,46 @@ const modalObjs = {
   },
 };
 
+const getUserButtons = (productPage, usageQuota) => {
+  if (["mantarray", "nautilai"].includes(productPage)) {
+    return [
+      { label: "Uploads", disabled: false, page: "/uploads", options: [] },
+      {
+        label: "Run Analysis",
+        disabled: usageQuota && usageQuota.jobs_reached, // disabled completely if jobs quota has been reached
+        page: "/upload-form",
+        options:
+          usageQuota && usageQuota.uploads_reached // prevent new analyses if uploads quota reached
+            ? ["Re-analyze Existing Upload"]
+            : ["Analyze New Files", "Re-analyze Existing Upload"],
+      },
+      {
+        label: "Account Settings",
+        page: "/account-settings",
+        options: [],
+      },
+      { label: "Metric Definitions", page: "/metrics", options: [] },
+    ];
+  } else if (productPage === "advanced_analysis") {
+    return [
+      { label: "Analyses", disabled: false, page: "/advanced-analyses", options: [] },
+      {
+        label: "Run Analysis",
+        disabled: usageQuota && usageQuota.jobs_reached, // disabled completely if jobs quota has been reached
+        page: "/advanced-analysis-form",
+        options: [],
+      },
+      {
+        label: "Account Settings",
+        page: "/account-settings",
+        options: [],
+      },
+    ];
+  } else {
+    return [];
+  }
+};
+
 export default function ControlPanel() {
   const router = useRouter();
   const { accountType, usageQuota, accountScope, isCuriAdmin, preferences, productPage } = useContext(
@@ -142,24 +182,7 @@ export default function ControlPanel() {
   const [deprecationModalState, setDeprecationModalState] = useState(false);
   const [selectedP3dVersion, setSelectedP3dVersion] = useState(0);
 
-  const userButtons = [
-    { label: "Uploads", disabled: false, page: "/uploads", options: [] },
-    {
-      label: "Run Analysis",
-      disabled: usageQuota && usageQuota.jobs_reached, // disabled completely if jobs quota has been reached
-      page: "/upload-form",
-      options:
-        usageQuota && usageQuota.uploads_reached // prevent new analyses if uploads quota reached
-          ? ["Re-analyze Existing Upload"]
-          : ["Analyze New Files", "Re-analyze Existing Upload"],
-    },
-    {
-      label: "Account Settings",
-      page: "/account-settings",
-      options: [],
-    },
-    { label: "Metric Definitions", page: "/metrics", options: [] },
-  ];
+  const userButtons = getUserButtons(productPage, usageQuota);
 
   const adminButtons = [
     { label: "Uploads", disabled: false, page: "/uploads", options: [] },
@@ -203,12 +226,22 @@ export default function ControlPanel() {
   if (isCuriAdmin) {
     // if the curi admin acccount is logged in, allow them to add new admins
     adminButtons[1].options.push("Admin");
-    adminButtons.splice(3, 0, {
-      label: "Customer Info",
-      disabled: false,
-      page: "/customer-info",
-      options: [],
-    });
+    adminButtons.splice(
+      3,
+      0,
+      {
+        label: "Customer Info",
+        disabled: false,
+        page: "/customer-info",
+        options: [],
+      },
+      {
+        label: "Notifications (WIP)",
+        disabled: false,
+        page: "/notifications-management",
+        options: [],
+      }
+    );
   }
 
   useEffect(() => {
@@ -233,26 +266,29 @@ export default function ControlPanel() {
   }, [pulse3dVersions]);
 
   useEffect(() => {
-    if (usageQuota) {
-      // the query param is the only way to check if a user has just logged in versus refreshing the page
-      const userJustLoggedIn = router.query.checkUsage && router.pathname === "/uploads";
-      // modal will open for admin and user accounts to notify them
-      // only open modal if one of the restrictions has been reached
-      if ((usageQuota.jobs_reached || usageQuota.uploads_reached) && userJustLoggedIn) {
-        // setting local state to compare against when it changes during a session to pop up new modal
-        // if jobs are reached, then all uploading/analyses will be disabled
-        // else if just uploads are reached, user can still perform re-analysis
-        if (usageQuota.jobs_reached) {
-          setModalLabels(modalObjs.jobsReached);
-        } else if (usageQuota.uploads_reached) {
-          setModalLabels(modalObjs.uploadsReached);
-        }
+    if (!usageQuota) {
+      return;
+    }
 
-        setModalState(true);
-
-        // reset query param so that userJustLoggedIn becomes false
-        router.replace("/uploads", undefined, { shallow: true });
+    const homepage = userButtons[0]?.page || "/uploads";
+    // the query param is the only way to check if a user has just logged in versus refreshing the page
+    const userJustLoggedIn = router.query.checkUsage && router.pathname === homepage;
+    // modal will open for admin and user accounts to notify them
+    // only open modal if one of the restrictions has been reached
+    if ((usageQuota.jobs_reached || usageQuota.uploads_reached) && userJustLoggedIn) {
+      // setting local state to compare against when it changes during a session to pop up new modal
+      // if jobs are reached, then all uploading/analyses will be disabled
+      // else if just uploads are reached, user can still perform re-analysis
+      if (usageQuota.jobs_reached) {
+        setModalLabels(modalObjs.jobsReached);
+      } else if (usageQuota.uploads_reached) {
+        setModalLabels(modalObjs.uploadsReached);
       }
+
+      setModalState(true);
+
+      // reset query param so that userJustLoggedIn becomes false
+      router.replace(homepage, undefined, { shallow: true });
     }
   }, [usageQuota]);
 

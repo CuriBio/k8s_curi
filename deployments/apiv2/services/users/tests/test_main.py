@@ -13,7 +13,7 @@ from auth import (
     create_token,
     Scopes,
     ScopeTags,
-    PULSE3D_PAID_USAGE,
+    DEFAULT_USAGE_LIMITS,
     AuthTokens,
     get_assignable_user_scopes,
     get_assignable_admin_scopes,
@@ -100,7 +100,7 @@ def test_routes_requiring_auth_without_tokens(method, route):
 def test_login__user__success(send_client_type, use_alias, mocked_asyncpg_con, mocker):
     mocker.patch.object(
         main,
-        "check_customer_quota",
+        "check_customer_pulse3d_usage",
         return_value={
             "current": {"uploads": "0", "jobs": "0"},
             "jobs_reached": False,
@@ -269,7 +269,7 @@ def test_login__user__returns_invalid_creds_if_account_is_suspended(mocked_async
 def test_login__admin__success(send_client_type, mocked_asyncpg_con, mocker):
     mocked_usage_check = mocker.patch.object(
         main,
-        "check_customer_quota",
+        "check_customer_pulse3d_usage",
         return_value={
             "current": {"uploads": "0", "jobs": "0"},
             "jobs_reached": False,
@@ -638,7 +638,7 @@ def test_sso__admin__success(send_client_type, mocked_asyncpg_con, mocker):
 
     mocked_usage_check = mocker.patch.object(
         main,
-        "check_customer_quota",
+        "check_customer_pulse3d_usage",
         return_value={
             "current": {"uploads": "0", "jobs": "0"},
             "jobs_reached": False,
@@ -1019,7 +1019,7 @@ def test_register__admin__success(mocked_asyncpg_con, spied_pw_hasher, mocker):
         "INSERT INTO customers (email, usage_restrictions, login_type, sso_organization, sso_admin_org_id) "
         "VALUES ($1, $2, $3, $4, $5) RETURNING id",
         registration_details["email"].lower(),
-        json.dumps(dict(PULSE3D_PAID_USAGE)),
+        json.dumps(dict(DEFAULT_USAGE_LIMITS)),
         "password",
         None,
         None,
@@ -1063,7 +1063,7 @@ def test_register__admin__login_type_sso_microsoft_success(mocked_asyncpg_con, s
         "INSERT INTO customers (email, usage_restrictions, login_type, sso_organization, sso_admin_org_id) "
         "VALUES ($1, $2, $3, $4, $5) RETURNING id",
         registration_details["email"].lower(),
-        json.dumps(dict(PULSE3D_PAID_USAGE)),
+        json.dumps(dict(DEFAULT_USAGE_LIMITS)),
         "sso_microsoft",
         "some-organization",
         "some-admin-org-id",

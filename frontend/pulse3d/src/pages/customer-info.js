@@ -5,7 +5,7 @@ import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import Table from "@/components/table/Table";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import EditCustomerForm from "@/components/admin/EditCustomerForm";
-import { formatDateTime } from "@/utils/generic";
+import { formatDateTime, productTitle } from "@/utils/generic";
 
 import { Box } from "@mui/material";
 
@@ -97,7 +97,13 @@ export default function Customers() {
         sortingFn: "datetime",
         size: 275,
         minSize: 275,
-        Cell: ({ cell }) => formatDateTime(cell.getValue()),
+        Cell: ({ cell }) => {
+          const lastLogin = cell?.row?.original?.lastLogin;
+          if (lastLogin != null) {
+            return formatDateTime(cell.getValue());
+          }
+          return "None";
+        },
       },
       {
         accessorKey: "scopes",
@@ -109,7 +115,7 @@ export default function Customers() {
         Cell: ({ cell }) => (
           <Box component="div">
             {cell.getValue().map((s) => (
-              <div key={s}>{s.split(":")[0]}</div>
+              <div key={s}>{productTitle(s.split(":")[0])}</div>
             ))}
           </Box>
         ),
@@ -147,7 +153,7 @@ export default function Customers() {
           .filter(([product, _]) => scopes.includes(product))
           .map(([product, restrictions]) => (
             <div key={product}>
-              {product}:
+              {productTitle(product)}:
               {Object.keys(restrictions).map((label) => {
                 // swap jobs key for analyses for viewing
                 const displayLabel = label.split("_")[0] === "jobs" ? "analyses" : label.split("_")[0];

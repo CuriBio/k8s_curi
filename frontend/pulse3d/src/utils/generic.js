@@ -1,4 +1,5 @@
 import * as apache from "apache-arrow";
+import { capitalize } from "@mui/material";
 
 const deepCopy = (obj) => {
   return JSON.parse(JSON.stringify(obj));
@@ -232,7 +233,7 @@ const getMinP3dVersionForProduct = (productType) => {
   }
 };
 
-const formatJob = (job, selectedJobs, accountId) => {
+const formatP3dJob = (job, selectedJobs, accountId) => {
   try {
     const { id, upload_id, created_at, object_key, status, meta, user_id } = job;
     const analyzedFile = object_key?.split("/").slice(-1) || "";
@@ -274,8 +275,68 @@ const formatJob = (job, selectedJobs, accountId) => {
       ...metaParams,
     };
   } catch (e) {
-    console.log(`ERROR formatting job ${job?.id}`, e);
+    console.log(`ERROR formatting pulse3d job ${job?.id}`, e);
     return null;
+  }
+};
+
+const formatAdvancedAnalysisJob = (job) => {
+  try {
+    const { id, name, type: jobType, sources, created_at: createdAt, meta, status } = job;
+    let parsedMeta = {};
+    try {
+      parsedMeta = JSON.parse(meta);
+    } catch {}
+
+    const filename = name || parsedMeta.output_name || "None";
+
+    return {
+      id,
+      filename,
+      jobType,
+      createdAt,
+      sources,
+      meta: parsedMeta,
+      status,
+    };
+  } catch (e) {
+    console.log(`ERROR formatting advanced analysis job ${job?.id}`, e);
+    return null;
+  }
+};
+
+const getSortedWellListStr = (wells) => {
+  try {
+    return wells.sort().join(", ");
+  } catch {
+    return wells;
+  }
+};
+
+const compareStr = (s1, s2) => {
+  s1 = s1.toLowerCase();
+  s2 = s2.toLowerCase();
+  if (s1 < s2) {
+    return -1;
+  }
+  if (s1 > s2) {
+    return 1;
+  }
+  return 0;
+};
+
+const productTitle = (s) => {
+  return s
+    .split("_")
+    .map((s) => capitalize(s))
+    .join(" ");
+};
+
+const getLocalTzOffsetHours = () => {
+  try {
+    return Math.floor(new Date().getTimezoneOffset() / -60);
+  } catch {
+    return 0;
   }
 };
 
@@ -292,5 +353,10 @@ export {
   applyWindow,
   isInt,
   getMinP3dVersionForProduct,
-  formatJob,
+  formatP3dJob,
+  formatAdvancedAnalysisJob,
+  productTitle,
+  compareStr,
+  getLocalTzOffsetHours,
+  getSortedWellListStr,
 };

@@ -181,7 +181,13 @@ export default function Users() {
         sortingFn: "datetime",
         size: 275,
         minSize: 275,
-        Cell: ({ cell }) => formatDateTime(cell.getValue()),
+        Cell: ({ cell }) => {
+          const lastLogin = cell?.row?.original?.lastLogin;
+          if (lastLogin != null) {
+            return formatDateTime(cell.getValue());
+          }
+          return "None";
+        },
       },
       {
         accessorFn: (row) => getStatusValue(row),
@@ -273,7 +279,7 @@ export default function Users() {
           throw Error();
         }
       } catch (e) {
-        console.log(`ERROR verifying new user account: ${e}`);
+        console.log("ERROR verifying new user account:", e);
         // if error, open error modal to let user know it didn't work
         setOpenErrorModal(true);
       }

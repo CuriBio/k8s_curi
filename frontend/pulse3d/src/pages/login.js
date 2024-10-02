@@ -337,6 +337,7 @@ export default function Login() {
           width={250}
           height={50}
           onClick={submitMicrosoftSSO}
+          unoptimized
         />
         <ErrorText id="ssoError" role="errorMsg">
           {errorMsg.sso}

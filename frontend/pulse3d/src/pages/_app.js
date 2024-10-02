@@ -5,9 +5,9 @@ import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { useEffect, createContext, useState } from "react";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
-import { deepCopy } from "@/utils/generic";
+import { deepCopy, formatAdvancedAnalysisJob } from "@/utils/generic";
 import useEventSource from "@/utils/eventSource";
-import { formatJob } from "@/utils/generic";
+import { formatP3dJob } from "@/utils/generic";
 
 /*
   This theme is to be used with materialUI components
@@ -28,13 +28,29 @@ const MUItheme = createTheme({
 });
 
 export const AuthContext = createContext();
-
 export const UploadsContext = createContext();
+export const AdvancedAnalysisContext = createContext();
 
 // TODO make all pages scope based?
 const allAvailablePages = {
-  user: ["/home", "/uploads", "/upload-form", "/account", "/account-settings", "/metrics"],
-  admin: ["/uploads", "/add-new-account", "/user-info", "/customer-info", "/account-settings"],
+  user: [
+    "/home",
+    "/uploads",
+    "/upload-form",
+    "/account",
+    "/account-settings",
+    "/metrics",
+    "/advanced-analyses",
+    "/advanced-analysis-form",
+  ],
+  admin: [
+    "/uploads",
+    "/add-new-account",
+    "/user-info",
+    "/customer-info",
+    "/notifications-management",
+    "/account-settings",
+  ],
 };
 
 const stiffnessFactorDetails = {
@@ -94,12 +110,17 @@ function Pulse({ Component, pageProps }) {
   const [metaPulse3dVersions, setMetaPulse3dVersions] = useState([]);
   const [defaultUploadForReanalysis, setDefaultUploadForReanalysis] = useState();
 
+  // AdvancedAnalysisContext
+  const [advancedAnalysisJobs, setAdvancedAnalysisJobs] = useState(null);
+
   const { setDesiredConnectionStatus: setEvtSourceConnected } = useEventSource({
     productPage,
     uploads,
     setUploads,
     jobs,
     setJobs,
+    advancedAnalysisJobs,
+    setAdvancedAnalysisJobs,
     usageQuota,
     setUsageQuota,
     accountId: accountInfo.accountId,
@@ -149,7 +170,7 @@ function Pulse({ Component, pageProps }) {
       // env vars need to be set here because service worker does not have access to node process
       navigator.serviceWorker
         .register(
-          `/serviceWorker.js?mantarray_url=${process.env.NEXT_PUBLIC_MANTARRAY_URL}&users_url=${process.env.NEXT_PUBLIC_USERS_URL}&pulse3d_url=${process.env.NEXT_PUBLIC_PULSE3D_URL}&events_url=${process.env.NEXT_PUBLIC_EVENTS_URL}`,
+          `/serviceWorker.js?mantarray_url=${process.env.NEXT_PUBLIC_MANTARRAY_URL}&users_url=${process.env.NEXT_PUBLIC_USERS_URL}&pulse3d_url=${process.env.NEXT_PUBLIC_PULSE3D_URL}&events_url=${process.env.NEXT_PUBLIC_EVENTS_URL}&advanced_analysis_url=${process.env.NEXT_PUBLIC_ADVANCED_ANALYSIS_URL}`,
           { type: "module" }
         )
         .then(navigator.serviceWorker.ready)
@@ -238,6 +259,7 @@ function Pulse({ Component, pageProps }) {
     if (["/login", "/home"].includes(router.pathname)) {
       updateProductPage(null);
       setUploads(null);
+      setAdvancedAnalysisJobs(null);
     }
 
     // start pinging SW if not on login page to keep alive
@@ -350,13 +372,59 @@ function Pulse({ Component, pageProps }) {
     try {
       const newJobs = jobsRes
         .map((job) => {
-          return formatJob(job, {}, accountInfo.accountId);
+          return formatP3dJob(job, {}, accountInfo.accountId);
         })
         .filter((j) => j !== null);
 
       setJobs([...newJobs]);
     } catch (e) {
       console.log("ERROR processing jobs", e);
+      return;
+    }
+  };
+
+  const getAdvancedAnalysisJobs = async (
+    filters,
+    sortField = "created_at",
+    sortDirection = "DESC",
+    skip = 0,
+    limit = 300
+  ) => {
+    try {
+      let url = `${process.env.NEXT_PUBLIC_ADVANCED_ANALYSIS_URL}/advanced-analyses`;
+      let queryParams = [];
+
+      if (sortField) {
+        queryParams.push(`sort_field=${sortField}`);
+        if (!["ASC", "DESC"].includes(sortDirection)) {
+          sortDirection = "DESC";
+        }
+        queryParams.push(`sort_direction=${sortDirection}`);
+      }
+      if (skip != null) {
+        queryParams.push(`skip=${skip}`);
+      }
+      if (limit != null) {
+        queryParams.push(`limit=${limit}`);
+      }
+      if (filters && Object.keys(filters).length > 0) {
+        for (const [filterName, filterValue] of Object.entries(filters)) {
+          queryParams.push(`${filterName}=${filterValue}`);
+        }
+      }
+      if (queryParams.length > 0) {
+        url += "?" + queryParams.join("&");
+      }
+
+      const response = await fetch(url);
+
+      if (response && response.status === 200) {
+        const jobs = await response.json();
+        const formattedJobs = jobs.map((job) => formatAdvancedAnalysisJob(job)).filter((j) => j !== null);
+        setAdvancedAnalysisJobs(formattedJobs);
+      }
+    } catch (e) {
+      console.log("ERROR getting advanced analyses for user", e);
       return;
     }
   };
@@ -397,18 +465,20 @@ function Pulse({ Component, pageProps }) {
             setMetaPulse3dVersions,
           }}
         >
-          <Layout>
-            <ModalWidget
-              open={showLoggedOutAlert}
-              closeModal={() => {
-                setLoggedOutAlert(false);
-                router.replace("/login", undefined, { shallow: true });
-              }}
-              header="Attention"
-              labels={["You have been logged out due to inactivity"]}
-            />
-            {getLayout(<Component {...pageProps} />, pageProps.data)}
-          </Layout>
+          <AdvancedAnalysisContext.Provider value={{ advancedAnalysisJobs, getAdvancedAnalysisJobs }}>
+            <Layout>
+              <ModalWidget
+                open={showLoggedOutAlert}
+                closeModal={() => {
+                  setLoggedOutAlert(false);
+                  router.replace("/login", undefined, { shallow: true });
+                }}
+                header="Attention"
+                labels={["You have been logged out due to inactivity"]}
+              />
+              {getLayout(<Component {...pageProps} />, pageProps.data)}
+            </Layout>
+          </AdvancedAnalysisContext.Provider>
         </UploadsContext.Provider>
       </AuthContext.Provider>
     </ThemeProvider>

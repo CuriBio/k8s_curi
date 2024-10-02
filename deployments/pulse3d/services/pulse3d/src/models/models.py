@@ -1,10 +1,37 @@
+from enum import auto, StrEnum
+from fastapi import Query
 from pydantic import BaseModel, Field
 from typing import Any
+import datetime
 import uuid
 
 from pulse3D.data_loader.metadata import NormalizationMethods
 
 from .types import Number, TupleParam
+
+
+class NotificationType(StrEnum):
+    CUSTOMERS_AND_USERS = auto()
+    CUSTOMERS = auto()
+    USERS = auto()
+
+
+class SaveNotificationRequest(BaseModel):
+    subject: str
+    body: str
+    notification_type: NotificationType = NotificationType.CUSTOMERS_AND_USERS
+
+
+class SaveNotificationResponse(BaseModel):
+    id: uuid.UUID
+
+
+class NotificationResponse(BaseModel):
+    id: uuid.UUID
+    created_at: datetime.datetime
+    subject: str
+    body: str
+    notification_type: NotificationType = NotificationType.CUSTOMERS_AND_USERS
 
 
 class UploadRequest(BaseModel):
@@ -15,9 +42,27 @@ class UploadRequest(BaseModel):
     auto_upload: bool | None = Field(default=True)
 
 
-class GetJobsRequest(BaseModel):
+class GetJobsInfoRequest(BaseModel):
     upload_ids: list[uuid.UUID]
     upload_type: str | None = Field(default=None)
+
+
+class GetJobsRequest(BaseModel):
+    job_ids: list[uuid.UUID] | None = Field(Query(None))
+    # legacy options
+    legacy: bool = True
+    download: bool = True
+    # new options
+    upload_type: str | None = None
+    include_prerelease_versions: bool = True
+    version_min: str | None = None
+    version_max: str | None = None
+    status: str | None = None
+    filename: str | None = None
+    sort_field: str | None = None
+    sort_direction: str | None = None
+    skip: int = 0
+    limit: int = 300
 
 
 class UsageQuota(BaseModel):

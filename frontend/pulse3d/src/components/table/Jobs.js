@@ -1,7 +1,7 @@
 import styled from "styled-components";
-import { formatDateTime } from "@/utils/generic";
+import { formatDateTime, getSortedWellListStr } from "@/utils/generic";
 import { getShortUUIDWithTooltip } from "@/utils/jsx";
-import { useState, useMemo, useEffect } from "react";
+import { useMemo } from "react";
 import Table from "./Table";
 
 const Container = styled.div`
@@ -22,89 +22,43 @@ const ErrorText = styled.div`
   text-wrap: wrap;
 `;
 
-export default function Jobs({ row, openJobPreview, setSelectedJobs, selectedJobs }) {
-  const [rowSelection, setRowSelection] = useState({});
-  const [jobs, setJobs] = useState([]);
-  const [uploadId, setUploadId] = useState();
-
-  const localSelectedJobs = Object.keys(rowSelection).filter((x) => rowSelection[x]);
-
-  useEffect(() => {
-    if (row && "original" in row) {
-      setJobs(row.original.jobs);
-      setUploadId(row.original.id);
-    }
-  }, [row]);
-
-  useEffect(() => {
-    checkInitialSelectedJobs();
-  }, [selectedJobs, uploadId]);
-
-  const checkInitialSelectedJobs = () => {
-    if (uploadId in selectedJobs) {
-      const initialJobs = {};
-
-      for (const id of selectedJobs[uploadId]) {
-        initialJobs[id] = true;
-      }
-
-      setRowSelection(initialJobs);
-    } else if (Object.keys(selectedJobs).length === 0) {
-      setRowSelection({});
-    }
-  };
-
-  const handleSelectedJobsDiff = () => {
-    if (jobs.length > 0) {
-      if (
-        !(
-          uploadId in selectedJobs &&
-          selectedJobs[uploadId].length === localSelectedJobs.length &&
-          selectedJobs[uploadId].every((val) => localSelectedJobs.includes(val))
-        )
-      )
-        // set state in parent component to hold all selected jobs
-        setSelectedJobs({ ...selectedJobs, [uploadId]: localSelectedJobs });
-    }
-  };
-
-  useEffect(() => {
-    handleSelectedJobsDiff();
-  }, [rowSelection]);
-
-  const getAnalysisParamsStr = (params) => {
-    return (
-      <div>
-        {Object.keys(params).map((param) => {
-          let paramVal;
-
-          if (params[param] !== null) {
-            if (param === "well_groups") {
-              const wellGroups = params[param];
-              return (
-                <div key={param}>
-                  well groups:
-                  {Object.keys(wellGroups).map((label) => (
-                    <ul key={label} style={{ margin: "3px" }}>
-                      {label}: {wellGroups[label].join(", ")}
-                    </ul>
-                  ))}
-                </div>
-              );
-            } else {
-              paramVal = param === "peaks_valleys" ? "user set" : params[param];
-
-              if (param == "inverted_post_magnet_wells") {
-                param = "wells with flipped waveforms";
-              }
-
-              return <div key={param}>{`${param.replaceAll("_", " ")}: ${paramVal}`}</div>;
-            }
+const getAnalysisParamsStr = (params) => {
+  return (
+    <div>
+      {Object.entries(params).map(([paramName, paramVal]) => {
+        if (paramVal === null) {
+          return;
+        }
+        if (paramName === "well_groups") {
+          const wellGroups = paramVal;
+          return (
+            <div key={paramName}>
+              well groups:
+              {Object.keys(wellGroups)
+                .sort()
+                .map((label) => (
+                  <ul key={label} style={{ margin: "3px" }}>
+                    {label}: {getSortedWellListStr(wellGroups[label])}
+                  </ul>
+                ))}
+            </div>
+          );
+        } else {
+          if (paramName === "peaks_valleys") {
+            paramVal = "user set";
+          } else if (paramName == "inverted_post_magnet_wells") {
+            paramName = "wells with flipped waveforms";
           }
-        })}
-      </div>
-    );
-  };
+
+          return <div key={paramName}>{`${paramName.replaceAll("_", " ")}: ${paramVal}`}</div>;
+        }
+      })}
+    </div>
+  );
+};
+
+export default function Jobs({ uploadRow, openJobPreview, setSelectedJobs, selectedJobs }) {
+  const jobs = uploadRow?.original?.jobs || [];
 
   const columns = useMemo(
     () => [
@@ -172,8 +126,8 @@ export default function Jobs({ row, openJobPreview, setSelectedJobs, selectedJob
         columns={columns}
         rowData={jobs}
         defaultSortColumn={"createdAt"}
-        rowSelection={rowSelection}
-        setRowSelection={setRowSelection}
+        rowSelection={selectedJobs}
+        setRowSelection={setSelectedJobs}
         enablePagination={false}
         enableTopToolbar={false}
         enableSelectAll={false}

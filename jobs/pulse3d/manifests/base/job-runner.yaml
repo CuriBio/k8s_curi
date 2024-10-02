@@ -1,4 +1,4 @@
---- # PULSE3D
+---
 apiVersion: curibio.dev/v1
 kind: JobRunner
 metadata:
@@ -10,5 +10,8 @@ spec:
   product_specific:
     pulse3d_uploads_bucket: null
     mantarray_logs_bucket: null
+    min_memory_mib: '4000'
+    worker_db_cred_name: curibio-jobs-creds
+    worker_db_cred_key: curibio_jobs
+    worker_db_user: curibio_jobs
 ---
-# Future other products i.e. Nautilus, Pulse2D

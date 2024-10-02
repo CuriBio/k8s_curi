@@ -94,9 +94,11 @@ export default function WellGroups({ setAnalysisParams, analysisParams, setWellG
     let feedback = "";
     const valid_regex = new RegExp("^[0-9A-Za-z ./_-]+$");
     if (name.length > 0) {
-      if (!valid_regex.test(name)) feedback = "*Invalid character present.";
-      else if (localGroups.filter((group) => group.name.toLowerCase() === name.toLowerCase()).length > 1)
+      if (!valid_regex.test(name)) {
+        feedback = "*Invalid character present.";
+      } else if (localGroups.filter((group) => group.name.toLowerCase() === name.toLowerCase()).length > 1) {
         feedback = "*This name already exists";
+      }
     } else {
       feedback = "*Required";
     }

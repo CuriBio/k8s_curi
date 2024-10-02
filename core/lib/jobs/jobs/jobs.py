@@ -1,6 +1,7 @@
 from datetime import datetime
 from functools import wraps
 import json
+import os
 import time
 from typing import Any
 
@@ -61,6 +62,74 @@ def get_item(*, queue):
                 set_clause = ", ".join(f"{key} = ${i}" for i, key in enumerate(data, 1))
                 await con.execute(
                     f"UPDATE jobs_result SET {set_clause} WHERE job_id=${len(data) + 1}",
+                    *data.values(),
+                    item["id"],
+                )
+
+        return _inner
+
+    return _outer
+
+
+def get_advanced_item(*, queue):
+    query = (
+        "DELETE FROM jobs_queue "
+        "WHERE id = (SELECT id FROM jobs_queue WHERE queue=$1 ORDER BY priority DESC, created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1) "
+        "RETURNING id, sources, created_at, meta"
+    )
+
+    def _outer(fn):
+        @wraps(fn)
+        async def _inner(*, con, con_to_update_job_result=None):
+            async with con.transaction():
+                item = await con.fetchrow(query, queue)
+                if not item:
+                    raise EmptyQueue(queue)
+
+                if con_to_update_job_result:
+                    # if already set to running, then assume that a different worker already tried processing the job and failed
+                    current_job_status = await con_to_update_job_result.fetchval(
+                        "SELECT status FROM advanced_analysis_result WHERE id=$1", item["id"]
+                    )
+                    if current_job_status == "running":
+                        await con_to_update_job_result.execute(
+                            "UPDATE advanced_analysis_result SET status='error', meta=meta||$1::jsonb, finished_at=NOW() WHERE id=$2",
+                            json.dumps({"error_msg": "Ran out of time/memory"}),
+                            item["id"],
+                        )
+                        return
+
+                    await con_to_update_job_result.execute(
+                        "UPDATE advanced_analysis_result SET status='running', started_at=$1 WHERE id=$2",
+                        datetime.now(),
+                        item["id"],
+                    )
+
+                ts = time.time()
+                status, new_meta, object_key = await fn(con, item)
+                runtime = time.time() - ts
+
+                # update metadata
+                meta = json.loads(item["meta"])
+                meta.update(new_meta)
+
+                s3_prefix = None
+                name = None
+                if object_key is not None:
+                    s3_prefix = os.path.dirname(object_key)
+                    name = os.path.basename(object_key)
+
+                data = {
+                    "status": status,
+                    "runtime": runtime,
+                    "finished_at": datetime.now(),
+                    "meta": json.dumps(meta),
+                    "s3_prefix": s3_prefix,
+                    "name": name,
+                }
+                set_clause = ", ".join(f"{key} = ${i}" for i, key in enumerate(data, 1))
+                await con.execute(
+                    f"UPDATE advanced_analysis_result SET {set_clause} WHERE id=${len(data) + 1}",
                     *data.values(),
                     item["id"],
                 )
@@ -289,9 +358,10 @@ async def delete_uploads(*, con, account_type, account_id, upload_ids):
     await con.execute(query, *query_params)
 
 
-async def get_jobs_info_for_admin(con, customer_id: str, upload_ids: list[str]):
+async def get_jobs_of_uploads_for_admin(con, customer_id: str, upload_ids: list[str]):
     query_params = [customer_id]
     places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
+    # TODO should 'error' be filtered out of meta here? Does it expose too much about what is happening in the code?
     query = (
         "SELECT j.job_id AS id, j.upload_id, j.status, j.created_at, j.object_key, j.meta, "
         "u.user_id, u.type AS upload_type "
@@ -306,7 +376,9 @@ async def get_jobs_info_for_admin(con, customer_id: str, upload_ids: list[str]):
     return jobs
 
 
-async def get_jobs_info_for_rw_all_data_user(con, customer_id: str, upload_ids: list[str], upload_type: str):
+async def get_jobs_of_uploads_for_rw_all_data_user(
+    con, customer_id: str, upload_ids: list[str], upload_type: str
+):
     query_params = [customer_id, upload_type]
     places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
     query = (
@@ -323,7 +395,7 @@ async def get_jobs_info_for_rw_all_data_user(con, customer_id: str, upload_ids: 
     return jobs
 
 
-async def get_jobs_info_for_base_user(con, user_id: str, upload_ids: list[str], upload_type: str):
+async def get_jobs_of_uploads_for_base_user(con, user_id: str, upload_ids: list[str], upload_type: str):
     query_params = [user_id, upload_type]
     places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
     query = (
@@ -340,9 +412,150 @@ async def get_jobs_info_for_base_user(con, user_id: str, upload_ids: list[str], 
     return jobs
 
 
+async def get_jobs_info_for_admin(
+    con,
+    customer_id: str,
+    upload_type: str,
+    sort_field: str | None,
+    sort_direction: str | None,
+    skip: int,
+    limit: int,
+    **filters,
+):
+    query_params = [customer_id, upload_type]
+    # TODO should 'error' be filtered out of meta here? Does it expose too much about what is happening in the code?
+    query = (
+        "SELECT j.job_id AS id, j.status, j.created_at, j.meta AS job_meta, reverse(split_part(reverse(j.object_key), '/', 1)) AS filename, "
+        "u.meta AS upload_meta, u.user_id, u.type AS upload_type, users.name AS username "
+        "FROM jobs_result AS j "
+        "JOIN uploads AS u ON j.upload_id=u.id "
+        "JOIN users ON users.id=u.user_id "
+        "WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.type=$2"
+    )
+
+    query, query_params = _add_job_sorting_filtering_conds(
+        query, query_params, sort_field, sort_direction, skip, limit, **filters
+    )
+
+    async with con.transaction():
+        jobs = [dict(row) async for row in con.cursor(query, *query_params)]
+
+    return jobs
+
+
+async def get_jobs_info_for_rw_all_data_user(
+    con,
+    customer_id: str,
+    upload_type: str,
+    sort_field: str | None,
+    sort_direction: str | None,
+    skip: int,
+    limit: int,
+    **filters,
+):
+    query_params = [customer_id, upload_type]
+    query = (
+        "SELECT j.job_id AS id, j.status, j.created_at, j.meta AS job_meta, reverse(split_part(reverse(j.object_key), '/', 1)) AS filename, "
+        "u.meta AS upload_meta, u.user_id, u.type AS upload_type, users.name AS username "
+        "FROM jobs_result AS j "
+        "JOIN uploads AS u ON j.upload_id=u.id "
+        "JOIN users ON users.id=u.user_id "
+        "WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.type=$2"
+    )
+
+    query, query_params = _add_job_sorting_filtering_conds(
+        query, query_params, sort_field, sort_direction, skip, limit, **filters
+    )
+
+    async with con.transaction():
+        jobs = [dict(row) async for row in con.cursor(query, *query_params)]
+
+    return jobs
+
+
+async def get_jobs_info_for_base_user(
+    con,
+    user_id: str,
+    upload_type: str,
+    sort_field: str | None,
+    sort_direction: str | None,
+    skip: int,
+    limit: int,
+    **filters,
+):
+    query_params = [user_id, upload_type]
+    query = (
+        "SELECT j.job_id AS id, j.status, j.created_at, j.meta AS job_meta, reverse(split_part(reverse(j.object_key), '/', 1)) AS filename, "
+        "u.meta AS upload_meta, u.user_id, u.type AS upload_type "
+        "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
+        "WHERE u.user_id=$1 AND j.status!='deleted' AND u.deleted='f' AND j.object_key IS NOT NULL AND u.type=$2"
+    )
+
+    query, query_params = _add_job_sorting_filtering_conds(
+        query, query_params, sort_field, sort_direction, skip, limit, **filters
+    )
+
+    async with con.transaction():
+        jobs = [dict(row) async for row in con.cursor(query, *query_params)]
+
+    return jobs
+
+
+def _add_job_sorting_filtering_conds(query, query_params, sort_field, sort_direction, skip, limit, **filters):
+    query_params = query_params.copy()
+
+    next_placeholder_count = len(query_params) + 1
+
+    conds = ""
+    for filter_name, filter_value in filters.items():
+        placeholder = f"${next_placeholder_count}"
+        match filter_name:
+            case "job_ids":
+                new_cond = f"j.job_id=ANY({placeholder}::uuid[])"
+            case "status":
+                new_cond = f"j.status={placeholder}"
+            case "filename":
+                new_cond = (
+                    f"LOWER(reverse(split_part(reverse(j.object_key), '/', 1))) LIKE LOWER({placeholder})"
+                )
+                filter_value = f"{filter_value}%"
+            case "include_prerelease_versions":
+                if filter_value:
+                    # if including prerelease versions, no need to add a filter
+                    continue
+                new_cond = f"j.meta->>'version' NOT LIKE {placeholder}"
+                filter_value = "%rc%"
+            case "version_min":
+                new_cond = f"regexp_split_to_array(j.meta->>'version', '\\.')::int[] >= regexp_split_to_array({placeholder}, '\\.')::int[]"
+            case "version_max":
+                new_cond = f"regexp_split_to_array(j.meta->>'version', '\\.')::int[] <= regexp_split_to_array({placeholder}, '\\.')::int[]"
+            case _:
+                continue
+
+        query_params.append(filter_value)
+        conds += f" AND {new_cond}"
+        next_placeholder_count += 1
+    if conds:
+        query += conds
+
+    if sort_field in ("id", "created_at", "filename"):
+        if sort_field == "created_at":
+            sort_field = f"j.{sort_field}"
+        if sort_direction not in ("ASC", "DESC"):
+            sort_direction = "DESC"
+        sort_direction = sort_direction.upper()
+        query += f" ORDER BY {sort_field} {sort_direction}"
+
+    query += f" LIMIT ${len(query_params) + 1} OFFSET ${len(query_params) + 2}"
+    query_params += [limit, skip]
+
+    return query, query_params
+
+
 async def get_legacy_jobs_info_for_user(con, user_id: str, job_ids: list[str]):
     query_params = [user_id]
     places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
+    # TODO should 'error' be filtered out of meta here? Does it expose too much about what is happening in the code?
     query = (
         "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, "
         "u.user_id, u.meta AS user_meta, u.filename, u.prefix, u.type AS upload_type "
@@ -405,6 +618,7 @@ async def get_jobs_download_info_for_base_user(con, user_id: str, job_ids: list[
 
 async def get_job_waveform_data_for_admin_user(con, customer_id: str, job_id: str):
     query_params = [customer_id, job_id]
+    # TODO should 'error' be filtered out of meta here? Does it expose too much about what is happening in the code?
     query = (
         "SELECT u.prefix, u.filename, j.meta AS job_meta FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         "WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND j.job_id=$2"
@@ -500,12 +714,12 @@ def _get_placeholders_str(num_placeholders, start=1):
     return ", ".join(f"${i}" for i in range(start, start + num_placeholders))
 
 
-async def get_customer_quota(con, customer_id, service) -> dict[str, Any]:
+async def get_customer_pulse3d_usage(con, customer_id, upload_type) -> dict[str, Any]:
     """Query DB and return usage limit and current usage.
     Returns:
         - Dictionary with account limits and account usage
     """
-    # get service specific usage restrictions for the admin account
+    # get upload-type specific usage restrictions for the admin account
     # uploads limit, jobs limit, end date of plan
     usage_limit_query = "SELECT usage_restrictions->$1 AS usage FROM customers WHERE id=$2"
     # collects number of all jobs in admin account and return number of credits consumed
@@ -515,8 +729,8 @@ async def get_customer_quota(con, customer_id, service) -> dict[str, Any]:
         "FROM ( SELECT ( CASE WHEN (COUNT(*) <= 2 AND COUNT(*) > 0) THEN 1 ELSE GREATEST(COUNT(*) - 1, 0) END ) AS jobs_count FROM jobs_result WHERE customer_id=$1 and type=$2 GROUP BY upload_id) dt"
     )
 
-    usage_limit_json = await con.fetchrow(usage_limit_query, service, customer_id)
-    current_usage_data = await con.fetchrow(current_usage_query, customer_id, service)
+    usage_limit_json = await con.fetchrow(usage_limit_query, upload_type, customer_id)
+    current_usage_data = await con.fetchrow(current_usage_query, customer_id, upload_type)
 
     usage_limit_dict = json.loads(usage_limit_json["usage"])
 
@@ -532,15 +746,15 @@ async def get_customer_quota(con, customer_id, service) -> dict[str, Any]:
     return {"limits": usage_limit_dict, "current": current_usage_dict}
 
 
-async def check_customer_quota(con, customer_id, service) -> dict[str, Any]:
-    """Query DB for service-specific customer account usage.
+async def check_customer_pulse3d_usage(con, customer_id, upload_type) -> dict[str, Any]:
+    """Query DB for upload-type-specific customer account usage.
 
     Will be called for all account tiers, unlimited has a value of -1.
     Returns:
         - Dictionary containing boolean values for if uploads or job quotas have been reached
         - Dictionary also contains data about max usage and end date.
     """
-    usage_info = await get_customer_quota(con, customer_id, service)
+    usage_info = await get_customer_pulse3d_usage(con, customer_id, upload_type)
 
     is_expired = False
     # if there is an expiration date, check if we have passed it
@@ -570,3 +784,184 @@ async def create_analysis_preset(con, user_id, details):
     return await con.fetchval(
         query, user_id, details.name, json.dumps(details.analysis_params), details.upload_type
     )
+
+
+async def check_customer_advanced_analysis_usage(con, customer_id):
+    usage_limits_json = await con.fetchval(
+        "SELECT usage_restrictions->'advanced_analysis' FROM customers WHERE id=$1", customer_id
+    )
+    current_job_count = await con.fetchval(
+        "SELECT COUNT(*) FROM advanced_analysis_result WHERE customer_id=$1", customer_id
+    )
+
+    usage_limits = json.loads(usage_limits_json)
+
+    is_expired = False
+    # if there is an expiration date, check if we have passed it
+    if expiration_date := usage_limits["expiration_date"]:
+        is_expired = datetime.strptime(expiration_date, "%Y-%m-%d") < datetime.utcnow()
+
+    jobs_count_reached = False
+    if (job_limit := usage_limits["jobs"]) != -1:
+        jobs_count_reached = current_job_count >= job_limit
+
+    return {
+        "limits": usage_limits,
+        "current": {"jobs": current_job_count},
+        "jobs_reached": is_expired or jobs_count_reached,
+    }
+
+
+async def get_advanced_analyses_for_admin(
+    con,
+    customer_id: str,
+    sort_field: str | None,
+    sort_direction: str | None,
+    skip: int,
+    limit: int,
+    **filters,
+):
+    # TODO should 'error' be filtered out of meta here? Does it expose too much about what is happening in the code?
+    query = (
+        "SELECT id, type, status, sources, meta, created_at, name "
+        "FROM advanced_analysis_result "
+        "WHERE customer_id=$1 AND status!='deleted'"
+    )
+    query_params = [customer_id]
+
+    query, query_params = _add_advanced_analysis_sorting_filtering_conds(
+        query, query_params, sort_field, sort_direction, skip, limit, **filters
+    )
+
+    async with con.transaction():
+        advanced_analyses = [dict(row) async for row in con.cursor(query, *query_params)]
+
+    return advanced_analyses
+
+
+async def get_advanced_analyses_for_base_user(
+    con, user_id: str, sort_field: str | None, sort_direction: str | None, skip: int, limit: int, **filters
+):
+    query = (
+        "SELECT id, type, status, sources, meta, created_at, name "
+        "FROM advanced_analysis_result "
+        "WHERE user_id=$1 AND status!='deleted'"
+    )
+    query_params = [user_id]
+
+    query, query_params = _add_advanced_analysis_sorting_filtering_conds(
+        query, query_params, sort_field, sort_direction, skip, limit, **filters
+    )
+
+    async with con.transaction():
+        advanced_analyses = [dict(row) async for row in con.cursor(query, *query_params)]
+
+    return advanced_analyses
+
+
+def _add_advanced_analysis_sorting_filtering_conds(
+    query, query_params, sort_field, sort_direction, skip, limit, **filters
+):
+    query_params = query_params.copy()
+
+    next_placeholder_count = len(query_params) + 1
+
+    conds = ""
+    for filter_name, filter_value in filters.items():
+        placeholder = f"${next_placeholder_count}"
+        match filter_name:
+            case "name":
+                new_cond = f"LOWER(name) LIKE LOWER({placeholder})"
+                filter_value = f"%{filter_value}%"
+            case "id":
+                new_cond = f"id::text LIKE {placeholder}"
+                filter_value = f"%{filter_value}%"
+            case "type":
+                new_cond = f"type = LOWER({placeholder})"
+            case "created_at_min":
+                new_cond = f"created_at >= to_timestamp({placeholder}, 'YYYY-MM-DD\"T\"HH:MI:SS.MSZ')"
+            case "created_at_max":
+                new_cond = f"created_at <= to_timestamp({placeholder}, 'YYYY-MM-DD\"T\"HH:MI:SS.MSZ')"
+            case "status":
+                new_cond = f"status={placeholder}"
+            case _:
+                continue
+
+        query_params.append(filter_value)
+        conds += f" AND {new_cond}"
+        next_placeholder_count += 1
+    if conds:
+        query += conds
+
+    if sort_field in ("name", "id", "created_at", "type", "status"):
+        if sort_direction not in ("ASC", "DESC"):
+            sort_direction = "DESC"
+        sort_direction = sort_direction.upper()
+        query += f" ORDER BY {sort_field} {sort_direction}"
+
+    query += f" LIMIT ${len(query_params) + 1} OFFSET ${len(query_params) + 2}"
+    query_params += [limit, skip]
+
+    return query, query_params
+
+
+async def create_advanced_analysis_job(
+    *, con, sources, queue, priority, meta, user_id, customer_id, job_type
+):
+    # the WITH clause in this query is necessary to make sure the given upload_id actually exists
+    enqueue_job_query = (
+        "INSERT INTO jobs_queue (sources, queue, priority, meta) VALUES ($1, $2, $3, $4) RETURNING id"
+    )
+    async with con.transaction():
+        # add job to queue
+        job_id = await con.fetchval(enqueue_job_query, sources, queue, priority, json.dumps(meta))
+
+        data = {
+            "id": job_id,
+            "user_id": user_id,
+            "customer_id": customer_id,
+            "type": job_type,
+            "status": "pending",
+            "sources": sources,
+            "meta": json.dumps(meta),
+        }
+
+        cols = ", ".join(list(data))
+        places = _get_placeholders_str(len(data))
+
+        # add job to the result table
+        await con.execute(f"INSERT INTO advanced_analysis_result ({cols}) VALUES ({places})", *data.values())
+
+    return job_id
+
+
+async def delete_advanced_analyses(*, con, user_id, job_ids):
+    await con.execute(
+        "UPDATE advanced_analysis_result SET status='deleted' WHERE user_id=$1 AND id=ANY($2::uuid[])",
+        user_id,
+        job_ids,
+    )
+
+
+async def get_advanced_analyses_download_info_for_base_user(*, con, user_id, job_ids):
+    query = (
+        "SELECT id, s3_prefix, name, created_at FROM advanced_analysis_result "
+        "WHERE user_id=$1 AND status='finished' AND id=ANY($2::uuid[])"
+    )
+
+    async with con.transaction():
+        jobs = [dict(row) async for row in con.cursor(query, user_id, job_ids)]
+
+    return jobs
+
+
+async def get_advanced_analyses_download_info_for_admin(*, con, customer_id, job_ids):
+    query = (
+        "SELECT id, s3_prefix, name, created_at FROM advanced_analysis_result "
+        "WHERE customer_id=$1 AND status='finished' AND id=ANY($2::uuid[])"
+    )
+
+    async with con.transaction():
+        jobs = [dict(row) async for row in con.cursor(query, customer_id, job_ids)]
+
+    return jobs
