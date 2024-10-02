@@ -817,9 +817,9 @@ export default function AnalysisParamForm({
         <LineSeparator />
         {pulse3dVersionGte("0.32.2") && reanalysis && (
           <AnalysisParamContainer
-            label="Override original name"
+            label="Override Original Name"
             name="nameOverride"
-            tooltipText="This name will replace the original recording name for the ouput filename."
+            tooltipText="This name will replace the original recording name for the ouput filename. This value will not be included in saved presets."
             additionaErrorStyle={{ width: "150%" }}
             placeholder=""
             value={analysisParams.nameOverride}

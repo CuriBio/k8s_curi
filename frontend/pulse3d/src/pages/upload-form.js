@@ -300,6 +300,10 @@ export default function UploadForm() {
       const presetParams = JSON.parse(userPresets[selectedPresetIdx].parameters);
 
       for (const param in presetParams) {
+        // older presets may have a name override set, if so we want to ignore it
+        if (param === "nameOverride") {
+          continue;
+        }
         // checking that the param exists incase params change over time, do not directly replace assuming all values match
         // and don't update if already default value
         if (param in currentParams && presetParams[param] !== currentParams[param]) {
@@ -778,20 +782,11 @@ export default function UploadForm() {
 
   const handleDropDownSelect = (idx) => {
     setAlertShowed(false);
-
-    let nameOverride = "";
     if (idx !== -1) {
       const newSelection = uploads[idx];
       const newFiles = [...files, newSelection];
       setFiles(newFiles);
-
-      nameOverride = newFiles.length === 1 ? removeFileExt(newSelection.filename) : "";
     }
-
-    setAnalysisParams({
-      ...analysisParams,
-      nameOverride: nameOverride,
-    });
   };
 
   const removeFileExt = (filename) => {
@@ -802,11 +797,14 @@ export default function UploadForm() {
   };
 
   const saveAnalysisPreset = async () => {
+    // we don't want name override to be saved in presets
+    const defaultParams = getDefaultAnalysisParams();
+    const analysisParamsToSave = { ...analysisParams, nameOverride: defaultParams.nameOverride };
     await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets`, {
       method: "POST",
       body: JSON.stringify({
         name: analysisPresetName,
-        analysis_params: analysisParams,
+        analysis_params: analysisParamsToSave,
         upload_type: productPage,
       }),
     });
