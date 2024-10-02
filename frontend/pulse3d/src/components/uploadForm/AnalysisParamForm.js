@@ -465,6 +465,7 @@ export default function AnalysisParamForm({
   analysisParams,
   setWellGroupErr,
   reanalysis,
+  numFiles,
   minPulse3dVersionAllowed,
   userPresetOpts: {
     userPresets,
@@ -815,7 +816,7 @@ export default function AnalysisParamForm({
           />
         )}
         <LineSeparator />
-        {pulse3dVersionGte("0.32.2") && reanalysis && (
+        {pulse3dVersionGte("0.32.2") && reanalysis && numFiles < 2 && (
           <AnalysisParamContainer
             label="Override Original Name"
             name="nameOverride"
