@@ -131,6 +131,10 @@ def create_notification_handler(con_pool):
             payload = json.loads(payload)
             table = payload.pop("table")
             match table:
+                case "notification_messages":
+                    notifications_update_msg = {"event": "notifications_update", "data": json.dumps(payload)}
+                    await USER_MANAGER.send(UUID(payload.get("recipient_id")), notifications_update_msg)
+                    return
                 case "jobs_result":
                     payload["product"] = payload.pop("type")
                     payload["usage_type"] = "jobs"
