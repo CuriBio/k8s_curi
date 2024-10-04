@@ -34,6 +34,14 @@ class NotificationResponse(BaseModel):
     notification_type: NotificationType = NotificationType.CUSTOMERS_AND_USERS
 
 
+class NotificationMessageResponse(BaseModel):
+    id: uuid.UUID
+    created_at: datetime.datetime
+    viewed_at: datetime.datetime | None = None
+    subject: str
+    body: str
+
+
 class UploadRequest(BaseModel):
     filename: str
     md5s: str | None = Field(default=None)  # TODO when would this be None?
