@@ -1,4 +1,5 @@
 from models.models import (
+    NotificationMessageResponse,
     NotificationResponse,
     NotificationType,
     SaveNotificationRequest,
@@ -35,9 +36,9 @@ class NotificationRepository:
                         audience_sub_query = f"({select_user_ids_query})"
 
                 insert_notification_messages_query = f"""
-                        INSERT INTO notification_messages (notification_id, recipient_id)
-                        SELECT '{notification_id}', id from {audience_sub_query} audience;
-                    """
+                    INSERT INTO notification_messages (notification_id, recipient_id)
+                    SELECT '{notification_id}', id from {audience_sub_query} audience;
+                """
 
                 await con.execute(insert_notification_messages_query)
 
@@ -50,3 +51,27 @@ class NotificationRepository:
             notifications = await con.fetch(query)
 
         return [NotificationResponse(**dict(notification)) for notification in notifications]
+
+    async def get_notification_messages(
+        self, account_id: str, notification_message_id: str | None
+    ) -> list[NotificationMessageResponse]:
+        query = """
+            SELECT m.id, m.created_at, m.viewed_at, n.subject, n.body
+            FROM notification_messages m, notifications n
+            WHERE m.recipient_id = $1
+            AND m.notification_id = n.id
+        """
+
+        query_params = [account_id]
+
+        if notification_message_id:
+            query += " AND m.id = $2"
+            query_params.append(notification_message_id)
+
+        async with self.pool.acquire() as con:
+            notification_messages = await con.fetch(query, *query_params)
+
+        return [
+            NotificationMessageResponse(**dict(notification_message))
+            for notification_message in notification_messages
+        ]

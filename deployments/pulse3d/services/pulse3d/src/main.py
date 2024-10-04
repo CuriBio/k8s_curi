@@ -80,6 +80,7 @@ from models.models import (
     JobRequest,
     GetJobsInfoRequest,
     JobResponse,
+    NotificationMessageResponse,
     NotificationResponse,
     SaveNotificationRequest,
     SaveNotificationResponse,
@@ -944,6 +945,22 @@ async def delete_analysis_preset(
 
     except Exception:
         logger.exception(f"Failed to delete analysis preset {preset_name} for user")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.get("/notification_messages", response_model=list[NotificationMessageResponse])
+async def get_notification_messages(
+    notification_message_id: uuid.UUID = Query(None), token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
+):
+    """Get info for user|customer notification messages."""
+    try:
+        account_id = str(uuid.UUID(token.account_id))
+        nm_id = str(notification_message_id) if notification_message_id else None
+        bind_context_to_logger({"account_id": account_id})
+        response = await notification_service.get_notification_messages(account_id, nm_id)  # noqa: F821
+        return response
+    except Exception:
+        logger.exception("Failed to get notification messages")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
