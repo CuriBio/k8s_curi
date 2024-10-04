@@ -20,7 +20,7 @@ class NotificationService:
         return notifications
 
     async def get_notification_messages(
-        self, account_id: str, notification_message_id: str
+        self, account_id: str, notification_message_id: str | None
     ) -> list[NotificationMessageResponse]:
         notification_messages = await self.repository.get_notification_messages(
             account_id, notification_message_id

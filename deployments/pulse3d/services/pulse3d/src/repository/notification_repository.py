@@ -53,20 +53,23 @@ class NotificationRepository:
         return [NotificationResponse(**dict(notification)) for notification in notifications]
 
     async def get_notification_messages(
-        self, account_id: str, notification_message_id: str
+        self, account_id: str, notification_message_id: str | None
     ) -> list[NotificationMessageResponse]:
-        query = f"""
+        query = """
             SELECT m.id, m.created_at, m.viewed_at, n.subject, n.body
             FROM notification_messages m, notifications n
-            WHERE m.recipient_id = '{account_id}'
+            WHERE m.recipient_id = $1
             AND m.notification_id = n.id
         """
 
+        query_params = [account_id]
+
         if notification_message_id:
-            query += f" AND m.id = '{notification_message_id}'"
+            query += " AND m.id = $2"
+            query_params.append(notification_message_id)
 
         async with self.pool.acquire() as con:
-            notification_messages = await con.fetch(query)
+            notification_messages = await con.fetch(query, *query_params)
 
         return [
             NotificationMessageResponse(**dict(notification_message))
