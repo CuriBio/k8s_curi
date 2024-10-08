@@ -182,7 +182,7 @@ async def create_new_advanced_analysis(
             )
         }
         job_meta = {
-            "version": details.version + "rc2",  # TODO remove this once done with rc versions,
+            "version": details.version + "rc3",  # TODO remove this once done with rc versions,
             "output_name": details.output_name,
             "platemap_overrides": details.platemap_overrides,
             "analysis_params": analysis_params,

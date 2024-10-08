@@ -12,7 +12,7 @@ from immutabledict import immutabledict
 import polars as pl
 from xlsxwriter import Workbook
 
-ADVANCED_ANALYSIS_VERSION = "0.1.0rc2"
+ADVANCED_ANALYSIS_VERSION = "0.1.0rc3"
 
 # TODO add logging
 
@@ -277,7 +277,8 @@ def _create_p3d_metadata_df(
         )
         combined_metadata_df = combined_metadata_df.vstack(metadata_df)
 
-        # insert day back into metadata in container so it can be used later
+        # insert these back into metadata in container so these can be used later
+        container.p3d_analysis_metadata["utc_beginning_recording"] = utc_beginning_recording
         container.p3d_analysis_metadata["day"] = day
 
     return combined_metadata_df
@@ -303,6 +304,7 @@ def _create_ungrouped_aggs(containers: list[SingleAnalysisContainer]) -> pl.Data
                         "well": formatted_labels.keys(),
                         "group": formatted_labels.values(),
                         "day": container.p3d_analysis_metadata["day"],
+                        "utc_beginning_recording": container.p3d_analysis_metadata["utc_beginning_recording"],
                         "platemap_name": container.platemap["map_name"],
                     }
                 ),
@@ -320,7 +322,9 @@ def _create_group_aggs(ungrouped_aggs: pl.DataFrame) -> pl.DataFrame:
         mean=pl.col("mean_twitches").mean(),
         std=pl.col("mean_twitches").std(),
         count=pl.col("group").count(),
-        day=pl.col("day").first(),  # all days should be the same within the group, so grab the first value
+        # these should be the same within the group, so grab the first value
+        day=pl.col("day").first(),
+        utc_beginning_recording=pl.col("utc_beginning_recording").first(),
     )
 
 
@@ -390,6 +394,7 @@ def _mean_sheet(wb: Workbook, group_aggs: pl.DataFrame, advanced_analysis_metada
 
     column = "group"
     values = ("mean", "std", "count")
+    idxs = ("metric", "day", "utc_beginning_recording")
 
     def rename_after_pivot(col: str) -> str:
         sep = f"_{column}_"
@@ -399,10 +404,8 @@ def _mean_sheet(wb: Workbook, group_aggs: pl.DataFrame, advanced_analysis_metada
         idx = values.index(agg) + 1
         return "_".join([group, str(idx), agg])
 
-    formatted_group_aggs = group_aggs.pivot(values, index=["metric", "day"], columns=column)
-    rename_map = {
-        old: rename_after_pivot(old) for old in formatted_group_aggs.columns if old not in ("metric", "day")
-    }
+    formatted_group_aggs = group_aggs.pivot(values, index=idxs, columns=column)
+    rename_map = {old: rename_after_pivot(old) for old in formatted_group_aggs.columns if old not in idxs}
     formatted_group_aggs = (
         formatted_group_aggs.rename(rename_map)
         .select(
@@ -425,11 +428,14 @@ def _ungrouped_sheet(
 ) -> None:
     data_type = advanced_analysis_metadata["data_type"]
     normalization_method = advanced_analysis_metadata["normalization_method"]
+
+    idxs = ("metric", "day", "utc_beginning_recording")
+
     formatted_ungrouped_aggs = (
         ungrouped_aggs.with_columns(
             pl.concat_list("group", "platemap_name", "well").list.join("_").alias("pivot_col")
         )
-        .pivot("mean_twitches", index=["metric", "day"], columns="pivot_col", sort_columns=True)
+        .pivot("mean_twitches", index=idxs, columns="pivot_col", sort_columns=True)
         .select(
             pl.col("metric")
             .map_elements(
@@ -437,7 +443,7 @@ def _ungrouped_sheet(
             )
             .alias("Aggregate Metric"),
             pl.col("day").alias("Day"),
-            pl.exclude("metric", "day"),
+            pl.exclude(idxs),
         )
         .sort("Aggregate Metric", "Day")
     )
