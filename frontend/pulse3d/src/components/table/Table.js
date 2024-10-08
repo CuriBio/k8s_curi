@@ -32,6 +32,7 @@ export default function Table({
   columns = [],
   rowData = [],
   defaultSortColumn,
+  defaultSortDesc = true,
   rowSelection,
   setRowSelection,
   subTableFn = null,
@@ -60,7 +61,7 @@ export default function Table({
       sorting: [
         {
           id: defaultSortColumn,
-          desc: true,
+          desc: defaultSortDesc,
         },
       ],
     },

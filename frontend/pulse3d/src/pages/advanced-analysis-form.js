@@ -642,6 +642,7 @@ function InputSelectionTable({ formattedJobSelection, removeInputsFromSelection 
       columns={columns}
       rowData={formattedJobSelection}
       defaultSortColumn={"filename"}
+      defaultSortDesc={false}
       rowSelection={checkedRows}
       setRowSelection={setCheckedRows}
       toolbarFn={actionsFn}
