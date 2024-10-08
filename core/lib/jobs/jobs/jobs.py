@@ -361,9 +361,8 @@ async def delete_uploads(*, con, account_type, account_id, upload_ids):
 async def get_jobs_of_uploads_for_admin(con, customer_id: str, upload_ids: list[str]):
     query_params = [customer_id]
     places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
-    # TODO should 'error' be filtered out of meta here? Does it expose too much about what is happening in the code?
     query = (
-        "SELECT j.job_id AS id, j.upload_id, j.status, j.created_at, j.object_key, j.meta, "
+        "SELECT j.job_id AS id, j.upload_id, j.status, j.created_at, j.object_key, j.meta - 'error', "
         "u.user_id, u.type AS upload_type "
         "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         f"WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.id IN ({places})"
@@ -382,7 +381,7 @@ async def get_jobs_of_uploads_for_rw_all_data_user(
     query_params = [customer_id, upload_type]
     places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
     query = (
-        "SELECT j.job_id AS id, j.upload_id, j.status, j.created_at, j.object_key, j.meta, "
+        "SELECT j.job_id AS id, j.upload_id, j.status, j.created_at, j.object_key, j.meta - 'error', "
         "u.user_id, u.type AS upload_type "
         "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         f"WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.type=$2 AND u.id IN ({places})"
@@ -399,7 +398,7 @@ async def get_jobs_of_uploads_for_base_user(con, user_id: str, upload_ids: list[
     query_params = [user_id, upload_type]
     places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
     query = (
-        "SELECT j.job_id AS id, j.upload_id, j.status, j.created_at, j.object_key, j.meta, "
+        "SELECT j.job_id AS id, j.upload_id, j.status, j.created_at, j.object_key, j.meta - 'error', "
         "u.user_id, u.type AS upload_type "
         "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         f"WHERE u.user_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.type=$2 AND u.id IN ({places})"
@@ -423,9 +422,8 @@ async def get_jobs_info_for_admin(
     **filters,
 ):
     query_params = [customer_id, upload_type]
-    # TODO should 'error' be filtered out of meta here? Does it expose too much about what is happening in the code?
     query = (
-        "SELECT j.job_id AS id, j.status, j.created_at, j.meta AS job_meta, reverse(split_part(reverse(j.object_key), '/', 1)) AS filename, "
+        "SELECT j.job_id AS id, j.status, j.created_at, (j.meta  - 'error') AS job_meta, reverse(split_part(reverse(j.object_key), '/', 1)) AS filename, "
         "u.meta AS upload_meta, u.user_id, u.type AS upload_type, users.name AS username "
         "FROM jobs_result AS j "
         "JOIN uploads AS u ON j.upload_id=u.id "
@@ -455,7 +453,7 @@ async def get_jobs_info_for_rw_all_data_user(
 ):
     query_params = [customer_id, upload_type]
     query = (
-        "SELECT j.job_id AS id, j.status, j.created_at, j.meta AS job_meta, reverse(split_part(reverse(j.object_key), '/', 1)) AS filename, "
+        "SELECT j.job_id AS id, j.status, j.created_at, (j.meta  - 'error') AS job_meta, reverse(split_part(reverse(j.object_key), '/', 1)) AS filename, "
         "u.meta AS upload_meta, u.user_id, u.type AS upload_type, users.name AS username "
         "FROM jobs_result AS j "
         "JOIN uploads AS u ON j.upload_id=u.id "
@@ -485,7 +483,7 @@ async def get_jobs_info_for_base_user(
 ):
     query_params = [user_id, upload_type]
     query = (
-        "SELECT j.job_id AS id, j.status, j.created_at, j.meta AS job_meta, reverse(split_part(reverse(j.object_key), '/', 1)) AS filename, "
+        "SELECT j.job_id AS id, j.status, j.created_at, (j.meta  - 'error') AS job_meta, reverse(split_part(reverse(j.object_key), '/', 1)) AS filename, "
         "u.meta AS upload_meta, u.user_id, u.type AS upload_type "
         "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         "WHERE u.user_id=$1 AND j.status!='deleted' AND u.deleted='f' AND j.object_key IS NOT NULL AND u.type=$2"
@@ -555,7 +553,6 @@ def _add_job_sorting_filtering_conds(query, query_params, sort_field, sort_direc
 async def get_legacy_jobs_info_for_user(con, user_id: str, job_ids: list[str]):
     query_params = [user_id]
     places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
-    # TODO should 'error' be filtered out of meta here? Does it expose too much about what is happening in the code?
     query = (
         "SELECT j.job_id, j.upload_id, j.status, j.created_at, j.runtime, j.object_key, j.meta AS job_meta, "
         "u.user_id, u.meta AS user_meta, u.filename, u.prefix, u.type AS upload_type "
@@ -618,9 +615,8 @@ async def get_jobs_download_info_for_base_user(con, user_id: str, job_ids: list[
 
 async def get_job_waveform_data_for_admin_user(con, customer_id: str, job_id: str):
     query_params = [customer_id, job_id]
-    # TODO should 'error' be filtered out of meta here? Does it expose too much about what is happening in the code?
     query = (
-        "SELECT u.prefix, u.filename, j.meta AS job_meta FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
+        "SELECT u.prefix, u.filename, (j.meta - 'error') AS job_meta FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         "WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND j.job_id=$2"
     )
 
@@ -631,7 +627,7 @@ async def get_job_waveform_data_for_admin_user(con, customer_id: str, job_id: st
 async def get_job_waveform_data_for_rw_all_data_user(con, customer_id: str, job_id: str, upload_type: str):
     query_params = [customer_id, upload_type, job_id]
     query = (
-        "SELECT u.prefix, u.filename, j.meta AS job_meta FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
+        "SELECT u.prefix, u.filename, (j.meta  - 'error') AS job_meta FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         "WHERE j.customer_id=$1 AND u.type=$2 AND j.status!='deleted' AND u.deleted='f' AND j.job_id=$3"
     )
 
@@ -642,7 +638,7 @@ async def get_job_waveform_data_for_rw_all_data_user(con, customer_id: str, job_
 async def get_job_waveform_data_for_base_user(con, user_id: str, job_id: str, upload_type: str):
     query_params = [user_id, upload_type, job_id]
     query = (
-        "SELECT u.prefix, u.filename, j.meta AS job_meta FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
+        "SELECT u.prefix, u.filename, (j.meta  - 'error') AS job_meta FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         "WHERE u.user_id=$1 AND u.type=$2 AND j.status!='deleted' AND u.deleted='f' AND j.job_id=$3"
     )
 
@@ -821,9 +817,8 @@ async def get_advanced_analyses_for_admin(
     limit: int,
     **filters,
 ):
-    # TODO should 'error' be filtered out of meta here? Does it expose too much about what is happening in the code?
     query = (
-        "SELECT id, type, status, sources, meta, created_at, name "
+        "SELECT id, type, status, sources, meta - 'error', created_at, name "
         "FROM advanced_analysis_result "
         "WHERE customer_id=$1 AND status!='deleted'"
     )
@@ -843,7 +838,7 @@ async def get_advanced_analyses_for_base_user(
     con, user_id: str, sort_field: str | None, sort_direction: str | None, skip: int, limit: int, **filters
 ):
     query = (
-        "SELECT id, type, status, sources, meta, created_at, name "
+        "SELECT id, type, status, sources, meta - 'error', created_at, name "
         "FROM advanced_analysis_result "
         "WHERE user_id=$1 AND status!='deleted'"
     )
