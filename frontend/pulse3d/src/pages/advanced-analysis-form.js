@@ -471,7 +471,7 @@ export default function AdvancedAnalysisForm() {
           </DropDownContainer>
         </InputSelectionContainer>
         <SectionHeader>
-          <b>Selected Inputs</b>
+          <b>{`Selected Inputs (${formattedJobSelection?.length || 0}/${MAX_NUM_INPUTS})`}</b>
         </SectionHeader>
         <InputSelectionTableContainer>
           <InputSelectionTable

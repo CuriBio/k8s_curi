@@ -362,7 +362,7 @@ async def get_jobs_of_uploads_for_admin(con, customer_id: str, upload_ids: list[
     query_params = [customer_id]
     places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
     query = (
-        "SELECT j.job_id AS id, j.upload_id, j.status, j.created_at, j.object_key, j.meta - 'error', "
+        "SELECT j.job_id AS id, j.upload_id, j.status, j.created_at, j.object_key, (j.meta - 'error') AS meta, "
         "u.user_id, u.type AS upload_type "
         "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         f"WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.id IN ({places})"
@@ -381,7 +381,7 @@ async def get_jobs_of_uploads_for_rw_all_data_user(
     query_params = [customer_id, upload_type]
     places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
     query = (
-        "SELECT j.job_id AS id, j.upload_id, j.status, j.created_at, j.object_key, j.meta - 'error', "
+        "SELECT j.job_id AS id, j.upload_id, j.status, j.created_at, j.object_key, (j.meta - 'error') AS meta, "
         "u.user_id, u.type AS upload_type "
         "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         f"WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.type=$2 AND u.id IN ({places})"
@@ -398,7 +398,7 @@ async def get_jobs_of_uploads_for_base_user(con, user_id: str, upload_ids: list[
     query_params = [user_id, upload_type]
     places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
     query = (
-        "SELECT j.job_id AS id, j.upload_id, j.status, j.created_at, j.object_key, j.meta - 'error', "
+        "SELECT j.job_id AS id, j.upload_id, j.status, j.created_at, j.object_key, (j.meta - 'error') AS meta, "
         "u.user_id, u.type AS upload_type "
         "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         f"WHERE u.user_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.type=$2 AND u.id IN ({places})"
@@ -818,7 +818,7 @@ async def get_advanced_analyses_for_admin(
     **filters,
 ):
     query = (
-        "SELECT id, type, status, sources, meta - 'error', created_at, name "
+        "SELECT id, type, status, sources, (meta - 'error') AS meta, created_at, name "
         "FROM advanced_analysis_result "
         "WHERE customer_id=$1 AND status!='deleted'"
     )
@@ -838,7 +838,7 @@ async def get_advanced_analyses_for_base_user(
     con, user_id: str, sort_field: str | None, sort_direction: str | None, skip: int, limit: int, **filters
 ):
     query = (
-        "SELECT id, type, status, sources, meta - 'error', created_at, name "
+        "SELECT id, type, status, sources, (meta - 'error') AS meta, created_at, name "
         "FROM advanced_analysis_result "
         "WHERE user_id=$1 AND status!='deleted'"
     )
