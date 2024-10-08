@@ -855,7 +855,7 @@ export default function UploadForm() {
               </div>
             </DropDownContainer>
             <div style={{ textAlign: "center", marginTop: "10px", fontSize: "18px" }}>
-              <b>Selected Files:</b>
+              <b>{`Selected Files (${files?.length || 0}):`}</b>
             </div>
             {files?.length > 0 ? (
               <ul>
@@ -892,9 +892,7 @@ export default function UploadForm() {
             <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
               handleFileChange={(files) => setFiles(Object.values(files))}
               dropZoneText={dropZoneText}
-              fileSelection={
-                files.length > 0 ? files.map(({ name }) => name).join(", ") : "No files selected"
-              }
+              fileSelection={files}
               setResetDragDrop={setResetDragDrop}
               resetDragDrop={resetDragDrop}
               fileTypes={["zip", "xlsx", "parquet"]}

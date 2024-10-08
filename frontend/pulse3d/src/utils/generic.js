@@ -253,13 +253,6 @@ const formatP3dJob = (job, selectedJobs, accountId) => {
 
     if ("error_msg" in parsedMeta) {
       status += `: ${parsedMeta.error_msg}`;
-    } else if ("error" in parsedMeta) {
-      // Tanner (3/27/24): this is legacy error handling, new jobs will put a tidy error message in the field above
-      if (parsedMeta.error.includes("Invalid file format")) {
-        status += ": Invalid file format";
-      } else if (parsedMeta.error.includes("Unable to converge")) {
-        status += `: ${parsedMeta.error}`;
-      }
     }
 
     const owner = accountId === user_id.replace(/-/g, "");
