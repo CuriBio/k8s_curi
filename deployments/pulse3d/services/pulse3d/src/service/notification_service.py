@@ -3,6 +3,7 @@ from models.models import (
     NotificationResponse,
     SaveNotificationRequest,
     SaveNotificationResponse,
+    ViewNotificationMessageResponse,
 )
 from repository.notification_repository import NotificationRepository
 
@@ -26,3 +27,9 @@ class NotificationService:
             account_id, notification_message_id
         )
         return notification_messages
+
+    async def view_notification_message(
+        self, account_id: str, notification_message_id: str
+    ) -> ViewNotificationMessageResponse:
+        response = await self.repository.view_notification_message(account_id, notification_message_id)
+        return response
