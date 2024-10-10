@@ -25,10 +25,10 @@ const isInt = (value) => {
   return Number.isInteger(Number(value));
 };
 
-const isArrayOfNumbers = (arr, positive = false, allowFloat = true) => {
+const isArrayOfNumbers = (arr, positive = false, allowFloat = true, additionalCheck = () => true) => {
   return arrayValidator(arr, () => {
     for (const n of arr) {
-      if (typeof n !== "number" || (positive && n < 0) || (!allowFloat && !isInt(n))) {
+      if (typeof n !== "number" || (positive && n < 0) || (!allowFloat && !isInt(n)) || !additionalCheck(n)) {
         return false;
       }
     }

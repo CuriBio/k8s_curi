@@ -623,7 +623,6 @@ export default function InteractiveWaveformModal({
         setNameOverride(selectedJob.nameOverride);
       }
 
-      // TODO remove the split once we're done with RC versions
       if (!semverGte(selectedJob.analysisParams.pulse3d_version.split("rc")[0], "0.28.3")) {
         setModalLabels(constantModalLabels.oldPulse3dVersion);
         setModalOpen("pulse3dWarning");
@@ -692,7 +691,6 @@ export default function InteractiveWaveformModal({
         filteredFeatures[well] = [peaks, valleys];
       }
 
-      // TODO remove the split once we're done with RC versions
       const prevPulse3dVersion = selectedJob.analysisParams.pulse3d_version.split("rc")[0];
       const { start: startTime, end: endTime } = customAnalysisSettings.windowedAnalysisBounds;
 

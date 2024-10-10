@@ -806,7 +806,6 @@ async def get_job_waveform_data(
         if pulse3d_version is None:
             pre_analysis_s3_key = f"{selected_job['prefix']}/time_force_data/{pre_analysis_filename}.parquet"
         elif VersionInfo.parse(pulse3d_version.split("rc")[0]) < "1.0.0":
-            # TODO remove the split above once we're done with RC versions? Will make IA not work for any jobs run with an rc version, but that might be ok
             pre_analysis_s3_key = (
                 f"{selected_job['prefix']}/time_force_data/{pulse3d_version}/{pre_analysis_filename}.parquet"
             )

@@ -561,16 +561,18 @@ export default function AnalysisParamForm({
 
   const updateParams = (newParams) => {
     const updatedParams = { ...analysisParams, ...newParams };
+    let updatedParamErrors = { ...paramErrors };
 
     if ("twitchWidths" in newParams) {
-      validateTwitchWidths(updatedParams);
+      const [errMsg, twitchWidthsArr] = validateTwitchWidths(updatedParams.twitchWidths);
+      updatedParamErrors.twitchWidths = errMsg;
+      updatedParams.twitchWidths = twitchWidthsArr;
     }
 
     if ("wellsWithFlippedWaveforms" in newParams) {
       validateWellNames(updatedParams);
     }
 
-    let updatedParamErrors = { ...paramErrors };
     for (const [minName, maxName] of [
       ["startTime", "endTime"],
       ["minPeakWidth", "maxPeakWidth"],
@@ -581,6 +583,31 @@ export default function AnalysisParamForm({
         const newParamErrors = validateMinMax(updatedParams, minName, maxName, allowFloat);
         updatedParamErrors = { ...updatedParamErrors, ...newParamErrors };
       }
+    }
+
+    for (const paramName of ["baseToPeak", "peakToBase"]) {
+      if (paramName in newParams) {
+        // TODO should probably split this out into a fn
+        const paramVal = updatedParams[paramName];
+
+        const [minBound, maxBound] = paramName === "baseToPeak" ? [0, 90] : [10, 100];
+
+        const isValid =
+          paramVal === "" ||
+          (checkPositiveNumberEntry(paramVal) &&
+            isInt(paramVal) &&
+            !paramVal.includes(".") &&
+            paramVal >= minBound &&
+            paramVal <= maxBound);
+        const errMsg = isValid ? "" : `*Must be an integer in the range [${minBound}, ${maxBound}]`;
+        updatedParamErrors = { ...updatedParamErrors, [paramName]: errMsg };
+      }
+    }
+
+    if ("relaxationSearchLimit" in newParams) {
+      const paramVal = newParams.relaxationSearchLimit;
+      const newParamErrors = validatePositiveNumber(updatedParams, "relaxationSearchLimit", false, true);
+      updatedParamErrors = { ...updatedParamErrors, ...newParamErrors };
     }
 
     for (const paramName of [
@@ -596,13 +623,10 @@ export default function AnalysisParamForm({
       "upslopeDuration",
       "upslopeNoiseAllowance",
       "maxY",
-      "baseToPeak",
-      "peakToBase",
       "stiffnessFactor",
     ]) {
-      const allowFloat = !["baseToPeak", "peakToBase"].includes(paramName);
       if (paramName in newParams) {
-        const newParamErrors = validatePositiveNumber(updatedParams, paramName, false, allowFloat);
+        const newParamErrors = validatePositiveNumber(updatedParams, paramName, false, true);
         updatedParamErrors = { ...updatedParamErrors, ...newParamErrors };
       }
     }
@@ -626,43 +650,36 @@ export default function AnalysisParamForm({
     const newValue = updatedParams[paramName];
 
     let errorMsg = "";
-    if (!checkPositiveNumberEntry(newValue, allowZero) || (!allowFloat && !isInt(newValue))) {
+    if (
+      !checkPositiveNumberEntry(newValue, allowZero) ||
+      (!allowFloat && (!isInt(newValue) || newValue.includes(".")))
+    ) {
       errorMsg = `*Must be a positive${allowZero ? "" : ", non-zero"} ${allowFloat ? "number" : "integer"}`;
     }
     return { [paramName]: errorMsg };
   };
 
-  const validateTwitchWidths = (updatedParams) => {
-    const newValue = updatedParams.twitchWidths;
-    let formattedTwitchWidths;
+  const validateTwitchWidths = (newValue) => {
+    let twitchWidthsArr;
+
+    const errMsg = "*Must be comma-separated integers in the range [0, 100]";
 
     if (newValue === null || newValue === "") {
-      formattedTwitchWidths = "";
+      twitchWidthsArr = "";
     } else {
-      let twitchWidthArr;
       // make sure it's a valid array
       try {
-        twitchWidthArr = JSON.parse(`[${newValue}]`);
+        twitchWidthsArr = JSON.parse(`[${newValue}]`);
       } catch (e) {
-        setParamErrors({
-          ...paramErrors,
-          twitchWidths: "*Must be comma-separated, positive integers",
-        });
-        return;
+        return [errMsg, newValue];
       }
-      // make sure it's an array of positive integers
-      if (isArrayOfNumbers(twitchWidthArr, true, false)) {
-        formattedTwitchWidths = Array.from(new Set(twitchWidthArr));
-      } else {
-        setParamErrors({
-          ...paramErrors,
-          twitchWidths: "*Must be comma-separated, positive integers",
-        });
-        return;
+      // make sure it's an array of positive integers in the range [0, 100]
+      const rangeCheck = (n) => 0 <= n && n <= 100;
+      if (!isArrayOfNumbers(twitchWidthsArr, true, false, rangeCheck)) {
+        return [errMsg, newValue];
       }
     }
-    setParamErrors({ ...paramErrors, twitchWidths: "" });
-    updatedParams.twitchWidths = formattedTwitchWidths;
+    return ["", twitchWidthsArr];
   };
 
   const validateWellNames = (updatedParams) => {
@@ -978,8 +995,8 @@ export default function AnalysisParamForm({
         <AnalysisParamContainer
           label="Twitch Widths (%)"
           name="twitchWidths"
-          tooltipText="Specifies which twitch width percentages to add to the Per Twitch metrics sheet and Aggregate Metrics sheet."
-          placeholder={checkedParams ? "50, 90" : ""}
+          tooltipText="Specifies the twitch width percentages to use for metrics that can be calculated at multiple points on the twitch."
+          placeholder={checkedParams ? "10, 50, 90" : ""}
           value={analysisParams.twitchWidths}
           changeFn={(e) => {
             updateParams({
@@ -1066,33 +1083,37 @@ export default function AnalysisParamForm({
         )}
       </InputContainerOne>
       <InputContainerTwo>
-        <SectionLabel>Baseline Width</SectionLabel>
-        <AnalysisParamContainer
-          label="Base to Peak"
-          name="baseToPeak"
-          tooltipText="Specifies the baseline metrics for twitch width percentages."
-          placeholder={checkedParams ? "10" : ""}
-          value={analysisParams.baseToPeak}
-          changeFn={(e) => {
-            updateParams({
-              baseToPeak: e.target.value,
-            });
-          }}
-          errorMsg={errorMessages.baseToPeak}
-        />
-        <AnalysisParamContainer
-          label="Peak to Relaxation"
-          name="peakToBase"
-          tooltipText="Specifies the baseline metrics for twitch width percentages."
-          placeholder={checkedParams ? "90" : ""}
-          value={analysisParams.peakToBase}
-          changeFn={(e) => {
-            updateParams({
-              peakToBase: e.target.value,
-            });
-          }}
-          errorMsg={errorMessages.peakToBase}
-        />
+        {!pulse3dVersionGte("2.0.0") && (
+          <>
+            <SectionLabel>Baseline Width</SectionLabel>
+            <AnalysisParamContainer
+              label="Base to Peak"
+              name="baseToPeak"
+              tooltipText="Specifies the baseline metrics for twitch width percentages."
+              placeholder={checkedParams ? "10" : ""}
+              value={analysisParams.baseToPeak}
+              changeFn={(e) => {
+                updateParams({
+                  baseToPeak: e.target.value,
+                });
+              }}
+              errorMsg={errorMessages.baseToPeak}
+            />
+            <AnalysisParamContainer
+              label="Peak to Relaxation"
+              name="peakToBase"
+              tooltipText="Specifies the baseline metrics for twitch width percentages."
+              placeholder={checkedParams ? "90" : ""}
+              value={analysisParams.peakToBase}
+              changeFn={(e) => {
+                updateParams({
+                  peakToBase: e.target.value,
+                });
+              }}
+              errorMsg={errorMessages.peakToBase}
+            />
+          </>
+        )}
         <SectionLabel>Windowed Analysis</SectionLabel>
         <AnalysisParamContainer
           label="Start Time (s)"
@@ -1120,6 +1141,24 @@ export default function AnalysisParamForm({
           }}
           errorMsg={errorMessages.endTime}
         />
+        {pulse3dVersionGte("2.0.0") && (
+          <>
+            <SectionLabel>Relaxation Window</SectionLabel>
+            <AnalysisParamContainer
+              label="Relaxation Window (s)"
+              name="relaxationSearchLimit"
+              tooltipText="Specifies the max duration of time following a peak in which relaxation points can be found. If another bounding feature (a valley or the end of the waveform) is found before this limit is reached, it will be used as the limit instead."
+              placeholder={checkedParams ? "∞" : ""}
+              value={analysisParams.relaxationSearchLimit}
+              changeFn={(e) => {
+                updateParams({
+                  relaxationSearchLimit: e.target.value,
+                });
+              }}
+              errorMsg={errorMessages.relaxationSearchLimit}
+            />
+          </>
+        )}
         <SectionLabel>Peak Detection</SectionLabel>
         {useNoiseBasedPeakFinding() ? (
           <NoiseBasedAdvAnalysisContainer>
