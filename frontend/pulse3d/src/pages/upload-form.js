@@ -157,12 +157,14 @@ export default function UploadForm() {
       normalizationMethod: productPage === "nautilai" ? "∆F/Fmin" : null,
       dataType: null,
       detrend: null,
-      // original advanced params
+      // width coord params
+      relaxationSearchLimit: "",
+      // original peak finding params
       prominenceFactorPeaks: "",
       prominenceFactorValleys: "",
       widthFactorPeaks: "",
       widthFactorValleys: "",
-      // noise based advanced params
+      // noise based peak finding params
       relativeProminenceFactor: "",
       noiseProminenceFactor: "",
       minPeakWidth: "",
@@ -411,6 +413,7 @@ export default function UploadForm() {
       minPeakWidth,
       maxPeakWidth,
       normalizationMethod,
+      relaxationSearchLimit,
     } = analysisParams;
 
     const version =
@@ -520,6 +523,10 @@ export default function UploadForm() {
         requestBody.normalization_method = null;
         requestBody.detrend = null;
       }
+    }
+
+    if (semverGte(version, "2.0.0")) {
+      requestBody.relaxation_search_limit_secs = getNullIfEmpty(relaxationSearchLimit);
     }
 
     return requestBody;

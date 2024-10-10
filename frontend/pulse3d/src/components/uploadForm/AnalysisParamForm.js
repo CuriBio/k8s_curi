@@ -604,6 +604,12 @@ export default function AnalysisParamForm({
       }
     }
 
+    if ("relaxationSearchLimit" in newParams) {
+      const paramVal = newParams.relaxationSearchLimit;
+      const newParamErrors = validatePositiveNumber(updatedParams, "relaxationSearchLimit", false, true);
+      updatedParamErrors = { ...updatedParamErrors, ...newParamErrors };
+    }
+
     for (const paramName of [
       "prominenceFactorPeaks",
       "prominenceFactorValleys",
@@ -992,8 +998,8 @@ export default function AnalysisParamForm({
         <AnalysisParamContainer
           label="Twitch Widths (%)"
           name="twitchWidths"
-          tooltipText="Specifies which twitch width percentages to add to the Per Twitch metrics sheet and Aggregate Metrics sheet."
-          placeholder={checkedParams ? "50, 90" : ""}
+          tooltipText="Specifies the twitch width percentages to use for metrics that can be calculated at multiple points on the twitch."
+          placeholder={checkedParams ? "10, 50, 90" : ""}
           value={analysisParams.twitchWidths}
           changeFn={(e) => {
             updateParams({
@@ -1080,7 +1086,7 @@ export default function AnalysisParamForm({
         )}
       </InputContainerOne>
       <InputContainerTwo>
-        {!pulse3dVersionGte("1.1.0") && (
+        {!pulse3dVersionGte("2.0.0") && (
           <>
             <SectionLabel>Baseline Width</SectionLabel>
             <AnalysisParamContainer
@@ -1138,6 +1144,24 @@ export default function AnalysisParamForm({
           }}
           errorMsg={errorMessages.endTime}
         />
+        {pulse3dVersionGte("2.0.0") && (
+          <>
+            <SectionLabel>Relaxation Window</SectionLabel>
+            <AnalysisParamContainer
+              label="Relaxation Window (s)"
+              name="relaxationSearchLimit"
+              tooltipText="Specifies the max duration of time following a peak in which relaxation points can be found. If another bounding feature (a valley or the end of the waveform) is found before this limit is reached, it will be used as the limit instead."
+              placeholder={checkedParams ? "∞" : ""}
+              value={analysisParams.relaxationSearchLimit}
+              changeFn={(e) => {
+                updateParams({
+                  relaxationSearchLimit: e.target.value,
+                });
+              }}
+              errorMsg={errorMessages.relaxationSearchLimit}
+            />
+          </>
+        )}
         <SectionLabel>Peak Detection</SectionLabel>
         {useNoiseBasedPeakFinding() ? (
           <NoiseBasedAdvAnalysisContainer>
