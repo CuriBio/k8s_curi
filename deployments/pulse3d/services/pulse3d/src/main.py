@@ -968,7 +968,7 @@ async def get_notification_messages(
 
 @app.post("/notification_messages", response_model=ViewNotificationMessageResponse)
 async def view_notification_message(
-    view_request: ViewNotificationMessageRequest, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE))
+    view_request: ViewNotificationMessageRequest, token=Depends(ProtectedAny(scopes=list(Scopes)))
 ):
     """Mark user|customer notification messages as viewed."""
     try:
