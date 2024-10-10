@@ -26,6 +26,14 @@ class SaveNotificationResponse(BaseModel):
     id: uuid.UUID
 
 
+class ViewNotificationMessageRequest(BaseModel):
+    id: uuid.UUID
+
+
+class ViewNotificationMessageResponse(BaseModel):
+    viewed_at: datetime.datetime | None = None
+
+
 class NotificationResponse(BaseModel):
     id: uuid.UUID
     created_at: datetime.datetime

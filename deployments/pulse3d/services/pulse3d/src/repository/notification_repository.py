@@ -4,6 +4,7 @@ from models.models import (
     NotificationType,
     SaveNotificationRequest,
     SaveNotificationResponse,
+    ViewNotificationMessageResponse,
 )
 import asyncpg
 
@@ -75,3 +76,22 @@ class NotificationRepository:
             NotificationMessageResponse(**dict(notification_message))
             for notification_message in notification_messages
         ]
+
+    async def view_notification_message(
+        self, account_id: str, notification_message_id: str
+    ) -> ViewNotificationMessageResponse:
+        query = """
+            UPDATE notification_messages
+            SET viewed_at=NOW()
+            WHERE id = $1
+            AND recipient_id = $2
+            AND viewed_at IS NULL
+            RETURNING viewed_at
+        """
+
+        query_params = [notification_message_id, account_id]
+
+        async with self.pool.acquire() as con:
+            viewed_at = await con.fetchval(query, *query_params)
+
+        return ViewNotificationMessageResponse(viewed_at=viewed_at)

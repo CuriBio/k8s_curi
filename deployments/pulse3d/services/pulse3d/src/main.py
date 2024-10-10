@@ -89,6 +89,8 @@ from models.models import (
     UploadRequest,
     UploadResponse,
     UsageQuota,
+    ViewNotificationMessageRequest,
+    ViewNotificationMessageResponse,
     WaveformDataResponse,
     GetJobsRequest,
 )
@@ -960,6 +962,22 @@ async def get_notification_messages(
         return response
     except Exception:
         logger.exception("Failed to get notification messages")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.post("/notification_messages", response_model=ViewNotificationMessageResponse)
+async def view_notification_message(
+    view_request: ViewNotificationMessageRequest, token=Depends(ProtectedAny(scopes=list(Scopes)))
+):
+    """Mark user|customer notification messages as viewed."""
+    try:
+        account_id = str(uuid.UUID(token.account_id))
+        nm_id = str(view_request.id)
+        bind_context_to_logger({"account_id": account_id})
+        response = await notification_service.view_notification_message(account_id, nm_id)  # noqa: F821
+        return response
+    except Exception:
+        logger.exception("Failed to mark notification message as viewed")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
