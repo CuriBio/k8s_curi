@@ -564,9 +564,9 @@ export default function AnalysisParamForm({
     let updatedParamErrors = { ...paramErrors };
 
     if ("twitchWidths" in newParams) {
-      const [errMsg, formattedTwitchWidths] = validateTwitchWidths(updatedParams.twitchWidths);
+      const [errMsg, twitchWidthsArr] = validateTwitchWidths(updatedParams.twitchWidths);
       updatedParamErrors.twitchWidths = errMsg;
-      updatedParams.twitchWidths = formattedTwitchWidths;
+      updatedParams.twitchWidths = twitchWidthsArr;
     }
 
     if ("wellsWithFlippedWaveforms" in newParams) {
@@ -660,29 +660,26 @@ export default function AnalysisParamForm({
   };
 
   const validateTwitchWidths = (newValue) => {
-    let formattedTwitchWidths;
+    let twitchWidthsArr;
 
     const errMsg = "*Must be comma-separated integers in the range [0, 100]";
 
     if (newValue === null || newValue === "") {
-      formattedTwitchWidths = "";
+      twitchWidthsArr = "";
     } else {
-      let twitchWidthArr;
       // make sure it's a valid array
       try {
-        twitchWidthArr = JSON.parse(`[${newValue}]`);
+        twitchWidthsArr = JSON.parse(`[${newValue}]`);
       } catch (e) {
         return [errMsg, newValue];
       }
       // make sure it's an array of positive integers in the range [0, 100]
       const rangeCheck = (n) => 0 <= n && n <= 100;
-      if (isArrayOfNumbers(twitchWidthArr, true, false, rangeCheck)) {
-        formattedTwitchWidths = Array.from(new Set(twitchWidthArr));
-      } else {
+      if (!isArrayOfNumbers(twitchWidthsArr, true, false, rangeCheck)) {
         return [errMsg, newValue];
       }
     }
-    return ["", formattedTwitchWidths];
+    return ["", twitchWidthsArr];
   };
 
   const validateWellNames = (updatedParams) => {
