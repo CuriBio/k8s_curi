@@ -1,4 +1,9 @@
-from models.models import NotificationResponse, SaveNotificationRequest, SaveNotificationResponse
+from models.models import (
+    NotificationMessageResponse,
+    NotificationResponse,
+    SaveNotificationRequest,
+    SaveNotificationResponse,
+)
 from repository.notification_repository import NotificationRepository
 
 
@@ -13,3 +18,11 @@ class NotificationService:
     async def get_all(self) -> list[NotificationResponse]:
         notifications = await self.repository.get_all()
         return notifications
+
+    async def get_notification_messages(
+        self, account_id: str, notification_message_id: str | None
+    ) -> list[NotificationMessageResponse]:
+        notification_messages = await self.repository.get_notification_messages(
+            account_id, notification_message_id
+        )
+        return notification_messages

@@ -2,19 +2,18 @@ import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import FormInput from "@/components/basicWidgets/FormInput";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
-import Editor from "@/components/editor/Editor";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import Table from "@/components/table/Table";
 import { formatDateTime } from "@/utils/generic";
 import { getShortUUIDWithTooltip } from "@/utils/jsx";
 import { useEffect, useMemo, useRef, useState } from "react";
 import styled from "styled-components";
-import "quill/dist/quill.snow.css";
 import dynamic from "next/dynamic";
 
-const DOMPurify = dynamic(import("dompurify"), {
+// server-side rendering needs to be disabled for components that use client-side browser objects
+// e.g. the TinyMCE editor uses the 'window' browser object
+const BundledTinyMCEEditorNoSSR = dynamic(() => import("@/components/editor/BundledTinyMCEEditor"), {
   ssr: false,
-  loading: () => {},
 });
 
 const Container = styled.div`
@@ -74,19 +73,12 @@ export default function NotificationsManagement() {
   const [showCreateNotificationModal, setShowCreateNotificationModal] = useState(false);
   const [showNotificationDetailsModal, setShowNotificationDetailsModal] = useState(false);
   const [notificationDetails, setNotificationDetails] = useState({});
+  const [notificationDetailsTitle, setNotificationDetailsTitle] = useState("");
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [subject, setSubject] = useState("");
   const [notificationType, setNotificationType] = useState(0);
   const [notificationsData, setNotificationsData] = useState([]);
-  const quillRef = useRef(); // Use a ref to access the quill instance directly
-
-  const sanitize = (input) => {
-    try {
-      return DOMPurify.sanitize(input);
-    } catch {
-      return <p>Loading...</p>;
-    }
-  };
+  const editorRef = useRef(); // Use a ref to access the editor directly
 
   // gets notifications at load
   useEffect(() => {
@@ -156,7 +148,7 @@ export default function NotificationsManagement() {
         method: "POST",
         body: JSON.stringify({
           subject,
-          body: quillRef.current.getSemanticHTML(),
+          body: editorRef.current.getContent(),
           notification_type: Object.keys(NotificationType)[notificationType],
         }),
       });
@@ -179,6 +171,17 @@ export default function NotificationsManagement() {
   };
 
   const handleCreateNotificationModalButtons = async (idx, buttonLabel) => {
+    if (buttonLabel === "Preview") {
+      setNotificationDetails({
+        subject,
+        body: editorRef.current.getContent(),
+        notificationType: Object.keys(NotificationType)[notificationType],
+      });
+      setNotificationDetailsTitle("Notification Preview");
+      setShowNotificationDetailsModal(true);
+      return;
+    }
+
     if (buttonLabel === "Save") {
       await saveNotification();
     }
@@ -189,6 +192,7 @@ export default function NotificationsManagement() {
 
   const handleTableRowClick = (row) => {
     setNotificationDetails(row.original);
+    setNotificationDetailsTitle("Notification Details");
     setShowNotificationDetailsModal(true);
   };
 
@@ -207,9 +211,10 @@ export default function NotificationsManagement() {
         width={1000}
         open={showCreateNotificationModal}
         closeModal={handleCreateNotificationModalButtons}
+        disableEnforceFocus={true}
         header={"Create Notification"}
         labels={[]}
-        buttons={["Cancel", "Save"]}
+        buttons={["Cancel", "Preview", "Save"]}
       >
         <ModalContainer>
           <FormInput
@@ -221,8 +226,8 @@ export default function NotificationsManagement() {
             }}
           />
           <Label>Body</Label>
-          <Editor ref={quillRef} />
-          <Label style={{ padding: "50px 5px 30px" }}>Type</Label>
+          <BundledTinyMCEEditorNoSSR onInit={(_evt, editor) => (editorRef.current = editor)} />
+          <Label>Type</Label>
           <DropDownContainer>
             <DropDownWidget
               options={Object.values(NotificationType)}
@@ -261,19 +266,23 @@ export default function NotificationsManagement() {
         width={1000}
         open={showNotificationDetailsModal}
         closeModal={() => setShowNotificationDetailsModal(false)}
-        header={"Notification Details"}
+        header={notificationDetailsTitle}
         labels={[]}
         buttons={["Close"]}
       >
         <ModalContainer>
-          <StaticInfo>
-            <StaticLabel>Notification ID</StaticLabel>
-            {notificationDetails.id}
-          </StaticInfo>
-          <StaticInfo>
-            <StaticLabel>Date Created</StaticLabel>
-            {formatDateTime(notificationDetails.createdAt)}
-          </StaticInfo>
+          {notificationDetails.id && (
+            <StaticInfo>
+              <StaticLabel>Notification ID</StaticLabel>
+              {notificationDetails.id}
+            </StaticInfo>
+          )}
+          {notificationDetails.createdAt && (
+            <StaticInfo>
+              <StaticLabel>Date Created</StaticLabel>
+              {formatDateTime(notificationDetails.createdAt)}
+            </StaticInfo>
+          )}
           <StaticInfo>
             <StaticLabel>Notification Type</StaticLabel>
             {NotificationType[notificationDetails.notificationType]}
@@ -285,11 +294,7 @@ export default function NotificationsManagement() {
           <StaticInfo>
             <StaticLabel>Body</StaticLabel>
           </StaticInfo>
-          <StaticInfo>
-            <div className="ql-editor">
-              <div dangerouslySetInnerHTML={{ __html: sanitize(notificationDetails.body) }} />
-            </div>
-          </StaticInfo>
+          <BundledTinyMCEEditorNoSSR disabled={true} initialValue={notificationDetails.body} />
         </ModalContainer>
       </ModalWidget>
     </Container>

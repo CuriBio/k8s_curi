@@ -33,6 +33,7 @@ const ModalBody = styled.div`
 export default function ModalWidget({
   open,
   closeModal,
+  disableEnforceFocus = false,
   width = 700,
   buttons = ["Close"],
   header,
@@ -61,7 +62,7 @@ export default function ModalWidget({
 
   return (
     <div>
-      <Modal open={open}>
+      <Modal disableEnforceFocus={disableEnforceFocus} open={open}>
         <Box sx={style}>
           <Header>{header}</Header>
           <ModalBody>

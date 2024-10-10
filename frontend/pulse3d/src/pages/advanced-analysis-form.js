@@ -7,7 +7,7 @@ import { AuthContext } from "@/pages/_app";
 import Table from "@/components/table/Table";
 import { Box, IconButton, Tooltip } from "@mui/material";
 import { getShortUUIDWithTooltip } from "@/utils/jsx";
-import { formatDateTime, getLocalTzOffsetHours } from "@/utils/generic";
+import { formatDateTime, getLocalTzOffsetHours, getSortedWellListStr } from "@/utils/generic";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import AnalysisParamContainer from "@/components/uploadForm/AnalysisParamContainer";
 
@@ -210,12 +210,13 @@ const extractFromMetas = (jobMeta, uploadMeta) => {
   }
   // check upload meta
   uploadMeta = JSON.parse(uploadMeta);
-  const platemapName = uploadMeta.platemap_name;
-  if (platemapName) {
+  const platemapName = uploadMeta?.platemap_name;
+  const platemapLabels = uploadMeta?.platemap_labels;
+  if (platemapName && platemapLabels) {
     return {
       platemapInfo: {
         name: platemapName,
-        wellGroups: uploadMeta.platemap_labels,
+        wellGroups: platemapLabels,
       },
       platemapSource: "Recording Metadata",
       version,
@@ -470,7 +471,7 @@ export default function AdvancedAnalysisForm() {
           </DropDownContainer>
         </InputSelectionContainer>
         <SectionHeader>
-          <b>Selected Inputs</b>
+          <b>{`Selected Inputs (${formattedJobSelection?.length || 0}/${MAX_NUM_INPUTS})`}</b>
         </SectionHeader>
         <InputSelectionTableContainer>
           <InputSelectionTable
@@ -578,7 +579,7 @@ function InputSelectionTable({ formattedJobSelection, removeInputsFromSelection 
               : wellGroupsEntries.map(([label, wells], idx) => {
                   return (
                     <div key={`well-group-${idx}`}>
-                      {label}: {wells.sort().join(", ")}
+                      {label}: {getSortedWellListStr(wells)}
                     </div>
                   );
                 });
@@ -641,6 +642,7 @@ function InputSelectionTable({ formattedJobSelection, removeInputsFromSelection 
       columns={columns}
       rowData={formattedJobSelection}
       defaultSortColumn={"filename"}
+      defaultSortDesc={false}
       rowSelection={checkedRows}
       setRowSelection={setCheckedRows}
       toolbarFn={actionsFn}

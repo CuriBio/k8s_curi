@@ -193,7 +193,7 @@ function FirmwareUpload({ fwInfo, refreshTables, lastestSwInfo }) {
 
   useEffect(() => {
     const canUpload =
-      getFileName(file) &&
+      file?.name &&
       fwTypes.includes(uploadOptions.fwType) &&
       uploadOptions.version &&
       noErrors() &&
@@ -213,10 +213,6 @@ function FirmwareUpload({ fwInfo, refreshTables, lastestSwInfo }) {
     setResetInputWidgets(true);
     setUploadOptions({});
     setUploadOptionErrors({});
-  };
-
-  const getFileName = (file) => {
-    return file ? file.name : null;
   };
 
   const noErrors = () => {
@@ -370,6 +366,11 @@ function FirmwareUpload({ fwInfo, refreshTables, lastestSwInfo }) {
     return UPLOAD_STATES.SUCCESS;
   };
 
+  const fileSelection = [];
+  if (file?.name) {
+    fileSelection.push(file);
+  }
+
   return (
     <UploadContainer>
       <Header>Upload Firmware File</Header>
@@ -377,7 +378,7 @@ function FirmwareUpload({ fwInfo, refreshTables, lastestSwInfo }) {
         <FileDragDrop
           handleFileChange={setFile}
           dropZoneText={dropZoneText}
-          fileSelection={getFileName(file) || "No file selected"}
+          fileSelection={fileSelection}
           setResetDragDrop={setResetDragDrop}
           resetDragDrop={resetDragDrop}
           fileTypes={["bin"]}

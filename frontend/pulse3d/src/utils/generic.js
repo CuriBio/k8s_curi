@@ -253,13 +253,6 @@ const formatP3dJob = (job, selectedJobs, accountId) => {
 
     if ("error_msg" in parsedMeta) {
       status += `: ${parsedMeta.error_msg}`;
-    } else if ("error" in parsedMeta) {
-      // Tanner (3/27/24): this is legacy error handling, new jobs will put a tidy error message in the field above
-      if (parsedMeta.error.includes("Invalid file format")) {
-        status += ": Invalid file format";
-      } else if (parsedMeta.error.includes("Unable to converge")) {
-        status += `: ${parsedMeta.error}`;
-      }
     }
 
     const owner = accountId === user_id.replace(/-/g, "");
@@ -275,29 +268,42 @@ const formatP3dJob = (job, selectedJobs, accountId) => {
       ...metaParams,
     };
   } catch (e) {
-    console.log(`ERROR formatting job ${job?.id}`, e);
+    console.log(`ERROR formatting pulse3d job ${job?.id}`, e);
     return null;
   }
 };
 
 const formatAdvancedAnalysisJob = (job) => {
-  const { id, name, type: jobType, sources, created_at: createdAt, meta, status } = job;
-  let parsedMeta = {};
   try {
-    parsedMeta = JSON.parse(meta);
-  } catch {}
+    const { id, name, type: jobType, sources, created_at: createdAt, meta, status } = job;
+    let parsedMeta = {};
+    try {
+      parsedMeta = JSON.parse(meta);
+    } catch {}
 
-  const filename = name || parsedMeta.output_name || "None";
+    const filename = name || parsedMeta.output_name || "None";
 
-  return {
-    id,
-    filename,
-    jobType,
-    createdAt,
-    sources,
-    meta: parsedMeta,
-    status,
-  };
+    return {
+      id,
+      filename,
+      jobType,
+      createdAt,
+      sources,
+      meta: parsedMeta,
+      status,
+    };
+  } catch (e) {
+    console.log(`ERROR formatting advanced analysis job ${job?.id}`, e);
+    return null;
+  }
+};
+
+const getSortedWellListStr = (wells) => {
+  try {
+    return wells.sort().join(", ");
+  } catch {
+    return wells;
+  }
 };
 
 const compareStr = (s1, s2) => {
@@ -345,4 +351,5 @@ export {
   productTitle,
   compareStr,
   getLocalTzOffsetHours,
+  getSortedWellListStr,
 };

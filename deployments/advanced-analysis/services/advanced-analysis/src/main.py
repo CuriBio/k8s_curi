@@ -182,7 +182,7 @@ async def create_new_advanced_analysis(
             )
         }
         job_meta = {
-            "version": details.version + "rc2",  # TODO remove this once done with rc versions,
+            "version": details.version + "rc3",  # TODO remove this once done with rc versions,
             "output_name": details.output_name,
             "platemap_overrides": details.platemap_overrides,
             "analysis_params": analysis_params,
@@ -220,7 +220,7 @@ async def create_new_advanced_analysis(
 @app.delete("/advanced-analyses", status_code=status.HTTP_204_NO_CONTENT)
 async def soft_delete_advanced_analysis(
     request: Request,
-    job_ids: list[uuid.UUID] = Query(None),
+    job_ids: list[uuid.UUID] = Query(None),  # type: ignore
     token=Depends(ProtectedAny(tag=ScopeTags.ADVANCED_ANALYSIS_WRITE)),
 ):
     try:
@@ -228,7 +228,7 @@ async def soft_delete_advanced_analysis(
         if not job_ids:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No job IDs given")
         # need to convert UUIDs to str to avoid issues with DB
-        job_ids = [str(job_id) for job_id in job_ids]
+        job_ids: list[str] = [str(job_id) for job_id in job_ids]
         user_id = str(uuid.UUID(token.userid))
         bind_context_to_logger({"user_id": user_id, "customer_id": token.customer_id, "job_ids": job_ids})
 
