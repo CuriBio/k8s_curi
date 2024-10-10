@@ -429,8 +429,14 @@ export default function UploadForm() {
       requestBody.upload_id = uploadId;
     }
 
+    if (twitchWidths === "") {
+      requestBody.twitch_widths = null;
+    } else {
+      // remove duplicates and sort
+      requestBody.twitch_widths = Array.from(new Set(twitchWidths)).sort((a, b) => a - b);
+    }
+
     for (const [name, value] of [
-      ["twitch_widths", twitchWidths],
       ["start_time", startTime],
       ["end_time", endTime],
     ]) {
