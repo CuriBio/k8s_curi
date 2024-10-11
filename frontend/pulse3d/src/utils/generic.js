@@ -298,6 +298,18 @@ const formatAdvancedAnalysisJob = (job) => {
   }
 };
 
+const formatNotificationMessage = (msg) => {
+  const { id, created_at, viewed_at, subject, body } = msg;
+
+  return {
+    id,
+    createdAt: created_at,
+    viewed: !!viewed_at,
+    subject,
+    body,
+  };
+};
+
 const getSortedWellListStr = (wells) => {
   try {
     return wells.sort().join(", ");
@@ -348,6 +360,7 @@ export {
   getMinP3dVersionForProduct,
   formatP3dJob,
   formatAdvancedAnalysisJob,
+  formatNotificationMessage,
   productTitle,
   compareStr,
   getLocalTzOffsetHours,
