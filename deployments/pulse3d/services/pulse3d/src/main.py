@@ -56,7 +56,7 @@ from pulse3D.peak_finding.constants import (
     FeatureMarkers,
 )
 from pulse3D.peak_finding.utils import create_empty_df, mark_features
-from pulse3D.metrics.constants import TwitchMetrics, DefaultMetricsParams
+from pulse3D.metrics.constants import TwitchMetrics
 from pulse3D.rendering.utils import get_metric_display_title
 from semver import VersionInfo
 from stream_zip import stream_zip
@@ -562,7 +562,6 @@ async def create_new_job(
                     else DefaultLegacyPeakFindingParams.WIDTH_FACTORS.value
                 ),
             ),
-            ("relaxation_search_limit_secs", DefaultMetricsParams.RELAXATION_SEARCH_LIMIT_SECS.value),
             ("baseline_widths_to_use", (10, 90)),
         ):
             allow_float = param != "baseline_widths_to_use"
@@ -616,7 +615,7 @@ async def create_new_job(
             version = details.version
             # TODO remove this once testing 2.0.0 is complete
             if version == "2.0.0":
-                version += "rc1"
+                version += "rc2"
 
             job_meta = {"analysis_params": analysis_params, "version": version}
             # if a name is present, then add to metadata of job
