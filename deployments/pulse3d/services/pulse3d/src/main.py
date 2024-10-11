@@ -487,7 +487,6 @@ async def create_new_job(
 
         # params to use for all current versions of pulse3d
         params = [
-            "baseline_widths_to_use",
             "width_factors",
             "twitch_widths",
             "start_time",
@@ -498,11 +497,12 @@ async def create_new_job(
         ]
 
         previous_semver_version = (
-            VersionInfo.parse(details.previous_version) if details.previous_version else None
+            VersionInfo.parse(details.previous_version.split("rc")[0]) if details.previous_version else None
         )
 
         bind_context_to_logger({"version": details.version})
 
+        # this should not ever have an rc component
         pulse3d_semver = VersionInfo.parse(details.version)
         use_noise_based_peak_finding = pulse3d_semver >= "0.33.2"
 
@@ -538,6 +538,11 @@ async def create_new_job(
         else:
             params.append("prominence_factors")
 
+        if pulse3d_semver < "2.0.0":
+            params.append("baseline_widths_to_use")
+        else:
+            params.append("relaxation_search_limit_secs")
+
         details_dict = dict(details)
         analysis_params = {param: details_dict[param] for param in params}
 
@@ -545,6 +550,8 @@ async def create_new_job(
             analysis_params["peaks_valleys"] = True
 
         # convert these params into a format compatible with pulse3D
+        # TODO need to keep track of the default value based on the version of p3d being used,
+        # o/w if a new p3d version changes the default params then this will break for older versions
         for param, default_values in (
             ("prominence_factors", DefaultLegacyPeakFindingParams.PROMINENCE_FACTORS.value),
             (
@@ -555,7 +562,8 @@ async def create_new_job(
                     else DefaultLegacyPeakFindingParams.WIDTH_FACTORS.value
                 ),
             ),
-            ("baseline_widths_to_use", DefaultMetricsParams.BASELINE_WIDTHS.value),
+            ("relaxation_search_limit_secs", DefaultMetricsParams.RELAXATION_SEARCH_LIMIT_SECS.value),
+            ("baseline_widths_to_use", (10, 90)),
         ):
             allow_float = param != "baseline_widths_to_use"
             if param in analysis_params:
@@ -606,6 +614,9 @@ async def create_new_job(
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
             version = details.version
+            # TODO remove this once testing 2.0.0 is complete
+            if version == "2.0.0":
+                version += "rc1"
 
             job_meta = {"analysis_params": analysis_params, "version": version}
             # if a name is present, then add to metadata of job
