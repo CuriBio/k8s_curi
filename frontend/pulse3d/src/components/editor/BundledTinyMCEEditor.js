@@ -52,7 +52,12 @@ import "tinymce/skins/ui/oxide/content";
 
 import DOMPurify from "dompurify";
 
-export default function BundledTinyMCEEditor({ disabled = false, initialValue = "", ...props }) {
+export default function BundledTinyMCEEditor({
+  disabled = false,
+  initialValue = "",
+  height = "60%",
+  ...props
+}) {
   const toolbar = disabled
     ? false
     : "blocks | " +
@@ -67,7 +72,7 @@ export default function BundledTinyMCEEditor({ disabled = false, initialValue = 
       initialValue={DOMPurify.sanitize(initialValue)}
       init={{
         width: "80%",
-        height: "60%",
+        height: height,
         plugins: ["advlist", "autolink", "link", "lists"],
         toolbar: toolbar,
         menubar: false,

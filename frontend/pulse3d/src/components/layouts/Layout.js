@@ -3,6 +3,7 @@ import styled from "styled-components";
 import DropDownMenu from "@/components/basicWidgets/ButtonDropDown";
 import { useRouter } from "next/router";
 import UsageProgressWidget from "../account/UsageProgressWidget";
+import EmailIcon from "@mui/icons-material/Email";
 import NavigateBeforeIcon from "@mui/icons-material/NavigateBefore";
 import { styled as muiStyled } from "@mui/material/styles";
 import { AuthContext } from "@/pages/_app";
@@ -53,6 +54,14 @@ const NavHomeIcon = muiStyled(NavigateBeforeIcon)`
   font-size: 30px;
 `;
 
+const NotificationMessagesIcon = muiStyled(EmailIcon)`
+  font-size: 30px;
+  cursor: pointer;
+  &:hover {
+    color: var(--teal-green);
+  }
+`;
+
 const NavHomeContainer = styled.div`
   color: var(--dark-gray);
   display: flex;
@@ -65,8 +74,14 @@ const NavHomeContainer = styled.div`
   }
 `;
 
+const MessagesAndMenuContainer = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
 const HeaderSideSectContainer = styled.div`
-  width: 85px;
+  width: 120px;
 `;
 
 const HeaderCenterSectContainer = styled.div`
@@ -76,6 +91,7 @@ const HeaderCenterSectContainer = styled.div`
 
 export default function Layout({ children }) {
   const [showHomeArrow, setShowHomeArrow] = useState(false);
+  const [envelopeColor, setEnvelopeColor] = useState("var(--light-gray)");
 
   const router = useRouter();
   const { accountType } = useContext(AuthContext);
@@ -84,6 +100,12 @@ export default function Layout({ children }) {
   useEffect(() => {
     setShowHomeArrow(accountType === "user" && isAuthorizedPage && router.pathname !== "/home");
   }, [accountType, router]);
+
+  useEffect(() => {
+    setEnvelopeColor(
+      router.pathname === "/notification-messages" ? "var(--teal-green)" : "var(--light-gray)"
+    );
+  }, [router]);
 
   const logoutUser = async () => {
     try {
@@ -99,6 +121,10 @@ export default function Layout({ children }) {
 
   const navigateHome = () => {
     router.replace("/home");
+  };
+
+  const navigateMessages = () => {
+    router.replace("/notification-messages");
   };
 
   return (
@@ -137,7 +163,10 @@ export default function Layout({ children }) {
         </HeaderCenterSectContainer>
         <HeaderSideSectContainer>
           {isAuthorizedPage && (
-            <DropDownMenu items={["Logout"]} label={"Menu"} handleSelection={logoutUser} />
+            <MessagesAndMenuContainer>
+              <NotificationMessagesIcon sx={{ color: envelopeColor }} onClick={navigateMessages} />
+              <DropDownMenu items={["Logout"]} label={"Menu"} handleSelection={logoutUser} />
+            </MessagesAndMenuContainer>
           )}
         </HeaderSideSectContainer>
       </Header>
