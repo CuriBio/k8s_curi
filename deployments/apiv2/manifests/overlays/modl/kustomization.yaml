@@ -45,7 +45,7 @@ patches:
           value: https://dashboard.curibio-modl.com
       - op: add
         path: /spec/template/spec/containers/2/image
-        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/event-broker:0.1.2"
+        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/event-broker:0.1.3"
       - op: add
         path: /spec/template/spec/containers/2/env/0
         value:
