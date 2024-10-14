@@ -5,8 +5,9 @@ import { useRouter } from "next/router";
 import UsageProgressWidget from "../account/UsageProgressWidget";
 import EmailIcon from "@mui/icons-material/Email";
 import NavigateBeforeIcon from "@mui/icons-material/NavigateBefore";
+import Badge from "@mui/material/Badge";
 import { styled as muiStyled } from "@mui/material/styles";
-import { AuthContext } from "@/pages/_app";
+import { AuthContext, NotificationMessagesContext } from "@/pages/_app";
 import { useEffect, useState, useContext } from "react";
 
 // required for static export, default loader errors on build
@@ -90,7 +91,10 @@ const HeaderCenterSectContainer = styled.div`
 `;
 
 export default function Layout({ children }) {
+  const { notificationMessages } = useContext(NotificationMessagesContext);
+
   const [showHomeArrow, setShowHomeArrow] = useState(false);
+  const [showEnvelope, setShowEnvelope] = useState(false);
   const [envelopeColor, setEnvelopeColor] = useState("var(--light-gray)");
 
   const router = useRouter();
@@ -105,6 +109,7 @@ export default function Layout({ children }) {
     setEnvelopeColor(
       router.pathname === "/notification-messages" ? "var(--teal-green)" : "var(--light-gray)"
     );
+    setShowEnvelope(isAuthorizedPage && router.pathname !== "/home");
   }, [router]);
 
   const logoutUser = async () => {
@@ -164,7 +169,11 @@ export default function Layout({ children }) {
         <HeaderSideSectContainer>
           {isAuthorizedPage && (
             <MessagesAndMenuContainer>
-              <NotificationMessagesIcon sx={{ color: envelopeColor }} onClick={navigateMessages} />
+              {showEnvelope && (
+                <Badge badgeContent={notificationMessages?.filter((m) => !m.viewed).length} color={"error"}>
+                  <NotificationMessagesIcon sx={{ color: envelopeColor }} onClick={navigateMessages} />
+                </Badge>
+              )}
               <DropDownMenu items={["Logout"]} label={"Menu"} handleSelection={logoutUser} />
             </MessagesAndMenuContainer>
           )}

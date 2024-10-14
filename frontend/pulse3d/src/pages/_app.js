@@ -123,6 +123,31 @@ function Pulse({ Component, pageProps }) {
   // NotificationMessagesContext
   const [notificationMessages, setNotificationMessages] = useState([]);
 
+  const getNotificationMessages = async (notificationMessageId = null) => {
+    try {
+      let url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/notification_messages`;
+
+      if (notificationMessageId) {
+        url += "?" + `notification_message_id=${notificationMessageId}`;
+      }
+
+      const response = await fetch(url);
+
+      if (response && response.status === 200) {
+        const responseJson = await response.json();
+        const responseNotificationMessages = responseJson.map((msg) => formatNotificationMessage(msg));
+
+        if (notificationMessageId) {
+          setNotificationMessages([...responseNotificationMessages, ...notificationMessages]);
+        } else {
+          setNotificationMessages([...responseNotificationMessages]);
+        }
+      }
+    } catch (e) {
+      console.log("ERROR fetching notification_messages", e);
+    }
+  };
+
   const { setDesiredConnectionStatus: setEvtSourceConnected } = useEventSource({
     productPage,
     uploads,
@@ -133,6 +158,7 @@ function Pulse({ Component, pageProps }) {
     setAdvancedAnalysisJobs,
     usageQuota,
     setUsageQuota,
+    getNotificationMessages,
     accountId: accountInfo.accountId,
     accountType: accountInfo.accountType,
   });
@@ -437,31 +463,6 @@ function Pulse({ Component, pageProps }) {
     } catch (e) {
       console.log("ERROR getting advanced analyses for user", e);
       return;
-    }
-  };
-
-  const getNotificationMessages = async (notificationMessageId = null) => {
-    try {
-      let url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/notification_messages`;
-
-      if (notificationMessageId) {
-        url += "?" + `notification_message_id=${notificationMessageId}`;
-      }
-
-      const response = await fetch(url);
-
-      if (response && response.status === 200) {
-        const responseJson = await response.json();
-        const responseNotificationMessages = responseJson.map((msg) => formatNotificationMessage(msg));
-
-        if (notificationMessageId) {
-          setNotificationMessages([...responseNotificationMessages, ...notificationMessages]);
-        } else {
-          setNotificationMessages([...responseNotificationMessages]);
-        }
-      }
-    } catch (e) {
-      console.log("ERROR fetching notification_messages", e);
     }
   };
 
