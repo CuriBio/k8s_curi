@@ -331,6 +331,7 @@ async def process_item(con, item):
             except Exception:
                 error_msg = "Pre-Analysis failed (3)"
                 logger.exception("Pre-Analysis post-processing failed")
+                raise
 
             if interactive_analysis:
                 logger.info("Loading IA data")
@@ -396,8 +397,8 @@ async def process_item(con, item):
                     arg_name: val
                     for arg_name, orig_name in (
                         ("widths", "twitch_widths"),
-                        ("baseline_widths", "baseline_widths_to_use"),
                         ("well_groups", "well_groups"),
+                        ("relaxation_search_limit_secs", "relaxation_search_limit_secs"),
                     )
                     if (val := analysis_params.get(orig_name)) is not None
                 }

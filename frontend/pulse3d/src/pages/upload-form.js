@@ -157,12 +157,14 @@ export default function UploadForm() {
       normalizationMethod: productPage === "nautilai" ? "∆F/Fmin" : null,
       dataType: null,
       detrend: null,
-      // original advanced params
+      // width coord params
+      relaxationSearchLimit: "",
+      // original peak finding params
       prominenceFactorPeaks: "",
       prominenceFactorValleys: "",
       widthFactorPeaks: "",
       widthFactorValleys: "",
-      // noise based advanced params
+      // noise based peak finding params
       relativeProminenceFactor: "",
       noiseProminenceFactor: "",
       minPeakWidth: "",
@@ -300,6 +302,10 @@ export default function UploadForm() {
       const presetParams = JSON.parse(userPresets[selectedPresetIdx].parameters);
 
       for (const param in presetParams) {
+        // older presets may have a name override set, if so we want to ignore it
+        if (param === "nameOverride") {
+          continue;
+        }
         // checking that the param exists incase params change over time, do not directly replace assuming all values match
         // and don't update if already default value
         if (param in currentParams && presetParams[param] !== currentParams[param]) {
@@ -407,6 +413,7 @@ export default function UploadForm() {
       minPeakWidth,
       maxPeakWidth,
       normalizationMethod,
+      relaxationSearchLimit,
     } = analysisParams;
 
     const version =
@@ -422,8 +429,14 @@ export default function UploadForm() {
       requestBody.upload_id = uploadId;
     }
 
+    if (twitchWidths === "") {
+      requestBody.twitch_widths = null;
+    } else {
+      // remove duplicates and sort
+      requestBody.twitch_widths = Array.from(new Set(twitchWidths)).sort((a, b) => a - b);
+    }
+
     for (const [name, value] of [
-      ["twitch_widths", twitchWidths],
       ["start_time", startTime],
       ["end_time", endTime],
     ]) {
@@ -464,6 +477,8 @@ export default function UploadForm() {
     if (semverGte(version, "0.32.2")) {
       // don't add name if it's the original filename or if it's empty
       const useOriginalName =
+        !reanalysis ||
+        files?.length !== 1 ||
         analysisParams.nameOverride === "" ||
         analysisParams.nameOverride === removeFileExt(files[0].filename);
       requestBody.name_override = useOriginalName ? null : analysisParams.nameOverride;
@@ -514,6 +529,10 @@ export default function UploadForm() {
         requestBody.normalization_method = null;
         requestBody.detrend = null;
       }
+    }
+
+    if (semverGte(version, "2.0.0")) {
+      requestBody.relaxation_search_limit_secs = getNullIfEmpty(relaxationSearchLimit);
     }
 
     return requestBody;
@@ -778,20 +797,16 @@ export default function UploadForm() {
 
   const handleDropDownSelect = (idx) => {
     setAlertShowed(false);
-
-    let nameOverride = "";
     if (idx !== -1) {
       const newSelection = uploads[idx];
       const newFiles = [...files, newSelection];
       setFiles(newFiles);
-
-      nameOverride = newFiles.length === 1 ? removeFileExt(newSelection.filename) : "";
+      // clear nameOverride anytime user changes file selection
+      setAnalysisParams({
+        ...analysisParams,
+        nameOverride: "",
+      });
     }
-
-    setAnalysisParams({
-      ...analysisParams,
-      nameOverride: nameOverride,
-    });
   };
 
   const removeFileExt = (filename) => {
@@ -802,11 +817,14 @@ export default function UploadForm() {
   };
 
   const saveAnalysisPreset = async () => {
+    // we don't want name override to be saved in presets
+    const defaultParams = getDefaultAnalysisParams();
+    const analysisParamsToSave = { ...analysisParams, nameOverride: defaultParams.nameOverride };
     await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets`, {
       method: "POST",
       body: JSON.stringify({
         name: analysisPresetName,
-        analysis_params: analysisParams,
+        analysis_params: analysisParamsToSave,
         upload_type: productPage,
       }),
     });
@@ -850,7 +868,7 @@ export default function UploadForm() {
               </div>
             </DropDownContainer>
             <div style={{ textAlign: "center", marginTop: "10px", fontSize: "18px" }}>
-              <b>Selected Files:</b>
+              <b>{`Selected Files (${files?.length || 0}):`}</b>
             </div>
             {files?.length > 0 ? (
               <ul>
@@ -864,6 +882,11 @@ export default function UploadForm() {
                             e.preventDefault();
                             files.splice(idx, 1);
                             setFiles([...files]);
+                            // clear nameOverride anytime user changes file selection
+                            setAnalysisParams({
+                              ...analysisParams,
+                              nameOverride: "",
+                            });
                           }}
                         >
                           Remove
@@ -882,9 +905,7 @@ export default function UploadForm() {
             <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
               handleFileChange={(files) => setFiles(Object.values(files))}
               dropZoneText={dropZoneText}
-              fileSelection={
-                files.length > 0 ? files.map(({ name }) => name).join(", ") : "No files selected"
-              }
+              fileSelection={files}
               setResetDragDrop={setResetDragDrop}
               resetDragDrop={resetDragDrop}
               fileTypes={["zip", "xlsx", "parquet"]}
@@ -906,6 +927,7 @@ export default function UploadForm() {
           analysisParams={analysisParams}
           setWellGroupErr={setWellGroupErr}
           reanalysis={reanalysis}
+          numFiles={files?.length}
           minPulse3dVersionAllowed={minPulse3dVersionForCurrentUploads}
           userPresetOpts={{
             userPresets,

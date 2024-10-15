@@ -56,7 +56,7 @@ from pulse3D.peak_finding.constants import (
     FeatureMarkers,
 )
 from pulse3D.peak_finding.utils import create_empty_df, mark_features
-from pulse3D.metrics.constants import TwitchMetrics, DefaultMetricsParams
+from pulse3D.metrics.constants import TwitchMetrics
 from pulse3D.rendering.utils import get_metric_display_title
 from semver import VersionInfo
 from stream_zip import stream_zip
@@ -80,6 +80,7 @@ from models.models import (
     JobRequest,
     GetJobsInfoRequest,
     JobResponse,
+    NotificationMessageResponse,
     NotificationResponse,
     SaveNotificationRequest,
     SaveNotificationResponse,
@@ -88,6 +89,8 @@ from models.models import (
     UploadRequest,
     UploadResponse,
     UsageQuota,
+    ViewNotificationMessageRequest,
+    ViewNotificationMessageResponse,
     WaveformDataResponse,
     GetJobsRequest,
 )
@@ -484,7 +487,6 @@ async def create_new_job(
 
         # params to use for all current versions of pulse3d
         params = [
-            "baseline_widths_to_use",
             "width_factors",
             "twitch_widths",
             "start_time",
@@ -495,11 +497,12 @@ async def create_new_job(
         ]
 
         previous_semver_version = (
-            VersionInfo.parse(details.previous_version) if details.previous_version else None
+            VersionInfo.parse(details.previous_version.split("rc")[0]) if details.previous_version else None
         )
 
         bind_context_to_logger({"version": details.version})
 
+        # this should not ever have an rc component
         pulse3d_semver = VersionInfo.parse(details.version)
         use_noise_based_peak_finding = pulse3d_semver >= "0.33.2"
 
@@ -535,6 +538,11 @@ async def create_new_job(
         else:
             params.append("prominence_factors")
 
+        if pulse3d_semver < "2.0.0":
+            params.append("baseline_widths_to_use")
+        else:
+            params.append("relaxation_search_limit_secs")
+
         details_dict = dict(details)
         analysis_params = {param: details_dict[param] for param in params}
 
@@ -542,6 +550,8 @@ async def create_new_job(
             analysis_params["peaks_valleys"] = True
 
         # convert these params into a format compatible with pulse3D
+        # TODO need to keep track of the default value based on the version of p3d being used,
+        # o/w if a new p3d version changes the default params then this will break for older versions
         for param, default_values in (
             ("prominence_factors", DefaultLegacyPeakFindingParams.PROMINENCE_FACTORS.value),
             (
@@ -552,7 +562,7 @@ async def create_new_job(
                     else DefaultLegacyPeakFindingParams.WIDTH_FACTORS.value
                 ),
             ),
-            ("baseline_widths_to_use", DefaultMetricsParams.BASELINE_WIDTHS.value),
+            ("baseline_widths_to_use", (10, 90)),
         ):
             allow_float = param != "baseline_widths_to_use"
             if param in analysis_params:
@@ -603,6 +613,9 @@ async def create_new_job(
                 return GenericErrorResponse(message=usage_quota, error="UsageError")
 
             version = details.version
+            # TODO remove this once testing 2.0.0 is complete
+            if version == "2.0.0":
+                version += "rc2"
 
             job_meta = {"analysis_params": analysis_params, "version": version}
             # if a name is present, then add to metadata of job
@@ -805,7 +818,6 @@ async def get_job_waveform_data(
         if pulse3d_version is None:
             pre_analysis_s3_key = f"{selected_job['prefix']}/time_force_data/{pre_analysis_filename}.parquet"
         elif VersionInfo.parse(pulse3d_version.split("rc")[0]) < "1.0.0":
-            # TODO remove the split above once we're done with RC versions? Will make IA not work for any jobs run with an rc version, but that might be ok
             pre_analysis_s3_key = (
                 f"{selected_job['prefix']}/time_force_data/{pulse3d_version}/{pre_analysis_filename}.parquet"
             )
@@ -944,6 +956,38 @@ async def delete_analysis_preset(
 
     except Exception:
         logger.exception(f"Failed to delete analysis preset {preset_name} for user")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.get("/notification_messages", response_model=list[NotificationMessageResponse])
+async def get_notification_messages(
+    notification_message_id: uuid.UUID = Query(None), token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))
+):
+    """Get info for user|customer notification messages."""
+    try:
+        account_id = str(uuid.UUID(token.account_id))
+        nm_id = str(notification_message_id) if notification_message_id else None
+        bind_context_to_logger({"account_id": account_id})
+        response = await notification_service.get_notification_messages(account_id, nm_id)  # noqa: F821
+        return response
+    except Exception:
+        logger.exception("Failed to get notification messages")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.post("/notification_messages", response_model=ViewNotificationMessageResponse)
+async def view_notification_message(
+    view_request: ViewNotificationMessageRequest, token=Depends(ProtectedAny(scopes=list(Scopes)))
+):
+    """Mark user|customer notification messages as viewed."""
+    try:
+        account_id = str(uuid.UUID(token.account_id))
+        nm_id = str(view_request.id)
+        bind_context_to_logger({"account_id": account_id})
+        response = await notification_service.view_notification_message(account_id, nm_id)  # noqa: F821
+        return response
+    except Exception:
+        logger.exception("Failed to mark notification message as viewed")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

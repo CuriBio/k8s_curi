@@ -25,10 +25,10 @@ const isInt = (value) => {
   return Number.isInteger(Number(value));
 };
 
-const isArrayOfNumbers = (arr, positive = false, allowFloat = true) => {
+const isArrayOfNumbers = (arr, positive = false, allowFloat = true, additionalCheck = () => true) => {
   return arrayValidator(arr, () => {
     for (const n of arr) {
-      if (typeof n !== "number" || (positive && n < 0) || (!allowFloat && !isInt(n))) {
+      if (typeof n !== "number" || (positive && n < 0) || (!allowFloat && !isInt(n)) || !additionalCheck(n)) {
         return false;
       }
     }
@@ -253,13 +253,6 @@ const formatP3dJob = (job, selectedJobs, accountId) => {
 
     if ("error_msg" in parsedMeta) {
       status += `: ${parsedMeta.error_msg}`;
-    } else if ("error" in parsedMeta) {
-      // Tanner (3/27/24): this is legacy error handling, new jobs will put a tidy error message in the field above
-      if (parsedMeta.error.includes("Invalid file format")) {
-        status += ": Invalid file format";
-      } else if (parsedMeta.error.includes("Unable to converge")) {
-        status += `: ${parsedMeta.error}`;
-      }
     }
 
     const owner = accountId === user_id.replace(/-/g, "");
@@ -303,6 +296,18 @@ const formatAdvancedAnalysisJob = (job) => {
     console.log(`ERROR formatting advanced analysis job ${job?.id}`, e);
     return null;
   }
+};
+
+const formatNotificationMessage = (msg) => {
+  const { id, created_at, viewed_at, subject, body } = msg;
+
+  return {
+    id,
+    createdAt: created_at,
+    viewed: !!viewed_at,
+    subject,
+    body,
+  };
 };
 
 const getSortedWellListStr = (wells) => {
@@ -355,6 +360,7 @@ export {
   getMinP3dVersionForProduct,
   formatP3dJob,
   formatAdvancedAnalysisJob,
+  formatNotificationMessage,
   productTitle,
   compareStr,
   getLocalTzOffsetHours,

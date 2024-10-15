@@ -178,6 +178,10 @@ export default function useEventSource(hooks) {
       }
     });
 
+    newEvtSource.addEventListener("notifications_update", function (e) {
+      hooksRef.current.getNotificationMessages(e.data.id);
+    });
+
     newEvtSource.addEventListener("token_expired", async function (e) {
       await fetch(`${process.env.NEXT_PUBLIC_EVENTS_URL}/token`, {
         method: "POST",

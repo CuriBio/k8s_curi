@@ -5,9 +5,13 @@ import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { useEffect, createContext, useState } from "react";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
-import { deepCopy, formatAdvancedAnalysisJob } from "@/utils/generic";
+import {
+  deepCopy,
+  formatAdvancedAnalysisJob,
+  formatP3dJob,
+  formatNotificationMessage,
+} from "@/utils/generic";
 import useEventSource from "@/utils/eventSource";
-import { formatP3dJob } from "@/utils/generic";
 
 /*
   This theme is to be used with materialUI components
@@ -30,6 +34,7 @@ const MUItheme = createTheme({
 export const AuthContext = createContext();
 export const UploadsContext = createContext();
 export const AdvancedAnalysisContext = createContext();
+export const NotificationMessagesContext = createContext();
 
 // TODO make all pages scope based?
 const allAvailablePages = {
@@ -39,6 +44,7 @@ const allAvailablePages = {
     "/upload-form",
     "/account",
     "/account-settings",
+    "/notification-messages",
     "/metrics",
     "/advanced-analyses",
     "/advanced-analysis-form",
@@ -48,6 +54,7 @@ const allAvailablePages = {
     "/add-new-account",
     "/user-info",
     "/customer-info",
+    "/notification-messages",
     "/notifications-management",
     "/account-settings",
   ],
@@ -113,6 +120,34 @@ function Pulse({ Component, pageProps }) {
   // AdvancedAnalysisContext
   const [advancedAnalysisJobs, setAdvancedAnalysisJobs] = useState(null);
 
+  // NotificationMessagesContext
+  const [notificationMessages, setNotificationMessages] = useState([]);
+
+  const getNotificationMessages = async (notificationMessageId = null) => {
+    try {
+      let url = `${process.env.NEXT_PUBLIC_PULSE3D_URL}/notification_messages`;
+
+      if (notificationMessageId) {
+        url += "?" + `notification_message_id=${notificationMessageId}`;
+      }
+
+      const response = await fetch(url);
+
+      if (response && response.status === 200) {
+        const responseJson = await response.json();
+        const responseNotificationMessages = responseJson.map((msg) => formatNotificationMessage(msg));
+
+        if (notificationMessageId) {
+          setNotificationMessages([...responseNotificationMessages, ...notificationMessages]);
+        } else {
+          setNotificationMessages([...responseNotificationMessages]);
+        }
+      }
+    } catch (e) {
+      console.log("ERROR fetching notification_messages", e);
+    }
+  };
+
   const { setDesiredConnectionStatus: setEvtSourceConnected } = useEventSource({
     productPage,
     uploads,
@@ -123,6 +158,7 @@ function Pulse({ Component, pageProps }) {
     setAdvancedAnalysisJobs,
     usageQuota,
     setUsageQuota,
+    getNotificationMessages,
     accountId: accountInfo.accountId,
     accountType: accountInfo.accountType,
   });
@@ -260,6 +296,7 @@ function Pulse({ Component, pageProps }) {
       updateProductPage(null);
       setUploads(null);
       setAdvancedAnalysisJobs(null);
+      setNotificationMessages(null);
     }
 
     // start pinging SW if not on login page to keep alive
@@ -466,18 +503,26 @@ function Pulse({ Component, pageProps }) {
           }}
         >
           <AdvancedAnalysisContext.Provider value={{ advancedAnalysisJobs, getAdvancedAnalysisJobs }}>
-            <Layout>
-              <ModalWidget
-                open={showLoggedOutAlert}
-                closeModal={() => {
-                  setLoggedOutAlert(false);
-                  router.replace("/login", undefined, { shallow: true });
-                }}
-                header="Attention"
-                labels={["You have been logged out due to inactivity"]}
-              />
-              {getLayout(<Component {...pageProps} />, pageProps.data)}
-            </Layout>
+            <NotificationMessagesContext.Provider
+              value={{
+                notificationMessages,
+                setNotificationMessages,
+                getNotificationMessages,
+              }}
+            >
+              <Layout>
+                <ModalWidget
+                  open={showLoggedOutAlert}
+                  closeModal={() => {
+                    setLoggedOutAlert(false);
+                    router.replace("/login", undefined, { shallow: true });
+                  }}
+                  header="Attention"
+                  labels={["You have been logged out due to inactivity"]}
+                />
+                {getLayout(<Component {...pageProps} />, pageProps.data)}
+              </Layout>
+            </NotificationMessagesContext.Provider>
           </AdvancedAnalysisContext.Provider>
         </UploadsContext.Provider>
       </AuthContext.Provider>

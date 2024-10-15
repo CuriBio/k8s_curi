@@ -246,6 +246,7 @@ export default function ControlPanel() {
 
   useEffect(() => {
     // this checks if a page changes without button is clicked from a forced redirection
+    // this also deselects panel buttons if an option outside the panel is clicked (e.g. notifications in the top right)
     const currentPage = panelButtons.filter(({ page }) => page === router.pathname)[0];
 
     if (currentPage) {
@@ -256,6 +257,9 @@ export default function ControlPanel() {
       }
 
       setExpanded(options.length > 0 ? label : null);
+    } else {
+      setSelected("");
+      setExpanded(null);
     }
   }, [router]);
 
