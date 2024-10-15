@@ -179,7 +179,7 @@ export default function useEventSource(hooks) {
     });
 
     newEvtSource.addEventListener("notifications_update", function (e) {
-      console.log("notifications_update e.data:", e.data);
+      hooksRef.current.getNotificationMessages(e.data.id);
     });
 
     newEvtSource.addEventListener("token_expired", async function (e) {
