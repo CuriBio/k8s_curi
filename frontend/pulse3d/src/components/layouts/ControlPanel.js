@@ -236,7 +236,7 @@ export default function ControlPanel() {
         options: [],
       },
       {
-        label: "Notifications (WIP)",
+        label: "Notifications",
         disabled: false,
         page: "/notifications-management",
         options: [],
