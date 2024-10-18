@@ -6,14 +6,18 @@ import tempfile
 from typing import Any
 from zipfile import ZipFile
 
+from advanced_analysis import (
+    PACKAGE_VERSION as ADVANCED_ANALYSIS_VERSION,
+    load_from_dir,
+    longitudinal_aggregator,
+    render,
+)
 import asyncpg
 import boto3
 from jobs import get_advanced_item, EmptyQueue
 import structlog
 from structlog.contextvars import bind_contextvars, clear_contextvars, merge_contextvars
 from utils.s3 import upload_file_to_s3
-
-from advanced_analysis import ADVANCED_ANALYSIS_VERSION, load_from_dir, longitudinal_aggregator, render
 
 
 PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-pulse3d-uploads")
@@ -182,7 +186,6 @@ async def process_item(con, item):
                 try:
                     fetched_source_info = dict(fetched_source_info)
                     fetched_source_info_meta = json.loads(fetched_source_info["p3d_job_meta"])
-                    logger.debug("Found %s", str(fetched_source_info))
                     analysis_filename = fetched_source_info["object_key"].split("/")[-1]
                     analysis_name = os.path.splitext(analysis_filename)[0]
                     source_info["p3d_analysis_metadata"] = {
