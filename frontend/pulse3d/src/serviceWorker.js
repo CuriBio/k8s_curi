@@ -46,7 +46,13 @@ const clearAccountInfo = async () => {
   console.log("account info cleared");
 };
 
-const tokensExpiredLogout = () => {
+const tokensExpiredLogout = async (refreshToken) => {
+  const cachedRefreshToken = (await getAuthTokens()).refresh;
+  if (cachedRefreshToken === null || refreshToken !== cachedRefreshToken) {
+    console.log("Logout timer fired but no logout required");
+    return;
+  }
+
   console.log("Sending logout ping because tokens expired");
   sendLogoutMsg();
 };
@@ -66,17 +72,14 @@ const setTokens = async ({ refresh }, res) => {
   const swCache = await caches.open(cacheName);
   await swCache.put("tokens", res.clone());
 
-  // clear old logout timer if one already exists
-  if (logoutTimer) {
-    clearTimeout(logoutTimer);
-  }
+  clearTimeout(logoutTimer);
 
   // set up new logout timer
   const expTime = new Date(jwtDecode(refresh.token).exp * 1000);
   const currentTime = new Date().getTime();
   const millisBeforeLogOut = expTime - currentTime;
 
-  logoutTimer = setTimeout(tokensExpiredLogout, millisBeforeLogOut);
+  logoutTimer = setTimeout(() => tokensExpiredLogout(refresh.token), millisBeforeLogOut);
 };
 
 const cacheResponse = async (res, name) => {
