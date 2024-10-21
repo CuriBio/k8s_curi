@@ -20,7 +20,6 @@ RUN python -m venv --copies /app/venv && \
     . /app/venv/bin/activate && \
     export CODEARTIFACT_AUTH_TOKEN=$(aws codeartifact get-authorization-token --domain curibio --domain-owner $AWS_ACCOUNT_ID --region us-east-2 --query authorizationToken --output text) && \
     pip install -r ./requirements.txt --extra-index-url=https://aws:$CODEARTIFACT_AUTH_TOKEN@curibio-$AWS_ACCOUNT_ID.d.codeartifact.us-east-2.amazonaws.com/pypi/advanced-analysis/simple/ && \
-    pip install -r ./requirements.txt && \
     pip install ./lib/jobs && \
     pip install ./lib/utils
 
