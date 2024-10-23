@@ -3,7 +3,12 @@ import { useEffect, useContext } from "react";
 import styled from "styled-components";
 import { useRouter } from "next/router";
 import semverRsort from "semver/functions/rsort";
-import { AuthContext, UploadsContext, AdvancedAnalysisContext } from "@/pages/_app";
+import {
+  AuthContext,
+  UploadsContext,
+  AdvancedAnalysisContext,
+  NotificationMessagesContext,
+} from "@/pages/_app";
 
 const Container = styled.div`
   height: inherit;
@@ -36,6 +41,8 @@ export default function DashboardLayout({ children }) {
 
   const { advancedAnalysisJobs, getAdvancedAnalysisJobs } = useContext(AdvancedAnalysisContext);
 
+  const { getNotificationMessages } = useContext(NotificationMessagesContext);
+
   const getUploadsAndJobsIfEmpty = (productPage) => {
     if ((uploads || []).length === 0) {
       getUploadsAndJobs(productPage);
@@ -61,6 +68,7 @@ export default function DashboardLayout({ children }) {
   }, [productPage, accountType]);
 
   useEffect(() => {
+    getNotificationMessages();
     getPulse3dVersions();
   }, []);
 

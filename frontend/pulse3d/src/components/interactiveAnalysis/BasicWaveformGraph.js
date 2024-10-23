@@ -35,7 +35,6 @@ export default function BasicWaveformGraph({
     }
   }, [waveformData, featureIndices]);
 
-  // TODO remove this once we're done with RC versions
   const pulse3dSemver = pulse3dVersion.split("rc")[0];
 
   /* NOTE!! The order of the variables and function calls in this function are important to functionality.

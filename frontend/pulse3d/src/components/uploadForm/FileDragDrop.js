@@ -50,8 +50,22 @@ export default function FileDragDrop({
   multiple = true,
 }) {
   useEffect(() => {
-    if (resetDragDrop) setResetDragDrop(false);
+    if (resetDragDrop) {
+      setResetDragDrop(false);
+    }
   }, [resetDragDrop]);
+
+  const numFilesSelected = fileSelection?.length || 0;
+  const numFilesLabel = (() => {
+    if (numFilesSelected === 0) {
+      return multiple ? "No files selected" : "No file selected";
+    }
+    if (numFilesSelected === 1) {
+      return multiple ? "1 file selected" : "Selected file";
+    }
+    return `${numFilesSelected} files selected`;
+  })();
+  const fileSelectionListText = `[ ${(fileSelection || []).map(({ name }) => name).join(", ")} ]`;
 
   return (
     <Container style={containerStyle}>
@@ -66,7 +80,7 @@ export default function FileDragDrop({
           <DropZone style={dropZoneStyle}>
             {dropZoneText}
             <br />
-            <FileSelectionLabel>[ {fileSelection || "No file selected"} ]</FileSelectionLabel>
+            <FileSelectionLabel>{`${numFilesLabel}: ${fileSelectionListText}`}</FileSelectionLabel>
           </DropZone>
         </FileUploader>
       )}

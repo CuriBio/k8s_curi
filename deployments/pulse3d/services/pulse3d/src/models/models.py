@@ -26,12 +26,28 @@ class SaveNotificationResponse(BaseModel):
     id: uuid.UUID
 
 
+class ViewNotificationMessageRequest(BaseModel):
+    id: uuid.UUID
+
+
+class ViewNotificationMessageResponse(BaseModel):
+    viewed_at: datetime.datetime | None = None
+
+
 class NotificationResponse(BaseModel):
     id: uuid.UUID
     created_at: datetime.datetime
     subject: str
     body: str
     notification_type: NotificationType = NotificationType.CUSTOMERS_AND_USERS
+
+
+class NotificationMessageResponse(BaseModel):
+    id: uuid.UUID
+    created_at: datetime.datetime
+    viewed_at: datetime.datetime | None = None
+    subject: str
+    body: str
 
 
 class UploadRequest(BaseModel):
@@ -80,7 +96,7 @@ class UploadResponse(BaseModel):
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
 
-    version: str
+    version: str  # this should not ever have an rc component
     previous_version: str | None = Field(default=None)
 
     name_override: str | None = Field(default=None)
@@ -94,6 +110,7 @@ class JobRequest(BaseModel):
     twitch_widths: list[int] | None = Field(default=None)
     start_time: Number | None = Field(default=None)
     end_time: Number | None = Field(default=None)
+    relaxation_search_limit_secs: Number | None = Field(default=None)
 
     # shared peak finding params
     width_factors: TupleParam | None = Field(default=None)
