@@ -2,6 +2,16 @@ from datetime import datetime
 from pydantic import BaseModel
 from typing import Any
 import uuid
+from enum import StrEnum, auto
+
+
+class AdvancedAnalysisJobTypes(StrEnum):
+    LONGITUDINAL = auto()
+
+
+class InputJobTypes(StrEnum):
+    MANTARRAY = auto()
+    NAUTILAI = auto()
 
 
 # REQUESTS
@@ -11,7 +21,8 @@ class PostAdvancedAnalysesRequest(BaseModel):
     version: str
     output_name: str
     sources: list[uuid.UUID]
-    job_type: str
+    job_type: AdvancedAnalysisJobTypes
+    input_type: InputJobTypes
 
     platemap_overrides: dict[str, Any]  # TODO should add a model for this
 

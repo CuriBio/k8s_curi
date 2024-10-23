@@ -1040,7 +1040,7 @@ async def _get_uploads(con, token, **retrieval_info):
 
     upload_type_msg = "" if not retrieval_info["upload_type"] else f"{retrieval_info['upload_type']} "
     logger.info(
-        f"Retrieving {upload_type_msg}uploads for {retrieval_info['account_type']}: {token.account_id}"
+        f"Retrieving {upload_type_msg} uploads for {retrieval_info['account_type']}: {token.account_id}"
     )
 
     match retrieval_info.pop("account_type"):
