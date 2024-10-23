@@ -338,7 +338,7 @@ async def _get_advanced_analyses_info(con, token, **retrieval_info):
 
 async def _validate_sources(con, token, details: PostAdvancedAnalysesRequest):
     """Check that the user submitting this job has access to the source jobs, and that the source jobs have the correct type"""
-    if details.job_type in get_product_tags_of_user(token.scopes, rw_all_only=True):
+    if details.input_type in get_product_tags_of_user(token.scopes, rw_all_only=True):
         rows = await con.fetch(
             "SELECT j.job_id FROM jobs_result j JOIN uploads u ON j.upload_id=u.id "
             "WHERE j.status!='deleted' AND u.deleted='f' AND j.customer_id=$1 AND j.job_id=ANY($2::uuid[]) AND j.type=$3",
