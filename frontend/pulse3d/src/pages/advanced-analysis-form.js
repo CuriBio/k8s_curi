@@ -303,7 +303,7 @@ export default function AdvancedAnalysisForm() {
   );
 
   const formattedJobSelection = selectedP3dJobs.map(
-    ({ filename, id, created_at: createdAt, job_meta: jobMeta, upload_meta: uploadMeta, meta }) => {
+    ({ filename, id, created_at: createdAt, job_meta: jobMeta, upload_meta: uploadMeta }) => {
       const { platemapInfo, platemapSource, version } = extractFromMetas(jobMeta, uploadMeta);
 
       return {
