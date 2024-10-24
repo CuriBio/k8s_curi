@@ -161,7 +161,7 @@ const pollP3dJobs = async (filenamePrefix, inputType, versionMajMin) => {
   }
 };
 
-const submitAdvAnalysisJob = async (analysisParams, selectedP3dJobs) => {
+const submitAdvAnalysisJob = async (inputType, analysisParams, selectedP3dJobs) => {
   let requestBody;
   try {
     requestBody = JSON.stringify({
@@ -174,6 +174,7 @@ const submitAdvAnalysisJob = async (analysisParams, selectedP3dJobs) => {
         .replace("T", " ")
         .split(".")[0],
       local_tz_offset_hours: analysisParams.localTzOffsetHours,
+      input_type: inputType,
       job_type: "longitudinal",
     });
   } catch (e) {
@@ -302,7 +303,7 @@ export default function AdvancedAnalysisForm() {
   );
 
   const formattedJobSelection = selectedP3dJobs.map(
-    ({ filename, id, created_at: createdAt, job_meta: jobMeta, upload_meta: uploadMeta, meta }) => {
+    ({ filename, id, created_at: createdAt, job_meta: jobMeta, upload_meta: uploadMeta }) => {
       const { platemapInfo, platemapSource, version } = extractFromMetas(jobMeta, uploadMeta);
 
       return {
@@ -398,7 +399,7 @@ export default function AdvancedAnalysisForm() {
     setFormState(FORM_STATES.SUBMITTING);
 
     try {
-      await submitAdvAnalysisJob(analysisParams, selectedP3dJobs);
+      await submitAdvAnalysisJob(inputType, analysisParams, selectedP3dJobs);
     } catch {
       setFormState(FORM_STATES.SUBMISSION_FAILED);
       return;
