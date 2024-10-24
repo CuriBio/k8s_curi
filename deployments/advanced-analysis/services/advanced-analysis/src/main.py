@@ -16,7 +16,7 @@ import structlog
 from structlog.contextvars import bind_contextvars, clear_contextvars
 from uvicorn.protocols.utils import get_path_with_query_string
 
-from auth import ProtectedAny, ScopeTags
+from auth import ProtectedAny, ScopeTags, get_product_tags_of_user
 from jobs import (
     check_customer_advanced_analysis_usage,
     create_advanced_analysis_job,
@@ -197,7 +197,7 @@ async def create_new_advanced_analysis(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Usage limit reached and/or plan has expired",
                 )
-            await _validate_sources(con, user_id, details.sources)
+            await _validate_sources(con, token, details)
             await _validate_advanced_analysis_version(con, details.version)
             await create_advanced_analysis_job(
                 con=con,
@@ -336,28 +336,30 @@ async def _get_advanced_analyses_info(con, token, **retrieval_info):
             )
 
 
-async def _validate_sources(con, user_id: str, source_job_ids: list[uuid.UUID]):
-    source_to_owner = await _get_owners_of_sources(con, source_job_ids)
-    # right now considering any job where the user ID does not match to be disallowed.
-    # If a scope is added that lets users create adv analaysis jobs with jobs under other users in their org,
-    # will need to update this
-    if invalid_sources := [
-        str(source_id) for source_id, owner in source_to_owner.items() if owner != user_id
-    ]:
+async def _validate_sources(con, token, details: PostAdvancedAnalysesRequest):
+    """Check that the user submitting this job has access to the source jobs, and that the source jobs have the correct type"""
+    if details.input_type in get_product_tags_of_user(token.scopes, rw_all_only=True):
+        rows = await con.fetch(
+            "SELECT j.job_id FROM jobs_result j JOIN uploads u ON j.upload_id=u.id "
+            "WHERE j.status!='deleted' AND u.deleted='f' AND j.customer_id=$1 AND j.job_id=ANY($2::uuid[]) AND j.type=$3",
+            token.customer_id,
+            details.sources,
+            details.input_type,
+        )
+    else:
+        rows = await con.fetch(
+            "SELECT j.job_id FROM jobs_result j JOIN uploads u ON j.upload_id=u.id "
+            "WHERE j.status!='deleted' AND u.deleted='f' AND u.user_id=$1 AND j.job_id=ANY($2::uuid[]) AND j.type=$3",
+            token.userid,
+            details.sources,
+            details.input_type,
+        )
+
+    valid_sources = set(row["job_id"] for row in rows)
+    if invalid_sources := set(details.sources) - valid_sources:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid source IDs: {invalid_sources}"
         )
-
-
-async def _get_owners_of_sources(con, source_job_ids: list[uuid.UUID]):
-    rows = await con.fetch(
-        "SELECT up.user_id, j.job_id FROM jobs_result j JOIN uploads up ON j.upload_id=up.id WHERE j.job_id=ANY($1::uuid[])",
-        source_job_ids,
-    )
-    source_to_owner = {job_id: None for job_id in source_job_ids} | {
-        row["job_id"]: str(row["user_id"]) for row in rows
-    }
-    return source_to_owner
 
 
 async def _validate_advanced_analysis_version(con, version):

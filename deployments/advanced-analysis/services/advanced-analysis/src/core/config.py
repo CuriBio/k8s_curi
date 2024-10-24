@@ -3,7 +3,7 @@ from starlette.datastructures import Secret
 
 config = Config(".env")
 # version used to tag the docker image
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 
 JWT_SECRET_KEY = config("JWT_SECRET_KEY", cast=Secret)
 JWT_ALGORITHM = config("JWT_ALGORITHM", cast=str, default="HS256")
