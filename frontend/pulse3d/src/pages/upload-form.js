@@ -127,6 +127,34 @@ const isReanalysisPage = (router) => {
   );
 };
 
+const validateCuriFile = async (file, productPage) => {
+  let fileArrBuf = await file.arrayBuffer();
+  let decoder = new TextDecoder("utf-8");
+
+  let header = decoder.decode(fileArrBuf.slice(0, 4));
+  if (header !== "CURI") {
+    return false;
+  }
+
+  let keyArr = new Uint8Array(fileArrBuf.slice(4, 8));
+  let productId = "";
+  // For some reason seems like using map on this just creates another Uint8Array
+  new Uint8Array(fileArrBuf.slice(8, 12)).map((productIdChar, idx) => {
+    productId += String.fromCharCode(productIdChar ^ keyArr[idx]);
+  });
+
+  let expectedProductId;
+  if (productPage === "mantarray") {
+    expectedProductId = "MANT";
+  } else if (productPage === "nautilai") {
+    expectedProductId = "NAUT";
+  } else {
+    return false;
+  }
+
+  return productId === expectedProductId;
+};
+
 export default function UploadForm() {
   const { usageQuota, preferences, productPage } = useContext(AuthContext);
 
@@ -627,6 +655,8 @@ export default function UploadForm() {
         } else if (file.name.endsWith("parquet")) {
           // parquet files only currently supported for nautilai, but should be supported by other products in the future
           isValidUpload = productPage === "nautilai";
+        } else if (file.name.endsWith("curi")) {
+          isValidUpload = await validateCuriFile(file, productPage);
         } else {
           // all other file types are not valid
           isValidUpload = false;
@@ -908,7 +938,7 @@ export default function UploadForm() {
               fileSelection={files}
               setResetDragDrop={setResetDragDrop}
               resetDragDrop={resetDragDrop}
-              fileTypes={["zip", "xlsx", "parquet"]}
+              fileTypes={["zip", "xlsx", "parquet", "curi"]}
             />
             {usageQuota && usageQuota.limits && parseInt(usageQuota.limits.jobs) !== -1 && (
               <UploadCreditUsageInfo>
