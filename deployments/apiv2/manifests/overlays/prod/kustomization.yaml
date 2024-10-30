@@ -34,7 +34,7 @@ patches:
           value: "2a23ce0a-e279-444f-82a9-f27b52586d20"
       - op: add
         path: /spec/template/spec/containers/1/image
-        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.9.0"
+        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.10.0"
       - op: replace
         path: /spec/template/spec/containers/1/env/0/value
         value: prod
