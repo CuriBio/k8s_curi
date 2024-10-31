@@ -50,7 +50,7 @@ const EmptyText = styled.div`
   margin: 10px;
 `;
 
-const valid_regex = new RegExp("^[0-9A-Za-z ./_-]+$");
+const VALID_REGEX = new RegExp("^[0-9A-Za-z ./_-]+$");
 
 export default function PlatemapOverride({
   requirePlatemapName,
@@ -91,7 +91,7 @@ export default function PlatemapOverride({
       } else if (analysisParams.platemapName === "") {
         setPlatemapNameError("*Required");
       } else {
-        const errMsg = valid_regex.test(analysisParams.platemapName) ? "" : "*Invalid character present.";
+        const errMsg = VALID_REGEX.test(analysisParams.platemapName) ? "" : "*Invalid character present.";
         setPlatemapNameError(errMsg);
       }
     } else {
@@ -126,7 +126,7 @@ export default function PlatemapOverride({
   const validateGroupName = (name) => {
     let feedback = "";
     if (name.length > 0) {
-      if (!valid_regex.test(name)) {
+      if (!VALID_REGEX.test(name)) {
         feedback = "*Invalid character present.";
       } else if (localGroups.filter((group) => group.name.toLowerCase() === name.toLowerCase()).length > 1) {
         feedback = "*This name already exists";
