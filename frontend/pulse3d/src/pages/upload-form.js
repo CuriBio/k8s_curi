@@ -237,8 +237,6 @@ export default function UploadForm() {
 
     setIsButtonDisabled(checkConditions);
 
-    console.log(`!!! '${analysisParams.platemapName}' '${JSON.stringify(analysisParams.wellGroups)}'`);
-
     setCreditUsageAlert(
       !alertShowed && //makesure modal shows up only once
         !checkConditions &&
