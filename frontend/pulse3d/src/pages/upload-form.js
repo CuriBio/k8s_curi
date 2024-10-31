@@ -237,6 +237,8 @@ export default function UploadForm() {
 
     setIsButtonDisabled(checkConditions);
 
+    console.log(`!!! '${analysisParams.platemapName}' '${JSON.stringify(analysisParams.wellGroups)}'`);
+
     setCreditUsageAlert(
       !alertShowed && //makesure modal shows up only once
         !checkConditions &&
@@ -533,7 +535,7 @@ export default function UploadForm() {
     }
 
     if (semverGte(version, "1.0.8")) {
-      requestBody.platemap_name = platemapName;
+      requestBody.platemap_name = getNullIfEmpty(platemapName);
     }
 
     if (semverGte(version, "2.0.0")) {

@@ -63,10 +63,6 @@ export default function PlatemapOverride({
 
   const sectionHeader = requirePlatemapName ? "Plate Map" : "Well Groupings";
 
-  const updatePlatemapName = (newName) => {
-    setAnalysisParams({ ...analysisParams, platemapName: newName });
-  };
-
   useEffect(() => {
     let wellGroupsUpdate = {};
     let errExists = false;
@@ -80,14 +76,15 @@ export default function PlatemapOverride({
         errExists = true;
       }
     }
-    setAnalysisParams({ ...analysisParams, wellGroups: wellGroupsUpdate });
+
+    const updatedAnalysisParams = { ...analysisParams, wellGroups: wellGroupsUpdate };
     // pass error state up to parent to enable or disable submit button
     setWellGroupErr(errExists);
     setErrorMsgs([...errorMsgs]);
 
     if (requirePlatemapName) {
       if (localGroups.length === 0) {
-        updatePlatemapName("");
+        updatedAnalysisParams.platemapName = "";
         setPlatemapNameError("");
       } else if (analysisParams.platemapName === "") {
         setPlatemapNameError("*Required");
@@ -95,9 +92,11 @@ export default function PlatemapOverride({
         setPlatemapNameError("");
       }
     } else {
-      updatePlatemapName("");
+      updatedAnalysisParams.platemapName = "";
       setPlatemapNameError("");
     }
+
+    setAnalysisParams(updatedAnalysisParams);
   }, [localGroups, analysisParams.platemapName, requirePlatemapName]);
 
   useEffect(() => {
@@ -107,6 +106,10 @@ export default function PlatemapOverride({
       setLocalGroups([]);
     }
   }, [analysisParams]);
+
+  const updatePlatemapName = (newName) => {
+    setAnalysisParams({ ...analysisParams, platemapName: newName });
+  };
 
   const addWellGroup = () => {
     localGroups.push({ name: "", wells: "" });
