@@ -407,11 +407,9 @@ async def process_item(con, item):
 
                 # TODO move this into p3d, then just pass platemap_name in normally
                 if platemap_name := analysis_params.get("platemap_name"):
-                    logger.info(f"!!! {platemap_name}")
                     data_with_features.metadata.platemap_name = platemap_name
 
                 metrics_output = metrics.run(data_with_features, **metrics_args)
-                logger.info(f"$$$ {metrics_output.metdata.platemap_name}")
                 logger.info("Created metrics")
             except Exception:
                 error_msg = "Metric creation failed"
