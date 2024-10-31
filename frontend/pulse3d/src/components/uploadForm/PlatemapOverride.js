@@ -50,9 +50,22 @@ const EmptyText = styled.div`
   margin: 10px;
 `;
 
-export default function WellGroups({ setAnalysisParams, analysisParams, setWellGroupErr }) {
+export default function PlatemapOverride({
+  requirePlatemapName,
+  setAnalysisParams,
+  analysisParams,
+  setWellGroupErr,
+  platemapNameError,
+  setPlatemapNameError,
+}) {
   const [errorMsgs, setErrorMsgs] = useState([]);
   const [localGroups, setLocalGroups] = useState([]);
+
+  const sectionHeader = requirePlatemapName ? "Plate Map" : "Well Groupings";
+
+  const updatePlatemapName = (newName) => {
+    setAnalysisParams({ ...analysisParams, platemapName: newName });
+  };
 
   useEffect(() => {
     let wellGroupsUpdate = {};
@@ -71,7 +84,21 @@ export default function WellGroups({ setAnalysisParams, analysisParams, setWellG
     // pass error state up to parent to enable or disable submit button
     setWellGroupErr(errExists);
     setErrorMsgs([...errorMsgs]);
-  }, [localGroups]);
+
+    if (requirePlatemapName) {
+      if (localGroups.length === 0) {
+        updatePlatemapName("");
+        setPlatemapNameError("");
+      } else if (analysisParams.platemapName === "") {
+        setPlatemapNameError("*Required");
+      } else {
+        setPlatemapNameError("");
+      }
+    } else {
+      updatePlatemapName("");
+      setPlatemapNameError("");
+    }
+  }, [localGroups, analysisParams.platemapName, requirePlatemapName]);
 
   useEffect(() => {
     // reset well groups after reset or submit buttons are selected
@@ -159,7 +186,7 @@ export default function WellGroups({ setAnalysisParams, analysisParams, setWellG
   return (
     <>
       <SectionLabel>
-        Well Groupings{" "}
+        {sectionHeader + " "}
         <Tooltip title={<TooltipText>{"Remove Label"}</TooltipText>} placement={"top"}>
           <RemoveCircleOutlineIcon
             sx={{ cursor: "pointer", marginLeft: "15px", "&:hover": { color: "var(--teal-green)" } }}
@@ -177,39 +204,57 @@ export default function WellGroups({ setAnalysisParams, analysisParams, setWellG
       {localGroups.length === 0 ? (
         <EmptyText>Click the plus to add a group</EmptyText>
       ) : (
-        localGroups.map(({ name, wells }, i) => (
-          <WellGroupingContainer key={i}>
+        requirePlatemapName && (
+          <WellGroupingContainer key="name">
             <InputErrorContainer>
               <FormInput
-                name="groupLabel"
-                placeholder={"Label Name"}
-                value={name}
+                name="platemapName"
+                placeholder={"Plate Map Name"}
+                value={analysisParams.platemapName}
                 onChangeFn={(e) => {
-                  updateGroupName(e.target.value, i);
+                  updatePlatemapName(e.target.value.trim());
                 }}
               >
-                <ErrorText id="labelNameError" role="errorMsg">
-                  {errorMsgs[i].name}
-                </ErrorText>
-              </FormInput>
-            </InputErrorContainer>
-            <InputErrorContainer>
-              <FormInput
-                name="wells"
-                placeholder={"A1, B2, C3"}
-                value={wells}
-                onChangeFn={(e) => {
-                  updateWellGroups(e.target.value, i);
-                }}
-              >
-                <ErrorText id="wellsError" role="errorMsg">
-                  {errorMsgs[i].wells}
+                <ErrorText id="platemapNameError" role="errorMsg">
+                  {platemapNameError}
                 </ErrorText>
               </FormInput>
             </InputErrorContainer>
           </WellGroupingContainer>
-        ))
+        )
       )}
+      {localGroups.map(({ name, wells }, i) => (
+        <WellGroupingContainer key={i}>
+          <InputErrorContainer>
+            <FormInput
+              name="groupLabel"
+              placeholder={"Label Name"}
+              value={name}
+              onChangeFn={(e) => {
+                updateGroupName(e.target.value.trim(), i);
+              }}
+            >
+              <ErrorText id="labelNameError" role="errorMsg">
+                {errorMsgs[i].name}
+              </ErrorText>
+            </FormInput>
+          </InputErrorContainer>
+          <InputErrorContainer>
+            <FormInput
+              name="wells"
+              placeholder={"A1, B2, C3"}
+              value={wells}
+              onChangeFn={(e) => {
+                updateWellGroups(e.target.value.trim(), i);
+              }}
+            >
+              <ErrorText id="wellsError" role="errorMsg">
+                {errorMsgs[i].wells}
+              </ErrorText>
+            </FormInput>
+          </InputErrorContainer>
+        </WellGroupingContainer>
+      ))}
     </>
   );
 }
