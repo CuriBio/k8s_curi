@@ -96,19 +96,29 @@ def _determine_platemap_for_source(
 ):
     if pm_override := platemap_overrides.get(source_id):
         logger.info(f"Using platemap override for {source_id}")
-        return pm_override | {"map_name": pm_override["map_name"] + " (Advanced Analysis Override)"}
+        return {
+            "platemap": pm_override | {"map_name": pm_override["map_name"]},
+            "platemap_source": "Advanced Analysis Override",
+        }
 
     p3d_job_meta = json.loads(p3d_job_meta)
-    if p3d_well_groups_override := p3d_job_meta.get("analysis_params", {}).get("well_groups"):
+    p3d_analysis_params = p3d_job_meta.get("analysis_params", {})
+    if p3d_well_groups_override := p3d_analysis_params.get("well_groups"):
         logger.info(f"Using platemap from pulse3d job metadata for {source_id}")
-        platemap_name = f"{analysis_name} (Pulse3D Override)"
-        return _well_groups_to_platemap(platemap_name, p3d_well_groups_override)
+        platemap_name = p3d_analysis_params.get("platemap_name", analysis_name)
+        return {
+            "platemap": _well_groups_to_platemap(platemap_name, p3d_well_groups_override),
+            "platemap_source": "Pulse3D Override",
+        }
 
     upload_meta = json.loads(upload_meta)
     if original_recording_platemap_labels := upload_meta.get("platemap_labels"):
         logger.info(f"Using platemap from upload metadata for {source_id}")
-        platemap_name = upload_meta.get("platemap_name", analysis_name) + " (Original Set in Recording)"
-        return _well_groups_to_platemap(platemap_name, original_recording_platemap_labels)
+        platemap_name = upload_meta.get("platemap_name", analysis_name)
+        return {
+            "platemap": _well_groups_to_platemap(platemap_name, original_recording_platemap_labels),
+            "platemap_source": "Original Set in Recording",
+        }
 
     raise PlateMapNotSetError()
 
@@ -195,7 +205,7 @@ async def process_item(con, item):
                         "analysis_params": fetched_source_info_meta["analysis_params"],
                         "file_creation_timestamp": fetched_source_info["finished_at"],
                     }
-                    source_info["platemap"] = _determine_platemap_for_source(
+                    source_info |= _determine_platemap_for_source(
                         source_id,
                         analysis_name,
                         platemap_overrides,

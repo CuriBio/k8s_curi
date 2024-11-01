@@ -150,6 +150,7 @@ export default function UploadForm() {
       selectedPulse3dVersion: getDefaultPulse3dVersion(), // Tanner (9/15/22): The pulse3d version technically isn't a param, but it lives in the same part of the form as the params
       wellsWithFlippedWaveforms: "",
       showStimSheet: "",
+      platemapName: "",
       wellGroups: {},
       stimWaveformFormat: "",
       nameOverride: "",
@@ -407,6 +408,7 @@ export default function UploadForm() {
       selectedPulse3dVersion,
       stiffnessFactor,
       wellsWithFlippedWaveforms,
+      platemapName,
       wellGroups,
       stimWaveformFormat,
       dataType,
@@ -420,7 +422,6 @@ export default function UploadForm() {
       selectedPulse3dVersion === "" || !selectedPulse3dVersion ? pulse3dVersions[0] : selectedPulse3dVersion;
 
     const requestBody = {
-      baseline_widths_to_use: formatTupleParams(baseToPeak, peakToBase),
       // pulse3d versions are currently sorted in desc order, so pick the first (latest) version as the default
       version,
     };
@@ -531,8 +532,14 @@ export default function UploadForm() {
       }
     }
 
+    if (semverGte(version, "1.0.8")) {
+      requestBody.platemap_name = getNullIfEmpty(platemapName);
+    }
+
     if (semverGte(version, "2.0.0")) {
       requestBody.relaxation_search_limit_secs = getNullIfEmpty(relaxationSearchLimit);
+    } else {
+      requestBody.baseline_widths_to_use = formatTupleParams(baseToPeak, peakToBase);
     }
 
     return requestBody;

@@ -538,10 +538,13 @@ async def create_new_job(
         else:
             params.append("prominence_factors")
 
-        if pulse3d_semver < "2.0.0":
-            params.append("baseline_widths_to_use")
-        else:
+        if pulse3d_semver >= "1.0.8":
+            params.append("platemap_name")
+
+        if pulse3d_semver >= "2.0.0":
             params.append("relaxation_search_limit_secs")
+        else:
+            params.append("baseline_widths_to_use")
 
         details_dict = dict(details)
         analysis_params = {param: details_dict[param] for param in params}

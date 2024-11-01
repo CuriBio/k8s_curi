@@ -4,7 +4,7 @@ import { isArrayOfNumbers, loadCsvInputToArray, isArrayOfWellNames, isInt } from
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import { useState, useContext, useEffect } from "react";
 import semverGte from "semver/functions/gte";
-import WellGroups from "@/components/uploadForm/WellGroups";
+import PlatemapOverride from "@/components/uploadForm/PlatemapOverride";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import AnalysisParamContainer from "@/components/uploadForm/AnalysisParamContainer";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
@@ -605,7 +605,6 @@ export default function AnalysisParamForm({
     }
 
     if ("relaxationSearchLimit" in newParams) {
-      const paramVal = newParams.relaxationSearchLimit;
       const newParamErrors = validatePositiveNumber(updatedParams, "relaxationSearchLimit", false, true);
       updatedParamErrors = { ...updatedParamErrors, ...newParamErrors };
     }
@@ -630,6 +629,7 @@ export default function AnalysisParamForm({
         updatedParamErrors = { ...updatedParamErrors, ...newParamErrors };
       }
     }
+
     setParamErrors(updatedParamErrors);
 
     if (newParams.normalizeYAxis === false) {
@@ -1075,10 +1075,15 @@ export default function AnalysisParamForm({
           />
         )}
         {pulse3dVersionGte("0.30.3") && (
-          <WellGroups
+          <PlatemapOverride
+            requirePlatemapName={pulse3dVersionGte("1.0.8")}
             setAnalysisParams={setAnalysisParams}
             analysisParams={analysisParams}
             setWellGroupErr={setWellGroupErr}
+            platemapNameError={errorMessages.platemapName}
+            setPlatemapNameError={(errMsg) => {
+              setParamErrors({ ...paramErrors, platemapName: errMsg });
+            }}
           />
         )}
       </InputContainerOne>
