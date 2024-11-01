@@ -202,7 +202,7 @@ const extractFromMetas = (jobMeta, uploadMeta) => {
   if (wellGroups) {
     return {
       platemapInfo: {
-        name: "N/A",
+        name: jobMeta?.analysis_params?.platemap_name || "N/A",
         wellGroups,
       },
       platemapSource: "Pulse3D Override",

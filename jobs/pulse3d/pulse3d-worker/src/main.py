@@ -398,10 +398,17 @@ async def process_item(con, item):
                     for arg_name, orig_name in (
                         ("widths", "twitch_widths"),
                         ("well_groups", "well_groups"),
-                        ("relaxation_search_limit_secs", "relaxation_search_limit_secs"),
+                        # TODO add this back once switching back to v2.0.0
+                        # ("relaxation_search_limit_secs", "relaxation_search_limit_secs"),
+                        ("baseline_widths", "baseline_widths_to_use"),
                     )
                     if (val := analysis_params.get(orig_name)) is not None
                 }
+
+                # TODO move this into p3d, then just pass platemap_name in normally
+                if platemap_name := analysis_params.get("platemap_name"):
+                    data_with_features.metadata.platemap_name = platemap_name
+
                 metrics_output = metrics.run(data_with_features, **metrics_args)
                 logger.info("Created metrics")
             except Exception:
@@ -467,7 +474,14 @@ async def process_item(con, item):
                     for arg_name, val in analysis_params.items()
                     if val is not None and arg_name
                     # all these values already have a home on the metadata sheet
-                    not in ("start_time", "end_time", "stiffness_factor", "data_type", "well_groups")
+                    not in (
+                        "start_time",
+                        "end_time",
+                        "stiffness_factor",
+                        "data_type",
+                        "platemap_name",
+                        "well_groups",
+                    )
                 }
 
                 renderer_args["output_dir"] = tmpdir
