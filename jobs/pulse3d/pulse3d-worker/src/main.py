@@ -398,9 +398,7 @@ async def process_item(con, item):
                     for arg_name, orig_name in (
                         ("widths", "twitch_widths"),
                         ("well_groups", "well_groups"),
-                        # TODO add this back once switching back to v2.0.0
-                        # ("relaxation_search_limit_secs", "relaxation_search_limit_secs"),
-                        ("baseline_widths", "baseline_widths_to_use"),
+                        ("relaxation_search_limit_secs", "relaxation_search_limit_secs"),
                     )
                     if (val := analysis_params.get(orig_name)) is not None
                 }
