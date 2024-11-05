@@ -4,7 +4,7 @@ import AnalysisParamForm from "@/components/uploadForm/AnalysisParamForm";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import FileDragDrop from "@/components/uploadForm/FileDragDrop";
 import SparkMD5 from "spark-md5";
-import { hexToBase64, getMinP3dVersionForProduct } from "@/utils/generic";
+import { hexToBase64, getMinP3dVersionForAnalysis } from "@/utils/generic";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
@@ -228,7 +228,7 @@ export default function UploadForm() {
   const [alertShowed, setAlertShowed] = useState(false);
   const [reanalysis, setReanalysis] = useState(isReanalysisPage(router));
   const [minPulse3dVersionForCurrentUploads, setMinPulse3dVersionForCurrentUploads] = useState(
-    getMinP3dVersionForProduct(productPage)
+    getMinP3dVersionForAnalysis(productPage)
   );
   const [analysisPresetName, setAnalysisPresetName] = useState();
   const [userPresets, setUserPresets] = useState([]);
@@ -292,6 +292,8 @@ export default function UploadForm() {
   useEffect(() => {
     // check for incorrect files and let user know
     checkFileContents();
+    // update min p3d version
+    setMinPulse3dVersionForCurrentUploads(getMinP3dVersionForAnalysis(productPage, files));
   }, [files]);
 
   useEffect(() => {
@@ -302,7 +304,7 @@ export default function UploadForm() {
 
   useEffect(() => {
     if (productPage) {
-      setMinPulse3dVersionForCurrentUploads(getMinP3dVersionForProduct(productPage));
+      setMinPulse3dVersionForCurrentUploads(getMinP3dVersionForAnalysis(productPage, files));
       getAnalysisPresets();
     }
   }, [productPage]);
@@ -368,7 +370,7 @@ export default function UploadForm() {
     updateCheckParams(false); // this will also reset the analysis params and their error message
     setFailedUploadsMsg(failedUploadsMsg);
     setModalButtons(["Close"]);
-    setMinPulse3dVersionForCurrentUploads(getMinP3dVersionForProduct(productPage));
+    setMinPulse3dVersionForCurrentUploads(getMinP3dVersionForAnalysis(productPage));
     // in case user added a new preset, want to grab updated list on analysis submission
     getAnalysisPresets();
     setSelectedPresetIdx();

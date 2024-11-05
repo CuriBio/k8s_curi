@@ -4,7 +4,7 @@ import AnalysisParamContainer from "@/components/uploadForm/AnalysisParamContain
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import semverGte from "semver/functions/gte";
-import { getMinP3dVersionForProduct } from "@/utils/generic";
+import { getMinP3dVersionForAnalysis } from "@/utils/generic";
 
 const DropDownContainer = styled.div`
   width: 57%;
@@ -59,7 +59,7 @@ const ErrorText = styled.span`
 `;
 
 const filterP3dVersionsForProduct = (productType, versions) => {
-  const minVersion = getMinP3dVersionForProduct(productType);
+  const minVersion = getMinP3dVersionForAnalysis(productType);
   return versions.filter((v) => semverGte(v, minVersion));
 };
 

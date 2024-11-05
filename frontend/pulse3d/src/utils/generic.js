@@ -224,7 +224,11 @@ const applyWindow = (data, xMin, xMax) => {
   return { dataWithinWindow, windowStartIdx, windowEndIdx };
 };
 
-const getMinP3dVersionForProduct = (productType) => {
+const getMinP3dVersionForAnalysis = (productType, selectedFiles) => {
+  if (selectedFiles?.some((f) => f?.name?.endsWith(".curi"))) {
+    return "1.0.9";
+  }
+
   switch (productType) {
     case "nautilai":
       return "0.34.4";
@@ -357,7 +361,7 @@ export {
   formatDateTime,
   applyWindow,
   isInt,
-  getMinP3dVersionForProduct,
+  getMinP3dVersionForAnalysis,
   formatP3dJob,
   formatAdvancedAnalysisJob,
   formatNotificationMessage,
