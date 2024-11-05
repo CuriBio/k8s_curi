@@ -96,7 +96,7 @@ class UploadResponse(BaseModel):
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
 
-    version: str  # this should not ever have an rc component
+    version: str  # this should never have an rc component
     previous_version: str | None = Field(default=None)
 
     name_override: str | None = Field(default=None)
@@ -105,6 +105,7 @@ class JobRequest(BaseModel):
     max_y: Number | None = Field(default=None)
 
     # metrics
+    platemap_name: str | None = Field(default=None)
     well_groups: dict[str, list[str]] | None = Field(default=None)
     baseline_widths_to_use: TupleParam | None = Field(default=None)
     twitch_widths: list[int] | None = Field(default=None)

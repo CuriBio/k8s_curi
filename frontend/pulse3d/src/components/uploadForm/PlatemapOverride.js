@@ -50,9 +50,20 @@ const EmptyText = styled.div`
   margin: 10px;
 `;
 
-export default function WellGroups({ setAnalysisParams, analysisParams, setWellGroupErr }) {
+const VALID_REGEX = new RegExp("^[0-9A-Za-z ./_-]+$");
+
+export default function PlatemapOverride({
+  requirePlatemapName,
+  setAnalysisParams,
+  analysisParams,
+  setWellGroupErr,
+  platemapNameError,
+  setPlatemapNameError,
+}) {
   const [errorMsgs, setErrorMsgs] = useState([]);
   const [localGroups, setLocalGroups] = useState([]);
+
+  const sectionHeader = requirePlatemapName ? "Plate Map" : "Well Groupings";
 
   useEffect(() => {
     let wellGroupsUpdate = {};
@@ -67,11 +78,29 @@ export default function WellGroups({ setAnalysisParams, analysisParams, setWellG
         errExists = true;
       }
     }
-    setAnalysisParams({ ...analysisParams, wellGroups: wellGroupsUpdate });
+
+    const updatedAnalysisParams = { ...analysisParams, wellGroups: wellGroupsUpdate };
     // pass error state up to parent to enable or disable submit button
     setWellGroupErr(errExists);
     setErrorMsgs([...errorMsgs]);
-  }, [localGroups]);
+
+    if (requirePlatemapName) {
+      if (localGroups.length === 0) {
+        updatedAnalysisParams.platemapName = "";
+        setPlatemapNameError("");
+      } else if (analysisParams.platemapName === "") {
+        setPlatemapNameError("*Required");
+      } else {
+        const errMsg = VALID_REGEX.test(analysisParams.platemapName) ? "" : "*Invalid character present.";
+        setPlatemapNameError(errMsg);
+      }
+    } else {
+      updatedAnalysisParams.platemapName = "";
+      setPlatemapNameError("");
+    }
+
+    setAnalysisParams(updatedAnalysisParams);
+  }, [localGroups, analysisParams.platemapName, requirePlatemapName]);
 
   useEffect(() => {
     // reset well groups after reset or submit buttons are selected
@@ -80,6 +109,10 @@ export default function WellGroups({ setAnalysisParams, analysisParams, setWellG
       setLocalGroups([]);
     }
   }, [analysisParams]);
+
+  const updatePlatemapName = (newName) => {
+    setAnalysisParams({ ...analysisParams, platemapName: newName });
+  };
 
   const addWellGroup = () => {
     localGroups.push({ name: "", wells: "" });
@@ -92,9 +125,8 @@ export default function WellGroups({ setAnalysisParams, analysisParams, setWellG
 
   const validateGroupName = (name) => {
     let feedback = "";
-    const valid_regex = new RegExp("^[0-9A-Za-z ./_-]+$");
     if (name.length > 0) {
-      if (!valid_regex.test(name)) {
+      if (!VALID_REGEX.test(name)) {
         feedback = "*Invalid character present.";
       } else if (localGroups.filter((group) => group.name.toLowerCase() === name.toLowerCase()).length > 1) {
         feedback = "*This name already exists";
@@ -159,7 +191,7 @@ export default function WellGroups({ setAnalysisParams, analysisParams, setWellG
   return (
     <>
       <SectionLabel>
-        Well Groupings{" "}
+        {sectionHeader + " "}
         <Tooltip title={<TooltipText>{"Remove Label"}</TooltipText>} placement={"top"}>
           <RemoveCircleOutlineIcon
             sx={{ cursor: "pointer", marginLeft: "15px", "&:hover": { color: "var(--teal-green)" } }}
@@ -177,39 +209,57 @@ export default function WellGroups({ setAnalysisParams, analysisParams, setWellG
       {localGroups.length === 0 ? (
         <EmptyText>Click the plus to add a group</EmptyText>
       ) : (
-        localGroups.map(({ name, wells }, i) => (
-          <WellGroupingContainer key={i}>
+        requirePlatemapName && (
+          <WellGroupingContainer key="name">
             <InputErrorContainer>
               <FormInput
-                name="groupLabel"
-                placeholder={"Label Name"}
-                value={name}
+                name="platemapName"
+                placeholder={"Plate Map Name"}
+                value={analysisParams.platemapName}
                 onChangeFn={(e) => {
-                  updateGroupName(e.target.value, i);
+                  updatePlatemapName(e.target.value.trim());
                 }}
               >
-                <ErrorText id="labelNameError" role="errorMsg">
-                  {errorMsgs[i].name}
-                </ErrorText>
-              </FormInput>
-            </InputErrorContainer>
-            <InputErrorContainer>
-              <FormInput
-                name="wells"
-                placeholder={"A1, B2, C3"}
-                value={wells}
-                onChangeFn={(e) => {
-                  updateWellGroups(e.target.value, i);
-                }}
-              >
-                <ErrorText id="wellsError" role="errorMsg">
-                  {errorMsgs[i].wells}
+                <ErrorText id="platemapNameError" role="errorMsg">
+                  {platemapNameError}
                 </ErrorText>
               </FormInput>
             </InputErrorContainer>
           </WellGroupingContainer>
-        ))
+        )
       )}
+      {localGroups.map(({ name, wells }, i) => (
+        <WellGroupingContainer key={i}>
+          <InputErrorContainer>
+            <FormInput
+              name="groupLabel"
+              placeholder={"Label Name"}
+              value={name}
+              onChangeFn={(e) => {
+                updateGroupName(e.target.value.trim(), i);
+              }}
+            >
+              <ErrorText id="labelNameError" role="errorMsg">
+                {errorMsgs[i].name}
+              </ErrorText>
+            </FormInput>
+          </InputErrorContainer>
+          <InputErrorContainer>
+            <FormInput
+              name="wells"
+              placeholder={"A1, B2, C3"}
+              value={wells}
+              onChangeFn={(e) => {
+                updateWellGroups(e.target.value.trim(), i);
+              }}
+            >
+              <ErrorText id="wellsError" role="errorMsg">
+                {errorMsgs[i].wells}
+              </ErrorText>
+            </FormInput>
+          </InputErrorContainer>
+        </WellGroupingContainer>
+      ))}
     </>
   );
 }
