@@ -55,32 +55,44 @@ def _create_file_info(base_dir: str, upload_prefix: str, job_id: str) -> dict[st
     pre_process_file_s3_key = f"{upload_prefix}/pre-process/{PULSE3D_VERSION}/{pre_process_filename}"
     pre_process_file_path = os.path.join(pre_process_dir, pre_process_filename)
 
+    gxp_dir = os.path.join(base_dir, "gxp")
+    os.mkdir(gxp_dir)
+    gxp_filename = "gxp.log"
+    gxp_file_s3_key = f"{upload_prefix}/{job_id}/{gxp_filename}"  # TODO name the file something else?
+    gxp_file_path = os.path.join(gxp_dir, gxp_filename)
+
     pre_analysis_dir = os.path.join(base_dir, "pre-analysis")
     os.mkdir(pre_analysis_dir)
     pre_analysis_filename = "pre-analysis.zip"
     pre_analysis_file_s3_key = f"{upload_prefix}/{job_id}/{pre_analysis_filename}"
     pre_analysis_file_path = os.path.join(pre_analysis_dir, pre_analysis_filename)
 
-    peak_finding_dir = os.path.join(base_dir, "peak_finding")
+    peak_finding_dir = os.path.join(base_dir, "peak-finding")
     os.mkdir(peak_finding_dir)
     peak_finding_filename = "peaks_valleys.parquet"
     peak_finding_s3_key = f"{upload_prefix}/{job_id}/{peak_finding_filename}"
-    peak_finding_file_path = os.path.join(base_dir, peak_finding_filename)
+    peak_finding_file_path = os.path.join(peak_finding_dir, peak_finding_filename)
 
     metrics_dir = os.path.join(base_dir, "metrics")
     os.mkdir(metrics_dir)
     per_twitch_metrics_filename = "per_twitch_metrics.parquet"
     per_twitch_metrics_s3_key = f"{upload_prefix}/{job_id}/{per_twitch_metrics_filename}"
-    per_twitch_metrics_file_path = os.path.join(base_dir, per_twitch_metrics_filename)
+    per_twitch_metrics_file_path = os.path.join(metrics_dir, per_twitch_metrics_filename)
     aggregate_metrics_filename = "aggregate_metrics.parquet"
     aggregate_metrics_s3_key = f"{upload_prefix}/{job_id}/{aggregate_metrics_filename}"
-    aggregate_metrics_file_path = os.path.join(base_dir, aggregate_metrics_filename)
+    aggregate_metrics_file_path = os.path.join(metrics_dir, aggregate_metrics_filename)
 
     return {
         "zip_contents": {
             "tissue": "tissue_waveforms.parquet",
             "stim": "stim_waveforms.parquet",
             "metadata": "metadata.json",
+        },
+        "gxp": {
+            "dir": gxp_dir,
+            "filename": gxp_filename,
+            "file_path": gxp_file_path,
+            "s3_key": gxp_file_s3_key,
         },
         "pre_process": {
             "dir": pre_process_dir,
@@ -286,7 +298,7 @@ async def process_item(con, item):
             if not re_analysis:
                 try:
                     logger.info("Starting DataLoader")
-                    loaded_data = from_file(recording_path)
+                    loaded_data = from_file(recording_path, file_info["gxp"]["file_path"])
                 except Exception:
                     logger.exception("DataLoader failed")
                     error_msg = "Loading recording data failed"
@@ -306,6 +318,10 @@ async def process_item(con, item):
 
                 # upload pre-processed data
                 _upload_pre_zip(pre_processed_data, file_info, "pre_process")
+
+                # TODO make this its own fn
+                if os.path.isfile(file_info["gxp"]["file_path"]):
+                    pass  # TODO check if gxp file was previously upload to S3 and upload if not
 
             if pre_processed_data is None:
                 raise Exception("Something went wrong, pre-processed data was never set")
