@@ -39,7 +39,7 @@ class PlateMapNotSetError(Exception):
     pass
 
 
-def _create_file_info(
+def _create_input_file_info(
     inputs_dir: str, downloads_dir: str, upload_prefix: str, source_id: str, analysis_name: str
 ) -> dict[str, Any]:
     # input dir is the dir advanced analysis will load data from. It should only contain ready to load files (i.e. no zips)
@@ -76,6 +76,45 @@ def _create_file_info(
     }
 
 
+def _create_output_file_info(base_dir: str, customer_id: str, user_id: str, job_id: str) -> dict[str, Any]:
+    s3_prefix = f"advanced-analysis/{customer_id}/{user_id}/{job_id}"
+
+    outputs_dir = os.path.join(base_dir, "outputs")
+    os.mkdir(outputs_dir)
+
+    metadata_filename = "metadata.parquet"
+    metadata_s3_key = f"{s3_prefix}/{metadata_filename}"
+    metadata_file_path = os.path.join(outputs_dir, metadata_filename)
+
+    ungrouped_aggs_filename = "ungrouped_aggs.parquet"
+    ungrouped_aggs_s3_key = f"{s3_prefix}/{ungrouped_aggs_filename}"
+    ungrouped_aggs_file_path = os.path.join(outputs_dir, ungrouped_aggs_filename)
+
+    group_aggs_filename = "group_aggs.parquet"
+    group_aggs_s3_key = f"{s3_prefix}/{group_aggs_filename}"
+    group_aggs_file_path = os.path.join(outputs_dir, group_aggs_filename)
+
+    return {
+        "output_dir": outputs_dir,
+        "s3_prefix": s3_prefix,
+        "metadata": {
+            "filename": metadata_filename,
+            "file_path": metadata_file_path,
+            "s3_key": metadata_s3_key,
+        },
+        "ungrouped_aggs": {
+            "filename": ungrouped_aggs_filename,
+            "file_path": ungrouped_aggs_file_path,
+            "s3_key": ungrouped_aggs_s3_key,
+        },
+        "group_aggs": {
+            "filename": group_aggs_filename,
+            "file_path": group_aggs_file_path,
+            "s3_key": group_aggs_s3_key,
+        },
+    }
+
+
 def _format_platemap_override_info(
     platemaps: list[dict[str, Any]], platemap_assignments: dict[str, list[Any]]
 ) -> dict[str, dict[str, Any]]:
@@ -91,8 +130,8 @@ def _determine_platemap_for_source(
     source_id: str,
     analysis_name: str,
     platemap_overrides: dict[str, dict[str, Any]],
-    p3d_job_meta: str,
-    upload_meta: str,
+    p3d_job_meta_json: str,
+    upload_meta_json: str,
 ):
     if pm_override := platemap_overrides.get(source_id):
         logger.info(f"Using platemap override for {source_id}")
@@ -101,7 +140,7 @@ def _determine_platemap_for_source(
             "platemap_source": "Advanced Analysis Override",
         }
 
-    p3d_job_meta = json.loads(p3d_job_meta)
+    p3d_job_meta = json.loads(p3d_job_meta_json)
     p3d_analysis_params = p3d_job_meta.get("analysis_params", {})
     if p3d_well_groups_override := p3d_analysis_params.get("well_groups"):
         logger.info(f"Using platemap from pulse3d job metadata for {source_id}")
@@ -111,7 +150,7 @@ def _determine_platemap_for_source(
             "platemap_source": "Pulse3D Override",
         }
 
-    upload_meta = json.loads(upload_meta)
+    upload_meta = json.loads(upload_meta_json)
     if original_recording_platemap_labels := upload_meta.get("platemap_labels"):
         logger.info(f"Using platemap from upload metadata for {source_id}")
         platemap_name = upload_meta.get("platemap_name", analysis_name)
@@ -168,6 +207,15 @@ async def process_item(con, item):
             logger.exception("Error processing submission metadata")
             raise
 
+        logger.info("Retrieving customer and user IDs from DB")
+        try:
+            customer_id, user_id = await con.fetchrow(
+                "SELECT customer_id, user_id FROM advanced_analysis_result WHERE id=$1", job_id
+            )
+        except:
+            logger.exception("Failed retrieving customer and user IDs from DB")
+            raise
+
         sources_info = {}
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -175,8 +223,7 @@ async def process_item(con, item):
             os.mkdir(inputs_dir)
             downloads_dir = os.path.join(tmpdir, "downloads")
             os.mkdir(downloads_dir)
-            outputs_dir = os.path.join(tmpdir, "outputs")
-            os.mkdir(outputs_dir)
+
             # retrieve and format info of sources, download aggregate metrics and metadata files
             for source_id in sources:
                 logger.info(f"Fetching source details for ID: {source_id}")
@@ -212,7 +259,7 @@ async def process_item(con, item):
                         fetched_source_info["p3d_job_meta"],
                         fetched_source_info["upload_meta"],
                     )
-                    source_file_info = _create_file_info(
+                    source_file_info = _create_input_file_info(
                         inputs_dir, downloads_dir, fetched_source_info["prefix"], source_id, analysis_name
                     )
                 except PlateMapNotSetError:
@@ -275,31 +322,35 @@ async def process_item(con, item):
                 logger.exception("Failed running longitudinal aggregation")
                 raise
 
+            output_file_info = _create_output_file_info(tmpdir, customer_id, user_id, job_id)
+
+            for output_pq_name, df in [
+                ("metadata", combined_container.combined_p3d_metadata),
+                ("ungrouped_aggs", combined_container.ungrouped_aggs),
+                ("group_aggs", combined_container.group_aggs),
+            ]:
+                output_items = output_file_info[output_pq_name]
+                df.write_parquet(output_items["file_path"])
+                upload_file_to_s3(
+                    bucket=PULSE3D_UPLOADS_BUCKET, key=output_items["s3_key"], file=output_items["file_path"]
+                )
+
             logger.info("Running renderer")
             try:
-                outfile_name = render(combined_container, output_name, output_dir=outputs_dir)
+                outfile_name = render(
+                    combined_container, output_name, output_dir=output_file_info["output_dir"]
+                )
             except:
                 error_msg = "Output file creation failed"
                 logger.exception("Failed running renderer")
                 raise
 
-            logger.info("Retrieving customer and user IDs from DB")
-            try:
-                customer_id, user_id = await con.fetchrow(
-                    "SELECT customer_id, user_id FROM advanced_analysis_result WHERE id=$1", job_id
-                )
-            except:
-                logger.exception("Failed retrieving customer and user IDs from DB")
-                raise
-
             logger.info("Uploading renderer output")
             try:
-                outfile_prefix = f"advanced-analysis/{customer_id}/{user_id}/{job_id}"
-                outfile_key = f"{outfile_prefix}/{outfile_name}"
                 upload_file_to_s3(
                     bucket=PULSE3D_UPLOADS_BUCKET,
-                    key=outfile_key,
-                    file=os.path.join(outputs_dir, outfile_name),
+                    key=f"{output_file_info['s3_prefix']}/{outfile_name}",
+                    file=os.path.join(output_file_info["output_dir"], outfile_name),
                 )
             except:
                 logger.exception("Failed uploading renderer output")
