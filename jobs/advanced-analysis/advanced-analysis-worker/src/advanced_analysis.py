@@ -12,7 +12,7 @@ from immutabledict import immutabledict
 import polars as pl
 from xlsxwriter import Workbook
 
-ADVANCED_ANALYSIS_VERSION = "0.1.0rc3"
+ADVANCED_ANALYSIS_VERSION = "0.1.0rc8"
 
 # TODO add logging
 
@@ -24,6 +24,7 @@ class SingleAnalysisContainer:
     recording_metadata: dict[str, Any]
     p3d_analysis_metadata: dict[str, Any]
     platemap: dict[str, Any]
+    platemap_source: str
 
 
 @dataclass
@@ -60,6 +61,7 @@ class MetadataDisplayNames(StrEnum):
     utc_beginning_recording = "UTC Timestamp of Beginning of Recording"
     post_stiffness_label = "Post Stiffness Factor"
     platemap_name = auto()
+    platemap_source = auto()
     instrument_serial_number = auto()
     software_release_version = auto()
     main_firmware_version = "Instrument Firmware Version"
@@ -186,6 +188,7 @@ def load_from_dir(
                 recording_metadata=recording_metadata,
                 p3d_analysis_metadata=source_info["p3d_analysis_metadata"],
                 platemap=source_info["platemap"],
+                platemap_source=source_info["platemap_source"],
             )
         )
 
@@ -252,6 +255,7 @@ def _create_p3d_metadata_df(
                 "filename": container.p3d_analysis_metadata["filename"],
                 "pulse3D_version": container.p3d_analysis_metadata["version"],
                 "platemap_name": container.platemap["map_name"],
+                "platemap_source": container.platemap_source,
                 "file_creation_timestamp": container.p3d_analysis_metadata["file_creation_timestamp"],
                 "day": day,
                 "local_tz_beginning_recording": utc_beginning_recording

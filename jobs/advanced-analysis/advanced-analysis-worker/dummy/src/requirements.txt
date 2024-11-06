@@ -1,2 +1,2 @@
-advanced-analysis==0.1.0rc3
+advanced-analysis==0.1.0rc8
 # TODO delete this file once this is an actual dep
