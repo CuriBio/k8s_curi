@@ -329,6 +329,7 @@ async def process_item(con, item):
                 ("ungrouped_aggs", combined_container.ungrouped_aggs),
                 ("group_aggs", combined_container.group_aggs),
             ]:
+                logger.info(f"Writing and uploading {output_pq_name} parquet file")
                 output_items = output_file_info[output_pq_name]
                 df.write_parquet(output_items["file_path"])
                 upload_file_to_s3(
@@ -347,9 +348,10 @@ async def process_item(con, item):
 
             logger.info("Uploading renderer output")
             try:
+                outfile_key = f"{output_file_info['s3_prefix']}/{outfile_name}"
                 upload_file_to_s3(
                     bucket=PULSE3D_UPLOADS_BUCKET,
-                    key=f"{output_file_info['s3_prefix']}/{outfile_name}",
+                    key=outfile_key,
                     file=os.path.join(output_file_info["output_dir"], outfile_name),
                 )
             except:
