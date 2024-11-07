@@ -221,9 +221,9 @@ export default function AdvancedAnalyses() {
       {
         accessorKey: "filename",
         id: "filename",
-        header: "Analysis Name",
+        header: "Analyzed Filename",
         filterVariant: "autocomplete",
-        size: 200,
+        size: 240,
         minSize: 130,
       },
       {

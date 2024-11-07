@@ -456,7 +456,9 @@ export default function AdvancedAnalysisForm() {
             <div style={{ backgroundColor: "white", marginBottom: "30px" }}>
               <InputDropdownWidget
                 label={inputLimitReached ? "Maximum Input Limit Reached" : "Select Inputs"}
-                options={availableP3dJobs.map((j) => `${j.filename} (${formatDateTime(j.created_at)})`)}
+                options={availableP3dJobs.map(
+                  (j) => `${j.filename?.split(".xlsx")[0] || "None"} (${formatDateTime(j.created_at)})`
+                )}
                 handleSelection={handleInputDropDownSelect}
                 reset={
                   [FORM_STATES.RESET, FORM_STATES.SUBMISSION_SUCCESSFUL].includes(formState) ||
@@ -540,6 +542,7 @@ function InputSelectionTable({ formattedJobSelection, removeInputsFromSelection 
         filterVariant: "autocomplete",
         size: 300,
         minSize: 200,
+        Cell: ({ cell }) => cell.getValue()?.split(".xlsx")[0] || "None",
       },
       {
         accessorKey: "id",
