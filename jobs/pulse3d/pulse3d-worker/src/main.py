@@ -12,13 +12,13 @@ import polars as pl
 import structlog
 from jobs import EmptyQueue, get_item
 from mantarray_magnet_finding.exceptions import UnableToConvergeError
+from curibio_analysis_lib import NormalizationMethods
 from pulse3D import metrics
 from pulse3D import peak_finding as peak_finder
 from pulse3D import rendering as renderer
 from pulse3D.constants import PACKAGE_VERSION as PULSE3D_VERSION
 from pulse3D.data_loader import from_file, InstrumentTypes
 from pulse3D.data_loader.utils import get_metadata_cls
-from pulse3D.data_loader.metadata import NormalizationMethods
 from pulse3D.peak_finding import LoadedDataWithFeatures
 from pulse3D.pre_analysis import (
     PreProcessedData,
