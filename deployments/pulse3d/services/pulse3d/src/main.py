@@ -49,15 +49,13 @@ from jobs import (
     get_jobs_info_for_rw_all_data_user,
     get_jobs_info_for_admin,
 )
-from pulse3D.constants import DataTypes
+from curibio_analysis_lib import DataTypes, TwitchMetrics, get_metric_display_title
 from pulse3D.peak_finding.constants import (
     DefaultLegacyPeakFindingParams,
     DefaultNoiseBasedPeakFindingParams,
     FeatureMarkers,
 )
 from pulse3D.peak_finding.utils import create_empty_df, mark_features
-from pulse3D.metrics.constants import TwitchMetrics
-from pulse3D.rendering.utils import get_metric_display_title
 from semver import VersionInfo
 from stream_zip import stream_zip
 from starlette_context import context, request_cycle_context
@@ -618,7 +616,7 @@ async def create_new_job(
             version = details.version
             # TODO remove this once testing 2.0.0 is complete
             if version == "2.0.0":
-                version += "rc2"
+                version += "rc4"
 
             job_meta = {"analysis_params": analysis_params, "version": version}
             # if a name is present, then add to metadata of job
