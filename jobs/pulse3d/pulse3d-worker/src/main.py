@@ -57,6 +57,7 @@ def _create_file_info(base_dir: str, upload_prefix: str, job_id: str) -> dict[st
 
     curi_file_extraction_dir = os.path.join(base_dir, "curi-file-contents")
     os.mkdir(curi_file_extraction_dir)
+    curi_file_contents_s3_prefix = f"{upload_prefix}/curi-file-contents/"
 
     pre_analysis_dir = os.path.join(base_dir, "pre-analysis")
     os.mkdir(pre_analysis_dir)
@@ -85,10 +86,9 @@ def _create_file_info(base_dir: str, upload_prefix: str, job_id: str) -> dict[st
             "stim": "stim_waveforms.parquet",
             "metadata": "metadata.json",
         },
-        "curi_file_contents": {
-            "dir": curi_file_extraction_dir,
-            "s3_prefix": f"{upload_prefix}/curi-file-contents/",
-        },
+        "curi_file_contents": {"dir": curi_file_extraction_dir, "s3_prefix": curi_file_contents_s3_prefix},
+        "curi_file_full_zip": {"s3_key": f"{curi_file_contents_s3_prefix}full-curi-file-contents.zip"},
+        "curi_file_non_gxp_zip": {"s3_key": f"{curi_file_contents_s3_prefix}non-gxp-curi-file-contents.zip"},
         "pre_process": {
             "dir": pre_process_dir,
             "filename": pre_process_filename,
@@ -153,15 +153,43 @@ def _upload_pre_zip(data_container, file_info, pre_step_name) -> None:
         raise
 
 
-def _upload_curi_file_extraction(file_info, curi_file_extraction_dir):
-    cfc_unzipped_prefix = file_info["curi_file_contents"]["s3_prefix"] + "unzipped/"
+def _process_curi_file_extraction(file_info, curi_file_extraction_dir):
+    all_files = []
+    non_gxp_files = []
     for root, _, files in os.walk(curi_file_extraction_dir):
         for f in files:
             filepath = os.path.join(root, f)
             rel_path = filepath.split(curi_file_extraction_dir)[-1]
-            s3_key = cfc_unzipped_prefix + rel_path
-            logger.info(f"Uploading {filepath} to {s3_key}")
-            upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=s3_key, file=filepath)
+            item = (filepath, rel_path)
+            all_files.append(item)
+            if "/gxp/" not in rel_path:
+                non_gxp_files.append(item)
+
+    cfc_unzipped_prefix = file_info["curi_file_contents"]["s3_prefix"] + "unzipped/"
+    for filepath, rel_path in all_files:
+        s3_key = cfc_unzipped_prefix + rel_path
+        logger.info(f"Uploading {filepath} to {s3_key}")
+        upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=s3_key, file=filepath)
+
+    logger.info("Creating full zip of extracted files for upload")
+    with tempfile.TemporaryFile(dir=curi_file_extraction_dir) as tmpfile:
+        with ZipFile(tmpfile, "w") as z:
+            for filepath, rel_path in all_files:
+                z.write(filepath, rel_path)
+        logger.info("Uploading full zip of extracted files")
+        upload_file_to_s3(
+            bucket=PULSE3D_UPLOADS_BUCKET, key=file_info["curi_file_full_zip"]["s3_key"], file=tmpfile
+        )
+
+    logger.info("Creating non-gxp zip of extracted files for upload")
+    with tempfile.TemporaryFile(dir=curi_file_extraction_dir) as tmpfile:
+        with ZipFile(tmpfile, "w") as z:
+            for filepath, rel_path in non_gxp_files:
+                z.write(filepath, rel_path)
+        logger.info("Uploading non-gxp zip of extracted files")
+        upload_file_to_s3(
+            bucket=PULSE3D_UPLOADS_BUCKET, key=file_info["curi_file_non_gxp_zip"]["s3_key"], file=tmpfile
+        )
 
 
 @get_item(queue=f"pulse3d-v{PULSE3D_VERSION}")
@@ -325,7 +353,7 @@ async def process_item(con, item):
                 # upload extracted curi files, if any
                 if curi_file_extraction_dir and os.path.isdir(curi_file_extraction_dir):
                     logger.info("Curi file extraction performed, uploading extracted files")
-                    _upload_curi_file_extraction(file_info, curi_file_extraction_dir)
+                    _process_curi_file_extraction(file_info, curi_file_extraction_dir)
                 else:
                     logger.info("No curi file extraction performed")
 
