@@ -55,11 +55,8 @@ def _create_file_info(base_dir: str, upload_prefix: str, job_id: str) -> dict[st
     pre_process_file_s3_key = f"{upload_prefix}/pre-process/{PULSE3D_VERSION}/{pre_process_filename}"
     pre_process_file_path = os.path.join(pre_process_dir, pre_process_filename)
 
-    gxp_dir = os.path.join(base_dir, "gxp")
-    os.mkdir(gxp_dir)
-    gxp_filename = "gxp.log"
-    gxp_file_s3_key = f"{upload_prefix}/{job_id}/{gxp_filename}"  # TODO name the file something else?
-    gxp_file_path = os.path.join(gxp_dir, gxp_filename)
+    curi_file_extraction_dir = os.path.join(base_dir, "curi-file-contents")
+    os.mkdir(curi_file_extraction_dir)
 
     pre_analysis_dir = os.path.join(base_dir, "pre-analysis")
     os.mkdir(pre_analysis_dir)
@@ -88,11 +85,9 @@ def _create_file_info(base_dir: str, upload_prefix: str, job_id: str) -> dict[st
             "stim": "stim_waveforms.parquet",
             "metadata": "metadata.json",
         },
-        "gxp": {
-            "dir": gxp_dir,
-            "filename": gxp_filename,
-            "file_path": gxp_file_path,
-            "s3_key": gxp_file_s3_key,
+        "curi_file_contents": {
+            "dir": curi_file_extraction_dir,
+            "s3_prefix": f"{upload_prefix}/curi-file-contents/",
         },
         "pre_process": {
             "dir": pre_process_dir,
@@ -158,6 +153,17 @@ def _upload_pre_zip(data_container, file_info, pre_step_name) -> None:
         raise
 
 
+def _upload_curi_file_extraction(file_info, curi_file_extraction_dir):
+    cfc_unzipped_prefix = file_info["curi_file_contents"]["s3_prefix"] + "unzipped/"
+    for root, _, files in os.walk(curi_file_extraction_dir):
+        for f in files:
+            filepath = os.path.join(root, f)
+            rel_path = filepath.split(curi_file_extraction_dir)[-1]
+            s3_key = cfc_unzipped_prefix + rel_path
+            logger.info(f"Uploading {filepath} to {s3_key}")
+            upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=s3_key, file=filepath)
+
+
 @get_item(queue=f"pulse3d-v{PULSE3D_VERSION}")
 async def process_item(con, item):
     # keeping initial log without bound variables
@@ -194,9 +200,7 @@ async def process_item(con, item):
             upload_filename = upload_details["filename"]
             # if a new name has been given in the upload form, then replace here, else use original name
             analysis_filename = (
-                f"{name_override}.zip"
-                if (name_override := metadata.get("name_override"))
-                else upload_filename
+                name_override if (name_override := metadata.get("name_override")) else upload_filename
             )
             analysis_name = os.path.splitext(analysis_filename)[0]
         except Exception:
@@ -222,15 +226,28 @@ async def process_item(con, item):
         with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
             file_info = _create_file_info(tmpdir, prefix, str(job_id))
 
-            # download recording file
+            # check for existing extracted curi file contentsin S3
             try:
+                cfc_unzipped_data_prefix = file_info["curi_file_contents"]["s3_prefix"] + "unzipped/data/"
+                s3_objects = s3_client.list_objects_v2(
+                    Bucket=PULSE3D_UPLOADS_BUCKET, Prefix=cfc_unzipped_data_prefix, Delimiter="/"
+                )
+                logger.info("Found extracted curi file contents in S3")
+                key = s3_objects["Contents"][0]["Key"]
+                curi_file_extraction_dir = file_info["curi_file_contents"]["dir"]
+            except Exception:
+                logger.info("Could not find extracted curi file contents in S3")
                 key = f"{prefix}/{upload_filename}"
-                recording_path = f"{tmpdir}/{analysis_filename}"
+                curi_file_extraction_dir = None
+
+            # download recording file
+            recording_path = f"{tmpdir}/{analysis_filename}"
+            try:
+                logger.info(f"Downloading {key}")
                 s3_client.download_file(PULSE3D_UPLOADS_BUCKET, key, recording_path)
                 logger.info(f"Downloaded recording file to {recording_path}")
             except Exception:
-                logger.exception("Failed to download recording zip file")
-                raise
+                logger.exception("Failed to download recording file")
 
             # download existing peak finding data
             try:
@@ -242,7 +259,7 @@ async def process_item(con, item):
                 )
                 interactive_analysis = True
                 logger.info(f"Downloaded peaks and valleys to {file_info['peak_finding']['file_path']}")
-            except Exception:  # TODO catch only boto3 errors here?
+            except Exception:
                 logger.info("No existing peaks and valleys found for recording")
 
             pre_processed_data = None
@@ -296,14 +313,23 @@ async def process_item(con, item):
                     logger.exception("Error loading existing pre-process data")
 
             if not re_analysis:
+                # run data loader
                 try:
                     logger.info("Starting DataLoader")
-                    loaded_data = from_file(recording_path, file_info["gxp"]["file_path"])
+                    loaded_data = from_file(recording_path, curi_file_extraction_dir)
                 except Exception:
                     logger.exception("DataLoader failed")
                     error_msg = "Loading recording data failed"
                     raise
 
+                # upload extracted curi files, if any
+                if curi_file_extraction_dir and os.path.isdir(curi_file_extraction_dir):
+                    logger.info("Curi file extraction performed, uploading extracted files")
+                    _upload_curi_file_extraction(file_info, curi_file_extraction_dir)
+                else:
+                    logger.info("No curi file extraction performed")
+
+                # run pre-processing
                 try:
                     logger.info("Starting Pre-Analysis pre-processing")
                     pre_processed_data = pre_process(loaded_data)
@@ -318,10 +344,6 @@ async def process_item(con, item):
 
                 # upload pre-processed data
                 _upload_pre_zip(pre_processed_data, file_info, "pre_process")
-
-                # TODO make this its own fn
-                if os.path.isfile(file_info["gxp"]["file_path"]):
-                    pass  # TODO check if gxp file was previously upload to S3 and upload if not
 
             if pre_processed_data is None:
                 raise Exception("Something went wrong, pre-processed data was never set")
