@@ -61,19 +61,19 @@ def upgrade():
                     values (TG_TABLE_SCHEMA::TEXT, TG_TABLE_NAME::TEXT, session_user::TEXT, substring(TG_OP,1,1), v_new_data, current_query());
                     RETURN NEW;
                 else
-                    RAISE WARNING '[AUDIT.IF_MODIFIED_FUNC] - Other action occurred: %, at %',TG_OP,now();
+                    RAISE WARNING '[AUDIT.LOG_ACTION] - Other action occurred: %, at %',TG_OP,now();
                     RETURN NULL;
                 end if;
 
             EXCEPTION
                 WHEN data_exception THEN
-                    RAISE WARNING '[AUDIT.IF_MODIFIED_FUNC] - UDF ERROR [DATA EXCEPTION] - SQLSTATE: %, SQLERRM: %',SQLSTATE,SQLERRM;
+                    RAISE WARNING '[AUDIT.LOG_ACTION] - UDF ERROR [DATA EXCEPTION] - SQLSTATE: %, SQLERRM: %',SQLSTATE,SQLERRM;
                     RETURN NULL;
                 WHEN unique_violation THEN
-                    RAISE WARNING '[AUDIT.IF_MODIFIED_FUNC] - UDF ERROR [UNIQUE] - SQLSTATE: %, SQLERRM: %',SQLSTATE,SQLERRM;
+                    RAISE WARNING '[AUDIT.LOG_ACTION] - UDF ERROR [UNIQUE] - SQLSTATE: %, SQLERRM: %',SQLSTATE,SQLERRM;
                     RETURN NULL;
                 WHEN others THEN
-                    RAISE WARNING '[AUDIT.IF_MODIFIED_FUNC] - UDF ERROR [OTHER] - SQLSTATE: %, SQLERRM: %',SQLSTATE,SQLERRM;
+                    RAISE WARNING '[AUDIT.LOG_ACTION] - UDF ERROR [OTHER] - SQLSTATE: %, SQLERRM: %',SQLSTATE,SQLERRM;
                     RETURN NULL;
             END;
             $body$
