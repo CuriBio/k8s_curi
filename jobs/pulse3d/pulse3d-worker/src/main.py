@@ -12,7 +12,7 @@ import polars as pl
 import structlog
 from jobs import EmptyQueue, get_item
 from mantarray_magnet_finding.exceptions import UnableToConvergeError
-from curibio_analysis_lib import NormalizationMethods
+from curibio_analysis_lib import NormalizationMethods, FullPlatemap
 from pulse3D import metrics
 from pulse3D import peak_finding as peak_finder
 from pulse3D import rendering as renderer
@@ -397,15 +397,14 @@ async def process_item(con, item):
                     arg_name: val
                     for arg_name, orig_name in (
                         ("widths", "twitch_widths"),
-                        ("well_groups", "well_groups"),
                         ("relaxation_search_limit_secs", "relaxation_search_limit_secs"),
                     )
                     if (val := analysis_params.get(orig_name)) is not None
                 }
-
-                # TODO move this into p3d, then just pass platemap_name in normally
-                if platemap_name := analysis_params.get("platemap_name"):
-                    data_with_features.metadata.platemap_name = platemap_name
+                if well_groups := analysis_params.get("well_groups"):
+                    metrics_args["platemap_override"] = FullPlatemap.from_abbreviated(
+                        well_groups, analysis_params.get("platemap_name")
+                    )
 
                 metrics_output = metrics.run(data_with_features, **metrics_args)
                 logger.info("Created metrics")
