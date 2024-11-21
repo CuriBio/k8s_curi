@@ -90,8 +90,7 @@ def find_changed_svcs(sha: str):
         if svc == "pulse3d-worker":
             version = parse_py_dep_version(ch_path, "pulse3d")
         elif svc == "advanced-analysis-worker":
-            # TODO remove "dummy" here once it's removed
-            version = parse_py_dep_version(os.path.join(ch_path, "dummy"), "advanced-analysis")
+            version = parse_py_dep_version(ch_path, "advanced-analysis")
         elif svc in ("queue-processor", "jobs-operator") or dep_type == "deployments":
             # get version from service config to tag docker images
             version = get_svc_version(ch_path)
