@@ -462,8 +462,11 @@ async def _decode_and_verify_jwt(token):
 async def _verify_password(con, account_type, pw, select_query_result) -> None:
     ph = PasswordHasher()
 
-    failed_msg = "Invalid credentials. Account will be locked after 10 failed attempts."
+    invalid_creds_msg = "Invalid credentials. Account will be locked after 10 failed attempts."
     account_locked_msg = "Account locked. Too many failed attempts."
+    deactivated_msg = (
+        "This account has been deactived. Please contact your administrator to reactivate this account."
+    )
 
     if select_query_result is None:
         # if no record is returned by query then fetchrow will return None,
@@ -481,16 +484,16 @@ async def _verify_password(con, account_type, pw, select_query_result) -> None:
             raise LoginError(account_locked_msg)
 
         # increment admin/user failed attempts
-        logger.info(
-            f"Failed login attempt {select_query_result['failed_login_attempts'] + 1} for {account_type} id: {select_query_result['id']}"
-        )
         updated_failed_attempts = select_query_result["failed_login_attempts"] + 1
+        logger.info(
+            f"Failed login attempt {updated_failed_attempts} for {account_type} id: {select_query_result['id']}"
+        )
         await _update_failed_login_attempts(
             con, account_type, select_query_result["id"], updated_failed_attempts
         )
         # update login error if this failed attempt hits limit
         raise LoginError(
-            account_locked_msg if updated_failed_attempts == MAX_FAILED_LOGIN_ATTEMPTS else failed_msg
+            account_locked_msg if updated_failed_attempts == MAX_FAILED_LOGIN_ATTEMPTS else invalid_creds_msg
         )
     except InvalidHash:
         """
@@ -498,14 +501,14 @@ async def _verify_password(con, account_type, pw, select_query_result) -> None:
         through timing analysis so we still hash the supplied password before returning an error
         """
         ph.hash(pw)
-        raise LoginError(failed_msg)
+        raise LoginError(invalid_creds_msg)
     else:
         # only raise LoginError here when account is locked on successful creds after they have been checked to prevent giving away facts about successful login combinations
         if select_query_result["failed_login_attempts"] >= MAX_FAILED_LOGIN_ATTEMPTS:
             raise LoginError(account_locked_msg)
         # user can be suspended if admin account suspends them, select_query_result will not return None in that instance
         if select_query_result["suspended"]:
-            raise LoginError(failed_msg)
+            raise LoginError(deactivated_msg)
 
 
 async def _update_failed_login_attempts(con, account_type: str, id: str, count: int) -> None:
