@@ -319,6 +319,8 @@ export default function UploadForm() {
       }
 
       setAnalysisParams(currentParams);
+      // also clear error messages
+      setParamErrors({});
     }
   };
 

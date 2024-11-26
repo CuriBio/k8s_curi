@@ -59,11 +59,26 @@ export default function PlatemapOverride({
   setWellGroupErr,
   platemapNameError,
   setPlatemapNameError,
+  presetLoadTime,
 }) {
   const [errorMsgs, setErrorMsgs] = useState([]);
   const [localGroups, setLocalGroups] = useState([]);
 
   const sectionHeader = requirePlatemapName ? "Plate Map" : "Well Groupings";
+
+  // this use effect is only to update local groups after a preset is loaded
+  useEffect(() => {
+    if (presetLoadTime != null) {
+      localGroups.length = 0;
+      errorMsgs.length = 0;
+      for (const [name, wellsArr] of Object.entries(analysisParams.wellGroups || {})) {
+        localGroups.push({ name, wells: wellsArr.join(",") });
+        errorMsgs.push({ name: "", wells: "" });
+      }
+      setLocalGroups(localGroups);
+      setErrorMsgs(errorMsgs);
+    }
+  }, [presetLoadTime]);
 
   useEffect(() => {
     let wellGroupsUpdate = {};

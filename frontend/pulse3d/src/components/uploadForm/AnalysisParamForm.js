@@ -488,6 +488,7 @@ export default function AnalysisParamForm({
   const [pulse3dVersionOptions, setPulse3dVersionOptions] = useState([]);
   const [pulse3dFilteredFileVersions, setPulse3dFilteredFileVersions] = useState([]);
   const [presetDeletionIdx, setPresetDeletionIdx] = useState(-1);
+  const [presetLoadTime, setPresetLoadTime] = useState();
 
   const handlePulse3dVersionSelect = (idx) => {
     const selectedVersionMetadata = metaPulse3dVersions.find(
@@ -508,6 +509,14 @@ export default function AnalysisParamForm({
       selectedPulse3dVersion: pulse3dFilteredFileVersions[idx],
     });
   };
+
+  useEffect(() => {
+    if (selectedPresetIdx != null) {
+      setPresetLoadTime(new Date());
+    } else {
+      setPresetLoadTime(null);
+    }
+  }, [selectedPresetIdx]);
 
   useEffect(() => {
     // set back to initial version index, this gets handled after a file is uploaded and if an xlsx file is present, the pulse3d versions will be in a different order.
@@ -732,6 +741,8 @@ export default function AnalysisParamForm({
         const allowZero = boundName === minName;
         const newParamErrors = validatePositiveNumber(updatedParams, boundName, allowZero, allowFloat);
         updatedParamErrors = { ...updatedParamErrors, ...newParamErrors };
+      } else {
+        updatedParamErrors = { ...updatedParamErrors, [boundName]: "" };
       }
     }
 
@@ -1084,6 +1095,7 @@ export default function AnalysisParamForm({
             setPlatemapNameError={(errMsg) => {
               setParamErrors({ ...paramErrors, platemapName: errMsg });
             }}
+            presetLoadTime={presetLoadTime}
           />
         )}
       </InputContainerOne>
