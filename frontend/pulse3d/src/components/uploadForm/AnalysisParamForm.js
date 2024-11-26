@@ -741,6 +741,8 @@ export default function AnalysisParamForm({
         const allowZero = boundName === minName;
         const newParamErrors = validatePositiveNumber(updatedParams, boundName, allowZero, allowFloat);
         updatedParamErrors = { ...updatedParamErrors, ...newParamErrors };
+      } else {
+        updatedParamErrors = { ...updatedParamErrors, [boundName]: "" };
       }
     }
 
