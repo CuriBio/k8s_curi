@@ -163,7 +163,9 @@ async def sso_admin(request: Request, details: SSOLogin):
                 raise LoginError("Invalid credentials.")
 
             if select_query_result["suspended"]:
-                raise LoginError("Account has been suspended.")
+                raise LoginError(
+                    "This account has been deactivated. Please contact Curi Bio to reactivate this account."
+                )
 
             customer_id = select_query_result.get("id")
             bind_context_to_logger({"customer_id": str(customer_id)})
@@ -215,7 +217,9 @@ async def sso_user(request: Request, details: SSOLogin):
                 raise LoginError("Invalid credentials.")
 
             if select_query_result["suspended"]:
-                raise LoginError("Account has been suspended.")
+                raise LoginError(
+                    "This account has been deactivated. Please contact your administrator to reactivate this account."
+                )
 
             if select_query_result["customer_suspended"]:
                 raise LoginError("The customer ID for this account has been deactivated.")
