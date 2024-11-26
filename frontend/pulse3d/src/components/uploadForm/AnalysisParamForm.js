@@ -1193,10 +1193,9 @@ export default function AnalysisParamForm({
         ]}
         buttons={["Cancel", "Delete"]}
         closeModal={async (idx) => {
-          let success = true;
-
           const presetName = userPresets?.[presetDeletionIdx]?.name;
           if (idx === 1) {
+            let success = true;
             try {
               const res = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets/${presetName}`, {
                 method: "DELETE",
@@ -1206,10 +1205,10 @@ export default function AnalysisParamForm({
               console.log("ERROR delete analysis param preset", e);
               success = false;
             }
-          }
-          if (success) {
-            userPresets.splice(presetDeletionIdx, 1);
-            setUserPresets([...userPresets]);
+            if (success) {
+              userPresets.splice(presetDeletionIdx, 1);
+              setUserPresets([...userPresets]);
+            }
           }
           setPresetDeletionIdx(-1);
         }}
