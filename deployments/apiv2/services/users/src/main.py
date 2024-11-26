@@ -465,7 +465,9 @@ async def _verify_password(con, account_type, pw, select_query_result) -> None:
     invalid_creds_msg = "Invalid credentials. Account will be locked after 10 failed attempts."
     account_locked_msg = "Account locked. Too many failed attempts."
     deactivated_msg = (
-        "This account has been deactived. Please contact your administrator to reactivate this account."
+        "This account has been deactivated. Please contact your administrator to reactivate this account."
+        if account_type == "user"
+        else "This account has been deactivated. Please contact Curi Bio to reactivate this account."
     )
 
     if select_query_result is None:
