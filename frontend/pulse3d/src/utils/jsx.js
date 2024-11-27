@@ -23,4 +23,4 @@ const getShortUUIDWithTooltip = (uuid, numChars = 8) => {
   );
 };
 
-export { getShortUUIDWithTooltip };
+export { getShortUUIDWithTooltip, NoMaxWidthTooltip };
