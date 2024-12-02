@@ -697,7 +697,7 @@ async def register_admin(
                 if login_type == LoginType.PASSWORD:  # Username / Password path
                     await _create_account_email(
                         con=con,
-                        type="verify",
+                        action="verify",
                         user_id=None,
                         customer_id=new_account_id,
                         scope=Scopes.ADMIN__VERIFY,
@@ -786,7 +786,7 @@ async def register_user(
                 if customer_login_type == LoginType.PASSWORD:  # Username / Password path
                     await _create_account_email(
                         con=con,
-                        type="verify",
+                        action="verify",
                         user_id=new_account_id,
                         customer_id=customer_id,
                         scope=Scopes.USER__VERIFY,
@@ -815,13 +815,12 @@ async def register_user(
 
 @app.get("/email", status_code=status.HTTP_204_NO_CONTENT)
 async def email_account(
-    request: Request, email: EmailStr = Query(None), type: str = Query(None), user: bool = Query(None)
+    request: Request, email: EmailStr = Query(None), action: str = Query(None), user: bool = Query(None)
 ):
     """Send or resend account emails.
 
     No token required for request. Currently sending reset password and new registration emails based on query type.
     """
-    # EmailRegistrationError will be raised if random type param is added that isn't verify or reset
     try:
         async with request.state.pgpool.acquire() as con:
             query = (
@@ -834,6 +833,7 @@ async def email_account(
 
             # send email if found and password-based user, otherwise return 204, doesn't need to raise an exception
             if row is None:
+                logger.info(f"No account found with email address '{email}'")
                 return
 
             if user:
@@ -848,11 +848,11 @@ async def email_account(
             bind_context_to_logger(
                 {"user_id": str(user_id), "customer_id": str(customer_id), "username": username}
             )
-            scope = convert_scope_str(f"{'user' if user else 'admin'}:{type}")
+            scope = convert_scope_str(f"{'user' if user else 'admin'}:{action}")
 
             await _create_account_email(
                 con=con,
-                type=type,
+                action=action,
                 user_id=user_id,
                 customer_id=customer_id,
                 scope=scope,
@@ -868,7 +868,7 @@ async def email_account(
 async def _create_account_email(
     *,
     con,
-    type: str,
+    action: str,
     user_id: uuid.UUID | None,
     customer_id: uuid.UUID,
     scope: Scopes,
@@ -895,17 +895,17 @@ async def _create_account_email(
             userid=user_id, customer_id=customer_id, scopes=[scope], account_type=account_type
         )
 
-        url = f"{DASHBOARD_URL}/account/{type}?token={jwt_token.token}"
+        url = f"{DASHBOARD_URL}/account/{action}?token={jwt_token.token}"
 
         # assign correct email template and redirect url based on request type
-        if type == "reset":
+        if action == "reset":
             subject = "Reset your password"
             template = "reset_password.html"
-        elif type == "verify":
+        elif action == "verify":
             subject = "Please verify your email address"
             template = "registration.html"
         else:
-            logger.error(f"{type} is not a valid type allowed in this request")
+            logger.error(f"{action} is not a valid action allowed in this request")
             raise Exception()
 
         # add token to users table after no exception is raised
@@ -919,8 +919,10 @@ async def _create_account_email(
 
 
 async def _send_account_email(
-    *, username: str, email: EmailStr, url: str, subject: str, template: str
+    *, username: str | None, email: EmailStr, url: str, subject: str, template: str
 ) -> None:
+    logger.info(f"Sending email with subject '{subject}' to email address '{email}'")
+
     conf = ConnectionConfig(
         MAIL_USERNAME=CURIBIO_EMAIL,
         MAIL_PASSWORD=CURIBIO_EMAIL_PASSWORD,

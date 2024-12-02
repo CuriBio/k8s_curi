@@ -197,7 +197,7 @@ export default function UpdateAccount({ modalHeader, shortTermToken, type }) {
       return await fetch(
         `${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${encodeURIComponent(
           userEmail
-        )}&type=${type}&user=${jwtDecode(shortTermToken).account_type === "user"}`
+        )}&action=${type}&user=${jwtDecode(shortTermToken).account_type === "user"}`
       );
     } catch (e) {
       console.log("ERROR resending verification email", e);

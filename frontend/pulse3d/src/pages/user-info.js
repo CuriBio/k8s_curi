@@ -296,7 +296,9 @@ export default function Users() {
   const resendVerificationLink = async (email) => {
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${encodeURIComponent(email)}&type=verify&user=true`
+        `${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${encodeURIComponent(
+          email
+        )}&action=verify&user=true`
       );
       if (res && res.status === 204) {
         await resetTable();

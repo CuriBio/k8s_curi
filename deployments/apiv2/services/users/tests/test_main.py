@@ -1712,7 +1712,7 @@ def test_email__get__send_correct_email_based_on_request_query_type(mocked_async
         "name": test_username,
     }
 
-    response = test_client.get(f"/email?email={test_user_email}&type={type}&user=true")
+    response = test_client.get(f"/email?email={test_user_email}&action={type}&user=true")
 
     assert response.status_code == 204
 
@@ -1742,7 +1742,7 @@ def test_email__get__returns_204_when_email_is_not_found(mocked_asyncpg_con, moc
     test_user_email = "test_user@curibio.com"
     mocked_asyncpg_con.fetchrow.return_value = None
 
-    response = test_client.get(f"/email?email={test_user_email}&type={type}")
+    response = test_client.get(f"/email?email={test_user_email}&action={type}")
 
     assert response.status_code == 204
     spied_create_email.assert_not_called()
@@ -1762,7 +1762,7 @@ def test_email__get__returns_exception_if_unknown_type_is_used(mocked_asyncpg_co
         "name": test_username,
     }
 
-    response = test_client.get(f"/email?email={test_user_email}&type={unknown_type}&user=true")
+    response = test_client.get(f"/email?email={test_user_email}&action={unknown_type}&user=true")
 
     assert response.status_code == 500
 
