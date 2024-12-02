@@ -268,7 +268,7 @@ export default function Login() {
             const res = await fetch(
               `${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${encodeURIComponent(
                 userEmail
-              )}&type=reset&user=${loginType == "User"}`
+              )}&action=reset&user=${loginType == "User"}`
             );
 
             if (res) {
