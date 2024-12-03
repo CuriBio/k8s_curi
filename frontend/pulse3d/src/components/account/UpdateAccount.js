@@ -260,7 +260,7 @@ export default function UpdateAccount({ modalHeader, shortTermToken, type }) {
               value={userEmail}
               onChangeFn={(e) => {
                 validateEmail(e.target.value);
-                setUserEmail(e.target.value);
+                setUserEmail(e.target.value.toLowerCase());
               }}
             />
             <ErrorText id="emailError" role="errorMsg">
