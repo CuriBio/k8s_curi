@@ -1022,7 +1022,7 @@ async def update_accounts(
 
     except UnableToUpdateAccountError:
         msg = "Cannot set password to any of the previous 5 passwords"
-        logger.info(f"PUT /account: {msg}")
+        logger.error(f"PUT /account: {msg}")
         return UnableToUpdateAccountResponse(message=msg)
     except HTTPException:
         raise
