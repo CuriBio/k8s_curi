@@ -987,10 +987,14 @@ async def update_accounts(
 
                 # if the token is being used to verify the user account and the account has already been verified, then return message to display to user
                 if is_user and details.verify and row["verified"]:
-                    return UnableToUpdateAccountResponse(message="Account has already been verified")
+                    msg = "Account has already been verified"
+                    logger.error(f"PUT /account: {msg}")
+                    return UnableToUpdateAccountResponse(message=msg)
                 # token in db gets replaced with NULL when it's been successfully used
                 if row["reset_token"] is None:
-                    return UnableToUpdateAccountResponse(message="Link has already been used")
+                    msg = "Link has already been used"
+                    logger.error(f"PUT /account: {msg}")
+                    return UnableToUpdateAccountResponse(message=msg)
 
                 # if there is a token present in the DB but it does not match the one provided to this route, then presumably a new one has been created and thus the one being used should be considered expired
                 try:
@@ -999,7 +1003,9 @@ async def update_accounts(
                     # make sure the given token and the current token in the DB are the same
                     assert token == current_token
                 except (InvalidTokenError, AssertionError):
-                    return UnableToUpdateAccountResponse(message="Link has expired")
+                    msg = "Link has expired"
+                    logger.error(f"PUT /account: {msg}")
+                    return UnableToUpdateAccountResponse(message=msg)
 
                 # Update the password of the account, and if it is a user also set the account as verified
                 update_query = (
@@ -1015,11 +1021,13 @@ async def update_accounts(
                 await _update_password(con, pw, row["previous_passwords"], update_query, query_params)
 
     except UnableToUpdateAccountError:
-        return UnableToUpdateAccountResponse(message="Cannot set password to any of the previous 5 passwords")
+        msg = "Cannot set password to any of the previous 5 passwords"
+        logger.info(f"PUT /account: {msg}")
+        return UnableToUpdateAccountResponse(message=msg)
     except HTTPException:
         raise
     except Exception:
-        logger.exception(f"PUT /{account_id}: Unexpected error")
+        logger.exception("PUT /account: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -1449,7 +1457,9 @@ async def update_account(
             await con.execute(update_query, *query_args)
 
     except UnableToUpdateAccountError:
-        return UnableToUpdateAccountResponse(message="Cannot set password to any of the previous 5 passwords")
+        msg = "Cannot set password to any of the previous 5 passwords"
+        logger.exception(f"PUT /{account_id}: {msg}")
+        return UnableToUpdateAccountResponse(message=msg)
     except HTTPException:
         raise
     except Exception:
