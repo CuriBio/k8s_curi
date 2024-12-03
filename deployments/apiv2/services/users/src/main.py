@@ -137,7 +137,7 @@ async def sso_admin(request: Request, details: SSOLogin):
     returning a JWT with the appropriate privileges.
     """
     id_token = await _decode_and_verify_jwt(details.id_token)
-    email = id_token.get("email").lower()
+    email = str(id_token.get("email")).lower()
     tid = id_token.get("tid")
     oid = id_token.get("oid")
     client_type = details.client_type if details.client_type else "unknown"
