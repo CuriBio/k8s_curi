@@ -138,6 +138,8 @@ async def sso_admin(request: Request, details: SSOLogin):
     """
     id_token = await _decode_and_verify_jwt(details.id_token)
     email = id_token.get("email")
+    if isinstance(email, str):
+        email = email.lower()
     tid = id_token.get("tid")
     oid = id_token.get("oid")
     client_type = details.client_type if details.client_type else "unknown"
@@ -151,7 +153,7 @@ async def sso_admin(request: Request, details: SSOLogin):
             select_query_result = await con.fetchrow(
                 "SELECT id, suspended "
                 "FROM customers "
-                "WHERE deleted_at IS NULL AND email=$1 AND login_type!=$2 "
+                "WHERE deleted_at IS NULL AND LOWER(email)=$1 AND login_type!=$2 "
                 "AND sso_organization=$3 AND sso_admin_org_id=$4",
                 email,
                 LoginType.PASSWORD,
@@ -207,7 +209,7 @@ async def sso_user(request: Request, details: SSOLogin):
                 "SELECT u.id, u.suspended AS suspended, u.customer_id, c.suspended AS customer_suspended, "
                 "u.verified, u.sso_user_org_id "
                 "FROM users u JOIN customers c ON u.customer_id=c.id "
-                "WHERE u.deleted_at IS NULL AND u.email=$1 AND u.login_type!=$2 AND c.sso_organization=$3",
+                "WHERE u.deleted_at IS NULL AND LOWER(u.email)=$1 AND u.login_type!=$2 AND c.sso_organization=$3",
                 email,
                 LoginType.PASSWORD,
                 tid,
@@ -290,7 +292,7 @@ async def login_admin(request: Request, details: AdminLogin):
         async with request.state.pgpool.acquire() as con:
             select_query_result = await con.fetchrow(
                 "SELECT password, id, failed_login_attempts, suspended "
-                "FROM customers WHERE deleted_at IS NULL AND email=$1 AND login_type=$2",
+                "FROM customers WHERE deleted_at IS NULL AND LOWER(email)=$1 AND login_type=$2",
                 email,
                 LoginType.PASSWORD,
             )
@@ -438,7 +440,7 @@ async def _build_admin_login_or_sso_response(con, customer_id, email, login_type
 
     # if login was successful, then update last_login column value to now
     await con.execute(
-        "UPDATE customers SET last_login=$1, failed_login_attempts=0 WHERE deleted_at IS NULL AND email=$2",
+        "UPDATE customers SET last_login=$1, failed_login_attempts=0 WHERE deleted_at IS NULL AND LOWER(email)=LOWER($2)",
         datetime.now(),
         email,
     )
@@ -821,12 +823,13 @@ async def email_account(
 
     No token required for request. Currently sending reset password and new registration emails based on query type.
     """
+    email = email.lower()
     try:
         async with request.state.pgpool.acquire() as con:
             query = (
-                "SELECT id, customer_id, name FROM users WHERE email=$1 AND login_type=$2"
+                "SELECT id, customer_id, name FROM users WHERE LOWER(email)=$1 AND login_type=$2"
                 if user
-                else "SELECT id FROM customers WHERE email=$1 AND login_type=$2"
+                else "SELECT id FROM customers WHERE LOWER(email)=$1 AND login_type=$2"
             )
 
             row = await con.fetchrow(query, email, LoginType.PASSWORD)
@@ -986,10 +989,14 @@ async def update_accounts(
 
                 # if the token is being used to verify the user account and the account has already been verified, then return message to display to user
                 if is_user and details.verify and row["verified"]:
-                    return UnableToUpdateAccountResponse(message="Account has already been verified")
+                    msg = "Account has already been verified"
+                    logger.error(f"PUT /account: {msg}")
+                    return UnableToUpdateAccountResponse(message=msg)
                 # token in db gets replaced with NULL when it's been successfully used
                 if row["reset_token"] is None:
-                    return UnableToUpdateAccountResponse(message="Link has already been used")
+                    msg = "Link has already been used"
+                    logger.error(f"PUT /account: {msg}")
+                    return UnableToUpdateAccountResponse(message=msg)
 
                 # if there is a token present in the DB but it does not match the one provided to this route, then presumably a new one has been created and thus the one being used should be considered expired
                 try:
@@ -998,7 +1005,9 @@ async def update_accounts(
                     # make sure the given token and the current token in the DB are the same
                     assert token == current_token
                 except (InvalidTokenError, AssertionError):
-                    return UnableToUpdateAccountResponse(message="Link has expired")
+                    msg = "Link has expired"
+                    logger.error(f"PUT /account: {msg}")
+                    return UnableToUpdateAccountResponse(message=msg)
 
                 # Update the password of the account, and if it is a user also set the account as verified
                 update_query = (
@@ -1014,11 +1023,13 @@ async def update_accounts(
                 await _update_password(con, pw, row["previous_passwords"], update_query, query_params)
 
     except UnableToUpdateAccountError:
-        return UnableToUpdateAccountResponse(message="Cannot set password to any of the previous 5 passwords")
+        msg = "Cannot set password to any of the previous 5 passwords"
+        logger.error(f"PUT /account: {msg}")
+        return UnableToUpdateAccountResponse(message=msg)
     except HTTPException:
         raise
     except Exception:
-        logger.exception(f"PUT /{account_id}: Unexpected error")
+        logger.exception("PUT /account: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -1448,7 +1459,9 @@ async def update_account(
             await con.execute(update_query, *query_args)
 
     except UnableToUpdateAccountError:
-        return UnableToUpdateAccountResponse(message="Cannot set password to any of the previous 5 passwords")
+        msg = "Cannot set password to any of the previous 5 passwords"
+        logger.exception(f"PUT /{account_id}: {msg}")
+        return UnableToUpdateAccountResponse(message=msg)
     except HTTPException:
         raise
     except Exception:
