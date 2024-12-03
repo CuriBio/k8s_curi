@@ -137,7 +137,7 @@ async def sso_admin(request: Request, details: SSOLogin):
     returning a JWT with the appropriate privileges.
     """
     id_token = await _decode_and_verify_jwt(details.id_token)
-    email = id_token.get("email")
+    email = id_token.get("email").lower()
     tid = id_token.get("tid")
     oid = id_token.get("oid")
     client_type = details.client_type if details.client_type else "unknown"
@@ -151,7 +151,7 @@ async def sso_admin(request: Request, details: SSOLogin):
             select_query_result = await con.fetchrow(
                 "SELECT id, suspended "
                 "FROM customers "
-                "WHERE deleted_at IS NULL AND email=$1 AND login_type!=$2 "
+                "WHERE deleted_at IS NULL AND LOWER(email)=$1 AND login_type!=$2 "
                 "AND sso_organization=$3 AND sso_admin_org_id=$4",
                 email,
                 LoginType.PASSWORD,
@@ -207,7 +207,7 @@ async def sso_user(request: Request, details: SSOLogin):
                 "SELECT u.id, u.suspended AS suspended, u.customer_id, c.suspended AS customer_suspended, "
                 "u.verified, u.sso_user_org_id "
                 "FROM users u JOIN customers c ON u.customer_id=c.id "
-                "WHERE u.deleted_at IS NULL AND u.email=$1 AND u.login_type!=$2 AND c.sso_organization=$3",
+                "WHERE u.deleted_at IS NULL AND LOWER(u.email)=$1 AND u.login_type!=$2 AND c.sso_organization=$3",
                 email,
                 LoginType.PASSWORD,
                 tid,
@@ -290,7 +290,7 @@ async def login_admin(request: Request, details: AdminLogin):
         async with request.state.pgpool.acquire() as con:
             select_query_result = await con.fetchrow(
                 "SELECT password, id, failed_login_attempts, suspended "
-                "FROM customers WHERE deleted_at IS NULL AND email=$1 AND login_type=$2",
+                "FROM customers WHERE deleted_at IS NULL AND LOWER(email)=$1 AND login_type=$2",
                 email,
                 LoginType.PASSWORD,
             )
@@ -438,7 +438,7 @@ async def _build_admin_login_or_sso_response(con, customer_id, email, login_type
 
     # if login was successful, then update last_login column value to now
     await con.execute(
-        "UPDATE customers SET last_login=$1, failed_login_attempts=0 WHERE deleted_at IS NULL AND email=$2",
+        "UPDATE customers SET last_login=$1, failed_login_attempts=0 WHERE deleted_at IS NULL AND LOWER(email)=LOWER($2)",
         datetime.now(),
         email,
     )
@@ -821,12 +821,13 @@ async def email_account(
 
     No token required for request. Currently sending reset password and new registration emails based on query type.
     """
+    email = email.lower()
     try:
         async with request.state.pgpool.acquire() as con:
             query = (
-                "SELECT id, customer_id, name FROM users WHERE email=$1 AND login_type=$2"
+                "SELECT id, customer_id, name FROM users WHERE LOWER(email)=$1 AND login_type=$2"
                 if user
-                else "SELECT id FROM customers WHERE email=$1 AND login_type=$2"
+                else "SELECT id FROM customers WHERE LOWER(email)=$1 AND login_type=$2"
             )
 
             row = await con.fetchrow(query, email, LoginType.PASSWORD)
