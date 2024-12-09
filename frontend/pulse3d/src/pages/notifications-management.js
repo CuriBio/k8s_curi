@@ -113,14 +113,13 @@ export default function NotificationsManagement() {
       {
         accessorKey: "id",
         header: "Notification ID",
-        size: 200,
+        size: 330,
         minSize: 200,
-        Cell: ({ cell }) => getShortUUIDWithTooltip(cell.getValue(), 8),
       },
       {
         accessorKey: "subject",
         header: "Subject",
-        size: 580,
+        size: 780,
         minSize: 400,
       },
       {

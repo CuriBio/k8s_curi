@@ -9,7 +9,7 @@ import { AuthContext, UploadsContext } from "@/pages/_app";
 import { useRouter } from "next/router";
 import JobPreviewModal from "@/components/interactiveAnalysis/JobPreviewModal";
 import { deepCopy, formatDateTime } from "@/utils/generic";
-import { getShortUUIDWithTooltip } from "@/utils/jsx";
+import { getShortUUIDWithTooltip, NoMaxWidthTooltip } from "@/utils/jsx";
 import Table from "@/components/table/Table";
 import { Box, IconButton } from "@mui/material";
 import Jobs from "@/components/table/Jobs";
@@ -64,6 +64,10 @@ const ModalBackdrop = styled.div`
   width: 100%;
 `;
 
+const TooltipText = styled.span`
+  font-size: 15px;
+`;
+
 const modalObjs = {
   delete: {
     header: "Are you sure?",
@@ -85,6 +89,36 @@ const modalObjs = {
 
 const NO_MULTI_SELECTION_MSG = "No recording uploads or analyses selected.";
 const LIMIT_REACHED_MSG = "Disabled because analysis limit has been reached.";
+
+const METADATA_KEYS_TO_DISPLAY = [
+  "data_type",
+  "file_format_version",
+  "full_recording_length",
+  "software_release_version",
+  "total_well_count",
+  "utc_beginning_recording",
+];
+
+const MA_METADATA_KEYS_TO_DISPLAY = [
+  ...METADATA_KEYS_TO_DISPLAY,
+  "channel_firmware_version",
+  "computer_name_hash",
+  "main_firmware_version",
+  "instrument_serial_number",
+  "platemap_name",
+  "platemap_labels",
+  "plate_barcode",
+  "plate_barcode_entry_time",
+  "plate_barcode_is_from_scanner",
+  "post_stiffness_label",
+  "stim_barcode",
+  "stim_barcode_entry_time",
+  "stim_barcode_is_from_scanner",
+  "user_defined_metadata",
+  "utc_beginning_calibration",
+];
+
+const NA_METADATA_KEYS_TO_DISPLAY = [...METADATA_KEYS_TO_DISPLAY, "tissue_sampling_period"];
 
 const getInfoOfSelections = (selectionInfo) => {
   const selectedUploadsInfo = [];
@@ -246,27 +280,30 @@ export default function Uploads() {
 
   useEffect(() => {
     if (uploads) {
-      const formattedUploads = uploads.map(({ username, id, filename, created_at, auto_upload, user_id }) => {
-        const recName = filename ? filename.split(".").slice(0, -1).join(".") : null;
-        const uploadJobs = jobs
-          .filter(({ uploadId }) => uploadId === id)
-          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      const formattedUploads = uploads.map(
+        ({ username, id, filename, created_at, auto_upload, user_id, meta }) => {
+          const recName = filename ? filename.split(".").slice(0, -1).join(".") : null;
+          const uploadJobs = jobs
+            .filter(({ uploadId }) => uploadId === id)
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-        const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].createdAt : created_at;
+          const lastAnalyzed = uploadJobs[0] ? uploadJobs[0].createdAt : created_at;
 
-        const owner = accountId === user_id.replace(/-/g, "");
+          const owner = accountId === user_id.replace(/-/g, "");
 
-        return {
-          username,
-          name: recName,
-          id,
-          jobs: uploadJobs,
-          createdAt: created_at,
-          lastAnalyzed,
-          owner,
-          autoUpload: auto_upload,
-        };
-      });
+          return {
+            username,
+            name: recName,
+            id,
+            jobs: uploadJobs,
+            createdAt: created_at,
+            lastAnalyzed,
+            owner,
+            autoUpload: auto_upload,
+            meta,
+          };
+        }
+      );
 
       setDisplayRows([...formattedUploads]);
       setIsLoading(false);
@@ -329,6 +366,7 @@ export default function Uploads() {
         id: "username",
         header: "Owner",
         filterVariant: "autocomplete",
+        enableColumnActions: false,
         size: 200,
         minSize: 130,
       },
@@ -337,6 +375,7 @@ export default function Uploads() {
         id: "name",
         header: "Recording Name",
         filterVariant: "autocomplete",
+        enableColumnActions: false,
         size: 320,
         minSize: 130,
       },
@@ -345,6 +384,7 @@ export default function Uploads() {
         filterVariant: "autocomplete",
         id: "id",
         header: "Upload ID",
+        enableColumnActions: false,
         size: 190,
         minSize: 130,
         Cell: ({ cell }) => getShortUUIDWithTooltip(cell.getValue()),
@@ -355,6 +395,7 @@ export default function Uploads() {
         id: "createdAt",
         filterVariant: "date-range",
         sortingFn: "datetime",
+        enableColumnActions: false,
         size: 340,
         minSize: 275,
         muiFilterDatePickerProps: {
@@ -368,6 +409,7 @@ export default function Uploads() {
         id: "lastAnalyzed",
         filterVariant: "date-range",
         sortingFn: "datetime",
+        enableColumnActions: false,
         size: 340,
         minSize: 275,
         muiFilterDatePickerProps: {
@@ -382,9 +424,58 @@ export default function Uploads() {
         header: "Upload Origin",
         enableColumnFilter: false,
         enableResizing: false,
+        enableColumnActions: false,
         size: 180,
         Cell: ({ cell }) =>
           cell.getValue() !== null && <div>{cell.getValue() ? "Auto Upload" : "Manual Upload"}</div>,
+      },
+      {
+        accessorKey: "meta",
+        header: "Metadata",
+        id: "metadata",
+        enableColumnActions: false,
+        enableColumnFilter: false,
+        enableResizing: false,
+        enableSorting: false,
+        size: 120,
+        minSize: 40,
+        Cell: ({ cell }) => {
+          const meta = cell.getValue();
+          if (meta == null) {
+            return "";
+          } else {
+            let parsedMeta;
+            try {
+              parsedMeta = JSON.parse(meta);
+            } catch {
+              return "";
+            }
+            if (Object.keys(parsedMeta).length === 0) {
+              return "";
+            }
+
+            const metadata_keys_to_display =
+              productPage === "nautilai" ? NA_METADATA_KEYS_TO_DISPLAY : MA_METADATA_KEYS_TO_DISPLAY;
+
+            const title = (
+              <TooltipText>
+                <ul>
+                  {Object.keys(parsedMeta)
+                    .filter((k) => metadata_keys_to_display.includes(k))
+                    .sort()
+                    .map((k) => {
+                      return (
+                        <li key={k}>
+                          {k}: {JSON.stringify(parsedMeta[k])}
+                        </li>
+                      );
+                    })}
+                </ul>
+              </TooltipText>
+            );
+            return <NoMaxWidthTooltip title={title}>View</NoMaxWidthTooltip>;
+          }
+        },
       },
     ],
     []
