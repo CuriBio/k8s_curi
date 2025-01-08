@@ -93,6 +93,20 @@ export default function NotificationMessages() {
             <UnreadMessageFormatting>{cell.getValue()}</UnreadMessageFormatting>
           ),
       },
+      {
+        accessorKey: "viewed",
+        header: "Status",
+        size: 310,
+        minSize: 200,
+        enableSorting: true,
+        enableColumnActions: false,
+        Cell: ({ row }) =>
+          row.original.viewed ? (
+            <ReadMessageFormatting>Read</ReadMessageFormatting>
+          ) : (
+            <UnreadMessageFormatting>Unread</UnreadMessageFormatting>
+          ),
+      },
     ],
     []
   );

@@ -268,7 +268,7 @@ export default function Login() {
             const res = await fetch(
               `${process.env.NEXT_PUBLIC_USERS_URL}/email?email=${encodeURIComponent(
                 userEmail
-              )}&type=reset&user=${loginType == "User"}`
+              )}&action=reset&user=${loginType == "User"}`
             );
 
             if (res) {
@@ -367,7 +367,7 @@ export default function Login() {
               value={userEmail}
               onChangeFn={(e) => {
                 validateEmail(e.target.value);
-                setUserEmail(e.target.value);
+                setUserEmail(e.target.value.toLowerCase());
               }}
             />
             <ErrorText id="emailError" role="errorMsg">

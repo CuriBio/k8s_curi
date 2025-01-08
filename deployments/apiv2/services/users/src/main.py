@@ -138,6 +138,8 @@ async def sso_admin(request: Request, details: SSOLogin):
     """
     id_token = await _decode_and_verify_jwt(details.id_token)
     email = id_token.get("email")
+    if isinstance(email, str):
+        email = email.lower()
     tid = id_token.get("tid")
     oid = id_token.get("oid")
     client_type = details.client_type if details.client_type else "unknown"
@@ -151,7 +153,7 @@ async def sso_admin(request: Request, details: SSOLogin):
             select_query_result = await con.fetchrow(
                 "SELECT id, suspended "
                 "FROM customers "
-                "WHERE deleted_at IS NULL AND email=$1 AND login_type!=$2 "
+                "WHERE deleted_at IS NULL AND LOWER(email)=$1 AND login_type!=$2 "
                 "AND sso_organization=$3 AND sso_admin_org_id=$4",
                 email,
                 LoginType.PASSWORD,
@@ -163,7 +165,9 @@ async def sso_admin(request: Request, details: SSOLogin):
                 raise LoginError("Invalid credentials.")
 
             if select_query_result["suspended"]:
-                raise LoginError("Account has been suspended.")
+                raise LoginError(
+                    "This account has been deactivated. Please contact Curi Bio to reactivate this account."
+                )
 
             customer_id = select_query_result.get("id")
             bind_context_to_logger({"customer_id": str(customer_id)})
@@ -205,7 +209,7 @@ async def sso_user(request: Request, details: SSOLogin):
                 "SELECT u.id, u.suspended AS suspended, u.customer_id, c.suspended AS customer_suspended, "
                 "u.verified, u.sso_user_org_id "
                 "FROM users u JOIN customers c ON u.customer_id=c.id "
-                "WHERE u.deleted_at IS NULL AND u.email=$1 AND u.login_type!=$2 AND c.sso_organization=$3",
+                "WHERE u.deleted_at IS NULL AND LOWER(u.email)=$1 AND u.login_type!=$2 AND c.sso_organization=$3",
                 email,
                 LoginType.PASSWORD,
                 tid,
@@ -215,7 +219,9 @@ async def sso_user(request: Request, details: SSOLogin):
                 raise LoginError("Invalid credentials.")
 
             if select_query_result["suspended"]:
-                raise LoginError("Account has been suspended.")
+                raise LoginError(
+                    "This account has been deactivated. Please contact your administrator to reactivate this account."
+                )
 
             if select_query_result["customer_suspended"]:
                 raise LoginError("The customer ID for this account has been deactivated.")
@@ -286,7 +292,7 @@ async def login_admin(request: Request, details: AdminLogin):
         async with request.state.pgpool.acquire() as con:
             select_query_result = await con.fetchrow(
                 "SELECT password, id, failed_login_attempts, suspended "
-                "FROM customers WHERE deleted_at IS NULL AND email=$1 AND login_type=$2",
+                "FROM customers WHERE deleted_at IS NULL AND LOWER(email)=$1 AND login_type=$2",
                 email,
                 LoginType.PASSWORD,
             )
@@ -434,7 +440,7 @@ async def _build_admin_login_or_sso_response(con, customer_id, email, login_type
 
     # if login was successful, then update last_login column value to now
     await con.execute(
-        "UPDATE customers SET last_login=$1, failed_login_attempts=0 WHERE deleted_at IS NULL AND email=$2",
+        "UPDATE customers SET last_login=$1, failed_login_attempts=0 WHERE deleted_at IS NULL AND LOWER(email)=LOWER($2)",
         datetime.now(),
         email,
     )
@@ -462,8 +468,13 @@ async def _decode_and_verify_jwt(token):
 async def _verify_password(con, account_type, pw, select_query_result) -> None:
     ph = PasswordHasher()
 
-    failed_msg = "Invalid credentials. Account will be locked after 10 failed attempts."
+    invalid_creds_msg = "Invalid credentials. Account will be locked after 10 failed attempts."
     account_locked_msg = "Account locked. Too many failed attempts."
+    deactivated_msg = (
+        "This account has been deactivated. Please contact your administrator to reactivate this account."
+        if account_type == "user"
+        else "This account has been deactivated. Please contact Curi Bio to reactivate this account."
+    )
 
     if select_query_result is None:
         # if no record is returned by query then fetchrow will return None,
@@ -481,16 +492,16 @@ async def _verify_password(con, account_type, pw, select_query_result) -> None:
             raise LoginError(account_locked_msg)
 
         # increment admin/user failed attempts
-        logger.info(
-            f"Failed login attempt {select_query_result['failed_login_attempts'] + 1} for {account_type} id: {select_query_result['id']}"
-        )
         updated_failed_attempts = select_query_result["failed_login_attempts"] + 1
+        logger.info(
+            f"Failed login attempt {updated_failed_attempts} for {account_type} id: {select_query_result['id']}"
+        )
         await _update_failed_login_attempts(
             con, account_type, select_query_result["id"], updated_failed_attempts
         )
         # update login error if this failed attempt hits limit
         raise LoginError(
-            account_locked_msg if updated_failed_attempts == MAX_FAILED_LOGIN_ATTEMPTS else failed_msg
+            account_locked_msg if updated_failed_attempts == MAX_FAILED_LOGIN_ATTEMPTS else invalid_creds_msg
         )
     except InvalidHash:
         """
@@ -498,14 +509,14 @@ async def _verify_password(con, account_type, pw, select_query_result) -> None:
         through timing analysis so we still hash the supplied password before returning an error
         """
         ph.hash(pw)
-        raise LoginError(failed_msg)
+        raise LoginError(invalid_creds_msg)
     else:
         # only raise LoginError here when account is locked on successful creds after they have been checked to prevent giving away facts about successful login combinations
         if select_query_result["failed_login_attempts"] >= MAX_FAILED_LOGIN_ATTEMPTS:
             raise LoginError(account_locked_msg)
         # user can be suspended if admin account suspends them, select_query_result will not return None in that instance
         if select_query_result["suspended"]:
-            raise LoginError(failed_msg)
+            raise LoginError(deactivated_msg)
 
 
 async def _update_failed_login_attempts(con, account_type: str, id: str, count: int) -> None:
@@ -688,7 +699,7 @@ async def register_admin(
                 if login_type == LoginType.PASSWORD:  # Username / Password path
                     await _create_account_email(
                         con=con,
-                        type="verify",
+                        action="verify",
                         user_id=None,
                         customer_id=new_account_id,
                         scope=Scopes.ADMIN__VERIFY,
@@ -777,7 +788,7 @@ async def register_user(
                 if customer_login_type == LoginType.PASSWORD:  # Username / Password path
                     await _create_account_email(
                         con=con,
-                        type="verify",
+                        action="verify",
                         user_id=new_account_id,
                         customer_id=customer_id,
                         scope=Scopes.USER__VERIFY,
@@ -806,25 +817,26 @@ async def register_user(
 
 @app.get("/email", status_code=status.HTTP_204_NO_CONTENT)
 async def email_account(
-    request: Request, email: EmailStr = Query(None), type: str = Query(None), user: bool = Query(None)
+    request: Request, email: EmailStr = Query(None), action: str = Query(None), user: bool = Query(None)
 ):
     """Send or resend account emails.
 
     No token required for request. Currently sending reset password and new registration emails based on query type.
     """
-    # EmailRegistrationError will be raised if random type param is added that isn't verify or reset
+    email = email.lower()
     try:
         async with request.state.pgpool.acquire() as con:
             query = (
-                "SELECT id, customer_id, name FROM users WHERE email=$1 AND login_type=$2"
+                "SELECT id, customer_id, name FROM users WHERE LOWER(email)=$1 AND login_type=$2"
                 if user
-                else "SELECT id FROM customers WHERE email=$1 AND login_type=$2"
+                else "SELECT id FROM customers WHERE LOWER(email)=$1 AND login_type=$2"
             )
 
             row = await con.fetchrow(query, email, LoginType.PASSWORD)
 
             # send email if found and password-based user, otherwise return 204, doesn't need to raise an exception
             if row is None:
+                logger.info(f"No account found with email address '{email}'")
                 return
 
             if user:
@@ -839,11 +851,11 @@ async def email_account(
             bind_context_to_logger(
                 {"user_id": str(user_id), "customer_id": str(customer_id), "username": username}
             )
-            scope = convert_scope_str(f"{'user' if user else 'admin'}:{type}")
+            scope = convert_scope_str(f"{'user' if user else 'admin'}:{action}")
 
             await _create_account_email(
                 con=con,
-                type=type,
+                action=action,
                 user_id=user_id,
                 customer_id=customer_id,
                 scope=scope,
@@ -859,7 +871,7 @@ async def email_account(
 async def _create_account_email(
     *,
     con,
-    type: str,
+    action: str,
     user_id: uuid.UUID | None,
     customer_id: uuid.UUID,
     scope: Scopes,
@@ -886,17 +898,17 @@ async def _create_account_email(
             userid=user_id, customer_id=customer_id, scopes=[scope], account_type=account_type
         )
 
-        url = f"{DASHBOARD_URL}/account/{type}?token={jwt_token.token}"
+        url = f"{DASHBOARD_URL}/account/{action}?token={jwt_token.token}"
 
         # assign correct email template and redirect url based on request type
-        if type == "reset":
+        if action == "reset":
             subject = "Reset your password"
             template = "reset_password.html"
-        elif type == "verify":
+        elif action == "verify":
             subject = "Please verify your email address"
             template = "registration.html"
         else:
-            logger.error(f"{type} is not a valid type allowed in this request")
+            logger.error(f"{action} is not a valid action allowed in this request")
             raise Exception()
 
         # add token to users table after no exception is raised
@@ -910,8 +922,10 @@ async def _create_account_email(
 
 
 async def _send_account_email(
-    *, username: str, email: EmailStr, url: str, subject: str, template: str
+    *, username: str | None, email: EmailStr, url: str, subject: str, template: str
 ) -> None:
+    logger.info(f"Sending email with subject '{subject}' to email address '{email}'")
+
     conf = ConnectionConfig(
         MAIL_USERNAME=CURIBIO_EMAIL,
         MAIL_PASSWORD=CURIBIO_EMAIL_PASSWORD,
@@ -975,10 +989,14 @@ async def update_accounts(
 
                 # if the token is being used to verify the user account and the account has already been verified, then return message to display to user
                 if is_user and details.verify and row["verified"]:
-                    return UnableToUpdateAccountResponse(message="Account has already been verified")
+                    msg = "Account has already been verified"
+                    logger.error(f"PUT /account: {msg}")
+                    return UnableToUpdateAccountResponse(message=msg)
                 # token in db gets replaced with NULL when it's been successfully used
                 if row["reset_token"] is None:
-                    return UnableToUpdateAccountResponse(message="Link has already been used")
+                    msg = "Link has already been used"
+                    logger.error(f"PUT /account: {msg}")
+                    return UnableToUpdateAccountResponse(message=msg)
 
                 # if there is a token present in the DB but it does not match the one provided to this route, then presumably a new one has been created and thus the one being used should be considered expired
                 try:
@@ -987,7 +1005,9 @@ async def update_accounts(
                     # make sure the given token and the current token in the DB are the same
                     assert token == current_token
                 except (InvalidTokenError, AssertionError):
-                    return UnableToUpdateAccountResponse(message="Link has expired")
+                    msg = "Link has expired"
+                    logger.error(f"PUT /account: {msg}")
+                    return UnableToUpdateAccountResponse(message=msg)
 
                 # Update the password of the account, and if it is a user also set the account as verified
                 update_query = (
@@ -1003,11 +1023,13 @@ async def update_accounts(
                 await _update_password(con, pw, row["previous_passwords"], update_query, query_params)
 
     except UnableToUpdateAccountError:
-        return UnableToUpdateAccountResponse(message="Cannot set password to any of the previous 5 passwords")
+        msg = "Cannot set password to any of the previous 5 passwords"
+        logger.error(f"PUT /account: {msg}")
+        return UnableToUpdateAccountResponse(message=msg)
     except HTTPException:
         raise
     except Exception:
-        logger.exception(f"PUT /{account_id}: Unexpected error")
+        logger.exception("PUT /account: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -1437,7 +1459,9 @@ async def update_account(
             await con.execute(update_query, *query_args)
 
     except UnableToUpdateAccountError:
-        return UnableToUpdateAccountResponse(message="Cannot set password to any of the previous 5 passwords")
+        msg = "Cannot set password to any of the previous 5 passwords"
+        logger.exception(f"PUT /{account_id}: {msg}")
+        return UnableToUpdateAccountResponse(message=msg)
     except HTTPException:
         raise
     except Exception:

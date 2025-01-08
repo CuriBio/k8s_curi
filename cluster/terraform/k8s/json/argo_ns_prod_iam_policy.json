@@ -17,6 +17,7 @@
         "ecr:CreateRepository",
         "ecr:GetLifecyclePolicy",
         "ecr:PutLifecyclePolicy",
+        "ecr:PutImageTagMutability",
         "s3:GetBucketOwnershipControls",
         "acm:ListCertificates"
       ],
@@ -81,7 +82,9 @@
         "arn:aws:s3:::prod-channel-firmware",
         "arn:aws:s3:::prod-channel-firmware/*",
         "arn:aws:s3:::prod-mantarray-logs",
-        "arn:aws:s3:::prod-mantarray-logs/*"
+        "arn:aws:s3:::prod-mantarray-logs/*",
+        "arn:aws:s3:::prod-pulse3d-uploads",
+        "arn:aws:s3:::prod-pulse3d-uploads/*"
       ]
     },
     {
