@@ -196,7 +196,6 @@ async def load_details(con, item: dict[str, Any]) -> tuple[dict[str, Any], dict[
         job_id = item["id"]
         upload_id = item["upload_id"]
 
-        # currently contains id (upload), customer_id, user_id, prefix, filename, meta, created_at
         upload_details = dict(
             await con.fetchrow(
                 """
@@ -209,6 +208,9 @@ async def load_details(con, item: dict[str, Any]) -> tuple[dict[str, Any], dict[
         )
         upload_details["id"] = upload_id
 
+        # TODO remove this once done testing with this UUID
+        upload_details["customer_id"] = "00000000-0000-0000-0000-000000000000"
+
         # bind details to logger
         bind_contextvars(
             upload_id=str(upload_id),
@@ -217,12 +219,13 @@ async def load_details(con, item: dict[str, Any]) -> tuple[dict[str, Any], dict[
             user_id=str(upload_details["user_id"]),
         )
 
-        # currently contains id (job), analysis_params, version (p3d), and name_override
+        # currently contains id (job), customer_id, analysis_params, version (p3d), and name_override
         job_details = json.loads(item["meta"])
         job_details["id"] = job_id
+        job_details["customer_id"] = upload_details["customer_id"]
 
         additional_col_vals = {
-            "upload_timestamp": upload_details["customer_id"],
+            "upload_timestamp": upload_details["created_at"],
             "customer_id": upload_details["customer_id"],
             "user_id": upload_details["user_id"],
             "upload_id": upload_id,
