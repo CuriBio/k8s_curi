@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import json
 import os
 import tempfile
@@ -18,7 +19,7 @@ from pulse3D.data_loader import from_file, InstrumentTypes
 from pulse3D.data_loader.utils import get_metadata_cls
 from pulse3D.data_loader.metadata import BaseMetadata
 from pulse3D.waveform_processing import pre_process, process, post_process, WAVEFORM_PROCESSING_SCHEMA
-from pulse3d.utils.params import (
+from pulse3D.utils.params import (
     WaveformProcessingParameters,
     PeakFindingParameters,
     TwitchLabellingParameters,
@@ -28,7 +29,7 @@ from structlog.contextvars import bind_contextvars, clear_contextvars, merge_con
 structlog.configure(
     processors=[
         merge_contextvars,
-        structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M.%S"),
+        structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S"),
         structlog.processors.format_exc_info,
         structlog.processors.JSONRenderer(),
     ]
@@ -37,8 +38,27 @@ structlog.configure(
 logger = structlog.get_logger()
 
 
-# TODO see if this is needed
-# duckdb.sql("CREATE SECRET s3_secret ( TYPE S3, PROVIDER CREDENTIAL_CHAIN, REGION 'us-east-2')")
+def configure_duckdb():
+    # docker container has no home directory, so these need to be set manually
+    duckdb.sql("SET extension_directory='/app/duckdb_extensions'")
+    duckdb.sql("SET secret_directory='/app/duckdb_secrets'")
+
+    # using the provider chain does not seem to work, so using workaround found here https://github.com/duckdb/duckdb-aws/issues/31#issuecomment-2113040290
+    aws_session = boto3.Session()
+    creds = aws_session.get_credentials().get_frozen_credentials()
+
+    duckdb.execute(
+        f"""
+        CREATE SECRET s3_secret (
+            TYPE S3,
+            REGION '{aws_session.region_name}',
+            KEY_ID '{creds.access_key}',
+            SECRET '{creds.secret_key}',
+            SESSION_TOKEN '{creds.token}'
+        )
+        """
+    )
+
 
 PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-pulse3d-uploads")
 
@@ -93,7 +113,10 @@ def apply_p3d_schema(df: pl.DataFrame, schema: pl.Schema) -> pl.DataFrame:
 
 
 def get_s3_parquet_file_name(job_details: dict[str, Any], upload_metadata: BaseMetadata) -> str:
-    return f"{job_details['id']}_{upload_metadata.utc_beginning_recording}_{job_details['type']}"
+    utc_beginning_recording_str = datetime.datetime.strftime(
+        upload_metadata.utc_beginning_recording, "%Y_%m_%d_%H%M%S"
+    )
+    return f"{job_details['id']}_{utc_beginning_recording_str}_{job_details['type']}"
 
 
 def get_s3_parquet_path(
@@ -108,16 +131,17 @@ def get_s3_parquet_path(
 
 def query_s3_parquet(query: str, *params: Any) -> pl.DataFrame:
     try:
-        df = duckdb.sql(query, *params).pl()
+        df = duckdb.sql(query, params=params)
     except Exception:
         raise QueryS3ParquetError()
+    df = df.pl()
     if df.is_empty():
         raise QueryS3ParquetError()
-    return df.pl()
+    return df
 
 
 def upload_parquet_to_s3(df_upload: pl.DataFrame, s3_obj_key: str) -> None:
-    duckdb.execute("COPY df_upload TO '$1'", s3_obj_key)
+    duckdb.sql("SELECT * FROM df_upload").write_parquet(s3_obj_key)
 
 
 def handle_upload(
@@ -128,7 +152,7 @@ def handle_upload(
     additional_col_vals: dict[str, Any],
 ):
     match pipeline_stage:
-        case "waveform_processing":
+        case "waveform_pre_processing" | "waveform_processing":
             schema = WAVEFORM_PROCESSING_FULL_SCHEMA
         case "peak_finding":
             schema = PEAK_FINDING_FULL_SCHEMA
@@ -145,7 +169,7 @@ def handle_upload(
 
 
 def get_analysis_params(
-    job_metadata: dict[str, Any], upload_metadata: BaseMetadata
+    job_details: dict[str, Any], upload_metadata: BaseMetadata
 ) -> tuple[WaveformProcessingParameters, PeakFindingParameters, TwitchLabellingParameters]:
     # remove params that were not given as these already have default values, and rename any params that have different names in the input containers
     rename_map = {
@@ -154,7 +178,7 @@ def get_analysis_params(
         "end_time": "window_end_time",
     }
     analysis_params = {
-        rename_map.get(k, k): v for k, v in job_metadata["analysis_params"].items() if v is not None
+        rename_map.get(k, k): v for k, v in job_details["analysis_params"].items() if v is not None
     }
     # pull in overridable values from recording metadata if no override given
     for overridable_meta in ["data_type", "post_stiffness_factor"]:
@@ -162,7 +186,7 @@ def get_analysis_params(
             overridable_meta, upload_metadata.get(overridable_meta)
         )
     # mantarray always uses the same normalization
-    if job_metadata["instrument_type"] == InstrumentTypes.MANTARRAY:
+    if upload_metadata.instrument_type == InstrumentTypes.MANTARRAY:
         analysis_params["normalization_method"] = NormalizationMethods.F_SUB_FMIN
 
     peak_finding_alg_args = {
@@ -187,11 +211,15 @@ def get_analysis_params(
     twitch_labelling_params = TwitchLabellingParameters(**analysis_params)
     # TODO ignore platemap for now? Or convert real platemaps to new format for purpose of testing?
 
+    logger.info(
+        f"Loaded analysis params: {waveform_processing_params=} {peak_finding_params=} {twitch_labelling_params=}"
+    )
+
     return waveform_processing_params, peak_finding_params, twitch_labelling_params
 
 
 async def load_details(con, item: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-    logger.exception("Loading job and upload details")
+    logger.info("Loading job and upload details")
     try:
         job_id = item["id"]
         upload_id = item["upload_id"]
@@ -199,7 +227,7 @@ async def load_details(con, item: dict[str, Any]) -> tuple[dict[str, Any], dict[
         upload_details = dict(
             await con.fetchrow(
                 """
-                SELECT users.customer_id, up.user_id, up.prefix, up.filename, up.meta, up.created_at
+                SELECT users.customer_id, up.user_id, up.prefix, up.filename, up.meta, up.created_at, up.type
                 FROM uploads AS up JOIN users ON up.user_id = users.id
                 WHERE up.id=$1
                 """,
@@ -207,6 +235,7 @@ async def load_details(con, item: dict[str, Any]) -> tuple[dict[str, Any], dict[
             )
         )
         upload_details["id"] = upload_id
+        upload_details["meta"] = json.loads(upload_details["meta"])
 
         # TODO remove this once done testing with this UUID
         upload_details["customer_id"] = "00000000-0000-0000-0000-000000000000"
@@ -223,13 +252,14 @@ async def load_details(con, item: dict[str, Any]) -> tuple[dict[str, Any], dict[
         job_details = json.loads(item["meta"])
         job_details["id"] = job_id
         job_details["customer_id"] = upload_details["customer_id"]
+        job_details["type"] = upload_details["type"]
 
         additional_col_vals = {
             "upload_timestamp": upload_details["created_at"],
-            "customer_id": upload_details["customer_id"],
-            "user_id": upload_details["user_id"],
-            "upload_id": upload_id,
-            "job_id": job_id,
+            "customer_id": str(upload_details["customer_id"]),
+            "user_id": str(upload_details["user_id"]),
+            "upload_id": str(upload_id),
+            "job_id": str(job_id),
             "p3d_version": PULSE3D_VERSION,
             "interactive_analysis": None,  # this will be set later
         }
@@ -275,10 +305,16 @@ def create_pre_processing_data(
         logger.exception("Failed running waveform-pre-processing")
         raise ExceptionWithErrorMsg("Waveform pre-processing failed") from e
 
-    upload_metadata = loaded_data.metadata
-
-    s3_parquet_file_name = get_s3_parquet_file_name(job_details, upload_metadata)
-    handle_upload(df_analysis, s3_parquet_file_name, job_details, "waveform_processing", additional_col_vals)
+    logger.info("Uploading waveform-pre-processing results")
+    try:
+        upload_metadata = loaded_data.metadata
+        s3_parquet_file_name = get_s3_parquet_file_name(job_details, upload_metadata)
+        handle_upload(
+            df_analysis, s3_parquet_file_name, job_details, "waveform_pre_processing", additional_col_vals
+        )
+    except Exception:
+        logger.exception("Failed uploading waveform-pre-processing results")
+        raise
 
     return df_analysis, upload_metadata
 
@@ -316,7 +352,7 @@ async def process_item(con, item):
         logger.info("Checking for existing waveform-pre-processing data in S3")
         try:
             df_analysis = query_s3_parquet(
-                "SELECT * FROM read_parquet('$1') WHERE upload_id=$2 AND p3d_version=$3",
+                "SELECT * FROM read_parquet($1) WHERE upload_id=$2 AND p3d_version=$3",
                 get_s3_parquet_path(job_details, "waveform_pre_processing"),
                 upload_details["id"],
                 PULSE3D_VERSION,
@@ -329,23 +365,25 @@ async def process_item(con, item):
                 job_details, upload_details, s3_client, additional_col_vals
             )
         except Exception:
-            logger.exception("Error loading existing waveform-pre-processing data, recreating")
-            df_analysis, upload_metadata = create_pre_processing_data(
-                job_details, upload_details, s3_client, additional_col_vals
-            )
+            logger.exception("Error loading existing waveform-pre-processing data")
+            raise
 
         validate_product(df_analysis, job_details)
 
-        s3_parquet_file_name = get_s3_parquet_file_name(job_details, upload_metadata)
-
-        waveform_processing_params, peak_finding_params, twitch_labelling_params = get_analysis_params(
-            job_metadata, upload_metadata
-        )
+        logger.info("Loading analysis params")
+        try:
+            s3_parquet_file_name = get_s3_parquet_file_name(job_details, upload_metadata)
+            waveform_processing_params, peak_finding_params, twitch_labelling_params = get_analysis_params(
+                job_details, upload_metadata
+            )
+        except Exception:
+            logger.exception("Failed loading analysis params")
+            raise
 
         # create and upload waveform processing data
         logger.info("Running waveform-processing")
         try:
-            df_analysis = process(df_analysis, waveform_processing_params)
+            df_analysis = process(df_analysis, upload_metadata, waveform_processing_params)
         except Exception:
             error_msg = "Waveform processing failed"
             logger.exception("Failed running waveform-processing")
@@ -494,6 +532,8 @@ async def main():
 
         dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
 
+        configure_duckdb()
+
         async with asyncpg.create_pool(dsn=dsn) as pool:
             async with pool.acquire() as con, pool.acquire() as con_to_update_job_result:
                 while True:
@@ -506,6 +546,8 @@ async def main():
                     except Exception:
                         logger.exception("Failed processing queue item")
                         return
+    except Exception:
+        logger.exception("Error in p3d worker")
     finally:
         logger.info(f"Pulse3D Worker v{PULSE3D_VERSION} terminating")
 
