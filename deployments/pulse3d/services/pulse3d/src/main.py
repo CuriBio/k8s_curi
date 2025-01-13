@@ -636,7 +636,7 @@ async def create_new_job(
 
             # TODO remove this once testing v3.0.0 is complete
             new_p3d_version = "3.0.0rc2"
-            job_id = await create_job(
+            await create_job(
                 con=con,
                 upload_id=upload_id,
                 queue=f"pulse3d-v{new_p3d_version}",

@@ -15,7 +15,7 @@ from mantarray_magnet_finding.exceptions import UnableToConvergeError
 from curibio_analysis_lib import NormalizationMethods
 from pulse3D import peak_finding, twitch_labelling
 from pulse3D.constants import PACKAGE_VERSION as PULSE3D_VERSION
-from pulse3D.data_loader import from_file, InstrumentTypes
+from pulse3D.data_loader import from_file, InstrumentTypes, LoadedData
 from pulse3D.data_loader.utils import get_metadata_cls
 from pulse3D.data_loader.metadata import BaseMetadata
 from pulse3D.waveform_processing import pre_process, process, post_process, WAVEFORM_PROCESSING_SCHEMA
@@ -36,6 +36,8 @@ structlog.configure(
 )
 
 logger = structlog.get_logger()
+
+s3_client = boto3.client("s3")
 
 
 def configure_duckdb():
@@ -64,6 +66,10 @@ PULSE3D_UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_ENV", "test-pulse3d-uploads")
 
 
 class QueryS3ParquetError(Exception):
+    pass
+
+
+class LoadExistingUploadMetadataError(Exception):
     pass
 
 
@@ -176,6 +182,7 @@ def get_analysis_params(
         "stiffness_factor": "post_stiffness_factor",
         "start_time": "window_start_time",
         "end_time": "window_end_time",
+        "twitch_widths": "widths",
     }
     analysis_params = {
         rename_map.get(k, k): v for k, v in job_details["analysis_params"].items() if v is not None
@@ -185,9 +192,16 @@ def get_analysis_params(
         analysis_params[overridable_meta] = analysis_params.get(
             overridable_meta, upload_metadata.get(overridable_meta)
         )
+    # data type must be lower case, will not be lower case if an override is set
+    analysis_params["data_type"] = analysis_params["data_type"].lower()
     # mantarray always uses the same normalization
     if upload_metadata.instrument_type == InstrumentTypes.MANTARRAY:
         analysis_params["normalization_method"] = NormalizationMethods.F_SUB_FMIN
+    elif upload_metadata.instrument_type == InstrumentTypes.NAUTILAI:
+        # this must be present even if it is None since normalization method does not have a default value
+        analysis_params["normalization_method"] = analysis_params.get("normalization_method")
+        # detrend might be None, if so the default is to apply detrending
+        analysis_params["detrend"] = analysis_params.get("detrend", True)
 
     peak_finding_alg_args = {
         k: v
@@ -270,12 +284,14 @@ async def load_details(con, item: dict[str, Any]) -> tuple[dict[str, Any], dict[
     return job_details, upload_details, additional_col_vals
 
 
-def create_pre_processing_data(
-    job_details: dict[str, Any],
-    upload_details: dict[str, Any],
-    s3_client,
-    additional_col_vals: dict[str, Any],
-) -> tuple[pl.DataFrame, BaseMetadata]:
+def load_existing_upload_metadata(existing_upload_meta: dict[str, Any]) -> BaseMetadata:
+    try:
+        return get_metadata_cls(existing_upload_meta)
+    except Exception as e:
+        raise LoadExistingUploadMetadataError() from e
+
+
+def download_and_load_recording(upload_details: dict[str, Any]) -> LoadedData:
     with tempfile.TemporaryDirectory() as tmpdir:
         logger.info("Downloading recording file")
         try:
@@ -293,6 +309,14 @@ def create_pre_processing_data(
         except Exception as e:
             logger.exception("Failed running data-loader")
             raise ExceptionWithErrorMsg("Loading recording data failed") from e
+
+    return loaded_data
+
+
+def create_pre_processing_data(
+    job_details: dict[str, Any], upload_details: dict[str, Any], additional_col_vals: dict[str, Any]
+) -> tuple[pl.DataFrame, BaseMetadata]:
+    loaded_data = download_and_load_recording(upload_details)
 
     logger.info("Running waveform-pre-processing")
     try:
@@ -339,7 +363,6 @@ async def process_item(con, item):
     # keeping initial log without bound variables
     logger.info(f"Processing item: {item}")
 
-    s3_client = boto3.client("s3")
     job_metadata = {"processed_by": PULSE3D_VERSION}  # sanity check
 
     # Tanner (3/27/24): this is specifically for human-readable error messages. The actual message in the exception is handled separately
@@ -357,12 +380,18 @@ async def process_item(con, item):
                 upload_details["id"],
                 PULSE3D_VERSION,
             )
-            logger.info("Retrieved existing waveform-pre-processing data from S3")
-            upload_metadata: BaseMetadata = get_metadata_cls(dict(upload_details["meta"]))
+            logger.info(
+                "Retrieved existing waveform-pre-processing data from S3, loading existing upload metadata from DB"
+            )
+            try:
+                upload_metadata = load_existing_upload_metadata(upload_details["meta"])
+            except LoadExistingUploadMetadataError:
+                logger.info("Error loading existing upload metadata from DB, loading from recording file")
+                upload_metadata = download_and_load_recording(upload_details).metadata
         except QueryS3ParquetError:
             logger.info("No existing waveform-pre-processing data found in S3, creating")
             df_analysis, upload_metadata = create_pre_processing_data(
-                job_details, upload_details, s3_client, additional_col_vals
+                job_details, upload_details, additional_col_vals
             )
         except Exception:
             logger.exception("Error loading existing waveform-pre-processing data")
@@ -463,9 +492,9 @@ async def process_item(con, item):
             raise
 
         # handle metadata
-        logger.info("Checking for new metadata to add for upload in DB")
+        logger.info("Checking for new upload metadata to add to DB")
         try:
-            existing_upload_metadata = json.loads(upload_details["meta"])
+            existing_upload_metadata = upload_details["meta"]
 
             # letting pydantic convert to JSON will handle serialization of all data types, so do that and then load into a dict
             upload_metadata_dict = json.loads(upload_metadata.model_dump_json())
@@ -474,15 +503,14 @@ async def process_item(con, item):
                 for k in (upload_metadata_dict.keys() - existing_upload_metadata.keys())
             }
             if new_meta:
-                logger.info(f"Adding metadata to upload in DB: {new_meta}")
-                upload_metadata |= new_meta
+                logger.info(f"Adding new upload metadata to DB: {new_meta}")
                 await con.execute(
-                    "UPDATE uploads SET meta=$1 WHERE id=$2",
-                    json.dumps(upload_metadata),
+                    "UPDATE uploads SET meta=meta||$1::jsonb WHERE id=$2",
+                    json.dumps(new_meta),
                     upload_details["id"],
                 )
             else:
-                logger.info("No upload metadata to update in DB")
+                logger.info("No new upload metadata to add to DB")
         except Exception:
             # Tanner (7/29/24): don't raise the exception, no reason this should cause the whole analysis to fail
             logger.exception("Failed updating metadata of upload in DB")

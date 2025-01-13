@@ -930,7 +930,7 @@ export default function AnalysisParamForm({
           <AnalysisParamContainer
             label="Normalization Method"
             name="normalizationMethod"
-            tooltipText="Select the normalization method of data (Nautilai only)"
+            tooltipText="Select the normalization method of data"
           >
             <DropDownContainer>
               <DropDownWidget
@@ -953,7 +953,7 @@ export default function AnalysisParamForm({
           <AnalysisParamContainer
             label="Disable detrending"
             name="detrend"
-            tooltipText="When selected, disables detrending (Nautilai only)"
+            tooltipText="When selected, disables detrending"
           >
             <InputErrorContainer>
               <CheckboxWidget
