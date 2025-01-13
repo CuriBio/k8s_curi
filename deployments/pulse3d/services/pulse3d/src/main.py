@@ -634,6 +634,18 @@ async def create_new_job(
                 job_type=upload_type,
             )
 
+            # TODO remove this once testing v3.0.0 is complete
+            new_p3d_version = "3.0.0rc2"
+            await create_job(
+                con=con,
+                upload_id=upload_id,
+                queue=f"pulse3d-v{new_p3d_version}",
+                priority=priority,
+                meta=job_meta | {"version": new_p3d_version},
+                customer_id="00000000-0000-0000-0000-000000000000",
+                job_type=upload_type,
+            )
+
             bind_context_to_logger({"job_id": str(job_id)})
 
             # check customer quota after job
