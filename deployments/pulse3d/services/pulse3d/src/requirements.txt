@@ -5,7 +5,7 @@ fastapi==0.105.0
 h11==0.12.0
 httpx==0.24.0
 idna==3.3
-pulse3d==2.0.0rc6
+pulse3d==2.0.0rc7
 pydantic==2.5.2
 sniffio==1.2.0
 starlette==0.27.0
