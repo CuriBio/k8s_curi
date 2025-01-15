@@ -1,4 +1,4 @@
-FROM alpine:latest as venv
+FROM alpine:latest AS venv
 RUN apk add --no-cache --update python3 python3-dev py3-pip git build-base
 
 WORKDIR /builder
@@ -15,6 +15,5 @@ RUN wget https://releases.hashicorp.com/terraform/1.5.2/terraform_1.5.2_linux_am
 
 # currently not switching to non-root user for this image
 
-ENV PATH /venv/bin:$PATH
-ENV PYTHONUNBUFFERED 1
-
+ENV PATH=/venv/bin:$PATH
+ENV PYTHONUNBUFFERED=1

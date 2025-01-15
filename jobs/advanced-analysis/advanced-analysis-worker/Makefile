@@ -5,16 +5,16 @@ repo_root=$(shell git rev-parse --show-toplevel)
 build:
 	cd ${repo_root} && \
 	docker build -t advanced-analysis-worker . -f ${repo_root}/jobs/advanced-analysis/advanced-analysis-worker/Dockerfile \
-		--build-arg="CODE_ARTIFACT_ACCOUNT_ID=${CODE_ARTIFACT_ACCOUNT_ID}" \
-		--build-arg="CODE_ARTIFACT_ACCESS_KEY=${CODE_ARTIFACT_ACCESS_KEY}" \
-		--build-arg="CODE_ARTIFACT_ACCESS_KEY_ID=${CODE_ARTIFACT_ACCESS_KEY_ID}"
+		--secret=id=CODE_ARTIFACT_ACCOUNT_ID \
+		--secret=id=CODE_ARTIFACT_ACCESS_KEY \
+		--secret=id=CODE_ARTIFACT_ACCESS_KEY_ID
 
 buildx:
 	cd ${repo_root} && \
 	docker buildx build -t advanced-analysis-worker . -f ${repo_root}/jobs/advanced-analysis/advanced-analysis-worker/Dockerfile --platform linux/amd64 --load \
-		--build-arg="CODE_ARTIFACT_ACCOUNT_ID=${CODE_ARTIFACT_ACCOUNT_ID}" \
-		--build-arg="CODE_ARTIFACT_ACCESS_KEY=${CODE_ARTIFACT_ACCESS_KEY}" \
-		--build-arg="CODE_ARTIFACT_ACCESS_KEY_ID=${CODE_ARTIFACT_ACCESS_KEY_ID}"
+		--secret=id=CODE_ARTIFACT_ACCOUNT_ID \
+		--secret=id=CODE_ARTIFACT_ACCESS_KEY \
+		--secret=id=CODE_ARTIFACT_ACCESS_KEY_ID
 
 tag:
 	docker tag advanced-analysis-worker:latest $(ecr_repo):0.1.0rc9
