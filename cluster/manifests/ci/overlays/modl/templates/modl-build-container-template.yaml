@@ -147,6 +147,8 @@ spec:
         command: [/kaniko/executor]
         workingDir: /tmp/git/k8s_curi
         env:
+          - name: CODE_ARTIFACT_ACCOUNT_ID
+            value: 725604423866
           - name: CODE_ARTIFACT_ACCESS_KEY_ID
             valueFrom:
               secretKeyRef:
@@ -161,9 +163,9 @@ spec:
           - --no-push
           - --context=/tmp/git/k8s_curi/
           - --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
-          - --build-arg=CODE_ARTIFACT_ACCOUNT_ID=725604423866
-          - --build-arg=CODE_ARTIFACT_ACCESS_KEY=$(CODE_ARTIFACT_ACCESS_KEY)
-          - --build-arg=CODE_ARTIFACT_ACCESS_KEY_ID=$(CODE_ARTIFACT_ACCESS_KEY_ID)
+          - --secret=id=CODE_ARTIFACT_ACCOUNT_ID
+          - --secret=id=CODE_ARTIFACT_ACCESS_KEY
+          - --secret=id=CODE_ARTIFACT_ACCESS_KEY_ID
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
@@ -369,6 +371,8 @@ spec:
             value: "true"
           - name: AWS_SDK_LOAD_CONFIG
             value: "true"
+          - name: CODE_ARTIFACT_ACCOUNT_ID
+            value: 725604423866
           - name: CODE_ARTIFACT_ACCESS_KEY_ID
             valueFrom:
               secretKeyRef:
@@ -383,9 +387,9 @@ spec:
           - --destination=725604423866.dkr.ecr.us-east-2.amazonaws.com/{{inputs.parameters.service}}:{{inputs.parameters.version}}
           - --context=/tmp/git/k8s_curi/
           - --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
-          - --build-arg=CODE_ARTIFACT_ACCOUNT_ID=725604423866
-          - --build-arg=CODE_ARTIFACT_ACCESS_KEY=$(CODE_ARTIFACT_ACCESS_KEY)
-          - --build-arg=CODE_ARTIFACT_ACCESS_KEY_ID=$(CODE_ARTIFACT_ACCESS_KEY_ID)
+          - --secret=id=CODE_ARTIFACT_ACCOUNT_ID
+          - --secret=id=CODE_ARTIFACT_ACCESS_KEY
+          - --secret=id=CODE_ARTIFACT_ACCESS_KEY_ID
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git

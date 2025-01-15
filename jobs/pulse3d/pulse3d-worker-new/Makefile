@@ -5,16 +5,16 @@ repo_root=$(shell git rev-parse --show-toplevel)
 build:
 	cd ${repo_root} && \
 	docker build -t pulse3d-worker . -f ${repo_root}/jobs/pulse3d/pulse3d-worker-new/Dockerfile \
-		--build-arg="CODE_ARTIFACT_ACCOUNT_ID=${CODE_ARTIFACT_ACCOUNT_ID}" \
-		--build-arg="CODE_ARTIFACT_ACCESS_KEY=${CODE_ARTIFACT_ACCESS_KEY}" \
-		--build-arg="CODE_ARTIFACT_ACCESS_KEY_ID=${CODE_ARTIFACT_ACCESS_KEY_ID}"
+		--secret=id=CODE_ARTIFACT_ACCOUNT_ID \
+		--secret=id=CODE_ARTIFACT_ACCESS_KEY \
+		--secret=id=CODE_ARTIFACT_ACCESS_KEY_ID
 
 buildx:
 	cd ${repo_root} && \
 	docker buildx build -t pulse3d-worker . -f ${repo_root}/jobs/pulse3d/pulse3d-worker-new/Dockerfile --platform linux/amd64 --load \
-		--build-arg="CODE_ARTIFACT_ACCOUNT_ID=${CODE_ARTIFACT_ACCOUNT_ID}" \
-		--build-arg="CODE_ARTIFACT_ACCESS_KEY=${CODE_ARTIFACT_ACCESS_KEY}" \
-		--build-arg="CODE_ARTIFACT_ACCESS_KEY_ID=${CODE_ARTIFACT_ACCESS_KEY_ID}"
+		--secret=id=CODE_ARTIFACT_ACCOUNT_ID \
+		--secret=id=CODE_ARTIFACT_ACCESS_KEY \
+		--secret=id=CODE_ARTIFACT_ACCESS_KEY_ID
 
 tag:
 	docker tag pulse3d-worker:latest $(ecr_repo):3.0.0rc2
