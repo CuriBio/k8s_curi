@@ -163,9 +163,7 @@ spec:
           - echo $CODE_ARTIFACT_ACCOUNT_ID > /kaniko/AWS_ACCOUNT_ID;
             echo $CODE_ARTIFACT_ACCESS_KEY > /kaniko/AWS_SECRET_ACCESS_KEY;
             echo $CODE_ARTIFACT_ACCESS_KEY_ID > /kaniko/AWS_ACCESS_KEY_ID;
-            /kaniko/executor \
-              --context=/tmp/git/k8s_curi/ \
-              --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
+            /kaniko/executor --no-push --context=/tmp/git/k8s_curi/ --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
@@ -387,10 +385,7 @@ spec:
           - echo $CODE_ARTIFACT_ACCOUNT_ID > /kaniko/AWS_ACCOUNT_ID;
             echo $CODE_ARTIFACT_ACCESS_KEY > /kaniko/AWS_SECRET_ACCESS_KEY;
             echo $CODE_ARTIFACT_ACCESS_KEY_ID > /kaniko/AWS_ACCESS_KEY_ID;
-            /kaniko/executor \
-              --destination=245339368379.dkr.ecr.us-east-2.amazonaws.com/{{inputs.parameters.service}}:{{inputs.parameters.version}}
-              --context=/tmp/git/k8s_curi/ \
-              --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
+            /kaniko/executor --destination=245339368379.dkr.ecr.us-east-2.amazonaws.com/{{inputs.parameters.service}}:{{inputs.parameters.version}} --context=/tmp/git/k8s_curi/ --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
