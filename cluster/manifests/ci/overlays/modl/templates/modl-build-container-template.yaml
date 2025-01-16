@@ -163,9 +163,7 @@ spec:
           - echo $CODE_ARTIFACT_ACCOUNT_ID > /kaniko/AWS_ACCOUNT_ID;
             echo $CODE_ARTIFACT_ACCESS_KEY > /kaniko/AWS_SECRET_ACCESS_KEY;
             echo $CODE_ARTIFACT_ACCESS_KEY_ID > /kaniko/AWS_ACCESS_KEY_ID;
-            /kaniko/executor \
-              --context=/tmp/git/k8s_curi/ \
-              --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
+            /kaniko/executor --help
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
