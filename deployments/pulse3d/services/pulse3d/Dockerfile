@@ -8,9 +8,12 @@ COPY ./core/lib/jobs ./lib/jobs
 RUN apt update
 RUN apt install awscli --yes
 
-RUN --mount=type=secret,id=CODE_ARTIFACT_ACCOUNT_ID,env=AWS_ACCOUNT_ID \
-    --mount=type=secret,id=CODE_ARTIFACT_ACCESS_KEY,env=AWS_SECRET_ACCESS_KEY \
-    --mount=type=secret,id=CODE_ARTIFACT_ACCESS_KEY_ID,env=AWS_ACCESS_KEY_ID \
+RUN --mount=type=secret,id=CODE_ARTIFACT_ACCOUNT_ID,target=/kaniko/AWS_ACCOUNT_ID \
+    --mount=type=secret,id=CODE_ARTIFACT_ACCESS_KEY,target=/kaniko/AWS_SECRET_ACCESS_KEY \
+    --mount=type=secret,id=CODE_ARTIFACT_ACCESS_KEY_ID,target=/kaniko/AWS_ACCESS_KEY_ID \
+    export AWS_ACCOUNT_ID=$(cat /kaniko/AWS_ACCOUNT_ID) && \
+    export AWS_SECRET_ACCESS_KEY=$(cat /kaniko/AWS_SECRET_ACCESS_KEY) && \
+    export AWS_ACCESS_KEY_ID=$(cat /kaniko/AWS_ACCESS_KEY_ID) && \
     python -m venv --copies /app/venv && \
     . /app/venv/bin/activate && \
     export CODEARTIFACT_AUTH_TOKEN=$(aws codeartifact get-authorization-token --domain curibio --domain-owner $AWS_ACCOUNT_ID --region us-east-2 --query authorizationToken --output text) && \

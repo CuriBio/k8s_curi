@@ -144,7 +144,12 @@ spec:
         group: argo
       container:
         image: gcr.io/kaniko-project/executor:v1.23.2-debug
-        command: [/kaniko/executor]
+        command: ["sh"]
+        source: |
+          echo $CODE_ARTIFACT_ACCOUNT_ID > /kaniko/AWS_ACCOUNT_ID
+          echo $CODE_ARTIFACT_ACCESS_KEY > /kaniko/AWS_SECRET_ACCESS_KEY
+          echo $CODE_ARTIFACT_ACCESS_KEY_ID > /kaniko/AWS_ACCESS_KEY_ID
+          /kaniko/executor
         workingDir: /tmp/git/k8s_curi
         env:
           - name: CODE_ARTIFACT_ACCOUNT_ID
@@ -163,9 +168,6 @@ spec:
           - --no-push
           - --context=/tmp/git/k8s_curi/
           - --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
-          - --secret=id=CODE_ARTIFACT_ACCOUNT_ID
-          - --secret=id=CODE_ARTIFACT_ACCESS_KEY
-          - --secret=id=CODE_ARTIFACT_ACCESS_KEY_ID
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
@@ -365,7 +367,12 @@ spec:
         group: argo
       container:
         image: gcr.io/kaniko-project/executor:v1.23.2-debug
-        command: [/kaniko/executor]
+        command: ["sh"]
+        source: |
+          echo $CODE_ARTIFACT_ACCOUNT_ID > /kaniko/AWS_ACCOUNT_ID
+          echo $CODE_ARTIFACT_ACCESS_KEY > /kaniko/AWS_SECRET_ACCESS_KEY
+          echo $CODE_ARTIFACT_ACCESS_KEY_ID > /kaniko/AWS_ACCESS_KEY_ID
+          /kaniko/executor
         env:
           - name: AWS_EC2_METADATA_DISABLED
             value: "true"
@@ -387,9 +394,6 @@ spec:
           - --destination=725604423866.dkr.ecr.us-east-2.amazonaws.com/{{inputs.parameters.service}}:{{inputs.parameters.version}}
           - --context=/tmp/git/k8s_curi/
           - --dockerfile=/tmp/git/k8s_curi/{{inputs.parameters.path}}/Dockerfile
-          - --secret=id=CODE_ARTIFACT_ACCOUNT_ID
-          - --secret=id=CODE_ARTIFACT_ACCESS_KEY
-          - --secret=id=CODE_ARTIFACT_ACCESS_KEY_ID
         volumeMounts:
           - name: workdir
             mountPath: /tmp/git
