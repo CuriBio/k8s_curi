@@ -148,7 +148,7 @@ spec:
         workingDir: /tmp/git/k8s_curi
         env:
           - name: CODE_ARTIFACT_ACCOUNT_ID
-            value: 245339368379
+            value: "245339368379"
           - name: CODE_ARTIFACT_ACCESS_KEY_ID
             valueFrom:
               secretKeyRef:
@@ -372,7 +372,7 @@ spec:
           - name: AWS_SDK_LOAD_CONFIG
             value: "true"
           - name: CODE_ARTIFACT_ACCOUNT_ID
-            value: 245339368379
+            value: "245339368379"
           - name: CODE_ARTIFACT_ACCESS_KEY_ID
             valueFrom:
               secretKeyRef:
