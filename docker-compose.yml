@@ -48,11 +48,11 @@ services:
       - psql-proxy
   pulse3d:
     build:
+      secrets:
+        - CODE_ARTIFACT_ACCOUNT_ID
+        - CODE_ARTIFACT_ACCESS_KEY
+        - CODE_ARTIFACT_ACCESS_KEY_ID
       context: .
-      args:
-        - CODE_ARTIFACT_ACCOUNT_ID=${CODE_ARTIFACT_ACCOUNT_ID}
-        - CODE_ARTIFACT_ACCESS_KEY=${CODE_ARTIFACT_ACCESS_KEY}
-        - CODE_ARTIFACT_ACCESS_KEY_ID=${CODE_ARTIFACT_ACCESS_KEY_ID}
       dockerfile: ./deployments/pulse3d/services/pulse3d/Dockerfile
     environment:
       - POSTGRES_SERVER=host.docker.internal
@@ -130,3 +130,10 @@ services:
     depends_on:
       - psql-proxy
     platform: "linux/amd64"
+secrets:
+  CODE_ARTIFACT_ACCOUNT_ID:
+    environment: CODE_ARTIFACT_ACCOUNT_ID
+  CODE_ARTIFACT_ACCESS_KEY:
+    environment: CODE_ARTIFACT_ACCESS_KEY
+  CODE_ARTIFACT_ACCESS_KEY_ID:
+    environment: CODE_ARTIFACT_ACCESS_KEY_ID
