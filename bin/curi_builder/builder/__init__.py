@@ -14,12 +14,14 @@ K8S_REPO_BASE_URL = "https://api.github.com/repos/CuriBio/k8s_curi"
 
 SVC_PATH_PATTERN = "deployments/**/services/*"
 WORKER_PATH_PATTERN = "jobs/**/*-worker"
+TEST_WORKER_PATH_PATTERN = "jobs/**/*-worker-new"
 JOBS_OPERATOR_PATH = "jobs/jobs-operator/jobs-operator"
 QUEUE_PROCESSOR_PATH = "jobs/queue-processor"
 ALL_SVC_PATHS = frozenset(
     [
         *glob.glob(SVC_PATH_PATTERN, recursive=True),
         *glob.glob(WORKER_PATH_PATTERN, recursive=True),
+        *glob.glob(TEST_WORKER_PATH_PATTERN, recursive=True),
         JOBS_OPERATOR_PATH,
         QUEUE_PROCESSOR_PATH,
     ]
@@ -57,7 +59,13 @@ def get_svc_name_from_path(file_path: str):
 
 
 def find_changed_svcs(sha: str):
-    patterns_to_check = (SVC_PATH_PATTERN, WORKER_PATH_PATTERN, JOBS_OPERATOR_PATH, QUEUE_PROCESSOR_PATH)
+    patterns_to_check = (
+        SVC_PATH_PATTERN,
+        WORKER_PATH_PATTERN,
+        TEST_WORKER_PATH_PATTERN,
+        JOBS_OPERATOR_PATH,
+        QUEUE_PROCESSOR_PATH,
+    )
 
     completed_process = subprocess.run(
         ["git", "--no-pager", "diff", sha, "--name-only", "--", *get_dir_args(*patterns_to_check)],
@@ -85,6 +93,9 @@ def find_changed_svcs(sha: str):
                 svc = "pulse3d_api"
             if svc == "advanced-analysis":
                 svc = "advanced-analysis-api"
+
+        if svc.endswith("-new"):
+            svc = svc.split("-new")[0]
 
         # need to output the pulse3d package version so it can be included in the name of the pulse3d-worker docker image
         if svc == "pulse3d-worker":

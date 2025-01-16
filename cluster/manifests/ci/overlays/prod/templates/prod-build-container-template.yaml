@@ -143,7 +143,7 @@ spec:
       nodeSelector:
         group: argo
       container:
-        image: gcr.io/kaniko-project/executor:v1.8.0-debug
+        image: gcr.io/kaniko-project/executor:v1.23.2-debug
         command: [/kaniko/executor]
         workingDir: /tmp/git/k8s_curi
         env:
@@ -364,7 +364,7 @@ spec:
       nodeSelector:
         group: argo
       container:
-        image: gcr.io/kaniko-project/executor:v1.8.0-debug
+        image: gcr.io/kaniko-project/executor:v1.23.2-debug
         command: [/kaniko/executor]
         env:
           - name: AWS_EC2_METADATA_DISABLED
