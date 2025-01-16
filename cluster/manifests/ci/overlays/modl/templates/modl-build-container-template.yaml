@@ -144,7 +144,7 @@ spec:
         group: argo
       container:
         image: gcr.io/kaniko-project/executor:v1.23.2-debug
-        command: ["sh"]
+        command: ["sh", "-c"]
         workingDir: /tmp/git/k8s_curi
         env:
           - name: CODE_ARTIFACT_ACCOUNT_ID
@@ -366,7 +366,7 @@ spec:
         group: argo
       container:
         image: gcr.io/kaniko-project/executor:v1.23.2-debug
-        command: ["sh"]
+        command: ["sh", "-c"]
         env:
           - name: AWS_EC2_METADATA_DISABLED
             value: "true"
