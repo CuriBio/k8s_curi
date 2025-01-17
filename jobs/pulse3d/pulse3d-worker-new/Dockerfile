@@ -26,6 +26,9 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 RUN useradd main_user && groupadd main_group
 
+RUN mkdir -p /app/duckdb
+RUN chown main_user:main_group /app/duckdb
+
 USER main_user:main_group
 
 COPY --from=venv --chown=main_user:main_group /app/venv /app/venv/

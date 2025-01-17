@@ -42,8 +42,8 @@ s3_client = boto3.client("s3")
 
 def configure_duckdb():
     # docker container has no home directory, so these need to be set manually
-    duckdb.sql("SET extension_directory='/app/duckdb_extensions'")
-    duckdb.sql("SET secret_directory='/app/duckdb_secrets'")
+    duckdb.sql("SET extension_directory='/app/duckdb/extensions'")
+    duckdb.sql("SET secret_directory='/app/duckdb/secrets'")
 
     # using the provider chain does not seem to work, so using workaround found here https://github.com/duckdb/duckdb-aws/issues/31#issuecomment-2113040290
     aws_session = boto3.Session()
@@ -292,7 +292,7 @@ def load_existing_upload_metadata(existing_upload_meta: dict[str, Any]) -> BaseM
 
 
 def download_and_load_recording(upload_details: dict[str, Any]) -> LoadedData:
-    with tempfile.TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
         logger.info("Downloading recording file")
         try:
             upload_s3_key = f"{upload_details['prefix']}/{upload_details['filename']}"
