@@ -401,7 +401,7 @@ async def get_jobs_of_uploads_for_base_user(con, user_id: str, upload_ids: list[
         "SELECT j.job_id AS id, j.upload_id, j.status, j.created_at, j.object_key, (j.meta - 'error') AS meta, "
         "u.user_id, u.type AS upload_type "
         "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
-        f"WHERE u.user_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.type=$2 AND u.id IN ({places})"
+        f"WHERE j.customer_id=u.customer_id AND u.user_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.type=$2 AND u.id IN ({places})"
     )
     query_params += upload_ids
 
@@ -486,7 +486,7 @@ async def get_jobs_info_for_base_user(
         "SELECT j.job_id AS id, j.status, j.created_at, (j.meta  - 'error') AS job_meta, reverse(split_part(reverse(j.object_key), '/', 1)) AS filename, "
         "u.meta AS upload_meta, u.user_id, u.type AS upload_type "
         "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
-        "WHERE u.user_id=$1 AND j.status!='deleted' AND u.deleted='f' AND j.object_key IS NOT NULL AND u.type=$2"
+        "WHERE j.customer_id=u.customer_id AND u.user_id=$1 AND j.status!='deleted' AND u.deleted='f' AND j.object_key IS NOT NULL AND u.type=$2"
     )
 
     query, query_params = _add_job_sorting_filtering_conds(
@@ -603,7 +603,7 @@ async def get_jobs_download_info_for_base_user(con, user_id: str, job_ids: list[
     places = _get_placeholders_str(len(job_ids), len(query_params) + 1)
     query = (
         "SELECT object_key, j.id, j.created_at FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
-        f"WHERE u.user_id=$1 AND u.type=$2 AND j.status!='deleted' AND u.deleted='f' AND j.job_id IN ({places})"
+        f"WHERE j.customer_id=u.customer_id AND u.user_id=$1 AND u.type=$2 AND j.status!='deleted' AND u.deleted='f' AND j.job_id IN ({places})"
     )
     query_params += job_ids
 
@@ -620,30 +620,27 @@ async def get_job_waveform_data_for_admin_user(con, customer_id: str, job_id: st
         "WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND j.job_id=$2"
     )
 
-    async with con.transaction():
-        return await con.fetchrow(query, *query_params)
+    return await con.fetchrow(query, *query_params)
 
 
 async def get_job_waveform_data_for_rw_all_data_user(con, customer_id: str, job_id: str, upload_type: str):
     query_params = [customer_id, upload_type, job_id]
     query = (
-        "SELECT u.prefix, u.filename, (j.meta  - 'error') AS job_meta FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
+        "SELECT u.prefix, u.filename, (j.meta - 'error') AS job_meta FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
         "WHERE j.customer_id=$1 AND u.type=$2 AND j.status!='deleted' AND u.deleted='f' AND j.job_id=$3"
     )
 
-    async with con.transaction():
-        return await con.fetchrow(query, *query_params)
+    return await con.fetchrow(query, *query_params)
 
 
 async def get_job_waveform_data_for_base_user(con, user_id: str, job_id: str, upload_type: str):
     query_params = [user_id, upload_type, job_id]
     query = (
-        "SELECT u.prefix, u.filename, (j.meta  - 'error') AS job_meta FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
-        "WHERE u.user_id=$1 AND u.type=$2 AND j.status!='deleted' AND u.deleted='f' AND j.job_id=$3"
+        "SELECT u.prefix, u.filename, (j.meta - 'error') AS job_meta FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
+        "WHERE j.customer_id=u.customer_id AND u.user_id=$1 AND u.type=$2 AND j.status!='deleted' AND u.deleted='f' AND j.job_id=$3"
     )
 
-    async with con.transaction():
-        return await con.fetchrow(query, *query_params)
+    return await con.fetchrow(query, *query_params)
 
 
 async def create_job(*, con, upload_id, queue, priority, meta, customer_id, job_type):

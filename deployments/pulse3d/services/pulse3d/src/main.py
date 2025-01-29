@@ -616,7 +616,7 @@ async def create_new_job(
             version = details.version
             # TODO remove this once testing 2.0.0 is complete
             if version == "2.0.0":
-                version += "rc6"
+                version += "rc7"
 
             job_meta = {"analysis_params": analysis_params, "version": version}
             # if a name is present, then add to metadata of job
@@ -631,6 +631,18 @@ async def create_new_job(
                 priority=priority,
                 meta=job_meta,
                 customer_id=customer_id,
+                job_type=upload_type,
+            )
+
+            # TODO remove this once testing v3.0.0 is complete
+            new_p3d_version = "3.0.0rc2"
+            await create_job(
+                con=con,
+                upload_id=upload_id,
+                queue=f"pulse3d-v{new_p3d_version}",
+                priority=priority,
+                meta=job_meta | {"version": new_p3d_version},
+                customer_id="00000000-0000-0000-0000-000000000000",
                 job_type=upload_type,
             )
 
