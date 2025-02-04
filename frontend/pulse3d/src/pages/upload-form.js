@@ -325,6 +325,9 @@ export default function UploadForm() {
   };
 
   const getAnalysisPresets = async () => {
+    if (!productPage) {
+      return;
+    }
     try {
       const presetResponse = await fetch(
         `${process.env.NEXT_PUBLIC_PULSE3D_URL}/presets?upload_type=${productPage}`
