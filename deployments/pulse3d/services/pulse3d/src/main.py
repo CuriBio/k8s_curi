@@ -541,6 +541,7 @@ async def create_new_job(
 
         if pulse3d_semver >= "2.0.0":
             params.append("relaxation_search_limit_secs")
+            params.append("nmj_single_axis_sensing")
         else:
             params.append("baseline_widths_to_use")
 
