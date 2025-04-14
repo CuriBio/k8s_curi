@@ -617,7 +617,7 @@ async def create_new_job(
             version = details.version
             # TODO remove this once testing 2.0.0 is complete
             if version == "2.0.0":
-                version += "rc7"
+                version += "rc8"
 
             job_meta = {"analysis_params": analysis_params, "version": version}
             # if a name is present, then add to metadata of job
