@@ -82,7 +82,7 @@ class Scopes(StrEnum):
         MANTARRAY__SERIAL_NUMBER__LIST,
         [ScopeTags.MANTARRAY, ScopeTags.INTERNAL],
     )
-    MANTARRAY__NMJ = auto(), MANTARRAY__BASE, [ScopeTags.MANTARRAY]
+    MANTARRAY__NMJ = auto(), MANTARRAY__BASE, [ScopeTags.MANTARRAY, ScopeTags.INTERNAL]
     NAUTILAI__ADMIN = auto(), None, [ScopeTags.NAUTILAI, ScopeTags.PULSE3D_READ, ScopeTags.ADMIN]
     NAUTILAI__BASE = auto(), None, [ScopeTags.NAUTILAI, ScopeTags.PULSE3D_READ, ScopeTags.PULSE3D_WRITE]
     NAUTILAI__RW_ALL_DATA = (

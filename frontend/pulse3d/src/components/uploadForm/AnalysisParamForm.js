@@ -481,7 +481,7 @@ export default function AnalysisParamForm({
   const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails, dataTypeDetails } = useContext(
     UploadsContext
   );
-  const { productPage } = useContext(AuthContext);
+  const { productPage, accountScope } = useContext(AuthContext);
   const [isOverwritingExistingPreset, setIsOverwritingExistingPreset] = useState(false);
   const [deprecationNotice, setDeprecationNotice] = useState(false);
   const [pulse3dVersionEOLDateWarning, setPulse3dVersionEOLDateWarning] = useState("");
@@ -1042,7 +1042,7 @@ export default function AnalysisParamForm({
             </DropDownContainer>
           </AnalysisParamContainer>
         )}
-        {pulse3dVersionGte("2.0.0") && productPage === "mantarray" && (
+        {pulse3dVersionGte("2.0.0") && productPage === "mantarray" && accountScope.includes("mantarray:nmj") && (
           <AnalysisParamContainer
             label="Run NMJ Single-Axis Sensing"
             name="nmjSingleAxisSensing"
