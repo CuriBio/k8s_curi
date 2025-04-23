@@ -541,6 +541,7 @@ async def create_new_job(
 
         if pulse3d_semver >= "2.0.0":
             params.append("relaxation_search_limit_secs")
+            params.append("nmj_single_axis_sensing")
         else:
             params.append("baseline_widths_to_use")
 
@@ -616,7 +617,7 @@ async def create_new_job(
             version = details.version
             # TODO remove this once testing 2.0.0 is complete
             if version == "2.0.0":
-                version += "rc7"
+                version += "rc8"
 
             job_meta = {"analysis_params": analysis_params, "version": version}
             # if a name is present, then add to metadata of job

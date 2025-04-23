@@ -135,6 +135,9 @@ class JobRequest(BaseModel):
     include_stim_protocols: bool | None = Field(default=None)
     stiffness_factor: int | None = Field(default=None)
     inverted_post_magnet_wells: list[str] | None = Field(default=None)
+    # NMJ params
+    nmj_single_axis_sensing: bool | None = Field(default=None)
+
     # nautilai params
     data_type: str | None = Field(default=None)
     normalization_method: NormalizationMethods | None = Field(default=None)
