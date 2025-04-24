@@ -175,6 +175,8 @@ export default function UploadForm() {
       valleySearchDuration: "",
       upslopeDuration: "",
       upslopeNoiseAllowance: "",
+      // NMJ
+      nmjSingleAxisSensing: null,
     };
   };
 
@@ -418,6 +420,7 @@ export default function UploadForm() {
       maxPeakWidth,
       normalizationMethod,
       relaxationSearchLimit,
+      nmjSingleAxisSensing,
     } = analysisParams;
 
     const version =
@@ -540,6 +543,7 @@ export default function UploadForm() {
 
     if (semverGte(version, "2.0.0")) {
       requestBody.relaxation_search_limit_secs = getNullIfEmpty(relaxationSearchLimit);
+      requestBody.nmj_single_axis_sensing = nmjSingleAxisSensing;
     } else {
       requestBody.baseline_widths_to_use = formatTupleParams(baseToPeak, peakToBase);
     }
