@@ -65,7 +65,7 @@ export default function Metrics() {
   const [metricsVersion, setMetricsVersion] = useState(null);
 
   useEffect(() => {
-    setMetricsVersion(router.query.id.toLowerCase() === "v2" ? 2 : 1);
+    setMetricsVersion(router?.query?.id?.toLowerCase() === "v2" ? 2 : 1);
   }, [router.query]);
 
   return <BackgroundContainer>{getImages(productPage, metricsVersion)}</BackgroundContainer>;
