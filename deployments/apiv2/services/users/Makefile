@@ -11,10 +11,10 @@ buildx:
 	docker buildx build -t users . -f ${repo_root}/deployments/apiv2/services/users/Dockerfile --platform linux/amd64 --load
 
 tag:
-	docker tag users:latest $(ecr_repo):0.10.5
+	docker tag users:latest $(ecr_repo):0.10.6
 
 login:
 	aws ecr get-login-password --region us-east-2 | docker login --password-stdin --username AWS $(ecr_repo)
 
 push:
-	docker push $(ecr_repo):0.10.5
+	docker push $(ecr_repo):0.10.6
