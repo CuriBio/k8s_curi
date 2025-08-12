@@ -786,6 +786,7 @@ async def check_customer_advanced_analysis_usage(con, customer_id):
     current_job_count = await con.fetchval(
         "SELECT COUNT(*) FROM advanced_analysis_result WHERE customer_id=$1", customer_id
     )
+    current_job_count = int(current_job_count)
 
     usage_limits = json.loads(usage_limits_json)
 
