@@ -194,6 +194,11 @@ async def process_item(con, item):
         # remove params that were not given as these already have default values
         analysis_params = {k: v for k, v in metadata["analysis_params"].items() if v is not None}
 
+        # pre-processing params, if any of these are set then pre-processing must be re-ran
+        pre_processing_params = {
+            k: v for k in ["nmj_single_axis_sensing"] if (v := analysis_params.get(k)) is not None
+        }
+
         pre_analysis_params = {
             k: v for k, v in analysis_params.items() if k in ["stiffness_factor", "detrend"]
         }
@@ -283,7 +288,7 @@ async def process_item(con, item):
                 except Exception:
                     logger.exception("Error loading existing pre-process data")
 
-            if not re_analysis:
+            if pre_processing_params or not re_analysis:
                 try:
                     logger.info("Starting DataLoader")
                     loaded_data = from_file(recording_path)
@@ -294,7 +299,7 @@ async def process_item(con, item):
 
                 try:
                     logger.info("Starting Pre-Analysis pre-processing")
-                    pre_processed_data = pre_process(loaded_data)
+                    pre_processed_data = pre_process(loaded_data, **pre_processing_params)
                 except UnableToConvergeError:
                     error_msg = "Unable to converge, low quality calibration data"
                     logger.exception(error_msg)
@@ -304,8 +309,9 @@ async def process_item(con, item):
                     logger.exception("Pre-Analysis pre-processing failed")
                     raise
 
-                # upload pre-processed data
-                _upload_pre_zip(pre_processed_data, file_info, "pre_process")
+                # upload pre-processed data if using default pre-processing params
+                if not pre_processing_params:
+                    _upload_pre_zip(pre_processed_data, file_info, "pre_process")
 
             if pre_processed_data is None:
                 raise Exception("Something went wrong, pre-processed data was never set")

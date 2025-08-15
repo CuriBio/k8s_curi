@@ -481,7 +481,7 @@ export default function AnalysisParamForm({
   const { pulse3dVersions, metaPulse3dVersions, stiffnessFactorDetails, dataTypeDetails } = useContext(
     UploadsContext
   );
-  const { productPage } = useContext(AuthContext);
+  const { productPage, accountScope } = useContext(AuthContext);
   const [isOverwritingExistingPreset, setIsOverwritingExistingPreset] = useState(false);
   const [deprecationNotice, setDeprecationNotice] = useState(false);
   const [pulse3dVersionEOLDateWarning, setPulse3dVersionEOLDateWarning] = useState("");
@@ -1040,6 +1040,26 @@ export default function AnalysisParamForm({
                 )}
               />
             </DropDownContainer>
+          </AnalysisParamContainer>
+        )}
+        {pulse3dVersionGte("2.0.0") && productPage === "mantarray" && accountScope.includes("mantarray:nmj") && (
+          <AnalysisParamContainer
+            label="Run NMJ Single-Axis Sensing"
+            name="nmjSingleAxisSensing"
+            tooltipText="Run the NMJ Single-Axis Sensing algorithm. Should only be used for NMJ recordings with a 12x post where peak amplitudes are < 200µN."
+            additionaLabelStyle={{ width: "62%", lineHeight: 2.5 }}
+            iconStyle={{ fontSize: 20, margin: "0px 10px" }}
+          >
+            <InputErrorContainer>
+              <CheckboxWidget
+                checkedState={checkedParams ? Boolean(analysisParams.nmjSingleAxisSensing) : false}
+                handleCheckbox={(enable) => {
+                  updateParams({
+                    nmjSingleAxisSensing: enable,
+                  });
+                }}
+              />
+            </InputErrorContainer>
           </AnalysisParamContainer>
         )}
         {pulse3dVersionGte("0.34.2") && productPage === "nautilai" && (

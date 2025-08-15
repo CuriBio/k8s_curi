@@ -147,7 +147,7 @@ const getUserButtons = (productPage, usageQuota) => {
         page: "/account-settings",
         options: [],
       },
-      { label: "Metric Definitions", page: "/metrics", options: [] },
+      { label: "Metric Definitions", page: "/metrics", options: ["V0-V1", "V2"] },
     ];
   } else if (productPage === "advanced_analysis") {
     return [
