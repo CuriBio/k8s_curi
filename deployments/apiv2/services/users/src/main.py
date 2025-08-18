@@ -1309,7 +1309,7 @@ async def update_customer(
                         )
 
                     # handle product scope updates
-                    if (updated_scopes := details.products) is not None:
+                    if (updated_scopes := details.scopes) is not None:
                         check_prohibited_admin_scopes(updated_scopes, token.scopes)
                         validate_scope_dependencies(updated_scopes)
 
@@ -1328,12 +1328,12 @@ async def update_customer(
                         # The update will include all scopes that should be assigned after this operation, so first
                         # delete existing scopes from database and then insert the updated scopes
                         await con.execute(
-                            "DELETE FROM account_scopes WHERE customer_id=$1 AND user_id=NULL", account_id
+                            "DELETE FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL", account_id
                         )
                         await con.execute(
-                            "INSERT INTO account_scopes VALUES ($1, NULL, unnest($3::text[]))",
+                            "INSERT INTO account_scopes VALUES ($1, NULL, unnest($2::text[]))",
                             account_id,
-                            updated_scopes,
+                            [str(s) for s in updated_scopes],
                         )
                 else:
                     raise HTTPException(

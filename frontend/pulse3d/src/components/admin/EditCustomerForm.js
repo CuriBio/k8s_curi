@@ -168,9 +168,11 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
           }
         }
 
+        const scopes = selectedProducts.map((p) => `${p}:admin`);
+
         const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/customers/${customerData.id}`, {
           method: "PUT",
-          body: JSON.stringify({ usage: usageCopy, products: selectedProducts, action_type: "edit" }),
+          body: JSON.stringify({ usage: usageCopy, scopes, action_type: "edit" }),
         });
 
         if (res.status === 204) {
