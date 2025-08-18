@@ -256,7 +256,7 @@ async def sso_user(request: Request, details: SSOLogin):
                     raise LoginError("Bad user organization id state.")
 
             # get scopes from account_scopes table
-            scopes = await get_account_scopes(con, user_id, False)
+            scopes = await get_account_scopes(con, customer_id, user_id)
 
             tokens = await create_new_tokens(
                 con, user_id, customer_id, scopes, AccountTypes.USER, LoginType.SSO_MICROSOFT
@@ -390,7 +390,7 @@ async def login_user(request: Request, details: UserLogin):
                 raise LoginError("The customer ID for this account has been deactivated.")
 
             # get scopes from account_scopes table
-            scopes = await get_account_scopes(con, user_id, False)
+            scopes = await get_account_scopes(con, customer_id, user_id)
 
             # users logging into the dashboard should not have usage returned because they need to select a product from the landing page first to be given correct limits
             # users logging into a specific instrument need the the usage returned right away and it is known what instrument they are using
@@ -425,7 +425,7 @@ async def login_user(request: Request, details: UserLogin):
 
 async def _build_admin_login_or_sso_response(con, customer_id, email, login_type: LoginType):
     # get scopes from account_scopes table
-    scopes = await get_account_scopes(con, customer_id, True)
+    scopes = await get_account_scopes(con, customer_id, None)
 
     # TODO split this part out into a new route
     # get list of scopes that the admin can assign to its users
@@ -593,11 +593,11 @@ async def refresh(request: Request, token=Depends(ProtectedAny(scopes=[Scopes.RE
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
-            scopes = await get_account_scopes(con, account_id, is_admin_account)
-
-            # con is passed to this function, so it must be inside this async with block
             user_id = None if is_admin_account else account_id
             customer_id = account_id if is_admin_account else row["customer_id"]
+            scopes = await get_account_scopes(con, customer_id, user_id)
+
+            # con is passed to this function, so it must be inside this async with block
             return await create_new_tokens(con, user_id, customer_id, scopes, account_type, login_type)
 
     except HTTPException:
@@ -1315,7 +1315,7 @@ async def update_customer(
 
                         updated_products = get_product_tags_of_admin(updated_scopes)
                         current_products = get_product_tags_of_admin(
-                            await get_account_scopes(con, account_id, True)
+                            await get_account_scopes(con, account_id, None)
                         )
                         # if a product has been completely removed from an admin account, then remove all customer and user entries from account_scopes
                         if products_removed := set(current_products) - set(updated_products):

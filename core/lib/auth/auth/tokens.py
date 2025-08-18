@@ -147,7 +147,6 @@ def create_token(
 # TODO add testing for all this
 
 
-# TODO update this everywhere
 async def get_account_scopes(db_con, customer_id, user_id):
     admin_scopes = await db_con.fetch(
         "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL", customer_id
