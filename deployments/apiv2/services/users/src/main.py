@@ -1317,7 +1317,7 @@ async def update_customer(
                         current_products = get_product_tags_of_admin(
                             await get_account_scopes(con, account_id, True)
                         )
-                        # if a product scope is being removed from an admin account, then remove all customer and user entries from account_scopes
+                        # if a product has been completely removed from an admin account, then remove all customer and user entries from account_scopes
                         if products_removed := set(current_products) - set(updated_products):
                             for product in products_removed:
                                 await con.execute(
@@ -1325,15 +1325,16 @@ async def update_customer(
                                     account_id,
                                     f"{product}%",
                                 )
-                        # if a product scope is being added to an admin, then insert new entry for admin only
-                        if products_added := set(updated_products) - set(current_products):
-                            # TODO validate the new products?
-                            for product in products_added:
-                                await con.execute(
-                                    "INSERT INTO account_scopes VALUES ($1, NULL, $2)",
-                                    account_id,
-                                    f"{product}:admin",
-                                )
+                        # The update will include all scopes that should be assigned after this operation, so first
+                        # delete existing scopes from database and then insert the updated scopes
+                        await con.execute(
+                            "DELETE FROM account_scopes WHERE customer_id=$1 AND user_id=NULL", account_id
+                        )
+                        await con.execute(
+                            "INSERT INTO account_scopes VALUES ($1, NULL, unnest($3::text[]))",
+                            account_id,
+                            updated_scopes,
+                        )
                 else:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
