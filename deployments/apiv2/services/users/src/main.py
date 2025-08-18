@@ -662,6 +662,7 @@ async def register_admin(
             raise RegistrationError("SSO accounts require sso_organization and sso_admin_org_id")
 
         check_prohibited_admin_scopes(details.scopes, token.scopes)
+        validate_scope_dependencies(details.scopes)
 
         async with request.state.pgpool.acquire() as con:
             async with con.transaction():
@@ -741,6 +742,7 @@ async def register_user(
 
         bind_context_to_logger({"customer_id": str(customer_id), "username": username, "email": email})
         check_prohibited_user_scopes(user_scopes, admin_scopes)
+        validate_scope_dependencies(user_scopes)
 
         logger.info(f"Registering new user with scopes: {user_scopes}")
 
@@ -1307,8 +1309,11 @@ async def update_customer(
                         )
 
                     # handle product scope updates
-                    if (updated_products := details.products) is not None:
-                        # get product name from admin scopes
+                    if (updated_scopes := details.products) is not None:
+                        check_prohibited_admin_scopes(updated_scopes, token.scopes)
+                        validate_scope_dependencies(updated_scopes)
+
+                        updated_products = get_product_tags_of_admin(updated_scopes)
                         current_products = get_product_tags_of_admin(
                             await get_account_scopes(con, account_id, True)
                         )

@@ -216,6 +216,7 @@ async def create_recording_upload(
 
         # TODO Luci (09/30/2023) can remove after MA v1.2.2+, will no longer need to handle pulse3d upload types
         upload_type = details.upload_type if details.upload_type != "pulse3d" else "mantarray"
+
         check_prohibited_product(token.scopes, upload_type)
 
         bind_context_to_logger(
