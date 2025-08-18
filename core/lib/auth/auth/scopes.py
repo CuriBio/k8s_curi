@@ -41,6 +41,7 @@ class Scopes(StrEnum):
         required_admin: Self | Any | None,
         prerequisite: Self | Any | None,
         tags: list[ScopeTags],
+        inheritable: list[Self | Any] | None = None,
     ):
         """
         Args:
@@ -67,6 +68,8 @@ class Scopes(StrEnum):
             if not m._required_admin.is_admin_scope():
                 raise ValueError(f"{m._required_admin} is not an admin scope")
 
+        m._inheritable_scopes = [] if inheritable is None else inheritable
+
         m._tags = frozenset(tags)
 
         return m
@@ -83,6 +86,10 @@ class Scopes(StrEnum):
     def required_admin(self) -> Self | None:
         return self._required_admin
 
+    @property
+    def inheritable_scopes(self) -> list[Self]:
+        return self._inheritable_scopes
+
     CURI__ADMIN = (
         auto(),
         None,
@@ -98,15 +105,31 @@ class Scopes(StrEnum):
     )
     MANTARRAY__NMJ = (
         auto(),
-        CURI__ADMIN,
-        MANTARRAY__ADMIN,
-        [ScopeTags.MANTARRAY, ScopeTags.ADMIN, ScopeTags.PRODUCT_FEATURE],
+        None,
+        None,
+        # unassignable because this will be automatically inherited by a user if the admin has the feature scope
+        [ScopeTags.MANTARRAY, ScopeTags.UNASSIGNABLE],
     )
-    MANTARRAY__CLS_ALG = (
+    MANTARRAY__NMJ_FEATURE = (
         auto(),
         CURI__ADMIN,
         MANTARRAY__ADMIN,
         [ScopeTags.MANTARRAY, ScopeTags.ADMIN, ScopeTags.PRODUCT_FEATURE],
+        [MANTARRAY__NMJ],
+    )
+    MANTARRAY__CLS_ALG = (
+        auto(),
+        None,
+        None,
+        # unassignable because this will be automatically inherited by a user if the admin has the feature scope
+        [ScopeTags.MANTARRAY, ScopeTags.UNASSIGNABLE],
+    )
+    MANTARRAY__CLS_ALG_FEATURE = (
+        auto(),
+        CURI__ADMIN,
+        MANTARRAY__ADMIN,
+        [ScopeTags.MANTARRAY, ScopeTags.ADMIN, ScopeTags.PRODUCT_FEATURE],
+        [MANTARRAY__CLS_ALG],
     )
     MANTARRAY__BASE = (
         auto(),
