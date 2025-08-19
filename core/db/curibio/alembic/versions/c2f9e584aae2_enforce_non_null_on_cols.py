@@ -1,7 +1,7 @@
 """enforce non-null on cols
 
 Revision ID: c2f9e584aae2
-Revises: 309d3f752473
+Revises: dbf4f67a6571
 Create Date: 2025-02-04 13:03:34.523868
 
 """
@@ -11,7 +11,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "c2f9e584aae2"
-down_revision = "309d3f752473"
+down_revision = "dbf4f67a6571"
 branch_labels = None
 depends_on = None
 
