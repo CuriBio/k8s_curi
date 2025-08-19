@@ -69,6 +69,7 @@ class Scopes(StrEnum):
                 raise ValueError(f"{m._required_admin} is not an admin scope")
 
         m._inheritable_scopes = [] if inheritable is None else inheritable
+        m._inheritable_scopes = [cls[s[0].upper()] for s in m._inheritable_scopes]
 
         m._tags = frozenset(tags)
 
