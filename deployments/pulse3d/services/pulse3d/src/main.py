@@ -216,6 +216,7 @@ async def create_recording_upload(
 
         # TODO Luci (09/30/2023) can remove after MA v1.2.2+, will no longer need to handle pulse3d upload types
         upload_type = details.upload_type if details.upload_type != "pulse3d" else "mantarray"
+
         check_prohibited_product(token.scopes, upload_type)
 
         bind_context_to_logger(
@@ -629,18 +630,6 @@ async def create_new_job(
                 priority=priority,
                 meta=job_meta,
                 customer_id=customer_id,
-                job_type=upload_type,
-            )
-
-            # TODO remove this once testing v3.0.0 is complete
-            new_p3d_version = "3.0.0rc2"
-            await create_job(
-                con=con,
-                upload_id=upload_id,
-                queue=f"pulse3d-v{new_p3d_version}",
-                priority=priority,
-                meta=job_meta | {"version": new_p3d_version},
-                customer_id="00000000-0000-0000-0000-000000000000",
                 job_type=upload_type,
             )
 

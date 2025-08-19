@@ -114,9 +114,12 @@ export default function Customers() {
         minSize: 130,
         Cell: ({ cell }) => (
           <Box component="div">
-            {cell.getValue().map((s) => (
-              <div key={s}>{productTitle(s.split(":")[0])}</div>
-            ))}
+            {cell
+              .getValue()
+              .filter((s) => s.includes("admin"))
+              .map((s) => (
+                <div key={s}>{productTitle(s.split(":")[0])}</div>
+              ))}
           </Box>
         ),
       },
