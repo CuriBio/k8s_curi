@@ -276,7 +276,7 @@ def test_login__admin__success(send_client_type, mocked_asyncpg_con, mocker):
             "limits": {"expiration_date": "", "jobs": "-1", "uploads": "-1"},
             "uploads_reached": False,
         },
-        asutospec=True,
+        autospec=True,
     )
 
     login_details = {"email": "TEST@email.com", "password": "test_password"}
@@ -324,9 +324,9 @@ def test_login__admin__success(send_client_type, mocked_asyncpg_con, mocker):
     )
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
-        "SELECT password, id, failed_login_attempts, suspended FROM customers WHERE deleted_at IS NULL AND email=$1 AND login_type=$2",
+        "SELECT password, id, failed_login_attempts, suspended FROM customers WHERE deleted_at IS NULL AND LOWER(email)=$1 AND login_type=$2",
         login_details["email"].lower(),
-        "password",
+        LoginType.PASSWORD,
     )
     mocked_asyncpg_con.fetch.assert_called_once_with(
         "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL", test_customer_id
@@ -460,10 +460,10 @@ def test_sso__user__sign_in_success(send_client_type, mocked_asyncpg_con, mocker
         "SELECT u.id, u.suspended AS suspended, u.customer_id, c.suspended AS customer_suspended, "
         "u.verified, u.sso_user_org_id "
         "FROM users u JOIN customers c ON u.customer_id=c.id "
-        "WHERE u.deleted_at IS NULL AND u.email=$1 AND u.login_type!=$2 AND c.sso_organization=$3"
+        "WHERE u.deleted_at IS NULL AND LOWER(u.email)=$1 AND u.login_type!=$2 AND c.sso_organization=$3"
     )
 
-    mocked_asyncpg_con.fetchrow.assert_called_once_with(expected_query, email, "password", tid)
+    mocked_asyncpg_con.fetchrow.assert_called_once_with(expected_query, email, LoginType.PASSWORD, tid)
     mocked_asyncpg_con.fetch.assert_called_once_with(
         "SELECT scope FROM account_scopes WHERE user_id=$1", test_user_id
     )
@@ -552,10 +552,10 @@ def test_sso__user__sign_up_success(mocked_asyncpg_con, mocker):
         "SELECT u.id, u.suspended AS suspended, u.customer_id, c.suspended AS customer_suspended, "
         "u.verified, u.sso_user_org_id "
         "FROM users u JOIN customers c ON u.customer_id=c.id "
-        "WHERE u.deleted_at IS NULL AND u.email=$1 AND u.login_type!=$2 AND c.sso_organization=$3"
+        "WHERE u.deleted_at IS NULL AND LOWER(u.email)=$1 AND u.login_type!=$2 AND c.sso_organization=$3"
     )
 
-    mocked_asyncpg_con.fetchrow.assert_called_once_with(expected_query, email, "password", tid)
+    mocked_asyncpg_con.fetchrow.assert_called_once_with(expected_query, email, LoginType.PASSWORD, tid)
     mocked_asyncpg_con.fetch.assert_called_once_with(
         "SELECT scope FROM account_scopes WHERE user_id=$1", test_user_id
     )
@@ -610,7 +610,9 @@ def test_sso__user__returns_invalid_creds_if_account_is_suspended(mocked_asyncpg
 
     response = test_client.post("/sso", json=sso_details)
     assert response.status_code == 401
-    assert response.json() == {"detail": "Account has been suspended."}
+    assert response.json() == {
+        "detail": "This account has been deactivated. Please contact your administrator to reactivate this account."
+    }
 
 
 def test_sso__user__returns_invalid_creds_if_customer_account_is_suspended(mocked_asyncpg_con, mocker):
@@ -690,9 +692,9 @@ def test_sso__admin__success(send_client_type, mocked_asyncpg_con, mocker):
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
         "SELECT id, suspended FROM customers WHERE deleted_at IS NULL AND "
-        "email=$1 AND login_type!=$2 AND sso_organization=$3 AND sso_admin_org_id=$4",
-        email,
-        "password",
+        "LOWER(email)=$1 AND login_type!=$2 AND sso_organization=$3 AND sso_admin_org_id=$4",
+        email.lower(),
+        LoginType.PASSWORD,
         tid,
         oid,
     )
@@ -723,7 +725,9 @@ def test_sso__admin__returns_invalid_creds_if_account_is_suspended(mocked_asyncp
 
     response = test_client.post("/sso/admin", json=sso_details)
     assert response.status_code == 401
-    assert response.json() == {"detail": "Account has been suspended."}
+    assert response.json() == {
+        "detail": "This account has been deactivated. Please contact Curi Bio to reactivate this account."
+    }
 
 
 @pytest.mark.parametrize("special_char", ["", *USERNAME_VALID_SPECIAL_CHARS])
@@ -1207,13 +1211,14 @@ def test_refresh__success(account_type, mocked_asyncpg_con):
         else "SELECT scope FROM account_scopes WHERE user_id=$1"
     )
 
+    table_name = "customers" if is_admin_account else "users"
     account_id = customer_id if is_admin_account else userid
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
-        f"SELECT {select_clause} FROM {account_type}s WHERE id=$1", account_id
+        f"SELECT {select_clause} FROM {table_name} WHERE id=$1", account_id
     )
     mocked_asyncpg_con.fetch.assert_called_once_with(expected_fetch_query, account_id)
     mocked_asyncpg_con.execute.assert_called_once_with(
-        f"UPDATE {account_type}s SET refresh_token=$1 WHERE id=$2", old_refresh_token, account_id
+        f"UPDATE {table_name} SET refresh_token=$1 WHERE id=$2", old_refresh_token, account_id
     )
 
 
@@ -1244,9 +1249,10 @@ def test_logout__success(account_type, mocked_asyncpg_con):
     response = test_client.post("/logout", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 204
 
+    table_name = "users" if account_type == AccountTypes.USER else "customers"
     expected_account_id = test_user_id if account_type == AccountTypes.USER else test_customer_id
     mocked_asyncpg_con.execute.assert_called_once_with(
-        f"UPDATE {account_type}s SET refresh_token = NULL WHERE id=$1", expected_account_id
+        f"UPDATE {table_name} SET refresh_token = NULL WHERE id=$1", expected_account_id
     )
 
 
@@ -1280,7 +1286,7 @@ def test_account_id__get__no_id(mocked_asyncpg_con):
     assert response.json() == expected_users_info
 
     mocked_asyncpg_con.fetch.assert_called_once_with(
-        "SELECT u.id, u.name, u.email, u.created_at, u.last_login, u.verified, u.suspended, u.reset_token, array_agg(s.scope) as scopes FROM users u INNER JOIN account_scopes s ON u.id=s.user_id WHERE u.customer_id=$1 AND u.deleted_at IS NULL GROUP BY u.id, u.name, u.email, u.created_at, u.last_login, u.verified, u.suspended, u.reset_token ORDER BY u.suspended",
+        "SELECT u.id, u.name, u.email, u.created_at, u.last_login, u.verified, u.suspended, u.login_type, u.reset_token, array_agg(s.scope) as scopes FROM users u LEFT JOIN account_scopes s ON u.id=s.user_id WHERE u.customer_id=$1 AND u.deleted_at IS NULL GROUP BY u.id, u.name, u.email, u.created_at, u.last_login, u.verified, u.suspended, u.login_type, u.reset_token ORDER BY u.suspended",
         test_customer_id,
     )
 
