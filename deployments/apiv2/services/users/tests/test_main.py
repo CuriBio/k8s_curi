@@ -176,8 +176,13 @@ def test_login__user__success(send_client_type, use_alias, mocked_asyncpg_con, m
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
         expected_query, login_details["username"].lower(), login_details["customer_id"], "password"
     )
-    mocked_asyncpg_con.fetch.assert_called_once_with(
-        "SELECT scope FROM account_scopes WHERE user_id=$1", test_user_id
+    mocked_asyncpg_con.fetch.assert_has_calls(
+        [
+            mocker.call(
+                "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL", test_customer_id
+            ),
+            mocker.call("SELECT scope FROM account_scopes WHERE user_id=$1", test_user_id),
+        ]
     )
     mocked_asyncpg_con.execute.assert_called_with(
         "UPDATE users SET refresh_token=$1 WHERE id=$2", expected_refresh_token.token, test_user_id
@@ -464,8 +469,13 @@ def test_sso__user__sign_in_success(send_client_type, mocked_asyncpg_con, mocker
     )
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(expected_query, email, LoginType.PASSWORD, tid)
-    mocked_asyncpg_con.fetch.assert_called_once_with(
-        "SELECT scope FROM account_scopes WHERE user_id=$1", test_user_id
+    mocked_asyncpg_con.fetch.assert_has_calls(
+        [
+            mocker.call(
+                "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL", test_customer_id
+            ),
+            mocker.call("SELECT scope FROM account_scopes WHERE user_id=$1", test_user_id),
+        ]
     )
     mocked_asyncpg_con.execute.assert_called_with(
         "UPDATE users SET refresh_token=$1 WHERE id=$2", expected_refresh_token.token, test_user_id
@@ -556,8 +566,13 @@ def test_sso__user__sign_up_success(mocked_asyncpg_con, mocker):
     )
 
     mocked_asyncpg_con.fetchrow.assert_called_once_with(expected_query, email, LoginType.PASSWORD, tid)
-    mocked_asyncpg_con.fetch.assert_called_once_with(
-        "SELECT scope FROM account_scopes WHERE user_id=$1", test_user_id
+    mocked_asyncpg_con.fetch.assert_has_calls(
+        [
+            mocker.call(
+                "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL", test_customer_id
+            ),
+            mocker.call("SELECT scope FROM account_scopes WHERE user_id=$1", test_user_id),
+        ]
     )
     mocked_asyncpg_con.execute.assert_called_with(
         "UPDATE users SET refresh_token=$1 WHERE id=$2", expected_refresh_token.token, test_user_id
@@ -735,7 +750,7 @@ def test_register__user__success(special_char, mocked_asyncpg_con, mocker):
     mocker.patch.object(main, "_create_account_email", autospec=True)
     end_with_num = choice([True, False])
 
-    expected_scopes = [Scopes.MANTARRAY__RW_ALL_DATA, Scopes.MANTARRAY__FIRMWARE__GET]
+    expected_scopes = [Scopes.MANTARRAY__RW_ALL_DATA, Scopes.MANTARRAY__FIRMWARE__GET, Scopes.MANTARRAY__BASE]
 
     registration_details = {
         "email": "USEr@example.com",
@@ -788,7 +803,7 @@ def test_register__user__success(special_char, mocked_asyncpg_con, mocker):
 def test_register__user__sso__success(mocked_asyncpg_con, mocker):
     mocker.patch.object(main, "_send_account_email", autospec=True)
 
-    expected_scopes = [Scopes.MANTARRAY__RW_ALL_DATA, Scopes.MANTARRAY__FIRMWARE__GET]
+    expected_scopes = [Scopes.MANTARRAY__RW_ALL_DATA, Scopes.MANTARRAY__FIRMWARE__GET, Scopes.MANTARRAY__BASE]
 
     registration_details = {
         "email": "USEr@example.com",
@@ -1167,7 +1182,7 @@ def test_register__admin__invalid_token_scope_given():
 
 @freeze_time()
 @pytest.mark.parametrize("account_type", list(AccountTypes))
-def test_refresh__success(account_type, mocked_asyncpg_con):
+def test_refresh__success(account_type, mocked_asyncpg_con, mocker):
     is_admin_account = account_type == AccountTypes.ADMIN
     userid = None if is_admin_account else uuid.uuid4()
     customer_id = uuid.uuid4()
@@ -1205,18 +1220,18 @@ def test_refresh__success(account_type, mocked_asyncpg_con):
     assert response.status_code == 201
     assert response.json() == AuthTokens(access=new_access_token, refresh=new_refresh_token).model_dump()
 
-    expected_fetch_query = (
-        "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL"
-        if is_admin_account
-        else "SELECT scope FROM account_scopes WHERE user_id=$1"
-    )
+    expected_fetch_calls = [
+        mocker.call("SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL", customer_id)
+    ]
+    if not is_admin_account:
+        expected_fetch_calls.append(mocker.call("SELECT scope FROM account_scopes WHERE user_id=$1", userid))
 
     table_name = "customers" if is_admin_account else "users"
     account_id = customer_id if is_admin_account else userid
     mocked_asyncpg_con.fetchrow.assert_called_once_with(
         f"SELECT {select_clause} FROM {table_name} WHERE id=$1", account_id
     )
-    mocked_asyncpg_con.fetch.assert_called_once_with(expected_fetch_query, account_id)
+    mocked_asyncpg_con.fetch.assert_has_calls(expected_fetch_calls)
     mocked_asyncpg_con.execute.assert_called_once_with(
         f"UPDATE {table_name} SET refresh_token=$1 WHERE id=$2", old_refresh_token, account_id
     )
