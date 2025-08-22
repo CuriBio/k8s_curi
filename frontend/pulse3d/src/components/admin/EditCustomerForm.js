@@ -1,10 +1,12 @@
 import styled from "styled-components";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import FormInput from "@/components/basicWidgets/FormInput";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import CheckboxList from "@/components/basicWidgets/CheckboxList";
 import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
 import { productTitle } from "@/utils/generic";
+import { AuthContext } from "@/pages/_app";
+import ScopeWidget from "./ScopeWidget";
 
 const BodyContainer = styled.div`
   position: relative;
@@ -34,7 +36,6 @@ const UsageContainer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: start;
-  margin: 3px;
   padding: 10px 30px;
   background: var(--light-gray);
   width: 100%;
@@ -77,7 +78,9 @@ const untitle = (s) => {
 };
 
 export default function EditCustomerForm({ customerData, openEditModal, setOpenEditModal, resetTable }) {
-  const [selectedProducts, setSelectedProducts] = useState([]);
+  const availableScopes = useContext(AuthContext).availableScopes.admin;
+
+  const [selectedScopes, setSelectedScopes] = useState([]);
   const [productOptions, setProductOptions] = useState([]);
   const [buttons, setButtons] = useState(["Cancel", "Save"]);
   const [labels, setLabels] = useState([]);
@@ -94,8 +97,8 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
     const parsedCustomerUsage = JSON.parse(customerData.usage);
     setProductOptions(Object.keys(parsedCustomerUsage));
 
-    // set current customer products
-    setSelectedProducts(customerData.scopes.map((s) => s.split(":")[0]));
+    // set scopes
+    setSelectedScopes([...customerData.scopes]);
 
     // set current usage
     setUsage(parsedCustomerUsage);
@@ -170,7 +173,7 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
 
         const res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/customers/${customerData.id}`, {
           method: "PUT",
-          body: JSON.stringify({ usage: usageCopy, products: selectedProducts, action_type: "edit" }),
+          body: JSON.stringify({ usage: usageCopy, scopes: selectedScopes, action_type: "edit" }),
         });
 
         if (res.status === 204) {
@@ -221,23 +224,21 @@ export default function EditCustomerForm({ customerData, openEditModal, setOpenE
             <StaticLabel>Email:</StaticLabel>
             {customerData.email}
           </StaticInfo>
+          <ScopeWidget
+            selectedScopes={selectedScopes}
+            setSelectedScopes={(scopes) => {
+              setSelectedScopes(scopes);
+            }}
+            availableScopes={availableScopes}
+          />
           <BodyContainer>
-            <StaticLabel>Products:</StaticLabel>
-            <CheckboxList
-              height="100px"
-              width="100%"
-              disabled={[false, false]}
-              options={productOptions.map((p) => productTitle(p))}
-              checkedItems={selectedProducts.map((p) => productTitle(p))}
-              setCheckedItems={(item, state) =>
-                handleCheckedState(item, state, setSelectedProducts, selectedProducts)
-              }
-            />
-            <StaticLabel style={{ width: "150px" }}>Usage Restrictions:</StaticLabel>
+            <StaticLabel style={{ width: "100%", paddingLeft: "5px", paddingBottom: "5px" }}>
+              Usage Restrictions:
+            </StaticLabel>
             <UsageContainer>
               {productOptions.map(
                 (product) =>
-                  selectedProducts.includes(product) && (
+                  selectedScopes.includes(`${product}:admin`) && (
                     <div key={product}>
                       <ProductLabel>{productTitle(product)}</ProductLabel>
                       {product !== "advanced_analysis" && (
