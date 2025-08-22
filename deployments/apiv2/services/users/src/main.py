@@ -708,12 +708,12 @@ async def register_admin(
                         email=email,
                     )
                 else:  # SSO path
+                    template_body = {"username": "Admin", "url": f"{DASHBOARD_URL}"}
                     await _send_account_email(
-                        username="Admin",
-                        email=email,
-                        url=f"{DASHBOARD_URL}",
+                        emails=[email],
                         subject="Your Admin account has been created",
                         template="registration_sso.html",
+                        template_body=template_body,
                     )
 
                 return AdminProfile(email=email, user_id=new_account_id.hex, scopes=details.scopes)
@@ -798,12 +798,12 @@ async def register_user(
                         email=email,
                     )
                 else:  # SSO path
+                    template_body = {"username": username, "url": f"{DASHBOARD_URL}"}
                     await _send_account_email(
-                        username=username,
-                        email=email,
-                        url=f"{DASHBOARD_URL}",
+                        emails=[email],
                         subject="Your User account has been created",
                         template="registration_sso.html",
+                        template_body=template_body,
                     )
 
                 return UserProfile(
@@ -918,15 +918,18 @@ async def _create_account_email(
         await con.execute(query, jwt_token.token, account_id)
 
         # send email with reset token
-        await _send_account_email(username=name, email=email, url=url, subject=subject, template=template)
+        template_body = {"username": name, "url": url}
+        await _send_account_email(
+            emails=[email], subject=subject, template=template, template_body=template_body
+        )
     except Exception as e:
         raise EmailRegistrationError(e)
 
 
 async def _send_account_email(
-    *, username: str | None, email: EmailStr, url: str, subject: str, template: str
+    *, emails: list[EmailStr], subject: str, template: str, template_body: dict[str, str]
 ) -> None:
-    logger.info(f"Sending email with subject '{subject}' to email address '{email}'")
+    logger.info(f"Sending email with subject '{subject}' to email addresses '{emails}'")
 
     conf = ConnectionConfig(
         MAIL_USERNAME=CURIBIO_EMAIL,
@@ -940,14 +943,15 @@ async def _send_account_email(
         USE_CREDENTIALS=True,
         TEMPLATE_FOLDER="./templates",
     )
+
+    if template_body.get("username") is None:
+        template_body["username"] = "Admin"
+
     message = MessageSchema(
         subject=subject,
-        recipients=[email],
+        recipients=emails,
         subtype=MessageType.html,
-        template_body={
-            "username": username if username is not None else "Admin",
-            "url": url,
-        },  # pass any variables you want to use in the email template
+        template_body=template_body,
     )
 
     fm = FastMail(conf)

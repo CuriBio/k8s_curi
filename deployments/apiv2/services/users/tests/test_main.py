@@ -1749,11 +1749,13 @@ def test_email__get__send_correct_email_based_on_request_query_type(mocked_async
         template = "registration.html"
 
     mocked_send_account_email.assert_called_once_with(
-        username=test_username,
-        email=test_user_email,
-        url=f"https://dashboard.curibio-test.com/account/{type}?token={spied_create_token.spy_return.token}",
+        emails=[test_user_email],
         subject=subject,
         template=template,
+        template_body={
+            "username": test_username,
+            "url": f"https://dashboard.curibio-test.com/account/{type}?token={spied_create_token.spy_return.token}",
+        },
     )
 
 
