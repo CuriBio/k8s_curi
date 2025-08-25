@@ -196,8 +196,11 @@ async def process_item(con, item):
 
         # pre-processing params, if any of these are set then pre-processing must be re-ran
         pre_processing_params = {
-            k: v for k in ["compute_constrained_estimations"] if (v := analysis_params.get(k)) is not None
+            k: v for k in ["high_fidelity_magnet_processing"] if (v := analysis_params.get(k)) is not None
         }
+        # need to rename this param
+        if v := pre_processing_params.pop("high_fidelity_magnet_processing", None):
+            pre_processing_params["compute_constrained_estimations"] = v
 
         pre_analysis_params = {
             k: v for k, v in analysis_params.items() if k in ["stiffness_factor", "detrend"]

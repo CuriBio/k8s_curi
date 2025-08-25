@@ -549,7 +549,7 @@ async def create_new_job(
             params.append("baseline_widths_to_use")
 
         if pulse3d_semver >= "3.0.0":
-            params.append("compute_constrained_estimations")
+            params.append("high_fidelity_magnet_processing")
 
         details_dict = dict(details)
         analysis_params = {param: details_dict[param] for param in params}

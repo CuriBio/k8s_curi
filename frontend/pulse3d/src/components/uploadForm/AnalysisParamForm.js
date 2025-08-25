@@ -1069,18 +1069,18 @@ export default function AnalysisParamForm({
           productPage === "mantarray" &&
           accountScope.includes("mantarray:cls_alg") && (
             <AnalysisParamContainer
-              label="TODO"
-              name="computeConstrainedEstimations"
+              label="Run High Fidelity Magnet Processing"
+              name="highFidelityMagnetProcessing"
               tooltipText="TODO"
               additionaLabelStyle={{ width: "62%", lineHeight: 2.5 }}
               iconStyle={{ fontSize: 20, margin: "0px 10px" }}
             >
               <InputErrorContainer>
                 <CheckboxWidget
-                  checkedState={checkedParams ? Boolean(analysisParams.computeConstrainedEstimations) : false}
+                  checkedState={checkedParams ? Boolean(analysisParams.highFidelityMagnetProcessing) : false}
                   handleCheckbox={(enable) => {
                     updateParams({
-                      computeConstrainedEstimations: enable,
+                      highFidelityMagnetProcessing: enable,
                     });
                   }}
                 />

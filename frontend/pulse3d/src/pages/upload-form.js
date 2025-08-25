@@ -178,7 +178,7 @@ export default function UploadForm() {
       // NMJ
       nmjSingleAxisSensing: null,
       // CLS
-      computeConstrainedEstimations: null,
+      highFidelityMagnetProcessing: null,
     };
   };
 
@@ -426,7 +426,7 @@ export default function UploadForm() {
       normalizationMethod,
       relaxationSearchLimit,
       nmjSingleAxisSensing,
-      computeConstrainedEstimations,
+      highFidelityMagnetProcessing,
     } = analysisParams;
 
     const version =
@@ -558,7 +558,7 @@ export default function UploadForm() {
     }
 
     if (semverGte(version, "3.0.0")) {
-      requestBody.compute_constrained_estimations = computeConstrainedEstimations;
+      requestBody.high_fidelity_magnet_processing = highFidelityMagnetProcessing;
     }
 
     return requestBody;
