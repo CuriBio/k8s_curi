@@ -927,7 +927,7 @@ async def _create_account_email(
 
 
 async def _send_account_email(
-    *, emails: list[EmailStr], subject: str, template: str, template_body: dict[str, str]
+    *, emails: list[EmailStr], subject: str, template: str, template_body: dict
 ) -> None:
     logger.info(f"Sending email with subject '{subject}' to email addresses '{emails}'")
 
@@ -1282,6 +1282,7 @@ async def update_customer(
     """
     self_id = uuid.UUID(hex=token.account_id)
     action = details.action_type
+    email_content = {}
 
     try:
         bind_context_to_logger(
@@ -1303,6 +1304,17 @@ async def update_customer(
                         "UPDATE customers SET suspended='f', failed_login_attempts=0 WHERE id=$1", account_id
                     )
                 elif action == "edit":
+                    # snapshot 'before' state
+                    usage_restrictions_query = "SELECT email, usage_restrictions FROM customers WHERE id=$1"
+                    usage_restrictions_query_result = await con.fetchrow(usage_restrictions_query, account_id)
+                    customer_email = usage_restrictions_query_result["email"]
+                    current_usage_restrictions = json.loads(
+                        usage_restrictions_query_result["usage_restrictions"]
+                    )
+                    current_products = get_product_tags_of_admin(
+                        await get_account_scopes(con, account_id, None)
+                    )
+
                     # handle usage restrictions updates
                     if (usage_restrictions_update := details.usage) is not None:
                         # TODO validate the new usage restrictions?
@@ -1318,9 +1330,6 @@ async def update_customer(
                         validate_scope_dependencies(updated_scopes)
 
                         updated_products = get_product_tags_of_admin(updated_scopes)
-                        current_products = get_product_tags_of_admin(
-                            await get_account_scopes(con, account_id, None)
-                        )
                         # if a product has been completely removed from an admin account, then remove all customer and user entries from account_scopes
                         if products_removed := set(current_products) - set(updated_products):
                             for product in products_removed:
@@ -1339,16 +1348,78 @@ async def update_customer(
                             account_id,
                             [str(s) for s in updated_scopes],
                         )
+
+                    # capture 'after' state
+                    usage_restrictions_query_result = await con.fetchrow(usage_restrictions_query, account_id)
+                    updated_usage_restrictions = json.loads(
+                        usage_restrictions_query_result["usage_restrictions"]
+                    )
+                    updated_products = get_product_tags_of_admin(
+                        await get_account_scopes(con, account_id, None)
+                    )
+
+                    # prepare email_content
+                    email_content["email"] = customer_email
+                    email_content["current"] = {
+                        "usage_restrictions": current_usage_restrictions,
+                        "products": current_products,
+                    }
+                    email_content["updated"] = {
+                        "usage_restrictions": updated_usage_restrictions,
+                        "products": updated_products,
+                    }
                 else:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Invalid curi-edit-admin action: {action}",
                     )
+        if email_content:
+            template_body = {
+                "before": _get_pretty_admin_details(email_content["current"]),
+                "after": _get_pretty_admin_details(email_content["updated"]),
+            }
+            await _send_account_email(
+                emails=[email_content["email"], "support@curibio.com"],
+                subject="Your Admin account has been modified",
+                template="admin_modified.html",
+                template_body=template_body,
+            )
     except HTTPException:
         raise
     except Exception:
         logger.exception(f"PUT /customers/{account_id}: Unexpected error")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _get_pretty_admin_details(details):
+    result = {}
+
+    for product in sorted(details["products"]):
+        if product in details["usage_restrictions"]:
+            usage_restrictions = details["usage_restrictions"][product]
+            product_result = {}
+
+            if "jobs" in usage_restrictions:
+                product_result["jobs"] = (
+                    "unlimited" if usage_restrictions["jobs"] == -1 else usage_restrictions["jobs"]
+                )
+
+            if "uploads" in usage_restrictions:
+                product_result["uploads"] = (
+                    "unlimited" if usage_restrictions["uploads"] == -1 else usage_restrictions["uploads"]
+                )
+
+            if "expiration_date" in usage_restrictions:
+                product_result["expiration_date"] = (
+                    "none"
+                    if usage_restrictions["expiration_date"] is None
+                    else usage_restrictions["expiration_date"]
+                )
+
+            if product_result:
+                result[product.value] = product_result
+
+    return result
 
 
 @app.put("/{account_id}")
