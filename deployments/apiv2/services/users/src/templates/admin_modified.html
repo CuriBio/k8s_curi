@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <title>Admin account modified</title>
+  </head>
+  <body>
+    <h2>{{ username }},</h2>
+
+    <p>
+      Your admin account has been modified.<br />
+    </p>
+
+    <h3>Usage restrictions before:</h3>
+    {% for product, details in before.items() %}
+      <h4>{{ product }}</h4>
+      <ul>
+        {% for key, value in details.items() %}
+          <li>{{ key }}: {{ value }}</li>
+        {% endfor %}
+      </ul>
+    {% endfor %}
+
+    <h3>Usage restrictions after:</h3>
+    {% for product, details in after.items() %}
+      <h4>{{ product }}</h4>
+      <ul>
+        {% for key, value in details.items() %}
+          <li>{{ key }}: {{ value }}</li>
+        {% endfor %}
+      </ul>
+    {% endfor %}
+
+  </body>
+</html>
