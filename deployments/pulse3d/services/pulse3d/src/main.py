@@ -542,9 +542,14 @@ async def create_new_job(
 
         if pulse3d_semver >= "2.0.0":
             params.append("relaxation_search_limit_secs")
-            params.append("nmj_single_axis_sensing")
+            if pulse3d_semver < "3.0.0":
+                # this param was removed in v3.0.0
+                params.append("nmj_single_axis_sensing")
         else:
             params.append("baseline_widths_to_use")
+
+        if pulse3d_semver >= "3.0.0":
+            params.append("compute_constrained_estimations")
 
         details_dict = dict(details)
         analysis_params = {param: details_dict[param] for param in params}

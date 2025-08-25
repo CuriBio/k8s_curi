@@ -137,6 +137,8 @@ class JobRequest(BaseModel):
     inverted_post_magnet_wells: list[str] | None = Field(default=None)
     # NMJ params
     nmj_single_axis_sensing: bool | None = Field(default=None)
+    # CLS params
+    compute_constrained_estimations: bool | None = Field(default=None)
 
     # nautilai params
     data_type: str | None = Field(default=None)

@@ -196,7 +196,7 @@ async def process_item(con, item):
 
         # pre-processing params, if any of these are set then pre-processing must be re-ran
         pre_processing_params = {
-            k: v for k in ["nmj_single_axis_sensing"] if (v := analysis_params.get(k)) is not None
+            k: v for k in ["compute_constrained_estimations"] if (v := analysis_params.get(k)) is not None
         }
 
         pre_analysis_params = {
