@@ -45,6 +45,7 @@ from core.config import (
     DATABASE_URL,
     CURIBIO_EMAIL,
     CURIBIO_EMAIL_PASSWORD,
+    CURIBIO_SUPPORT_EMAIL,
     DASHBOARD_URL,
     MICROSOFT_SSO_KEYS_URI,
     MICROSOFT_SSO_APP_ID,
@@ -1379,7 +1380,7 @@ async def update_customer(
                 "after": _get_pretty_admin_details(email_content["updated"]),
             }
             await _send_account_email(
-                emails=[email_content["email"], "support@curibio.com"],
+                emails=[email_content["email"], CURIBIO_SUPPORT_EMAIL],
                 subject="Your Admin account has been modified",
                 template="admin_modified.html",
                 template_body=template_body,

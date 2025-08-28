@@ -16,6 +16,16 @@ patches:
         path: /spec/template/spec/containers/0/image
         value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/users:0.10.7"
       - op: add
+        path: /spec/template/spec/containers/0/env/0
+        value:
+          name: CURIBIO_SALES_EMAIL
+          value: "software@curibio.com"
+      - op: add
+        path: /spec/template/spec/containers/0/env/0
+        value:
+          name: CURIBIO_SUPPORT_EMAIL
+          value: "software@curibio.com"
+      - op: add
         path: /spec/template/spec/containers/1/image
         value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.10.3"
       - op: add
