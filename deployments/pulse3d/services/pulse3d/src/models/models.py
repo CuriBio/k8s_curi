@@ -52,7 +52,7 @@ class NotificationMessageResponse(BaseModel):
 
 class UploadRequest(BaseModel):
     filename: str
-    md5s: str | None = Field(default=None)  # TODO when would this be None?
+    md5s: str
     upload_type: str
     # default to True to preserve backwards compatibility with older MA controller versions
     auto_upload: bool | None = Field(default=True)

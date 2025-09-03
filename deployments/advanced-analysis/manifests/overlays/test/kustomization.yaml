@@ -6,3 +6,19 @@ resources:
   - ../../base
   - curibio-advanced-analysis-creds.yaml
   - curibio-jwt-secret.yaml
+
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: "advanced-analysis.curibio.com"
+    target:
+      kind: Ingress
+      name: advanced-analysis-ingress
+  - patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/image
+        value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/advanced-analysis-api:0.2.4"
+    target:
+      kind: Deployment
+      name: advanced-analysis

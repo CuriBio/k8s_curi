@@ -145,15 +145,26 @@ def create_token(
 
 
 # TODO add testing for all this
-async def get_account_scopes(db_con, account_id, is_admin_account):
-    if is_admin_account:
-        query = "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL"
-    else:
-        query = "SELECT scope FROM account_scopes WHERE user_id=$1"
 
-    query_res = await db_con.fetch(query, account_id)
-    scope = [convert_scope_str(row["scope"]) for row in query_res]
-    return scope
+
+async def get_account_scopes(db_con, customer_id, user_id):
+    admin_scopes = await db_con.fetch(
+        "SELECT scope FROM account_scopes WHERE customer_id=$1 AND user_id IS NULL", customer_id
+    )
+    admin_scopes = [convert_scope_str(row["scope"]) for row in admin_scopes]
+
+    if user_id is None:
+        # if this is None, then we are retrieving the account scopes of the admin itself
+        return admin_scopes
+
+    # assigned scopes
+    user_scopes = await db_con.fetch("SELECT scope FROM account_scopes WHERE user_id=$1", user_id)
+    user_scopes = [convert_scope_str(row["scope"]) for row in user_scopes]
+    # inherited scopes
+    for admin_scope in admin_scopes:
+        user_scopes += admin_scope.inheritable_scopes
+
+    return user_scopes
 
 
 # TODO make sure all calls to this use AccountTypes
