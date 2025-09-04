@@ -177,6 +177,8 @@ export default function UploadForm() {
       upslopeNoiseAllowance: "",
       // NMJ
       nmjSingleAxisSensing: null,
+      // CLS
+      highFidelityMagnetProcessing: null,
     };
   };
 
@@ -424,6 +426,7 @@ export default function UploadForm() {
       normalizationMethod,
       relaxationSearchLimit,
       nmjSingleAxisSensing,
+      highFidelityMagnetProcessing,
     } = analysisParams;
 
     const version =
@@ -546,9 +549,16 @@ export default function UploadForm() {
 
     if (semverGte(version, "2.0.0")) {
       requestBody.relaxation_search_limit_secs = getNullIfEmpty(relaxationSearchLimit);
-      requestBody.nmj_single_axis_sensing = nmjSingleAxisSensing;
+      if (!semverGte(version, "3.0.0")) {
+        // this param was removed in v3.0.0
+        requestBody.nmj_single_axis_sensing = nmjSingleAxisSensing;
+      }
     } else {
       requestBody.baseline_widths_to_use = formatTupleParams(baseToPeak, peakToBase);
+    }
+
+    if (semverGte(version, "3.0.0")) {
+      requestBody.high_fidelity_magnet_processing = highFidelityMagnetProcessing;
     }
 
     return requestBody;

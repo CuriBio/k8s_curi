@@ -21,7 +21,7 @@ patches:
   - patch: |-
       - op: add
         path: /spec/template/spec/containers/0/image
-        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/users:0.10.7"
+        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/users:0.11.0"
       - op: add
         path: /spec/template/spec/containers/0/env/0
         value:
@@ -32,6 +32,16 @@ patches:
         value:
           name: MICROSOFT_SSO_APP_ID
           value: "2a23ce0a-e279-444f-82a9-f27b52586d20"
+      - op: add
+        path: /spec/template/spec/containers/0/env/0
+        value:
+          name: CURIBIO_SALES_EMAIL
+          value: "sales@curibio.com"
+      - op: add
+        path: /spec/template/spec/containers/0/env/0
+        value:
+          name: CURIBIO_SUPPORT_EMAIL
+          value: "support@curibio.com"
       - op: add
         path: /spec/template/spec/containers/1/image
         value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.10.3"

@@ -5,11 +5,13 @@ config = Config(".env")
 
 APP_NAME = config("APP_NAME", cast=str, default="CuriBio/Auth")
 # version used to tag the docker image
-VERSION = "0.10.7"
+VERSION = "0.11.0"
 
 DASHBOARD_URL = config("DASHBOARD_URL", cast=str, default="https://dashboard.curibio-test.com")
 CURIBIO_EMAIL = config("CURIBIO_EMAIL", cast=str)
 CURIBIO_EMAIL_PASSWORD = config("CURIBIO_EMAIL_PASSWORD", cast=str)
+CURIBIO_SALES_EMAIL = config("CURIBIO_SALES_EMAIL", cast=str)
+CURIBIO_SUPPORT_EMAIL = config("CURIBIO_SUPPORT_EMAIL", cast=str)
 
 MICROSOFT_SSO_APP_ID = config("MICROSOFT_SSO_APP_ID", cast=str)
 MICROSOFT_SSO_KEYS_URI = config("MICROSOFT_SSO_KEYS_URI", cast=str)
