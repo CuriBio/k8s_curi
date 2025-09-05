@@ -11,7 +11,6 @@ from fastapi import FastAPI, Request, Depends, HTTPException, status, Response, 
 from fastapi.middleware.cors import CORSMiddleware
 from jwt import decode, PyJWKClient
 from jwt.exceptions import InvalidTokenError
-from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import EmailStr
 from starlette_context import context, request_cycle_context
 import structlog
@@ -68,6 +67,7 @@ from models.users import (
     PreferencesUpdate,
 )
 from utils.db import AsyncpgPoolDep
+from utils.email import FastMailClient
 from utils.logging import setup_logger, bind_context_to_logger
 from fastapi.templating import Jinja2Templates
 
@@ -75,6 +75,9 @@ setup_logger()
 logger = structlog.stdlib.get_logger("api.access")
 
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
+email_client = FastMailClient(
+    mail_username=CURIBIO_EMAIL, mail_password=CURIBIO_EMAIL_PASSWORD, template_folder="./templates"
+)
 
 
 @asynccontextmanager
@@ -931,32 +934,9 @@ async def _send_account_email(
     *, emails: list[EmailStr], subject: str, template: str, template_body: dict
 ) -> None:
     logger.info(f"Sending email with subject '{subject}' to email addresses '{emails}'")
-
-    conf = ConnectionConfig(
-        MAIL_USERNAME=CURIBIO_EMAIL,
-        MAIL_PASSWORD=CURIBIO_EMAIL_PASSWORD,
-        MAIL_FROM=CURIBIO_EMAIL,
-        MAIL_PORT=587,
-        MAIL_SERVER="smtp.gmail.com",
-        MAIL_FROM_NAME="Curi Bio Team",
-        MAIL_STARTTLS=True,
-        MAIL_SSL_TLS=False,
-        USE_CREDENTIALS=True,
-        TEMPLATE_FOLDER="./templates",
+    await email_client.send_email(
+        emails=emails, subject=subject, template=template, template_body=template_body
     )
-
-    if template_body.get("username") is None:
-        template_body["username"] = "Admin"
-
-    message = MessageSchema(
-        subject=subject,
-        recipients=emails,
-        subtype=MessageType.html,
-        template_body=template_body,
-    )
-
-    fm = FastMail(conf)
-    await fm.send_message(message, template_name=template)
 
 
 @app.put("/account")
