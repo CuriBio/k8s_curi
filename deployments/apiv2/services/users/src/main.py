@@ -85,7 +85,9 @@ email_client = FastMailClient(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await asyncpg_pool()
-    scheduler.add_job(daily_job, CronTrigger(hour=8, minute=30), id="daily_job", replace_existing=True)
+    scheduler.add_job(
+        daily_job, CronTrigger(hour=15, minute=30, timezone="utc"), id="daily_job", replace_existing=True
+    )
     scheduler.start()
     yield
     scheduler.shutdown()
