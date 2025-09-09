@@ -2,8 +2,9 @@ import json
 import time
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime
-
+from datetime import datetime, timedelta
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
@@ -44,6 +45,7 @@ from core.config import (
     DATABASE_URL,
     CURIBIO_EMAIL,
     CURIBIO_EMAIL_PASSWORD,
+    CURIBIO_SALES_EMAIL,
     CURIBIO_SUPPORT_EMAIL,
     DASHBOARD_URL,
     MICROSOFT_SSO_KEYS_URI,
@@ -83,10 +85,16 @@ email_client = FastMailClient(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await asyncpg_pool()
+    scheduler.add_job(
+        daily_job, CronTrigger(hour=15, minute=30, timezone="utc"), id="daily_job", replace_existing=True
+    )
+    scheduler.start()
     yield
+    scheduler.shutdown()
 
 
 app = FastAPI(openapi_url=None, lifespan=lifespan)
+scheduler = AsyncIOScheduler()
 
 MAX_FAILED_LOGIN_ATTEMPTS = 10
 TEMPLATES = Jinja2Templates(directory="templates")
@@ -131,6 +139,41 @@ async def db_session_middleware(request: Request, call_next) -> Response:
         )
 
     return response
+
+
+async def daily_job():
+    await send_expiring_soon_emails(days_until_expiration=30)
+    await send_expiring_soon_emails(days_until_expiration=60)
+
+
+async def send_expiring_soon_emails(*, days_until_expiration: int):
+    try:
+        async with (await asyncpg_pool()).acquire() as con:
+            query = f"""
+                SELECT c.email, product.key AS product_name
+                FROM customers c
+                CROSS JOIN LATERAL jsonb_each(c.usage_restrictions::jsonb) AS product(key, value)
+                WHERE product.value->>'expiration_date' IS NOT NULL
+                AND (product.value->>'expiration_date')::date = CURRENT_DATE + INTERVAL '{days_until_expiration} days'
+            """
+            customer_rows = await con.fetch(query)
+            future_date = datetime.today() + timedelta(days=days_until_expiration)
+            expiration_date = future_date.strftime("%B %-d, %Y")
+
+            for row in customer_rows:
+                product_name = row.get("product_name").replace("_", " ")
+                await _send_account_email(
+                    emails=[row.get("email"), CURIBIO_SUPPORT_EMAIL, CURIBIO_SALES_EMAIL],
+                    subject=f"[Important] Curi Bio Pulse {product_name} account expires in {days_until_expiration} days.",
+                    template="admin_expiring_soon.html",
+                    template_body={
+                        "expiration_date": expiration_date,
+                        "days_until_expiration": days_until_expiration,
+                        "product_name": product_name,
+                    },
+                )
+    except Exception:
+        logger.exception(f"send_expiring_soon_emails({days_until_expiration}): Unexpected error")
 
 
 @app.post("/sso/admin", response_model=LoginResponse)

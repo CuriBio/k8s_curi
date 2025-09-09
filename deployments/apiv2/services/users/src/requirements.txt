@@ -20,3 +20,4 @@ httpx==0.24.0
 aioredis==2.0.1
 structlog==23.2.0
 starlette-context==0.3.6
+APScheduler==3.11.0
