@@ -142,8 +142,37 @@ async def db_session_middleware(request: Request, call_next) -> Response:
 
 
 async def daily_job():
+    await send_expiring_today_emails()
     await send_expiring_soon_emails(days_until_expiration=30)
     await send_expiring_soon_emails(days_until_expiration=60)
+
+
+async def send_expiring_today_emails():
+    try:
+        async with (await asyncpg_pool()).acquire() as con:
+            query = """
+                SELECT c.email, product.key AS product_name
+                FROM customers c
+                CROSS JOIN LATERAL jsonb_each(c.usage_restrictions::jsonb) AS product(key, value)
+                WHERE product.value->>'expiration_date' IS NOT NULL
+                AND (product.value->>'expiration_date')::date = CURRENT_DATE
+            """
+            customer_rows = await con.fetch(query)
+            expiration_date = datetime.today().strftime("%B %-d, %Y")
+
+            for row in customer_rows:
+                product_name = row.get("product_name").replace("_", " ")
+                await _send_account_email(
+                    emails=[row.get("email"), CURIBIO_SUPPORT_EMAIL, CURIBIO_SALES_EMAIL],
+                    subject=f"[Important] Curi Bio Pulse {product_name} account has expired.",
+                    template="admin_expiring_today.html",
+                    template_body={
+                        "expiration_date": expiration_date,
+                        "product_name": product_name,
+                    },
+                )
+    except Exception:
+        logger.exception("send_expiring_today_emails(): Unexpected error")
 
 
 async def send_expiring_soon_emails(*, days_until_expiration: int):
