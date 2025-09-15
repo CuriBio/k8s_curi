@@ -206,8 +206,6 @@ export default function UploadForm() {
   const [resetDragDrop, setResetDragDrop] = useState(false);
   const [windowsErrors, setWindowsErrors] = useState([]);
   const [wellGroupErr, setWellGroupErr] = useState(false);
-  const [creditUsageAlert, setCreditUsageAlert] = useState(false);
-  const [alertShowed, setAlertShowed] = useState(false);
   const [reanalysis, setReanalysis] = useState(isReanalysisPage(router));
   const [minPulse3dVersionForCurrentUploads, setMinPulse3dVersionForCurrentUploads] = useState(
     getMinP3dVersionForProduct(productPage)
@@ -247,18 +245,6 @@ export default function UploadForm() {
       checkWindowsErrors(windowsErrors);
 
     setIsButtonDisabled(checkConditions);
-
-    setCreditUsageAlert(
-      !alertShowed && //makesure modal shows up only once
-        !checkConditions &&
-        reanalysis && // modal only shows up in re-analyze tab
-        usageQuota && // undefined check
-        usageQuota.limits && // undefined check
-        parseInt(usageQuota.limits.jobs) !== -1 && // check that usage is not unlimited
-        files.length > 0 && // undefined check
-        files[0].created_at !== files[0].updated_at
-      // if time updated and time created are different then free analysis has already been used and a re-analyze will use a credit
-    );
   }, [paramErrors, files, inProgress, wellGroupErr, windowsErrors]);
 
   useEffect(() => {
@@ -856,7 +842,6 @@ export default function UploadForm() {
   };
 
   const handleDropDownSelect = (idx) => {
-    setAlertShowed(false);
     if (idx !== -1) {
       const newSelection = uploads[idx];
       const newFiles = [...files, newSelection];
@@ -962,7 +947,7 @@ export default function UploadForm() {
           </div>
         ) : (
           <>
-            <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
+            <FileDragDrop
               handleFileChange={(files) => setFiles(Object.values(files))}
               dropZoneText={dropZoneText}
               fileSelection={files}
@@ -1041,15 +1026,6 @@ export default function UploadForm() {
           router.replace("/uploads", undefined, { shallow: true });
         }}
         header={usageModalLabels.header}
-      />
-      <ModalWidget
-        open={creditUsageAlert}
-        labels={["This re-analysis will consume 1 analysis credit."]}
-        closeModal={() => {
-          setCreditUsageAlert(false);
-          setAlertShowed(true);
-        }}
-        header={"Attention!"}
       />
     </Container>
   );
