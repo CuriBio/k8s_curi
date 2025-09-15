@@ -127,6 +127,12 @@ const isReanalysisPage = (router) => {
   );
 };
 
+const checkWindowsErrors = (windowsErrors) => {
+  return windowsErrors.some(({ start, end }) => {
+    return start !== "" || end !== "";
+  });
+};
+
 export default function UploadForm() {
   const { usageQuota, preferences, productPage } = useContext(AuthContext);
 
@@ -144,8 +150,7 @@ export default function UploadForm() {
       peakToBase: "",
       maxY: "",
       twitchWidths: "",
-      startTime: "",
-      endTime: "",
+      windows: [],
       stiffnessFactor: null,
       selectedPulse3dVersion: getDefaultPulse3dVersion(), // Tanner (9/15/22): The pulse3d version technically isn't a param, but it lives in the same part of the form as the params
       wellsWithFlippedWaveforms: "",
@@ -199,6 +204,7 @@ export default function UploadForm() {
   const [analysisParams, setAnalysisParams] = useState(getDefaultAnalysisParams());
   const [badFiles, setBadFiles] = useState([]);
   const [resetDragDrop, setResetDragDrop] = useState(false);
+  const [windowsErrors, setWindowsErrors] = useState([]);
   const [wellGroupErr, setWellGroupErr] = useState(false);
   const [creditUsageAlert, setCreditUsageAlert] = useState(false);
   const [alertShowed, setAlertShowed] = useState(false);
@@ -237,7 +243,8 @@ export default function UploadForm() {
       !Object.values(paramErrors).every((val) => val.length === 0) ||
       !checkValidSelection() ||
       inProgress ||
-      wellGroupErr;
+      wellGroupErr ||
+      checkWindowsErrors(windowsErrors);
 
     setIsButtonDisabled(checkConditions);
 
@@ -252,7 +259,7 @@ export default function UploadForm() {
         files[0].created_at !== files[0].updated_at
       // if time updated and time created are different then free analysis has already been used and a re-analyze will use a credit
     );
-  }, [paramErrors, files, inProgress, wellGroupErr]);
+  }, [paramErrors, files, inProgress, wellGroupErr, windowsErrors]);
 
   useEffect(() => {
     populateFormWithPresetParams();
@@ -311,7 +318,18 @@ export default function UploadForm() {
         if (param === "nameOverride") {
           continue;
         }
-        // checking that the param exists incase params change over time, do not directly replace assuming all values match
+        const windowNameMapping = { startTime: "start", endTime: "end" };
+        if (windowNameMapping[param] != null) {
+          const paramValue = presetParams[param];
+          if (paramValue != null && paramValue !== "") {
+            if (currentParams.windows.length === 0) {
+              currentParams.windows.push({ start: "", end: "" });
+            }
+            currentParams.windows[0][windowNameMapping[param]] = paramValue;
+          }
+        }
+
+        // checking that the param exists in case params change over time, do not directly replace assuming all values match
         // and don't update if already default value
         if (param in currentParams && presetParams[param] !== currentParams[param]) {
           currentParams[param] = presetParams[param];
@@ -325,6 +343,7 @@ export default function UploadForm() {
       setAnalysisParams(currentParams);
       // also clear error messages
       setParamErrors({});
+      setWindowsErrors([]);
     }
   };
 
@@ -412,8 +431,6 @@ export default function UploadForm() {
       upslopeDuration,
       upslopeNoiseAllowance,
       twitchWidths,
-      startTime,
-      endTime,
       selectedPulse3dVersion,
       stiffnessFactor,
       wellsWithFlippedWaveforms,
@@ -446,13 +463,6 @@ export default function UploadForm() {
     } else {
       // remove duplicates and sort
       requestBody.twitch_widths = Array.from(new Set(twitchWidths)).sort((a, b) => a - b);
-    }
-
-    for (const [name, value] of [
-      ["start_time", startTime],
-      ["end_time", endTime],
-    ]) {
-      requestBody[name] = getNullIfEmpty(value);
     }
 
     for (const [name, value] of [
@@ -561,34 +571,58 @@ export default function UploadForm() {
       requestBody.high_fidelity_magnet_processing = highFidelityMagnetProcessing;
     }
 
-    return requestBody;
+    // format windows
+    let windows = analysisParams.windows.map(({ start, end }) => {
+      return { start: getNullIfEmpty(start), end: getNullIfEmpty(end) };
+    });
+    if (windows.length === 0) {
+      windows = [{ start: null, end: null }];
+    }
+    // create one request body per window
+    let requestBodies = windows.map(({ start, end }) => {
+      const requestBodyWithWindows = { ...requestBody };
+      requestBodyWithWindows.start_time = start;
+      requestBodyWithWindows.end_time = end;
+      return requestBodyWithWindows;
+    });
+
+    return requestBodies;
   };
 
   const postNewJob = async (uploadId, filename) => {
+    let requestBodies;
     try {
-      const requestBody = getJobParams(uploadId);
-      const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
-        method: "POST",
-        body: JSON.stringify(requestBody),
-      });
+      requestBodies = getJobParams(uploadId);
+    } catch (e) {
+      console.log("ERROR creating job params", e);
+      failedUploadsMsg.push(filename);
+      return;
+    }
+    requestBodies.map(async (requestBody) => {
+      try {
+        const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
+          method: "POST",
+          body: JSON.stringify(requestBody),
+        });
 
-      const jobData = await jobResponse.json();
-      // 403 gets returned in quota limit reached responses modal gets handled in ControlPanel
-      if (jobData.error && jobData.error === "UsageError") {
-        console.log("ERROR starting job because customer job limit has been reached");
-        setUsageModalLabels(modalObj.jobsReachedDuringSession);
-        setUsageModalState(true);
-      } else if (jobData.usage_quota.jobs_reached) {
-        setUsageModalLabels(modalObj.jobsReachedAfterAnalysis);
-        setUsageModalState(true);
-      } else if (jobResponse.status !== 200 || (jobData.error && jobData.error == "AuthorizationError")) {
-        console.log("ERROR posting new job");
+        const jobData = await jobResponse.json();
+        // 403 gets returned in quota limit reached responses modal gets handled in ControlPanel
+        if (jobData.error && jobData.error === "UsageError") {
+          console.log("ERROR starting job because customer job limit has been reached");
+          setUsageModalLabels(modalObj.jobsReachedDuringSession);
+          setUsageModalState(true);
+        } else if (jobData.usage_quota.jobs_reached) {
+          setUsageModalLabels(modalObj.jobsReachedAfterAnalysis);
+          setUsageModalState(true);
+        } else if (jobResponse.status !== 200 || (jobData.error && jobData.error == "AuthorizationError")) {
+          console.log("ERROR posting new job");
+          failedUploadsMsg.push(filename);
+        }
+      } catch (e) {
+        console.log("ERROR posting new job", e);
         failedUploadsMsg.push(filename);
       }
-    } catch (e) {
-      console.log("ERROR posting new job", e);
-      failedUploadsMsg.push(filename);
-    }
+    });
   };
 
   const submitNewAnalysis = async () => {
@@ -952,6 +986,8 @@ export default function UploadForm() {
           setAnalysisParams={setAnalysisParams}
           analysisParams={analysisParams}
           setWellGroupErr={setWellGroupErr}
+          windowsErrors={windowsErrors}
+          setWindowsErrors={setWindowsErrors}
           reanalysis={reanalysis}
           numFiles={files?.length}
           minPulse3dVersionAllowed={minPulse3dVersionForCurrentUploads}
