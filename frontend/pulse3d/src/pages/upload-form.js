@@ -891,60 +891,68 @@ export default function UploadForm() {
       <Uploads>
         <Header>Run Analysis</Header>
         {reanalysis ? (
-          <div
-            style={{
-              width: "50%",
-              border: "2px solid var(--dark-gray)",
-              borderRadius: "5px",
-              marginTop: "2rem",
-              backgroundColor: "var(--light-gray)",
-            }}
-          >
-            <DropDownContainer>
-              <div style={{ backgroundColor: "white" }}>
-                <InputDropdownWidget
-                  label="Select Recording"
-                  options={formattedUploads}
-                  handleSelection={handleDropDownSelect}
-                  reset={files.length === 0}
-                  width={500}
-                  disabled={inProgress}
-                />
+          <>
+            <div
+              style={{
+                width: "50%",
+                border: "2px solid var(--dark-gray)",
+                borderRadius: "5px",
+                marginTop: "2rem",
+                backgroundColor: "var(--light-gray)",
+              }}
+            >
+              <DropDownContainer>
+                <div style={{ backgroundColor: "white" }}>
+                  <InputDropdownWidget
+                    label="Select Recording"
+                    options={formattedUploads}
+                    handleSelection={handleDropDownSelect}
+                    reset={files.length === 0}
+                    width={500}
+                    disabled={inProgress}
+                  />
+                </div>
+              </DropDownContainer>
+              <div style={{ textAlign: "center", marginTop: "10px", fontSize: "18px" }}>
+                <b>{`Selected Files (${files?.length || 0}):`}</b>
               </div>
-            </DropDownContainer>
-            <div style={{ textAlign: "center", marginTop: "10px", fontSize: "18px" }}>
-              <b>{`Selected Files (${files?.length || 0}):`}</b>
+              {files?.length > 0 ? (
+                <ul>
+                  {files.map((f, idx) => {
+                    return (
+                      <li key={`reanalysis-file-${idx}`}>
+                        <div style={{ display: "flex", flexDirection: "col" }}>
+                          <div style={{ width: "80%" }}>{f.filename}</div>
+                          <RemoveButton
+                            onClick={(e) => {
+                              e.preventDefault();
+                              files.splice(idx, 1);
+                              setFiles([...files]);
+                              // clear nameOverride anytime user changes file selection
+                              setAnalysisParams({
+                                ...analysisParams,
+                                nameOverride: "",
+                              });
+                            }}
+                          >
+                            Remove
+                          </RemoveButton>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <div style={{ textAlign: "center", marginBlock: "16px" }}>None</div>
+              )}
             </div>
-            {files?.length > 0 ? (
-              <ul>
-                {files.map((f, idx) => {
-                  return (
-                    <li key={`reanalysis-file-${idx}`}>
-                      <div style={{ display: "flex", flexDirection: "col" }}>
-                        <div style={{ width: "80%" }}>{f.filename}</div>
-                        <RemoveButton
-                          onClick={(e) => {
-                            e.preventDefault();
-                            files.splice(idx, 1);
-                            setFiles([...files]);
-                            // clear nameOverride anytime user changes file selection
-                            setAnalysisParams({
-                              ...analysisParams,
-                              nameOverride: "",
-                            });
-                          }}
-                        >
-                          Remove
-                        </RemoveButton>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <div style={{ textAlign: "center", marginBlock: "16px" }}>None</div>
+            {usageQuota && usageQuota.limits && parseInt(usageQuota.limits.jobs) !== -1 && (
+              <UploadCreditUsageInfo>
+                Re-analysis will run once per window per selected file, consuming 1 analysis credit each
+                except for the first re-analysis of a given file.
+              </UploadCreditUsageInfo>
             )}
-          </div>
+          </>
         ) : (
           <>
             <FileDragDrop
@@ -957,7 +965,8 @@ export default function UploadForm() {
             />
             {usageQuota && usageQuota.limits && parseInt(usageQuota.limits.jobs) !== -1 && (
               <UploadCreditUsageInfo>
-                Analysis will run on each successfully uploaded file, consuming 1 analysis credit each.
+                Analysis will run once per window per successfully uploaded file, consuming 1 analysis credit
+                each.
               </UploadCreditUsageInfo>
             )}
           </>
