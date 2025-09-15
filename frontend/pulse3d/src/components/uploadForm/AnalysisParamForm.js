@@ -1081,7 +1081,20 @@ export default function AnalysisParamForm({
             <AnalysisParamContainer
               label="Run High Fidelity Magnet Processing"
               name="highFidelityMagnetProcessing"
-              tooltipText="Suppresses the background noise by a factor of approximately 3.5x. Do not select if you are using a 12x plate and: 1) the maximum Active Twitch Force (mATF) of any tissue is less than 25 uN. 2) the mATF of any tissue is less than 50 uN and you plan on utilizing the time, velocity and area-under-curve output metrics."
+              tooltipText={
+                <>
+                  <div>
+                    Suppresses the background noise by a factor of approximately 3.5x. Do not select if you
+                    are using a 12x plate and:
+                  </div>
+                  <div>1) the maximum Active Twitch Force (mATF) of any tissue is less than 25 uN</div>
+                  <div>or</div>
+                  <div>
+                    2) the mATF of any tissue is less than 50 uN and you plan on utilizing the time, velocity
+                    and area-under-curve output metrics.
+                  </div>
+                </>
+              }
               additionaLabelStyle={{ width: "62%", lineHeight: 2.5 }}
               iconStyle={{ fontSize: 20, margin: "0px 10px" }}
             >
