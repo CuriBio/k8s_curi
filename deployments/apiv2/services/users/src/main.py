@@ -145,6 +145,7 @@ async def daily_job():
     await send_expiring_today_emails()
     await send_expiring_soon_emails(days_until_expiration=30)
     await send_expiring_soon_emails(days_until_expiration=60)
+    await deactivate_product_after_expiration(days_after_expiration=30)
 
 
 async def send_expiring_today_emails():
@@ -203,6 +204,29 @@ async def send_expiring_soon_emails(*, days_until_expiration: int):
                 )
     except Exception:
         logger.exception(f"send_expiring_soon_emails({days_until_expiration}): Unexpected error")
+
+
+async def deactivate_product_after_expiration(*, days_after_expiration: int):
+    try:
+        async with (await asyncpg_pool()).acquire() as con:
+            query = f"""
+                SELECT c.id, product.key AS product_name
+                FROM customers c
+                CROSS JOIN LATERAL jsonb_each(c.usage_restrictions::jsonb) AS product(key, value)
+                WHERE product.value->>'expiration_date' IS NOT NULL
+                AND (product.value->>'expiration_date')::date = CURRENT_DATE - INTERVAL '{days_after_expiration} days'
+            """
+            customer_rows = await con.fetch(query)
+
+            for row in customer_rows:
+                logger.info(f"Deleting {row.get('product_name')} scopes for customer {row.get('id')}")
+                await con.execute(
+                    "DELETE FROM account_scopes WHERE customer_id=$1 AND scope LIKE $2",
+                    row.get("id"),
+                    f"{row.get('product_name')}%",
+                )
+    except Exception:
+        logger.exception(f"deactivate_product_after_expiration({days_after_expiration}): Unexpected error")
 
 
 @app.post("/sso/admin", response_model=LoginResponse)
