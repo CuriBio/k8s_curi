@@ -127,6 +127,12 @@ const isReanalysisPage = (router) => {
   );
 };
 
+const checkWindowsErrors = (windowsErrors) => {
+  return windowsErrors.some(({ start, end }) => {
+    return start !== "" || end !== "";
+  });
+};
+
 export default function UploadForm() {
   const { usageQuota, preferences, productPage } = useContext(AuthContext);
 
@@ -144,8 +150,7 @@ export default function UploadForm() {
       peakToBase: "",
       maxY: "",
       twitchWidths: "",
-      startTime: "",
-      endTime: "",
+      windows: [],
       stiffnessFactor: null,
       selectedPulse3dVersion: getDefaultPulse3dVersion(), // Tanner (9/15/22): The pulse3d version technically isn't a param, but it lives in the same part of the form as the params
       wellsWithFlippedWaveforms: "",
@@ -199,9 +204,8 @@ export default function UploadForm() {
   const [analysisParams, setAnalysisParams] = useState(getDefaultAnalysisParams());
   const [badFiles, setBadFiles] = useState([]);
   const [resetDragDrop, setResetDragDrop] = useState(false);
+  const [windowsErrors, setWindowsErrors] = useState([]);
   const [wellGroupErr, setWellGroupErr] = useState(false);
-  const [creditUsageAlert, setCreditUsageAlert] = useState(false);
-  const [alertShowed, setAlertShowed] = useState(false);
   const [reanalysis, setReanalysis] = useState(isReanalysisPage(router));
   const [minPulse3dVersionForCurrentUploads, setMinPulse3dVersionForCurrentUploads] = useState(
     getMinP3dVersionForProduct(productPage)
@@ -237,22 +241,11 @@ export default function UploadForm() {
       !Object.values(paramErrors).every((val) => val.length === 0) ||
       !checkValidSelection() ||
       inProgress ||
-      wellGroupErr;
+      wellGroupErr ||
+      checkWindowsErrors(windowsErrors);
 
     setIsButtonDisabled(checkConditions);
-
-    setCreditUsageAlert(
-      !alertShowed && //makesure modal shows up only once
-        !checkConditions &&
-        reanalysis && // modal only shows up in re-analyze tab
-        usageQuota && // undefined check
-        usageQuota.limits && // undefined check
-        parseInt(usageQuota.limits.jobs) !== -1 && // check that usage is not unlimited
-        files.length > 0 && // undefined check
-        files[0].created_at !== files[0].updated_at
-      // if time updated and time created are different then free analysis has already been used and a re-analyze will use a credit
-    );
-  }, [paramErrors, files, inProgress, wellGroupErr]);
+  }, [paramErrors, files, inProgress, wellGroupErr, windowsErrors]);
 
   useEffect(() => {
     populateFormWithPresetParams();
@@ -311,7 +304,18 @@ export default function UploadForm() {
         if (param === "nameOverride") {
           continue;
         }
-        // checking that the param exists incase params change over time, do not directly replace assuming all values match
+        const windowNameMapping = { startTime: "start", endTime: "end" };
+        if (windowNameMapping[param] != null) {
+          const paramValue = presetParams[param];
+          if (paramValue != null && paramValue !== "") {
+            if (currentParams.windows.length === 0) {
+              currentParams.windows.push({ start: "", end: "" });
+            }
+            currentParams.windows[0][windowNameMapping[param]] = paramValue;
+          }
+        }
+
+        // checking that the param exists in case params change over time, do not directly replace assuming all values match
         // and don't update if already default value
         if (param in currentParams && presetParams[param] !== currentParams[param]) {
           currentParams[param] = presetParams[param];
@@ -325,6 +329,7 @@ export default function UploadForm() {
       setAnalysisParams(currentParams);
       // also clear error messages
       setParamErrors({});
+      setWindowsErrors([]);
     }
   };
 
@@ -412,8 +417,6 @@ export default function UploadForm() {
       upslopeDuration,
       upslopeNoiseAllowance,
       twitchWidths,
-      startTime,
-      endTime,
       selectedPulse3dVersion,
       stiffnessFactor,
       wellsWithFlippedWaveforms,
@@ -446,13 +449,6 @@ export default function UploadForm() {
     } else {
       // remove duplicates and sort
       requestBody.twitch_widths = Array.from(new Set(twitchWidths)).sort((a, b) => a - b);
-    }
-
-    for (const [name, value] of [
-      ["start_time", startTime],
-      ["end_time", endTime],
-    ]) {
-      requestBody[name] = getNullIfEmpty(value);
     }
 
     for (const [name, value] of [
@@ -561,34 +557,58 @@ export default function UploadForm() {
       requestBody.high_fidelity_magnet_processing = highFidelityMagnetProcessing;
     }
 
-    return requestBody;
+    // format windows
+    let windows = analysisParams.windows.map(({ start, end }) => {
+      return { start: getNullIfEmpty(start), end: getNullIfEmpty(end) };
+    });
+    if (windows.length === 0) {
+      windows = [{ start: null, end: null }];
+    }
+    // create one request body per window
+    let requestBodies = windows.map(({ start, end }) => {
+      const requestBodyWithWindows = { ...requestBody };
+      requestBodyWithWindows.start_time = start;
+      requestBodyWithWindows.end_time = end;
+      return requestBodyWithWindows;
+    });
+
+    return requestBodies;
   };
 
   const postNewJob = async (uploadId, filename) => {
+    let requestBodies;
     try {
-      const requestBody = getJobParams(uploadId);
-      const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
-        method: "POST",
-        body: JSON.stringify(requestBody),
-      });
+      requestBodies = getJobParams(uploadId);
+    } catch (e) {
+      console.log("ERROR creating job params", e);
+      failedUploadsMsg.push(filename);
+      return;
+    }
+    requestBodies.map(async (requestBody) => {
+      try {
+        const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/jobs`, {
+          method: "POST",
+          body: JSON.stringify(requestBody),
+        });
 
-      const jobData = await jobResponse.json();
-      // 403 gets returned in quota limit reached responses modal gets handled in ControlPanel
-      if (jobData.error && jobData.error === "UsageError") {
-        console.log("ERROR starting job because customer job limit has been reached");
-        setUsageModalLabels(modalObj.jobsReachedDuringSession);
-        setUsageModalState(true);
-      } else if (jobData.usage_quota.jobs_reached) {
-        setUsageModalLabels(modalObj.jobsReachedAfterAnalysis);
-        setUsageModalState(true);
-      } else if (jobResponse.status !== 200 || (jobData.error && jobData.error == "AuthorizationError")) {
-        console.log("ERROR posting new job");
+        const jobData = await jobResponse.json();
+        // 403 gets returned in quota limit reached responses modal gets handled in ControlPanel
+        if (jobData.error && jobData.error === "UsageError") {
+          console.log("ERROR starting job because customer job limit has been reached");
+          setUsageModalLabels(modalObj.jobsReachedDuringSession);
+          setUsageModalState(true);
+        } else if (jobData.usage_quota.jobs_reached) {
+          setUsageModalLabels(modalObj.jobsReachedAfterAnalysis);
+          setUsageModalState(true);
+        } else if (jobResponse.status !== 200 || (jobData.error && jobData.error == "AuthorizationError")) {
+          console.log("ERROR posting new job");
+          failedUploadsMsg.push(filename);
+        }
+      } catch (e) {
+        console.log("ERROR posting new job", e);
         failedUploadsMsg.push(filename);
       }
-    } catch (e) {
-      console.log("ERROR posting new job", e);
-      failedUploadsMsg.push(filename);
-    }
+    });
   };
 
   const submitNewAnalysis = async () => {
@@ -822,7 +842,6 @@ export default function UploadForm() {
   };
 
   const handleDropDownSelect = (idx) => {
-    setAlertShowed(false);
     if (idx !== -1) {
       const newSelection = uploads[idx];
       const newFiles = [...files, newSelection];
@@ -872,63 +891,71 @@ export default function UploadForm() {
       <Uploads>
         <Header>Run Analysis</Header>
         {reanalysis ? (
-          <div
-            style={{
-              width: "50%",
-              border: "2px solid var(--dark-gray)",
-              borderRadius: "5px",
-              marginTop: "2rem",
-              backgroundColor: "var(--light-gray)",
-            }}
-          >
-            <DropDownContainer>
-              <div style={{ backgroundColor: "white" }}>
-                <InputDropdownWidget
-                  label="Select Recording"
-                  options={formattedUploads}
-                  handleSelection={handleDropDownSelect}
-                  reset={files.length === 0}
-                  width={500}
-                  disabled={inProgress}
-                />
+          <>
+            <div
+              style={{
+                width: "50%",
+                border: "2px solid var(--dark-gray)",
+                borderRadius: "5px",
+                marginTop: "2rem",
+                backgroundColor: "var(--light-gray)",
+              }}
+            >
+              <DropDownContainer>
+                <div style={{ backgroundColor: "white" }}>
+                  <InputDropdownWidget
+                    label="Select Recording"
+                    options={formattedUploads}
+                    handleSelection={handleDropDownSelect}
+                    reset={files.length === 0}
+                    width={500}
+                    disabled={inProgress}
+                  />
+                </div>
+              </DropDownContainer>
+              <div style={{ textAlign: "center", marginTop: "10px", fontSize: "18px" }}>
+                <b>{`Selected Files (${files?.length || 0}):`}</b>
               </div>
-            </DropDownContainer>
-            <div style={{ textAlign: "center", marginTop: "10px", fontSize: "18px" }}>
-              <b>{`Selected Files (${files?.length || 0}):`}</b>
+              {files?.length > 0 ? (
+                <ul>
+                  {files.map((f, idx) => {
+                    return (
+                      <li key={`reanalysis-file-${idx}`}>
+                        <div style={{ display: "flex", flexDirection: "col" }}>
+                          <div style={{ width: "80%" }}>{f.filename}</div>
+                          <RemoveButton
+                            onClick={(e) => {
+                              e.preventDefault();
+                              files.splice(idx, 1);
+                              setFiles([...files]);
+                              // clear nameOverride anytime user changes file selection
+                              setAnalysisParams({
+                                ...analysisParams,
+                                nameOverride: "",
+                              });
+                            }}
+                          >
+                            Remove
+                          </RemoveButton>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <div style={{ textAlign: "center", marginBlock: "16px" }}>None</div>
+              )}
             </div>
-            {files?.length > 0 ? (
-              <ul>
-                {files.map((f, idx) => {
-                  return (
-                    <li key={`reanalysis-file-${idx}`}>
-                      <div style={{ display: "flex", flexDirection: "col" }}>
-                        <div style={{ width: "80%" }}>{f.filename}</div>
-                        <RemoveButton
-                          onClick={(e) => {
-                            e.preventDefault();
-                            files.splice(idx, 1);
-                            setFiles([...files]);
-                            // clear nameOverride anytime user changes file selection
-                            setAnalysisParams({
-                              ...analysisParams,
-                              nameOverride: "",
-                            });
-                          }}
-                        >
-                          Remove
-                        </RemoveButton>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <div style={{ textAlign: "center", marginBlock: "16px" }}>None</div>
+            {usageQuota && usageQuota.limits && parseInt(usageQuota.limits.jobs) !== -1 && (
+              <UploadCreditUsageInfo>
+                Re-analysis will run once per window per selected file, consuming 1 analysis credit each
+                except for the first re-analysis of a given file.
+              </UploadCreditUsageInfo>
             )}
-          </div>
+          </>
         ) : (
           <>
-            <FileDragDrop // TODO figure out how to notify user if they attempt to upload existing recording
+            <FileDragDrop
               handleFileChange={(files) => setFiles(Object.values(files))}
               dropZoneText={dropZoneText}
               fileSelection={files}
@@ -938,7 +965,8 @@ export default function UploadForm() {
             />
             {usageQuota && usageQuota.limits && parseInt(usageQuota.limits.jobs) !== -1 && (
               <UploadCreditUsageInfo>
-                Analysis will run on each successfully uploaded file, consuming 1 analysis credit each.
+                Analysis will run once per window per successfully uploaded file, consuming 1 analysis credit
+                each.
               </UploadCreditUsageInfo>
             )}
           </>
@@ -952,6 +980,8 @@ export default function UploadForm() {
           setAnalysisParams={setAnalysisParams}
           analysisParams={analysisParams}
           setWellGroupErr={setWellGroupErr}
+          windowsErrors={windowsErrors}
+          setWindowsErrors={setWindowsErrors}
           reanalysis={reanalysis}
           numFiles={files?.length}
           minPulse3dVersionAllowed={minPulse3dVersionForCurrentUploads}
@@ -1005,15 +1035,6 @@ export default function UploadForm() {
           router.replace("/uploads", undefined, { shallow: true });
         }}
         header={usageModalLabels.header}
-      />
-      <ModalWidget
-        open={creditUsageAlert}
-        labels={["This re-analysis will consume 1 analysis credit."]}
-        closeModal={() => {
-          setCreditUsageAlert(false);
-          setAlertShowed(true);
-        }}
-        header={"Attention!"}
       />
     </Container>
   );

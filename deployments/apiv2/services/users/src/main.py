@@ -8,6 +8,7 @@ from apscheduler.triggers.cron import CronTrigger
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
+from datetime import timezone
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Response, Query
 from fastapi.middleware.cors import CORSMiddleware
 from jwt import decode, PyJWKClient
@@ -86,7 +87,10 @@ email_client = FastMailClient(
 async def lifespan(app: FastAPI):
     await asyncpg_pool()
     scheduler.add_job(
-        daily_job, CronTrigger(hour=15, minute=30, timezone="utc"), id="daily_job", replace_existing=True
+        daily_job,
+        CronTrigger(hour=15, minute=30, timezone=timezone.utc),
+        id="daily_job",
+        replace_existing=True,
     )
     scheduler.start()
     yield
@@ -167,10 +171,7 @@ async def send_expiring_today_emails():
                     emails=[row.get("email"), CURIBIO_SUPPORT_EMAIL, CURIBIO_SALES_EMAIL],
                     subject=f"[Important] Curi Bio Pulse {product_name} account has expired.",
                     template="admin_expiring_today.html",
-                    template_body={
-                        "expiration_date": expiration_date,
-                        "product_name": product_name,
-                    },
+                    template_body={"expiration_date": expiration_date, "product_name": product_name},
                 )
     except Exception:
         logger.exception("send_expiring_today_emails(): Unexpected error")
