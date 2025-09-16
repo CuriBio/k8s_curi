@@ -1042,26 +1042,51 @@ export default function AnalysisParamForm({
             </DropDownContainer>
           </AnalysisParamContainer>
         )}
-        {pulse3dVersionGte("2.0.0") && productPage === "mantarray" && accountScope.includes("mantarray:nmj") && (
-          <AnalysisParamContainer
-            label="Run NMJ Single-Axis Sensing"
-            name="nmjSingleAxisSensing"
-            tooltipText="Run the NMJ Single-Axis Sensing algorithm. Should only be used for NMJ recordings with a 12x post where peak amplitudes are < 200µN."
-            additionaLabelStyle={{ width: "62%", lineHeight: 2.5 }}
-            iconStyle={{ fontSize: 20, margin: "0px 10px" }}
-          >
-            <InputErrorContainer>
-              <CheckboxWidget
-                checkedState={checkedParams ? Boolean(analysisParams.nmjSingleAxisSensing) : false}
-                handleCheckbox={(enable) => {
-                  updateParams({
-                    nmjSingleAxisSensing: enable,
-                  });
-                }}
-              />
-            </InputErrorContainer>
-          </AnalysisParamContainer>
-        )}
+        {pulse3dVersionGte("2.0.0") &&
+          !pulse3dVersionGte("3.0.0") &&
+          productPage === "mantarray" &&
+          accountScope.includes("mantarray:nmj") && (
+            <AnalysisParamContainer
+              label="Run NMJ Single-Axis Sensing"
+              name="nmjSingleAxisSensing"
+              tooltipText="Run the NMJ Single-Axis Sensing algorithm. Should only be used for NMJ recordings with a 12x post where peak amplitudes are < 200µN."
+              additionaLabelStyle={{ width: "62%", lineHeight: 2.5 }}
+              iconStyle={{ fontSize: 20, margin: "0px 10px" }}
+            >
+              <InputErrorContainer>
+                <CheckboxWidget
+                  checkedState={checkedParams ? Boolean(analysisParams.nmjSingleAxisSensing) : false}
+                  handleCheckbox={(enable) => {
+                    updateParams({
+                      nmjSingleAxisSensing: enable,
+                    });
+                  }}
+                />
+              </InputErrorContainer>
+            </AnalysisParamContainer>
+          )}
+        {pulse3dVersionGte("3.0.0") &&
+          productPage === "mantarray" &&
+          accountScope.includes("mantarray:cls_alg") && (
+            <AnalysisParamContainer
+              label="Run High Fidelity Magnet Processing"
+              name="highFidelityMagnetProcessing"
+              tooltipText="Suppresses the background noise by a factor of approximately 3.5x. Do not select if you are using a 12x plate and: 1) the maximum Active Twitch Force (mATF) of any tissue is less than 25 uN. 2) the mATF of any tissue is less than 50 uN and you plan on utilizing the time, velocity and area-under-curve output metrics."
+              additionaLabelStyle={{ width: "62%", lineHeight: 2.5 }}
+              iconStyle={{ fontSize: 20, margin: "0px 10px" }}
+            >
+              <InputErrorContainer>
+                <CheckboxWidget
+                  checkedState={checkedParams ? Boolean(analysisParams.highFidelityMagnetProcessing) : false}
+                  handleCheckbox={(enable) => {
+                    updateParams({
+                      highFidelityMagnetProcessing: enable,
+                    });
+                  }}
+                />
+              </InputErrorContainer>
+            </AnalysisParamContainer>
+          )}
         {pulse3dVersionGte("0.34.2") && productPage === "nautilai" && (
           <AnalysisParamContainer
             label="Data Type"
