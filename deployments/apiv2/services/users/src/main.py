@@ -150,6 +150,7 @@ async def daily_job():
     await send_expiring_soon_emails(days_until_expiration=30)
     await send_expiring_soon_emails(days_until_expiration=60)
     await deactivate_product_after_expiration(days_after_expiration=30)
+    await deactivate_customer_after_last_expiration(days_after_last_expiration=30)
 
 
 async def send_expiring_today_emails():
@@ -228,6 +229,34 @@ async def deactivate_product_after_expiration(*, days_after_expiration: int):
                 )
     except Exception:
         logger.exception(f"deactivate_product_after_expiration({days_after_expiration}): Unexpected error")
+
+
+async def deactivate_customer_after_last_expiration(*, days_after_last_expiration: int):
+    try:
+        async with (await asyncpg_pool()).acquire() as con:
+            query = f"""
+                UPDATE customers c
+                SET suspended = TRUE
+                WHERE (
+                    SELECT MAX((product.value->>'expiration_date')::date)
+                    FROM jsonb_each(c.usage_restrictions::jsonb) AS product(key, value)
+                    WHERE product.value->>'expiration_date' IS NOT NULL
+                ) <= CURRENT_DATE - INTERVAL '{days_after_last_expiration} days'
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM jsonb_each(c.usage_restrictions::jsonb) AS product(key, value)
+                    WHERE product.value->>'expiration_date' IS NULL
+                )
+                AND c.suspended != TRUE
+                RETURNING c.id
+            """
+            customer_rows = await con.fetch(query)
+            customer_ids = [str(customer.get("id")) for customer in customer_rows]
+            logger.info(f"Deactivated customers: {customer_ids}")
+    except Exception:
+        logger.exception(
+            f"deactivate_customer_after_last_expiration({days_after_last_expiration}): Unexpected error"
+        )
 
 
 @app.post("/sso/admin", response_model=LoginResponse)
