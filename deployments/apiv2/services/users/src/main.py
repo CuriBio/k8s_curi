@@ -170,6 +170,7 @@ async def send_expiring_today_emails():
                 product_name = row.get("product_name").replace("_", " ")
                 await _send_account_email(
                     emails=[row.get("email"), CURIBIO_SUPPORT_EMAIL, CURIBIO_SALES_EMAIL],
+                    reply_to=[CURIBIO_SUPPORT_EMAIL],
                     subject=f"[Important] Curi Bio Pulse {product_name} account has expired.",
                     template="admin_expiring_today.html",
                     template_body={"expiration_date": expiration_date, "product_name": product_name},
@@ -196,6 +197,7 @@ async def send_expiring_soon_emails(*, days_until_expiration: int):
                 product_name = row.get("product_name").replace("_", " ")
                 await _send_account_email(
                     emails=[row.get("email"), CURIBIO_SUPPORT_EMAIL, CURIBIO_SALES_EMAIL],
+                    reply_to=[CURIBIO_SUPPORT_EMAIL],
                     subject=f"[Important] Curi Bio Pulse {product_name} account expires in {days_until_expiration} days.",
                     template="admin_expiring_soon.html",
                     template_body={
@@ -1057,11 +1059,16 @@ async def _create_account_email(
 
 
 async def _send_account_email(
-    *, emails: list[EmailStr], subject: str, template: str, template_body: dict
+    *,
+    emails: list[EmailStr],
+    reply_to: list[EmailStr] | None = None,
+    subject: str,
+    template: str,
+    template_body: dict,
 ) -> None:
     logger.info(f"Sending email with subject '{subject}' to email addresses '{emails}'")
     await email_client.send_email(
-        emails=emails, subject=subject, template=template, template_body=template_body
+        emails=emails, reply_to=reply_to, subject=subject, template=template, template_body=template_body
     )
 
 
@@ -1487,6 +1494,7 @@ async def update_customer(
             }
             await _send_account_email(
                 emails=[email_content["email"], CURIBIO_SUPPORT_EMAIL],
+                reply_to=[CURIBIO_SUPPORT_EMAIL],
                 subject="Your Admin account has been modified",
                 template="admin_modified.html",
                 template_body=template_body,
