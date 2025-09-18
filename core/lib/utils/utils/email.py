@@ -19,7 +19,15 @@ class FastMailClient:
 
         self.fm = FastMail(conf)
 
-    async def send_email(self, *, emails: list[EmailStr], subject: str, template: str, template_body: dict):
+    async def send_email(
+        self,
+        *,
+        emails: list[EmailStr],
+        reply_to: list[EmailStr] | None = None,
+        subject: str,
+        template: str,
+        template_body: dict
+    ):
         if template_body.get("username") is None:
             template_body["username"] = "Admin"
 
@@ -28,6 +36,7 @@ class FastMailClient:
             recipients=emails,
             subtype=MessageType.html,
             template_body=template_body,
+            reply_to=reply_to if reply_to is not None else [],
         )
 
         await self.fm.send_message(message, template_name=template)
