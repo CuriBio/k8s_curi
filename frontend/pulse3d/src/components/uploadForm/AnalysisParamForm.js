@@ -5,6 +5,7 @@ import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import { useState, useContext, useEffect } from "react";
 import semverGte from "semver/functions/gte";
 import PlatemapOverride from "@/components/uploadForm/PlatemapOverride";
+import AnalysisWindows from "@/components/uploadForm/AnalysisWindows";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import AnalysisParamContainer from "@/components/uploadForm/AnalysisParamContainer";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
@@ -117,6 +118,7 @@ const FormModify = styled.div`
   width: 90px;
   height: 54px;
   flex-direction: column;
+  justify-content: center;
 `;
 
 const SectionLabel = styled.span`
@@ -464,6 +466,8 @@ export default function AnalysisParamForm({
   setParamErrors,
   analysisParams,
   setWellGroupErr,
+  windowsErrors,
+  setWindowsErrors,
   reanalysis,
   numFiles,
   minPulse3dVersionAllowed,
@@ -582,16 +586,22 @@ export default function AnalysisParamForm({
       validateWellNames(updatedParams);
     }
 
-    for (const [minName, maxName] of [
-      ["startTime", "endTime"],
-      ["minPeakWidth", "maxPeakWidth"],
-    ]) {
-      if (minName in newParams || maxName in newParams) {
-        // need to validate start and end time together
-        const allowFloat = minName === "startTime";
-        const newParamErrors = validateMinMax(updatedParams, minName, maxName, allowFloat);
-        updatedParamErrors = { ...updatedParamErrors, ...newParamErrors };
-      }
+    if ("windows" in newParams) {
+      let newWindowsErrors = newParams.windows.map((newWindow, i) => {
+        return validateMinMax(newWindow, windowsErrors[i], "start", "end", true);
+      });
+      setWindowsErrors(newWindowsErrors);
+      updatedParams.windows = newParams.windows;
+    }
+    if ("minPeakWidth" in newParams || "maxPeakWidth" in newParams) {
+      const newParamErrors = validateMinMax(
+        updatedParams,
+        paramErrors,
+        "minPeakWidth",
+        "maxPeakWidth",
+        false
+      );
+      updatedParamErrors = { ...updatedParamErrors, ...newParamErrors };
     }
 
     for (const paramName of ["baseToPeak", "peakToBase"]) {
@@ -727,7 +737,7 @@ export default function AnalysisParamForm({
     setParamErrors({ ...paramErrors, presetName: errorMessage });
   };
 
-  const validateMinMax = (updatedParams, minName, maxName, allowFloat) => {
+  const validateMinMax = (updatedParams, paramErrors, minName, maxName, allowFloat) => {
     const minValue = updatedParams[minName];
     const maxValue = updatedParams[maxName];
 
@@ -1071,7 +1081,20 @@ export default function AnalysisParamForm({
             <AnalysisParamContainer
               label="Run High Fidelity Magnet Processing"
               name="highFidelityMagnetProcessing"
-              tooltipText="Suppresses the background noise by a factor of approximately 3.5x. Do not select if you are using a 12x plate and: 1) the maximum Active Twitch Force (mATF) of any tissue is less than 25 uN. 2) the mATF of any tissue is less than 50 uN and you plan on utilizing the time, velocity and area-under-curve output metrics."
+              tooltipText={
+                <>
+                  <div>
+                    Suppresses the background noise by a factor of approximately 3.5x. Do not select if you
+                    are using a 12x plate and:
+                  </div>
+                  <div>1) the maximum Active Twitch Force (mATF) of any tissue is less than 25 uN</div>
+                  <div>or</div>
+                  <div>
+                    2) the mATF of any tissue is less than 50 uN and you plan on utilizing the time, velocity
+                    and area-under-curve output metrics.
+                  </div>
+                </>
+              }
               additionaLabelStyle={{ width: "62%", lineHeight: 2.5 }}
               iconStyle={{ fontSize: 20, margin: "0px 10px" }}
             >
@@ -1176,32 +1199,10 @@ export default function AnalysisParamForm({
             />
           </>
         )}
-        <SectionLabel>Windowed Analysis</SectionLabel>
-        <AnalysisParamContainer
-          label="Start Time (s)"
-          name="startTime"
-          tooltipText="Specifies the earliest timepoint (in seconds) to use in analysis."
-          placeholder={checkedParams ? "0" : ""}
-          value={analysisParams.startTime}
-          changeFn={(e) => {
-            updateParams({
-              startTime: e.target.value,
-            });
-          }}
-          errorMsg={errorMessages.startTime}
-        />
-        <AnalysisParamContainer
-          label="End Time (s)"
-          name="endTime"
-          tooltipText="Specifies the latest timepoint (in seconds) to use in analysis."
-          placeholder={checkedParams ? "End" : ""}
-          value={analysisParams.endTime}
-          changeFn={(e) => {
-            updateParams({
-              endTime: e.target.value,
-            });
-          }}
-          errorMsg={errorMessages.endTime}
+        <AnalysisWindows
+          analysisParams={analysisParams}
+          updateParams={updateParams}
+          errorMsgs={windowsErrors}
         />
         {pulse3dVersionGte("2.0.0") && (
           <>

@@ -2,16 +2,17 @@ import json
 import time
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime
-
+from datetime import datetime, timedelta
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
+from datetime import timezone
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Response, Query
 from fastapi.middleware.cors import CORSMiddleware
 from jwt import decode, PyJWKClient
 from jwt.exceptions import InvalidTokenError
-from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import EmailStr
 from starlette_context import context, request_cycle_context
 import structlog
@@ -45,6 +46,7 @@ from core.config import (
     DATABASE_URL,
     CURIBIO_EMAIL,
     CURIBIO_EMAIL_PASSWORD,
+    CURIBIO_SALES_EMAIL,
     CURIBIO_SUPPORT_EMAIL,
     DASHBOARD_URL,
     MICROSOFT_SSO_KEYS_URI,
@@ -68,6 +70,7 @@ from models.users import (
     PreferencesUpdate,
 )
 from utils.db import AsyncpgPoolDep
+from utils.email import FastMailClient
 from utils.logging import setup_logger, bind_context_to_logger
 from fastapi.templating import Jinja2Templates
 
@@ -75,15 +78,27 @@ setup_logger()
 logger = structlog.stdlib.get_logger("api.access")
 
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
+email_client = FastMailClient(
+    mail_username=CURIBIO_EMAIL, mail_password=CURIBIO_EMAIL_PASSWORD, template_folder="./templates"
+)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await asyncpg_pool()
+    scheduler.add_job(
+        daily_job,
+        CronTrigger(hour=15, minute=30, timezone=timezone.utc),
+        id="daily_job",
+        replace_existing=True,
+    )
+    scheduler.start()
     yield
+    scheduler.shutdown()
 
 
 app = FastAPI(openapi_url=None, lifespan=lifespan)
+scheduler = AsyncIOScheduler()
 
 MAX_FAILED_LOGIN_ATTEMPTS = 10
 TEMPLATES = Jinja2Templates(directory="templates")
@@ -128,6 +143,122 @@ async def db_session_middleware(request: Request, call_next) -> Response:
         )
 
     return response
+
+
+async def daily_job():
+    await send_expiring_today_emails()
+    await send_expiring_soon_emails(days_until_expiration=30)
+    await send_expiring_soon_emails(days_until_expiration=60)
+    await deactivate_product_after_expiration(days_after_expiration=30)
+    await deactivate_customer_after_last_expiration(days_after_last_expiration=30)
+
+
+async def send_expiring_today_emails():
+    try:
+        async with (await asyncpg_pool()).acquire() as con:
+            query = """
+                SELECT c.email, product.key AS product_name
+                FROM customers c
+                CROSS JOIN LATERAL jsonb_each(c.usage_restrictions::jsonb) AS product(key, value)
+                WHERE product.value->>'expiration_date' IS NOT NULL
+                AND (product.value->>'expiration_date')::date = CURRENT_DATE
+            """
+            customer_rows = await con.fetch(query)
+            expiration_date = datetime.today().strftime("%B %-d, %Y")
+
+            for row in customer_rows:
+                product_name = row.get("product_name").replace("_", " ")
+                await _send_account_email(
+                    emails=[row.get("email"), CURIBIO_SUPPORT_EMAIL, CURIBIO_SALES_EMAIL],
+                    reply_to=[CURIBIO_SUPPORT_EMAIL],
+                    subject=f"[Important] Curi Bio Pulse {product_name} account has expired.",
+                    template="admin_expiring_today.html",
+                    template_body={"expiration_date": expiration_date, "product_name": product_name},
+                )
+    except Exception:
+        logger.exception("send_expiring_today_emails(): Unexpected error")
+
+
+async def send_expiring_soon_emails(*, days_until_expiration: int):
+    try:
+        async with (await asyncpg_pool()).acquire() as con:
+            query = f"""
+                SELECT c.email, product.key AS product_name
+                FROM customers c
+                CROSS JOIN LATERAL jsonb_each(c.usage_restrictions::jsonb) AS product(key, value)
+                WHERE product.value->>'expiration_date' IS NOT NULL
+                AND (product.value->>'expiration_date')::date = CURRENT_DATE + INTERVAL '{days_until_expiration} days'
+            """
+            customer_rows = await con.fetch(query)
+            future_date = datetime.today() + timedelta(days=days_until_expiration)
+            expiration_date = future_date.strftime("%B %-d, %Y")
+
+            for row in customer_rows:
+                product_name = row.get("product_name").replace("_", " ")
+                await _send_account_email(
+                    emails=[row.get("email"), CURIBIO_SUPPORT_EMAIL, CURIBIO_SALES_EMAIL],
+                    reply_to=[CURIBIO_SUPPORT_EMAIL],
+                    subject=f"[Important] Curi Bio Pulse {product_name} account expires in {days_until_expiration} days.",
+                    template="admin_expiring_soon.html",
+                    template_body={
+                        "expiration_date": expiration_date,
+                        "days_until_expiration": days_until_expiration,
+                        "product_name": product_name,
+                    },
+                )
+    except Exception:
+        logger.exception(f"send_expiring_soon_emails({days_until_expiration}): Unexpected error")
+
+
+async def deactivate_product_after_expiration(*, days_after_expiration: int):
+    try:
+        async with (await asyncpg_pool()).acquire() as con:
+            query = f"""
+                SELECT c.id, product.key AS product_name
+                FROM customers c
+                CROSS JOIN LATERAL jsonb_each(c.usage_restrictions::jsonb) AS product(key, value)
+                WHERE product.value->>'expiration_date' IS NOT NULL
+                AND (product.value->>'expiration_date')::date = CURRENT_DATE - INTERVAL '{days_after_expiration} days'
+            """
+            customer_rows = await con.fetch(query)
+
+            for row in customer_rows:
+                logger.info(f"Deleting {row.get('product_name')} scopes for customer {row.get('id')}")
+                await con.execute(
+                    "DELETE FROM account_scopes WHERE customer_id=$1 AND scope LIKE $2",
+                    row.get("id"),
+                    f"{row.get('product_name')}%",
+                )
+    except Exception:
+        logger.exception(f"deactivate_product_after_expiration({days_after_expiration}): Unexpected error")
+
+
+async def deactivate_customer_after_last_expiration(*, days_after_last_expiration: int):
+    try:
+        async with (await asyncpg_pool()).acquire() as con:
+            query = f"""
+                UPDATE customers c
+                SET suspended = TRUE
+                WHERE (
+                    SELECT MAX((product.value->>'expiration_date')::date)
+                    FROM jsonb_each(c.usage_restrictions::jsonb) AS product(key, value)
+                    WHERE product.value->>'expiration_date' IS NOT NULL
+                ) <= CURRENT_DATE - INTERVAL '{days_after_last_expiration} days'
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM jsonb_each(c.usage_restrictions::jsonb) AS product(key, value)
+                    WHERE product.value->>'expiration_date' IS NULL
+                )
+                AND c.suspended != TRUE
+                RETURNING c.id
+            """
+            customer_rows = await con.fetch(query)
+            customer_ids = [str(customer.get("id")) for customer in customer_rows]
+            logger.info(f"Deactivated customers: {customer_ids}")
+    except Exception:
+        logger.exception(
+            f"deactivate_customer_after_last_expiration({days_after_last_expiration}): Unexpected error"
+        )
 
 
 @app.post("/sso/admin", response_model=LoginResponse)
@@ -928,35 +1059,17 @@ async def _create_account_email(
 
 
 async def _send_account_email(
-    *, emails: list[EmailStr], subject: str, template: str, template_body: dict
+    *,
+    emails: list[EmailStr],
+    reply_to: list[EmailStr] | None = None,
+    subject: str,
+    template: str,
+    template_body: dict,
 ) -> None:
     logger.info(f"Sending email with subject '{subject}' to email addresses '{emails}'")
-
-    conf = ConnectionConfig(
-        MAIL_USERNAME=CURIBIO_EMAIL,
-        MAIL_PASSWORD=CURIBIO_EMAIL_PASSWORD,
-        MAIL_FROM=CURIBIO_EMAIL,
-        MAIL_PORT=587,
-        MAIL_SERVER="smtp.gmail.com",
-        MAIL_FROM_NAME="Curi Bio Team",
-        MAIL_STARTTLS=True,
-        MAIL_SSL_TLS=False,
-        USE_CREDENTIALS=True,
-        TEMPLATE_FOLDER="./templates",
+    await email_client.send_email(
+        emails=emails, reply_to=reply_to, subject=subject, template=template, template_body=template_body
     )
-
-    if template_body.get("username") is None:
-        template_body["username"] = "Admin"
-
-    message = MessageSchema(
-        subject=subject,
-        recipients=emails,
-        subtype=MessageType.html,
-        template_body=template_body,
-    )
-
-    fm = FastMail(conf)
-    await fm.send_message(message, template_name=template)
 
 
 @app.put("/account")
@@ -1381,6 +1494,7 @@ async def update_customer(
             }
             await _send_account_email(
                 emails=[email_content["email"], CURIBIO_SUPPORT_EMAIL],
+                reply_to=[CURIBIO_SUPPORT_EMAIL],
                 subject="Your Admin account has been modified",
                 template="admin_modified.html",
                 template_body=template_body,
