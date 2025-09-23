@@ -1,34 +1,99 @@
 <!DOCTYPE html>
 <html lang="en-us">
   <head>
-    <title>Admin account modified</title>
+    <style>
+      .green { color: #19AC8A; }
+      .blue { color: #005470; }
+      .dark_blue { color: #00263E; }
+      .indent1 { padding-left: 40px; }
+      .indent2 { padding-left: 80px; }
+      .bold-text { font-weight: bold; }
+      .strikethrough { text-decoration: line-through; }
+    </style>
+    <title>Your Pulse Admin privileges have been updated</title>
   </head>
   <body>
-    <h2>{{ username }},</h2>
+    <p>Dear Pulse Administrator,</p>
 
     <p>
-      Your admin account has been modified.<br />
+      Your Pulse account has been refreshed with updated access and privileges!<br/>
+      Here’s a quick overview of what changed:
     </p>
 
-    <h3>Usage restrictions before:</h3>
-    {% for product, details in before.items() %}
-      <h4>{{ product }}</h4>
-      <ul>
-        {% for key, value in details.items() %}
-          <li>{{ key }}: {{ value }}</li>
+    {% set available_products = ['mantarray', 'nautilai', 'advanced_analysis'] %}
+    {% set available_features = {'nmj': 'Access to NMJ Single-Axis Sensing', 'cls_alg': 'Access to High Fidelity Magnet Processing'} %}
+
+    <div class="bold-text">Before:</div>
+
+    {% for product in available_products %}
+      {% if product in before %}
+        <div class="indent1 bold-text">{{ product.replace('_', ' ').title() }}</div>
+        {% for key, value in before[product].items() %}
+          <div class="indent2">
+            <span>{{ key.title() if key != 'expiration_date' else ('Expiration' if value == 'none' else 'Active until') }}: </span>
+            <span>{{ value }}</span>
+          </div>
         {% endfor %}
-      </ul>
+      {% endif %}
     {% endfor %}
 
-    <h3>Usage restrictions after:</h3>
-    {% for product, details in after.items() %}
-      <h4>{{ product }}</h4>
-      <ul>
-        {% for key, value in details.items() %}
-          <li>{{ key }}: {{ value }}</li>
-        {% endfor %}
-      </ul>
+    {% for feature in available_features %}
+      {% if before[feature] %}
+        <div class="indent1 bold-text">{{ available_features[feature] }}</div>
+      {% endif %}
     {% endfor %}
 
+    <div class="bold-text">Now:</div>
+
+    {% for product in available_products %}
+      {% set in_before = product in before %}
+      {% set in_now = product in now %}
+
+      {% if in_before or in_now %}
+        <div class="indent1 bold-text {% if in_now and not in_before %}green{% elif in_before and not in_now %}blue strikethrough{% endif %}">
+          {{ product.replace('_', ' ').title() }}
+        </div>
+
+        {% if in_now %}
+          {# Product exists in now - show current values #}
+          {% for field, value in now[product].items() %}
+            <div class="indent2 {% if not in_before %}green{% endif %}">
+              <span>{{ field.title() if field != 'expiration_date' else ('Expiration' if value == 'none' else 'Active until') }}: </span>
+              <span class="{% if not in_before or (product in before and before[product].get(field) != value) %}green{% endif %}">{{ value }}</span>
+            </div>
+          {% endfor %}
+        {% elif in_before %}
+          {# Product only in before - show old values with strikethrough #}
+          {% for field, value in before[product].items() %}
+            <div class="indent2 blue strikethrough">
+              <span>{{ field.title() if field != 'expiration_date' else ('Expiration' if value == 'none' else 'Active until') }}: </span>
+              <span>{{ value }}</span>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+
+    {% for feature in available_features %}
+      {% if now[feature] or before[feature] %}
+        <div class="indent1 bold-text {% if now[feature] and not before[feature] %}green{% elif not now[feature] and before[feature] %}blue strikethrough{% endif %}">
+          {{ available_features[feature] }}
+        </div>
+      {% endif %}
+    {% endfor %}
+
+    <p>Your account is now fully set up with these updated features so you can continue exploring, analyzing, and making discoveries.</p>
+
+    <p>If you have any questions or your email address is not associated to a Curi Bio Pulse account, please contact support@curibio.com.</p>
+
+    <p>
+      Best,<br/>
+      Curi Bio Team
+    </p>
+
+    <div style="text-align: center;">
+      <img alt="Curi Bio Logo" src="https://downloads.curibio.com/assets/curibio-logo-small.png">
+      <div class="dark_blue">Curi Bio, 201 Elliott Avenue West, Seattle, Washington 98119, United States, 8009134403</div>
+    </div>
   </body>
 </html>
