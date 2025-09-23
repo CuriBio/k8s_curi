@@ -2,13 +2,12 @@ import json
 import time
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHash
 from asyncpg.exceptions import UniqueViolationError
-from datetime import timezone
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Response, Query
 from fastapi.middleware.cors import CORSMiddleware
 from jwt import decode, PyJWKClient
@@ -1425,9 +1424,8 @@ async def update_customer(
                     current_usage_restrictions = json.loads(
                         usage_restrictions_query_result["usage_restrictions"]
                     )
-                    current_products = get_product_tags_of_admin(
-                        await get_account_scopes(con, account_id, None)
-                    )
+                    current_scopes = await get_account_scopes(con, account_id, None)
+                    current_products = get_product_tags_of_admin(current_scopes)
 
                     # handle usage restrictions updates
                     if (usage_restrictions_update := details.usage) is not None:
@@ -1468,34 +1466,36 @@ async def update_customer(
                     updated_usage_restrictions = json.loads(
                         usage_restrictions_query_result["usage_restrictions"]
                     )
-                    updated_products = get_product_tags_of_admin(
-                        await get_account_scopes(con, account_id, None)
-                    )
+                    updated_scopes = await get_account_scopes(con, account_id, None)
+                    updated_products = get_product_tags_of_admin(updated_scopes)
 
                     # prepare email_content
                     email_content["email"] = customer_email
                     email_content["current"] = {
                         "usage_restrictions": current_usage_restrictions,
                         "products": current_products,
+                        "scopes": current_scopes,
                     }
                     email_content["updated"] = {
                         "usage_restrictions": updated_usage_restrictions,
                         "products": updated_products,
+                        "scopes": updated_scopes,
                     }
                 else:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Invalid curi-edit-admin action: {action}",
                     )
+
         if email_content:
             template_body = {
                 "before": _get_pretty_admin_details(email_content["current"]),
-                "after": _get_pretty_admin_details(email_content["updated"]),
+                "now": _get_pretty_admin_details(email_content["updated"]),
             }
             await _send_account_email(
                 emails=[email_content["email"], CURIBIO_SUPPORT_EMAIL],
                 reply_to=[CURIBIO_SUPPORT_EMAIL],
-                subject="Your Admin account has been modified",
+                subject="Your Pulse Admin privileges have been updated",
                 template="admin_modified.html",
                 template_body=template_body,
             )
@@ -1528,11 +1528,16 @@ def _get_pretty_admin_details(details):
                 product_result["expiration_date"] = (
                     "none"
                     if usage_restrictions["expiration_date"] is None
-                    else usage_restrictions["expiration_date"]
+                    else datetime.strptime(usage_restrictions["expiration_date"], "%Y-%m-%d").strftime(
+                        "%B %-d, %Y"
+                    )
                 )
 
             if product_result:
                 result[product.value] = product_result
+
+    result["nmj"] = Scopes.MANTARRAY__NMJ_FEATURE in details["scopes"]
+    result["cls_alg"] = Scopes.MANTARRAY__CLS_ALG_FEATURE in details["scopes"]
 
     return result
 
