@@ -65,6 +65,9 @@ from utils.logging import setup_logger, bind_context_to_logger
 from utils.s3 import (
     S3Error,
     generate_presigned_post,
+    generate_multipart_upload_urls,
+    complete_multipart_upload,
+    abort_multipart_upload,
     generate_presigned_url,
     upload_file_to_s3,
     yield_s3_objects,
@@ -86,6 +89,10 @@ from models.models import (
     UploadDownloadRequest,
     UploadRequest,
     UploadResponse,
+    MultipartUploadRequest,
+    MultipartUploadResponse,
+    CompleteMultipartUploadRequest,
+    AbortMultipartUploadRequest,
     UsageQuota,
     ViewNotificationMessageRequest,
     ViewNotificationMessageResponse,
@@ -258,6 +265,126 @@ async def create_recording_upload(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
     except Exception:
         logger.exception("Error creating recording")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.post("/uploads/multipart", response_model=MultipartUploadResponse | GenericErrorResponse)
+async def create_recording_upload_multipart(
+    request: Request,
+    details: MultipartUploadRequest,
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
+):
+    try:
+        user_id = str(uuid.UUID(token.userid))
+        customer_id = str(uuid.UUID(token.customer_id))
+        # generating uuid here instead of letting PG handle it so that it can be inserted into the prefix more easily
+        upload_id = uuid.uuid4()
+        s3_prefix = f"uploads/{customer_id}/{user_id}/{upload_id}"
+        upload_type = details.upload_type
+
+        check_prohibited_product(token.scopes, upload_type)
+
+        bind_context_to_logger(
+            {
+                "user_id": user_id,
+                "customer_id": customer_id,
+                "upload_id": str(upload_id),
+                "upload_type": upload_type,
+            }
+        )
+
+        upload_params = {
+            "prefix": s3_prefix,
+            "filename": details.filename,
+            "md5": details.md5s,
+            "user_id": user_id,
+            "type": upload_type,
+            "customer_id": customer_id,
+            "auto_upload": details.auto_upload,
+            "upload_id": upload_id,
+        }
+
+        async with request.state.pgpool.acquire() as con:
+            usage_quota = await check_customer_pulse3d_usage(con, customer_id, upload_type)
+            if usage_quota["uploads_reached"]:
+                return GenericErrorResponse(message=usage_quota, error="UsageError")
+
+            (multipart_upload_id, urls) = _generate_multipart_upload_urls(
+                details, PULSE3D_UPLOADS_BUCKET, s3_prefix
+            )
+            upload_params["multipart_upload_id"] = multipart_upload_id
+
+            upload_id = await create_upload(con=con, upload_params=upload_params)
+            return MultipartUploadResponse(id=upload_id, urls=urls)
+    except ProhibitedProductError:
+        logger.exception(f"User does not have permission to upload {details.upload_type} recordings")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    except S3Error:
+        logger.exception("Error creating recording")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    except Exception:
+        logger.exception("Error creating recording")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.put("/uploads/multipart/complete", status_code=status.HTTP_204_NO_CONTENT)
+async def complete_recording_upload_multipart(
+    request: Request,
+    details: CompleteMultipartUploadRequest,
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
+):
+    try:
+        user_id = str(uuid.UUID(token.userid))
+
+        async with request.state.pgpool.acquire() as con:
+            # use transaction so that if complete_multipart_upload fails, the transaction will be aborted
+            async with con.transaction():
+                row = await con.fetchrow(
+                    "SELECT prefix, filename, multipart_upload_id FROM uploads WHERE user_id=$1 AND id=$2",
+                    user_id,
+                    details.id,
+                )
+                s3_key = f"{row['prefix']}/{row['filename']}"
+                await con.execute(
+                    "UPDATE uploads SET multipart_upload_id=NULL WHERE user_id=$1 AND id=$2",
+                    user_id,
+                    details.id,
+                )
+                complete_multipart_upload(
+                    PULSE3D_UPLOADS_BUCKET, s3_key, row["multipart_upload_id"], details.parts
+                )
+    except S3Error:
+        logger.exception("Error completing multipart upload")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    except Exception:
+        logger.exception("Error completing multipart upload")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.put("/uploads/multipart/abort", status_code=status.HTTP_204_NO_CONTENT)
+async def abort_recording_upload_multipart(
+    request: Request,
+    details: AbortMultipartUploadRequest,
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
+):
+    try:
+        user_id = str(uuid.UUID(token.userid))
+
+        async with request.state.pgpool.acquire() as con:
+            # use transaction so that if abort_multipart_upload fails, the transaction will be aborted
+            async with con.transaction():
+                rows = await con.fetch(
+                    "DELETE FROM uploads WHERE user_id=$1 AND id=$2 RETURNING prefix, filename, multipart_upload_id",
+                    user_id,
+                    details.id,
+                )
+                s3_key = f"{rows[0]['prefix']}/{rows[0]['filename']}"
+                abort_multipart_upload(PULSE3D_UPLOADS_BUCKET, s3_key, rows[0]["multipart_upload_id"])
+    except S3Error:
+        logger.exception("Error aborting multipart upload")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    except Exception:
+        logger.exception("Error aborting multipart upload")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -1172,11 +1299,20 @@ async def _get_job_waveform_data(con, token, job_id: str, upload_type: str) -> d
             )
 
 
-def _generate_presigned_post(details, bucket, s3_key):
-    s3_key += f"/{details.filename}"
+def _generate_presigned_post(details, bucket, s3_prefix):
+    s3_key = f"{s3_prefix}/{details.filename}"
     logger.info(f"Generating presigned upload url for {bucket}/{s3_key}")
     params = generate_presigned_post(bucket=bucket, key=s3_key, md5s=details.md5s)
     return params
+
+
+def _generate_multipart_upload_urls(details, bucket, s3_prefix):
+    s3_key = f"{s3_prefix}/{details.filename}"
+    logger.info(f"Generating multipart presigned upload urls for {bucket}/{s3_key}")
+    (upload_id, urls) = generate_multipart_upload_urls(
+        bucket=bucket, key=s3_key, md5s_parts=details.md5s_parts
+    )
+    return (upload_id, urls)
 
 
 def _create_features_df(timepoints, features, peak_valley_diff):
