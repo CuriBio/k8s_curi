@@ -69,6 +69,9 @@ def generate_presigned_post(bucket: str, key: str, md5s: str) -> dict[Any, Any]:
         raise S3Error(f"Failed to generate presigned post for {bucket}/{key} with error: {repr(e)}")
 
 
+MULTIPART_UPLOAD_TIMEOUT_HRS = 24
+
+
 def generate_multipart_upload_urls(bucket: str, key: str, md5s_parts: list[str]) -> tuple[str, list[str]]:
     s3_client = boto3.client("s3", config=Config(signature_version="s3v4"))
 
@@ -91,7 +94,7 @@ def generate_multipart_upload_urls(bucket: str, key: str, md5s_parts: list[str])
                     "UploadId": upload_id,
                     "PartNumber": part_num,
                 },
-                ExpiresIn=3600 * 24,  # 1 day
+                ExpiresIn=3600 * MULTIPART_UPLOAD_TIMEOUT_HRS,  # 1 day
             )
         except ClientError as e:
             raise S3Error(
