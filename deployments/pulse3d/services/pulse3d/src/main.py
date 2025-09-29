@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import os
 import tempfile
@@ -9,6 +9,8 @@ from typing import Any
 import uuid
 from zoneinfo import ZoneInfo
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 import polars as pl
 import structlog
 from auth import (
@@ -68,6 +70,7 @@ from utils.s3 import (
     generate_multipart_upload_urls,
     complete_multipart_upload,
     abort_multipart_upload,
+    MULTIPART_UPLOAD_TIMEOUT_HRS,
     generate_presigned_url,
     upload_file_to_s3,
     yield_s3_objects,
@@ -115,10 +118,19 @@ notification_service: NotificationService
 async def lifespan(app: FastAPI):
     global notification_service
     notification_service = NotificationService(NotificationRepository(await asyncpg_pool()))
+    scheduler.add_job(
+        daily_job,
+        CronTrigger(hour=15, minute=30, timezone=timezone.utc),
+        id="daily_job",
+        replace_existing=True,
+    )
+    scheduler.start()
     yield
+    scheduler.shutdown()
 
 
 app = FastAPI(openapi_url=None, lifespan=lifespan)
+scheduler = AsyncIOScheduler()
 
 app.add_middleware(
     CORSMiddleware,
@@ -160,6 +172,41 @@ async def db_session_middleware(request: Request, call_next) -> Response:
         )
 
     return response
+
+
+async def daily_job():
+    await handle_expired_multipart_uploads()
+
+
+async def handle_expired_multipart_uploads():
+    logger.info("Querying expired multipart uploads")
+    try:
+        async with (await asyncpg_pool()).acquire() as con:
+            expired_multipart_upload_rows = await con.fetch(
+                "SELECT id, multipart_upload_id, prefix, filename FROM uploads "
+                f"WHERE multipart_upload_id IS NOT NULL AND created_at <= NOW() - INTERVAL '{MULTIPART_UPLOAD_TIMEOUT_HRS} hours'"
+            )
+
+            ids_to_delete = []
+            for row in expired_multipart_upload_rows:
+                upload_id = row["id"]
+                try:
+                    s3_key = f"{row['prefix']}/{row['filename']}"
+                    await abort_multipart_upload(PULSE3D_UPLOADS_BUCKET, s3_key, row["multipart_upload_id"])
+                except Exception:
+                    logger.exception(f"Failed to abort multipart upload for upload ID: {upload_id}")
+                else:
+                    ids_to_delete.append(upload_id)
+
+            await con.execute(
+                "DELETE FROM uploads "
+                f"WHERE id=ANY($1::uuid[]) AND multipart_upload_id IS NOT NULL AND created_at <= NOW() - INTERVAL '{MULTIPART_UPLOAD_TIMEOUT_HRS} hours'",
+                ids_to_delete,
+            )
+    except Exception:
+        logger.exception("handle_expired_multipart_uploads(): Unexpected error")
+
+    logger.info("handle_expired_multipart_uploads(): complete")
 
 
 # TODO define response model
