@@ -354,7 +354,7 @@ async def delete_uploads(*, con, account_type, account_id, upload_ids):
         # this is essentially doing a JOIN on users WHERE uploads.user_id=users.id
         query = (
             "UPDATE uploads SET deleted='t' FROM users "
-            f"WHERE uploads.user_id=users.id AND uploads.multipart_upload_id IS NULL users.customer_id=$1 AND uploads.id IN ({places})"
+            f"WHERE uploads.user_id=users.id AND uploads.multipart_upload_id IS NULL AND users.customer_id=$1 AND uploads.id IN ({places})"
         )
     query_params.extend(upload_ids)
     await con.execute(query, *query_params)
