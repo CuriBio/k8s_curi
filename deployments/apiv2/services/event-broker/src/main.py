@@ -144,6 +144,9 @@ def create_notification_handler(con_pool):
                             "SELECT meta FROM jobs_result WHERE job_id=$1", payload["id"]
                         )
                 case "uploads":
+                    if payload["multipart_upload_id"] is not None:
+                        # don't want to show incomplete uploads
+                        return
                     payload["product"] = payload.pop("type")
                     payload["usage_type"] = "uploads"
                 case "advanced_analysis_result":
