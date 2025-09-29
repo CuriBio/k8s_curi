@@ -11,10 +11,10 @@ buildx:
 	docker buildx build -t advanced-analysis-api . -f ${repo_root}/deployments/advanced-analysis/services/advanced-analysis/Dockerfile --platform linux/amd64 --load
 
 tag:
-	docker tag advanced-analysis-api:latest $(ecr_repo):0.2.4
+	docker tag advanced-analysis-api:latest $(ecr_repo):0.2.5
 
 login:
 	aws ecr get-login-password --region us-east-2 | docker login --password-stdin --username AWS $(ecr_repo)
 
 push:
-	docker push $(ecr_repo):0.2.4
+	docker push $(ecr_repo):0.2.5
