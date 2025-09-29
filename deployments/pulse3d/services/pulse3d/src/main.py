@@ -711,8 +711,12 @@ async def create_new_job(
         async with request.state.pgpool.acquire() as con:
             # first check user_id of upload matches user_id in token
             # Luci (12/14/2022) checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
-            # Luci (12/14/2022) customer id is checked already because the customer_id in the token is being used to find upload details
-            row = await con.fetchrow("SELECT user_id, type FROM uploads where id=$1", upload_id)
+            # TODO test this
+            row = await con.fetchrow(
+                "SELECT user_id, type FROM uploads WHERE id=$1 AND customer_id=$2 AND multipart_upload_id IS NULL",
+                upload_id,
+                customer_id,
+            )
             original_upload_user = str(row["user_id"])
             upload_type = row["type"]
 
