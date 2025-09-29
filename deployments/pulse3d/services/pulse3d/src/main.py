@@ -61,6 +61,7 @@ from stream_zip import stream_zip
 from starlette_context import context, request_cycle_context
 from structlog.contextvars import bind_contextvars, clear_contextvars
 from utils.db import AsyncpgPoolDep
+from utils.email import FastMailClient
 from utils.logging import setup_logger, bind_context_to_logger
 from utils.s3 import (
     S3Error,
@@ -74,7 +75,15 @@ from utils.s3 import (
 )
 from uvicorn.protocols.utils import get_path_with_query_string
 
-from core.config import DASHBOARD_URL, DATABASE_URL, MANTARRAY_LOGS_BUCKET, PULSE3D_UPLOADS_BUCKET
+from core.config import (
+    CURIBIO_EMAIL,
+    CURIBIO_EMAIL_PASSWORD,
+    CURIBIO_SUPPORT_EMAIL,
+    DASHBOARD_URL,
+    DATABASE_URL,
+    MANTARRAY_LOGS_BUCKET,
+    PULSE3D_UPLOADS_BUCKET,
+)
 from models.models import (
     GenericErrorResponse,
     JobDownloadRequest,
@@ -108,6 +117,9 @@ logger = structlog.stdlib.get_logger("api.access")
 
 
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
+email_client = FastMailClient(
+    mail_username=CURIBIO_EMAIL, mail_password=CURIBIO_EMAIL_PASSWORD, template_folder="./templates"
+)
 notification_service: NotificationService
 
 
@@ -606,6 +618,7 @@ async def create_new_job(
         user_id = str(uuid.UUID(token.userid))
         customer_id = str(uuid.UUID(token.customer_id))
         upload_id = details.upload_id
+        email_content = {}
 
         bind_context_to_logger({"user_id": user_id, "customer_id": customer_id, "upload_id": str(upload_id)})
 
@@ -770,6 +783,22 @@ async def create_new_job(
             # check customer quota after job
             usage_quota = await check_customer_pulse3d_usage(con, customer_id, upload_type)
 
+            if usage_quota["jobs_reached"] or usage_quota["uploads_reached"]:
+                query = """
+                    SELECT c.email, (product.value->>'expiration_date')::date AS expiration_date
+                    FROM customers c
+                    CROSS JOIN LATERAL jsonb_each(c.usage_restrictions::jsonb) AS product(key, value)
+                    WHERE id=$1
+                    AND product.key=$2
+                """
+                customer_row = await con.fetchrow(query, customer_id, upload_type)
+                email_content["email"] = customer_row["email"]
+                email_content["expiration_date"] = (
+                    None
+                    if customer_row["expiration_date"] is None
+                    else customer_row["expiration_date"].strftime("%B %-d, %Y")
+                )
+
             # Luci (12/1/22): this happens after the job is already created to have access to the job id, hopefully this doesn't cause any issues with the job starting before the file is uploaded to s3
             if details.peaks_valleys:
                 key = (
@@ -791,6 +820,18 @@ async def create_new_job(
                     features_df.write_parquet(pv_parquet_path)
                     # upload to s3 under upload id and job id for pulse3d-worker to use
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
+
+        if email_content:
+            await _send_account_email(
+                emails=[email_content["email"], CURIBIO_SUPPORT_EMAIL],
+                reply_to=[CURIBIO_SUPPORT_EMAIL],
+                subject=f"[Important] Your Curi Bio Pulse {upload_type} Account Has Reached Its Token Limit",
+                template="tokens_exhausted.html",
+                template_body={
+                    "expiration_date": email_content["expiration_date"],
+                    "product_name": upload_type,
+                },
+            )
 
         return JobResponse(
             id=job_id,
@@ -1370,3 +1411,17 @@ def _format_tuple_param(
     )
 
     return formatted_options
+
+
+async def _send_account_email(
+    *,
+    emails: list[str],
+    reply_to: list[str] | None = None,
+    subject: str,
+    template: str,
+    template_body: dict,
+) -> None:
+    logger.info(f"Sending email with subject '{subject}' to email addresses '{emails}'")
+    await email_client.send_email(
+        emails=emails, reply_to=reply_to, subject=subject, template=template, template_body=template_body
+    )
