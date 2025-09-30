@@ -1558,7 +1558,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(*) AS total_uploads FROM uploads u JOIN customers c ON c.id=u.customer_id WHERE c.customer_id!='00000000-0000-0000-0000-000000000000' AND u.multipart_upload_id IS NULL AND c.email NOT LIKE '%curibio.com' AND u.created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND u.created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'",
+          "rawSql": "SELECT count(*) AS total_uploads FROM uploads u JOIN customers c ON c.id=u.customer_id WHERE c.id!='00000000-0000-0000-0000-000000000000' AND u.multipart_upload_id IS NULL AND c.email NOT LIKE '%curibio.com' AND u.created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND u.created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1645,7 +1645,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(*) AS total_jobs FROM jobs_result j JOIN customers c ON c.id=j.customer_id WHERE c.customer_id!='00000000-0000-0000-0000-000000000000' AND c.email NOT LIKE '%curibio.com' AND j.created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND j.created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'",
+          "rawSql": "SELECT count(*) AS total_jobs FROM jobs_result j JOIN customers c ON c.id=j.customer_id WHERE c.id!='00000000-0000-0000-0000-000000000000' AND c.email NOT LIKE '%curibio.com' AND j.created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND j.created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'",
           "refId": "A",
           "sql": {
             "columns": [

@@ -149,10 +149,10 @@ async def get_uploads_info_for_admin(
     **filters,
 ):
     query = (
-        "SELECT users.name AS username, uploads.*, j.last_analyzed "
+        "SELECT users.name AS username, uploads.*, coalesce(j.last_analyzed, uploads.created_at) as last_analyzed "
         "FROM uploads "
         "JOIN users ON uploads.user_id=users.id "
-        "JOIN (SELECT upload_id, max(created_at) AS last_analyzed FROM jobs_result WHERE status!='deleted' GROUP BY upload_id) AS j ON uploads.id=j.upload_id "
+        "LEFT JOIN (SELECT upload_id, max(created_at) AS last_analyzed FROM jobs_result WHERE status!='deleted' GROUP BY upload_id) AS j ON uploads.id=j.upload_id "
         "WHERE users.customer_id=$1 AND uploads.deleted='f' AND uploads.multipart_upload_id IS NULL"
     )
     query_params = [customer_id]
@@ -178,10 +178,10 @@ async def get_uploads_info_for_rw_all_data_user(
     **filters,
 ):
     query = (
-        "SELECT users.name AS username, uploads.*, j.last_analyzed "
+        "SELECT users.name AS username, uploads.*, coalesce(j.last_analyzed, uploads.created_at) as last_analyzed "
         "FROM uploads "
         "JOIN users ON uploads.user_id=users.id "
-        "JOIN (SELECT upload_id, max(created_at) AS last_analyzed FROM jobs_result WHERE status!='deleted' GROUP BY upload_id) AS j ON uploads.id=j.upload_id "
+        "LEFT JOIN (SELECT upload_id, max(created_at) AS last_analyzed FROM jobs_result WHERE status!='deleted' GROUP BY upload_id) AS j ON uploads.id=j.upload_id "
         "WHERE users.customer_id=$1 AND uploads.type=$2 AND uploads.deleted='f' AND uploads.multipart_upload_id IS NULL"
     )
     query_params = [customer_id, upload_type]
@@ -207,9 +207,9 @@ async def get_uploads_info_for_base_user(
     **filters,
 ):
     query = (
-        "SELECT uploads.*, j.last_analyzed "
+        "SELECT uploads.*, coalesce(j.last_analyzed, uploads.created_at) as last_analyzed "
         "FROM uploads "
-        "JOIN (SELECT upload_id, max(created_at) AS last_analyzed FROM jobs_result WHERE status!='deleted' GROUP BY upload_id) AS j ON uploads.id=j.upload_id "
+        "LEFT JOIN (SELECT upload_id, max(created_at) AS last_analyzed FROM jobs_result WHERE status!='deleted' GROUP BY upload_id) AS j ON uploads.id=j.upload_id "
         "WHERE user_id=$1 AND uploads.type=$2 AND uploads.deleted='f' AND uploads.multipart_upload_id IS NULL"
     )
     query_params = [user_id, upload_type]
@@ -249,9 +249,9 @@ def _add_upload_sorting_filtering_conds(
             case "created_at_max":
                 new_cond = f"uploads.created_at <= to_timestamp({placeholder}, 'YYYY-MM-DD\"T\"HH:MI:SS.MSZ')"
             case "last_analyzed_min":
-                new_cond = f"j.last_analyzed >= to_timestamp({placeholder}, 'YYYY-MM-DD\"T\"HH:MI:SS.MSZ')"
+                new_cond = f"coalesce(j.last_analyzed, uploads.created_at) >= to_timestamp({placeholder}, 'YYYY-MM-DD\"T\"HH:MI:SS.MSZ')"
             case "last_analyzed_max":
-                new_cond = f"j.last_analyzed <= to_timestamp({placeholder}, 'YYYY-MM-DD\"T\"HH:MI:SS.MSZ')"
+                new_cond = f"coalesce(j.last_analyzed, uploads.created_at) <= to_timestamp({placeholder}, 'YYYY-MM-DD\"T\"HH:MI:SS.MSZ')"
             case _:
                 continue
 
@@ -263,7 +263,7 @@ def _add_upload_sorting_filtering_conds(
 
     if sort_field in ("filename", "id", "created_at", "last_analyzed", "auto_upload", "username"):
         if sort_field == "last_analyzed":
-            sort_field = f"j.{sort_field}"
+            pass
         elif sort_field == "username":
             sort_field = "users.name"
         else:
