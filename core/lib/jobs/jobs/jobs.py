@@ -799,7 +799,7 @@ async def check_customer_advanced_analysis_usage(con, customer_id):
 
     jobs_count_reached = False
     if (job_limit := usage_limits["jobs"]) != -1:
-        jobs_count_reached = current_job_count >= job_limit
+        jobs_count_reached = current_job_count >= int(job_limit)
 
     return {
         "limits": usage_limits,
