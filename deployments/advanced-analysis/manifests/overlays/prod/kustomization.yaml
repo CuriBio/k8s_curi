@@ -25,6 +25,11 @@ patches:
       - op: add
         path: /spec/template/spec/containers/0/env/0
         value:
+          name: CURIBIO_SUPPORT_EMAIL
+          value: "support@curibio.com"
+      - op: add
+        path: /spec/template/spec/containers/0/env/0
+        value:
           name: DASHBOARD_URL
           value: "https://dashboard.curibio.com"
     target:

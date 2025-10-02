@@ -17,6 +17,9 @@ POSTGRES_PORT = config("POSTGRES_PORT", cast=str, default="5432")
 POSTGRES_DB = config("POSTGRES_DB", cast=str)
 
 DASHBOARD_URL = config("DASHBOARD_URL", cast=str, default="https://dashboard.curibio-test.com")
+CURIBIO_EMAIL = config("CURIBIO_EMAIL", cast=str)
+CURIBIO_EMAIL_PASSWORD = config("CURIBIO_EMAIL_PASSWORD", cast=str)
+CURIBIO_SUPPORT_EMAIL = config("CURIBIO_SUPPORT_EMAIL", cast=str)
 
 PULSE3D_UPLOADS_BUCKET = config("UPLOADS_BUCKET_ENV", cast=str, default="test-pulse3d-uploads")
 

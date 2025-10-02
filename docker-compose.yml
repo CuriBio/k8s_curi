@@ -127,6 +127,9 @@ services:
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - AWS_PROFILE=${AWS_PROFILE}
       - AWS_REGION=us-east-2
+      - CURIBIO_EMAIL=${CURIBIO_EMAIL}
+      - CURIBIO_EMAIL_PASSWORD=${CURIBIO_EMAIL_PASSWORD}
+      - CURIBIO_SUPPORT_EMAIL=${CURIBIO_SUPPORT_EMAIL}
       - DASHBOARD_URL=http://localhost:3000
     volumes:
       - ~/.aws/:/home/main_user/.aws:ro
