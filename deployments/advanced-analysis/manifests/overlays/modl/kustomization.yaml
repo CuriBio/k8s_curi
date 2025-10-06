@@ -18,10 +18,15 @@ patches:
   - patch: |-
       - op: add
         path: /spec/template/spec/containers/0/image
-        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/advanced-analysis-api:0.2.4"
+        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/advanced-analysis-api:0.2.5"
       - op: replace
         path: /spec/template/spec/containers/0/env/5/value
         value: modl-pulse3d-uploads
+      - op: add
+        path: /spec/template/spec/containers/0/env/0
+        value:
+          name: CURIBIO_SUPPORT_EMAIL
+          value: "software@curibio.com"
       - op: add
         path: /spec/template/spec/containers/0/env/0
         value:

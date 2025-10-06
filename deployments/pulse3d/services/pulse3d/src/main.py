@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import os
 import tempfile
@@ -9,6 +9,8 @@ from typing import Any
 import uuid
 from zoneinfo import ZoneInfo
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 import polars as pl
 import structlog
 from auth import (
@@ -61,17 +63,30 @@ from stream_zip import stream_zip
 from starlette_context import context, request_cycle_context
 from structlog.contextvars import bind_contextvars, clear_contextvars
 from utils.db import AsyncpgPoolDep
+from utils.email import FastMailClient
 from utils.logging import setup_logger, bind_context_to_logger
 from utils.s3 import (
     S3Error,
     generate_presigned_post,
+    generate_multipart_upload_urls,
+    complete_multipart_upload,
+    abort_multipart_upload,
+    MULTIPART_UPLOAD_TIMEOUT_HRS,
     generate_presigned_url,
     upload_file_to_s3,
     yield_s3_objects,
 )
 from uvicorn.protocols.utils import get_path_with_query_string
 
-from core.config import DASHBOARD_URL, DATABASE_URL, MANTARRAY_LOGS_BUCKET, PULSE3D_UPLOADS_BUCKET
+from core.config import (
+    CURIBIO_EMAIL,
+    CURIBIO_EMAIL_PASSWORD,
+    CURIBIO_SUPPORT_EMAIL,
+    DASHBOARD_URL,
+    DATABASE_URL,
+    MANTARRAY_LOGS_BUCKET,
+    PULSE3D_UPLOADS_BUCKET,
+)
 from models.models import (
     GenericErrorResponse,
     JobDownloadRequest,
@@ -86,6 +101,10 @@ from models.models import (
     UploadDownloadRequest,
     UploadRequest,
     UploadResponse,
+    MultipartUploadRequest,
+    MultipartUploadResponse,
+    CompleteMultipartUploadRequest,
+    AbortMultipartUploadRequest,
     UsageQuota,
     ViewNotificationMessageRequest,
     ViewNotificationMessageResponse,
@@ -101,6 +120,9 @@ logger = structlog.stdlib.get_logger("api.access")
 
 
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
+email_client = FastMailClient(
+    mail_username=CURIBIO_EMAIL, mail_password=CURIBIO_EMAIL_PASSWORD, template_folder="./templates"
+)
 notification_service: NotificationService
 
 
@@ -108,10 +130,19 @@ notification_service: NotificationService
 async def lifespan(app: FastAPI):
     global notification_service
     notification_service = NotificationService(NotificationRepository(await asyncpg_pool()))
+    scheduler.add_job(
+        daily_job,
+        CronTrigger(hour=15, minute=30, timezone=timezone.utc),
+        id="daily_job",
+        replace_existing=True,
+    )
+    scheduler.start()
     yield
+    scheduler.shutdown()
 
 
 app = FastAPI(openapi_url=None, lifespan=lifespan)
+scheduler = AsyncIOScheduler()
 
 app.add_middleware(
     CORSMiddleware,
@@ -153,6 +184,41 @@ async def db_session_middleware(request: Request, call_next) -> Response:
         )
 
     return response
+
+
+async def daily_job():
+    await handle_expired_multipart_uploads()
+
+
+async def handle_expired_multipart_uploads():
+    logger.info("Querying expired multipart uploads")
+    try:
+        async with (await asyncpg_pool()).acquire() as con:
+            expired_multipart_upload_rows = await con.fetch(
+                "SELECT id, multipart_upload_id, prefix, filename FROM uploads "
+                f"WHERE multipart_upload_id IS NOT NULL AND created_at <= NOW() - INTERVAL '{MULTIPART_UPLOAD_TIMEOUT_HRS} hours'"
+            )
+
+            ids_to_delete = []
+            for row in expired_multipart_upload_rows:
+                upload_id = row["id"]
+                try:
+                    s3_key = f"{row['prefix']}/{row['filename']}"
+                    await abort_multipart_upload(PULSE3D_UPLOADS_BUCKET, s3_key, row["multipart_upload_id"])
+                except Exception:
+                    logger.exception(f"Failed to abort multipart upload for upload ID: {upload_id}")
+                else:
+                    ids_to_delete.append(upload_id)
+
+            await con.execute(
+                "DELETE FROM uploads "
+                f"WHERE id=ANY($1::uuid[]) AND multipart_upload_id IS NOT NULL AND created_at <= NOW() - INTERVAL '{MULTIPART_UPLOAD_TIMEOUT_HRS} hours'",
+                ids_to_delete,
+            )
+    except Exception:
+        logger.exception("handle_expired_multipart_uploads(): Unexpected error")
+
+    logger.info("handle_expired_multipart_uploads(): complete")
 
 
 # TODO define response model
@@ -258,6 +324,126 @@ async def create_recording_upload(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
     except Exception:
         logger.exception("Error creating recording")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.post("/uploads/multipart", response_model=MultipartUploadResponse | GenericErrorResponse)
+async def create_recording_upload_multipart(
+    request: Request,
+    details: MultipartUploadRequest,
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
+):
+    try:
+        user_id = str(uuid.UUID(token.userid))
+        customer_id = str(uuid.UUID(token.customer_id))
+        # generating uuid here instead of letting PG handle it so that it can be inserted into the prefix more easily
+        upload_id = uuid.uuid4()
+        s3_prefix = f"uploads/{customer_id}/{user_id}/{upload_id}"
+        upload_type = details.upload_type
+
+        check_prohibited_product(token.scopes, upload_type)
+
+        bind_context_to_logger(
+            {
+                "user_id": user_id,
+                "customer_id": customer_id,
+                "upload_id": str(upload_id),
+                "upload_type": upload_type,
+            }
+        )
+
+        upload_params = {
+            "prefix": s3_prefix,
+            "filename": details.filename,
+            "md5": details.md5s,
+            "user_id": user_id,
+            "type": upload_type,
+            "customer_id": customer_id,
+            "auto_upload": details.auto_upload,
+            "upload_id": upload_id,
+        }
+
+        async with request.state.pgpool.acquire() as con:
+            usage_quota = await check_customer_pulse3d_usage(con, customer_id, upload_type)
+            if usage_quota["uploads_reached"]:
+                return GenericErrorResponse(message=usage_quota, error="UsageError")
+
+            (multipart_upload_id, urls) = _generate_multipart_upload_urls(
+                details, PULSE3D_UPLOADS_BUCKET, s3_prefix
+            )
+            upload_params["multipart_upload_id"] = multipart_upload_id
+
+            upload_id = await create_upload(con=con, upload_params=upload_params)
+            return MultipartUploadResponse(id=upload_id, urls=urls)
+    except ProhibitedProductError:
+        logger.exception(f"User does not have permission to upload {details.upload_type} recordings")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    except S3Error:
+        logger.exception("Error creating recording")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    except Exception:
+        logger.exception("Error creating recording")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.put("/uploads/multipart/complete", status_code=status.HTTP_204_NO_CONTENT)
+async def complete_recording_upload_multipart(
+    request: Request,
+    details: CompleteMultipartUploadRequest,
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
+):
+    try:
+        user_id = str(uuid.UUID(token.userid))
+
+        async with request.state.pgpool.acquire() as con:
+            # use transaction so that if complete_multipart_upload fails, the transaction will be aborted
+            async with con.transaction():
+                row = await con.fetchrow(
+                    "SELECT prefix, filename, multipart_upload_id FROM uploads WHERE user_id=$1 AND id=$2",
+                    user_id,
+                    details.id,
+                )
+                s3_key = f"{row['prefix']}/{row['filename']}"
+                await con.execute(
+                    "UPDATE uploads SET multipart_upload_id=NULL WHERE user_id=$1 AND id=$2",
+                    user_id,
+                    details.id,
+                )
+                complete_multipart_upload(
+                    PULSE3D_UPLOADS_BUCKET, s3_key, row["multipart_upload_id"], details.parts
+                )
+    except S3Error:
+        logger.exception("Error completing multipart upload")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    except Exception:
+        logger.exception("Error completing multipart upload")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.put("/uploads/multipart/abort", status_code=status.HTTP_204_NO_CONTENT)
+async def abort_recording_upload_multipart(
+    request: Request,
+    details: AbortMultipartUploadRequest,
+    token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_WRITE)),
+):
+    try:
+        user_id = str(uuid.UUID(token.userid))
+
+        async with request.state.pgpool.acquire() as con:
+            # use transaction so that if abort_multipart_upload fails, the transaction will be aborted
+            async with con.transaction():
+                rows = await con.fetch(
+                    "DELETE FROM uploads WHERE user_id=$1 AND id=$2 RETURNING prefix, filename, multipart_upload_id",
+                    user_id,
+                    details.id,
+                )
+                s3_key = f"{rows[0]['prefix']}/{rows[0]['filename']}"
+                abort_multipart_upload(PULSE3D_UPLOADS_BUCKET, s3_key, rows[0]["multipart_upload_id"])
+    except S3Error:
+        logger.exception("Error aborting multipart upload")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    except Exception:
+        logger.exception("Error aborting multipart upload")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -479,6 +665,7 @@ async def create_new_job(
         user_id = str(uuid.UUID(token.userid))
         customer_id = str(uuid.UUID(token.customer_id))
         upload_id = details.upload_id
+        email_content = {}
 
         bind_context_to_logger({"user_id": user_id, "customer_id": customer_id, "upload_id": str(upload_id)})
 
@@ -584,8 +771,11 @@ async def create_new_job(
         async with request.state.pgpool.acquire() as con:
             # first check user_id of upload matches user_id in token
             # Luci (12/14/2022) checking separately here because the only other time it's checked is in the pulse3d-worker, we want to catch it here first if it's unauthorized and not checking in create_job to make it universal to all services, not just pulse3d
-            # Luci (12/14/2022) customer id is checked already because the customer_id in the token is being used to find upload details
-            row = await con.fetchrow("SELECT user_id, type FROM uploads where id=$1", upload_id)
+            row = await con.fetchrow(
+                "SELECT user_id, type FROM uploads WHERE id=$1 AND customer_id=$2 AND multipart_upload_id IS NULL",
+                upload_id,
+                customer_id,
+            )
             original_upload_user = str(row["user_id"])
             upload_type = row["type"]
 
@@ -643,6 +833,22 @@ async def create_new_job(
             # check customer quota after job
             usage_quota = await check_customer_pulse3d_usage(con, customer_id, upload_type)
 
+            if usage_quota["jobs_reached"] or usage_quota["uploads_reached"]:
+                query = """
+                    SELECT c.email, (product.value->>'expiration_date')::date AS expiration_date
+                    FROM customers c
+                    CROSS JOIN LATERAL jsonb_each(c.usage_restrictions::jsonb) AS product(key, value)
+                    WHERE id=$1
+                    AND product.key=$2
+                """
+                customer_row = await con.fetchrow(query, customer_id, upload_type)
+                email_content["email"] = customer_row["email"]
+                email_content["expiration_date"] = (
+                    None
+                    if customer_row["expiration_date"] is None
+                    else customer_row["expiration_date"].strftime("%B %-d, %Y")
+                )
+
             # Luci (12/1/22): this happens after the job is already created to have access to the job id, hopefully this doesn't cause any issues with the job starting before the file is uploaded to s3
             if details.peaks_valleys:
                 key = (
@@ -664,6 +870,18 @@ async def create_new_job(
                     features_df.write_parquet(pv_parquet_path)
                     # upload to s3 under upload id and job id for pulse3d-worker to use
                     upload_file_to_s3(bucket=PULSE3D_UPLOADS_BUCKET, key=key, file=pv_parquet_path)
+
+        if email_content:
+            await _send_account_email(
+                emails=[email_content["email"], CURIBIO_SUPPORT_EMAIL],
+                reply_to=[CURIBIO_SUPPORT_EMAIL],
+                subject=f"[Important] Your Curi Bio Pulse {upload_type} Account Has Reached Its Token Limit",
+                template="tokens_exhausted.html",
+                template_body={
+                    "expiration_date": email_content["expiration_date"],
+                    "product_name": upload_type,
+                },
+            )
 
         return JobResponse(
             id=job_id,
@@ -1172,11 +1390,20 @@ async def _get_job_waveform_data(con, token, job_id: str, upload_type: str) -> d
             )
 
 
-def _generate_presigned_post(details, bucket, s3_key):
-    s3_key += f"/{details.filename}"
+def _generate_presigned_post(details, bucket, s3_prefix):
+    s3_key = f"{s3_prefix}/{details.filename}"
     logger.info(f"Generating presigned upload url for {bucket}/{s3_key}")
     params = generate_presigned_post(bucket=bucket, key=s3_key, md5s=details.md5s)
     return params
+
+
+def _generate_multipart_upload_urls(details, bucket, s3_prefix):
+    s3_key = f"{s3_prefix}/{details.filename}"
+    logger.info(f"Generating multipart presigned upload urls for {bucket}/{s3_key}")
+    (upload_id, urls) = generate_multipart_upload_urls(
+        bucket=bucket, key=s3_key, md5s_parts=details.md5s_parts
+    )
+    return (upload_id, urls)
 
 
 def _create_features_df(timepoints, features, peak_valley_diff):
@@ -1234,3 +1461,17 @@ def _format_tuple_param(
     )
 
     return formatted_options
+
+
+async def _send_account_email(
+    *,
+    emails: list[str],
+    reply_to: list[str] | None = None,
+    subject: str,
+    template: str,
+    template_body: dict,
+) -> None:
+    logger.info(f"Sending email with subject '{subject}' to email addresses '{emails}'")
+    await email_client.send_email(
+        emails=emails, reply_to=reply_to, subject=subject, template=template, template_body=template_body
+    )
