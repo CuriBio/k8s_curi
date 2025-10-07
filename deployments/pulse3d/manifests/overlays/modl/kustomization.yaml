@@ -20,10 +20,10 @@ patches:
         path: /spec/template/spec/containers/0/image
         value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/pulse3d_api:0.14.1"
       - op: replace
-        path: /spec/template/spec/containers/0/env/5/value
+        path: /spec/template/spec/containers/0/env/7/value
         value: modl-pulse3d-uploads
       - op: replace
-        path: /spec/template/spec/containers/0/env/6/value
+        path: /spec/template/spec/containers/0/env/8/value
         value: modl-mantarray-logs
       - op: add
         path: /spec/template/spec/containers/0/env/0
