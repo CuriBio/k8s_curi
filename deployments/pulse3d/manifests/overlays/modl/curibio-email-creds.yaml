@@ -1,7 +1,7 @@
----
 apiVersion: bitnami.com/v1alpha1
 kind: SealedSecret
 metadata:
+  creationTimestamp: null
   name: curibio-email-creds
   namespace: pulse3d
 spec:
@@ -10,5 +10,6 @@ spec:
     curibio-email-password: AgA67JfekymgvC6HfH9q2Hmh90vfJqyao0RJD2zY4kz6rFlvqXecxj7dXD2PtftavqU0RZq6GyLdmLQB6tRX5yhUhrfyAtcwcngsasF8dNI1uYE9HsPPcxQylSHjcnTelGpfnhDQrWG+JdDzo4rPcVrrIiB0SV9XOwUH6qpasWx2xQnvHyRkyx4/+pqmaC5qNA193Vw+0j7ET3aZg+cOouzjF6eAJ8Eq0E01i/VXckT/pUjIRFOZN1JHk4gppGTK5BXMkt7MIhLdwfTWvBBUFYbl3YeUf8Rp9HaOuzAu75YCFMtNvYksPT1yU62CNohW4kYUV8jznMy7siFV46tMGB7MkuTzAM8apz5iHK1vO32avn9N4vzWujm01eMM8wOnce9n39duY0A5PGBELdX6ta9592f4q4KslKkDoF84xbIRbLc8s8C9STaL8BZfx0IAlxGiEN9zVFJmuWMdKl07EwZ5/urhZ5ewq5BJ8abQH8r3oGfEZegxTrjQRGG2zOQII78R8Iht16fush3d51CHbWz+GZwkzHMsrVNi0NCMoZLNaukNEyR4ImP160lM1WVQKNFbAjr8fk2SS5Kv5zJ3ONnDia+r1RBud4BeJBHqRb1XMePOzNAsJoTY0zwE3qd7xeSdKqFRH/IpoDD7/vXl7Qk5/YsQpz0NBWZAJJyAx4ywCRO4Pnb9GyowfjmFpJoItjNzNtJ/wH+CCyi8VqTsjbQyng==
   template:
     metadata:
+      creationTimestamp: null
       name: curibio-email-creds
       namespace: pulse3d
