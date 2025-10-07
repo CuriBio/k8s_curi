@@ -6,6 +6,7 @@ resources:
   - ../../base
   - curibio-jwt-secret.yaml
   - curibio-jobs-creds.yaml
+  - curibio-email-creds.yaml
 
 patches:
   - patch: |-
