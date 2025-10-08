@@ -122,6 +122,9 @@ const modalObj = {
   },
 };
 
+const MAX_WHOLE_UPLOAD_SIZE = 50 * 1024 * 1024;
+const MULTIPART_UPLOAD_CHUNK_SIZE = 30 * 1024 * 1024;
+
 const isReanalysisPage = (router) => {
   return (
     typeof router.query.id === "string" && router.query.id.toLowerCase() === "re-analyze existing upload"
@@ -132,6 +135,24 @@ const checkWindowsErrors = (windowsErrors) => {
   return windowsErrors.some(({ start, end }) => {
     return start !== "" || end !== "";
   });
+};
+
+const fileMd5sChunks = async (file) => {
+  let totalHasher = new SparkMD5.ArrayBuffer();
+  let chunkHashes = [];
+
+  let start = 0;
+  while (start < file.size) {
+    let end = Math.min(file.size, start + MULTIPART_UPLOAD_CHUNK_SIZE);
+    let chunk = await file.slice(start, end).arrayBuffer();
+    totalHasher.append(chunk);
+    chunkHashes.push(hexToBase64(SparkMD5.ArrayBuffer.hash(chunk)));
+    start = end;
+  }
+
+  let totalHash = hexToBase64(totalHasher.end());
+
+  return [totalHash, chunkHashes];
 };
 
 export default function UploadForm() {
@@ -706,7 +727,11 @@ export default function UploadForm() {
         const fileIsInList = uploads.some((upload) => upload.id === file.id);
 
         if (file instanceof File) {
-          await uploadFile(file);
+          if (file.size <= MAX_WHOLE_UPLOAD_SIZE) {
+            await uploadFileWhole(file);
+          } else {
+            await uploadFileMultipart(file);
+          }
         } else if (fileIsInList) {
           await postNewJob(file.id, file.filename);
         }
@@ -731,7 +756,7 @@ export default function UploadForm() {
     }
   };
 
-  const uploadFile = async (file) => {
+  const uploadFileWhole = async (file) => {
     let fileReader = new FileReader();
     const filename = file.name;
 
@@ -843,6 +868,136 @@ export default function UploadForm() {
       console.log(
         `ERROR (${uploadsResponse.status}) deleting DB entry for failed upload with ID: ${uploadId}`
       );
+    }
+  };
+
+  const uploadFileMultipart = async (file) => {
+    const handleError = (e) => {
+      console.log(`ERROR uploading file ${file.name}`, e);
+      failedUploadsMsg.push(file.name);
+    };
+    try {
+      // initiate multipart upload
+      const [totalHash, chunkHashes] = await fileMd5sChunks(file);
+      const mpUploadRes = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads/multipart`, {
+        method: "POST",
+        body: JSON.stringify({
+          filename: file.name,
+          md5s: totalHash,
+          md5s_parts: chunkHashes,
+          upload_type: productPage,
+          auto_upload: false,
+        }),
+      });
+      let mpUploadResData = {};
+      try {
+        mpUploadResData = await mpUploadRes.json();
+      } catch {
+        mpUploadResData = { error: "Failed to parse response body as json" };
+      }
+      if (mpUploadRes.status !== 200) {
+        console.log("ERROR getting multipart upload details: ", mpUploadResData);
+        handleError(mpUploadResData);
+        return;
+      }
+      if (mpUploadResData.error === "UsageError") {
+        console.log("ERROR getting multipart upload details because customer upload limit has been reached");
+        handleError(mpUploadResData.error);
+        setUsageModalLabels(modalObj.uploadsReachedDuringSession);
+        setUsageModalState(true);
+        return;
+      }
+
+      let urls = mpUploadResData.urls;
+      if (urls.length !== chunkHashes.length) {
+        handleError("incorrect number of parts in multipart upload details");
+        return;
+      }
+
+      // upload chunks
+      const uploadParts = [];
+      let chunkStart = 0;
+      let prevRefreshTimestamp = Date.now();
+      for (const partIdx = 0; partIdx < urls.length; partIdx++) {
+        const millisSincePrevUpload = Date.now() - prevRefreshTimestamp;
+        const minsSincePrevUpload = millisSincePrevUpload / (1000 * 60);
+        if (minsSincePrevUpload > 25) {
+          // TODO refresh tokens, update prevRefreshTimestamp if successful
+        }
+
+        let chunkEnd = Math.min(file.size, chunkStart + MULTIPART_UPLOAD_CHUNK_SIZE);
+
+        let uploadPartRes = null;
+        for (const attemptNum = 1; attemptNum < 200; attemptNum++) {
+          try {
+            uploadPartRes = await fetch(urls[partIdx], {
+              method: "PUT",
+              headers: {
+                "Content-MD5": chunkHashes[partIdx],
+              },
+              body: file.slice(chunkStart, chunkEnd),
+            });
+          } catch (e) {
+            console.log(
+              `ERROR attempt ${attemptNum} uploading file part (${partIdx + 1}/${urls.length}) to s3:  `,
+              e
+            );
+            continue;
+          }
+          break;
+        }
+        if (uploadPartRes === null) {
+          handleError(`Max num upload attempts reached for part (${partIdx + 1}/${urls.length})`);
+          return;
+        }
+
+        if (uploadPartRes.status !== 200) {
+          let errMsg = "Error getting response body as text";
+          try {
+            errMsg = parseS3XmlErrorCode(await uploadPartRes.text());
+          } catch {}
+          handleError(
+            `ERROR uploading file part (${partIdx + 1}/${urls.length}) to s3: ${uploadPartRes.status} ${
+              parseS3XmlErrorCode(bodyText) || bodyTextErrorMsg
+            }`
+          );
+          return;
+        }
+        const etag = uploadPartRes.headers.get("ETag");
+        if (etag === null) {
+          handleError(
+            `etag header missing on upload file part response (${partIdx + 1}/${urls.length}) from s3`
+          );
+          return;
+        }
+
+        uploadParts.push({ ETag: etag, PartNumber: partIdx + 1 });
+        chunkStart = chunkEnd;
+      }
+
+      const completeMpUploadRes = await fetch(
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads/multipart/complete`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            id: mpUploadResData.id,
+            parts: uploadParts,
+          }),
+        }
+      );
+      let completeMpUploadResData = {};
+      try {
+        completeMpUploadResData = await completeMpUploadRes.json();
+      } catch {
+        completeMpUploadResData = { error: "Failed to parse response body as json" };
+      }
+      if (completeMpUploadRes.status !== 204) {
+        console.log("ERROR completing multipart upload: ", completeMpUploadResData);
+        handleError(completeMpUploadResData);
+        return;
+      }
+    } catch (e) {
+      handleError(e);
     }
   };
 
