@@ -919,7 +919,7 @@ export default function UploadForm() {
 
       let urls = mpUploadResData.urls;
       if (urls.length !== chunkHashes.length) {
-        handleError("incorrect number of parts in multipart upload details");
+        handleError("Incorrect number of parts in multipart upload details");
         return;
       }
 
@@ -928,10 +928,16 @@ export default function UploadForm() {
       let chunkStart = 0;
       let prevRefreshTimestamp = Date.now();
       for (const partIdx = 0; partIdx < urls.length; partIdx++) {
+        // Nothing else in the browser will trigger a refresh while this upload is in progress, so periodically check if the tokens need to be refreshed
         const millisSincePrevUpload = Date.now() - prevRefreshTimestamp;
         const minsSincePrevUpload = millisSincePrevUpload / (1000 * 60);
         if (minsSincePrevUpload > 25) {
-          // TODO refresh tokens, update prevRefreshTimestamp if successful
+          let res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/refresh`);
+          if (res.status !== 201) {
+            handleError("Tokens expired during multipart upload");
+            return;
+          }
+          prevRefreshTimestamp = Date.now();
         }
 
         let chunkEnd = Math.min(file.size, chunkStart + MULTIPART_UPLOAD_CHUNK_SIZE);
@@ -984,6 +990,7 @@ export default function UploadForm() {
         chunkStart = chunkEnd;
       }
 
+      // complete the upload
       const completeMpUploadRes = await fetch(
         `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads/multipart/complete`,
         {
