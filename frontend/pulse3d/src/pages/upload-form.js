@@ -823,14 +823,21 @@ export default function UploadForm() {
       });
       formData.append("file", file);
 
-      let uploadPostRes;
-      try {
-        uploadPostRes = await fetch(uploadDetails.url, {
-          method: "POST",
-          body: formData,
-        });
-      } catch (e) {
-        console.log("ERROR uploading file to s3:  ", e);
+      let uploadPostRes = null;
+      for (const attemptNum = 1; attemptNum <= 5; attemptNum++) {
+        try {
+          uploadPostRes = await fetch(uploadDetails.url, {
+            method: "POST",
+            body: formData,
+          });
+        } catch (e) {
+          console.log(`ERROR attempt #${attemptNum} uploading file to s3:  `, e);
+          continue;
+        }
+        break;
+      }
+      if (uploadPostRes === null) {
+        console.log("ERROR Max num upload attempts reached");
         await handleFailedUploadToS3(uploadId);
         failedUploadsMsg.push(filename);
         return;
@@ -928,7 +935,7 @@ export default function UploadForm() {
         let chunkEnd = Math.min(file.size, chunkStart + MULTIPART_UPLOAD_CHUNK_SIZE);
 
         let uploadPartRes = null;
-        for (const attemptNum = 1; attemptNum < 200; attemptNum++) {
+        for (const attemptNum = 1; attemptNum <= 200; attemptNum++) {
           try {
             uploadPartRes = await fetch(urls[partIdx], {
               method: "PUT",
