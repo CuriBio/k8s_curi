@@ -11,6 +11,7 @@ import DashboardLayout from "@/components/layouts/DashboardLayout";
 import semverGte from "semver/functions/gte";
 import InputDropdownWidget from "@/components/basicWidgets/InputDropdownWidget";
 import { AuthContext, UploadsContext } from "@/pages/_app";
+import { parseS3XmlErrorCode } from "@/utils/generic";
 
 const Container = styled.div`
   justify-content: center;
@@ -810,7 +811,11 @@ export default function UploadForm() {
         return;
       }
       if (uploadPostRes.status !== 204) {
-        console.log(`ERROR (${uploadPostRes.status}) uploading file to s3:  `, await uploadPostRes.text());
+        let errMsg = "Error getting response body as text";
+        try {
+          errMsg = parseS3XmlErrorCode(await uploadPostRes.text());
+        } catch {}
+        console.log(`ERROR uploading file to s3: ${uploadPostRes.status} ${errMsg}`);
         await handleFailedUploadToS3(uploadId);
         failedUploadsMsg.push(filename);
         return;

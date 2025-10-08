@@ -345,6 +345,14 @@ const getLocalTzOffsetHours = () => {
   }
 };
 
+const parseS3XmlErrorCode = (s) => {
+  try {
+    return (s.split("<Code>")[1] || "").split("</Code>")[0];
+  } catch {
+    return "";
+  }
+};
+
 export {
   deepCopy,
   hexToBase64,
@@ -365,4 +373,5 @@ export {
   compareStr,
   getLocalTzOffsetHours,
   getSortedWellListStr,
+  parseS3XmlErrorCode,
 };
