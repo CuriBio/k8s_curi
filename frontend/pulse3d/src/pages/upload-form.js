@@ -695,6 +695,8 @@ export default function UploadForm() {
         } else if (file.name.endsWith("parquet")) {
           // parquet files only currently supported for nautilai, but should be supported by other products in the future
           isValidUpload = productPage === "nautilai";
+        } else if (file.name.endsWith("tar.zstd")) {
+          isValidUpload = productPage === "nautilai";
         } else {
           // all other file types are not valid
           isValidUpload = false;
@@ -1128,7 +1130,7 @@ export default function UploadForm() {
               fileSelection={files}
               setResetDragDrop={setResetDragDrop}
               resetDragDrop={resetDragDrop}
-              fileTypes={["zip", "xlsx", "parquet"]}
+              fileTypes={["zip", "xlsx", "parquet", "zstd"]}
             />
             {usageQuota && usageQuota.limits && parseInt(usageQuota.limits.jobs) !== -1 && (
               <UploadCreditUsageInfo>
