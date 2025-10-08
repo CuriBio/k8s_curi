@@ -103,5 +103,6 @@ resource "aws_s3_bucket_cors_configuration" "pulse3d_uploads_bucket" {
     allowed_headers = ["*"]
     allowed_methods = ["GET", "POST", "PUT"]
     allowed_origins = var.cluster_name == "prod" ? ["https://dashboard.curibio.com"] : ["https://dashboard.curibio-test.com", "https://dashboard.curibio-modl.com", "http://localhost:3000"]
+    expose_headers = ["ETag"]
   }
 }
