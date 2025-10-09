@@ -273,6 +273,22 @@ const formatP3dJob = (job, selectedJobs, accountId) => {
   }
 };
 
+const removeFileExt = (filename) => {
+  try {
+    const tarZstd = ".tar.zstd";
+    if (filename.endsWith(tarZstd)) {
+      return filename.slice(0, -tarZstd.length);
+    }
+
+    const filenameNoExt = filename.split(".");
+    filenameNoExt.pop();
+
+    return filenameNoExt.join(".");
+  } catch {
+    return "";
+  }
+};
+
 const formatAdvancedAnalysisJob = (job) => {
   try {
     const { id, name, type: jobType, sources, created_at: createdAt, meta, status } = job;
@@ -367,6 +383,7 @@ export {
   isInt,
   getMinP3dVersionForProduct,
   formatP3dJob,
+  removeFileExt,
   formatAdvancedAnalysisJob,
   formatNotificationMessage,
   productTitle,

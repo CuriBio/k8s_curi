@@ -4,7 +4,7 @@ import AnalysisParamForm from "@/components/uploadForm/AnalysisParamForm";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import FileDragDrop from "@/components/uploadForm/FileDragDrop";
 import SparkMD5 from "spark-md5";
-import { hexToBase64, getMinP3dVersionForProduct } from "@/utils/generic";
+import { hexToBase64, getMinP3dVersionForProduct, removeFileExt } from "@/utils/generic";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
@@ -1028,13 +1028,6 @@ export default function UploadForm() {
         nameOverride: "",
       });
     }
-  };
-
-  const removeFileExt = (filename) => {
-    const filenameNoExt = filename.split(".");
-    filenameNoExt.pop();
-
-    return filenameNoExt.join(".");
   };
 
   const saveAnalysisPreset = async () => {
