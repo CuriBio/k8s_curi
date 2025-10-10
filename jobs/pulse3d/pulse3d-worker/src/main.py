@@ -44,6 +44,8 @@ structlog.configure(
     ]
 )
 
+s3_client = boto3.client("s3")
+
 logger = structlog.get_logger()
 
 
@@ -151,7 +153,6 @@ async def process_item(con, item):
     # keeping initial log without bound variables
     logger.info(f"Processing item: {item}")
 
-    s3_client = boto3.client("s3")
     job_metadata = {"processed_by": PULSE3D_VERSION}
     outfile_key = None
 
@@ -581,26 +582,43 @@ async def main():
     try:
         logger.info(f"Pulse3D Worker v{PULSE3D_VERSION} started")
 
-        DB_PASS = os.getenv("POSTGRES_PASSWORD")
-        DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
-        DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
-        DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
+        with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
+            # get barcode config from s3
+            barcode_config_s3_key = "config/barcode.json"
+            barcode_config_dir = os.path.join(tmpdir, "config")
+            barcode_config_path = os.path.join(barcode_config_dir, "barcode.json")
+            logger.info(
+                f"Downloading barcode config file from S3 (key: '{barcode_config_s3_key}') to '{barcode_config_path}'"
+            )
+            try:
+                os.mkdir(barcode_config_dir)
+                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, barcode_config_s3_key, barcode_config_path)
+            except Exception:
+                logger.exception("Failed to download barcode config file from S3")
+            else:
+                os.environ["P3D_BARCODE_CONFIG_PATH"] = barcode_config_path
 
-        dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
+            # process jobs
+            DB_PASS = os.getenv("POSTGRES_PASSWORD")
+            DB_USER = os.getenv("POSTGRES_USER", default="curibio_jobs")
+            DB_HOST = os.getenv("POSTGRES_SERVER", default="psql-rds.default")
+            DB_NAME = os.getenv("POSTGRES_DB", default="curibio")
 
-        async with asyncpg.create_pool(dsn=dsn) as pool:
-            async with pool.acquire() as con, pool.acquire() as con_to_update_job_result:
-                while True:
-                    try:
-                        logger.info("Pulling job from queue")
-                        await process_item(con=con, con_to_update_job_result=con_to_update_job_result)
-                    except EmptyQueue as e:
-                        logger.info(f"No jobs in queue: {e}")
-                        return
-                    except Exception:
-                        logger.exception("Processing queue item failed")
-                        return
+            dsn = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:5432/{DB_NAME}"
+            async with asyncpg.create_pool(dsn=dsn) as pool:
+                async with pool.acquire() as con, pool.acquire() as con_to_update_job_result:
+                    while True:
+                        try:
+                            logger.info("Pulling job from queue")
+                            await process_item(con=con, con_to_update_job_result=con_to_update_job_result)
+                        except EmptyQueue as e:
+                            logger.info(f"No jobs in queue: {e}")
+                            return
+                        except Exception:
+                            logger.exception("Processing queue item failed")
+                            return
     finally:
+        os.environ.pop("P3D_BARCODE_CONFIG_PATH", None)
         logger.info(f"Pulse3D Worker v{PULSE3D_VERSION} terminating")
 
 
