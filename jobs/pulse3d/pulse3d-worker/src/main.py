@@ -17,7 +17,7 @@ from pulse3D import metrics
 from pulse3D import peak_finding as peak_finder
 from pulse3D import rendering as renderer
 from pulse3D.constants import PACKAGE_VERSION as PULSE3D_VERSION
-from pulse3D.data_loader import from_file, InstrumentTypes
+from pulse3D.data_loader import from_s3, InstrumentTypes
 from pulse3D.data_loader.utils import get_metadata_cls
 from pulse3D.peak_finding import LoadedDataWithFeatures
 from pulse3D.pre_analysis import (
@@ -219,16 +219,6 @@ async def process_item(con, item):
         with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
             file_info = _create_file_info(tmpdir, prefix, str(job_id))
 
-            # download recording file
-            try:
-                key = f"{prefix}/{upload_filename}"
-                recording_path = f"{tmpdir}/{analysis_filename}"
-                s3_client.download_file(PULSE3D_UPLOADS_BUCKET, key, recording_path)
-                logger.info(f"Downloaded recording file to {recording_path}")
-            except Exception:
-                logger.exception("Failed to download recording zip file")
-                raise
-
             # download existing peak finding data
             try:
                 # attempt to download existing peak finding data from s3, will only exist for interactive analysis jobs
@@ -295,7 +285,8 @@ async def process_item(con, item):
             if pre_processing_params or not re_analysis:
                 try:
                     logger.info("Starting DataLoader")
-                    loaded_data = from_file(recording_path)
+                    key = f"{prefix}/{upload_filename}"
+                    loaded_data = from_s3(PULSE3D_UPLOADS_BUCKET, key)
                 except Exception:
                     logger.exception("DataLoader failed")
                     error_msg = "Loading recording data failed"
