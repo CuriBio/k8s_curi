@@ -1012,6 +1012,13 @@ export default function UploadForm() {
         handleError(completeMpUploadResData);
         return;
       }
+
+      // kick off job
+      try {
+        await postNewJob(mpUploadResData.id, file.name);
+      } catch {
+        return;
+      }
     } catch (e) {
       handleError(e);
     }
