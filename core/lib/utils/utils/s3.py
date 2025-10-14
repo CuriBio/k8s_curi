@@ -69,6 +69,61 @@ def generate_presigned_post(bucket: str, key: str, md5s: str) -> dict[Any, Any]:
         raise S3Error(f"Failed to generate presigned post for {bucket}/{key} with error: {repr(e)}")
 
 
+MULTIPART_UPLOAD_TIMEOUT_HRS = 24
+
+
+def generate_multipart_upload_urls(bucket: str, key: str, md5s_parts: list[str]) -> tuple[str, list[str]]:
+    s3_client = boto3.client("s3", config=Config(signature_version="s3v4"))
+
+    try:
+        res = s3_client.create_multipart_upload(Bucket=bucket, Key=key)
+    except ClientError as e:
+        raise S3Error(f"Failed to generate create multipart upload for {bucket}/{key} with error: {repr(e)}")
+
+    upload_id = res["UploadId"]
+
+    urls = []
+    for part_num, md5s in enumerate(md5s_parts, 1):
+        try:
+            url = s3_client.generate_presigned_url(
+                "upload_part",
+                Params={
+                    "Bucket": bucket,
+                    "Key": key,
+                    "ContentMD5": md5s,
+                    "UploadId": upload_id,
+                    "PartNumber": part_num,
+                },
+                ExpiresIn=3600 * MULTIPART_UPLOAD_TIMEOUT_HRS,  # 1 day
+            )
+        except ClientError as e:
+            raise S3Error(
+                f"Failed to generate presigned upload_part url for {bucket}/{key} with error: {repr(e)}"
+            )
+
+        urls.append(url)
+
+    return (upload_id, urls)
+
+
+def complete_multipart_upload(bucket: str, key: str, multipart_upload_id: str, part_infos: dict[str, Any]):
+    s3_client = boto3.client("s3", config=Config(signature_version="s3v4"))
+    try:
+        s3_client.complete_multipart_upload(
+            Bucket=bucket, Key=key, MultipartUpload={"Parts": part_infos}, UploadId=multipart_upload_id
+        )
+    except ClientError as e:
+        raise S3Error(f"Failed to complete multipart upload for {bucket}/{key} with error: {repr(e)}")
+
+
+def abort_multipart_upload(bucket: str, key: str, multipart_upload_id: str):
+    s3_client = boto3.client("s3", config=Config(signature_version="s3v4"))
+    try:
+        s3_client.abort_multipart_upload(Bucket=bucket, Key=key, UploadId=multipart_upload_id)
+    except ClientError as e:
+        raise S3Error(f"Failed to abort multipart upload for {bucket}/{key} with error: {repr(e)}")
+
+
 def copy_s3_file(bucket: str, source_key: str, target_key: str) -> None:
     try:
         s3 = boto3.resource("s3")

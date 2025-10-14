@@ -23,6 +23,7 @@ WORKDIR /app
 COPY --chown=main_user:main_group ./deployments/advanced-analysis/services/advanced-analysis/src/main.py ./
 COPY --chown=main_user:main_group ./deployments/advanced-analysis/services/advanced-analysis/src/core ./core
 COPY --chown=main_user:main_group ./deployments/advanced-analysis/services/advanced-analysis/src/models/ ./models
+COPY --chown=main_user:main_group ./deployments/advanced-analysis/services/advanced-analysis/src/templates/ ./templates
 COPY --chown=main_user:main_group ./deployments/advanced-analysis/services/advanced-analysis/disable_log_config.yaml ./
 
 ENV PYTHONUNBUFFERED=1

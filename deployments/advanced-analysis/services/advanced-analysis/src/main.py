@@ -27,9 +27,17 @@ from jobs import (
     get_advanced_analyses_download_info_for_admin,
 )
 from utils.db import AsyncpgPoolDep
+from utils.email import FastMailClient
 from utils.logging import setup_logger, bind_context_to_logger
 from utils.s3 import yield_s3_objects, generate_presigned_url
-from core.config import DATABASE_URL, DASHBOARD_URL, PULSE3D_UPLOADS_BUCKET
+from core.config import (
+    CURIBIO_EMAIL,
+    CURIBIO_EMAIL_PASSWORD,
+    CURIBIO_SUPPORT_EMAIL,
+    DATABASE_URL,
+    DASHBOARD_URL,
+    PULSE3D_UPLOADS_BUCKET,
+)
 from models.models import (
     GetAdvancedAnalysesResponse,
     GetAdvancedAnalysisUsageResponse,
@@ -41,6 +49,9 @@ setup_logger()
 logger = structlog.stdlib.get_logger("api.access")
 
 asyncpg_pool = AsyncpgPoolDep(dsn=DATABASE_URL)
+email_client = FastMailClient(
+    mail_username=CURIBIO_EMAIL, mail_password=CURIBIO_EMAIL_PASSWORD, template_folder="./templates"
+)
 
 
 @asynccontextmanager
@@ -168,6 +179,7 @@ async def create_new_advanced_analysis(
         user_id = str(uuid.UUID(token.userid))
         customer_id = str(uuid.UUID(token.customer_id))
         sources = details.sources
+        email_content = {}
 
         bind_context_to_logger({"user_id": user_id, "customer_id": customer_id})
 
@@ -209,6 +221,35 @@ async def create_new_advanced_analysis(
                 customer_id=customer_id,
                 job_type=details.job_type,
             )
+
+            # check customer quota after job
+            usage = await check_customer_advanced_analysis_usage(con, customer_id)
+
+            if usage["jobs_reached"]:
+                query = """
+                    SELECT c.email, (product.value->>'expiration_date')::date AS expiration_date
+                    FROM customers c
+                    CROSS JOIN LATERAL jsonb_each(c.usage_restrictions::jsonb) AS product(key, value)
+                    WHERE id=$1
+                    AND product.key='advanced_analysis'
+                """
+                customer_row = await con.fetchrow(query, customer_id)
+                email_content["email"] = customer_row["email"]
+                email_content["expiration_date"] = (
+                    None
+                    if customer_row["expiration_date"] is None
+                    else customer_row["expiration_date"].strftime("%B %-d, %Y")
+                )
+
+        if email_content:
+            await _send_account_email(
+                emails=[email_content["email"], CURIBIO_SUPPORT_EMAIL],
+                reply_to=[CURIBIO_SUPPORT_EMAIL],
+                subject="[Important] Your Curi Bio Pulse advanced analysis Account Has Reached Its Token Limit",
+                template="tokens_exhausted.html",
+                template_body={"expiration_date": email_content["expiration_date"]},
+            )
+
     except HTTPException as e:
         logger.exception(f"Failed to create job: {e.detail}")
         raise
@@ -397,3 +438,17 @@ async def _get_advanced_analyses_download_info(con, token, job_ids) -> list[dict
             )
         case invalid_account_type:
             raise Exception(f"Invalid account type: {invalid_account_type}")
+
+
+async def _send_account_email(
+    *,
+    emails: list[str],
+    reply_to: list[str] | None = None,
+    subject: str,
+    template: str,
+    template_body: dict,
+) -> None:
+    logger.info(f"Sending email with subject '{subject}' to email addresses '{emails}'")
+    await email_client.send_email(
+        emails=emails, reply_to=reply_to, subject=subject, template=template, template_body=template_body
+    )

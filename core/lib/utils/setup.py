@@ -10,6 +10,7 @@ setup(
         "boto3==1.28.6",
         "botocore==1.31.6",
         "jmespath==1.0.0",
+        "fastapi-mail==1.4.1",
         "python-dateutil==2.8.2",
         "s3transfer==0.6.1",
         "six==1.16.0",

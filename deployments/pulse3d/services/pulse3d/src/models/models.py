@@ -93,6 +93,28 @@ class UploadResponse(BaseModel):
     params: dict[str, Any]
 
 
+class MultipartUploadRequest(BaseModel):
+    filename: str
+    md5s: str
+    md5s_parts: list[str]
+    upload_type: str
+    auto_upload: bool
+
+
+class MultipartUploadResponse(BaseModel):
+    id: uuid.UUID
+    urls: list[str]
+
+
+class CompleteMultipartUploadRequest(BaseModel):
+    id: uuid.UUID
+    parts: list[dict[str, Any]]
+
+
+class AbortMultipartUploadRequest(BaseModel):
+    id: uuid.UUID
+
+
 class JobRequest(BaseModel):
     upload_id: uuid.UUID
 

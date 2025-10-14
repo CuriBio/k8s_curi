@@ -174,7 +174,7 @@ export default function PlatemapOverride({
       existingGroups[groupIdxToEdit].wells = wells;
     }
 
-    // make sure name has been enteres first
+    // make sure name has been entered first
     setLocalGroups(existingGroups);
   };
 

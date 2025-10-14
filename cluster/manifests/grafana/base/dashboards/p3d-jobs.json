@@ -104,7 +104,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT to_char(date_trunc('month', created_at), 'YY/MM') AS month_created, customer_id, count(*) FROM uploads WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY month_created, customer_id ORDER BY month_created, customer_id;",
+          "rawSql": "SELECT to_char(date_trunc('month', created_at), 'YY/MM') AS month_created, customer_id, count(*) FROM uploads WHERE multipart_upload_id IS NULL AND created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY month_created, customer_id ORDER BY month_created, customer_id;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -222,7 +222,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT to_char(date_trunc('month', created_at), 'YY/MM') AS month_created, customer_id, count(*) FROM jobs_result WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY month_created, customer_id ORDER BY month_created, customer_id;",
+          "rawSql": "SELECT to_char(date_trunc('month', created_at), 'YY/MM') AS month_created, customer_id, count(*) FROM jobs_result WHERE customer_id!='00000000-0000-0000-0000-000000000000' AND created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY month_created, customer_id ORDER BY month_created, customer_id;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -374,7 +374,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select * from (select total_active_per_month.month as month, total_active, (sum(num_registrations) over(order by coalesce(total_active_per_month.month, total_registrations_per_month.month))) - total_active as total_inactive from ( select to_char(date_trunc('month', created_at), 'YY/MM') as month, count(*) as num_registrations from customers group by month order by month desc) total_registrations_per_month full outer join (select to_char(date_trunc('month', created_at), 'YY/MM') as month, count(distinct customer_id) as total_active from jobs_result group by month order by month) total_active_per_month ON total_registrations_per_month.month=total_active_per_month.month) result WHERE to_date(month, 'YY/MM') >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND to_date(month, 'YY/MM') <= '${__to:date:YYYY-MM-DD HH:mm:ss}';\n",
+          "rawSql": "select * from (select total_active_per_month.month as month, total_active, (sum(num_registrations) over(order by coalesce(total_active_per_month.month, total_registrations_per_month.month))) - total_active as total_inactive from ( select to_char(date_trunc('month', created_at), 'YY/MM') as month, count(*) as num_registrations from customers WHERE id!='00000000-0000-0000-0000-000000000000' group by month order by month desc) total_registrations_per_month full outer join (select to_char(date_trunc('month', created_at), 'YY/MM') as month, count(distinct customer_id) as total_active from jobs_result WHERE customer_id!='00000000-0000-0000-0000-000000000000' group by month order by month) total_active_per_month ON total_registrations_per_month.month=total_active_per_month.month) result WHERE to_date(month, 'YY/MM') >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND to_date(month, 'YY/MM') <= '${__to:date:YYYY-MM-DD HH:mm:ss}';\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -517,7 +517,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select * from (select total_active_per_month.month as month, total_active, (sum(num_registrations) over(order by coalesce(total_active_per_month.month, total_registrations_per_month.month))) - total_active as total_inactive from ( select to_char(date_trunc('month', created_at), 'YY/MM') as month, count(*) as num_registrations from customers group by month order by month desc) total_registrations_per_month full outer join (select to_char(date_trunc('month', created_at), 'YY/MM') as month, count(distinct customer_id) as total_active from jobs_result group by month order by month) total_active_per_month ON total_registrations_per_month.month=total_active_per_month.month) result WHERE to_date(month, 'YY/MM') >= date_trunc('month', '${__from:date:YYYY-MM-DD HH:mm:ss}'::date) AND to_date(month, 'YY/MM') <= date_trunc('month', '${__to:date:YYYY-MM-DD HH:mm:ss}'::date);\n",
+          "rawSql": "select * from (select total_active_per_month.month as month, total_active, (sum(num_registrations) over(order by coalesce(total_active_per_month.month, total_registrations_per_month.month))) - total_active as total_inactive from ( select to_char(date_trunc('month', created_at), 'YY/MM') as month, count(*) as num_registrations from customers WHERE id!='00000000-0000-0000-0000-000000000000' group by month order by month desc) total_registrations_per_month full outer join (select to_char(date_trunc('month', created_at), 'YY/MM') as month, count(distinct customer_id) as total_active from jobs_result WHERE customer_id!='00000000-0000-0000-0000-000000000000' group by month order by month) total_active_per_month ON total_registrations_per_month.month=total_active_per_month.month) result WHERE to_date(month, 'YY/MM') >= date_trunc('month', '${__from:date:YYYY-MM-DD HH:mm:ss}'::date) AND to_date(month, 'YY/MM') <= date_trunc('month', '${__to:date:YYYY-MM-DD HH:mm:ss}'::date);\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -645,7 +645,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select to_char(date_trunc('month', created_at), 'YY/MM') as month, count(*)::decimal / count(distinct customer_id) as analyses_per_active_customer from jobs_result where created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' group by month order by month;\n",
+          "rawSql": "select to_char(date_trunc('month', created_at), 'YY/MM') as month, count(*)::decimal / count(distinct customer_id) as analyses_per_active_customer from jobs_result where customer_id!='00000000-0000-0000-0000-000000000000' AND created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' group by month order by month;\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -754,7 +754,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT to_char(date_trunc('month', created_at), 'YY/\"Q\"Q') as quarter_created, customer_id, count(*) FROM uploads WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY quarter_created, customer_id ORDER BY quarter_created, customer_id;",
+          "rawSql": "SELECT to_char(date_trunc('month', created_at), 'YY/\"Q\"Q') as quarter_created, customer_id, count(*) FROM uploads WHERE multipart_upload_id IS NULL AND created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY quarter_created, customer_id ORDER BY quarter_created, customer_id;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -872,7 +872,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT to_char(date_trunc('month', created_at), 'YY/\"Q\"Q') as quarter_created, customer_id, count(*) FROM jobs_result WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY quarter_created, customer_id ORDER BY quarter_created, customer_id;",
+          "rawSql": "SELECT to_char(date_trunc('month', created_at), 'YY/\"Q\"Q') as quarter_created, customer_id, count(*) FROM jobs_result WHERE customer_id!='00000000-0000-0000-0000-000000000000' AND created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY quarter_created, customer_id ORDER BY quarter_created, customer_id;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1024,7 +1024,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select * from (\n  select total_active_per_quarter.quarter as quarter, total_active, (sum(num_registrations) over(order by coalesce(total_active_per_quarter.quarter, total_registrations_per_quarter.quarter))) - total_active as total_inactive\n  from (\n    select to_char(date_trunc('month', created_at), 'YY/\"Q\"Q') as quarter, count(*) as num_registrations\n    from customers\n    group by quarter order by quarter desc\n  ) total_registrations_per_quarter\n  full outer join (\n    select to_char(date_trunc('month', created_at), 'YY/\"Q\"Q') as quarter, count(distinct customer_id) as total_active\n    from jobs_result\n    group by quarter order by quarter\n  ) total_active_per_quarter\n  ON total_registrations_per_quarter.quarter=total_active_per_quarter.quarter\n) result\nWHERE to_date(quarter, 'YY/\"Q\"Q') >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND to_date(quarter, 'YY/\"Q\"Q') <= '${__to:date:YYYY-MM-DD HH:mm:ss}';\n",
+          "rawSql": "select * from (\n  select total_active_per_quarter.quarter as quarter, total_active, (sum(num_registrations) over(order by coalesce(total_active_per_quarter.quarter, total_registrations_per_quarter.quarter))) - total_active as total_inactive\n  from (\n    select to_char(date_trunc('month', created_at), 'YY/\"Q\"Q') as quarter, count(*) as num_registrations\n    from customers WHERE id!='00000000-0000-0000-0000-000000000000'\n    group by quarter order by quarter desc\n  ) total_registrations_per_quarter\n  full outer join (\n    select to_char(date_trunc('month', created_at), 'YY/\"Q\"Q') as quarter, count(distinct customer_id) as total_active\n    from jobs_result WHERE customer_id!='00000000-0000-0000-0000-000000000000'\n    group by quarter order by quarter\n  ) total_active_per_quarter\n  ON total_registrations_per_quarter.quarter=total_active_per_quarter.quarter\n) result\nWHERE to_date(quarter, 'YY/\"Q\"Q') >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND to_date(quarter, 'YY/\"Q\"Q') <= '${__to:date:YYYY-MM-DD HH:mm:ss}';\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1167,7 +1167,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select * from (\n  select total_active_per_quarter.quarter as quarter, total_active, (sum(num_registrations) over(order by coalesce(total_active_per_quarter.quarter, total_registrations_per_quarter.quarter))) - total_active as total_inactive\n  from (\n    select to_char(date_trunc('month', created_at), 'YY/\"Q\"Q') as quarter, count(*) as num_registrations\n    from customers\n    group by quarter order by quarter desc\n  ) total_registrations_per_quarter\n  full outer join (\n    select to_char(date_trunc('month', created_at), 'YY/\"Q\"Q') as quarter, count(distinct customer_id) as total_active\n    from jobs_result\n    group by quarter order by quarter\n  ) total_active_per_quarter\n  ON total_registrations_per_quarter.quarter=total_active_per_quarter.quarter\n) result\nWHERE to_date(quarter, 'YY/\"Q\"Q') >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND to_date(quarter, 'YY/\"Q\"Q') <= '${__to:date:YYYY-MM-DD HH:mm:ss}';\n",
+          "rawSql": "select * from (\n  select total_active_per_quarter.quarter as quarter, total_active, (sum(num_registrations) over(order by coalesce(total_active_per_quarter.quarter, total_registrations_per_quarter.quarter))) - total_active as total_inactive\n  from (\n    select to_char(date_trunc('month', created_at), 'YY/\"Q\"Q') as quarter, count(*) as num_registrations\n    from customers WHERE id!='00000000-0000-0000-0000-000000000000'\n    group by quarter order by quarter desc\n  ) total_registrations_per_quarter\n  full outer join (\n    select to_char(date_trunc('month', created_at), 'YY/\"Q\"Q') as quarter, count(distinct customer_id) as total_active\n    from jobs_result WHERE customer_id!='00000000-0000-0000-0000-000000000000'\n    group by quarter order by quarter\n  ) total_active_per_quarter\n  ON total_registrations_per_quarter.quarter=total_active_per_quarter.quarter\n) result\nWHERE to_date(quarter, 'YY/\"Q\"Q') >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND to_date(quarter, 'YY/\"Q\"Q') <= '${__to:date:YYYY-MM-DD HH:mm:ss}';\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1295,7 +1295,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select to_char(date_trunc('month', created_at), 'YY/\"Q\"Q') as quarter, count(*)::decimal / count(distinct customer_id) as analyses_per_active_customer from jobs_result where created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' group by quarter order by quarter;\n",
+          "rawSql": "select to_char(date_trunc('month', created_at), 'YY/\"Q\"Q') as quarter, count(*)::decimal / count(distinct customer_id) as analyses_per_active_customer from jobs_result WHERE customer_id!='00000000-0000-0000-0000-000000000000' AND created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' group by quarter order by quarter;\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1384,7 +1384,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(*) as total_uploads from uploads WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'",
+          "rawSql": "SELECT count(*) as total_uploads from uploads WHERE multipart_upload_id IS NULL AND created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1471,7 +1471,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(*) AS total_jobs FROM jobs_result WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'",
+          "rawSql": "SELECT count(*) AS total_jobs FROM jobs_result WHERE customer_id!='00000000-0000-0000-0000-000000000000' AND created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1558,7 +1558,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(*) AS total_uploads FROM uploads u JOIN customers c ON c.id=u.customer_id WHERE c.email NOT LIKE '%curibio.com' AND u.created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND u.created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'",
+          "rawSql": "SELECT count(*) AS total_uploads FROM uploads u JOIN customers c ON c.id=u.customer_id WHERE c.id!='00000000-0000-0000-0000-000000000000' AND u.multipart_upload_id IS NULL AND c.email NOT LIKE '%curibio.com' AND u.created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND u.created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1645,7 +1645,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(*) AS total_jobs FROM jobs_result j JOIN customers c ON c.id=j.customer_id WHERE c.email NOT LIKE '%curibio.com' AND j.created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND j.created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'",
+          "rawSql": "SELECT count(*) AS total_jobs FROM jobs_result j JOIN customers c ON c.id=j.customer_id WHERE c.id!='00000000-0000-0000-0000-000000000000' AND c.email NOT LIKE '%curibio.com' AND j.created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND j.created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}'",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1732,7 +1732,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT meta->'version' AS p3d_version, count(*) AS total_jobs FROM jobs_result WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1 ORDER BY 1 DESC;",
+          "rawSql": "SELECT meta->'version' AS p3d_version, count(*) AS total_jobs FROM jobs_result WHERE customer_id!='00000000-0000-0000-0000-000000000000' AND created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1 ORDER BY 1 DESC;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1819,7 +1819,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT type, count(*) AS total_uploads FROM uploads WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1;",
+          "rawSql": "SELECT type, count(*) AS total_uploads FROM uploads WHERE multipart_upload_id IS NULL AND created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1906,7 +1906,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT type, AVG(extract(epoch FROM finished_at - created_at) / 60) AS avg_minutes FROM jobs_result WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY type;",
+          "rawSql": "SELECT type, AVG(extract(epoch FROM finished_at - created_at) / 60) AS avg_minutes FROM jobs_result WHERE customer_id!='00000000-0000-0000-0000-000000000000' AND created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY type;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -2081,7 +2081,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT type, count(*) AS total_jobs FROM jobs_result WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1;",
+          "rawSql": "SELECT type, count(*) AS total_jobs FROM jobs_result WHERE customer_id!='00000000-0000-0000-0000-000000000000' AND created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -2168,7 +2168,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT type, AVG(extract(epoch FROM finished_at - started_at) / 60) AS avg_minutes FROM jobs_result WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY type;",
+          "rawSql": "SELECT type, AVG(extract(epoch FROM finished_at - started_at) / 60) AS avg_minutes FROM jobs_result WHERE customer_id!='00000000-0000-0000-0000-000000000000' AND created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY type;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -2274,7 +2274,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT j.customer_id, j.type, count(*) AS total_jobs FROM jobs_result j JOIN uploads u ON j.upload_id = u.id WHERE j.created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND j.created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1, 2 ORDER BY customer_id;",
+          "rawSql": "SELECT j.customer_id, j.type, count(*) AS total_jobs FROM jobs_result j JOIN uploads u ON j.upload_id = u.id WHERE j.customer_id!='00000000-0000-0000-0000-000000000000' AND j.created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND j.created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1, 2 ORDER BY customer_id;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -2380,7 +2380,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT customer_id, type, count(*) AS total_uploads FROM uploads WHERE created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1, 2 ORDER BY customer_id;",
+          "rawSql": "SELECT customer_id, type, count(*) AS total_uploads FROM uploads WHERE multipart_upload_id IS NULL AND created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1, 2 ORDER BY customer_id;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -2486,7 +2486,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT j.customer_id, j.type, count(*) AS total_failures FROM jobs_result j JOIN uploads u ON j.upload_id = u.id WHERE j.meta->'error' IS NOT NULL AND j.created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND j.created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1, 2 ORDER BY customer_id;",
+          "rawSql": "SELECT j.customer_id, j.type, count(*) AS total_failures FROM jobs_result j JOIN uploads u ON j.upload_id = u.id WHERE j.customer_id!='00000000-0000-0000-0000-000000000000' AND j.meta->'error' IS NOT NULL AND j.created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND j.created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1, 2 ORDER BY customer_id;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -2628,7 +2628,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT customer_id, upload_id, type, count(*) FROM jobs_result WHERE meta->'error' IS NOT NULL AND created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1, 2, 3 ORDER BY 4 DESC;",
+          "rawSql": "SELECT customer_id, upload_id, type, count(*) FROM jobs_result WHERE customer_id!='00000000-0000-0000-0000-000000000000' AND meta->'error' IS NOT NULL AND created_at >= '${__from:date:YYYY-MM-DD HH:mm:ss}' AND created_at <= '${__to:date:YYYY-MM-DD HH:mm:ss}' GROUP BY 1, 2, 3 ORDER BY 4 DESC;",
           "refId": "A",
           "sql": {
             "columns": [

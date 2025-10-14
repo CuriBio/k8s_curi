@@ -14,7 +14,7 @@ patches:
   - patch: |-
       - op: add
         path: /spec/template/spec/containers/0/image
-        value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/users:0.11.0"
+        value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/users:0.12.1"
       - op: add
         path: /spec/template/spec/containers/0/env/0
         value:
@@ -27,10 +27,10 @@ patches:
           value: "software@curibio.com"
       - op: add
         path: /spec/template/spec/containers/1/image
-        value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.10.3"
+        value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.10.4"
       - op: add
         path: /spec/template/spec/containers/2/image
-        value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/event-broker:0.1.6"
+        value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/event-broker:0.1.7"
     target:
       kind: Deployment
       name: apiv2
