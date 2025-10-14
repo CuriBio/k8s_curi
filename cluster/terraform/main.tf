@@ -127,6 +127,16 @@ module "eks_cluster_v2" {
       update_config = {
         max_unavailable_percentage = 50 # or set `max_unavailable`
       }
+
+      block_device_mappings = {
+        device_name = "/dev/xvda"
+
+        ebs = {
+          volume_size           = 20
+          volume_type           = "gp2"
+          delete_on_termination = true
+        }
+      }
     },
 
     workers = {
@@ -143,6 +153,16 @@ module "eks_cluster_v2" {
       update_config = {
         max_unavailable_percentage = 50 # or set `max_unavailable`
       }
+
+      block_device_mappings = {
+        device_name = "/dev/xvda"
+
+        ebs = {
+          volume_size           = 200
+          volume_type           = "gp3"
+          delete_on_termination = true
+        }
+      }
     },
     argo = {
       desired_size = 2
@@ -157,6 +177,16 @@ module "eks_cluster_v2" {
       }
       update_config = {
         max_unavailable_percentage = 50 # or set `max_unavailable`
+      }
+
+      block_device_mappings = {
+        device_name = "/dev/xvda"
+
+        ebs = {
+          volume_size           = 20
+          volume_type           = "gp2"
+          delete_on_termination = true
+        }
       }
     }
   }
