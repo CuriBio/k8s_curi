@@ -1,4 +1,4 @@
-"""p3d v3.1.0
+"""p3d v3.2.0
 
 Revision ID: f64d3de27209
 Revises: 8725946e754a
@@ -17,8 +17,8 @@ depends_on = None
 
 
 def upgrade():
-    op.execute("INSERT INTO pulse3d_versions (version, state) VALUES ('3.1.0', 'testing')")
+    op.execute("INSERT INTO pulse3d_versions (version, state) VALUES ('3.2.0', 'testing')")
 
 
 def downgrade():
-    op.execute("DELETE FROM pulse3d_versions WHERE version='3.1.0'")
+    op.execute("DELETE FROM pulse3d_versions WHERE version='3.2.0'")
