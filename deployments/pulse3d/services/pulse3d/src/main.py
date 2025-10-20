@@ -738,6 +738,9 @@ async def create_new_job(
         if pulse3d_semver >= "3.0.0":
             params.append("high_fidelity_magnet_processing")
 
+        if pulse3d_semver >= "3.2.0":
+            params.append("disable_background_subtraction")
+
         details_dict = dict(details)
         analysis_params = {param: details_dict[param] for param in params}
 

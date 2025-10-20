@@ -204,11 +204,15 @@ async def process_item(con, item):
             pre_processing_params["compute_constrained_estimations"] = v
 
         pre_analysis_params = {
-            k: v for k, v in analysis_params.items() if k in ["stiffness_factor", "detrend"]
+            k: v
+            for k, v in analysis_params.items()
+            if k in ["stiffness_factor", "detrend", "disable_background_subtraction"]
         }
-        # need to rename this param
+        # need to rename these params
         if post_stiffness_factor := pre_analysis_params.pop("stiffness_factor", None):
             pre_analysis_params["post_stiffness_factor"] = post_stiffness_factor
+        if disable_bg_sub := pre_analysis_params.pop("disable_background_subtraction", None):
+            pre_analysis_params["undo_background_subtraction"] = disable_bg_sub
 
         post_process_params = {
             k: v

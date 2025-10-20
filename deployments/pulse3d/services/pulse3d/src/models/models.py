@@ -166,6 +166,7 @@ class JobRequest(BaseModel):
     data_type: str | None = Field(default=None)
     normalization_method: NormalizationMethods | None = Field(default=None)
     detrend: bool | None = Field(default=None)
+    disable_background_subtraction: bool | None = Field(default=None)
 
 
 class SavePresetRequest(BaseModel):
