@@ -961,7 +961,7 @@ export default function AnalysisParamForm({
         )}
         {pulse3dVersionGte("1.0.0") && productPage === "nautilai" && (
           <AnalysisParamContainer
-            label="Disable detrending"
+            label="Disable Detrending"
             name="detrend"
             tooltipText="When selected, disables detrending"
           >
@@ -972,6 +972,24 @@ export default function AnalysisParamForm({
                 handleCheckbox={(disable) => {
                   updateParams({
                     detrend: !disable,
+                  });
+                }}
+              />
+            </InputErrorContainer>
+          </AnalysisParamContainer>
+        )}
+        {pulse3dVersionGte("3.2.0") && productPage === "nautilai" && (
+          <AnalysisParamContainer
+            label="Disable Background Subtraction"
+            name="disableBackgroundSubtraction"
+            tooltipText="When selected, disables background subtraction if it was performed and the background fluorescence data is included in the recording artifact"
+          >
+            <InputErrorContainer>
+              <CheckboxWidget
+                checkedState={checkedParams && Boolean(analysisParams.disableBackgroundSubtraction)}
+                handleCheckbox={(disable) => {
+                  updateParams({
+                    disableBackgroundSubtraction: disable,
                   });
                 }}
               />
