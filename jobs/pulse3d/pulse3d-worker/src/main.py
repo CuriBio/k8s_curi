@@ -82,6 +82,7 @@ def _create_file_info(base_dir: str, upload_prefix: str, job_id: str) -> dict[st
         "zip_contents": {
             "tissue": "tissue_waveforms.parquet",
             "stim": "stim_waveforms.parquet",
+            "background": "background.parquet",
             "metadata": "metadata.json",
         },
         "pre_process": {
@@ -122,16 +123,18 @@ def _upload_pre_zip(data_container, file_info, pre_step_name) -> None:
         logger.info(f"Uploading {pre_step_name} data to S3")
         zipfile_path = file_info[pre_step_name]["file_path"]
         with ZipFile(zipfile_path, "w") as z:
-            for data_type in ("tissue", "stim"):
-                df = getattr(data_container, f"{data_type}_waveforms")
-                if df is None:  # stim_waveforms can be None
+            for zip_key, container_key in [
+                ("tissue", "tissue_waveforms"),
+                ("stim", "stim_waveforms"),
+                ("background", "background_data"),
+            ]:
+                df = getattr(data_container, container_key)
+                if df is None:  # stim and background can be None
                     continue
 
-                file_path = os.path.join(
-                    file_info[pre_step_name]["dir"], file_info["zip_contents"][data_type]
-                )
+                file_path = os.path.join(file_info[pre_step_name]["dir"], file_info["zip_contents"][zip_key])
                 df.write_parquet(file_path)
-                z.write(file_path, file_info["zip_contents"][data_type])
+                z.write(file_path, file_info["zip_contents"][zip_key])
 
             metadata_path = os.path.join(
                 file_info[pre_step_name]["dir"], file_info["zip_contents"]["metadata"]
@@ -258,14 +261,20 @@ async def process_item(con, item):
                     pre_process_tissue_waveforms = pl.read_parquet(
                         os.path.join(file_info["pre_process"]["dir"], file_info["zip_contents"]["tissue"])
                     )
+
                     pre_process_stim_waveforms_path = os.path.join(
                         file_info["pre_process"]["dir"], file_info["zip_contents"]["stim"]
                     )
-                    pre_process_stim_waveforms = (
-                        pl.read_parquet(pre_process_stim_waveforms_path)
-                        if os.path.exists(pre_process_stim_waveforms_path)
-                        else None
+                    pre_process_stim_waveforms = None
+                    if os.path.exists(pre_process_stim_waveforms_path):
+                        pre_process_stim_waveforms = pl.read_parquet(pre_process_stim_waveforms_path)
+
+                    pre_process_background_data_path = os.path.join(
+                        file_info["pre_process"]["dir"], file_info["zip_contents"]["background"]
                     )
+                    pre_process_background_data = None
+                    if os.path.exists(pre_process_background_data_path):
+                        pre_process_background_data = pl.read_parquet(pre_process_background_data_path)
 
                     pre_process_metadata_dict = json.load(
                         open(
@@ -279,6 +288,7 @@ async def process_item(con, item):
                     pre_processed_data = PreProcessedData(
                         tissue_waveforms=pre_process_tissue_waveforms,
                         stim_waveforms=pre_process_stim_waveforms,
+                        background_data=pre_process_background_data,
                         metadata=pre_process_metadata,
                     )
 
