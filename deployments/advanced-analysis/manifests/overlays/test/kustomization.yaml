@@ -18,7 +18,7 @@ patches:
   - patch: |-
       - op: add
         path: /spec/template/spec/containers/0/image
-        value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/advanced-analysis-api:0.2.5"
+        value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/advanced-analysis-api:0.2.6"
     target:
       kind: Deployment
       name: advanced-analysis
