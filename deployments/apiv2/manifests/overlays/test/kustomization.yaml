@@ -27,7 +27,7 @@ patches:
           value: "software@curibio.com"
       - op: add
         path: /spec/template/spec/containers/1/image
-        value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.10.4"
+        value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.10.5"
       - op: add
         path: /spec/template/spec/containers/2/image
         value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/event-broker:0.1.8"

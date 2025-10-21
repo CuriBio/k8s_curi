@@ -44,7 +44,7 @@ patches:
           value: "support@curibio.com"
       - op: add
         path: /spec/template/spec/containers/1/image
-        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.10.4"
+        value: "245339368379.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.10.5"
       - op: replace
         path: /spec/template/spec/containers/1/env/0/value
         value: prod
