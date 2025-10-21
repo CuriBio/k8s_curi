@@ -941,7 +941,7 @@ async def register_user(
                     username=username, email=email, user_id=new_account_id.hex, scopes=user_scopes
                 )
 
-    except (EmailRegistrationError, ProhibitedScopeError, RegistrationError) as e:
+    except (ProhibitedScopeError, RegistrationError) as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception:
         logger.exception("POST /register: Unexpected error")
