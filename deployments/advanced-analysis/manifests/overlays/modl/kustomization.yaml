@@ -19,7 +19,7 @@ patches:
   - patch: |-
       - op: add
         path: /spec/template/spec/containers/0/image
-        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/advanced-analysis-api:0.2.5"
+        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/advanced-analysis-api:0.2.6"
       - op: replace
         path: /spec/template/spec/containers/0/env/7/value
         value: modl-pulse3d-uploads

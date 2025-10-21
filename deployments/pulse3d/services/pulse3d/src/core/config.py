@@ -3,7 +3,7 @@ from starlette.datastructures import Secret
 
 config = Config(".env")
 # version used to tag the docker image
-VERSION = "0.14.1"
+VERSION = "0.14.2"
 
 APP_NAME = config("APP_NAME", cast=str, default="CuriBio/Pulse3d")
 JWT_SECRET_KEY = config("JWT_SECRET_KEY", cast=Secret)
