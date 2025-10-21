@@ -21,7 +21,7 @@ patches:
   - patch: |-
       - op: add
         path: /spec/template/spec/containers/0/image
-        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/users:0.12.1"
+        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/users:0.12.2"
       - op: add
         path: /spec/template/spec/containers/0/env/0
         value:
@@ -44,7 +44,7 @@ patches:
           value: "software@curibio.com"
       - op: add
         path: /spec/template/spec/containers/1/image
-        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.10.4"
+        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.10.5"
       - op: replace
         path: /spec/template/spec/containers/1/env/0/value
         value: modl
@@ -55,7 +55,7 @@ patches:
           value: https://dashboard.curibio-modl.com
       - op: add
         path: /spec/template/spec/containers/2/image
-        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/event-broker:0.1.7"
+        value: "725604423866.dkr.ecr.us-east-2.amazonaws.com/event-broker:0.1.8"
       - op: add
         path: /spec/template/spec/containers/2/env/0
         value:
