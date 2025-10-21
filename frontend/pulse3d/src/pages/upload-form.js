@@ -185,6 +185,7 @@ export default function UploadForm() {
       normalizationMethod: productPage === "nautilai" ? "∆F/Fmin" : null,
       dataType: null,
       detrend: null,
+      disableBackgroundSubtraction: null,
       // width coord params
       relaxationSearchLimit: "",
       // original peak finding params
@@ -577,6 +578,12 @@ export default function UploadForm() {
 
     if (semverGte(version, "3.0.0")) {
       requestBody.high_fidelity_magnet_processing = highFidelityMagnetProcessing;
+    }
+
+    if (semverGte(version, "3.2.0")) {
+      if (productPage === "nautilai") {
+        requestBody.disable_background_subtraction = analysisParams.disableBackgroundSubtraction;
+      }
     }
 
     // format windows
