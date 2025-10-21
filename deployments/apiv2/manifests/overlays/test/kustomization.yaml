@@ -30,7 +30,7 @@ patches:
         value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/mantarray:0.10.4"
       - op: add
         path: /spec/template/spec/containers/2/image
-        value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/event-broker:0.1.7"
+        value: "077346344852.dkr.ecr.us-east-2.amazonaws.com/event-broker:0.1.8"
     target:
       kind: Deployment
       name: apiv2
