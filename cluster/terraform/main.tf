@@ -129,12 +129,14 @@ module "eks_cluster_v2" {
       }
 
       block_device_mappings = {
-        device_name = "/dev/xvda"
+        xdva = {
+          device_name = "/dev/xvda"
 
-        ebs = {
-          volume_size           = 20
-          volume_type           = "gp2"
-          delete_on_termination = true
+          ebs = {
+            volume_size           = 20
+            volume_type           = "gp2"
+            delete_on_termination = true
+          }
         }
       }
     },
@@ -155,12 +157,14 @@ module "eks_cluster_v2" {
       }
 
       block_device_mappings = {
-        device_name = "/dev/xvda"
+        xdva = {
+          device_name = "/dev/xvda"
 
-        ebs = {
-          volume_size           = 200
-          volume_type           = "gp3"
-          delete_on_termination = true
+          ebs = {
+            volume_size           = 200
+            volume_type           = "gp3"
+            delete_on_termination = true
+          }
         }
       }
     },
@@ -180,12 +184,14 @@ module "eks_cluster_v2" {
       }
 
       block_device_mappings = {
-        device_name = "/dev/xvda"
+        xdva = {
+          device_name = "/dev/xvda"
 
-        ebs = {
-          volume_size           = 20
-          volume_type           = "gp2"
-          delete_on_termination = true
+          ebs = {
+            volume_size           = 20
+            volume_type           = "gp2"
+            delete_on_termination = true
+          }
         }
       }
     }
