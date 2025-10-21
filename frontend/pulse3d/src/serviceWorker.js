@@ -387,37 +387,46 @@ self.addEventListener("fetch", async (e) => {
     !isRequest(destURL, "/account") // we don't need to intercept verify request because it's handling own token
   ) {
     // only intercept requests to curi k8s endpoints
-    e.respondWith(
-      caches.open(cacheName).then(async (cache) => {
-        // TODO should check that the request is waveform data before checking the cache
-        // TODO do we event need to cache these responses anymore?
-        // Go to the cache first
-        const cachedResponse = await cache.match(e.request.url);
-        // For now, only return cached responses for waveform data requests
-        if (cachedResponse && isRequest(destURL, "/waveform-data")) {
-          console.log(`Returning cached response for ${destURL}`);
-          return cachedResponse;
-        }
-        // Otherwise, hit the network
-        let response = await interceptResponse(e.request, destURL);
-
-        // before returning response, check if you need to preload other wells
-        // this needs to go after interceptResponse so that the initial A1 data gets returned first and not blocked by other requests
-        if (isRequest(destURL, "/waveform-data")) {
-          const fetchedData = await getWaveformDataFromS3(response);
-          response = new Response(JSON.stringify(fetchedData), {
-            status: response.status,
-            statusText: response.statusText,
-          });
-          // only store if successful request
-          if (response && response.status === 200) {
-            cache.put(e.request, response.clone());
+    if (isRequest(destURL, "/refresh")) {
+      e.respondWith(
+        (async () => {
+          const refreshStatus = await handleRefreshRequest();
+          return new Response("", { status: refreshStatus });
+        })()
+      );
+    } else {
+      e.respondWith(
+        caches.open(cacheName).then(async (cache) => {
+          // TODO should check that the request is waveform data before checking the cache
+          // TODO do we event need to cache these responses anymore?
+          // Go to the cache first
+          const cachedResponse = await cache.match(e.request.url);
+          // For now, only return cached responses for waveform data requests
+          if (cachedResponse && isRequest(destURL, "/waveform-data")) {
+            console.log(`Returning cached response for ${destURL}`);
+            return cachedResponse;
           }
-        }
+          // Otherwise, hit the network
+          let response = await interceptResponse(e.request, destURL);
 
-        return response;
-      })
-    );
+          // before returning response, check if you need to preload other wells
+          // this needs to go after interceptResponse so that the initial A1 data gets returned first and not blocked by other requests
+          if (isRequest(destURL, "/waveform-data")) {
+            const fetchedData = await getWaveformDataFromS3(response);
+            response = new Response(JSON.stringify(fetchedData), {
+              status: response.status,
+              statusText: response.statusText,
+            });
+            // only store if successful request
+            if (response && response.status === 200) {
+              cache.put(e.request, response.clone());
+            }
+          }
+
+          return response;
+        })
+      );
+    }
   } else {
     e.respondWith(fetch(e.request));
   }

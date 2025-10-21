@@ -8,7 +8,7 @@ import InteractiveAnalysisModal from "@/components/interactiveAnalysis/Interacti
 import { AuthContext, UploadsContext } from "@/pages/_app";
 import { useRouter } from "next/router";
 import JobPreviewModal from "@/components/interactiveAnalysis/JobPreviewModal";
-import { deepCopy, formatDateTime } from "@/utils/generic";
+import { deepCopy, formatDateTime, removeFileExt } from "@/utils/generic";
 import { getShortUUIDWithTooltip, NoMaxWidthTooltip } from "@/utils/jsx";
 import Table from "@/components/table/Table";
 import { Box, IconButton } from "@mui/material";
@@ -282,7 +282,7 @@ export default function Uploads() {
     if (uploads) {
       const formattedUploads = uploads.map(
         ({ username, id, filename, created_at, auto_upload, user_id, meta }) => {
-          const recName = filename ? filename.split(".").slice(0, -1).join(".") : null;
+          const recName = removeFileExt(filename) || null;
           const uploadJobs = jobs
             .filter(({ uploadId }) => uploadId === id)
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));

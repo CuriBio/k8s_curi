@@ -204,7 +204,7 @@ async def handle_expired_multipart_uploads():
                 upload_id = row["id"]
                 try:
                     s3_key = f"{row['prefix']}/{row['filename']}"
-                    await abort_multipart_upload(PULSE3D_UPLOADS_BUCKET, s3_key, row["multipart_upload_id"])
+                    abort_multipart_upload(PULSE3D_UPLOADS_BUCKET, s3_key, row["multipart_upload_id"])
                 except Exception:
                     logger.exception(f"Failed to abort multipart upload for upload ID: {upload_id}")
                 else:
@@ -737,6 +737,9 @@ async def create_new_job(
 
         if pulse3d_semver >= "3.0.0":
             params.append("high_fidelity_magnet_processing")
+
+        if pulse3d_semver >= "3.2.0":
+            params.append("disable_background_subtraction")
 
         details_dict = dict(details)
         analysis_params = {param: details_dict[param] for param in params}
@@ -1464,12 +1467,7 @@ def _format_tuple_param(
 
 
 async def _send_account_email(
-    *,
-    emails: list[str],
-    reply_to: list[str] | None = None,
-    subject: str,
-    template: str,
-    template_body: dict,
+    *, emails: list[str], reply_to: list[str] | None = None, subject: str, template: str, template_body: dict
 ) -> None:
     logger.info(f"Sending email with subject '{subject}' to email addresses '{emails}'")
     await email_client.send_email(
