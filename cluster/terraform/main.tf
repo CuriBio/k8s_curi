@@ -2,7 +2,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "5.7.0"
+      version = "5.40.0"
     }
 
     kubernetes = {
@@ -13,8 +13,7 @@ terraform {
 
   required_version = "1.5.2"
 
-  backend "s3" {
-  }
+  backend "s3" {}
 }
 
 # Configure the AWS Provider
@@ -118,6 +117,7 @@ module "eks_cluster_v2" {
       min_size     = 1
       max_size     = 3
 
+      ami_type = "AL2023_x86_64_STANDARD"
       instance_types = ["t3a.medium"]
       subnet_ids     = [module.vpc.private_subnets[0], module.vpc.private_subnets[1]]
 
@@ -146,6 +146,7 @@ module "eks_cluster_v2" {
       min_size     = 0
       max_size     = 10
 
+      ami_type = "AL2023_x86_64_STANDARD"
       instance_types = ["c6a.xlarge"]
       subnet_ids     = [module.vpc.private_subnets[0], module.vpc.private_subnets[1]]
 
@@ -173,6 +174,7 @@ module "eks_cluster_v2" {
       min_size     = 1
       max_size     = 3
 
+      ami_type = "AL2023_x86_64_STANDARD"
       instance_types = ["t3a.medium"]
       subnet_ids     = [module.vpc.private_subnets[2]]
 
