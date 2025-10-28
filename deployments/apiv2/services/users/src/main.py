@@ -1208,7 +1208,7 @@ async def get_all_customers(request: Request, token=Depends(ProtectedAny(scopes=
         "SELECT c.id, c.email, c.last_login, c.suspended, c.usage_restrictions, array_agg(s.scope) as scopes "
         "FROM customers c "
         "LEFT JOIN account_scopes s ON c.id=s.customer_id "
-        "WHERE s.user_id IS NULL AND c.id!=$1"  # don't return curi customer account
+        "WHERE s.user_id IS NULL AND c.id!=$1 "  # don't return curi customer account
         "GROUP BY c.id, c.email, c.last_login, c.suspended, c.usage_restrictions "
         "ORDER BY c.suspended"
     )
