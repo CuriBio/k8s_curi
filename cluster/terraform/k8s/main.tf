@@ -216,7 +216,7 @@ data "aws_iam_policy_document" "operators_pods" {
 }
 
 data "aws_iam_policy_document" "cron_jobs_policy" {
-  count = var.cluster_name == "prod-v2" ? 1: 0;
+  count = var.cluster_name == "prod-v2" ? 1 : 0
 
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -236,16 +236,16 @@ data "aws_iam_policy_document" "cron_jobs_policy" {
 }
 
 resource "aws_iam_role" "cron_jobs_iam_role" {
-  count = var.cluster_name == "prod-v2" ? 1: 0;
+  count = var.cluster_name == "prod-v2" ? 1 : 0
   name = "${var.cluster_name}-cron-jobs-iam-role01"
 
-  assume_role_policy = data.aws_iam_policy_document.cron_jobs_policy.json
+  assume_role_policy = data.aws_iam_policy_document.cron_jobs_policy[count.index].json
 }
 
 resource "aws_iam_role_policy" "cron_jobs_iam_role_policy" {
-  count = var.cluster_name == "prod-v2" ? 1: 0;
+  count = var.cluster_name == "prod-v2" ? 1 : 0
   name = "${var.cluster_name}-cron-jobs-iam-role01"
-  role = aws_iam_role.cron_jobs_iam_role.id
+  role = aws_iam_role.cron_jobs_iam_role[count.index].id
 
   policy = file("${path.module}/json/cron_${var.cluster_env}_iam_policy.json")
 }
