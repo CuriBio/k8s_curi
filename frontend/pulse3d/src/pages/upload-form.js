@@ -4,13 +4,14 @@ import AnalysisParamForm from "@/components/uploadForm/AnalysisParamForm";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import FileDragDrop from "@/components/uploadForm/FileDragDrop";
 import SparkMD5 from "spark-md5";
-import { hexToBase64, getMinP3dVersionForProduct } from "@/utils/generic";
+import { hexToBase64, getMinP3dVersionForProduct, removeFileExt } from "@/utils/generic";
 import { useRouter } from "next/router";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import semverGte from "semver/functions/gte";
 import InputDropdownWidget from "@/components/basicWidgets/InputDropdownWidget";
 import { AuthContext, UploadsContext } from "@/pages/_app";
+import { parseS3XmlErrorCode } from "@/utils/generic";
 
 const Container = styled.div`
   justify-content: center;
@@ -121,6 +122,9 @@ const modalObj = {
   },
 };
 
+const MAX_WHOLE_UPLOAD_SIZE = 50 * 1024 * 1024;
+const MULTIPART_UPLOAD_CHUNK_SIZE = 30 * 1024 * 1024;
+
 const isReanalysisPage = (router) => {
   return (
     typeof router.query.id === "string" && router.query.id.toLowerCase() === "re-analyze existing upload"
@@ -131,6 +135,24 @@ const checkWindowsErrors = (windowsErrors) => {
   return windowsErrors.some(({ start, end }) => {
     return start !== "" || end !== "";
   });
+};
+
+const fileMd5sChunks = async (file) => {
+  let totalHasher = new SparkMD5.ArrayBuffer();
+  let chunkHashes = [];
+
+  let start = 0;
+  while (start < file.size) {
+    let end = Math.min(file.size, start + MULTIPART_UPLOAD_CHUNK_SIZE);
+    let chunk = await file.slice(start, end).arrayBuffer();
+    totalHasher.append(chunk);
+    chunkHashes.push(hexToBase64(SparkMD5.ArrayBuffer.hash(chunk)));
+    start = end;
+  }
+
+  let totalHash = hexToBase64(totalHasher.end());
+
+  return [totalHash, chunkHashes];
 };
 
 export default function UploadForm() {
@@ -163,6 +185,7 @@ export default function UploadForm() {
       normalizationMethod: productPage === "nautilai" ? "∆F/Fmin" : null,
       dataType: null,
       detrend: null,
+      disableBackgroundSubtraction: null,
       // width coord params
       relaxationSearchLimit: "",
       // original peak finding params
@@ -557,6 +580,12 @@ export default function UploadForm() {
       requestBody.high_fidelity_magnet_processing = highFidelityMagnetProcessing;
     }
 
+    if (semverGte(version, "3.2.0")) {
+      if (productPage === "nautilai") {
+        requestBody.disable_background_subtraction = analysisParams.disableBackgroundSubtraction;
+      }
+    }
+
     // format windows
     let windows = analysisParams.windows.map(({ start, end }) => {
       return { start: getNullIfEmpty(start), end: getNullIfEmpty(end) };
@@ -673,6 +702,8 @@ export default function UploadForm() {
         } else if (file.name.endsWith("parquet")) {
           // parquet files only currently supported for nautilai, but should be supported by other products in the future
           isValidUpload = productPage === "nautilai";
+        } else if (file.name.endsWith("tar.zstd")) {
+          isValidUpload = productPage === "nautilai";
         } else {
           // all other file types are not valid
           isValidUpload = false;
@@ -705,7 +736,11 @@ export default function UploadForm() {
         const fileIsInList = uploads.some((upload) => upload.id === file.id);
 
         if (file instanceof File) {
-          await uploadFile(file);
+          if (file.size <= MAX_WHOLE_UPLOAD_SIZE) {
+            await uploadFileWhole(file);
+          } else {
+            await uploadFileMultipart(file);
+          }
         } else if (fileIsInList) {
           await postNewJob(file.id, file.filename);
         }
@@ -730,7 +765,7 @@ export default function UploadForm() {
     }
   };
 
-  const uploadFile = async (file) => {
+  const uploadFileWhole = async (file) => {
     let fileReader = new FileReader();
     const filename = file.name;
 
@@ -797,20 +832,31 @@ export default function UploadForm() {
       });
       formData.append("file", file);
 
-      let uploadPostRes;
-      try {
-        uploadPostRes = await fetch(uploadDetails.url, {
-          method: "POST",
-          body: formData,
-        });
-      } catch (e) {
-        console.log("ERROR uploading file to s3:  ", e);
+      let uploadPostRes = null;
+      for (const attemptNum = 1; attemptNum <= 5; attemptNum++) {
+        try {
+          uploadPostRes = await fetch(uploadDetails.url, {
+            method: "POST",
+            body: formData,
+          });
+        } catch (e) {
+          console.log(`ERROR attempt #${attemptNum} uploading file to s3:  `, e);
+          continue;
+        }
+        break;
+      }
+      if (uploadPostRes === null) {
+        console.log("ERROR Max num upload attempts reached");
         await handleFailedUploadToS3(uploadId);
         failedUploadsMsg.push(filename);
         return;
       }
       if (uploadPostRes.status !== 204) {
-        console.log(`ERROR (${uploadPostRes.status}) uploading file to s3:  `, await uploadPostRes.text());
+        let errMsg = "Error getting response body as text";
+        try {
+          errMsg = parseS3XmlErrorCode(await uploadPostRes.text());
+        } catch {}
+        console.log(`ERROR uploading file to s3: ${uploadPostRes.status} ${errMsg}`);
         await handleFailedUploadToS3(uploadId);
         failedUploadsMsg.push(filename);
         return;
@@ -841,6 +887,150 @@ export default function UploadForm() {
     }
   };
 
+  const uploadFileMultipart = async (file) => {
+    const handleError = (e) => {
+      console.log(`ERROR uploading file ${file.name}`, e);
+      failedUploadsMsg.push(file.name);
+    };
+    try {
+      // initiate multipart upload
+      const [totalHash, chunkHashes] = await fileMd5sChunks(file);
+      const mpUploadRes = await fetch(`${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads/multipart`, {
+        method: "POST",
+        body: JSON.stringify({
+          filename: file.name,
+          md5s: totalHash,
+          md5s_parts: chunkHashes,
+          upload_type: productPage,
+          auto_upload: false,
+        }),
+      });
+      let mpUploadResData = {};
+      try {
+        mpUploadResData = await mpUploadRes.json();
+      } catch {
+        mpUploadResData = { error: "Failed to parse response body as json" };
+      }
+      if (mpUploadRes.status !== 200) {
+        console.log("ERROR getting multipart upload details: ", mpUploadResData);
+        handleError(mpUploadResData);
+        return;
+      }
+      if (mpUploadResData.error === "UsageError") {
+        console.log("ERROR getting multipart upload details because customer upload limit has been reached");
+        handleError(mpUploadResData.error);
+        setUsageModalLabels(modalObj.uploadsReachedDuringSession);
+        setUsageModalState(true);
+        return;
+      }
+
+      let urls = mpUploadResData.urls;
+      if (urls.length !== chunkHashes.length) {
+        handleError("Incorrect number of parts in multipart upload details");
+        return;
+      }
+
+      // upload chunks
+      const uploadParts = [];
+      let chunkStart = 0;
+      let prevRefreshTimestamp = Date.now();
+      for (const partIdx = 0; partIdx < urls.length; partIdx++) {
+        // Nothing else in the browser will trigger a refresh while this upload is in progress, so periodically check if the tokens need to be refreshed
+        const millisSincePrevUpload = Date.now() - prevRefreshTimestamp;
+        const minsSincePrevUpload = millisSincePrevUpload / (1000 * 60);
+        if (minsSincePrevUpload > 25) {
+          let res = await fetch(`${process.env.NEXT_PUBLIC_USERS_URL}/refresh`);
+          if (res.status !== 201) {
+            handleError("Tokens expired during multipart upload");
+            return;
+          }
+          prevRefreshTimestamp = Date.now();
+        }
+
+        let chunkEnd = Math.min(file.size, chunkStart + MULTIPART_UPLOAD_CHUNK_SIZE);
+
+        let uploadPartRes = null;
+        for (const attemptNum = 1; attemptNum <= 200; attemptNum++) {
+          try {
+            uploadPartRes = await fetch(urls[partIdx], {
+              method: "PUT",
+              headers: {
+                "Content-MD5": chunkHashes[partIdx],
+              },
+              body: file.slice(chunkStart, chunkEnd),
+            });
+          } catch (e) {
+            console.log(
+              `ERROR attempt ${attemptNum} uploading file part (${partIdx + 1}/${urls.length}) to s3:  `,
+              e
+            );
+            continue;
+          }
+          break;
+        }
+        if (uploadPartRes === null) {
+          handleError(`Max num upload attempts reached for part (${partIdx + 1}/${urls.length})`);
+          return;
+        }
+
+        if (uploadPartRes.status !== 200) {
+          let errMsg = "Error getting response body as text";
+          try {
+            errMsg = parseS3XmlErrorCode(await uploadPartRes.text());
+          } catch {}
+          handleError(
+            `ERROR uploading file part (${partIdx + 1}/${urls.length}) to s3: ${uploadPartRes.status} ${
+              parseS3XmlErrorCode(bodyText) || bodyTextErrorMsg
+            }`
+          );
+          return;
+        }
+        const etag = uploadPartRes.headers.get("ETag");
+        if (etag === null) {
+          handleError(
+            `etag header missing on upload file part response (${partIdx + 1}/${urls.length}) from s3`
+          );
+          return;
+        }
+
+        uploadParts.push({ ETag: etag, PartNumber: partIdx + 1 });
+        chunkStart = chunkEnd;
+      }
+
+      // complete the upload
+      const completeMpUploadRes = await fetch(
+        `${process.env.NEXT_PUBLIC_PULSE3D_URL}/uploads/multipart/complete`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            id: mpUploadResData.id,
+            parts: uploadParts,
+          }),
+        }
+      );
+      let completeMpUploadResData = {};
+      try {
+        completeMpUploadResData = await completeMpUploadRes.json();
+      } catch {
+        completeMpUploadResData = { error: "Failed to parse response body as json" };
+      }
+      if (completeMpUploadRes.status !== 204) {
+        console.log("ERROR completing multipart upload: ", completeMpUploadResData);
+        handleError(completeMpUploadResData);
+        return;
+      }
+
+      // kick off job
+      try {
+        await postNewJob(mpUploadResData.id, file.name);
+      } catch {
+        return;
+      }
+    } catch (e) {
+      handleError(e);
+    }
+  };
+
   const handleDropDownSelect = (idx) => {
     if (idx !== -1) {
       const newSelection = uploads[idx];
@@ -852,13 +1042,6 @@ export default function UploadForm() {
         nameOverride: "",
       });
     }
-  };
-
-  const removeFileExt = (filename) => {
-    const filenameNoExt = filename.split(".");
-    filenameNoExt.pop();
-
-    return filenameNoExt.join(".");
   };
 
   const saveAnalysisPreset = async () => {
@@ -961,7 +1144,7 @@ export default function UploadForm() {
               fileSelection={files}
               setResetDragDrop={setResetDragDrop}
               resetDragDrop={resetDragDrop}
-              fileTypes={["zip", "xlsx", "parquet"]}
+              fileTypes={["zip", "xlsx", "parquet", "zstd"]}
             />
             {usageQuota && usageQuota.limits && parseInt(usageQuota.limits.jobs) !== -1 && (
               <UploadCreditUsageInfo>

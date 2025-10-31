@@ -238,7 +238,7 @@ data "aws_iam_policy_document" "cron_jobs_policy" {
 resource "aws_iam_role" "cron_jobs_iam_role" {
   count = var.cluster_name == "prod-v2" ? 1: 0;
   name = "${var.cluster_name}-cron-jobs-iam-role01"
-
+  
   assume_role_policy = data.aws_iam_policy_document.cron_jobs_policy.json
 }
 

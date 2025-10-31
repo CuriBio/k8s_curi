@@ -941,7 +941,7 @@ async def register_user(
                     username=username, email=email, user_id=new_account_id.hex, scopes=user_scopes
                 )
 
-    except (EmailRegistrationError, ProhibitedScopeError, RegistrationError) as e:
+    except (ProhibitedScopeError, RegistrationError) as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception:
         logger.exception("POST /register: Unexpected error")
@@ -1208,7 +1208,7 @@ async def get_all_customers(request: Request, token=Depends(ProtectedAny(scopes=
         "SELECT c.id, c.email, c.last_login, c.suspended, c.usage_restrictions, array_agg(s.scope) as scopes "
         "FROM customers c "
         "LEFT JOIN account_scopes s ON c.id=s.customer_id "
-        "WHERE s.user_id IS NULL AND c.id!=$1"  # don't return curi customer account
+        "WHERE s.user_id IS NULL AND c.id!=$1 "  # don't return curi customer account
         "GROUP BY c.id, c.email, c.last_login, c.suspended, c.usage_restrictions "
         "ORDER BY c.suspended"
     )
