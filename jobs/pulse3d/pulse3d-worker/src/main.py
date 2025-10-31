@@ -184,13 +184,6 @@ async def process_item(con, item):
             prefix = upload_details["prefix"]
             metadata = json.loads(item["meta"])
             upload_filename = upload_details["filename"]
-            # if a new name has been given in the upload form, then replace here, else use original name
-            analysis_filename = (
-                f"{name_override}.zip"
-                if (name_override := metadata.get("name_override"))
-                else upload_filename
-            )
-            analysis_name = os.path.splitext(analysis_filename)[0]
         except Exception:
             logger.exception("Fetching upload details failed")
             raise
@@ -472,7 +465,9 @@ async def process_item(con, item):
                     )
                     if (val := analysis_params.get(arg_name)) is not None
                 }
-                renderer_args["output_file_name"] = analysis_name
+                # if a new name has been given in the upload form, then replace here, else use original name
+                if name_override := metadata.get("name_override"):
+                    renderer_args["output_file_name"] = name_override
 
                 if data_type_override := renderer_args.get("data_type"):
                     renderer_args["data_type"] = data_type_override.lower()
