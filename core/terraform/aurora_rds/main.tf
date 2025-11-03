@@ -80,8 +80,6 @@ module "db" {
 
   deletion_protection = true
 
-  performance_insights_enabled          = true
-  performance_insights_retention_period = 7
   create_monitoring_role                = false
 
   tags = local.tags
