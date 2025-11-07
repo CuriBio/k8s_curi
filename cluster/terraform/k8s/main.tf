@@ -276,7 +276,7 @@ module "eks" {
   source          = "terraform-aws-modules/eks/aws"
   version         = "19.15.3"
   cluster_name    = var.cluster_name
-  cluster_version = "1.32"
+  cluster_version = "1.33"
   subnet_ids      = var.private_subnets
 
   tags   = var.cluster_tags
@@ -297,6 +297,7 @@ module "eks" {
   }
 
   kms_key_administrators = [for x in var.cluster_users : x["userarn"]]
+  kms_key_aliases = var.cluster_name == "test-v2" ? ["eks/test-v2-2"] : []
 }
 
 data "aws_iam_policy" "ebs_csi_policy" {
