@@ -297,7 +297,6 @@ module "eks" {
   }
 
   kms_key_administrators = [for x in var.cluster_users : x["userarn"]]
-  kms_key_aliases = var.cluster_name == "test-v2" ? ["eks/test-v2-new"] : []
 }
 
 data "aws_iam_policy" "ebs_csi_policy" {
