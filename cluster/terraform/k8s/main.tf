@@ -296,6 +296,18 @@ module "eks" {
     }
   }
 
+  node_security_group_additional_rules = {
+    ingress_sealed_secrets = {
+      description = "Allow inbound traffic to sealed-secrets controller"
+      type        = "ingress"
+      protocol    = "tcp"
+      from_port   = 8080
+      to_port     = 8080
+      # This sources the traffic from the EKS cluster's control plane security group
+      source_cluster_security_group = true
+    }
+  }
+
   kms_key_administrators = [for x in var.cluster_users : x["userarn"]]
 }
 
