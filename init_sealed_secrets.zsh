@@ -15,15 +15,31 @@ kc () {
     eval "$alias" $@
 }
 
-# read in env file
+# Read in env file
 if [[ -z "$2" ]]; then
     echo "ERROR: path to env file must be provided"
     exit 1
 fi
 source $2
 
-# create advanced-analysis-secrets.yaml
+# Create secrets
+if [[ -z "$2" ]]; then
+    echo "ERROR: path to kube config file must be provided"
+    exit 1
+fi
+
 kc create secret generic xxx -n advanced-analysis --dry-run=client \
     --from-literal=curibio_advanced_analysis=$ADVANCED_ANALYSIS_PASS \
     -o yaml \
     | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/advanced-analysis/manifests/overlays/$1/curibio-advanced-analysis-creds.yaml
+
+kc create secret generic xxx -n advanced-analysis --dry-run=client \
+    --from-literal=curibio-email=$CURIBIO_EMAIL \
+    --from-literal=curibio-email-password=$CURIBIO_EMAIL_PASSWORD \
+    -o yaml \
+    | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/advanced-analysis/manifests/overlays/$1/curibio-email-creds.yaml
+
+kc create secret generic xxx -n advanced-analysis --dry-run=client \
+    --from-literal=jwt-secret=$JWT_SECRET \
+    -o yaml \
+    | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/advanced-analysis/manifests/overlays/$1/curibio-jwt-secret.yaml
