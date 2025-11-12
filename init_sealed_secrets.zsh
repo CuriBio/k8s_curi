@@ -22,7 +22,8 @@ if [[ -z "$2" ]]; then
 fi
 source $2
 
-# create advanced-analysis secrets.yaml
+# create advanced-analysis-secrets.yaml
 kc create secret generic xxx -n advanced-analysis --dry-run=client \
-    --from-literal=curibio_advanced_analysis=$ADVANCED_ANALYSIS_PASS -o yaml \
+    --from-literal=curibio_advanced_analysis=$ADVANCED_ANALYSIS_PASS \
+    -o yaml \
     | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/advanced-analysis/manifests/overlays/$1/curibio-advanced-analysis-creds.yaml
