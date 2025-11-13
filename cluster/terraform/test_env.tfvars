@@ -27,3 +27,12 @@ cluster_users = [
     groups   = ["system:masters"]
   }
 ]
+
+existing_vpc = {
+  vpc_id = "vpc-0c481f70e775c783e"
+  private_subnet_ids = [
+    "subnet-0014feda1d099ef21",
+    "subnet-02ddc001c731f2d82",
+    "subnet-0155b2de78e9b0086"
+  ]
+}
