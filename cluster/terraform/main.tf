@@ -59,6 +59,12 @@ module "vpc" {
   }
 }
 
+
+moved {
+  from = module.vpc
+  to = module.vpc[0]
+}
+
 data "aws_vpc" "selected_vpc" {
   count = local.create_new_vpc ? 0 : 1
   id = var.existing_vpc.vpc_id
