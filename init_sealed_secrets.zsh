@@ -99,7 +99,13 @@ fi
 #     | kubeseal --kubeconfig=$3 --format yaml --merge-into ./jobs/advanced-analysis/manifests/overlays/$1/advanced-analysis-queue-processor-creds.yaml
 
 # pulse3d jobs
-kc create secret generic xxx -n pulse3d --dry-run=client \
-    --from-literal=pulse3d_queue_processor_ro=$PULSE3D_QUEUE_PROCESSOR_RO_PASS \
-    -o yaml \
-    | kubeseal --kubeconfig=$3 --format yaml --merge-into ./jobs/pulse3d/manifests/overlays/$1/pulse3d-queue-processor-creds.yaml
+# kc create secret generic xxx -n pulse3d --dry-run=client \
+#     --from-literal=pulse3d_queue_processor_ro=$PULSE3D_QUEUE_PROCESSOR_RO_PASS \
+#     -o yaml \
+#     | kubeseal --kubeconfig=$3 --format yaml --merge-into ./jobs/pulse3d/manifests/overlays/$1/pulse3d-queue-processor-creds.yaml
+
+# grafana
+# kc create secret generic xxx -n argocd --dry-run=client \
+#     --from-literal=grafana_pass_ro=$GRAFANA_PASS_RO \
+#     -o yaml \
+#     | kubeseal --kubeconfig=$3 --format yaml --merge-into ./cluster/manifests/grafana/overlays/$1/grafana-creds.yaml
