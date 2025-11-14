@@ -4,7 +4,7 @@
     {
       "Effect": "Allow",
       "Action": ["s3:PutObject", "s3:GetObject", "s3:ListBucket"],
-      "Resource": ["arn:aws:s3:::test-v2-loki-logs", "arn:aws:s3:::test-v2-loki-logs/*"]
+      "Resource": ["arn:aws:s3:::test-v2-new-loki-logs", "arn:aws:s3:::test-v2-new-loki-logs/*"]
     }
   ]
 }

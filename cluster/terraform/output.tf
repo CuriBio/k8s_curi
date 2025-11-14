@@ -7,8 +7,3 @@ output "sg_all_worker_mgmt" {
   description = "all_worker_management security group"
   value = aws_security_group.all_worker_mgmt
 }
-
-output "cluster_vpc" {
-  description = "cluster vpc"
-  value = module.vpc
-}

@@ -6,15 +6,9 @@ resources:
   - ../../base
   - curibio-advanced-analysis-creds.yaml
   - curibio-jwt-secret.yaml
+  - curibio-email-creds.yaml
 
 patches:
-  - patch: |-
-      - op: replace
-        path: /spec/rules/0/host
-        value: "advanced-analysis.curibio.com"
-    target:
-      kind: Ingress
-      name: advanced-analysis-ingress
   - patch: |-
       - op: add
         path: /spec/template/spec/containers/0/image

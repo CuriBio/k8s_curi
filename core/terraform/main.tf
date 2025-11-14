@@ -32,4 +32,6 @@ module "aurora_database" {
   instance_class = var.aurora_instance_class
 
   password_change_id = var.password_change_id
+
+  cluster_vpc = var.cluster_vpc
 }
