@@ -75,19 +75,25 @@ fi
 #     | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/apiv2/manifests/overlays/$1/curibio-users-creds.yaml
 
 # pulse3d deployment
-kc create secret generic xxx -n pulse3d --dry-run=client \
-    --from-literal=curibio-email=$CURIBIO_EMAIL \
-    --from-literal=curibio-email-password=$CURIBIO_EMAIL_PASSWORD \
-    -o yaml \
-    | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/pulse3d/manifests/overlays/$1/curibio-email-creds.yaml
+# kc create secret generic xxx -n pulse3d --dry-run=client \
+#     --from-literal=curibio-email=$CURIBIO_EMAIL \
+#     --from-literal=curibio-email-password=$CURIBIO_EMAIL_PASSWORD \
+#     -o yaml \
+#     | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/pulse3d/manifests/overlays/$1/curibio-email-creds.yaml
+#
+# kc create secret generic xxx -n pulse3d --dry-run=client \
+#     --from-literal=curibio_jobs=$JOBS_USER_PASS \
+#     --from-literal=curibio_jobs_ro=$JOBS_USER_PASS_RO \
+#     -o yaml \
+#     | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/pulse3d/manifests/overlays/$1/curibio-jobs-creds.yaml
+#
+# kc create secret generic xxx -n pulse3d --dry-run=client \
+#     --from-literal=jwt-secret=$JWT_SECRET \
+#     -o yaml \
+#     | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/pulse3d/manifests/overlays/$1/curibio-jwt-secret.yaml
 
-kc create secret generic xxx -n pulse3d --dry-run=client \
-    --from-literal=curibio_jobs=$JOBS_USER_PASS \
-    --from-literal=curibio_jobs_ro=$JOBS_USER_PASS_RO \
+# advanced analysis jobs
+kc create secret generic xxx -n advanced-analysis --dry-run=client \
+    --from-literal=advanced_analysis_queue_processor_ro=$ADVANCED_ANALYSIS_QUEUE_PROCESSOR_RO_PASS \
     -o yaml \
-    | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/pulse3d/manifests/overlays/$1/curibio-jobs-creds.yaml
-
-kc create secret generic xxx -n pulse3d --dry-run=client \
-    --from-literal=jwt-secret=$JWT_SECRET \
-    -o yaml \
-    | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/pulse3d/manifests/overlays/$1/curibio-jwt-secret.yaml
+    | kubeseal --kubeconfig=$3 --format yaml --merge-into ./jobs/advanced-analysis/manifests/overlays/$1/advanced-analysis-queue-processor-creds.yaml
