@@ -28,18 +28,48 @@ if [[ -z "$2" ]]; then
     exit 1
 fi
 
-kc create secret generic xxx -n advanced-analysis --dry-run=client \
-    --from-literal=curibio_advanced_analysis=$ADVANCED_ANALYSIS_PASS \
-    -o yaml \
-    | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/advanced-analysis/manifests/overlays/$1/curibio-advanced-analysis-creds.yaml
+# advanced analysis deployment
+# kc create secret generic xxx -n advanced-analysis --dry-run=client \
+#     --from-literal=curibio_advanced_analysis=$ADVANCED_ANALYSIS_PASS \
+#     -o yaml \
+#     | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/advanced-analysis/manifests/overlays/$1/curibio-advanced-analysis-creds.yaml
+#
+# kc create secret generic xxx -n advanced-analysis --dry-run=client \
+#     --from-literal=curibio-email=$CURIBIO_EMAIL \
+#     --from-literal=curibio-email-password=$CURIBIO_EMAIL_PASSWORD \
+#     -o yaml \
+#     | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/advanced-analysis/manifests/overlays/$1/curibio-email-creds.yaml
+#
+# kc create secret generic xxx -n advanced-analysis --dry-run=client \
+#     --from-literal=jwt-secret=$JWT_SECRET \
+#     -o yaml \
+#     | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/advanced-analysis/manifests/overlays/$1/curibio-jwt-secret.yaml
 
-kc create secret generic xxx -n advanced-analysis --dry-run=client \
+# apiv2 deployment
+kc create secret generic xxx -n apiv2 --dry-run=client \
     --from-literal=curibio-email=$CURIBIO_EMAIL \
     --from-literal=curibio-email-password=$CURIBIO_EMAIL_PASSWORD \
     -o yaml \
-    | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/advanced-analysis/manifests/overlays/$1/curibio-email-creds.yaml
+    | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/apiv2/manifests/overlays/$1/curibio-email-creds.yaml
 
-kc create secret generic xxx -n advanced-analysis --dry-run=client \
+kc create secret generic xxx -n apiv2 --dry-run=client \
+    --from-literal=curibio_event_broker=$EVENT_BROKER_PASS \
+    -o yaml \
+    | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/apiv2/manifests/overlays/$1/curibio-event-broker-creds.yaml
+
+kc create secret generic xxx -n apiv2 --dry-run=client \
     --from-literal=jwt-secret=$JWT_SECRET \
     -o yaml \
-    | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/advanced-analysis/manifests/overlays/$1/curibio-jwt-secret.yaml
+    | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/apiv2/manifests/overlays/$1/curibio-jwt-secret.yaml
+
+kc create secret generic xxx -n apiv2 --dry-run=client \
+    --from-literal=curibio_mantarray=$MANTARRAY_USER_PASS \
+    --from-literal=curibio_mantarray_ro=$MANTARRAY_USER_PASS_RO\
+    -o yaml \
+    | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/apiv2/manifests/overlays/$1/curibio-mantarray-creds.yaml
+
+kc create secret generic xxx -n apiv2 --dry-run=client \
+    --from-literal=curibio_users=$TABLE_USER_PASS \
+    --from-literal=curibio_users_ro=$TABLE_USER_PASS_RO \
+    -o yaml \
+    | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/apiv2/manifests/overlays/$1/curibio-users-creds.yaml
