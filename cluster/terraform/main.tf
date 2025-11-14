@@ -65,21 +65,25 @@ data "aws_vpc" "selected_vpc" {
 }
 
 data "aws_subnet" "private_subnet_0" {
+  count = local.create_new_vpc ? 0 : 1
   id = var.existing_vpc.private_subnet_ids[0]
 }
 data "aws_subnet" "private_subnet_1" {
+  count = local.create_new_vpc ? 0 : 1
   id = var.existing_vpc.private_subnet_ids[1]
 }
 data "aws_subnet" "private_subnet_2" {
+  count = local.create_new_vpc ? 0 : 1
   id = var.existing_vpc.private_subnet_ids[2]
 }
 
 locals {
+  vpc = local.create_new_vpc ? module.vpc[0] : data.aws_vpc.selected_vpc[0]
   vpc_id = local.create_new_vpc ? module.vpc[0].vpc_id : data.aws_vpc.selected_vpc[0].id
   vpc_private_subnets = local.create_new_vpc ? module.vpc[0].private_subnets : [
-    data.aws_subnet.private_subnet_0.id,
-    data.aws_subnet.private_subnet_1.id,
-    data.aws_subnet.private_subnet_2.id,
+    data.aws_subnet.private_subnet_0[0].id,
+    data.aws_subnet.private_subnet_1[0].id,
+    data.aws_subnet.private_subnet_2[0].id,
   ]
 }
 
