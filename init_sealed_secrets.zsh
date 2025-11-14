@@ -93,7 +93,13 @@ fi
 #     | kubeseal --kubeconfig=$3 --format yaml --merge-into ./deployments/pulse3d/manifests/overlays/$1/curibio-jwt-secret.yaml
 
 # advanced analysis jobs
-kc create secret generic xxx -n advanced-analysis --dry-run=client \
-    --from-literal=advanced_analysis_queue_processor_ro=$ADVANCED_ANALYSIS_QUEUE_PROCESSOR_RO_PASS \
+# kc create secret generic xxx -n advanced-analysis --dry-run=client \
+#     --from-literal=advanced_analysis_queue_processor_ro=$ADVANCED_ANALYSIS_QUEUE_PROCESSOR_RO_PASS \
+#     -o yaml \
+#     | kubeseal --kubeconfig=$3 --format yaml --merge-into ./jobs/advanced-analysis/manifests/overlays/$1/advanced-analysis-queue-processor-creds.yaml
+
+# pulse3d jobs
+kc create secret generic xxx -n pulse3d --dry-run=client \
+    --from-literal=pulse3d_queue_processor_ro=$PULSE3D_QUEUE_PROCESSOR_RO_PASS \
     -o yaml \
-    | kubeseal --kubeconfig=$3 --format yaml --merge-into ./jobs/advanced-analysis/manifests/overlays/$1/advanced-analysis-queue-processor-creds.yaml
+    | kubeseal --kubeconfig=$3 --format yaml --merge-into ./jobs/pulse3d/manifests/overlays/$1/pulse3d-queue-processor-creds.yaml
