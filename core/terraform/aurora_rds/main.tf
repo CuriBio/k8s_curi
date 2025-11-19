@@ -39,6 +39,7 @@ resource "aws_rds_cluster_parameter_group" "cluster_parameter_group" {
 
 module "db" {
   source = "terraform-aws-modules/rds-aurora/aws"
+  version = "~> 9.16"
 
   name           = var.name
   engine         = "aurora-postgresql"
