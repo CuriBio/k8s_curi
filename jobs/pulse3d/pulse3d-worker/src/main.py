@@ -514,6 +514,8 @@ async def process_item(con, item):
                 logger.exception("Upload of renderer output failed")
                 raise
 
+            recording_length_s = None
+
             try:
                 upload_meta = json.loads(upload_details["meta"])
 
@@ -522,11 +524,15 @@ async def process_item(con, item):
                 new_meta = {
                     k: pre_process_meta_res[k] for k in (pre_process_meta_res.keys() - upload_meta.keys())
                 }
+                recording_length_s = pre_processed_data.metadata.full_recording_length
                 if new_meta:
                     logger.info(f"Adding metadata to upload in DB: {new_meta}")
                     upload_meta |= new_meta
                     await con.execute(
-                        "UPDATE uploads SET meta=$1 WHERE id=$2", json.dumps(upload_meta), upload_id
+                        "UPDATE uploads SET meta=$1, recording_length_seconds=$2 WHERE id=$3",
+                        json.dumps(upload_meta),
+                        recording_length_s,
+                        upload_id,
                     )
                 else:
                     logger.info("No upload metadata to update in DB")
@@ -552,7 +558,7 @@ async def process_item(con, item):
 
                 job_metadata |= {
                     "plate_barcode": pre_analyzed_data.metadata.plate_barcode,
-                    "recording_length_ms": pre_analyzed_data.metadata.full_recording_length,
+                    "recording_length_seconds": recording_length_s,
                     "data_type": data_type,
                 }
                 if pre_analyzed_data.metadata.instrument_type == InstrumentTypes.MANTARRAY:
