@@ -24,15 +24,15 @@ data "terraform_remote_state" "cluster" {
 }
 
 resource "aws_db_parameter_group" "parameter_group" {
-  name        = "${var.name}-parameter-group"
-  family      = "aurora-postgresql13"
+  name        = "${var.name}-parameter-group-pg17"
+  family      = "aurora-postgresql17"
   description = "${var.name}-parameter-group"
   tags        = local.tags
 }
 
 resource "aws_rds_cluster_parameter_group" "cluster_parameter_group" {
-  name        = "${var.name}-cluster-parameter-group"
-  family      = "aurora-postgresql13"
+  name        = "${var.name}-cluster-parameter-group-pg17"
+  family      = "aurora-postgresql17"
   description = "${var.name}-cluster-parameter-group"
   tags        = local.tags
 }
@@ -42,7 +42,7 @@ module "db" {
 
   name           = var.name
   engine         = "aurora-postgresql"
-  engine_version = "13.9"
+  engine_version = "17.5"
   instance_class = var.instance_class
 
   # need atleast two instances for multi-az
@@ -62,6 +62,7 @@ module "db" {
 
   apply_immediately   = true
   skip_final_snapshot = true
+  allow_major_version_upgrade = true
 
   master_username             = "root"
   master_password             = local.password
@@ -69,18 +70,17 @@ module "db" {
 
   db_parameter_group_name         = aws_db_parameter_group.parameter_group.id
   db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.cluster_parameter_group.id
+  db_cluster_db_instance_parameter_group_name = aws_db_parameter_group.parameter_group.id
 
   enabled_cloudwatch_logs_exports = ["postgresql"]
 
   # Enhanced monitoring
-  monitoring_interval = 30
+  cluster_monitoring_interval = 30
   monitoring_role_arn = aws_iam_role.rds_enhanced_monitoring.arn
 
   deletion_protection = true
 
-  performance_insights_enabled          = true
-  performance_insights_retention_period = 7
-  create_monitoring_role                = true
+  create_monitoring_role                = false
 
   tags = local.tags
 }

@@ -362,12 +362,12 @@ async def delete_uploads(*, con, account_type, account_id, upload_ids):
 
 async def get_jobs_of_uploads_for_admin(con, customer_id: str, upload_ids: list[str]):
     query_params = [customer_id]
-    places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
+    places = _get_placeholders_str(len(upload_ids), len(query_params) + 1, parens=True, type_="uuid")
     query = (
         "SELECT j.job_id AS id, j.upload_id, j.status, j.created_at, j.object_key, (j.meta - 'error') AS meta, "
         "u.user_id, u.type AS upload_type "
         "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
-        f"WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.multipart_upload_id IS NULL AND u.id IN ({places})"
+        f"WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.multipart_upload_id IS NULL AND u.id IN (VALUES {places})"
     )
     query_params += upload_ids
 
@@ -381,12 +381,12 @@ async def get_jobs_of_uploads_for_rw_all_data_user(
     con, customer_id: str, upload_ids: list[str], upload_type: str
 ):
     query_params = [customer_id, upload_type]
-    places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
+    places = _get_placeholders_str(len(upload_ids), len(query_params) + 1, parens=True, type_="uuid")
     query = (
         "SELECT j.job_id AS id, j.upload_id, j.status, j.created_at, j.object_key, (j.meta - 'error') AS meta, "
         "u.user_id, u.type AS upload_type "
         "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
-        f"WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.multipart_upload_id IS NULL AND u.type=$2 AND u.id IN ({places})"
+        f"WHERE j.customer_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.multipart_upload_id IS NULL AND u.type=$2 AND u.id IN (VALUES {places})"
     )
     query_params += upload_ids
 
@@ -398,12 +398,12 @@ async def get_jobs_of_uploads_for_rw_all_data_user(
 
 async def get_jobs_of_uploads_for_base_user(con, user_id: str, upload_ids: list[str], upload_type: str):
     query_params = [user_id, upload_type]
-    places = _get_placeholders_str(len(upload_ids), len(query_params) + 1)
+    places = _get_placeholders_str(len(upload_ids), len(query_params) + 1, parens=True, type_="uuid")
     query = (
         "SELECT j.job_id AS id, j.upload_id, j.status, j.created_at, j.object_key, (j.meta - 'error') AS meta, "
         "u.user_id, u.type AS upload_type "
         "FROM jobs_result AS j JOIN uploads AS u ON j.upload_id=u.id "
-        f"WHERE j.customer_id=u.customer_id AND u.user_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.multipart_upload_id IS NULL AND u.type=$2 AND u.id IN ({places})"
+        f"WHERE j.customer_id=u.customer_id AND u.user_id=$1 AND j.status!='deleted' AND u.deleted='f' AND u.multipart_upload_id IS NULL AND u.type=$2 AND u.id IN (VALUES {places})"
     )
     query_params += upload_ids
 
@@ -701,12 +701,21 @@ async def delete_jobs(*, con, account_type, account_id, job_ids):
     await con.execute(query, *query_params)
 
 
-def _get_placeholders_str(num_placeholders, start=1):
+def _get_placeholders_str(num_placeholders, start=1, parens=False, type_=None):
     if num_placeholders < 1:
         raise ValueError("Must have at least 1 placeholder")
     if start < 1:
         raise ValueError("Initial placeholder value must be >= 1")
-    return ", ".join(f"${i}" for i in range(start, start + num_placeholders))
+
+    def s(n):
+        s = f"${n}"
+        if type_:
+            s += f"::{type_}"
+        if parens:
+            s = f"({s})"
+        return s
+
+    return ", ".join(s(n) for n in range(start, start + num_placeholders))
 
 
 async def get_customer_pulse3d_usage(con, customer_id, upload_type) -> dict[str, Any]:

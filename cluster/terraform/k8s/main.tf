@@ -189,12 +189,14 @@ resource "aws_iam_role" "loki_pods" {
 
   assume_role_policy = data.aws_iam_policy_document.loki_pods.json
 }
+
 resource "aws_iam_role_policy" "loki_pod_iam_role_policy" {
   name = "${var.cluster_name}-loki-pods-iam-role01"
   role = aws_iam_role.loki_pods.id
 
   policy = file("${path.module}/json/loki_${var.cluster_env}_iam_policy.json")
 }
+
 data "aws_iam_policy_document" "operators_pods" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -211,6 +213,41 @@ data "aws_iam_policy_document" "operators_pods" {
       type        = "Federated"
     }
   }
+}
+
+data "aws_iam_policy_document" "cron_jobs_policy" {
+  count = var.cluster_name == "prod-v2" ? 1 : 0
+
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+      effect  = "Allow"
+
+      condition {
+        test     = "StringEquals"
+          variable = "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}:sub"
+          values   = ["system:serviceaccount:cron-jobs:default"]
+      }
+
+    principals {
+      identifiers = [module.eks.oidc_provider_arn]
+        type        = "Federated"
+    }
+  }
+}
+
+resource "aws_iam_role" "cron_jobs_iam_role" {
+  count = var.cluster_name == "prod-v2" ? 1 : 0
+  name = "${var.cluster_name}-cron-jobs-iam-role01"
+
+  assume_role_policy = data.aws_iam_policy_document.cron_jobs_policy[count.index].json
+}
+
+resource "aws_iam_role_policy" "cron_jobs_iam_role_policy" {
+  count = var.cluster_name == "prod-v2" ? 1 : 0
+  name = "${var.cluster_name}-cron-jobs-iam-role01"
+  role = aws_iam_role.cron_jobs_iam_role[count.index].id
+
+  policy = file("${path.module}/json/cron_${var.cluster_env}_iam_policy.json")
 }
 
 resource "aws_iam_role" "operators_pods" {
