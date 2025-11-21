@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cron-jobs
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: default
+  namespace: cron-jobs
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::245339368379:role/prod-v2-cron-jobs-iam-role01
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  creationTimestamp: null
+  name: github-token
+  namespace: cron-jobs
+spec:
+  encryptedData:
+    gh-token: AgDJLqGtATLqV3H2KUJKob5kPMNlSVlXJSwiQRQlYDAeeMAxOyydZMu+Gc/FBvKgtM8TCJeqJlyuqVRpgZiq3M4/MJcbd2IvetjgktdhFVv5oiZeJ4yiLhnP5Fa/zmLLwP44fP0LW2xiW9rUqMCk9kIxBjWBxNd3ICTRld9/417wJskGyDBJKN51NeDzZw/2RJUGsIkQ1cOnQwXwpX2ykVxg9JxyCEnCDiqTcMKmKGuxhYqH5icMu9UaxoX27jWEJZbmggXrrLQrptfg0Looel7XGMbTgRqAGYhz/Hvl8vMgw+YOmFhGxHXoY6QkDf2s7UwClx1BF2edVZxc+DZ50+IamZBnm1fVTumRjX19OWuzJhYEXFbsVXNHNJH171/fJKju5AJymZ54r+RA5aAW1IusrQinVryE95JAMkEs7/vrXH+up/l3UJMEI7osYOEYHWizZJGcc+CPrDqZb37zNAO3lJIrNAc8cvtBczn74Ha/xL3zj8aETcCs+umg8ZITQuVnyC4f4pwx++kaxHLJHxwMQgOUDF9jpkIrn2LQq7MSN9ZVV1Bfo33Pr7G61hVHQD83JrjeJJaDItmjkJ2E5POf09GVrDM+7EgkEHJrhwZTUGGW1uc4GiEzZ1zdL91KBptDt9b6EQ5m+AUh8W1rh2Zx4knoHcb2V3SlpOJaLkd4H0HnnGHnbnya9t9YaIupMLeuzaoIp4YtD+aBzE8hAhAZficXwLs9tQn70WgsD5JpoLE85ztk1nD+BQ==
+  template:
+    metadata:
+      creationTimestamp: null
+      name: github-token
+      namespace: cron-jobs
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: gitback
+  namespace: cron-jobs
+spec:
+  schedule: "0 0 * * *" # Every day at midnight (UTC)
+  timeZone: "America/Los_Angeles"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: gitback
+              env:
+                - name: GITHUB_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: github-token
+                      key: gh-token
+              image: 245339368379.dkr.ecr.us-east-2.amazonaws.com/gitback:latest
+              command: ["./gitback"]
+          restartPolicy: OnFailure # Required for Jobs/CronJobs
