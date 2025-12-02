@@ -174,19 +174,13 @@ export default function DropDownWidget({
     handleSubSelection({ optionName, subOptionIdx });
   };
 
-  const getDisabledListItem = (tooltipOptions, idx, item) => {
-    return (
-      <Tooltip
-        placement="left"
-        key={idx}
-        title={<TooltipText>{tooltipOptions[idx]}</TooltipText>}
-        value={idx}
-      >
-        <div>
-          <ListItem disabled={true}>{item}</ListItem>
-        </div>
-      </Tooltip>
-    );
+  const getTooltipTitle = (msg) => {
+    // MUI Tooltip will display unless an empty string is passed, so can't include TooltipText wrapper in that case
+    // otherwise an empty tooltip will be displayed
+    if (msg) {
+      return <TooltipText>{msg}</TooltipText>;
+    }
+    return "";
   };
 
   return (
@@ -238,11 +232,7 @@ export default function DropDownWidget({
         </MenuItem>
 
         {options.map((item, idx) => {
-          // if parent option item is disabled, just return disabled list item with tooltip
-          if (disableOptions[idx]) {
-            return getDisabledListItem(optionsTooltipText, idx, item);
-          } else if (subOptions[item] && subOptions[item].length > 0) {
-            // if the parent option has sub menu with more options
+          if (subOptions[item] && subOptions[item].length > 0 && !disableOptions[idx]) {
             return (
               <Accordion key={idx} value={idx} onClick={() => setSelected(idx)}>
                 <AccordionTab
@@ -260,43 +250,58 @@ export default function DropDownWidget({
                   {item}
                 </AccordionTab>
                 <AccordionDetails>
-                  {subOptions[item].map((option, idx) => {
-                    // if sub menu item is disabled, return disabled list item with tooltip
-                    if (disableSubOptions[item][idx]) {
-                      return getDisabledListItem(subOptionsTooltipText[item], idx, option);
-                    } else
-                      return (
-                        <ListItem
-                          key={idx}
-                          value={idx}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handleSubChange(item, idx);
-                          }}
-                        >
-                          {option}
-                        </ListItem>
-                      );
+                  {subOptions[item].map((option, subIdx) => {
+                    return (
+                      <Tooltip
+                        placement="left"
+                        key={subIdx}
+                        title={getTooltipTitle(subOptionsTooltipText[item][subIdx])}
+                        value={subIdx}
+                      >
+                        <div>
+                          <ListItem
+                            key={subIdx}
+                            value={subIdx}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleSubChange(item, subIdx);
+                            }}
+                            disabled={disableSubOptions[item][subIdx]}
+                          >
+                            {option}
+                          </ListItem>
+                        </div>
+                      </Tooltip>
+                    );
                   })}
                 </AccordionDetails>
               </Accordion>
             );
           } else {
             return (
-              <ListItem key={idx} value={idx}>
-                <ListText>{item}</ListText>
-                {handleDeletion != null && (
-                  <DeleteButton
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleDeletion(idx);
-                    }}
-                  >
-                    Delete
-                  </DeleteButton>
-                )}
-              </ListItem>
+              <Tooltip
+                placement="left"
+                key={idx}
+                title={getTooltipTitle(optionsTooltipText[idx])}
+                value={idx}
+              >
+                <div>
+                  <ListItem key={idx} value={idx} disabled={disableOptions[idx]}>
+                    <ListText>{item}</ListText>
+                    {handleDeletion != null && (
+                      <DeleteButton
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDeletion(idx);
+                        }}
+                      >
+                        Delete
+                      </DeleteButton>
+                    )}
+                  </ListItem>
+                </div>
+              </Tooltip>
             );
           }
         })}
