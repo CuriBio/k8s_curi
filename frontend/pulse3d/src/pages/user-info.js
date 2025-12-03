@@ -380,11 +380,11 @@ export default function Users() {
             options={dropdownOptions}
             disableOptions={[deleteState, deactivateState, reactivateState, resendState, editState]}
             optionsTooltipText={[
-              "Must make a selection below before action become available.",
-              "Must select a user who is active before action become available.",
-              "Must select a user who is suspended before action become available.",
-              "Must select an unverified user with an expired link.",
-              "Must select a user to edit.",
+              deleteState ? "Must make a selection below before action becomes available." : "",
+              deactivateState ? "Must select an active user." : "",
+              reactivateState ? "Must select an inactive user." : "",
+              resendState ? "Must select an unverified user with an expired link." : "",
+              editState ? "Must select a user to edit." : "",
             ]}
             handleSelection={handleDropdownSelection}
             reset={resetDropdown}
