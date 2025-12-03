@@ -250,7 +250,7 @@ export default function Uploads() {
   const dropdownsubOptionDisabledTooltips = (() => {
     const { selectedUploadsInfo, selectedJobsInfo } = getInfoOfSelections(selectionInfo);
     const selectedUploadCount = selectedUploadsInfo.length;
-    const selectedJobCount = selectedJobsInfo.length;
+    const successfullyCompletedJobCount = selectedJobsInfo.filter((j) => j.status === "finished").length;
 
     let downloadUploadsTooltip = { msg: "", disable: false };
     if (selectedUploadCount === 0) {
@@ -258,8 +258,11 @@ export default function Uploads() {
     }
 
     let downloadAnalysesTooltip = { msg: "", disable: false };
-    if (selectedJobCount === 0) {
-      downloadAnalysesTooltip = { msg: "No analyses selected.", disable: true };
+    if (successfullyCompletedJobCount === 0) {
+      downloadAnalysesTooltip = {
+        msg: "No analyses selected that have successfully completed.",
+        disable: true,
+      };
     } else if (selectedJobsInfo.some((j) => j.status !== "finished")) {
       downloadAnalysesTooltip = {
         msg:
