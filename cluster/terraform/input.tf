@@ -43,3 +43,12 @@ variable "cluster_users" {
     groups   = list(string)
   }))
 }
+
+variable "existing_vpc" {
+  description = "Optional: info of an existing VPC to use. If not provided, a new VPC will be created."
+  type        = object({
+    vpc_id = string
+    private_subnet_ids = list(string)
+  })
+  default     = null
+}

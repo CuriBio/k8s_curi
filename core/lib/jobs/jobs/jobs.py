@@ -52,12 +52,15 @@ def get_item(*, queue):
                 meta = json.loads(item["meta"])
                 meta.update(new_meta)
 
+                recording_length_s = meta.pop("recording_length_seconds", None)
+
                 data = {
                     "status": status,
                     "runtime": runtime,
                     "finished_at": datetime.now(),
                     "meta": json.dumps(meta),
                     "object_key": object_key,
+                    "recording_length_seconds": recording_length_s,
                 }
                 set_clause = ", ".join(f"{key} = ${i}" for i, key in enumerate(data, 1))
                 await con.execute(
@@ -518,7 +521,7 @@ def _add_job_sorting_filtering_conds(query, query_params, sort_field, sort_direc
                 new_cond = (
                     f"LOWER(reverse(split_part(reverse(j.object_key), '/', 1))) LIKE LOWER({placeholder})"
                 )
-                filter_value = f"{filter_value}%"
+                filter_value = f"%{filter_value}%"
             case "include_prerelease_versions":
                 if filter_value:
                     # if including prerelease versions, no need to add a filter

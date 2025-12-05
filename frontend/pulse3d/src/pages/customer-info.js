@@ -241,9 +241,9 @@ export default function Customers() {
             options={dropdownOptions}
             disableOptions={[deactivateState, reactivateState, editState]}
             optionsTooltipText={[
-              "Must select a customer who is active before action become available.",
-              "Must select a customer who is inactive before action become available.",
-              "Must select an active customer to edit.",
+              deactivateState ? "Must select an active customer." : "",
+              reactivateState ? "Must select an inactive customer." : "",
+              editState ? "Must select an active customer." : "",
             ]}
             handleSelection={handleDropdownSelection}
             reset={resetDropdown}

@@ -96,12 +96,12 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let gh_org = std::env::var("GH_ORG").unwrap_or("curibio".to_string());
 
-    let bucket = std::env::var("S3_BUCKET").unwrap_or("curibio-backup".to_string());
-    let prefix = std::env::var("S3_PREFIX").unwrap_or("github".to_string());
-    let upload_path = format!("s3://{bucket}/{prefix}");
-
     let datetime = Utc::now().format("%Y-%m-%d").to_string();
     let zst_file = format!("repos_{}.zst", datetime);
+
+    let bucket = std::env::var("S3_BUCKET").unwrap_or("curibio-backup".to_string());
+    let prefix = std::env::var("S3_PREFIX").unwrap_or("github".to_string());
+    let upload_path = format!("s3://{bucket}/{prefix}/{zst_file}");
 
     tracing::info!("Starting backup for org {gh_org}, uploading {zst_file} to {upload_path}");
 

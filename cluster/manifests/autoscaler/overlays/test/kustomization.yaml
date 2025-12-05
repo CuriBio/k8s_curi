@@ -17,7 +17,7 @@ patches:
   - patch: |-
       - op: add
         path: /spec/template/spec/containers/0/command/9
-        value: --node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/test-v2
+        value: --node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/test-v2-new
     target:
       kind: Deployment
       name: cluster-autoscaler

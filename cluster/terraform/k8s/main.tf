@@ -276,7 +276,7 @@ module "eks" {
   source          = "terraform-aws-modules/eks/aws"
   version         = "19.15.3"
   cluster_name    = var.cluster_name
-  cluster_version = "1.32"
+  cluster_version = "1.33"
   subnet_ids      = var.private_subnets
 
   tags   = var.cluster_tags
@@ -293,6 +293,18 @@ module "eks" {
     tags = {
       "k8s.io/cluster-autoscaler/${var.cluster_name}" = "owned"
       "k8s.io/cluster-autoscaler/enabled"             = "True"
+    }
+  }
+
+  node_security_group_additional_rules = {
+    ingress_sealed_secrets = {
+      description = "Allow inbound traffic to sealed-secrets controller"
+      type        = "ingress"
+      protocol    = "tcp"
+      from_port   = 8080
+      to_port     = 8080
+      # This sources the traffic from the EKS cluster's control plane security group
+      source_cluster_security_group = true
     }
   }
 
@@ -317,12 +329,20 @@ module "irsa-ebs-csi" {
 resource "aws_eks_addon" "ebs-csi" {
   cluster_name             = module.eks.cluster_name
   addon_name               = "aws-ebs-csi-driver"
-  addon_version            = "v1.20.0-eksbuild.1"
+  addon_version            = "v1.51.0-eksbuild.1"
   service_account_role_arn = module.irsa-ebs-csi.iam_role_arn
   tags = {
     "eks_addon" = "ebs-csi"
     "terraform" = "true"
   }
+}
+
+resource "aws_eks_addon" "kube_proxy" {
+  cluster_name = module.eks.cluster_name
+  addon_name   = "kube-proxy"
+  addon_version = "v1.33.5-eksbuild.2"
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
 }
 
 # Kubernetes provider

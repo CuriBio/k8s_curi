@@ -301,6 +301,7 @@ function NoiseBasedPeakFindingAdvAnalysisParams({
   checkedParams,
   updateParams,
   errorMessages,
+  productPage,
 }) {
   return (
     <>
@@ -380,9 +381,24 @@ function NoiseBasedPeakFindingAdvAnalysisParams({
         </TwoInputErrorContainer>
       </TwoParamContainer>
       <AnalysisParamContainer
-        label="Min Peak Height (µN)"
+        label={(() => {
+          let units;
+          if (productPage === "mantarray") {
+            units = "µN";
+          } else {
+            // nautilai
+            if (analysisParams.dataType === "Calcium" || analysisParams.dataType === "Voltage") {
+              units = "AU";
+            } else if (analysisParams.dataType === "Force") {
+              units = "µN";
+            } else {
+              units = "µN or AU";
+            }
+          }
+          return `Min Peak Height (${units})`;
+        })()}
         name="minPeakHeight"
-        tooltipText="Specifies the minimum required height of peaks."
+        tooltipText="Specifies the minimum required height of peaks on the normalized waveform."
         additionaErrorStyle={{ width: "150%" }}
         placeholder={checkedParams ? "0" : ""}
         value={analysisParams.minPeakHeight}
@@ -963,7 +979,7 @@ export default function AnalysisParamForm({
           <AnalysisParamContainer
             label="Disable Detrending"
             name="detrend"
-            tooltipText="When selected, disables detrending"
+            tooltipText="When selected, disables detrending: an operation in which a linear fit is applied to the baseline and then subtracted to remove baseline drift."
           >
             <InputErrorContainer>
               <CheckboxWidget
@@ -1032,9 +1048,12 @@ export default function AnalysisParamForm({
           />
         )}
         <AnalysisParamContainer
-          label="Twitch Widths (%)"
+          label={productPage === "mantarray" ? "Twitch Widths (%)" : "Peak Widths (%)"}
           name="twitchWidths"
-          tooltipText="Specifies the twitch width percentages to use for metrics that can be calculated at multiple points on the twitch."
+          tooltipText={(() => {
+            const twitchName = productPage === "mantarray" ? "twitch" : "peak";
+            return `Specifies the ${twitchName} width percentages to use for metrics that can be calculated at multiple points on the ${twitchName}.`;
+          })()}
           placeholder={checkedParams ? "10, 50, 90" : ""}
           value={analysisParams.twitchWidths}
           changeFn={(e) => {
@@ -1248,6 +1267,7 @@ export default function AnalysisParamForm({
               checkedParams={checkedParams}
               updateParams={updateParams}
               errorMessages={errorMessages}
+              productPage={productPage}
             />
           </NoiseBasedAdvAnalysisContainer>
         ) : (

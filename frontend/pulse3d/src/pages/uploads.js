@@ -87,7 +87,7 @@ const modalObjs = {
   },
 };
 
-const NO_MULTI_SELECTION_MSG = "No recording uploads or analyses selected.";
+const NO_SELECTION_MSG = "No recording uploads or analyses selected.";
 const LIMIT_REACHED_MSG = "Disabled because analysis limit has been reached.";
 
 const METADATA_KEYS_TO_DISPLAY = [
@@ -208,37 +208,40 @@ export default function Uploads() {
     const selectedUploadCount = selectedUploadsInfo.length;
     const selectedJobCount = selectedJobsInfo.length;
 
-    let downloadTooltip = "";
+    let downloadTooltip = { msg: "", disable: false };
     if (selectedUploadCount === 0 && selectedJobCount === 0) {
-      downloadTooltip = NO_MULTI_SELECTION_MSG;
+      downloadTooltip = { msg: NO_SELECTION_MSG, disable: true };
     }
 
-    let deleteTooltip = "";
+    let deleteTooltip = { msg: "", disable: false };
     if (selectedUploadCount === 0 && selectedJobCount === 0) {
-      deleteTooltip = NO_MULTI_SELECTION_MSG;
+      deleteTooltip = { msg: NO_SELECTION_MSG, disable: true };
     } else if (
       selectedUploadsInfo.some((u) => accountId !== u.user_id.replace(/-/g, "")) ||
       selectedJobsInfo.some((j) => !j.owner)
     ) {
-      deleteTooltip = "Selection includes items owned by another user.";
+      deleteTooltip = { msg: "Selection includes items owned by another user.", disable: true };
     } else if (selectedJobsInfo.some((j) => ["pending", "running"].includes(j.status))) {
-      deleteTooltip = "Selection includes analyses that are still pending or running.";
+      deleteTooltip = {
+        msg: "Selection includes analyses that are still pending or running.",
+        disable: true,
+      };
     }
 
-    let iaTooltip = "";
+    let iaTooltip = { msg: "", disable: false };
     if (usageQuota?.jobs_reached) {
-      iaTooltip = LIMIT_REACHED_MSG;
+      iaTooltip = { msg: LIMIT_REACHED_MSG, disable: true };
     } else if (selectedJobCount !== 1) {
-      iaTooltip = "Must select exactly one analysis.";
+      iaTooltip = { msg: "Must select exactly one analysis.", disable: true };
     } else if (selectedJobsInfo[0].status !== "finished") {
-      iaTooltip = "Selected analysis must have completed successfully.";
+      iaTooltip = { msg: "Selected analysis must have completed successfully.", disable: true };
     }
 
-    let reanalyzeTooltip = "";
+    let reanalyzeTooltip = { msg: "", disable: false };
     if (usageQuota?.jobs_reached) {
-      reanalyzeTooltip = LIMIT_REACHED_MSG;
+      reanalyzeTooltip = { msg: LIMIT_REACHED_MSG, disable: true };
     } else if (selectedUploadCount === 0) {
-      reanalyzeTooltip = "No recording uploads selected.";
+      reanalyzeTooltip = { msg: "No recording uploads selected.", disable: true };
     }
 
     return [downloadTooltip, deleteTooltip, iaTooltip, reanalyzeTooltip];
@@ -247,18 +250,25 @@ export default function Uploads() {
   const dropdownsubOptionDisabledTooltips = (() => {
     const { selectedUploadsInfo, selectedJobsInfo } = getInfoOfSelections(selectionInfo);
     const selectedUploadCount = selectedUploadsInfo.length;
-    const selectedJobCount = selectedJobsInfo.length;
+    const successfullyCompletedJobCount = selectedJobsInfo.filter((j) => j.status === "finished").length;
 
-    let downloadUploadsTooltip = "";
+    let downloadUploadsTooltip = { msg: "", disable: false };
     if (selectedUploadCount === 0) {
-      downloadUploadsTooltip = "No recording uploads selected.";
+      downloadUploadsTooltip = { msg: "No recording uploads selected.", disable: true };
     }
 
-    let downloadAnalysesTooltip = "";
-    if (selectedJobCount === 0) {
-      downloadAnalysesTooltip = "No analyses selected.";
+    let downloadAnalysesTooltip = { msg: "", disable: false };
+    if (successfullyCompletedJobCount === 0) {
+      downloadAnalysesTooltip = {
+        msg: "No analyses selected that have successfully completed.",
+        disable: true,
+      };
     } else if (selectedJobsInfo.some((j) => j.status !== "finished")) {
-      downloadAnalysesTooltip = "Selection includes analyses that have not completed successfully.";
+      downloadAnalysesTooltip = {
+        msg:
+          "Selection includes analyses that have not completed successfully which will be omitted from the download.",
+        disable: false,
+      };
     }
 
     return { Download: [downloadAnalysesTooltip, downloadUploadsTooltip] };
@@ -885,15 +895,21 @@ export default function Uploads() {
             subOptions={{
               Download: ["Download Analyses", "Download Raw Data"],
             }}
-            disableOptions={dropdownDisabledTooltips.map((msg) => msg !== "")}
-            optionsTooltipText={dropdownDisabledTooltips}
+            disableOptions={dropdownDisabledTooltips.map(({ disable }) => disable)}
+            optionsTooltipText={dropdownDisabledTooltips.map(({ msg }) => msg)}
             handleSelection={handleDropdownSelection}
             handleSubSelection={handleDownloadSubSelection}
             reset={resetDropdown}
             disableSubOptions={{
-              Download: dropdownsubOptionDisabledTooltips.Download.map((msg) => msg !== ""),
+              Download: dropdownsubOptionDisabledTooltips.Download.map(({ disable }) => disable),
             }}
-            subOptionsTooltipText={dropdownsubOptionDisabledTooltips}
+            subOptionsTooltipText={(() => {
+              const toolTips = {};
+              Object.entries(dropdownsubOptionDisabledTooltips).map(([btnName, subOptions]) => {
+                toolTips[btnName] = subOptions.map(({ msg }) => msg);
+              });
+              return toolTips;
+            })()}
             setReset={setResetDropdown}
           />
         </DropDownContainer>
