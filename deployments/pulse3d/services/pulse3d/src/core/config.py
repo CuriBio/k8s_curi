@@ -24,6 +24,7 @@ CURIBIO_SUPPORT_EMAIL = config("CURIBIO_SUPPORT_EMAIL", cast=str)
 
 PULSE3D_UPLOADS_BUCKET = config("UPLOADS_BUCKET_ENV", cast=str, default="test-pulse3d-uploads")
 MANTARRAY_LOGS_BUCKET = config("MANTARRAY_LOGS_BUCKET_ENV", cast=str, default="test-mantarray-logs")
+PRIVATE_DOWNLOADS_BUCKET = config("PRIVATE_DOWNLOADS_BUCKET_ENV", cast=str)
 
 DATABASE_URL = config(
     "DATABASE_URL",

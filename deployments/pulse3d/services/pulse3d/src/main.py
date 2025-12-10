@@ -86,6 +86,7 @@ from core.config import (
     DATABASE_URL,
     MANTARRAY_LOGS_BUCKET,
     PULSE3D_UPLOADS_BUCKET,
+    PRIVATE_DOWNLOADS_BUCKET,
 )
 from models.models import (
     GenericErrorResponse,
@@ -95,6 +96,7 @@ from models.models import (
     JobResponse,
     NotificationMessageResponse,
     NotificationResponse,
+    PresignedDownloadUrlResponse,
     SaveNotificationRequest,
     SaveNotificationResponse,
     SavePresetRequest,
@@ -1242,6 +1244,19 @@ async def save_notification(
         return response
     except Exception:
         logger.exception("Failed to save notification")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.get("downloads/{key:path}", response_model=PresignedDownloadUrlResponse)
+async def get_object_download(key: str, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))):
+    """Get presigned download URL for a p3d related file"""
+    try:
+        return PresignedDownloadUrlResponse(
+            filename=key.split("/")[-1],
+            url=generate_presigned_url(PRIVATE_DOWNLOADS_BUCKET, f"pulse3d/{key}"),
+        )
+    except Exception:
+        logger.exception(f"Failed to get presigned download url for object 'pulse3d/{key}'")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
