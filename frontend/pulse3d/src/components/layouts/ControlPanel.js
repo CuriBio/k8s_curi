@@ -169,6 +169,14 @@ const getUserButtons = (productPage, usageQuota) => {
   }
 };
 
+const downloadPeakDetectionManual = () => {
+  try {
+    // TODO
+  } catch (e) {
+    console.log("ERROR downloading peak detection manual");
+  }
+};
+
 export default function ControlPanel() {
   const router = useRouter();
   const { accountType, usageQuota, accountScope, isCuriAdmin, preferences, productPage } = useContext(
@@ -220,6 +228,12 @@ export default function ControlPanel() {
       label: "Production Console",
       page: "/production-console",
       options: [],
+    });
+  }
+  if (productPage === "mantarray") {
+    panelButtons.push({
+      label: "Peak Detection Manual",
+      action: downloadPeakDetectionManual,
     });
   }
 
@@ -325,7 +339,7 @@ export default function ControlPanel() {
   return (
     <>
       <Container>
-        {panelButtons.map(({ disabled, label, page, options }, idx) => {
+        {panelButtons.map(({ disabled, label, action, page, options }, idx) => {
           const handleListClick = (e) => {
             e.preventDefault();
             router.push({ pathname: page, query: { id: e.target.id.toLowerCase() } });
@@ -333,8 +347,13 @@ export default function ControlPanel() {
 
           const handleSelected = (e) => {
             e.preventDefault();
-            setSelected(label);
 
+            if (action) {
+              action();
+              return;
+            }
+
+            setSelected(label);
             if (options.length === 0) {
               router.push(page);
               setExpanded(null);
