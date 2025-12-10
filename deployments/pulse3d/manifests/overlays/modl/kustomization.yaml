@@ -26,6 +26,9 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/env/8/value
         value: modl-mantarray-logs
+      - op: replace
+        path: /spec/template/spec/containers/0/env/9/value
+        value: curi-modl-private-downloads
       - op: add
         path: /spec/template/spec/containers/0/env/0
         value:
