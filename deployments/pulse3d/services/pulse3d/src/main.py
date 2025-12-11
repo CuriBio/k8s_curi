@@ -1247,7 +1247,7 @@ async def save_notification(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@app.get("downloads/{key:path}", response_model=PresignedDownloadUrlResponse)
+@app.get("/downloads/{key:path}", response_model=PresignedDownloadUrlResponse)
 async def get_object_download(key: str, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))):
     """Get presigned download URL for a p3d related file"""
     try:

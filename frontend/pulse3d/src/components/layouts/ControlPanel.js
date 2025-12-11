@@ -169,11 +169,27 @@ const getUserButtons = (productPage, usageQuota) => {
   }
 };
 
-const downloadPeakDetectionManual = () => {
+const downloadPeakDetectionManual = async () => {
   try {
-    // TODO
+    const getDownloadUrlRes = await fetch(
+      `${process.env.NEXT_PUBLIC_PULSE3D_URL}/downloads/CuriBioPulse-MantarrayP3DManual.pdf`
+    );
+    const body = await getDownloadUrlRes.json();
+    const presignedUrl = body.url;
+    const downloadName = body.filename;
+
+    const getFileRes = await fetch(presignedUrl);
+    const file = await getFileRes.blob();
+    const downloadUrl = window.URL.createObjectURL(file);
+
+    const a = document.createElement("a");
+    document.body.appendChild(a);
+    a.setAttribute("href", downloadUrl);
+    a.setAttribute("download", downloadName);
+    a.click();
+    a.remove();
   } catch (e) {
-    console.log("ERROR downloading peak detection manual");
+    console.error("ERROR downloading peak detection manual", e);
   }
 };
 
@@ -234,6 +250,7 @@ export default function ControlPanel() {
     panelButtons.push({
       label: "Peak Detection Manual",
       action: downloadPeakDetectionManual,
+      options: [],
     });
   }
 
