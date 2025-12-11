@@ -11,6 +11,7 @@ import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import { styled as muiStyled } from "@mui/material/styles";
 import VersionWidget from "@/components/basicWidgets/VersionWidget";
 import { UploadsContext } from "@/pages/_app";
+import { downloadPeakDetectionManual } from "@/utils/generic";
 
 const Container = styled.div`
   height: inherit;
@@ -166,30 +167,6 @@ const getUserButtons = (productPage, usageQuota) => {
     ];
   } else {
     return [];
-  }
-};
-
-const downloadPeakDetectionManual = async () => {
-  try {
-    const getDownloadUrlRes = await fetch(
-      `${process.env.NEXT_PUBLIC_PULSE3D_URL}/downloads/CuriBioPulse-MantarrayP3DManual.pdf`
-    );
-    const body = await getDownloadUrlRes.json();
-    const presignedUrl = body.url;
-    const downloadName = body.filename;
-
-    const getFileRes = await fetch(presignedUrl);
-    const file = await getFileRes.blob();
-    const downloadUrl = window.URL.createObjectURL(file);
-
-    const a = document.createElement("a");
-    document.body.appendChild(a);
-    a.setAttribute("href", downloadUrl);
-    a.setAttribute("download", downloadName);
-    a.click();
-    a.remove();
-  } catch (e) {
-    console.error("ERROR downloading peak detection manual", e);
   }
 };
 
