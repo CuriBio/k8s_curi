@@ -483,7 +483,11 @@ export default function Uploads() {
                 </ul>
               </TooltipText>
             );
-            return <NoMaxWidthTooltip title={title}>View</NoMaxWidthTooltip>;
+            return (
+              <NoMaxWidthTooltip title={title}>
+                <div>View</div>
+              </NoMaxWidthTooltip>
+            );
           }
         },
       },
