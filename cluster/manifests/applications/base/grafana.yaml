@@ -71,6 +71,16 @@ spec:
       prune: true
       selfHeal: true
 ---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: grafana-storage-class
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  type: gp2
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -81,3 +91,4 @@ spec:
   resources:
     requests:
       storage: 1Gi
+  storageClassName: grafana-storage-class

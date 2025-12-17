@@ -137,7 +137,12 @@ export default function Login() {
           } else {
             let errToDisplay = "*Internal error. Please try again later.";
 
-            if (res.status === 401) {
+            if (res.status === 0) {
+              // This will happen if the service worker does not intercept the request.
+              // The status will be 0 because of no-cors mode
+              errToDisplay =
+                "Webpage was not fully loaded. Please refresh the page and try logging in again.";
+            } else if (res.status === 401) {
               const errMsg = await res.json();
               errToDisplay = `*${errMsg.detail}`;
 

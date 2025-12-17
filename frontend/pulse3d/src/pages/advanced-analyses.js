@@ -332,20 +332,20 @@ export default function AdvancedAnalyses() {
   };
 
   const actionsFn = (t) => {
+    const disableOptions = [
+      selectedJobs.length === 0 || selectedJobs.some((j) => j.status !== "finished"),
+      selectedJobs.length === 0 || selectedJobs.some((j) => ["pending", "running"].includes(j.status)),
+    ];
     return (
       <Box sx={{ width: "100%", position: "relative", display: "flex", justifyContent: "end" }}>
         <DropDownContainer>
           <DropDownWidget
             label="Actions"
             options={["Download", "Delete"]}
-            disableOptions={[
-              selectedJobs.length === 0 || selectedJobs.some((j) => j.status !== "finished"),
-              selectedJobs.length === 0 ||
-                selectedJobs.some((j) => ["pending", "running"].includes(j.status)),
-            ]}
+            disableOptions={disableOptions}
             optionsTooltipText={[
-              "Must make a selection of only successfully completed jobs.",
-              "Must make a selection of only completed jobs.",
+              disableOptions[0] ? "Must make a selection of only successfully completed jobs." : "",
+              disableOptions[1] ? "Must make a selection of only completed jobs." : "",
             ]}
             handleSelection={handleActionSelection}
             reset={selectedJobs.length === 0}

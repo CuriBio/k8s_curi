@@ -39,6 +39,7 @@ resource "aws_rds_cluster_parameter_group" "cluster_parameter_group" {
 
 module "db" {
   source = "terraform-aws-modules/rds-aurora/aws"
+  version = "~> 9.16"
 
   name           = var.name
   engine         = "aurora-postgresql"
@@ -54,11 +55,11 @@ module "db" {
   db_subnet_group_name   = var.name
   create_db_subnet_group = true
 
-  subnets                = data.terraform_remote_state.cluster.outputs.cluster_vpc.private_subnets
-  vpc_id                 = data.terraform_remote_state.cluster.outputs.cluster_vpc.vpc_id
+  subnets                = var.cluster_vpc.private_subnet_ids
+  vpc_id                 = var.cluster_vpc.vpc_id
   vpc_security_group_ids = [data.terraform_remote_state.cluster.outputs.sg_worker_group_mgmt_one.id]
   create_security_group  = false
-  availability_zones        = data.terraform_remote_state.cluster.outputs.cluster_vpc.azs
+  availability_zones        = var.cluster_vpc.azs
 
   apply_immediately   = true
   skip_final_snapshot = true

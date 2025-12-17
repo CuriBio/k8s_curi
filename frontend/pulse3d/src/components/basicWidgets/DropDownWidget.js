@@ -174,19 +174,23 @@ export default function DropDownWidget({
     handleSubSelection({ optionName, subOptionIdx });
   };
 
-  const getDisabledListItem = (tooltipOptions, idx, item) => {
-    return (
-      <Tooltip
-        placement="left"
-        key={idx}
-        title={<TooltipText>{tooltipOptions[idx]}</TooltipText>}
-        value={idx}
-      >
-        <div>
-          <ListItem disabled={true}>{item}</ListItem>
-        </div>
-      </Tooltip>
-    );
+  // MUI Tooltip will display unless an empty string is passed, so can't include TooltipText wrapper in that case
+  // otherwise an empty tooltip will be displayed
+  const getTooltipTitle = (msg) => {
+    if (msg) {
+      return <TooltipText>{msg}</TooltipText>;
+    }
+    return "";
+  };
+
+  // MUI Tooltip will not be displayed for a disabled MenuItem (which our ListItem is wrapping), so need
+  // to do this hacky workaround of wrapping in a div for it to show when the MenuItem is disabled. The div
+  // cannot be present when the MenuItem is not disabled, otherwise clicking it will have no effect
+  const handleDisablingListItem = (listItem, disabled) => {
+    if (disabled) {
+      return <div>{listItem}</div>;
+    }
+    return listItem;
   };
 
   return (
@@ -238,11 +242,7 @@ export default function DropDownWidget({
         </MenuItem>
 
         {options.map((item, idx) => {
-          // if parent option item is disabled, just return disabled list item with tooltip
-          if (disableOptions[idx]) {
-            return getDisabledListItem(optionsTooltipText, idx, item);
-          } else if (subOptions[item] && subOptions[item].length > 0) {
-            // if the parent option has sub menu with more options
+          if (subOptions[item] && subOptions[item].length > 0 && !disableOptions[idx]) {
             return (
               <Accordion key={idx} value={idx} onClick={() => setSelected(idx)}>
                 <AccordionTab
@@ -260,43 +260,62 @@ export default function DropDownWidget({
                   {item}
                 </AccordionTab>
                 <AccordionDetails>
-                  {subOptions[item].map((option, idx) => {
-                    // if sub menu item is disabled, return disabled list item with tooltip
-                    if (disableSubOptions[item][idx]) {
-                      return getDisabledListItem(subOptionsTooltipText[item], idx, option);
-                    } else
-                      return (
-                        <ListItem
-                          key={idx}
-                          value={idx}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handleSubChange(item, idx);
-                          }}
-                        >
-                          {option}
-                        </ListItem>
-                      );
+                  {subOptions[item].map((option, subIdx) => {
+                    const disabled = disableSubOptions[item][subIdx];
+                    return (
+                      <Tooltip
+                        placement="left"
+                        key={subIdx}
+                        title={getTooltipTitle(subOptionsTooltipText?.[item]?.[subIdx])}
+                        value={subIdx}
+                      >
+                        {handleDisablingListItem(
+                          <ListItem
+                            key={subIdx}
+                            value={subIdx}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleSubChange(item, subIdx);
+                            }}
+                            disabled={disabled}
+                          >
+                            {option}
+                          </ListItem>,
+                          disabled
+                        )}
+                      </Tooltip>
+                    );
                   })}
                 </AccordionDetails>
               </Accordion>
             );
           } else {
+            const disabled = disableOptions[idx];
             return (
-              <ListItem key={idx} value={idx}>
-                <ListText>{item}</ListText>
-                {handleDeletion != null && (
-                  <DeleteButton
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleDeletion(idx);
-                    }}
-                  >
-                    Delete
-                  </DeleteButton>
+              <Tooltip
+                placement="left"
+                key={idx}
+                title={getTooltipTitle(optionsTooltipText?.[idx])}
+                value={idx}
+              >
+                {handleDisablingListItem(
+                  <ListItem key={idx} value={idx} disabled={disabled}>
+                    <ListText>{item}</ListText>
+                    {handleDeletion != null && (
+                      <DeleteButton
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDeletion(idx);
+                        }}
+                      >
+                        Delete
+                      </DeleteButton>
+                    )}
+                  </ListItem>,
+                  disabled
                 )}
-              </ListItem>
+              </Tooltip>
             );
           }
         })}

@@ -630,7 +630,9 @@ function InputSelectionTable({ formattedJobSelection, removeInputsFromSelection 
             options={["Remove", "Assign/Override Platemap"]}
             disableOptions={[checkedJobIds.length === 0, true]}
             optionsTooltipText={[
-              "Must make a selection below before actions become available.",
+              checkedJobIds.length === 0
+                ? "Must make a selection below before actions become available."
+                : "",
               "Coming Soon.",
             ]}
             handleSelection={handleActionSelection}

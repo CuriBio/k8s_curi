@@ -25,9 +25,15 @@ provider "aws" {
 data "aws_availability_zones" "available" {}
 
 #####################################################################
+locals {
+  create_new_vpc = var.existing_vpc == null
+}
+
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "5.0.0"
+
+  count = local.create_new_vpc ? 1 : 0
 
   name                 = "${var.cluster_env}-vpc"
   cidr                 = var.vpc_cidr
@@ -54,10 +60,44 @@ module "vpc" {
 }
 
 
+moved {
+  from = module.vpc
+  to = module.vpc[0]
+}
+
+data "aws_vpc" "selected_vpc" {
+  count = local.create_new_vpc ? 0 : 1
+  id = var.existing_vpc.vpc_id
+}
+
+data "aws_subnet" "private_subnet_0" {
+  count = local.create_new_vpc ? 0 : 1
+  id = var.existing_vpc.private_subnet_ids[0]
+}
+data "aws_subnet" "private_subnet_1" {
+  count = local.create_new_vpc ? 0 : 1
+  id = var.existing_vpc.private_subnet_ids[1]
+}
+data "aws_subnet" "private_subnet_2" {
+  count = local.create_new_vpc ? 0 : 1
+  id = var.existing_vpc.private_subnet_ids[2]
+}
+
+locals {
+  vpc = local.create_new_vpc ? module.vpc[0] : data.aws_vpc.selected_vpc[0]
+  vpc_id = local.create_new_vpc ? module.vpc[0].vpc_id : data.aws_vpc.selected_vpc[0].id
+  vpc_private_subnets = local.create_new_vpc ? module.vpc[0].private_subnets : [
+    data.aws_subnet.private_subnet_0[0].id,
+    data.aws_subnet.private_subnet_1[0].id,
+    data.aws_subnet.private_subnet_2[0].id,
+  ]
+}
+
+
 #####################################################################
 resource "aws_security_group" "worker_group_mgmt_one" {
   name_prefix = "worker_group_mgmt_one"
-  vpc_id      = module.vpc.vpc_id
+  vpc_id      = local.vpc_id
 
   ingress {
     from_port = 22
@@ -83,7 +123,7 @@ resource "aws_security_group" "worker_group_mgmt_one" {
 
 resource "aws_security_group" "all_worker_mgmt" {
   name_prefix = "all_worker_management"
-  vpc_id      = module.vpc.vpc_id
+  vpc_id      = local.vpc_id
 
   ingress {
     from_port = 22
@@ -109,8 +149,8 @@ module "eks_cluster_v2" {
   cluster_tags     = var.cluster_tags
   cluster_users    = var.cluster_users
   cluster_accounts = var.cluster_accounts
-  private_subnets  = module.vpc.private_subnets
-  vpc_id           = module.vpc.vpc_id
+  private_subnets  = local.vpc_private_subnets
+  vpc_id           = local.vpc_id
   node_groups = {
     services = {
       desired_size = 1
@@ -119,7 +159,7 @@ module "eks_cluster_v2" {
 
       ami_type = "AL2023_x86_64_STANDARD"
       instance_types = ["t3a.medium"]
-      subnet_ids     = [module.vpc.private_subnets[0], module.vpc.private_subnets[1]]
+      subnet_ids     = [local.vpc_private_subnets[0], local.vpc_private_subnets[1]]
 
       labels = {
         group = "services"
@@ -148,7 +188,7 @@ module "eks_cluster_v2" {
 
       ami_type = "AL2023_x86_64_STANDARD"
       instance_types = ["c6a.xlarge"]
-      subnet_ids     = [module.vpc.private_subnets[0], module.vpc.private_subnets[1]]
+      subnet_ids     = [local.vpc_private_subnets[0], local.vpc_private_subnets[1]]
 
       labels = {
         group = "workers"
@@ -176,7 +216,7 @@ module "eks_cluster_v2" {
 
       ami_type = "AL2023_x86_64_STANDARD"
       instance_types = ["t3a.medium"]
-      subnet_ids     = [module.vpc.private_subnets[2]]
+      subnet_ids     = [local.vpc_private_subnets[2]]
 
       labels = {
         group = "argo"

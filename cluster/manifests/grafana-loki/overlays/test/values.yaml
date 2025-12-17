@@ -19,9 +19,13 @@ loki:
       enforce_metric_name: false
       reject_old_samples: true
       reject_old_samples_max_age: 168h
+      retention_period: 720h
     compactor:
       working_directory: /data/loki/boltdb-shipper-compactor
       shared_store: s3
+      retention_enabled: true
+      retention_delete_delay: 2h
+      retention_delete_worker_count: 150
     schema_config:
       configs:
         - from: 2020-11-13
@@ -36,7 +40,7 @@ loki:
     storage_config:
       aws:
         s3forcepathstyle: false
-        bucketnames: test-v2-loki-logs
+        bucketnames: test-v2-new-loki-logs
         region: us-east-2
       boltdb_shipper:
         active_index_directory: /data/loki/index

@@ -8,7 +8,7 @@ patches:
 - patch: |-
     - op: replace
       path: /spec/template/spec/containers/0/args/0
-      value: "--cluster-name=test-v2"
+      value: "--cluster-name=test-v2-new"
   target:
     group: apps
     kind: Deployment
