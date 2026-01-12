@@ -11,6 +11,7 @@ import ModalWidget from "@/components/basicWidgets/ModalWidget";
 import { styled as muiStyled } from "@mui/material/styles";
 import VersionWidget from "@/components/basicWidgets/VersionWidget";
 import { UploadsContext } from "@/pages/_app";
+import { downloadPeakDetectionManual } from "@/utils/generic";
 
 const Container = styled.div`
   height: inherit;
@@ -222,6 +223,13 @@ export default function ControlPanel() {
       options: [],
     });
   }
+  if (productPage === "mantarray") {
+    panelButtons.push({
+      label: "Peak Detection Manual",
+      action: downloadPeakDetectionManual,
+      options: [],
+    });
+  }
 
   if (isCuriAdmin) {
     // if the curi admin acccount is logged in, allow them to add new admins
@@ -325,7 +333,7 @@ export default function ControlPanel() {
   return (
     <>
       <Container>
-        {panelButtons.map(({ disabled, label, page, options }, idx) => {
+        {panelButtons.map(({ disabled, label, action, page, options }, idx) => {
           const handleListClick = (e) => {
             e.preventDefault();
             router.push({ pathname: page, query: { id: e.target.id.toLowerCase() } });
@@ -333,8 +341,13 @@ export default function ControlPanel() {
 
           const handleSelected = (e) => {
             e.preventDefault();
-            setSelected(label);
 
+            if (action) {
+              action();
+              return;
+            }
+
+            setSelected(label);
             if (options.length === 0) {
               router.push(page);
               setExpanded(null);
