@@ -56,7 +56,7 @@ spec:
                   password: $GRAFANA_PASS_RO
                 jsonData:
                   database: curibio
-                  sslmode: 'disable' # disable/require/verify-ca/verify-full
+                  sslmode: 'require' # disable/require/verify-ca/verify-full
                   maxOpenConns: 100 # Grafana v5.4+
                   maxIdleConns: 100 # Grafana v5.4+
                   maxIdleConnsAuto: true # Grafana v9.5.1+
