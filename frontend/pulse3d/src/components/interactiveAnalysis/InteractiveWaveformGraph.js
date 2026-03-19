@@ -189,6 +189,18 @@ const NoFeaturesAlert = styled.div`
   color: red;
 `;
 
+const getNewWindowBound = (newVal, boundLimit) => {
+  // Tanner (3/19/26): if close enough to boundary of the recording, assume the user wants to use that value
+  // otherwise, round to 2 decimal places. The rounding appears to be more for aesthetics purposes (2 decimal
+  // places is nicer to look at than 10) and not strictly necessary. If bounds are never changed, they are not
+  // rounded, so this is an attempt to remain consistent with that in the case that a user moves the start or
+  // stop time and then moves it back
+  if (Math.abs(newVal - boundLimit) < 0.001) {
+    return boundLimit;
+  }
+  return parseFloat(newVal.toFixed(2));
+};
+
 export default function WaveformGraph({
   timepointRange,
   waveformData,
@@ -437,8 +449,8 @@ export default function WaveformGraph({
             const endPosition = startPosition + timeWidth;
             // save new window analysis times to state on end so that it only updates changelog on drop
             customAnalysisSettingsUpdaters.setWindowBounds({
-              start: parseFloat(x.invert(startPosition).toFixed(2)),
-              end: parseFloat(x.invert(endPosition).toFixed(2)),
+              start: getNewWindowBound(x.invert(startPosition), xMin),
+              end: getNewWindowBound(x.invert(endPosition), xMax),
             });
             d3.select(this).attr("opacity", 0.2).attr("cursor", "default");
           })
@@ -826,8 +838,9 @@ export default function WaveformGraph({
         // fix to two decimal places, otherwise GET /jobs/waveform-data will error
         const boundName = d3.select(this).attr("id") === "startTime" ? "start" : "end";
         const xPosition = d3.select(this).attr("x1");
-        const newTimeSec = parseFloat(x.invert(xPosition).toFixed(2));
 
+        const boundLimit = boundName === "start" ? xMin : xMax;
+        const newTimeSec = getNewWindowBound(x.invert(xPosition), boundLimit);
         customAnalysisSettingsUpdaters.setWindowBounds({ [boundName]: newTimeSec });
         // update peaks and valley windows to only be within the windowed analysis window
         const attrName = boundName === "start" ? "x1" : "x2";
