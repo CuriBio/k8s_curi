@@ -502,6 +502,9 @@ function NoiseBasedPeakFindingAdvAnalysisParams({
   );
 }
 
+const DISABLE_BG_SUB_WARNING_TEXT =
+  "When selected, disables background subtraction if and only if 1) background subtraction was performed 2) the original upload file includes the original background data (e.g. the upload was an archive format such as .tar.zstd, not .parquet).";
+
 export default function AnalysisParamForm({
   errorMessages,
   checkedParams,
@@ -533,6 +536,7 @@ export default function AnalysisParamForm({
   const { productPage, accountScope } = useContext(AuthContext);
   const [isOverwritingExistingPreset, setIsOverwritingExistingPreset] = useState(false);
   const [deprecationNotice, setDeprecationNotice] = useState(false);
+  const [disableBgSubWarning, setDisableBgSubWarning] = useState(false);
   const [pulse3dVersionEOLDateWarning, setPulse3dVersionEOLDateWarning] = useState("");
   const [pulse3dVersionOptions, setPulse3dVersionOptions] = useState([]);
   const [pulse3dFilteredFileVersions, setPulse3dFilteredFileVersions] = useState([]);
@@ -1034,7 +1038,7 @@ export default function AnalysisParamForm({
           <AnalysisParamContainer
             label="Disable Background Subtraction"
             name="disableBackgroundSubtraction"
-            tooltipText="When selected, disables background subtraction if it was performed and the background fluorescence data is included in the recording artifact"
+            tooltipText={DISABLE_BG_SUB_WARNING_TEXT}
           >
             <InputErrorContainer>
               <CheckboxWidget
@@ -1043,6 +1047,7 @@ export default function AnalysisParamForm({
                   updateParams({
                     disableBackgroundSubtraction: disable,
                   });
+                  setDisableBgSubWarning(disable);
                 }}
               />
             </InputErrorContainer>
@@ -1351,6 +1356,14 @@ export default function AnalysisParamForm({
         labels={[pulse3dVersionEOLDateWarning]}
         closeModal={() => {
           setDeprecationNotice(false);
+        }}
+        header={"Attention!"}
+      />
+      <ModalWidget
+        open={disableBgSubWarning}
+        labels={[DISABLE_BG_SUB_WARNING_TEXT, "Contact Curi Bio for more info."]}
+        closeModal={() => {
+          setDisableBgSubWarning(false);
         }}
         header={"Attention!"}
       />
