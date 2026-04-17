@@ -1034,7 +1034,7 @@ export default function AnalysisParamForm({
           <AnalysisParamContainer
             label="Disable Background Subtraction"
             name="disableBackgroundSubtraction"
-            tooltipText="When selected, disables background subtraction if it was performed and the background fluorescence data is included in the recording artifact"
+            tooltipText="When selected, disables background subtraction if and only if 1) background subtraction was performed 2) the original upload file includes the original background data (e.g. the upload was an archive format such as .tar.zstd, not .parquet)"
           >
             <InputErrorContainer>
               <CheckboxWidget
