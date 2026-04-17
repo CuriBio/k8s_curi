@@ -92,6 +92,7 @@ const LIMIT_REACHED_MSG = "Disabled because analysis limit has been reached.";
 
 const METADATA_KEYS_TO_DISPLAY = [
   "data_type",
+  "upload_filename",
   "file_format_version",
   "full_recording_length",
   "software_release_version",
@@ -303,6 +304,7 @@ export default function Uploads() {
 
           return {
             username,
+            filename,
             name: recName,
             id,
             jobs: uploadJobs,
@@ -449,17 +451,20 @@ export default function Uploads() {
         enableSorting: false,
         size: 120,
         minSize: 40,
-        Cell: ({ cell }) => {
-          const meta = cell.getValue();
-          if (meta == null) {
-            return "";
-          } else {
-            let parsedMeta;
+        Cell: ({ cell, row }) => {
+          try {
+            const meta = cell.getValue() ?? "{}";
+
+            let parsedMeta = {};
             try {
               parsedMeta = JSON.parse(meta);
-            } catch {
-              return "";
+            } catch {}
+
+            const filename = row?.original?.filename;
+            if (filename != null) {
+              parsedMeta.upload_filename = filename;
             }
+
             if (Object.keys(parsedMeta).length === 0) {
               return "";
             }
@@ -488,6 +493,8 @@ export default function Uploads() {
                 <div>View</div>
               </NoMaxWidthTooltip>
             );
+          } catch {
+            return "";
           }
         },
       },
