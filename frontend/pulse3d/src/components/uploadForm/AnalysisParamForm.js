@@ -1,6 +1,12 @@
 import styled from "styled-components";
 import CheckboxWidget from "@/components/basicWidgets/CheckboxWidget";
-import { isArrayOfNumbers, loadCsvInputToArray, isArrayOfWellNames, isInt } from "@/utils/generic";
+import {
+  isArrayOfNumbers,
+  loadCsvInputToArray,
+  isArrayOfWellNames,
+  isInt,
+  downloadPeakDetectionManual,
+} from "@/utils/generic";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import { useState, useContext, useEffect } from "react";
 import semverGte from "semver/functions/gte";
@@ -28,6 +34,29 @@ const Container = styled.div`
   margin-top: 8%;
   margin-bottom: 4;
   grid-template-columns: 45% 55%;
+`;
+
+const PeakDetectionPromptContainer = styled.div`
+  position: absolute;
+  top: -5.5%;
+  right: 1%;
+  width: 35%;
+`;
+
+const PeakDetectionPromptLine = styled.div`
+  font-size: 16px;
+  color: var(--teal-green);
+  font-weight: 1000;
+  font-style: italic;
+  text-align: right;
+`;
+
+const PeakDetectionDownloadText = styled.span`
+  text-decoration: underline;
+  :hover {
+    color: var(--dark-blue);
+    cursor: pointer;
+  }
 `;
 
 const TwoParamContainer = styled.div`
@@ -797,6 +826,13 @@ export default function AnalysisParamForm({
 
   return (
     <Container>
+      <PeakDetectionPromptContainer>
+        <PeakDetectionPromptLine>Need help selecting Peak Detection parameters?</PeakDetectionPromptLine>
+        <PeakDetectionPromptLine>
+          Download the{" "}
+          <PeakDetectionDownloadText onClick={downloadPeakDetectionManual}>manual</PeakDetectionDownloadText>
+        </PeakDetectionPromptLine>
+      </PeakDetectionPromptContainer>
       <AdditionalParamLabelContainer
         style={checkedParams ? { background: "white" } : { background: "var(--light-gray)" }}
       >

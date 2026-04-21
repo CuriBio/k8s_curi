@@ -50,6 +50,11 @@ class NotificationMessageResponse(BaseModel):
     body: str
 
 
+class PresignedDownloadUrlResponse(BaseModel):
+    filename: str
+    url: str
+
+
 class UploadRequest(BaseModel):
     filename: str
     md5s: str

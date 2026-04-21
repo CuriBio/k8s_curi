@@ -3,7 +3,7 @@ from starlette.datastructures import Secret
 
 config = Config(".env")
 # version used to tag the docker image
-VERSION = "0.15.1"
+VERSION = "0.16.0"
 
 APP_NAME = config("APP_NAME", cast=str, default="CuriBio/Pulse3d")
 JWT_SECRET_KEY = config("JWT_SECRET_KEY", cast=Secret)
@@ -24,6 +24,7 @@ CURIBIO_SUPPORT_EMAIL = config("CURIBIO_SUPPORT_EMAIL", cast=str)
 
 PULSE3D_UPLOADS_BUCKET = config("UPLOADS_BUCKET_ENV", cast=str, default="test-pulse3d-uploads")
 MANTARRAY_LOGS_BUCKET = config("MANTARRAY_LOGS_BUCKET_ENV", cast=str, default="test-mantarray-logs")
+PRIVATE_DOWNLOADS_BUCKET = config("PRIVATE_DOWNLOADS_BUCKET_ENV", cast=str)
 
 DATABASE_URL = config(
     "DATABASE_URL",

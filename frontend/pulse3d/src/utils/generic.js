@@ -369,6 +369,30 @@ const parseS3XmlErrorCode = (s) => {
   }
 };
 
+const downloadPeakDetectionManual = async () => {
+  try {
+    const getDownloadUrlRes = await fetch(
+      `${process.env.NEXT_PUBLIC_PULSE3D_URL}/downloads/CuriBioPulse-MantarrayP3DManual.pdf`
+    );
+    const body = await getDownloadUrlRes.json();
+    const presignedUrl = body.url;
+    const downloadName = body.filename;
+
+    const getFileRes = await fetch(presignedUrl);
+    const file = await getFileRes.blob();
+    const downloadUrl = window.URL.createObjectURL(file);
+
+    const a = document.createElement("a");
+    document.body.appendChild(a);
+    a.setAttribute("href", downloadUrl);
+    a.setAttribute("download", downloadName);
+    a.click();
+    a.remove();
+  } catch (e) {
+    console.error("ERROR downloading peak detection manual", e);
+  }
+};
+
 export {
   deepCopy,
   hexToBase64,
@@ -391,4 +415,5 @@ export {
   getLocalTzOffsetHours,
   getSortedWellListStr,
   parseS3XmlErrorCode,
+  downloadPeakDetectionManual,
 };

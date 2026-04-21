@@ -10,6 +10,14 @@
         "arn:aws:s3:::modl-mantarray-logs",
         "arn:aws:s3:::modl-mantarray-logs/*"
       ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:ListBucket"],
+      "Resource": [
+        "arn:aws:s3:::curi-modl-private-downloads",
+        "arn:aws:s3:::curi-modl-private-downloads/*"
+      ]
     }
   ]
 }

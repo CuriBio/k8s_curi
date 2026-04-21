@@ -52,6 +52,8 @@ spec:
               value: test-pulse3d-uploads
             - name: MANTARRAY_LOGS_BUCKET_ENV
               value: test-mantarray-logs
+            - name: PRIVATE_DOWNLOADS_BUCKET_ENV
+              value: curi-test-private-downloads
           imagePullPolicy: Always
           ports:
             - containerPort: 8000

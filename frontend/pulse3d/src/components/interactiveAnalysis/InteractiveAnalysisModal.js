@@ -2,7 +2,7 @@ import styled from "styled-components";
 import { useEffect, useState, useContext } from "react";
 import DropDownWidget from "@/components/basicWidgets/DropDownWidget";
 import WaveformGraph from "./InteractiveWaveformGraph";
-import { deepCopy } from "@/utils/generic";
+import { deepCopy, downloadPeakDetectionManual } from "@/utils/generic";
 import CircularSpinner from "@/components/basicWidgets/CircularSpinner";
 import ButtonWidget from "@/components/basicWidgets/ButtonWidget";
 import ModalWidget from "@/components/basicWidgets/ModalWidget";
@@ -30,6 +30,29 @@ const HeaderContainer = styled.div`
   font-size: 24px;
   margin: 20px;
   cursor: default;
+`;
+
+const PeakDetectionPromptContainer = styled.div`
+  position: absolute;
+  top: 1%;
+  right: 1%;
+  width: 35%;
+`;
+
+const PeakDetectionPromptLine = styled.div`
+  font-size: 16px;
+  color: var(--teal-green);
+  font-weight: 1000;
+  font-style: italic;
+  text-align: right;
+`;
+
+const PeakDetectionDownloadText = styled.span`
+  text-decoration: underline;
+  :hover {
+    color: var(--dark-blue);
+    cursor: pointer;
+  }
 `;
 
 const WellDropdownContainer = styled.div`
@@ -990,6 +1013,13 @@ export default function InteractiveWaveformModal({
   return (
     <Container>
       <HeaderContainer>Interactive Waveform Analysis</HeaderContainer>
+      <PeakDetectionPromptContainer>
+        <PeakDetectionPromptLine>Have you tried automating this step?</PeakDetectionPromptLine>
+        <PeakDetectionPromptLine>
+          Learn how to use the Peak Detection Parameters in the{" "}
+          <PeakDetectionDownloadText onClick={downloadPeakDetectionManual}>manual</PeakDetectionDownloadText>
+        </PeakDetectionPromptLine>
+      </PeakDetectionPromptContainer>
       <WellDropdownContainer>
         <ButtonWidget
           width="80px"
