@@ -12,3 +12,7 @@ variable "domain_name" {
   type = string
   default = "curibio-test.com"
 }
+
+variable "website_waf_web_acl" {
+  type = string
+}

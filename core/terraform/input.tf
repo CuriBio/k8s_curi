@@ -21,8 +21,8 @@ variable "aurora_instance_class" {
 }
 
 variable "password_change_id" {
-  type        = string
   description = "Id to trigger changing the master password"
+  type        = string
 }
 
 variable "cluster_vpc" {
@@ -32,4 +32,10 @@ variable "cluster_vpc" {
     private_subnet_ids = list(string)
     azs = list(string)
   })
+}
+
+# alb waf
+variable "alb_arn" {
+  description = "ARN of the ALB to attach the REGIONAL Web ACL to. CONFIGURE."
+  type        = string
 }

@@ -2,7 +2,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "5.7.0"
+      version = ">= 5.89.0, < 6.0.0"
     }
 
     kubernetes = {
@@ -11,7 +11,7 @@ terraform {
     }
   }
 
-  required_version = "1.5.2"
+  required_version = "1.5.7"
 
   backend "s3" {
   }
@@ -91,6 +91,8 @@ data "aws_acm_certificate" "curibio_issued" {
 
 module "pulse3d_cloudfront" {
   source = "terraform-aws-modules/cloudfront/aws"
+  version = "~> 3.4"
+
   depends_on = [
     data.aws_acm_certificate.curibio_issued
   ]
@@ -103,6 +105,8 @@ module "pulse3d_cloudfront" {
   retain_on_delete    = false
   wait_for_deployment = false
 
+  web_acl_id = var.website_waf_web_acl
+
   create_monitoring_subscription = true
   default_root_object            = "login"
   create_origin_access_identity  = true
@@ -113,7 +117,7 @@ module "pulse3d_cloudfront" {
 
     s3_origin = {
       domain_name = aws_s3_bucket.pulse3d_static_bucket.bucket_regional_domain_name
-      origin_path = "/v0.7.9"
+      origin_path = "/v0.19.0"
       s3_origin_config = {
         origin_access_identity = "s3_bucket_oai"
       }
