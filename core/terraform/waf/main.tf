@@ -560,7 +560,7 @@ resource "aws_wafv2_web_acl_logging_configuration" "api" {
   log_destination_configs = [aws_cloudwatch_log_group.waf_api.arn]
 
   dynamic "logging_filter" {
-    for_each = var.log_blocked_requests_only ? [1] : []
+    for_each = length(var.log_keep_actions) > 0 ? [1] : []
 
     content {
       default_behavior = "DROP"
@@ -569,14 +569,37 @@ resource "aws_wafv2_web_acl_logging_configuration" "api" {
         behavior    = "KEEP"
         requirement = "MEETS_ANY"
 
-        condition {
-          action_condition {
-            action = "BLOCK"
+        dynamic "condition" {
+          for_each = var.log_keep_actions
+
+          content {
+            action_condition {
+              action = condition.value
+            }
           }
         }
       }
     }
   }
+
+  # dynamic "logging_filter" {
+  #   for_each = var.log_blocked_requests_only ? [1] : []
+  #
+  #   content {
+  #     default_behavior = "DROP"
+  #
+  #     filter {
+  #       behavior    = "KEEP"
+  #       requirement = "MEETS_ANY"
+  #
+  #       condition {
+  #         action_condition {
+  #           action = "BLOCK"
+  #         }
+  #       }
+  #     }
+  #   }
+  # }
 
   # Header names must be lowercase to match what WAF stores.
   dynamic "redacted_fields" {

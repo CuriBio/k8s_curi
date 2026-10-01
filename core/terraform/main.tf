@@ -39,7 +39,8 @@ module "aurora_database" {
 module "alb_waf" {
   source = "./waf"
   alb_arn = var.alb_arn
-  log_blocked_requests_only = false
+  #log_blocked_requests_only = true
+  log_keep_actions = ["BLOCK", "COUNT", "EXCLUDED_AS_COUNT"]
 
   data_protections = [
     {

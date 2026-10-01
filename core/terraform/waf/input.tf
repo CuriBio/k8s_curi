@@ -19,10 +19,33 @@ variable "enable_logging" {
   default     = true
 }
 
-variable "log_blocked_requests_only" {
-  description = "Log only requests that were blocked. Cuts log volume sharply, at the cost of losing the allowed-request record you need for tuning."
-  type        = bool
-  default     = false
+# variable "log_blocked_requests_only" {
+#   description = "Log only requests that were blocked. Cuts log volume sharply, at the cost of losing the allowed-request record you need for tuning."
+#   type        = bool
+#   default     = false
+# }
+
+variable "log_keep_actions" {
+  description = <<-EOT
+    Keep only log records whose action appears in this list; drop the rest.
+    Empty list means no filter at all — log everything.
+
+    For count mode: ["BLOCK", "COUNT", "EXCLUDED_AS_COUNT"]. COUNT catches
+    custom rules using action { count {} }, EXCLUDED_AS_COUNT catches managed
+    groups using override_action { count {} }, and BLOCK keeps the filter
+    correct once rules start enforcing.
+  EOT
+
+  type    = list(string)
+  default = []
+
+  validation {
+    condition = alltrue([
+      for a in var.log_keep_actions :
+      contains(["ALLOW", "BLOCK", "COUNT", "CAPTCHA", "CHALLENGE", "EXCLUDED_AS_COUNT"], a)
+    ])
+    error_message = "Valid actions are ALLOW, BLOCK, COUNT, CAPTCHA, CHALLENGE, EXCLUDED_AS_COUNT."
+  }
 }
 
 # --- OS/application groups we can toggle ---
