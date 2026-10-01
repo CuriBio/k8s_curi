@@ -43,7 +43,7 @@ module "db" {
 
   name           = var.name
   engine         = "aurora-postgresql"
-  engine_version = "17.5"
+  engine_version = "17.7"
   instance_class = var.instance_class
 
   # need atleast two instances for multi-az

@@ -6,6 +6,9 @@ aurora_database_name  = "prod-curibio"
 aurora_instance_class = "db.t3.medium"
 password_change_id = "1970-01-03"
 
+# waf
+alb_arn = "arn:aws:elasticloadbalancing:us-east-2:245339368379:loadbalancer/app/alb-nginx-v2/bd40914f5ded720e"
+
 cluster_vpc = {
   vpc_id = "vpc-0f627eb26581b01ab"
   private_subnet_ids = [
