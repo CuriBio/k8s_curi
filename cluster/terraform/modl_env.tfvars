@@ -24,5 +24,10 @@ cluster_users = [
     userarn  = "arn:aws:iam::725604423866:user/roberto"
     username = "roberto"
     groups   = ["system:masters"]
+  },
+  {
+    userarn  = "arn:aws:iam::725604423866:user/james"
+    username = "james"
+    groups   = ["system:masters"]
   }
 ]
