@@ -30,6 +30,23 @@ variable "cluster_env" {
 
 variable "cluster_tags" {}
 
+# Kubernetes version upgrades are done through the AWS console, one minor version at a time.
+# Afterwards, set these per cluster in <cluster>_env.tfvars to match.
+variable "cluster_version" {
+  type    = string
+  default = "1.33"
+}
+
+variable "ebs_csi_addon_version" {
+  type    = string
+  default = "v1.51.0-eksbuild.1"
+}
+
+variable "kube_proxy_addon_version" {
+  type    = string
+  default = "v1.33.5-eksbuild.2"
+}
+
 variable "cluster_accounts" {
   default = []
   type    = list(string)
