@@ -147,6 +147,11 @@ module "eks_cluster_v2" {
   cluster_env      = var.cluster_env
   cluster_name     = var.cluster_name
   cluster_tags     = var.cluster_tags
+
+  cluster_version          = var.cluster_version
+  ebs_csi_addon_version    = var.ebs_csi_addon_version
+  kube_proxy_addon_version = var.kube_proxy_addon_version
+
   cluster_users    = var.cluster_users
   cluster_accounts = var.cluster_accounts
   private_subnets  = local.vpc_private_subnets
