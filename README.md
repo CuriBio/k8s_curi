@@ -1,3 +1,5 @@
+> New developer? Start with [DEV_SETUP.md](DEV_SETUP.md).
+
 # Init cluster (only need this if the cluster isn't already setup)
 
 terraform init -backend-config=backend/test_env_config.tfvars
