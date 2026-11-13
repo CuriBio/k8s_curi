@@ -285,6 +285,8 @@ npm i
 
 ## 9. Run the stack fully locally (no cluster access needed)
 
+This uses three small files that aren't in the repo: `docker-compose.local.yml`, `local.env` and `bin/local_db_seed.sql`. Create them first (see [Create the local stack files](#create-the-local-stack-files) below), and don't commit them.
+
 `docker-compose.local.yml` layers on top of `docker-compose.yml` and makes these changes:
 
 - Adds a **Postgres 17** container (the same major version as RDS).
@@ -293,7 +295,214 @@ npm i
 - Points the five backend APIs at that database instead of the cluster's.
 - Disables the `psql-proxy` container.
 
-All settings come from `local.env` in the repo root. Every value in it is a dummy, so it's safe to commit. The database starts **empty**: it has the same schema as the cluster databases but none of their data.
+All settings come from `local.env` in the repo root. Every value in it is a dummy, not a real secret. The database starts **empty**: it has the same schema as the cluster databases but none of their data.
+
+### Create the local stack files
+
+Create these three files in the repo, at the paths shown.
+
+<details>
+<summary><code>docker-compose.local.yml</code> (repo root)</summary>
+
+```yaml
+# Runs the backend against a local Postgres instead of a cluster's RDS.
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml --env-file local.env up
+# Reset the DB:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml --env-file local.env down -v
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  db-migrate:
+    image: python:3.11-slim
+    working_dir: /migrations
+    command: sh -c "pip install -q --root-user-action=ignore -r requirements.txt && alembic upgrade head"
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - POSTGRES_SERVER=postgres
+      - POSTGRES_NAME=${POSTGRES_DB}
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - TABLE_USER_PASS=${TABLE_USER_PASS}
+      - TABLE_USER_PASS_RO=${TABLE_USER_PASS_RO}
+      - MANTARRAY_USER_PASS=${MANTARRAY_USER_PASS}
+      - MANTARRAY_USER_PASS_RO=${MANTARRAY_USER_PASS_RO}
+      - JOBS_USER_PASS=${JOBS_USER_PASS}
+      - JOBS_USER_PASS_RO=${JOBS_USER_PASS_RO}
+      - EVENT_BROKER_PASS=${EVENT_BROKER_PASS}
+      - ADVANCED_ANALYSIS_PASS=${ADVANCED_ANALYSIS_PASS}
+      - ADVANCED_ANALYSIS_QUEUE_PROCESSOR_RO_PASS=${ADVANCED_ANALYSIS_QUEUE_PROCESSOR_RO_PASS}
+      - PULSE3D_QUEUE_PROCESSOR_RO_PASS=${PULSE3D_QUEUE_PROCESSOR_RO_PASS}
+      - GRAFANA_PASS_RO=${GRAFANA_PASS_RO}
+      - CURIBIO_CUSTOMER_LOGIN=${CURIBIO_CUSTOMER_LOGIN}
+      - CURIBIO_CUSTOMER_PASS=${CURIBIO_CUSTOMER_PASS}
+    volumes:
+      - ./core/db/curibio:/migrations:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+  db-seed:
+    image: postgres:17
+    command: psql -v ON_ERROR_STOP=1 -v admin_email=${CURIBIO_CUSTOMER_LOGIN} -h postgres -U root -d ${POSTGRES_DB} -f /seed.sql
+    environment:
+      - PGPASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - ./bin/local_db_seed.sql:/seed.sql:ro
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+  # the cluster proxy isn't needed when running against the local DB
+  psql-proxy:
+    profiles: ["cluster"]
+  apiv2-users:
+    environment:
+      - POSTGRES_SERVER=postgres
+    depends_on: !override
+      db-seed:
+        condition: service_completed_successfully
+  apiv2-mantarray:
+    environment:
+      - POSTGRES_SERVER=postgres
+    depends_on: !override
+      db-seed:
+        condition: service_completed_successfully
+  pulse3d:
+    environment:
+      - POSTGRES_SERVER=postgres
+    depends_on: !override
+      db-seed:
+        condition: service_completed_successfully
+  apiv2-event-broker:
+    environment:
+      - POSTGRES_SERVER=postgres
+    depends_on: !override
+      db-seed:
+        condition: service_completed_successfully
+  advanced-analysis:
+    environment:
+      - POSTGRES_SERVER=postgres
+    depends_on: !override
+      db-seed:
+        condition: service_completed_successfully
+volumes:
+  pgdata:
+```
+
+</details>
+
+<details>
+<summary><code>local.env</code> (repo root)</summary>
+
+```bash
+# Dummy values for the local stack (docker-compose.local.yml). Nothing here is a real secret.
+AWS_PROFILE=curi_modl
+
+POSTGRES_DB=curibio
+POSTGRES_PASSWORD=local-root-pass
+
+CURIBIO_USERS_USER=curibio_users
+CURIBIO_MANTARRAY_USER=curibio_mantarray
+CURIBIO_JOBS_USER=curibio_jobs
+
+TABLE_USER_PASS=local-pass
+TABLE_USER_PASS_RO=local-pass
+MANTARRAY_USER_PASS=local-pass
+MANTARRAY_USER_PASS_RO=local-pass
+JOBS_USER_PASS=local-pass
+JOBS_USER_PASS_RO=local-pass
+EVENT_BROKER_PASS=local-pass
+ADVANCED_ANALYSIS_PASS=local-pass
+ADVANCED_ANALYSIS_QUEUE_PROCESSOR_RO_PASS=local-pass
+PULSE3D_QUEUE_PROCESSOR_RO_PASS=local-pass
+GRAFANA_PASS_RO=local-pass
+
+# admin login created by the migrations
+CURIBIO_CUSTOMER_LOGIN=admin@example.com
+CURIBIO_CUSTOMER_PASS=local-admin-pass
+
+JWT_SECRET_KEY=local-jwt-secret
+
+CURIBIO_EMAIL=noreply@example.com
+CURIBIO_EMAIL_PASSWORD=unused
+CURIBIO_SALES_EMAIL=sales@example.com
+CURIBIO_SUPPORT_EMAIL=support@example.com
+MICROSOFT_SSO_APP_ID=unused
+MICROSOFT_SSO_KEYS_URI=https://login.microsoftonline.com/common/discovery/v2.0/keys
+MICROSOFT_SSO_JWT_ALGORITHM=RS256
+
+TEST_UPLOADS_BUCKET=local-uploads
+TEST_PRIVATE_DOWNLOADS_BUCKET=local-private-downloads
+```
+
+</details>
+
+<details>
+<summary><code>bin/local_db_seed.sql</code></summary>
+
+The first statement is required: without it the admin account has no scopes and can't log in. The rest is optional. It adds a regular user, `test_user`, under customer ID `curibio`. To use it, change the name and email to yours and replace `<argon2 hash of your password>` with a real hash, or delete everything from the `-- user login` comment down and create users from the UI instead.
+
+Generate a hash once the stack is running:
+
+```bash
+dclocal exec apiv2-users /app/venv/bin/python -c "from argon2 import PasswordHasher; print(PasswordHasher().hash('<your password>'))"
+```
+
+```sql
+-- Seed data for the local stack (docker-compose.local.yml). Safe to run repeatedly.
+
+-- the migrations create the admin customer without any scopes, which blocks login
+INSERT INTO account_scopes (customer_id, scope)
+SELECT id, 'curi:admin' FROM customers c
+WHERE LOWER(email) = LOWER(:'admin_email')
+  AND NOT EXISTS (
+    SELECT 1 FROM account_scopes s WHERE s.customer_id = c.id AND s.user_id IS NULL AND s.scope = 'curi:admin'
+  );
+
+-- user login: customer ID "curibio", username "test_user"
+UPDATE customers SET alias = 'curibio' WHERE LOWER(email) = LOWER(:'admin_email') AND alias IS NULL;
+
+-- admin scopes the customer needs so its users can hold the product scopes below
+INSERT INTO account_scopes (customer_id, scope)
+SELECT c.id, s FROM customers c,
+  unnest(ARRAY['mantarray:admin', 'mantarray:nmj_feature', 'mantarray:cls_alg_feature', 'nautilai:admin', 'advanced_analysis:admin']) s
+WHERE c.alias = 'curibio'
+  AND NOT EXISTS (
+    SELECT 1 FROM account_scopes x WHERE x.customer_id = c.id AND x.user_id IS NULL AND x.scope = s
+  );
+
+-- argon2 hash of the user's password
+INSERT INTO users (name, email, password, customer_id, verified)
+SELECT 'test_user', 'test_user@example.com', '<argon2 hash of your password>', c.id, true
+FROM customers c
+WHERE c.alias = 'curibio'
+  AND NOT EXISTS (SELECT 1 FROM users u WHERE u.name = 'test_user' AND u.customer_id = c.id);
+
+INSERT INTO account_scopes (customer_id, user_id, scope)
+SELECT u.customer_id, u.id, s FROM users u
+JOIN customers c ON c.id = u.customer_id,
+  unnest(ARRAY['mantarray:base', 'mantarray:rw_all_data', 'mantarray:firmware:get', 'mantarray:firmware:list', 'mantarray:firmware:edit',
+               'mantarray:serial_number:list', 'mantarray:serial_number:edit',
+               'nautilai:base', 'nautilai:rw_all_data', 'advanced_analysis:base']) s
+WHERE c.alias = 'curibio' AND u.name = 'test_user'
+ON CONFLICT DO NOTHING;
+```
+
+</details>
+
+### Start the stack
 
 Add this alias (you'll use it a lot):
 
