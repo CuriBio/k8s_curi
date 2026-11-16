@@ -1251,9 +1251,12 @@ async def save_notification(
 async def get_object_download(key: str, token=Depends(ProtectedAny(tag=ScopeTags.PULSE3D_READ))):
     """Get presigned download URL for a p3d related file"""
     try:
+        filename = key.split("/")[-1]
         return PresignedDownloadUrlResponse(
-            filename=key.split("/")[-1],
-            url=generate_presigned_url(PRIVATE_DOWNLOADS_BUCKET, f"pulse3d/{key}"),
+            filename=filename,
+            url=generate_presigned_url(
+                PRIVATE_DOWNLOADS_BUCKET, f"pulse3d/{key}", filename_override=filename
+            ),
         )
     except Exception:
         logger.exception(f"Failed to get presigned download url for object 'pulse3d/{key}'")

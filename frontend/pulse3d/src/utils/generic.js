@@ -374,17 +374,19 @@ const downloadPeakDetectionManual = async () => {
     const getDownloadUrlRes = await fetch(
       `${process.env.NEXT_PUBLIC_PULSE3D_URL}/downloads/CuriBioPulse-MantarrayP3DManual.pdf`
     );
+    if (!getDownloadUrlRes.ok) {
+      throw new Error(`Failed to get download URL, status: ${getDownloadUrlRes.status}`);
+    }
     const body = await getDownloadUrlRes.json();
     const presignedUrl = body.url;
     const downloadName = body.filename;
 
-    const getFileRes = await fetch(presignedUrl);
-    const file = await getFileRes.blob();
-    const downloadUrl = window.URL.createObjectURL(file);
-
+    // Navigate directly to the presigned URL instead of fetching the file into a blob first.
+    // S3 serves it with a `Content-Disposition: attachment` header, so the browser stays on the current
+    // page and shows its own download progress immediately. See core/lib/utils/s3.py
     const a = document.createElement("a");
     document.body.appendChild(a);
-    a.setAttribute("href", downloadUrl);
+    a.setAttribute("href", presignedUrl);
     a.setAttribute("download", downloadName);
     a.click();
     a.remove();
