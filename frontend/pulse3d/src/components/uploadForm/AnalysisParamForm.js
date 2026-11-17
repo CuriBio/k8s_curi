@@ -829,8 +829,7 @@ export default function AnalysisParamForm({
       <PeakDetectionPromptContainer>
         <PeakDetectionPromptLine>Need help selecting Peak Detection parameters?</PeakDetectionPromptLine>
         <PeakDetectionPromptLine>
-          Download the{" "}
-          <PeakDetectionDownloadText onClick={downloadPeakDetectionManual}>manual</PeakDetectionDownloadText>
+          <PeakDetectionDownloadText onClick={downloadPeakDetectionManual}>Download the manual</PeakDetectionDownloadText>
         </PeakDetectionPromptLine>
       </PeakDetectionPromptContainer>
       <AdditionalParamLabelContainer
