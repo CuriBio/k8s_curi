@@ -276,7 +276,7 @@ module "eks" {
   source          = "terraform-aws-modules/eks/aws"
   version         = "19.15.3"
   cluster_name    = var.cluster_name
-  cluster_version = "1.33"
+  cluster_version = var.cluster_version
   subnet_ids      = var.private_subnets
 
   tags   = var.cluster_tags
@@ -289,12 +289,15 @@ module "eks" {
   custom_oidc_thumbprints        = [data.external.thumbprint.result.thumbprint]
 
   eks_managed_node_groups = var.node_groups
-  eks_managed_node_group_defaults = {
-    tags = {
-      "k8s.io/cluster-autoscaler/${var.cluster_name}" = "owned"
-      "k8s.io/cluster-autoscaler/enabled"             = "True"
-    }
-  }
+  eks_managed_node_group_defaults = merge(
+    {
+      tags = {
+        "k8s.io/cluster-autoscaler/${var.cluster_name}" = "owned"
+        "k8s.io/cluster-autoscaler/enabled"             = "True"
+      }
+    },
+    var.node_group_version == null ? {} : { cluster_version = var.node_group_version }
+  )
 
   node_security_group_additional_rules = {
     ingress_sealed_secrets = {
@@ -329,7 +332,7 @@ module "irsa-ebs-csi" {
 resource "aws_eks_addon" "ebs-csi" {
   cluster_name             = module.eks.cluster_name
   addon_name               = "aws-ebs-csi-driver"
-  addon_version            = "v1.51.0-eksbuild.1"
+  addon_version            = var.ebs_csi_addon_version
   service_account_role_arn = module.irsa-ebs-csi.iam_role_arn
   tags = {
     "eks_addon" = "ebs-csi"
@@ -340,7 +343,7 @@ resource "aws_eks_addon" "ebs-csi" {
 resource "aws_eks_addon" "kube_proxy" {
   cluster_name = module.eks.cluster_name
   addon_name   = "kube-proxy"
-  addon_version = "v1.33.5-eksbuild.2"
+  addon_version = var.kube_proxy_addon_version
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
 }

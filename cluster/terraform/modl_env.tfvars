@@ -1,5 +1,10 @@
 cluster_name = "modl-v2"
 cluster_env  = "modl"
+
+cluster_version          = "1.36"
+ebs_csi_addon_version    = "v1.68.0-eksbuild.1"
+kube_proxy_addon_version = "v1.36.0-eksbuild.65"
+
 cluster_tags = {
   Environment = "modl cluster"
 }
