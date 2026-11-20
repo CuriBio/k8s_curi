@@ -30,6 +30,26 @@ variable "cluster_env" {
 
 variable "cluster_tags" {}
 
+variable "cluster_version" {
+  type    = string
+  default = "1.33"
+}
+
+variable "ebs_csi_addon_version" {
+  type    = string
+  default = "v1.51.0-eksbuild.1"
+}
+
+variable "kube_proxy_addon_version" {
+  type    = string
+  default = "v1.33.5-eksbuild.2"
+}
+
+variable "node_group_version" {
+  type    = string
+  default = null
+}
+
 variable "cluster_accounts" {
   default = []
   type    = list(string)

@@ -18,6 +18,23 @@ variable "cluster_env" {
   type = string
 }
 
+variable "cluster_version" {
+  type = string
+}
+
+variable "ebs_csi_addon_version" {
+  type = string
+}
+
+variable "kube_proxy_addon_version" {
+  type = string
+}
+
+variable "node_group_version" {
+  type    = string
+  default = null
+}
+
 variable "node_groups" {
   type = map(any)
 }

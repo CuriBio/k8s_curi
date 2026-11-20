@@ -1,6 +1,12 @@
 cluster_name = "prod-v2"
 
 cluster_env = "prod"
+
+cluster_version          = "1.36"
+node_group_version       = "1.35"
+ebs_csi_addon_version    = "v1.51.2-eksbuild.1"
+kube_proxy_addon_version = "v1.35.3-eksbuild.69"
+
 cluster_tags = {
   Environment = "prod cluster"
 }
